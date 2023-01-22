@@ -1,0 +1,28 @@
+# this is copied over from goreleaser/goreleaser/.github/workflows/lint.yml
+name: golangci-lint
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  golangci:
+    permissions:
+      contents: read
+      pull-requests: read
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ~1.18
+      - uses: actions/checkout@v3
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3.1.0
+        with:
+          args: --timeout=5m
