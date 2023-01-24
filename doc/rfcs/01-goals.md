@@ -57,3 +57,7 @@ or training / examination.
 
 Furthermore, the easy composability means that we can share complex LLM based application without
 having to spend time refactoring existing monitoring / ui / debugging / testing setups.
+
+## Design brainstorm 2023-01-23
+
+![image](https://user-images.githubusercontent.com/128441/214211444-1646c47f-5d14-45ba-9e7c-c9c06a21c584.png)
