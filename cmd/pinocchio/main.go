@@ -2,17 +2,26 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wesen/geppetto/cmd/pinocchio/cmds"
+	cmds3 "github.com/wesen/geppetto/pkg/cmds"
+	cmds2 "github.com/wesen/glazed/pkg/cmds"
 	"github.com/wesen/glazed/pkg/help"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"strings"
 )
+
+//go:embed doc/*
+var docFS embed.FS
+
+//go:embed prompts/*
+var promptsFS embed.FS
 
 var rootCmd = &cobra.Command{
 	Use:   "pinocchio",
@@ -47,7 +56,68 @@ type logConfig struct {
 	LogFile    string
 }
 
-func initCommands(rootCmd *cobra.Command, configPath string, helpSystem *help.HelpSystem) error {
+func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*cmds3.GeppettoCommand, []*cmds2.CommandAlias, error) {
+	repositories := viper.GetStringSlice("repositories")
+
+	loader := &cmds3.GeppettoCommandLoader{}
+
+	xdgDirectory, err := os.UserConfigDir()
+	if err != nil {
+		return nil, nil, err
+	}
+	defaultDirectory := fmt.Sprintf("%s/pinocchio/queries", xdgDirectory)
+	repositories = append(repositories, defaultDirectory)
+
+	commands := make([]*cmds3.GeppettoCommand, 0)
+	aliases := make([]*cmds2.CommandAlias, 0)
+
+	for _, repository := range repositories {
+		repository = os.ExpandEnv(repository)
+
+		// check that repository exists and is a directory
+		s, err := os.Stat(repository)
+
+		if os.IsNotExist(err) {
+			log.Debug().Msgf("Repository %s does not exist", repository)
+			continue
+		} else if err != nil {
+			log.Warn().Msgf("Error while checking directory %s: %s", repository, err)
+			continue
+		}
+
+		if s == nil || !s.IsDir() {
+			log.Warn().Msgf("Repository %s is not a directory", repository)
+		} else {
+			docDir := fmt.Sprintf("%s/doc", repository)
+			commands_, aliases_, err := cmds2.LoadCommandsFromDirectory(loader, repository, repository)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, command := range commands_ {
+				commands = append(commands, command.(*cmds3.GeppettoCommand))
+			}
+			aliases = append(aliases, aliases_...)
+
+			_, err = os.Stat(docDir)
+			if os.IsNotExist(err) {
+				continue
+			} else if err != nil {
+				log.Debug().Err(err).Msgf("Error while checking directory %s", docDir)
+				continue
+			}
+			err = helpSystem.LoadSectionsFromDirectory(docDir)
+			if err != nil {
+				log.Warn().Err(err).Msgf("Error while loading help sections from directory %s", repository)
+				continue
+			}
+		}
+	}
+	return commands, aliases, nil
+}
+
+func initCommands(
+	rootCmd *cobra.Command, configPath string, helpSystem *help.HelpSystem,
+) ([]*cmds3.GeppettoCommand, []*cmds2.CommandAlias, error) {
 	// Load the variables from the environment
 	viper.SetEnvPrefix("pinocchio")
 
@@ -55,7 +125,6 @@ func initCommands(rootCmd *cobra.Command, configPath string, helpSystem *help.He
 		viper.SetConfigFile(configPath)
 	} else {
 		viper.AddConfigPath(".")
-		viper.AddConfigPath("$HOME/.pinocchio")
 		viper.AddConfigPath("/etc/pinocchio")
 
 		// get XDG config path for pinocchio
@@ -72,7 +141,7 @@ func initCommands(rootCmd *cobra.Command, configPath string, helpSystem *help.He
 		// Config file not found; ignore error
 	} else if err != nil {
 		// Config file was found but another error was produced
-		return err
+		return nil, nil, err
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
@@ -80,7 +149,7 @@ func initCommands(rootCmd *cobra.Command, configPath string, helpSystem *help.He
 	// Bind the variables to the command-line flags
 	err = viper.BindPFlags(rootCmd.PersistentFlags())
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// this still won't pick up on --verbose to show debug logging when the commands
@@ -91,7 +160,40 @@ func initCommands(rootCmd *cobra.Command, configPath string, helpSystem *help.He
 		Str("config", viper.ConfigFileUsed()).
 		Msg("Loaded configuration")
 
-	return nil
+	loader := &cmds3.GeppettoCommandLoader{}
+	var commands []*cmds3.GeppettoCommand
+	commands_, aliases, err := cmds2.LoadCommandsFromEmbedFS(loader, promptsFS, ".", "prompts/")
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, command := range commands_ {
+		commands = append(commands, command.(*cmds3.GeppettoCommand))
+	}
+
+	err = helpSystem.LoadSectionsFromEmbedFS(promptsFS, "prompts/doc")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	repositoryCommands, repositoryAliases, err := loadRepositoryCommands(helpSystem)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	commands = append(commands, repositoryCommands...)
+	aliases = append(aliases, repositoryAliases...)
+
+	var cobraCommands []cmds2.CobraCommand
+	for _, command := range commands {
+		cobraCommands = append(cobraCommands, command)
+	}
+
+	err = cmds2.AddCommandsToRootCommand(rootCmd, cobraCommands, aliases)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return commands, aliases, nil
 }
 
 func InitLogger(config *logConfig) error {
@@ -143,9 +245,6 @@ func main() {
 	_ = rootCmd.Execute()
 }
 
-//go:embed doc/*
-var docFS embed.FS
-
 func init() {
 	helpSystem := help.NewHelpSystem()
 	err := helpSystem.LoadSectionsFromEmbedFS(docFS, ".")
@@ -190,9 +289,13 @@ func init() {
 	}
 	_ = configFile
 
-	err = initCommands(rootCmd, configFile, helpSystem)
+	commands, aliases, err := initCommands(rootCmd, configFile, helpSystem)
 	if err != nil {
-		panic(err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
+		os.Exit(1)
 	}
+	_ = commands
+	_ = aliases
+
 	rootCmd.AddCommand(cmds.RunCmd)
 }
