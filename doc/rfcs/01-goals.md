@@ -19,7 +19,6 @@ This means that it should:
 - provide comprehensive APIs
   - not just simple chain APIs, but abstractions that support complex application ideas 
 
-
 ## Comprehensive APIs 
 
 Everything is a monad, and so is an LLM application. In contrast to a pure chain model,
@@ -61,3 +60,56 @@ having to spend time refactoring existing monitoring / ui / debugging / testing 
 ## Design brainstorm 2023-01-23
 
 ![image](https://user-images.githubusercontent.com/128441/214211444-1646c47f-5d14-45ba-9e7c-c9c06a21c584.png)
+
+
+## Sketch 1: Task based
+
+The first try at the API is going to be based around the concept of asynchronous steps that can be composed,
+and can be introspected. Cancellation, serialization and observability should be able to be bolted on
+without too much trouble once the basics are set. How human resolution (RESTART in lisp, ResolutionRequest in Sauron)
+should be handled is open.
+
+I am not sure what to do about structured introspection, but it will probably be a tree of semi structured data.
+
+```go
+package pkg
+
+import "context"
+
+type Nothing struct{}
+
+type Result[T any] struct {
+  value T
+  err   error
+}
+
+// Step represents one step in a geppetto pipeline
+type Step[A, B any] interface {
+    Start(ctx context.Context, a A) error
+	GetOutput() <-chan Result[B]
+	GetState() interface{}
+	IsFinished() bool
+}
+```
+
+### Common steps
+
+- `SimpleStep` : just wrap a function
+- `PipeStep` : pipe two steps together
+- `TemplateRenderStep` : render a template
+- `TemplateFileRenderStep` : render a template from a file
+- `HTTPStep` : perform an HTTP request
+- `GPT3Step` : perform a GPT3 request
+- `CodexStep` : perform a Codex request
+
+## Brainstorming
+
+### Extensible scripting language
+
+These are all widely starred and active:
+
+- https://github.com/antonmedv/expr - single line, type checked, non-turing complete expr. Has a javascript code editor
+- https://github.com/google/cel-go - another non turing complete language
+- https://github.com/dop251/goja - javascript implementation in golang
+- https://github.com/yuin/gopher-lua - lua implementation
+- https://github.com/mattn/anko - less active, less appealing, but mattn
