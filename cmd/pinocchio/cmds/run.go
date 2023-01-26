@@ -18,6 +18,7 @@ var RunCmd = &cobra.Command{
 		if file == "-" {
 			file = "/dev/stdin"
 		}
+
 		f, err := os.ReadFile(file)
 		cobra.CheckErr(err)
 

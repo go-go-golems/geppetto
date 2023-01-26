@@ -1,0 +1,19 @@
+name: test
+short: Test prompt
+long: A small test prompt
+flags:
+  - name: pretend
+    type: string
+    default: "scientist"
+    help: Pretend to be a ??
+  - name: what
+    type: string
+    default: "age"
+    help: What am I asking about?
+  - name: of
+    type: string
+    default: "you"
+    help: Of what am I asking?
+
+prompt: |
+  Pretend you are a {{.pretend}}. What is the {{.what}} of {{.of}}?
