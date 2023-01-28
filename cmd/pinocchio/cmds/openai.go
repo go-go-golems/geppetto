@@ -2,54 +2,152 @@ package cmds
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/PullRequestInc/go-gpt3"
 	"github.com/mb0/glob"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/wesen/geppetto/pkg/steps/openai"
 	"github.com/wesen/glazed/pkg/cli"
-	"math"
 	"os"
+	"strings"
 )
-
-// TODO(manuel, 2023-01-27) This actually just sends a file to the prompt API
-// this should be part of the openai verbs
-// https://github.com/wesen/geppetto/issues/12
 
 var OpenaiCmd = &cobra.Command{
 	Use:   "openai",
 	Short: "OpenAI commands",
 }
 
+var completionStepFactory *openai.CompletionStepFactory
+
 var CompletionCmd = &cobra.Command{
 	Use:   "completion",
 	Short: "send a prompt to the completion API",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		file := args[0]
+		prompts := []string{}
 
-		if file == "-" {
-			file = "/dev/stdin"
+		for _, file := range args {
+
+			if file == "-" {
+				file = "/dev/stdin"
+			}
+
+			f, err := os.ReadFile(file)
+			cobra.CheckErr(err)
+
+			prompts = append(prompts, string(f))
 		}
 
-		f, err := os.ReadFile(file)
+		// TODO(manuel, 2023-01-28) actually I don't think it's a good idea to go through the stepfactory here
+		// we just want to have the RAW api access with all its outputs
+
+		clientSettings, err := openai.NewClientSettingsFromCobra(cmd)
 		cobra.CheckErr(err)
 
-		// TODO(manuel, 2023-01-28) we have GenericStepFactory now
-		factorySettings, err := openai.NewCompletionStepSettingsFromCobra(cmd)
+		err = completionStepFactory.UpdateFromCobra(cmd)
 		cobra.CheckErr(err)
-		factory := openai.NewCompletionStepFactory(factorySettings, openai.NewClientSettings())
 
-		step := factory.CreateCompletionStep()
+		client, err := clientSettings.CreateClient()
+		cobra.CheckErr(err)
 
 		ctx := context.Background()
-		err = step.Start(ctx, string(f))
+		settings := completionStepFactory.StepSettings
+		if settings.Engine == nil {
+			cobra.CheckErr(fmt.Errorf("engine is required"))
+		}
+		resp, err := client.CompletionWithEngine(ctx, *settings.Engine,
+			gpt3.CompletionRequest{
+				Prompt:           prompts,
+				MaxTokens:        settings.MaxResponseTokens,
+				Temperature:      settings.Temperature,
+				TopP:             settings.TopP,
+				N:                settings.N,
+				LogProbs:         settings.LogProbs,
+				Echo:             false,
+				Stop:             settings.Stop,
+				PresencePenalty:  0,
+				FrequencyPenalty: 0,
+				Stream:           false,
+			},
+		)
 		cobra.CheckErr(err)
 
-		result := <-step.GetOutput()
-		v, err := result.Value()
+		printUsage, _ := cmd.Flags().GetBool("print-usage")
+		usage := resp.Usage
+		evt := log.Debug()
+		if printUsage {
+			evt = log.Info()
+		}
+		evt.
+			Int("prompt-tokens", usage.PromptTokens).
+			Int("completion-tokens", usage.CompletionTokens).
+			Int("total-tokens", usage.TotalTokens).
+			Msg("Usage")
+
+		gp, of, err := cli.SetupProcessor(cmd)
 		cobra.CheckErr(err)
 
-		_, err = os.Stdout.Write([]byte(v))
+		printRawResponse, _ := cmd.Flags().GetBool("print-raw-response")
+
+		if printRawResponse {
+			// serialize resp to json
+			rawResponse, err := json.MarshalIndent(resp, "", "  ")
+			cobra.CheckErr(err)
+
+			// deserialize to map[string]interface{}
+			var rawResponseMap map[string]interface{}
+			err = json.Unmarshal(rawResponse, &rawResponseMap)
+			cobra.CheckErr(err)
+
+			err = gp.ProcessInputObject(rawResponseMap)
+			cobra.CheckErr(err)
+
+		} else {
+			for i, choice := range resp.Choices {
+				logProbs := map[string]interface{}{}
+
+				logProbJson, err := json.MarshalIndent(choice.LogProbs, "", "  ")
+				cobra.CheckErr(err)
+
+				// deserialize to map[string]interface{}
+				var logProbMap map[string]interface{}
+				err = json.Unmarshal(logProbJson, &logProbMap)
+				cobra.CheckErr(err)
+
+				idx := i / len(resp.Choices)
+				prompt := ""
+				if len(prompts) > idx {
+					prompt = prompts[idx]
+				}
+
+				// escape newline in response
+				text := strings.Trim(choice.Text, " \t\n")
+				text = strings.ReplaceAll(text, "\n", "\\n")
+				prompt = strings.Trim(prompt, " \t\n")
+				prompt = strings.ReplaceAll(prompt, "\n", "\\n")
+				// trim whitespace
+
+				row := map[string]interface{}{
+					"index":         choice.Index,
+					"text":          text,
+					"logprobs":      logProbs,
+					"prompt":        prompt,
+					"finish_reason": choice.FinishReason,
+					"engine":        *settings.Engine,
+				}
+				err = gp.ProcessInputObject(row)
+				cobra.CheckErr(err)
+			}
+		}
+
+		s, err := of.Output()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(s)
 		cobra.CheckErr(err)
 	},
 }
@@ -122,6 +220,44 @@ var ListEnginesCmd = &cobra.Command{
 	},
 }
 
+var EngineInfoCmd = &cobra.Command{
+	Use:   "engine-info",
+	Short: "get engine info",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		engine := args[0]
+
+		clientSettings, err := openai.NewClientSettingsFromCobra(cmd)
+		cobra.CheckErr(err)
+
+		client, err := clientSettings.CreateClient()
+		cobra.CheckErr(err)
+
+		ctx := context.Background()
+		resp, err := client.Engine(ctx, engine)
+		cobra.CheckErr(err)
+
+		gp, of, err := cli.SetupProcessor(cmd)
+		cobra.CheckErr(err)
+
+		row := map[string]interface{}{
+			"id":     resp.ID,
+			"owner":  resp.Owner,
+			"ready":  resp.Ready,
+			"object": resp.Object,
+		}
+		err = gp.ProcessInputObject(row)
+		cobra.CheckErr(err)
+
+		s, err := of.Output()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(s)
+	},
+}
+
 func init() {
 	OpenaiCmd.PersistentFlags().Int("timeout", 60, "timeout in seconds")
 	OpenaiCmd.PersistentFlags().String("organization", "", "organization to use")
@@ -129,20 +265,30 @@ func init() {
 	OpenaiCmd.PersistentFlags().String("base-url", "https://api.openai.com/v1", "base url to use")
 	OpenaiCmd.PersistentFlags().String("default-engine", "", "default engine to use")
 
-	CompletionCmd.Flags().String("engine", "", "engine to use")
-	CompletionCmd.Flags().Int("max-response-tokens", -1, "max response tokens to use")
-	CompletionCmd.Flags().Float64("temperature", math.NaN(), "temperature to use")
-	CompletionCmd.Flags().Float64("top-p", math.NaN(), "top p to use")
-	CompletionCmd.Flags().StringSlice("stop", []string{}, "stopwords to use")
-	CompletionCmd.Flags().Int("log-probabilities", 0, "log probabilities of n tokens")
-	CompletionCmd.Flags().Int("n", 1, "n to use")
-	CompletionCmd.Flags().Bool("stream", true, "stream to use")
-
-	OpenaiCmd.AddCommand(CompletionCmd)
-
 	ListEnginesCmd.Flags().String("id", "", "glob pattern to match engine id")
 	ListEnginesCmd.Flags().String("owner", "", "glob pattern to match engine owner")
 	ListEnginesCmd.Flags().Bool("ready", false, "glob pattern to match engine ready")
 	cli.AddFlags(ListEnginesCmd, cli.NewFlagsDefaults())
 	OpenaiCmd.AddCommand(ListEnginesCmd)
+
+	completionStepFactory = openai.NewCompletionStepFactory(
+		openai.NewCompletionStepSettings(),
+		openai.NewClientSettings(),
+	)
+	defaultEngine := "text-davinci-002"
+	maxResponseTokens := 256
+	err := completionStepFactory.AddFlags(CompletionCmd, &openai.CompletionStepFactoryFlagsDefaults{
+		Engine:            &defaultEngine,
+		MaxResponseTokens: &maxResponseTokens,
+	})
+	cobra.CheckErr(err)
+
+	CompletionCmd.Flags().Bool("print-usage", false, "print usage")
+	CompletionCmd.Flags().Bool("print-raw-response", false, "print raw response as object")
+
+	cli.AddFlags(CompletionCmd, cli.NewFlagsDefaults())
+	OpenaiCmd.AddCommand(CompletionCmd)
+
+	cli.AddFlags(EngineInfoCmd, cli.NewFlagsDefaults())
+	OpenaiCmd.AddCommand(EngineInfoCmd)
 }

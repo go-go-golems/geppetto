@@ -97,6 +97,12 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 		evt.Strs("prompts", prompts)
 		evt.Msg("sending completion request")
 
+		// TODO(manuel, 2023-01-28) - handle multiple values
+		if o.settings.N != nil && *o.settings.N != 1 {
+			o.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
+			return
+		}
+
 		// TODO(manuel, 2023-01-27) This is where we would emit progress status and do some logging
 		completion, err := client.CompletionWithEngine(ctx, engine, gpt3.CompletionRequest{
 			Prompt:      prompts,
