@@ -18,6 +18,10 @@ const (
 	CompletionStepClosed
 )
 
+var ErrMissingClientSettings = errors.Newf("missing client settings")
+
+var ErrMissingClientAPIKey = errors.Newf("missing client settings api key")
+
 type CompletionStep struct {
 	output   chan helpers.Result[string]
 	state    CompletionStepState
@@ -43,6 +47,15 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 		}()
 
 		clientSettings := o.settings.ClientSettings
+		if clientSettings == nil {
+			o.output <- helpers.NewErrorResult[string](ErrMissingClientSettings)
+			return
+		}
+
+		if clientSettings.APIKey == nil {
+			o.output <- helpers.NewErrorResult[string](ErrMissingClientAPIKey)
+			return
+		}
 
 		evt := log.Info()
 		if clientSettings.BaseURL != nil {

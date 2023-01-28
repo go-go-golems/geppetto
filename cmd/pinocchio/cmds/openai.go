@@ -31,9 +31,10 @@ var CompletionCmd = &cobra.Command{
 		f, err := os.ReadFile(file)
 		cobra.CheckErr(err)
 
+		// TODO(manuel, 2023-01-28) we have GenericStepFactory now
 		factorySettings, err := openai.NewCompletionStepSettingsFromCobra(cmd)
 		cobra.CheckErr(err)
-		factory := openai.NewCompletionStepFactory(factorySettings)
+		factory := openai.NewCompletionStepFactory(factorySettings, openai.NewClientSettings())
 
 		step := factory.CreateCompletionStep()
 

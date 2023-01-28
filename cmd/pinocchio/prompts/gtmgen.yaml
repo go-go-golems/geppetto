@@ -6,6 +6,7 @@ factories:
     client:
       timeout: 120
     completion:
+      engine: text-davinci-003
       temperature: 0.7
       max_response_tokens: 2048
       # stream: true
@@ -44,4 +45,4 @@ prompt: |
   
   ---BEGIN TABLE---
   {{ .input_file }}
-  ---END TABLE---
+  ---END TABLE--

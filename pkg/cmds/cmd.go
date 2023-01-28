@@ -40,6 +40,17 @@ func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error 
 	printPrompt, _ := cmd.Flags().GetBool("print-prompt")
 	parameters["print-prompt"] = printPrompt
 
+	for _, f := range g.Factories {
+		factory, ok := f.(steps.GenericStepFactory)
+		if !ok {
+			continue
+		}
+		err = factory.UpdateFromCobra(cmd)
+		if err != nil {
+			return err
+		}
+	}
+
 	return g.Run(parameters)
 }
 
@@ -50,8 +61,12 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 	}
 	openaiCompletionStepFactory, ok := openaiCompletionStepFactory_.(steps.StepFactory[string, string])
 	if !ok {
-		return errors.Errorf("openai-completion-step factory is not a Step[string, string]")
+		return errors.Errorf("openai-completion-step factory is not a StepFactory[string, string]")
 	}
+
+	// TODO(manuel, 2023-01-28) here we would overload the factory settings with stuff passed on the CLI
+	// (say, temperature or model). This would probably be part of the API for the factory, in general the
+	// factory is the central abstraction of the entire system
 	s, err := openaiCompletionStepFactory.NewStep()
 	if err != nil {
 		return err
@@ -107,6 +122,17 @@ func (g *GeppettoCommand) BuildCobraCommand() (*cobra.Command, error) {
 		return nil, err
 	}
 	cmd.Flags().Bool("print-prompt", false, "Print the prompt that will be executed")
+
+	for _, f := range g.Factories {
+		factory, ok := f.(steps.GenericStepFactory)
+		if !ok {
+			continue
+		}
+		err := factory.AddFlags(cmd)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return cmd, nil
 }
 
@@ -114,8 +140,7 @@ type GeppettoCommandLoader struct {
 }
 
 func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.Command, error) {
-	yamlContent := make([]byte, 0)
-	_, err := s.Read(yamlContent)
+	yamlContent, err := io.ReadAll(s)
 	if err != nil {
 		return nil, err
 	}
@@ -135,10 +160,15 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 	// rewind to read the factories...
 	buf = strings.NewReader(string(yamlContent))
 	completionStepFactory, err := openai.NewCompletionStepFactoryFromYAML(buf)
+
 	if err != nil {
 		return nil, err
 	}
 
+	factories := map[string]interface{}{}
+	if completionStepFactory != nil {
+		factories["openai-completion-step"] = completionStepFactory
+	}
 	sq := &GeppettoCommand{
 		Prompt: scd.Prompt,
 		// separate copy because the glazed framework uses this to build the cobra command and mutates it
@@ -149,9 +179,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 			Flags:     scd.Flags,
 			Arguments: scd.Arguments,
 		},
-		Factories: map[string]interface{}{
-			"openai-completion-step": completionStepFactory,
-		},
+		Factories: factories,
 	}
 
 	return []glazedcmds.Command{sq}, nil
