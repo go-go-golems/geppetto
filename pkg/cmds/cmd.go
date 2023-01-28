@@ -36,6 +36,9 @@ func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error 
 		return err
 	}
 
+	printPrompt, _ := cmd.Flags().GetBool("print-prompt")
+	parameters["print-prompt"] = printPrompt
+
 	return g.Run(parameters)
 }
 
@@ -55,9 +58,14 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 		return err
 	}
 
+	if parameters["print-prompt"].(bool) {
+		fmt.Println(promptBuffer.String())
+		return nil
+	}
+
 	eg, ctx2 := errgroup.WithContext(ctx)
 	prompt := promptBuffer.String()
-	fmt.Printf("Prompt:\n\n%s\n\n", prompt)
+	//fmt.Printf("Prompt:\n\n%s\n\n", prompt)
 
 	err = s.Start(ctx2, prompt)
 	if err != nil {
@@ -71,7 +79,7 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 			return err
 		}
 
-		fmt.Printf("Result:\n%s", v)
+		fmt.Printf("%s", v)
 		return err
 	})
 	return eg.Wait()
