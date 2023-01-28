@@ -128,7 +128,7 @@ func (g *GeppettoCommand) BuildCobraCommand() (*cobra.Command, error) {
 		if !ok {
 			continue
 		}
-		err := factory.AddFlags(cmd, &openai.CompletionStepFactoryFlagsDefaults{})
+		err := factory.AddFlags(cmd, "openai-", &openai.CompletionStepFactoryFlagsDefaults{})
 		if err != nil {
 			return nil, err
 		}
