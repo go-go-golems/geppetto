@@ -3,11 +3,12 @@ package steps
 import (
 	"bytes"
 	"context"
+	"github.com/wesen/geppetto/pkg/helpers"
 	"text/template"
 )
 
 type TemplateStep[A any] struct {
-	output   chan Result[string]
+	output   chan helpers.Result[string]
 	template string
 	state    TemplateStepState
 }
@@ -30,7 +31,7 @@ func NewTemplateStep[A any](template string) *TemplateStep[A] {
 }
 
 func (t *TemplateStep[A]) Start(ctx context.Context, a A) error {
-	t.output = make(chan Result[string])
+	t.output = make(chan helpers.Result[string])
 
 	tmpl, err := template.New("template").Parse(t.template)
 	if err != nil {
@@ -48,13 +49,13 @@ func (t *TemplateStep[A]) Start(ctx context.Context, a A) error {
 		err := tmpl.Execute(buf, a)
 
 		t.state = TemplateStepFinished
-		t.output <- Result[string]{value: buf.String(), err: err}
+		t.output <- helpers.NewResult(buf.String(), err)
 	}()
 
 	return nil
 }
 
-func (t *TemplateStep[A]) GetOutput() <-chan Result[string] {
+func (t *TemplateStep[A]) GetOutput() <-chan helpers.Result[string] {
 	return t.output
 }
 
