@@ -277,7 +277,7 @@ func init() {
 	)
 	defaultEngine := "text-davinci-002"
 	maxResponseTokens := 256
-	err := completionStepFactory.AddFlags(CompletionCmd, &openai.CompletionStepFactoryFlagsDefaults{
+	err := completionStepFactory.AddFlags(CompletionCmd, "", &openai.CompletionStepFactoryFlagsDefaults{
 		Engine:            &defaultEngine,
 		MaxResponseTokens: &maxResponseTokens,
 	})
