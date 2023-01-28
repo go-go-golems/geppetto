@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// TODO(manuel, 2023-01-28) - we have GenericStepFactory now
-func NewCompletionStepSettingsFromCobra(cmd *cobra.Command) (*CompletionStepSettings, error) {
+func NewClientSettingsFromCobra(cmd *cobra.Command) (*ClientSettings, error) {
 	apiKey := viper.GetString("openai-api-key")
 	if apiKey == "" {
 		log.Fatal().Msg("openai-api-key is not set")
@@ -52,6 +51,16 @@ func NewCompletionStepSettingsFromCobra(cmd *cobra.Command) (*CompletionStepSett
 	}
 	if defaultEngine != "" {
 		clientSettings.DefaultEngine = &defaultEngine
+	}
+
+	return clientSettings, nil
+}
+
+// TODO(manuel, 2023-01-28) - we have GenericStepFactory now
+func NewCompletionStepSettingsFromCobra(cmd *cobra.Command) (*CompletionStepSettings, error) {
+	clientSettings, err := NewClientSettingsFromCobra(cmd)
+	if err != nil {
+		return nil, err
 	}
 
 	factorySettings := &CompletionStepSettings{}
