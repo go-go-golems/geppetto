@@ -1,0 +1,179 @@
+<table>
+  <tbody><tr>
+    <th width="19%">Name</th>
+    <th>Type</th>
+    <th>Required</th>
+    <th>Example value</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>id</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td><b>Yes*</b></td>
+    <td>SKU_12345</td>
+    <td>
+      <p>The ID of the item.</p>
+      <p>
+        *One of <code translate="no" dir="ltr">item_id</code> or <code translate="no" dir="ltr">item_name</code> is required.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>name</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td><b>Yes*</b></td>
+    <td>Stan and Friends Tee</td>
+    <td>
+      <p>The name of the item.</p>
+      <p>
+        *One of <code translate="no" dir="ltr">item_id</code> or <code translate="no" dir="ltr">item_name</code> is required.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">affiliation</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Google Store</td>
+    <td>
+      A product affiliation to designate a supplying company or brick and
+      mortar store location.<br>
+      Note: `affiliation` is only available at the item-scope.
+    </td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">coupon</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>SUMMER_FUN</td>
+    <td>The coupon name/code associated with the item.<br>
+      <br>Event-level and item-level <code translate="no" dir="ltr">coupon</code> parameters are
+      independent.
+    </td>
+  </tr>
+  
+  
+  <tr>
+    <td><code translate="no" dir="ltr">discount</code></td>
+    <td><code translate="no" dir="ltr">number</code></td>
+    <td>No</td>
+    <td>2.22</td>
+    <td>The monetary discount value associated with the item.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">index</code></td>
+    <td><code translate="no" dir="ltr">number</code></td>
+    <td>No</td>
+    <td>5</td>
+    <td>The index/position of the item in a list.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>brand</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Google</td>
+    <td>The brand of the item.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>category</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Apparel</td>
+    <td>The category of the item. If used as part of a category hierarchy or
+      taxonomy then this will be the first category.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>category2</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Adult</td>
+    <td>The second category hierarchy or additional taxonomy for the item.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>category3</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Shirts</td>
+    <td>The third category hierarchy or additional taxonomy for the item.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>category4</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Crew</td>
+    <td>The fourth category hierarchy or additional taxonomy for the item.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>category5</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Short sleeve</td>
+    <td>The fifth category hierarchy or additional taxonomy for the item.</td>
+  </tr>
+  <tr>
+  </tr><tr>
+    <td><code translate="no" dir="ltr">item_<wbr>list_<wbr>id</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>related_products</td>
+    <td>The ID of the list in which the item was presented to the user.<br>
+      <br>If set, event-level <code translate="no" dir="ltr">item_<wbr>list_<wbr>id</code> is ignored.
+      <br>If not set, event-level <code translate="no" dir="ltr">item_<wbr>list_<wbr>id</code> is used, if
+      present.
+    </td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>list_<wbr>name</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>Related products</td>
+    <td>The name of the list in which the item was presented to the user.<br>
+      <br>If set, event-level <code translate="no" dir="ltr">item_<wbr>list_<wbr>name</code> is ignored.
+      <br>If not set, event-level <code translate="no" dir="ltr">item_<wbr>list_<wbr>name</code> is used, if
+      present.
+    </td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">item_<wbr>variant</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>green</td>
+    <td>The item variant or unique code or description for additional item
+      details/options.</td>
+  </tr>
+  <tr>
+    <td><code translate="no" dir="ltr">location_<wbr>id</code></td>
+    <td><code translate="no" dir="ltr">string</code></td>
+    <td>No</td>
+    <td>ChIJIQBpAG2ahYAR_6128GcTUEo (the Google Place ID for San Francisco)</td>
+    <td>
+      The physical location associated with the item (e.g. the physical
+      store location). It's recommended to use the
+      <a href="/maps/documentation/places/web-service/place-id">Google
+        Place ID</a> that corresponds to the associated item. A custom location
+      ID can also be used.<br>
+      Note: `location id` is only available at the item-scope.
+  </td></tr>
+  <tr>
+    <td><code translate="no" dir="ltr">price</code></td>
+    <td><code translate="no" dir="ltr">number</code></td>
+    <td>No</td>
+    <td>9.99</td>
+    <td>
+      The monetary price of the item, in units of the specified currency
+      parameter.
+    </td>
+  </tr>
+ 
+  
+  <tr>
+    <td><code translate="no" dir="ltr">quantity</code></td>
+    <td><code translate="no" dir="ltr">number</code></td>
+    <td>No</td>
+    <td>1</td>
+    <td>
+      <p>Item quantity.<br>
+      <br>If not set, <code translate="no" dir="ltr">quantity</code> is set to 1.</p>
+    </td>
+  </tr>
+</tbody></table>
