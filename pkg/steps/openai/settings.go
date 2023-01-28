@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"fmt"
 	"github.com/PullRequestInc/go-gpt3"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -153,6 +154,7 @@ func (c *CompletionStepSettings) Clone() *CompletionStepSettings {
 type CompletionStepFactory struct {
 	ClientSettings *ClientSettings         `yaml:"client,omitempty"`
 	StepSettings   *CompletionStepSettings `yaml:"completion,omitempty"`
+	flagsDefaults  *CompletionStepFactoryFlagsDefaults
 }
 
 func NewCompletionStepFactory(
@@ -174,15 +176,72 @@ func (csf *CompletionStepFactory) NewStep() (steps.Step[string, string], error) 
 	return NewCompletionStep(stepSettings), nil
 }
 
-func (csf *CompletionStepFactory) AddFlags(cmd *cobra.Command) error {
-	cmd.PersistentFlags().String("openai-engine", "", "OpenAI engine to use")
-	cmd.PersistentFlags().Int("openai-max-response-tokens", 0, "Maximum number of tokens to return")
-	cmd.PersistentFlags().Float32("openai-temperature", 0.7, "Sampling temperature to use")
-	cmd.PersistentFlags().Float32("openai-top-p", 0.0, "Alternative to temperature for nucleus sampling")
-	cmd.PersistentFlags().Int("openai-n", 1, "How many choice to create for each prompt")
-	cmd.PersistentFlags().Int("openai-logprobs", 0, "Include the probabilities of most likely tokens")
-	cmd.PersistentFlags().StringSlice("openai-stop", []string{}, "Up to 4 sequences where the API will stop generating tokens. Response will not contain the stop sequence.")
-	cmd.PersistentFlags().Bool("openai-stream", false, "Stream the response")
+type CompletionStepFactoryFlagsDefaults struct {
+	Engine            *string
+	MaxResponseTokens *int
+	Temperature       *float32
+	TopP              *float32
+	N                 *int
+	LogProbs          *int
+	Stop              *[]string
+	Stream            *bool
+}
+
+func (csf *CompletionStepFactory) AddFlags(cmd *cobra.Command, defaults interface{}) error {
+	csfDefaults, ok := defaults.(*CompletionStepFactoryFlagsDefaults)
+	if !ok || csfDefaults == nil {
+		return fmt.Errorf("defaults are not of type *CompletionStepFactoryFlagsDefaults")
+	}
+
+	csf.flagsDefaults = csfDefaults
+
+	defaultEngine := ""
+	if csfDefaults.Engine != nil {
+		defaultEngine = *csfDefaults.Engine
+	}
+	cmd.PersistentFlags().String("openai-engine", defaultEngine, "OpenAI engine to use")
+
+	defaultMaxResponseTokens := 0
+	if csfDefaults.MaxResponseTokens != nil {
+		defaultMaxResponseTokens = *csfDefaults.MaxResponseTokens
+	}
+	cmd.PersistentFlags().Int("openai-max-response-tokens", defaultMaxResponseTokens, "Maximum number of tokens to return")
+
+	defaultTemperature := float32(0.7)
+	if csfDefaults.Temperature != nil {
+		defaultTemperature = *csfDefaults.Temperature
+	}
+	cmd.PersistentFlags().Float32("openai-temperature", defaultTemperature, "Sampling temperature to use")
+
+	defaultTopP := float32(0.0)
+	if csfDefaults.TopP != nil {
+		defaultTopP = *csfDefaults.TopP
+	}
+	cmd.PersistentFlags().Float32("openai-top-p", defaultTopP, "Alternative to temperature for nucleus sampling")
+
+	defaultN := 1
+	if csfDefaults.N != nil {
+		defaultN = *csfDefaults.N
+	}
+	cmd.PersistentFlags().Int("openai-n", defaultN, "How many choice to create for each prompt")
+
+	defaultLogProbs := 0
+	if csfDefaults.LogProbs != nil {
+		defaultLogProbs = *csfDefaults.LogProbs
+	}
+	cmd.PersistentFlags().Int("openai-logprobs", defaultLogProbs, "Include the probabilities of most likely tokens")
+
+	defaultStop := []string{}
+	if csfDefaults.Stop != nil {
+		defaultStop = *csfDefaults.Stop
+	}
+	cmd.PersistentFlags().StringSlice("openai-stop", defaultStop, "Up to 4 sequences where the API will stop generating tokens. Response will not contain the stop sequence.")
+
+	defaultStream := false
+	if csfDefaults.Stream != nil {
+		defaultStream = *csfDefaults.Stream
+	}
+	cmd.PersistentFlags().Bool("openai-stream", defaultStream, "Stream the response")
 
 	return nil
 }
@@ -193,46 +252,48 @@ func (csf *CompletionStepFactory) UpdateFromCobra(cmd *cobra.Command) error {
 		csf.ClientSettings.APIKey = &apiKey
 	}
 
-	if cmd.Flags().Changed("openai-engine") {
+	if cmd.Flags().Changed("openai-engine") || csf.flagsDefaults.Engine != nil {
 		engine := cmd.Flag("openai-engine").Value.String()
 		csf.StepSettings.Engine = &engine
 	}
-	if cmd.Flags().Changed("openai-max-response-tokens") {
+	if cmd.Flags().Changed("openai-max-response-tokens") || csf.flagsDefaults.MaxResponseTokens != nil {
 		maxResponseTokens, err := cmd.PersistentFlags().GetInt("openai-max-response-tokens")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.MaxResponseTokens = &maxResponseTokens
 	}
-	if cmd.Flags().Changed("openai-temperature") {
+	if cmd.Flags().Changed("openai-temperature") || csf.flagsDefaults.Temperature != nil {
 		temperature, err := cmd.PersistentFlags().GetFloat32("openai-temperature")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.Temperature = &temperature
 	}
-	if cmd.Flags().Changed("openai-top-p") {
+	if cmd.Flags().Changed("openai-top-p") || csf.flagsDefaults.Temperature != nil {
 		topP, err := cmd.PersistentFlags().GetFloat32("openai-top-p")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.TopP = &topP
 	}
-	if cmd.Flags().Changed("openai-n") {
+
+	if cmd.Flags().Changed("openai-n") || csf.flagsDefaults.Temperature != nil {
 		n, err := cmd.PersistentFlags().GetInt("openai-n")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.N = &n
 	}
-	if cmd.Flags().Changed("openai-logprobs") {
+
+	if cmd.Flags().Changed("openai-logprobs") || csf.flagsDefaults.Temperature != nil {
 		logProbs, err := cmd.PersistentFlags().GetInt("openai-logprobs")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.LogProbs = &logProbs
 	}
-	if cmd.Flags().Changed("openai-stop") {
+	if cmd.Flags().Changed("openai-stop") || csf.flagsDefaults.Temperature != nil {
 		stop, err := cmd.PersistentFlags().GetStringSlice("openai-stop")
 		if err != nil {
 			return err
@@ -287,8 +348,4 @@ func NewClientSettings() *ClientSettings {
 	return &ClientSettings{
 		Timeout: &defaultTimeout,
 	}
-}
-
-func (csf *CompletionStepFactory) CreateCompletionStep() *CompletionStep {
-	return NewCompletionStep(csf.StepSettings.Clone())
 }
