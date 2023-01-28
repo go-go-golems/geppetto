@@ -2,6 +2,7 @@ package openai
 
 import (
 	"github.com/PullRequestInc/go-gpt3"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wesen/geppetto/pkg/steps"
@@ -82,6 +83,32 @@ func (c *ClientSettings) ToOptions() []gpt3.ClientOption {
 		ret = append(ret, gpt3.WithHTTPClient(c.HTTPClient))
 	}
 	return ret
+}
+
+func (c *ClientSettings) CreateClient() (gpt3.Client, error) {
+	evt := log.Info()
+	if c.BaseURL != nil {
+		evt = evt.Str("base_url", *c.BaseURL)
+	}
+	if c.DefaultEngine != nil {
+		evt = evt.Str("default_engine", *c.DefaultEngine)
+	}
+	if c.Organization != nil {
+		evt = evt.Str("organization", *c.Organization)
+	}
+	if c.Timeout != nil {
+		// convert timeout to seconds
+		timeout := *c.Timeout / time.Second
+		evt = evt.Dur("timeout", timeout)
+	}
+	if c.UserAgent != nil {
+		evt = evt.Str("user_agent", *c.UserAgent)
+	}
+	evt.Msg("creating openai client")
+
+	options := c.ToOptions()
+
+	return gpt3.NewClient(*c.APIKey, options...), nil
 }
 
 type CompletionStepSettings struct {

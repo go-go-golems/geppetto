@@ -2,8 +2,11 @@ package cmds
 
 import (
 	"context"
+	"fmt"
+	"github.com/mb0/glob"
 	"github.com/spf13/cobra"
 	"github.com/wesen/geppetto/pkg/steps/openai"
+	"github.com/wesen/glazed/pkg/cli"
 	"math"
 	"os"
 )
@@ -51,6 +54,74 @@ var CompletionCmd = &cobra.Command{
 	},
 }
 
+var ListEnginesCmd = &cobra.Command{
+	Use:   "list-engines",
+	Short: "list engines",
+	Run: func(cmd *cobra.Command, args []string) {
+		clientSettings, err := openai.NewClientSettingsFromCobra(cmd)
+		cobra.CheckErr(err)
+
+		client, err := clientSettings.CreateClient()
+		cobra.CheckErr(err)
+
+		ctx := context.Background()
+		resp, err := client.Engines(ctx)
+		cobra.CheckErr(err)
+
+		gp, of, err := cli.SetupProcessor(cmd)
+		cobra.CheckErr(err)
+
+		idGlob, _ := cmd.Flags().GetString("id")
+		ownerGlob, _ := cmd.Flags().GetString("owner")
+		ready, _ := cmd.Flags().GetBool("ready")
+
+		for _, engine := range resp.Data {
+			if idGlob != "" {
+				// check if idGlob  matches id
+				matching, err := glob.Match(idGlob, engine.ID)
+				cobra.CheckErr(err)
+
+				if !matching {
+					continue
+				}
+			}
+
+			if ownerGlob != "" {
+				// check if ownerGlob matches owner
+				matching, err := glob.Match(ownerGlob, engine.Owner)
+				cobra.CheckErr(err)
+
+				if !matching {
+					continue
+				}
+			}
+
+			if cmd.Flags().Changed("ready") {
+				// check if ready matches ready
+				if ready != engine.Ready {
+					continue
+				}
+			}
+
+			row := map[string]interface{}{
+				"id":     engine.ID,
+				"owner":  engine.Owner,
+				"ready":  engine.Ready,
+				"object": engine.Object,
+			}
+			err = gp.ProcessInputObject(row)
+			cobra.CheckErr(err)
+		}
+
+		s, err := of.Output()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(s)
+	},
+}
+
 func init() {
 	OpenaiCmd.PersistentFlags().Int("timeout", 60, "timeout in seconds")
 	OpenaiCmd.PersistentFlags().String("organization", "", "organization to use")
@@ -68,4 +139,10 @@ func init() {
 	CompletionCmd.Flags().Bool("stream", true, "stream to use")
 
 	OpenaiCmd.AddCommand(CompletionCmd)
+
+	ListEnginesCmd.Flags().String("id", "", "glob pattern to match engine id")
+	ListEnginesCmd.Flags().String("owner", "", "glob pattern to match engine owner")
+	ListEnginesCmd.Flags().Bool("ready", false, "glob pattern to match engine ready")
+	cli.AddFlags(ListEnginesCmd, cli.NewFlagsDefaults())
+	OpenaiCmd.AddCommand(ListEnginesCmd)
 }
