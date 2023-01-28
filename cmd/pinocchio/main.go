@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wesen/geppetto/cmd/pinocchio/cmds"
-	cmds3 "github.com/wesen/geppetto/pkg/cmds"
-	cmds2 "github.com/wesen/glazed/pkg/cmds"
+	geppetto_cmds "github.com/wesen/geppetto/pkg/cmds"
+	glazed_cmds "github.com/wesen/glazed/pkg/cmds"
 	"github.com/wesen/glazed/pkg/help"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
@@ -56,10 +56,10 @@ type logConfig struct {
 	LogFile    string
 }
 
-func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*cmds3.GeppettoCommand, []*cmds2.CommandAlias, error) {
+func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*geppetto_cmds.GeppettoCommand, []*glazed_cmds.CommandAlias, error) {
 	repositories := viper.GetStringSlice("repositories")
 
-	loader := &cmds3.GeppettoCommandLoader{}
+	loader := &geppetto_cmds.GeppettoCommandLoader{}
 
 	xdgDirectory, err := os.UserConfigDir()
 	if err != nil {
@@ -68,8 +68,8 @@ func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*cmds3.GeppettoComma
 	defaultDirectory := fmt.Sprintf("%s/pinocchio/queries", xdgDirectory)
 	repositories = append(repositories, defaultDirectory)
 
-	commands := make([]*cmds3.GeppettoCommand, 0)
-	aliases := make([]*cmds2.CommandAlias, 0)
+	commands := make([]*geppetto_cmds.GeppettoCommand, 0)
+	aliases := make([]*glazed_cmds.CommandAlias, 0)
 
 	for _, repository := range repositories {
 		repository = os.ExpandEnv(repository)
@@ -89,12 +89,12 @@ func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*cmds3.GeppettoComma
 			log.Warn().Msgf("Repository %s is not a directory", repository)
 		} else {
 			docDir := fmt.Sprintf("%s/doc", repository)
-			commands_, aliases_, err := cmds2.LoadCommandsFromDirectory(loader, repository, repository)
+			commands_, aliases_, err := glazed_cmds.LoadCommandsFromDirectory(loader, repository, repository)
 			if err != nil {
 				return nil, nil, err
 			}
 			for _, command := range commands_ {
-				commands = append(commands, command.(*cmds3.GeppettoCommand))
+				commands = append(commands, command.(*geppetto_cmds.GeppettoCommand))
 			}
 			aliases = append(aliases, aliases_...)
 
@@ -117,7 +117,7 @@ func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*cmds3.GeppettoComma
 
 func initCommands(
 	rootCmd *cobra.Command, configPath string, helpSystem *help.HelpSystem,
-) ([]*cmds3.GeppettoCommand, []*cmds2.CommandAlias, error) {
+) ([]*geppetto_cmds.GeppettoCommand, []*glazed_cmds.CommandAlias, error) {
 	// Load the variables from the environment
 	viper.SetEnvPrefix("pinocchio")
 
@@ -160,14 +160,14 @@ func initCommands(
 		Str("config", viper.ConfigFileUsed()).
 		Msg("Loaded configuration")
 
-	loader := &cmds3.GeppettoCommandLoader{}
-	var commands []*cmds3.GeppettoCommand
-	commands_, aliases, err := cmds2.LoadCommandsFromEmbedFS(loader, promptsFS, ".", "prompts/")
+	loader := &geppetto_cmds.GeppettoCommandLoader{}
+	var commands []*geppetto_cmds.GeppettoCommand
+	commands_, aliases, err := glazed_cmds.LoadCommandsFromEmbedFS(loader, promptsFS, ".", "prompts/")
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, command := range commands_ {
-		commands = append(commands, command.(*cmds3.GeppettoCommand))
+		commands = append(commands, command.(*geppetto_cmds.GeppettoCommand))
 	}
 
 	err = helpSystem.LoadSectionsFromEmbedFS(promptsFS, "prompts/doc")
@@ -183,12 +183,12 @@ func initCommands(
 	commands = append(commands, repositoryCommands...)
 	aliases = append(aliases, repositoryAliases...)
 
-	var cobraCommands []cmds2.CobraCommand
+	var cobraCommands []glazed_cmds.CobraCommand
 	for _, command := range commands {
 		cobraCommands = append(cobraCommands, command)
 	}
 
-	err = cmds2.AddCommandsToRootCommand(rootCmd, cobraCommands, aliases)
+	err = glazed_cmds.AddCommandsToRootCommand(rootCmd, cobraCommands, aliases)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -297,5 +297,5 @@ func init() {
 	_ = commands
 	_ = aliases
 
-	rootCmd.AddCommand(cmds.RunCmd)
+	rootCmd.AddCommand(cmds.OpenaiCmd)
 }

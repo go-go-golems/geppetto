@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wesen/geppetto/pkg/helpers"
 	"testing"
 )
 
@@ -60,14 +61,14 @@ func TestPipeStepAsync(t *testing.T) {
 	// channels need to be buffered so the steps can be started sequentially
 	c := make(chan int, 1)
 	d := make(chan int, 1)
-	s1 := NewSimpleStep(func(a int) Nothing {
+	s1 := NewSimpleStep(func(a int) helpers.Nothing {
 		fmt.Println("s1 start")
 		v := <-c
 		fmt.Printf("read v: %d\n", v)
 		d <- v + a
-		return Nothing{}
+		return helpers.Nothing{}
 	})
-	s2 := NewSimpleStep(func(_ Nothing) string {
+	s2 := NewSimpleStep(func(_ helpers.Nothing) string {
 		a := <-d
 		return fmt.Sprintf("%d", a+1)
 	})
