@@ -2,6 +2,7 @@ package steps
 
 import (
 	"context"
+	"github.com/spf13/cobra"
 	"github.com/wesen/geppetto/pkg/helpers"
 	"gopkg.in/errgo.v2/fmt/errors"
 )
@@ -12,6 +13,11 @@ type Step[A, B any] interface {
 	GetOutput() <-chan helpers.Result[B]
 	GetState() interface{}
 	IsFinished() bool
+}
+
+type GenericStepFactory interface {
+	AddFlags(cmd *cobra.Command) error
+	UpdateFromCobra(cmd *cobra.Command) error
 }
 
 type StepFactory[A, B any] interface {

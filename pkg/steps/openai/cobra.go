@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// TODO(manuel, 2023-01-28) - we have GenericStepFactory now
 func NewCompletionStepSettingsFromCobra(cmd *cobra.Command) (*CompletionStepSettings, error) {
 	apiKey := viper.GetString("openai-api-key")
 	if apiKey == "" {
