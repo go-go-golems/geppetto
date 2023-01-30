@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/wesen/geppetto/pkg/helpers"
 	"gopkg.in/errgo.v2/fmt/errors"
-	"time"
 )
 
 type CompletionStepState int
@@ -57,28 +56,11 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 			return
 		}
 
-		evt := log.Info()
-		if clientSettings.BaseURL != nil {
-			evt = evt.Str("base_url", *clientSettings.BaseURL)
+		client, err := clientSettings.CreateClient()
+		if err != nil {
+			o.output <- helpers.NewErrorResult[string](err)
+			return
 		}
-		if clientSettings.DefaultEngine != nil {
-			evt = evt.Str("default_engine", *clientSettings.DefaultEngine)
-		}
-		if clientSettings.Organization != nil {
-			evt = evt.Str("organization", *clientSettings.Organization)
-		}
-		if clientSettings.Timeout != nil {
-			// convert timeout to seconds
-			timeout := *clientSettings.Timeout / time.Second
-			evt = evt.Dur("timeout", timeout)
-		}
-		if clientSettings.UserAgent != nil {
-			evt = evt.Str("user_agent", *clientSettings.UserAgent)
-		}
-		evt.Msg("creating openai client")
-
-		options := clientSettings.ToOptions()
-		client := gpt3.NewClient(*clientSettings.APIKey, options...)
 
 		engine := ""
 		if o.settings.Engine != nil {
@@ -92,7 +74,7 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 
 		prompts := []string{prompt}
 
-		evt = log.Info()
+		evt := log.Info()
 		evt = evt.Str("engine", engine)
 		if o.settings.MaxResponseTokens != nil {
 			evt = evt.Int("max_response_tokens", *o.settings.MaxResponseTokens)
@@ -114,6 +96,12 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 		}
 		evt.Strs("prompts", prompts)
 		evt.Msg("sending completion request")
+
+		// TODO(manuel, 2023-01-28) - handle multiple values
+		if o.settings.N != nil && *o.settings.N != 1 {
+			o.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
+			return
+		}
 
 		// TODO(manuel, 2023-01-27) This is where we would emit progress status and do some logging
 		completion, err := client.CompletionWithEngine(ctx, engine, gpt3.CompletionRequest{

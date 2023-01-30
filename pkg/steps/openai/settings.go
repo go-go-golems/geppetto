@@ -1,7 +1,9 @@
 package openai
 
 import (
-	"github.com/PullRequestInc/go-gpt3"
+	"fmt"
+	gpt3 "github.com/PullRequestInc/go-gpt3"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wesen/geppetto/pkg/steps"
@@ -84,6 +86,32 @@ func (c *ClientSettings) ToOptions() []gpt3.ClientOption {
 	return ret
 }
 
+func (c *ClientSettings) CreateClient() (gpt3.Client, error) {
+	evt := log.Info()
+	if c.BaseURL != nil {
+		evt = evt.Str("base_url", *c.BaseURL)
+	}
+	if c.DefaultEngine != nil {
+		evt = evt.Str("default_engine", *c.DefaultEngine)
+	}
+	if c.Organization != nil {
+		evt = evt.Str("organization", *c.Organization)
+	}
+	if c.Timeout != nil {
+		// convert timeout to seconds
+		timeout := *c.Timeout / time.Second
+		evt = evt.Dur("timeout", timeout)
+	}
+	if c.UserAgent != nil {
+		evt = evt.Str("user_agent", *c.UserAgent)
+	}
+	evt.Msg("creating openai client")
+
+	options := c.ToOptions()
+
+	return gpt3.NewClient(*c.APIKey, options...), nil
+}
+
 type CompletionStepSettings struct {
 	ClientSettings *ClientSettings `yaml:"client,omitempty"`
 
@@ -126,6 +154,8 @@ func (c *CompletionStepSettings) Clone() *CompletionStepSettings {
 type CompletionStepFactory struct {
 	ClientSettings *ClientSettings         `yaml:"client,omitempty"`
 	StepSettings   *CompletionStepSettings `yaml:"completion,omitempty"`
+	flagsDefaults  *CompletionStepFactoryFlagsDefaults
+	flagsPrefix    string
 }
 
 func NewCompletionStepFactory(
@@ -147,66 +177,128 @@ func (csf *CompletionStepFactory) NewStep() (steps.Step[string, string], error) 
 	return NewCompletionStep(stepSettings), nil
 }
 
-func (csf *CompletionStepFactory) AddFlags(cmd *cobra.Command) error {
-	cmd.PersistentFlags().String("openai-engine", "", "OpenAI engine to use")
-	cmd.PersistentFlags().Int("openai-max-response-tokens", 0, "Maximum number of tokens to return")
-	cmd.PersistentFlags().Float32("openai-temperature", 0.7, "Sampling temperature to use")
-	cmd.PersistentFlags().Float32("openai-top-p", 0.0, "Alternative to temperature for nucleus sampling")
-	cmd.PersistentFlags().Int("openai-n", 1, "How many choice to create for each prompt")
-	cmd.PersistentFlags().Int("openai-logprobs", 0, "Include the probabilities of most likely tokens")
-	cmd.PersistentFlags().StringSlice("openai-stop", []string{}, "Up to 4 sequences where the API will stop generating tokens. Response will not contain the stop sequence.")
-	cmd.PersistentFlags().Bool("openai-stream", false, "Stream the response")
+type CompletionStepFactoryFlagsDefaults struct {
+	Engine            *string
+	MaxResponseTokens *int
+	Temperature       *float32
+	TopP              *float32
+	N                 *int
+	LogProbs          *int
+	Stop              *[]string
+	Stream            *bool
+}
+
+func (csf *CompletionStepFactory) AddFlags(cmd *cobra.Command, prefix string, defaults interface{}) error {
+	csfDefaults, ok := defaults.(*CompletionStepFactoryFlagsDefaults)
+	if !ok || csfDefaults == nil {
+		return fmt.Errorf("defaults are not of type *CompletionStepFactoryFlagsDefaults")
+	}
+
+	csf.flagsDefaults = csfDefaults
+
+	defaultEngine := ""
+	if csfDefaults.Engine != nil {
+		defaultEngine = *csfDefaults.Engine
+	}
+	cmd.PersistentFlags().String(prefix+"engine", defaultEngine, "OpenAI engine to use")
+
+	defaultMaxResponseTokens := 0
+	if csfDefaults.MaxResponseTokens != nil {
+		defaultMaxResponseTokens = *csfDefaults.MaxResponseTokens
+	}
+	cmd.PersistentFlags().Int(prefix+"max-response-tokens", defaultMaxResponseTokens, "Maximum number of tokens to return")
+
+	defaultTemperature := float32(0.7)
+	if csfDefaults.Temperature != nil {
+		defaultTemperature = *csfDefaults.Temperature
+	}
+	cmd.PersistentFlags().Float32(prefix+"temperature", defaultTemperature, "Sampling temperature to use")
+
+	defaultTopP := float32(0.0)
+	if csfDefaults.TopP != nil {
+		defaultTopP = *csfDefaults.TopP
+	}
+	cmd.PersistentFlags().Float32(prefix+"top-p", defaultTopP, "Alternative to temperature for nucleus sampling")
+
+	defaultN := 1
+	if csfDefaults.N != nil {
+		defaultN = *csfDefaults.N
+	}
+	cmd.PersistentFlags().Int(prefix+"n", defaultN, "How many choice to create for each prompt")
+
+	defaultLogProbs := 0
+	if csfDefaults.LogProbs != nil {
+		defaultLogProbs = *csfDefaults.LogProbs
+	}
+	cmd.PersistentFlags().Int(prefix+"logprobs", defaultLogProbs, "Include the probabilities of most likely tokens")
+
+	defaultStop := []string{}
+	if csfDefaults.Stop != nil {
+		defaultStop = *csfDefaults.Stop
+	}
+	cmd.PersistentFlags().StringSlice(prefix+"stop", defaultStop, "Up to 4 sequences where the API will stop generating tokens. Response will not contain the stop sequence.")
+
+	defaultStream := false
+	if csfDefaults.Stream != nil {
+		defaultStream = *csfDefaults.Stream
+	}
+	cmd.PersistentFlags().Bool(prefix+"stream", defaultStream, "Stream the response")
+
+	csf.flagsPrefix = prefix
 
 	return nil
 }
 
 func (csf *CompletionStepFactory) UpdateFromCobra(cmd *cobra.Command) error {
-	apiKey := viper.GetString("openai-api-key")
+	prefix := csf.flagsPrefix
+	apiKey := viper.GetString(prefix + "api-key")
 	if apiKey != "" {
 		csf.ClientSettings.APIKey = &apiKey
 	}
 
-	if cmd.Flags().Changed("openai-engine") {
-		engine := cmd.Flag("openai-engine").Value.String()
+	if cmd.Flags().Changed(prefix+"engine") || csf.flagsDefaults.Engine != nil {
+		engine := cmd.Flag(prefix + "engine").Value.String()
 		csf.StepSettings.Engine = &engine
 	}
-	if cmd.Flags().Changed("openai-max-response-tokens") {
-		maxResponseTokens, err := cmd.PersistentFlags().GetInt("openai-max-response-tokens")
+	if cmd.Flags().Changed(prefix+"max-response-tokens") || csf.flagsDefaults.MaxResponseTokens != nil {
+		maxResponseTokens, err := cmd.PersistentFlags().GetInt(prefix + "max-response-tokens")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.MaxResponseTokens = &maxResponseTokens
 	}
-	if cmd.Flags().Changed("openai-temperature") {
-		temperature, err := cmd.PersistentFlags().GetFloat32("openai-temperature")
+	if cmd.Flags().Changed(prefix+"temperature") || csf.flagsDefaults.Temperature != nil {
+		temperature, err := cmd.PersistentFlags().GetFloat32(prefix + "temperature")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.Temperature = &temperature
 	}
-	if cmd.Flags().Changed("openai-top-p") {
-		topP, err := cmd.PersistentFlags().GetFloat32("openai-top-p")
+	if cmd.Flags().Changed(prefix+"top-p") || csf.flagsDefaults.Temperature != nil {
+		topP, err := cmd.PersistentFlags().GetFloat32(prefix + "top-p")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.TopP = &topP
 	}
-	if cmd.Flags().Changed("openai-n") {
-		n, err := cmd.PersistentFlags().GetInt("openai-n")
+
+	if cmd.Flags().Changed(prefix+"n") || csf.flagsDefaults.Temperature != nil {
+		n, err := cmd.PersistentFlags().GetInt(prefix + "n")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.N = &n
 	}
-	if cmd.Flags().Changed("openai-logprobs") {
-		logProbs, err := cmd.PersistentFlags().GetInt("openai-logprobs")
+
+	if cmd.Flags().Changed(prefix+"logprobs") || csf.flagsDefaults.Temperature != nil {
+		logProbs, err := cmd.PersistentFlags().GetInt(prefix + "logprobs")
 		if err != nil {
 			return err
 		}
 		csf.StepSettings.LogProbs = &logProbs
 	}
-	if cmd.Flags().Changed("openai-stop") {
-		stop, err := cmd.PersistentFlags().GetStringSlice("openai-stop")
+	if cmd.Flags().Changed(prefix+"stop") || csf.flagsDefaults.Temperature != nil {
+		stop, err := cmd.PersistentFlags().GetStringSlice(prefix + "stop")
 		if err != nil {
 			return err
 		}
@@ -260,8 +352,4 @@ func NewClientSettings() *ClientSettings {
 	return &ClientSettings{
 		Timeout: &defaultTimeout,
 	}
-}
-
-func (csf *CompletionStepFactory) CreateCompletionStep() *CompletionStep {
-	return NewCompletionStep(csf.StepSettings.Clone())
 }
