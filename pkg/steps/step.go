@@ -16,7 +16,7 @@ type Step[A, B any] interface {
 }
 
 type GenericStepFactory interface {
-	AddFlags(cmd *cobra.Command) error
+	AddFlags(cmd *cobra.Command, prefix string, defaults interface{}) error
 	UpdateFromCobra(cmd *cobra.Command) error
 }
 
