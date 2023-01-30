@@ -1,0 +1,39 @@
+name: summarize-model-description
+short: Summarize a model or family description from the OpenAI doc
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-davinci-003
+      temperature: 0.7
+      max_response_tokens: 2048
+      # stream: true
+flags:
+  - name: name
+    type: string
+    help: Name of the model or family
+    required: true
+  - name: fields
+    type: stringList
+    default:
+      - subtitle
+      - one line description (json field `short`)
+    help: What to generate
+  - name: instructions
+    type: string
+    help: Additional language specific instructions
+arguments:
+  - name: input_file
+    type: stringFromFile
+    help: Input file containing the description
+    required: true
+prompt: |
+  Generate a json file containing for the model family {{ .name }}.
+  
+  {{ range $field := .fields }}- {{ $field }}
+  {{ end }}
+  {{- if .instructions }}{{ .instructions }}{{ end }}
+  ---BEGIN---
+  {{ .input_file }}
+  ---END---
