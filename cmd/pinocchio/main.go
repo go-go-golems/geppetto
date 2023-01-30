@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wesen/geppetto/cmd/pinocchio/cmds"
+	"github.com/wesen/geppetto/cmd/pinocchio/cmds/openai"
 	geppetto_cmds "github.com/wesen/geppetto/pkg/cmds"
 	glazed_cmds "github.com/wesen/glazed/pkg/cmds"
 	"github.com/wesen/glazed/pkg/help"
@@ -258,6 +258,14 @@ func init() {
 	_ = usageFunc
 	_ = usageTemplate
 
+	sections, err := openai.LoadModelsHelpFiles()
+	if err != nil {
+		log.Error().Err(err).Msg("Error loading models help files")
+	}
+	for _, section := range sections {
+		helpSystem.AddSection(section)
+	}
+
 	rootCmd.SetHelpFunc(helpFunc)
 	rootCmd.SetUsageFunc(usageFunc)
 	rootCmd.SetHelpTemplate(helpTemplate)
@@ -297,5 +305,5 @@ func init() {
 	_ = commands
 	_ = aliases
 
-	rootCmd.AddCommand(cmds.OpenaiCmd)
+	rootCmd.AddCommand(openai.OpenaiCmd)
 }

@@ -2,7 +2,7 @@ package openai
 
 import (
 	"fmt"
-	"github.com/PullRequestInc/go-gpt3"
+	gpt3 "github.com/PullRequestInc/go-gpt3"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
