@@ -154,6 +154,12 @@ func (g *GeppettoCommand) BuildCobraCommand() (*cobra.Command, error) {
 	cmd.Flags().Bool("print-prompt", false, "Print the prompt that will be executed.")
 	cmd.Flags().Bool("print-dyno", false, "Print a dyno HTML embed with the given prompt. Useful to create documentation examples.")
 
+	cmd.PersistentFlags().Int("timeout", 60, "timeout in seconds")
+	cmd.PersistentFlags().String("organization", "", "organization to use")
+	cmd.PersistentFlags().String("user-agent", "Geppetto", "user agent to use")
+	cmd.PersistentFlags().String("base-url", "https://api.openai.com/v1", "base url to use")
+	cmd.PersistentFlags().String("default-engine", "", "default engine to use")
+	cmd.PersistentFlags().String("user", "", "user (hash) to use")
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
 		if !ok {
