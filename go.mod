@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.1
-	github.com/wesen/glazed v0.2.0
+	github.com/wesen/glazed v0.2.1-0.20230202031752-f12d4847adc8
 	golang.org/x/sync v0.1.0
 	gopkg.in/errgo.v2 v2.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
