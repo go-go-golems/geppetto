@@ -87,7 +87,7 @@ func (c *ClientSettings) ToOptions() []gpt3.ClientOption {
 }
 
 func (c *ClientSettings) CreateClient() (gpt3.Client, error) {
-	evt := log.Info()
+	evt := log.Debug()
 	if c.BaseURL != nil {
 		evt = evt.Str("base_url", *c.BaseURL)
 	}
