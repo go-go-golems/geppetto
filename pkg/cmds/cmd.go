@@ -2,12 +2,14 @@ package cmds
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/wesen/geppetto/pkg/steps"
 	"github.com/wesen/geppetto/pkg/steps/openai"
 	glazedcmds "github.com/wesen/glazed/pkg/cmds"
+	"github.com/wesen/glazed/pkg/helpers"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -39,6 +41,8 @@ func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error 
 
 	printPrompt, _ := cmd.Flags().GetBool("print-prompt")
 	parameters["print-prompt"] = printPrompt
+	printDyno, _ := cmd.Flags().GetBool("print-dyno")
+	parameters["print-dyno"] = printDyno
 
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
@@ -53,6 +57,9 @@ func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error 
 
 	return g.Run(parameters)
 }
+
+//go:embed templates/dyno.tmpl.html
+var dynoTemplate string
 
 func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
@@ -85,8 +92,31 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 		return err
 	}
 
-	if parameters["print-prompt"].(bool) {
+	printPrompt, ok := parameters["print-prompt"]
+	if ok && printPrompt.(bool) {
 		fmt.Println(promptBuffer.String())
+		return nil
+	}
+
+	printDyno, ok := parameters["print-dyno"]
+	if ok && printDyno.(bool) {
+		openaiCompletionStepFactory__, ok := openaiCompletionStepFactory_.(*openai.CompletionStepFactory)
+		if !ok {
+			return errors.Errorf("openai-completion-step factory is not a CompletionStepFactory")
+		}
+		settings := openaiCompletionStepFactory__.StepSettings
+
+		dyno, err := helpers.RenderTemplateString(dynoTemplate, map[string]interface{}{
+			"initialPrompt":   promptBuffer.String(),
+			"initialResponse": "",
+			"maxTokens":       settings.MaxResponseTokens,
+			"temperature":     settings.Temperature,
+			"topP":            settings.TopP,
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Println(dyno)
 		return nil
 	}
 
@@ -121,13 +151,21 @@ func (g *GeppettoCommand) BuildCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd.Flags().Bool("print-prompt", false, "Print the prompt that will be executed")
+	cmd.Flags().Bool("print-prompt", false, "Print the prompt that will be executed.")
+	cmd.Flags().Bool("print-dyno", false, "Print a dyno HTML embed with the given prompt. Useful to create documentation examples.")
 
+	cmd.PersistentFlags().Int("timeout", 60, "timeout in seconds")
+	cmd.PersistentFlags().String("organization", "", "organization to use")
+	cmd.PersistentFlags().String("user-agent", "Geppetto", "user agent to use")
+	cmd.PersistentFlags().String("base-url", "https://api.openai.com/v1", "base url to use")
+	cmd.PersistentFlags().String("default-engine", "", "default engine to use")
+	cmd.PersistentFlags().String("user", "", "user (hash) to use")
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
 		if !ok {
 			continue
 		}
+
 		err := factory.AddFlags(cmd, "openai-", &openai.CompletionStepFactoryFlagsDefaults{})
 		if err != nil {
 			return nil, err

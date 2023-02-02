@@ -1,0 +1,30 @@
+name: chain-of-thought
+short: Show a chain of thought example
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-curie-001
+      temperature: 0.2
+      max_response_tokens: 256
+      # stream: true
+flags:
+  - name: with_chain_of_thought
+    type: bool
+    help: Enable chain of thought
+prompt: |
+    Given: The database tables orders(customer_id,shipping_state,value), line_items(order_id,product_id,quantity), products(id,category) and the categories shrubs, roses, azaleas, privacy trees, maple trees.
+    Question: How many people ordered flowers in the southwest since spring?
+
+    SQL:
+    SELECT COUNT(DISTINCT orders.customer_id)
+    FROM orders
+    JOIN line_items ON orders.order_id = line_items.order_id
+    JOIN products ON line_items.product_id = products.id
+    WHERE products.category IN ('roses', 'azaleas')
+    AND orders.shipping_state IN ('AZ', 'NM', 'TX', 'CO', 'UT', 'NV', 'OK')
+    AND orders.value >= '2022-03-20'
+
+    Question: What is the average order value of orders containing trees placed last year in the north east?
+    SQL:
