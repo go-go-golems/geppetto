@@ -74,7 +74,7 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 
 		prompts := []string{prompt}
 
-		evt := log.Info()
+		evt := log.Debug()
 		evt = evt.Str("engine", engine)
 		if o.settings.MaxResponseTokens != nil {
 			evt = evt.Int("max_response_tokens", *o.settings.MaxResponseTokens)
