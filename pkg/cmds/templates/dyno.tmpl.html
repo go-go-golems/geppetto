@@ -1,0 +1,7 @@
+<div trydyno-embed="" openai-model="{{.model}}"
+     initial-prompt="{{ .initialPrompt | quoteNewlines }}"
+     initial-response="{{ .initialResponse | quoteNewlines }}"
+     max-tokens="{{.maxTokens}}" box-rows="18"
+     model-temp="{{.temperature}}" {{ if .topP -}}
+     top-p="{{.topP}}"
+     {{- end -}}></div>
