@@ -2,14 +2,17 @@ package steps
 
 import (
 	"context"
+	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/wesen/geppetto/pkg/helpers"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/errgo.v2/fmt/errors"
 )
 
 // Step represents one step in a geppetto pipeline
 type Step[A, B any] interface {
-	Start(ctx context.Context, a A) error
+	// Run starts the step and blocks until the end
+	Run(ctx context.Context, a A) error
 	GetOutput() <-chan helpers.Result[B]
 	GetState() interface{}
 	IsFinished() bool
@@ -39,21 +42,18 @@ type SimpleStep[A, B any] struct {
 	state        SimpleStepState
 }
 
-func (s *SimpleStep[A, B]) Start(_ context.Context, a A) error {
+func (s *SimpleStep[A, B]) Run(_ context.Context, a A) error {
 	if s.state != SimpleStepNotStarted {
 		return errors.Newf("step already started")
 	}
-	s.output = make(chan helpers.Result[B])
 	s.state = SimpleStepRunning
 
-	go func() {
-		v := s.stepFunction(a)
-		s.state = SimpleStepFinished
-		s.output <- v
-		defer func() {
-			s.state = SimpleStepClosed
-			close(s.output)
-		}()
+	v := s.stepFunction(a)
+	s.state = SimpleStepFinished
+	s.output <- v
+	defer func() {
+		s.state = SimpleStepClosed
+		close(s.output)
 	}()
 
 	return nil
@@ -76,7 +76,7 @@ func NewSimpleStep[A any, B any](f func(A) B) Step[A, B] {
 		stepFunction: func(a A) helpers.Result[B] {
 			return helpers.NewValueResult(f(a))
 		},
-		output: nil,
+		output: make(chan helpers.Result[B]),
 		state:  SimpleStepNotStarted,
 	}
 	return s
@@ -89,6 +89,7 @@ const (
 	PipeStepRunningStep1               // step 1 is running
 	PipeStepRunningStep2               // step 2 is running
 	PipeStepFinished
+	PipeStepError
 	PipeStepClosed
 )
 
@@ -99,61 +100,84 @@ type PipeStep[A, B, C any] struct {
 	output chan helpers.Result[C]
 }
 
-func (s *PipeStep[A, B, C]) Start(ctx context.Context, a A) error {
+func (s *PipeStep[A, B, C]) Run(ctx context.Context, a A) error {
 	if s.state != PipeStepNotStarted {
 		return errors.Newf("step already started")
 	}
 
-	// TODO(manuel, 2023-01-25) Not sure if this shouldn't just be created in the constructor for wiring...
-	s.output = make(chan helpers.Result[C])
 	s.state = PipeStepRunningStep1
 
-	err := s.step1.Start(ctx, a)
-	if err != nil {
-		return err
-	}
-	go func() {
+	eg, ctx2 := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return s.step1.Run(ctx2, a)
+	})
+
+	// NOTE(manuel, 2023-02-04) This can probably be done more elegantly
+	eg.Go(func() error {
 		defer func() {
 			s.state = PipeStepClosed
 			close(s.output)
 		}()
 		v_, ok := <-s.step1.GetOutput()
 		if !ok {
+			s.state = PipeStepError
 			s.output <- helpers.NewErrorResult[C](errors.Newf("step 1 closed output channel"))
-			return
+			return nil
 		}
 		v, err := v_.Value()
 		if err != nil {
+			s.state = PipeStepError
 			s.output <- helpers.NewErrorResult[C](err)
-			return
+			return nil
 		}
 
 		if ctx.Err() != nil {
+			s.state = PipeStepError
 			s.output <- helpers.NewErrorResult[C](ctx.Err())
-			return
+			return nil
 		}
 
 		s.state = PipeStepRunningStep2
-		err = s.step2.Start(ctx, v)
-		if err != nil {
-			s.output <- helpers.NewErrorResult[C](err)
-			return
-		}
-		v2_, ok := <-s.step2.GetOutput()
-		if !ok {
-			s.output <- helpers.NewErrorResult[C](errors.Newf("step 2 closed output channel"))
-			return
-		}
-		v2, err := v2_.Value()
-		if err != nil {
-			s.output <- helpers.NewErrorResult[C](err)
-			return
-		}
+		fmt.Println("Starting step2")
 
-		s.state = PipeStepFinished
-		s.output <- helpers.NewValueResult(v2)
-	}()
-	return nil
+		eg2, ctx3 := errgroup.WithContext(ctx2)
+		eg2.Go(func() error {
+			return s.step2.Run(ctx3, v)
+		})
+
+		// NOTE(manuel, 2023-02-04) Maybe this error handling can be done more elegantly by handling the result
+		// of eg2.Wait()
+		eg2.Go(func() error {
+			select {
+			case <-ctx3.Done():
+				s.state = PipeStepError
+				s.output <- helpers.NewErrorResult[C](ctx3.Err())
+				return nil
+			case v2_, ok := <-s.step2.GetOutput():
+				if !ok {
+					s.state = PipeStepError
+					s.output <- helpers.NewErrorResult[C](errors.Newf("step 2 closed output channel"))
+					return nil
+				}
+				v2, err := v2_.Value()
+				if err != nil {
+					s.state = PipeStepError
+					s.output <- helpers.NewErrorResult[C](err)
+					return nil
+				}
+
+				s.state = PipeStepFinished
+				s.output <- helpers.NewValueResult(v2)
+			}
+
+			return nil
+		})
+
+		return eg2.Wait()
+	})
+
+	return eg.Wait()
 }
 
 func (s *PipeStep[A, B, C]) GetOutput() <-chan helpers.Result[C] {
@@ -173,7 +197,7 @@ func NewPipeStep[A, B, C any](step1 Step[A, B], step2 Step[B, C]) Step[A, C] {
 		state:  PipeStepNotStarted,
 		step1:  step1,
 		step2:  step2,
-		output: nil,
+		output: make(chan helpers.Result[C]),
 	}
 	return s
 }
