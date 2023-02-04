@@ -81,11 +81,14 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 
 	ctx := context.Background()
 
+	// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
 	promptTemplate, err := template.New("prompt").Parse(g.Prompt)
 	if err != nil {
 		return err
 	}
 
+	// TODO(manuel, 2023-02-04) This is where multisteps would work differently, since
+	// the prompt would be rendered at execution time
 	var promptBuffer strings.Builder
 	err = promptTemplate.Execute(&promptBuffer, parameters)
 	if err != nil {
@@ -124,19 +127,22 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
 	prompt := promptBuffer.String()
 	//fmt.Printf("Prompt:\n\n%s\n\n", prompt)
 
-	err = s.Start(ctx2, prompt)
-	if err != nil {
-		return err
-	}
+	eg.Go(func() error {
+		return s.Run(ctx2, prompt)
+	})
 
 	eg.Go(func() error {
-		result := <-s.GetOutput()
-		v, err := result.Value()
-		if err != nil {
-			return err
+		select {
+		case <-ctx2.Done():
+			return ctx2.Err()
+		case result := <-s.GetOutput():
+			v, err := result.Value()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s", v)
 		}
 
-		fmt.Printf("%s", v)
 		return err
 	})
 	return eg.Wait()
