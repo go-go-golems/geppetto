@@ -24,6 +24,9 @@ type GeppettoCommandDescription struct {
 	Flags     []*glazedcmds.Parameter `yaml:"flags,omitempty"`
 	Arguments []*glazedcmds.Parameter `yaml:"arguments,omitempty"`
 
+	// TODO(manuel, 2023-02-04) This now has a hack to switch the step type
+	Step *steps.StepDescription `yaml:"step,omitempty"`
+
 	Prompt string `yaml:"prompt"`
 }
 
