@@ -103,8 +103,20 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 			return
 		}
 
+		completion := ""
+
+		onData := func(resp *gpt3.CompletionResponse) {
+			data := resp.Choices[0].Text
+			//fmt.Println("object: %v, choices: %v\n", resp.Object, resp.Choices)
+			// TODO(manuel, 2023-02-02) Add stream mode
+			// See https://github.com/wesen/geppetto/issues/10
+			//
+			//fmt.Print(string(data))
+			completion += string(data)
+		}
+
 		// TODO(manuel, 2023-01-27) This is where we would emit progress status and do some logging
-		completion, err := client.CompletionWithEngine(ctx, engine, gpt3.CompletionRequest{
+		err = client.CompletionStreamWithEngine(ctx, engine, gpt3.CompletionRequest{
 			Prompt:      prompts,
 			MaxTokens:   o.settings.MaxResponseTokens,
 			Temperature: o.settings.Temperature,
@@ -113,7 +125,7 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 			LogProbs:    o.settings.LogProbs,
 			Echo:        false,
 			Stop:        o.settings.Stop,
-		})
+		}, onData)
 		o.state = CompletionStepFinished
 
 		if err != nil {
@@ -121,12 +133,15 @@ func (o *CompletionStep) Start(ctx context.Context, prompt string) error {
 			return
 		}
 
-		if len(completion.Choices) == 0 {
-			o.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
-			return
-		}
+		// TODO(manuel, 2023-02-04) Handle multiple outputs
+		// See https://github.com/wesen/geppetto/issues/23
 
-		o.output <- helpers.NewValueResult(completion.Choices[0].Text)
+		//if len(completion.Choices) == 0 {
+		//	o.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
+		//	return
+		//}
+
+		o.output <- helpers.NewValueResult(completion)
 	}()
 
 	return nil
