@@ -100,6 +100,9 @@ type PipeStep[A, B, C any] struct {
 	output chan helpers.Result[C]
 }
 
+// TODO(manuel, 2023-02-04) The pipe step should actually take a factory for the second step
+// Other wise it's just a simple functional pipe
+
 func (s *PipeStep[A, B, C]) Run(ctx context.Context, a A) error {
 	if s.state != PipeStepNotStarted {
 		return errors.Newf("step already started")
