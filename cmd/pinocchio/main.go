@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wesen/geppetto/cmd/pinocchio/cmds/openai"
+	"github.com/wesen/geppetto/cmd/pinocchio/cmds/openai/ui"
 	geppetto_cmds "github.com/wesen/geppetto/pkg/cmds"
 	glazed_cmds "github.com/wesen/glazed/pkg/cmds"
 	"github.com/wesen/glazed/pkg/help"
@@ -306,4 +307,6 @@ func init() {
 	_ = aliases
 
 	rootCmd.AddCommand(openai.OpenaiCmd)
+
+	rootCmd.AddCommand(ui.UiCmd)
 }
