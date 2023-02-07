@@ -24,33 +24,29 @@ const (
 
 func NewTemplateStep[A any](template string) *TemplateStep[A] {
 	return &TemplateStep[A]{
-		output:   nil,
+		output:   make(chan helpers.Result[string]),
 		template: template,
 		state:    TemplateStepNotStarted,
 	}
 }
 
-func (t *TemplateStep[A]) Start(ctx context.Context, a A) error {
-	t.output = make(chan helpers.Result[string])
-
+func (t *TemplateStep[A]) Run(ctx context.Context, a A) error {
 	tmpl, err := template.New("template").Parse(t.template)
 	if err != nil {
 		return err
 	}
 
 	t.state = TemplateStepRunning
-	go func() {
-		defer func() {
-			t.state = TemplateStepClosed
-			close(t.output)
-		}()
-
-		buf := &bytes.Buffer{}
-		err := tmpl.Execute(buf, a)
-
-		t.state = TemplateStepFinished
-		t.output <- helpers.NewResult(buf.String(), err)
+	defer func() {
+		t.state = TemplateStepClosed
+		close(t.output)
 	}()
+
+	buf := &bytes.Buffer{}
+	err = tmpl.Execute(buf, a)
+
+	t.state = TemplateStepFinished
+	t.output <- helpers.NewResult(buf.String(), err)
 
 	return nil
 }

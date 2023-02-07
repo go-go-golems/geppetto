@@ -1,0 +1,46 @@
+name: write-article
+short: Take a list of headings and paragraphs and extract question answers
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-davinci-003
+      temperature: 0.2
+      max_response_tokens: 256
+      # stream: true
+step:
+  type: multi
+  multi_input: article
+flags:
+  - name: questions
+    type: stringList
+    help: A list of questions to be answer for each paragraph
+arguments:
+  - name: article
+    type: objectFromFile
+    help: |
+    JSON object containing the article in the format:
+      [
+        {
+          "heading": "Heading 1",
+          "content": "Paragraph 1"
+        },
+        {
+          "heading": "Heading 2",
+          "content": "Paragraph 2"
+        }
+      ]
+    required: true
+prompt: |
+  Given the paragraph about {{ .heading }}:
+  
+  ---
+  {{ .content }}
+  ---
+  
+  Answer the following questions:
+  
+  {{ range $question := .questions }}
+  - {{ $question }}
+  {{ end }}

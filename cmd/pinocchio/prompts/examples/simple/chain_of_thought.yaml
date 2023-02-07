@@ -16,6 +16,8 @@ flags:
 prompt: |
     Given: The database tables orders(customer_id,shipping_state,value), line_items(order_id,product_id,quantity), products(id,category) and the categories shrubs, roses, azaleas, privacy trees, maple trees.
     Question: How many people ordered flowers in the southwest since spring?
+  
+    Question: {{ .QuestionType }}
 
     SQL:
     SELECT COUNT(DISTINCT orders.customer_id)
