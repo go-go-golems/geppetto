@@ -29,7 +29,7 @@ tag-release:
 
 release:
 	git push origin ${VERSION}
-	GOPROXY=proxy.golang.org go list -m github.com/wesen/geppetto@${VERSION}
+	GOPROXY=proxy.golang.org go list -m github.com/go-go-golems/geppetto@${VERSION}
 
 bump-glazed:
 	go get github.com/go-go-golems/glazed@latest
