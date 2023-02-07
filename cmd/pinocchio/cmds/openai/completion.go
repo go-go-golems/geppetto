@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/PullRequestInc/go-gpt3"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/wesen/geppetto/pkg/steps/openai"
-	"github.com/wesen/glazed/pkg/cli"
 	"os"
 	"strings"
 )

@@ -3,8 +3,8 @@ package steps
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/spf13/cobra"
-	"github.com/wesen/geppetto/pkg/helpers"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/errgo.v2/fmt/errors"
 )

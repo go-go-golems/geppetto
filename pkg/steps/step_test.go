@@ -3,9 +3,9 @@ package steps
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wesen/geppetto/pkg/helpers"
 	"testing"
 )
 

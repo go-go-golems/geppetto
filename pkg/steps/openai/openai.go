@@ -3,8 +3,8 @@ package openai
 import (
 	"context"
 	"github.com/PullRequestInc/go-gpt3"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/rs/zerolog/log"
-	"github.com/wesen/geppetto/pkg/helpers"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/errgo.v2/fmt/errors"
 )
