@@ -16,7 +16,12 @@ func TestSimpleStepInt(t *testing.T) {
 
 	require.Equal(t, SimpleStepNotStarted, s.GetState())
 
-	require.Nil(t, s.Start(context.Background(), 1))
+	go func() {
+		fmt.Println("Running simple step")
+		require.Nil(t, s.Run(context.Background(), 1))
+	}()
+
+	fmt.Println("Waiting for output")
 	v, ok := <-s.GetOutput()
 	require.True(t, ok)
 	value, err := v.Value()
@@ -30,8 +35,9 @@ func TestSimpleStepAsyncInt(t *testing.T) {
 		return <-c + a
 	})
 
-	require.Nil(t, s.Start(context.Background(), 1))
-	require.Equal(t, SimpleStepRunning, s.GetState())
+	go func() {
+		require.Nil(t, s.Run(context.Background(), 1))
+	}()
 	c <- 1
 	v, ok := <-s.GetOutput()
 	require.True(t, ok)
@@ -49,7 +55,10 @@ func TestPipeStepSimple(t *testing.T) {
 	})
 	s := NewPipeStep(s1, s2)
 
-	require.Nil(t, s.Start(context.Background(), 1))
+	go func() {
+		require.Nil(t, s.Run(context.Background(), 1))
+		fmt.Println("Finished running pipe step")
+	}()
 	v, ok := <-s.GetOutput()
 	require.True(t, ok)
 	value, err := v.Value()
@@ -61,6 +70,7 @@ func TestPipeStepAsync(t *testing.T) {
 	// channels need to be buffered so the steps can be started sequentially
 	c := make(chan int, 1)
 	d := make(chan int, 1)
+
 	s1 := NewSimpleStep(func(a int) helpers.Nothing {
 		fmt.Println("s1 start")
 		v := <-c
@@ -74,8 +84,10 @@ func TestPipeStepAsync(t *testing.T) {
 	})
 	s := NewPipeStep(s1, s2)
 
-	require.Nil(t, s.Start(context.Background(), 1))
-	require.Equal(t, PipeStepRunningStep1, s.GetState())
+	go func() {
+		require.Nil(t, s.Run(context.Background(), 1))
+	}()
+	// probably a race condition now
 	c <- 1
 	v, ok := <-s.GetOutput()
 	require.True(t, ok)

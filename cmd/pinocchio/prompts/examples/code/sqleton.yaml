@@ -1,0 +1,78 @@
+name: sqleton
+short: Generate sqleton queries
+long: Generate sqleton query yaml files based on metadata and a sql query
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-davinci-003
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop:
+        - "---END YAML---"
+      # stream: true
+flags:
+  - name: query
+    type: string
+    help: Query to templatize
+    required: true
+  - name: flags
+    type: string
+    help: Table schema
+    required: true
+prompt: |
+  We want to transform a SQL query into a generic template. 
+  The output is a YAML file that specifies the argument types and a go template for the actual query.
+  You are provided with a query and a list of flags to use in the template.
+  
+  QUERY: SELECT * FROM order_shipping_costs WHERE order_id IN ( 123, 234 ) AND order_number LIKE '12342%' ORDER BY order_number DESC LIMIT 10
+  FLAGS: limit, order_ids, order_numbers, sort_by
+  OUTPUT:
+  
+  ---BEGIN YAML---
+  {{`
+  name: shipping
+  short: Show shipping costs per order
+  flags:
+    - name: count
+      type: bool
+      help: Count the number of posts
+      default: false
+    - name: limit
+      type: int
+      help: Limit the number of posts
+      default: 10
+    - name: order_id
+      type: intList
+      help: List of order IDs
+    - name: order_number
+      type: stringList
+      help: List of order numbers
+    - name: sort_by
+      type: string
+      help: Sort by column
+      default: order_number DESC
+      required: false
+  query: |
+    SELECT {{ if .count }}COUNT(*) {{ else }} * {{ end }} FROM order_shipping_costs
+    WHERE 1=1
+    {{ if .order_id -}}
+    AND order_id IN ({{ .order_id | sqlIntIn }})
+    {{ end -}}
+    {{ range $number := .order_number -}}
+    AND order_number LIKE '{{ $number }}%'
+    {{ end -}}
+
+    ORDER BY {{ .sort_by }}
+    {{ if .limit -}}
+    LIMIT {{ .limit }}
+    {{ end -}} `}}
+  ---END YAML---
+  
+  QUERY: {{ .query }}
+  FLAGS: {{ .flags }}
+  OUTPUT: 
+  
+  ---BEGIN YAML---
+  
