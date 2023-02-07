@@ -3,10 +3,10 @@ package openai
 import (
 	"fmt"
 	gpt3 "github.com/PullRequestInc/go-gpt3"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wesen/geppetto/pkg/steps"
 	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"

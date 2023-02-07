@@ -3,7 +3,7 @@ package steps
 import (
 	"bytes"
 	"context"
-	"github.com/wesen/geppetto/pkg/helpers"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"text/template"
 )
 
