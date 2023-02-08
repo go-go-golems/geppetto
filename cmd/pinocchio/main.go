@@ -106,7 +106,7 @@ func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*geppetto_cmds.Geppe
 				log.Debug().Err(err).Msgf("Error while checking directory %s", docDir)
 				continue
 			}
-			err = helpSystem.LoadSectionsFromDirectory(docDir)
+			err = helpSystem.LoadSectionsFromFS(os.DirFS(docDir), "/")
 			if err != nil {
 				log.Warn().Err(err).Msgf("Error while loading help sections from directory %s", repository)
 				continue
@@ -171,7 +171,7 @@ func initCommands(
 		commands = append(commands, command.(*geppetto_cmds.GeppettoCommand))
 	}
 
-	err = helpSystem.LoadSectionsFromEmbedFS(promptsFS, "prompts/doc")
+	err = helpSystem.LoadSectionsFromFS(promptsFS, "prompts/doc")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,7 +248,7 @@ func main() {
 
 func init() {
 	helpSystem := help.NewHelpSystem()
-	err := helpSystem.LoadSectionsFromEmbedFS(docFS, ".")
+	err := helpSystem.LoadSectionsFromFS(docFS, ".")
 	if err != nil {
 		panic(err)
 	}
