@@ -101,6 +101,8 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-go-golems/glazed v0.2.3 h1:XwiGqv1z3p6LlmBx79327iYrm16lqKya8Gv88dYlO2E=
 github.com/go-go-golems/glazed v0.2.3/go.mod h1:lGQ+K9u8+YQdAd8EiYBsOjrZAAdZvV/0tW0TlmZII5s=
+github.com/go-go-golems/glazed v0.2.4 h1:8MC376ff0rRuykSlww7M+sgpBcC0FCqbOmIQWAGiwWs=
+github.com/go-go-golems/glazed v0.2.4/go.mod h1:lGQ+K9u8+YQdAd8EiYBsOjrZAAdZvV/0tW0TlmZII5s=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
