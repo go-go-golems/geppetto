@@ -90,7 +90,7 @@ func loadRepositoryCommands(helpSystem *help.HelpSystem) ([]*geppetto_cmds.Geppe
 			log.Warn().Msgf("Repository %s is not a directory", repository)
 		} else {
 			docDir := fmt.Sprintf("%s/doc", repository)
-			commands_, aliases_, err := glazed_cmds.LoadCommandsFromDirectory(loader, repository, repository)
+			commands_, aliases_, err := glazed_cmds.LoadCommandsFromFS(loader, os.DirFS(repository), "file", ".", repository)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -163,7 +163,7 @@ func initCommands(
 
 	loader := &geppetto_cmds.GeppettoCommandLoader{}
 	var commands []*geppetto_cmds.GeppettoCommand
-	commands_, aliases, err := glazed_cmds.LoadCommandsFromEmbedFS(loader, promptsFS, ".", "prompts/")
+	commands_, aliases, err := glazed_cmds.LoadCommandsFromFS(loader, promptsFS, "embed", ".", "prompts/")
 	if err != nil {
 		return nil, nil, err
 	}
