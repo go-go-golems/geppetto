@@ -99,12 +99,8 @@ github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbS
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-go-golems/clay v0.0.0-20230208052441-2882ca017a4b h1:h/WMytBhmZkMCqw+YS/7RIe+cCERUxChtfpX9DT0cY0=
-github.com/go-go-golems/clay v0.0.0-20230208052441-2882ca017a4b/go.mod h1:VN2dCzwyLrI6ZcBIWl+yzyuWC29UrTbNniwjgwceoc0=
 github.com/go-go-golems/clay v0.0.0-20230209040950-078286f571ee h1:fJ3k93DJJKvEVHzK2qNoToW0juR+LP2U66qhfdACOls=
 github.com/go-go-golems/clay v0.0.0-20230209040950-078286f571ee/go.mod h1:0fsM9SjCsIkCGcjpVdWyIK6s8FRADE/rsCqZz7bNDyk=
-github.com/go-go-golems/glazed v0.2.4 h1:8MC376ff0rRuykSlww7M+sgpBcC0FCqbOmIQWAGiwWs=
-github.com/go-go-golems/glazed v0.2.4/go.mod h1:lGQ+K9u8+YQdAd8EiYBsOjrZAAdZvV/0tW0TlmZII5s=
 github.com/go-go-golems/glazed v0.2.5-0.20230209040643-10add7791234 h1:oRq7CX3cT8z6CBlwvHk/fMdgzE+VkOmndCyDVzYf6Rk=
 github.com/go-go-golems/glazed v0.2.5-0.20230209040643-10add7791234/go.mod h1:lGQ+K9u8+YQdAd8EiYBsOjrZAAdZvV/0tW0TlmZII5s=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
