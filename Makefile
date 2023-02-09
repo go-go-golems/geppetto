@@ -32,4 +32,5 @@ release:
 	GOPROXY=proxy.golang.org go list -m github.com/go-go-golems/geppetto@${VERSION}
 
 bump-glazed:
-	go get github.com/go-go-golems/glazed@latest
+	go get github.com/go-go-golems/glazed@main
+	go get github.com/go-go-golems/clay@main
