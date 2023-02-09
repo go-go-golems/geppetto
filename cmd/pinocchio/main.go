@@ -7,6 +7,7 @@ import (
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/ui"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
+	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -90,15 +91,17 @@ func init() {
 			{
 				FS:      promptsFS,
 				Name:    "embed",
-				Root:    "prompts/",
+				Root:    ".",
 				DocRoot: "prompts/doc",
 			},
 		},
 		Repositories: repositories,
 	}
 
+	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
+		&cmds.GeppettoCommandLoader{}, "", "")
 	commands, aliases, err := locations.LoadCommands(
-		&cmds.GeppettoCommandLoader{}, helpSystem, rootCmd)
+		yamlLoader, helpSystem, rootCmd)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
 		os.Exit(1)
