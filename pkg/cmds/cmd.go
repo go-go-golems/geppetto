@@ -18,11 +18,11 @@ import (
 )
 
 type GeppettoCommandDescription struct {
-	Name      string                  `yaml:"name"`
-	Short     string                  `yaml:"short"`
-	Long      string                  `yaml:"long,omitempty"`
-	Flags     []*glazedcmds.Parameter `yaml:"flags,omitempty"`
-	Arguments []*glazedcmds.Parameter `yaml:"arguments,omitempty"`
+	Name      string                            `yaml:"name"`
+	Short     string                            `yaml:"short"`
+	Long      string                            `yaml:"long,omitempty"`
+	Flags     []*glazedcmds.ParameterDefinition `yaml:"flags,omitempty"`
+	Arguments []*glazedcmds.ParameterDefinition `yaml:"arguments,omitempty"`
 
 	// TODO(manuel, 2023-02-04) This now has a hack to switch the step type
 	Step *steps.StepDescription `yaml:"step,omitempty"`
@@ -58,13 +58,13 @@ func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error 
 		}
 	}
 
-	return g.Run(parameters)
+	return g.Run(parameters, nil)
 }
 
 //go:embed templates/dyno.tmpl.html
 var dynoTemplate string
 
-func (g *GeppettoCommand) Run(parameters map[string]interface{}) error {
+func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.GlazeProcessor) error {
 	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
@@ -194,8 +194,8 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 
 	buf := strings.NewReader(string(yamlContent))
 	scd := &GeppettoCommandDescription{
-		Flags:     []*glazedcmds.Parameter{},
-		Arguments: []*glazedcmds.Parameter{},
+		Flags:     []*glazedcmds.ParameterDefinition{},
+		Arguments: []*glazedcmds.ParameterDefinition{},
 	}
 	err = yaml.NewDecoder(buf).Decode(scd)
 	if err != nil {
