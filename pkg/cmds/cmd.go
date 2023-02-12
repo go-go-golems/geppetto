@@ -37,7 +37,7 @@ type GeppettoCommand struct {
 }
 
 func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error {
-	parameters, err := glazedcmds.GatherParameters(cmd, g.Description(), args)
+	parameters, err := glazedcmds.GatherParametersFromCobraCommand(cmd, g.Description(), args)
 	if err != nil {
 		return err
 	}
