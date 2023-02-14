@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 	"io"
 	"strings"
-	"text/template"
 )
 
 type GeppettoCommandDescription struct {
@@ -85,7 +84,7 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.G
 	ctx := context.Background()
 
 	// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
-	promptTemplate, err := template.New("prompt").Parse(g.Prompt)
+	promptTemplate, err := helpers.CreateTemplate("prompt").Parse(g.Prompt)
 	if err != nil {
 		return err
 	}
@@ -118,6 +117,7 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.G
 			"maxTokens":       settings.MaxResponseTokens,
 			"temperature":     settings.Temperature,
 			"topP":            settings.TopP,
+			"model":           settings.Engine,
 		})
 		if err != nil {
 			return err
