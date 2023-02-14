@@ -18,6 +18,10 @@ flags:
     type: string
     help: The problem to solve
     required: false
+  - name: instructions
+    type: string
+    help: Additional instructions to follow
+    required: false
   - name: examples
     type: objectListFromFile
     required: true
@@ -29,6 +33,10 @@ prompt: |
   Q: {{ $example.question }}
   A: {{ $example.answer }}
   {{ end }}
+  
+  {{ if .instructions -}}
+  Instructions: {{ .instructions }}
+  {{- end }}
   
   Q: {{ .question }}
   A:
