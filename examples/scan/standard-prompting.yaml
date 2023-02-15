@@ -1,0 +1,28 @@
+- question: turn left
+  answer: TURN LEFT
+- question: turn right
+  answer: TURN RIGHT
+- question: jump left
+  answer: TURN LEFT + JUMP
+- question: run right
+  answer: TURN RIGHT + RUN
+- question: look twice
+  answer: LOOK * 2
+- question: run and look twice
+  answer: RUN + LOOK * 2
+- question: jump right thrice
+  answer: (TURN RIGHT + JUMP) * 3
+- question: walk after run
+  answer: RUN + WALK
+- question: turn opposite left
+  answer: TURN LEFT * 2
+- question: turn around left
+  answer: TURN LEFT * 4
+- question: turn opposite right
+  answer: TURN RIGHT * 2
+- question: turn around right
+  answer: TURN RIGHT * 4
+- question: walk opposite left
+  answer: TURN LEFT * 2 + WALK
+- question: walk around left
+  answer: (TURN LEFT + WALK) * 4
