@@ -7,7 +7,7 @@ factories:
     completion:
       engine: text-davinci-003
       temperature: 0.2
-      max_response_tokens: 256
+      max_response_tokens: 512
       # stream: true
 flags:
   - name: question
@@ -32,11 +32,9 @@ prompt: |
   {{ range $i, $example := .examples }}
   Q: {{ $example.question }}
   A: {{ $example.answer }}
-  {{ end }}
-  
-  {{ if .instructions -}}
+  {{ end -}}
+  {{ if .instructions }}
   Instructions: {{ .instructions }}
   {{- end }}
-  
   Q: {{ .question }}
   A:
