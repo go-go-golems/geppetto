@@ -1,0 +1,4 @@
+name: letter-concatenate-chain-of-thought
+aliasFor: example-driven
+flags:
+  examples: ./examples/letter-concatenation/chain-of-thought.yaml

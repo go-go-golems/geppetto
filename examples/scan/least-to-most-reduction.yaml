@@ -1,0 +1,24 @@
+- question: "look right after look twice"
+  answer: >
+    "look right after look twice" can be solved by: "look right", "look twice".
+- question: "jump opposite right thrice and walk"
+  answer: >
+    "jump opposite right thrice" can be solved by: "jump opposite right", "jump opposite right thrice". "walk" can be solved by: "walk". So, "jump opposite right thrice and walk" can be solved by: "jump opposite right", "jump opposite right thrice", "walk".
+- question: "run left twice and run right"
+  answer: >
+    "run left twice" can be solved by: "run left", "run left twice". "run right" can be solved by "run right". So, "run left twice and run right" can.be solved by: "run left", "run left twice", "run right".
+- question: "run opposite right"
+  answer: >
+    "run opposite right" can be solved by "run opposite right".
+- question: "look opposite right thrice after walk"
+  answer: >
+    "look opposite right thrice" can be solved by: "look opposite right", "look opposite right thrice". "walk" can be solved by "walk". So, "look opposite right thrice after walk" can be solved by: "look opposite right", "look opposite right thrice", "walk".
+- question: "jump around right"
+  answer: >
+    "jump around right" can be solved by: "jump right", "jump around right". So, "jump around right" can be solved by: "jump right", "jump around right".
+- question: "look around right thrice and walk"
+  answer: >
+    "look around right thrice" can be solved by: "look right", "look around right", "look around right thrice". "walk" can be solved by "walk". So, "look around right thrice and walk" can be solved by: "look right", "look around right", "look around right thrice", "walk".
+- question: "turn right after run right thrice"
+  answer: >
+    "turn right" can be solved by: "turn right". "run right thrice" can be solved by: "run right", "run right thrice". So, "turn right after run right thrice" can be solved by: "turn right", "run right", "run right thrice".
