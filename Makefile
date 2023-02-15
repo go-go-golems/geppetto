@@ -35,9 +35,7 @@ bump-glazed:
 	go get github.com/go-go-golems/glazed@main
 	go get github.com/go-go-golems/clay@main
 
-# Get location of pinocchio from shell
 PINOCCHIO_BINARY=$(shell which pinocchio)
-
 install:
 	go build -o ./dist/pinocchio ./cmd/pinocchio && \
 		cp ./dist/pinocchio $(PINOCCHIO_BINARY)
