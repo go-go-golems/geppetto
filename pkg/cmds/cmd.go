@@ -111,7 +111,7 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.G
 		}
 		settings := openaiCompletionStepFactory__.StepSettings
 
-		dyno, err := helpers.RenderTemplateString(dynoTemplate, map[string]interface{}{
+		dyno, err := helpers.RenderHtmlTemplateString(dynoTemplate, map[string]interface{}{
 			"initialPrompt":   promptBuffer.String(),
 			"initialResponse": "",
 			"maxTokens":       settings.MaxResponseTokens,
@@ -160,8 +160,8 @@ func (g *GeppettoCommand) BuildCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd.Flags().Bool("print-prompt", false, "Print the prompt that will be executed.")
-	cmd.Flags().Bool("print-dyno", false, "Print a dyno HTML embed with the given prompt. Useful to create documentation examples.")
+	cmd.PersistentFlags().Bool("print-prompt", false, "Print the prompt that will be executed.")
+	cmd.PersistentFlags().Bool("print-dyno", false, "Print a dyno HTML embed with the given prompt. Useful to create documentation examples.")
 
 	cmd.PersistentFlags().Int("timeout", 60, "timeout in seconds")
 	cmd.PersistentFlags().String("organization", "", "organization to use")
