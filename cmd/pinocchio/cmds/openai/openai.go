@@ -339,7 +339,10 @@ func init() {
 	ListEnginesCmd.Flags().String("id", "", "glob pattern to match engine id")
 	ListEnginesCmd.Flags().String("owner", "", "glob pattern to match engine owner")
 	ListEnginesCmd.Flags().Bool("ready", false, "glob pattern to match engine ready")
-	cli.AddFlags(ListEnginesCmd, cli.NewFlagsDefaults())
+	err := cli.AddFlags(ListEnginesCmd, cli.NewFlagsDefaults())
+	if err != nil {
+		panic(err)
+	}
 	OpenaiCmd.AddCommand(ListEnginesCmd)
 
 	completionStepFactory = openai.NewCompletionStepFactory(
@@ -348,7 +351,7 @@ func init() {
 	)
 	defaultEngine := "text-davinci-002"
 	maxResponseTokens := 256
-	err := completionStepFactory.AddFlags(CompletionCmd, "", &openai.CompletionStepFactoryFlagsDefaults{
+	err = completionStepFactory.AddFlags(CompletionCmd, "", &openai.CompletionStepFactoryFlagsDefaults{
 		Engine:            &defaultEngine,
 		MaxResponseTokens: &maxResponseTokens,
 	})
@@ -356,23 +359,38 @@ func init() {
 
 	CompletionCmd.Flags().Bool("print-usage", false, "print usage")
 	CompletionCmd.Flags().Bool("print-raw-response", false, "print raw response as object")
-	cli.AddFlags(CompletionCmd, cli.NewFlagsDefaults())
+	err = cli.AddFlags(CompletionCmd, cli.NewFlagsDefaults())
+	if err != nil {
+		panic(err)
+	}
 	OpenaiCmd.AddCommand(CompletionCmd)
 
-	cli.AddFlags(EngineInfoCmd, cli.NewFlagsDefaults())
+	err = cli.AddFlags(EngineInfoCmd, cli.NewFlagsDefaults())
+	if err != nil {
+		panic(err)
+	}
 	OpenaiCmd.AddCommand(EngineInfoCmd)
 
 	EmbeddingsCmd.Flags().Bool("print-usage", false, "print usage")
 	EmbeddingsCmd.Flags().Bool("print-raw-response", false, "print raw response as object")
-	cli.AddFlags(EmbeddingsCmd, cli.NewFlagsDefaults())
+	err = cli.AddFlags(EmbeddingsCmd, cli.NewFlagsDefaults())
+	if err != nil {
+		panic(err)
+	}
 	EmbeddingsCmd.Flags().String("engine", gpt3.TextDavinci002Engine, "engine to use")
 	OpenaiCmd.AddCommand(EmbeddingsCmd)
 
 	OpenaiCmd.AddCommand(EditsCmd)
 
-	cli.AddFlags(FamiliesCmd, cli.NewFlagsDefaults())
+	err = cli.AddFlags(FamiliesCmd, cli.NewFlagsDefaults())
+	if err != nil {
+		panic(err)
+	}
 	OpenaiCmd.AddCommand(FamiliesCmd)
 
-	cli.AddFlags(ModelsCmd, cli.NewFlagsDefaults())
+	err = cli.AddFlags(ModelsCmd, cli.NewFlagsDefaults())
+	if err != nil {
+		panic(err)
+	}
 	OpenaiCmd.AddCommand(ModelsCmd)
 }

@@ -1,0 +1,22 @@
+- question: think, machine
+  answer: >
+    The last letter of "think" is "k".
+    The last letter of "machine" is "e".
+    So "think, machine" is "ke".
+- question: learning, reasoning, generalization
+  answer: >
+    The last letter of "learning" is "g".
+    The last letter of "reasoning" is "n".
+    The last letter of "generalization" is "n".
+    So "learning, reasoning, generalization" is "ggn".
+- question: artificial, intelligence
+  answer: >
+    The last letter of "artificial" is "l".
+    The last letter of "intelligence" is "e".
+    So "artificial, intelligence" is "le".
+- question: transformer, language, vision
+  answer: >
+    The last letter of "transformer" is "r".
+    The last letter of "language" is "e".
+    The last letter of "vision" is "n".
+    So "transformer, language, vision" is "ren".

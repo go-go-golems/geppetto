@@ -34,3 +34,8 @@ release:
 bump-glazed:
 	go get github.com/go-go-golems/glazed@main
 	go get github.com/go-go-golems/clay@main
+
+PINOCCHIO_BINARY=$(shell which pinocchio)
+install:
+	go build -o ./dist/pinocchio ./cmd/pinocchio && \
+		cp ./dist/pinocchio $(PINOCCHIO_BINARY)
