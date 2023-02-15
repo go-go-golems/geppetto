@@ -1,0 +1,24 @@
+- question: think, machine
+  answer: >
+    The last letter of "think" is "k".
+    The last letter of "machine" is "e".
+    Concatenating "k" and "e" gives "ke".
+    So "think, machine" output "ke".
+- question: think, machine, learning
+  answer: >
+    "think, machine" outputs "ke".
+    The last letter of "learning" is "g".
+    Concatenating "ke" and "g" gives "keg".
+    So "think, machine, keg" is "keg".
+- question: transformer, language
+  answer: >
+    The last letter of "transformer" is "r".
+    The last letter of "language" is "e".
+    Concatenating "r" and "e" gives "re".
+    So "transformer, language" is "re".
+- question: transformer, language, vision
+  answer: >
+    "transformer, language" outputs "re".
+    The last letter of "vision" is "n".
+    Concatenating "re" and "n" gives "ren".
+    So "transformer, language, vision" is "ren".
