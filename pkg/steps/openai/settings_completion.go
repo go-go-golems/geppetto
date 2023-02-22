@@ -84,6 +84,20 @@ type CompletionStepFactory struct {
 	StepSettings   *CompletionStepSettings `yaml:"completion,omitempty"`
 }
 
+func (csf *CompletionStepFactory) UpdateFromParameters(ps map[string]interface{}) error {
+	err := parameters.InitializeStructFromParameters(csf.StepSettings, ps)
+	if err != nil {
+		return err
+	}
+
+	err = parameters.InitializeStructFromParameters(csf.ClientSettings, ps)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func NewCompletionStepFactory(
 	settings *CompletionStepSettings,
 	clientSettings *ClientSettings,
