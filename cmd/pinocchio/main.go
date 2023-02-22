@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/help"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
@@ -49,14 +48,14 @@ func init() {
 	_ = usageFunc
 	_ = usageTemplate
 
-	sections, err := openai.LoadModelsHelpFiles()
-	if err != nil {
-		log.Error().Err(err).Msg("Error loading models help files")
-	}
-	for _, section := range sections {
-		helpSystem.AddSection(section)
-	}
-
+	//sections, err := openai.LoadModelsHelpFiles()
+	//if err != nil {
+	//	log.Error().Err(err).Msg("Error loading models help files")
+	//}
+	//for _, section := range sections {
+	//	helpSystem.AddSection(section)
+	//}
+	//
 	rootCmd.SetHelpFunc(helpFunc)
 	rootCmd.SetUsageFunc(usageFunc)
 	rootCmd.SetHelpTemplate(helpTemplate)
@@ -64,11 +63,6 @@ func init() {
 
 	helpCmd := help.NewCobraHelpCommand(helpSystem)
 	rootCmd.SetHelpCommand(helpCmd)
-
-	// db connection persistent base flags
-	// logging flags
-
-	rootCmd.PersistentFlags().String("openai-api-key", "", "OpenAI API key")
 
 	err = clay.InitViper("pinocchio", rootCmd)
 	if err != nil {

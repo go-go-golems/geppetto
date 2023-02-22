@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/glazed/pkg/cli"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers"
 	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -20,13 +22,33 @@ type GeppettoCommandDescription struct {
 	Name      string                            `yaml:"name"`
 	Short     string                            `yaml:"short"`
 	Long      string                            `yaml:"long,omitempty"`
-	Flags     []*glazedcmds.ParameterDefinition `yaml:"flags,omitempty"`
-	Arguments []*glazedcmds.ParameterDefinition `yaml:"arguments,omitempty"`
+	Flags     []*parameters.ParameterDefinition `yaml:"flags,omitempty"`
+	Arguments []*parameters.ParameterDefinition `yaml:"arguments,omitempty"`
+	Layers    []layers.ParameterLayer           `yaml:"layers,omitempty"`
 
 	// TODO(manuel, 2023-02-04) This now has a hack to switch the step type
 	Step *steps.StepDescription `yaml:"step,omitempty"`
 
 	Prompt string `yaml:"prompt"`
+}
+
+func HelpersParameterLayer() layers.ParameterLayer {
+	return layers.NewParameterLayer("helpers", "pinocchio helpers",
+		layers.WithFlags(
+			parameters.NewParameterDefinition(
+				"print-prompt",
+				parameters.ParameterTypeBool,
+				parameters.WithDefault(false),
+				parameters.WithHelp("Print the prompt"),
+			),
+			parameters.NewParameterDefinition(
+				"print-dyno",
+				parameters.ParameterTypeBool,
+				parameters.WithDefault(false),
+				parameters.WithHelp("Print the dyno embed div"),
+			),
+		),
+	)
 }
 
 type GeppettoCommand struct {
@@ -35,35 +57,44 @@ type GeppettoCommand struct {
 	Prompt      string
 }
 
-func (g *GeppettoCommand) RunFromCobra(cmd *cobra.Command, args []string) error {
-	parameters, err := glazedcmds.GatherParametersFromCobraCommand(cmd, g.Description(), args)
+func NewGeppettoCommand(
+	description *glazedcmds.CommandDescription,
+	factories map[string]interface{},
+	prompt string,
+) (*GeppettoCommand, error) {
+	helpersParameterLayer := HelpersParameterLayer()
+
+	glazedParameterLayer, err := cli.NewGlazedParameterLayers()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	printPrompt, _ := cmd.Flags().GetBool("print-prompt")
-	parameters["print-prompt"] = printPrompt
-	printDyno, _ := cmd.Flags().GetBool("print-dyno")
-	parameters["print-dyno"] = printDyno
+	description.Layers = append(description.Layers,
+		helpersParameterLayer,
+		glazedParameterLayer)
 
-	for _, f := range g.Factories {
-		factory, ok := f.(steps.GenericStepFactory)
-		if !ok {
-			continue
-		}
-		err = factory.UpdateFromCobra(cmd)
-		if err != nil {
-			return err
-		}
-	}
-
-	return g.Run(parameters, nil)
+	return &GeppettoCommand{
+		description: description,
+		Factories:   factories,
+		Prompt:      prompt,
+	}, nil
 }
 
 //go:embed templates/dyno.tmpl.html
 var dynoTemplate string
 
-func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.GlazeProcessor) error {
+func (g *GeppettoCommand) Run(ctx context.Context, ps map[string]interface{}, gp *glazedcmds.GlazeProcessor) error {
+	for _, f := range g.Factories {
+		factory, ok := f.(steps.GenericStepFactory)
+		if !ok {
+			continue
+		}
+		err := factory.UpdateFromParameters(ps)
+		if err != nil {
+			return err
+		}
+	}
+
 	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
@@ -81,8 +112,6 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.G
 		return err
 	}
 
-	ctx := context.Background()
-
 	// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
 	promptTemplate, err := helpers.CreateTemplate("prompt").Parse(g.Prompt)
 	if err != nil {
@@ -92,18 +121,18 @@ func (g *GeppettoCommand) Run(parameters map[string]interface{}, _ *glazedcmds.G
 	// TODO(manuel, 2023-02-04) This is where multisteps would work differently, since
 	// the prompt would be rendered at execution time
 	var promptBuffer strings.Builder
-	err = promptTemplate.Execute(&promptBuffer, parameters)
+	err = promptTemplate.Execute(&promptBuffer, ps)
 	if err != nil {
 		return err
 	}
 
-	printPrompt, ok := parameters["print-prompt"]
+	printPrompt, ok := ps["print-prompt"]
 	if ok && printPrompt.(bool) {
 		fmt.Println(promptBuffer.String())
 		return nil
 	}
 
-	printDyno, ok := parameters["print-dyno"]
+	printDyno, ok := ps["print-dyno"]
 	if ok && printDyno.(bool) {
 		openaiCompletionStepFactory__, ok := openaiCompletionStepFactory_.(*openai.CompletionStepFactory)
 		if !ok {
@@ -155,34 +184,6 @@ func (g *GeppettoCommand) Description() *glazedcmds.CommandDescription {
 	return g.description
 }
 
-func (g *GeppettoCommand) BuildCobraCommand() (*cobra.Command, error) {
-	cmd, err := glazedcmds.NewCobraCommand(g)
-	if err != nil {
-		return nil, err
-	}
-	cmd.PersistentFlags().Bool("print-prompt", false, "Print the prompt that will be executed.")
-	cmd.PersistentFlags().Bool("print-dyno", false, "Print a dyno HTML embed with the given prompt. Useful to create documentation examples.")
-
-	cmd.PersistentFlags().Int("timeout", 60, "timeout in seconds")
-	cmd.PersistentFlags().String("organization", "", "organization to use")
-	cmd.PersistentFlags().String("user-agent", "Geppetto", "user agent to use")
-	cmd.PersistentFlags().String("base-url", "https://api.openai.com/v1", "base url to use")
-	cmd.PersistentFlags().String("default-engine", "", "default engine to use")
-	cmd.PersistentFlags().String("user", "", "user (hash) to use")
-	for _, f := range g.Factories {
-		factory, ok := f.(steps.GenericStepFactory)
-		if !ok {
-			continue
-		}
-
-		err := factory.AddFlags(cmd, "openai-", &openai.CompletionStepFactoryFlagsDefaults{})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return cmd, nil
-}
-
 type GeppettoCommandLoader struct {
 }
 
@@ -194,8 +195,8 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 
 	buf := strings.NewReader(string(yamlContent))
 	scd := &GeppettoCommandDescription{
-		Flags:     []*glazedcmds.ParameterDefinition{},
-		Arguments: []*glazedcmds.ParameterDefinition{},
+		Flags:     []*parameters.ParameterDefinition{},
+		Arguments: []*parameters.ParameterDefinition{},
 	}
 	err = yaml.NewDecoder(buf).Decode(scd)
 	if err != nil {
@@ -207,26 +208,38 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 	// rewind to read the factories...
 	buf = strings.NewReader(string(yamlContent))
 	completionStepFactory, err := openai.NewCompletionStepFactoryFromYAML(buf)
-
 	if err != nil {
 		return nil, err
 	}
+
+	completionParameterLayer, err := openai.NewCompletionParameterLayer(completionStepFactory.StepSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	clientParameterLayer, err := openai.NewClientParameterLayer(completionStepFactory.ClientSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	layers := append(scd.Layers, completionParameterLayer, clientParameterLayer)
 
 	factories := map[string]interface{}{}
 	if completionStepFactory != nil {
 		factories["openai-completion-step"] = completionStepFactory
 	}
-	sq := &GeppettoCommand{
-		Prompt: scd.Prompt,
-		// separate copy because the glazed framework uses this to build the cobra command and mutates it
-		description: &glazedcmds.CommandDescription{
-			Name:      scd.Name,
-			Short:     scd.Short,
-			Long:      scd.Long,
-			Flags:     scd.Flags,
-			Arguments: scd.Arguments,
-		},
-		Factories: factories,
+	description := glazedcmds.NewCommandDescription(
+		scd.Name,
+		glazedcmds.WithShort(scd.Short),
+		glazedcmds.WithLong(scd.Long),
+		glazedcmds.WithFlags(scd.Flags...),
+		glazedcmds.WithArguments(scd.Arguments...),
+		glazedcmds.WithLayers(layers...),
+	)
+
+	sq, err := NewGeppettoCommand(description, factories, scd.Prompt)
+	if err != nil {
+		return nil, err
 	}
 
 	return []glazedcmds.Command{sq}, nil

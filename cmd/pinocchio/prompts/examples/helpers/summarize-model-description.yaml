@@ -14,7 +14,7 @@ flags:
     type: string
     help: Name of the model or family
     required: true
-  - name: fields
+  - name: json_fields
     type: stringList
     default:
       - subtitle
@@ -31,7 +31,7 @@ arguments:
 prompt: |
   Generate a json file containing for the model family {{ .name }}.
   
-  {{ range $field := .fields }}- {{ $field }}
+  {{ range $field := .json_fields }}- {{ $field }}
   {{ end }}
   {{- if .instructions }}{{ .instructions }}{{ end }}
   ---BEGIN---
