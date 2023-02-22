@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -68,6 +69,7 @@ func NewGeppettoCommand(
 	if err != nil {
 		return nil, err
 	}
+	glazedParameterLayer.SelectParameterLayer.Defaults.Select = "response"
 
 	description.Layers = append(description.Layers,
 		helpersParameterLayer,
@@ -172,7 +174,12 @@ func (g *GeppettoCommand) Run(ctx context.Context, ps map[string]interface{}, gp
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%s", v)
+			err = gp.ProcessInputObject(map[string]interface{}{
+				"response": v,
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		return err
@@ -212,6 +219,12 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 		return nil, err
 	}
 
+	// check if the openai-api-key is set in viper
+	openaiAPIKey := viper.GetString("openai-api-key")
+	if openaiAPIKey != "" {
+		completionStepFactory.ClientSettings.APIKey = &openaiAPIKey
+	}
+
 	completionParameterLayer, err := openai.NewCompletionParameterLayer(completionStepFactory.StepSettings)
 	if err != nil {
 		return nil, err
@@ -222,7 +235,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 		return nil, err
 	}
 
-	layers := append(scd.Layers, completionParameterLayer, clientParameterLayer)
+	ls := append(scd.Layers, completionParameterLayer, clientParameterLayer)
 
 	factories := map[string]interface{}{}
 	if completionStepFactory != nil {
@@ -234,7 +247,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 		glazedcmds.WithLong(scd.Long),
 		glazedcmds.WithFlags(scd.Flags...),
 		glazedcmds.WithArguments(scd.Arguments...),
-		glazedcmds.WithLayers(layers...),
+		glazedcmds.WithLayers(ls...),
 	)
 
 	sq, err := NewGeppettoCommand(description, factories, scd.Prompt)
