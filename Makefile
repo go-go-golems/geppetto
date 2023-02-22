@@ -19,7 +19,7 @@ test:
 
 build:
 	go generate ./...
-	go build
+	go build ./...
 
 goreleaser:
 	goreleaser release --snapshot --rm-dist

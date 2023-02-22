@@ -1,0 +1,35 @@
+slug: openai-connection
+name: OpenAI connection flags
+flags:
+#  type ClientSettings struct {
+#  APIKey        *string        `yaml:"api_key,omitempty"`
+#  Timeout       *time.Duration `yaml:"timeout,omitempty"`
+#  Organization  *string        `yaml:"organization,omitempty"`
+#  DefaultEngine *string        `yaml:"default_engine,omitempty"`
+#  UserAgent     *string        `yaml:"user_agent,omitempty"`
+#  BaseURL       *string        `yaml:"base_url,omitempty"`
+#}
+  - name: openai-api-key
+    type: string
+    help: OpenAI API key
+    default: ""
+  - name: openai-timeout
+    type: int
+    help: OpenAI timeout (in seconds)
+    default: 60
+  - name: openai-organization
+    type: string
+    help: OpenAI organization
+    default: ""
+  - name: openai-default-engine
+    type: string
+    help: OpenAI default engine
+    default: "text-davinci-003"
+  - name: openai-user-agent
+    type: string
+    help: OpenAI user agent
+  - name: openai-base-url
+    type: string
+    help: OpenAI base URL
+    default: "https://api.openai.com/v1"
+

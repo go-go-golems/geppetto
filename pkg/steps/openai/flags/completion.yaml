@@ -1,0 +1,36 @@
+slug: openai-completion
+name: OpenAI completion API flags
+description: Settings for the OpenAI completion API
+flags:
+  - name: openai-engine
+    type: string
+    help: OpenAI completion engine
+    default: "text-davinci-003"
+  - name: openai-temperature
+    type: float
+    help: OpenAI completion temperature
+    default: 0.2
+  - name: openai-max-response-tokens
+    type: int
+    help: OpenAI completion max response tokens
+    default: 512
+  - name: openai-stream
+    type: bool
+    help: OpenAI completion stream
+    default: false
+  - name: openai-logprobs
+    type: int
+    help: OpenAI completion logprobs
+    default: 0
+  - name: openai-stop
+    type: stringList
+    help: OpenAI completion stop
+    default: []
+  - name: openai-top-p
+    type: float
+    help: OpenAI completion top p
+    default: 1.0
+  - name: openai-n
+    type: int
+    help: OpenAI completion n
+    default: 1
