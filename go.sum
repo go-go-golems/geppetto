@@ -101,8 +101,12 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-go-golems/clay v0.0.4 h1:cJE0b1cVIsQ0FpXZTZrxq/KBDhAygtxsCBJB+jrLiFk=
 github.com/go-go-golems/clay v0.0.4/go.mod h1:LqabI6hsNhBihiZ9p0DrjGln5B/zi9ngP8QZksloG6E=
+github.com/go-go-golems/clay v0.0.6-0.20230222151015-3d0fba6da4ce h1:ogIXMMucMVgvHkbBu2dTQfqO4+S/VZb4wWA0B3SCliw=
+github.com/go-go-golems/clay v0.0.6-0.20230222151015-3d0fba6da4ce/go.mod h1:ho7g7NForF5ZAY23WwoDtg+GSme83IKiHiZ8xf2JSxU=
 github.com/go-go-golems/glazed v0.2.10-0.20230220190924-cc7977473e8a h1:CKv9uJrP1RdsqLK8NomQ4i3a0gAbd+RpmxX9aHUCjH8=
 github.com/go-go-golems/glazed v0.2.10-0.20230220190924-cc7977473e8a/go.mod h1:47JPSC4Qua14Sotzy/b7BMWfxsRU+8RcxUgEQZFmNAY=
+github.com/go-go-golems/glazed v0.2.12 h1:R4B2QQylDP2frIrc9Ovx+7JzcXRYKBP6JclvfW3hWX8=
+github.com/go-go-golems/glazed v0.2.12/go.mod h1:47JPSC4Qua14Sotzy/b7BMWfxsRU+8RcxUgEQZFmNAY=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
