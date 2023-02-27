@@ -116,14 +116,9 @@ github.com/gin-gonic/gin v1.9.0/go.mod h1:W1Me9+hsUSyj3CePGrd1/QrKJMSJ1Tu/0hFEH8
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-go-golems/clay v0.0.6-0.20230222151015-3d0fba6da4ce h1:ogIXMMucMVgvHkbBu2dTQfqO4+S/VZb4wWA0B3SCliw=
-github.com/go-go-golems/clay v0.0.6-0.20230222151015-3d0fba6da4ce/go.mod h1:ho7g7NForF5ZAY23WwoDtg+GSme83IKiHiZ8xf2JSxU=
 github.com/go-go-golems/clay v0.0.6-0.20230227024048-eb5821d715fc h1:nKAqn6UcgjBnd4LehkSg3jektA26h/YkmwvdWxdMXgs=
 github.com/go-go-golems/clay v0.0.6-0.20230227024048-eb5821d715fc/go.mod h1:5xTh9jOtcCzPPbMY9ZBEn4pd/VmXjv9W7+MKqmjog6s=
-github.com/go-go-golems/glazed v0.2.15 h1:ajF56BKBRQl9cHfWzuUMdjnyCVIh7DlGtyfkwbsBzCs=
-github.com/go-go-golems/glazed v0.2.15/go.mod h1:47JPSC4Qua14Sotzy/b7BMWfxsRU+8RcxUgEQZFmNAY=
-github.com/go-go-golems/glazed v0.2.16 h1:eXc5pmxmY3niozO/2GJLxJfMASql/zbVPY7DToQh27s=
-github.com/go-go-golems/glazed v0.2.16/go.mod h1:MHa40qraSnnTzSBQuisevzY7pIoofSIepnQKw0GLdw0=
+github.com/go-go-golems/glazed v0.2.17 h1:1s149vLRziJStAR6eo2+G7yJrPpYMVBr9t5nQM9cgNw=
 github.com/go-go-golems/glazed v0.2.17/go.mod h1:FawJxK/gSjFeppb/9ccUIAfXS2cRVkZdFVyaVOI02Fs=
 github.com/go-playground/assert/v2 v2.2.0 h1:JvknZsQTYeFEAhQwI4qEt9cyV5ONwRHC+lYKSsYSR8s=
 github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
@@ -334,6 +329,8 @@ github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.9 h1:rmenucSohSTiyL09Y+l2OCk+FrMxGMzho2+tjr5ticU=
 github.com/ugorji/go/codec v1.2.9/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
+github.com/wesen/filepathx v1.0.1-0.20230227021146-d1c2e34eff6e h1:t/X5D51cT1uIcA7K1wa9fjNxxMez6S0aJNrV7UlpO8Q=
+github.com/wesen/filepathx v1.0.1-0.20230227021146-d1c2e34eff6e/go.mod h1:8kvfGVCYNfq0wC/QpgMOsCWtNQC5JysLRyKMVkq3mSg=
 github.com/wesen/parka v0.2.1 h1:Ts4Wa97je9TLQUP+l5tUFTNZNTZoXnuqMEySGceMQUA=
 github.com/wesen/parka v0.2.1/go.mod h1:38xAxPsUR/dtsWdtZ5Abnhc1DbYlUfhu5fsBeZAzChs=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
