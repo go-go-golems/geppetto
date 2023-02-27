@@ -116,10 +116,10 @@ github.com/gin-gonic/gin v1.9.0/go.mod h1:W1Me9+hsUSyj3CePGrd1/QrKJMSJ1Tu/0hFEH8
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-go-golems/clay v0.0.6-0.20230227024048-eb5821d715fc h1:nKAqn6UcgjBnd4LehkSg3jektA26h/YkmwvdWxdMXgs=
-github.com/go-go-golems/clay v0.0.6-0.20230227024048-eb5821d715fc/go.mod h1:5xTh9jOtcCzPPbMY9ZBEn4pd/VmXjv9W7+MKqmjog6s=
-github.com/go-go-golems/glazed v0.2.17 h1:1s149vLRziJStAR6eo2+G7yJrPpYMVBr9t5nQM9cgNw=
-github.com/go-go-golems/glazed v0.2.17/go.mod h1:FawJxK/gSjFeppb/9ccUIAfXS2cRVkZdFVyaVOI02Fs=
+github.com/go-go-golems/clay v0.0.6 h1:wMOByY3io8Pk8P/K4L4RkFvefT3eMOo9ndTF+Dr07X0=
+github.com/go-go-golems/clay v0.0.6/go.mod h1:5xTh9jOtcCzPPbMY9ZBEn4pd/VmXjv9W7+MKqmjog6s=
+github.com/go-go-golems/glazed v0.2.18 h1:vE3yT5tohYZGQ5txWPZXkoQlc1/tyWXHQbkZYrLhwew=
+github.com/go-go-golems/glazed v0.2.18/go.mod h1:Nf4vx3TF7hrt66F1TALSOcvIvPBnq38LjKUy5HyBS6g=
 github.com/go-playground/assert/v2 v2.2.0 h1:JvknZsQTYeFEAhQwI4qEt9cyV5ONwRHC+lYKSsYSR8s=
 github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
 github.com/go-playground/locales v0.14.1/go.mod h1:hxrqLVvrK65+Rwrd5Fc6F2O76J/NuW9t0sjnWqG1slY=
