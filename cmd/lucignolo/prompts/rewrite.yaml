@@ -1,0 +1,55 @@
+name: rewrite
+short: Rewrite text
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-davinci-003
+      temperature: 0.8
+      max_response_tokens: 1024
+      # stream: true
+flags:
+  - name: author
+    type: stringList
+    help: Inspired by authors
+    default: 
+      - L. Ron Hubbard
+      - Isaac Asimov
+      - Richard Bandler
+      - Robert Anton Wilson
+  - name: adjective
+    type: stringList
+    help: Style adjectives
+    default: 
+      - esoteric
+      - retro
+      - technical
+      - seventies hip
+      - science fiction
+  - name: style
+    type: string
+    help: Style
+    default: in a style reminiscent of seventies and eighties computer manuals
+  - name: instructions
+    type: string 
+    help: Additional instructions
+arguments:
+  - name: body
+    type: stringFromFile
+    help: Paragraph to rewrite
+    required: true
+prompt: |
+  Rewrite the following paragraph, 
+  {{ if .style }}in the style of {{ .style }},{{ end }}
+  {{ if .adjective }}so that it sounds {{ .adjective | join ", " }}, {{ end }}
+  {{ if .author }}in the style of {{ .author | join ", " }}. {{ end }}
+  Don't mention any authors names.
+
+  ---
+  {{ .body -}}
+  ---
+
+  {{ if .instructions }} {{ .instructions }} {{ end }}
+
+  ---
