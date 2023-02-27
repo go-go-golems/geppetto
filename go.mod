@@ -7,8 +7,8 @@ require (
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
-	github.com/go-go-golems/clay v0.0.6-0.20230227024048-eb5821d715fc
-	github.com/go-go-golems/glazed v0.2.17
+	github.com/go-go-golems/clay v0.0.6
+	github.com/go-go-golems/glazed v0.2.18
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.0
 	github.com/spf13/cobra v1.6.1
