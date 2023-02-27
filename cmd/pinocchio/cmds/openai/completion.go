@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -67,7 +68,12 @@ func NewCompletionCommand() (*CompletionCommand, error) {
 	}, nil
 }
 
-func (j *CompletionCommand) Run(ctx context.Context, ps map[string]interface{}, gp *cmds.GlazeProcessor) error {
+func (j *CompletionCommand) Run(
+	ctx context.Context,
+	parsedLayers map[string]*layers.ParsedParameterLayer,
+	ps map[string]interface{},
+	gp *cmds.GlazeProcessor,
+) error {
 	prompts := []string{}
 
 	inputFiles, ok := ps["input-files"].([]string)
