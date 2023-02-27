@@ -7,8 +7,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/help"
+	parka "github.com/go-go-golems/parka/pkg"
 	"github.com/spf13/cobra"
-	parka "github.com/wesen/parka/pkg"
 	"os"
 )
 
