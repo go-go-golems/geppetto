@@ -33,7 +33,7 @@ type GeppettoCommandDescription struct {
 	Prompt string `yaml:"prompt"`
 }
 
-func HelpersParameterLayer() layers.ParameterLayer {
+func HelpersParameterLayer() (layers.ParameterLayer, error) {
 	return layers.NewParameterLayer("helpers", "pinocchio helpers",
 		layers.WithFlags(
 			parameters.NewParameterDefinition(
@@ -63,13 +63,22 @@ func NewGeppettoCommand(
 	factories map[string]interface{},
 	prompt string,
 ) (*GeppettoCommand, error) {
-	helpersParameterLayer := HelpersParameterLayer()
+	helpersParameterLayer, err := HelpersParameterLayer()
+	if err != nil {
+		return nil, err
+	}
 
 	glazedParameterLayer, err := cli.NewGlazedParameterLayers()
 	if err != nil {
 		return nil, err
 	}
-	glazedParameterLayer.SelectParameterLayer.Defaults.Select = "response"
+	selectDefaults := &cli.SelectSettings{
+		SelectField: "response",
+	}
+	err = glazedParameterLayer.SelectParameterLayer.InitializeParameterDefaultsFromStruct(selectDefaults)
+	if err != nil {
+		return nil, err
+	}
 
 	description.Layers = append(description.Layers,
 		helpersParameterLayer,
@@ -85,7 +94,12 @@ func NewGeppettoCommand(
 //go:embed templates/dyno.tmpl.html
 var dynoTemplate string
 
-func (g *GeppettoCommand) Run(ctx context.Context, ps map[string]interface{}, gp *glazedcmds.GlazeProcessor) error {
+func (g *GeppettoCommand) Run(
+	ctx context.Context,
+	parsedLayers map[string]*layers.ParsedParameterLayer,
+	ps map[string]interface{},
+	gp *glazedcmds.GlazeProcessor,
+) error {
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
 		if !ok {

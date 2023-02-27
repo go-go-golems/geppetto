@@ -18,6 +18,7 @@ type Step[A, B any] interface {
 }
 
 type GenericStepFactory interface {
+	// TODO(manuel, 2023-02-27) This is probably updateFromLayers, and each factory should be able to register its own layers
 	UpdateFromParameters(ps map[string]interface{}) error
 }
 
