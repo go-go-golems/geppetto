@@ -39,7 +39,7 @@ brews:
     homepage: "https://github.com/go-go-golems/pinocchio"
     tap:
       owner: go-go-golems
-      name: homebrew-go-go
+      name: homebrew-go-go-go
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
 
 # modelines, feel free to remove those if you don't want/use them:
