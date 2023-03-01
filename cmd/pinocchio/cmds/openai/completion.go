@@ -25,11 +25,11 @@ func NewCompletionCommand() (*CompletionCommand, error) {
 	if err != nil {
 		return nil, err
 	}
-	openaiParameterLayer, err := openai.NewClientParameterLayer(nil)
+	openaiParameterLayer, err := openai.NewClientParameterLayer()
 	if err != nil {
 		return nil, err
 	}
-	completionParameterLayer, err := openai.NewCompletionParameterLayer(nil)
+	completionParameterLayer, err := openai.NewCompletionParameterLayer()
 	if err != nil {
 		return nil, err
 	}
