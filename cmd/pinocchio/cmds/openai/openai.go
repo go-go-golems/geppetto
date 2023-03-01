@@ -408,14 +408,11 @@ func init() {
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraEngineInfoCommand)
 
-	//EmbeddingsCmd.Flags().Bool("print-usage", false, "print usage")
-	//EmbeddingsCmd.Flags().Bool("print-raw-response", false, "print raw response as object")
-	//err = cli.AddFlags(EmbeddingsCmd, cli.NewFlagsDefaults())
-	//if err != nil {
-	//	panic(err)
-	//}
-	//EmbeddingsCmd.Flags().String("engine", gpt3.TextDavinci002Engine, "engine to use")
-	//OpenaiCmd.AddCommand(EmbeddingsCmd)
+	embeddingsCommand, err := NewEmbeddingsCommand()
+	cobra.CheckErr(err)
+	cobraEmbeddingsCommand, err := cli.BuildCobraCommand(embeddingsCommand)
+	cobra.CheckErr(err)
+	OpenaiCmd.AddCommand(cobraEmbeddingsCommand)
 
 	err = cli.AddGlazedProcessorFlagsToCobraCommand(FamiliesCmd)
 	if err != nil {

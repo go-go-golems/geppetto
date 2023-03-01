@@ -1,95 +1,163 @@
 package openai
 
-//var EmbeddingsCmd = &cobra.Command{
-//	Use:   "embeddings",
-//	Short: "Compute embeddings for a series of files",
-//	Args:  cobra.MinimumNArgs(1),
-//	Run: func(cmd *cobra.Command, args []string) {
-//		user, _ := cmd.PersistentFlags().GetString("user")
-//
-//		prompts := []string{}
-//
-//		for _, file := range args {
-//
-//			if file == "-" {
-//				file = "/dev/stdin"
-//			}
-//
-//			f, err := os.ReadFile(file)
-//			cobra.CheckErr(err)
-//
-//			prompts = append(prompts, string(f))
-//		}
-//
-//		// TODO(manuel, 2023-01-28) actually I don't think it's a good idea to go through the stepfactory here
-//		// we just want to have the RAW api access with all its outputs
-//
-//		clientSettings, err := openai.NewClientSettingsFromCobra(cmd)
-//		cobra.CheckErr(err)
-//
-//		err = completionStepFactory.UpdateFromParameters(cmd)
-//		cobra.CheckErr(err)
-//
-//		client, err := clientSettings.CreateClient()
-//		cobra.CheckErr(err)
-//
-//		engine, _ := cmd.Flags().GetString("engine")
-//
-//		ctx := context.Background()
-//		resp, err := client.Embeddings(ctx, gpt3.EmbeddingsRequest{
-//			Input: prompts,
-//			Model: engine,
-//			User:  user,
-//		})
-//		cobra.CheckErr(err)
-//
-//		printUsage, _ := cmd.Flags().GetBool("print-usage")
-//		usage := resp.Usage
-//		evt := log.Debug()
-//		if printUsage {
-//			evt = log.Info()
-//		}
-//		evt.
-//			Int("prompt-tokens", usage.PromptTokens).
-//			Int("total-tokens", usage.TotalTokens).
-//			Msg("Usage")
-//
-//		gp, of, err := cli.SetupProcessor(cmd)
-//		cobra.CheckErr(err)
-//
-//		printRawResponse, _ := cmd.Flags().GetBool("print-raw-response")
-//
-//		if printRawResponse {
-//			// serialize resp to json
-//			rawResponse, err := json.MarshalIndent(resp, "", "  ")
-//			cobra.CheckErr(err)
-//
-//			// deserialize to map[string]interface{}
-//			var rawResponseMap map[string]interface{}
-//			err = json.Unmarshal(rawResponse, &rawResponseMap)
-//			cobra.CheckErr(err)
-//
-//			err = gp.ProcessInputObject(rawResponseMap)
-//			cobra.CheckErr(err)
-//
-//		} else {
-//			for _, embedding := range resp.Data {
-//				row := map[string]interface{}{
-//					"object":    embedding.Object,
-//					"embedding": embedding.Embedding,
-//					"index":     embedding.Index,
-//				}
-//				err = gp.ProcessInputObject(row)
-//				cobra.CheckErr(err)
-//			}
-//		}
-//
-//		s, err := of.Output()
-//		if err != nil {
-//			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
-//			os.Exit(1)
-//		}
-//		fmt.Print(s)
-//		cobra.CheckErr(err)
-//	},
-//}
+import (
+	"context"
+	"encoding/json"
+	"github.com/PullRequestInc/go-gpt3"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
+	"os"
+)
+
+type EmbeddingsCommand struct {
+	description *cmds.CommandDescription
+}
+
+func NewEmbeddingsCommand() (*EmbeddingsCommand, error) {
+	glazedParameterLayer, err := cli.NewGlazedParameterLayers(
+		cli.WithOutputParameterLayerOptions(
+			layers.WithDefaults(map[string]interface{}{
+				"output": "json",
+			},
+			),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	openaiParameterLayer, err := openai.NewClientParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+	completionParameterLayer, err := openai.NewCompletionParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	return &EmbeddingsCommand{
+		description: cmds.NewCommandDescription(
+			"embeddings",
+			cmds.WithShort("send a prompt to the embeddings API"),
+			cmds.WithFlags(
+				parameters.NewParameterDefinition(
+					"print-usage",
+					parameters.ParameterTypeBool,
+					parameters.WithHelp("print usage"),
+					parameters.WithDefault(false),
+				),
+				parameters.NewParameterDefinition(
+					"print-raw-response",
+					parameters.ParameterTypeBool,
+					parameters.WithHelp("print raw response as object"),
+					parameters.WithDefault(false),
+				),
+				parameters.NewParameterDefinition(
+					"model",
+					parameters.ParameterTypeString,
+					parameters.WithHelp("model to use"),
+					parameters.WithDefault("text-embedding-ada-002"),
+				),
+			),
+			cmds.WithArguments(
+				parameters.NewParameterDefinition(
+					"input-files",
+					parameters.ParameterTypeStringList,
+					parameters.WithRequired(true),
+				),
+			),
+			cmds.WithLayers(
+				glazedParameterLayer,
+				completionParameterLayer,
+				openaiParameterLayer,
+			),
+		),
+	}, nil
+
+}
+
+func (c *EmbeddingsCommand) Description() *cmds.CommandDescription {
+	return c.description
+}
+
+func (c *EmbeddingsCommand) Run(
+	ctx context.Context,
+	parsedLayers map[string]*layers.ParsedParameterLayer,
+	ps map[string]interface{},
+	gp *cmds.GlazeProcessor,
+) error {
+	user, _ := ps["user"].(string)
+
+	inputFiles, _ := ps["input-files"].([]string)
+	prompts := []string{}
+
+	for _, file := range inputFiles {
+
+		if file == "-" {
+			file = "/dev/stdin"
+		}
+
+		f, err := os.ReadFile(file)
+		cobra.CheckErr(err)
+
+		prompts = append(prompts, string(f))
+	}
+
+	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
+	cobra.CheckErr(err)
+
+	client, err := clientSettings.CreateClient()
+	cobra.CheckErr(err)
+
+	engine, _ := ps["model"].(string)
+
+	resp, err := client.Embeddings(ctx, gpt3.EmbeddingsRequest{
+		Input: prompts,
+		Model: engine,
+		User:  user,
+	})
+	cobra.CheckErr(err)
+
+	printUsage, _ := ps["print-usage"].(bool)
+	printRawResponse, _ := ps["print-raw-response"].(bool)
+
+	usage := resp.Usage
+	evt := log.Debug()
+	if printUsage {
+		evt = log.Info()
+	}
+	evt.
+		Int("prompt-tokens", usage.PromptTokens).
+		Int("total-tokens", usage.TotalTokens).
+		Msg("Usage")
+
+	if printRawResponse {
+		// serialize resp to json
+		rawResponse, err := json.MarshalIndent(resp, "", "  ")
+		cobra.CheckErr(err)
+
+		// deserialize to map[string]interface{}
+		var rawResponseMap map[string]interface{}
+		err = json.Unmarshal(rawResponse, &rawResponseMap)
+		cobra.CheckErr(err)
+
+		err = gp.ProcessInputObject(rawResponseMap)
+		cobra.CheckErr(err)
+	} else {
+		for _, embedding := range resp.Data {
+			row := map[string]interface{}{
+				"object":    embedding.Object,
+				"embedding": embedding.Embedding,
+				"index":     embedding.Index,
+			}
+			err = gp.ProcessInputObject(row)
+			cobra.CheckErr(err)
+		}
+	}
+
+	return nil
+}
