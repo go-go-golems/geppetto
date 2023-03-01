@@ -33,6 +33,14 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+brews:
+  - name: pinocchio
+    description: "Pinocchio is a tool to interact with large language models"
+    homepage: "https://github.com/go-go-golems/pinocchio"
+    tap:
+      owner: go-go-golems
+      name: homebrew-go-go
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
 
 # modelines, feel free to remove those if you don't want/use them:
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
