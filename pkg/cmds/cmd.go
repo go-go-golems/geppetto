@@ -68,15 +68,7 @@ func NewGeppettoCommand(
 		return nil, err
 	}
 
-	glazedParameterLayer, err := cli.NewGlazedParameterLayers(
-		cli.WithSelectParameterLayerOptions(
-			layers.WithDefaults(
-				&cli.SelectSettings{
-					SelectField: "response",
-				},
-			),
-		),
-	)
+	glazedParameterLayer, err := cli.NewGlazedParameterLayers()
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +201,10 @@ func (g *GeppettoCommand) Description() *glazedcmds.CommandDescription {
 type GeppettoCommandLoader struct {
 }
 
-func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.Command, error) {
+func (g *GeppettoCommandLoader) LoadCommandFromYAML(
+	s io.Reader,
+	options ...glazedcmds.CommandDescriptionOption,
+) ([]glazedcmds.Command, error) {
 	yamlContent, err := io.ReadAll(s)
 	if err != nil {
 		return nil, err
@@ -260,13 +255,18 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 	if completionStepFactory != nil {
 		factories["openai-completion-step"] = completionStepFactory
 	}
-	description := glazedcmds.NewCommandDescription(
-		scd.Name,
+
+	options_ := []glazedcmds.CommandDescriptionOption{
 		glazedcmds.WithShort(scd.Short),
 		glazedcmds.WithLong(scd.Long),
 		glazedcmds.WithFlags(scd.Flags...),
 		glazedcmds.WithArguments(scd.Arguments...),
 		glazedcmds.WithLayers(ls...),
+	}
+
+	description := glazedcmds.NewCommandDescription(
+		scd.Name,
+		options_...,
 	)
 
 	sq, err := NewGeppettoCommand(description, factories, scd.Prompt)
@@ -274,14 +274,25 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 		return nil, err
 	}
 
+	for _, option := range options {
+		option(sq.Description())
+	}
+
 	return []glazedcmds.Command{sq}, nil
 }
 
-func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(s io.Reader) ([]*glazedcmds.CommandAlias, error) {
+func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(
+	s io.Reader,
+	options ...glazedcmds.CommandDescriptionOption,
+) ([]*glazedcmds.CommandAlias, error) {
 	var alias glazedcmds.CommandAlias
 	err := yaml.NewDecoder(s).Decode(&alias)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, option := range options {
+		option(alias.Description())
 	}
 
 	if !alias.IsValid() {
