@@ -6,6 +6,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 	"net/http"
 	"time"
@@ -14,12 +15,12 @@ import (
 var ErrMissingYAMLAPIKey = &yaml.TypeError{Errors: []string{"missing api key"}}
 
 type ClientSettings struct {
-	APIKey        *string        `yaml:"api_key,omitempty" glazed.parameters:"openai-api-key"`
-	Timeout       *time.Duration `yaml:"timeout,omitempty" glazed.parameters:"openai-timeout"`
-	Organization  *string        `yaml:"organization,omitempty" glazed.parameters:"openai-organization"`
-	DefaultEngine *string        `yaml:"default_engine,omitempty" glazed.parameters:"openai-default-engine"`
-	UserAgent     *string        `yaml:"user_agent,omitempty" glazed.parameters:"openai-user-agent"`
-	BaseURL       *string        `yaml:"base_url,omitempty" glazed.parameters:"openai-base-url"`
+	APIKey        *string        `yaml:"api_key,omitempty" glazed.parameter:"openai-api-key"`
+	Timeout       *time.Duration `yaml:"timeout,omitempty" glazed.parameter:"openai-timeout"`
+	Organization  *string        `yaml:"organization,omitempty" glazed.parameter:"openai-organization"`
+	DefaultEngine *string        `yaml:"default_engine,omitempty" glazed.parameter:"openai-default-engine"`
+	UserAgent     *string        `yaml:"user_agent,omitempty" glazed.parameter:"openai-user-agent"`
+	BaseURL       *string        `yaml:"base_url,omitempty" glazed.parameter:"openai-base-url"`
 	HTTPClient    *http.Client   `yaml:"omitempty"`
 }
 
@@ -45,7 +46,37 @@ func NewClientSettingsFromParameters(ps map[string]interface{}) (*ClientSettings
 	if err != nil {
 		return nil, err
 	}
+
+	if ret.Timeout != nil {
+		duration := *ret.Timeout * time.Second
+		ret.Timeout = &duration
+	}
+
+	if ret.APIKey == nil {
+		return nil, ErrMissingYAMLAPIKey
+	}
 	return ret, nil
+}
+
+func (cp *ClientParameterLayer) ParseFlagsFromCobraCommand(
+	cmd *cobra.Command,
+) (map[string]interface{}, error) {
+	// actually hijack and load everything from viper instead of cobra...
+	ps, err := parameters.GatherFlagsFromViper(cp.Flags, false, cp.Prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	// now load from flag overrides
+	ps2, err := parameters.GatherFlagsFromCobraCommand(cmd, cp.Flags, true, cp.Prefix)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range ps2 {
+		ps[k] = v
+	}
+
+	return ps, nil
 }
 
 // UnmarshalYAML overrides YAML parsing to convert time.duration from int
@@ -110,6 +141,9 @@ func (c *ClientSettings) ToOptions() []gpt3.ClientOption {
 }
 
 func (c *ClientSettings) CreateClient() (gpt3.Client, error) {
+	if c.APIKey == nil {
+		return nil, ErrMissingYAMLAPIKey
+	}
 	evt := log.Debug()
 	if c.BaseURL != nil {
 		evt = evt.Str("base_url", *c.BaseURL)
