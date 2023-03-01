@@ -61,22 +61,16 @@ func (c *CompletionStepSettings) Clone() *CompletionStepSettings {
 var completionStepSettingsYAML []byte
 
 type CompletionParameterLayer struct {
-	layers.ParameterLayerImpl
+	*layers.ParameterLayerImpl
 }
 
-func NewCompletionParameterLayer(defaults *CompletionStepSettings) (*CompletionParameterLayer, error) {
-	ret := &CompletionParameterLayer{}
-	err := ret.LoadFromYAML(completionStepSettingsYAML)
+func NewCompletionParameterLayer(options ...layers.ParameterLayerOptions) (*CompletionParameterLayer, error) {
+	ret, err := layers.NewParameterLayerFromYAML(completionStepSettingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ret.InitializeParameterDefaultsFromStruct(defaults)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return &CompletionParameterLayer{ret}, nil
 }
 
 type CompletionStepFactory struct {
