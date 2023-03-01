@@ -68,14 +68,15 @@ func NewGeppettoCommand(
 		return nil, err
 	}
 
-	glazedParameterLayer, err := cli.NewGlazedParameterLayers()
-	if err != nil {
-		return nil, err
-	}
-	selectDefaults := &cli.SelectSettings{
-		SelectField: "response",
-	}
-	err = glazedParameterLayer.SelectParameterLayer.InitializeParameterDefaultsFromStruct(selectDefaults)
+	glazedParameterLayer, err := cli.NewGlazedParameterLayers(
+		cli.WithSelectParameterLayerOptions(
+			layers.WithDefaults(
+				&cli.SelectSettings{
+					SelectField: "response",
+				},
+			),
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -239,12 +240,16 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(s io.Reader) ([]glazedcmds.C
 		completionStepFactory.ClientSettings.APIKey = &openaiAPIKey
 	}
 
-	completionParameterLayer, err := openai.NewCompletionParameterLayer(completionStepFactory.StepSettings)
+	completionParameterLayer, err := openai.NewCompletionParameterLayer(
+		layers.WithDefaults(completionStepFactory.StepSettings),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	clientParameterLayer, err := openai.NewClientParameterLayer(completionStepFactory.ClientSettings)
+	clientParameterLayer, err := openai.NewClientParameterLayer(
+		layers.WithDefaults(completionStepFactory.ClientSettings),
+	)
 	if err != nil {
 		return nil, err
 	}
