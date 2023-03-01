@@ -78,7 +78,7 @@ func (c *ListEnginesCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp *cmds.GlazeProcessor,
+	gp cmds.Processor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -174,7 +174,7 @@ func (c *EngineInfoCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp *cmds.GlazeProcessor,
+	gp cmds.Processor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)

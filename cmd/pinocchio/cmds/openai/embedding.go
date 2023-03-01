@@ -88,7 +88,7 @@ func (c *EmbeddingsCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp *cmds.GlazeProcessor,
+	gp cmds.Processor,
 ) error {
 	user, _ := ps["user"].(string)
 

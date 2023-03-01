@@ -99,7 +99,7 @@ func (g *GeppettoCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp *glazedcmds.GlazeProcessor,
+	gp glazedcmds.Processor,
 ) error {
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
