@@ -19,8 +19,8 @@ var docFS embed.FS
 var promptsFS embed.FS
 
 var rootCmd = &cobra.Command{
-	Use:   "pinocchio",
-	Short: "pinocchio is a tool to run LLM applications",
+	Use:   "lucignolo",
+	Short: "lucignolo is a little proof-of-concept web service for LLM applications",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// reinitialize the logger because we can now parse --log-level and co
 		// from the command line flag
@@ -109,16 +109,18 @@ func main() {
 				)
 			}
 
-			var parkaCommands []parka.ParkaCommand
+			s, _ := parka.NewServer(serverOptions...)
+
 			for _, command := range commands {
-				parkaCommands = append(parkaCommands, parka.NewSimpleParkaCommand(command))
+				d := command.Description()
+				s.Router.GET("/api/"+d.Name, s.HandleSimpleQueryCommand(command))
+				s.Router.POST("api/"+d.Name, s.HandleSimpleFormCommand(command))
 			}
 			for _, alias := range aliases {
-				parkaCommands = append(parkaCommands, parka.NewSimpleParkaCommand(alias))
+				d := alias.Description()
+				s.Router.GET("/api/"+d.Name, s.HandleSimpleQueryCommand(alias))
+				s.Router.POST("api/"+d.Name, s.HandleSimpleFormCommand(alias))
 			}
-			serverOptions = append(serverOptions, parka.WithCommands(parkaCommands...))
-
-			s, _ := parka.NewServer(serverOptions...)
 
 			err = s.Run()
 			cobra.CheckErr(err)

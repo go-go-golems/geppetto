@@ -27,22 +27,16 @@ type ClientSettings struct {
 var clientFlagsYAML []byte
 
 type ClientParameterLayer struct {
-	layers.ParameterLayerImpl
+	*layers.ParameterLayerImpl
 }
 
-func NewClientParameterLayer(defaults *ClientSettings) (*ClientParameterLayer, error) {
-	ret := &ClientParameterLayer{}
-	err := ret.LoadFromYAML(clientFlagsYAML)
+func NewClientParameterLayer(options ...layers.ParameterLayerOptions) (*ClientParameterLayer, error) {
+	ret, err := layers.NewParameterLayerFromYAML(clientFlagsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ret.InitializeParameterDefaultsFromStruct(defaults)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return &ClientParameterLayer{ParameterLayerImpl: ret}, nil
 }
 
 func NewClientSettingsFromParameters(ps map[string]interface{}) (*ClientSettings, error) {

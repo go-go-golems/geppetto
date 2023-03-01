@@ -8,8 +8,8 @@ require (
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/go-go-golems/clay v0.0.6
-	github.com/go-go-golems/glazed v0.2.18
-	github.com/go-go-golems/parka v0.2.3
+	github.com/go-go-golems/glazed v0.2.19
+	github.com/go-go-golems/parka v0.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.0
 	github.com/spf13/cobra v1.6.1
