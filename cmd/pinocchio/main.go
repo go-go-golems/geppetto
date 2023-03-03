@@ -7,7 +7,9 @@ import (
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/ui"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -92,10 +94,24 @@ func init() {
 		Repositories: repositories,
 	}
 
+	glazedParameterLayer, err := cli.NewGlazedParameterLayers(
+		cli.WithSelectParameterLayerOptions(
+			layers.WithDefaults(
+				&cli.SelectSettings{
+					SelectField: "response",
+				},
+			),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
 		&cmds.GeppettoCommandLoader{}, "", "")
 	commands, aliases, err := locations.LoadCommands(
-		yamlLoader, helpSystem, rootCmd)
+		yamlLoader, helpSystem, rootCmd, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
+
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
 		os.Exit(1)
