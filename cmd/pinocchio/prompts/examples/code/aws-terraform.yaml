@@ -1,0 +1,60 @@
+name: aws-terraform
+short: Generate AWS terraform resources
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-davinci-003
+      temperature: 0.2
+      max_response_tokens: 2048
+      # stream: true
+flags:
+  - name: module
+    type: bool
+    default: false
+    help: Generate a terraform module
+  - name: instructions
+    type: string
+    help: Additional language specific instructions
+  - name: comments
+    type: bool
+    default: true
+    help: Include comments
+  - name: resource
+    type: string
+    help: Resource to generate
+  - name: outputs
+    type: stringList
+    help: Outputs to generate
+  - name: variables
+    type: stringList
+    help: Variables to use
+  - name: terraform
+    type: stringFromFile
+    help: Additional terraform to help ChatGPT
+arguments:
+  - name: input_file
+    type: stringFromFile
+    help: Input file containing description
+prompt: |
+  Create {{ if .comments }}commented{{end}} Terraform code for {{ .resource }}.
+  {{ if .instructions }}{{ .instructions }}{{ end -}}
+  {{ if .variables }}
+  Use the following variables:{{ range $variable := .variables }}
+  - {{ $variable }}{{ end }}
+  {{ end -}}
+  {{ if .outputs }}
+  Add the following outputs:{{ range $output := .outputs }}
+  - {{ $output }}{{ end }}
+  {{ end -}}
+  {{ if .terraform }}
+  Here is some existing terraform:
+  ```
+  {{ .terraform }}
+  ```
+  {{ end -}}
+  
+  {{ if .input_file }}Additional information:
+  {{ .input_file }}
+  {{ end -}}

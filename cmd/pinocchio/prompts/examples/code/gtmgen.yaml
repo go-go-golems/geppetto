@@ -7,7 +7,7 @@ factories:
       timeout: 120
     completion:
       engine: text-davinci-003
-      temperature: 0.7
+      temperature: 0.2
       max_response_tokens: 2048
       # stream: true
 flags:
