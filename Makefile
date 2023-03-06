@@ -24,12 +24,18 @@ build:
 goreleaser:
 	goreleaser release --snapshot --rm-dist
 
-tag-release:
-	git tag ${VERSION}
+tag-major:
+	git tag $(shell svu major)
+
+tag-minor:
+	git tag $(shell svu minor)
+
+tag-patch:
+	git tag $(shell svu patch)
 
 release:
-	git push origin ${VERSION}
-	GOPROXY=proxy.golang.org go list -m github.com/go-go-golems/geppetto@${VERSION}
+	git push --tags
+	GOPROXY=proxy.golang.org go list -m github.com/go-go-golems/geppetto@$(shell svu current)
 
 bump-glazed:
 	go get github.com/go-go-golems/glazed@latest

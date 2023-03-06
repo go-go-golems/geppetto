@@ -1,0 +1,67 @@
+name: pretraining
+short: Try out pretraining
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: text-davinci-003
+      temperature: 0.2
+      max_response_tokens: 128
+      stop:
+        - "-- END ACTIONS"
+      # stream: true
+flags:
+  - name: actions
+    type: stringList
+    default:
+      - sleep
+      - eat
+      - attack
+      - chop
+      - drink
+      - place
+      - make
+      - mine
+  - name: objects
+    type: stringList
+    default:
+      - grass
+      - trees
+      - bushes
+      - cows
+      - crafting table
+  - name: inventory
+    type: stringList
+    default:
+      - wood
+      - axe
+  - name: situation
+    type: string
+    default: ""
+  - name: instructions
+    type: string
+    default: ""
+
+prompt: |
+  Valid actions: {{ .actions | join ", "  }}. 
+  You are a player playing a game. Suggest the best actions the
+  player can take based on the things you see and the items in your inventory. 
+  Only use valid actions and objects.
+  
+  {{ .instructions }}
+  
+  OBSERVATION: You see plant, tree, and skeleton. 
+  SITUATION: You are targeting skeleton.
+  QUESTION: What do you do?
+  -- BEGIN ACTIONS
+    - Eat plant
+    - chop tree
+    - attack skeleton
+  -- END ACTIONS
+
+  
+  OBSERVATION: You see {{ .objects | join ", " }}. Your inventory has {{ .inventory | join ", " }}.
+  SITUATION: {{ .situation }} 
+  QUESTION: What do you do?
+  -- BEGIN ACTIONS

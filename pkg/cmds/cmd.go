@@ -281,18 +281,11 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	return []glazedcmds.Command{sq}, nil
 }
 
-func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(
-	s io.Reader,
-	options ...glazedcmds.CommandDescriptionOption,
-) ([]*glazedcmds.CommandAlias, error) {
+func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(s io.Reader) ([]*glazedcmds.CommandAlias, error) {
 	var alias glazedcmds.CommandAlias
 	err := yaml.NewDecoder(s).Decode(&alias)
 	if err != nil {
 		return nil, err
-	}
-
-	for _, option := range options {
-		option(alias.Description())
 	}
 
 	if !alias.IsValid() {
