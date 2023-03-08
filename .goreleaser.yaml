@@ -76,7 +76,11 @@ publishers:
     ids:
       - packages
     dir: "{{ dir .ArtifactPath }}"
-    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/wesen/
+    # if package is deb or rpm, push to fury
+    cmd: |
+      if [[ ${{ .ArtifactName }} == *.deb ]] || [[ ${{ .ArtifactName }} == *.rpm ]]; then
+        curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/go-go-golems/
+      fi
 
 # modelines, feel free to remove those if you don't want/use them:
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
