@@ -22,11 +22,16 @@ jobs:
         with:
           go-version: '>=1.19.5'
           cache: true
-      # More assembly might be required: Docker logins, GPG, etc. It all depends
-      # on your needs.
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GO_GO_GOLEMS_SIGN_KEY }}
+          passphrase: ${{ secrets.GO_GO_GOLEMS_SIGN_PASSPHRASE }}
+          fingerprint: "6EBE1DF0BDF48A1BBA381B5B79983EF218C6ED7E"
+
       - uses: goreleaser/goreleaser-action@v4
         with:
-          # either 'goreleaser' (default) or 'goreleaser-pro':
           distribution: goreleaser
           version: latest
           args: release --clean
@@ -34,6 +39,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COSIGN_PWD: ${{ secrets.COSIGN_PWD }}
           TAP_GITHUB_TOKEN: ${{ secrets.RELEASE_ACTION_PAT }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro'
-          # distribution:
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
