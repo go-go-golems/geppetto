@@ -49,7 +49,6 @@ nfpms:
 
     # Formats to be generated.
     formats:
-      - apk
       - deb
       - rpm
 
@@ -77,10 +76,7 @@ publishers:
       - packages
     dir: "{{ dir .ArtifactPath }}"
     # if package is deb or rpm, push to fury
-    cmd: |
-      if [[ ${{ .ArtifactName }} == *.deb ]] || [[ ${{ .ArtifactName }} == *.rpm ]]; then
-        curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/go-go-golems/
-      fi
+    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/go-go-golems/
 
 # modelines, feel free to remove those if you don't want/use them:
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
