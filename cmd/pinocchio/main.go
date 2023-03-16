@@ -109,15 +109,25 @@ func init() {
 
 	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
 		&cmds.GeppettoCommandLoader{}, "", "")
-	commands, aliases, err := locations.LoadCommands(
+	commandLoader := clay.NewCommandLoader[*cmds.GeppettoCommand](&locations)
+	commands, aliases, err := commandLoader.LoadCommands(
 		yamlLoader, helpSystem, rootCmd, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
 
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
 		os.Exit(1)
 	}
-	_ = commands
-	_ = aliases
+
+	glazeCommands, ok := clay.CastList[glazed_cmds.GlazeCommand](commands)
+	if !ok {
+		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
+		os.Exit(1)
+	}
+	err = cli.AddCommandsToRootCommand(rootCmd, glazeCommands, aliases)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
+		os.Exit(1)
+	}
 
 	rootCmd.AddCommand(openai.OpenaiCmd)
 
