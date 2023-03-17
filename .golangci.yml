@@ -1,0 +1,22 @@
+linters:
+  disable-all: false
+  enable:
+    # defaults
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    # stuff I'm adding
+    - exhaustive
+    #    - gochecknoglobals
+    #    - gochecknoinits
+    - gofmt
+    - nonamedreturns
+    - predeclared
+  fast: false
+issues:
+  exclude:
+    - 'SA1019: cli.CreateProcessorLegacy'
