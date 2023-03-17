@@ -37,27 +37,7 @@ func main() {
 		panic(err)
 	}
 
-	helpFunc, usageFunc := help.GetCobraHelpUsageFuncs(helpSystem)
-	helpTemplate, usageTemplate := help.GetCobraHelpUsageTemplates(helpSystem)
-
-	_ = usageFunc
-	_ = usageTemplate
-
-	//sections, err := openai.LoadModelsHelpFiles()
-	//if err != nil {
-	//	log.Error().Err(err).Msg("Error loading models help files")
-	//}
-	//for _, section := range sections {
-	//	helpSystem.AddSection(section)
-	//}
-	//
-	rootCmd.SetHelpFunc(helpFunc)
-	rootCmd.SetUsageFunc(usageFunc)
-	rootCmd.SetHelpTemplate(helpTemplate)
-	rootCmd.SetUsageTemplate(usageTemplate)
-
-	helpCmd := help.NewCobraHelpCommand(helpSystem)
-	rootCmd.SetHelpCommand(helpCmd)
+	helpSystem.SetupCobraRootCommand(rootCmd)
 
 	err = clay.InitViper("lucignolo", rootCmd)
 	if err != nil {
