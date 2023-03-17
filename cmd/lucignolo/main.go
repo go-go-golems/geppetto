@@ -83,7 +83,8 @@ func main() {
 
 	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
 		&cmds.GeppettoCommandLoader{}, "", "")
-	commands, aliases, err := locations.LoadCommands(
+	commandLoader := clay.NewCommandLoader[*cmds.GeppettoCommand](&locations)
+	commands, aliases, err := commandLoader.LoadCommands(
 		yamlLoader, helpSystem, rootCmd)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
