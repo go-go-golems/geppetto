@@ -392,25 +392,25 @@ func LoadModelsHelpFiles() ([]*help.Section, error) {
 func init() {
 	listEnginesCommand, err := NewListEngineCommand()
 	cobra.CheckErr(err)
-	listEnginesCobraCommand, err := cli.BuildCobraCommand(listEnginesCommand)
+	listEnginesCobraCommand, err := cli.BuildCobraCommandFromGlazeCommand(listEnginesCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(listEnginesCobraCommand)
 
 	completionCommand, err := NewCompletionCommand()
 	cobra.CheckErr(err)
-	cobraCompletionCommand, err := cli.BuildCobraCommand(completionCommand)
+	cobraCompletionCommand, err := cli.BuildCobraCommandFromGlazeCommand(completionCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraCompletionCommand)
 
 	engineInfoCommand, err := NewEngineInfoCommand()
 	cobra.CheckErr(err)
-	cobraEngineInfoCommand, err := cli.BuildCobraCommand(engineInfoCommand)
+	cobraEngineInfoCommand, err := cli.BuildCobraCommandFromGlazeCommand(engineInfoCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraEngineInfoCommand)
 
 	embeddingsCommand, err := NewEmbeddingsCommand()
 	cobra.CheckErr(err)
-	cobraEmbeddingsCommand, err := cli.BuildCobraCommand(embeddingsCommand)
+	cobraEmbeddingsCommand, err := cli.BuildCobraCommandFromGlazeCommand(embeddingsCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraEmbeddingsCommand)
 

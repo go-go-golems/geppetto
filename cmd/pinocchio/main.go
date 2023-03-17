@@ -40,15 +40,9 @@ func main() {
 func init() {
 	helpSystem := help.NewHelpSystem()
 	err := helpSystem.LoadSectionsFromFS(docFS, ".")
-	if err != nil {
-		panic(err)
-	}
+	cobra.CheckErr(err)
 
-	helpFunc, usageFunc := help.GetCobraHelpUsageFuncs(helpSystem)
-	helpTemplate, usageTemplate := help.GetCobraHelpUsageTemplates(helpSystem)
-
-	_ = usageFunc
-	_ = usageTemplate
+	helpSystem.SetupCobraRootCommand(rootCmd)
 
 	//sections, err := openai.LoadModelsHelpFiles()
 	//if err != nil {
@@ -58,15 +52,9 @@ func init() {
 	//	helpSystem.AddSection(section)
 	//}
 	//
-	rootCmd.SetHelpFunc(helpFunc)
-	rootCmd.SetUsageFunc(usageFunc)
-	rootCmd.SetHelpTemplate(helpTemplate)
-	rootCmd.SetUsageTemplate(usageTemplate)
-
-	helpCmd := help.NewCobraHelpCommand(helpSystem)
-	rootCmd.SetHelpCommand(helpCmd)
 
 	err = clay.InitViper("pinocchio", rootCmd)
+	cobra.CheckErr(err)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing config: %s\n", err)
 		os.Exit(1)
