@@ -122,6 +122,8 @@ github.com/go-go-golems/glazed v0.2.51 h1:w2jUl9XPsbg7SD+J68JuCkG/V57xROlxcv6+A1
 github.com/go-go-golems/glazed v0.2.51/go.mod h1:uvCS9mZVFJHsawmlLE8Djpyc6hyGJZbR+IxVedxBYOM=
 github.com/go-go-golems/parka v0.2.8 h1:oH/O84Kp2uwjEEkObu42TyDyLBBmfkvsFnFnCj6jAoA=
 github.com/go-go-golems/parka v0.2.8/go.mod h1:agh4e445kk07ULQeYi98cjr/cqH5Cx7NyHk0BMjN59Q=
+github.com/go-go-golems/parka v0.2.9 h1:d5RePR7cX6umj9YynN4D7JnjKtdkd/EixwMQwm2BxVY=
+github.com/go-go-golems/parka v0.2.9/go.mod h1:6B9bLS0qaKYlC9VMC08Bg9+dKrx0OqbdVVNYzVkXVII=
 github.com/go-playground/assert/v2 v2.2.0 h1:JvknZsQTYeFEAhQwI4qEt9cyV5ONwRHC+lYKSsYSR8s=
 github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
 github.com/go-playground/locales v0.14.1/go.mod h1:hxrqLVvrK65+Rwrd5Fc6F2O76J/NuW9t0sjnWqG1slY=
