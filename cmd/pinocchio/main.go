@@ -11,6 +11,7 @@ import (
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/help"
+	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
@@ -106,7 +107,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	glazeCommands, ok := clay.CastList[glazed_cmds.GlazeCommand](commands)
+	glazeCommands, ok := cast.CastList[glazed_cmds.GlazeCommand](commands)
 	if !ok {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
 		os.Exit(1)
