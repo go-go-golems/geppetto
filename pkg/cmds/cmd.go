@@ -10,7 +10,7 @@ import (
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/go-go-golems/glazed/pkg/helpers"
+	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
@@ -122,7 +122,7 @@ func (g *GeppettoCommand) Run(
 	}
 
 	// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
-	promptTemplate, err := helpers.CreateTemplate("prompt").Parse(g.Prompt)
+	promptTemplate, err := templating.CreateTemplate("prompt").Parse(g.Prompt)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (g *GeppettoCommand) Run(
 		}
 		settings := openaiCompletionStepFactory__.StepSettings
 
-		dyno, err := helpers.RenderHtmlTemplateString(dynoTemplate, map[string]interface{}{
+		dyno, err := templating.RenderHtmlTemplateString(dynoTemplate, map[string]interface{}{
 			"initialPrompt":   promptBuffer.String(),
 			"initialResponse": "",
 			"maxTokens":       settings.MaxResponseTokens,
