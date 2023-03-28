@@ -3,8 +3,9 @@ package helpers
 type Nothing struct{}
 
 type Result[T any] struct {
-	value T
-	err   error
+	value     T
+	isPartial bool
+	err       error
 }
 
 func NewResult[T any](value T, err error) Result[T] {
@@ -26,8 +27,23 @@ func NewErrorResult[T any](err error) Result[T] {
 	}
 }
 
+func NewPartialResult[T any](value T) Result[T] {
+	return Result[T]{
+		value:     value,
+		isPartial: true,
+	}
+}
+
 func (r Result[T]) Value() (T, error) {
 	return r.value, r.err
+}
+
+func (r Result[T]) Error() error {
+	return r.err
+}
+
+func (r Result[T]) IsPartial() bool {
+	return r.isPartial
 }
 
 func (r Result[T]) Ok() bool {
