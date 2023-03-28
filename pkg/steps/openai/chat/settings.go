@@ -28,7 +28,9 @@ type StepSettings struct {
 	// FrequencyPenalty to use
 	FrequencyPenalty *float64 `yaml:"frequency_penalty,omitempty" glazed.parameter:"openai-frequency-penalty"`
 	// LogitBias to use
-	LogitBias map[string]int `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
+	// TODO(manuel, 2023-03-28) Properly load logit bias
+	// See https://github.com/go-go-golems/geppetto/issues/48
+	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
 
 	Stream bool `yaml:"stream,omitempty" glazed.parameter:"openai-stream"`
 }
@@ -49,7 +51,7 @@ func NewStepSettings() *StepSettings {
 		Stop:              []string{},
 		PresencePenalty:   nil,
 		FrequencyPenalty:  nil,
-		LogitBias:         map[string]int{},
+		LogitBias:         map[string]string{},
 		Stream:            false,
 	}
 }

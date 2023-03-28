@@ -144,7 +144,7 @@ func (s *Step) RunCompletion(ctx context.Context, prompt, engine string) error {
 		PresencePenalty:  float32(presencePenalty),
 		FrequencyPenalty: float32(frequencyPenalty),
 		BestOf:           bestOf,
-		LogitBias:        logitBias,
+		LogitBias:        nil,
 	}
 
 	resp, err := client.CreateCompletion(ctx, req)
@@ -240,7 +240,7 @@ func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) err
 		Stop:             stop,
 		PresencePenalty:  float32(presencePenalty),
 		FrequencyPenalty: float32(frequencyPenalty),
-		LogitBias:        logitBias,
+		LogitBias:        nil,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,

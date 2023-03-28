@@ -30,10 +30,12 @@ type StepSettings struct {
 
 	Stream bool `yaml:"stream,omitempty" glazed.parameter:"openai-stream"`
 
-	FrequencyPenalty *float64       `yaml:"frequency_penalty,omitempty" glazed.parameter:"openai-frequency-penalty"`
-	PresencePenalty  *float64       `yaml:"presence_penalty,omitempty" glazed.parameter:"openai-presence-penalty"`
-	BestOf           *int           `yaml:"best_of,omitempty" glazed.parameter:"openai-best-of"`
-	LogitBias        map[string]int `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
+	FrequencyPenalty *float64 `yaml:"frequency_penalty,omitempty" glazed.parameter:"openai-frequency-penalty"`
+	PresencePenalty  *float64 `yaml:"presence_penalty,omitempty" glazed.parameter:"openai-presence-penalty"`
+	BestOf           *int     `yaml:"best_of,omitempty" glazed.parameter:"openai-best-of"`
+	// TODO(manuel, 2023-03-28) Properly load logit bias
+	// See https://github.com/go-go-golems/geppetto/issues/48
+	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
 }
 
 func NewStepSettingsFromParameters(ps map[string]interface{}) (*StepSettings, error) {

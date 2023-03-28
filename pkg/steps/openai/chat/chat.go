@@ -101,7 +101,6 @@ func (s *Step) Run(ctx context.Context, messages []Message) error {
 	if s.settings.FrequencyPenalty != nil {
 		frequencyPenalty = *s.settings.FrequencyPenalty
 	}
-	logitBias := s.settings.LogitBias
 
 	req := openai.ChatCompletionRequest{
 		Model:            engine,
@@ -114,7 +113,9 @@ func (s *Step) Run(ctx context.Context, messages []Message) error {
 		Stop:             stop,
 		PresencePenalty:  float32(presencePenalty),
 		FrequencyPenalty: float32(frequencyPenalty),
-		LogitBias:        logitBias,
+		// TODO(manuel, 2023-03-28) Properly load logit bias
+		// See https://github.com/go-go-golems/geppetto/issues/48
+		LogitBias: nil,
 	}
 	resp, err := client.CreateChatCompletion(ctx, req)
 	s.state = StepFinished
