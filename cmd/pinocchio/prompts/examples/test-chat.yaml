@@ -1,0 +1,27 @@
+name: test-chat
+short: Test chat completion
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-3.5-turbo
+      temperature: 0.2
+      max_response_tokens: 512
+      # stream: true
+flags:
+  - name: pretend
+    type: string
+    default: "scientist"
+    help: Pretend to be a ??
+  - name: what
+    type: string
+    default: "age"
+    help: What am I asking about?
+  - name: of
+    type: string
+    default: "you"
+    help: Of what am I asking?
+
+prompt: |
+  Pretend you are a {{.pretend}}. What is the {{.what}} of {{.of}}?
