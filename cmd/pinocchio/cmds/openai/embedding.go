@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/PullRequestInc/go-gpt3"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -34,7 +35,7 @@ func NewEmbeddingsCommand() (*EmbeddingsCommand, error) {
 	if err != nil {
 		return nil, err
 	}
-	completionParameterLayer, err := openai.NewCompletionParameterLayer()
+	completionParameterLayer, err := completion.NewParameterLayer()
 	if err != nil {
 		return nil, err
 	}

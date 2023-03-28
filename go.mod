@@ -3,7 +3,7 @@ module github.com/go-go-golems/geppetto
 go 1.19
 
 require (
-	github.com/PullRequestInc/go-gpt3 v1.1.11
+	github.com/PullRequestInc/go-gpt3 v1.1.14
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
@@ -13,6 +13,7 @@ require (
 	github.com/mb0/glob v0.0.0-20160210091149-1eb79d2de6c4
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.0
+	github.com/sashabaranov/go-openai v1.5.7
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.1

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -30,7 +32,8 @@ type GeppettoCommandDescription struct {
 	// TODO(manuel, 2023-02-04) This now has a hack to switch the step type
 	Step *steps.StepDescription `yaml:"step,omitempty"`
 
-	Prompt string `yaml:"prompt"`
+	Prompt   string         `yaml:"prompt,omitempty"`
+	Messages []chat.Message `yaml:"messages,omitempty"`
 }
 
 func HelpersParameterLayer() (layers.ParameterLayer, error) {
@@ -104,6 +107,7 @@ func (g *GeppettoCommand) Run(
 		}
 	}
 
+	// TODO(manuel, 2023-03-28) This is entirely completion for now...
 	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
@@ -143,9 +147,9 @@ func (g *GeppettoCommand) Run(
 
 	printDyno, ok := ps["print-dyno"]
 	if ok && printDyno.(bool) {
-		openaiCompletionStepFactory__, ok := openaiCompletionStepFactory_.(*openai.CompletionStepFactory)
+		openaiCompletionStepFactory__, ok := openaiCompletionStepFactory_.(*completion.StepFactory)
 		if !ok {
-			return errors.Errorf("openai-completion-step factory is not a CompletionStepFactory")
+			return errors.Errorf("openai-completion-step factory is not a StepFactory")
 		}
 		settings := openaiCompletionStepFactory__.StepSettings
 
@@ -224,7 +228,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	// maybe the easiest is just going to be to make them a separate file in the bundle format, really
 	// rewind to read the factories...
 	buf = strings.NewReader(string(yamlContent))
-	completionStepFactory, err := openai.NewCompletionStepFactoryFromYAML(buf)
+	completionStepFactory, err := completion.NewStepFactoryFromYAML(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +239,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 		completionStepFactory.ClientSettings.APIKey = &openaiAPIKey
 	}
 
-	completionParameterLayer, err := openai.NewCompletionParameterLayer(
+	completionParameterLayer, err := completion.NewParameterLayer(
 		layers.WithDefaults(completionStepFactory.StepSettings),
 	)
 	if err != nil {

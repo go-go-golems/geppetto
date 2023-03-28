@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/PullRequestInc/go-gpt3"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -29,7 +30,7 @@ func NewCompletionCommand() (*CompletionCommand, error) {
 	if err != nil {
 		return nil, err
 	}
-	completionParameterLayer, err := openai.NewCompletionParameterLayer()
+	completionParameterLayer, err := completion.NewParameterLayer()
 	if err != nil {
 		return nil, err
 	}
@@ -96,13 +97,16 @@ func (j *CompletionCommand) Run(
 	// TODO(manuel, 2023-01-28) actually I don't think it's a good idea to go through the stepfactory here
 	// we just want to have the RAW api access with all its outputs
 
+	// TODO(manuel, 2023-03-28) Replace with go-openai
+	// See https://github.com/go-go-golems/geppetto/issues/45
+
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
 
-	completionSettings, err := openai.NewCompletionStepSettingsFromParameters(ps)
+	completionSettings, err := completion.NewStepSettingsFromParameters(ps)
 	cobra.CheckErr(err)
 
-	completionStepFactory := openai.NewCompletionStepFactory(completionSettings, clientSettings)
+	completionStepFactory := completion.NewStepFactory(completionSettings, clientSettings)
 
 	client, err := clientSettings.CreateClient()
 	cobra.CheckErr(err)
@@ -111,12 +115,23 @@ func (j *CompletionCommand) Run(
 	if settings.Engine == nil {
 		cobra.CheckErr(fmt.Errorf("engine is required"))
 	}
+	var temperature *float32
+	if settings.Temperature != nil {
+		f := float32(*settings.Temperature)
+		temperature = &f
+	}
+	var topP *float32
+	if settings.TopP != nil {
+		f := float32(*settings.TopP)
+		topP = &f
+	}
+
 	resp, err := client.CompletionWithEngine(ctx, *settings.Engine,
 		gpt3.CompletionRequest{
 			Prompt:           prompts,
 			MaxTokens:        settings.MaxResponseTokens,
-			Temperature:      settings.Temperature,
-			TopP:             settings.TopP,
+			Temperature:      temperature,
+			TopP:             topP,
 			N:                settings.N,
 			LogProbs:         settings.LogProbs,
 			Echo:             false,
