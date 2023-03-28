@@ -2,12 +2,13 @@ package completion
 
 import (
 	"context"
-	"github.com/PullRequestInc/go-gpt3"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/rs/zerolog/log"
+	"github.com/sashabaranov/go-openai"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/errgo.v2/fmt/errors"
+	"strings"
 )
 
 type StepState int
@@ -52,12 +53,6 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 		return nil
 	}
 
-	client, err := clientSettings.CreateClient()
-	if err != nil {
-		s.output <- helpers.NewErrorResult[string](err)
-		return nil
-	}
-
 	engine := ""
 	if s.settings.Engine != nil {
 		engine = *s.settings.Engine
@@ -68,30 +63,64 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 		return nil
 	}
 
-	prompts := []string{prompt}
+	if strings.HasPrefix(engine, "gpt-3.5-turbo") {
+		return s.RunChatCompletion(ctx, prompt, engine)
+	} else {
+		return s.RunCompletion(ctx, prompt, engine)
+	}
+}
 
-	evt := log.Debug()
-	evt = evt.Str("engine", engine)
-	if s.settings.MaxResponseTokens != nil {
-		evt = evt.Int("max_response_tokens", *s.settings.MaxResponseTokens)
-	}
+func (s *Step) RunCompletion(ctx context.Context, prompt, engine string) error {
+	temperature := 0.0
 	if s.settings.Temperature != nil {
-		evt = evt.Float32("temperature", *s.settings.Temperature)
+		temperature = *s.settings.Temperature
 	}
+	topP := 0.0
 	if s.settings.TopP != nil {
-		evt = evt.Float32("top_p", *s.settings.TopP)
+		topP = *s.settings.TopP
 	}
+	maxTokens := 32
+	if s.settings.MaxResponseTokens != nil {
+		maxTokens = *s.settings.MaxResponseTokens
+	}
+	n := 1
 	if s.settings.N != nil {
-		evt = evt.Int("n", *s.settings.N)
+		n = *s.settings.N
 	}
+	stream := s.settings.Stream
+	stop := s.settings.Stop
+	logProbs := 0
 	if s.settings.LogProbs != nil {
-		evt = evt.Int("log_probs", *s.settings.LogProbs)
+		logProbs = *s.settings.LogProbs
 	}
-	if s.settings.Stop != nil {
-		evt = evt.Strs("stop", s.settings.Stop)
+	frequencyPenalty := 0.0
+	if s.settings.FrequencyPenalty != nil {
+		frequencyPenalty = *s.settings.FrequencyPenalty
 	}
-	evt.Strs("prompts", prompts)
-	evt.Msg("sending completion request")
+	presencePenalty := 0.0
+	if s.settings.PresencePenalty != nil {
+		presencePenalty = *s.settings.PresencePenalty
+	}
+	logitBias := s.settings.LogitBias
+	bestOf := 0
+	if s.settings.BestOf != nil {
+		bestOf = *s.settings.BestOf
+	}
+
+	log.Debug().
+		Str("engine", engine).
+		Int("max_response_tokens", maxTokens).
+		Float32("temperature", float32(temperature)).
+		Float32("top_p", float32(topP)).
+		Int("n", n).
+		Int("log_probs", logProbs).
+		Bool("stream", stream).
+		Strs("stop", stop).
+		Float32("frequency_penalty", float32(frequencyPenalty)).
+		Float32("presence_penalty", float32(presencePenalty)).
+		Interface("logit_bias", logitBias).
+		Int("best_of", bestOf).
+		Msg("sending completion request")
 
 	// TODO(manuel, 2023-01-28) - handle multiple values
 	if s.settings.N != nil && *s.settings.N != 1 {
@@ -99,29 +128,33 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 		return nil
 	}
 
-	completion := ""
+	client := openai.NewClient(*s.settings.ClientSettings.APIKey)
 
-	onData := func(resp *gpt3.CompletionResponse) {
-		data := resp.Choices[0].Text
-		//fmt.Println("object: %v, choices: %v\n", resp.Object, resp.Choices)
-		// TODO(manuel, 2023-02-02) Add stream mode
-		// See https://github.com/wesen/geppetto/issues/10
-		//
-		//fmt.Print(string(data))
-		completion += string(data)
+	req := openai.CompletionRequest{
+		Model:            engine,
+		Prompt:           prompt,
+		MaxTokens:        maxTokens,
+		Temperature:      float32(temperature),
+		TopP:             float32(topP),
+		N:                n,
+		Stream:           stream,
+		LogProbs:         logProbs,
+		Echo:             false,
+		Stop:             stop,
+		PresencePenalty:  float32(presencePenalty),
+		FrequencyPenalty: float32(frequencyPenalty),
+		BestOf:           bestOf,
+		LogitBias:        logitBias,
 	}
 
-	// TODO(manuel, 2023-01-27) This is where we would emit progress status and do some logging
-	err = client.CompletionStreamWithEngine(ctx, engine, gpt3.CompletionRequest{
-		Prompt:      prompts,
-		MaxTokens:   s.settings.MaxResponseTokens,
-		Temperature: s.settings.Temperature,
-		TopP:        s.settings.TopP,
-		N:           s.settings.N,
-		LogProbs:    s.settings.LogProbs,
-		Echo:        false,
-		Stop:        s.settings.Stop,
-	}, onData)
+	resp, err := client.CreateCompletion(ctx, req)
+	if err != nil {
+		s.output <- helpers.NewErrorResult[string](err)
+		return nil
+	}
+
+	completion := ""
+
 	s.state = StepFinished
 
 	if err != nil {
@@ -135,10 +168,114 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 	// TODO(manuel, 2023-03-38) Count usage
 	// See https://github.com/go-go-golems/geppetto/issues/46
 
-	//if len(completion.Choices) == 0 {
-	//	s.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
-	//	return
-	//}
+	if len(resp.Choices) == 0 {
+		s.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
+		return nil
+	}
+
+	completion = resp.Choices[0].Text
+
+	s.output <- helpers.NewValueResult(completion)
+
+	return nil
+}
+
+func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) error {
+	temperature := 0.0
+	if s.settings.Temperature != nil {
+		temperature = *s.settings.Temperature
+	}
+	topP := 0.0
+	if s.settings.TopP != nil {
+		topP = *s.settings.TopP
+	}
+	maxTokens := 32
+	if s.settings.MaxResponseTokens != nil {
+		maxTokens = *s.settings.MaxResponseTokens
+	}
+	n := 1
+	if s.settings.N != nil {
+		n = *s.settings.N
+	}
+	stream := s.settings.Stream
+	stop := s.settings.Stop
+	frequencyPenalty := 0.0
+	if s.settings.FrequencyPenalty != nil {
+		frequencyPenalty = *s.settings.FrequencyPenalty
+	}
+	presencePenalty := 0.0
+	if s.settings.PresencePenalty != nil {
+		presencePenalty = *s.settings.PresencePenalty
+	}
+	logitBias := s.settings.LogitBias
+
+	log.Debug().
+		Str("engine", engine).
+		Int("max_response_tokens", maxTokens).
+		Float32("temperature", float32(temperature)).
+		Float32("top_p", float32(topP)).
+		Int("n", n).
+		Bool("stream", stream).
+		Strs("stop", stop).
+		Float32("frequency_penalty", float32(frequencyPenalty)).
+		Float32("presence_penalty", float32(presencePenalty)).
+		Interface("logit_bias", logitBias).
+		Msg("sending completion request")
+
+	// TODO(manuel, 2023-01-28) - handle multiple values
+	if s.settings.N != nil && *s.settings.N != 1 {
+		s.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
+		return nil
+	}
+
+	client := openai.NewClient(*s.settings.ClientSettings.APIKey)
+
+	req := openai.ChatCompletionRequest{
+		Model:            engine,
+		MaxTokens:        maxTokens,
+		Temperature:      float32(temperature),
+		TopP:             float32(topP),
+		N:                n,
+		Stream:           stream,
+		Stop:             stop,
+		PresencePenalty:  float32(presencePenalty),
+		FrequencyPenalty: float32(frequencyPenalty),
+		LogitBias:        logitBias,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		},
+	}
+
+	resp, err := client.CreateChatCompletion(ctx, req)
+	if err != nil {
+		s.output <- helpers.NewErrorResult[string](err)
+		return nil
+	}
+
+	completion := ""
+
+	s.state = StepFinished
+
+	if err != nil {
+		s.output <- helpers.NewErrorResult[string](err)
+		return nil
+	}
+
+	// TODO(manuel, 2023-02-04) Handle multiple outputs
+	// See https://github.com/wesen/geppetto/issues/23
+
+	// TODO(manuel, 2023-03-38) Count usage
+	// See https://github.com/go-go-golems/geppetto/issues/46
+
+	if len(resp.Choices) == 0 {
+		s.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
+		return nil
+	}
+
+	completion = resp.Choices[0].Message.Content
 
 	s.output <- helpers.NewValueResult(completion)
 
