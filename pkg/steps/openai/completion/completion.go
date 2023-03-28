@@ -1,73 +1,70 @@
-package openai
+package completion
 
 import (
 	"context"
 	"github.com/PullRequestInc/go-gpt3"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/errgo.v2/fmt/errors"
 )
 
-type CompletionStepState int
+type StepState int
 
 const (
-	CompletionStepNotStarted CompletionStepState = iota
-	CompletionStepRunning
-	CompletionStepFinished
-	CompletionStepClosed
+	StepNotStarted StepState = iota
+	StepRunning
+	StepFinished
+	StepClosed
 )
 
-var ErrMissingClientSettings = errors.Newf("missing client settings")
-
-var ErrMissingClientAPIKey = errors.Newf("missing client settings api key")
-
-type CompletionStep struct {
+type Step struct {
 	output   chan helpers.Result[string]
-	state    CompletionStepState
-	settings *CompletionStepSettings
+	state    StepState
+	settings *StepSettings
 }
 
-func NewCompletionStep(settings *CompletionStepSettings) *CompletionStep {
-	return &CompletionStep{
+func NewStep(settings *StepSettings) *Step {
+	return &Step{
 		output:   make(chan helpers.Result[string]),
 		settings: settings,
-		state:    CompletionStepNotStarted,
+		state:    StepNotStarted,
 	}
 }
 
-func (o *CompletionStep) Run(ctx context.Context, prompt string) error {
-	o.state = CompletionStepRunning
+func (s *Step) Run(ctx context.Context, prompt string) error {
+	s.state = StepRunning
 
 	defer func() {
-		o.state = CompletionStepClosed
-		close(o.output)
+		s.state = StepClosed
+		close(s.output)
 	}()
 
-	clientSettings := o.settings.ClientSettings
+	clientSettings := s.settings.ClientSettings
 	if clientSettings == nil {
-		o.output <- helpers.NewErrorResult[string](ErrMissingClientSettings)
+		s.output <- helpers.NewErrorResult[string](steps.ErrMissingClientSettings)
 		return nil
 	}
 
 	if clientSettings.APIKey == nil {
-		o.output <- helpers.NewErrorResult[string](ErrMissingClientAPIKey)
+		s.output <- helpers.NewErrorResult[string](steps.ErrMissingClientAPIKey)
 		return nil
 	}
 
 	client, err := clientSettings.CreateClient()
 	if err != nil {
-		o.output <- helpers.NewErrorResult[string](err)
+		s.output <- helpers.NewErrorResult[string](err)
 		return nil
 	}
 
 	engine := ""
-	if o.settings.Engine != nil {
-		engine = *o.settings.Engine
+	if s.settings.Engine != nil {
+		engine = *s.settings.Engine
 	} else if clientSettings.DefaultEngine != nil {
 		engine = *clientSettings.DefaultEngine
 	} else {
-		o.output <- helpers.NewErrorResult[string](errors.Newf("no engine specified"))
+		s.output <- helpers.NewErrorResult[string](errors.Newf("no engine specified"))
 		return nil
 	}
 
@@ -75,30 +72,30 @@ func (o *CompletionStep) Run(ctx context.Context, prompt string) error {
 
 	evt := log.Debug()
 	evt = evt.Str("engine", engine)
-	if o.settings.MaxResponseTokens != nil {
-		evt = evt.Int("max_response_tokens", *o.settings.MaxResponseTokens)
+	if s.settings.MaxResponseTokens != nil {
+		evt = evt.Int("max_response_tokens", *s.settings.MaxResponseTokens)
 	}
-	if o.settings.Temperature != nil {
-		evt = evt.Float32("temperature", *o.settings.Temperature)
+	if s.settings.Temperature != nil {
+		evt = evt.Float32("temperature", *s.settings.Temperature)
 	}
-	if o.settings.TopP != nil {
-		evt = evt.Float32("top_p", *o.settings.TopP)
+	if s.settings.TopP != nil {
+		evt = evt.Float32("top_p", *s.settings.TopP)
 	}
-	if o.settings.N != nil {
-		evt = evt.Int("n", *o.settings.N)
+	if s.settings.N != nil {
+		evt = evt.Int("n", *s.settings.N)
 	}
-	if o.settings.LogProbs != nil {
-		evt = evt.Int("log_probs", *o.settings.LogProbs)
+	if s.settings.LogProbs != nil {
+		evt = evt.Int("log_probs", *s.settings.LogProbs)
 	}
-	if o.settings.Stop != nil {
-		evt = evt.Strs("stop", o.settings.Stop)
+	if s.settings.Stop != nil {
+		evt = evt.Strs("stop", s.settings.Stop)
 	}
 	evt.Strs("prompts", prompts)
 	evt.Msg("sending completion request")
 
 	// TODO(manuel, 2023-01-28) - handle multiple values
-	if o.settings.N != nil && *o.settings.N != 1 {
-		o.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
+	if s.settings.N != nil && *s.settings.N != 1 {
+		s.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
 		return nil
 	}
 
@@ -117,44 +114,47 @@ func (o *CompletionStep) Run(ctx context.Context, prompt string) error {
 	// TODO(manuel, 2023-01-27) This is where we would emit progress status and do some logging
 	err = client.CompletionStreamWithEngine(ctx, engine, gpt3.CompletionRequest{
 		Prompt:      prompts,
-		MaxTokens:   o.settings.MaxResponseTokens,
-		Temperature: o.settings.Temperature,
-		TopP:        o.settings.TopP,
-		N:           o.settings.N,
-		LogProbs:    o.settings.LogProbs,
+		MaxTokens:   s.settings.MaxResponseTokens,
+		Temperature: s.settings.Temperature,
+		TopP:        s.settings.TopP,
+		N:           s.settings.N,
+		LogProbs:    s.settings.LogProbs,
 		Echo:        false,
-		Stop:        o.settings.Stop,
+		Stop:        s.settings.Stop,
 	}, onData)
-	o.state = CompletionStepFinished
+	s.state = StepFinished
 
 	if err != nil {
-		o.output <- helpers.NewErrorResult[string](err)
+		s.output <- helpers.NewErrorResult[string](err)
 		return nil
 	}
 
 	// TODO(manuel, 2023-02-04) Handle multiple outputs
 	// See https://github.com/wesen/geppetto/issues/23
 
+	// TODO(manuel, 2023-03-38) Count usage
+	// See https://github.com/go-go-golems/geppetto/issues/46
+
 	//if len(completion.Choices) == 0 {
-	//	o.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
+	//	s.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
 	//	return
 	//}
 
-	o.output <- helpers.NewValueResult(completion)
+	s.output <- helpers.NewValueResult(completion)
 
 	return nil
 }
 
-func (o *CompletionStep) GetOutput() <-chan helpers.Result[string] {
-	return o.output
+func (s *Step) GetOutput() <-chan helpers.Result[string] {
+	return s.output
 }
 
-func (o *CompletionStep) GetState() interface{} {
-	return o.state
+func (s *Step) GetState() interface{} {
+	return s.state
 }
 
-func (o *CompletionStep) IsFinished() bool {
-	return o.state == CompletionStepFinished
+func (s *Step) IsFinished() bool {
+	return s.state == StepFinished || s.state == StepClosed
 }
 
 // TODO(manuel, 2023-02-04) This could be generic, and take a factory
@@ -162,23 +162,23 @@ func (o *CompletionStep) IsFinished() bool {
 // MultiCompletionStep runs multiple completion steps in parallel
 type MultiCompletionStep struct {
 	output   chan helpers.Result[[]string]
-	state    CompletionStepState
-	settings *CompletionStepSettings
+	state    StepState
+	settings *StepSettings
 }
 
-func NewMultiCompletionStep(settings *CompletionStepSettings) *MultiCompletionStep {
+func NewMultiCompletionStep(settings *StepSettings) *MultiCompletionStep {
 	return &MultiCompletionStep{
 		output:   make(chan helpers.Result[[]string]),
 		settings: settings,
-		state:    CompletionStepNotStarted,
+		state:    StepNotStarted,
 	}
 }
 
 func (mc *MultiCompletionStep) Run(ctx context.Context, prompts []string) error {
-	completionSteps := make([]*CompletionStep, len(prompts))
+	completionSteps := make([]*Step, len(prompts))
 	chans := make([]<-chan helpers.Result[string], len(prompts))
 	for i := range prompts {
-		completionSteps[i] = NewCompletionStep(mc.settings)
+		completionSteps[i] = NewStep(mc.settings)
 		chans[i] = completionSteps[i].GetOutput()
 	}
 
@@ -224,5 +224,5 @@ func (mc *MultiCompletionStep) GetState() interface{} {
 }
 
 func (mc *MultiCompletionStep) IsFinished() bool {
-	return mc.state == CompletionStepFinished
+	return mc.state == StepFinished
 }
