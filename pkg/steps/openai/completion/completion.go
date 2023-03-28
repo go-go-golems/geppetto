@@ -4,10 +4,11 @@ import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/errgo.v2/fmt/errors"
+	"io"
 	"strings"
 )
 
@@ -59,7 +60,7 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 	} else if clientSettings.DefaultEngine != nil {
 		engine = *clientSettings.DefaultEngine
 	} else {
-		s.output <- helpers.NewErrorResult[string](errors.Newf("no engine specified"))
+		s.output <- helpers.NewErrorResult[string](errors.New("no engine specified"))
 		return nil
 	}
 
@@ -126,7 +127,7 @@ func (s *Step) RunCompletion(ctx context.Context, prompt, engine string) error {
 
 	// TODO(manuel, 2023-01-28) - handle multiple values
 	if s.settings.N != nil && *s.settings.N != 1 {
-		s.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
+		s.output <- helpers.NewErrorResult[string](errors.New("N > 1 is not supported yet"))
 		return nil
 	}
 
@@ -149,35 +150,60 @@ func (s *Step) RunCompletion(ctx context.Context, prompt, engine string) error {
 		LogitBias:        nil,
 	}
 
-	resp, err := client.CreateCompletion(ctx, req)
-	if err != nil {
-		s.output <- helpers.NewErrorResult[string](err)
-		return nil
+	if stream {
+		stream, err := client.CreateCompletionStream(ctx, req)
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+		defer stream.Close()
+
+		for {
+			response, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				s.state = StepFinished
+				s.output <- helpers.NewValueResult[string]("")
+				return nil
+			}
+			if err != nil {
+				s.output <- helpers.NewErrorResult[string](err)
+				return nil
+			}
+
+			s.output <- helpers.NewPartialResult[string](response.Choices[0].Text)
+		}
+
+	} else {
+		resp, err := client.CreateCompletion(ctx, req)
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+
+		completion := ""
+
+		s.state = StepFinished
+
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+
+		// TODO(manuel, 2023-02-04) Handle multiple outputs
+		// See https://github.com/wesen/geppetto/issues/23
+
+		// TODO(manuel, 2023-03-38) Count usage
+		// See https://github.com/go-go-golems/geppetto/issues/46
+
+		if len(resp.Choices) == 0 {
+			s.output <- helpers.NewErrorResult[string](errors.New("no choices returned from OpenAI"))
+			return nil
+		}
+
+		completion = resp.Choices[0].Text
+
+		s.output <- helpers.NewValueResult(completion)
 	}
-
-	completion := ""
-
-	s.state = StepFinished
-
-	if err != nil {
-		s.output <- helpers.NewErrorResult[string](err)
-		return nil
-	}
-
-	// TODO(manuel, 2023-02-04) Handle multiple outputs
-	// See https://github.com/wesen/geppetto/issues/23
-
-	// TODO(manuel, 2023-03-38) Count usage
-	// See https://github.com/go-go-golems/geppetto/issues/46
-
-	if len(resp.Choices) == 0 {
-		s.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
-		return nil
-	}
-
-	completion = resp.Choices[0].Text
-
-	s.output <- helpers.NewValueResult(completion)
 
 	return nil
 }
@@ -226,7 +252,7 @@ func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) err
 
 	// TODO(manuel, 2023-01-28) - handle multiple values
 	if s.settings.N != nil && *s.settings.N != 1 {
-		s.output <- helpers.NewErrorResult[string](errors.Newf("N > 1 is not supported yet"))
+		s.output <- helpers.NewErrorResult[string](errors.New("N > 1 is not supported yet"))
 		return nil
 	}
 
@@ -251,35 +277,47 @@ func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) err
 		},
 	}
 
-	resp, err := client.CreateChatCompletion(ctx, req)
-	if err != nil {
-		s.output <- helpers.NewErrorResult[string](err)
-		return nil
-	}
-
-	completion := ""
-
-	s.state = StepFinished
-
-	if err != nil {
-		s.output <- helpers.NewErrorResult[string](err)
-		return nil
-	}
-
 	// TODO(manuel, 2023-02-04) Handle multiple outputs
 	// See https://github.com/wesen/geppetto/issues/23
 
 	// TODO(manuel, 2023-03-38) Count usage
 	// See https://github.com/go-go-golems/geppetto/issues/46
 
-	if len(resp.Choices) == 0 {
-		s.output <- helpers.NewErrorResult[string](errors.Newf("no choices returned from OpenAI"))
-		return nil
+	if stream {
+		stream, err := client.CreateChatCompletionStream(ctx, req)
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+		defer stream.Close()
+
+		for {
+			response, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				s.state = StepFinished
+				s.output <- helpers.NewValueResult[string]("")
+				return nil
+			}
+			if err != nil {
+				s.output <- helpers.NewErrorResult[string](err)
+				return nil
+			}
+
+			s.output <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
+		}
+	} else {
+		resp, err := client.CreateChatCompletion(ctx, req)
+		s.state = StepFinished
+
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+
+		// TODO(manuel, 2023-03-28) Properly handle message formats
+		s.output <- helpers.NewValueResult[string](resp.Choices[0].Message.Content)
+
 	}
-
-	completion = resp.Choices[0].Message.Content
-
-	s.output <- helpers.NewValueResult(completion)
 
 	return nil
 }
