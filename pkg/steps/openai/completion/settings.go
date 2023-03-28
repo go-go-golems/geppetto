@@ -18,9 +18,9 @@ type StepSettings struct {
 	MaxResponseTokens *int `yaml:"max_response_tokens,omitempty" glazed.parameter:"openai-max-response-tokens"`
 
 	// Sampling temperature to use
-	Temperature *float32 `yaml:"temperature,omitempty" glazed.parameter:"openai-temperature"`
+	Temperature *float64 `yaml:"temperature,omitempty" glazed.parameter:"openai-temperature"`
 	// Alternative to temperature for nucleus sampling
-	TopP *float32 `yaml:"top_p,omitempty" glazed.parameter:"openai-top-p"`
+	TopP *float64 `yaml:"top_p,omitempty" glazed.parameter:"openai-top-p"`
 	// How many choice to create for each prompt
 	N *int `yaml:"n" glazed.parameter:"openai-n"`
 	// Include the probabilities of most likely tokens
@@ -29,6 +29,11 @@ type StepSettings struct {
 	Stop []string `yaml:"stop,omitempty" glazed.parameter:"openai-stop"`
 
 	Stream bool `yaml:"stream,omitempty" glazed.parameter:"openai-stream"`
+
+	FrequencyPenalty *float64       `yaml:"frequency_penalty,omitempty" glazed.parameter:"openai-frequency-penalty"`
+	PresencePenalty  *float64       `yaml:"presence_penalty,omitempty" glazed.parameter:"openai-presence-penalty"`
+	BestOf           *int           `yaml:"best_of,omitempty" glazed.parameter:"openai-best-of"`
+	LogitBias        map[string]int `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
 }
 
 func NewStepSettingsFromParameters(ps map[string]interface{}) (*StepSettings, error) {
