@@ -4,8 +4,9 @@ import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
-	"gopkg.in/errgo.v2/fmt/errors"
+	"io"
 )
 
 type StepState int
@@ -63,7 +64,7 @@ func (s *Step) Run(ctx context.Context, messages []Message) error {
 	} else if clientSettings.DefaultEngine != nil {
 		engine = *clientSettings.DefaultEngine
 	} else {
-		s.output <- helpers.NewErrorResult[string](errors.Newf("no engine specified"))
+		s.output <- helpers.NewErrorResult[string](errors.New("no engine specified"))
 		return nil
 	}
 
@@ -117,16 +118,42 @@ func (s *Step) Run(ctx context.Context, messages []Message) error {
 		// See https://github.com/go-go-golems/geppetto/issues/48
 		LogitBias: nil,
 	}
-	resp, err := client.CreateChatCompletion(ctx, req)
-	s.state = StepFinished
 
-	if err != nil {
-		s.output <- helpers.NewErrorResult[string](err)
-		return nil
+	if stream {
+		stream, err := client.CreateChatCompletionStream(ctx, req)
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+		defer stream.Close()
+
+		for {
+			response, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				s.state = StepFinished
+				s.output <- helpers.NewValueResult[string]("")
+				return nil
+			}
+			if err != nil {
+				s.output <- helpers.NewErrorResult[string](err)
+				return nil
+			}
+
+			s.output <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
+		}
+	} else {
+		resp, err := client.CreateChatCompletion(ctx, req)
+		s.state = StepFinished
+
+		if err != nil {
+			s.output <- helpers.NewErrorResult[string](err)
+			return nil
+		}
+
+		// TODO(manuel, 2023-03-28) Properly handle message formats
+		s.output <- helpers.NewValueResult[string](resp.Choices[0].Message.Content)
+
 	}
-
-	// TODO(manuel, 2023-03-28) Properly handle message formats
-	s.output <- helpers.NewValueResult[string](resp.Choices[0].Message.Content)
 
 	return nil
 }

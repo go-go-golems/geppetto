@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
@@ -176,24 +177,49 @@ func (g *GeppettoCommand) Run(
 		return s.Run(ctx2, prompt)
 	})
 
-	eg.Go(func() error {
-		select {
-		case <-ctx2.Done():
-			return ctx2.Err()
-		case result := <-s.GetOutput():
-			v, err := result.Value()
-			if err != nil {
-				return err
-			}
-			err = gp.ProcessInputObject(map[string]interface{}{
-				"response": v,
-			})
-			if err != nil {
-				return err
-			}
-		}
+	accumulate := ""
 
-		return err
+	openAILayer, ok := parsedLayers["openai-completion"]
+	if !ok {
+		return errors.Errorf("No openai layer")
+	}
+	isStream := openAILayer.Parameters["openai-stream"].(bool)
+	log.Debug().Bool("isStream", isStream).Msg("")
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-ctx2.Done():
+				return ctx2.Err()
+			case result := <-s.GetOutput():
+				if !result.Ok() {
+					return result.Error()
+				}
+
+				v, err := result.Value()
+				if err != nil {
+					return err
+				}
+
+				if result.IsPartial() {
+					fmt.Print(v)
+					accumulate += v
+				} else {
+					if !isStream {
+						err = gp.ProcessInputObject(map[string]interface{}{
+							"response": accumulate + v,
+						})
+					}
+
+					if err != nil {
+						return err
+					}
+					return nil
+
+				}
+			}
+
+		}
 	})
 	return eg.Wait()
 }

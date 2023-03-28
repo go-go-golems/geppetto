@@ -46,7 +46,11 @@ func (t *TemplateStep[A]) Run(ctx context.Context, a A) error {
 	err = tmpl.Execute(buf, a)
 
 	t.state = TemplateStepFinished
-	t.output <- helpers.NewResult(buf.String(), err)
+	if err != nil {
+		t.output <- helpers.NewErrorResult[string](err)
+		return nil
+	}
+	t.output <- helpers.NewValueResult(buf.String())
 
 	return nil
 }
