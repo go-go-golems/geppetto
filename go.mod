@@ -3,7 +3,7 @@ module github.com/go-go-golems/geppetto
 go 1.19
 
 require (
-	github.com/PullRequestInc/go-gpt3 v1.1.11
+	github.com/PullRequestInc/go-gpt3 v1.1.14
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
@@ -77,6 +77,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.13.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/otiai10/openaigo v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
