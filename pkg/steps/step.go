@@ -203,3 +203,7 @@ func NewPipeStep[A, B, C any](step1 Step[A, B], step2 Step[B, C]) Step[A, C] {
 	}
 	return s
 }
+
+var ErrMissingClientSettings = errors.Newf("missing client settings")
+
+var ErrMissingClientAPIKey = errors.Newf("missing client settings api key")
