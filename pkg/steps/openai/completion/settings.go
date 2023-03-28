@@ -1,16 +1,17 @@
-package openai
+package completion
 
 import (
 	_ "embed"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"gopkg.in/yaml.v3"
 	"io"
 )
 
-type CompletionStepSettings struct {
-	ClientSettings *ClientSettings `yaml:"client,omitempty"`
+type StepSettings struct {
+	ClientSettings *openai.ClientSettings `yaml:"client,omitempty"`
 
 	Engine *string `yaml:"engine,omitempty" glazed.parameter:"openai-engine"`
 
@@ -30,8 +31,8 @@ type CompletionStepSettings struct {
 	Stream bool `yaml:"stream,omitempty" glazed.parameter:"openai-stream"`
 }
 
-func NewCompletionStepSettingsFromParameters(ps map[string]interface{}) (*CompletionStepSettings, error) {
-	ret := NewCompletionStepSettings()
+func NewStepSettingsFromParameters(ps map[string]interface{}) (*StepSettings, error) {
+	ret := NewStepSettings()
 	err := parameters.InitializeStructFromParameters(ret, ps)
 	if err != nil {
 		return nil, err
@@ -39,12 +40,12 @@ func NewCompletionStepSettingsFromParameters(ps map[string]interface{}) (*Comple
 	return ret, nil
 }
 
-func (c *CompletionStepSettings) Clone() *CompletionStepSettings {
-	var clientSettings *ClientSettings = nil
+func (c *StepSettings) Clone() *StepSettings {
+	var clientSettings *openai.ClientSettings = nil
 	if c.ClientSettings != nil {
 		clientSettings = c.ClientSettings.Clone()
 	}
-	return &CompletionStepSettings{
+	return &StepSettings{
 		ClientSettings:    clientSettings,
 		Engine:            c.Engine,
 		MaxResponseTokens: c.MaxResponseTokens,
@@ -57,28 +58,28 @@ func (c *CompletionStepSettings) Clone() *CompletionStepSettings {
 	}
 }
 
-//go:embed "flags/completion.yaml"
+//go:embed "completion.yaml"
 var completionStepSettingsYAML []byte
 
-type CompletionParameterLayer struct {
+type ParameterLayer struct {
 	*layers.ParameterLayerImpl
 }
 
-func NewCompletionParameterLayer(options ...layers.ParameterLayerOptions) (*CompletionParameterLayer, error) {
+func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer, error) {
 	ret, err := layers.NewParameterLayerFromYAML(completionStepSettingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CompletionParameterLayer{ret}, nil
+	return &ParameterLayer{ret}, nil
 }
 
-type CompletionStepFactory struct {
-	ClientSettings *ClientSettings         `yaml:"client,omitempty"`
-	StepSettings   *CompletionStepSettings `yaml:"completion,omitempty"`
+type StepFactory struct {
+	ClientSettings *openai.ClientSettings `yaml:"client,omitempty"`
+	StepSettings   *StepSettings          `yaml:"completion,omitempty"`
 }
 
-func (csf *CompletionStepFactory) UpdateFromParameters(ps map[string]interface{}) error {
+func (csf *StepFactory) UpdateFromParameters(ps map[string]interface{}) error {
 	err := parameters.InitializeStructFromParameters(csf.StepSettings, ps)
 	if err != nil {
 		return err
@@ -92,23 +93,23 @@ func (csf *CompletionStepFactory) UpdateFromParameters(ps map[string]interface{}
 	return nil
 }
 
-func NewCompletionStepFactory(
-	settings *CompletionStepSettings,
-	clientSettings *ClientSettings,
-) *CompletionStepFactory {
-	return &CompletionStepFactory{
+func NewStepFactory(
+	settings *StepSettings,
+	clientSettings *openai.ClientSettings,
+) *StepFactory {
+	return &StepFactory{
 		StepSettings:   settings,
 		ClientSettings: clientSettings,
 	}
 }
 
-func (csf *CompletionStepFactory) NewStep() (steps.Step[string, string], error) {
+func (csf *StepFactory) NewStep() (steps.Step[string, string], error) {
 	stepSettings := csf.StepSettings.Clone()
 	if stepSettings.ClientSettings == nil {
 		stepSettings.ClientSettings = csf.ClientSettings.Clone()
 	}
 
-	return NewCompletionStep(stepSettings), nil
+	return NewStep(stepSettings), nil
 }
 
 // factoryConfigFileWrapper is a helper to help us parse the YAML config file in the format:
@@ -126,26 +127,26 @@ func (csf *CompletionStepFactory) NewStep() (steps.Step[string, string], error) 
 // TODO(manuel, 2023-01-27) Maybe look into better YAML handling using UnmarshalYAML overloading
 type factoryConfigFileWrapper struct {
 	Factories struct {
-		OpenAI *CompletionStepFactory `yaml:"openai"`
+		OpenAI *StepFactory `yaml:"openai"`
 	} `yaml:"factories"`
 }
 
-func NewCompletionStepFactoryFromYAML(s io.Reader) (*CompletionStepFactory, error) {
+func NewStepFactoryFromYAML(s io.Reader) (*StepFactory, error) {
 	var settings factoryConfigFileWrapper
 	if err := yaml.NewDecoder(s).Decode(&settings); err != nil {
 		return nil, err
 	}
 
 	if settings.Factories.OpenAI == nil {
-		settings.Factories.OpenAI = NewCompletionStepFactory(NewCompletionStepSettings(), NewClientSettings())
+		settings.Factories.OpenAI = NewStepFactory(NewStepSettings(), openai.NewClientSettings())
 	}
 
-	return NewCompletionStepFactory(
+	return NewStepFactory(
 		settings.Factories.OpenAI.StepSettings,
 		settings.Factories.OpenAI.ClientSettings,
 	), nil
 }
 
-func NewCompletionStepSettings() *CompletionStepSettings {
-	return &CompletionStepSettings{}
+func NewStepSettings() *StepSettings {
+	return &StepSettings{}
 }
