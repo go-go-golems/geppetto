@@ -35,37 +35,93 @@ var rootCmd = &cobra.Command{
 }
 
 func main() {
-	_ = rootCmd.Execute()
+	// first, check if the args are "run-command file.yaml",
+	// because we need to load the file and then run the command itself.
+	// we need to do this before cobra, because we don't know which flags to load yet
+	if len(os.Args) >= 3 && os.Args[1] == "run-command" && os.Args[2] != "--help" {
+		// load the command
+		loader := &cmds.GeppettoCommandLoader{}
+		f, err := os.Open(os.Args[2])
+		if err != nil {
+			fmt.Printf("Could not open file: %v\n", err)
+			os.Exit(1)
+		}
+		glazedParameterLayer, err := cli.NewGlazedParameterLayers(
+			cli.WithSelectParameterLayerOptions(
+				layers.WithDefaults(
+					&cli.SelectSettings{
+						SelectField: "response",
+					},
+				),
+			),
+		)
+		cobra.CheckErr(err)
+
+		cmds_, err := loader.LoadCommandFromYAML(f, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
+		if err != nil {
+			fmt.Printf("Could not load command: %v\n", err)
+			os.Exit(1)
+		}
+		if len(cmds_) != 1 {
+			fmt.Printf("Expected exactly one command, got %d", len(cmds_))
+		}
+
+		glazeCommand, ok := cmds_[0].(glazed_cmds.GlazeCommand)
+		if !ok {
+			fmt.Printf("Expected GlazeCommand, got %T", cmds_[0])
+			os.Exit(1)
+		}
+
+		cobraCommand, err := cli.BuildCobraCommandFromGlazeCommand(glazeCommand)
+		if err != nil {
+			fmt.Printf("Could not build cobra command: %v\n", err)
+			os.Exit(1)
+		}
+
+		_, err = initRootCmd()
+		cobra.CheckErr(err)
+
+		rootCmd.AddCommand(cobraCommand)
+		restArgs := os.Args[3:]
+		os.Args = append([]string{os.Args[0], cobraCommand.Use}, restArgs...)
+	} else {
+		helpSystem, err := initRootCmd()
+		cobra.CheckErr(err)
+
+		err = initAllCommands(helpSystem)
+		cobra.CheckErr(err)
+	}
+
+	err := rootCmd.Execute()
+	cobra.CheckErr(err)
 }
 
-func init() {
+var runCommandCmd = &cobra.Command{
+	Use:   "run-command",
+	Short: "Run a command from a file",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		panic(fmt.Errorf("not implemented"))
+	},
+}
+
+func initRootCmd() (*help.HelpSystem, error) {
 	helpSystem := help.NewHelpSystem()
 	err := helpSystem.LoadSectionsFromFS(docFS, ".")
 	cobra.CheckErr(err)
 
 	helpSystem.SetupCobraRootCommand(rootCmd)
 
-	//sections, err := openai.LoadModelsHelpFiles()
-	//if err != nil {
-	//	log.Error().Err(err).Msg("Error loading models help files")
-	//}
-	//for _, section := range sections {
-	//	helpSystem.AddSection(section)
-	//}
-	//
-
 	err = clay.InitViper("pinocchio", rootCmd)
 	cobra.CheckErr(err)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error initializing config: %s\n", err)
-		os.Exit(1)
-	}
 	err = clay.InitLogger()
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error initializing logger: %s\n", err)
-		os.Exit(1)
-	}
+	cobra.CheckErr(err)
 
+	rootCmd.AddCommand(runCommandCmd)
+	return helpSystem, nil
+}
+
+func initAllCommands(helpSystem *help.HelpSystem) error {
 	repositories := viper.GetStringSlice("repositories")
 
 	defaultDirectory := "$HOME/.pinocchio/prompts"
@@ -93,7 +149,7 @@ func init() {
 		),
 	)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
@@ -103,22 +159,21 @@ func init() {
 		yamlLoader, helpSystem, rootCmd, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
 
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	glazeCommands, ok := cast.CastList[glazed_cmds.GlazeCommand](commands)
 	if !ok {
-		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("could not cast commands to GlazeCommand")
 	}
 	err = cli.AddCommandsToRootCommand(rootCmd, glazeCommands, aliases)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	rootCmd.AddCommand(openai.OpenaiCmd)
 
 	rootCmd.AddCommand(ui.UiCmd)
+
+	return nil
 }
