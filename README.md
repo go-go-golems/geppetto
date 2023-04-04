@@ -1,5 +1,7 @@
 # Geppetto - go LLM and GPT3 specific prompting framework
 
+#![Retro cybernetic puppetmaster controlling a pinocchio puppet that is working on a computer, retro mainframe aesthetic](geppetto.jpg)
+
 Geppetto is a framework to run "actions" against LLMs (Large Language Models).
 It is ultimately meant to become a rich framework to declaratively create 
 chained LLM application, but is currently mostly a wrapper around a simple
@@ -177,3 +179,9 @@ flags:
 I am 100 years old.
 ```
 
+## Contributing
+
+This is GO GO GOLEMS playground, and GO GO GOLEMS don't accept contributions. 
+The structure of the project will significantly change as we go forward, but
+the core concept of a declarative prompting structure will stay the same,
+and as such, you should be reasonably safe writing YAMLs to be used with pinocchio.
