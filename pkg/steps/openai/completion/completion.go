@@ -64,7 +64,7 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 		return nil
 	}
 
-	if strings.HasPrefix(engine, "gpt-3.5-turbo") {
+	if strings.HasPrefix(engine, "gpt-3.5-turbo") || strings.HasPrefix(engine, "gpt-4") {
 		log.Debug().Msg("using turbo (chat) engine")
 		return s.RunChatCompletion(ctx, prompt, engine)
 	} else {
