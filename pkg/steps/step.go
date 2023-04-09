@@ -8,7 +8,7 @@ import (
 	"gopkg.in/errgo.v2/fmt/errors"
 )
 
-// Step represents one step in a geppetto pipeline
+// Step represents one step in a generic pipeline
 type Step[A, B any] interface {
 	// Run starts the step and blocks until the end
 	Run(ctx context.Context, a A) error
