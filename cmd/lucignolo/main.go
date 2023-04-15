@@ -4,9 +4,10 @@ import (
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
+	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cli"
-	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	parka "github.com/go-go-golems/parka/pkg"
 	"github.com/spf13/cobra"
@@ -50,8 +51,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	locations := clay.CommandLocations{
-		Embedded: []clay.EmbeddedCommandLocation{
+	locations := clay_cmds.CommandLocations{
+		Embedded: []clay_cmds.EmbeddedCommandLocation{
 			{
 				FS:      promptsFS,
 				Name:    "embed",
@@ -61,11 +62,10 @@ func main() {
 		},
 	}
 
-	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
-		&cmds.GeppettoCommandLoader{}, "", "")
-	commandLoader := clay.NewCommandLoader[*cmds.GeppettoCommand](&locations)
+	yamlLoader := loaders.NewYAMLFSCommandLoader(&cmds.GeppettoCommandLoader{})
+	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
 	commands, aliases, err := commandLoader.LoadCommands(
-		yamlLoader, helpSystem, rootCmd)
+		yamlLoader, helpSystem)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error initializing commands: %s\n", err)
 		os.Exit(1)
