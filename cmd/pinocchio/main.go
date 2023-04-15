@@ -4,12 +4,14 @@ import (
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
+	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/ui"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/spf13/cobra"
@@ -127,8 +129,8 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 	defaultDirectory := "$HOME/.pinocchio/prompts"
 	repositories = append(repositories, defaultDirectory)
 
-	locations := clay.CommandLocations{
-		Embedded: []clay.EmbeddedCommandLocation{
+	locations := clay_cmds.CommandLocations{
+		Embedded: []clay_cmds.EmbeddedCommandLocation{
 			{
 				FS:      promptsFS,
 				Name:    "embed",
@@ -152,11 +154,10 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		return err
 	}
 
-	yamlLoader := glazed_cmds.NewYAMLFSCommandLoader(
-		&cmds.GeppettoCommandLoader{}, "", "")
-	commandLoader := clay.NewCommandLoader[*cmds.GeppettoCommand](&locations)
+	yamlLoader := loaders.NewYAMLFSCommandLoader(&cmds.GeppettoCommandLoader{})
+	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
 	commands, aliases, err := commandLoader.LoadCommands(
-		yamlLoader, helpSystem, rootCmd, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
+		yamlLoader, helpSystem, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
 
 	if err != nil {
 		return err
