@@ -10,7 +10,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/pkg/errors"
@@ -311,16 +313,6 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	return []glazedcmds.Command{sq}, nil
 }
 
-func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(s io.Reader) ([]*glazedcmds.CommandAlias, error) {
-	var alias glazedcmds.CommandAlias
-	err := yaml.NewDecoder(s).Decode(&alias)
-	if err != nil {
-		return nil, err
-	}
-
-	if !alias.IsValid() {
-		return nil, errors.New("Invalid command alias")
-	}
-
-	return []*glazedcmds.CommandAlias{&alias}, nil
+func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(s io.Reader, options ...alias.Option) ([]*alias.CommandAlias, error) {
+	return loaders.LoadCommandAliasFromYAML(s, options...)
 }
