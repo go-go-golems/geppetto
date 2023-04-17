@@ -10,6 +10,8 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	parka "github.com/go-go-golems/parka/pkg"
+	"github.com/go-go-golems/parka/pkg/glazed"
+	"github.com/go-go-golems/parka/pkg/render"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -87,7 +89,7 @@ func main() {
 			if templateDir != "" {
 				serverOptions = append(
 					serverOptions,
-					parka.WithPrependTemplateLookups(parka.LookupTemplateFromDirectory(templateDir)),
+					parka.WithPrependTemplateLookups(render.LookupTemplateFromDirectory(templateDir)),
 				)
 			}
 
@@ -99,18 +101,18 @@ func main() {
 			for _, command := range commands {
 				d := command.Description()
 				s.Router.GET("/api/"+d.Name, s.HandleSimpleQueryCommand(command,
-					[]parka.ParserHandlerOption{
-						parka.WithGlazeOutputParserOption(glazedParameterLayers, "table", "html"),
-					},
+					glazed.WithParserOptions(
+						glazed.WithGlazeOutputParserOption(glazedParameterLayers, "table", "html"),
+					),
 				))
 				s.Router.POST("api/"+d.Name, s.HandleSimpleFormCommand(command))
 			}
 			for _, alias := range aliases {
 				d := alias.Description()
 				s.Router.GET("/api/"+d.Name, s.HandleSimpleQueryCommand(alias,
-					[]parka.ParserHandlerOption{
-						parka.WithGlazeOutputParserOption(glazedParameterLayers, "table", "html"),
-					},
+					glazed.WithParserOptions(
+						glazed.WithGlazeOutputParserOption(glazedParameterLayers, "table", "html"),
+					),
 				))
 				s.Router.POST("api/"+d.Name, s.HandleSimpleFormCommand(alias))
 			}
