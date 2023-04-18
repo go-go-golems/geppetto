@@ -1,0 +1,47 @@
+name: go-crash
+short: Analyze a go stacktrace
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.1
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: stacktrace_file
+    type: stringFromFile
+    help: The stacktrace
+    required: true
+  - name: stack_frames
+    type: objectListFromFile
+    help: The stack frames
+  - name: question
+    type: string
+    help: The question to ask
+    default: What happened? Give fix suggestions as list. Add suggested code as needed.
+prompt: |
+  Analyze the following go stacktrace and try to explain why it crashed: 
+
+  The stacktrace lists the functions called in inverse order: the last function called is at the top,
+  the first function (grandparent caller) is last.
+
+  {{ .stacktrace_file -}}
+  
+  In this stacktrace, first tell me which function is the last one called before the crash.
+
+  {{ if .stack_frames -}}
+  Here is the file context of the individual stack frame entries:
+
+  {{ range .stack_frames }}
+  --- {{ .Filename }}:{{ .Line }}:
+  {{ .Text }}
+  {{ end -}}
+  {{ end }}
+
+  First tell me which function is the last one called before the crash.
+
+  Then, {{ .question }}
+
+
