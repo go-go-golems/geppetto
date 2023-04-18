@@ -244,7 +244,7 @@ var FamiliesCmd = &cobra.Command{
 		err := json.Unmarshal([]byte(modelsJson), &models)
 		cobra.CheckErr(err)
 
-		gp, of, err := cli.CreateGlazedProcessorFromCobra(cmd)
+		gp, err := cli.CreateGlazedProcessorFromCobra(cmd)
 		cobra.CheckErr(err)
 
 		for _, family := range models.Families {
@@ -252,7 +252,7 @@ var FamiliesCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		s, err := of.Output()
+		s, err := gp.OutputFormatter().Output()
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
@@ -271,7 +271,7 @@ var ModelsCmd = &cobra.Command{
 		err := json.Unmarshal([]byte(modelsJson), &models)
 		cobra.CheckErr(err)
 
-		gp, of, err := cli.CreateGlazedProcessorFromCobra(cmd)
+		gp, err := cli.CreateGlazedProcessorFromCobra(cmd)
 		cobra.CheckErr(err)
 
 		for _, completion := range models.Completion {
@@ -279,7 +279,7 @@ var ModelsCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		s, err := of.Output()
+		s, err := gp.OutputFormatter().Output()
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
