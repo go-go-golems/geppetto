@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
@@ -9,6 +10,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
+	"github.com/go-go-golems/glazed/pkg/helpers"
 	parka "github.com/go-go-golems/parka/pkg"
 	"github.com/go-go-golems/parka/pkg/glazed"
 	"github.com/go-go-golems/parka/pkg/render"
@@ -117,7 +119,17 @@ func main() {
 				s.Router.POST("api/"+d.Name, s.HandleSimpleFormCommand(alias))
 			}
 
-			err = s.Run()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			go func() {
+				err := helpers.CancelOnSignal(ctx, os.Interrupt, cancel)
+				if err != nil && err != context.Canceled {
+					fmt.Println(err)
+				}
+			}()
+			err = s.Run(ctx)
+
 			cobra.CheckErr(err)
 		},
 	}
