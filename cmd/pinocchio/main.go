@@ -163,11 +163,11 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		return err
 	}
 
-	glazeCommands, ok := cast.CastList[glazed_cmds.GlazeCommand](commands)
+	commands_, ok := cast.CastList[glazed_cmds.Command](commands)
 	if !ok {
 		return fmt.Errorf("could not cast commands to GlazeCommand")
 	}
-	err = cli.AddCommandsToRootCommand(rootCmd, glazeCommands, aliases)
+	err = cli.AddCommandsToRootCommand(rootCmd, commands_, aliases)
 	if err != nil {
 		return err
 	}
