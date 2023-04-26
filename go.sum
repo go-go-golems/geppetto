@@ -114,6 +114,8 @@ github.com/fsnotify/fsnotify v1.6.0 h1:n+5WquG0fcWoWp6xPWfHdbskMCQaFnG6PfBrh1Ky4
 github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbSClcnxKAGw=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
+github.com/gin-gonic/contrib v0.0.0-20221130124618-7e01895a63f2 h1:dyuNlYlG1faymw39NdJddnzJICy6587tiGSVioWhYoE=
+github.com/gin-gonic/contrib v0.0.0-20221130124618-7e01895a63f2/go.mod h1:iqneQ2Df3omzIVTkIfn7c1acsVnMGiSLn4XF5Blh3Yg=
 github.com/gin-gonic/gin v1.9.0 h1:OjyFBKICoexlu99ctXNR2gg+c5pKrKMuyjgARg9qeY8=
 github.com/gin-gonic/gin v1.9.0/go.mod h1:W1Me9+hsUSyj3CePGrd1/QrKJMSJ1Tu/0hFEH89961k=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
@@ -121,10 +123,10 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-go-golems/clay v0.0.14 h1:7+WcSpobbtmNd19H0WhSkhkuarcI3s2syvfEoF+zOs4=
 github.com/go-go-golems/clay v0.0.14/go.mod h1:Pxk9nEIhlxmpwmVzClLptRVwrs4LGnbbdSyJrtNuiVU=
-github.com/go-go-golems/glazed v0.2.71 h1:qOEJZKAxQkyD08qjOJPg9GSRhLob28XdaUQqWlk4jhE=
-github.com/go-go-golems/glazed v0.2.71/go.mod h1:L07GcXoQFTLktDLTuqbfodBjjyS10KYAuDee3p4lxe4=
-github.com/go-go-golems/parka v0.2.16 h1:jBpryag1NO0n/8Pbcf6xkB02unNHuGJn3wU2qYLn7PU=
-github.com/go-go-golems/parka v0.2.16/go.mod h1:EFlJyiGcAdMAliAUN1t2BpeFA9BC6sWSj/ceafS62Nc=
+github.com/go-go-golems/glazed v0.2.74 h1:tPFNoML+Q8frNl1N11+IZ6kmHaF/seLnNig45hd8L6k=
+github.com/go-go-golems/glazed v0.2.74/go.mod h1:L07GcXoQFTLktDLTuqbfodBjjyS10KYAuDee3p4lxe4=
+github.com/go-go-golems/parka v0.2.20 h1:KlWV6X5IUKXt3FDSmLZnoppqUS56v2L/uBjcPVt5u6A=
+github.com/go-go-golems/parka v0.2.20/go.mod h1:kMQo4mvCoKFdAqBsEsEokbO7M4F58lHntzAfO1YBENY=
 github.com/go-openapi/errors v0.20.3 h1:rz6kiC84sqNQoqrtulzaL/VERgkoCyB6WdEkc2ujzUc=
 github.com/go-openapi/errors v0.20.3/go.mod h1:Z3FlZ4I8jEGxjUK+bugx3on2mIAk4txuAOhlsB1FSgk=
 github.com/go-openapi/strfmt v0.21.7 h1:rspiXgNWgeUzhjo1YU01do6qsahtJNByjLVbPLNHb8k=
