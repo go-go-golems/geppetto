@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
+	"github.com/go-go-golems/glazed/pkg/processor"
 	"github.com/mb0/glob"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -78,7 +79,7 @@ func (c *ListEnginesCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp cmds.Processor,
+	gp processor.Processor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -126,7 +127,7 @@ func (c *ListEnginesCommand) Run(
 			"ready":  engine.Ready,
 			"object": engine.Object,
 		}
-		err = gp.ProcessInputObject(row)
+		err = gp.ProcessInputObject(ctx, row)
 		cobra.CheckErr(err)
 	}
 
@@ -174,7 +175,7 @@ func (c *EngineInfoCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp cmds.Processor,
+	gp processor.Processor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -193,7 +194,7 @@ func (c *EngineInfoCommand) Run(
 		"ready":  resp.Ready,
 		"object": resp.Object,
 	}
-	err = gp.ProcessInputObject(row)
+	err = gp.ProcessInputObject(ctx, row)
 	cobra.CheckErr(err)
 
 	return nil
@@ -244,15 +245,17 @@ var FamiliesCmd = &cobra.Command{
 		err := json.Unmarshal([]byte(modelsJson), &models)
 		cobra.CheckErr(err)
 
+		ctx := cmd.Context()
+
 		gp, err := cli.CreateGlazedProcessorFromCobra(cmd)
 		cobra.CheckErr(err)
 
 		for _, family := range models.Families {
-			err = gp.ProcessInputObject(family)
+			err = gp.ProcessInputObject(ctx, family)
 			cobra.CheckErr(err)
 		}
 
-		s, err := gp.OutputFormatter().Output()
+		s, err := gp.OutputFormatter().Output(ctx)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
@@ -266,6 +269,7 @@ var ModelsCmd = &cobra.Command{
 	Use:   "ls-models",
 	Short: "list models",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
 
 		models := SimpleModelsJSON{}
 		err := json.Unmarshal([]byte(modelsJson), &models)
@@ -275,11 +279,11 @@ var ModelsCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		for _, completion := range models.Completion {
-			err = gp.ProcessInputObject(completion)
+			err = gp.ProcessInputObject(ctx, completion)
 			cobra.CheckErr(err)
 		}
 
-		s, err := gp.OutputFormatter().Output()
+		s, err := gp.OutputFormatter().Output(ctx)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
