@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/processor"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"os"
@@ -73,7 +74,7 @@ func (j *CompletionCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp cmds.Processor,
+	gp processor.Processor,
 ) error {
 	prompts := []string{}
 
@@ -167,7 +168,7 @@ func (j *CompletionCommand) Run(
 		err = json.Unmarshal(rawResponse, &rawResponseMap)
 		cobra.CheckErr(err)
 
-		err = gp.ProcessInputObject(rawResponseMap)
+		err = gp.ProcessInputObject(ctx, rawResponseMap)
 		cobra.CheckErr(err)
 
 	} else {
@@ -203,7 +204,7 @@ func (j *CompletionCommand) Run(
 				"finish_reason": choice.FinishReason,
 				"engine":        *settings.Engine,
 			}
-			err = gp.ProcessInputObject(row)
+			err = gp.ProcessInputObject(ctx, row)
 			cobra.CheckErr(err)
 		}
 	}
