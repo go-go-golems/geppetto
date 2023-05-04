@@ -123,10 +123,10 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-go-golems/clay v0.0.14 h1:7+WcSpobbtmNd19H0WhSkhkuarcI3s2syvfEoF+zOs4=
 github.com/go-go-golems/clay v0.0.14/go.mod h1:Pxk9nEIhlxmpwmVzClLptRVwrs4LGnbbdSyJrtNuiVU=
-github.com/go-go-golems/glazed v0.2.74 h1:tPFNoML+Q8frNl1N11+IZ6kmHaF/seLnNig45hd8L6k=
-github.com/go-go-golems/glazed v0.2.74/go.mod h1:L07GcXoQFTLktDLTuqbfodBjjyS10KYAuDee3p4lxe4=
-github.com/go-go-golems/parka v0.2.20 h1:KlWV6X5IUKXt3FDSmLZnoppqUS56v2L/uBjcPVt5u6A=
-github.com/go-go-golems/parka v0.2.20/go.mod h1:kMQo4mvCoKFdAqBsEsEokbO7M4F58lHntzAfO1YBENY=
+github.com/go-go-golems/glazed v0.2.77 h1:18BboxT3rIXo08Kuz3GQ9aNQdMhMj4OPGAN5ielfhZc=
+github.com/go-go-golems/glazed v0.2.77/go.mod h1:xYq7afZXGsPj6jS0ZyzCLTENZlIl7vGush2vCSufnNs=
+github.com/go-go-golems/parka v0.2.22 h1:aADJiJsT2LMGZTP2ViOMJTARa2OzZE1EYKOxGw545Qc=
+github.com/go-go-golems/parka v0.2.22/go.mod h1:19GGhRrzkulampm8m01r2jWbSMcMaFbtWJWaOOTv0YM=
 github.com/go-openapi/errors v0.20.3 h1:rz6kiC84sqNQoqrtulzaL/VERgkoCyB6WdEkc2ujzUc=
 github.com/go-openapi/errors v0.20.3/go.mod h1:Z3FlZ4I8jEGxjUK+bugx3on2mIAk4txuAOhlsB1FSgk=
 github.com/go-openapi/strfmt v0.21.7 h1:rspiXgNWgeUzhjo1YU01do6qsahtJNByjLVbPLNHb8k=
@@ -365,8 +365,8 @@ github.com/tj/go-naturaldate v1.3.0 h1:OgJIPkR/Jk4bFMBLbxZ8w+QUxwjqSvzd9x+yXocY4
 github.com/tj/go-naturaldate v1.3.0/go.mod h1:rpUbjivDKiS1BlfMGc2qUKNZ/yxgthOfmytQs8d8hKk=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
-github.com/ugorji/go/codec v1.2.9 h1:rmenucSohSTiyL09Y+l2OCk+FrMxGMzho2+tjr5ticU=
-github.com/ugorji/go/codec v1.2.9/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
+github.com/ugorji/go/codec v1.2.11 h1:BMaWp1Bb6fHwEtbplGBGJ498wD+LKlNSl25MjdZY4dU=
+github.com/ugorji/go/codec v1.2.11/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=
 github.com/xdg-go/scram v1.1.1/go.mod h1:RaEWvsqvNKKvBPvcKeFjrG2cJqOkHTiyTpzz23ni57g=
 github.com/xdg-go/stringprep v1.0.3/go.mod h1:W3f5j4i+9rC0kuIEJL0ky1VpHXQU3ocBgklLGvcBnW8=
