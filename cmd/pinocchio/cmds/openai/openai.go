@@ -255,12 +255,14 @@ var FamiliesCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		s, err := gp.OutputFormatter().Output(ctx)
+		buf := bytes.NewBuffer([]byte{})
+
+		err = gp.OutputFormatter().Output(ctx, buf)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
 		}
-		fmt.Print(s)
+		fmt.Print(buf.String())
 		cobra.CheckErr(err)
 	},
 }
@@ -283,12 +285,13 @@ var ModelsCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		s, err := gp.OutputFormatter().Output(ctx)
+		buf := bytes.NewBuffer([]byte{})
+		err = gp.OutputFormatter().Output(ctx, buf)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
 		}
-		fmt.Print(s)
+		fmt.Print(buf.String())
 		cobra.CheckErr(err)
 	},
 }
