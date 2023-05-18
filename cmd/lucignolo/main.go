@@ -7,10 +7,10 @@ import (
 	clay "github.com/go-go-golems/clay/pkg"
 	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers"
+	"github.com/go-go-golems/glazed/pkg/settings"
 	parka "github.com/go-go-golems/parka/pkg"
 	"github.com/go-go-golems/parka/pkg/glazed"
 	"github.com/go-go-golems/parka/pkg/render"
@@ -97,7 +97,7 @@ func main() {
 
 			s, _ := parka.NewServer(serverOptions...)
 
-			glazedParameterLayers, err := cli.NewGlazedParameterLayers()
+			glazedParameterLayers, err := settings.NewGlazedParameterLayers()
 			cobra.CheckErr(err)
 
 			for _, command := range commands {
