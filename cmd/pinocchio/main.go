@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
+	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
@@ -48,10 +49,10 @@ func main() {
 			fmt.Printf("Could not open file: %v\n", err)
 			os.Exit(1)
 		}
-		glazedParameterLayer, err := cli.NewGlazedParameterLayers(
-			cli.WithSelectParameterLayerOptions(
+		glazedParameterLayer, err := settings.NewGlazedParameterLayers(
+			settings.WithSelectParameterLayerOptions(
 				layers.WithDefaults(
-					&cli.SelectSettings{
+					&settings.SelectSettings{
 						SelectField: "response",
 					},
 				),
@@ -141,10 +142,10 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		Repositories: repositories,
 	}
 
-	glazedParameterLayer, err := cli.NewGlazedParameterLayers(
-		cli.WithSelectParameterLayerOptions(
+	glazedParameterLayer, err := settings.NewGlazedParameterLayers(
+		settings.WithSelectParameterLayerOptions(
 			layers.WithDefaults(
-				&cli.SelectSettings{
+				&settings.SelectSettings{
 					SelectField: "response",
 				},
 			),

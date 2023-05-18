@@ -6,11 +6,11 @@ import (
 	"github.com/PullRequestInc/go-gpt3"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/processor"
+	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"os"
@@ -21,8 +21,8 @@ type EmbeddingsCommand struct {
 }
 
 func NewEmbeddingsCommand() (*EmbeddingsCommand, error) {
-	glazedParameterLayer, err := cli.NewGlazedParameterLayers(
-		cli.WithOutputParameterLayerOptions(
+	glazedParameterLayer, err := settings.NewGlazedParameterLayers(
+		settings.WithOutputParameterLayerOptions(
 			layers.WithDefaults(map[string]interface{}{
 				"output": "json",
 			},
