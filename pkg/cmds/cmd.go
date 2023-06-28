@@ -16,6 +16,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/go-go-golems/glazed/pkg/processor"
 	"github.com/go-go-golems/glazed/pkg/settings"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -98,7 +99,7 @@ func (g *GeppettoCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.Processor,
+	gp processor.TableProcessor,
 ) error {
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
@@ -209,9 +210,9 @@ func (g *GeppettoCommand) Run(
 					accumulate += v
 				} else {
 					if !isStream {
-						err = gp.ProcessInputObject(ctx, map[string]interface{}{
-							"response": accumulate + v,
-						})
+						err = gp.AddRow(ctx, types.NewRow(
+							types.MRP("response", accumulate+v),
+						))
 					}
 
 					if err != nil {
