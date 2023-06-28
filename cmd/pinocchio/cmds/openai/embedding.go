@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/processor"
 	"github.com/go-go-golems/glazed/pkg/settings"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"os"
@@ -90,7 +91,7 @@ func (c *EmbeddingsCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.Processor,
+	gp processor.TableProcessor,
 ) error {
 	user, _ := ps["user"].(string)
 
@@ -142,21 +143,20 @@ func (c *EmbeddingsCommand) Run(
 		rawResponse, err := json.MarshalIndent(resp, "", "  ")
 		cobra.CheckErr(err)
 
-		// deserialize to map[string]interface{}
-		var rawResponseMap map[string]interface{}
+		rawResponseMap := types.NewRow()
 		err = json.Unmarshal(rawResponse, &rawResponseMap)
 		cobra.CheckErr(err)
 
-		err = gp.ProcessInputObject(ctx, rawResponseMap)
+		err = gp.AddRow(ctx, rawResponseMap)
 		cobra.CheckErr(err)
 	} else {
 		for _, embedding := range resp.Data {
-			row := map[string]interface{}{
-				"object":    embedding.Object,
-				"embedding": embedding.Embedding,
-				"index":     embedding.Index,
-			}
-			err = gp.ProcessInputObject(ctx, row)
+			row := types.NewRow(
+				types.MRP("object", embedding.Object),
+				types.MRP("embedding", embedding.Embedding),
+				types.MRP("index", embedding.Index),
+			)
+			err = gp.AddRow(ctx, row)
 			cobra.CheckErr(err)
 		}
 	}

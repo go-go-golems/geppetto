@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/processor"
 	"github.com/go-go-golems/glazed/pkg/settings"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"os"
@@ -74,7 +75,7 @@ func (j *CompletionCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.Processor,
+	gp processor.TableProcessor,
 ) error {
 	prompts := []string{}
 
@@ -164,11 +165,11 @@ func (j *CompletionCommand) Run(
 		cobra.CheckErr(err)
 
 		// deserialize to map[string]interface{}
-		var rawResponseMap map[string]interface{}
+		rawResponseMap := types.NewRow()
 		err = json.Unmarshal(rawResponse, &rawResponseMap)
 		cobra.CheckErr(err)
 
-		err = gp.ProcessInputObject(ctx, rawResponseMap)
+		err = gp.AddRow(ctx, rawResponseMap)
 		cobra.CheckErr(err)
 
 	} else {
@@ -196,15 +197,15 @@ func (j *CompletionCommand) Run(
 			prompt = strings.ReplaceAll(prompt, "\n", "\\n")
 			// trim whitespace
 
-			row := map[string]interface{}{
-				"index":         choice.Index,
-				"text":          text,
-				"logprobs":      logProbs,
-				"prompt":        prompt,
-				"finish_reason": choice.FinishReason,
-				"engine":        *settings.Engine,
-			}
-			err = gp.ProcessInputObject(ctx, row)
+			row := types.NewRow(
+				types.MRP("index", choice.Index),
+				types.MRP("text", text),
+				types.MRP("logprobs", logProbs),
+				types.MRP("prompt", prompt),
+				types.MRP("finish_reason", choice.FinishReason),
+				types.MRP("engine", *settings.Engine),
+			)
+			err = gp.AddRow(ctx, row)
 			cobra.CheckErr(err)
 		}
 	}
