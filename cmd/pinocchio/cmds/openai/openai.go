@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/processor"
 	"github.com/go-go-golems/glazed/pkg/settings"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/mb0/glob"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -80,7 +81,7 @@ func (c *ListEnginesCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.Processor,
+	gp processor.TableProcessor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -122,13 +123,13 @@ func (c *ListEnginesCommand) Run(
 			}
 		}
 
-		row := map[string]interface{}{
-			"id":     engine.ID,
-			"owner":  engine.Owner,
-			"ready":  engine.Ready,
-			"object": engine.Object,
-		}
-		err = gp.ProcessInputObject(ctx, row)
+		row := types.NewRow(
+			types.MRP("id", engine.ID),
+			types.MRP("owner", engine.Owner),
+			types.MRP("ready", engine.Ready),
+			types.MRP("object", engine.Object),
+		)
+		err = gp.AddRow(ctx, row)
 		cobra.CheckErr(err)
 	}
 
@@ -176,7 +177,7 @@ func (c *EngineInfoCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.Processor,
+	gp processor.TableProcessor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -189,13 +190,13 @@ func (c *EngineInfoCommand) Run(
 	resp, err := client.Engine(ctx, engine)
 	cobra.CheckErr(err)
 
-	row := map[string]interface{}{
-		"id":     resp.ID,
-		"owner":  resp.Owner,
-		"ready":  resp.Ready,
-		"object": resp.Object,
-	}
-	err = gp.ProcessInputObject(ctx, row)
+	row := types.NewRow(
+		types.MRP("id", resp.ID),
+		types.MRP("owner", resp.Owner),
+		types.MRP("ready", resp.Ready),
+		types.MRP("object", resp.Object),
+	)
+	err = gp.AddRow(ctx, row)
 	cobra.CheckErr(err)
 
 	return nil
@@ -234,8 +235,8 @@ type ModelsJSON struct {
 }
 
 type SimpleModelsJSON struct {
-	Completion []map[string]interface{} `json:"completion"`
-	Families   []map[string]interface{} `json:"families"`
+	Completion []types.Row `json:"completion"`
+	Families   []types.Row `json:"families"`
 }
 
 var FamiliesCmd = &cobra.Command{
@@ -252,13 +253,16 @@ var FamiliesCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		for _, family := range models.Families {
-			err = gp.ProcessInputObject(ctx, family)
+			err = gp.AddRow(ctx, family)
 			cobra.CheckErr(err)
 		}
 
 		buf := bytes.NewBuffer([]byte{})
 
-		err = gp.OutputFormatter().Output(ctx, buf)
+		err = gp.Finalize(ctx)
+		cobra.CheckErr(err)
+
+		err = gp.OutputFormatter().Output(ctx, gp.GetTable(), buf)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
@@ -282,12 +286,15 @@ var ModelsCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		for _, completion := range models.Completion {
-			err = gp.ProcessInputObject(ctx, completion)
+			err = gp.AddRow(ctx, completion)
 			cobra.CheckErr(err)
 		}
 
+		err = gp.Finalize(ctx)
+		cobra.CheckErr(err)
+
 		buf := bytes.NewBuffer([]byte{})
-		err = gp.OutputFormatter().Output(ctx, buf)
+		err = gp.OutputFormatter().Output(ctx, gp.GetTable(), buf)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
 			os.Exit(1)
