@@ -12,13 +12,12 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
-	"github.com/go-go-golems/glazed/pkg/processor"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/mb0/glob"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"os"
 	"strings"
 	"text/template"
 )
@@ -81,7 +80,7 @@ func (c *ListEnginesCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.TableProcessor,
+	gp middlewares.Processor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -177,7 +176,7 @@ func (c *EngineInfoCommand) Run(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp processor.TableProcessor,
+	gp middlewares.Processor,
 ) error {
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
@@ -249,7 +248,7 @@ var FamiliesCmd = &cobra.Command{
 
 		ctx := cmd.Context()
 
-		gp, err := cli.CreateGlazedProcessorFromCobra(cmd)
+		gp, _, err := cli.CreateGlazedProcessorFromCobra(cmd)
 		cobra.CheckErr(err)
 
 		for _, family := range models.Families {
@@ -257,17 +256,7 @@ var FamiliesCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		buf := bytes.NewBuffer([]byte{})
-
-		err = gp.Finalize(ctx)
-		cobra.CheckErr(err)
-
-		err = gp.OutputFormatter().Output(ctx, gp.GetTable(), buf)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Print(buf.String())
+		err = gp.Close(ctx)
 		cobra.CheckErr(err)
 	},
 }
@@ -282,7 +271,7 @@ var ModelsCmd = &cobra.Command{
 		err := json.Unmarshal([]byte(modelsJson), &models)
 		cobra.CheckErr(err)
 
-		gp, err := cli.CreateGlazedProcessorFromCobra(cmd)
+		gp, _, err := cli.CreateGlazedProcessorFromCobra(cmd)
 		cobra.CheckErr(err)
 
 		for _, completion := range models.Completion {
@@ -290,16 +279,7 @@ var ModelsCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		err = gp.Finalize(ctx)
-		cobra.CheckErr(err)
-
-		buf := bytes.NewBuffer([]byte{})
-		err = gp.OutputFormatter().Output(ctx, gp.GetTable(), buf)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Print(buf.String())
+		err = gp.Close(ctx)
 		cobra.CheckErr(err)
 	},
 }
