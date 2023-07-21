@@ -22,6 +22,8 @@ type GenericStepFactory interface {
 	UpdateFromParameters(ps map[string]interface{}) error
 }
 
+// StepFactory creates a new step with input type A and result type B
+// The Factory pattern is I think a misguided attempt at implementing a monad in go.
 type StepFactory[A, B any] interface {
 	NewStep() (Step[A, B], error)
 }

@@ -2,12 +2,12 @@ package completion
 
 import (
 	"context"
+	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"strings"
 )
@@ -27,6 +27,9 @@ type Step struct {
 	settings *StepSettings
 }
 
+type CompletionStepFactory = steps.StepFactory[*geppetto_context.Manager, string]
+type CompletionStep = steps.Step[*geppetto_context.Manager, string]
+
 func NewStep(settings *StepSettings) *Step {
 	return &Step{
 		output:   make(chan helpers.Result[string]),
@@ -35,7 +38,7 @@ func NewStep(settings *StepSettings) *Step {
 	}
 }
 
-func (s *Step) Run(ctx context.Context, prompt string) error {
+func (s *Step) Run(ctx context.Context, manager *geppetto_context.Manager) error {
 	s.state = StepRunning
 
 	defer func() {
@@ -66,9 +69,10 @@ func (s *Step) Run(ctx context.Context, prompt string) error {
 
 	if strings.HasPrefix(engine, "gpt-3.5-turbo") || strings.HasPrefix(engine, "gpt-4") {
 		log.Debug().Msg("using turbo (chat) engine")
-		return s.RunChatCompletion(ctx, prompt, engine)
+		return s.RunChatCompletion(ctx, manager, engine)
 	} else {
 		log.Debug().Msg("using regular engine")
+		prompt := manager.GetSinglePrompt()
 		return s.RunCompletion(ctx, prompt, engine)
 	}
 }
@@ -208,7 +212,11 @@ func (s *Step) RunCompletion(ctx context.Context, prompt, engine string) error {
 	return nil
 }
 
-func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) error {
+func (s *Step) RunChatCompletion(
+	ctx context.Context,
+	manager *geppetto_context.Manager,
+	engine string,
+) error {
 	temperature := 0.0
 	if s.settings.Temperature != nil {
 		temperature = *s.settings.Temperature
@@ -258,6 +266,12 @@ func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) err
 
 	client := openai.NewClient(*s.settings.ClientSettings.APIKey)
 
+	messages := manager.GetMessagesWithSystemPrompt()
+	openAiMessages, err := geppetto_context.ConvertMessagesToOpenAIMessages(messages)
+	if err != nil {
+		return err
+	}
+
 	req := openai.ChatCompletionRequest{
 		Model:            engine,
 		MaxTokens:        maxTokens,
@@ -269,12 +283,7 @@ func (s *Step) RunChatCompletion(ctx context.Context, prompt, engine string) err
 		PresencePenalty:  float32(presencePenalty),
 		FrequencyPenalty: float32(frequencyPenalty),
 		LogitBias:        nil,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: prompt,
-			},
-		},
+		Messages:         openAiMessages,
 	}
 
 	// TODO(manuel, 2023-02-04) Handle multiple outputs
@@ -332,74 +341,4 @@ func (s *Step) GetState() interface{} {
 
 func (s *Step) IsFinished() bool {
 	return s.state == StepFinished || s.state == StepClosed
-}
-
-// TODO(manuel, 2023-02-04) This could be generic, and take a factory
-
-// MultiCompletionStep runs multiple completion steps in parallel
-type MultiCompletionStep struct {
-	output   chan helpers.Result[[]string]
-	state    StepState
-	settings *StepSettings
-}
-
-func NewMultiCompletionStep(settings *StepSettings) *MultiCompletionStep {
-	return &MultiCompletionStep{
-		output:   make(chan helpers.Result[[]string]),
-		settings: settings,
-		state:    StepNotStarted,
-	}
-}
-
-func (mc *MultiCompletionStep) Run(ctx context.Context, prompts []string) error {
-	completionSteps := make([]*Step, len(prompts))
-	chans := make([]<-chan helpers.Result[string], len(prompts))
-	for i := range prompts {
-		completionSteps[i] = NewStep(mc.settings)
-		chans[i] = completionSteps[i].GetOutput()
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	eg, ctx2 := errgroup.WithContext(ctx)
-
-	results := []string{}
-	eg.Go(func() error {
-		mergeChannel := helpers.MergeChannels(chans...)
-		for {
-			select {
-			case <-ctx2.Done():
-				return ctx2.Err()
-			case result := <-mergeChannel:
-				v, err := result.Value()
-				// if we have an error, just store the "" string
-				if err != nil {
-					v = ""
-				}
-				results = append(results, v)
-			}
-		}
-	})
-
-	for i, prompt := range prompts {
-		j := i
-		prompt_ := prompt
-		eg.Go(func() error {
-			return completionSteps[j].Run(ctx2, prompt_)
-		})
-	}
-
-	return eg.Wait()
-}
-
-func (mc *MultiCompletionStep) GetOutput() <-chan helpers.Result[[]string] {
-	return mc.output
-}
-
-func (mc *MultiCompletionStep) GetState() interface{} {
-	return mc.state
-}
-
-func (mc *MultiCompletionStep) IsFinished() bool {
-	return mc.state == StepFinished
 }
