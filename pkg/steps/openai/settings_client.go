@@ -2,10 +2,8 @@ package openai
 
 import (
 	_ "embed"
-	"github.com/PullRequestInc/go-gpt3"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 	"net/http"
@@ -115,58 +113,6 @@ func (c *ClientSettings) Clone() *ClientSettings {
 		BaseURL:       c.BaseURL,
 		HTTPClient:    c.HTTPClient,
 	}
-}
-
-func (c *ClientSettings) ToOptions() []gpt3.ClientOption {
-	ret := make([]gpt3.ClientOption, 0)
-	if c.Timeout != nil {
-		ret = append(ret, gpt3.WithTimeout(*c.Timeout))
-	}
-	if c.Organization != nil {
-		ret = append(ret, gpt3.WithOrg(*c.Organization))
-	}
-	if c.DefaultEngine != nil {
-		ret = append(ret, gpt3.WithDefaultEngine(*c.DefaultEngine))
-	}
-	if c.UserAgent != nil {
-		ret = append(ret, gpt3.WithUserAgent(*c.UserAgent))
-	}
-	if c.BaseURL != nil {
-		ret = append(ret, gpt3.WithBaseURL(*c.BaseURL))
-	}
-	if c.HTTPClient != nil {
-		ret = append(ret, gpt3.WithHTTPClient(c.HTTPClient))
-	}
-	return ret
-}
-
-func (c *ClientSettings) CreateClient() (gpt3.Client, error) {
-	if c.APIKey == nil {
-		return nil, ErrMissingYAMLAPIKey
-	}
-	evt := log.Debug()
-	if c.BaseURL != nil {
-		evt = evt.Str("base_url", *c.BaseURL)
-	}
-	if c.DefaultEngine != nil {
-		evt = evt.Str("default_engine", *c.DefaultEngine)
-	}
-	if c.Organization != nil {
-		evt = evt.Str("organization", *c.Organization)
-	}
-	if c.Timeout != nil {
-		// convert timeout to seconds
-		timeout := *c.Timeout / time.Second
-		evt = evt.Dur("timeout", timeout)
-	}
-	if c.UserAgent != nil {
-		evt = evt.Str("user_agent", *c.UserAgent)
-	}
-	evt.Msg("creating openai client")
-
-	options := c.ToOptions()
-
-	return gpt3.NewClient(*c.APIKey, options...), nil
 }
 
 func NewClientSettings() *ClientSettings {
