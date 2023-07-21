@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
@@ -24,6 +25,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"io"
 	"strings"
+	"time"
 )
 
 type GeppettoCommandDescription struct {
@@ -42,7 +44,7 @@ type GeppettoCommandDescription struct {
 }
 
 func HelpersParameterLayer() (layers.ParameterLayer, error) {
-	return layers.NewParameterLayer("helpers", "pinocchio helpers",
+	return layers.NewParameterLayer("helpers", "Geppetto helpers",
 		layers.WithFlags(
 			parameters.NewParameterDefinition(
 				"print-prompt",
@@ -55,6 +57,17 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 				parameters.ParameterTypeBool,
 				parameters.WithDefault(false),
 				parameters.WithHelp("Print the dyno embed div"),
+			),
+			parameters.NewParameterDefinition(
+				"system",
+				parameters.ParameterTypeString,
+				parameters.WithDefault("You are a helpful AI assistant."),
+				parameters.WithHelp("System message"),
+			),
+			parameters.NewParameterDefinition(
+				"message-file",
+				parameters.ParameterTypeString,
+				parameters.WithHelp("File containing messages (json or yaml, list of objects with fields text, time, role)"),
 			),
 		),
 	)
@@ -81,7 +94,8 @@ func NewGeppettoCommand(
 		return nil, err
 	}
 
-	description.Layers = append(description.Layers,
+	description.Layers = append(
+		description.Layers,
 		helpersParameterLayer,
 		glazedParameterLayer)
 
@@ -112,19 +126,32 @@ func (g *GeppettoCommand) Run(
 		}
 	}
 
+	contextManager := geppetto_context.NewManager()
+
+	systemPrompt := ps["system"].(string)
+	if systemPrompt != "" {
+		contextManager.SetSystemPrompt(systemPrompt)
+	}
+
+	messageFile, ok := ps["message-file"].(string)
+	if ok && messageFile != "" {
+		messages, err := geppetto_context.LoadFromFile(messageFile)
+		if err != nil {
+			return err
+		}
+		contextManager.SetMessages(messages)
+	}
+
 	// TODO(manuel, 2023-03-28) This is entirely completion for now...
 	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
 	}
-	openaiCompletionStepFactory, ok := openaiCompletionStepFactory_.(steps.StepFactory[string, string])
+	openaiCompletionStepFactory, ok := openaiCompletionStepFactory_.(completion.CompletionStepFactory)
 	if !ok {
 		return errors.Errorf("openai-completion-step factory is not a StepFactory[string, string]")
 	}
 
-	// TODO(manuel, 2023-01-28) here we would overload the factory settings with stuff passed on the CLI
-	// (say, temperature or model). This would probably be part of the API for the factory, in general the
-	// factory is the central abstraction of the entire system
 	s, err := openaiCompletionStepFactory.NewStep()
 	if err != nil {
 		return err
@@ -144,9 +171,15 @@ func (g *GeppettoCommand) Run(
 		return err
 	}
 
+	contextManager.AddMessages(&geppetto_context.Message{
+		Text: promptBuffer.String(),
+		Role: "user",
+		Time: time.Now(),
+	})
+
 	printPrompt, ok := ps["print-prompt"]
 	if ok && printPrompt.(bool) {
-		fmt.Println(promptBuffer.String())
+		fmt.Println(contextManager.GetSinglePrompt())
 		return nil
 	}
 
@@ -174,11 +207,9 @@ func (g *GeppettoCommand) Run(
 	}
 
 	eg, ctx2 := errgroup.WithContext(ctx)
-	prompt := promptBuffer.String()
-	//fmt.Printf("Prompt:\n\n%s\n\n", prompt)
 
 	eg.Go(func() error {
-		return s.Run(ctx2, prompt)
+		return s.Run(ctx2, contextManager)
 	})
 
 	accumulate := ""
