@@ -7,7 +7,6 @@ import (
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/alias"
@@ -39,8 +38,9 @@ type GeppettoCommandDescription struct {
 	// TODO(manuel, 2023-02-04) This now has a hack to switch the step type
 	Step *steps.StepDescription `yaml:"step,omitempty"`
 
-	Prompt   string         `yaml:"prompt,omitempty"`
-	Messages []chat.Message `yaml:"messages,omitempty"`
+	Prompt       string                      `yaml:"prompt,omitempty"`
+	Messages     []*geppetto_context.Message `yaml:"messages,omitempty"`
+	SystemPrompt string                      `yaml:"system-prompt,omitempty"`
 }
 
 func HelpersParameterLayer() (layers.ParameterLayer, error) {
@@ -61,8 +61,12 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 			parameters.NewParameterDefinition(
 				"system",
 				parameters.ParameterTypeString,
-				parameters.WithDefault("You are a helpful AI assistant."),
 				parameters.WithHelp("System message"),
+			),
+			parameters.NewParameterDefinition(
+				"append-message-file",
+				parameters.ParameterTypeString,
+				parameters.WithHelp("File containing messages (json or yaml, list of objects with fields text, time, role) to be appended to the already present list of messages"),
 			),
 			parameters.NewParameterDefinition(
 				"message-file",
@@ -74,15 +78,37 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 }
 
 type GeppettoCommand struct {
-	description *glazedcmds.CommandDescription
-	Factories   map[string]interface{} `yaml:"__factories,omitempty"`
-	Prompt      string
+	description  *glazedcmds.CommandDescription
+	Factories    map[string]interface{} `yaml:"__factories,omitempty"`
+	Prompt       string
+	Messages     []*geppetto_context.Message
+	SystemPrompt string
+}
+
+type GeppettoCommandOption func(*GeppettoCommand)
+
+func WithPrompt(prompt string) GeppettoCommandOption {
+	return func(g *GeppettoCommand) {
+		g.Prompt = prompt
+	}
+}
+
+func WithMessages(messages []*geppetto_context.Message) GeppettoCommandOption {
+	return func(g *GeppettoCommand) {
+		g.Messages = messages
+	}
+}
+
+func WithSystemPrompt(systemPrompt string) GeppettoCommandOption {
+	return func(g *GeppettoCommand) {
+		g.SystemPrompt = systemPrompt
+	}
 }
 
 func NewGeppettoCommand(
 	description *glazedcmds.CommandDescription,
 	factories map[string]interface{},
-	prompt string,
+	options ...GeppettoCommandOption,
 ) (*GeppettoCommand, error) {
 	helpersParameterLayer, err := HelpersParameterLayer()
 	if err != nil {
@@ -99,11 +125,16 @@ func NewGeppettoCommand(
 		helpersParameterLayer,
 		glazedParameterLayer)
 
-	return &GeppettoCommand{
+	ret := &GeppettoCommand{
 		description: description,
 		Factories:   factories,
-		Prompt:      prompt,
-	}, nil
+	}
+
+	for _, option := range options {
+		option(ret)
+	}
+
+	return ret, nil
 }
 
 //go:embed templates/dyno.tmpl.html
@@ -115,6 +146,10 @@ func (g *GeppettoCommand) Run(
 	ps map[string]interface{},
 	gp middlewares.Processor,
 ) error {
+	if g.Prompt != "" && len(g.Messages) != 0 {
+		return errors.Errorf("Prompt and messages are mutually exclusive")
+	}
+
 	for _, f := range g.Factories {
 		factory, ok := f.(steps.GenericStepFactory)
 		if !ok {
@@ -126,23 +161,39 @@ func (g *GeppettoCommand) Run(
 		}
 	}
 
+	messages := g.Messages
+	systemPrompt := g.SystemPrompt
+
 	contextManager := geppetto_context.NewManager()
 
-	systemPrompt := ps["system"].(string)
-	if systemPrompt != "" {
-		contextManager.SetSystemPrompt(systemPrompt)
+	systemPrompt_, ok := ps["system"].(string)
+	if ok && systemPrompt_ != "" {
+		systemPrompt = systemPrompt_
 	}
 
 	messageFile, ok := ps["message-file"].(string)
 	if ok && messageFile != "" {
-		messages, err := geppetto_context.LoadFromFile(messageFile)
+		messages_, err := geppetto_context.LoadFromFile(messageFile)
 		if err != nil {
 			return err
 		}
-		contextManager.SetMessages(messages)
+		messages = messages_
 	}
 
-	// TODO(manuel, 2023-03-28) This is entirely completion for now...
+	appendMessageFile, ok := ps["append-message-file"].(string)
+	if ok && appendMessageFile != "" {
+		messages_, err := geppetto_context.LoadFromFile(appendMessageFile)
+		if err != nil {
+			return err
+		}
+		messages = append(messages, messages_...)
+	}
+
+	// NOTE(manuel, 2023-07-21)
+	// This is called completion, but it actually branches out to the chat API.'
+	// Maybe in the future we can let this slide entirely, in fact this should be replaced by a single step
+	// in a program, so this will probably be refactored away.
+	// In fact, this might already get all streamlined once I redo the monad/step part.
 	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
@@ -157,25 +208,64 @@ func (g *GeppettoCommand) Run(
 		return err
 	}
 
-	// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
-	promptTemplate, err := templating.CreateTemplate("prompt").Parse(g.Prompt)
-	if err != nil {
-		return err
+	if systemPrompt != "" {
+		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(systemPrompt)
+		if err != nil {
+			return err
+		}
+
+		var systemPromptBuffer strings.Builder
+		err = systemPromptTemplate.Execute(&systemPromptBuffer, ps)
+		if err != nil {
+			return err
+		}
+
+		contextManager.SetSystemPrompt(systemPromptBuffer.String())
 	}
 
-	// TODO(manuel, 2023-02-04) This is where multisteps would work differently, since
-	// the prompt would be rendered at execution time
-	var promptBuffer strings.Builder
-	err = promptTemplate.Execute(&promptBuffer, ps)
-	if err != nil {
-		return err
+	if len(messages) > 0 {
+		for _, message := range messages {
+			messageTemplate, err := templating.CreateTemplate("message").Parse(message.Text)
+			if err != nil {
+				return err
+			}
+
+			var messageBuffer strings.Builder
+			err = messageTemplate.Execute(&messageBuffer, ps)
+			if err != nil {
+				return err
+			}
+			s_ := messageBuffer.String()
+
+			contextManager.AddMessages(&geppetto_context.Message{
+				Text: s_,
+				Role: message.Role,
+				Time: message.Time,
+			})
+		}
 	}
 
-	contextManager.AddMessages(&geppetto_context.Message{
-		Text: promptBuffer.String(),
-		Role: "user",
-		Time: time.Now(),
-	})
+	if g.Prompt != "" {
+		// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
+		promptTemplate, err := templating.CreateTemplate("prompt").Parse(g.Prompt)
+		if err != nil {
+			return err
+		}
+
+		// TODO(manuel, 2023-02-04) This is where multisteps would work differently, since
+		// the prompt would be rendered at execution time
+		var promptBuffer strings.Builder
+		err = promptTemplate.Execute(&promptBuffer, ps)
+		if err != nil {
+			return err
+		}
+
+		contextManager.AddMessages(&geppetto_context.Message{
+			Text: promptBuffer.String(),
+			Role: "user",
+			Time: time.Now(),
+		})
+	}
 
 	printPrompt, ok := ps["print-prompt"]
 	if ok && printPrompt.(bool) {
@@ -192,7 +282,8 @@ func (g *GeppettoCommand) Run(
 		settings := openaiCompletionStepFactory__.StepSettings
 
 		dyno, err := templating.RenderHtmlTemplateString(dynoTemplate, map[string]interface{}{
-			"initialPrompt":   promptBuffer.String(),
+			// TODO(manuel, 2023-07-21) Does dyno support the chat API now?
+			"initialPrompt":   contextManager.GetSinglePrompt(),
 			"initialResponse": "",
 			"maxTokens":       settings.MaxResponseTokens,
 			"temperature":     settings.Temperature,
@@ -333,8 +424,15 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 		scd.Name,
 		options_...,
 	)
+	if scd.Prompt != "" && len(scd.Messages) != 0 {
+		return nil, errors.Errorf("Prompt and messages are mutually exclusive")
+	}
 
-	sq, err := NewGeppettoCommand(description, factories, scd.Prompt)
+	sq, err := NewGeppettoCommand(description, factories,
+		WithPrompt(scd.Prompt),
+		WithMessages(scd.Messages),
+		WithSystemPrompt(scd.SystemPrompt),
+	)
 	if err != nil {
 		return nil, err
 	}
