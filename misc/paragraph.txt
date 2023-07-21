@@ -1,0 +1,4 @@
+Besides just having a repository of ideas to build, the list of applications should guide
+the design of the library, which is why pretty complicated apps are described here. If we
+build a framework that doesn't allow for the future integration of these more complex ideas,
+we might code ourselves into a tricky corner.

@@ -2,7 +2,6 @@ package completion
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
@@ -110,7 +109,7 @@ func NewStepFactory(
 	}
 }
 
-func (csf *StepFactory) NewStep() (steps.Step[string, string], error) {
+func (csf *StepFactory) NewStep() (CompletionStep, error) {
 	stepSettings := csf.StepSettings.Clone()
 	if stepSettings.ClientSettings == nil {
 		stepSettings.ClientSettings = csf.ClientSettings.Clone()

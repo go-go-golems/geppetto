@@ -17,6 +17,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/mb0/glob"
 	"github.com/pkg/errors"
+	openai2 "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 	"strings"
 	"text/template"
@@ -85,17 +86,16 @@ func (c *ListEnginesCommand) Run(
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
 
-	client, err := clientSettings.CreateClient()
-	cobra.CheckErr(err)
+	client := openai2.NewClient(*clientSettings.APIKey)
 
-	resp, err := client.Engines(ctx)
+	engines, err := client.ListEngines(ctx)
 	cobra.CheckErr(err)
 
 	idGlob, _ := ps["id"].(string)
 	ownerGlob, _ := ps["owner"].(string)
 	onlyReady, _ := ps["onlyready"].(bool)
 
-	for _, engine := range resp.Data {
+	for _, engine := range engines.Engines {
 		if idGlob != "" {
 			// check if idGlob  matches id
 			matching, err := glob.Match(idGlob, engine.ID)
@@ -181,12 +181,13 @@ func (c *EngineInfoCommand) Run(
 	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
 	cobra.CheckErr(err)
 
-	client, err := clientSettings.CreateClient()
+	client := openai2.NewClient(*clientSettings.APIKey)
+
 	cobra.CheckErr(err)
 
 	engine, _ := ps["engine"].(string)
 
-	resp, err := client.Engine(ctx, engine)
+	resp, err := client.GetEngine(ctx, engine)
 	cobra.CheckErr(err)
 
 	row := types.NewRow(
@@ -391,23 +392,11 @@ func init() {
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(listEnginesCobraCommand)
 
-	completionCommand, err := NewCompletionCommand()
-	cobra.CheckErr(err)
-	cobraCompletionCommand, err := cli.BuildCobraCommandFromGlazeCommand(completionCommand)
-	cobra.CheckErr(err)
-	OpenaiCmd.AddCommand(cobraCompletionCommand)
-
 	engineInfoCommand, err := NewEngineInfoCommand()
 	cobra.CheckErr(err)
 	cobraEngineInfoCommand, err := cli.BuildCobraCommandFromGlazeCommand(engineInfoCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraEngineInfoCommand)
-
-	embeddingsCommand, err := NewEmbeddingsCommand()
-	cobra.CheckErr(err)
-	cobraEmbeddingsCommand, err := cli.BuildCobraCommandFromGlazeCommand(embeddingsCommand)
-	cobra.CheckErr(err)
-	OpenaiCmd.AddCommand(cobraEmbeddingsCommand)
 
 	err = cli.AddGlazedProcessorFlagsToCobraCommand(FamiliesCmd)
 	if err != nil {
