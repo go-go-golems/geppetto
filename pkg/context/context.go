@@ -80,8 +80,26 @@ type Manager struct {
 	SystemPrompt string
 }
 
-func NewManager() *Manager {
-	return &Manager{}
+type ManagerOption func(*Manager)
+
+func WithMessages(messages []*Message) ManagerOption {
+	return func(m *Manager) {
+		m.Messages = messages
+	}
+}
+
+func WithSystemPrompt(systemPrompt string) ManagerOption {
+	return func(m *Manager) {
+		m.SystemPrompt = systemPrompt
+	}
+}
+
+func NewManager(options ...ManagerOption) *Manager {
+	ret := &Manager{}
+	for _, option := range options {
+		option(ret)
+	}
+	return ret
 }
 
 func (c *Manager) GetMessages() []*Message {
