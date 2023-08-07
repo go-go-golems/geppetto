@@ -29,7 +29,7 @@ var OpenaiCmd = &cobra.Command{
 }
 
 type ListEnginesCommand struct {
-	description *cmds.CommandDescription
+	*cmds.CommandDescription
 }
 
 func NewListEngineCommand() (*ListEnginesCommand, error) {
@@ -43,7 +43,7 @@ func NewListEngineCommand() (*ListEnginesCommand, error) {
 	}
 
 	return &ListEnginesCommand{
-		description: cmds.NewCommandDescription(
+		CommandDescription: cmds.NewCommandDescription(
 			"list-engines",
 			cmds.WithShort("list engines"),
 			cmds.WithFlags(
@@ -71,10 +71,6 @@ func NewListEngineCommand() (*ListEnginesCommand, error) {
 			),
 		),
 	}, nil
-}
-
-func (c *ListEnginesCommand) Description() *cmds.CommandDescription {
-	return c.description
 }
 
 func (c *ListEnginesCommand) Run(
@@ -136,7 +132,7 @@ func (c *ListEnginesCommand) Run(
 }
 
 type EngineInfoCommand struct {
-	description *cmds.CommandDescription
+	*cmds.CommandDescription
 }
 
 func NewEngineInfoCommand() (*EngineInfoCommand, error) {
@@ -150,7 +146,7 @@ func NewEngineInfoCommand() (*EngineInfoCommand, error) {
 	}
 
 	return &EngineInfoCommand{
-		description: cmds.NewCommandDescription(
+		CommandDescription: cmds.NewCommandDescription(
 			"engine-info",
 			cmds.WithShort("get engine info"),
 			cmds.WithArguments(
@@ -166,10 +162,6 @@ func NewEngineInfoCommand() (*EngineInfoCommand, error) {
 			),
 		),
 	}, nil
-}
-
-func (c *EngineInfoCommand) Description() *cmds.CommandDescription {
-	return c.description
 }
 
 func (c *EngineInfoCommand) Run(
