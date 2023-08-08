@@ -78,7 +78,7 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 }
 
 type GeppettoCommand struct {
-	description  *glazedcmds.CommandDescription
+	*glazedcmds.CommandDescription
 	Factories    map[string]interface{} `yaml:"__factories,omitempty"`
 	Prompt       string
 	Messages     []*geppetto_context.Message
@@ -126,8 +126,8 @@ func NewGeppettoCommand(
 		glazedParameterLayer)
 
 	ret := &GeppettoCommand{
-		description: description,
-		Factories:   factories,
+		CommandDescription: description,
+		Factories:          factories,
 	}
 
 	for _, option := range options {
@@ -348,10 +348,6 @@ func (g *GeppettoCommand) Run(
 		}
 	})
 	return eg.Wait()
-}
-
-func (g *GeppettoCommand) Description() *glazedcmds.CommandDescription {
-	return g.description
 }
 
 type GeppettoCommandLoader struct {
