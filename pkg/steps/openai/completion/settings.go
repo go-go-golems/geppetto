@@ -68,7 +68,7 @@ func (c *StepSettings) Clone() *StepSettings {
 var completionStepSettingsYAML []byte
 
 type ParameterLayer struct {
-	*layers.ParameterLayerImpl
+	*layers.ParameterLayerImpl `yaml:",inline"`
 }
 
 func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer, error) {

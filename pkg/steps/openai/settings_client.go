@@ -26,7 +26,7 @@ type ClientSettings struct {
 var clientFlagsYAML []byte
 
 type ClientParameterLayer struct {
-	*layers.ParameterLayerImpl
+	*layers.ParameterLayerImpl `yaml:",inline"`
 }
 
 func NewClientParameterLayer(options ...layers.ParameterLayerOptions) (*ClientParameterLayer, error) {
