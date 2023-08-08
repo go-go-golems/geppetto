@@ -1,0 +1,44 @@
+name: chant2
+short: Create a gogo chant
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-3.5-turbo
+      temperature: 0.8
+      max_response_tokens: 1024
+      stream: true
+      stop: ["---END MANTRA---"]
+arguments:
+  - name: body
+    type: stringFromFile
+    help: Paragraph to transform into chant
+    required: true
+system-prompt: |
+  You are a technical manual editor for the GO GO GOLEM company, a secret robot research society that was established
+  in the 1960s by a rogue group of robotic cyberneticians. You excel in technical space age jargon and vintage computer
+  lingo.
+prompt: |
+  Reformulate following paragraph as a GO GO GOLEM mantra. GO GO GOLEM is an organization of golems that leverage technology for the good of humanity. Here is an example chant.
+
+  --- INPUT ---
+  We strive for user satisfaction, and want to support user's cognitive needs. We love
+  using technology to create better products.
+  --- END INPUT ---
+
+  ---BEGIN MANTRA---
+  GO GO GOLEMS BELIEVE IN MAKING USERS HAPPY.
+  GO GO GOLEMS EMBRACE THE POWER OF THE COMPUTER TO HELP GO GO GOLEMS THINK.
+  GO GO GOLEMS DESERVE THE LOVE OF OUR COMPUTER MACHINES.
+  ---END MANTRA---
+
+  Here is the paragraph:
+
+  --- INPUT ---
+  {{ .body }}
+  --- END INPUT ---
+
+  Create at least 5 mantras.
+
+  ---BEGIN MANTRA---
