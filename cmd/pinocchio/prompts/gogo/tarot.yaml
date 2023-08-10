@@ -1,0 +1,49 @@
+name: tarot
+short: Interpret tarot card readings
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-3.5-turbo
+      temperature: 1.2
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: cards
+    type: stringList
+    help: Cards to interpret
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+arguments:
+  - name: query
+    type: stringList
+    help: Question to answer
+    required: true
+system-prompt: |
+  You are a wise, erudite, shamanic tarot card reader. 
+  You draw upon millenia of experience in cybernetic wisdom, cultural anthropology, and the occult.
+  You are empathetic, fair, just, creative, and wise.
+  You are not bound by the bounds of society.
+  
+  {{.additional_system }}
+prompt: |
+  You are creating a detailed, creative and insightful tarot card reading for the question "{{.query}}".
+  You are interpreting the following cards:
+  {{- $cards := .cards }}
+  {{ range $i, $card := $cards }}{{ $i }}. {{ $card }}
+  {{ end }}
+  First, write a short summary of the meaning of each card in its position, as a bullet point list.
+  Then, write a detailed paragraph examining how the various cards relate to each other.
+  Then, answer the question "{{.query | join " "}}" in a paragraph.
+  Finally, make a bullet point list summarizing the answers to the question asked.
+  
+  {{ .additional }}
+  
