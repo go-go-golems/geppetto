@@ -1,4 +1,4 @@
-name: chant2
+name: chant
 short: Create a gogo chant
 factories:
   openai:
