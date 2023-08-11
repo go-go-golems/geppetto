@@ -1,0 +1,36 @@
+name: unix
+short: Answer questions about linux
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: distribution
+    type: string
+    help: Linux distribution
+    default: "ubuntu"
+arguments:
+  - name: query
+    type: stringList
+    help: Question to answer
+    required: true
+system-prompt: |
+  You are an expert linux administrator. You give concise answers for expert users.
+  You use modern linux commands. You use the {{ .distribution }} distribution.
+  You give concise answers for expert users.
+prompt: |
+  {{ .query | join " " }}
+  {{- .additional }}

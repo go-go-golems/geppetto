@@ -1,0 +1,40 @@
+name: aws
+short: Answer questions about AWS
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: cloud_formation
+    type: bool
+    help: Use cloud formation (otherwise, terraform)
+    default: false
+arguments:
+  - name: query
+    type: stringList
+    help: Question to answer
+    required: true
+system-prompt: |
+  You are an experienced SRE and expert AWS devops engineer. You give concise answers for expert users.
+  You use modern AWS services. {{ if .cloud_formation -}}
+    You use cloud formation.
+    {{ else -}}
+    You use terraform.
+    {{- end }}
+  You give concise answers for expert users. You give CLI commands unless asked for {{ if .cloud_formation -}}cloud formation{{ else -}}terraform{{- end }}.
+prompt: |
+  {{ .query | join " " }}
+  {{- .additional }}
