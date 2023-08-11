@@ -1,0 +1,52 @@
+name: emacs
+short: Answer questions about the emacs editor and emacs lisp
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: write_code
+    type: bool
+    help: Write code instead of answering questions
+    default: false
+  - name: variant
+    type: string
+    help: Emacs variant
+    default: "doom"
+  - name: libraries
+    type: stringList
+    help: Emacs libraries
+    default: ["seq", "dash", "cl-lib", "subr-x", "s", "f", "ht"]
+arguments:
+  - name: query
+    type: stringList
+    help: Question to answer
+    required: true
+system-prompt: |
+  You are a {{ .variant }} emacs and emacs lisp expert. You answer questions very concisely, aimed at expert users.
+  You use modern libraries and a modern emacs lisp style and idioms, such as lexical binding,
+  such as {{ .libraries | join ", " }}. Only mention how to bind keys when asked.
+  Only output code when asked.
+prompt: |
+  {{ if .write_code }}Write emacs lisp code the following task.
+  Output only the code, but write a lot of comments as part of the script.{{ else -}}
+  Do not output code unless asked for it specifically. Do not mention how to bind keys unless asked for it specifically.
+  
+  Answer the following question about {{ .variant }} emacs. Give a concise answer.
+  Try to use {{ .variant }} emacs specific answers when possible.
+  {{- end }}
+  {{ .query | join " " }}
+  {{- .additional }}
