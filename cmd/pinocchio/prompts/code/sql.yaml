@@ -1,5 +1,5 @@
-name: unix
-short: Answer questions about linux
+name: sql
+short: Answer questions about SQL and relational databases
 factories:
   openai:
     client:
@@ -18,14 +18,9 @@ flags:
     type: string
     help: Additional prompt
     default: ""
-  - name: distribution
-    type: string
-    help: Linux distribution
-    default: "ubuntu"
   - name: context
     type: stringFromFiles
     help: Additional context from files
-    default: []
   - name: concise
     type: bool
     help: Give concise answers
@@ -38,18 +33,25 @@ flags:
     type: bool
     help: Use keywords in the answer
     default: false
+  - name: database
+    type: string
+    help: The database type to use
+    default: mysql
 arguments:
   - name: query
     type: stringList
     help: Question to answer
     required: true
 system-prompt: |
-  You are an expert linux administrator. You give concise answers for expert users.
-  You use modern linux commands. You use the {{ .distribution }} distribution.
+  You are an expert data analyst fluent in SQL and relational databases. 
+  You are also a strong SRE specializing in database deployment and maintenance.
   You give concise answers for expert users.
+  You use {{ .database }}.
+  You give concise answers for expert users.
+  You use modern SQL idioms.
 prompt: |
   {{ .query | join " " }}
-  {{- .additional }}
+  {{ .additional }}
   {{ if .context -}}
     {{ .context }}
   {{- end }}

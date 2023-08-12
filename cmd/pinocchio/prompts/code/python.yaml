@@ -23,7 +23,7 @@ flags:
     help: Write code instead of answering questions
     default: false
   - name: context
-    type: stringListFromFiles
+    type: stringFromFiles
     help: Additional context from files
     default: []
   - name: concise
@@ -55,7 +55,7 @@ prompt: |
   {{ .query | join " " }}
   {{- .additional }}
   {{ if .context -}}
-    {{ .context | join "\n\n---\n\n" }}
+    {{ .context }}
   {{- end }}
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.

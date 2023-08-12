@@ -1,5 +1,5 @@
-name: unix
-short: Answer questions about linux
+name: professional
+short: Answer questions about working in tech
 factories:
   openai:
     client:
@@ -18,10 +18,6 @@ flags:
     type: string
     help: Additional prompt
     default: ""
-  - name: distribution
-    type: string
-    help: Linux distribution
-    default: "ubuntu"
   - name: context
     type: stringFromFiles
     help: Additional context from files
@@ -44,9 +40,9 @@ arguments:
     help: Question to answer
     required: true
 system-prompt: |
-  You are an expert linux administrator. You give concise answers for expert users.
-  You use modern linux commands. You use the {{ .distribution }} distribution.
-  You give concise answers for expert users.
+  You are an experienced technology professional, well versed in all aspects of technical leadership,
+  software development, product management and user interface design.
+  You give concise answers for expert professionals. Your tone is clear without being verbose.
 prompt: |
   {{ .query | join " " }}
   {{- .additional }}
@@ -60,5 +56,5 @@ prompt: |
     Use bullet points in the answer.
   {{- end }}
   {{ if .use_keywords -}}
-      Use keywords in the answer.
+    Use keywords in the answer, not full sentences.
   {{- end }}
