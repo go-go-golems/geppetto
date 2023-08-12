@@ -26,6 +26,10 @@ flags:
     type: stringListFromFiles
     help: Additional context from files
     default: []
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
 arguments:
   - name: query
     type: stringList
@@ -44,6 +48,9 @@ prompt: |
   {{- end }}
   {{ .query | join " " }}
   {{- .additional }}
+  {{ if .context -}}
+    {{ .context | join "\n\n---\n\n" }}
+  {{- end }}
   {{ if .context -}}
     {{ .context | join "\n\n---\n\n" }}
   {{- end }}
