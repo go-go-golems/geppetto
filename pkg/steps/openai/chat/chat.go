@@ -74,8 +74,8 @@ func (csf *Transformer) UpdateFromParameters(ps map[string]interface{}) error {
 func (csf *Transformer) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
-) (*steps.Monad[string], error) {
-	// I think in Start, a Transformer is not allowed to modify its own state,
+) (*steps.StepResult[string], error) {
+	// I think in Start, a Step is not allowed to modify its own state,
 	// everything is now encapsulated in the monad, which can run in the background.
 	stepSettings := csf.StepSettings.Clone()
 	clientSettings := stepSettings.ClientSettings
@@ -159,7 +159,7 @@ func (csf *Transformer) Start(
 			return steps.Reject[string](err), nil
 		}
 		c := make(chan helpers.Result[string])
-		ret := steps.NewMonad[string](c)
+		ret := steps.NewStepResult[string](c)
 
 		go func() {
 			defer close(c)
