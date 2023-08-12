@@ -30,6 +30,14 @@ flags:
     type: bool
     help: Give concise answers
     default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer
+    default: false
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer
+    default: false
 arguments:
   - name: query
     type: stringList
@@ -49,6 +57,12 @@ prompt: |
   {{ if .context -}}
     {{ .context | join "\n\n---\n\n" }}
   {{- end }}
-  {{ if .context -}}
-    {{ .context | join "\n\n---\n\n" }}
+  {{ if .concise -}}
+    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}
+  {{ if .use_bullets -}}
+    Use bullet points in the answer.
+  {{- end }}
+  {{ if .use_keywords -}}
+      Use keywords in the answer.
   {{- end }}
