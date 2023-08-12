@@ -10,11 +10,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
-	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
@@ -126,23 +124,11 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		Repositories: repositories,
 	}
 
-	glazedParameterLayer, err := settings.NewGlazedParameterLayers(
-		settings.WithSelectParameterLayerOptions(
-			layers.WithDefaults(
-				&settings.SelectSettings{
-					SelectField: "response",
-				},
-			),
-		),
-	)
-	if err != nil {
-		return err
-	}
-
 	yamlLoader := loaders.NewYAMLFSCommandLoader(&cmds.GeppettoCommandLoader{})
 	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
 	commands, aliases, err := commandLoader.LoadCommands(
-		yamlLoader, helpSystem, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
+		yamlLoader, helpSystem,
+	)
 
 	if err != nil {
 		return err
