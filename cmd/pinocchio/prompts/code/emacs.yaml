@@ -30,6 +30,10 @@ flags:
     type: stringList
     help: Emacs libraries
     default: ["seq", "dash", "cl-lib", "subr-x", "s", "f", "ht"]
+  - name: context
+    type: stringListFromFiles
+    help: Additional context from files
+    default: []
 arguments:
   - name: query
     type: stringList
@@ -50,3 +54,6 @@ prompt: |
   {{- end }}
   {{ .query | join " " }}
   {{- .additional }}
+  {{ if .context -}}
+    {{ .context | join "\n\n---\n\n" }}
+  {{- end }}

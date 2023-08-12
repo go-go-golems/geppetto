@@ -22,6 +22,10 @@ flags:
     type: bool
     help: Write code instead of answering questions
     default: false
+  - name: context
+    type: stringListFromFiles
+    help: Additional context from files
+    default: []
 arguments:
   - name: query
     type: stringList
@@ -39,3 +43,6 @@ prompt: |
   {{- end }}
   {{ .query | join " " }}
   {{- .additional }}
+  {{ if .context -}}
+    {{ .context | join "\n\n---\n\n" }}
+  {{- end }}
