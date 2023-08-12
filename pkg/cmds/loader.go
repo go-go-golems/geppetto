@@ -41,7 +41,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	// maybe the easiest is just going to be to make them a separate file in the bundle format, really
 	// rewind to read the factories...
 	buf = strings.NewReader(string(yamlContent))
-	transformer, err := chat.NewTransformerFromYAML(buf)
+	step, err := chat.NewStepFromYAML(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -49,18 +49,18 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	// check if the openai-api-key is set in viper
 	openaiAPIKey := viper.GetString("openai-api-key")
 	if openaiAPIKey != "" {
-		transformer.ClientSettings.APIKey = &openaiAPIKey
+		step.ClientSettings.APIKey = &openaiAPIKey
 	}
 
 	chatParameterLayer, err := chat.NewParameterLayer(
-		layers.WithDefaults(transformer.StepSettings),
+		layers.WithDefaults(step.StepSettings),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	clientParameterLayer, err := openai.NewClientParameterLayer(
-		layers.WithDefaults(transformer.ClientSettings),
+		layers.WithDefaults(step.ClientSettings),
 	)
 	if err != nil {
 		return nil, err
@@ -69,8 +69,8 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	ls := append(scd.Layers, chatParameterLayer, clientParameterLayer)
 
 	factories := map[string]interface{}{}
-	if transformer != nil {
-		factories["openai-chat"] = transformer
+	if step != nil {
+		factories["openai-chat"] = step
 	}
 
 	options_ := []cmds.CommandDescriptionOption{

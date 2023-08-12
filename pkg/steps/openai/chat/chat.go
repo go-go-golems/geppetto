@@ -37,7 +37,7 @@ type factoryConfigFileWrapper struct {
 	} `yaml:"factories"`
 }
 
-func NewTransformerFromYAML(s io.Reader) (*Transformer, error) {
+func NewStepFromYAML(s io.Reader) (*Transformer, error) {
 	var settings factoryConfigFileWrapper
 	if err := yaml.NewDecoder(s).Decode(&settings); err != nil {
 		return nil, err
