@@ -2,13 +2,12 @@ package chat
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 )
 
-type StepSettings struct {
+type Settings struct {
 	ClientSettings *openai.ClientSettings `yaml:"client,omitempty"`
 
 	Engine *string `yaml:"engine,omitempty" glazed.parameter:"openai-engine"`
@@ -35,13 +34,8 @@ type StepSettings struct {
 	Stream bool `yaml:"stream,omitempty" glazed.parameter:"openai-stream"`
 }
 
-const (
-	GPT3Dot5Turbo     = "gpt-3.5-turbo"
-	GPT3Dot5Turbo0301 = "gpt-3.5-turbo-0301"
-)
-
-func NewStepSettings() *StepSettings {
-	return &StepSettings{
+func NewSettings() *Settings {
+	return &Settings{
 		ClientSettings:    openai.NewClientSettings(),
 		Engine:            nil,
 		MaxResponseTokens: nil,
@@ -56,8 +50,8 @@ func NewStepSettings() *StepSettings {
 	}
 }
 
-func NewStepSettingsFromParameters(ps map[string]interface{}) (*StepSettings, error) {
-	ret := NewStepSettings()
+func NewStepSettingsFromParameters(ps map[string]interface{}) (*Settings, error) {
+	ret := NewSettings()
 	// TODO(manuel, 2023-03-28) map[string]int will probably clash with map[string]string for the logit-bias
 	err := parameters.InitializeStructFromParameters(ret, ps)
 	if err != nil {
@@ -66,12 +60,12 @@ func NewStepSettingsFromParameters(ps map[string]interface{}) (*StepSettings, er
 	return ret, nil
 }
 
-func (s *StepSettings) Clone() *StepSettings {
+func (s *Settings) Clone() *Settings {
 	var clientSettings *openai.ClientSettings = nil
 	if s.ClientSettings != nil {
 		clientSettings = s.ClientSettings.Clone()
 	}
-	return &StepSettings{
+	return &Settings{
 		ClientSettings:    clientSettings,
 		Engine:            s.Engine,
 		MaxResponseTokens: s.MaxResponseTokens,
@@ -102,42 +96,4 @@ func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer
 	return &ParameterLayer{
 		ParameterLayerImpl: ret,
 	}, nil
-}
-
-type StepFactory struct {
-	ClientSettings *openai.ClientSettings `yaml:"client,omitempty"`
-	StepSettings   *StepSettings          `yaml:"chat-completion,omitempty"`
-}
-
-func (csf *StepFactory) UpdateFromParameters(ps map[string]interface{}) error {
-	err := parameters.InitializeStructFromParameters(csf.StepSettings, ps)
-	if err != nil {
-		return err
-	}
-
-	err = parameters.InitializeStructFromParameters(csf.ClientSettings, ps)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func NewStepFactory(
-	clientSettings *openai.ClientSettings,
-	stepSettings *StepSettings,
-) *StepFactory {
-	return &StepFactory{
-		ClientSettings: clientSettings,
-		StepSettings:   stepSettings,
-	}
-}
-
-func (csf *StepFactory) NewStep() (steps.Step[[]Message, string], error) {
-	stepSettings := csf.StepSettings.Clone()
-	if stepSettings.ClientSettings == nil {
-		stepSettings.ClientSettings = csf.ClientSettings.Clone()
-	}
-
-	return NewStep(stepSettings), nil
 }

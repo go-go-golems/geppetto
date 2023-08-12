@@ -2,108 +2,142 @@ package chat
 
 import (
 	"context"
+	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/pkg/errors"
-	"github.com/sashabaranov/go-openai"
+	go_openai "github.com/sashabaranov/go-openai"
+	"gopkg.in/yaml.v3"
 	"io"
 )
 
-type StepState int
-
-const (
-	StepNotStarted StepState = iota
-	StepRunning
-	StepFinished
-	StepClosed
-)
-
-type Message struct {
-	Role    string `json:"role" yaml:"role"`
-	Content string `json:"text" yaml:"text"`
+type Transformer struct {
+	ClientSettings *openai.ClientSettings `yaml:"client,omitempty"`
+	StepSettings   *Settings              `yaml:"completion,omitempty"`
 }
 
-type Step struct {
-	output   chan helpers.Result[string]
-	state    StepState
-	settings *StepSettings
+// factoryConfigFileWrapper is a helper to help us parse the YAML config file in the format:
+// factories:
+//
+//			  openai:
+//			    client_settings:
+//	           api_key: SECRETSECRET
+//			      timeout: 10s
+//				     organization: "org"
+//			    completion_settings:
+//			      max_total_tokens: 100
+//		       ...
+//
+// TODO(manuel, 2023-01-27) Maybe look into better YAML handling using UnmarshalYAML overloading
+type factoryConfigFileWrapper struct {
+	Factories struct {
+		OpenAI *Transformer `yaml:"openai"`
+	} `yaml:"factories"`
 }
 
-func NewStep(settings *StepSettings) *Step {
-	return &Step{
-		output:   make(chan helpers.Result[string]),
-		settings: settings,
-		state:    StepNotStarted,
+func NewTransformerFromYAML(s io.Reader) (*Transformer, error) {
+	var settings factoryConfigFileWrapper
+	if err := yaml.NewDecoder(s).Decode(&settings); err != nil {
+		return nil, err
 	}
+
+	// NOTE(manuel, 2023-08-11) Unsure what this null check is for, honestly
+	if settings.Factories.OpenAI == nil {
+		settings.Factories.OpenAI = &Transformer{
+			StepSettings:   &Settings{},
+			ClientSettings: openai.NewClientSettings(),
+		}
+	}
+
+	return &Transformer{
+		StepSettings:   settings.Factories.OpenAI.StepSettings,
+		ClientSettings: settings.Factories.OpenAI.ClientSettings,
+	}, nil
 }
 
-func (s *Step) Run(ctx context.Context, messages []Message) error {
-	s.state = StepRunning
+func (csf *Transformer) UpdateFromParameters(ps map[string]interface{}) error {
+	err := parameters.InitializeStructFromParameters(csf.StepSettings, ps)
+	if err != nil {
+		return err
+	}
 
-	defer func() {
-		s.state = StepClosed
-		close(s.output)
-	}()
+	err = parameters.InitializeStructFromParameters(csf.ClientSettings, ps)
+	if err != nil {
+		return err
+	}
 
-	clientSettings := s.settings.ClientSettings
+	return nil
+}
+
+func (csf *Transformer) Start(
+	ctx context.Context,
+	messages []*geppetto_context.Message,
+) (*steps.Monad[string], error) {
+	// I think in Start, a Transformer is not allowed to modify its own state,
+	// everything is now encapsulated in the monad, which can run in the background.
+	stepSettings := csf.StepSettings.Clone()
+	clientSettings := stepSettings.ClientSettings
 	if clientSettings == nil {
-		s.output <- helpers.NewErrorResult[string](steps.ErrMissingClientSettings)
-		return nil
+		clientSettings = csf.ClientSettings.Clone()
+	}
+
+	if clientSettings == nil {
+		return nil, steps.ErrMissingClientSettings
 	}
 
 	if clientSettings.APIKey == nil {
-		s.output <- helpers.NewErrorResult[string](steps.ErrMissingClientAPIKey)
-		return nil
+		return nil, steps.ErrMissingClientAPIKey
 	}
 
-	client := openai.NewClient(*clientSettings.APIKey)
+	client := go_openai.NewClient(*clientSettings.APIKey)
 
 	engine := ""
-	if s.settings.Engine != nil {
-		engine = *s.settings.Engine
+	if stepSettings.Engine != nil {
+		engine = *stepSettings.Engine
 	} else if clientSettings.DefaultEngine != nil {
 		engine = *clientSettings.DefaultEngine
 	} else {
-		s.output <- helpers.NewErrorResult[string](errors.New("no engine specified"))
-		return nil
+		return nil, errors.New("no engine specified")
 	}
 
-	msgs_ := []openai.ChatCompletionMessage{}
+	msgs_ := []go_openai.ChatCompletionMessage{}
 	for _, msg := range messages {
-		msgs_ = append(msgs_, openai.ChatCompletionMessage{
+		msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
 			Role:    msg.Role,
-			Content: msg.Content,
+			Content: msg.Text,
 		})
 	}
 
 	temperature := 0.0
-	if s.settings.Temperature != nil {
-		temperature = *s.settings.Temperature
+	if stepSettings.Temperature != nil {
+		temperature = *stepSettings.Temperature
 	}
 	topP := 0.0
-	if s.settings.TopP != nil {
-		topP = *s.settings.TopP
+	if stepSettings.TopP != nil {
+		topP = *stepSettings.TopP
 	}
 	maxTokens := 32
-	if s.settings.MaxResponseTokens != nil {
-		maxTokens = *s.settings.MaxResponseTokens
+	if stepSettings.MaxResponseTokens != nil {
+		maxTokens = *stepSettings.MaxResponseTokens
 	}
 	n := 1
-	if s.settings.N != nil {
-		n = *s.settings.N
+	if stepSettings.N != nil {
+		n = *stepSettings.N
 	}
-	stream := s.settings.Stream
-	stop := s.settings.Stop
+	stream := stepSettings.Stream
+	stop := stepSettings.Stop
 	presencePenalty := 0.0
-	if s.settings.PresencePenalty != nil {
-		presencePenalty = *s.settings.PresencePenalty
+	if stepSettings.PresencePenalty != nil {
+		presencePenalty = *stepSettings.PresencePenalty
 	}
 	frequencyPenalty := 0.0
-	if s.settings.FrequencyPenalty != nil {
-		frequencyPenalty = *s.settings.FrequencyPenalty
+	if stepSettings.FrequencyPenalty != nil {
+		frequencyPenalty = *stepSettings.FrequencyPenalty
 	}
 
-	req := openai.ChatCompletionRequest{
+	req := go_openai.ChatCompletionRequest{
 		Model:            engine,
 		Messages:         msgs_,
 		MaxTokens:        maxTokens,
@@ -122,50 +156,47 @@ func (s *Step) Run(ctx context.Context, messages []Message) error {
 	if stream {
 		stream, err := client.CreateChatCompletionStream(ctx, req)
 		if err != nil {
-			s.output <- helpers.NewErrorResult[string](err)
-			return nil
+			return steps.Reject[string](err), nil
 		}
-		defer stream.Close()
+		c := make(chan helpers.Result[string])
+		ret := steps.NewMonad[string](c)
 
-		for {
-			response, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				s.state = StepFinished
-				s.output <- helpers.NewValueResult[string]("")
-				return nil
-			}
-			if err != nil {
-				s.output <- helpers.NewErrorResult[string](err)
-				return nil
-			}
+		go func() {
+			defer close(c)
+			defer stream.Close()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					response, err := stream.Recv()
+					if errors.Is(err, io.EOF) {
+						c <- helpers.NewValueResult[string]("")
+						return
+					}
+					if err != nil {
+						c <- helpers.NewErrorResult[string](err)
+						return
+					}
 
-			s.output <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
-		}
+					c <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
+				}
+			}
+		}()
+
+		return ret, nil
 	} else {
 		resp, err := client.CreateChatCompletion(ctx, req)
-		s.state = StepFinished
 
 		if err != nil {
-			s.output <- helpers.NewErrorResult[string](err)
-			return nil
+			return steps.Reject[string](err), nil
 		}
 
-		// TODO(manuel, 2023-03-28) Properly handle message formats
-		s.output <- helpers.NewValueResult[string](resp.Choices[0].Message.Content)
-
+		return steps.Resolve(string(resp.Choices[0].Message.Content)), nil
 	}
+}
 
+// Close is only called after the returned monad has been entirely consumed
+func (csf *Transformer) Close(ctx context.Context) error {
 	return nil
-}
-
-func (s *Step) GetOutput() <-chan helpers.Result[string] {
-	return s.output
-}
-
-func (s *Step) GetState() interface{} {
-	return s.state
-}
-
-func (s *Step) IsFinished() bool {
-	return s.state == StepClosed || s.state == StepFinished
 }

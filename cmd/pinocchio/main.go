@@ -49,18 +49,8 @@ func main() {
 			fmt.Printf("Could not open file: %v\n", err)
 			os.Exit(1)
 		}
-		glazedParameterLayer, err := settings.NewGlazedParameterLayers(
-			settings.WithSelectParameterLayerOptions(
-				layers.WithDefaults(
-					&settings.SelectSettings{
-						SelectField: "response",
-					},
-				),
-			),
-		)
-		cobra.CheckErr(err)
 
-		cmds_, err := loader.LoadCommandFromYAML(f, glazed_cmds.WithReplaceLayers(glazedParameterLayer))
+		cmds_, err := loader.LoadCommandFromYAML(f)
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)
@@ -69,13 +59,7 @@ func main() {
 			fmt.Printf("Expected exactly one command, got %d", len(cmds_))
 		}
 
-		glazeCommand, ok := cmds_[0].(glazed_cmds.GlazeCommand)
-		if !ok {
-			fmt.Printf("Expected GlazeCommand, got %T", cmds_[0])
-			os.Exit(1)
-		}
-
-		cobraCommand, err := cli.BuildCobraCommandFromGlazeCommand(glazeCommand)
+		cobraCommand, err := cli.BuildCobraCommandFromCommand(cmds_[0])
 		if err != nil {
 			fmt.Printf("Could not build cobra command: %v\n", err)
 			os.Exit(1)
