@@ -6,22 +6,14 @@ import (
 	"fmt"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai/completion"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
-	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/settings"
-	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 	"io"
 	"strings"
 	"time"
@@ -34,9 +26,6 @@ type GeppettoCommandDescription struct {
 	Flags     []*parameters.ParameterDefinition `yaml:"flags,omitempty"`
 	Arguments []*parameters.ParameterDefinition `yaml:"arguments,omitempty"`
 	Layers    []layers.ParameterLayer           `yaml:"layers,omitempty"`
-
-	// TODO(manuel, 2023-02-04) This now has a hack to switch the step type
-	Step *steps.StepDescription `yaml:"step,omitempty"`
 
 	Prompt       string                      `yaml:"prompt,omitempty"`
 	Messages     []*geppetto_context.Message `yaml:"messages,omitempty"`
@@ -51,12 +40,6 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 				parameters.ParameterTypeBool,
 				parameters.WithDefault(false),
 				parameters.WithHelp("Print the prompt"),
-			),
-			parameters.NewParameterDefinition(
-				"print-dyno",
-				parameters.ParameterTypeBool,
-				parameters.WithDefault(false),
-				parameters.WithHelp("Print the dyno embed div"),
 			),
 			parameters.NewParameterDefinition(
 				"system",
@@ -137,21 +120,18 @@ func NewGeppettoCommand(
 	return ret, nil
 }
 
-//go:embed templates/dyno.tmpl.html
-var dynoTemplate string
-
-func (g *GeppettoCommand) Run(
+func (g *GeppettoCommand) RunIntoWriter(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
 	ps map[string]interface{},
-	gp middlewares.Processor,
+	w io.Writer,
 ) error {
 	if g.Prompt != "" && len(g.Messages) != 0 {
 		return errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
 	for _, f := range g.Factories {
-		factory, ok := f.(steps.GenericStepFactory)
+		factory, ok := f.(*chat.Transformer)
 		if !ok {
 			continue
 		}
@@ -194,18 +174,13 @@ func (g *GeppettoCommand) Run(
 	// Maybe in the future we can let this slide entirely, in fact this should be replaced by a single step
 	// in a program, so this will probably be refactored away.
 	// In fact, this might already get all streamlined once I redo the monad/step part.
-	openaiCompletionStepFactory_, ok := g.Factories["openai-completion-step"]
+	transformer_, ok := g.Factories["openai-chat"]
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
 	}
-	openaiCompletionStepFactory, ok := openaiCompletionStepFactory_.(completion.CompletionStepFactory)
+	transformer, ok := transformer_.(steps.Step[[]*geppetto_context.Message, string])
 	if !ok {
 		return errors.Errorf("openai-completion-step factory is not a StepFactory[string, string]")
-	}
-
-	s, err := openaiCompletionStepFactory.NewStep()
-	if err != nil {
-		return err
 	}
 
 	if systemPrompt != "" {
@@ -273,35 +248,8 @@ func (g *GeppettoCommand) Run(
 		return nil
 	}
 
-	printDyno, ok := ps["print-dyno"]
-	if ok && printDyno.(bool) {
-		openaiCompletionStepFactory__, ok := openaiCompletionStepFactory_.(*completion.StepFactory)
-		if !ok {
-			return errors.Errorf("openai-completion-step factory is not a StepFactory")
-		}
-		settings := openaiCompletionStepFactory__.StepSettings
-
-		dyno, err := templating.RenderHtmlTemplateString(dynoTemplate, map[string]interface{}{
-			// TODO(manuel, 2023-07-21) Does dyno support the chat API now?
-			"initialPrompt":   contextManager.GetSinglePrompt(),
-			"initialResponse": "",
-			"maxTokens":       settings.MaxResponseTokens,
-			"temperature":     settings.Temperature,
-			"topP":            settings.TopP,
-			"model":           settings.Engine,
-		})
-		if err != nil {
-			return err
-		}
-		fmt.Println(dyno)
-		return nil
-	}
-
-	eg, ctx2 := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		return s.Run(ctx2, contextManager)
-	})
+	messagesM := steps.Resolve(contextManager.GetMessagesWithSystemPrompt())
+	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, transformer)
 
 	accumulate := ""
 
@@ -312,134 +260,29 @@ func (g *GeppettoCommand) Run(
 	isStream := openAILayer.Parameters["openai-stream"].(bool)
 	log.Debug().Bool("isStream", isStream).Msg("")
 
-	eg.Go(func() error {
-		for {
-			select {
-			case <-ctx2.Done():
-				return ctx2.Err()
-			case result := <-s.GetOutput():
-				if !result.Ok() {
-					return result.Error()
-				}
-
-				v, err := result.Value()
-				if err != nil {
-					return err
-				}
-
-				if result.IsPartial() {
-					fmt.Print(v)
-					accumulate += v
-				} else {
-					if !isStream {
-						err = gp.AddRow(ctx, types.NewRow(
-							types.MRP("response", accumulate+v),
-						))
-					}
-
-					if err != nil {
-						return err
-					}
-					return nil
-
-				}
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result, ok := <-m.GetChannel():
+			if !ok {
+				return nil
 			}
 
+			if !result.Ok() {
+				return result.Error()
+			}
+
+			v, err := result.Value()
+			if err != nil {
+				return err
+			}
+
+			_, err = w.Write([]byte(v))
+			if err != nil {
+				return err
+			}
+			accumulate += v
 		}
-	})
-	return eg.Wait()
-}
-
-type GeppettoCommandLoader struct {
-}
-
-func (g *GeppettoCommandLoader) LoadCommandFromYAML(
-	s io.Reader,
-	options ...glazedcmds.CommandDescriptionOption,
-) ([]glazedcmds.Command, error) {
-	yamlContent, err := io.ReadAll(s)
-	if err != nil {
-		return nil, err
 	}
-
-	buf := strings.NewReader(string(yamlContent))
-	scd := &GeppettoCommandDescription{
-		Flags:     []*parameters.ParameterDefinition{},
-		Arguments: []*parameters.ParameterDefinition{},
-	}
-	err = yaml.NewDecoder(buf).Decode(scd)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(manuel, 2023-01-27): There has to be a better way to parse YAML factories
-	// maybe the easiest is just going to be to make them a separate file in the bundle format, really
-	// rewind to read the factories...
-	buf = strings.NewReader(string(yamlContent))
-	completionStepFactory, err := completion.NewStepFactoryFromYAML(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	// check if the openai-api-key is set in viper
-	openaiAPIKey := viper.GetString("openai-api-key")
-	if openaiAPIKey != "" {
-		completionStepFactory.ClientSettings.APIKey = &openaiAPIKey
-	}
-
-	completionParameterLayer, err := completion.NewParameterLayer(
-		layers.WithDefaults(completionStepFactory.StepSettings),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	clientParameterLayer, err := openai.NewClientParameterLayer(
-		layers.WithDefaults(completionStepFactory.ClientSettings),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	ls := append(scd.Layers, completionParameterLayer, clientParameterLayer)
-
-	factories := map[string]interface{}{}
-	if completionStepFactory != nil {
-		factories["openai-completion-step"] = completionStepFactory
-	}
-
-	options_ := []glazedcmds.CommandDescriptionOption{
-		glazedcmds.WithShort(scd.Short),
-		glazedcmds.WithLong(scd.Long),
-		glazedcmds.WithFlags(scd.Flags...),
-		glazedcmds.WithArguments(scd.Arguments...),
-		glazedcmds.WithLayers(ls...),
-	}
-
-	description := glazedcmds.NewCommandDescription(
-		scd.Name,
-		options_...,
-	)
-	if scd.Prompt != "" && len(scd.Messages) != 0 {
-		return nil, errors.Errorf("Prompt and messages are mutually exclusive")
-	}
-
-	sq, err := NewGeppettoCommand(description, factories,
-		WithPrompt(scd.Prompt),
-		WithMessages(scd.Messages),
-		WithSystemPrompt(scd.SystemPrompt),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, option := range options {
-		option(sq.Description())
-	}
-
-	return []glazedcmds.Command{sq}, nil
-}
-
-func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(s io.Reader, options ...alias.Option) ([]*alias.CommandAlias, error) {
-	return loaders.LoadCommandAliasFromYAML(s, options...)
 }
