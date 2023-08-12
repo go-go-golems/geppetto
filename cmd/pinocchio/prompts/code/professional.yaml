@@ -21,7 +21,6 @@ flags:
   - name: context
     type: stringFromFiles
     help: Additional context from files
-    default: []
   - name: concise
     type: bool
     help: Give concise answers
