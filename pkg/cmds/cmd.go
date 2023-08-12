@@ -178,7 +178,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	if !ok {
 		return errors.Errorf("No openai-completion-step factory defined")
 	}
-	transformer, ok := transformer_.(steps.Transformer[[]*geppetto_context.Message, string])
+	transformer, ok := transformer_.(steps.Step[[]*geppetto_context.Message, string])
 	if !ok {
 		return errors.Errorf("openai-completion-step factory is not a StepFactory[string, string]")
 	}
