@@ -22,6 +22,21 @@ flags:
     type: bool
     help: Write code instead of answering questions
     default: false
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer
+    default: false
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer
+    default: false
 arguments:
   - name: query
     type: stringList
@@ -39,4 +54,16 @@ prompt: |
   Answer the following question about go. Use code examples. Give a concise answer.
   {{- end }}
   {{ .query | join " " }}
-  {{- .additional }}
+  {{ .additional }}
+  {{ if .context -}}
+    {{ .context }}
+  {{- end }}
+  {{ if .concise -}}
+    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}
+  {{ if .use_bullets -}}
+    Use bullet points in the answer.
+  {{- end }}
+  {{ if .use_keywords -}}
+      Use keywords in the answer.
+  {{- end }}

@@ -2,210 +2,115 @@ package steps
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/errgo.v2/fmt/errors"
+	"github.com/rs/zerolog/log"
 )
 
-// Step represents one step in a generic pipeline
-type Step[A, B any] interface {
-	// Run starts the step and blocks until the end
-	Run(ctx context.Context, a A) error
-	GetOutput() <-chan helpers.Result[B]
-	GetState() interface{}
-	IsFinished() bool
+type StepResult[T any] struct {
+	value <-chan helpers.Result[T]
+	// Additional monads:
+	// - metrics
+	// - logs (? maybe doing imperative logging is better,
+	//   although they should definitely be collected as part of plunger)
 }
 
-type GenericStepFactory interface {
-	// TODO(manuel, 2023-02-27) This is probably updateFromLayers, and each factory should be able to register its own layers
-	UpdateFromParameters(ps map[string]interface{}) error
+func NewStepResult[T any](value <-chan helpers.Result[T]) *StepResult[T] {
+	return &StepResult[T]{value: value}
 }
 
-// StepFactory creates a new step with input type A and result type B
-// The Factory pattern is I think a misguided attempt at implementing a monad in go.
-type StepFactory[A, B any] interface {
-	NewStep() (Step[A, B], error)
-}
-
-type SimpleStepState int
-
-const (
-	SimpleStepNotStarted SimpleStepState = iota
-	SimpleStepRunning
-	SimpleStepFinished
-	SimpleStepClosed
-)
-
-type SimpleStep[A, B any] struct {
-	stepFunction func(A) helpers.Result[B]
-	output       chan helpers.Result[B]
-	state        SimpleStepState
-}
-
-func (s *SimpleStep[A, B]) Run(_ context.Context, a A) error {
-	if s.state != SimpleStepNotStarted {
-		return errors.Newf("step already started")
+func (m *StepResult[T]) Return() []helpers.Result[T] {
+	res := []helpers.Result[T]{}
+	for r := range m.value {
+		res = append(res, r)
 	}
-	s.state = SimpleStepRunning
-
-	v := s.stepFunction(a)
-	s.state = SimpleStepFinished
-	s.output <- v
-	defer func() {
-		s.state = SimpleStepClosed
-		close(s.output)
-	}()
-
-	return nil
+	return res
 }
 
-func (s *SimpleStep[A, B]) GetOutput() <-chan helpers.Result[B] {
-	return s.output
+func (m *StepResult[T]) GetChannel() <-chan helpers.Result[T] {
+	return m.value
 }
 
-func (s *SimpleStep[A, B]) GetState() interface{} {
-	return s.state
-}
-
-func (s *SimpleStep[A, B]) IsFinished() bool {
-	return s.state == SimpleStepFinished
-}
-
-func NewSimpleStep[A any, B any](f func(A) B) Step[A, B] {
-	s := &SimpleStep[A, B]{
-		stepFunction: func(a A) helpers.Result[B] {
-			return helpers.NewValueResult(f(a))
-		},
-		output: make(chan helpers.Result[B]),
-		state:  SimpleStepNotStarted,
+func Resolve[T any](value T) *StepResult[T] {
+	c := make(chan helpers.Result[T], 1)
+	c <- helpers.NewValueResult[T](value)
+	close(c)
+	return &StepResult[T]{
+		value: c,
 	}
-	return s
 }
 
-type PipeStepState int
-
-const (
-	PipeStepNotStarted   PipeStepState = iota
-	PipeStepRunningStep1               // step 1 is running
-	PipeStepRunningStep2               // step 2 is running
-	PipeStepFinished
-	PipeStepError
-	PipeStepClosed
-)
-
-type PipeStep[A, B, C any] struct {
-	state  PipeStepState
-	step1  Step[A, B]
-	step2  Step[B, C]
-	output chan helpers.Result[C]
-}
-
-// TODO(manuel, 2023-02-04) The pipe step should actually take a factory for the second step
-// Other wise it's just a simple functional pipe
-
-func (s *PipeStep[A, B, C]) Run(ctx context.Context, a A) error {
-	if s.state != PipeStepNotStarted {
-		return errors.Newf("step already started")
+func ResolveNone[T any]() *StepResult[T] {
+	c := make(chan helpers.Result[T], 1)
+	close(c)
+	return &StepResult[T]{
+		value: c,
 	}
+}
 
-	s.state = PipeStepRunningStep1
+func Reject[T any](err error) *StepResult[T] {
+	c := make(chan helpers.Result[T], 1)
+	c <- helpers.NewErrorResult[T](err)
+	close(c)
+	return &StepResult[T]{
+		value: c,
+	}
+}
 
-	eg, ctx2 := errgroup.WithContext(ctx)
+// Step is the generalization of a lambda function, with cancellation and closing
+// to allow it to own resources.
+type Step[T any, U any] interface {
+	// Start gets called multiple times for the same Step, once per incoming value,
+	// since StepResult is also the list monad (ie., supports multiple values)
+	Start(ctx context.Context, input T) (*StepResult[U], error)
+	Close(ctx context.Context) error
+}
 
-	eg.Go(func() error {
-		return s.step1.Run(ctx2, a)
-	})
+// Bind is the monadic bind operator for StepResult.
+// It takes a step result, a step (which is just a lambda turned into a struct)
+// iterates over the results in the StepResult, and starts the Step for each
+// value.
+func Bind[T any, U any](
+	ctx context.Context,
+	m *StepResult[T],
+	step Step[T, U],
+) *StepResult[U] {
+	return &StepResult[U]{
+		value: func() <-chan helpers.Result[U] {
+			c := make(chan helpers.Result[U])
+			go func() {
+				defer close(c)
+				defer func(transformer Step[T, U], ctx context.Context) {
+					err := transformer.Close(ctx)
+					if err != nil {
+						log.Error().Err(err).Msg("error closing step")
+					}
+				}(step, ctx)
+				for {
+					select {
+					case r, ok := <-m.value:
+						if !ok {
+							return
+						}
+						if r.Error() != nil {
+							// we do need to drain m here
+							c <- helpers.NewErrorResult[U](r.Error())
+							continue
+						}
 
-	// NOTE(manuel, 2023-02-04) This can probably be done more elegantly
-	eg.Go(func() error {
-		defer func() {
-			s.state = PipeStepClosed
-			close(s.output)
-		}()
-		v_, ok := <-s.step1.GetOutput()
-		if !ok {
-			s.state = PipeStepError
-			s.output <- helpers.NewErrorResult[C](errors.Newf("step 1 closed output channel"))
-			return nil
-		}
-		v, err := v_.Value()
-		if err != nil {
-			s.state = PipeStepError
-			s.output <- helpers.NewErrorResult[C](err)
-			return nil
-		}
-
-		if ctx.Err() != nil {
-			s.state = PipeStepError
-			s.output <- helpers.NewErrorResult[C](ctx.Err())
-			return nil
-		}
-
-		s.state = PipeStepRunningStep2
-		fmt.Println("Starting step2")
-
-		eg2, ctx3 := errgroup.WithContext(ctx2)
-		eg2.Go(func() error {
-			return s.step2.Run(ctx3, v)
-		})
-
-		// NOTE(manuel, 2023-02-04) Maybe this error handling can be done more elegantly by handling the result
-		// of eg2.Wait()
-		eg2.Go(func() error {
-			select {
-			case <-ctx3.Done():
-				s.state = PipeStepError
-				s.output <- helpers.NewErrorResult[C](ctx3.Err())
-				return nil
-			case v2_, ok := <-s.step2.GetOutput():
-				if !ok {
-					s.state = PipeStepError
-					s.output <- helpers.NewErrorResult[C](errors.Newf("step 2 closed output channel"))
-					return nil
+						c_, err := step.Start(ctx, r.Unwrap())
+						if err != nil {
+							c <- helpers.NewErrorResult[U](err)
+							return
+						}
+						for u := range c_.value {
+							c <- u
+						}
+					case <-ctx.Done():
+						return
+					}
 				}
-				v2, err := v2_.Value()
-				if err != nil {
-					s.state = PipeStepError
-					s.output <- helpers.NewErrorResult[C](err)
-					return nil
-				}
-
-				s.state = PipeStepFinished
-				s.output <- helpers.NewValueResult(v2)
-			}
-
-			return nil
-		})
-
-		return eg2.Wait()
-	})
-
-	return eg.Wait()
-}
-
-func (s *PipeStep[A, B, C]) GetOutput() <-chan helpers.Result[C] {
-	return s.output
-}
-
-func (s *PipeStep[A, B, C]) GetState() interface{} {
-	return s.state
-}
-
-func (s *PipeStep[A, B, C]) IsFinished() bool {
-	return s.state == PipeStepFinished
-}
-
-func NewPipeStep[A, B, C any](step1 Step[A, B], step2 Step[B, C]) Step[A, C] {
-	s := &PipeStep[A, B, C]{
-		state:  PipeStepNotStarted,
-		step1:  step1,
-		step2:  step2,
-		output: make(chan helpers.Result[C]),
+			}()
+			return c
+		}(),
 	}
-	return s
 }
-
-var ErrMissingClientSettings = errors.Newf("missing client settings")
-
-var ErrMissingClientAPIKey = errors.Newf("missing client settings api key")
