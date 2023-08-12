@@ -11,7 +11,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
-	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"io"
@@ -98,15 +97,10 @@ func NewGeppettoCommand(
 		return nil, err
 	}
 
-	glazedParameterLayer, err := settings.NewGlazedParameterLayers()
-	if err != nil {
-		return nil, err
-	}
-
 	description.Layers = append(
 		description.Layers,
 		helpersParameterLayer,
-		glazedParameterLayer)
+	)
 
 	ret := &GeppettoCommand{
 		CommandDescription: description,
