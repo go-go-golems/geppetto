@@ -1,78 +1,165 @@
 name: sqleton
-short: Generate sqleton queries
-long: Generate sqleton query yaml files based on metadata and a sql query
+short: Generate a Sqleton query
 factories:
   openai:
     client:
       timeout: 120
     completion:
-      engine: text-davinci-003
+      engine: gpt-3.5-turbo
       temperature: 0.2
       max_response_tokens: 2048
-      stop:
-        - "---END YAML---"
-      # stream: true
+      stop: []
+      stream: true
 flags:
-  - name: query
+  - name: ddl
+    type: stringFromFile
+    help: DDL for the table
+    required: false
+  - name: types
+    type: stringList
+    help: List of types
+    default:
+      - int
+      - string
+      - date
+      - stringList
+      - intList
+      - float
+      - bool
+      - floatList
+  - name: instructions
     type: string
-    help: Query to templatize
-    required: true
-  - name: flags
+    help: Additional language specific instructions
+    required: false
+  - name: topic
     type: string
-    help: Table schema
-    required: true
-prompt: |
-  We want to transform a SQL query into a generic template. 
-  The output is a YAML file that specifies the argument types and a go template for the actual query.
-  You are provided with a query and a list of flags to use in the template.
-  
-  QUERY: SELECT * FROM order_shipping_costs WHERE order_id IN ( 123, 234 ) AND order_number LIKE '12342%' ORDER BY order_number DESC LIMIT 10
-  FLAGS: limit, order_ids, order_numbers, sort_by
-  OUTPUT:
-  
-  ---BEGIN YAML---
-  {{`
-  name: shipping
-  short: Show shipping costs per order
-  flags:
-    - name: count
-      type: bool
-      help: Count the number of posts
-      default: false
-    - name: limit
-      type: int
-      help: Limit the number of posts
-      default: 10
-    - name: order_id
-      type: intList
-      help: List of order IDs
-    - name: order_number
-      type: stringList
-      help: List of order numbers
-    - name: sort_by
-      type: string
-      help: Sort by column
-      default: order_number DESC
-      required: false
-  query: |
-    SELECT {{ if .count }}COUNT(*) {{ else }} * {{ end }} FROM order_shipping_costs
-    WHERE 1=1
-    {{ if .order_id -}}
-    AND order_id IN ({{ .order_id | sqlIntIn }})
-    {{ end -}}
-    {{ range $number := .order_number -}}
-    AND order_number LIKE '{{ $number }}%'
-    {{ end -}}
+    help: Topic of the query
+    required: false
+  - name: instructions_file
+    type: stringFromFile
+    help: Additional language specific instructions
+    required: false
+  - name: topic_file
+    type: stringFromFile
+    help: Topic of the query
+    required: false
+  - name: example_name
+    type: string
+    help: Name of the example
+    default: Get all animals from the database
+  - name: example
+    type: stringFromFile
+    help: Example of the table
+    default: |
+      name: animals
+      short: Get all animals from the database.
+      flags:
+        - name: id
+          type: intList
+          help: List of ids
+        - name: name
+          type: string
+          help: Animal name
+        - name: weight
+          type: float
+          help: Animal weight
+        - name: from
+          type: date
+          help: From date
+        - name: to
+          type: date
+          help: To date
+        - name: height
+          type: float
+          help: Animal height
+        - name: color
+          type: string
+          help: Animal color
+        - name: species
+          type: stringList
+          help: Animal species
+        - name: limit
+          help: Limit the number of results
+          type: int
+          default: 0
+        - name: offset
+          type: int
+          help: Offset 
+          default: 0
+        - name: order_by
+          type: string
+          default: birthdate DESC
+          help: Order by
+      query: |
+        {{ if .explain }}
+          EXPLAIN
+        {{ end }}
+        SELECT
+          id,
+          name,
+          birthdate,
+          weight,
+          height,
+          color,
+          species
+        FROM animals
+        WHERE 1=1
+        {{ if .id }}
+          AND id IN ({{ .id | sqlIntIn }})
+        {{ end }}
+        {{ if .name }}
+          AND name = '{{ .name }}'
+        {{ end }}
+        {{ if .from }} 
+          AND birthdate >= {{ .from | sqlDate }}
+        {{ end }}
+        {{ if .to }}
+          AND birthdate <= {{ .to | sqlDate }}
+        {{ end }}
+        {{ if .weight }}
+          AND weight = {{ .weight }}
+        {{ end }}
+        {{ if .height }}
+          AND height = {{ .height }}
+        {{ end }}
+        {{ if .color }}
+          AND color = '{{ .color }}'
+        {{ end }}
+        {{ if .species }}
+          AND species IN ({{ .species | sqlStringIn }})
+        {{ end }}
+        ORDER BY {{ .order_by }}
+        {{ if .limit }}
+          LIMIT {{ .limit }}
+        {{ if .offset }}
+          OFFSET {{ .offset }}
+        {{ end }}
+        {{ end }}
 
-    ORDER BY {{ .sort_by }}
-    {{ if .limit -}}
-    LIMIT {{ .limit }}
-    {{ end -}} `}}
-  ---END YAML---
+prompt: |
+  I want to generate templates for SQL queries, stored in YAML and with the `query` field using go template syntax.
+  The templates expose command line parameters that the user can use to control the query,
+  and generate useful WHERE and GROUP BY statements.
   
-  QUERY: {{ .query }}
-  FLAGS: {{ .flags }}
-  OUTPUT: 
+  The `flags` stored in the YAML can be of different types: {{ .types | join ", " }}. These are then passed to the go 
+  template.
   
-  ---BEGIN YAML---
+  Here is an example that queries the {{ .example_name }}.
   
+  ```yaml
+  {{ .example }}
+  ```
+  
+  {{ if .topic_file }}{{ .topic_file }} {{ end }}
+  {{ if .topic }} {{ .topic }} {{ end }}
+  {{ if .ddl }}Generate a similar template with flags to query the table described by the following DDL:
+  
+  ```sql
+  {{ .ddl }}
+  ```
+  {{ end }}
+  
+  Use order_by instead of sort_by.
+  For %_like flags, take a stringList, and iterate over it to create a filter statement of LIKE queries joined by OR
+  {{ if .instructions }} {{ .instructions }} {{ end }}
+  {{ if .instructions_file }} {{ .instructions_file }} {{ end }}

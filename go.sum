@@ -108,8 +108,8 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-go-golems/clay v0.0.20 h1:GRFIL1g355zWjjofmPvhPreE3AsZ8tXncu9cG2GPZMw=
 github.com/go-go-golems/clay v0.0.20/go.mod h1:N9idImzYUpWLZ7eMVAymHYt0cbYO2E99MqejejZOP8A=
-github.com/go-go-golems/glazed v0.4.3 h1:jukIl4chRk1mLNO5LVs1v8gh6qQGvhk34lOuZsMOqfU=
-github.com/go-go-golems/glazed v0.4.3/go.mod h1:HcUz88LiTEPK8cWD5pWup0rjwzIDH4loaZnMVuT4Qfc=
+github.com/go-go-golems/glazed v0.4.4 h1:DQETKCfHGP7IbU1AXERkPYo6/HYgcvO5wq9fXSm6uRY=
+github.com/go-go-golems/glazed v0.4.4/go.mod h1:HcUz88LiTEPK8cWD5pWup0rjwzIDH4loaZnMVuT4Qfc=
 github.com/go-openapi/errors v0.20.3 h1:rz6kiC84sqNQoqrtulzaL/VERgkoCyB6WdEkc2ujzUc=
 github.com/go-openapi/errors v0.20.3/go.mod h1:Z3FlZ4I8jEGxjUK+bugx3on2mIAk4txuAOhlsB1FSgk=
 github.com/go-openapi/strfmt v0.21.7 h1:rspiXgNWgeUzhjo1YU01do6qsahtJNByjLVbPLNHb8k=
