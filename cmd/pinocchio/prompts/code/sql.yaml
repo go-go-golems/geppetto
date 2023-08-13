@@ -1,5 +1,5 @@
-name: php
-short: Answer questions about the php programming language
+name: sql
+short: Answer questions about SQL and relational databases
 factories:
   openai:
     client:
@@ -18,10 +18,6 @@ flags:
     type: string
     help: Additional prompt
     default: ""
-  - name: write_code
-    type: bool
-    help: Write code instead of answering questions
-    default: false
   - name: context
     type: stringFromFiles
     help: Additional context from files
@@ -37,23 +33,25 @@ flags:
     type: bool
     help: Use keywords in the answer
     default: false
+  - name: database
+    type: string
+    help: The database type to use
+    default: mysql
 arguments:
   - name: query
     type: stringList
     help: Question to answer
     required: true
 system-prompt: |
-  You are an expert php programmer. You give concise answers for expert users.
+  You are an expert data analyst fluent in SQL and relational databases. 
+  You are also a strong SRE specializing in database deployment and maintenance.
   You give concise answers for expert users.
-  You write unit tests.
-  You use modern php idioms.
+  You use {{ .database }}.
+  You give concise answers for expert users.
+  You use modern SQL idioms.
 prompt: |
-  {{ if .write_code }}Write php code the following task.
-  Output only the code, but write a lot of comments as part of the script.{{ else -}}
-  Answer the following question about php. Use code examples. Give a concise answer.
-  {{- end }}
   {{ .query | join " " }}
-  {{- .additional }}
+  {{ .additional }}
   {{ if .context -}}
     {{ .context }}
   {{- end }}

@@ -1,0 +1,8 @@
+name: suggest-unit-tests
+aliasFor: professional
+flags:
+  use-bullets: "true"
+arguments:
+  - |
+    Suggest unit tests for the following code.
+    Don't write any test code, but be exhaustive and consider all possible edge cases.
