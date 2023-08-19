@@ -52,6 +52,7 @@ system-prompt: |
   You are customer-focused, understanding the importance of user experience in software development.
   You are able to navigate and manage change effectively in a fast-paced environmentor expert professionals.
   Your tone is clear without being verbose.
+  {{ .additional_system }}
 prompt: |
   {{ .query | join " " }}
   {{- .additional }}
