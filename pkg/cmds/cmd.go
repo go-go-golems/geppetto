@@ -114,6 +114,16 @@ func NewGeppettoCommand(
 	return ret, nil
 }
 
+// RunIntoWriter runs the command and writes the output into the given writer.
+// It first:
+//   - configures the factories with the given parameters (for example to override the
+//     temperature or other openai settings)
+//   - configures the context manager with the configured Messages and SystemPrompt
+//     (per default, from the command definition, but can be overloaded through the
+//     --system, --message-file and --append-message-file flags)
+//   - if --print-prompt is given, it prints the prompt and exits
+//
+// It then instantiates a
 func (g *GeppettoCommand) RunIntoWriter(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
@@ -125,7 +135,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	for _, f := range g.Factories {
-		factory, ok := f.(*chat.Transformer)
+		factory, ok := f.(*chat.Step)
 		if !ok {
 			continue
 		}
@@ -140,11 +150,28 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	contextManager := geppetto_context.NewManager()
 
+	// load and render the system prompt
 	systemPrompt_, ok := ps["system"].(string)
 	if ok && systemPrompt_ != "" {
 		systemPrompt = systemPrompt_
 	}
 
+	if systemPrompt != "" {
+		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(systemPrompt)
+		if err != nil {
+			return err
+		}
+
+		var systemPromptBuffer strings.Builder
+		err = systemPromptTemplate.Execute(&systemPromptBuffer, ps)
+		if err != nil {
+			return err
+		}
+
+		contextManager.SetSystemPrompt(systemPromptBuffer.String())
+	}
+
+	// load and render messages
 	messageFile, ok := ps["message-file"].(string)
 	if ok && messageFile != "" {
 		messages_, err := geppetto_context.LoadFromFile(messageFile)
@@ -161,35 +188,6 @@ func (g *GeppettoCommand) RunIntoWriter(
 			return err
 		}
 		messages = append(messages, messages_...)
-	}
-
-	// NOTE(manuel, 2023-07-21)
-	// This is called completion, but it actually branches out to the chat API.'
-	// Maybe in the future we can let this slide entirely, in fact this should be replaced by a single step
-	// in a program, so this will probably be refactored away.
-	// In fact, this might already get all streamlined once I redo the monad/step part.
-	transformer_, ok := g.Factories["openai-chat"]
-	if !ok {
-		return errors.Errorf("No openai-completion-step factory defined")
-	}
-	transformer, ok := transformer_.(steps.Step[[]*geppetto_context.Message, string])
-	if !ok {
-		return errors.Errorf("openai-completion-step factory is not a StepFactory[string, string]")
-	}
-
-	if systemPrompt != "" {
-		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(systemPrompt)
-		if err != nil {
-			return err
-		}
-
-		var systemPromptBuffer strings.Builder
-		err = systemPromptTemplate.Execute(&systemPromptBuffer, ps)
-		if err != nil {
-			return err
-		}
-
-		contextManager.SetSystemPrompt(systemPromptBuffer.String())
 	}
 
 	if len(messages) > 0 {
@@ -214,6 +212,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 		}
 	}
 
+	// render the prompt
 	if g.Prompt != "" {
 		// TODO(manuel, 2023-02-04) All this could be handle by some prompt renderer kind of thing
 		promptTemplate, err := templating.CreateTemplate("prompt").Parse(g.Prompt)
@@ -243,11 +242,21 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	messagesM := steps.Resolve(contextManager.GetMessagesWithSystemPrompt())
-	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, transformer)
+
+	chatStep_, ok := g.Factories["openai-chat"]
+	if !ok {
+		return errors.Errorf("No openai-chat-step factory defined")
+	}
+	chatStep, ok := chatStep_.(steps.Step[[]*geppetto_context.Message, string])
+	if !ok {
+		return errors.Errorf("openai-chat-step factory is not a StepFactory[string, string]")
+	}
+
+	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, chatStep)
 
 	accumulate := ""
 
-	openAILayer, ok := parsedLayers["openai-completion"]
+	openAILayer, ok := parsedLayers["openai-chat"]
 	if !ok {
 		return errors.Errorf("No openai layer")
 	}

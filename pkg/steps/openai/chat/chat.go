@@ -13,7 +13,7 @@ import (
 	"io"
 )
 
-type Transformer struct {
+type Step struct {
 	ClientSettings *openai.ClientSettings `yaml:"client,omitempty"`
 	StepSettings   *Settings              `yaml:"completion,omitempty"`
 }
@@ -33,11 +33,11 @@ type Transformer struct {
 // TODO(manuel, 2023-01-27) Maybe look into better YAML handling using UnmarshalYAML overloading
 type factoryConfigFileWrapper struct {
 	Factories struct {
-		OpenAI *Transformer `yaml:"openai"`
+		OpenAI *Step `yaml:"openai"`
 	} `yaml:"factories"`
 }
 
-func NewStepFromYAML(s io.Reader) (*Transformer, error) {
+func NewStepFromYAML(s io.Reader) (*Step, error) {
 	var settings factoryConfigFileWrapper
 	if err := yaml.NewDecoder(s).Decode(&settings); err != nil {
 		return nil, err
@@ -45,19 +45,19 @@ func NewStepFromYAML(s io.Reader) (*Transformer, error) {
 
 	// NOTE(manuel, 2023-08-11) Unsure what this null check is for, honestly
 	if settings.Factories.OpenAI == nil {
-		settings.Factories.OpenAI = &Transformer{
+		settings.Factories.OpenAI = &Step{
 			StepSettings:   &Settings{},
 			ClientSettings: openai.NewClientSettings(),
 		}
 	}
 
-	return &Transformer{
+	return &Step{
 		StepSettings:   settings.Factories.OpenAI.StepSettings,
 		ClientSettings: settings.Factories.OpenAI.ClientSettings,
 	}, nil
 }
 
-func (csf *Transformer) UpdateFromParameters(ps map[string]interface{}) error {
+func (csf *Step) UpdateFromParameters(ps map[string]interface{}) error {
 	err := parameters.InitializeStructFromParameters(csf.StepSettings, ps)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (csf *Transformer) UpdateFromParameters(ps map[string]interface{}) error {
 	return nil
 }
 
-func (csf *Transformer) Start(
+func (csf *Step) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
 ) (*steps.StepResult[string], error) {
@@ -197,6 +197,6 @@ func (csf *Transformer) Start(
 }
 
 // Close is only called after the returned monad has been entirely consumed
-func (csf *Transformer) Close(ctx context.Context) error {
+func (csf *Step) Close(ctx context.Context) error {
 	return nil
 }
