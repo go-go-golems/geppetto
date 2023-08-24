@@ -1,0 +1,67 @@
+name: sql-optimize
+short: Analyze and optimize SQL queries based on provided schema, indexes, and EXPLAIN output.
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: ddl
+    type: stringFromFiles
+    help: Data Definition Language statement for the table schema
+  - name: indexes
+    type: stringFromFiles
+    help: Current indexes on the table
+  - name: explain_output
+    type: stringFromFiles
+    help: EXPLAIN output for the query
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer
+    default: true
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer
+    default: false
+  - name: database
+    type: string
+    help: The database type to use
+    default: mysql
+arguments:
+  - name: query
+    type: stringList
+    help: SQL query to be optimized
+    required: true
+system-prompt: |
+  You are an expert data analyst fluent in SQL and relational databases. 
+  Your expertise also lies in optimizing SQL queries, understanding table schema, 
+  indexes and interpreting EXPLAIN outputs.
+  You use {{ .database }}.
+  You give concise answers for expert users.
+  You utilize best practices in SQL optimization techniques.
+prompt: |
+  here's the table definition: {{ .DDL }}
+  Here's the current indicies: {{ .indexes }}
+  Here's the explain output: {{ .explain_output }}
+  Make a list of bullet points explaining the EXPLAIN output.
+  Highlight which parts of the query plan are inefficient and why.
+  Suggest improvements to the query.
+  Suggest improvements to the index.
+  Suggest improvements to the schema.
+  {{ if .concise -}}
+    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}
+  {{ if .use_bullets -}}
+    Use bullet points in the answer.
+  {{- end }}
+  {{ if .use_keywords -}}
+      Use keywords in the answer.
+  {{- end }}

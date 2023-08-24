@@ -1,0 +1,156 @@
+name: create-command
+short: Generate a pinocchio query
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop: []
+      stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: prompt
+    type: stringFromFile
+    help: Prompt for the command
+    required: true
+  - name: context
+    type: stringFromFiles
+    help: Additional context
+  - name: types
+    type: stringList
+    help: List of types
+    default:
+      - int
+      - string
+      - stringList
+      - stringFromFile
+      - objectFromFile
+      - objectListFromFile
+      - stringListFromFile
+      - intList
+      - float
+      - bool
+      - floatList
+      - choice
+  - name: example_name
+    type: string
+    help: Name of the example
+    default: Generate animal descriptions
+  - name: example
+    type: stringFromFile
+    help: Example of the command
+    default: |
+      name: animals
+      short: Generate animal descriptions.
+      factories:
+        openai:
+          client:
+            timeout: 120
+          completion:
+            engine: gpt-4
+            temperature: 0.2
+            max_response_tokens: 2048
+            stop: []
+            stream: true
+      flags:
+        - name: name
+          type: string
+          help: Animal name
+          required: true
+        - name: color
+          type: string
+          help: Animal color
+        - name: species
+          type: stringList
+          help: Animal species
+        - name: additional_system
+          type: string
+          help: Additional system prompt
+          default: ""
+        - name: additional
+          type: string
+          help: Additional prompt
+          default: ""
+        - name: context
+          type: stringFromFiles
+          help: Additional context from files
+        - name: concise
+          type: bool
+          help: Give concise answers
+          default: false
+        - name: use_bullets
+          type: bool
+          help: Use bullet points in the answer
+          default: false
+        - name: use_keywords
+          type: bool
+          help: Use keywords in the answer
+          default: false
+      system-prompt: |
+          You are an intrepid animalist. You know all species of animals. You write clearly and concisely.
+          {{ .additional_system }}
+      prompt: |
+        Write a description of the animal {{ .name }}.
+        {{ if .color }}It is of color {{ .color }}.{{end}}
+        {{ if .species }}It is a {{ .species | join ", " }}.{{end}}
+        {{- .additional }}
+        {{ if .context -}}
+        {{ .context }}
+        {{- end }}
+        {{ if .concise -}}
+        Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+        {{- end }}
+        {{ if .use_bullets -}}
+        Use bullet points in the answer.
+        {{- end }}
+        {{ if .use_keywords -}}
+        Use keywords in the answer, not full sentences.
+        {{- end }}
+system-prompt: |
+  You are an experienced technology professional and technical leader in software.
+  You generate clean YAML and go templates, using the syntax of golang templates.
+  You are good at reasoning and prompting large language models.
+prompt: |
+  I want to generate command templates for prompting large language models, stored in YAML and with the `prompt` and `system-prompt` 
+  field using go template syntax. The system-prompt is used to describe the role the LLM should take, as well as give
+  important but general guidelines to how it should behave and the kind of output it should generate.
+  
+  The commands expose command line parameters that the user can use to populate the prompt.
+  
+  The `flags` stored in the YAML can be of different types: {{ .types | join ", " }}. These are then passed to the go 
+  template.
+  
+  The `factories` section is used to configure the API call to the model. Copy it as is unless requested.
+  
+  Instead of "x > 10", the template language uses "gt x 10".
+  
+  Here is an example that uses a LLM to do {{ .example_name }}.
+  
+  ```yaml
+  {{ .example }}
+  ```
+  
+  {{- .additional }}
+  
+  Create a command given the following prompt. Locations to use as template flags are marked XXX.
+  
+  --- BEGIN PROMPT
+  {{ .prompt }}
+  --- END PROMPT
+  
+  {{ if .context -}}
+    {{ .context }}
+  {{- end }}
+  
+
+
