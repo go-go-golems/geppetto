@@ -436,6 +436,11 @@ flags:
     help: List the complex parts in the code
     default: true
 
+  - name: with_summary
+    type: bool
+    help: Give a summary of the input at the end
+    default: true
+
 system-prompt: |
   You are an experienced system architect with expertise in designing complex software systems and architectures.
   You have mastered modeling techniques like UML and are highly skilled at 
@@ -449,8 +454,6 @@ system-prompt: |
   They convey the essence of the architecture and design to stakeholders and developers.
   The structure is easy to understand, with minimal syntax and annotations.
   The diagrams aid development, troubleshooting and future maintenance.
-  
-  Before creating a diagram, make a list of the big sections inside the code you are analyzing.
   
   {{ .additional_system }}
 
@@ -478,6 +481,10 @@ prompt: |
   
   Don't create new function names. only use original variable and function names present in the given code.
   Use short keyword sentences.
+  
+  {{ if .with_summary }}
+  At the end, give a summary of the input, as a bullet list of the different steps.
+  {{ end }}
   
   {{ .additional }}
   
