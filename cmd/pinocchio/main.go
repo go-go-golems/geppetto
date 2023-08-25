@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/ui"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
+	"github.com/go-go-golems/geppetto/pkg/doc"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
@@ -17,9 +18,6 @@ import (
 	"github.com/spf13/viper"
 	"os"
 )
-
-//go:embed doc/*
-var docFS embed.FS
 
 //go:embed prompts/*
 var promptsFS embed.FS
@@ -92,7 +90,7 @@ var runCommandCmd = &cobra.Command{
 
 func initRootCmd() (*help.HelpSystem, error) {
 	helpSystem := help.NewHelpSystem()
-	err := helpSystem.LoadSectionsFromFS(docFS, ".")
+	err := doc.AddDocToHelpSystem(helpSystem)
 	cobra.CheckErr(err)
 
 	helpSystem.SetupCobraRootCommand(rootCmd)

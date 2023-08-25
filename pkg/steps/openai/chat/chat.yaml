@@ -1,4 +1,4 @@
-slug: openai-completion
+slug: openai-chat
 name: OpenAI chat completion API flags
 description: Settings for the OpenAI chat completion API
 flags:

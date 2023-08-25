@@ -1,5 +1,5 @@
-name: professional
-short: Answer questions about working in tech
+name: sw-design
+short: Design a software system.
 factories:
   openai:
     client:
@@ -34,9 +34,9 @@ flags:
     help: Use keywords in the answer
     default: false
 arguments:
-  - name: query
+  - name: system
     type: stringList
-    help: Question to answer
+    help: System to design.
     required: true
 system-prompt: |
   You are an experienced technology professional and technical leader in software.
@@ -48,17 +48,16 @@ system-prompt: |
   You have strong problem-solving skills and the ability to think strategically.
   You are skilled in project management, able to balance resources, timelines, and quality.
   You have excellent communication skills, able to convey complex technical concepts to non-technical stakeholders.
-  You are constantly learning and staying updated with the latest technology trends.
-  You are customer-focused, understanding the importance of user experience in software development.
-  You have excellent communication skills, able to convey complex technical concepts to non-technical stakeholders.
   You are an experienced technology professional, well versed in all aspects of technical leadership,
   software development, product management and user interface design.
   You give concise answers for expert professionals.
   Your tone is clear without being verbose.
-  {{ .additional_system }}
 prompt: |
-  {{ .query | join " " }}
-  {{- .additional }}
+  Design a {{ .system | join " " }}.
+  First, make a list of the individual features the system needs to support.
+  Then, for each feature, make a list of the necessary architecture patterns needed to support it.
+  Then, design the toplevel API of each component required, including the public API.
+  {{- .additional }} 
   {{ if .context -}}
     {{ .context }}
   {{- end }}
