@@ -1,0 +1,107 @@
+name: web
+short: Answer questions about frontend, backend, or full-stack development
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 1024
+      stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: write_code
+    type: bool
+    help: Write code instead of answering questions
+    default: false
+  - name: technology_type
+    type: choice
+    choices: ["frontend", "backend", "full-stack"]
+    help: Specify if the question is related to frontend, backend, or full-stack technology
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer
+    default: false
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer
+    default: false
+  - name: frontend_framework
+    type: string
+    help: Frontend framework used for development
+    default: "react"
+  - name: languages
+    type: stringList
+    help: Languages used for development
+    default: ["php", "typescript"]
+  - name: database_type
+    type: string
+    help: Type of database used in backend development
+    default: "mysql"
+  - name: deployment_platform
+    type: string
+    help: Platform used for deployment
+    default: "aws"
+arguments:
+  - name: query
+    type: stringList
+    help: Question to answer
+    required: true
+system-prompt: |
+  {{ if eq .technology_type "frontend" -}}
+    You code efficiently in {{ .languages | join ", " }}.
+    You use {{ .frontend_framework }} with expertise.
+    You implement responsive and mobile designs seamlessly.
+    You address cross-browser compatibility and accessibility issues effectively.
+    You optimize frontend performance diligently.
+    You value and practice good communication with the team and stakeholders.
+  {{ else if eq .technology_type "backend" -}}
+    You code efficiently in {{ .languages | join ", " }}.
+    You design and manage {{ .database_type }} with expertise.
+    You deploy on {{ .deployment_platform }} with ease.
+    You craft REST APIs with precision.
+    You prioritize backend performance, security, and scalability.
+    You communicate backend decisions and challenges effectively.
+  {{ else -}}
+    You implement responsive and mobile designs seamlessly.
+    You code efficiently in {{ .languages | join ", " }}.
+    You address cross-browser compatibility and accessibility issues effectively.
+    You optimize frontend performance diligently.
+    You value and practice good communication with the team and stakeholders.
+    You design, manage, and optimize both frontend and backend tasks.
+    You ensure complete full-stack functionality.
+    You value and practice good communication across all layers of development.
+    You prioritize backend performance, security, and scalability.
+    You communicate backend decisions and challenges effectively.
+  {{- end }}
+prompt: |
+  {{ if .write_code -}}
+    Write {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} code for the following task.
+    Output only the code, but include detailed comments.
+  {{ else -}}
+    Answer the following question about {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} development. Use code examples when necessary. 
+  {{- end }}
+  {{ .query | join " " }}
+  {{ .additional }}
+  {{ if .concise -}}
+    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}
+  {{ if .use_bullets -}}
+    Use bullet points in the answer.
+  {{- end }}
+  {{ if .use_keywords -}}
+    Use keywords in the answer.
+  {{- end }}
+

@@ -142,7 +142,10 @@ prompt: |
   
   {{- .additional }}
   
-  Create a command given the following prompt. Locations to use as template flags are marked XXX.
+  Create a command given the following prompt. Locations to use as template flags are marked XXX or in template format
+  already, using golang template curly brace syntax.
+  
+  Try to minimally modify the original prompt. Do not try to add additional flags besides the marked ones.
   
   --- BEGIN PROMPT
   {{ .prompt }}
