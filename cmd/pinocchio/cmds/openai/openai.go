@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	openai2 "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"strings"
 	"text/template"
 )
@@ -254,6 +255,17 @@ var FamiliesCmd = &cobra.Command{
 	},
 }
 
+func NewInfoCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "info",
+		Short: "info about openai settings",
+		Run: func(cmd *cobra.Command, args []string) {
+			openaiAPIKey := viper.GetString("openai-api-key")
+			fmt.Printf("openai-api-key: %s\n", openaiAPIKey)
+		},
+	}
+}
+
 var ModelsCmd = &cobra.Command{
 	Use:   "ls-models",
 	Short: "list models",
@@ -401,4 +413,6 @@ func init() {
 		panic(err)
 	}
 	OpenaiCmd.AddCommand(ModelsCmd)
+
+	OpenaiCmd.AddCommand(NewInfoCommand())
 }
