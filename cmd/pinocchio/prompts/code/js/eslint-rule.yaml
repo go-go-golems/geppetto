@@ -1,0 +1,314 @@
+name: eslint-rule
+short: Create custom ESLint rules.
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop: []
+      stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+  - name: rule
+    type: string
+    help: The rule to be implemented
+    required: true
+  - name: fix_problems
+    type: bool
+    help: Whether the rule should fix problems
+    default: false
+  - name: provide_suggestions
+    type: bool
+    help: Whether the rule should provide suggestions
+    default: false
+  - name: access_source_code
+    type: bool
+    help: Whether the rule should access source code
+    default: false
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
+system-prompt: |
+  You are an experienced ESLint rule developer.
+  You have a deep understanding of the architecture of ESLint and how to create custom rules.
+  You write clearly and concisely.
+  {{ .additional_system }}
+prompt: |
+  Here is an overview of the ESlint architecture to create custom ESLint rules.
+  
+  ## Rule object
+
+  - Rule exports object with `meta` and `create()`
+  - `meta`:
+       - `type`: `"problem" | "suggestion" | "layout"`
+       - `docs`: description, recommended, etc.
+       - `fixable`: `"code" | "whitespace"`
+       - `hasSuggestions`: true/false
+       - `schema`: options schema
+       - `deprecated`: true/false
+  - `create()`: returns visitor methods,
+       If a key is a node type or a selector, ESLint calls that visitor function while going down the tree.
+       If a key is a node type or a selector plus :exit, ESLint calls that visitor function while going up the tree.
+       If a key is an event name, ESLint calls that handler function for code path analysis.
+  - Visior methods can use the current node or surrounding tree to report/fix problems
+
+  ## Selectors
+
+  Here are the key points about AST selectors:
+
+    - Syntax similar to CSS selectors
+    - The following selectors are supported:
+
+      - AST node type: ForStatement
+      - wildcard (matches all nodes): *
+      - attribute existence: [attr]
+      - attribute value: [attr="foo"] or [attr=123]
+      - attribute regex: [attr=/foo.*/] (with some known issues)
+      - attribute conditions: [attr!="foo"], [attr>2], [attr<3], [attr>=2], or [attr<=3]
+      - nested attribute: [attr.level2="foo"]
+      - field: FunctionDeclaration > Identifier.id
+      - First or last child: :first-child or :last-child
+      - nth-child (no ax+b support): :nth-child(2)
+      - nth-last-child (no ax+b support): :nth-last-child(1)
+      - descendant: FunctionExpression ReturnStatement
+      - child: UnaryExpression > Literal
+      - following sibling: VariableDeclaration ~ VariableDeclaration
+      - adjacent sibling: ArrayExpression > Literal + SpreadElement
+      - negation: :not(ForStatement)
+      - matches-any: :matches([attr] > :first-child, :last-child)
+      - class of AST node: :statement, :expression, :declaration, :function, or :pattern
+
+    - Can listen for selectors in custom rules to examine AST
+    - Call selector listeners on node enter and :exit
+    - More specific selectors called first
+
+    - no-restricted-syntax rule restricts syntax
+    - Useful to disallow problematic patterns without custom rules
+
+    - Limitation: Regex with / needs to use \u002F instead
+    
+    Key points are the selector syntax, using selectors for examining AST in custom rules, and restricting syntax patterns with no-restricted-syntax.
+    
+    ## Context object
+
+    - Passed as argument to rule's `create()` method
+    - Contains info relevant to rule context:
+        - `id`: rule ID
+        - `filename`: source filename
+        - `physicalFilename`: full path of file
+        - `cwd`: working directory
+        - `options`: rule options
+        - `sourceCode`: SourceCode object
+        - `settings`: config settings
+        - `parserPath`: parser name
+        - `parserServices`: parser services
+        - `parserOptions`: parser options
+    - Methods:
+        - `getAncestors()`: node ancestors (deprecated)
+        - `getCwd()`: working directory (deprecated)
+        - `getDeclaredVariables()`: declared variables (deprecated)
+        - `getFilename()`: source filename (deprecated)
+        - `getPhysicalFilename()`: full file path (deprecated)
+        - `getScope()`: node scope (deprecated)
+        - `getSourceCode()`: SourceCode object (deprecated)
+        - `markVariableAsUsed()`: mark variable used (deprecated)
+        - `report()`: report problem
+    - Earlier methods deprecated, don't rely on them
+    
+    ## Reporting problems
+
+    - Use `context.report()` method
+    - Accepts object with:
+        - `message`: Problem message (required)
+        - `node`: Related node
+        - `loc`: Problem location
+        - `data`: Placeholder data for message
+        - `fix()`: Function to apply fix
+    - `node` or `loc` required
+    - Can use placeholders in `message`
+    - Can use `messageId` instead of typing messages:
+        - Define `meta.messages` map
+        - Use ID key for `messageId`
+      
+      This allows centralized/consistent error messages across the rule.
+      
+      {{ if .fix_problems }}
+    ## Applying fixes
+
+    - Pass `fixer` object to `fix()` function in `context.report()`
+    - `fixer` methods:
+         - `insertTextAfter()`
+         - `insertTextBefore()`
+         - `remove()`
+         - `replaceText()`
+         - etc
+    - `fix()` returns fixing object(s)
+    - Best practices:
+        - Avoid runtime behavior changes
+        - Make fixes small
+        - One fix per message
+        - Don't check for errors from other rules
+    - Can extend fix range to prevent other fixes
+    - Conflicting fixes apply to same code
+    - Only one conflicting fix will be applied
+
+  Key points:
+
+    - Use `fixer` object to apply fixes
+    - Follow best practices
+    - Beware of conflicting fixes
+    
+    {{ end }}
+    
+    {{ if .provide_suggestions }}
+    ## Providing suggestions
+
+    - Set `hasSuggestions: true` in meta
+    - Pass `suggest` array to `context.report()`
+
+    - Each suggestion is an object:
+        - `desc` or `messageId`
+        - `fix` function
+    - Suggestions apply standalone changes
+    - Use placeholders like overall error message
+    - Provide separate `data` for each suggestion
+
+  Key points:
+
+    - Set `hasSuggestions` meta property
+    - Pass `suggest` array to `context.report()`
+    - Each suggestion needs `desc`/`messageId` and `fix`
+    
+    {{ end }}
+    
+    {{ if .access_source_code }}
+    ## Accessing source code
+
+    - Use context.options to access rule options passed in configuration
+
+    - Use context.sourceCode to get SourceCode object. SourceCode properties:
+
+        - hasBOM
+        - text
+        - ast
+        - scopeManager
+        - visitorKeys
+        - parserServices
+        - lines
+
+    - Use sourceCode.getText() to get source text for node or full source
+
+    - Use sourceCode.getAllComments() to get all comments
+
+    - Use sourceCode.getCommentsBefore(), etc to get comments relative to a node/token
+
+    - SourceCode methods:
+
+    - getText(node): string - get source text for node or whole file
+    - getAllComments(): Comment[] - get all comments
+    - getCommentsBefore(nodeOrToken): Comment[]
+    - getCommentsAfter(nodeOrToken): Comment[]
+    - getCommentsInside(node): Comment[]
+    - getFirstToken(node, options): Token
+    - getFirstTokens(node, options): Token[]
+    - getLastToken(node, options): Token
+    - getLastTokens(node, options): Token[]
+    - getTokenAfter(nodeOrToken, options): Token
+    - getTokensAfter(nodeOrToken, options): Token[]
+    - getTokenBefore(nodeOrToken, options): Token
+    - getTokensBefore(nodeOrToken, options): Token[]
+    - getFirstTokenBetween(node1, node2, options): Token
+    - getFirstTokensBetween(node1, node2, options): Token[]
+    - getLastTokenBetween(node1, node2, options): Token
+    - getLastTokensBetween(node1, node2, options): Token[]
+    - getTokens(node): Token[]
+    - getTokensBetween(node1, node2): Token[]
+    - getTokenByRangeStart(index, options): Token
+    - getNodeByRangeIndex(index): ASTNode
+    - getLocFromIndex(index): SourceLocation
+    - getIndexFromLoc(loc): number
+    - commentsExistBetween(node1, node2): boolean
+
+    - Can pass options like skip, includeComments, filter to many SourceCode methods
+
+    - Use SourceCode to get source details when AST doesn't provide needed info
+      
+      {{ end }}
+
+  ## Accessing variable scopes
+
+  Here are the key points about accessing variable scopes:
+
+    - Use sourceCode.getScope(node) to get scope for a node
+    - Scope types:
+        - global, function, class, block, switch, for, with, catch
+    - Scope has variables array with Variable objects
+    - Variable has references and defs arrays
+    - references has Reference objects for variable usages
+    - defs has Definition objects for variable definitions
+    - Global variables have additional properties:
+        - writeable, eslintExplicitGlobal, eslintExplicitGlobalComments, eslintImplicitGlobalSetting
+    - Use scopes and variables to check for issues like:
+        - no-shadow checks for scope variable clashes
+        - no-redeclare checks for redeclarations
+    - Mark variable as used with sourceCode.markVariableAsUsed(name, node)
+      - Helps rules like no-unused-vars detect custom variable usage
+      - Omit node to mark in global scope
+    
+    The key points are using getScope(), Variable and Reference objects to analyze variable usage, and markVariableAsUsed() to indicate custom usage.
+
+  Here are some of the most common statement and expression nodes:
+
+  Common Statement Nodes:
+
+    - BlockStatement - A block of statements wrapped in { }
+    - IfStatement - An if statement
+    - SwitchStatement - A switch statement
+    - ForStatement - A for loop
+    - WhileStatement - A while loop
+    - ReturnStatement - A return statement
+    - VariableDeclaration - Variable declaration using var/let/const
+
+  Common Expression Nodes:
+
+    - Identifier - Identifier referring to a variable/function
+    - Literal - String, number, boolean, null, regex literals
+    - BinaryExpression - Binary operators like +, -, &&, ===
+    - LogicalExpression - Logical operators like &&, ||
+    - MemberExpression - Object/member access like obj.prop
+    - CallExpression - Function call expression like fn()
+    - ArrayExpression - Array literal like [1, 2, 3]
+    - ObjectExpression - Object literal like {a: 1, b: 2}
+    - ConditionalExpression - Ternary operator like a ? b : c
+    - AssignmentExpression - Assignment like a = 5
+    
+    So for inspecting statement syntax, look at BlockStatement, IfStatement, ForStatement, etc. And for expressions,
+    Identifier, Literal, BinaryExpression, CallExpression are very common.
+  
+    ## Instructions
+    
+    Write a ESlint rule that {{ .rule }}.
+  Match the rule specification as closely as possible using selectors.
+    {{ if .fix_problems }} Fix problems. {{ end }}
+    {{ if .access_source_code }}Use the original source code.{{ end }}
+    {{ if .provide_suggestions }}Provide suggestions.{{ end }}
+    {{ if .concise }}Be concise and skip explanations. Only output a short description of how the rule works, followed by the rule.{{ end }}
+
+    {{- .additional }}
+    {{ if .context -}}
+    {{ .context }}
+    {{- end }}
