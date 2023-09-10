@@ -33,3 +33,7 @@ func (e *ExtractCodeBlocksStep) Start(ctx context.Context, input string) (*steps
 
 	return steps.NewStepResult[[]string](c), nil
 }
+
+func (e *ExtractCodeBlocksStep) Close(ctx context.Context) error {
+	return nil
+}
