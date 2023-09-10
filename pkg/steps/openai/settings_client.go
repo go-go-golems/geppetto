@@ -13,13 +13,14 @@ import (
 var ErrMissingYAMLAPIKey = &yaml.TypeError{Errors: []string{"missing api key"}}
 
 type ClientSettings struct {
-	APIKey        *string        `yaml:"api_key,omitempty" glazed.parameter:"openai-api-key"`
-	Timeout       *time.Duration `yaml:"timeout,omitempty" glazed.parameter:"openai-timeout"`
-	Organization  *string        `yaml:"organization,omitempty" glazed.parameter:"openai-organization"`
-	DefaultEngine *string        `yaml:"default_engine,omitempty" glazed.parameter:"openai-default-engine"`
-	UserAgent     *string        `yaml:"user_agent,omitempty" glazed.parameter:"openai-user-agent"`
-	BaseURL       *string        `yaml:"base_url,omitempty" glazed.parameter:"openai-base-url"`
-	HTTPClient    *http.Client   `yaml:"omitempty"`
+	APIKey         *string        `yaml:"api_key,omitempty" glazed.parameter:"openai-api-key"`
+	Timeout        *time.Duration `yaml:"timeout,omitempty"`
+	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed.parameter:"openai-timeout"`
+	Organization   *string        `yaml:"organization,omitempty" glazed.parameter:"openai-organization"`
+	DefaultEngine  *string        `yaml:"default_engine,omitempty" glazed.parameter:"openai-default-engine"`
+	UserAgent      *string        `yaml:"user_agent,omitempty" glazed.parameter:"openai-user-agent"`
+	BaseURL        *string        `yaml:"base_url,omitempty" glazed.parameter:"openai-base-url"`
+	HTTPClient     *http.Client   `yaml:"omitempty"`
 }
 
 //go:embed "flags/client.yaml"
@@ -48,6 +49,10 @@ func NewClientSettingsFromParameters(ps map[string]interface{}) (*ClientSettings
 	if ret.Timeout != nil {
 		duration := *ret.Timeout * time.Second
 		ret.Timeout = &duration
+		ret.TimeoutSeconds = func() *int {
+			i := int(duration.Seconds())
+			return &i
+		}()
 	}
 
 	if ret.APIKey == nil {
@@ -92,6 +97,7 @@ func (c *ClientSettings) UnmarshalYAML(value *yaml.Node) error {
 	if aux.Timeout != nil {
 		t := time.Duration(*aux.Timeout) * time.Second
 		c.Timeout = &t
+		c.TimeoutSeconds = aux.Timeout
 	}
 	return nil
 }
@@ -105,13 +111,14 @@ func (c *ClientSettings) IsValid() error {
 
 func (c *ClientSettings) Clone() *ClientSettings {
 	return &ClientSettings{
-		APIKey:        c.APIKey,
-		Timeout:       c.Timeout,
-		Organization:  c.Organization,
-		DefaultEngine: c.DefaultEngine,
-		UserAgent:     c.UserAgent,
-		BaseURL:       c.BaseURL,
-		HTTPClient:    c.HTTPClient,
+		APIKey:         c.APIKey,
+		Timeout:        c.Timeout,
+		TimeoutSeconds: c.TimeoutSeconds,
+		Organization:   c.Organization,
+		DefaultEngine:  c.DefaultEngine,
+		UserAgent:      c.UserAgent,
+		BaseURL:        c.BaseURL,
+		HTTPClient:     c.HTTPClient,
 	}
 }
 
@@ -119,5 +126,9 @@ func NewClientSettings() *ClientSettings {
 	defaultTimeout := 60 * time.Second
 	return &ClientSettings{
 		Timeout: &defaultTimeout,
+		TimeoutSeconds: func() *int {
+			i := int(defaultTimeout.Seconds())
+			return &i
+		}(),
 	}
 }
