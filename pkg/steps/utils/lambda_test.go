@@ -3,8 +3,10 @@ package utils
 import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
@@ -299,6 +301,7 @@ func TestBackgroundMapLambdaStep(t *testing.T) {
 		}
 
 		_, err := step.Start(context.Background(), []int{1})
+		require.NoError(t, err)
 		// close the channel to allow the goroutine to complete
 		err = step.Close(context.Background())
 		assert.NoError(t, err)
@@ -348,4 +351,34 @@ func TestBackgroundMapLambdaStep(t *testing.T) {
 		assert.Equal(t, 1, len(results))
 		assert.Error(t, results[0].Error())
 	})
+}
+
+func TestBindLambdas(t *testing.T) {
+	t.Run("it should chain two steps together", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		step1 := &LambdaStep[int, int]{
+			Function: func(input int) helpers.Result[int] {
+				return helpers.NewValueResult(input * 2)
+			},
+		}
+		step2 := &LambdaStep[int, int]{
+			Function: func(input int) helpers.Result[int] {
+				return helpers.NewValueResult(input + 1)
+			},
+		}
+
+		result1, _ := step1.Start(ctx, 2)
+		result2 := steps.Bind[int, int](ctx, result1, step2)
+
+		res := <-result2.GetChannel()
+		assert.Equal(t, 5, res.Unwrap())
+
+		err := step2.Close(ctx)
+		assert.NoError(t, err)
+		err = step1.Close(ctx)
+		assert.NoError(t, err)
+	})
+
 }
