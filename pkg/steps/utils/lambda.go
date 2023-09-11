@@ -7,8 +7,32 @@ import (
 	"sync"
 )
 
+// LambdaStep is a struct that wraps a function to be used as a step in a pipeline.
+// The function takes an input and returns a Result.
 type LambdaStep[Input any, Output any] struct {
 	Function func(Input) helpers.Result[Output]
+}
+
+// BackgroundLambdaStep is a struct that wraps a function to be used as a step in a pipeline.
+// The function takes a context and an input, and returns a Result. The function is executed in a separate goroutine.
+type BackgroundLambdaStep[Input any, Output any] struct {
+	Function func(context.Context, Input) helpers.Result[Output]
+	wg       sync.WaitGroup
+	c        chan helpers.Result[Output]
+}
+
+// MapLambdaStep is a struct that wraps a function to be used as a step in a pipeline.
+// The function takes an input and returns a Result. The function is applied to each element of an input slice.
+type MapLambdaStep[Input any, Output any] struct {
+	Function func(Input) helpers.Result[Output]
+}
+
+// BackgroundMapLambdaStep is a struct that wraps a function to be used as a step in a pipeline.
+// The function takes a context and an input, and returns a Result. The function is applied to each element of an input slice in a separate goroutine.
+type BackgroundMapLambdaStep[Input any, Output any] struct {
+	Function func(context.Context, Input) helpers.Result[Output]
+	wg       sync.WaitGroup
+	c        chan helpers.Result[Output]
 }
 
 func (l *LambdaStep[Input, Output]) Start(ctx context.Context, input Input) (*steps.StepResult[Output], error) {
@@ -21,12 +45,6 @@ func (l *LambdaStep[Input, Output]) Start(ctx context.Context, input Input) (*st
 
 func (l *LambdaStep[Input, Output]) Close(ctx context.Context) error {
 	return nil
-}
-
-type BackgroundLambdaStep[Input any, Output any] struct {
-	Function func(context.Context, Input) helpers.Result[Output]
-	wg       sync.WaitGroup
-	c        chan helpers.Result[Output]
 }
 
 func (l *BackgroundLambdaStep[Input, Output]) Start(ctx context.Context, input Input) (*steps.StepResult[Output], error) {
@@ -47,10 +65,6 @@ func (l *BackgroundLambdaStep[Input, Output]) Close(ctx context.Context) error {
 	return nil
 }
 
-type MapLambdaStep[Input any, Output any] struct {
-	Function func(Input) helpers.Result[Output]
-}
-
 func (l *MapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (*steps.StepResult[Output], error) {
 	c := make(chan helpers.Result[Output], len(input))
 	defer close(c)
@@ -66,12 +80,6 @@ func (l *MapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input)
 
 func (l *MapLambdaStep[Input, Output]) Close(ctx context.Context) error {
 	return nil
-}
-
-type BackgroundMapLambdaStep[Input any, Output any] struct {
-	Function func(context.Context, Input) helpers.Result[Output]
-	wg       sync.WaitGroup
-	c        chan helpers.Result[Output]
 }
 
 func (l *BackgroundMapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (*steps.StepResult[Output], error) {
