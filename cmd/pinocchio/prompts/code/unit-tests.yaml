@@ -1,0 +1,88 @@
+name: unit-tests
+short: Generate a list of unit tests for given code.
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop: []
+      stream: true
+flags:
+  - name: code
+    type: stringFromFiles
+    help: Code to generate unit tests for
+    required: true
+  - name: language
+    type: string
+    help: Programming language of the code
+  - name: with_signature
+    type: bool
+    help: Whether to include signature in the output
+  - name: with_implementation
+    type: bool
+    help: Whether to include implementation in the output
+    default: false
+  - name: with_comments
+    type: bool
+    help: Whether to include comments in the output
+    default: false
+  - name: only_code
+    type: bool
+    help: Whether to only output the code
+    default: false
+  - name: framework
+    type: string
+    help: Framework to use for generating unit tests
+  - name: table_driven
+    type: bool
+    help: Whether to use table driven tests
+    default: false
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+system-prompt: |
+  You are a meticulous and experienced software engineer with a deep understanding of testing and unit tests.
+  {{ if .language }} You are an expert in {{ .language }} programming language.{{end}}
+  You are known for your ability to think of all possible edge cases and your attention to detail. You write clear and concise code.
+  {{ .additional_system }}
+prompt: |
+  Create unit tests to test the given code.
+  Be exhaustive, think of all the edge cases.
+  {{ if not .only_code }}
+  Return a list of bullet points describing each test.
+  {{- end }}
+  Here is the code:
+  
+  ```
+  {{ .code }}
+  ```
+  
+  {{ if .framework }}Use {{ .framework }} framework for generating unit tests.{{end}}
+  {{ if .table_driven }}Use table driven tests.{{end}}
+  {{ if .with_signature }}
+  After listing the unit tests, write the signature (not the test itself) of the function that would implement the tests.
+  {{- end }}
+  {{ if (or .with_implementation .only_code)  -}}
+  Please provide the implementation for each test.
+  {{ if .with_comments }}
+  Write a short comment before each test describing the purpose of the test, if not obvious from the test name.
+  Don't write obvious comments that just repeat the test name.
+  {{- end }}
+  {{- end }}
+  
+  {{- .additional }}
+  {{ if .context -}}
+  {{ .context }}
+  {{- end }}
+  

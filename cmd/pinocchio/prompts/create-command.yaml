@@ -42,6 +42,7 @@ flags:
       - bool
       - floatList
       - choice
+      - choiceList
   - name: example_name
     type: string
     help: Name of the example

@@ -1,5 +1,5 @@
-name: plantuml
-short: Generate a PlantUML diagram from source code
+name: activity
+short: Generate a PlantUML activity diagram from source code
 
 factories:
   openai:
@@ -12,9 +12,9 @@ factories:
       stream: true
 
 arguments:
-  - name: code
+  - name: input
     type: stringFromFile
-    help: Source code to generate diagram for
+    help: Input to generate diagram for
 
 flags:
   - name: style
@@ -403,8 +403,13 @@ flags:
         end
         @enduml
 
+  - name: context
+    type: stringFromFiles
+    help: Context for the input
 
-
+  - name: instructions
+    type: string
+    help: Instructions for the input
 
   - name: concise
     type: bool
@@ -426,20 +431,20 @@ flags:
     help: Additional prompt
     default: ""
 
+  - name: code
+    type: bool
+    help: Input is code
+    default: false
+
   - name: list_sections
     type: bool
-    help: List the sections in the code
-    default: true
-
-  - name: list_complex
-    type: bool
-    help: List the complex parts in the code
-    default: true
+    help: List the sections in the input
+    default: false
 
   - name: with_summary
     type: bool
     help: Give a summary of the input at the end
-    default: true
+    default: false
 
 system-prompt: |
   You are an experienced system architect with expertise in designing complex software systems and architectures.
@@ -462,24 +467,34 @@ prompt: |
 
   {{.uml_spec}}
 
-  Write a diagram for the following code, {{if .concise}}focusing on conciseness and legibility{{end}}:
+  {{if .context}}{{ .context }}{{end}}
+  {{if .instructions}}{{ .instructions }}{{end}}
+  
+  Write a diagram for the following input, {{if .concise}}focusing on conciseness and legibility{{end}}:
 
+  
   ```
-  {{.code}}
+  {{.input}}
   ```
 
   Only use plantuml constructs defined in the specification above.
   Don't use foreach for loops, instead use while or repeat when appropriate.
   
+  As the first thing, write a title and a short paragraph that describes what the diagram is describing and its purpose.
+  
   {{ if .list_sections }}
-  - Make a list of the big sections in the input before outputting the diagram.
-    For each section, list only the important functions called and important variables.
+  Before outputting the diagram:
+  - Make a list of the components in the input before outputting the diagram.
+  - Make a list of the steps in the input before outputting the diagram.
+    The steps are not necessarily in order, mention this in your output too by calling the section "Steps (not necessarily in order)".
+  {{ if .code }}
+  - For each step, list only the important functions called and important variables.
   {{ end }}
-  {{ if .list_complex }}
-  - Make a short list of the complex parts that need special attention from the reader, if any.
   {{ end }}
   
-  Don't create new function names. only use original variable and function names present in the given code.
+  {{ if .code }}
+  Don't create new function names. only use original variable and function names present in the input (if it is code).
+  {{ end }}
   Use short keyword sentences.
   
   {{ if .with_summary }}
