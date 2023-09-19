@@ -1,0 +1,194 @@
+name: readme
+short: Generate README for a go project.
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop: []
+      stream: true
+flags:
+  - name: project
+    type: string
+    help: Project name
+    required: true
+  - name: documentation
+    type: stringFromFile
+    help: Project documentation
+    required: true
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+  - name: with_install
+    type: bool
+    help: Include installation instructions
+    default: false
+
+  - name: with_features
+    type: bool
+    help: Include features section
+    default: false
+  - name: with_presummarization
+    type: bool
+    help: Include a summary of the project before the detailed documentation
+    default: false
+system-prompt: |
+  You are a seasoned software engineer and technical writer.
+  You have a knack for creating clear and concise README files for Go projects.
+  You understand the importance of providing a comprehensive overview of a project, its goals, features, and installation instructions.
+  You are familiar with GitHub badges and how to adapt existing content to new projects.
+  {{ .additional }}
+prompt: |
+  Create a nice README for the {{.project }} project, given a rough documentation write up.
+  
+  The README should contain github badges right after the title (we used {{ .project }} as an example here, which should be replace by the project name "{{.project}}):
+  
+  ---
+
+  # glazed - Output structured data in a variety of formats
+
+    ![](https://img.shields.io/github/license/go-go-golems/glazed)
+    ![](https://img.shields.io/github/actions/workflow/status/go-go-golems/glazed/push.yml?branch=main)
+
+  ---
+
+    this is followed by an introductory overview that details what the project does and its goals.
+
+  For example, here is the section for glazed, which would need to be adapter for the new project:
+
+  ---
+    Glazed is a library that makes it easy to output structured data.
+      When programming, we have a rich understanding of the data we are working with,
+      yet when we output it to the user, we are forced to use a flat, unstructured format.
+      
+      It tries to implement some of the ideas listed in
+    [14 great tips to make amazing command line applications](https://dev.to/wesen/14-great-tips-to-make-amazing-cli-applications-3gp3).
+      
+      It is in early alpha, and will change. Contributions are welcome,
+      but this project is going to be an experimental playground for a while,
+      while I try to figure out what is possible and worth tackling.
+
+  ---
+
+  {{ if .with_features }}
+    This is followed by a features section that highlights some of the possibilities of the project, if possible with actual execution example.
+  The list of features should be a concise list of bullet points, as more extensive examples will follow further down.
+
+  Here is what it looks like for glazed:
+
+  ---
+
+  With glazed, you can output object and table data in a rich variety of ways:
+
+    - as human-readable tables
+
+    ```
+    + glaze json misc/test-data/1.json misc/test-data/2.json misc/test-data/3.json
+    +-----+-----+------------+-----+-----+
+    | a   | b   | c          | d.e | d.f |
+    +-----+-----+------------+-----+-----+
+    | 1   | 2   | [3 4 5]    | 6   | 7   |
+    | 10  | 20  | [30 40 50] | 60  | 70  |
+    | 100 | 200 | [300]      |     |     |
+    +-----+-----+------------+-----+-----+
+    ```
+
+  - as CSV/TSV
+    
+    ```
+    + glaze json misc/test-data/1.json misc/test-data/2.json misc/test-data/3.json --output csv
+    a,b,c,d.e,d.f
+    1,2,[3 4 5],6,7
+    10,20,[30 40 50],60,70
+    100,200,[300],,
+    ```
+
+  ...
+
+  ---
+  {{ end }}
+
+  {{if .with_install}}
+  Then, adapt the following template to the new project, here geppettto and pinocchio are the name of the project used as example:
+
+  ---
+  ### Installation
+
+  To install the `pinocchio` command line tool with homebrew, run:
+
+    ```bash
+    brew tap go-go-golems/go-go-go
+    brew install go-go-golems/go-go-go/pinocchio
+    ```
+
+  To install the `pinocchio` command using apt-get, run:
+
+    ```bash
+    echo "deb [trusted=yes] https://apt.fury.io/go-go-golems/ /" >> /etc/apt/sources.list.d/fury.list
+    apt-get update
+    apt-get install pinocchio
+    ```
+
+  To install using `yum`, run:
+
+    ```bash
+    echo "
+    [fury]
+    name=Gemfury Private Repo
+    baseurl=https://yum.fury.io/go-go-golems/
+    enabled=1
+    gpgcheck=0
+    " >> /etc/yum.repos.d/fury.repo
+  yum install pinocchio
+  ```
+
+  To install using `go get`, run:
+
+  ```bash
+  go get -u github.com/go-go-golems/geppetto/cmd/pinocchio
+  ```
+
+  Finally, install by downloading the binaries straight from [github](https://github.com/go-go-golems/geppetto/releases).
+
+  ---
+  {{ end }}
+  
+  Finally comes the actual detailed documentation.
+  
+  ---
+  
+  Ok, now that we have gone over the structure of the documentation, let's get on to our task.
+  
+  Output the documentation by making it detailed, interleaving explanations with examples. This is
+  the most important section of the readme and should cover all the information given as input in the 
+  rough documentation. Don't skip anything and make it as clear as possible. Be exhaustive. 
+  Present all the details given in the input.
+  
+  Instead of outputting the examples from the input verbatim, use shorthand ("example of XXX").
+  
+  
+  Write a README for the {{ .project }} project which has the following rough documentation:
+  
+  --- BEGIN ROUGH DOCUMENTATION
+  {{ .documentation }}
+
+  {{ .additional }}
+  {{if .context}}{{ .context }}{{end}}
+  
+  --- END ROUGH DOCUMENTATION
+  
+  {{ if .with_presummarization }}
+  Before outputting the README, make a list of all the features, code examples and other important points present in the input,
+  as a YAML frontmatter. List every code example given in the input. It is very important to include the frontmatter.
+  {{ end }}
+
+
+  
+

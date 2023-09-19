@@ -1,0 +1,254 @@
+# Component Diagram
+
+## Components
+
+Components must be bracketed. You can also use the `component` keyword to define a component.
+In this case the brackets can be omitted, but only if the component name does not include white-space
+or special characters.
+You can define an alias, using the `as` keyword.
+This alias will be used later, when defining relations.
+
+```plantuml
+@startuml
+
+[First component]
+[Another component] as Comp2
+component Comp3
+component [Last\ncomponent] as Comp4
+
+@enduml
+```
+
+## Interfaces
+
+Interface can be defined using the `()` symbol (because this looks like a circle). You can also use the `interface` keyword to define an interface. And you can define an alias, using the `as` keyword. This alias will be used latter, when defining relations. We will see latter that interface definition is optional.
+
+```plantuml
+@startuml
+
+() "First Interface"
+() "Another interface" as Interf2
+interface Interf3
+interface "Last\ninterface" as Interf4
+
+[component]
+footer //Adding "component" to force diagram to be a **component diagram**//
+@enduml
+```
+
+## Basic example
+
+Links between elements are made using combinations of dotted line (`..`), straight line (`--`), and arrows (`-->`) symbols.
+
+```plantuml
+@startuml
+
+DataAccess - [First Component]
+[First Component] ..> HTTP : use
+
+@enduml
+```
+
+## Using notes
+
+You can use the `note left of` , `note right of` , `note top of` , `note bottom of` keywords to define notes related to a single object.
+
+```plantuml
+@startuml
+[Component] as C
+
+note top of C: A top note
+
+note bottom of C
+A bottom note can also
+be on several lines
+end note
+
+note left of C
+A left note can also
+be on several lines
+end note
+
+note right of C: A right note
+@enduml
+```
+
+A note can be also defined alone with the `note` keywords, then linked to other objects using the `..` symbol or whatever arrow symbol (`-`, `--`, ...).
+
+```plantuml
+@startuml
+[Component] as C
+
+note as N
+A floating note can also
+be on several lines
+end note
+
+C .. N
+@enduml
+```
+
+## Grouping Components
+
+You can use several keywords to group components and interfaces together:
+
+- `package`
+- `node`
+- `folder`
+- `frame`
+- `cloud`
+- `database`
+
+```plantuml
+@startuml
+
+package "Some Group" {
+HTTP - [First Component]
+[Another Component]
+}
+
+node "Other Groups" {
+FTP - [Second Component]
+[First Component] --> FTP
+}
+
+cloud {
+[Example 1]
+}
+
+
+database "MySql" {
+folder "This is my folder" {
+[Folder 3]
+}
+frame "Foo" {
+[Frame 4]
+}
+}
+
+
+[Another Component] --> [Example 1]
+[Example 1] --> [Folder 3]
+[Folder 3] --> [Frame 4]
+
+@enduml
+```
+
+## Changing arrows direction
+
+It is also possible to change arrow direction by adding `left`, `right`, `up` or `down` keywords inside the arrow:
+
+```plantuml
+@startuml
+[Component] -left-> left
+[Component] -right-> right
+[Component] -up-> up
+[Component] -down-> down
+@enduml
+```
+
+## Long description
+
+It is possible to put description on several lines using square brackets.
+
+```plantuml
+@startuml
+component comp1 [
+This component
+has a long comment
+on several lines
+]
+@enduml
+```
+
+## Individual colors
+
+You can specify a color after component definition.
+
+```plantuml
+@startuml
+component  [Web Server] #Yellow
+@enduml
+```
+
+## Skinparam
+
+You can use the [skinparam](https://plantuml.com/skinparam) command to change colors and fonts for the drawing. You can use this command :
+
+You can define specific color and fonts for stereotyped components and interfaces.
+
+```plantuml
+@startuml
+
+skinparam interface {
+backgroundColor RosyBrown
+borderColor orange
+}
+
+skinparam component {
+FontSize 13
+BackgroundColor<<Apache>> Pink
+BorderColor<<Apache>> #FF6655
+FontName Courier
+BorderColor black
+BackgroundColor gold
+ArrowFontName Impact
+ArrowColor #FF6655
+ArrowFontColor #777777
+}
+
+() "Data Access" as DA
+Component "Web Server" as WS << Apache >>
+
+DA - [First Component]
+[First Component] ..> () HTTP : use
+HTTP - WS
+
+@enduml
+```
+
+```plantuml
+@startuml
+
+skinparam component {
+backgroundColor<<static lib>> DarkKhaki
+backgroundColor<<shared lib>> Green
+}
+
+skinparam node {
+borderColor Green
+backgroundColor Yellow
+backgroundColor<<shared_node>> Magenta
+}
+skinparam databaseBackgroundColor Aqua
+
+[AA] <<static lib>>
+[BB] <<shared lib>>
+[CC] <<static lib>>
+
+node node1
+node node2 <<shared_node>>
+database Production
+
+@enduml
+```
+
+## Display JSON Data on Component diagram
+
+### Simple example
+
+```plantuml
+@startuml
+allowmixing
+
+component Component
+()        Interface
+
+json JSON {
+"fruit":"Apple",
+"size":"Large",
+"color": ["Red", "Green"]
+}
+@enduml
+```
+

@@ -71,7 +71,7 @@ func (cp *ClientParameterLayer) ParseFlagsFromCobraCommand(
 	}
 
 	// now load from flag overrides
-	ps2, err := parameters.GatherFlagsFromCobraCommand(cmd, cp.Flags, true, cp.Prefix)
+	ps2, err := parameters.GatherFlagsFromCobraCommand(cmd, cp.Flags, true, false, cp.Prefix)
 	if err != nil {
 		return nil, err
 	}

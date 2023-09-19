@@ -18,6 +18,9 @@ flags:
     type: string
     help: Additional prompt
     default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
   - name: write_code
     type: bool
     help: Write code instead of answering questions
@@ -95,6 +98,9 @@ prompt: |
   {{- end }}
   {{ .query | join " " }}
   {{ .additional }}
+  {{ if .context -}}
+    {{ .context }}
+  {{- end }}
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
   {{- end }}

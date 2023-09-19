@@ -1,0 +1,58 @@
+name: simplify-specs
+short: Simplify specifications for plantuml diagrams.
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop: []
+      stream: true
+flags:
+  - name: file
+    type: stringFromFile
+    help: File path of the full specification
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: no_subtitles
+    type: bool
+    help: Don't use subtitles for the separate sections
+    default: true
+  - name: simplify_examples
+    type: bool
+    help: Simplify examples to only keep the feature being described
+    default: true
+system-prompt: |
+  You are an expert programmer specialist in all programming languages. You give concise answers for expert users.
+  {{ .additional_system }}
+prompt: |
+  Simplify this specification for plantuml diagrams, so that it can be used by the user
+  to create simple but effective diagrams.
+  
+  Write an introductory paragraph that explains the diagram type and its main features.
+  
+  Remove documentation about alternative syntax and less useful and common features.
+  Output the result in a similar format but with more concise formulations.
+  {{ if .no_subtitles -}}
+  Don't use subtitles for the separate sections, instead output a sentence followed by a simplified code example.
+  {{- end }}
+  {{ if .simplify_examples -}}
+  Simplify examples to only keep the feature being described.
+  {{- end }}
+  
+  Finally, output a medium length diagram example (including ```plantuml, startuml and enduml).
+  
+  ---
+  
+  {{ .file }}
+  
+  {{ .additional }}
