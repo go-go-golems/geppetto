@@ -1,0 +1,239 @@
+name: sequence
+short: Generate a PlantUML sequence diagram
+
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 1024
+      stream: true
+
+arguments:
+  - name: input
+    type: stringFromFiles
+    help: Input to generate diagram for
+
+flags:
+  - name: topic
+    type: string
+    help: Topic to generate prompt for
+    default: the following input
+
+  - name: context
+    type: stringFromFiles
+    help: Context to generate prompt for
+
+  - name: style
+    type: string
+    default: sequence
+    help: Diagram type to generate. Supported types are activity, sequence, class, state
+
+  - name: uml_spec
+    type: stringFromFile
+    short: u
+    help: PlantUML syntax spec to include
+    default: |
+      PlantUML sequence diagrams are a powerful tool for visualizing interactions between different entities or participants.
+      They use a simple syntax to denote messages sent between participants (`->`),
+      with optional features like dotted arrows (`-->`) for distinct visualization, and reverse arrows (`<-` or `<--`) for improved readability.
+
+      ```plantuml
+      @startuml
+      Alice -> Bob: Authentication Request
+      Bob --> Alice: Authentication Response
+      Alice <- Bob: Another authentication Response
+      @enduml
+      ```
+        
+      Participants can be declared using the `participant` keyword, allowing more control over their display order and visual representation. Different keywords like `actor`, `boundary`, `control`, etc., can be used to change the shape of the participant.
+
+      ```plantuml
+      @startuml
+      participant Participant as Foo
+      actor Actor as Foo1
+      Foo -> Foo1 : To actor
+      @enduml
+      ```
+        
+        You can rename a participant using the `as` keyword and change the background color of an actor or participant.
+
+      ```plantuml
+      @startuml
+      actor Bob #red
+      participant Alice
+      Alice->Bob: Authentication Request
+      Bob->Alice: Authentication Response
+      @enduml
+      ```
+        
+      Messages can be sent to oneself and can be multiline using `\n`.
+
+      ```plantuml
+      @startuml
+      Alice -> Alice: This is a signal to self.\nIt also demonstrates\nmultiline \ntext
+      @enduml
+      ```
+        
+      You can change the arrow style and color for better visualization.
+
+      ```plantuml
+      @startuml
+      Bob ->x Alice
+      Bob -[#red]> Alice : hello
+      @enduml
+      ```
+        
+      The `autonumber` keyword is used to automatically add an incrementing number to messages.
+
+      ```plantuml
+      @startuml
+      autonumber
+      Bob -> Alice : Authentication Request
+      Bob <- Alice : Authentication Response
+      @enduml
+      ```
+        
+      You can add a title to the page and display headers and footers using `header` and `footer`.
+
+      ```plantuml
+      @startuml
+      header Page Header
+      footer Page %page% of %lastpage%
+      title Example Title
+      Alice -> Bob : message 1
+      Alice -> Bob : message 2
+      @enduml
+      ```
+        
+      You can group messages together using keywords like `alt/else`, `opt`, `loop`, `par`, `break`, `critical`, and `group`.
+
+      Example:
+      ```plantuml
+      @startuml
+      Alice -> Bob: Authentication Request
+      alt successful case
+      Bob -> Alice: Authentication Accepted
+      else some kind of failure
+      Bob -> Alice: Authentication Failure
+      end
+      @enduml
+      ```
+        
+      Notes can be added to messages or participants for additional information.
+
+      ```plantuml
+      @startuml
+      Alice->Bob : hello
+      note left: this is a first note
+      Bob->Alice : ok
+      note right: this is another note
+      @enduml
+      ```
+        
+      You can split a diagram using `==` separator to divide your diagram into logical steps.
+
+      ```plantuml
+      @startuml
+      == Initialization ==
+      Alice -> Bob: Authentication Request
+      Bob --> Alice: Authentication Response
+      == Repetition ==
+      Alice -> Bob: Another authentication Request
+      Alice <-- Bob: Another authentication Response
+      @enduml
+      ```
+        
+      You can use reference in a diagram, using the keyword `ref over`.
+
+      ```plantuml
+      @startuml
+      participant Alice
+      actor Bob
+      ref over Alice, Bob : init
+      Alice -> Bob : hello
+      @enduml
+      ```
+
+  - name: concise
+    type: bool
+    short: c
+    help: Focus on conciseness and legibility
+
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+
+  - name: list_sections
+    type: bool
+    help: List the sections in the input
+    default: true
+
+  - name: list_complex
+    type: bool
+    help: List the complex parts in the input
+    default: true
+
+  - name: with_summary
+    type: bool
+    help: Give a summary of the input at the end
+    default: true
+
+system-prompt: |
+  You are an experienced system architect with expertise in designing complex software systems and architectures.
+  You have mastered modeling techniques like UML and are highly skilled at 
+  creating clear PlantUML diagrams from code and specifications. 
+  
+  You have deep knowledge of software design patterns, 
+  distributed systems, microservices, domain driven design and other architectural approaches.
+  You can rapidly analyze code and specs to identify key components, relationships, flows and boundaries.
+  
+  Your PlantUML diagrams are exemplars of clarity, brevity and precision.
+  They convey the essence of the architecture and design to stakeholders and developers.
+  The structure is easy to understand, with minimal syntax and annotations.
+  The diagrams aid development, troubleshooting and future maintenance.
+  
+  {{ .additional_system }}
+
+prompt: |
+  Given the {{.style}} diagram spec:
+
+  {{.uml_spec}}
+
+  Write a diagram for {{.topic}}, {{if .concise}}focusing on conciseness and legibility{{end}}:
+
+  ```
+  {{.input}}
+  {{if .context}}
+  {{.context}}
+  {{end}}
+  ```
+
+  Only use plantuml constructs defined in the specification above.
+  
+  Before outputting the diagram:
+  {{ if .list_sections }}
+  - Make a list of the participants, their role and who they communicate with
+  - Describe if messages can be grouped and why
+  - If there are especially complex relationships or messages, describe why
+  {{ end }}
+  
+  Don't create new function names. only use original variable and function names present in the given code.
+  Be mindful of the arrow direction.
+  For complex sequences and participants, add notes. Don't output notes for trivial or simple facts already present in the component name or relationships.
+  Use short keyword sentences.
+  
+  {{ if .with_summary }}
+  At the end, give a summary of the input, describing each participants and the messages sent.
+  {{ end }}
+  
+  {{ .additional }}
+  
