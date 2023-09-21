@@ -80,6 +80,7 @@ func initialModel(manager *context.Manager, step *chat.Step) model {
 	messages := ret.messageView()
 	ret.viewport.SetContent(messages)
 	ret.viewport.YPosition = 0
+	ret.viewport.GotoBottom()
 
 	ret.updateKeyBindings()
 
@@ -149,21 +150,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		h, _ := m.style.SelectedMessage.GetFrameSize()
-
-		newWidth := msg.Width - h
-		m.textArea.SetWidth(newWidth)
 		m.width = msg.Width
 		m.height = msg.Height
 
-		headerHeight := lipgloss.Height(m.headerView())
-		textAreaHeight := lipgloss.Height(m.textAreaView())
-		newHeight := msg.Height - textAreaHeight - headerHeight
-		m.viewport.Width = m.width
-		m.viewport.Height = newHeight
-		m.viewport.YPosition = headerHeight + 1
-
-		m.viewport.SetContent(m.messageView())
+		m.recomputeSize()
 
 	// We handle errors just like any other message
 	case errMsg:
@@ -199,6 +189,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *model) recomputeSize() {
+	headerView := m.headerView()
+	headerHeight := lipgloss.Height(headerView)
+	textAreaView := m.textAreaView()
+	textAreaHeight := lipgloss.Height(textAreaView)
+	newHeight := m.height - textAreaHeight - headerHeight
+	m.viewport.Width = m.width
+	m.viewport.Height = newHeight
+	m.viewport.YPosition = headerHeight + 1
+
+	h, _ := m.style.SelectedMessage.GetFrameSize()
+
+	m.textArea.SetWidth(m.width - h)
+
+	messageView := m.messageView()
+	m.viewport.SetContent(messageView)
+	// TODO(manuel, 2023-09-21) Keep the current position by trying to match it to some message
+	// This is probably going to be tricky
+	//m.viewport.GotoBottom()
+}
+
 func (m model) headerView() string {
 	return "PINOCCHIO AT YOUR SERVICE:"
 }
@@ -210,12 +221,13 @@ func (m model) messageView() string {
 		v := m.contextManager.GetMessages()[idx].Text
 
 		w, _ := m.style.SelectedMessage.GetFrameSize()
+		//w -= m.style.SelectedMessage.GetHorizontalPadding()
 
-		v_ := wrapWords(v, m.width-w)
+		v_ := wrapWords(v, m.width-w-m.style.SelectedMessage.GetHorizontalPadding())
 		//if idx == m.selectedIdx && !m.focused {
 		//	v = m.style.SelectedMessage.Render(v)
 		//} else {
-		v_ = m.style.UnselectedMessage.Width(m.width - w).Render(v_)
+		v_ = m.style.UnselectedMessage.Width(m.width - m.style.SelectedMessage.GetHorizontalPadding()).Render(v_)
 		//}
 		ret += v_
 		ret += "\n"
@@ -235,9 +247,9 @@ func (m model) textAreaView() string {
 	// we are currently streaming
 	if m.stepResult != nil {
 		w, _ := m.style.SelectedMessage.GetFrameSize()
-		v := wrapWords(m.currentResponse, m.width-w)
+		v := wrapWords(m.currentResponse, m.width-w-m.style.SelectedMessage.GetHorizontalPadding())
 		// TODO(manuel, 2023-09-21) this is where we'd add the spinner
-		return m.style.SelectedMessage.Width(m.width - w).Render(v)
+		return m.style.SelectedMessage.Width(m.width - m.style.SelectedMessage.GetHorizontalPadding()).Render(v)
 	}
 
 	v := m.textArea.View()
@@ -268,6 +280,10 @@ func (m model) View() string {
 
 	viewportHeight := lipgloss.Height(viewportView)
 	_ = viewportHeight
+	textAreaHeight := lipgloss.Height(textAreaView)
+	_ = textAreaHeight
+	headerHeight := lipgloss.Height(headerView)
+	_ = headerHeight
 	ret := headerView + "\n" + viewportView + "\n" + textAreaView
 
 	return ret
