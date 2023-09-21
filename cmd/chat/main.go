@@ -80,27 +80,15 @@ func (c *ChatCommand) Run(
 	messages := []*context.Message{
 		// different substrings of veryLongLoremIpsum
 		{
-			Text: veryLongLoremIpsum[:100],
+			Text: "You are a chatbot.",
 			Role: "system",
 		},
 		{
-			Text: veryLongLoremIpsum[100:300],
+			Text: veryLongLoremIpsum[:200],
 			Role: "assistant",
 		},
 		{
-			Text: veryLongLoremIpsum[200:500],
-			Role: "user",
-		},
-		{
-			Text: veryLongLoremIpsum[:100],
-			Role: "system",
-		},
-		{
-			Text: veryLongLoremIpsum[100:300],
-			Role: "assistant",
-		},
-		{
-			Text: veryLongLoremIpsum[200:],
+			Text: veryLongLoremIpsum[:400],
 			Role: "user",
 		},
 	}

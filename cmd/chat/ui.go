@@ -40,9 +40,10 @@ type model struct {
 
 	step *chat.Step
 	// if not nil, streaming is going on
-	stepResult      *steps.StepResult[string]
-	stepCancel      func()
-	currentResponse string
+	stepResult             *steps.StepResult[string]
+	stepCancel             func()
+	currentResponse        string
+	previousResponseHeight int
 }
 
 func (m *model) updateKeyBindings() {
@@ -162,6 +163,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case streamCompletionMsg:
 		m.currentResponse += msg.Completion
+		newTextAreaView := m.textAreaView()
+		newHeight := lipgloss.Height(newTextAreaView)
+		if newHeight != m.previousResponseHeight {
+			m.recomputeSize()
+			m.previousResponseHeight = newHeight
+		}
 		cmd = m.getNextCompletion()
 		cmds = append(cmds, cmd)
 
@@ -195,6 +202,9 @@ func (m *model) recomputeSize() {
 	textAreaView := m.textAreaView()
 	textAreaHeight := lipgloss.Height(textAreaView)
 	newHeight := m.height - textAreaHeight - headerHeight
+	if newHeight < 0 {
+		newHeight = 0
+	}
 	m.viewport.Width = m.width
 	m.viewport.Height = newHeight
 	m.viewport.YPosition = headerHeight + 1
@@ -205,9 +215,10 @@ func (m *model) recomputeSize() {
 
 	messageView := m.messageView()
 	m.viewport.SetContent(messageView)
+
 	// TODO(manuel, 2023-09-21) Keep the current position by trying to match it to some message
 	// This is probably going to be tricky
-	//m.viewport.GotoBottom()
+	m.viewport.GotoBottom()
 }
 
 func (m model) headerView() string {
@@ -218,17 +229,13 @@ func (m model) messageView() string {
 	ret := ""
 
 	for idx := range m.contextManager.GetMessagesWithSystemPrompt() {
-		v := m.contextManager.GetMessages()[idx].Text
+		message := m.contextManager.GetMessages()[idx]
+		v := fmt.Sprintf("[%s]: %s", message.Role, message.Text)
 
 		w, _ := m.style.SelectedMessage.GetFrameSize()
-		//w -= m.style.SelectedMessage.GetHorizontalPadding()
 
 		v_ := wrapWords(v, m.width-w-m.style.SelectedMessage.GetHorizontalPadding())
-		//if idx == m.selectedIdx && !m.focused {
-		//	v = m.style.SelectedMessage.Render(v)
-		//} else {
 		v_ = m.style.UnselectedMessage.Width(m.width - m.style.SelectedMessage.GetHorizontalPadding()).Render(v_)
-		//}
 		ret += v_
 		ret += "\n"
 	}
@@ -313,6 +320,8 @@ func (m *model) submit() tea.Cmd {
 
 	m.focused = false
 	m.updateKeyBindings()
+	m.currentResponse = ""
+	m.previousResponseHeight = 0
 
 	m.viewport.GotoBottom()
 	ctx, cancel := context2.WithCancel(context2.Background())
@@ -364,6 +373,7 @@ func (m *model) finishCompletion() tea.Cmd {
 		Time: time.Now(),
 	})
 	m.currentResponse = ""
+	m.previousResponseHeight = 0
 	m.stepCancel()
 	m.stepResult = nil
 	m.stepCancel = nil
