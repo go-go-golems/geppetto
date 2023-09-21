@@ -1,6 +1,7 @@
 package main
 
 import (
+	context2 "context"
 	"fmt"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -11,6 +12,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
 	"github.com/muesli/reflow/wordwrap"
+	"github.com/pkg/errors"
+	"time"
 )
 
 type errMsg error
@@ -34,9 +37,12 @@ type model struct {
 	style  *Style
 	width  int
 	height int
-	step   *chat.Step
+
+	step *chat.Step
 	// if not nil, streaming is going on
-	stepResult *steps.StepResult[string]
+	stepResult      *steps.StepResult[string]
+	stepCancel      func()
+	currentResponse string
 }
 
 func (m *model) updateKeyBindings() {
@@ -120,15 +126,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.SubmitMessage):
 			if m.focused {
-				//cmd := m.submit()
-				//cmds = append(cmds, cmd)
+				cmd := m.submit()
+				cmds = append(cmds, cmd)
 			}
+
+		case key.Matches(msg, m.keyMap.CancelCompletion):
+			if m.stepCancel == nil {
+				// shouldn't happen
+			}
+			m.stepCancel()
+			return m, tea.Batch(cmds...)
 
 		default:
 			if m.focused {
 				m.textArea, cmd = m.textArea.Update(msg)
 				cmds = append(cmds, cmd)
+			} else {
+				m.viewport, cmd = m.viewport.Update(msg)
+				cmds = append(cmds, cmd)
 			}
+			return m, tea.Batch(cmds...)
 		}
 
 	case tea.WindowSizeMsg:
@@ -143,8 +160,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		textAreaHeight := lipgloss.Height(m.textAreaView())
 		newHeight := msg.Height - textAreaHeight - headerHeight
 		m.viewport.Width = m.width
-		m.viewport.Height = newHeight - 2
-		m.viewport.YPosition = headerHeight
+		m.viewport.Height = newHeight
+		m.viewport.YPosition = headerHeight + 1
 
 		m.viewport.SetContent(m.messageView())
 
@@ -152,6 +169,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		return m, nil
+
+	case streamCompletionMsg:
+		m.currentResponse += msg.Completion
+		cmd = m.getNextCompletion()
+		cmds = append(cmds, cmd)
+
+	case streamDoneMsg:
+		cmd = m.finishCompletion()
+		cmds = append(cmds, cmd)
+
+	case streamCompletionError:
+		cmd = m.finishCompletion()
+		m.err = msg.Err
+		cmds = append(cmds, cmd)
+
+	case refreshMessageMsg:
+		m.viewport.SetContent(m.messageView())
+		if msg.GoToBottom {
+			m.viewport.GotoBottom()
+		}
 
 	default:
 	}
@@ -174,18 +211,13 @@ func (m model) messageView() string {
 
 		w, _ := m.style.SelectedMessage.GetFrameSize()
 
-		w_ := wordwrap.NewWriter(m.width - w)
-		_, err := fmt.Fprintf(w_, v)
-		if err != nil {
-			panic(err)
-		}
-		v = w_.String()
-		if idx == m.selectedIdx && !m.focused {
-			v = m.style.SelectedMessage.Render(v)
-		} else {
-			v = m.style.UnselectedMessage.Render(v)
-		}
-		ret += v
+		v_ := wrapWords(v, m.width-w)
+		//if idx == m.selectedIdx && !m.focused {
+		//	v = m.style.SelectedMessage.Render(v)
+		//} else {
+		v_ = m.style.UnselectedMessage.Width(m.width - w).Render(v_)
+		//}
+		ret += v_
 		ret += "\n"
 	}
 
@@ -193,6 +225,21 @@ func (m model) messageView() string {
 }
 
 func (m model) textAreaView() string {
+	if m.err != nil {
+		// TODO(manuel, 2023-09-21) Use a proper error style
+		w, _ := m.style.SelectedMessage.GetFrameSize()
+		v := wrapWords(m.err.Error(), m.width-w)
+		return m.style.SelectedMessage.Render(v)
+	}
+
+	// we are currently streaming
+	if m.stepResult != nil {
+		w, _ := m.style.SelectedMessage.GetFrameSize()
+		v := wrapWords(m.currentResponse, m.width-w)
+		// TODO(manuel, 2023-09-21) this is where we'd add the spinner
+		return m.style.SelectedMessage.Width(m.width - w).Render(v)
+	}
+
 	v := m.textArea.View()
 	if m.focused {
 		v = m.style.FocusedMessage.Render(v)
@@ -203,19 +250,117 @@ func (m model) textAreaView() string {
 	return v
 }
 
+func wrapWords(text string, w int) string {
+	w_ := wordwrap.NewWriter(w)
+	_, err := fmt.Fprintf(w_, text)
+	if err != nil {
+		panic(err)
+	}
+	_ = w_.Close()
+	v := w_.String()
+	return v
+}
+
 func (m model) View() string {
-	ret := m.headerView() + "\n" + m.viewport.View() + "\n" + m.textAreaView()
-	//ret := "foofoo\n" + m.textAreaView()
+	headerView := m.headerView()
+	viewportView := m.viewport.View()
+	textAreaView := m.textAreaView()
+
+	viewportHeight := lipgloss.Height(viewportView)
+	_ = viewportHeight
+	ret := headerView + "\n" + viewportView + "\n" + textAreaView
 
 	return ret
 }
 
-//func (m *model) submit() tea.Cmd {
-//	m.focused = false
-//	m.updateKeyBindings()
-//
-//	//var err error
-//	m.stepResult, err = m.step.Start(context2.Background(), m.contextManager.GetMessagesWithSystemPrompt())
-//
-//	return
-//}
+type streamDoneMsg struct {
+}
+type streamCompletionMsg struct {
+	Completion string
+}
+
+func (m *model) submit() tea.Cmd {
+	if m.stepResult != nil {
+		return func() tea.Msg {
+			return errMsg(errors.New("already streaming"))
+		}
+	}
+
+	m.keyMap.SubmitMessage.SetEnabled(false)
+	m.keyMap.CancelCompletion.SetEnabled(true)
+
+	m.contextManager.AddMessages(&context.Message{
+		Role: "user",
+		Text: m.textArea.Value(),
+		Time: time.Now(),
+	})
+
+	m.focused = false
+	m.updateKeyBindings()
+
+	m.viewport.GotoBottom()
+	ctx, cancel := context2.WithCancel(context2.Background())
+	m.stepCancel = cancel
+	var err error
+	m.stepResult, err = m.step.Start(ctx, m.contextManager.GetMessagesWithSystemPrompt())
+
+	if err != nil {
+		return func() tea.Msg {
+			return errMsg(err)
+		}
+	}
+
+	return tea.Batch(func() tea.Msg {
+		return refreshMessageMsg{
+			GoToBottom: true,
+		}
+	},
+		m.getNextCompletion())
+}
+
+type streamCompletionError struct {
+	Err error
+}
+
+func (m model) getNextCompletion() tea.Cmd {
+	return func() tea.Msg {
+		c, ok := <-m.stepResult.GetChannel()
+		if !ok {
+			return streamDoneMsg{}
+		}
+		v, err := c.Value()
+		if err != nil {
+			return streamCompletionError{err}
+		}
+
+		return streamCompletionMsg{Completion: v}
+	}
+}
+
+type refreshMessageMsg struct {
+	GoToBottom bool
+}
+
+func (m *model) finishCompletion() tea.Cmd {
+	m.contextManager.AddMessages(&context.Message{
+		Role: "assistant",
+		Text: m.currentResponse,
+		Time: time.Now(),
+	})
+	m.currentResponse = ""
+	m.stepCancel()
+	m.stepResult = nil
+	m.stepCancel = nil
+
+	m.focused = true
+	m.textArea.Focus()
+	m.textArea.SetValue("")
+
+	m.updateKeyBindings()
+
+	return func() tea.Msg {
+		return refreshMessageMsg{
+			GoToBottom: true,
+		}
+	}
+}

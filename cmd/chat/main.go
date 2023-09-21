@@ -5,6 +5,7 @@ import (
 	context2 "context"
 	_ "embed"
 	tea "github.com/charmbracelet/bubbletea"
+	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
@@ -118,12 +119,18 @@ func (c *ChatCommand) Run(
 	return nil
 }
 
-var RootCmd = &cobra.Command{
+var rootCmd = &cobra.Command{
 	Use:   "chat",
 	Short: "Chat with the mechanical god in the clouds",
 }
 
 func main() {
+	// stick with pinocchio to load the api key
+	err := clay.InitViper("pinocchio", rootCmd)
+	cobra.CheckErr(err)
+	err = clay.InitLogger()
+	cobra.CheckErr(err)
+
 	chatCmd, err := NewChatCommand()
 	cobra.CheckErr(err)
 
@@ -132,4 +139,5 @@ func main() {
 
 	err = chatCobraCommand.Execute()
 	cobra.CheckErr(err)
+
 }
