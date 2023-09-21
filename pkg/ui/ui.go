@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	context2 "context"
@@ -62,7 +62,7 @@ func (m *model) updateKeyBindings() {
 	}
 }
 
-func initialModel(manager *context.Manager, step *chat.Step) model {
+func InitialModel(manager *context.Manager, step *chat.Step) model {
 	ret := model{
 		contextManager: manager,
 		style:          DefaultStyles(),
@@ -169,6 +169,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recomputeSize()
 			m.previousResponseHeight = newHeight
 		}
+		cmds = append(cmds, func() tea.Msg {
+			return refreshMessageMsg{}
+		})
 		cmd = m.getNextCompletion()
 		cmds = append(cmds, cmd)
 
@@ -183,6 +186,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case refreshMessageMsg:
 		m.viewport.SetContent(m.messageView())
+		m.recomputeSize()
 		if msg.GoToBottom {
 			m.viewport.GotoBottom()
 		}
@@ -201,6 +205,7 @@ func (m *model) recomputeSize() {
 	headerHeight := lipgloss.Height(headerView)
 	textAreaView := m.textAreaView()
 	textAreaHeight := lipgloss.Height(textAreaView)
+	m.previousResponseHeight = textAreaHeight
 	newHeight := m.height - textAreaHeight - headerHeight
 	if newHeight < 0 {
 		newHeight = 0
@@ -382,6 +387,7 @@ func (m *model) finishCompletion() tea.Cmd {
 	m.textArea.Focus()
 	m.textArea.SetValue("")
 
+	m.recomputeSize()
 	m.updateKeyBindings()
 
 	return func() tea.Msg {
