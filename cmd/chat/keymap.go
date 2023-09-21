@@ -3,14 +3,21 @@ package main
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	SelectPrevMessage key.Binding
-	SelectNextMessage key.Binding
-	UnfocusMessage    key.Binding
-	FocusMessage      key.Binding
-	SubmitMessage     key.Binding
-	ScrollUp          key.Binding
-	ScrollDown        key.Binding
-	Quit              key.Binding
+	SelectPrevMessage           key.Binding
+	SelectNextMessage           key.Binding
+	UnfocusMessage              key.Binding
+	FocusMessage                key.Binding
+	SubmitMessage               key.Binding
+	ScrollUp                    key.Binding
+	ScrollDown                  key.Binding
+	Quit                        key.Binding
+	CancelCompletion            key.Binding
+	SaveToFile                  key.Binding
+	LoadFromFile                key.Binding
+	CopyToClipboard             key.Binding
+	CopyLastResponseToClipboard key.Binding
+	SaveSourceBlocksToFile      key.Binding
+	CopySourceBlocksToClipboard key.Binding
 }
 
 var DefaultKeyMap = KeyMap{
