@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
+	"github.com/go-go-golems/geppetto/pkg/ui"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -83,19 +84,24 @@ func (c *ChatCommand) Run(
 			Text: "You are a chatbot.",
 			Role: "system",
 		},
-		{
-			Text: veryLongLoremIpsum[:200],
-			Role: "assistant",
-		},
-		{
-			Text: veryLongLoremIpsum[:400],
-			Role: "user",
-		},
+		//{
+		//	Text: veryLongLoremIpsum[:200],
+		//	Role: "assistant",
+		//},
+		//{
+		//	Text: veryLongLoremIpsum[:400],
+		//	Role: "user",
+		//},
 	}
 	ctxtManager := context.NewManager(context.WithMessages(messages))
 
+	err := c.Step.UpdateFromParameters(ps)
+	if err != nil {
+		return err
+	}
+
 	p := tea.NewProgram(
-		initialModel(ctxtManager, c.Step),
+		ui.InitialModel(ctxtManager, c.Step),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 	)
