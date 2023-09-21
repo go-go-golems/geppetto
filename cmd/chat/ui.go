@@ -4,88 +4,26 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
 	"github.com/muesli/reflow/wordwrap"
 )
-
-type KeyMap struct {
-	SelectPrevMessage key.Binding
-	SelectNextMessage key.Binding
-	UnfocusMessage    key.Binding
-	FocusMessage      key.Binding
-	SubmitMessage     key.Binding
-	ScrollUp          key.Binding
-	ScrollDown        key.Binding
-	Quit              key.Binding
-}
-
-var DefaultKeyMap = KeyMap{
-	SelectPrevMessage: key.NewBinding(key.WithKeys("up")),
-	SelectNextMessage: key.NewBinding(key.WithKeys("down")),
-	UnfocusMessage:    key.NewBinding(key.WithKeys("esc", "ctrl+g")),
-	FocusMessage:      key.NewBinding(key.WithKeys("enter")),
-	SubmitMessage:     key.NewBinding(key.WithKeys("tab")),
-	ScrollUp:          key.NewBinding(key.WithKeys("shift+pgup")),
-	ScrollDown:        key.NewBinding(key.WithKeys("shift+pgdown")),
-	Quit:              key.NewBinding(key.WithKeys("ctrl+c")),
-}
-
-type Style struct {
-	UnselectedMessage lipgloss.Style
-	SelectedMessage   lipgloss.Style
-	FocusedMessage    lipgloss.Style
-}
-
-type BorderColors struct {
-	Unselected string
-	Selected   string
-	Focused    string
-}
-
-func DefaultStyles() *Style {
-	lightModeColors := BorderColors{
-		Unselected: "#CCCCCC",
-		Selected:   "#FFB6C1", // Light pink
-		Focused:    "#FFFF99", // Light yellow
-	}
-
-	darkModeColors := BorderColors{
-		Unselected: "#444444",
-		Selected:   "#DD7090", // Desaturated pink for dark mode
-		Focused:    "#DDDD77", // Desaturated yellow for dark mode
-	}
-
-	return &Style{
-		UnselectedMessage: lipgloss.NewStyle().Border(lipgloss.NormalBorder()).
-			Padding(1, 1).
-			BorderForeground(lipgloss.AdaptiveColor{
-				Light: lightModeColors.Unselected,
-				Dark:  darkModeColors.Unselected,
-			}),
-		SelectedMessage: lipgloss.NewStyle().Border(lipgloss.ThickBorder()).
-			Padding(1, 1).
-			BorderForeground(lipgloss.AdaptiveColor{
-				Light: lightModeColors.Selected,
-				Dark:  darkModeColors.Selected,
-			}),
-		FocusedMessage: lipgloss.NewStyle().Border(lipgloss.NormalBorder()).
-			Padding(1, 1).
-			BorderForeground(lipgloss.AdaptiveColor{
-				Light: lightModeColors.Focused,
-				Dark:  darkModeColors.Focused,
-			}),
-	}
-}
 
 type errMsg error
 
 type model struct {
 	contextManager *context.Manager
+
+	viewport viewport.Model
+
 	// not really what we want, but use this for now, we'll have to either find a normal text box,
 	// or implement wrapping ourselves.
 	textArea textarea.Model
+
 	// is the textarea currently focused
 	focused bool
 	// currently selected message, always valid
@@ -96,6 +34,9 @@ type model struct {
 	style  *Style
 	width  int
 	height int
+	step   *chat.Step
+	// if not nil, streaming is going on
+	stepResult *steps.StepResult[string]
 }
 
 func (m *model) updateKeyBindings() {
@@ -114,11 +55,13 @@ func (m *model) updateKeyBindings() {
 	}
 }
 
-func initialModel(manager *context.Manager) model {
+func initialModel(manager *context.Manager, step *chat.Step) model {
 	ret := model{
 		contextManager: manager,
 		style:          DefaultStyles(),
 		keyMap:         DefaultKeyMap,
+		step:           step,
+		viewport:       viewport.New(0, 0),
 	}
 
 	ret.textArea = textarea.New()
@@ -127,6 +70,10 @@ func initialModel(manager *context.Manager) model {
 	ret.focused = true
 
 	ret.selectedIdx = len(ret.contextManager.GetMessages()) - 1
+
+	messages := ret.messageView()
+	ret.viewport.SetContent(messages)
+	ret.viewport.YPosition = 0
 
 	ret.updateKeyBindings()
 
@@ -173,7 +120,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.SubmitMessage):
 			if m.focused {
-				// XXX actually send the whole context to the LLM
+				//cmd := m.submit()
+				//cmds = append(cmds, cmd)
 			}
 
 		default:
@@ -185,10 +133,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, _ := m.style.SelectedMessage.GetFrameSize()
+
 		newWidth := msg.Width - h
 		m.textArea.SetWidth(newWidth)
 		m.width = msg.Width
 		m.height = msg.Height
+
+		headerHeight := lipgloss.Height(m.headerView())
+		textAreaHeight := lipgloss.Height(m.textAreaView())
+		newHeight := msg.Height - textAreaHeight - headerHeight
+		m.viewport.Width = m.width
+		m.viewport.Height = newHeight - 2
+		m.viewport.YPosition = headerHeight
+
+		m.viewport.SetContent(m.messageView())
 
 	// We handle errors just like any other message
 	case errMsg:
@@ -198,13 +156,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 	}
 
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return m, tea.Batch(cmds...)
 }
 
-func (m model) View() string {
+func (m model) headerView() string {
+	return "PINOCCHIO AT YOUR SERVICE:"
+}
+
+func (m model) messageView() string {
 	ret := ""
 
-	for idx := range m.contextManager.GetMessages() {
+	for idx := range m.contextManager.GetMessagesWithSystemPrompt() {
 		v := m.contextManager.GetMessages()[idx].Text
 
 		w, _ := m.style.SelectedMessage.GetFrameSize()
@@ -224,6 +189,10 @@ func (m model) View() string {
 		ret += "\n"
 	}
 
+	return ret
+}
+
+func (m model) textAreaView() string {
 	v := m.textArea.View()
 	if m.focused {
 		v = m.style.FocusedMessage.Render(v)
@@ -231,8 +200,22 @@ func (m model) View() string {
 		v = m.style.UnselectedMessage.Render(v)
 	}
 
-	ret += v
-	ret += "\n"
+	return v
+}
+
+func (m model) View() string {
+	ret := m.headerView() + "\n" + m.viewport.View() + "\n" + m.textAreaView()
+	//ret := "foofoo\n" + m.textAreaView()
 
 	return ret
 }
+
+//func (m *model) submit() tea.Cmd {
+//	m.focused = false
+//	m.updateKeyBindings()
+//
+//	//var err error
+//	m.stepResult, err = m.step.Start(context2.Background(), m.contextManager.GetMessagesWithSystemPrompt())
+//
+//	return
+//}

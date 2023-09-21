@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
 	context2 "context"
+	_ "embed"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const veryLongLoremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. " +
@@ -23,10 +27,30 @@ const veryLongLoremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing e
 
 type ChatCommand struct {
 	*cmds.CommandDescription
+	Step *chat.Step
 }
 
 func NewChatCommand() (*ChatCommand, error) {
-	openaiParameterLayer, err := openai.NewClientParameterLayer()
+	buf := bytes.NewReader(defaultChatSettings)
+	step, err := chat.NewStepFromYAML(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	openaiAPIKey := viper.GetString("openai-api-key")
+	if openaiAPIKey != "" {
+		step.ClientSettings.APIKey = &openaiAPIKey
+	}
+	chatParameterLayer, err := chat.NewParameterLayer(
+		layers.WithDefaults(step.StepSettings),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	openaiParameterLayer, err := openai.NewClientParameterLayer(
+		layers.WithDefaults(step.ClientSettings),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +61,15 @@ func NewChatCommand() (*ChatCommand, error) {
 			cmds.WithShort("chat with the mechanical god in the clouds"),
 			cmds.WithLayers(
 				openaiParameterLayer,
+				chatParameterLayer,
 			),
 		),
+		Step: step,
 	}, nil
 }
+
+//go:embed default-chat-settings.yaml
+var defaultChatSettings []byte
 
 func (c *ChatCommand) Run(
 	ctx context2.Context,
@@ -58,13 +87,29 @@ func (c *ChatCommand) Run(
 			Role: "assistant",
 		},
 		{
-			Text: veryLongLoremIpsum[200:400],
+			Text: veryLongLoremIpsum[200:500],
+			Role: "user",
+		},
+		{
+			Text: veryLongLoremIpsum[:100],
+			Role: "system",
+		},
+		{
+			Text: veryLongLoremIpsum[100:300],
+			Role: "assistant",
+		},
+		{
+			Text: veryLongLoremIpsum[200:],
 			Role: "user",
 		},
 	}
 	ctxtManager := context.NewManager(context.WithMessages(messages))
 
-	p := tea.NewProgram(initialModel(ctxtManager))
+	p := tea.NewProgram(
+		initialModel(ctxtManager, c.Step),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
+	)
 
 	if _, err := p.Run(); err != nil {
 		return err
