@@ -111,6 +111,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keyMap.FocusMessage):
 			if !m.focused {
 				cmd = m.textArea.Focus()
+				cmds = append(cmds, cmd)
 
 				m.focused = true
 				m.updateKeyBindings()
@@ -134,6 +135,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.CancelCompletion):
 			if m.stepCancel == nil {
+				panic("cancel completion without a step")
 				// shouldn't happen
 			}
 			m.stepCancel()
@@ -234,7 +236,7 @@ func (m model) messageView() string {
 	ret := ""
 
 	for idx := range m.contextManager.GetMessagesWithSystemPrompt() {
-		message := m.contextManager.GetMessages()[idx]
+		message := m.contextManager.GetMessagesWithSystemPrompt()[idx]
 		v := fmt.Sprintf("[%s]: %s", message.Role, message.Text)
 
 		w, _ := m.style.SelectedMessage.GetFrameSize()
@@ -276,7 +278,7 @@ func (m model) textAreaView() string {
 
 func wrapWords(text string, w int) string {
 	w_ := wordwrap.NewWriter(w)
-	_, err := fmt.Fprintf(w_, text)
+	_, err := fmt.Fprint(w_, text)
 	if err != nil {
 		panic(err)
 	}

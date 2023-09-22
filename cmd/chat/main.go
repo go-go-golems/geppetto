@@ -84,14 +84,14 @@ func (c *ChatCommand) Run(
 			Text: "You are a chatbot.",
 			Role: "system",
 		},
-		//{
-		//	Text: veryLongLoremIpsum[:200],
-		//	Role: "assistant",
-		//},
-		//{
-		//	Text: veryLongLoremIpsum[:400],
-		//	Role: "user",
-		//},
+		{
+			Text: veryLongLoremIpsum[:200],
+			Role: "assistant",
+		},
+		{
+			Text: veryLongLoremIpsum[:400],
+			Role: "user",
+		},
 	}
 	ctxtManager := context.NewManager(context.WithMessages(messages))
 
