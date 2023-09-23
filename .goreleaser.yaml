@@ -30,7 +30,7 @@ brews:
   - name: pinocchio
     description: "Pinocchio is a tool to interact with large language models"
     homepage: "https://github.com/go-go-golems/pinocchio"
-    tap:
+    repository:
       owner: go-go-golems
       name: homebrew-go-go-go
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
