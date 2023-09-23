@@ -319,6 +319,14 @@ func (g *GeppettoCommand) RunIntoWriter(
 		switch answer {
 		case "y", "Y":
 			err = chat_(g.Factories["openai-chat"].(*chat.Step), contextManager)
+
+			for idx, msg := range contextManager.GetMessages() {
+				// skip input prompt and first response that's already been printed out
+				if idx <= 1 {
+					continue
+				}
+				fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
+			}
 			if err != nil {
 				return err
 			}

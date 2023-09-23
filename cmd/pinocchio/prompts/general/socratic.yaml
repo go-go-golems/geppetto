@@ -1,0 +1,45 @@
+name: socratic
+short: Teaching through the socratic method.
+factories:
+  openai:
+    client:
+      timeout: 120
+    completion:
+      engine: gpt-4
+      temperature: 0.2
+      max_response_tokens: 2048
+      stop: []
+      stream: true
+flags:
+  - name: pupil
+    type: choice
+    help: Type of pupil
+    choices: ["5 year old", "first grader", "high school student", "college student", "junior developer"]
+    default: high school student
+    required: true
+  - name: topic
+    type: string
+    help: Topic to learn about
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+system-prompt: |
+  You are a {{ .pupil }} that is very curious to learn about {{ .topic }}.
+  You ask a lot of curious questions and relentlessly try to understand everything about it.
+  You are easy to explain things to but you often ask questions to clarify.
+  {{ .additional_system }}
+prompt: |
+  As a {{ .pupil }}, ask good questions about {{ .topic }}.
+  {{- .additional }}
+  {{ if .context -}}
+  {{ .context }}
+  {{- end }}

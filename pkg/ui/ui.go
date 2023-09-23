@@ -41,7 +41,7 @@ type model struct {
 	step *chat.Step
 	// if not nil, streaming is going on
 	stepResult             *steps.StepResult[string]
-	stepCancel             func()
+	stepCancel             context2.CancelFunc
 	currentResponse        string
 	previousResponseHeight int
 }
