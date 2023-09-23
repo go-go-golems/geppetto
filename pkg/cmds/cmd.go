@@ -4,15 +4,18 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
+	"github.com/go-go-golems/geppetto/pkg/ui"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/tcnksm/go-input"
 	"io"
 	"strings"
 	"time"
@@ -254,8 +257,6 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, chatStep)
 
-	accumulate := ""
-
 	openAILayer, ok := parsedLayers["openai-chat"]
 	if !ok {
 		return errors.Errorf("No openai layer")
@@ -263,29 +264,130 @@ func (g *GeppettoCommand) RunIntoWriter(
 	isStream := openAILayer.Parameters["openai-stream"].(bool)
 	log.Debug().Bool("isStream", isStream).Msg("")
 
+	accumulate, err := g.readStepResults(ctx, m, w)
+	if err != nil {
+		return err
+	}
+	contextManager.AddMessages(&geppetto_context.Message{
+		Role: "assistant",
+		Time: time.Now(),
+		Text: accumulate,
+	})
+
+	interactive := true
+	if interactive {
+		tty_, err := ui.OpenTTY()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err := tty_.Close()
+			if err != nil {
+				fmt.Println("Failed to close tty:", err)
+			}
+		}()
+
+		ui := &input.UI{
+			Writer: tty_,
+			Reader: tty_,
+		}
+
+		if !strings.HasSuffix(accumulate, "\n") {
+			fmt.Println()
+		}
+
+		query := "\nDo you want to continue in chat? [y/n]"
+		answer, err := ui.Ask(query, &input.Options{
+			Default:  "y",
+			Required: true,
+			Loop:     true,
+			ValidateFunc: func(answer string) error {
+				switch answer {
+				case "y", "Y", "n", "N":
+					return nil
+				default:
+					return fmt.Errorf("please enter 'y' or 'n'")
+				}
+			},
+		})
+
+		if err != nil {
+			fmt.Println("Failed to get user input:", err)
+			return nil
+		}
+
+		switch answer {
+		case "y", "Y":
+			err = chat_(g.Factories["openai-chat"].(*chat.Step), contextManager)
+
+			for idx, msg := range contextManager.GetMessages() {
+				// skip input prompt and first response that's already been printed out
+				if idx <= 1 {
+					continue
+				}
+				fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
+			}
+			if err != nil {
+				return err
+			}
+		case "n", "N":
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (g *GeppettoCommand) readStepResults(
+	ctx context.Context,
+	m *steps.StepResult[string],
+	w io.Writer,
+) (string, error) {
+	accumulate := ""
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return accumulate, ctx.Err()
 		case result, ok := <-m.GetChannel():
 			if !ok {
-				return nil
+				return accumulate, nil
 			}
 
 			if !result.Ok() {
-				return result.Error()
+				return accumulate, result.Error()
 			}
 
 			v, err := result.Value()
 			if err != nil {
-				return err
+				return accumulate, err
 			}
 
 			_, err = w.Write([]byte(v))
 			if err != nil {
-				return err
+				return accumulate, err
 			}
 			accumulate += v
 		}
 	}
+}
+
+func chat_(
+	step *chat.Step,
+	contextManager *geppetto_context.Manager,
+) error {
+	// switch on streaming for chatting
+	step.StepSettings.Stream = true
+
+	p := tea.NewProgram(
+		ui.InitialModel(contextManager, step),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
+	)
+
+	if _, err := p.Run(); err != nil {
+		return err
+	}
+
+	return nil
+
 }
