@@ -1,0 +1,6 @@
+name: doc-string
+aliasFor: typescript
+arguments:
+    - Write documentation strings for each function, focus on usage, not implementation details
+
+
