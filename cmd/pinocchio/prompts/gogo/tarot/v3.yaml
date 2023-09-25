@@ -6,7 +6,7 @@ factories:
       timeout: 120
     completion:
       engine: gpt-4
-      temperature: 0.8
+      temperature: 1
       max_response_tokens: 1024
       stream: true
 flags:
