@@ -17,11 +17,7 @@ type Step struct {
 }
 
 func IsClaudeEngine(engine string) bool {
-	if strings.HasPrefix(engine, "claude") {
-		return true
-	}
-
-	return false
+	return strings.HasPrefix(engine, "claude")
 }
 
 func (csf *Step) SetStreaming(b bool) {
