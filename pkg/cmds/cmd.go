@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/ui"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -64,7 +64,7 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 
 type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
-	Factories    map[string]interface{} `yaml:"__factories,omitempty"`
+	StepFactory  chat.StepFactory `yaml:"-"` // this is not serialized
 	Prompt       string
 	Messages     []*geppetto_context.Message
 	SystemPrompt string
@@ -92,7 +92,7 @@ func WithSystemPrompt(systemPrompt string) GeppettoCommandOption {
 
 func NewGeppettoCommand(
 	description *glazedcmds.CommandDescription,
-	factories map[string]interface{},
+	stepFactory chat.StepFactory,
 	options ...GeppettoCommandOption,
 ) (*GeppettoCommand, error) {
 	helpersParameterLayer, err := HelpersParameterLayer()
@@ -107,7 +107,7 @@ func NewGeppettoCommand(
 
 	ret := &GeppettoCommand{
 		CommandDescription: description,
-		Factories:          factories,
+		StepFactory:        stepFactory,
 	}
 
 	for _, option := range options {
@@ -137,15 +137,9 @@ func (g *GeppettoCommand) RunIntoWriter(
 		return errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
-	for _, f := range g.Factories {
-		factory, ok := f.(*chat.Step)
-		if !ok {
-			continue
-		}
-		err := factory.UpdateFromParameters(ps)
-		if err != nil {
-			return err
-		}
+	chatStep, err := g.StepFactory.NewStepFromLayers(parsedLayers)
+	if err != nil {
+		return err
 	}
 
 	messages := g.Messages
@@ -246,22 +240,13 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	messagesM := steps.Resolve(contextManager.GetMessagesWithSystemPrompt())
 
-	chatStep_, ok := g.Factories["openai-chat"]
-	if !ok {
-		return errors.Errorf("No openai-chat-step factory defined")
-	}
-	chatStep, ok := chatStep_.(steps.Step[[]*geppetto_context.Message, string])
-	if !ok {
-		return errors.Errorf("openai-chat-step factory is not a StepFactory[string, string]")
-	}
-
 	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, chatStep)
 
-	openAILayer, ok := parsedLayers["openai-chat"]
+	chatAILayer, ok := parsedLayers["ai-chat"]
 	if !ok {
-		return errors.Errorf("No openai layer")
+		return errors.Errorf("No ai layer")
 	}
-	isStream := openAILayer.Parameters["openai-stream"].(bool)
+	isStream := chatAILayer.Parameters["ai-stream"].(bool)
 	log.Debug().Bool("isStream", isStream).Msg("")
 
 	accumulate, err := g.readStepResults(ctx, m, w)
@@ -318,7 +303,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 		switch answer {
 		case "y", "Y":
-			err = chat_(g.Factories["openai-chat"].(*chat.Step), contextManager)
+			err = chat_(chatStep, contextManager)
 
 			for idx, msg := range contextManager.GetMessages() {
 				// skip input prompt and first response that's already been printed out
@@ -372,11 +357,11 @@ func (g *GeppettoCommand) readStepResults(
 }
 
 func chat_(
-	step *chat.Step,
+	step chat.Step,
 	contextManager *geppetto_context.Manager,
 ) error {
 	// switch on streaming for chatting
-	step.StepSettings.Stream = true
+	step.SetStreaming(true)
 
 	p := tea.NewProgram(
 		ui.InitialModel(contextManager, step),

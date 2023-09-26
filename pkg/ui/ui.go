@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pkg/errors"
 	"time"
@@ -38,7 +38,7 @@ type model struct {
 	width  int
 	height int
 
-	step *chat.Step
+	step chat.Step
 	// if not nil, streaming is going on
 	stepResult             *steps.StepResult[string]
 	stepCancel             context2.CancelFunc
@@ -62,7 +62,7 @@ func (m *model) updateKeyBindings() {
 	}
 }
 
-func InitialModel(manager *context.Manager, step *chat.Step) model {
+func InitialModel(manager *context.Manager, step chat.Step) model {
 	ret := model{
 		contextManager: manager,
 		style:          DefaultStyles(),

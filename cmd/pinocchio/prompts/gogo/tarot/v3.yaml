@@ -1,14 +1,13 @@
 name: v3
 short: Interpret tarot card readings
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: gpt-4
-      temperature: 1
-      max_response_tokens: 1024
-      stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 1
+    max_response_tokens: 1024
+    stream: true
 flags:
   - name: cards
     type: stringList

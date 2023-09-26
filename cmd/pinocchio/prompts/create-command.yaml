@@ -1,15 +1,14 @@
 name: create-command
 short: Generate a pinocchio query
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: gpt-4
-      temperature: 0.2
-      max_response_tokens: 2048
-      stop: []
-      stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
 flags:
   - name: additional_system
     type: string
@@ -54,15 +53,14 @@ flags:
       name: animals
       short: Generate animal descriptions.
       factories:
-        openai:
-          client:
-            timeout: 120
-          completion:
-            engine: gpt-4
-            temperature: 0.2
-            max_response_tokens: 2048
-            stop: []
-            stream: true
+        client:
+          timeout: 120
+        chat:
+          engine: gpt-4
+          temperature: 0.2
+          max_response_tokens: 2048
+          stop: []
+          stream: true
       flags:
         - name: name
           type: string

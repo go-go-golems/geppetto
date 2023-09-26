@@ -1,8 +1,10 @@
 package cmds
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/steps/openai"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -41,7 +43,7 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	// maybe the easiest is just going to be to make them a separate file in the bundle format, really
 	// rewind to read the factories...
 	buf = strings.NewReader(string(yamlContent))
-	step, err := chat.NewStepFromYAML(buf)
+	stepSettings, err := settings.NewStepSettingsFromYAML(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -49,29 +51,41 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	// check if the openai-api-key is set in viper
 	openaiAPIKey := viper.GetString("openai-api-key")
 	if openaiAPIKey != "" {
-		step.ClientSettings.APIKey = &openaiAPIKey
+		stepSettings.OpenAI.APIKey = &openaiAPIKey
+	}
+	claudeAPIKey := viper.GetString("claude-api-key")
+	if claudeAPIKey != "" {
+		stepSettings.Claude.APIKey = &claudeAPIKey
 	}
 
-	chatParameterLayer, err := chat.NewParameterLayer(
-		layers.WithDefaults(step.StepSettings),
+	chatParameterLayer, err := settings.NewChatParameterLayer(
+		layers.WithDefaults(stepSettings.Chat),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	clientParameterLayer, err := openai.NewClientParameterLayer(
-		layers.WithDefaults(step.ClientSettings),
+	clientParameterLayer, err := settings.NewClientParameterLayer(
+		layers.WithDefaults(stepSettings.Client),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	ls := append(scd.Layers, chatParameterLayer, clientParameterLayer)
-
-	factories := map[string]interface{}{}
-	if step != nil {
-		factories["openai-chat"] = step
+	claudeParameterLayer, err := claude.NewParameterLayer(
+		layers.WithDefaults(stepSettings.Claude),
+	)
+	if err != nil {
+		return nil, err
 	}
+	openaiParameterLayer, err := openai.NewParameterLayer(
+		layers.WithDefaults(stepSettings.OpenAI),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	ls := append(scd.Layers, chatParameterLayer, clientParameterLayer, claudeParameterLayer, openaiParameterLayer)
 
 	options_ := []cmds.CommandDescriptionOption{
 		cmds.WithShort(scd.Short),
@@ -89,7 +103,9 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 		return nil, errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
-	sq, err := NewGeppettoCommand(description, factories,
+	sq, err := NewGeppettoCommand(description, &chat.StandardStepFactory{
+		Settings: stepSettings,
+	},
 		WithPrompt(scd.Prompt),
 		WithMessages(scd.Messages),
 		WithSystemPrompt(scd.SystemPrompt),

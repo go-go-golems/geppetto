@@ -1,14 +1,13 @@
 name: example-driven
 short: Show a chain of thought example
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: text-davinci-003
-      temperature: 0.2
-      max_response_tokens: 512
-      # stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: text-davinci-003
+    temperature: 0.2
+    max_response_tokens: 512
+    # stream: true
 flags:
   - name: question
     type: string
