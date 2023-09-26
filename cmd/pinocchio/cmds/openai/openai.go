@@ -6,7 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/steps/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -38,7 +38,7 @@ func NewListEngineCommand() (*ListEnginesCommand, error) {
 	if err != nil {
 		return nil, err
 	}
-	openaiParameterLayer, err := openai.NewClientParameterLayer()
+	openaiParameterLayer, err := openai.NewParameterLayer()
 	if err != nil {
 		return nil, err
 	}
@@ -80,10 +80,12 @@ func (c *ListEnginesCommand) Run(
 	ps map[string]interface{},
 	gp middlewares.Processor,
 ) error {
-	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
+	openaiSettings, err := openai.NewSettingsFromParsedLayer(
+		parsedLayers["openai-chat"],
+	)
 	cobra.CheckErr(err)
 
-	client := openai2.NewClient(*clientSettings.APIKey)
+	client := openai2.NewClient(*openaiSettings.APIKey)
 
 	engines, err := client.ListEngines(ctx)
 	cobra.CheckErr(err)
@@ -141,7 +143,7 @@ func NewEngineInfoCommand() (*EngineInfoCommand, error) {
 	if err != nil {
 		return nil, err
 	}
-	openaiParameterLayer, err := openai.NewClientParameterLayer()
+	openaiParameterLayer, err := openai.NewParameterLayer()
 	if err != nil {
 		return nil, err
 	}
@@ -171,12 +173,12 @@ func (c *EngineInfoCommand) Run(
 	ps map[string]interface{},
 	gp middlewares.Processor,
 ) error {
-	clientSettings, err := openai.NewClientSettingsFromParameters(ps)
+	openaiSettings, err := openai.NewSettingsFromParsedLayer(
+		parsedLayers["openai-chat"],
+	)
 	cobra.CheckErr(err)
 
-	client := openai2.NewClient(*clientSettings.APIKey)
-
-	cobra.CheckErr(err)
+	client := openai2.NewClient(*openaiSettings.APIKey)
 
 	engine, _ := ps["engine"].(string)
 

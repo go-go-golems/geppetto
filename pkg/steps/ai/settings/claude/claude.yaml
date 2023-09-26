@@ -1,0 +1,20 @@
+slug: claude-chat
+name: Claude chat completion API flags
+description: Settings for the Claude chat completion API
+flags:
+  - name: claude-top-k
+    type: int
+    help: Claude top k sampling
+    default: 1
+  - name: claude-user-id
+    type: string
+    help: Claude user ID
+    default: ""
+  - name: claude-base-url
+    type: string
+    help: base URL
+    default: "https://api.anthropic.com/v1/complete"
+  - name: claude-api-key
+    type: string
+    help: API key
+    default: ""
