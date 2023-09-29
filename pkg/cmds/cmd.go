@@ -227,7 +227,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 		contextManager.AddMessages(&geppetto_context.Message{
 			Text: promptBuffer.String(),
-			Role: "user",
+			Role: geppetto_context.RoleUser,
 			Time: time.Now(),
 		})
 	}
@@ -254,7 +254,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 		return err
 	}
 	contextManager.AddMessages(&geppetto_context.Message{
-		Role: "assistant",
+		Role: geppetto_context.RoleAssistant,
 		Time: time.Now(),
 		Text: accumulate,
 	})

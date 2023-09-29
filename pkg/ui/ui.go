@@ -320,7 +320,7 @@ func (m *model) submit() tea.Cmd {
 	m.keyMap.CancelCompletion.SetEnabled(true)
 
 	m.contextManager.AddMessages(&context.Message{
-		Role: "user",
+		Role: context.RoleUser,
 		Text: m.textArea.Value(),
 		Time: time.Now(),
 	})
@@ -375,7 +375,7 @@ type refreshMessageMsg struct {
 
 func (m *model) finishCompletion() tea.Cmd {
 	m.contextManager.AddMessages(&context.Message{
-		Role: "assistant",
+		Role: context.RoleAssistant,
 		Text: m.currentResponse,
 		Time: time.Now(),
 	})
