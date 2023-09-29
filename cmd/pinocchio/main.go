@@ -5,6 +5,7 @@ import (
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
 	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
+	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/kagi"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/ui"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/tokens"
@@ -147,6 +148,9 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 	tokens.RegisterCommands(rootCmd)
 
 	rootCmd.AddCommand(ui.UiCmd)
+
+	kagiCmd := kagi.RegisterKagiCommands()
+	rootCmd.AddCommand(kagiCmd)
 
 	return nil
 }
