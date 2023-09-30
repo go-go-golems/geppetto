@@ -3,7 +3,6 @@ module github.com/go-go-golems/geppetto
 go 1.19
 
 require (
-	github.com/3JoB/anthropic-sdk-go/v2 v2.0.2
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
