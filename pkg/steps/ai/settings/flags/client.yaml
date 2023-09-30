@@ -1,0 +1,14 @@
+slug: ai-client
+name: AI client flags
+flags:
+  - name: timeout
+    type: int
+    help: timeout (in seconds)
+    default: 60
+  - name: organization
+    type: string
+    help: organization
+    default: ""
+  - name: user-agent
+    type: string
+    help: user agent

@@ -1,14 +1,13 @@
 name: professional
 short: Answer questions about working in tech
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: gpt-4
-      temperature: 0.2
-      max_response_tokens: 1024
-      stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 1024
+    stream: true
 flags:
   - name: additional_system
     type: string

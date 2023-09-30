@@ -17,6 +17,10 @@ type Message struct {
 	Role string    `json:"role" yaml:"role"`
 }
 
+const RoleSystem = "system"
+const RoleAssistant = "assistant"
+const RoleUser = "user"
+
 // here is the openai definition
 // ChatCompletionRequestMessage is a message to use as the context for the chat completion API
 //
@@ -114,7 +118,7 @@ func (c *Manager) GetMessagesWithSystemPrompt() []*Message {
 		messages = append(messages, &Message{
 			Text: c.SystemPrompt,
 			Time: time.Now(),
-			Role: "system",
+			Role: RoleSystem,
 		})
 	}
 

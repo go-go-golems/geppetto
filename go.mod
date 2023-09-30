@@ -5,9 +5,10 @@ go 1.19
 require (
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
+	github.com/charmbracelet/glamour v0.6.0
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/go-go-golems/clay v0.0.23
-	github.com/go-go-golems/glazed v0.4.12
+	github.com/go-go-golems/glazed v0.4.13
 	github.com/mb0/glob v0.0.0-20160210091149-1eb79d2de6c4
 	github.com/muesli/reflow v0.3.0
 	github.com/pkg/errors v0.9.1
@@ -17,9 +18,10 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2
 	github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8
+	github.com/tiktoken-go/tokenizer v0.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.5.4
-	golang.org/x/sys v0.8.0
+	golang.org/x/sys v0.10.0
 	gopkg.in/errgo.v2 v2.1.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -39,10 +41,9 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/charmbracelet/glamour v0.6.0 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dlclark/regexp2 v1.7.0 // indirect
+	github.com/dlclark/regexp2 v1.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-openapi/errors v0.20.3 // indirect
 	github.com/go-openapi/strfmt v0.21.7 // indirect
@@ -94,10 +95,10 @@ require (
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
 	go.mongodb.org/mongo-driver v1.11.3 // indirect
-	golang.org/x/crypto v0.5.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/crypto v0.11.0 // indirect
+	golang.org/x/net v0.12.0 // indirect
+	golang.org/x/term v0.10.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect

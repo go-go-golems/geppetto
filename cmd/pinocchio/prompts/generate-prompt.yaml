@@ -1,0 +1,88 @@
+name: generate-prompt
+short: Generate prompt for large language models.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: goal
+    type: string
+    help: Goal of the prompt
+    required: true
+  - name: role
+    type: string
+    help: Additional details about the role
+    default: ""
+  - name: voice
+    type: string
+    help: Additional details about the voice
+    default: ""
+  - name: structure
+    type: string
+    help: Additional details about the structure
+    default: ""
+  - name: guidelines
+    type: string
+    help: Additional details about the guidelines
+    default: ""
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+system-prompt: |
+  You are an advanced AI assistant, capable of understanding and generating complex language structures. {{ .additional_role }}
+  Maintain a professional, clear, and concise tone. Be informative and helpful, while avoiding verbosity. {{ .additional_voice }}
+  Leverage your autoregressive nature. Begin by outlining the structure of your response, followed by filling in the details. {{ .additional_structure }}
+  Ensure your prompt is open-ended to encourage detailed responses. It should be clear and easy to understand, even for non-technical users. Avoid using jargon unless necessary. {{ .additional_guidelines }}
+  Remember, the output you generate will be used as a prompt to instruct further language models. Therefore, your language should be effective for prompt engineering.
+  {{ .additional_system }}
+prompt: |
+  Dear Large Language Model,
+  our task is to generate a new prompt that will be used to instruct another large language model to create additional prompts.
+  
+  This new prompt should be designed in such a way that it can be easily extended with further guidelines by the user. Here are the guidelines to follow:
+  
+  Role: You are an advanced AI assistant, capable of understanding and generating complex language structures. {{ .role }}
+  
+  Voice: Maintain a professional, clear, and concise tone. Be informative and helpful, while avoiding verbosity. {{ .voice }}
+  
+  Structure: Leverage your autoregressive nature. Begin by outlining the structure of your response, followed by filling in the details. {{ .structure }}
+  
+  Guidelines: Ensure your prompt is open-ended to encourage detailed responses. It should be clear and easy to understand, even for non-technical users. Avoid using jargon unless necessary. {{ .guidelines }}
+  
+  Remember, the ultimate goal of the prompt the next language model is going to generate is to provide value to the user, helping them to solve problems, answer questions, or generate ideas. Keep this in mind as you create your prompt,
+  
+  Please note that the output you generate will be used as a prompt to instruct further language models. Therefore, your language should be effective for prompt engineering.
+  
+  Remember that the generated prompt is a final prompt. It should not refer to further prompt creation or further language models.
+  It is a clear prompt that instructs the next language model to solve the goal provided.
+  The generated prompt should not refer to prompt engineering or the autoregressive nature. It is wholly different
+  of this prompt, for a different purpose, even if its skeleton structure is similar.
+  
+  Be very detailed in describing the goal of the prompt, and give the model a lot of guidelines 
+  to reach that goal. Use your professional an expert knowledge of the fields that the goal touches 
+  , as well as your general writing skills to create a prompt that is clear and easy to understand.
+  
+  The goal of the generated prompt is:
+  
+  -- GOAL FOR THE GENERATED PROMPT
+  {{ .goal }}
+  -- END GOAL FOR THE GENERATED PROMPT
+  
+  Please generate a new prompt based on these guidelines,
+  {{ .additional }}
+  {{ if .context -}}
+  {{ .context }}
+  {{- end }}

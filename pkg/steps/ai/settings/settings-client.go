@@ -1,4 +1,4 @@
-package openai
+package settings
 
 import (
 	_ "embed"
@@ -13,13 +13,10 @@ import (
 var ErrMissingYAMLAPIKey = &yaml.TypeError{Errors: []string{"missing api key"}}
 
 type ClientSettings struct {
-	APIKey         *string        `yaml:"api_key,omitempty" glazed.parameter:"openai-api-key"`
 	Timeout        *time.Duration `yaml:"timeout,omitempty"`
-	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed.parameter:"openai-timeout"`
-	Organization   *string        `yaml:"organization,omitempty" glazed.parameter:"openai-organization"`
-	DefaultEngine  *string        `yaml:"default_engine,omitempty" glazed.parameter:"openai-default-engine"`
-	UserAgent      *string        `yaml:"user_agent,omitempty" glazed.parameter:"openai-user-agent"`
-	BaseURL        *string        `yaml:"base_url,omitempty" glazed.parameter:"openai-base-url"`
+	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed.parameter:"timeout"`
+	Organization   *string        `yaml:"organization,omitempty" glazed.parameter:"organization"`
+	UserAgent      *string        `yaml:"user_agent,omitempty" glazed.parameter:"user-agent"`
 	HTTPClient     *http.Client   `yaml:"omitempty"`
 }
 
@@ -55,10 +52,16 @@ func NewClientSettingsFromParameters(ps map[string]interface{}) (*ClientSettings
 		}()
 	}
 
-	if ret.APIKey == nil {
-		return nil, ErrMissingYAMLAPIKey
-	}
 	return ret, nil
+}
+
+func (cs *ClientSettings) UpdateFromParameters(parsedLayers *layers.ParsedParameterLayer) error {
+	_, ok := parsedLayers.Layer.(*ClientParameterLayer)
+	if !ok {
+		return layers.ErrInvalidParameterLayer{}
+	}
+
+	return parameters.InitializeStructFromParameters(cs, parsedLayers.Parameters)
 }
 
 func (cp *ClientParameterLayer) ParseFlagsFromCobraCommand(
@@ -102,24 +105,27 @@ func (c *ClientSettings) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func (c *ClientSettings) IsValid() error {
-	if c.APIKey == nil {
-		return ErrMissingYAMLAPIKey
-	}
-	return nil
-}
-
 func (c *ClientSettings) Clone() *ClientSettings {
 	return &ClientSettings{
-		APIKey:         c.APIKey,
 		Timeout:        c.Timeout,
 		TimeoutSeconds: c.TimeoutSeconds,
 		Organization:   c.Organization,
-		DefaultEngine:  c.DefaultEngine,
 		UserAgent:      c.UserAgent,
-		BaseURL:        c.BaseURL,
 		HTTPClient:     c.HTTPClient,
 	}
+}
+
+func (cs *ClientSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) error {
+	_, ok := layer.Layer.(*ClientParameterLayer)
+	if !ok {
+		return layers.ErrInvalidParameterLayer{
+			Name:     layer.Layer.GetName(),
+			Expected: "ai-client",
+		}
+	}
+
+	err := parameters.InitializeStructFromParameters(cs, layer.Parameters)
+	return err
 }
 
 func NewClientSettings() *ClientSettings {
