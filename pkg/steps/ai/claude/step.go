@@ -2,11 +2,9 @@ package claude
 
 import (
 	"context"
-	"fmt"
-	"github.com/3JoB/anthropic-sdk-go/v2"
-	_ "github.com/3JoB/anthropic-sdk-go/v2"
-	"github.com/3JoB/anthropic-sdk-go/v2/resp"
+	"encoding/json"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
@@ -33,173 +31,113 @@ func (csf *Step) Start(
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
 	}
+	anthropicSettings := csf.Settings.Claude
+	if anthropicSettings == nil {
+		return nil, errors.New("no claude settings")
+	}
 
-	claudeSettings := csf.Settings.Claude
-	if claudeSettings.APIKey == nil {
+	if anthropicSettings.APIKey == nil {
 		return nil, steps.ErrMissingClientAPIKey
 	}
 
+	client := NewClient(*anthropicSettings.APIKey)
+
+	engine := ""
+
 	chatSettings := csf.Settings.Chat
-
-	if chatSettings.Engine == nil {
-		return nil, errors.New("missing engine")
+	if chatSettings.Engine != nil {
+		engine = *chatSettings.Engine
+	} else {
+		return nil, errors.New("no engine specified")
 	}
 
-	client, err := anthropic.New(&anthropic.Config{
-		Key:          *claudeSettings.APIKey,
-		DefaultModel: *chatSettings.Engine,
-	})
-	if err != nil {
-		return nil, err
-	}
-
+	// Combine all the messages into a single prompt
 	prompt := ""
 	for _, msg := range messages {
+		rolePrefix := "Human"
 		switch msg.Role {
-		case geppetto_context.RoleUser:
-			prompt += fmt.Sprintf("Human: %s\n\n", msg.Text)
-		case geppetto_context.RoleAssistant:
-			prompt += fmt.Sprintf("Assistant: %s\n\n", msg.Text)
 		case geppetto_context.RoleSystem:
-			prompt += fmt.Sprintf("System: %s\n\n", msg.Text)
-		default:
-			return nil, errors.Errorf("unknown role: %s", msg.Role)
+			rolePrefix = "System"
+		case geppetto_context.RoleAssistant:
+			rolePrefix = "Assistant"
+		case geppetto_context.RoleUser:
+			rolePrefix = "Human"
 		}
+		prompt += "\n\n" + rolePrefix + ": " + msg.Text
 	}
+	prompt += "\n\nAssistant: "
 
-	sender := resp.Sender{
-		Prompt:        prompt,
-		StopSequences: chatSettings.Stop,
-		Stream:        chatSettings.Stream,
-		MaxToken:      1024,
-	}
+	maxTokens := 32
 	if chatSettings.MaxResponseTokens != nil {
-		sender.MaxToken = uint(*chatSettings.MaxResponseTokens)
+		maxTokens = *chatSettings.MaxResponseTokens
 	}
+
+	temperature := 0.0
 	if chatSettings.Temperature != nil {
-		sender.Temperature = *chatSettings.Temperature
+		temperature = *chatSettings.Temperature
 	}
-	// TODO(manuel, 2023-09-28): bug in the anthropic SDK
-	//if claudeSettings.TopK != nil {
-	//	sender.TopK = *claudeSettings.TopK
-	//}
-	//if chatSettings.TopP != nil {
-	//	sender.TopP = *chatSettings.TopP
-	//}
-	if claudeSettings.UserID != nil {
-		sender.MetaData = resp.MetaData{
-			UserID: *claudeSettings.UserID,
+	topP := 0.0
+	if chatSettings.TopP != nil {
+		topP = *chatSettings.TopP
+	}
+
+	req := Request{
+		Model:             engine,
+		Prompt:            prompt,
+		MaxTokensToSample: maxTokens,
+		Temperature:       &temperature,
+		TopP:              &topP,
+		Stream:            chatSettings.Stream,
+	}
+
+	if chatSettings.Stream {
+		events, err := client.StreamComplete(&req)
+		if err != nil {
+			return steps.Reject[string](err), nil
 		}
-	}
-	opts := &anthropic.Opts{
-		Sender: sender,
-	}
-	opts.With(client)
+		c := make(chan helpers.Result[string])
+		ret := steps.NewStepResult[string](c)
 
-	//id, _ := ulid.New(ulid.Timestamp(time.Now()), rand.New())
-	//opts.ContextID = id.String()
-	//ctx_, err = opts.Complete(ctx_)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//d, err := client.Send(opts)
-	//
-	//msgs_ := []go_openai.ChatCompletionMessage{}
-	//for _, msg := range messages {
-	//	msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
-	//		Role:    msg.Role,
-	//		Content: msg.Text,
-	//	})
-	//}
-	//
-	//temperature := 0.0
-	//if chatSettings.Temperature != nil {
-	//	temperature = *chatSettings.Temperature
-	//}
-	//topP := 0.0
-	//if chatSettings.TopP != nil {
-	//	topP = *chatSettings.TopP
-	//}
-	//maxTokens := 32
-	//if chatSettings.MaxResponseTokens != nil {
-	//	maxTokens = *chatSettings.MaxResponseTokens
-	//}
-	//
-	//openaiSettings := csf.Settings.OpenAI
-	//n := 1
-	//if openaiSettings.N != nil {
-	//	n = *openaiSettings.N
-	//}
-	//stream := chatSettings.Stream
-	//stop := chatSettings.Stop
-	//presencePenalty := 0.0
-	//if openaiSettings.PresencePenalty != nil {
-	//	presencePenalty = *openaiSettings.PresencePenalty
-	//}
-	//frequencyPenalty := 0.0
-	//if openaiSettings.FrequencyPenalty != nil {
-	//	frequencyPenalty = *openaiSettings.FrequencyPenalty
-	//}
-	//
-	//req := go_openai.ChatCompletionRequest{
-	//	Model:            engine,
-	//	Messages:         msgs_,
-	//	MaxTokens:        maxTokens,
-	//	Temperature:      float32(temperature),
-	//	TopP:             float32(topP),
-	//	N:                n,
-	//	Stream:           stream,
-	//	Stop:             stop,
-	//	PresencePenalty:  float32(presencePenalty),
-	//	FrequencyPenalty: float32(frequencyPenalty),
-	//	// TODO(manuel, 2023-03-28) Properly load logit bias
-	//	// See https://github.com/go-go-golems/geppetto/issues/48
-	//	LogitBias: nil,
-	//}
-	//
-	//if stream {
-	//	stream, err := client.CreateChatCompletionStream(ctx, req)
-	//	if err != nil {
-	//		return steps.Reject[string](err), nil
-	//	}
-	//	c := make(chan helpers.Result[string])
-	//	ret := steps.NewStepResult[string](c)
-	//
-	//	go func() {
-	//		defer close(c)
-	//		defer stream.Close()
-	//		for {
-	//			select {
-	//			case <-ctx.Done():
-	//				return
-	//			default:
-	//				response, err := stream.Recv()
-	//				if errors.Is(err, io.EOF) {
-	//					c <- helpers.NewValueResult[string]("")
-	//					return
-	//				}
-	//				if err != nil {
-	//					c <- helpers.NewErrorResult[string](err)
-	//					return
-	//				}
-	//
-	//				c <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
-	//			}
-	//		}
-	//	}()
-	//
-	//	return ret, nil
-	//} else {
-	//	resp, err := client.CreateChatCompletion(ctx, req)
-	//
-	//	if err != nil {
-	//		return steps.Reject[string](err), nil
-	//	}
-	//
-	//	return steps.Resolve(string(resp.Choices[0].Message.Content)), nil
-	//}
+		go func() {
+			defer close(c)
 
-	return steps.Reject[string](errors.New("not implemented")), nil
+			isFirstEvent := true
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case event, ok := <-events:
+					if !ok {
+						c <- helpers.NewValueResult[string]("")
+						return
+					}
+					decoded := map[string]interface{}{}
+					err := json.Unmarshal([]byte(event.Data), &decoded)
+					if err != nil {
+						c <- helpers.NewErrorResult[string](err)
+						return
+					}
+					if completion, exists := decoded["completion"].(string); exists {
+						if isFirstEvent {
+							completion = strings.TrimLeft(completion, " ")
+							isFirstEvent = false
+						}
+						c <- helpers.NewPartialResult[string](completion)
+					}
+				}
+			}
+		}()
+
+		return ret, nil
+	} else {
+		resp, err := client.Complete(&req)
+
+		if err != nil {
+			return steps.Reject[string](err), nil
+		}
+
+		return steps.Resolve(resp.Completion), nil
+	}
 }
 
 // Close is only called after the returned monad has been entirely consumed
