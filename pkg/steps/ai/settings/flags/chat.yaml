@@ -1,0 +1,28 @@
+slug: ai-chat
+name: AI chat completion API flags, shared by OpenAI and Claude
+description: Settings for the AI chat completion API
+flags:
+  - name: ai-engine
+    type: string
+    help: AI chat completion engine
+    default: "gpt-3.5-turbo"
+  - name: ai-temperature
+    type: float
+    help: AI chat completion temperature
+    default: 0.2
+  - name: ai-max-response-tokens
+    type: int
+    help: AI chat completion max response tokens
+    default: 512
+  - name: ai-stream
+    type: bool
+    help: AI chat completion stream
+    default: false
+  - name: ai-stop
+    type: stringList
+    help: AI chat completion stop
+    default: []
+  - name: ai-top-p
+    type: float
+    help: AI chat completion top p
+    default: 1.0

@@ -1,15 +1,14 @@
 name: socratic
 short: Teaching through the socratic method.
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: gpt-4
-      temperature: 0.2
-      max_response_tokens: 2048
-      stop: []
-      stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
 flags:
   - name: pupil
     type: choice

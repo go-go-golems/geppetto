@@ -108,14 +108,13 @@ the bottom.
 name: command-name
 short: Rewrite text in a certain style
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: gpt-3.5-turbo
-      temperature: 0.8
-      max_response_tokens: 1024
-      stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-3.5-turbo
+    temperature: 0.8
+    max_response_tokens: 1024
+    stream: true
 flags:
   - name: author
     type: stringList

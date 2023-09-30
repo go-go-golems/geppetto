@@ -1,14 +1,13 @@
 name: write-article
 short: Take a list of headings and paragraphs and extract question answers
 factories:
-  openai:
-    client:
-      timeout: 120
-    completion:
-      engine: text-davinci-003
-      temperature: 0.2
-      max_response_tokens: 256
-      # stream: true
+  client:
+    timeout: 120
+  chat:
+    engine: text-davinci-003
+    temperature: 0.2
+    max_response_tokens: 256
+    # stream: true
 step:
   type: multi
   multi_input: article

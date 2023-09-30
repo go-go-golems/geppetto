@@ -2,30 +2,6 @@ slug: openai-chat
 name: OpenAI chat completion API flags
 description: Settings for the OpenAI chat completion API
 flags:
-  - name: openai-engine
-    type: string
-    help: OpenAI chat completion engine
-    default: "gpt-3.5-turbo"
-  - name: openai-temperature
-    type: float
-    help: OpenAI chat completion temperature
-    default: 0.2
-  - name: openai-max-response-tokens
-    type: int
-    help: OpenAI chat completion max response tokens
-    default: 512
-  - name: openai-stream
-    type: bool
-    help: OpenAI chat completion stream
-    default: false
-  - name: openai-stop
-    type: stringList
-    help: OpenAI chat completion stop
-    default: []
-  - name: openai-top-p
-    type: float
-    help: OpenAI chat completion top p
-    default: 1.0
   - name: openai-n
     type: int
     help: OpenAI chat completion n
@@ -44,3 +20,12 @@ flags:
     type: keyValue
     help: OpenAI chat completion logit bias
     default: {}
+  - name: openai-base-url
+    type: string
+    help: base URL
+    default: "https://api.openai.com/v1"
+  - name: openai-api-key
+    type: string
+    help: API key
+    default: ""
+
