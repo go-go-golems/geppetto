@@ -42,19 +42,17 @@ func RegisterTokenCommands(tokensCmd *cobra.Command) {
 	cobra.CheckErr(err)
 	tokensCmd.AddCommand(encodeCommand)
 
-	//// 4. Register ListModelsCommand
-	//listModelsCmdInstance, err := NewListModelsCommand()
-	//cobra.CheckErr(err)
-	//listModelsCommand, err := cli.BuildCobraCommandFromGlazeCommand(listModelsCmdInstance)
-	//cobra.CheckErr(err)
-	//tokensCmd.AddCommand(listModelsCommand)
-	//
-	//// 5. Register ListCodecsCommand
-	//listCodecsCmdInstance, err := NewListCodecsCommand()
-	//cobra.CheckErr(err)
-	//listCodecsCommand, err := cli.BuildCobraCommandFromGlazeCommand(listCodecsCmdInstance)
-	//cobra.CheckErr(err)
-	//tokensCmd.AddCommand(listCodecsCommand)
+	listModelsCmdInstance, err := NewListModelsCommand()
+	cobra.CheckErr(err)
+	listModelsCommand, err := cli.BuildCobraCommandFromGlazeCommand(listModelsCmdInstance)
+	cobra.CheckErr(err)
+	tokensCmd.AddCommand(listModelsCommand)
+
+	listCodecsCmdInstance, err := NewListCodecsCommand()
+	cobra.CheckErr(err)
+	listCodecsCommand, err := cli.BuildCobraCommandFromGlazeCommand(listCodecsCmdInstance)
+	cobra.CheckErr(err)
+	tokensCmd.AddCommand(listCodecsCommand)
 }
 
 func RegisterCommands(rootCmd *cobra.Command) {
