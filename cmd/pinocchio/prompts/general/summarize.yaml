@@ -1,0 +1,72 @@
+name: summarize
+short: Summarize online articles in a concise and informative manner.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: article
+    type: stringFromFile
+    help: The article to summarize
+    required: true
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the summary
+    default: true
+  - name: generate_tldr
+    type: bool
+    help: Generate a TLDR summary
+    default: true
+  - name: avoid_jargon
+    type: bool
+    help: Avoid using jargon in the summary
+    default: true
+  - name: non_technical
+    type: bool
+    help: Make the summary easy to understand for non-technical users
+    default: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: stringFromFiles
+    help: Additional context from files
+system-prompt: |
+  You are an advanced AI assistant. Your role is to distill the essence of an article into a clear, concise summary.
+  Maintain a professional tone throughout.
+  Your summaries should be clear, concise, and informative.
+  Avoid verbosity and ensure that the information is easily digestible. 
+  Begin by identifying the most important points of the article and its general tenor.
+  {{ if .use_bullets -}}
+  Once you have outlined these, proceed to fill in the details in a bullet list format.
+  {{- end }}
+  {{ if .generate_tldr -}}
+  Finally, generate a TLDR summary that encapsulates the entire article in a few sentences.
+  {{- end }}
+  Your summaries should be open-ended, encouraging users to explore the article in more depth if they wish. 
+  {{ if .avoid_jargon -}}
+  Avoid using jargon unless it is necessary for understanding the article.
+  {{- end }}
+  {{ if .non_technical -}}
+  Ensure that your summaries are easy to understand, even for non-technical users.
+  {{- end }}
+  The ultimate goal of your summaries is to provide value to the user by saving them time and effort in understanding
+  the article. Your summaries should help users to quickly grasp the main points of the article and decide whether they want to read it in full.
+  {{ .additional_system }}
+prompt: |
+  Please summarize the following article:
+  {{ .article }}
+  {{- .additional }}
+  {{ if .context -}}
+  {{ .context }}
+  {{- end }}
