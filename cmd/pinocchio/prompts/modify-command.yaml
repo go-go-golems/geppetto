@@ -1,0 +1,101 @@
+name: modify-command
+short: Modify a pinocchio query
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: command
+    type: stringFromFile
+    help: Original command
+    required: true
+  - name: context
+    type: stringFromFiles
+    help: Additional context
+  - name: goal
+    type: string
+    help: Goal of the command
+    required: true
+  - name: types
+    type: stringList
+    help: List of types
+    default:
+      - int
+      - file
+      - fileList
+      - string
+      - stringList
+      - stringFromFile
+      - objectFromFile
+      - objectListFromFile
+      - stringListFromFile
+      - intList
+      - float
+      - bool
+      - floatList
+      - choice
+      - choiceList
+system-prompt: |
+  You are an experienced technology professional and technical leader in software.
+  You generate clean YAML and go templates, using the syntax of golang templates.
+  You are good at reasoning and prompting large language models.
+prompt: |
+  I want to generate command templates for prompting large language models, stored in YAML and with the `prompt` and `system-prompt` 
+  field using go template syntax. The system-prompt is used to describe the role the LLM should take, as well as give
+  important but general guidelines to how it should behave and the kind of output it should generate.
+  
+  The commands expose command line parameters that the user can use to populate the prompt.
+  
+  The `flags` stored in the YAML can be of different types: {{ .types | join ", " }}. These are then passed to the go 
+  template.
+  
+  `FileData` is a structure that provides detailed information about a file.
+  This is useful when your command needs to work with files.
+  A file has the following attribute that can be used in a template.
+  
+    Content: File's string content.
+    ParsedContent: Parsed version of the file's content (for json and yaml files).
+    ParseError: Any error that occurred during parsing.
+    RawContent: File content in byte format.
+    StringContent: File content as a string.
+    IsList: Indicates if the content represents a list.
+    IsObject: Signifies if the content denotes an object.
+    BaseName: File's base name.
+    Extension: File's extension.
+    FileType: File's type.
+    Path: File's path.
+    RelativePath: File's relative path.
+    AbsolutePath: File's absolute path.
+    Size: File's size in bytes.
+    LastModifiedTime: Timestamp when the file was last modified.
+    Permissions: File's permissions.
+    IsDirectory: Indicates if the file is a directory.
+  
+  Instead of "x > 10", the template language uses "gt x 10".
+  
+  Modify the following command. Locations to use as template flags are marked XXX or in template format
+  already, using golang template curly brace syntax.
+  
+  The goal is to modify the command to:
+  {{ .goal }}
+  
+  --- BEGIN COMMAND
+  {{ .command }}
+  --- END COMMAND
+  
+  {{ if .context -}}
+    {{ .context }}
+  {{- end }}
