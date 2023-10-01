@@ -14,9 +14,9 @@ flags:
     help: Additional system prompt
     default: ""
   - name: additional
-    type: string
+    type: stringList
     help: Additional prompt
-    default: ""
+    default: []
   - name: write_code
     type: bool
     help: Write code instead of answering questions
@@ -36,6 +36,14 @@ flags:
     type: bool
     help: Use keywords in the answer
     default: false
+  - name: context_in_front
+    type: bool
+    help: Put context in front of the answer
+    default: false
+  - name: question
+    type: bool
+    help: Answer a question
+    default: true
 arguments:
   - name: query
     type: stringList
@@ -48,14 +56,22 @@ system-prompt: |
   You pass context.Context around for cancellation.
   You use modern golang idioms.
 prompt: |
+  {{ if .context_in_front -}}
+    {{ if .context -}}
+      {{ .context }}
+    {{- end }}
+  {{- end }}
   {{ if .write_code }}Write go code the following task.
   Output only the code, but write a lot of comments as part of the script.{{ else -}}
-  Answer the following question about go. Use code examples. Give a concise answer.
+  {{ if .question }}Answer the following question about go. Use code examples. Give a concise answer.
+  {{ end }}
   {{- end }}
   {{ .query | join " " }}
-  {{ .additional }}
-  {{ if .context -}}
-    {{ .context }}
+  {{ .additional | join "," }}
+  {{ if not .context_in_front -}}
+    {{ if .context -}}
+      {{ .context }}
+    {{- end }}
   {{- end }}
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
