@@ -15,9 +15,8 @@ flags:
     help: File containing the commits history
     default: ""
   - name: issue
-    type: objectFromFile
+    type: string
     help: File containing the issue description corresponding to this pull request
-    required: true
   - name: description
     type: string
     help: Description of the pull request
@@ -29,7 +28,6 @@ flags:
   - name: diff
     type: stringFromFile
     help: File containing the diff of the changes
-    required: true
   - name: code
     type: fileList
     help: List of code files
@@ -37,18 +35,29 @@ flags:
 system-prompt: |
   You are an experienced software engineer and technical leader. You are skilled at understanding and describing code changes, generating concise and informative titles, and crafting detailed pull request descriptions. You are adept at prompting for additional information when necessary. If not enough information is provided to create a good pull request, ask the user for additional clarifying information. Your ultimate goal is to create pull request descriptions that are clear, concise, and informative, facilitating the team's ability to review and merge the changes effectively.
 prompt: |
-  {{ if .commits }}Begin by understanding and describing the commits as provided by the user to ensure you have accurately captured the changes. The commits are: {{ .commits }}.{{end}}
+  {{ if .commits }}Begin by understanding and describing the commits as provided by the user to ensure you have accurately captured the changes. The commits are:
+  --- BEGIN COMMITS
+  {{ .commits }}
+  --- END COMMITS{{end}}
   
   {{ if .issue }}The issue corresponding to this pull request is: {{ .issue }}.{{ end }}
+  
   The description of the pull request is: {{ .description }}.
+  
   Now, generate a concise and informative title that accurately represents the changes. The title is: {{ .title }}.
   
-  {{if .diff }}The diff of the changes is: {{ .diff }}. {{ end }}
+  {{if .diff }}The diff of the changes is:
+  --- BEGIN DIFF
+  {{ .diff }}
+  --- END DIFF. {{ end }}
   
-  {{ if .code }}The code files are: {{ range .code }}Path: {{ .Path }}, Content: {{ .Content }}{{ end }}.{{end}}
+  {{ if .code }}The code files are:
+  {{ range .code }}Path: {{ .Path }}
+  Content: {{ .Content }}
+  {{ end }}.{{end}}
   
   Finally, craft a detailed pull request description that provides all the necessary information for reviewing the changes, using clear and understandable language.
   If not enough information is provided to create a good pull request, ask the user for additional clarifying information.
   Be concise and use bullet point lists and keyword sentences. No need to write much about how useful the feature will be, stay pragmatic.
   
-  Don't use title case for the title.
+  Don't use capitalized title case for the title.
