@@ -30,6 +30,8 @@ flags:
     help: List of types
     default:
       - int
+      - file
+      - fileList
       - string
       - stringList
       - stringFromFile
@@ -128,6 +130,28 @@ prompt: |
   
   The `flags` stored in the YAML can be of different types: {{ .types | join ", " }}. These are then passed to the go 
   template.
+  
+  `FileData` is a structure that provides detailed information about a file.
+  This is useful when your command needs to work with files.
+  A file has the following attribute that can be used in a template.
+  
+    Content: File's string content.
+    ParsedContent: Parsed version of the file's content (for json and yaml files).
+    ParseError: Any error that occurred during parsing.
+    RawContent: File content in byte format.
+    StringContent: File content as a string.
+    IsList: Indicates if the content represents a list.
+    IsObject: Signifies if the content denotes an object.
+    BaseName: File's base name.
+    Extension: File's extension.
+    FileType: File's type.
+    Path: File's path.
+    RelativePath: File's relative path.
+    AbsolutePath: File's absolute path.
+    Size: File's size in bytes.
+    LastModifiedTime: Timestamp when the file was last modified.
+    Permissions: File's permissions.
+    IsDirectory: Indicates if the file is a directory.
   
   The `factories` section is used to configure the API call to the model. Copy it as is unless requested.
   
