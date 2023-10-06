@@ -13,10 +13,12 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
+	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/tcnksm/go-input"
 	"io"
+	"os"
 	"strings"
 	"time"
 )
@@ -259,7 +261,9 @@ func (g *GeppettoCommand) RunIntoWriter(
 		Text: accumulate,
 	})
 
-	interactive := true
+	// check if terminal is tty
+
+	interactive := isatty.IsTerminal(os.Stdout.Fd())
 	if interactive {
 		tty_, err := ui.OpenTTY()
 		if err != nil {
