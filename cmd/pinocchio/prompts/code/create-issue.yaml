@@ -46,4 +46,6 @@ prompt: |
   {{ if not .verbose }}
   Be concise and use bullet point lists and keyword sentences. No need to write much about how useful the feature will be, stay pragmatic.
   {{- end }}
-  Don't use capitalized title case for the title.
+  Don't use capitalized title case for the title, use sentence case instead. The first word should be capitalized, but the rest of the title should not be capitalized unless it is a proper noun.
+  The title should be a verb phrase that describes the issue. The title should be concise and informative, but not too long.
+  The first word should be an action verb. Don't repeat the project name in the issue title.

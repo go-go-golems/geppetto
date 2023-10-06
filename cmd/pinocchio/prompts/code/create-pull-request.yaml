@@ -58,6 +58,11 @@ prompt: |
   
   Finally, craft a detailed pull request description that provides all the necessary information for reviewing the changes, using clear and understandable language.
   If not enough information is provided to create a good pull request, ask the user for additional clarifying information.
-  Be concise and use bullet point lists and keyword sentences. No need to write much about how useful the feature will be, stay pragmatic.
+  
+  Be concise and use bullet point lists and keyword sentences.
+  No need to write much about how useful the feature will be, stay pragmatic.
+  
+  Remember: use bullet points and keyword like sentences.
+  
   
   Don't use capitalized title case for the title.
