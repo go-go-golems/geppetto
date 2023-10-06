@@ -23,7 +23,7 @@ flags:
     help: Prompt for the command
     required: true
   - name: context
-    type: stringFromFiles
+    type: fileList
     help: Additional context
   - name: types
     type: stringList
@@ -83,7 +83,7 @@ flags:
           help: Additional prompt
           default: ""
         - name: context
-          type: stringFromFiles
+          type: fileList
           help: Additional context from files
         - name: concise
           type: bool
@@ -104,10 +104,19 @@ flags:
         Write a description of the animal {{ .name }}.
         {{ if .color }}It is of color {{ .color }}.{{end}}
         {{ if .species }}It is a {{ .species | join ", " }}.{{end}}
-        {{- .additional }}
-        {{ if .context -}}
-        {{ .context }}
+        {{ if .additional }}
+        Additional instructions:
+        {{ .additional }}
+        {{ end }}
+        
+        {{ if .context}}Additional Context:
+        {{ range .context }}
+        Path: {{ .Path }}
+        ---
+        {{ .Content }}
+        ---
         {{- end }}
+        {{ end }}
         {{ if .concise -}}
         Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
         {{- end }}
@@ -174,9 +183,14 @@ prompt: |
   {{ .prompt }}
   --- END PROMPT
   
-  {{ if .context -}}
-    {{ .context }}
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
   {{- end }}
+  {{ end }}
   
 
 
