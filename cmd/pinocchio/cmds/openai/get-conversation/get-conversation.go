@@ -100,6 +100,12 @@ func NewGetConversationCommand() (*GetConversationCommand, error) {
 					parameters.WithHelp("Merge source blocks in markdown output"),
 					parameters.WithDefault(false),
 				),
+				parameters.NewParameterDefinition(
+					"inline-conversations",
+					parameters.ParameterTypeBool,
+					parameters.WithHelp("Inline conversation as comments in source blocks"),
+					parameters.WithDefault(true),
+				),
 			),
 		),
 	}, nil
@@ -193,6 +199,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 		onlySourceBlocks := ps["only-source-blocks"].(bool)
 		mergeSourceBlocks := ps["merge-source-blocks"].(bool)
 		onlySourceBlocks = onlySourceBlocks || mergeSourceBlocks
+		inlineConversationAsComments := ps["inline-conversations"].(bool)
 
 		linearConversation := data.Props.PageProps.ServerResponse.LinearConversation
 
@@ -204,7 +211,12 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 				}
 				content := strings.Join(conversation.Message.Content.Parts, "\n")
 				if mergeSourceBlocks {
-					blocks := markdown.ExtractQuotedBlocks(content, false)
+					blocks := []string{}
+					if inlineConversationAsComments {
+						blocks = markdown.ExtractCodeBlocksWithComments(content, false)
+					} else {
+						blocks = markdown.ExtractQuotedBlocks(content, false)
+					}
 					if len(blocks) == 0 {
 						continue
 					}
@@ -212,7 +224,12 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 					continue
 				}
 
-				blocks := markdown.ExtractQuotedBlocks(content, true)
+				blocks := []string{}
+				if inlineConversationAsComments {
+					blocks = markdown.ExtractCodeBlocksWithComments(content, true)
+				} else {
+					blocks = markdown.ExtractQuotedBlocks(content, true)
+				}
 				if len(blocks) == 0 {
 					continue
 				}
