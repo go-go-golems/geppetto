@@ -19,7 +19,6 @@ type GetConversationCommand struct {
 	*cmds.CommandDescription
 }
 
-// TODO add flag for only exporting the assistant responses
 // TODO add flag for exporting the source blocks
 // TODO add flag for adding the messages as comments in the source blocks (if we can detect their type, for example)
 
@@ -83,6 +82,12 @@ func NewGetConversationCommand() (*GetConversationCommand, error) {
 					parameters.WithHelp("Only conversations in JSON output"),
 					parameters.WithDefault(false),
 				),
+				parameters.NewParameterDefinition(
+					"only-assistant",
+					parameters.ParameterTypeBool,
+					parameters.WithHelp("Only assistant responses in markdown output"),
+					parameters.WithDefault(false),
+				),
 			),
 		),
 	}, nil
@@ -114,6 +119,8 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 	onlyConversations := ps["only-conversations"].(bool)
 	fullJson := ps["full-json"].(bool)
 	outputJsons := make([]interface{}, len(urls))
+
+	onlyAssistant := ps["only-assistant"].(bool)
 
 	for _, url := range urls {
 		var htmlContent []byte
@@ -171,13 +178,26 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 			return err
 		}
 
+		linearConversation := data.Props.PageProps.ServerResponse.LinearConversation
+
+		if onlyAssistant {
+			conversations := []Conversation{}
+			for _, conversation := range linearConversation {
+				if conversation.Message.Author.Role != "assistant" {
+					continue
+				}
+				// skip author role in the output, now that it's all just the ai
+				conversation.Message.Author.Role = ""
+				conversations = append(conversations, conversation)
+			}
+			linearConversation = conversations
+		}
+
 		renderer := &Renderer{
 			RenameRoles:  renameRoles,
 			Concise:      concise,
 			WithMetadata: withMetadata,
 		}
-
-		linearConversation := data.Props.PageProps.ServerResponse.LinearConversation
 
 		renderer.PrintConversation(url, data.Props.PageProps.ServerResponse.ServerResponseData, linearConversation)
 	}

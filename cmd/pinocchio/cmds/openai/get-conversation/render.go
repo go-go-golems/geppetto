@@ -61,7 +61,7 @@ URL: {{.URL}}
 
 {{template "verboseMessageDetails" (list $topLevel .)}}
 {{else -}}
-**{{.Role}}**: {{ range .Parts -}}
+{{if .Role }}**{{.Role}}**: {{end}}{{ range .Parts -}}
 {{.}}
 {{end }}
 {{end -}}
@@ -74,7 +74,7 @@ URL: {{.URL}}
 {{- $ := index . 0 -}}
 {{ with (index . 1) -}}
 - **ID**: {{.ID}}
-- **Author Role**: {{.Role}}
+{{ if .Role }}- **Author Role**: {{.Role}}{{end -}}
 {{if $.WithMetadata}}{{template "authorMetadata" .}}{{end -}}
 - **Content Type**: {{.ContentType}}
 - **Status**: {{.Status}}
