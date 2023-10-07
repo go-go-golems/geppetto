@@ -2,6 +2,7 @@ package get_conversation
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -20,13 +21,15 @@ type GetConversationCommand struct {
 	*cmds.CommandDescription
 }
 
-// TODO add flag for adding the messages as comments in the source blocks (if we can detect their type, for example)
+//go:embed "doc.md"
+var doc string
 
 func NewGetConversationCommand() (*GetConversationCommand, error) {
 	return &GetConversationCommand{
 		CommandDescription: cmds.NewCommandDescription(
 			"get-conversation",
 			cmds.WithShort("Converts GPT HTML to markdown"),
+			cmds.WithLong(doc),
 			cmds.WithArguments(
 				parameters.NewParameterDefinition(
 					"urls",
