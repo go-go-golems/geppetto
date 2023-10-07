@@ -26,7 +26,7 @@ type GetConversationCommand struct {
 func NewGetConversationCommand() (*GetConversationCommand, error) {
 	return &GetConversationCommand{
 		CommandDescription: cmds.NewCommandDescription(
-			"render",
+			"get-conversation",
 			cmds.WithShort("Converts GPT HTML to markdown"),
 			cmds.WithArguments(
 				parameters.NewParameterDefinition(
