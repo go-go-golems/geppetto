@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
+	"github.com/go-go-golems/glazed/pkg/helpers/markdown"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
@@ -19,7 +20,6 @@ type GetConversationCommand struct {
 	*cmds.CommandDescription
 }
 
-// TODO add flag for exporting the source blocks
 // TODO add flag for adding the messages as comments in the source blocks (if we can detect their type, for example)
 
 func NewGetConversationCommand() (*GetConversationCommand, error) {
@@ -86,6 +86,18 @@ func NewGetConversationCommand() (*GetConversationCommand, error) {
 					"only-assistant",
 					parameters.ParameterTypeBool,
 					parameters.WithHelp("Only assistant responses in markdown output"),
+					parameters.WithDefault(false),
+				),
+				parameters.NewParameterDefinition(
+					"only-source-blocks",
+					parameters.ParameterTypeBool,
+					parameters.WithHelp("Only source blocks in markdown output"),
+					parameters.WithDefault(false),
+				),
+				parameters.NewParameterDefinition(
+					"merge-source-blocks",
+					parameters.ParameterTypeBool,
+					parameters.WithHelp("Merge source blocks in markdown output"),
 					parameters.WithDefault(false),
 				),
 			),
@@ -178,7 +190,48 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 			return err
 		}
 
+		onlySourceBlocks := ps["only-source-blocks"].(bool)
+		mergeSourceBlocks := ps["merge-source-blocks"].(bool)
+		onlySourceBlocks = onlySourceBlocks || mergeSourceBlocks
+
 		linearConversation := data.Props.PageProps.ServerResponse.LinearConversation
+
+		if onlySourceBlocks {
+			merged := ""
+			for _, conversation := range linearConversation {
+				if len(conversation.Message.Content.Parts) == 0 {
+					continue
+				}
+				content := strings.Join(conversation.Message.Content.Parts, "\n")
+				if mergeSourceBlocks {
+					blocks := markdown.ExtractQuotedBlocks(content, false)
+					if len(blocks) == 0 {
+						continue
+					}
+					merged += strings.Join(blocks, "\n\n") + "\n\n"
+					continue
+				}
+
+				blocks := markdown.ExtractQuotedBlocks(content, true)
+				if len(blocks) == 0 {
+					continue
+				}
+				foo := strings.Join(blocks, "\n\n") + "\n\n---\n\n"
+				_, err := w.Write([]byte(foo))
+				if err != nil {
+					return err
+				}
+			}
+
+			if mergeSourceBlocks {
+				_, err := w.Write([]byte(merged))
+				if err != nil {
+					return err
+				}
+			}
+
+			continue
+		}
 
 		if onlyAssistant {
 			conversations := []Conversation{}
@@ -203,7 +256,6 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 	}
 
 	if outputJson {
-
 		encoder := json.NewEncoder(w)
 		encoder.SetIndent("", "  ")
 		if len(outputJsons) == 1 && !outputAsArray {
