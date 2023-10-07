@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	get_conversation "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/get-conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -403,6 +404,12 @@ func init() {
 	cobraEngineInfoCommand, err := cli.BuildCobraCommandFromGlazeCommand(engineInfoCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraEngineInfoCommand)
+
+	getConversationCommand, err := get_conversation.NewGetConversationCommand()
+	cobra.CheckErr(err)
+	cobraGetConversationCommand, err := cli.BuildCobraCommandFromWriterCommand(getConversationCommand)
+	cobra.CheckErr(err)
+	OpenaiCmd.AddCommand(cobraGetConversationCommand)
 
 	err = cli.AddGlazedProcessorFlagsToCobraCommand(FamiliesCmd)
 	if err != nil {
