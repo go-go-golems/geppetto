@@ -7,8 +7,9 @@ require (
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/charmbracelet/lipgloss v0.6.0
-	github.com/go-go-golems/clay v0.0.23
-	github.com/go-go-golems/glazed v0.4.13
+	github.com/go-go-golems/clay v0.0.25
+	github.com/go-go-golems/glazed v0.4.16
+	github.com/mattn/go-isatty v0.0.17
 	github.com/mb0/glob v0.0.0-20160210091149-1eb79d2de6c4
 	github.com/muesli/reflow v0.3.0
 	github.com/pkg/errors v0.9.1
@@ -61,7 +62,6 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.21 // indirect
