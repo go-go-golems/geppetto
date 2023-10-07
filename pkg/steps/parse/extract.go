@@ -5,6 +5,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/glazed/pkg/helpers/json"
+	"github.com/go-go-golems/glazed/pkg/helpers/markdown"
 )
 
 // ExtractJSONStep is a step that extracts JSON blocks from the given string.
@@ -28,7 +29,7 @@ type ExtractCodeBlocksStep struct{}
 func (e *ExtractCodeBlocksStep) Start(ctx context.Context, input string) (*steps.StepResult[[]string], error) {
 	c := make(chan helpers.Result[[]string], 1)
 	defer close(c)
-	codeBlocks := json.ExtractQuotedBlocks(input)
+	codeBlocks := markdown.ExtractQuotedBlocks(input, false)
 	c <- helpers.NewValueResult[[]string](codeBlocks)
 
 	return steps.NewStepResult[[]string](c), nil
