@@ -13,10 +13,12 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
+	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/tcnksm/go-input"
 	"io"
+	"os"
 	"strings"
 	"time"
 )
@@ -34,7 +36,7 @@ type GeppettoCommandDescription struct {
 	SystemPrompt string                      `yaml:"system-prompt,omitempty"`
 }
 
-func HelpersParameterLayer() (layers.ParameterLayer, error) {
+func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 	return layers.NewParameterLayer("helpers", "Geppetto helpers",
 		layers.WithFlags(
 			parameters.NewParameterDefinition(
@@ -57,6 +59,18 @@ func HelpersParameterLayer() (layers.ParameterLayer, error) {
 				"message-file",
 				parameters.ParameterTypeString,
 				parameters.WithHelp("File containing messages (json or yaml, list of objects with fields text, time, role)"),
+			),
+			parameters.NewParameterDefinition(
+				"chat",
+				parameters.ParameterTypeBool,
+				parameters.WithHelp("Continue in chat mode"),
+				parameters.WithDefault(false),
+			),
+			parameters.NewParameterDefinition(
+				"interactive",
+				parameters.ParameterTypeBool,
+				parameters.WithHelp("Always enter interactive mode, even with non-tty stdout"),
+				parameters.WithDefault(false),
 			),
 		),
 	)
@@ -95,14 +109,14 @@ func NewGeppettoCommand(
 	stepFactory chat.StepFactory,
 	options ...GeppettoCommandOption,
 ) (*GeppettoCommand, error) {
-	helpersParameterLayer, err := HelpersParameterLayer()
+	helpersParameterLayer, err := NewHelpersParameterLayer()
 	if err != nil {
 		return nil, err
 	}
 
 	description.Layers = append(
-		description.Layers,
-		helpersParameterLayer,
+		[]layers.ParameterLayer{helpersParameterLayer},
+		description.Layers...,
 	)
 
 	ret := &GeppettoCommand{
@@ -259,8 +273,14 @@ func (g *GeppettoCommand) RunIntoWriter(
 		Text: accumulate,
 	})
 
-	interactive := true
-	if interactive {
+	// check if terminal is tty
+
+	isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
+	interactive := ps["interactive"].(bool)
+	continueInChat := ps["chat"].(bool)
+	askChat := (isOutputTerminal || interactive) && !continueInChat
+
+	if askChat {
 		tty_, err := ui.OpenTTY()
 		if err != nil {
 			return err
@@ -303,20 +323,25 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 		switch answer {
 		case "y", "Y":
-			err = chat_(chatStep, contextManager)
+			continueInChat = true
 
-			for idx, msg := range contextManager.GetMessages() {
-				// skip input prompt and first response that's already been printed out
-				if idx <= 1 {
-					continue
-				}
-				fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
-			}
-			if err != nil {
-				return err
-			}
 		case "n", "N":
 			return nil
+		}
+	}
+
+	if continueInChat {
+		err = chat_(chatStep, contextManager)
+
+		for idx, msg := range contextManager.GetMessages() {
+			// skip input prompt and first response that's already been printed out
+			if idx <= 1 {
+				continue
+			}
+			fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -363,10 +388,20 @@ func chat_(
 	// switch on streaming for chatting
 	step.SetStreaming(true)
 
+	isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
+
+	options := []tea.ProgramOption{
+		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
+	}
+	if !isOutputTerminal {
+		options = append(options, tea.WithOutput(os.Stderr))
+	} else {
+		options = append(options, tea.WithAltScreen())
+	}
+
 	p := tea.NewProgram(
 		ui.InitialModel(contextManager, step),
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
+		options...,
 	)
 
 	if _, err := p.Run(); err != nil {

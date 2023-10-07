@@ -80,13 +80,18 @@ func (csf *Step) Start(
 	if chatSettings.TopP != nil {
 		topP = *chatSettings.TopP
 	}
+	stopSequences := []string{}
+	stopSequences = append(stopSequences, chatSettings.Stop...)
 
 	req := Request{
 		Model:             engine,
 		Prompt:            prompt,
 		MaxTokensToSample: maxTokens,
+		StopSequences:     stopSequences,
 		Temperature:       &temperature,
 		TopP:              &topP,
+		TopK:              nil,
+		Metadata:          nil,
 		Stream:            chatSettings.Stream,
 	}
 
