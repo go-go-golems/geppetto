@@ -214,7 +214,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 				}
 				content := strings.Join(conversation.Message.Content.Parts, "\n")
 				if mergeSourceBlocks {
-					blocks := []string{}
+					var blocks []string
 					if inlineConversationAsComments {
 						blocks = markdown.ExtractCodeBlocksWithComments(content, false)
 					} else {
@@ -227,7 +227,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 					continue
 				}
 
-				blocks := []string{}
+				var blocks []string
 				if inlineConversationAsComments {
 					blocks = markdown.ExtractCodeBlocksWithComments(content, true)
 				} else {
