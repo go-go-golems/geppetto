@@ -87,13 +87,15 @@ prompt: |
   Incorporate all the information provided in the overview, detailed description and caveats in a couple of paragraphs
   and bullet point lists. Wrap the output in 80 character lines.
   Eliminate all redundant and obvious information, so don't repeat information already present in the overview.
+  Don't mention that a model or column is useful for business purposes or better data, that is obvious.
   
   Keep only caveats that are directly relevant to the model at hand, not general purpose caveats such as mentioning
-  the quality of the underlying information.
+  the quality of the underlying information. Don't repeat items from the previous sections either.
   
   Omit the column section.
   
-  Finally, once the yaml is output, make a list of the information that has been omitted.
+  Finally, once the yaml is output, make a list of the information that has been omitted, specifying if it was because
+  it was deemed not important or because it was redundant.
   
   {{ if .additional }}
   Additional instructions:

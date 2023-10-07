@@ -18,7 +18,7 @@ flags:
     help: Additional prompt
     default: ""
   - name: context
-    type: stringFromFiles
+    type: fileList
     help: Additional context from files
   - name: concise
     type: bool
@@ -57,6 +57,19 @@ system-prompt: |
   {{ .additional_system }}
 prompt: |
   {{ .query | join " " }}
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional }}
+  {{ end }}
+
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
   {{- .additional }}
   {{ if .context -}}
     {{ .context }}
