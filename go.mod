@@ -3,12 +3,14 @@ module github.com/go-go-golems/geppetto
 go 1.19
 
 require (
+	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/go-go-golems/clay v0.0.25
-	github.com/go-go-golems/glazed v0.4.16
+	github.com/go-go-golems/glazed v0.4.17
 	github.com/mattn/go-isatty v0.0.17
 	github.com/mb0/glob v0.0.0-20160210091149-1eb79d2de6c4
 	github.com/muesli/reflow v0.3.0
@@ -31,9 +33,9 @@ require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
-	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
+	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
