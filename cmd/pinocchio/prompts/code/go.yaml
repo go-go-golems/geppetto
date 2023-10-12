@@ -17,6 +17,10 @@ flags:
     type: stringList
     help: Additional prompt
     default: []
+  - name: bracket
+    type: bool
+    help: Bracket prompt with additional
+    default: false
   - name: write_code
     type: bool
     help: Write code instead of answering questions
@@ -73,6 +77,10 @@ prompt: |
       {{ .context }}
     {{- end }}
   {{- end }}
+  {{ if .bracket }}
+  {{ .query | join " " }}
+  {{ .additional | join "," }}
+  {{ end }}
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
   {{- end }}
