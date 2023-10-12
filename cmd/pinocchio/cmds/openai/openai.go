@@ -423,5 +423,11 @@ func init() {
 	}
 	OpenaiCmd.AddCommand(ModelsCmd)
 
+	transcribeCommand, err := NewTranscribeCommand()
+	cobra.CheckErr(err)
+	cobraTranscribeCommand, err := cli.BuildCobraCommandFromGlazeCommand(transcribeCommand)
+	cobra.CheckErr(err)
+	OpenaiCmd.AddCommand(cobraTranscribeCommand)
+
 	OpenaiCmd.AddCommand(NewInfoCommand())
 }
