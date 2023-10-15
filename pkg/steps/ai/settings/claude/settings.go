@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/spf13/viper"
 )
 
 type Settings struct {
@@ -37,7 +38,16 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 	}
 
 	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if s.APIKey == nil || *s.APIKey == "" {
+		claudeAPIKey := viper.GetString("claude-api-key")
+		s.APIKey = &claudeAPIKey
+	}
+
+	return nil
 }
 
 //go:embed "claude.yaml"

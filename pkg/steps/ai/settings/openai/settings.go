@@ -5,6 +5,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 type Settings struct {
@@ -43,6 +44,12 @@ func NewSettingsFromParsedLayer(layer *layers.ParsedParameterLayer) (*Settings, 
 	if err != nil {
 		return nil, err
 	}
+
+	if ret.APIKey == nil || *ret.APIKey == "" {
+		s := viper.GetString("openai-api-key")
+		ret.APIKey = &s
+	}
+
 	return ret, nil
 }
 
@@ -68,7 +75,16 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 	}
 
 	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if s.APIKey == nil || *s.APIKey == "" {
+		s_ := viper.GetString("openai-api-key")
+		s.APIKey = &s_
+	}
+
+	return nil
 }
 
 //go:embed "chat.yaml"

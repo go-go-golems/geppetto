@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
-	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"sync"
@@ -115,18 +114,12 @@ func (c *TranscribeCommand) Run(
 	if err != nil {
 		return errors.Wrap(err, "could not create OpenAI settings")
 	}
-	apiKey := ""
 	if openaiSettings.APIKey == nil || *openaiSettings.APIKey == "" {
-		apiKey = viper.GetString("openai-api-key")
-	} else {
-		apiKey = *openaiSettings.APIKey
-	}
-	if apiKey == "" {
 		return errors.New("OpenAI API key is required")
 	}
 
 	// Create the TranscriptionClient
-	tc := openai3.NewTranscriptionClient(apiKey, model, prompt, language, float32(temperature))
+	tc := openai3.NewTranscriptionClient(*openaiSettings.APIKey, model, prompt, language, float32(temperature))
 
 	var files []string
 	if filePath != "" {
