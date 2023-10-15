@@ -11,7 +11,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 	"io"
 	"strings"
@@ -46,16 +45,6 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	stepSettings, err := settings.NewStepSettingsFromYAML(buf)
 	if err != nil {
 		return nil, err
-	}
-
-	// check if the openai-api-key is set in viper
-	openaiAPIKey := viper.GetString("openai-api-key")
-	if openaiAPIKey != "" {
-		stepSettings.OpenAI.APIKey = &openaiAPIKey
-	}
-	claudeAPIKey := viper.GetString("claude-api-key")
-	if claudeAPIKey != "" {
-		stepSettings.Claude.APIKey = &claudeAPIKey
 	}
 
 	chatParameterLayer, err := settings.NewChatParameterLayer(

@@ -1,0 +1,82 @@
+name: hn-summary
+short: Summarize Hacker News threads.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: claude-2
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: thread
+    type: stringFromFile
+    help: The Hacker News thread to be summarized
+    required: true
+  - name: usernames
+    type: bool
+    help: Include usernames in the summary
+    default: false
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+system-prompt: |
+  You are an advanced language model. Your task is to extract and summarize the most interesting and informative comments from a given Hacker News thread. Please analyze the thread and identify key arguments, counterarguments, and unique insights. Your response should be clear, concise, and free of jargon, making it accessible to both technical and non-technical users. 
+  
+  Please remember to leverage your autoregressive nature. Begin by outlining the structure of your response, followed by filling in the details. This will ensure a consistent and organized output.
+  {{ .additional_system }}
+prompt: |
+  Please provide a summary of the above thread with the following structure:
+
+  1. **Thread Summary**: Provide a brief overview of the main topic or question discussed in the thread.
+  
+  2. **Informative comments**: Provide a list of all informative comments, who wrote them and a summary of the comment. Then, quote the comment in full using > markdown quote syntax.
+  
+  2. **Interesting arguments**: Provide a list of all interesting arguments, who participated and a summary of the argument.
+  Provide a list of summaries of the comments in the thread.
+  After each summary: quote the comment in full using > markdown quote syntax.
+  
+  4. **Unique Insights**: Highlight any unique insights or perspectives that add value to the discussion. {{ if .usernames }}Include the username of the commenter, if available.{{end}}
+  If possible, quote the comments that are related to the insight using markdown syntax.
+  
+  
+  Remember, the goal is to surface the most interesting and informative comments, and to present a balanced and concise summary of the discussion.
+
+  Thread: 
+  ---
+  {{ .thread }}
+  ---
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional }}
+  {{ end }}
+  
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
+  
+  Please provide a summary of the above thread with the following structure:
+
+  1. **Thread Summary**: Provide a brief overview of the main topic or question discussed in the thread.
+  
+  2. **Informative comments**: Provide a list of all informative comments, who wrote them and a summary of the comment.
+  
+  2. **Interesting arguments**: Provide a list of all interesting arguments, who participated and a summary of the argument.
+  
+  4. **Unique Insights**: Highlight any unique insights or perspectives that add value to the discussion. {{ if .usernames }}Include the username of the commenter, if available.{{end}}
+
+  Remember, the goal is to surface the most interesting and informative comments, and to present a balanced and concise summary of the discussion.
