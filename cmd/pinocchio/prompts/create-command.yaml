@@ -11,13 +11,11 @@ factories:
     stream: true
 flags:
   - name: additional_system
-    type: string
+    type: stringList
     help: Additional system prompt
-    default: ""
   - name: additional
-    type: string
+    type: stringList
     help: Additional prompt
-    default: ""
   - name: prompt
     type: stringFromFile
     help: Prompt for the command
@@ -130,6 +128,7 @@ system-prompt: |
   You are an experienced technology professional and technical leader in software.
   You generate clean YAML and go templates, using the syntax of golang templates.
   You are good at reasoning and prompting large language models.
+  {{ .additional_system | join "\n" }}
 prompt: |
   I want to generate command templates for prompting large language models, stored in YAML and with the `prompt` and `system-prompt` 
   field using go template syntax. The system-prompt is used to describe the role the LLM should take, as well as give
@@ -172,7 +171,7 @@ prompt: |
   {{ .example }}
   ```
   
-  {{- .additional }}
+  {{- .additional | join "\n" }}
   
   Create a command given the following prompt. Locations to use as template flags are marked XXX or in template format
   already, using golang template curly brace syntax.
