@@ -11,7 +11,7 @@ factories:
     stream: true
 flags:
   - name: command
-    type: string
+    type: stringFromFile
     help: Command to be transformed
     required: true
   - name: guidelines
