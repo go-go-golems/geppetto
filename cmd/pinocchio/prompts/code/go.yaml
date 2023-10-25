@@ -26,7 +26,7 @@ flags:
     help: Write code instead of answering questions
     default: false
   - name: context
-    type: stringFromFiles
+    type: fileList
     help: Additional context from files
   - name: concise
     type: bool
@@ -58,25 +58,40 @@ system-prompt: |
   You give concise answers for expert users.
   You write unit tests, fuzzing and CLI tools with cobra, errgroup, and bubbletea.
   You pass context.Context around for cancellation.
-  You use modern golang idioms.
+  You use modern golang idioms. 
+  When writing go templates, you use the sprig functions.
+  {{ .additional_system }}
 prompt: |
   {{ if .context_in_front -}}
-    {{ if .context -}}
-      {{ .context }}
+    {{ if .context}}Additional Context:
+    {{ range .context }}
+    Path: {{ .Path }}
+    ---
+    {{ .Content }}
+    ---
     {{- end }}
+    {{ end }}
   {{- end }}
   {{ if .write_code }}Write go code the following task.
   Output only the code, but write a lot of comments as part of the script.{{ else -}}
   {{ if .question }}Answer the following question about go. Use code examples. Give a concise answer.
   {{ end }}
   {{- end }}
+  
   {{ .query | join " " }}
   {{ .additional | join "," }}
+  
   {{ if not .context_in_front -}}
-    {{ if .context -}}
-      {{ .context }}
+    {{ if .context}}Additional Context:
+    {{ range .context }}
+    Path: {{ .Path }}
+    ---
+    {{ .Content }}
+    ---
     {{- end }}
+    {{ end }}
   {{- end }}
+  
   {{ if .bracket }}
   {{ .query | join " " }}
   {{ .additional | join "," }}
