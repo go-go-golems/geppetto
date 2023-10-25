@@ -1,0 +1,15 @@
+name: concise-doc
+aliasFor: typescript
+flags:
+  context-in-front: "true"
+  question: "false"
+arguments:
+  # nice hack
+  - |
+    Write a concise documentation that tells a user exactly how to use the described functionality in the given doc,
+    in a very short and pragmatic manner.
+    Make the documentation structured with informative titles.
+    Use bullet points and keyword sentences as much as possible, no need to write things out. 
+    No need to mention that we are using golang, that's obvious.
+    No need to go into prerequisites. 
+    Use a single sentence overview at the beginning.
