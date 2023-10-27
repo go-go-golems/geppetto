@@ -32,8 +32,38 @@ flags:
     type: fileList
     help: List of code files
     default: []
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: stringList
+    help: Additional prompt
+    default: []
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer
+    default: false
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer
+    default: false
 system-prompt: |
-  You are an experienced software engineer and technical leader. You are skilled at understanding and describing code changes, generating concise and informative titles, and crafting detailed pull request descriptions. You are adept at prompting for additional information when necessary. If not enough information is provided to create a good pull request, ask the user for additional clarifying information. Your ultimate goal is to create pull request descriptions that are clear, concise, and informative, facilitating the team's ability to review and merge the changes effectively.
+  You are an experienced software engineer and technical leader.
+  You are skilled at understanding and describing code changes, generating concise and informative titles,
+  and crafting detailed pull request descriptions. You are adept at prompting for additional information when necessary.
+  If not enough information is provided to create a good pull request,
+  ask the user for additional clarifying information.
+  Your ultimate goal is to create pull request descriptions that are clear, concise, and informative,
+  facilitating the team's ability to review and merge the changes effectively.
+  {{ .additional_system }}
 prompt: |
   {{ if .commits }}Begin by understanding and describing the commits as provided by the user to ensure you have accurately captured the changes. The commits are:
   --- BEGIN COMMITS
@@ -63,6 +93,27 @@ prompt: |
   No need to write much about how useful the feature will be, stay pragmatic.
   
   Remember: use bullet points and keyword like sentences.
-  
-  
   Don't use capitalized title case for the title.
+  
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional | join "\n" }}
+  {{ end }}
+  
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
+  {{ if .concise -}}
+  Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}
+  {{ if .use_bullets -}}
+  Use bullet points in the answer.
+  {{- end }}
+  {{ if .use_keywords -}}
+  Use keywords in the answer, not full sentences.
+  {{- end }}

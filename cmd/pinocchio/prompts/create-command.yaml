@@ -102,6 +102,16 @@ flags:
         Write a description of the animal {{ .name }}.
         {{ if .color }}It is of color {{ .color }}.{{end}}
         {{ if .species }}It is a {{ .species | join ", " }}.{{end}}
+      
+        The output format is a YAML file with the following structure:
+      
+        ```yaml
+        name: ...
+        color: ...
+        species: ...
+        description: ...
+        ```
+      
         {{ if .additional }}
         Additional instructions:
         {{ .additional }}
