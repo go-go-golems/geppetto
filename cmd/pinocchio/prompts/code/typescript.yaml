@@ -14,16 +14,24 @@ flags:
     help: Additional system prompt
     default: ""
   - name: additional
-    type: string
+    type: stringList
     help: Additional prompt
-    default: ""
+    default: []
   - name: write_code
     type: bool
     help: Write code instead of answering questions
     default: false
   - name: context
-    type: stringFromFiles
+    type: fileList
     help: Additional context from files
+  - name: context_in_front
+    type: bool
+    help: Put context in front of the answer
+    default: false
+  - name: bracket
+    type: bool
+    help: Bracket prompt with additional
+    default: false
   - name: concise
     type: bool
     help: Give concise answers
@@ -46,16 +54,40 @@ system-prompt: |
   You give concise answers for expert users.
   You write unit tests.
   You use modern typescript idioms.
+  {{ .additional_system }}
 prompt: |
+  {{ if .context_in_front -}}
+    {{ if .context}}Additional Context:
+    {{ range .context }}
+    Path: {{ .Path }}
+    ---
+    {{ .Content }}
+    ---
+    {{- end }}
+    {{ end }}
+  {{- end }}
   {{ if .write_code }}Write typescript code the following task.
   Output only the code, but write a lot of comments as part of the script.{{ else -}}
   Answer the following question about typescript. Use code examples. Give a concise answer.
   {{- end }}
   {{ .query | join " " }}
-  {{- .additional }}
-  {{ if .context -}}
-    {{ .context }}
+  {{- .additional  | join "\n" }}
+  {{ if not .context_in_front -}}
+    {{ if .context}}Additional Context:
+    {{ range .context }}
+    Path: {{ .Path }}
+    ---
+    {{ .Content }}
+    ---
+    {{- end }}
+    {{ end }}
   {{- end }}
+  
+  {{ if .bracket }}
+  {{ .query | join " " }}
+  {{ .additional | join "\n" }}
+  {{ end }}
+  
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
   {{- end }}

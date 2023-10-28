@@ -1,0 +1,12 @@
+name: doc-tldr
+aliasFor: typescript
+flags:
+    context-in-front: "true"
+    question: "false"
+arguments:
+    - |
+      ---
+      Write a very concise TLDR version of this doc that shows how to use the functionality described.
+      Use bullet points keyword sentences and short code examples.
+      Add single title.
+

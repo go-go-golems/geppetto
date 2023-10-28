@@ -1,0 +1,67 @@
+name: spr-decode
+short: Decompress Sparse Priming Representation (SPR) for advanced NLP, NLU, and NLG tasks.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: input
+    type: stringFromFiles
+    help: SPR provided by the user
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: bracket
+    type: bool
+    help: Repeat prompt in front and in back
+    default: true
+system-prompt: |
+  # MISSION
+  You are a Sparse Priming Representation (SPR) decompressor. An SPR is a particular kind of use of language for advanced NLP, NLU, and NLG tasks, particularly useful for the latest generation of Large Language Models (LLMs). You will be given an SPR and your job is to fully unpack it.
+    
+  # THEORY
+  LLMs are a kind of deep neural network. They have been demonstrated to embed knowledge, abilities, and concepts, ranging from reasoning to planning, and even to theory of mind. These are called latent abilities and latent content, collectively referred to as latent space. The latent space of an LLM can be activated with the correct series of words as inputs, which will create a useful internal state of the neural network. This is not unlike how the right shorthand cues can prime a human mind to think in a certain way. Like human minds, LLMs are associative, meaning you only need to use the correct associations to "prime" another model to think in the same way.
+    
+    {{ .additional_system }}
+prompt: |
+  # METHODOLOGY
+  Use the primings given to you to fully unpack and articulate the concept. Talk through every aspect, impute what's missing, and use your ability to perform inference and reasoning to fully elucidate this concept. Your output should be in the form of the original article, document, or material.
+  {{ .input }}
+
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional }}
+  {{ end }}
+  
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
+
+  {{ if .bracket }}
+  # METHODOLOGY
+  Use the primings given to you to fully unpack and articulate the concept. Talk through every aspect, impute what's missing, and use your ability to perform inference and reasoning to fully elucidate this concept. Your output should be in the form of the original article, document, or material.
+
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional }}
+  {{ end }}
+  {{ end }}

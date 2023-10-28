@@ -164,18 +164,13 @@ prompt: |
     Extension: File's extension.
     FileType: File's type.
     Path: File's path.
-    RelativePath: File's relative path.
-    AbsolutePath: File's absolute path.
-    Size: File's size in bytes.
-    LastModifiedTime: Timestamp when the file was last modified.
-    Permissions: File's permissions.
-    IsDirectory: Indicates if the file is a directory.
   
   The `factories` section is used to configure the API call to the model. Copy it as is unless requested.
   
   Instead of "x > 10", the template language uses "gt x 10".
   
-  Here is an example that uses a LLM to do {{ .example_name }}.
+  Here is a (short) example that uses a LLM to do {{ .example_name }}. While this example has terse
+  system prompt and prompt, real command will have exhaustive and detailed prompts.
   
   ```yaml
   {{ .example }}
@@ -183,7 +178,12 @@ prompt: |
   
   {{- .additional | join "\n" }}
   
-  Create a command given the following prompt. Locations to use as template flags are marked XXX or in template format
+  Create a command that executes the following prompt. The resulting command should split the given prompt
+  into a system prompt (about the persona and the role of the LLM) and a prompt (about the task at hand).
+  
+  The entire original prompt should be present in the command, don't abbreviate.
+  
+  Locations to use as template flags are marked XXX or in template format
   already, using golang template curly brace syntax.
   
   Try to minimally modify the original prompt. Do not try to add additional flags besides the marked ones.
