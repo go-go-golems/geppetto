@@ -6,7 +6,7 @@ factories:
   chat:
     engine: gpt-4
     temperature: 0.2
-    max_response_tokens: 2048
+    max_response_tokens: 700
     stop: []
     stream: true
 flags:
@@ -55,6 +55,10 @@ flags:
     type: bool
     help: Use keywords in the answer
     default: false
+  - name: bracket
+    type: bool
+    help: Use bracketed text in the answer
+    default: true
 system-prompt: |
   You are an experienced software engineer and technical leader.
   You are skilled at understanding and describing code changes, generating concise and informative titles,
@@ -74,7 +78,7 @@ prompt: |
   
   The description of the pull request is: {{ .description }}.
   
-  Now, generate a concise and informative title that accurately represents the changes. The title is: {{ .title }}.
+  {{ if .title}}Now, generate a concise and informative title that accurately represents the changes and title. The title is: {{ .title }}.{{end}}
   
   {{if .diff }}The diff of the changes is:
   --- BEGIN DIFF
@@ -97,7 +101,7 @@ prompt: |
   
   {{ if .additional }}
   Additional instructions:
-  {{ .additional | join "\n" }}
+  {{ .additional | join "\n- " }}
   {{ end }}
   
   {{ if .context}}Additional Context:
@@ -117,3 +121,12 @@ prompt: |
   {{ if .use_keywords -}}
   Use keywords in the answer, not full sentences.
   {{- end }}
+
+  {{ if .bracket -}}
+  The description of the pull request is: {{ .description }}.
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional | join "\n- " }}
+  {{ end }}
+  {{ end}}
+  
