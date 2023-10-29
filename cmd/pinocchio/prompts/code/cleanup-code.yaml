@@ -51,7 +51,7 @@ prompt: |
 
   Your output should follow this structure:
 
-  1. **Code Section**: This section should contain the refined code, free from unnecessary comments. Each function should be preceded by a comprehensive docstring. Try to omit the code in full and not skip any sections.
+  1. **Code Section**: This section should contain the refined code, free from unnecessary comments. Each function should be preceded by a comprehensive docstring. Try to emit the code in full and not skip any sections.
 
   2. **Explanation Section**: This section should provide a brief explanation of the changes you made to the code and why. This will help users understand your thought process and the rationale behind your modifications.
 
