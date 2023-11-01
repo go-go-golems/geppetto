@@ -14,11 +14,15 @@ flags:
     help: Additional system prompt
     default: ""
   - name: additional
-    type: string
+    type: stringList
     help: Additional prompt
-    default: ""
+    default: []
+  - name: bracket
+    type: bool
+    help: Bracket prompt with additional
+    default: false
   - name: context
-    type: stringFromFiles
+    type: fileList
     help: Additional context from files
   - name: write_code
     type: bool
@@ -96,10 +100,15 @@ prompt: |
     Answer the following question about {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} development. Use code examples when necessary. 
   {{- end }}
   {{ .query | join " " }}
-  {{ .additional }}
-  {{ if .context -}}
-    {{ .context }}
+  {{ .additional | join "," }}
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
   {{- end }}
+  {{ end }}
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
   {{- end }}
@@ -110,3 +119,10 @@ prompt: |
     Use keywords in the answer.
   {{- end }}
 
+  {{ if .bracket }}
+  {{ .query | join " " }}
+  {{ .additional | join "," }}
+  {{ end }}
+  {{ if .concise -}}
+    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}
