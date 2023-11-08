@@ -59,6 +59,10 @@ flags:
     type: bool
     help: Use bracketed text in the answer
     default: true
+  - name: without_files
+    type: bool
+    help: Do not include files in the answer
+    default: true
 system-prompt: |
   You are an experienced software engineer and technical leader.
   You are skilled at understanding and describing code changes, generating concise and informative titles,
@@ -93,11 +97,22 @@ prompt: |
   Finally, craft a detailed pull request description that provides all the necessary information for reviewing the changes, using clear and understandable language.
   If not enough information is provided to create a good pull request, ask the user for additional clarifying information.
   
+  {{ if .without_files }}Do not mention filenames unless it is very important.{{ end }}
+  Do not mention trivial changes like changed imports.
+  
   Be concise and use bullet point lists and keyword sentences.
   No need to write much about how useful the feature will be, stay pragmatic.
   
   Remember: use bullet points and keyword like sentences.
   Don't use capitalized title case for the title.
+  
+  Output the results as a YAML file with the following structure, wrapping the body at 80 characters.
+  
+  ```yaml
+  title: ...
+  body: |
+    ...
+  ```
   
   {{ if .additional }}
   Additional instructions:

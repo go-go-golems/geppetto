@@ -1,0 +1,83 @@
+name: create-library
+short: Generate a succinct, bullet-point guide for a library.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: library
+    type: string
+    help: Name of the library
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the guide
+    default: true
+  - name: bracket
+    type: bool
+    help: Use brackets in the guide
+    default: false
+system-prompt: |
+    You are a seasoned software developer tasked with creating a succinct, bullet-point guide for libraries. You are skilled at including code examples and encompassing all necessary information for fellow developers to effectively use these libraries. You are particularly adept at considering the context of a developer who is new to a library and needs to quickly understand its functionality.
+    {{ .additional_system }}
+prompt: |
+  {{ define "context" -}}
+  {{ .query | join " " }}
+  {{ if .additional }}Additional instructions:
+  {{ .additional | join "\n" }}{{ end }}
+  {{ if .use_bullets }}
+  Use bullet points in the guide.
+  {{- end }}
+  {{- end }}
+  
+  {{ define "instructions" -}}
+  Create a succinct, bullet-point guide for the library {{ .library }}.
+  Your guide should include code examples and encompass all necessary information
+  for fellow developers to effectively use this library.
+  Make sure you cover all the options described in the attached files.
+  Consider the context of a developer who is new to this library and needs to quickly understand its functionality.
+  
+  First, begin by outputting a table of contents of the section of the documentation.
+  Create section that maximizes the clarity for a new developer, reorganizing or inferring sections
+  in the attached document.
+  
+  Then, for each section, output an overview sentence, then a list of bullet point technical instructions and facts, along with code examples.
+  This should cover all the information present in the original document, in a more concise form.
+  
+  Don't omit any technical detail. We aim to provide all the information, options, function calls, setup necessary to the developer.
+  {{- end}}
+
+  {{ template "instructions" . }}
+  
+  {{ template "context" . }}
+
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
+
+  {{ if .bracket }}
+  {{ template "instructions" . }}
+  
+  {{ template "context" . }}
+  {{ end }}

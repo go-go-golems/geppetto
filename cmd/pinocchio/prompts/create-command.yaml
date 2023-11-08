@@ -95,10 +95,27 @@ flags:
           type: bool
           help: Use keywords in the answer
           default: false
+        - name: bracket
+          type: bool
+          help: Use brackets in the answer
+          default: false
       system-prompt: |
           You are an intrepid animalist. You know all species of animals. You write clearly and concisely.
           {{ .additional_system }}
       prompt: |
+        {{ define "context" -}}
+        {{ .query | join " " }}
+        {{ if .additional }}Additional instructions:
+        {{ .additional | join "\n" }}{{ end }}
+        {{ if .concise }}
+        Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+        {{- end }}{{ if .use_bullets }}
+        Use bullet points in the answer.
+        {{- end }}{{ if .use_keywords }}
+        Use keywords in the answer, not full sentences.
+        {{- end }}
+        {{- end }}
+        
         Write a description of the animal {{ .name }}.
         {{ if .color }}It is of color {{ .color }}.{{end}}
         {{ if .species }}It is a {{ .species | join ", " }}.{{end}}
@@ -112,10 +129,8 @@ flags:
         description: ...
         ```
       
-        {{ if .additional }}
-        Additional instructions:
-        {{ .additional }}
-        {{ end }}
+        {{ template "context" . }}
+      
         
         {{ if .context}}Additional Context:
         {{ range .context }}
@@ -125,15 +140,11 @@ flags:
         ---
         {{- end }}
         {{ end }}
-        {{ if .concise -}}
-        Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
-        {{- end }}
-        {{ if .use_bullets -}}
-        Use bullet points in the answer.
-        {{- end }}
-        {{ if .use_keywords -}}
-        Use keywords in the answer, not full sentences.
-        {{- end }}
+      
+        {{ if .bracket }}
+        {{ template "context" . }}
+        {{ end }}
+
 system-prompt: |
   You are an experienced technology professional and technical leader in software.
   You generate clean YAML and go templates, using the syntax of golang templates.
