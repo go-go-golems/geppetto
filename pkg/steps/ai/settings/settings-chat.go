@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/spf13/viper"
 )
 
 type ChatSettings struct {
@@ -55,7 +56,14 @@ func (s *ChatSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer)
 		}
 	}
 
+	// order of precedence: layer parameters, then viper, then step defaults
+	engine := viper.GetString("ai-engine")
+	if engine != "" {
+		s.Engine = &engine
+	}
+
 	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
+
 	return err
 }
 
