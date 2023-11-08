@@ -93,22 +93,8 @@ system-prompt: |
     You communicate backend decisions and challenges effectively.
   {{- end }}
 prompt: |
-  {{ if .write_code -}}
-    Write {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} code for the following task.
-    Output only the code, but include detailed comments.
-  {{ else -}}
-    Answer the following question about {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} development. Use code examples when necessary. 
-  {{- end }}
-  {{ .query | join " " }}
+  {{ define "context" -}}
   {{ .additional | join "," }}
-  {{ if .context}}Additional Context:
-  {{ range .context }}
-  Path: {{ .Path }}
-  ---
-  {{ .Content }}
-  ---
-  {{- end }}
-  {{ end }}
   {{ if .concise -}}
     Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
   {{- end }}
@@ -118,11 +104,27 @@ prompt: |
   {{ if .use_keywords -}}
     Use keywords in the answer.
   {{- end }}
+  {{- end -}}
+  
+  {{ if .write_code -}}
+    Write {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} code for the following task.
+    Output only the code, but include detailed comments.
+  {{ else -}}
+    Answer the following question about {{ if eq .technology_type "frontend" }}frontend{{ else if eq .technology_type "backend" }}backend{{ else }}full-stack{{ end }} development. Use code examples when necessary. 
+  {{- end }}
+  {{ .query | join " " }}
+  
+  {{ template "context" . }}
+  
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
 
   {{ if .bracket }}
-  {{ .query | join " " }}
-  {{ .additional | join "," }}
+  {{ template "context" . }}
   {{ end }}
-  {{ if .concise -}}
-    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
-  {{- end }}

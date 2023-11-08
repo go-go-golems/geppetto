@@ -1,0 +1,108 @@
+name: create-persona
+short: Generate persona descriptions.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: ["CONFIRM"]
+    stream: true
+flags:
+  - name: profession
+    type: string
+    help: Persona's profession
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: concise
+    type: bool
+    help: Give concise answers
+    default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer
+    default: false
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer
+    default: false
+  - name: bracket
+    type: bool
+    help: Use brackets in the answer
+    default: false
+system-prompt: |
+    You are an advanced language model, your task is to create short persona descriptions. A persona is akin to a theater character, embodying a specific profession, role, knowledge, and personality traits. For this task, focus on the persona's occupation, their skills, knowledge, and the things they care about in their role, as well as how their personality relates to their tasks.
+    {{ .additional_system }}
+prompt: |
+  {{ define "context" -}}
+  {{ .query | join " " }}
+  {{ if .additional }}Additional instructions:
+  {{ .additional | join "\n" }}{{ end }}
+  {{ if .concise }}
+  Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}{{ if .use_bullets }}
+  Use bullet points in the answer.
+  {{- end }}{{ if .use_keywords }}
+  Use keywords in the answer, not full sentences.
+  {{- end }}
+  {{- end }}
+  
+  In a first part, write clear paragraphs describing the persona to be created.
+
+  To begin, start with the persona's profession and role {{ .profession }}.
+  Then, delve into their specific knowledge and skills related to their occupation.
+  Next, describe the things they care about within their role.
+  Finally, explain how their personality traits influence their tasks. 
+
+  Remember to maintain a clear, concise, and informative tone throughout your description.
+
+  Before continuing, ask for confirmation from the user before moving on.
+  This allows the user to provide clarifying information. Emit the word CONFIRM.
+
+  After confirmation from the user, output the persona as a concise description in the following YAML format (in this example, a giraffe trainer):
+  ```yaml
+  persona:
+    name: giraffe trainer
+    occupation: trains giraffes to perform in a zoo
+    knowledge:
+      - training giraffes to perform tricks
+      - zoo and entertainment industry
+      - large herbivore diet
+    skills:
+      - advanced mammal training
+      - giraffe care
+      - animal empathy
+    personality:
+      - proud of their work
+      - cares a lot about giraffes
+      - critical of the zoo industry
+      - speaks their mind
+  ```
+
+
+  {{ template "context" . }}
+
+  
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
+
+  {{ if .bracket }}
+  {{ template "context" . }}
+  {{ end }}
