@@ -2,9 +2,10 @@ package settings
 
 import (
 	_ "embed"
+	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra"
 )
 
 type ChatSettings struct {
@@ -56,12 +57,6 @@ func (s *ChatSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer)
 		}
 	}
 
-	// order of precedence: layer parameters, then viper, then step defaults
-	engine := viper.GetString("ai-engine")
-	if engine != "" {
-		s.Engine = &engine
-	}
-
 	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
 
 	return err
@@ -83,4 +78,8 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 	return &ChatParameterLayer{
 		ParameterLayerImpl: ret,
 	}, nil
+}
+
+func (d *ChatParameterLayer) ParseFlagsFromCobraCommand(cmd *cobra.Command) (map[string]interface{}, error) {
+	return cli.ParseFlagsFromViperAndCobraCommand(cmd, d.ParameterLayerImpl)
 }
