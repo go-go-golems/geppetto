@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/go-go-golems/clay v0.0.27
-	github.com/go-go-golems/glazed v0.4.23
+	github.com/go-go-golems/glazed v0.4.28
 	github.com/mattn/go-isatty v0.0.18
 	github.com/mb0/glob v0.0.0-20160210091149-1eb79d2de6c4
 	github.com/muesli/reflow v0.3.0
