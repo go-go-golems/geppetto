@@ -2,6 +2,7 @@ package settings
 
 import (
 	_ "embed"
+	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/spf13/cobra"
@@ -67,22 +68,7 @@ func (cs *ClientSettings) UpdateFromParameters(parsedLayers *layers.ParsedParame
 func (cp *ClientParameterLayer) ParseFlagsFromCobraCommand(
 	cmd *cobra.Command,
 ) (map[string]interface{}, error) {
-	// actually hijack and load everything from viper instead of cobra...
-	ps, err := parameters.GatherFlagsFromViper(cp.Flags, false, cp.Prefix)
-	if err != nil {
-		return nil, err
-	}
-
-	// now load from flag overrides
-	ps2, err := parameters.GatherFlagsFromCobraCommand(cmd, cp.Flags, true, false, cp.Prefix)
-	if err != nil {
-		return nil, err
-	}
-	for k, v := range ps2 {
-		ps[k] = v
-	}
-
-	return ps, nil
+	return cli.ParseFlagsFromViperAndCobraCommand(cmd, cp.ParameterLayerImpl)
 }
 
 // UnmarshalYAML overrides YAML parsing to convert time.duration from int
