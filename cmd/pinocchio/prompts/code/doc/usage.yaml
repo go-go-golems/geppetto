@@ -1,0 +1,162 @@
+name: usage
+short: Generate practical and accessible documentation for new developers.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: additional
+    type: stringList
+    help: Additional instructions.
+    default: []
+  - name: additional_system
+    type: string
+    help: Additional prompt instructions.
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files.
+  - name: with_output_structure
+    type: bool
+    help: Include the output structure at the end of the documentation.
+    default: true
+  - name: examples
+    type: fileList
+    help: A set of example files to illustrate usage.
+  - name: codes
+    type: fileList
+    help: A set of code files relevant to the documentation.
+  - name: docs
+    type: fileList
+    help: A set of source documentation files.
+  - name: guidelines
+    type: fileList
+    help: A set of guideline files to provide structured guidance.
+  - name: inputs
+    type: fileList
+    help: A set of input files that describe the functionality.
+    required: true
+  - name: bracket
+    type: bool
+    help: bracket the output with the additional information
+    default: true
+system-prompt: |
+  You are an AI assistant tasked with generating practical and accessible documentation aimed at helping new developers quickly become productive with our codebase. Your documentation should prioritize actionable content that enables developers to effectively use and understand different parts of the technology stack. Include explanations of the internal workings only when it enhances the usability or comprehension of the technology. Communicate in a straightforward and professional tone, avoiding unnecessary jargon, and provide clear explanations for essential technical terms. The documentation should be adaptable for updates and expansions.
+  {{ .additional_system }}
+prompt: |
+  {{ define "context" -}}
+  {{ .query | join " " }}
+  {{ if .additional }}Additional instructions:
+  {{ .additional | join "\n" }}{{ end }}
+  {{- end }}
+  
+  {{ define "fileSection" -}}
+  {{- range . -}}
+  ---
+  Path: {{ .Path }}
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{- end }}
+
+  {{- define "outputStructure" -}}
+  {{ if .with_output_structure }}
+  ### Output Structure
+
+  The output structure should reflect the intent of the documentation, which is to be practical, user-friendly, and focused on enabling new developers to quickly become productive. The structure should include:
+
+  1. **Introduction**
+     - Overview of the technology
+     - Objectives of the documentation
+
+  2. **Getting Started**
+     - Prerequisites and setup instructions
+     - Configuration guidelines
+
+  3. **Key Components**
+     - Description of each component
+     - Practical applications and use cases
+
+  4. **Usage Examples**
+     - Real-world scenarios
+     - Step-by-step usage instructions
+
+  5. **Troubleshooting**
+     - Common issues and their resolutions
+     - Tips for navigating challenges
+
+  6. **Further Resources**
+     - Links to in-depth documentation
+     - Community forums and support networks
+  {{- end }}
+  {{- end }}
+
+  Your task is to generate practical and accessible documentation aimed at helping new developers quickly become productive with our codebase. The documentation should prioritize actionable content that enables developers to effectively use and understand different parts of the technology stack. While providing this practical guidance, include explanations of the internal workings only when it enhances the usability or comprehension of the technology.
+
+  Each section should start with a paragraph that introduces the topic and provides context for the reader.
+
+  To achieve this, consider the following guidelines for structuring your response:
+
+  1. Start with an introduction that encapsulates the essence and goals of the technology.
+  2. Guide the reader through initial setup procedures in a clear and concise manner.
+  3. Identify and describe the key components of the technology, emphasizing their practical application.
+  4. Include usage examples that cover common tasks or challenges, illustrating the application of the technology in real-world scenarios.
+  5. Offer a troubleshooting section that addresses frequent beginner pitfalls and their solutions.
+  6. Conclude with a list of further resources for deepening knowledge and finding community support.
+
+  Remember to communicate in a straightforward and professional tone, avoiding unnecessary jargon. When technical terms are essential, provide clear explanations. The documentation should be adaptable, allowing for updates and expansions to maintain relevance with evolving technology.
+  
+  {{ template "context" . }}
+
+  {{ if .context }}
+  ### Additional Context
+  {{ template "fileSection" .context }}
+  {{ end }}
+
+  {{ if .examples }}
+  ### Example Files
+  
+  Use these files as examples of similar documentation. Try to mirror the structure and style.
+  
+  {{ template "fileSection" .examples }}
+  {{ end }}
+
+  {{ if .codes }}
+  ### Code
+  
+  These are relevant source files.
+  
+  {{ template "fileSection" .codes }}
+  {{ end }}
+
+  {{ if .docs }}
+  ### Additional documentation
+  
+  These are relevant additional documentation files.
+  
+  {{ template "fileSection" .docs }}
+  {{ end }}
+
+  {{ template "outputStructure" . }}
+
+  {{ if .guidelines }}
+  ### Guideline Files
+  
+  Use these files as additional guidelines on how to write documentation.
+  {{ template "fileSection" .guidelines }}
+  {{ end }}
+  
+  ### Input files
+  
+  These files are the inputs from which you should create the documentation.
+  {{ template "fileSection" .inputs }}
+  
+  {{ if .bracket }}
+  {{ template "context" . }}
+  {{ end }}
+  
