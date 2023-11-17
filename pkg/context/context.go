@@ -163,6 +163,28 @@ func (c *Manager) GetSinglePrompt() string {
 	return prompt
 }
 
+func (c *Manager) SaveToFile(s string) error {
+	// TODO(manuel, 2023-11-14) For now only json
+	msgs := c.GetMessagesWithSystemPrompt()
+	f, err := os.Create(s)
+	if err != nil {
+		return err
+	}
+
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(msgs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ConvertMessagesToOpenAIMessages(messages []*Message) ([]openai.ChatCompletionMessage, error) {
 	res := make([]openai.ChatCompletionMessage, len(messages))
 	for i, message := range messages {
