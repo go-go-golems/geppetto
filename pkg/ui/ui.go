@@ -3,6 +3,7 @@ package ui
 import (
 	context2 "context"
 	"fmt"
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -11,12 +12,26 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
-	"github.com/muesli/reflow/wordwrap"
 	"github.com/pkg/errors"
 	"time"
 )
 
 type errMsg error
+
+// states:
+// - user input
+// - user moving around messages
+// - stream completion
+// - showing error
+
+type State string
+
+const (
+	StateUserInput        State = "user_input"
+	StateMovingAround     State = "moving_around"
+	StateStreamCompletion State = "stream_completion"
+	StateError            State = "error"
+)
 
 type model struct {
 	contextManager *context.Manager
@@ -27,8 +42,8 @@ type model struct {
 	// or implement wrapping ourselves.
 	textArea textarea.Model
 
-	// is the textarea currently focused
-	focused bool
+	help help.Model
+
 	// currently selected message, always valid
 	selectedIdx int
 	err         error
@@ -40,26 +55,25 @@ type model struct {
 
 	step chat.Step
 	// if not nil, streaming is going on
-	stepResult             *steps.StepResult[string]
-	stepCancel             context2.CancelFunc
+	stepResult *steps.StepResult[string]
+	stepCancel context2.CancelFunc
+
 	currentResponse        string
 	previousResponseHeight int
+
+	state        State
+	quitReceived bool
 }
 
-func (m *model) updateKeyBindings() {
-	if m.focused {
-		m.keyMap.SelectNextMessage.SetEnabled(false)
-		m.keyMap.SelectPrevMessage.SetEnabled(false)
-		m.keyMap.FocusMessage.SetEnabled(false)
-		m.keyMap.UnfocusMessage.SetEnabled(true)
-		m.keyMap.SubmitMessage.SetEnabled(true)
-	} else {
-		m.keyMap.SelectNextMessage.SetEnabled(true)
-		m.keyMap.SelectPrevMessage.SetEnabled(true)
-		m.keyMap.FocusMessage.SetEnabled(true)
-		m.keyMap.UnfocusMessage.SetEnabled(false)
-		m.keyMap.SubmitMessage.SetEnabled(false)
-	}
+type streamDoneMsg struct {
+}
+
+type streamCompletionMsg struct {
+	Completion string
+}
+
+type streamCompletionError struct {
+	Err error
 }
 
 func InitialModel(manager *context.Manager, step chat.Step) model {
@@ -69,12 +83,13 @@ func InitialModel(manager *context.Manager, step chat.Step) model {
 		keyMap:         DefaultKeyMap,
 		step:           step,
 		viewport:       viewport.New(0, 0),
+		help:           help.New(),
 	}
 
 	ret.textArea = textarea.New()
 	ret.textArea.Placeholder = "Once upon a time..."
 	ret.textArea.Focus()
-	ret.focused = true
+	ret.state = StateUserInput
 
 	ret.selectedIdx = len(ret.contextManager.GetMessages()) - 1
 
@@ -100,20 +115,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keyMap.UnfocusMessage):
-			if m.focused {
+			if m.state == StateUserInput {
 				m.textArea.Blur()
-				m.focused = false
+				m.state = StateMovingAround
 				m.updateKeyBindings()
 			}
 		case key.Matches(msg, m.keyMap.Quit):
+			if !m.quitReceived {
+				m.quitReceived = true
+				// on first quit, try to cancel completion if running
+				if m.stepCancel != nil {
+					m.stepCancel()
+					return m, tea.Batch(cmds...)
+				}
+			}
+
+			if m.stepResult != nil {
+				// force save completion before quitting
+				m.finishCompletion()
+			}
+
 			return m, tea.Quit
 
 		case key.Matches(msg, m.keyMap.FocusMessage):
-			if !m.focused {
+			if m.state == StateMovingAround {
 				cmd = m.textArea.Focus()
 				cmds = append(cmds, cmd)
 
-				m.focused = true
+				m.state = StateUserInput
 				m.updateKeyBindings()
 			}
 
@@ -128,24 +157,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.keyMap.SubmitMessage):
-			if m.focused {
+			if m.state == StateUserInput {
 				cmd := m.submit()
 				cmds = append(cmds, cmd)
 			}
 
-		case key.Matches(msg, m.keyMap.CancelCompletion):
-			if m.stepCancel == nil {
-				panic("cancel completion without a step")
-				// shouldn't happen
+		case key.Matches(msg, m.keyMap.SaveToFile):
+			// TODO(manuel, 2023-11-14) Implement file chosing dialog
+			err := m.contextManager.SaveToFile("/tmp/output.json")
+			if err != nil {
+				return m, func() tea.Msg {
+					return errMsg(err)
+				}
 			}
-			m.stepCancel()
+
+		// same keybinding for both
+		case key.Matches(msg, m.keyMap.CancelCompletion):
+			if m.state == StateStreamCompletion {
+				if m.stepCancel == nil {
+					// shouldn't happen
+					return m, tea.Batch(cmds...)
+				}
+				m.stepCancel()
+			}
+			return m, tea.Batch(cmds...)
+
+		case key.Matches(msg, m.keyMap.DismissError):
+			if m.state == StateError {
+				m.err = nil
+				m.state = StateUserInput
+			}
 			return m, tea.Batch(cmds...)
 
 		default:
-			if m.focused {
+			switch m.state {
+			case StateUserInput:
 				m.textArea, cmd = m.textArea.Update(msg)
 				cmds = append(cmds, cmd)
-			} else {
+			case StateMovingAround, StateStreamCompletion, StateError:
 				m.viewport, cmd = m.viewport.Update(msg)
 				cmds = append(cmds, cmd)
 			}
@@ -163,6 +212,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 		return m, nil
 
+	// handle chat streaming messages
 	case streamCompletionMsg:
 		m.currentResponse += msg.Completion
 		newTextAreaView := m.textAreaView()
@@ -182,8 +232,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 	case streamCompletionError:
-		cmd = m.finishCompletion()
-		m.err = msg.Err
+		cmd = m.setError(msg.Err)
 		cmds = append(cmds, cmd)
 
 	case refreshMessageMsg:
@@ -202,13 +251,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *model) updateKeyBindings() {
+	m.keyMap.SaveToFile.SetEnabled(true)
+	m.keyMap.SaveSourceBlocksToFile.SetEnabled(true)
+	m.keyMap.CopyToClipboard.SetEnabled(true)
+	m.keyMap.CopyLastResponseToClipboard.SetEnabled(true)
+	m.keyMap.CopySourceBlocksToClipboard.SetEnabled(true)
+
+	m.keyMap.SelectNextMessage.SetEnabled(m.state == StateMovingAround)
+	m.keyMap.SelectPrevMessage.SetEnabled(m.state == StateMovingAround)
+	m.keyMap.FocusMessage.SetEnabled(m.state == StateMovingAround)
+	m.keyMap.UnfocusMessage.SetEnabled(m.state == StateUserInput)
+	m.keyMap.SubmitMessage.SetEnabled(m.state == StateUserInput)
+
+	m.keyMap.DismissError.SetEnabled(m.state == StateError)
+	m.keyMap.CancelCompletion.SetEnabled(m.state == StateStreamCompletion)
+}
+
 func (m *model) recomputeSize() {
 	headerView := m.headerView()
 	headerHeight := lipgloss.Height(headerView)
 	textAreaView := m.textAreaView()
 	textAreaHeight := lipgloss.Height(textAreaView)
+
+	helpView := m.help.View(m.keyMap)
+	helpViewHeight := lipgloss.Height(helpView)
+
 	m.previousResponseHeight = textAreaHeight
-	newHeight := m.height - textAreaHeight - headerHeight
+	newHeight := m.height - textAreaHeight - headerHeight - helpViewHeight
 	if newHeight < 0 {
 		newHeight = 0
 	}
@@ -267,23 +337,14 @@ func (m model) textAreaView() string {
 	}
 
 	v := m.textArea.View()
-	if m.focused {
+	switch m.state {
+	case StateUserInput:
 		v = m.style.FocusedMessage.Render(v)
-	} else {
+	case StateMovingAround, StateStreamCompletion:
 		v = m.style.UnselectedMessage.Render(v)
+	case StateError:
 	}
 
-	return v
-}
-
-func wrapWords(text string, w int) string {
-	w_ := wordwrap.NewWriter(w)
-	_, err := fmt.Fprint(w_, text)
-	if err != nil {
-		panic(err)
-	}
-	_ = w_.Close()
-	v := w_.String()
 	return v
 }
 
@@ -291,6 +352,7 @@ func (m model) View() string {
 	headerView := m.headerView()
 	viewportView := m.viewport.View()
 	textAreaView := m.textAreaView()
+	helpView := m.help.View(m.keyMap)
 
 	viewportHeight := lipgloss.Height(viewportView)
 	_ = viewportHeight
@@ -298,16 +360,14 @@ func (m model) View() string {
 	_ = textAreaHeight
 	headerHeight := lipgloss.Height(headerView)
 	_ = headerHeight
-	ret := headerView + "\n" + viewportView + "\n" + textAreaView
+	helpViewHeight := lipgloss.Height(helpView)
+	_ = helpViewHeight
+	ret := headerView + "\n" + viewportView + "\n" + textAreaView + "\n" + helpView
 
 	return ret
 }
 
-type streamDoneMsg struct {
-}
-type streamCompletionMsg struct {
-	Completion string
-}
+// Chat completion messages
 
 func (m *model) submit() tea.Cmd {
 	if m.stepResult != nil {
@@ -316,25 +376,23 @@ func (m *model) submit() tea.Cmd {
 		}
 	}
 
-	m.keyMap.SubmitMessage.SetEnabled(false)
-	m.keyMap.CancelCompletion.SetEnabled(true)
-
 	m.contextManager.AddMessages(&context.Message{
 		Role: context.RoleUser,
 		Text: m.textArea.Value(),
 		Time: time.Now(),
 	})
 
-	m.focused = false
+	ctx, cancel := context2.WithCancel(context2.Background())
+	m.stepCancel = cancel
+	var err error
+	m.stepResult, err = m.step.Start(ctx, m.contextManager.GetMessagesWithSystemPrompt())
+
+	m.state = StateStreamCompletion
 	m.updateKeyBindings()
 	m.currentResponse = ""
 	m.previousResponseHeight = 0
 
 	m.viewport.GotoBottom()
-	ctx, cancel := context2.WithCancel(context2.Background())
-	m.stepCancel = cancel
-	var err error
-	m.stepResult, err = m.step.Start(ctx, m.contextManager.GetMessagesWithSystemPrompt())
 
 	if err != nil {
 		return func() tea.Msg {
@@ -348,10 +406,6 @@ func (m *model) submit() tea.Cmd {
 		}
 	},
 		m.getNextCompletion())
-}
-
-type streamCompletionError struct {
-	Err error
 }
 
 func (m model) getNextCompletion() tea.Cmd {
@@ -385,16 +439,28 @@ func (m *model) finishCompletion() tea.Cmd {
 	m.stepResult = nil
 	m.stepCancel = nil
 
-	m.focused = true
+	m.state = StateUserInput
 	m.textArea.Focus()
 	m.textArea.SetValue("")
 
 	m.recomputeSize()
 	m.updateKeyBindings()
 
+	if m.quitReceived {
+		return tea.Quit
+	}
+
 	return func() tea.Msg {
 		return refreshMessageMsg{
 			GoToBottom: true,
 		}
 	}
+}
+
+func (m *model) setError(err error) tea.Cmd {
+	cmd := m.finishCompletion()
+	m.err = err
+	m.state = StateError
+	m.updateKeyBindings()
+	return cmd
 }
