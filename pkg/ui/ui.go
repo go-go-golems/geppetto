@@ -115,8 +115,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keyMap.UnfocusMessage):
-			switch m.state {
-			case StateUserInput:
+			if m.state == StateUserInput {
 				m.textArea.Blur()
 				m.state = StateMovingAround
 				m.updateKeyBindings()
@@ -139,8 +138,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case key.Matches(msg, m.keyMap.FocusMessage):
-			switch m.state {
-			case StateMovingAround:
+			if m.state == StateMovingAround {
 				cmd = m.textArea.Focus()
 				cmds = append(cmds, cmd)
 
@@ -159,8 +157,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.keyMap.SubmitMessage):
-			switch m.state {
-			case StateUserInput:
+			if m.state == StateUserInput {
 				cmd := m.submit()
 				cmds = append(cmds, cmd)
 			}
@@ -176,8 +173,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// same keybinding for both
 		case key.Matches(msg, m.keyMap.CancelCompletion):
-			switch m.state {
-			case StateStreamCompletion:
+			if m.state == StateStreamCompletion {
 				if m.stepCancel == nil {
 					// shouldn't happen
 					return m, tea.Batch(cmds...)
@@ -187,8 +183,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 
 		case key.Matches(msg, m.keyMap.DismissError):
-			switch m.state {
-			case StateError:
+			if m.state == StateError {
 				m.err = nil
 				m.state = StateUserInput
 			}
@@ -199,7 +194,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case StateUserInput:
 				m.textArea, cmd = m.textArea.Update(msg)
 				cmds = append(cmds, cmd)
-			default:
+			case StateMovingAround, StateStreamCompletion, StateError:
 				m.viewport, cmd = m.viewport.Update(msg)
 				cmds = append(cmds, cmd)
 			}
@@ -347,6 +342,7 @@ func (m model) textAreaView() string {
 		v = m.style.FocusedMessage.Render(v)
 	case StateMovingAround, StateStreamCompletion:
 		v = m.style.UnselectedMessage.Render(v)
+	case StateError:
 	}
 
 	return v
