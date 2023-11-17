@@ -10,7 +10,7 @@ import (
 
 func main() {
 	manager := context.NewManager(context.WithMessages([]*context.Message{
-		&context.Message{
+		{
 			Text: "hahahahaha",
 			Time: time.Time{},
 			Role: "system",
