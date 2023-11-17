@@ -24,6 +24,7 @@ require (
 	github.com/tiktoken-go/tokenizer v0.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.5.4
+	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.12.0
 	gopkg.in/errgo.v2 v2.1.0
 	gopkg.in/yaml.v3 v3.0.1
