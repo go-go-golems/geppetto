@@ -17,7 +17,9 @@ func main() {
 		},
 	}))
 
-	step := chat.EchoStep{}
+	step := &chat.EchoStep{
+		TimePerCharacter: 150 * time.Millisecond,
+	}
 
 	options := []tea.ProgramOption{
 		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
