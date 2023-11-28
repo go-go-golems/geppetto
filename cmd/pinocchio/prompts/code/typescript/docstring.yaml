@@ -1,5 +1,7 @@
 name: docstring
 aliasFor: typescript
+flags:
+  bracket: true
 arguments:
   - |
     Write docstrings that explain what the functions does and how to use, 
