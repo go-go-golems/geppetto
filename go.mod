@@ -16,7 +16,7 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
-	github.com/sashabaranov/go-openai v1.14.1
+	github.com/sashabaranov/go-openai v1.17.9
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
@@ -57,6 +57,7 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/itchyny/gojq v0.12.12 // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jedib0t/go-pretty v4.3.0+incompatible // indirect
