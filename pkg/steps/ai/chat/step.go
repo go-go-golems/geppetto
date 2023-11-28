@@ -46,5 +46,15 @@ func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.Parsed
 		}, nil
 	}
 
+	if IsAnyScaleEngine(*settings_.Chat.Engine) {
+		return &openai.Step{
+			Settings: settings_,
+		}, nil
+	}
+
 	return nil, errors.Errorf("unknown chat engine: %s", *settings_.Chat.Engine)
+}
+
+func IsAnyScaleEngine(s string) bool {
+	return true
 }
