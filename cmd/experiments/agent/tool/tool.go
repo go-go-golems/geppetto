@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/go-go-golems/geppetto/cmd/experiments/agent/helpers"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -39,6 +40,14 @@ func getWeather(request WeatherRequest) WeatherData {
 	}
 }
 
+func getWeatherOnDay(request WeatherRequest, date string) WeatherData {
+	return WeatherData{
+		City:        request.City,
+		Temperature: 23.0,
+		WindSpeed:   10.0,
+	}
+}
+
 var ToolCallCmd = &cobra.Command{
 	Use:   "tool-call",
 	Short: "Tool call",
@@ -61,7 +70,7 @@ var ToolCallCmd = &cobra.Command{
 		defer cancel()
 		messages := []*geppetto_context.Message{
 			{
-				Text: "Give me the weather in Boston, please, including the windspeed for me, an old ass american.",
+				Text: "Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american.",
 				Role: geppetto_context.RoleUser,
 			},
 		}
@@ -74,9 +83,13 @@ var ToolCallCmd = &cobra.Command{
 		}
 		getWeatherJsonSchema := reflector.Reflect(WeatherRequest{})
 
-		marshal, err := json.MarshalIndent(getWeatherJsonSchema.Definitions["WeatherRequest"], "", "  ")
-		cobra.CheckErr(err)
-		fmt.Printf("getWeather jsonschema\n:%s\n", marshal)
+		getWeatherOnDayJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeatherOnDay)
+		s, _ := json.MarshalIndent(getWeatherOnDayJsonSchema, "", " ")
+		fmt.Printf("getWeatherOnDayJsonSchema:\n%s\n\n", s)
+
+		getWeatherJsonSchema, _ = helpers2.GetFunctionParametersJsonSchema(getWeather)
+		s, _ = json.MarshalIndent(getWeatherJsonSchema, "", " ")
+		fmt.Printf("getWeatherJsonSchema:\n%s\n\n", s)
 
 		// LLM completion step
 		step := &openai.ToolStep{
@@ -86,9 +99,17 @@ var ToolCallCmd = &cobra.Command{
 				Function: go_openai.FunctionDefinition{
 					Name:        "getWeather",
 					Description: "Get the weather",
-					Parameters:  getWeatherJsonSchema.Definitions["WeatherRequest"],
+					Parameters:  getWeatherJsonSchema,
 				},
 			},
+				{
+					Type: "function",
+					Function: go_openai.FunctionDefinition{
+						Name:        "getWeatherOnDay",
+						Description: "Get the weather on a specific day",
+						Parameters:  getWeatherOnDayJsonSchema,
+					},
+				},
 			},
 		}
 
