@@ -11,6 +11,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/go-go-golems/clay v0.0.27
 	github.com/go-go-golems/glazed v0.4.29
+	github.com/invopop/jsonschema v0.12.0
 	github.com/mattn/go-isatty v0.0.18
 	github.com/mb0/glob v0.0.0-20160210091149-1eb79d2de6c4
 	github.com/muesli/reflow v0.3.0
@@ -57,7 +58,6 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/itchyny/gojq v0.12.12 // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jedib0t/go-pretty v4.3.0+incompatible // indirect
