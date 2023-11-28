@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
+
 type Step struct {
 	Settings *settings.StepSettings
 }
@@ -48,7 +50,11 @@ func (csf *Step) Start(
 		return nil, steps.ErrMissingClientAPIKey
 	}
 
-	client := go_openai.NewClient(*openaiSettings.APIKey)
+	config := go_openai.DefaultConfig(*openaiSettings.APIKey)
+	if openaiSettings.BaseURL != nil {
+		config.BaseURL = *openaiSettings.BaseURL
+	}
+	client := go_openai.NewClientWithConfig(config)
 
 	engine := ""
 
@@ -119,6 +125,7 @@ func (csf *Step) Start(
 		c := make(chan helpers.Result[string])
 		ret := steps.NewStepResult[string](c)
 
+		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
 			defer stream.Close()
