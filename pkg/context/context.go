@@ -15,11 +15,15 @@ type Message struct {
 	Text string    `json:"text" yaml:"text"`
 	Time time.Time `json:"time" yaml:"time"`
 	Role string    `json:"role" yaml:"role"`
+
+	// additional metadata for the message
+	Metadata map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 const RoleSystem = "system"
 const RoleAssistant = "assistant"
 const RoleUser = "user"
+const RoleTool = "tool"
 
 // here is the openai definition
 // ChatCompletionRequestMessage is a message to use as the context for the chat completion API
