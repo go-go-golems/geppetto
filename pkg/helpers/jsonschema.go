@@ -11,7 +11,7 @@ import (
 type Callable interface{}
 
 // CallFunctionFromJson calls a function with arguments provided as JSON
-func CallFunctionFromJson(f Callable, jsonArgs interface{}) (result []reflect.Value, err error) {
+func CallFunctionFromJson(f Callable, jsonArgs interface{}) ([]reflect.Value, error) {
 	funcVal := reflect.ValueOf(f)
 	funcType := funcVal.Type()
 

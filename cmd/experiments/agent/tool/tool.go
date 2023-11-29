@@ -7,6 +7,7 @@ import (
 	"github.com/go-go-golems/geppetto/cmd/experiments/agent/helpers"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -40,7 +41,13 @@ func getWeather(request WeatherRequest) WeatherData {
 	}
 }
 
-func getWeatherOnDay(request WeatherRequest, date string) WeatherData {
+type WeatherOnDayRequest struct {
+	WeatherRequest
+	// The date for which to request the data
+	Date string `json:"date"`
+}
+
+func getWeatherOnDay(request WeatherOnDayRequest) WeatherData {
 	return WeatherData{
 		City:        request.City,
 		Temperature: 23.0,
@@ -70,7 +77,7 @@ var ToolCallCmd = &cobra.Command{
 		defer cancel()
 		messages := []*geppetto_context.Message{
 			{
-				Text: "Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american.",
+				Text: "Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
 				Role: geppetto_context.RoleUser,
 			},
 		}
@@ -81,13 +88,11 @@ var ToolCallCmd = &cobra.Command{
 		if err != nil {
 			log.Warn().Err(err).Msg("Could not add go comments")
 		}
-		getWeatherJsonSchema := reflector.Reflect(WeatherRequest{})
-
 		getWeatherOnDayJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeatherOnDay)
 		s, _ := json.MarshalIndent(getWeatherOnDayJsonSchema, "", " ")
 		fmt.Printf("getWeatherOnDayJsonSchema:\n%s\n\n", s)
 
-		getWeatherJsonSchema, _ = helpers2.GetFunctionParametersJsonSchema(getWeather)
+		getWeatherJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeather)
 		s, _ = json.MarshalIndent(getWeatherJsonSchema, "", " ")
 		fmt.Printf("getWeatherJsonSchema:\n%s\n\n", s)
 
@@ -113,17 +118,28 @@ var ToolCallCmd = &cobra.Command{
 			},
 		}
 
+		execStep := &openai.ExecuteToolStep{
+			Tools: map[string]interface{}{
+				"getWeather":      getWeather,
+				"getWeatherOnDay": getWeatherOnDay,
+			},
+		}
+
 		//step.SetStreaming(true)
 
 		// start the LLM completion
 		res, err := step.Start(ctx, messages)
 		cobra.CheckErr(err)
 
-		c := res.GetChannel()
+		res_ := steps.Bind[openai.ToolCompletionResponse, map[string]interface{}](ctx, res, execStep)
+
+		c := res_.GetChannel()
 		for i := range c {
 			s, err := i.Value()
 			cobra.CheckErr(err)
-			fmt.Printf("%s", s)
+
+			s_, _ := json.MarshalIndent(s, "", " ")
+			fmt.Printf("%s", s_)
 		}
 	},
 }
