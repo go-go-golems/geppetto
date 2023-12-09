@@ -76,6 +76,10 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 	)
 }
 
+type GeppettoRunnable interface {
+	RunWithManager(ctx context.Context, manager *geppetto_context.Manager) (steps.StepResult[string], error)
+}
+
 type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
 	StepFactory  chat.StepFactory `yaml:"-"` // this is not serialized
@@ -131,44 +135,12 @@ func NewGeppettoCommand(
 	return ret, nil
 }
 
-// RunIntoWriter runs the command and writes the output into the given writer.
-// It first:
-//   - configures the factories with the given parameters (for example to override the
-//     temperature or other openai settings)
-//   - configures the context manager with the configured Messages and SystemPrompt
-//     (per default, from the command definition, but can be overloaded through the
-//     --system, --message-file and --append-message-file flags)
-//   - if --print-prompt is given, it prints the prompt and exits
-//
-// It then instantiates a
-func (g *GeppettoCommand) RunIntoWriter(
-	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
+func (g *GeppettoCommand) UpdateContextManager(
+	contextManager *geppetto_context.Manager,
 	ps map[string]interface{},
-	w io.Writer,
 ) error {
-	if g.Prompt != "" && len(g.Messages) != 0 {
-		return errors.Errorf("Prompt and messages are mutually exclusive")
-	}
-
-	chatStep, err := g.StepFactory.NewStepFromLayers(parsedLayers)
-	if err != nil {
-		return err
-	}
-
-	messages := g.Messages
-	systemPrompt := g.SystemPrompt
-
-	contextManager := geppetto_context.NewManager()
-
-	// load and render the system prompt
-	systemPrompt_, ok := ps["system"].(string)
-	if ok && systemPrompt_ != "" {
-		systemPrompt = systemPrompt_
-	}
-
-	if systemPrompt != "" {
-		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(systemPrompt)
+	if g.SystemPrompt != "" {
+		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(g.SystemPrompt)
 		if err != nil {
 			return err
 		}
@@ -179,48 +151,28 @@ func (g *GeppettoCommand) RunIntoWriter(
 			return err
 		}
 
+		// TODO(manuel, 2023-12-07) Only do this conditionally, or maybe if the system prompt hasn't been set yet, if you use an agent.
 		contextManager.SetSystemPrompt(systemPromptBuffer.String())
 	}
 
-	// load and render messages
-	messageFile, ok := ps["message-file"].(string)
-	if ok && messageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(messageFile)
+	for _, message := range g.Messages {
+		messageTemplate, err := templating.CreateTemplate("message").Parse(message.Text)
 		if err != nil {
 			return err
 		}
-		messages = messages_
-	}
 
-	appendMessageFile, ok := ps["append-message-file"].(string)
-	if ok && appendMessageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(appendMessageFile)
+		var messageBuffer strings.Builder
+		err = messageTemplate.Execute(&messageBuffer, ps)
 		if err != nil {
 			return err
 		}
-		messages = append(messages, messages_...)
-	}
+		s_ := messageBuffer.String()
 
-	if len(messages) > 0 {
-		for _, message := range messages {
-			messageTemplate, err := templating.CreateTemplate("message").Parse(message.Text)
-			if err != nil {
-				return err
-			}
-
-			var messageBuffer strings.Builder
-			err = messageTemplate.Execute(&messageBuffer, ps)
-			if err != nil {
-				return err
-			}
-			s_ := messageBuffer.String()
-
-			contextManager.AddMessages(&geppetto_context.Message{
-				Text: s_,
-				Role: message.Role,
-				Time: message.Time,
-			})
-		}
+		contextManager.AddMessages(&geppetto_context.Message{
+			Text: s_,
+			Role: message.Role,
+			Time: message.Time,
+		})
 	}
 
 	// render the prompt
@@ -246,15 +198,90 @@ func (g *GeppettoCommand) RunIntoWriter(
 		})
 	}
 
+	return nil
+}
+
+func (g *GeppettoCommand) Run(
+	ctx context.Context,
+	step steps.Step[[]*geppetto_context.Message, string],
+	contextManager *geppetto_context.Manager,
+	ps map[string]interface{},
+) (steps.StepResult[string], error) {
+	err := g.UpdateContextManager(contextManager, ps)
+	if err != nil {
+		return nil, err
+	}
+
 	printPrompt, ok := ps["print-prompt"]
 	if ok && printPrompt.(bool) {
 		fmt.Println(contextManager.GetSinglePrompt())
-		return nil
+		return nil, nil
 	}
 
 	messagesM := steps.Resolve(contextManager.GetMessagesWithSystemPrompt())
 
-	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, chatStep)
+	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, step)
+
+	return m, nil
+}
+
+// RunIntoWriter runs the command and writes the output into the given writer.
+// It first:
+//   - configures the factories with the given parameters (for example to override the
+//     temperature or other openai settings)
+//   - configures the context manager with the configured Messages and SystemPrompt
+//     (per default, from the command definition, but can be overloaded through the
+//     --system, --message-file and --append-message-file flags)
+//   - if --print-prompt is given, it prints the prompt and exits
+//
+// It then instantiates a
+func (g *GeppettoCommand) RunIntoWriter(
+	ctx context.Context,
+	parsedLayers map[string]*layers.ParsedParameterLayer,
+	ps map[string]interface{},
+	w io.Writer,
+) error {
+	if g.Prompt != "" && len(g.Messages) != 0 {
+		return errors.Errorf("Prompt and messages are mutually exclusive")
+	}
+
+	chatStep, err := g.StepFactory.NewStepFromLayers(parsedLayers)
+	if err != nil {
+		return err
+	}
+
+	contextManager := geppetto_context.NewManager()
+
+	// load and render the system prompt
+	systemPrompt_, ok := ps["system"].(string)
+	if ok && systemPrompt_ != "" {
+		g.SystemPrompt = systemPrompt_
+	}
+
+	// load and render messages
+	messageFile, ok := ps["message-file"].(string)
+	if ok && messageFile != "" {
+		messages_, err := geppetto_context.LoadFromFile(messageFile)
+		if err != nil {
+			return err
+		}
+
+		g.Messages = messages_
+	}
+
+	appendMessageFile, ok := ps["append-message-file"].(string)
+	if ok && appendMessageFile != "" {
+		messages_, err := geppetto_context.LoadFromFile(appendMessageFile)
+		if err != nil {
+			return err
+		}
+		g.Messages = append(g.Messages, messages_...)
+	}
+
+	m, err := g.Run(ctx, chatStep, contextManager, ps)
+	if err != nil {
+		return err
+	}
 
 	chatAILayer, ok := parsedLayers["ai-chat"]
 	if !ok {
@@ -350,7 +377,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 func (g *GeppettoCommand) readStepResults(
 	ctx context.Context,
-	m *steps.StepResult[string],
+	m steps.StepResult[string],
 	w io.Writer,
 ) (string, error) {
 	accumulate := ""

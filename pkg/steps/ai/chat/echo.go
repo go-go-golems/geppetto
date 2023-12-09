@@ -19,7 +19,7 @@ type EchoStep struct {
 func (e *EchoStep) SetStreaming(b bool) {
 }
 
-func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (*steps.StepResult[string], error) {
+func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (steps.StepResult[string], error) {
 	if len(input) == 0 {
 		return nil, errors.New("no input")
 	}
@@ -49,11 +49,6 @@ func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (*steps
 	e.eg = eg
 
 	return res, nil
-}
-
-func (e *EchoStep) Close(ctx context.Context) error {
-	e.cancel()
-	return e.eg.Wait()
 }
 
 var _ Step = (*EchoStep)(nil)

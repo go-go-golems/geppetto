@@ -5,6 +5,7 @@ import (
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
 	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
+	pinocchio_cmds "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/kagi"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/tokens"
@@ -102,6 +103,7 @@ func initRootCmd() (*help.HelpSystem, error) {
 	cobra.CheckErr(err)
 
 	rootCmd.AddCommand(runCommandCmd)
+	rootCmd.AddCommand(pinocchio_cmds.NewCodegenCommand())
 	return helpSystem, nil
 }
 

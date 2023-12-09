@@ -34,7 +34,7 @@ type ToolCompletionResponse struct {
 func (csf *ToolStep) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
-) (*steps.StepResult[ToolCompletionResponse], error) {
+) (steps.StepResult[ToolCompletionResponse], error) {
 	client := makeClient(csf.Settings.OpenAI)
 
 	req, err := makeCompletionRequest(csf.Settings, messages)
@@ -119,11 +119,6 @@ func (csf *ToolStep) Start(
 	}
 }
 
-// Close is only called after the returned monad has been entirely consumed
-func (csf *ToolStep) Close(ctx context.Context) error {
-	return nil
-}
-
 var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
 
 type ExecuteToolStep struct {
@@ -133,7 +128,7 @@ type ExecuteToolStep struct {
 func (e ExecuteToolStep) Start(
 	ctx context.Context,
 	input ToolCompletionResponse,
-) (*steps.StepResult[map[string]interface{}], error) {
+) (steps.StepResult[map[string]interface{}], error) {
 	res := map[string]interface{}{}
 	for _, toolCall := range input.ToolCalls {
 		if toolCall.Type != "function" {
@@ -168,8 +163,4 @@ func (e ExecuteToolStep) Start(
 	}
 
 	return steps.Resolve(res), nil
-}
-
-func (e ExecuteToolStep) Close(ctx context.Context) error {
-	return nil
 }

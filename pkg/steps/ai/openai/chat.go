@@ -23,7 +23,7 @@ func (csf *Step) SetStreaming(b bool) {
 func (csf *Step) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
-) (*steps.StepResult[string], error) {
+) (steps.StepResult[string], error) {
 	client := makeClient(csf.Settings.OpenAI)
 
 	req, err := makeCompletionRequest(csf.Settings, messages)
@@ -77,9 +77,4 @@ func (csf *Step) Start(
 
 		return steps.Resolve(string(resp.Choices[0].Message.Content)), nil
 	}
-}
-
-// Close is only called after the returned monad has been entirely consumed
-func (csf *Step) Close(ctx context.Context) error {
-	return nil
 }

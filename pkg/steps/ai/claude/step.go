@@ -15,6 +15,8 @@ type Step struct {
 	Settings *settings.StepSettings
 }
 
+var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
+
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
 }
@@ -26,7 +28,7 @@ func (csf *Step) SetStreaming(b bool) {
 func (csf *Step) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
-) (*steps.StepResult[string], error) {
+) (steps.StepResult[string], error) {
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -143,9 +145,4 @@ func (csf *Step) Start(
 
 		return steps.Resolve(resp.Completion), nil
 	}
-}
-
-// Close is only called after the returned monad has been entirely consumed
-func (csf *Step) Close(ctx context.Context) error {
-	return nil
 }

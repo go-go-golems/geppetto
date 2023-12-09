@@ -55,7 +55,7 @@ type model struct {
 
 	step chat.Step
 	// if not nil, streaming is going on
-	stepResult *steps.StepResult[string]
+	stepResult steps.StepResult[string]
 	stepCancel context2.CancelFunc
 
 	currentResponse        string
