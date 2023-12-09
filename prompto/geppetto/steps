@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+echo '## Steps API'
+echo
+echo "package github.com/go-go-golems/geppetto/steps"
+oak go definitions pkg/steps/step.go
+echo "---"
+echo
+
+echo "package github.com/go-go-golems/geppetto/helpers"
+oak go definitions pkg/steps/step.go
+oak go definitions pkg/helpers/result.go
+echo "---"
+echo
