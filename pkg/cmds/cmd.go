@@ -76,13 +76,9 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 	)
 }
 
-type GeppettoRunnable interface {
-	RunWithManager(ctx context.Context, manager *geppetto_context.Manager) (steps.StepResult[string], error)
-}
-
 type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
-	StepFactory  chat.StepFactory `yaml:"-"` // this is not serialized
+	StepFactory  steps.StepFactory[[]*geppetto_context.Message, string] `yaml:"-"` // this is not serialized
 	Prompt       string
 	Messages     []*geppetto_context.Message
 	SystemPrompt string
@@ -110,7 +106,7 @@ func WithSystemPrompt(systemPrompt string) GeppettoCommandOption {
 
 func NewGeppettoCommand(
 	description *glazedcmds.CommandDescription,
-	stepFactory chat.StepFactory,
+	stepFactory steps.StepFactory[[]*geppetto_context.Message, string],
 	options ...GeppettoCommandOption,
 ) (*GeppettoCommand, error) {
 	helpersParameterLayer, err := NewHelpersParameterLayer()
@@ -245,7 +241,10 @@ func (g *GeppettoCommand) RunIntoWriter(
 		return errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
-	chatStep, err := g.StepFactory.NewStepFromLayers(parsedLayers)
+	// explicit variable declaration to have type check
+	var chatStep steps.Step[[]*geppetto_context.Message, string]
+	var err error
+	chatStep, err = g.StepFactory.NewStepFromLayers(parsedLayers)
 	if err != nil {
 		return err
 	}
@@ -358,7 +357,8 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	if continueInChat {
-		err = chat_(chatStep, contextManager)
+		// TODO(manuel, 2023-12-09) This handling of steps and commands and chat is all worth revisiting soon
+		err = chat_(chatStep.(chat.Step), contextManager)
 
 		for idx, msg := range contextManager.GetMessages() {
 			// skip input prompt and first response that's already been printed out

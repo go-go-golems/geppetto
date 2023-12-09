@@ -22,3 +22,4 @@ arguments:
 system_prompt: You are a {{.pretend}}.
 prompt: |
   Pretend you are a {{.pretend}}. What is the {{.what}} of {{.of}}?
+  {{ .query | join "\n" }}

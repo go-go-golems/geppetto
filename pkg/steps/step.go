@@ -3,6 +3,7 @@ package steps
 import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 )
 
 type StepResult[T any] interface {
@@ -58,6 +59,10 @@ func Reject[T any](err error) *StepResultImpl[T] {
 	return &StepResultImpl[T]{
 		value: c,
 	}
+}
+
+type StepFactory[T any, U any] interface {
+	NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (Step[T, U], error)
 }
 
 // Step is the generalization of a lambda function, with cancellation and closing

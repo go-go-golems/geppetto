@@ -38,7 +38,10 @@ func (g *GeppettoCommandCodeGenerator) defineStruct(f *jen.File, cmdName string)
 	structName := strcase.ToCamel(cmdName) + "Command"
 	f.Type().Id(structName).Struct(
 		jen.Op("*").Qual(codegen.GlazedCommandsPath, "CommandDescription"),
-		jen.Id("StepFactory").Qual(ChatPath, "StepFactory"),
+		jen.Id("StepFactory").Qual(ChatPath, "StepFactory").Index(
+			jen.Index().Op("*").Qual(ContextPath, "Message"),
+			jen.String(),
+		),
 		jen.Id("Prompt").String().Tag(map[string]string{"yaml": "prompt"}),
 		jen.Id("Messages").Index().Op("*").Qual(ContextPath, "Message").
 			Tag(map[string]string{"yaml": "messages,omitempty"}),

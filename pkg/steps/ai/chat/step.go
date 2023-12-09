@@ -1,6 +1,7 @@
 package chat
 
 import (
+	context1 "context"
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
@@ -8,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/pkg/errors"
+	"time"
 )
 
 type Step interface {
@@ -15,15 +17,14 @@ type Step interface {
 	SetStreaming(bool)
 }
 
-type StepFactory interface {
-	NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (Step, error)
-}
-
 type StandardStepFactory struct {
 	Settings *settings.StepSettings
 }
 
-func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (Step, error) {
+func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (
+	steps.Step[[]*context.Message, string],
+	error,
+) {
 	settings_ := s.Settings.Clone()
 	err := settings_.UpdateFromParsedLayers(layers)
 	if err != nil {
@@ -57,4 +58,32 @@ func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.Parsed
 
 func IsAnyScaleEngine(s string) bool {
 	return true
+}
+
+type AddToHistoryStep struct {
+	manager *context.Manager
+	role    string
+}
+
+var _ steps.Step[string, string] = &AddToHistoryStep{}
+
+func (a *AddToHistoryStep) Start(ctx context1.Context, input string) (steps.StepResult[string], error) {
+	a.manager.AddMessages(&context.Message{
+		Text: input,
+		Time: time.Time{},
+		Role: a.role,
+	})
+
+	return steps.Resolve(input), nil
+}
+
+type RunnableStep struct {
+	c       context.GeppettoRunnable
+	manager *context.Manager
+}
+
+var _ steps.Step[interface{}, string] = &RunnableStep{}
+
+func (r *RunnableStep) Start(ctx context1.Context, input interface{}) (steps.StepResult[string], error) {
+	return r.c.RunWithManager(ctx, r.manager)
 }

@@ -23,8 +23,10 @@ func NewSettings() *Settings {
 
 func (s *Settings) Clone() *Settings {
 	return &Settings{
-		TopK:   s.TopK,
-		UserID: s.UserID,
+		TopK:    s.TopK,
+		UserID:  s.UserID,
+		BaseURL: s.BaseURL,
+		APIKey:  s.APIKey,
 	}
 }
 

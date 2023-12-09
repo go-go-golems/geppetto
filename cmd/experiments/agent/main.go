@@ -2,6 +2,7 @@ package main
 
 import (
 	clay "github.com/go-go-golems/clay/pkg"
+	"github.com/go-go-golems/geppetto/cmd/experiments/agent/codegen"
 	"github.com/go-go-golems/geppetto/cmd/experiments/agent/tool"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -46,7 +47,12 @@ func main() {
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(tool.ToolCallCmd)
 
+	err = layer.AddFlagsToCobraCommand(codegen.CodegenTestCmd)
+	cobra.CheckErr(err)
+	err = aiLayer.AddFlagsToCobraCommand(codegen.CodegenTestCmd)
+	cobra.CheckErr(err)
+	rootCmd.AddCommand(codegen.CodegenTestCmd)
+
 	err = rootCmd.Execute()
 	cobra.CheckErr(err)
-
 }
