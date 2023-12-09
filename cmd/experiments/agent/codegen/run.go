@@ -2,9 +2,9 @@ package codegen
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-go-golems/geppetto/cmd/experiments/agent/helpers"
 	context2 "github.com/go-go-golems/geppetto/pkg/context"
-	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -12,7 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/utils"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/spf13/cobra"
-	"time"
+	"io"
 )
 
 var CodegenTestCmd = &cobra.Command{
@@ -72,6 +72,37 @@ func createSettingsFromCobra(cmd *cobra.Command) (*settings.StepSettings, error)
 	return stepSettings, nil
 }
 
+func printToStdout(s string, w io.Writer) error {
+	_, err := w.Write([]byte(s))
+	return err
+}
+
+type printer struct {
+	Name    string
+	w       io.Writer
+	isFirst bool
+}
+
+func (p *printer) Print(s string) error {
+	if p.isFirst {
+		p.isFirst = false
+		err := printToStdout(fmt.Sprintf("\n%s: \n", p.Name), p.w)
+		if err != nil {
+			return err
+		}
+	}
+	return printToStdout(s, p.w)
+}
+
+func NewPrinterFunc(name string, w io.Writer) func(string) error {
+	p := &printer{
+		Name:    name,
+		w:       w,
+		isFirst: true,
+	}
+	return p.Print
+}
+
 var MultiStepCodgenTestCmd = &cobra.Command{
 	Use:   "multi-step",
 	Short: "Test codegen prompt",
@@ -97,8 +128,6 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		manager, err := scientistCommand.CreateManager(scientistParams)
 		cobra.CheckErr(err)
 
-		scientistStep, err := scientistCommand.CreateStep()
-
 		writerParams := &TestCodegenCommandParameters{
 			Pretend: "Writer",
 			What:    "Biography of the scientist",
@@ -109,37 +138,28 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		cobra.CheckErr(err)
 		writerCommand.StepFactory = stepFactory
 
-		writerStep, err := writerCommand.CreateStep()
-
-		var mergeStep steps.Step[string, []*context2.Message]
-		mergeStep = &utils.LambdaStep[string, []*context2.Message]{
-			Function: func(input string) helpers2.Result[[]*context2.Message] {
-				messages := append(writerCommand.Messages, &context2.Message{
-					Text: input,
-					Time: time.Now(),
-					Role: context2.RoleAssistant,
-				})
-				writerManager, err := context2.CreateManager(
-					writerCommand.SystemPrompt, writerCommand.Prompt, messages, writerParams)
-				if err != nil {
-					return helpers2.NewErrorResult[[]*context2.Message](err)
-				}
-				return helpers2.NewValueResult[[]*context2.Message](writerManager.GetMessagesWithSystemPrompt())
-			},
-		}
-
-		ctx := context.Background()
-		var sRes steps.StepResult[string]
-		sRes, err = scientistStep.Start(ctx, manager.GetMessagesWithSystemPrompt())
+		writerManager, err := writerCommand.CreateManager(writerParams)
 		cobra.CheckErr(err)
 
-		sMerged := steps.Bind[string, []*context2.Message](ctx, sRes, mergeStep)
-		s2 := steps.Bind[[]*context2.Message, string](ctx, sMerged, writerStep)
+		scientistStep, err := scientistCommand.CreateStep(
+			chat.WithStreaming(true),
+			chat.WithOnPartial(NewPrinterFunc("Scientist", cmd.OutOrStdout())),
+		)
 
-		res := s2.Return()
-		for _, m := range res {
-			_, err = cmd.OutOrStdout().Write([]byte(m.ValueOr("\nerror...\n")))
-			cobra.CheckErr(err)
-		}
+		writerStep, err := writerCommand.CreateStep(
+			chat.WithStreaming(true),
+			chat.WithOnPartial(NewPrinterFunc("Writer", cmd.OutOrStdout())),
+		)
+
+		mergeStep := utils.NewMergeStep(writerManager)
+
+		var scientistResult steps.StepResult[string]
+		scientistResult, err = scientistStep.Start(cmd.Context(), manager.GetMessagesWithSystemPrompt())
+		cobra.CheckErr(err)
+		mergeResult := steps.Bind[string, []*context2.Message](cmd.Context(), scientistResult, mergeStep)
+		writerResult := steps.Bind[[]*context2.Message, string](cmd.Context(), mergeResult, writerStep)
+		res := writerResult.Return()
+		_ = res
+
 	},
 }

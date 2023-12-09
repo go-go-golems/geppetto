@@ -15,16 +15,38 @@ import (
 type Step interface {
 	steps.Step[[]*context.Message, string]
 	SetStreaming(bool)
+	SetOnPartial(func(string) error)
 }
 
 type StandardStepFactory struct {
 	Settings *settings.StepSettings
 }
 
-func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (
-	steps.Step[[]*context.Message, string],
-	error,
-) {
+type StepFactory interface {
+	NewStepFromLayers(
+		layers map[string]*layers.ParsedParameterLayer,
+		options ...StepOption,
+	) (Step, error)
+}
+
+type StepOption func(Step)
+
+func WithStreaming(b bool) StepOption {
+	return func(s Step) {
+		s.SetStreaming(b)
+	}
+}
+
+func WithOnPartial(f func(string) error) StepOption {
+	return func(s Step) {
+		s.SetOnPartial(f)
+	}
+}
+
+func (s *StandardStepFactory) NewStepFromLayers(
+	layers map[string]*layers.ParsedParameterLayer,
+	options ...StepOption,
+) (Step, error) {
 	settings_ := s.Settings.Clone()
 	err := settings_.UpdateFromParsedLayers(layers)
 	if err != nil {
@@ -35,25 +57,25 @@ func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.Parsed
 		return nil, errors.New("no chat engine specified")
 	}
 
-	if openai.IsOpenAiEngine(*settings_.Chat.Engine) {
-		return &openai.Step{
-			Settings: settings_,
-		}, nil
+	var ret Step
+	switch {
+	case openai.IsOpenAiEngine(*settings_.Chat.Engine):
+		ret = &openai.Step{Settings: settings_}
+
+	case claude.IsClaudeEngine(*settings_.Chat.Engine):
+		ret = &claude.Step{Settings: settings_}
+
+	case IsAnyScaleEngine(*settings_.Chat.Engine):
+		ret = &openai.Step{Settings: settings_}
+	default:
+		return nil, errors.Errorf("unknown chat engine: %s", *settings_.Chat.Engine)
 	}
 
-	if claude.IsClaudeEngine(*settings_.Chat.Engine) {
-		return &claude.Step{
-			Settings: settings_,
-		}, nil
+	for _, option := range options {
+		option(ret)
 	}
 
-	if IsAnyScaleEngine(*settings_.Chat.Engine) {
-		return &openai.Step{
-			Settings: settings_,
-		}, nil
-	}
-
-	return nil, errors.Errorf("unknown chat engine: %s", *settings_.Chat.Engine)
+	return ret, nil
 }
 
 func IsAnyScaleEngine(s string) bool {

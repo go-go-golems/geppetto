@@ -12,8 +12,13 @@ import (
 
 type EchoStep struct {
 	TimePerCharacter time.Duration
+	OnPartial        func(string) error
 	cancel           context.CancelFunc
 	eg               *errgroup.Group
+}
+
+func (e *EchoStep) SetOnPartial(f func(string) error) {
+	e.OnPartial = f
 }
 
 func (e *EchoStep) SetStreaming(b bool) {
@@ -40,10 +45,15 @@ func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (steps.
 				c <- helpers.NewErrorResult[string](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
-				c <- helpers.NewPartialResult[string](string(c_))
+				if e.OnPartial != nil {
+					if err := e.OnPartial(string(c_)); err != nil {
+						c <- helpers.NewErrorResult[string](err)
+						return err
+					}
+				}
 			}
 		}
-		c <- helpers.NewValueResult[string]("")
+		c <- helpers.NewValueResult[string](msg.Text)
 		return nil
 	})
 	e.eg = eg

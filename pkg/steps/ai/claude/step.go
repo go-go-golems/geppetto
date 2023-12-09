@@ -12,7 +12,12 @@ import (
 )
 
 type Step struct {
-	Settings *settings.StepSettings
+	Settings  *settings.StepSettings
+	OnPartial func(string) error
+}
+
+func (csf *Step) SetOnPartial(f func(string) error) {
+	csf.OnPartial = f
 }
 
 var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
@@ -109,13 +114,14 @@ func (csf *Step) Start(
 			defer close(c)
 
 			isFirstEvent := true
+			message := ""
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				case event, ok := <-events:
 					if !ok {
-						c <- helpers.NewValueResult[string]("")
+						c <- helpers.NewValueResult[string](message)
 						return
 					}
 					decoded := map[string]interface{}{}
@@ -129,7 +135,14 @@ func (csf *Step) Start(
 							completion = strings.TrimLeft(completion, " ")
 							isFirstEvent = false
 						}
-						c <- helpers.NewPartialResult[string](completion)
+						if csf.OnPartial != nil {
+							err := csf.OnPartial(completion)
+							if err != nil {
+								c <- helpers.NewErrorResult[string](err)
+								return
+							}
+						}
+						message += completion
 					}
 				}
 			}
