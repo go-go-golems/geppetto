@@ -66,6 +66,8 @@ func (s *Settings) Clone() *Settings {
 		PresencePenalty:  s.PresencePenalty,
 		FrequencyPenalty: s.FrequencyPenalty,
 		LogitBias:        s.LogitBias,
+		APIKey:           s.APIKey,
+		BaseURL:          s.BaseURL,
 	}
 }
 

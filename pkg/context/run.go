@@ -1,9 +1,9 @@
-package cmds
+package context
 
 import (
 	"bytes"
 	context2 "context"
-	"github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"io"
@@ -11,12 +11,16 @@ import (
 	"time"
 )
 
+type GeppettoRunnable interface {
+	RunWithManager(ctx context2.Context, manager *Manager) (steps.StepResult[string], error)
+}
+
 func CreateManager(
 	systemPrompt string,
 	prompt string,
-	messages []*context.Message,
+	messages []*Message,
 	params interface{},
-) (*context.Manager, error) {
+) (*Manager, error) {
 	// convert the params to map[string]interface{}
 	var ps map[string]interface{}
 	if _, ok := params.(map[string]interface{}); !ok {
@@ -29,7 +33,7 @@ func CreateManager(
 		ps = params.(map[string]interface{})
 	}
 
-	manager := context.NewManager()
+	manager := NewManager()
 
 	if systemPrompt != "" {
 		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(systemPrompt)
@@ -60,7 +64,7 @@ func CreateManager(
 		}
 		s_ := messageBuffer.String()
 
-		manager.AddMessages(&context.Message{
+		manager.AddMessages(&Message{
 			Text: s_,
 			Role: message.Role,
 			Time: message.Time,
@@ -83,9 +87,9 @@ func CreateManager(
 			return nil, err
 		}
 
-		manager.AddMessages(&context.Message{
+		manager.AddMessages(&Message{
 			Text: promptBuffer.String(),
-			Role: context.RoleUser,
+			Role: RoleUser,
 			Time: time.Now(),
 		})
 	}
@@ -96,7 +100,7 @@ func CreateManager(
 func RunIntoWriter(
 	ctx context2.Context,
 	c GeppettoRunnable,
-	manager *context.Manager,
+	manager *Manager,
 	w io.Writer,
 ) error {
 	stepResult, err := c.RunWithManager(ctx, manager)
@@ -132,7 +136,7 @@ func RunIntoWriter(
 func RunToString(
 	ctx context2.Context,
 	c GeppettoRunnable,
-	manager *context.Manager,
+	manager *Manager,
 ) (string, error) {
 	var b []byte
 	w := bytes.NewBuffer(b)
@@ -147,17 +151,17 @@ func RunToString(
 func RunToContextManager(
 	ctx context2.Context,
 	c GeppettoRunnable,
-	manager *context.Manager,
-) (*context.Manager, error) {
+	manager *Manager,
+) (*Manager, error) {
 	s, err := RunToString(ctx, c, manager)
 	if err != nil {
 		return nil, err
 	}
 
-	manager.AddMessages(&context.Message{
+	manager.AddMessages(&Message{
 		Text: s,
 		Time: time.Now(),
-		Role: context.RoleAssistant,
+		Role: RoleAssistant,
 	})
 
 	return manager, nil
