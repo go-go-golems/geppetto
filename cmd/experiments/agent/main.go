@@ -53,6 +53,12 @@ func main() {
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(codegen.CodegenTestCmd)
 
+	err = layer.AddFlagsToCobraCommand(codegen.MultiStepCodgenTestCmd)
+	cobra.CheckErr(err)
+	err = aiLayer.AddFlagsToCobraCommand(codegen.MultiStepCodgenTestCmd)
+	cobra.CheckErr(err)
+	rootCmd.AddCommand(codegen.MultiStepCodgenTestCmd)
+
 	err = rootCmd.Execute()
 	cobra.CheckErr(err)
 }

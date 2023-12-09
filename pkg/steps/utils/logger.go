@@ -22,3 +22,22 @@ func (ls *LoggerStep[T]) Start(ctx context.Context, input T) (steps.StepResult[T
 		return steps.Resolve(input), nil // Return the input as a successful result
 	}
 }
+
+//type CollectingStep[T any] struct {
+//	merge     func(T, T) (T, error)
+//	onPartial func(T) error
+//	collect   T
+//}
+//
+//var _ steps.Step[string, string] = &CollectingStep[string]{}
+//
+//func NewCollectingStep[T any](merge func(T, T) (T, error), onPartial func(T) error, initial T) *CollectingStep[T] {
+//	return &CollectingStep[T]{
+//		merge:     merge,
+//		onPartial: onPartial,
+//		collect:   initial,
+//	}
+//}
+//
+//func (c *CollectingStep[T]) Start(ctx context.Context, input T) (steps.StepResult[T], error) {
+//}

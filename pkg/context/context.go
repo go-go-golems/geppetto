@@ -96,6 +96,12 @@ func WithMessages(messages []*Message) ManagerOption {
 	}
 }
 
+func WithAddMessages(messages ...*Message) ManagerOption {
+	return func(m *Manager) {
+		m.Messages = append(m.Messages, messages...)
+	}
+}
+
 func WithSystemPrompt(systemPrompt string) ManagerOption {
 	return func(m *Manager) {
 		m.SystemPrompt = systemPrompt
