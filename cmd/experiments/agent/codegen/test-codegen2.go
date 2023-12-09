@@ -71,7 +71,9 @@ func NewTestCodegenCommand() (*TestCodegenCommand, error) {
 
 var _ context.GeppettoRunnable = (*TestCodegenCommand)(nil)
 
-func (c *TestCodegenCommand) CreateManager(params *TestCodegenCommandParameters) (*context.Manager, error) {
+func (c *TestCodegenCommand) CreateManager(
+	params *TestCodegenCommandParameters,
+) (*context.Manager, error) {
 	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
 }
 

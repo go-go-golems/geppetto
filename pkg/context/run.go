@@ -20,6 +20,7 @@ func CreateManager(
 	prompt string,
 	messages []*Message,
 	params interface{},
+	options ...ManagerOption,
 ) (*Manager, error) {
 	// convert the params to map[string]interface{}
 	var ps map[string]interface{}
@@ -92,6 +93,10 @@ func CreateManager(
 			Role: RoleUser,
 			Time: time.Now(),
 		})
+	}
+
+	for _, option := range options {
+		option(manager)
 	}
 
 	return manager, nil
