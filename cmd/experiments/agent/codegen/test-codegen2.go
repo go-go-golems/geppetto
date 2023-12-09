@@ -4,6 +4,7 @@ import (
 	context2 "context"
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	parameters "github.com/go-go-golems/glazed/pkg/cmds/parameters"
@@ -15,7 +16,7 @@ const testCodegenCommandSystemPrompt = ""
 
 type TestCodegenCommand struct {
 	*cmds.CommandDescription
-	StepFactory  steps.StepFactory[[]*context.Message, string]
+	StepFactory  chat.StepFactory   `yaml:"-"`
 	Prompt       string             `yaml:"prompt"`
 	Messages     []*context.Message `yaml:"messages,omitempty"`
 	SystemPrompt string             `yaml:"system-prompt"`
@@ -78,11 +79,11 @@ func (c *TestCodegenCommand) CreateManager(
 }
 
 // NOTE(manuel, 2023-12-09) This is just an idea here
-func (c *TestCodegenCommand) CreateStep() (
+func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
 	steps.Step[[]*context.Message, string],
 	error,
 ) {
-	return c.StepFactory.NewStepFromLayers(map[string]*layers.ParsedParameterLayer{})
+	return c.StepFactory.NewStepFromLayers(map[string]*layers.ParsedParameterLayer{}, options...)
 }
 
 func (c *TestCodegenCommand) RunWithManager(

@@ -13,7 +13,12 @@ import (
 var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
 
 type Step struct {
-	Settings *settings.StepSettings
+	Settings  *settings.StepSettings
+	OnPartial func(string) error
+}
+
+func (csf *Step) SetOnPartial(f func(string) error) {
+	csf.OnPartial = f
 }
 
 func (csf *Step) SetStreaming(b bool) {
@@ -41,6 +46,8 @@ func (csf *Step) Start(
 		c := make(chan helpers.Result[string])
 		ret := steps.NewStepResult[string](c)
 
+		message := ""
+
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
@@ -53,7 +60,7 @@ func (csf *Step) Start(
 				default:
 					response, err := stream.Recv()
 					if errors.Is(err, io.EOF) {
-						c <- helpers.NewValueResult[string]("")
+						c <- helpers.NewValueResult[string](message)
 
 						return
 					}
@@ -62,7 +69,15 @@ func (csf *Step) Start(
 						return
 					}
 
-					c <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
+					if csf.OnPartial != nil {
+						err := csf.OnPartial(response.Choices[0].Delta.Content)
+						if err != nil {
+							c <- helpers.NewErrorResult[string](err)
+							return
+						}
+					}
+
+					message += response.Choices[0].Delta.Content
 				}
 			}
 		}()
@@ -75,6 +90,6 @@ func (csf *Step) Start(
 			return steps.Reject[string](err), nil
 		}
 
-		return steps.Resolve(string(resp.Choices[0].Message.Content)), nil
+		return steps.Resolve(resp.Choices[0].Message.Content), nil
 	}
 }

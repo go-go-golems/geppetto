@@ -88,13 +88,6 @@ func (csf *ToolStep) Start(
 					if delta.Role != "" {
 						ret.Role = delta.Role
 					}
-
-					if len(delta.Content) > 0 {
-						c <- helpers.NewPartialResult[ToolCompletionResponse](ToolCompletionResponse{
-							Role:    ret.Role,
-							Content: delta.Content,
-						})
-					}
 				}
 			}
 		}()
