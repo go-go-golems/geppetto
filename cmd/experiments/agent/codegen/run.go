@@ -15,6 +15,7 @@ import (
 	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/utils"
 	"github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"io"
@@ -160,8 +161,6 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		logger := watermill.NewStdLogger(false, false)
-
-		// Create a Go channel-based PubSub
 		pubSub := gochannel.NewGoChannel(gochannel.Config{
 			// Guarantee that messages are delivered in the order of publishing.
 			BlockPublishUntilSubscriberAck: true,
@@ -169,6 +168,12 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 
 		router, err := message.NewRouter(message.RouterConfig{}, logger)
 		cobra.CheckErr(err)
+		defer func(router *message.Router) {
+			err := router.Close()
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to close router")
+			}
+		}(router)
 
 		router.AddNoPublisherHandler("scientist",
 			"scientist",

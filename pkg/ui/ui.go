@@ -65,14 +65,14 @@ type model struct {
 	quitReceived bool
 }
 
-type streamDoneMsg struct {
+type StreamDoneMsg struct {
 }
 
-type streamCompletionMsg struct {
+type StreamCompletionMsg struct {
 	Completion string
 }
 
-type streamCompletionError struct {
+type StreamCompletionError struct {
 	Err error
 }
 
@@ -213,7 +213,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// handle chat streaming messages
-	case streamCompletionMsg:
+	case StreamCompletionMsg:
 		m.currentResponse += msg.Completion
 		newTextAreaView := m.textAreaView()
 		newHeight := lipgloss.Height(newTextAreaView)
@@ -227,11 +227,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = m.getNextCompletion()
 		cmds = append(cmds, cmd)
 
-	case streamDoneMsg:
+	case StreamDoneMsg:
 		cmd = m.finishCompletion()
 		cmds = append(cmds, cmd)
 
-	case streamCompletionError:
+	case StreamCompletionError:
 		cmd = m.setError(msg.Err)
 		cmds = append(cmds, cmd)
 
@@ -411,17 +411,20 @@ func (m *model) submit() tea.Cmd {
 
 func (m model) getNextCompletion() tea.Cmd {
 	return func() tea.Msg {
+		if m.stepResult == nil {
+			return nil
+		}
 		// TODO(manuel, 2023-12-09) stream answers into the context manager
 		c, ok := <-m.stepResult.GetChannel()
 		if !ok {
-			return streamDoneMsg{}
+			return StreamDoneMsg{}
 		}
 		v, err := c.Value()
 		if err != nil {
-			return streamCompletionError{err}
+			return StreamCompletionError{err}
 		}
 
-		return streamCompletionMsg{Completion: v}
+		return StreamCompletionMsg{Completion: v}
 	}
 }
 
@@ -430,6 +433,11 @@ type refreshMessageMsg struct {
 }
 
 func (m *model) finishCompletion() tea.Cmd {
+	// completion already finished, happens when error and completion finish or cancellation happen
+	if m.stepResult == nil {
+		return nil
+	}
+
 	m.contextManager.AddMessages(&context.Message{
 		Role: context.RoleAssistant,
 		Text: m.currentResponse,

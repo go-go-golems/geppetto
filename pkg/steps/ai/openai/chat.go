@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"io"
 )
 
@@ -77,9 +78,11 @@ func (csf *Step) Start(
 			for {
 				select {
 				case <-ctx.Done():
+					log.Warn().Msg("context cancelled")
 					csf.subscriptionManager.PublishBlind(&chat.Event{
 						Type: chat.EventTypeInterrupt,
 					})
+					log.Warn().Msg("return error")
 					c <- helpers.NewErrorResult[string](ctx.Err())
 					return
 				default:
@@ -106,6 +109,7 @@ func (csf *Step) Start(
 						Type: chat.EventTypePartial,
 						Text: response.Choices[0].Delta.Content,
 					})
+
 					message += response.Choices[0].Delta.Content
 				}
 			}
