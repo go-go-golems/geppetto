@@ -222,15 +222,6 @@ func (g *GeppettoCommand) Run(
 }
 
 // RunIntoWriter runs the command and writes the output into the given writer.
-// It first:
-//   - configures the factories with the given parameters (for example to override the
-//     temperature or other openai settings)
-//   - configures the context manager with the configured Messages and SystemPrompt
-//     (per default, from the command definition, but can be overloaded through the
-//     --system, --message-file and --append-message-file flags)
-//   - if --print-prompt is given, it prints the prompt and exits
-//
-// It then instantiates a
 func (g *GeppettoCommand) RunIntoWriter(
 	ctx context.Context,
 	parsedLayers map[string]*layers.ParsedParameterLayer,
