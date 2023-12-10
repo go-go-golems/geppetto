@@ -110,13 +110,9 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		stepSettings, err := createSettingsFromCobra(cmd)
 		cobra.CheckErr(err)
 
-		stepFactory := &chat.StandardStepFactory{
-			Settings: stepSettings,
-		}
-
 		scientistCommand, err := NewTestCodegenCommand()
 		cobra.CheckErr(err)
-		scientistCommand.StepFactory = stepFactory
+		scientistCommand.StepSettings = stepSettings
 
 		scientistParams := &TestCodegenCommandParameters{
 			Pretend: "Scientist",
@@ -136,7 +132,7 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		}
 		writerCommand, err := NewTestCodegenCommand()
 		cobra.CheckErr(err)
-		writerCommand.StepFactory = stepFactory
+		writerCommand.StepSettings = stepSettings
 
 		writerManager, err := writerCommand.CreateManager(writerParams)
 		cobra.CheckErr(err)
@@ -160,6 +156,5 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		writerResult := steps.Bind[[]*context2.Message, string](cmd.Context(), mergeResult, writerStep)
 		res := writerResult.Return()
 		_ = res
-
 	},
 }
