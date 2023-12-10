@@ -241,8 +241,6 @@ func (g *GeppettoCommand) RunIntoWriter(
 		return errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
-	// explicit variable declaration to have type check
-	var chatStep chat.Step
 	var err error
 	endedInNewline := false
 
@@ -257,6 +255,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 		Settings: stepSettings,
 	}
 
+	var chatStep chat.Step
 	chatStep, err = stepFactory.NewStep(
 		chat.WithOnPartial(func(s string) error {
 			_, err := w.Write([]byte(s))
@@ -322,6 +321,14 @@ func (g *GeppettoCommand) RunIntoWriter(
 				Time: time.Now(),
 				Text: s,
 			})
+
+			if !isStream {
+				_, err := w.Write([]byte(s))
+				if err != nil {
+					return err
+				}
+				endedInNewline = strings.HasSuffix(s, "\n")
+			}
 		}
 	}
 
