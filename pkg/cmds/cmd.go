@@ -8,6 +8,7 @@ import (
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/ui"
 	glazedcmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -78,7 +79,7 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 
 type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
-	StepFactory  steps.StepFactory[[]*geppetto_context.Message, string] `yaml:"-"` // this is not serialized
+	StepSettings *settings.StepSettings
 	Prompt       string
 	Messages     []*geppetto_context.Message
 	SystemPrompt string
@@ -106,7 +107,7 @@ func WithSystemPrompt(systemPrompt string) GeppettoCommandOption {
 
 func NewGeppettoCommand(
 	description *glazedcmds.CommandDescription,
-	stepFactory steps.StepFactory[[]*geppetto_context.Message, string],
+	settings *settings.StepSettings,
 	options ...GeppettoCommandOption,
 ) (*GeppettoCommand, error) {
 	helpersParameterLayer, err := NewHelpersParameterLayer()
@@ -121,7 +122,7 @@ func NewGeppettoCommand(
 
 	ret := &GeppettoCommand{
 		CommandDescription: description,
-		StepFactory:        stepFactory,
+		StepSettings:       settings,
 	}
 
 	for _, option := range options {
@@ -242,9 +243,30 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	// explicit variable declaration to have type check
-	var chatStep steps.Step[[]*geppetto_context.Message, string]
+	var chatStep chat.Step
 	var err error
-	chatStep, err = g.StepFactory.NewStepFromLayers(parsedLayers)
+	endedInNewline := false
+
+	stepSettings := g.StepSettings.Clone()
+
+	err = stepSettings.UpdateFromParsedLayers(parsedLayers)
+	if err != nil {
+		return err
+	}
+
+	stepFactory := &chat.StandardStepFactory{
+		Settings: stepSettings,
+	}
+
+	chatStep, err = stepFactory.NewStep(
+		chat.WithOnPartial(func(s string) error {
+			_, err := w.Write([]byte(s))
+			if err != nil {
+				return err
+			}
+			endedInNewline = strings.HasSuffix(s, "\n")
+			return nil
+		}))
 	if err != nil {
 		return err
 	}
@@ -289,15 +311,20 @@ func (g *GeppettoCommand) RunIntoWriter(
 	isStream := chatAILayer.Parameters["ai-stream"].(bool)
 	log.Debug().Bool("isStream", isStream).Msg("")
 
-	accumulate, err := g.readStepResults(ctx, m, w)
-	if err != nil {
-		return err
+	res := m.Return()
+	for _, msg := range res {
+		s, err := msg.Value()
+		if err != nil {
+			contextManager.AddMessages(&geppetto_context.Message{
+				Role: geppetto_context.RoleAssistant,
+				Time: time.Now(),
+				Text: s,
+			})
+		} else {
+			// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
+			return err
+		}
 	}
-	contextManager.AddMessages(&geppetto_context.Message{
-		Role: geppetto_context.RoleAssistant,
-		Time: time.Now(),
-		Text: accumulate,
-	})
 
 	// check if terminal is tty
 
@@ -323,7 +350,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 			Reader: tty_,
 		}
 
-		if !strings.HasSuffix(accumulate, "\n") {
+		if !endedInNewline {
 			fmt.Println()
 		}
 
@@ -358,7 +385,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	if continueInChat {
 		// TODO(manuel, 2023-12-09) This handling of steps and commands and chat is all worth revisiting soon
-		err = chat_(chatStep.(chat.Step), contextManager)
+		err = chat_(chatStep, contextManager)
 
 		for idx, msg := range contextManager.GetMessages() {
 			// skip input prompt and first response that's already been printed out
@@ -373,39 +400,6 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	return nil
-}
-
-func (g *GeppettoCommand) readStepResults(
-	ctx context.Context,
-	m steps.StepResult[string],
-	w io.Writer,
-) (string, error) {
-	accumulate := ""
-	for {
-		select {
-		case <-ctx.Done():
-			return accumulate, ctx.Err()
-		case result, ok := <-m.GetChannel():
-			if !ok {
-				return accumulate, nil
-			}
-
-			if !result.Ok() {
-				return accumulate, result.Error()
-			}
-
-			v, err := result.Value()
-			if err != nil {
-				return accumulate, err
-			}
-
-			_, err = w.Write([]byte(v))
-			if err != nil {
-				return accumulate, err
-			}
-			accumulate += v
-		}
-	}
 }
 
 func chat_(

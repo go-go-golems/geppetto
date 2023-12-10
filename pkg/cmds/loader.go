@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -92,9 +91,9 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 		return nil, errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
-	sq, err := NewGeppettoCommand(description, &chat.StandardStepFactory{
-		Settings: stepSettings,
-	},
+	sq, err := NewGeppettoCommand(
+		description,
+		stepSettings,
 		WithPrompt(scd.Prompt),
 		WithMessages(scd.Messages),
 		WithSystemPrompt(scd.SystemPrompt),
