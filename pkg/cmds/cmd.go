@@ -132,7 +132,7 @@ func NewGeppettoCommand(
 	return ret, nil
 }
 
-func (g *GeppettoCommand) UpdateContextManager(
+func (g *GeppettoCommand) InitializeContextManager(
 	contextManager *geppetto_context.Manager,
 	ps map[string]interface{},
 ) error {
@@ -204,7 +204,7 @@ func (g *GeppettoCommand) Run(
 	contextManager *geppetto_context.Manager,
 	ps map[string]interface{},
 ) (steps.StepResult[string], error) {
-	err := g.UpdateContextManager(contextManager, ps)
+	err := g.InitializeContextManager(contextManager, ps)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,6 @@ func (g *GeppettoCommand) Run(
 	}
 
 	messagesM := steps.Resolve(contextManager.GetMessagesWithSystemPrompt())
-
 	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, step)
 
 	return m, nil
@@ -315,14 +314,14 @@ func (g *GeppettoCommand) RunIntoWriter(
 	for _, msg := range res {
 		s, err := msg.Value()
 		if err != nil {
+			// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
+			return err
+		} else {
 			contextManager.AddMessages(&geppetto_context.Message{
 				Role: geppetto_context.RoleAssistant,
 				Time: time.Now(),
 				Text: s,
 			})
-		} else {
-			// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
-			return err
 		}
 	}
 
