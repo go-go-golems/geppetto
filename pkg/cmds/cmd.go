@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/ui"
@@ -242,23 +243,25 @@ func (g *GeppettoCommand) RunIntoWriter(
 		return err
 	}
 
-	stepFactory := &chat.StandardStepFactory{
+	stepFactory := &ai.StandardStepFactory{
 		Settings: stepSettings,
 	}
 
 	var chatStep chat.Step
-	chatStep, err = stepFactory.NewStep(
-		chat.WithOnPartial(func(s string) error {
-			_, err := w.Write([]byte(s))
-			if err != nil {
-				return err
-			}
-			endedInNewline = strings.HasSuffix(s, "\n")
-			return nil
-		}))
-	if err != nil {
-		return err
-	}
+	// write using watermill subscription
+	// TODO(manuel, 2023-12-09)
+	chatStep, err = stepFactory.NewStep()
+	//	chat.WithOnPartial(func(s string) error {
+	//		_, err := w.Write([]byte(s))
+	//		if err != nil {
+	//			return err
+	//		}
+	//		endedInNewline = strings.HasSuffix(s, "\n")
+	//		return nil
+	//	}))
+	//if err != nil {
+	//	return err
+	//}
 
 	contextManager := geppetto_context.NewManager()
 
@@ -404,7 +407,7 @@ func chat_(
 	contextManager *geppetto_context.Manager,
 ) error {
 	// switch on streaming for chatting
-	step.SetStreaming(true)
+	// TODO(manuel, 2023-12-09) Probably need to create a new follow on step for enabling streaming
 
 	isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
 

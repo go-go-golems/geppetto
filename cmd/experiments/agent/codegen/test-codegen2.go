@@ -4,6 +4,7 @@ import (
 	context2 "context"
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	cmds "github.com/go-go-golems/glazed/pkg/cmds"
@@ -80,10 +81,10 @@ func (c *TestCodegenCommand) CreateManager(
 
 // NOTE(manuel, 2023-12-09) This is just an idea here
 func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
-	steps.Step[[]*context.Message, string],
+	chat.Step,
 	error,
 ) {
-	stepFactory := &chat.StandardStepFactory{
+	stepFactory := &ai.StandardStepFactory{
 		Settings: c.StepSettings,
 	}
 	return stepFactory.NewStep(options...)

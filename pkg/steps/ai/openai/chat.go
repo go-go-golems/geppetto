@@ -2,9 +2,11 @@ package openai
 
 import (
 	"context"
+	"github.com/ThreeDotsLabs/watermill/message"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"io"
@@ -13,22 +15,41 @@ import (
 var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
 
 type Step struct {
-	Settings  *settings.StepSettings
-	OnPartial func(string) error
+	Settings            *settings.StepSettings
+	cancel              context.CancelFunc
+	subscriptionManager *helpers.SubscriptionManager
 }
 
-func (csf *Step) SetOnPartial(f func(string) error) {
-	csf.OnPartial = f
+func (csf *Step) Publish(publisher message.Publisher, topic string) error {
+	csf.subscriptionManager.AddSubscription(topic, publisher)
+	return nil
 }
 
-func (csf *Step) SetStreaming(b bool) {
-	csf.Settings.Chat.Stream = b
+func NewStep(settings *settings.StepSettings) *Step {
+	return &Step{
+		Settings:            settings,
+		subscriptionManager: helpers.NewSubscriptionManager(),
+	}
+}
+
+func (csf *Step) Interrupt() {
+	if csf.cancel != nil {
+		csf.cancel()
+	}
 }
 
 func (csf *Step) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
 ) (steps.StepResult[string], error) {
+	if csf.cancel != nil {
+		return nil, errors.New("step already started")
+	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	csf.cancel = cancel
+
 	client := makeClient(csf.Settings.OpenAI)
 
 	req, err := makeCompletionRequest(csf.Settings, messages)
@@ -56,27 +77,35 @@ func (csf *Step) Start(
 			for {
 				select {
 				case <-ctx.Done():
+					csf.subscriptionManager.PublishBlind(&chat.Event{
+						Type: chat.EventTypeInterrupt,
+					})
+					c <- helpers.NewErrorResult[string](ctx.Err())
 					return
 				default:
 					response, err := stream.Recv()
 					if errors.Is(err, io.EOF) {
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type: chat.EventTypeFinal,
+							Text: message,
+						})
 						c <- helpers.NewValueResult[string](message)
 
 						return
 					}
 					if err != nil {
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type:  chat.EventTypeError,
+							Error: err,
+						})
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
 
-					if csf.OnPartial != nil {
-						err := csf.OnPartial(response.Choices[0].Delta.Content)
-						if err != nil {
-							c <- helpers.NewErrorResult[string](err)
-							return
-						}
-					}
-
+					csf.subscriptionManager.PublishBlind(&chat.Event{
+						Type: chat.EventTypePartial,
+						Text: response.Choices[0].Delta.Content,
+					})
 					message += response.Choices[0].Delta.Content
 				}
 			}
@@ -85,11 +114,33 @@ func (csf *Step) Start(
 		return ret, nil
 	} else {
 		resp, err := client.CreateChatCompletion(ctx, *req)
-
-		if err != nil {
+		if errors.Is(err, context.Canceled) {
+			csf.subscriptionManager.PublishBlind(&chat.Event{
+				Type: chat.EventTypeInterrupt,
+			})
 			return steps.Reject[string](err), nil
 		}
 
+		if err != nil {
+			csf.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: err,
+			})
+			return steps.Reject[string](err), nil
+		}
+
+		if err != nil {
+			csf.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: err,
+			})
+			return steps.Reject[string](err), nil
+		}
+
+		csf.subscriptionManager.PublishBlind(&chat.Event{
+			Type: chat.EventTypeFinal,
+			Text: resp.Choices[0].Message.Content,
+		})
 		return steps.Resolve(resp.Choices[0].Message.Content), nil
 	}
 }

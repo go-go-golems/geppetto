@@ -44,12 +44,9 @@ var upperCaseCmd = &cobra.Command{
 			},
 		}
 
+		stepSettings.Chat.Stream = true
 		// LLM completion step
-		step := &openai.Step{
-			Settings: stepSettings,
-		}
-		step.SetStreaming(true)
-
+		step := openai.NewStep(stepSettings)
 		// uppercase lambda step
 		uppercaseStep := &utils.LambdaStep[string, string]{
 			Function: func(s string) helpers.Result[string] {

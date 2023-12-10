@@ -145,6 +145,10 @@ func (c *Manager) AddMessages(messages ...*Message) {
 	c.Messages = append(c.Messages, messages...)
 }
 
+func (c *Manager) PrependMessages(messages ...*Message) {
+	c.Messages = append(messages, c.Messages...)
+}
+
 func (c *Manager) GetSystemPrompt() string {
 	return c.SystemPrompt
 }
