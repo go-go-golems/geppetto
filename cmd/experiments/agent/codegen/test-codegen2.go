@@ -5,8 +5,8 @@ import (
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	cmds "github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	parameters "github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"io"
 )
@@ -16,10 +16,10 @@ const testCodegenCommandSystemPrompt = ""
 
 type TestCodegenCommand struct {
 	*cmds.CommandDescription
-	StepFactory  chat.StepFactory   `yaml:"-"`
-	Prompt       string             `yaml:"prompt"`
-	Messages     []*context.Message `yaml:"messages,omitempty"`
-	SystemPrompt string             `yaml:"system-prompt"`
+	StepSettings *settings.StepSettings `yaml:"-"`
+	Prompt       string                 `yaml:"prompt"`
+	Messages     []*context.Message     `yaml:"messages,omitempty"`
+	SystemPrompt string                 `yaml:"system-prompt"`
 }
 
 type TestCodegenCommandParameters struct {
@@ -83,7 +83,10 @@ func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
 	steps.Step[[]*context.Message, string],
 	error,
 ) {
-	return c.StepFactory.NewStepFromLayers(map[string]*layers.ParsedParameterLayer{}, options...)
+	stepFactory := &chat.StandardStepFactory{
+		Settings: c.StepSettings,
+	}
+	return stepFactory.NewStep(options...)
 }
 
 func (c *TestCodegenCommand) RunWithManager(
@@ -91,7 +94,7 @@ func (c *TestCodegenCommand) RunWithManager(
 	manager *context.Manager,
 ) (steps.StepResult[string], error) {
 	// instantiate step frm factory
-	step, err := c.StepFactory.NewStepFromLayers(map[string]*layers.ParsedParameterLayer{})
+	step, err := c.CreateStep()
 	if err != nil {
 		return nil, err
 	}
