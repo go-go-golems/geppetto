@@ -3,7 +3,11 @@ package cmds
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	tea "github.com/charmbracelet/bubbletea"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -19,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/tcnksm/go-input"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"strings"
@@ -247,23 +252,56 @@ func (g *GeppettoCommand) RunIntoWriter(
 		Settings: stepSettings,
 	}
 
-	var chatStep chat.Step
-	// write using watermill subscription
-	// TODO(manuel, 2023-12-09)
-	chatStep, err = stepFactory.NewStep()
-	//	chat.WithOnPartial(func(s string) error {
-	//		_, err := w.Write([]byte(s))
-	//		if err != nil {
-	//			return err
-	//		}
-	//		endedInNewline = strings.HasSuffix(s, "\n")
-	//		return nil
-	//	}))
-	//if err != nil {
-	//	return err
-	//}
+	logger := watermill.NopLogger{}
+	pubSub := gochannel.NewGoChannel(gochannel.Config{
+		// Guarantee that messages are delivered in the order of publishing.
+		BlockPublishUntilSubscriberAck: true,
+	}, logger)
+
+	router, err := message.NewRouter(message.RouterConfig{}, logger)
+	if err != nil {
+		return err
+	}
+
+	defer func(pubSub *gochannel.GoChannel) {
+		log.Info().Msg("Closing channel")
+		err := pubSub.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to close pubSub")
+		}
+	}(pubSub)
+
+	router.AddNoPublisherHandler("chat",
+		"chat",
+		pubSub,
+		func(msg *message.Message) error {
+			e := &chat.Event{}
+			err := json.Unmarshal(msg.Payload, e)
+			if err != nil {
+				return err
+			}
+
+			switch e.Type {
+			case chat.EventTypeError:
+				return err
+			case chat.EventTypePartial:
+				_, err = w.Write([]byte(e.Text))
+				if err != nil {
+					return err
+				}
+			case chat.EventTypeFinal:
+			case chat.EventTypeInterrupt:
+			}
+
+			msg.Ack()
+
+			return nil
+		})
 
 	contextManager := geppetto_context.NewManager()
+
+	var chatStep chat.Step
+	chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "chat"))
 
 	// load and render the system prompt
 	systemPrompt_, ok := ps["system"].(string)
@@ -291,121 +329,123 @@ func (g *GeppettoCommand) RunIntoWriter(
 		g.Messages = append(g.Messages, messages_...)
 	}
 
-	m, err := g.Run(ctx, chatStep, contextManager, ps)
-	if err != nil {
-		return err
-	}
-
-	chatAILayer, ok := parsedLayers["ai-chat"]
-	if !ok {
-		return errors.Errorf("No ai layer")
-	}
-	isStream := chatAILayer.Parameters["ai-stream"].(bool)
-	log.Debug().Bool("isStream", isStream).Msg("")
-
-	res := m.Return()
-	for _, msg := range res {
-		s, err := msg.Value()
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		m, err := g.Run(ctx, chatStep, contextManager, ps)
 		if err != nil {
-			// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
 			return err
-		} else {
-			contextManager.AddMessages(&geppetto_context.Message{
-				Role: geppetto_context.RoleAssistant,
-				Time: time.Now(),
-				Text: s,
+		}
+
+		isStream := stepSettings.Chat.Stream
+		log.Debug().Bool("isStream", isStream).Msg("")
+
+		res := m.Return()
+		for _, msg := range res {
+			s, err := msg.Value()
+			if err != nil {
+				// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
+				return err
+			} else {
+				contextManager.AddMessages(&geppetto_context.Message{
+					Role: geppetto_context.RoleAssistant,
+					Time: time.Now(),
+					Text: s,
+				})
+
+				if !isStream {
+					_, err := w.Write([]byte(s))
+					if err != nil {
+						return err
+					}
+					endedInNewline = strings.HasSuffix(s, "\n")
+				}
+			}
+		}
+
+		// check if terminal is tty
+
+		isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
+		interactive := ps["interactive"].(bool)
+		continueInChat := ps["chat"].(bool)
+		askChat := (isOutputTerminal || interactive) && !continueInChat
+
+		if askChat {
+			tty_, err := ui.OpenTTY()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				err := tty_.Close()
+				if err != nil {
+					fmt.Println("Failed to close tty:", err)
+				}
+			}()
+
+			ui := &input.UI{
+				Writer: tty_,
+				Reader: tty_,
+			}
+
+			if !endedInNewline {
+				fmt.Println()
+			}
+
+			query := "\nDo you want to continue in chat? [y/n]"
+			answer, err := ui.Ask(query, &input.Options{
+				Default:  "y",
+				Required: true,
+				Loop:     true,
+				ValidateFunc: func(answer string) error {
+					switch answer {
+					case "y", "Y", "n", "N":
+						return nil
+					default:
+						return fmt.Errorf("please enter 'y' or 'n'")
+					}
+				},
 			})
 
-			if !isStream {
-				_, err := w.Write([]byte(s))
-				if err != nil {
-					return err
-				}
-				endedInNewline = strings.HasSuffix(s, "\n")
-			}
-		}
-	}
-
-	// check if terminal is tty
-
-	isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
-	interactive := ps["interactive"].(bool)
-	continueInChat := ps["chat"].(bool)
-	askChat := (isOutputTerminal || interactive) && !continueInChat
-
-	if askChat {
-		tty_, err := ui.OpenTTY()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			err := tty_.Close()
 			if err != nil {
-				fmt.Println("Failed to close tty:", err)
+				fmt.Println("Failed to get user input:", err)
+				return nil
 			}
-		}()
 
-		ui := &input.UI{
-			Writer: tty_,
-			Reader: tty_,
+			switch answer {
+			case "y", "Y":
+				continueInChat = true
+
+			case "n", "N":
+				return nil
+			}
 		}
 
-		if !endedInNewline {
-			fmt.Println()
-		}
+		if continueInChat {
+			stepFactory.Settings.Chat.Stream = true
+			chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "ui"))
+			err = chat_(ctx, chatStep, router, pubSub, contextManager)
 
-		query := "\nDo you want to continue in chat? [y/n]"
-		answer, err := ui.Ask(query, &input.Options{
-			Default:  "y",
-			Required: true,
-			Loop:     true,
-			ValidateFunc: func(answer string) error {
-				switch answer {
-				case "y", "Y", "n", "N":
-					return nil
-				default:
-					return fmt.Errorf("please enter 'y' or 'n'")
+			for idx, msg := range contextManager.GetMessages() {
+				// skip input prompt and first response that's already been printed out
+				if idx <= 1 {
+					continue
 				}
-			},
-		})
-
-		if err != nil {
-			fmt.Println("Failed to get user input:", err)
-			return nil
-		}
-
-		switch answer {
-		case "y", "Y":
-			continueInChat = true
-
-		case "n", "N":
-			return nil
-		}
-	}
-
-	if continueInChat {
-		// TODO(manuel, 2023-12-09) This handling of steps and commands and chat is all worth revisiting soon
-		err = chat_(chatStep, contextManager)
-
-		for idx, msg := range contextManager.GetMessages() {
-			// skip input prompt and first response that's already been printed out
-			if idx <= 1 {
-				continue
+				fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
 			}
-			fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
+			if err != nil {
+				return err
+			}
 		}
-		if err != nil {
-			return err
-		}
-	}
 
-	return nil
+		return nil
+	})
+	eg.Go(func() error {
+		return router.Run(ctx)
+	})
+
+	return eg.Wait()
 }
 
-func chat_(
-	step chat.Step,
-	contextManager *geppetto_context.Manager,
-) error {
+func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *gochannel.GoChannel, contextManager *geppetto_context.Manager) error {
 	// switch on streaming for chatting
 	// TODO(manuel, 2023-12-09) Probably need to create a new follow on step for enabling streaming
 
@@ -425,7 +465,39 @@ func chat_(
 		options...,
 	)
 
-	if _, err := p.Run(); err != nil {
+	router.AddNoPublisherHandler("ui",
+		"ui", pubSub,
+		func(msg *message.Message) error {
+			e := &chat.Event{}
+			err := json.Unmarshal(msg.Payload, e)
+			if err != nil {
+				return err
+			}
+
+			switch e.Type {
+			case chat.EventTypeError:
+				p.Send(ui.StreamCompletionError{
+					Err: e.Error,
+				})
+			case chat.EventTypePartial:
+				p.Send(ui.StreamCompletionMsg{
+					Completion: e.Text,
+				})
+			case chat.EventTypeFinal:
+				p.Send(ui.StreamDoneMsg{})
+			case chat.EventTypeInterrupt:
+			}
+
+			msg.Ack()
+
+			return nil
+		})
+	err := router.RunHandlers(ctx)
+	if err != nil {
+		return err
+	}
+
+	if _, err = p.Run(); err != nil {
 		return err
 	}
 
