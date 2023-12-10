@@ -405,11 +405,13 @@ func (m *model) submit() tea.Cmd {
 			GoToBottom: true,
 		}
 	},
-		m.getNextCompletion())
+		m.getNextCompletion(),
+	)
 }
 
 func (m model) getNextCompletion() tea.Cmd {
 	return func() tea.Msg {
+		// TODO(manuel, 2023-12-09) stream answers into the context manager
 		c, ok := <-m.stepResult.GetChannel()
 		if !ok {
 			return streamDoneMsg{}

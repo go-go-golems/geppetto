@@ -7,7 +7,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -20,13 +19,6 @@ type Step interface {
 
 type StandardStepFactory struct {
 	Settings *settings.StepSettings
-}
-
-type StepFactory interface {
-	NewStepFromLayers(
-		layers map[string]*layers.ParsedParameterLayer,
-		options ...StepOption,
-	) (Step, error)
 }
 
 type StepOption func(Step)
@@ -43,15 +35,10 @@ func WithOnPartial(f func(string) error) StepOption {
 	}
 }
 
-func (s *StandardStepFactory) NewStepFromLayers(
-	layers map[string]*layers.ParsedParameterLayer,
+func (s *StandardStepFactory) NewStep(
 	options ...StepOption,
 ) (Step, error) {
 	settings_ := s.Settings.Clone()
-	err := settings_.UpdateFromParsedLayers(layers)
-	if err != nil {
-		return nil, err
-	}
 
 	if settings_.Chat == nil || settings_.Chat.Engine == nil {
 		return nil, errors.New("no chat engine specified")
