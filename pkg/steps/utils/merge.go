@@ -8,8 +8,7 @@ import (
 )
 
 func NewMergeStep(manager *context.Manager, prepend bool) steps.Step[string, []*context.Message] {
-	var mergeStep steps.Step[string, []*context.Message]
-	mergeStep = &LambdaStep[string, []*context.Message]{
+	mergeStep := &LambdaStep[string, []*context.Message]{
 		Function: func(input string) helpers.Result[[]*context.Message] {
 			if prepend {
 				manager.PrependMessages(&context.Message{

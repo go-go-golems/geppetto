@@ -301,6 +301,9 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	var chatStep chat.Step
 	chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "chat"))
+	if err != nil {
+		return err
+	}
 
 	// load and render the system prompt
 	systemPrompt_, ok := ps["system"].(string)
@@ -385,7 +388,14 @@ func (g *GeppettoCommand) RunIntoWriter(
 		if continueInChat {
 			stepFactory.Settings.Chat.Stream = true
 			chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "ui"))
+			if err != nil {
+				return err
+			}
+
 			err = chat_(ctx, chatStep, router, pubSub, contextManager)
+			if err != nil {
+				return err
+			}
 
 			for idx, msg := range contextManager.GetMessages() {
 				// skip input prompt and first response that's already been printed out
