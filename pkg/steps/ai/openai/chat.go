@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"io"
 )
 
@@ -48,7 +47,7 @@ func (csf *Step) Start(
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(ctx)
+	cancellableCtx, cancel := context.WithCancel(ctx)
 	csf.cancel = cancel
 
 	client := makeClient(csf.Settings.OpenAI)
@@ -61,7 +60,7 @@ func (csf *Step) Start(
 	stream := csf.Settings.Chat.Stream
 
 	if stream {
-		stream, err := client.CreateChatCompletionStream(ctx, *req)
+		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
 		if err != nil {
 			return steps.Reject[string](err), nil
 		}
@@ -74,19 +73,23 @@ func (csf *Step) Start(
 		go func() {
 			defer close(c)
 			defer stream.Close()
+			defer func() {
+				csf.cancel = nil
+			}()
 
 			for {
 				select {
-				case <-ctx.Done():
-					log.Warn().Msg("context cancelled")
+				case <-cancellableCtx.Done():
 					csf.subscriptionManager.PublishBlind(&chat.Event{
 						Type: chat.EventTypeInterrupt,
+						Text: message,
 					})
-					log.Warn().Msg("return error")
-					c <- helpers.NewErrorResult[string](ctx.Err())
+					c <- helpers.NewErrorResult[string](cancellableCtx.Err())
 					return
+
 				default:
 					response, err := stream.Recv()
+
 					if errors.Is(err, io.EOF) {
 						csf.subscriptionManager.PublishBlind(&chat.Event{
 							Type: chat.EventTypeFinal,
@@ -97,6 +100,15 @@ func (csf *Step) Start(
 						return
 					}
 					if err != nil {
+						if errors.Is(err, context.Canceled) {
+							csf.subscriptionManager.PublishBlind(&chat.Event{
+								Type: chat.EventTypeInterrupt,
+								Text: message,
+							})
+							c <- helpers.NewErrorResult[string](err)
+							return
+						}
+
 						csf.subscriptionManager.PublishBlind(&chat.Event{
 							Type:  chat.EventTypeError,
 							Error: err,
@@ -117,7 +129,7 @@ func (csf *Step) Start(
 
 		return ret, nil
 	} else {
-		resp, err := client.CreateChatCompletion(ctx, *req)
+		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
 		if errors.Is(err, context.Canceled) {
 			csf.subscriptionManager.PublishBlind(&chat.Event{
 				Type: chat.EventTypeInterrupt,

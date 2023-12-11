@@ -23,4 +23,4 @@ flags:
     help: Of what am I asking?
 
 prompt: |
-  Pretend you are a {{.pretend}}. What is the {{.what}} of {{.of}}?
+  Say "hello".
