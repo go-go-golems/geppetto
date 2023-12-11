@@ -264,7 +264,6 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	defer func(pubSub *gochannel.GoChannel) {
-		log.Info().Msg("Closing channel")
 		err := pubSub.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to close pubSub")
@@ -329,8 +328,12 @@ func (g *GeppettoCommand) RunIntoWriter(
 		g.Messages = append(g.Messages, messages_...)
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	eg := errgroup.Group{}
 	eg.Go(func() error {
+		defer cancel()
+
 		m, err := g.Run(ctx, chatStep, contextManager, ps)
 		if err != nil {
 			return err
@@ -363,59 +366,19 @@ func (g *GeppettoCommand) RunIntoWriter(
 		}
 
 		// check if terminal is tty
-
 		isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
 		interactive := ps["interactive"].(bool)
 		continueInChat := ps["chat"].(bool)
 		askChat := (isOutputTerminal || interactive) && !continueInChat
 
 		if askChat {
-			tty_, err := ui.OpenTTY()
-			if err != nil {
-				return err
-			}
-			defer func() {
-				err := tty_.Close()
-				if err != nil {
-					fmt.Println("Failed to close tty:", err)
-				}
-			}()
-
-			ui := &input.UI{
-				Writer: tty_,
-				Reader: tty_,
-			}
-
 			if !endedInNewline {
 				fmt.Println()
 			}
 
-			query := "\nDo you want to continue in chat? [y/n]"
-			answer, err := ui.Ask(query, &input.Options{
-				Default:  "y",
-				Required: true,
-				Loop:     true,
-				ValidateFunc: func(answer string) error {
-					switch answer {
-					case "y", "Y", "n", "N":
-						return nil
-					default:
-						return fmt.Errorf("please enter 'y' or 'n'")
-					}
-				},
-			})
-
+			continueInChat, err = g.askForChatContinuation(continueInChat)
 			if err != nil {
-				fmt.Println("Failed to get user input:", err)
-				return nil
-			}
-
-			switch answer {
-			case "y", "Y":
-				continueInChat = true
-
-			case "n", "N":
-				return nil
+				return err
 			}
 		}
 
@@ -443,6 +406,53 @@ func (g *GeppettoCommand) RunIntoWriter(
 	})
 
 	return eg.Wait()
+}
+
+func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, error) {
+	tty_, err := ui.OpenTTY()
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		err := tty_.Close()
+		if err != nil {
+			fmt.Println("Failed to close tty:", err)
+		}
+	}()
+
+	ui := &input.UI{
+		Writer: tty_,
+		Reader: tty_,
+	}
+
+	query := "\nDo you want to continue in chat? [y/n]"
+	answer, err := ui.Ask(query, &input.Options{
+		Default:  "y",
+		Required: true,
+		Loop:     true,
+		ValidateFunc: func(answer string) error {
+			switch answer {
+			case "y", "Y", "n", "N":
+				return nil
+			default:
+				return fmt.Errorf("please enter 'y' or 'n'")
+			}
+		},
+	})
+
+	if err != nil {
+		fmt.Println("Failed to get user input:", err)
+		return false, err
+	}
+
+	switch answer {
+	case "y", "Y":
+		continueInChat = true
+
+	case "n", "N":
+		return false, nil
+	}
+	return continueInChat, nil
 }
 
 func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *gochannel.GoChannel, contextManager *geppetto_context.Manager) error {
@@ -486,6 +496,7 @@ func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *
 			case chat.EventTypeFinal:
 				p.Send(ui.StreamDoneMsg{})
 			case chat.EventTypeInterrupt:
+				p.Send(ui.StreamDoneMsg{})
 			}
 
 			msg.Ack()

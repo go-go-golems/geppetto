@@ -56,7 +56,6 @@ type model struct {
 	step chat.Step
 	// if not nil, streaming is going on
 	stepResult steps.StepResult[string]
-	stepCancel context2.CancelFunc
 
 	currentResponse        string
 	previousResponseHeight int
@@ -124,10 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.quitReceived {
 				m.quitReceived = true
 				// on first quit, try to cancel completion if running
-				if m.stepCancel != nil {
-					m.stepCancel()
-					return m, tea.Batch(cmds...)
-				}
+				m.step.Interrupt()
 			}
 
 			if m.stepResult != nil {
@@ -174,11 +170,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// same keybinding for both
 		case key.Matches(msg, m.keyMap.CancelCompletion):
 			if m.state == StateStreamCompletion {
-				if m.stepCancel == nil {
-					// shouldn't happen
-					return m, tea.Batch(cmds...)
-				}
-				m.stepCancel()
+				m.step.Interrupt()
 			}
 			return m, tea.Batch(cmds...)
 
@@ -186,7 +178,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == StateError {
 				m.err = nil
 				m.state = StateUserInput
+				m.updateKeyBindings()
 			}
+
 			return m, tea.Batch(cmds...)
 
 		default:
@@ -368,7 +362,6 @@ func (m model) View() string {
 }
 
 // Chat completion messages
-
 func (m *model) submit() tea.Cmd {
 	if m.stepResult != nil {
 		return func() tea.Msg {
@@ -382,8 +375,7 @@ func (m *model) submit() tea.Cmd {
 		Time: time.Now(),
 	})
 
-	ctx, cancel := context2.WithCancel(context2.Background())
-	m.stepCancel = cancel
+	ctx := context2.Background()
 	var err error
 	m.stepResult, err = m.step.Start(ctx, m.contextManager.GetMessagesWithSystemPrompt())
 
@@ -421,6 +413,9 @@ func (m model) getNextCompletion() tea.Cmd {
 		}
 		v, err := c.Value()
 		if err != nil {
+			if errors.Is(err, context2.Canceled) {
+				return StreamDoneMsg{}
+			}
 			return StreamCompletionError{err}
 		}
 
@@ -445,9 +440,8 @@ func (m *model) finishCompletion() tea.Cmd {
 	})
 	m.currentResponse = ""
 	m.previousResponseHeight = 0
-	m.stepCancel()
+	m.step.Interrupt()
 	m.stepResult = nil
-	m.stepCancel = nil
 
 	m.state = StateUserInput
 	m.textArea.Focus()
