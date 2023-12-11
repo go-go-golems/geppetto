@@ -70,37 +70,6 @@ func (g *GeppettoCommandCodeGenerator) defineParametersStruct(
 	})
 }
 
-func (g *GeppettoCommandCodeGenerator) renderPrompts() []jen.Code {
-	return []jen.Code{
-		jen.Id("ps").
-			Op(":=").
-			Qual(codegen.MapsHelpersPath, "StructToMap").
-			Call(jen.Id("params"),
-				jen.Lit(false),
-			),
-
-		jen.List(
-			jen.Id("renderedPrompt"), jen.Err()).
-			Op(":=").
-			Qual(TemplatingPath, "RenderTemplateString").
-			Call(jen.Id("p").Dot("Prompt"),
-				jen.Id("ps"),
-			),
-		jen.If(jen.Err().Op("!=").Nil()).Block(jen.Return(jen.Err())),
-
-		jen.List(
-			jen.Id("renderedSystemPrompt"), jen.Err()).
-			Op(":=").
-			Qual(TemplatingPath, "RenderTemplateString").
-			Call(jen.Id("p").Dot("SystemPrompt"),
-				jen.Id("ps"),
-			),
-		jen.If(jen.Err().Op("!=").Nil()).Block(jen.Return(jen.Err())),
-
-		jen.Line(),
-	}
-}
-
 func (g *GeppettoCommandCodeGenerator) defineNewFunction(
 	f *jen.File,
 	cmdName string,
