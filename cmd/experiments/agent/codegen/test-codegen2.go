@@ -8,7 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	cmds "github.com/go-go-golems/glazed/pkg/cmds"
-	parameters "github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"io"
 )
 
@@ -30,47 +30,6 @@ type TestCodegenCommandParameters struct {
 	Query   []string `glazed.argument:"query"`
 }
 
-func NewTestCodegenCommand() (*TestCodegenCommand, error) {
-	var flagDefs = []*parameters.ParameterDefinition{{
-		Default: "scientist",
-		Help:    "Pretend to be a ??",
-		Name:    "pretend",
-		Type:    "string",
-	}, {
-		Default: "age",
-		Help:    "What am I asking about?",
-		Name:    "what",
-		Type:    "string",
-	}, {
-		Default: "you",
-		Help:    "Of what am I asking?",
-		Name:    "of",
-		Type:    "string",
-	}}
-
-	var argDefs = []*parameters.ParameterDefinition{{
-		Name:     "query",
-		Type:     "stringList",
-		Help:     "Question to answer",
-		Required: true,
-	}}
-
-	cmdDescription := cmds.NewCommandDescription(
-		"test-codegen",
-		cmds.WithShort("Test codegen prompt"),
-		cmds.WithLong("A small test prompt"),
-		cmds.WithFlags(flagDefs...),
-		cmds.WithArguments(argDefs...),
-	)
-
-	return &TestCodegenCommand{
-		CommandDescription: cmdDescription,
-		Prompt:             testCodegenCommandPrompt,
-		SystemPrompt:       testCodegenCommandSystemPrompt,
-		Messages:           nil,
-	}, nil
-}
-
 var _ context.GeppettoRunnable = (*TestCodegenCommand)(nil)
 
 func (c *TestCodegenCommand) CreateManager(
@@ -79,7 +38,6 @@ func (c *TestCodegenCommand) CreateManager(
 	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
 }
 
-// NOTE(manuel, 2023-12-09) This is just an idea here
 func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
 	chat.Step,
 	error,
@@ -140,4 +98,45 @@ func (c *TestCodegenCommand) RunToContextManager(
 		return nil, err
 	}
 	return context.RunToContextManager(ctx, c, manager)
+}
+
+func NewTestCodegenCommand() (*TestCodegenCommand, error) {
+	var flagDefs = []*parameters.ParameterDefinition{{
+		Default: "scientist",
+		Help:    "Pretend to be a ??",
+		Name:    "pretend",
+		Type:    "string",
+	}, {
+		Default: "age",
+		Help:    "What am I asking about?",
+		Name:    "what",
+		Type:    "string",
+	}, {
+		Default: "you",
+		Help:    "Of what am I asking?",
+		Name:    "of",
+		Type:    "string",
+	}}
+
+	var argDefs = []*parameters.ParameterDefinition{{
+		Name:     "query",
+		Type:     "stringList",
+		Help:     "Question to answer",
+		Required: true,
+	}}
+
+	cmdDescription := cmds.NewCommandDescription(
+		"test-codegen",
+		cmds.WithShort("Test codegen prompt"),
+		cmds.WithLong("A small test prompt"),
+		cmds.WithFlags(flagDefs...),
+		cmds.WithArguments(argDefs...),
+	)
+
+	return &TestCodegenCommand{
+		CommandDescription: cmdDescription,
+		Prompt:             testCodegenCommandPrompt,
+		SystemPrompt:       testCodegenCommandSystemPrompt,
+		Messages:           nil,
+	}, nil
 }
