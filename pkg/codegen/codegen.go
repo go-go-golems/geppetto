@@ -11,6 +11,8 @@ import (
 
 const TemplatingPath = "github.com/go-go-golems/glazed/pkg/helpers/templating"
 const ChatPath = "github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+const AiPath = "github.com/go-go-golems/geppetto/pkg/steps/ai"
+const SettingsPath = "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 const StepsPath = "github.com/go-go-golems/geppetto/pkg/steps"
 const CommandPath = "github.com/go-go-golems/geppetto/pkg/cmds"
 const ContextPath = "github.com/go-go-golems/geppetto/pkg/context"
@@ -38,12 +40,7 @@ func (g *GeppettoCommandCodeGenerator) defineStruct(f *jen.File, cmdName string)
 	structName := strcase.ToCamel(cmdName) + "Command"
 	f.Type().Id(structName).Struct(
 		jen.Op("*").Qual(codegen.GlazedCommandsPath, "CommandDescription"),
-		jen.Id("StepFactory").Qual(ChatPath, "StepFactory").Index(
-			jen.List(
-				jen.Index().Op("*").Qual(ContextPath, "Message"),
-				jen.String(),
-			),
-		),
+		jen.Id("StepSettings").Qual(SettingsPath, "StepSettings").Tag(map[string]string{"yaml": "-"}),
 		jen.Id("Prompt").String().Tag(map[string]string{"yaml": "prompt"}),
 		jen.Id("Messages").Index().Op("*").Qual(ContextPath, "Message").
 			Tag(map[string]string{"yaml": "messages,omitempty"}),
@@ -88,7 +85,7 @@ func (g *GeppettoCommandCodeGenerator) defineNewFunction(
 	description := cmd.Description()
 
 	f.Var().Id("_").
-		Qual(CommandPath, "GeppettoRunnable").
+		Qual(ContextPath, "GeppettoRunnable").
 		Op("=").
 		Parens(jen.Op("*").Id(commandStruct)).Parens(jen.Nil())
 
@@ -151,6 +148,19 @@ func (g *GeppettoCommandCodeGenerator) defineNewFunction(
 
 func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName string) {
 	cmdName = strcase.ToCamel(cmdName) + "Command"
+	// CreateStep method
+	f.Func().
+		Params(jen.Id("c").Op("*").Id(cmdName)).
+		Id("CreateStep").
+		Params(jen.Id("options").Op("...").Qual(ChatPath, "StepOption")).
+		Parens(jen.List(jen.Qual(ChatPath, "Step"), jen.Error())).
+		Block(
+			jen.Id("stepFactory").Op(":=").Op("&").Qual(AiPath, "StandardStepFactory").Values(jen.Dict{
+				jen.Id("Settings"): jen.Op("&").Id("c").Dot("StepSettings"),
+			}),
+			jen.Return(jen.Id("stepFactory").Dot("NewStep").Call(jen.Id("options").Op("..."))),
+		).Line()
+
 	f.Func().
 		Params(jen.Id("c").Op("*").Id(cmdName)).
 		Id("CreateManager").
@@ -160,7 +170,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 		Params(jen.Op("*").Qual(ContextPath, "Manager"), jen.Error()).
 		Block(
 			jen.Return(
-				jen.Qual(CommandPath, "CreateManager").Call(
+				jen.Qual(ContextPath, "CreateManager").Call(
 					jen.Id("c").Dot("SystemPrompt"),
 					jen.Id("c").Dot("Prompt"),
 					jen.Id("c").Dot("Messages"),
@@ -181,8 +191,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 			jen.Comment("instantiate step from factory"),
 			jen.List(jen.Id("step"), jen.Err()).
 				Op(":=").
-				Id("c").Dot("StepFactory").Dot("NewStepFromLayers").
-				Call(jen.Map(jen.String()).Op("*").Qual(LayerPath, "ParsedParameterLayer").Block()),
+				Id("c").Dot("CreateStep").Call(),
 			jen.If().Err().Op("!=").Nil().Block(
 				jen.Return(jen.Nil(), jen.Err()),
 			),
@@ -210,7 +219,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 			jen.If().Err().Op("!=").Nil().Block(
 				jen.Return(jen.Err()),
 			),
-			jen.Return(jen.Qual(CommandPath, "RunIntoWriter").
+			jen.Return(jen.Qual(ContextPath, "RunIntoWriter").
 				Call(
 					jen.Id("ctx"),
 					jen.Id("c"),
@@ -235,7 +244,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 				jen.Return(jen.Lit(""), jen.Err()),
 			),
 			jen.Return(
-				jen.Qual(CommandPath, "RunToString").
+				jen.Qual(ContextPath, "RunToString").
 					Call(jen.Id("ctx"), jen.Id("c"), jen.Id("manager"))),
 		).Line()
 
@@ -257,7 +266,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 				jen.Return(jen.Nil(), jen.Err()),
 			),
 			jen.Return(
-				jen.Qual(CommandPath, "RunToContextManager").
+				jen.Qual(ContextPath, "RunToContextManager").
 					Call(jen.Id("ctx"), jen.Id("c"), jen.Id("manager"))),
 		)
 }
