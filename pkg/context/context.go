@@ -15,11 +15,15 @@ type Message struct {
 	Text string    `json:"text" yaml:"text"`
 	Time time.Time `json:"time" yaml:"time"`
 	Role string    `json:"role" yaml:"role"`
+
+	// additional metadata for the message
+	Metadata map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 const RoleSystem = "system"
 const RoleAssistant = "assistant"
 const RoleUser = "user"
+const RoleTool = "tool"
 
 // here is the openai definition
 // ChatCompletionRequestMessage is a message to use as the context for the chat completion API
@@ -92,6 +96,12 @@ func WithMessages(messages []*Message) ManagerOption {
 	}
 }
 
+func WithAddMessages(messages ...*Message) ManagerOption {
+	return func(m *Manager) {
+		m.Messages = append(m.Messages, messages...)
+	}
+}
+
 func WithSystemPrompt(systemPrompt string) ManagerOption {
 	return func(m *Manager) {
 		m.SystemPrompt = systemPrompt
@@ -133,6 +143,10 @@ func (c *Manager) SetMessages(messages []*Message) {
 
 func (c *Manager) AddMessages(messages ...*Message) {
 	c.Messages = append(c.Messages, messages...)
+}
+
+func (c *Manager) PrependMessages(messages ...*Message) {
+	c.Messages = append(messages, c.Messages...)
 }
 
 func (c *Manager) GetSystemPrompt() string {

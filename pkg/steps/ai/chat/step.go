@@ -1,50 +1,71 @@
 package chat
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/context"
+	"context"
+	"github.com/ThreeDotsLabs/watermill/message"
+	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/pkg/errors"
+	"time"
 )
 
+type EventType string
+
 type Step interface {
-	steps.Step[[]*context.Message, string]
-	SetStreaming(bool)
+	steps.Step[[]*geppetto_context.Message, string]
+	Interrupt()
+	Publish(publisher message.Publisher, topic string) error
 }
 
-type StepFactory interface {
-	NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (Step, error)
+const (
+	EventTypePartial   EventType = "partial"
+	EventTypeFinal     EventType = "final"
+	EventTypeError     EventType = "error"
+	EventTypeInterrupt EventType = "interrupt"
+)
+
+type Event struct {
+	Type  EventType `json:"type"`
+	Text  string    `json:"text,omitempty"`
+	Error error     `json:"error,omitempty"`
 }
 
-type StandardStepFactory struct {
-	Settings *settings.StepSettings
+type StepOption func(Step) error
+
+func WithSubscription(publisher message.Publisher, topic string) StepOption {
+	return func(step Step) error {
+		err := step.Publish(publisher, topic)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
 }
 
-func (s *StandardStepFactory) NewStepFromLayers(layers map[string]*layers.ParsedParameterLayer) (Step, error) {
-	settings_ := s.Settings.Clone()
-	err := settings_.UpdateFromParsedLayers(layers)
-	if err != nil {
-		return nil, err
-	}
+type AddToHistoryStep struct {
+	manager *geppetto_context.Manager
+	role    string
+}
 
-	if settings_.Chat == nil || settings_.Chat.Engine == nil {
-		return nil, errors.New("no chat engine specified")
-	}
+var _ steps.Step[string, string] = &AddToHistoryStep{}
 
-	if openai.IsOpenAiEngine(*settings_.Chat.Engine) {
-		return &openai.Step{
-			Settings: settings_,
-		}, nil
-	}
+func (a *AddToHistoryStep) Start(ctx context.Context, input string) (steps.StepResult[string], error) {
+	a.manager.AddMessages(&geppetto_context.Message{
+		Text: input,
+		Time: time.Time{},
+		Role: a.role,
+	})
 
-	if claude.IsClaudeEngine(*settings_.Chat.Engine) {
-		return &claude.Step{
-			Settings: settings_,
-		}, nil
-	}
+	return steps.Resolve(input), nil
+}
 
-	return nil, errors.Errorf("unknown chat engine: %s", *settings_.Chat.Engine)
+type RunnableStep struct {
+	c       geppetto_context.GeppettoRunnable
+	manager *geppetto_context.Manager
+}
+
+var _ steps.Step[interface{}, string] = &RunnableStep{}
+
+func (r *RunnableStep) Start(ctx context.Context, input interface{}) (steps.StepResult[string], error) {
+	return r.c.RunWithManager(ctx, r.manager)
 }

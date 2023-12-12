@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"github.com/ThreeDotsLabs/watermill/message"
 	context2 "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -11,15 +12,31 @@ import (
 )
 
 type EchoStep struct {
-	TimePerCharacter time.Duration
-	cancel           context.CancelFunc
-	eg               *errgroup.Group
+	TimePerCharacter    time.Duration
+	cancel              context.CancelFunc
+	eg                  *errgroup.Group
+	subscriptionManager *helpers.SubscriptionManager
 }
 
-func (e *EchoStep) SetStreaming(b bool) {
+func NewEchoStep() *EchoStep {
+	return &EchoStep{
+		TimePerCharacter:    100 * time.Millisecond,
+		subscriptionManager: helpers.NewSubscriptionManager(),
+	}
 }
 
-func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (*steps.StepResult[string], error) {
+func (e *EchoStep) Interrupt() {
+	if e.cancel != nil {
+		e.cancel()
+	}
+}
+
+func (e *EchoStep) Publish(publisher message.Publisher, topic string) error {
+	e.subscriptionManager.AddSubscription(topic, publisher)
+	return nil
+}
+
+func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (steps.StepResult[string], error) {
 	if len(input) == 0 {
 		return nil, errors.New("no input")
 	}
@@ -37,23 +54,28 @@ func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (*steps
 		for _, c_ := range msg.Text {
 			select {
 			case <-ctx.Done():
+				e.subscriptionManager.PublishBlind(&Event{
+					Type: EventTypeInterrupt,
+				})
 				c <- helpers.NewErrorResult[string](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
-				c <- helpers.NewPartialResult[string](string(c_))
+				e.subscriptionManager.PublishBlind(&Event{
+					Type: EventTypePartial,
+					Text: string(c_),
+				})
 			}
 		}
-		c <- helpers.NewValueResult[string]("")
+		e.subscriptionManager.PublishBlind(&Event{
+			Type: EventTypeFinal,
+			Text: msg.Text,
+		})
+		c <- helpers.NewValueResult[string](msg.Text)
 		return nil
 	})
 	e.eg = eg
 
 	return res, nil
-}
-
-func (e *EchoStep) Close(ctx context.Context) error {
-	e.cancel()
-	return e.eg.Wait()
 }
 
 var _ Step = (*EchoStep)(nil)

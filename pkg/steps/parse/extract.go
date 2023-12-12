@@ -11,7 +11,7 @@ import (
 // ExtractJSONStep is a step that extracts JSON blocks from the given string.
 type ExtractJSONStep struct{}
 
-func (e *ExtractJSONStep) Start(ctx context.Context, input string) (*steps.StepResult[[]string], error) {
+func (e *ExtractJSONStep) Start(ctx context.Context, input string) (steps.StepResult[[]string], error) {
 	c := make(chan helpers.Result[[]string], 1)
 	defer close(c)
 	jsonBlocks := json.ExtractJSON(input)
@@ -20,21 +20,13 @@ func (e *ExtractJSONStep) Start(ctx context.Context, input string) (*steps.StepR
 	return steps.NewStepResult[[]string](c), nil
 }
 
-func (e *ExtractJSONStep) Close(ctx context.Context) error {
-	return nil
-}
-
 type ExtractCodeBlocksStep struct{}
 
-func (e *ExtractCodeBlocksStep) Start(ctx context.Context, input string) (*steps.StepResult[[]string], error) {
+func (e *ExtractCodeBlocksStep) Start(ctx context.Context, input string) (steps.StepResult[[]string], error) {
 	c := make(chan helpers.Result[[]string], 1)
 	defer close(c)
 	codeBlocks := markdown.ExtractQuotedBlocks(input, false)
 	c <- helpers.NewValueResult[[]string](codeBlocks)
 
 	return steps.NewStepResult[[]string](c), nil
-}
-
-func (e *ExtractCodeBlocksStep) Close(ctx context.Context) error {
-	return nil
 }

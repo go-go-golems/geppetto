@@ -19,6 +19,15 @@ type StepSettings struct {
 	Claude *claude.Settings `yaml:"claude,omitempty"`
 }
 
+func NewStepSettings() *StepSettings {
+	return &StepSettings{
+		Chat:   NewChatSettings(),
+		OpenAI: openai.NewSettings(),
+		Client: NewClientSettings(),
+		Claude: claude.NewSettings(),
+	}
+}
+
 func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 	settings_ := factoryConfigFileWrapper{
 		Factories: &StepSettings{

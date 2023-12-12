@@ -27,7 +27,7 @@ type ValidationResult struct {
 	ValidationErrors string
 }
 
-func (v *ValidateJsonStep) Start(ctx context.Context, input string) (*steps.StepResult[ValidationResult], error) {
+func (v *ValidateJsonStep) Start(ctx context.Context, input string) (steps.StepResult[ValidationResult], error) {
 	c := make(chan helpers.Result[ValidationResult], 1)
 	defer close(c)
 
@@ -65,8 +65,4 @@ func (v *ValidateJsonStep) Start(ctx context.Context, input string) (*steps.Step
 
 	c <- helpers.NewValueResult[ValidationResult](validationResult)
 	return steps.NewStepResult[ValidationResult](c), nil
-}
-
-func (v *ValidateJsonStep) Close(ctx context.Context) error {
-	return nil
 }

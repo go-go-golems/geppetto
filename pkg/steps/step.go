@@ -3,10 +3,14 @@ package steps
 import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
-	"github.com/rs/zerolog/log"
 )
 
-type StepResult[T any] struct {
+type StepResult[T any] interface {
+	Return() []helpers.Result[T]
+	GetChannel() <-chan helpers.Result[T]
+}
+
+type StepResultImpl[T any] struct {
 	value <-chan helpers.Result[T]
 	// Additional monads:
 	// - metrics
@@ -14,11 +18,11 @@ type StepResult[T any] struct {
 	//   although they should definitely be collected as part of plunger)
 }
 
-func NewStepResult[T any](value <-chan helpers.Result[T]) *StepResult[T] {
-	return &StepResult[T]{value: value}
+func NewStepResult[T any](value <-chan helpers.Result[T]) *StepResultImpl[T] {
+	return &StepResultImpl[T]{value: value}
 }
 
-func (m *StepResult[T]) Return() []helpers.Result[T] {
+func (m *StepResultImpl[T]) Return() []helpers.Result[T] {
 	res := []helpers.Result[T]{}
 	for r := range m.value {
 		res = append(res, r)
@@ -26,34 +30,38 @@ func (m *StepResult[T]) Return() []helpers.Result[T] {
 	return res
 }
 
-func (m *StepResult[T]) GetChannel() <-chan helpers.Result[T] {
+func (m *StepResultImpl[T]) GetChannel() <-chan helpers.Result[T] {
 	return m.value
 }
 
-func Resolve[T any](value T) *StepResult[T] {
+func Resolve[T any](value T) *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	c <- helpers.NewValueResult[T](value)
 	close(c)
-	return &StepResult[T]{
+	return &StepResultImpl[T]{
 		value: c,
 	}
 }
 
-func ResolveNone[T any]() *StepResult[T] {
+func ResolveNone[T any]() *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	close(c)
-	return &StepResult[T]{
+	return &StepResultImpl[T]{
 		value: c,
 	}
 }
 
-func Reject[T any](err error) *StepResult[T] {
+func Reject[T any](err error) *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	c <- helpers.NewErrorResult[T](err)
 	close(c)
-	return &StepResult[T]{
+	return &StepResultImpl[T]{
 		value: c,
 	}
+}
+
+type StepFactory[T any, U any] interface {
+	NewStep() (Step[T, U], error)
 }
 
 // Step is the generalization of a lambda function, with cancellation and closing
@@ -61,8 +69,7 @@ func Reject[T any](err error) *StepResult[T] {
 type Step[T any, U any] interface {
 	// Start gets called multiple times for the same Step, once per incoming value,
 	// since StepResult is also the list monad (ie., supports multiple values)
-	Start(ctx context.Context, input T) (*StepResult[U], error)
-	Close(ctx context.Context) error
+	Start(ctx context.Context, input T) (StepResult[U], error)
 }
 
 // Bind is the monadic bind operator for StepResult.
@@ -71,23 +78,19 @@ type Step[T any, U any] interface {
 // value.
 func Bind[T any, U any](
 	ctx context.Context,
-	m *StepResult[T],
+	m StepResult[T],
 	step Step[T, U],
-) *StepResult[U] {
-	return &StepResult[U]{
+) StepResult[U] {
+	return &StepResultImpl[U]{
 		value: func() <-chan helpers.Result[U] {
 			c := make(chan helpers.Result[U])
 			go func() {
 				defer close(c)
-				defer func(transformer Step[T, U], ctx context.Context) {
-					err := transformer.Close(ctx)
-					if err != nil {
-						log.Error().Err(err).Msg("error closing step")
-					}
-				}(step, ctx)
 				for {
+					// TODO(manuel, 2023-12-06) The way we handle streaming by calling step.Start on each partial result
+					// without eeven telling the step that this is a partial result is not great.
 					select {
-					case r, ok := <-m.value:
+					case r, ok := <-m.GetChannel():
 						if !ok {
 							return
 						}
@@ -102,7 +105,7 @@ func Bind[T any, U any](
 							c <- helpers.NewErrorResult[U](err)
 							return
 						}
-						for u := range c_.value {
+						for u := range c_.GetChannel() {
 							c <- u
 						}
 					case <-ctx.Done():

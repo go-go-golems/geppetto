@@ -1,5 +1,5 @@
-name: test
-short: Test prompt
+name: test-codegen
+short: Test codegen prompt
 long: A small test prompt
 flags:
   - name: pretend
@@ -14,6 +14,12 @@ flags:
     type: string
     default: "you"
     help: Of what am I asking?
-system_prompt: You are a LLM.
+arguments:
+  - name: query
+    type: stringList
+    help: Question to answer
+    required: true
+system_prompt: You are a {{.pretend}}.
 prompt: |
   Pretend you are a {{.pretend}}. What is the {{.what}} of {{.of}}?
+  {{ .query | join "\n" }}
