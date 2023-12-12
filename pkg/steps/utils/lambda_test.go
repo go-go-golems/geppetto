@@ -38,9 +38,6 @@ func TestLambdaStep(t *testing.T) {
 	resErrValues := resultErr.Return()
 	assert.Len(t, resErrValues, 1) // make sure there is only one value
 	assert.Error(t, resErrValues[0].Error())
-
-	// Test close method.
-	assert.NoError(t, step.Close(context.Background()))
 }
 
 func TestBackgroundLambdaStep(t *testing.T) {
@@ -213,9 +210,6 @@ func TestBackgroundMapLambdaStep(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
-		err = step.Close(context.Background())
-		assert.NoError(t, err)
-
 		results := result.Return()
 		assert.Equal(t, 3, len(results))
 		assert.Equal(t, 2, results[0].Unwrap())
@@ -234,9 +228,6 @@ func TestBackgroundMapLambdaStep(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
-		err = step.Close(context.Background())
-		assert.NoError(t, err)
-
 		assert.Equal(t, 3, len(result.Return()))
 	})
 
@@ -251,44 +242,11 @@ func TestBackgroundMapLambdaStep(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
-		err = step.Close(context.Background())
-		assert.NoError(t, err)
-
 		results := result.Return()
 		assert.Equal(t, 3, len(results))
 		assert.Error(t, results[0].Error())
 		assert.Error(t, results[1].Error())
 		assert.Error(t, results[2].Error())
-	})
-
-	t.Run("Close method correctly closes the channel and waits for all goroutines to complete", func(t *testing.T) {
-		step := &BackgroundMapLambdaStep[int, int]{
-			Function: func(ctx context.Context, input int) helpers.Result[int] {
-				return helpers.NewValueResult(input * 2)
-			},
-		}
-
-		_, err := step.Start(context.Background(), []int{1, 2, 3})
-		assert.NoError(t, err)
-
-		err = step.Close(context.Background())
-		assert.NoError(t, err)
-	})
-
-	t.Run("Close method returns an error if the context is cancelled", func(t *testing.T) {
-		step := &BackgroundMapLambdaStep[int, int]{
-			Function: func(ctx context.Context, input int) helpers.Result[int] {
-				return helpers.NewValueResult(input * 2)
-			},
-		}
-
-		ctx, cancel := context.WithCancel(context.Background())
-		_, err := step.Start(ctx, []int{1, 2, 3})
-		assert.NoError(t, err)
-
-		cancel()
-		err = step.Close(context.Background())
-		assert.NoError(t, err)
 	})
 
 	t.Run("Function is correctly called with the context and input value", func(t *testing.T) {
@@ -300,11 +258,11 @@ func TestBackgroundMapLambdaStep(t *testing.T) {
 			},
 		}
 
-		_, err := step.Start(context.Background(), []int{1})
+		res, err := step.Start(context.Background(), []int{1})
 		require.NoError(t, err)
-		// close the channel to allow the goroutine to complete
-		err = step.Close(context.Background())
-		assert.NoError(t, err)
+
+		_ = res.Return()
+
 		assert.Equal(t, 1, receivedInput)
 	})
 
@@ -374,11 +332,6 @@ func TestBindLambdas(t *testing.T) {
 
 		res := <-result2.GetChannel()
 		assert.Equal(t, 5, res.Unwrap())
-
-		err := step2.Close(ctx)
-		assert.NoError(t, err)
-		err = step1.Close(ctx)
-		assert.NoError(t, err)
 	})
 
 }

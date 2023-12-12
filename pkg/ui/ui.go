@@ -55,8 +55,7 @@ type model struct {
 
 	step chat.Step
 	// if not nil, streaming is going on
-	stepResult *steps.StepResult[string]
-	stepCancel context2.CancelFunc
+	stepResult steps.StepResult[string]
 
 	currentResponse        string
 	previousResponseHeight int
@@ -65,14 +64,14 @@ type model struct {
 	quitReceived bool
 }
 
-type streamDoneMsg struct {
+type StreamDoneMsg struct {
 }
 
-type streamCompletionMsg struct {
+type StreamCompletionMsg struct {
 	Completion string
 }
 
-type streamCompletionError struct {
+type StreamCompletionError struct {
 	Err error
 }
 
@@ -124,10 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.quitReceived {
 				m.quitReceived = true
 				// on first quit, try to cancel completion if running
-				if m.stepCancel != nil {
-					m.stepCancel()
-					return m, tea.Batch(cmds...)
-				}
+				m.step.Interrupt()
 			}
 
 			if m.stepResult != nil {
@@ -174,11 +170,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// same keybinding for both
 		case key.Matches(msg, m.keyMap.CancelCompletion):
 			if m.state == StateStreamCompletion {
-				if m.stepCancel == nil {
-					// shouldn't happen
-					return m, tea.Batch(cmds...)
-				}
-				m.stepCancel()
+				m.step.Interrupt()
 			}
 			return m, tea.Batch(cmds...)
 
@@ -186,7 +178,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == StateError {
 				m.err = nil
 				m.state = StateUserInput
+				m.updateKeyBindings()
 			}
+
 			return m, tea.Batch(cmds...)
 
 		default:
@@ -213,7 +207,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// handle chat streaming messages
-	case streamCompletionMsg:
+	case StreamCompletionMsg:
 		m.currentResponse += msg.Completion
 		newTextAreaView := m.textAreaView()
 		newHeight := lipgloss.Height(newTextAreaView)
@@ -227,11 +221,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = m.getNextCompletion()
 		cmds = append(cmds, cmd)
 
-	case streamDoneMsg:
+	case StreamDoneMsg:
 		cmd = m.finishCompletion()
 		cmds = append(cmds, cmd)
 
-	case streamCompletionError:
+	case StreamCompletionError:
 		cmd = m.setError(msg.Err)
 		cmds = append(cmds, cmd)
 
@@ -368,7 +362,6 @@ func (m model) View() string {
 }
 
 // Chat completion messages
-
 func (m *model) submit() tea.Cmd {
 	if m.stepResult != nil {
 		return func() tea.Msg {
@@ -382,8 +375,7 @@ func (m *model) submit() tea.Cmd {
 		Time: time.Now(),
 	})
 
-	ctx, cancel := context2.WithCancel(context2.Background())
-	m.stepCancel = cancel
+	ctx := context2.Background()
 	var err error
 	m.stepResult, err = m.step.Start(ctx, m.contextManager.GetMessagesWithSystemPrompt())
 
@@ -405,21 +397,29 @@ func (m *model) submit() tea.Cmd {
 			GoToBottom: true,
 		}
 	},
-		m.getNextCompletion())
+		m.getNextCompletion(),
+	)
 }
 
 func (m model) getNextCompletion() tea.Cmd {
 	return func() tea.Msg {
+		if m.stepResult == nil {
+			return nil
+		}
+		// TODO(manuel, 2023-12-09) stream answers into the context manager
 		c, ok := <-m.stepResult.GetChannel()
 		if !ok {
-			return streamDoneMsg{}
+			return StreamDoneMsg{}
 		}
 		v, err := c.Value()
 		if err != nil {
-			return streamCompletionError{err}
+			if errors.Is(err, context2.Canceled) {
+				return StreamDoneMsg{}
+			}
+			return StreamCompletionError{err}
 		}
 
-		return streamCompletionMsg{Completion: v}
+		return StreamCompletionMsg{Completion: v}
 	}
 }
 
@@ -428,6 +428,11 @@ type refreshMessageMsg struct {
 }
 
 func (m *model) finishCompletion() tea.Cmd {
+	// completion already finished, happens when error and completion finish or cancellation happen
+	if m.stepResult == nil {
+		return nil
+	}
+
 	m.contextManager.AddMessages(&context.Message{
 		Role: context.RoleAssistant,
 		Text: m.currentResponse,
@@ -435,9 +440,8 @@ func (m *model) finishCompletion() tea.Cmd {
 	})
 	m.currentResponse = ""
 	m.previousResponseHeight = 0
-	m.stepCancel()
+	m.step.Interrupt()
 	m.stepResult = nil
-	m.stepCancel = nil
 
 	m.state = StateUserInput
 	m.textArea.Focus()

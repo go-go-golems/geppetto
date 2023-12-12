@@ -2,159 +2,161 @@ package openai
 
 import (
 	"context"
+	"github.com/ThreeDotsLabs/watermill/message"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
-	go_openai "github.com/sashabaranov/go-openai"
 	"io"
-	"strings"
 )
 
+var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
+
 type Step struct {
-	Settings *settings.StepSettings
+	Settings            *settings.StepSettings
+	cancel              context.CancelFunc
+	subscriptionManager *helpers.SubscriptionManager
 }
 
-func IsOpenAiEngine(engine string) bool {
-	if strings.HasPrefix(engine, "gpt") {
-		return true
-	}
-	if strings.HasPrefix(engine, "text-") {
-		return true
-	}
-
-	return false
+func (csf *Step) Publish(publisher message.Publisher, topic string) error {
+	csf.subscriptionManager.AddSubscription(topic, publisher)
+	return nil
 }
 
-func (csf *Step) SetStreaming(b bool) {
-	csf.Settings.Chat.Stream = b
+func NewStep(settings *settings.StepSettings) *Step {
+	return &Step{
+		Settings:            settings,
+		subscriptionManager: helpers.NewSubscriptionManager(),
+	}
+}
+
+func (csf *Step) Interrupt() {
+	if csf.cancel != nil {
+		csf.cancel()
+	}
 }
 
 func (csf *Step) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
-) (*steps.StepResult[string], error) {
-	clientSettings := csf.Settings.Client
-	if clientSettings == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
-	openaiSettings := csf.Settings.OpenAI
-	if openaiSettings == nil {
-		return nil, errors.New("no openai settings")
+) (steps.StepResult[string], error) {
+	if csf.cancel != nil {
+		return nil, errors.New("step already started")
 	}
 
-	if openaiSettings.APIKey == nil {
-		return nil, steps.ErrMissingClientAPIKey
+	var cancel context.CancelFunc
+	cancellableCtx, cancel := context.WithCancel(ctx)
+	csf.cancel = cancel
+
+	client := makeClient(csf.Settings.OpenAI)
+
+	req, err := makeCompletionRequest(csf.Settings, messages)
+	if err != nil {
+		return nil, err
 	}
 
-	client := go_openai.NewClient(*openaiSettings.APIKey)
-
-	engine := ""
-
-	chatSettings := csf.Settings.Chat
-	if chatSettings.Engine != nil {
-		engine = *chatSettings.Engine
-	} else {
-		return nil, errors.New("no engine specified")
-	}
-
-	msgs_ := []go_openai.ChatCompletionMessage{}
-	for _, msg := range messages {
-		msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: msg.Text,
-		})
-	}
-
-	temperature := 0.0
-	if chatSettings.Temperature != nil {
-		temperature = *chatSettings.Temperature
-	}
-	topP := 0.0
-	if chatSettings.TopP != nil {
-		topP = *chatSettings.TopP
-	}
-	maxTokens := 32
-	if chatSettings.MaxResponseTokens != nil {
-		maxTokens = *chatSettings.MaxResponseTokens
-	}
-
-	n := 1
-	if openaiSettings.N != nil {
-		n = *openaiSettings.N
-	}
-	stream := chatSettings.Stream
-	stop := chatSettings.Stop
-	presencePenalty := 0.0
-	if openaiSettings.PresencePenalty != nil {
-		presencePenalty = *openaiSettings.PresencePenalty
-	}
-	frequencyPenalty := 0.0
-	if openaiSettings.FrequencyPenalty != nil {
-		frequencyPenalty = *openaiSettings.FrequencyPenalty
-	}
-
-	req := go_openai.ChatCompletionRequest{
-		Model:            engine,
-		Messages:         msgs_,
-		MaxTokens:        maxTokens,
-		Temperature:      float32(temperature),
-		TopP:             float32(topP),
-		N:                n,
-		Stream:           stream,
-		Stop:             stop,
-		PresencePenalty:  float32(presencePenalty),
-		FrequencyPenalty: float32(frequencyPenalty),
-		// TODO(manuel, 2023-03-28) Properly load logit bias
-		// See https://github.com/go-go-golems/geppetto/issues/48
-		LogitBias: nil,
-	}
+	stream := csf.Settings.Chat.Stream
 
 	if stream {
-		stream, err := client.CreateChatCompletionStream(ctx, req)
+		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
 		if err != nil {
 			return steps.Reject[string](err), nil
 		}
 		c := make(chan helpers.Result[string])
 		ret := steps.NewStepResult[string](c)
 
+		message := ""
+
+		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
 			defer stream.Close()
+			defer func() {
+				csf.cancel = nil
+			}()
+
 			for {
 				select {
-				case <-ctx.Done():
+				case <-cancellableCtx.Done():
+					csf.subscriptionManager.PublishBlind(&chat.Event{
+						Type: chat.EventTypeInterrupt,
+						Text: message,
+					})
+					c <- helpers.NewErrorResult[string](cancellableCtx.Err())
 					return
+
 				default:
 					response, err := stream.Recv()
+
 					if errors.Is(err, io.EOF) {
-						c <- helpers.NewValueResult[string]("")
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type: chat.EventTypeFinal,
+							Text: message,
+						})
+						c <- helpers.NewValueResult[string](message)
+
 						return
 					}
 					if err != nil {
+						if errors.Is(err, context.Canceled) {
+							csf.subscriptionManager.PublishBlind(&chat.Event{
+								Type: chat.EventTypeInterrupt,
+								Text: message,
+							})
+							c <- helpers.NewErrorResult[string](err)
+							return
+						}
+
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type:  chat.EventTypeError,
+							Error: err,
+						})
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
 
-					c <- helpers.NewPartialResult[string](response.Choices[0].Delta.Content)
+					csf.subscriptionManager.PublishBlind(&chat.Event{
+						Type: chat.EventTypePartial,
+						Text: response.Choices[0].Delta.Content,
+					})
+
+					message += response.Choices[0].Delta.Content
 				}
 			}
 		}()
 
 		return ret, nil
 	} else {
-		resp, err := client.CreateChatCompletion(ctx, req)
-
-		if err != nil {
+		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
+		if errors.Is(err, context.Canceled) {
+			csf.subscriptionManager.PublishBlind(&chat.Event{
+				Type: chat.EventTypeInterrupt,
+			})
 			return steps.Reject[string](err), nil
 		}
 
-		return steps.Resolve(string(resp.Choices[0].Message.Content)), nil
-	}
-}
+		if err != nil {
+			csf.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: err,
+			})
+			return steps.Reject[string](err), nil
+		}
 
-// Close is only called after the returned monad has been entirely consumed
-func (csf *Step) Close(ctx context.Context) error {
-	return nil
+		if err != nil {
+			csf.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: err,
+			})
+			return steps.Reject[string](err), nil
+		}
+
+		csf.subscriptionManager.PublishBlind(&chat.Event{
+			Type: chat.EventTypeFinal,
+			Text: resp.Choices[0].Message.Content,
+		})
+		return steps.Resolve(resp.Choices[0].Message.Content), nil
+	}
 }

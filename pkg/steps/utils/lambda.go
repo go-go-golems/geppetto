@@ -35,7 +35,7 @@ type BackgroundMapLambdaStep[Input any, Output any] struct {
 	c        chan helpers.Result[Output]
 }
 
-func (l *LambdaStep[Input, Output]) Start(ctx context.Context, input Input) (*steps.StepResult[Output], error) {
+func (l *LambdaStep[Input, Output]) Start(ctx context.Context, input Input) (steps.StepResult[Output], error) {
 	c := make(chan helpers.Result[Output], 1)
 	defer close(c)
 
@@ -43,11 +43,7 @@ func (l *LambdaStep[Input, Output]) Start(ctx context.Context, input Input) (*st
 	return steps.NewStepResult[Output](c), nil
 }
 
-func (l *LambdaStep[Input, Output]) Close(ctx context.Context) error {
-	return nil
-}
-
-func (l *BackgroundLambdaStep[Input, Output]) Start(ctx context.Context, input Input) (*steps.StepResult[Output], error) {
+func (l *BackgroundLambdaStep[Input, Output]) Start(ctx context.Context, input Input) (steps.StepResult[Output], error) {
 	l.c = make(chan helpers.Result[Output], 1)
 
 	l.wg.Add(1)
@@ -65,7 +61,7 @@ func (l *BackgroundLambdaStep[Input, Output]) Close(ctx context.Context) error {
 	return nil
 }
 
-func (l *MapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (*steps.StepResult[Output], error) {
+func (l *MapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (steps.StepResult[Output], error) {
 	c := make(chan helpers.Result[Output], len(input))
 	defer close(c)
 
@@ -82,7 +78,7 @@ func (l *MapLambdaStep[Input, Output]) Close(ctx context.Context) error {
 	return nil
 }
 
-func (l *BackgroundMapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (*steps.StepResult[Output], error) {
+func (l *BackgroundMapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (steps.StepResult[Output], error) {
 	l.c = make(chan helpers.Result[Output], len(input))
 
 	l.wg.Add(1)
@@ -95,9 +91,4 @@ func (l *BackgroundMapLambdaStep[Input, Output]) Start(ctx context.Context, inpu
 	}()
 
 	return steps.NewStepResult[Output](l.c), nil
-}
-
-func (l *BackgroundMapLambdaStep[Input, Output]) Close(ctx context.Context) error {
-	l.wg.Wait()
-	return nil
 }

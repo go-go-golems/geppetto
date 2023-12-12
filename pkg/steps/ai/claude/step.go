@@ -3,30 +3,59 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"github.com/ThreeDotsLabs/watermill/message"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"strings"
 )
 
 type Step struct {
-	Settings *settings.StepSettings
+	Settings            *settings.StepSettings
+	cancel              context.CancelFunc
+	subscriptionManager *helpers.SubscriptionManager
 }
+
+func NewStep(settings *settings.StepSettings) *Step {
+	return &Step{
+		Settings:            settings,
+		subscriptionManager: helpers.NewSubscriptionManager(),
+	}
+}
+
+func (csf *Step) Publish(publisher message.Publisher, topic string) error {
+	csf.subscriptionManager.AddSubscription(topic, publisher)
+	return nil
+}
+
+func (csf *Step) Interrupt() {
+	if csf.cancel != nil {
+		csf.cancel()
+	}
+}
+
+var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
 
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
 }
 
-func (csf *Step) SetStreaming(b bool) {
-	csf.Settings.Chat.Stream = b
-}
-
 func (csf *Step) Start(
 	ctx context.Context,
 	messages []*geppetto_context.Message,
-) (*steps.StepResult[string], error) {
+) (steps.StepResult[string], error) {
+	if csf.cancel != nil {
+		return nil, errors.New("step already started")
+	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	csf.cancel = cancel
+
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -107,18 +136,31 @@ func (csf *Step) Start(
 			defer close(c)
 
 			isFirstEvent := true
+			message := ""
 			for {
 				select {
 				case <-ctx.Done():
+					csf.subscriptionManager.PublishBlind(&chat.Event{
+						Type: chat.EventTypeInterrupt,
+					})
+					c <- helpers.NewErrorResult[string](ctx.Err())
 					return
 				case event, ok := <-events:
 					if !ok {
-						c <- helpers.NewValueResult[string]("")
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type: chat.EventTypeFinal,
+							Text: message,
+						})
+						c <- helpers.NewValueResult[string](message)
 						return
 					}
 					decoded := map[string]interface{}{}
-					err := json.Unmarshal([]byte(event.Data), &decoded)
+					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type:  chat.EventTypeError,
+							Error: err,
+						})
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
@@ -127,7 +169,11 @@ func (csf *Step) Start(
 							completion = strings.TrimLeft(completion, " ")
 							isFirstEvent = false
 						}
-						c <- helpers.NewPartialResult[string](completion)
+						csf.subscriptionManager.PublishBlind(&chat.Event{
+							Type: chat.EventTypePartial,
+							Text: completion,
+						})
+						message += completion
 					}
 				}
 			}
@@ -138,14 +184,21 @@ func (csf *Step) Start(
 		resp, err := client.Complete(&req)
 
 		if err != nil {
+			err = csf.subscriptionManager.Publish(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: err,
+			})
+			if err != nil {
+				log.Warn().Err(err).Msg("error publishing error event")
+			}
 			return steps.Reject[string](err), nil
 		}
 
+		csf.subscriptionManager.PublishBlind(&chat.Event{
+			Type: chat.EventTypeFinal,
+			Text: resp.Completion,
+		})
+
 		return steps.Resolve(resp.Completion), nil
 	}
-}
-
-// Close is only called after the returned monad has been entirely consumed
-func (csf *Step) Close(ctx context.Context) error {
-	return nil
 }

@@ -50,6 +50,13 @@ func NewSettingsFromParsedLayer(layer *layers.ParsedParameterLayer) (*Settings, 
 		ret.APIKey = &s
 	}
 
+	if ret.BaseURL == nil || *ret.BaseURL == layer.Layer.GetParameterDefinitions()["openai-base-url"].Default {
+		s := viper.GetString("openai-base-url")
+		if s != "" {
+			ret.BaseURL = &s
+		}
+	}
+
 	return ret, nil
 }
 
@@ -59,6 +66,8 @@ func (s *Settings) Clone() *Settings {
 		PresencePenalty:  s.PresencePenalty,
 		FrequencyPenalty: s.FrequencyPenalty,
 		LogitBias:        s.LogitBias,
+		APIKey:           s.APIKey,
+		BaseURL:          s.BaseURL,
 	}
 }
 
@@ -74,6 +83,7 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 		}
 	}
 
+	// TODO(manuel, 2023-11-21) This is where we would load things from the currently chosen profile, amongst others
 	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
 	if err != nil {
 		return err
@@ -82,6 +92,13 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 	if s.APIKey == nil || *s.APIKey == "" {
 		s_ := viper.GetString("openai-api-key")
 		s.APIKey = &s_
+	}
+
+	if s.BaseURL == nil || *s.BaseURL == layer.Layer.GetParameterDefinitions()["openai-base-url"].Default {
+		s_ := viper.GetString("openai-base-url")
+		if s_ != "" {
+			s.BaseURL = &s_
+		}
 	}
 
 	return nil
