@@ -341,6 +341,9 @@ func (g *GeppettoCommand) RunIntoWriter(
 		if err != nil {
 			return err
 		}
+		if m == nil {
+			return nil
+		}
 
 		isStream := stepSettings.Chat.Stream
 		log.Debug().Bool("isStream", isStream).Msg("")
