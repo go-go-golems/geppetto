@@ -2,12 +2,12 @@ package codegen
 
 import (
 	context1 "context"
-	cmds1 "github.com/go-go-golems/geppetto/pkg/cmds"
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	steps "github.com/go-go-golems/geppetto/pkg/steps"
-	chat "github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	cmds "github.com/go-go-golems/glazed/pkg/cmds"
-	layers "github.com/go-go-golems/glazed/pkg/cmds/layers"
 	parameters "github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"io"
 )
@@ -17,10 +17,10 @@ const unitTestsCommandSystemPrompt = "You are a meticulous and experienced softw
 
 type UnitTestsCommand struct {
 	*cmds.CommandDescription
-	StepFactory  chat.StepFactory[[]*context.Message, string]
-	Prompt       string             `yaml:"prompt"`
-	Messages     []*context.Message `yaml:"messages,omitempty"`
-	SystemPrompt string             `yaml:"system-prompt"`
+	StepSettings *settings.StepSettings `yaml:"-"`
+	Prompt       string                 `yaml:"prompt"`
+	Messages     []*context.Message     `yaml:"messages,omitempty"`
+	SystemPrompt string                 `yaml:"system-prompt"`
 }
 
 type UnitTestsCommandParameters struct {
@@ -37,13 +37,24 @@ type UnitTestsCommandParameters struct {
 	Context            string `glazed.parameter:"context"`
 }
 
+var _ context.GeppettoRunnable = (*UnitTestsCommand)(nil)
+
 func (c *UnitTestsCommand) CreateManager(params *UnitTestsCommandParameters) (*context.Manager, error) {
-	return cmds1.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
+	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
+}
+
+func (c *UnitTestsCommand) CreateStep(options ...chat.StepOption) (
+	chat.Step,
+	error,
+) {
+	stepFactory := &ai.StandardStepFactory{
+		Settings: c.StepSettings,
+	}
+	return stepFactory.NewStep(options...)
 }
 
 func (c *UnitTestsCommand) RunWithManager(ctx context1.Context, manager *context.Manager) (steps.StepResult[string], error) {
-	// instantiate step from factory
-	step, err := c.StepFactory.NewStepFromLayers(map[string]*layers.ParsedParameterLayer{})
+	step, err := c.CreateStep()
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +70,7 @@ func (c *UnitTestsCommand) RunIntoWriter(ctx context1.Context, params *UnitTests
 	if err != nil {
 		return err
 	}
-	return cmds1.RunIntoWriter(ctx, c, manager, w)
+	return context.RunIntoWriter(ctx, c, manager, w)
 }
 
 func (c *UnitTestsCommand) RunToString(ctx context1.Context, params *UnitTestsCommandParameters) (string, error) {
@@ -67,7 +78,7 @@ func (c *UnitTestsCommand) RunToString(ctx context1.Context, params *UnitTestsCo
 	if err != nil {
 		return "", err
 	}
-	return cmds1.RunToString(ctx, c, manager)
+	return context.RunToString(ctx, c, manager)
 }
 
 func (c *UnitTestsCommand) RunToContextManager(ctx context1.Context, params *UnitTestsCommandParameters) (*context.Manager, error) {
@@ -75,10 +86,8 @@ func (c *UnitTestsCommand) RunToContextManager(ctx context1.Context, params *Uni
 	if err != nil {
 		return nil, err
 	}
-	return cmds1.RunToContextManager(ctx, c, manager)
+	return context.RunToContextManager(ctx, c, manager)
 }
-
-var _ cmds1.GeppettoRunnable = (*UnitTestsCommand)(nil)
 
 func NewUnitTestsCommand() (*UnitTestsCommand, error) {
 	var flagDefs = []*parameters.ParameterDefinition{{
