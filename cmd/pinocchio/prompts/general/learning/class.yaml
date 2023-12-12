@@ -1,0 +1,102 @@
+name: class
+short: Simulate a classroom debate scenario with distinct personalities.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.7
+    max_response_tokens: 4096
+    stop: []
+    stream: true
+flags:
+  - name: topic
+    type: string
+    help: The debate topic introduced by the teacher.
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: type
+    type: string
+    help: The student type
+    default: student
+system-prompt: |
+    You are an advanced language model tasked with simulating a classroom debate scenario. In this scenario, there is a teacher and three students with distinct personalities and debate styles. These students are all {{ .type }}. The teacher will introduce a topic, and the students will engage in a three-round debate. Student A often misunderstands the topic and makes incorrect statements. Student B is knowledgeable but arrogant and prone to overeagerness, leading to mistakes. Student C is intelligent and good-natured, providing clear summaries and corrections. The teacher will intervene when a point is egregiously wrong. Your task is to generate a dialogue that reflects this dynamic.
+    {{ .additional_system }}
+prompt: |
+  {{ define "context" -}}
+  {{ .query | join " " }}
+  {{ if .additional }}Additional instructions:
+  {{ .additional | join "\n" }}{{ end }}
+  {{- end }}
+
+  1. Begin by having the teacher introduce a debate topic.
+  The topic is related to {{ .topic }}
+
+  2. Proceed with Student A making an initial, but flawed, argument about the topic.
+  3. Allow Student B to respond with a correction, showcasing their knowledge but also making a subtle mistake due to overeagerness.
+  4. Have Student C summarize the points made by both students and politely correct any mistakes with clear explanations.
+  5. Continue this pattern for three rounds of debate.
+  6. If at any point a student makes a significant error, include an intervention from the teacher to correct the misinformation.
+
+  Remember to maintain the distinct personalities of each participant throughout the simulation. Your language should be clear and accessible to ensure comprehension by all users.
+
+  {{ template "context" . }}
+
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
+
+  **Output Structure:**
+
+  1. **Introduction of Topic by Teacher:**
+     - The teacher presents a debate topic related to {{ .topic }} to the class.
+
+  2. **Round 1:**
+     - **Student A's Argument:**
+       - Student A makes an argument that contains a notable error.
+     - **Student B's Correction:**
+       - Student B corrects Student A but also slips in a mistake due to overconfidence.
+     - **Student C's Summary and Clarification:**
+       - Student C summarizes the points and corrects mistakes from both students.
+
+  3. **Round 2:**
+     - **Student A's Argument:**
+       - Student A presents another argument with a misunderstanding.
+     - **Student B's Correction:**
+       - Student B corrects Student A, again with a mistake of their own.
+     - **Student C's Summary and Clarification:**
+       - Student C provides a clear summary and correction.
+
+  4. **Round 3:**
+     - **Student A's Argument:**
+       - Student A offers a final argument with errors.
+     - **Student B's Correction:**
+       - Student B attempts to correct Student A but includes another error.
+     - **Student C's Summary and Clarification:**
+       - Student C summarizes and corrects the final round of points.
+
+  5. **Teacher's Intervention (if necessary):**
+     - The teacher steps in to correct any significantly wrong point made during the debate.
+
+  After this, ask the user if the students should go through a new debate round. If yes, start again from 1. Otherwise, move on to 6.
+
+  6. **Conclusion:**
+     - The teacher wraps up the debate,
+      The teacher clarifies all the points brought up in the debate rounds.
+      THey then summarize the lesson in clear language using bullet points so that the students can use that as study notes.
+       Only the material discussed during the debate is included in those study notes. 

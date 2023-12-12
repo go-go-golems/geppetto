@@ -1,0 +1,126 @@
+name: howtos
+short: Generate concise, clear bullet-point HOWTO guides for developers.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: functionality
+    type: string
+    help: Specific functionality of the library to create a guide for.
+    required: true
+  - name: code
+    type: fileList
+    help: File list containing the implementation of the functionality.
+  - name: code_examples
+    type: fileList
+    help: File list containing code examples.
+  - name: unit_tests
+    type: fileList
+    help: File list containing unit tests.
+  - name: additional_context
+    type: string
+    help: Additional context to include in the guide.
+    default: ""
+  - name: concise
+    type: bool
+    help: Give concise answers.
+    default: false
+  - name: use_bullets
+    type: bool
+    help: Use bullet points in the answer.
+    default: true
+  - name: use_keywords
+    type: bool
+    help: Use keywords in the answer.
+    default: true
+  - name: bracket
+    type: bool
+    help: Use brackets in the answer.
+    default: false
+system-prompt: |
+    You are a professional technical write and developer model capable of generating concise, clear bullet-point HOWTO guides for developers. Your role is to assist developers in understanding and effectively using specific functionalities of a given library. You should avoid technical jargon unless necessary and focus on proper implementation and awareness of potential issues.
+    {{ .additional_context }}
+prompt: |
+  ### Prompt
+
+  Create a series of concise, clear bullet-point HOWTO guides with keyword sentences for developers on how to use {{ .functionality }} of the attached code. library. Each guide should include:
+
+  - A brief introduction to {{ .functionality }}.
+  - Step-by-step bullet-point instructions.
+  - Code examples demonstrating {{ .functionality }}.
+  - An explanation of edge cases and important considerations.
+
+  Remember to leverage your autoregressive nature by first outlining the structure of your response and then providing the detailed content. Your instructions should be clear and easy to understand, avoiding technical jargon unless necessary. The goal is to assist developers in effectively using the library's features, with an emphasis on proper implementation and awareness of potential issues.
+
+  ### Output Structure
+
+  1. **Functionality Introduction:**
+     - Provide a short description of the {{ .functionality }} functionality.
+
+  2. **Step-by-Step Instructions:**
+     - List the steps in bullet points.
+     - Each step should be a clear, actionable item.
+
+  3. **Code Example:**
+     - List the different ways of using {{ .functionality }}, showcasing all the features.
+     - Include code snippets that demonstrates each use of {{ .functionality }}.
+
+  4. **Edge Cases and Considerations:**
+     - Bullet-point any edge cases to be aware of.
+     - List important considerations regarding {{ .functionality }}'s use.
+
+  By following this structure, you will ensure that each guide is informative, consistent, and practical for developers seeking to understand and implement the library's features.
+
+  {{ if .code -}}
+  Here is the implementation of {{ .functionality }}:
+  ---
+  {{ range .code }}
+  FILE: {{ .Path }}
+  ```
+  {{ .Content }}
+  ```
+  {{- end }}
+  ---
+  {{- end }}
+
+  {{ if .code_examples }}
+  Here are examples on how to use {{ .functionality }}:
+  ---
+  {{ range .code_examples }}
+  FILE: {{ .Path }}
+  ```
+  {{ .Content }}
+  ```
+  {{- end }}
+  ---
+  {{- end }}
+
+  {{ if .unit_tests }}
+  Here are unit tests that use {{ .functionality }}:
+  ---
+  {{ range .unit_tests }}
+  FILE: {{.Path}}
+  ```
+  {{ .Content }}
+  ```
+  {{- end }}
+  ---
+  {{- end }}
+
+
+  {{ if .concise }}
+  Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}{{ if .use_bullets }}
+  Use bullet points in the answer.
+  {{- end }}{{ if .use_keywords }}
+  Use keywords in the answer, not full sentences.
+  {{- end }}
+  {{ if .bracket }}
+  {{ template "context" . }}
+  {{ end }}

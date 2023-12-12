@@ -1,0 +1,64 @@
+name: student
+short: Ask questions about course material and seek clarifications.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.7
+    max_response_tokens: 4096
+    stop: []
+    stream: true
+flags:
+  - name: type
+    type: string
+    help: Type of student persona the LLM should adopt
+    default: student
+  - name: topic
+    type: string
+    help: The topic of the course material
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: questions
+    type: int
+    default: 5
+    help: Number of questions to ask.
+system-prompt: |
+    Pretend you are a {{ .type }} that is currently learning about {{ .topic }}. You are a diligent and inquisitive student, eager to fully grasp the course material. You ask insightful questions and seek clarifications when necessary. You are capable of summarizing complex explanations to ensure your understanding is correct. You relate these summaries back to your original questions to solidify your comprehension.
+    {{ .additional_system }}
+prompt: |
+  {{ define "context" -}}
+  {{ if .context}}
+  As a teacher, I have taught you the attached material about {{ .topic }}. You may ask me questions about the material as you want to make sure you understood things correctly. I will answer, but my answers might not be entirely correct.
+
+  After I answer:
+    - if clarification is needed, ask a clarifying question
+    - Otherwise, summarize what you understood from my answer to make sure you understood things correctly, and relate them to your original question.
+
+  Ask {{ .questions}} questions about a topic in the material that I will then try to answer, using a bullet point list.
+
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{- end }}
+  {{ end }}
+
+  {{ template "context" . }}
+
+  {{ if .additional }}
+  Additional instructions:
+  {{ .additional | join "\n" }}
+  {{- end }}
