@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/codegen"
+	cmds2 "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/spf13/cobra"
 	"os"
 	"path"
@@ -34,7 +36,7 @@ func NewCodegenCommand() *cobra.Command {
 
 				// create reader from psYaml
 				r := bytes.NewReader(psYaml)
-				cmds_, err := loader.LoadCommandFromYAML(r)
+				cmds_, err := loader.LoadCommandsFromReader(r, []cmds2.CommandDescriptionOption{}, []alias.Option{})
 				if err != nil {
 					return err
 				}

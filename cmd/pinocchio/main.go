@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/doc"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -48,7 +49,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		cmds_, err := loader.LoadCommandFromYAML(f)
+		cmds_, err := loader.LoadCommandsFromReader(f, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)
@@ -125,7 +126,7 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		Repositories: repositories,
 	}
 
-	yamlLoader := loaders.NewYAMLFSCommandLoader(&cmds.GeppettoCommandLoader{})
+	yamlLoader := loaders.NewFSFileCommandLoader(&cmds.GeppettoCommandLoader{})
 	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
 	commands, aliases, err := commandLoader.LoadCommands(
 		yamlLoader, helpSystem,
