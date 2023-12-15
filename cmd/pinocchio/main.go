@@ -43,13 +43,8 @@ func main() {
 	if len(os.Args) >= 3 && os.Args[1] == "run-command" && os.Args[2] != "--help" {
 		// load the command
 		loader := &cmds.GeppettoCommandLoader{}
-		f, err := os.Open(os.Args[2])
-		if err != nil {
-			fmt.Printf("Could not open file: %v\n", err)
-			os.Exit(1)
-		}
 
-		cmds_, err := loader.LoadCommandsFromReader(f, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
+		cmds_, err := loaders.LoadCommandsFromFS(os.DirFS("/"), os.Args[2], loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)
@@ -126,10 +121,10 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		Repositories: repositories,
 	}
 
-	yamlLoader := loaders.NewFSFileCommandLoader(&cmds.GeppettoCommandLoader{})
+	loader := &cmds.GeppettoCommandLoader{}
 	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
 	commands, aliases, err := commandLoader.LoadCommands(
-		yamlLoader, helpSystem,
+		loader, helpSystem,
 	)
 
 	if err != nil {

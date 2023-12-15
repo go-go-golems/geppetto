@@ -23,7 +23,7 @@ func (g *GeppettoCommandLoader) IsFileSupported(f fs.FS, fileName string) bool {
 	return strings.HasSuffix(fileName, ".yaml") || strings.HasSuffix(fileName, ".yml")
 }
 
-var _ loaders.FileCommandLoader = (*GeppettoCommandLoader)(nil)
+var _ loaders.CommandLoader = (*GeppettoCommandLoader)(nil)
 
 func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 	s io.Reader,
@@ -117,11 +117,18 @@ func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 	return []cmds.Command{sq}, nil
 }
 
-func (scl *GeppettoCommandLoader) LoadCommandsFromReader(
-	r io.Reader,
+func (scl *GeppettoCommandLoader) LoadCommands(
+	f fs.FS, entryName string,
 	options []cmds.CommandDescriptionOption,
 	aliasOptions []alias.Option,
 ) ([]cmds.Command, error) {
+	r, err := f.Open(entryName)
+	if err != nil {
+		return nil, err
+	}
+	defer func(r fs.File) {
+		_ = r.Close()
+	}(r)
 	return loaders.LoadCommandOrAliasFromReader(
 		r,
 		scl.loadGeppettoCommandFromReader,
