@@ -44,7 +44,12 @@ func main() {
 		// load the command
 		loader := &cmds.GeppettoCommandLoader{}
 
-		cmds_, err := loaders.LoadCommandsFromFS(os.DirFS("/"), os.Args[2], loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
+		fs_, filePath, err := loaders.FileNameToFsFilePath(os.Args[2])
+		if err != nil {
+			fmt.Printf("Could not get absolute path: %v\n", err)
+			os.Exit(1)
+		}
+		cmds_, err := loaders.LoadCommandsFromFS(fs_, filePath, loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)

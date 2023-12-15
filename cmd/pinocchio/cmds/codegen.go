@@ -6,6 +6,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/codegen"
 	cmds2 "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/alias"
+	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/spf13/cobra"
 	"os"
 	"path"
@@ -25,10 +26,13 @@ func NewCodegenCommand() *cobra.Command {
 				PackageName: packageName,
 			}
 
-			fs_ := os.DirFS("/")
-
 			for _, fileName := range args {
 				loader := &cmds.GeppettoCommandLoader{}
+
+				fs_, fileName, err := loaders.FileNameToFsFilePath(fileName)
+				if err != nil {
+					return err
+				}
 
 				cmds_, err := loader.LoadCommands(fs_, fileName, []cmds2.CommandDescriptionOption{}, []alias.Option{})
 				if err != nil {
