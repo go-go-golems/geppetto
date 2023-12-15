@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/doc"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -42,13 +43,13 @@ func main() {
 	if len(os.Args) >= 3 && os.Args[1] == "run-command" && os.Args[2] != "--help" {
 		// load the command
 		loader := &cmds.GeppettoCommandLoader{}
-		f, err := os.Open(os.Args[2])
+
+		fs_, filePath, err := loaders.FileNameToFsFilePath(os.Args[2])
 		if err != nil {
-			fmt.Printf("Could not open file: %v\n", err)
+			fmt.Printf("Could not get absolute path: %v\n", err)
 			os.Exit(1)
 		}
-
-		cmds_, err := loader.LoadCommandFromYAML(f)
+		cmds_, err := loaders.LoadCommandsFromFS(fs_, filePath, loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)
@@ -125,10 +126,10 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		Repositories: repositories,
 	}
 
-	yamlLoader := loaders.NewYAMLFSCommandLoader(&cmds.GeppettoCommandLoader{})
+	loader := &cmds.GeppettoCommandLoader{}
 	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
 	commands, aliases, err := commandLoader.LoadCommands(
-		yamlLoader, helpSystem,
+		loader, helpSystem,
 	)
 
 	if err != nil {

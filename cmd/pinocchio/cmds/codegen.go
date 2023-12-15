@@ -1,10 +1,12 @@
 package cmds
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/codegen"
+	cmds2 "github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/alias"
+	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/spf13/cobra"
 	"os"
 	"path"
@@ -25,16 +27,14 @@ func NewCodegenCommand() *cobra.Command {
 			}
 
 			for _, fileName := range args {
-				psYaml, err := os.ReadFile(fileName)
+				loader := &cmds.GeppettoCommandLoader{}
+
+				fs_, fileName, err := loaders.FileNameToFsFilePath(fileName)
 				if err != nil {
 					return err
 				}
 
-				loader := &cmds.GeppettoCommandLoader{}
-
-				// create reader from psYaml
-				r := bytes.NewReader(psYaml)
-				cmds_, err := loader.LoadCommandFromYAML(r)
+				cmds_, err := loader.LoadCommands(fs_, fileName, []cmds2.CommandDescriptionOption{}, []alias.Option{})
 				if err != nil {
 					return err
 				}

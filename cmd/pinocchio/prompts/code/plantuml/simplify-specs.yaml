@@ -8,7 +8,7 @@ factories:
     temperature: 0.2
     max_response_tokens: 2048
     stop: []
-      stream: true
+    stream: true
 flags:
   - name: file
     type: stringFromFile

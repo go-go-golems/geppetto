@@ -12,15 +12,23 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	"io"
+	"io/fs"
 	"strings"
 )
 
 type GeppettoCommandLoader struct {
 }
 
-func (g *GeppettoCommandLoader) LoadCommandFromYAML(
+func (g *GeppettoCommandLoader) IsFileSupported(f fs.FS, fileName string) bool {
+	return strings.HasSuffix(fileName, ".yaml") || strings.HasSuffix(fileName, ".yml")
+}
+
+var _ loaders.CommandLoader = (*GeppettoCommandLoader)(nil)
+
+func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 	s io.Reader,
-	options ...cmds.CommandDescriptionOption,
+	options []cmds.CommandDescriptionOption,
+	_ []alias.Option,
 ) ([]cmds.Command, error) {
 	yamlContent, err := io.ReadAll(s)
 	if err != nil {
@@ -109,6 +117,21 @@ func (g *GeppettoCommandLoader) LoadCommandFromYAML(
 	return []cmds.Command{sq}, nil
 }
 
-func (g *GeppettoCommandLoader) LoadCommandAliasFromYAML(s io.Reader, options ...alias.Option) ([]*alias.CommandAlias, error) {
-	return loaders.LoadCommandAliasFromYAML(s, options...)
+func (scl *GeppettoCommandLoader) LoadCommands(
+	f fs.FS, entryName string,
+	options []cmds.CommandDescriptionOption,
+	aliasOptions []alias.Option,
+) ([]cmds.Command, error) {
+	r, err := f.Open(entryName)
+	if err != nil {
+		return nil, err
+	}
+	defer func(r fs.File) {
+		_ = r.Close()
+	}(r)
+	return loaders.LoadCommandOrAliasFromReader(
+		r,
+		scl.loadGeppettoCommandFromReader,
+		options,
+		aliasOptions)
 }
