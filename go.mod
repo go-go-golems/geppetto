@@ -13,8 +13,8 @@ require (
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/dave/jennifer v1.7.0
-	github.com/go-go-golems/clay v0.0.33
-	github.com/go-go-golems/glazed v0.4.33
+	github.com/go-go-golems/clay v0.0.35
+	github.com/go-go-golems/glazed v0.4.35
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
 	github.com/mattn/go-isatty v0.0.18
