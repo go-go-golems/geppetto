@@ -3,7 +3,6 @@ package claude
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/spf13/viper"
 )
 
@@ -30,7 +29,7 @@ func (s *Settings) Clone() *Settings {
 	}
 }
 
-func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) error {
+func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
 	_, ok := layer.Layer.(*ParameterLayer)
 	if !ok {
 		return layers.ErrInvalidParameterLayer{
@@ -39,7 +38,7 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 		}
 	}
 
-	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
+	err := layer.InitializeStruct(s)
 	if err != nil {
 		return err
 	}

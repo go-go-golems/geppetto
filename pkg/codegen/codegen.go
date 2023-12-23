@@ -51,21 +51,20 @@ func (g *GeppettoCommandCodeGenerator) defineStruct(f *jen.File, cmdName string)
 func (g *GeppettoCommandCodeGenerator) defineParametersStruct(
 	f *jen.File,
 	cmdName string,
-	flags []*parameters.ParameterDefinition,
-	args []*parameters.ParameterDefinition,
+	cmd *cmds.GeppettoCommand,
 ) {
 	structName := strcase.ToCamel(cmdName) + "CommandParameters"
 	f.Type().Id(structName).StructFunc(func(g *jen.Group) {
-		for _, flag := range flags {
+		cmd.GetDefaultFlags().ForEach(func(flag *parameters.ParameterDefinition) {
 			s := g.Id(strcase.ToCamel(flag.Name))
 			s = codegen.FlagTypeToGoType(s, flag.Type)
 			s.Tag(map[string]string{"glazed.parameter": strcase.ToSnake(flag.Name)})
-		}
-		for _, arg := range args {
+		})
+		cmd.GetDefaultArguments().ForEach(func(arg *parameters.ParameterDefinition) {
 			s := g.Id(strcase.ToCamel(arg.Name))
 			s = codegen.FlagTypeToGoType(s, arg.Type)
 			s.Tag(map[string]string{"glazed.argument": strcase.ToSnake(arg.Name)})
-		}
+		})
 	})
 }
 
@@ -98,28 +97,28 @@ func (g *GeppettoCommandCodeGenerator) defineNewFunction(
 				Index().Op("*").
 				Qual(codegen.GlazedParametersPath, "ParameterDefinition").
 				ValuesFunc(func(g *jen.Group) {
-					for _, flag := range cmd.Flags {
+					err_ = cmd.GetDefaultFlags().ForEachE(func(flag *parameters.ParameterDefinition) error {
 						dict, err := codegen.ParameterDefinitionToDict(flag)
 						if err != nil {
-							err_ = err
-							return
+							return err
 						}
 						g.Values(dict)
-					}
+						return nil
+					})
 				}),
 			jen.Line(),
 			jen.Var().Id("argDefs").Op("=").
 				Index().Op("*").
 				Qual(codegen.GlazedParametersPath, "ParameterDefinition").
 				ValuesFunc(func(g *jen.Group) {
-					for _, arg := range cmd.Arguments {
+					err_ = cmd.GetDefaultArguments().ForEachE(func(arg *parameters.ParameterDefinition) error {
 						dict, err := codegen.ParameterDefinitionToDict(arg)
 						if err != nil {
-							err_ = err
-							return
+							return err
 						}
 						g.Values(dict)
-					}
+						return nil
+					})
 				}),
 			jen.Id("cmdDescription").
 				Op(":=").
@@ -280,7 +279,7 @@ func (g *GeppettoCommandCodeGenerator) GenerateCommandCode(cmd *cmds.GeppettoCom
 	g.defineStruct(f, cmdName)
 
 	f.Line()
-	g.defineParametersStruct(f, cmdName, cmd.Flags, cmd.Arguments)
+	g.defineParametersStruct(f, cmdName, cmd)
 	g.defineRunMethods(f, cmdName)
 	f.Line()
 	err := g.defineNewFunction(f, cmdName, cmd)

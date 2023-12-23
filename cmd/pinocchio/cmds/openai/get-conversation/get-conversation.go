@@ -8,7 +8,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/go-go-golems/glazed/pkg/helpers/markdown"
 	"github.com/pkg/errors"
 	"io"
@@ -20,6 +19,8 @@ import (
 type GetConversationCommand struct {
 	*cmds.CommandDescription
 }
+
+var _ cmds.WriterCommand = &GetConversationCommand{}
 
 //go:embed "doc.md"
 var doc string
@@ -112,38 +113,43 @@ func NewGetConversationCommand() (*GetConversationCommand, error) {
 			),
 		),
 	}, nil
+}
 
+type GetConversationSettings struct {
+	URLs                []string          `glazed.parameter:"urls"`
+	Concise             bool              `glazed.parameter:"concise"`
+	WithMetadata        bool              `glazed.parameter:"with-metadata"`
+	RenameRoles         map[string]string `glazed.parameter:"rename-roles"`
+	OutputJson          bool              `glazed.parameter:"output-json"`
+	OutputAsArray       bool              `glazed.parameter:"output-as-array"`
+	FullJson            bool              `glazed.parameter:"full-json"`
+	OnlyConversations   bool              `glazed.parameter:"only-conversations"`
+	OnlyAssistant       bool              `glazed.parameter:"only-assistant"`
+	OnlySourceBlocks    bool              `glazed.parameter:"only-source-blocks"`
+	MergeSourceBlocks   bool              `glazed.parameter:"merge-source-blocks"`
+	InlineConversations bool              `glazed.parameter:"inline-conversations"`
 }
 
 func (cmd *GetConversationCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
-	// Extracting arguments and flags
-	urls := ps["urls"].([]string)
-	concise := ps["concise"].(bool)
-	withMetadata := ps["with-metadata"].(bool)
-	outputJson := ps["output-json"].(bool)
-
-	renameRoles, ok := cast.CastInterfaceToStringMap[string, interface{}](ps["rename-roles"])
-	if !ok {
-		return errors.New("Failed to cast rename-roles to map[string]string")
+	s := &GetConversationSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
 	}
 
-	if len(urls) == 0 {
+	// Extracting arguments and flags
+
+	if len(s.URLs) == 0 {
 		return errors.New("No URLs provided")
 	}
 
-	outputAsArray := ps["output-as-array"].(bool)
-	onlyConversations := ps["only-conversations"].(bool)
-	fullJson := ps["full-json"].(bool)
-	outputJsons := make([]interface{}, len(urls))
+	outputJsons := make([]interface{}, len(s.URLs))
 
-	onlyAssistant := ps["only-assistant"].(bool)
-
-	for _, url := range urls {
+	for _, url := range s.URLs {
 		var htmlContent []byte
 		var err error
 
@@ -167,8 +173,8 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 
 		scriptContent := doc.Find("#__NEXT_DATA__").Text()
 
-		if outputJson {
-			if fullJson {
+		if s.OutputJson {
+			if s.FullJson {
 				data := map[string]interface{}{}
 				err = json.Unmarshal([]byte(scriptContent), &data)
 				if err != nil {
@@ -185,7 +191,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 				return err
 			}
 
-			if onlyConversations {
+			if s.OnlyConversations {
 				outputJsons = append(outputJsons, data.Props.PageProps.ServerResponse.ServerResponseData.LinearConversation)
 				continue
 			}
@@ -199,10 +205,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 			return err
 		}
 
-		onlySourceBlocks := ps["only-source-blocks"].(bool)
-		mergeSourceBlocks := ps["merge-source-blocks"].(bool)
-		onlySourceBlocks = onlySourceBlocks || mergeSourceBlocks
-		inlineConversationAsComments := ps["inline-conversations"].(bool)
+		onlySourceBlocks := s.OnlySourceBlocks || s.MergeSourceBlocks
 
 		linearConversation := data.Props.PageProps.ServerResponse.LinearConversation
 
@@ -213,9 +216,9 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 					continue
 				}
 				content := strings.Join(conversation.Message.Content.Parts, "\n")
-				if mergeSourceBlocks {
+				if s.MergeSourceBlocks {
 					var blocks []string
-					if inlineConversationAsComments {
+					if s.InlineConversations {
 						blocks = markdown.ExtractCodeBlocksWithComments(content, false)
 					} else {
 						blocks = markdown.ExtractQuotedBlocks(content, false)
@@ -228,7 +231,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 				}
 
 				var blocks []string
-				if inlineConversationAsComments {
+				if s.InlineConversations {
 					blocks = markdown.ExtractCodeBlocksWithComments(content, true)
 				} else {
 					blocks = markdown.ExtractQuotedBlocks(content, true)
@@ -243,7 +246,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 				}
 			}
 
-			if mergeSourceBlocks {
+			if s.MergeSourceBlocks {
 				_, err := w.Write([]byte(merged))
 				if err != nil {
 					return err
@@ -253,7 +256,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 			continue
 		}
 
-		if onlyAssistant {
+		if s.OnlyAssistant {
 			conversations := []Conversation{}
 			for _, conversation := range linearConversation {
 				if conversation.Message.Author.Role != "assistant" {
@@ -267,18 +270,18 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 		}
 
 		renderer := &Renderer{
-			RenameRoles:  renameRoles,
-			Concise:      concise,
-			WithMetadata: withMetadata,
+			RenameRoles:  s.RenameRoles,
+			Concise:      s.Concise,
+			WithMetadata: s.WithMetadata,
 		}
 
 		renderer.PrintConversation(url, data.Props.PageProps.ServerResponse.ServerResponseData, linearConversation)
 	}
 
-	if outputJson {
+	if s.OutputJson {
 		encoder := json.NewEncoder(w)
 		encoder.SetIndent("", "  ")
-		if len(outputJsons) == 1 && !outputAsArray {
+		if len(outputJsons) == 1 && !s.OutputAsArray {
 			err := encoder.Encode(outputJsons[0])
 			if err != nil {
 				return err

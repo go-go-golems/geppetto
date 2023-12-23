@@ -3,18 +3,26 @@ package context
 import (
 	"bytes"
 	context2 "context"
-	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"io"
 	"strings"
 	"time"
+
+	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 )
 
 type GeppettoRunnable interface {
 	RunWithManager(ctx context2.Context, manager *Manager) (steps.StepResult[string], error)
 }
 
+// CreateManager creates a new Context Manager. It is used by the code generator
+// to initialize a conversation by passing a custom glazed struct for params.
+//
+// The systemPrompt and prompt templates are rendered using the params.
+// Messages are also rendered using the params before being added to the manager.
+//
+// ManagerOptions can be passed to further customize the manager on creation.
 func CreateManager(
 	systemPrompt string,
 	prompt string,

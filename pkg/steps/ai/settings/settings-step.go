@@ -44,30 +44,34 @@ func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 	return settings_.Factories, nil
 }
 
-func (s *StepSettings) UpdateFromParsedLayers(parsedLayers map[string]*layers.ParsedParameterLayer) error {
-	if parsedLayers["ai-chat"] != nil {
-		err := s.Chat.UpdateFromParsedLayer(parsedLayers["ai-chat"])
+func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
+	aiChatLayer, ok := parsedLayers.Get("ai-chat")
+	if ok {
+		err := s.Chat.UpdateFromParsedLayer(aiChatLayer)
 		if err != nil {
 			return err
 		}
 	}
 
-	if parsedLayers["openai-chat"] != nil {
-		err := s.OpenAI.UpdateFromParsedLayer(parsedLayers["openai-chat"])
+	openaiLayer, ok := parsedLayers.Get("openai-chat")
+	if ok {
+		err := s.OpenAI.UpdateFromParsedLayer(openaiLayer)
 		if err != nil {
 			return err
 		}
 	}
 
-	if parsedLayers["claude-chat"] != nil {
-		err := s.Claude.UpdateFromParsedLayer(parsedLayers["claude-chat"])
+	claudeChatLayer, ok := parsedLayers.Get("claude-chat")
+	if ok {
+		err := s.Claude.UpdateFromParsedLayer(claudeChatLayer)
 		if err != nil {
 			return err
 		}
 	}
 
-	if parsedLayers["ai-client"] != nil {
-		err := s.Client.UpdateFromParsedLayer(parsedLayers["ai-client"])
+	aiClientLayer, ok := parsedLayers.Get("ai-client")
+	if ok {
+		err := s.Client.UpdateFromParsedLayer(aiClientLayer)
 		if err != nil {
 			return err
 		}
