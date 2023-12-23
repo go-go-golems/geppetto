@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/mb0/glob"
+	"github.com/pkg/errors"
 	openai2 "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,8 @@ var OpenaiCmd = &cobra.Command{
 type ListEnginesCommand struct {
 	*cmds.CommandDescription
 }
+
+var _ cmds.GlazeCommand = &ListEnginesCommand{}
 
 func NewListEngineCommand() (*ListEnginesCommand, error) {
 	glazedParameterLayer, err := settings.NewGlazedParameterLayers()
@@ -67,15 +70,28 @@ func NewListEngineCommand() (*ListEnginesCommand, error) {
 	}, nil
 }
 
-func (c *ListEnginesCommand) Run(
+type ListEnginesSettings struct {
+	ID        string `glazed.parameter:"id"`
+	Owner     string `glazed.parameter:"owner"`
+	OnlyReady bool   `glazed.parameter:"only-ready"`
+}
+
+func (c *ListEnginesCommand) RunIntoGlazeProcessor(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	gp middlewares.Processor,
 ) error {
-	openaiSettings, err := openai.NewSettingsFromParsedLayer(
-		parsedLayers["openai-chat"],
-	)
+	s := &ListEnginesSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
+	}
+
+	openAiChatLayer, ok := parsedLayers.Get("openai-chat")
+	if !ok {
+		return errors.New("openai-chat layer not found")
+	}
+	openaiSettings, err := openai.NewSettingsFromParsedLayer(openAiChatLayer)
 	cobra.CheckErr(err)
 
 	client := openai2.NewClient(*openaiSettings.APIKey)
@@ -83,14 +99,10 @@ func (c *ListEnginesCommand) Run(
 	engines, err := client.ListEngines(ctx)
 	cobra.CheckErr(err)
 
-	idGlob, _ := ps["id"].(string)
-	ownerGlob, _ := ps["owner"].(string)
-	onlyReady, _ := ps["onlyready"].(bool)
-
 	for _, engine := range engines.Engines {
-		if idGlob != "" {
+		if s.ID != "" {
 			// check if idGlob  matches id
-			matching, err := glob.Match(idGlob, engine.ID)
+			matching, err := glob.Match(s.ID, engine.ID)
 			cobra.CheckErr(err)
 
 			if !matching {
@@ -98,9 +110,9 @@ func (c *ListEnginesCommand) Run(
 			}
 		}
 
-		if ownerGlob != "" {
+		if s.Owner != "" {
 			// check if ownerGlob matches owner
-			matching, err := glob.Match(ownerGlob, engine.Owner)
+			matching, err := glob.Match(s.Owner, engine.Owner)
 			cobra.CheckErr(err)
 
 			if !matching {
@@ -108,7 +120,7 @@ func (c *ListEnginesCommand) Run(
 			}
 		}
 
-		if onlyReady {
+		if s.OnlyReady {
 			if !engine.Ready {
 				continue
 			}
@@ -130,6 +142,8 @@ func (c *ListEnginesCommand) Run(
 type EngineInfoCommand struct {
 	*cmds.CommandDescription
 }
+
+var _ cmds.GlazeCommand = &EngineInfoCommand{}
 
 func NewEngineInfoCommand() (*EngineInfoCommand, error) {
 	glazedParameterLayer, err := settings.NewGlazedParameterLayers()
@@ -160,22 +174,31 @@ func NewEngineInfoCommand() (*EngineInfoCommand, error) {
 	}, nil
 }
 
-func (c *EngineInfoCommand) Run(
+type EngineInfoSettings struct {
+	Engine string `glazed.parameter:"engine"`
+}
+
+func (c *EngineInfoCommand) RunIntoGlazeProcessor(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	gp middlewares.Processor,
 ) error {
-	openaiSettings, err := openai.NewSettingsFromParsedLayer(
-		parsedLayers["openai-chat"],
-	)
+	s := &EngineInfoSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
+	}
+
+	openAiChatLayer, ok := parsedLayers.Get("openai-chat")
+	if !ok {
+		return errors.New("openai-chat layer not found")
+	}
+	openaiSettings, err := openai.NewSettingsFromParsedLayer(openAiChatLayer)
 	cobra.CheckErr(err)
 
 	client := openai2.NewClient(*openaiSettings.APIKey)
 
-	engine, _ := ps["engine"].(string)
-
-	resp, err := client.GetEngine(ctx, engine)
+	resp, err := client.GetEngine(ctx, s.Engine)
 	cobra.CheckErr(err)
 
 	row := types.NewRow(

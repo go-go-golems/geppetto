@@ -12,12 +12,13 @@ import (
 	"github.com/spf13/viper"
 	"io"
 	"net/http"
-	"strings"
 )
 
 type SummarizeCommand struct {
 	*cmds.CommandDescription
 }
+
+var _ cmds.WriterCommand = &SummarizeCommand{}
 
 type SummarizationResponse struct {
 	Meta struct {
@@ -38,6 +39,14 @@ type SummarizationRequest struct {
 	SummaryType    string `json:"summary_type,omitempty"`
 	TargetLanguage string `json:"target_language,omitempty"`
 	Cache          bool   `json:"cache"`
+}
+
+type SummarizeSettings struct {
+	URL            string `glazed.parameter:"url"`
+	Text           string `glazed.parameter:"text"`
+	Engine         string `glazed.parameter:"engine"`
+	SummaryType    string `glazed.parameter:"summary_type"`
+	TargetLanguage string `glazed.parameter:"target_language"`
 }
 
 func NewSummarizeCommand() (*SummarizeCommand, error) {
@@ -85,8 +94,7 @@ func NewSummarizeCommand() (*SummarizeCommand, error) {
 
 func (c *SummarizeCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
 	token := viper.GetString("kagi-api-key")
@@ -94,22 +102,20 @@ func (c *SummarizeCommand) RunIntoWriter(
 		return errors.New("no API token provided")
 	}
 
-	// Construct the request
-	var reqData SummarizationRequest
-	if url, ok := ps["url"]; ok {
-		reqData.URL = url.(string)
-	} else if text, ok := ps["text"]; ok {
-		reqData.Text = text.(string)
+	s := &SummarizeSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize settings")
 	}
 
-	if engine, ok := ps["engine"]; ok {
-		reqData.Engine = engine.(string)
-	}
-	if summaryType, ok := ps["summary_type"]; ok {
-		reqData.SummaryType = summaryType.(string)
-	}
-	if targetLanguage, ok := ps["target_language"]; ok {
-		reqData.TargetLanguage = strings.ToUpper(targetLanguage.(string))
+	// Construct the request
+	reqData := SummarizationRequest{
+		URL:            s.URL,
+		Text:           s.Text,
+		Engine:         s.Engine,
+		SummaryType:    s.SummaryType,
+		TargetLanguage: s.TargetLanguage,
+		Cache:          false,
 	}
 
 	bodyData, err := json.Marshal(reqData)

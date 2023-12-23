@@ -23,6 +23,8 @@ type TranscribeCommand struct {
 	*cmds.CommandDescription
 }
 
+var _ cmds.GlazeCommand = &TranscribeCommand{}
+
 func NewTranscribeCommand() (*TranscribeCommand, error) {
 	layer, err := openai2.NewParameterLayer()
 	if err != nil {
@@ -92,25 +94,33 @@ func NewTranscribeCommand() (*TranscribeCommand, error) {
 	}, nil
 }
 
-func (c *TranscribeCommand) Run(
+type TranscribeSettings struct {
+	DirPath      string  `glazed.parameter:"dir"`
+	FilePath     string  `glazed.parameter:"file"`
+	Workers      int     `glazed.parameter:"workers"`
+	Model        string  `glazed.parameter:"model"`
+	Prompt       string  `glazed.parameter:"prompt"`
+	Language     string  `glazed.parameter:"language"`
+	Temperature  float64 `glazed.parameter:"temperature"`
+	WithSegments bool    `glazed.parameter:"with-segments"`
+}
+
+func (c *TranscribeCommand) RunIntoGlazeProcessor(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	gp middlewares.Processor,
 ) error {
-	// Fetching parsed flags
-	dirPath := ps["dir"].(string)
-	filePath := ps["file"].(string)
-	workers := ps["workers"].(int)
-	model := ps["model"].(string)
-	prompt := ps["prompt"].(string)
-	language := ps["language"].(string)
-	temperature := ps["temperature"].(float64)
-	withSegments := ps["with-segments"].(bool)
+	s := &TranscribeSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
+	}
 
-	openaiSettings, err := openai2.NewSettingsFromParsedLayer(
-		parsedLayers["openai-chat"],
-	)
+	openaiChatLayer, ok := parsedLayers.Get("openai-chat")
+	if !ok {
+		return errors.New("openai-chat layer not found")
+	}
+	openaiSettings, err := openai2.NewSettingsFromParsedLayer(openaiChatLayer)
 	if err != nil {
 		return errors.Wrap(err, "could not create OpenAI settings")
 	}
@@ -119,21 +129,21 @@ func (c *TranscribeCommand) Run(
 	}
 
 	// Create the TranscriptionClient
-	tc := openai3.NewTranscriptionClient(*openaiSettings.APIKey, model, prompt, language, float32(temperature))
+	tc := openai3.NewTranscriptionClient(*openaiSettings.APIKey, s.Model, s.Prompt, s.Language, float32(s.Temperature))
 
 	var files []string
-	if filePath != "" {
-		files = append(files, filePath)
+	if s.FilePath != "" {
+		files = append(files, s.FilePath)
 	}
-	if dirPath != "" {
+	if s.DirPath != "" {
 		// Read the directory
-		files_, err := os.ReadDir(dirPath)
+		files_, err := os.ReadDir(s.DirPath)
 		if err != nil {
 			return fmt.Errorf("Failed to read the directory: %v", err)
 		}
 
 		for _, file := range files_ {
-			files = append(files, filepath.Join(dirPath, file.Name()))
+			files = append(files, filepath.Join(s.DirPath, file.Name()))
 		}
 	}
 
@@ -151,7 +161,7 @@ func (c *TranscribeCommand) Run(
 		go tc.TranscribeFile(file, out, &wg)
 
 		// Limit concurrent workers
-		for len(out) >= workers {
+		for len(out) >= s.Workers {
 			transcription := <-out
 			transcriptions[transcription.File] = transcription
 		}
@@ -171,7 +181,7 @@ func (c *TranscribeCommand) Run(
 			continue
 		}
 		// Convert Transcription to Row and add to Processor
-		if withSegments {
+		if s.WithSegments {
 			for _, segment := range transcription.Response.Segments {
 				row := types.NewRow(
 					types.MRP("file", transcription.File),

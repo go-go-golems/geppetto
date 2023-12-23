@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-go-golems/geppetto/cmd/experiments/agent/helpers"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/invopop/jsonschema"
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
@@ -66,7 +66,7 @@ var ToolCallCmd = &cobra.Command{
 
 		// TODO(manuel, 2023-11-28) Turn this into a "add all flags to command"
 		// function to create commands, like glazedParameterLayer
-		parsedLayers, err := helpers.ParseLayersFromCobraCommand(cmd, []cli.CobraParameterLayer{layer, aiLayer})
+		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, []layers.CobraParameterLayer{layer, aiLayer})
 		cobra.CheckErr(err)
 
 		stepSettings := settings.NewStepSettings()
