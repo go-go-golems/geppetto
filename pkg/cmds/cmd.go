@@ -134,10 +134,7 @@ func NewGeppettoCommand(
 		return nil, err
 	}
 
-	description.Layers = append(
-		[]layers.ParameterLayer{helpersParameterLayer},
-		description.Layers...,
-	)
+	description.Layers.PrependLayers(helpersParameterLayer)
 
 	ret := &GeppettoCommand{
 		CommandDescription: description,
