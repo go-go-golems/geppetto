@@ -3,12 +3,12 @@ package context
 import (
 	"bytes"
 	context2 "context"
+	"github.com/go-go-golems/glazed/pkg/helpers/maps"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 )
 
@@ -34,7 +34,7 @@ func CreateManager(
 	var ps map[string]interface{}
 	if _, ok := params.(map[string]interface{}); !ok {
 		var err error
-		ps, err = parameters.GlazedStructToMap(params)
+		ps, err = maps.GlazedStructToMap(params)
 		if err != nil {
 			return nil, err
 		}
