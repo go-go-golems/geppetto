@@ -45,6 +45,7 @@ func NewSettingsFromParsedLayer(layer *layers.ParsedLayer) (*Settings, error) {
 		return nil, err
 	}
 
+	// TODO(manuel, 2023-12-28) This loading from the config file should be done using middlewares now
 	if ret.APIKey == nil || *ret.APIKey == "" {
 		s := viper.GetString("openai-api-key")
 		ret.APIKey = &s
