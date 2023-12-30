@@ -2,10 +2,7 @@ package settings
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/spf13/cobra"
 )
 
 type ChatSettings struct {
@@ -69,8 +66,4 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 	return &ChatParameterLayer{
 		ParameterLayerImpl: ret,
 	}, nil
-}
-
-func (d *ChatParameterLayer) ParseFlagsFromCobraCommand(cmd *cobra.Command) (*parameters.ParsedParameters, error) {
-	return cli.ParseFlagsFromViperAndCobraCommand(cmd, d)
 }
