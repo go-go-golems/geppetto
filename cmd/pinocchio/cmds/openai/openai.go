@@ -62,7 +62,7 @@ func NewListEngineCommand() (*ListEnginesCommand, error) {
 					parameters.WithDefault(false),
 				),
 			),
-			cmds.WithLayers(
+			cmds.WithLayersList(
 				glazedParameterLayer,
 				openaiParameterLayer,
 			),
@@ -166,7 +166,7 @@ func NewEngineInfoCommand() (*EngineInfoCommand, error) {
 					parameters.WithHelp("engine id"),
 				),
 			),
-			cmds.WithLayers(
+			cmds.WithLayersList(
 				glazedParameterLayer,
 				openaiParameterLayer,
 			),

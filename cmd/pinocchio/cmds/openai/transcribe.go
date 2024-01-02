@@ -89,7 +89,7 @@ func NewTranscribeCommand() (*TranscribeCommand, error) {
 					parameters.WithHelp("Whether to output individual segments in the output"),
 					parameters.WithDefault(true),
 				)),
-			cmds.WithLayers(layer, glazedParameterLayer),
+			cmds.WithLayersList(layer, glazedParameterLayer),
 		),
 	}, nil
 }

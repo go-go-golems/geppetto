@@ -128,7 +128,7 @@ func NewEnrichWebCommand() (*EnrichWebCommand, error) {
 					parameters.WithDefault(false),
 				),
 			),
-			cmds.WithLayers(
+			cmds.WithLayersList(
 				glazedParameterLayer,
 			),
 		),
