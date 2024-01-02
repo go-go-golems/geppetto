@@ -73,7 +73,7 @@ func NewListModelsCommand() (*ListModelsCommand, error) {
 		CommandDescription: cmds.NewCommandDescription(
 			"list-models",
 			cmds.WithShort("List available models"),
-			cmds.WithLayers(glazedLayer),
+			cmds.WithLayersList(glazedLayer),
 		),
 	}, nil
 }
@@ -120,7 +120,7 @@ func NewListCodecsCommand() (*ListCodecsCommand, error) {
 		CommandDescription: cmds.NewCommandDescription(
 			"list-codecs",
 			cmds.WithShort("List available codecs"),
-			cmds.WithLayers(glazedLayer),
+			cmds.WithLayersList(glazedLayer),
 		),
 	}, nil
 }

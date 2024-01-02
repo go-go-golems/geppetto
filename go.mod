@@ -8,11 +8,12 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/ThreeDotsLabs/watermill v1.3.5
-	github.com/charmbracelet/bubbles v0.15.0
-	github.com/charmbracelet/bubbletea v0.23.1
+	github.com/charmbracelet/bubbles v0.17.1
+	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/dave/jennifer v1.7.0
+	github.com/go-go-golems/bobatea v0.0.1
 	github.com/go-go-golems/clay v0.0.35
 	github.com/go-go-golems/glazed v0.4.35
 	github.com/iancoleman/strcase v0.3.0
