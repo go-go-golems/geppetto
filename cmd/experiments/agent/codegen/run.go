@@ -56,9 +56,11 @@ func createSettingsFromCobra(cmd *cobra.Command) (*settings.StepSettings, error)
 		return nil, err
 	}
 
+	layers_ := layers.NewParameterLayers(layers.WithLayers(layer, aiLayer))
+
 	// TODO(manuel, 2023-11-28) Turn this into a "add all flags to command"
 	// function to create commands, like glazedParameterLayer
-	parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, []layers.CobraParameterLayer{layer, aiLayer})
+	parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, layers_)
 	if err != nil {
 		return nil, err
 	}

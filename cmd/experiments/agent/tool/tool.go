@@ -64,9 +64,8 @@ var ToolCallCmd = &cobra.Command{
 		aiLayer, err := settings.NewChatParameterLayer()
 		cobra.CheckErr(err)
 
-		// TODO(manuel, 2023-11-28) Turn this into a "add all flags to command"
-		// function to create commands, like glazedParameterLayer
-		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, []layers.CobraParameterLayer{layer, aiLayer})
+		layers_ := layers.NewParameterLayers(layers.WithLayers(layer, aiLayer))
+		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, layers_)
 		cobra.CheckErr(err)
 
 		stepSettings := settings.NewStepSettings()
