@@ -16,6 +16,8 @@ type EncodeCommand struct {
 	*cmds.CommandDescription
 }
 
+var _ cmds.WriterCommand = &EncodeCommand{}
+
 func NewEncodeCommand() (*EncodeCommand, error) {
 	return &EncodeCommand{
 		CommandDescription: cmds.NewCommandDescription(
@@ -45,35 +47,34 @@ func NewEncodeCommand() (*EncodeCommand, error) {
 	}, nil
 }
 
+type EncodeSettings struct {
+	Model string `glazed.parameter:"model"`
+	Codec string `glazed.parameter:"codec"`
+	Input string `glazed.parameter:"input"`
+}
+
 func (cmd *EncodeCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
-	// Parse input parameters and flags
-	model, ok := ps["model"].(string)
-	if !ok {
-		return fmt.Errorf("model flag is missing or invalid")
+	s := &EncodeSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
 	}
 
-	var err error
-	codecStr, ok := ps["codec"].(string)
-	if !ok {
-		codecStr, err = getDefaultEncoding(model)
+	codecStr := s.Codec
+	if s.Codec == "" {
+		codecStr, err = getDefaultEncoding(s.Model)
 		if err != nil {
 			return fmt.Errorf("error getting default encoding: %v", err)
 		}
 	}
 
-	input, ok := ps["input"].(string)
-	if !ok {
-		return fmt.Errorf("input flag is missing or invalid")
-	}
-
 	// Use tokenizer to encode
-	codec := getCodec(model, codecStr)
-	ids, _, err := codec.Encode(input)
+	codec := getCodec(s.Model, codecStr)
+	ids, _, err := codec.Encode(s.Input)
 	if err != nil {
 		return fmt.Errorf("error encoding: %v", err)
 	}

@@ -2,10 +2,7 @@ package settings
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 	"net/http"
 	"time"
@@ -37,71 +34,51 @@ func NewClientParameterLayer(options ...layers.ParameterLayerOptions) (*ClientPa
 	return &ClientParameterLayer{ParameterLayerImpl: ret}, nil
 }
 
-func NewClientSettingsFromParameters(ps map[string]interface{}) (*ClientSettings, error) {
-	ret := NewClientSettings()
-	err := parameters.InitializeStructFromParameters(ret, ps)
-	if err != nil {
-		return nil, err
-	}
-
-	if ret.Timeout != nil {
-		duration := *ret.Timeout * time.Second
-		ret.Timeout = &duration
-		ret.TimeoutSeconds = func() *int {
-			i := int(duration.Seconds())
-			return &i
-		}()
-	}
-
-	return ret, nil
-}
-
-func (cs *ClientSettings) UpdateFromParameters(parsedLayers *layers.ParsedParameterLayer) error {
+func (cs *ClientSettings) UpdateFromParameters(parsedLayers *layers.ParsedLayer) error {
 	_, ok := parsedLayers.Layer.(*ClientParameterLayer)
 	if !ok {
 		return layers.ErrInvalidParameterLayer{}
 	}
 
-	return parameters.InitializeStructFromParameters(cs, parsedLayers.Parameters)
-}
+	err := parsedLayers.InitializeStruct(cs)
+	if err != nil {
+		return err
+	}
 
-func (cp *ClientParameterLayer) ParseFlagsFromCobraCommand(
-	cmd *cobra.Command,
-) (map[string]interface{}, error) {
-	return cli.ParseFlagsFromViperAndCobraCommand(cmd, cp.ParameterLayerImpl)
+	return nil
 }
 
 // UnmarshalYAML overrides YAML parsing to convert time.duration from int
-func (c *ClientSettings) UnmarshalYAML(value *yaml.Node) error {
+func (cs *ClientSettings) UnmarshalYAML(value *yaml.Node) error {
 	type Alias ClientSettings
 	aux := &struct {
 		Timeout *int `yaml:"timeout,omitempty"`
 		*Alias
 	}{
-		Alias: (*Alias)(c),
+		Alias: (*Alias)(cs),
 	}
 	if err := value.Decode(aux); err != nil {
 		return err
 	}
 	if aux.Timeout != nil {
 		t := time.Duration(*aux.Timeout) * time.Second
-		c.Timeout = &t
-		c.TimeoutSeconds = aux.Timeout
+		cs.Timeout = &t
+		cs.TimeoutSeconds = aux.Timeout
 	}
 	return nil
 }
 
-func (c *ClientSettings) Clone() *ClientSettings {
+func (cs *ClientSettings) Clone() *ClientSettings {
 	return &ClientSettings{
-		Timeout:        c.Timeout,
-		TimeoutSeconds: c.TimeoutSeconds,
-		Organization:   c.Organization,
-		UserAgent:      c.UserAgent,
-		HTTPClient:     c.HTTPClient,
+		Timeout:        cs.Timeout,
+		TimeoutSeconds: cs.TimeoutSeconds,
+		Organization:   cs.Organization,
+		UserAgent:      cs.UserAgent,
+		HTTPClient:     cs.HTTPClient,
 	}
 }
 
-func (cs *ClientSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) error {
+func (cs *ClientSettings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
 	_, ok := layer.Layer.(*ClientParameterLayer)
 	if !ok {
 		return layers.ErrInvalidParameterLayer{
@@ -110,7 +87,7 @@ func (cs *ClientSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLay
 		}
 	}
 
-	err := parameters.InitializeStructFromParameters(cs, layer.Parameters)
+	err := layer.InitializeStruct(cs)
 	return err
 }
 

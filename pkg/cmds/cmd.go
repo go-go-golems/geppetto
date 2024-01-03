@@ -43,9 +43,11 @@ type GeppettoCommandDescription struct {
 	SystemPrompt string                      `yaml:"system-prompt,omitempty"`
 }
 
+const HelpersSlug = "helpers"
+
 func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
-	return layers.NewParameterLayer("helpers", "Geppetto helpers",
-		layers.WithFlags(
+	return layers.NewParameterLayer(HelpersSlug, "Geppetto helpers",
+		layers.WithParameterDefinitions(
 			parameters.NewParameterDefinition(
 				"print-prompt",
 				parameters.ParameterTypeBool,
@@ -83,6 +85,15 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 	)
 }
 
+type HelpersSettings struct {
+	PrintPrompt       bool   `glazed.parameter:"print-prompt"`
+	System            string `glazed.parameter:"system"`
+	AppendMessageFile string `glazed.parameter:"append-message-file"`
+	MessageFile       string `glazed.parameter:"message-file"`
+	Chat              bool   `glazed.parameter:"chat"`
+	Interactive       bool   `glazed.parameter:"interactive"`
+}
+
 type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
 	StepSettings *settings.StepSettings
@@ -90,6 +101,8 @@ type GeppettoCommand struct {
 	Messages     []*geppetto_context.Message
 	SystemPrompt string
 }
+
+var _ glazedcmds.WriterCommand = &GeppettoCommand{}
 
 type GeppettoCommandOption func(*GeppettoCommand)
 
@@ -121,10 +134,7 @@ func NewGeppettoCommand(
 		return nil, err
 	}
 
-	description.Layers = append(
-		[]layers.ParameterLayer{helpersParameterLayer},
-		description.Layers...,
-	)
+	description.Layers.PrependLayers(helpersParameterLayer)
 
 	ret := &GeppettoCommand{
 		CommandDescription: description,
@@ -208,6 +218,7 @@ func (g *GeppettoCommand) Run(
 	ctx context.Context,
 	step steps.Step[[]*geppetto_context.Message, string],
 	contextManager *geppetto_context.Manager,
+	helpersSettings *HelpersSettings,
 	ps map[string]interface{},
 ) (steps.StepResult[string], error) {
 	err := g.InitializeContextManager(contextManager, ps)
@@ -215,8 +226,7 @@ func (g *GeppettoCommand) Run(
 		return nil, err
 	}
 
-	printPrompt, ok := ps["print-prompt"]
-	if ok && printPrompt.(bool) {
+	if helpersSettings.PrintPrompt {
 		fmt.Println(contextManager.GetSinglePrompt())
 		return nil, nil
 	}
@@ -230,15 +240,19 @@ func (g *GeppettoCommand) Run(
 // RunIntoWriter runs the command and writes the output into the given writer.
 func (g *GeppettoCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
 	if g.Prompt != "" && len(g.Messages) != 0 {
 		return errors.Errorf("Prompt and messages are mutually exclusive")
 	}
 
-	var err error
+	s := &HelpersSettings{}
+	err := parsedLayers.InitializeStruct(HelpersSlug, s)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize settings")
+	}
+
 	endedInNewline := false
 
 	stepSettings := g.StepSettings.Clone()
@@ -306,15 +320,13 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	// load and render the system prompt
-	systemPrompt_, ok := ps["system"].(string)
-	if ok && systemPrompt_ != "" {
-		g.SystemPrompt = systemPrompt_
+	if s.System != "" {
+		g.SystemPrompt = s.System
 	}
 
 	// load and render messages
-	messageFile, ok := ps["message-file"].(string)
-	if ok && messageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(messageFile)
+	if s.MessageFile != "" {
+		messages_, err := geppetto_context.LoadFromFile(s.MessageFile)
 		if err != nil {
 			return err
 		}
@@ -322,9 +334,8 @@ func (g *GeppettoCommand) RunIntoWriter(
 		g.Messages = messages_
 	}
 
-	appendMessageFile, ok := ps["append-message-file"].(string)
-	if ok && appendMessageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(appendMessageFile)
+	if s.AppendMessageFile != "" {
+		messages_, err := geppetto_context.LoadFromFile(s.AppendMessageFile)
 		if err != nil {
 			return err
 		}
@@ -337,7 +348,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	eg.Go(func() error {
 		defer cancel()
 
-		m, err := g.Run(ctx, chatStep, contextManager, ps)
+		m, err := g.Run(ctx, chatStep, contextManager, s, parsedLayers.GetDataMap())
 		if err != nil {
 			return err
 		}
@@ -373,8 +384,8 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 		// check if terminal is tty
 		isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
-		interactive := ps["interactive"].(bool)
-		continueInChat := ps["chat"].(bool)
+		interactive := s.Interactive
+		continueInChat := s.Chat
 		askChat := (isOutputTerminal || interactive) && !continueInChat
 
 		if askChat {

@@ -44,18 +44,37 @@ flags:
     help: Additional system prompt
     default: ""
   - name: additional
-    type: string
+    type: stringList
     help: Additional prompt
-    default: ""
+    default: []
   - name: context
-    type: stringFromFiles
+    type: fileList
     help: Additional context from files
+  - name: bracket
+    type: bool
+    help: Whether to use bracket context with instructions
+    default: false
 system-prompt: |
   You are a meticulous and experienced software engineer with a deep understanding of testing and unit tests.
   {{ if .language }} You are an expert in {{ .language }} programming language.{{end}}
   You are known for your ability to think of all possible edge cases and your attention to detail. You write clear and concise code.
   {{ .additional_system }}
 prompt: |
+  {{ define "context" -}}
+  {{ .query | join " " }}
+  {{ if .additional }}Additional instructions:
+  {{ .additional | join "\n" }}{{ end }}
+  {{ if .concise }}
+  Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}{{ if .use_bullets }}
+  Use bullet points in the answer.
+  {{- end }}{{ if .use_keywords }}
+  Use keywords in the answer, not full sentences.
+  {{- end }}
+  {{- end }}
+  
+  {{ template "context" . }}
+  
   Create unit tests to test the given code.
   
   {{ if not .only_code }}
@@ -92,8 +111,16 @@ prompt: |
   {{- end }}
   {{- end }}
   
-  {{- .additional }}
-  {{ if .context -}}
-  {{ .context }}
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
   {{- end }}
+  {{ end }}
+  
+  {{ if .bracket }}
+  {{ template "context" . }}
+  {{ end }}
   

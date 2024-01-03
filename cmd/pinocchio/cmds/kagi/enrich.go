@@ -24,6 +24,8 @@ type EnrichWebCommand struct {
 	*cmds.CommandDescription
 }
 
+var _ cmds.GlazeCommand = &EnrichWebCommand{}
+
 type SearchObject struct {
 	T         int    `json:"t"`
 	Rank      int    `json:"rank"`
@@ -77,6 +79,14 @@ func RenderMarkdown(searchObjects []SearchObject) (string, error) {
 	return styled, nil
 }
 
+type EnrichWebSettings struct {
+	Query    string `glazed.parameter:"query"`
+	Token    string `glazed.parameter:"token"`
+	Markdown bool   `glazed.parameter:"markdown"`
+	Limit    int    `glazed.parameter:"limit"`
+	News     bool   `glazed.parameter:"news"`
+}
+
 func NewEnrichWebCommand() (*EnrichWebCommand, error) {
 	glazedParameterLayer, err := settings.NewGlazedParameterLayers()
 	if err != nil {
@@ -118,29 +128,34 @@ func NewEnrichWebCommand() (*EnrichWebCommand, error) {
 					parameters.WithDefault(false),
 				),
 			),
-			cmds.WithLayers(
+			cmds.WithLayersList(
 				glazedParameterLayer,
 			),
 		),
 	}, nil
 }
 
-func (c *EnrichWebCommand) Run(
+func (c *EnrichWebCommand) RunIntoGlazeProcessor(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	gp middlewares.Processor,
 ) error {
-	query := ps["query"].(string)
+	s := &EnrichWebSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize settings")
+	}
+
+	query := s.Query
 	token := viper.GetString("kagi-api-key")
-	if token_, ok := ps["token"]; ok {
-		token = token_.(string)
+	if s.Token != "" {
+		token = s.Token
 	}
 	if token == "" {
 		return errors.New("no API token provided")
 	}
 
-	news := ps["news"].(bool)
+	news := s.News
 
 	url_ := fmt.Sprintf("https://kagi.com/api/v0/enrich/web?q=%s", url.QueryEscape(query))
 	if news {
@@ -175,13 +190,13 @@ func (c *EnrichWebCommand) Run(
 		return errors.Wrap(err, "failed to parse response body")
 	}
 
-	limit := ps["limit"].(int)
+	limit := s.Limit
 	if limit > len(response.Data) {
 		limit = len(response.Data)
 	}
 	response.Data = response.Data[:limit]
 
-	markdown := ps["markdown"].(bool)
+	markdown := s.Markdown
 	if markdown {
 		styled, err := RenderMarkdown(response.Data)
 		if err != nil {

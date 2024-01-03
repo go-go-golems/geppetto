@@ -100,19 +100,24 @@ func (c *TestCodegenCommand) RunToContextManager(
 	return context.RunToContextManager(ctx, c, manager)
 }
 
+func strAddr(v string) *interface{} {
+	v_ := interface{}(v)
+	return &v_
+}
+
 func NewTestCodegenCommand() (*TestCodegenCommand, error) {
 	var flagDefs = []*parameters.ParameterDefinition{{
-		Default: "scientist",
+		Default: strAddr("scientist"),
 		Help:    "Pretend to be a ??",
 		Name:    "pretend",
 		Type:    "string",
 	}, {
-		Default: "age",
+		Default: strAddr("age"),
 		Help:    "What am I asking about?",
 		Name:    "what",
 		Type:    "string",
 	}, {
-		Default: "you",
+		Default: strAddr("you"),
 		Help:    "Of what am I asking?",
 		Name:    "of",
 		Type:    "string",
