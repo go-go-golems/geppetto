@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	agent_helpers "github.com/go-go-golems/geppetto/cmd/experiments/agent/helpers"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -12,6 +11,7 @@ import (
 	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/utils"
 	"github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/spf13/cobra"
 	"strings"
 )
@@ -25,9 +25,11 @@ var upperCaseCmd = &cobra.Command{
 		aiLayer, err := settings.NewChatParameterLayer()
 		cobra.CheckErr(err)
 
+		layers_ := layers.NewParameterLayers(layers.WithLayers(layer, aiLayer))
+
 		// TODO(manuel, 2023-11-28) Turn this into a "add all flags to command"
 		// function to create commands, like glazedParameterLayer
-		parsedLayers, err := agent_helpers.ParseLayersFromCobraCommand(cmd, []cli.CobraParameterLayer{layer, aiLayer})
+		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, layers_)
 
 		cobra.CheckErr(err)
 

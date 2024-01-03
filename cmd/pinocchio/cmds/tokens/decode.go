@@ -15,6 +15,8 @@ type DecodeCommand struct {
 	*cmds.CommandDescription
 }
 
+var _ cmds.WriterCommand = &DecodeCommand{}
+
 func NewDecodeCommand() (*DecodeCommand, error) {
 	return &DecodeCommand{
 		CommandDescription: cmds.NewCommandDescription(
@@ -43,38 +45,37 @@ func NewDecodeCommand() (*DecodeCommand, error) {
 	}, nil
 }
 
+type DecodeSettings struct {
+	Model string `glazed.parameter:"model"`
+	Codec string `glazed.parameter:"codec"`
+	Input string `glazed.parameter:"input"`
+}
+
 func (d *DecodeCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
-	// Retrieve parsed parameters from the layers.
-	model, ok := ps["model"].(string)
-	if !ok {
-		return fmt.Errorf("missing or invalid model parameter")
+	s := &DecodeSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
 	}
-
-	var err error
-	codecStr, ok := ps["codec"].(string)
-	if !ok {
-		codecStr, err = getDefaultEncoding(model)
+	// Retrieve parsed parameters from the layers.
+	codecStr := s.Codec
+	if codecStr == "" {
+		codecStr, err = getDefaultEncoding(s.Model)
 		if err != nil {
 			return fmt.Errorf("error getting default encoding: %v", err)
 		}
 	}
 
-	input, ok := ps["input"].(string)
-	if !ok {
-		return fmt.Errorf("missing or invalid input parameter")
-	}
-
 	// Get codec based on model and codec string.
-	codec := getCodec(model, codecStr)
+	codec := getCodec(s.Model, codecStr)
 
 	// Decode input
 	var ids []uint
-	for _, t := range strings.Split(input, " ") {
+	for _, t := range strings.Split(s.Input, " ") {
 		id, err := strconv.Atoi(t)
 		if err != nil {
 			return fmt.Errorf("invalid token id: %s", t)

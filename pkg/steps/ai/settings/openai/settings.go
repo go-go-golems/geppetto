@@ -3,7 +3,6 @@ package openai
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
@@ -34,23 +33,26 @@ func NewSettings() *Settings {
 	}
 }
 
-func NewSettingsFromParsedLayer(layer *layers.ParsedParameterLayer) (*Settings, error) {
+func NewSettingsFromParsedLayer(layer *layers.ParsedLayer) (*Settings, error) {
 	if layer == nil {
 		return nil, errors.New("layer is nil")
 	}
 	ret := NewSettings()
+
 	// TODO(manuel, 2023-03-28) map[string]int will probably clash with map[string]string for the logit-bias
 	err := ret.UpdateFromParsedLayer(layer)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO(manuel, 2023-12-28) This loading from the config file should be done using middlewares now
 	if ret.APIKey == nil || *ret.APIKey == "" {
 		s := viper.GetString("openai-api-key")
 		ret.APIKey = &s
 	}
 
-	if ret.BaseURL == nil || *ret.BaseURL == layer.Layer.GetParameterDefinitions()["openai-base-url"].Default {
+	defaultBaseURL := layer.Layer.GetParameterDefinitions().GetDefaultValue("openai-base-url", "")
+	if ret.BaseURL == nil || *ret.BaseURL == defaultBaseURL {
 		s := viper.GetString("openai-base-url")
 		if s != "" {
 			ret.BaseURL = &s
@@ -71,7 +73,7 @@ func (s *Settings) Clone() *Settings {
 	}
 }
 
-func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) error {
+func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
 	if layer == nil {
 		return errors.New("layer is nil")
 	}
@@ -84,7 +86,7 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 	}
 
 	// TODO(manuel, 2023-11-21) This is where we would load things from the currently chosen profile, amongst others
-	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
+	err := layer.InitializeStruct(s)
 	if err != nil {
 		return err
 	}
@@ -94,7 +96,8 @@ func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) err
 		s.APIKey = &s_
 	}
 
-	if s.BaseURL == nil || *s.BaseURL == layer.Layer.GetParameterDefinitions()["openai-base-url"].Default {
+	defaultBaseURL := layer.Layer.GetParameterDefinitions().GetDefaultValue("openai-base-url", "")
+	if s.BaseURL == nil || *s.BaseURL == defaultBaseURL {
 		s_ := viper.GetString("openai-base-url")
 		if s_ != "" {
 			s.BaseURL = &s_

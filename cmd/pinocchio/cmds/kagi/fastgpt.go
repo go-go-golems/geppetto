@@ -20,6 +20,8 @@ type FastGPTCommand struct {
 	*cmds.CommandDescription
 }
 
+var _ cmds.WriterCommand = &FastGPTCommand{}
+
 type FastGPTResponse struct {
 	Meta struct {
 		ID   string `json:"id"`
@@ -130,10 +132,15 @@ func NewFastGPTCommand() (*FastGPTCommand, error) {
 	}, nil
 }
 
+type FastGPTSettings struct {
+	Query     string `glazed.parameter:"query"`
+	Cache     bool   `glazed.parameter:"cache"`
+	WebSearch bool   `glazed.parameter:"web_search"`
+}
+
 func (c *FastGPTCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
 	token := viper.GetString("kagi-api-key")
@@ -141,15 +148,16 @@ func (c *FastGPTCommand) RunIntoWriter(
 		return errors.New("no API token provided")
 	}
 
-	var reqData FastGPTRequest
-	if query, ok := ps["query"]; ok {
-		reqData.Query = query.(string)
+	s := &FastGPTSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize settings")
 	}
-	if cache, ok := ps["cache"]; ok {
-		reqData.Cache = cache.(bool)
-	}
-	if webSearch, ok := ps["web_search"]; ok {
-		reqData.WebSearch = webSearch.(bool)
+
+	reqData := FastGPTRequest{
+		Query:     s.Query,
+		Cache:     s.Cache,
+		WebSearch: s.WebSearch,
 	}
 
 	bodyData, err := json.Marshal(reqData)

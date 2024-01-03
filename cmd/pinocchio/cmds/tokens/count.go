@@ -42,38 +42,37 @@ func NewCountCommand() (*CountCommand, error) {
 	}, nil
 }
 
+type CountSettings struct {
+	Model string `glazed.parameter:"model"`
+	Codec string `glazed.parameter:"codec"`
+	Input string `glazed.parameter:"input"`
+}
+
 var _ cmds.WriterCommand = (*CountCommand)(nil)
 
 func (cc *CountCommand) RunIntoWriter(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	w io.Writer,
 ) error {
-	// Retrieve parsed parameters from the layers.
-	model, ok := ps["model"].(string)
-	if !ok {
-		return fmt.Errorf("missing or invalid model parameter")
+	s := &CountSettings{}
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	if err != nil {
+		return err
 	}
 
-	var err error
-	codecStr, ok := ps["codec"].(string)
-	if !ok {
-		codecStr, err = getDefaultEncoding(model)
+	codecStr := s.Codec
+	if s.Codec == "" {
+		codecStr, err = getDefaultEncoding(s.Model)
 		if err != nil {
 			return fmt.Errorf("error getting default encoding: %v", err)
 		}
 	}
 
-	input, ok := ps["input"].(string)
-	if !ok {
-		return fmt.Errorf("missing or invalid input parameter")
-	}
-
 	// Get codec based on model and codec string.
-	codec := getCodec(model, codecStr)
+	codec := getCodec(s.Model, codecStr)
 
-	ids, _, err := codec.Encode(input)
+	ids, _, err := codec.Encode(s.Input)
 	if err != nil {
 		return fmt.Errorf("error encoding input: %v", err)
 	}
@@ -82,7 +81,7 @@ func (cc *CountCommand) RunIntoWriter(
 
 	// Write the result to the provided writer.
 	// print model and encoding
-	_, err = w.Write([]byte(fmt.Sprintf("Model: %s\n", model)))
+	_, err = w.Write([]byte(fmt.Sprintf("Model: %s\n", s.Model)))
 	if err != nil {
 		return fmt.Errorf("error writing to output: %v", err)
 	}

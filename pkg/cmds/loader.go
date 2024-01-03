@@ -88,7 +88,7 @@ func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 		cmds.WithLong(scd.Long),
 		cmds.WithFlags(scd.Flags...),
 		cmds.WithArguments(scd.Arguments...),
-		cmds.WithLayers(ls...),
+		cmds.WithLayersList(ls...),
 	}
 
 	description := cmds.NewCommandDescription(

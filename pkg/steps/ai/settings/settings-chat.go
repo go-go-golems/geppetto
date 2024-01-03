@@ -2,10 +2,7 @@ package settings
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/spf13/cobra"
 )
 
 type ChatSettings struct {
@@ -28,15 +25,6 @@ func NewChatSettings() *ChatSettings {
 	}
 }
 
-func NewChatSettingsFromParameters(ps map[string]interface{}) (*ChatSettings, error) {
-	ret := NewChatSettings()
-	err := parameters.InitializeStructFromParameters(ret, ps)
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
 func (s *ChatSettings) Clone() *ChatSettings {
 	return &ChatSettings{
 		Engine:            s.Engine,
@@ -48,7 +36,7 @@ func (s *ChatSettings) Clone() *ChatSettings {
 	}
 }
 
-func (s *ChatSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer) error {
+func (s *ChatSettings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
 	_, ok := layer.Layer.(*ChatParameterLayer)
 	if !ok {
 		return layers.ErrInvalidParameterLayer{
@@ -57,7 +45,7 @@ func (s *ChatSettings) UpdateFromParsedLayer(layer *layers.ParsedParameterLayer)
 		}
 	}
 
-	err := parameters.InitializeStructFromParameters(s, layer.Parameters)
+	err := layer.InitializeStruct(s)
 
 	return err
 }
@@ -78,8 +66,4 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 	return &ChatParameterLayer{
 		ParameterLayerImpl: ret,
 	}, nil
-}
-
-func (d *ChatParameterLayer) ParseFlagsFromCobraCommand(cmd *cobra.Command) (map[string]interface{}, error) {
-	return cli.ParseFlagsFromViperAndCobraCommand(cmd, d.ParameterLayerImpl)
 }

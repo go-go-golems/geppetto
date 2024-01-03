@@ -14,10 +14,9 @@ type ListModelsCommand struct {
 	*cmds.CommandDescription
 }
 
-func (c *ListModelsCommand) Run(
+func (c *ListModelsCommand) RunIntoGlazeProcessor(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	gp middlewares.Processor,
 ) error {
 	models := []tokenizer.Model{
@@ -74,7 +73,7 @@ func NewListModelsCommand() (*ListModelsCommand, error) {
 		CommandDescription: cmds.NewCommandDescription(
 			"list-models",
 			cmds.WithShort("List available models"),
-			cmds.WithLayers(glazedLayer),
+			cmds.WithLayersList(glazedLayer),
 		),
 	}, nil
 }
@@ -85,10 +84,11 @@ type ListCodecsCommand struct {
 	*cmds.CommandDescription
 }
 
-func (l *ListCodecsCommand) Run(
+var _ cmds.GlazeCommand = (*ListCodecsCommand)(nil)
+
+func (l *ListCodecsCommand) RunIntoGlazeProcessor(
 	ctx context.Context,
-	parsedLayers map[string]*layers.ParsedParameterLayer,
-	ps map[string]interface{},
+	parsedLayers *layers.ParsedLayers,
 	gp middlewares.Processor,
 ) error {
 	encodings := []tokenizer.Encoding{
@@ -120,7 +120,7 @@ func NewListCodecsCommand() (*ListCodecsCommand, error) {
 		CommandDescription: cmds.NewCommandDescription(
 			"list-codecs",
 			cmds.WithShort("List available codecs"),
-			cmds.WithLayers(glazedLayer),
+			cmds.WithLayersList(glazedLayer),
 		),
 	}, nil
 }
