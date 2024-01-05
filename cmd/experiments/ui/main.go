@@ -2,9 +2,9 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
-	"github.com/go-go-golems/geppetto/pkg/ui"
 	"time"
 )
 
@@ -26,7 +26,7 @@ func main() {
 	}
 	options = append(options, tea.WithAltScreen())
 	p := tea.NewProgram(
-		ui.InitialModel(manager, step),
+		chat2.InitialModel(manager, step),
 		options...,
 	)
 
