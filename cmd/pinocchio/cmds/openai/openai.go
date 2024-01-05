@@ -4,8 +4,8 @@ import (
 	"context"
 	_ "embed"
 	get_conversation "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/get-conversation"
+	geppetto_cmds "github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
@@ -13,7 +13,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/mb0/glob"
-	"github.com/pkg/errors"
 	openai2 "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 )
@@ -87,11 +86,8 @@ func (c *ListEnginesCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	openAiChatLayer, ok := parsedLayers.Get("openai-chat")
-	if !ok {
-		return errors.New("openai-chat layer not found")
-	}
-	openaiSettings, err := openai.NewSettingsFromParsedLayer(openAiChatLayer)
+	openaiSettings := &openai.Settings{}
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, openaiSettings)
 	cobra.CheckErr(err)
 
 	client := openai2.NewClient(*openaiSettings.APIKey)
@@ -189,11 +185,8 @@ func (c *EngineInfoCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	openAiChatLayer, ok := parsedLayers.Get("openai-chat")
-	if !ok {
-		return errors.New("openai-chat layer not found")
-	}
-	openaiSettings, err := openai.NewSettingsFromParsedLayer(openAiChatLayer)
+	openaiSettings := &openai.Settings{}
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, openaiSettings)
 	cobra.CheckErr(err)
 
 	client := openai2.NewClient(*openaiSettings.APIKey)
@@ -216,25 +209,25 @@ func (c *EngineInfoCommand) RunIntoGlazeProcessor(
 func init() {
 	listEnginesCommand, err := NewListEngineCommand()
 	cobra.CheckErr(err)
-	listEnginesCobraCommand, err := cli.BuildCobraCommandFromGlazeCommand(listEnginesCommand)
+	listEnginesCobraCommand, err := geppetto_cmds.BuildCobraCommandWithGeppettoMiddlewares(listEnginesCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(listEnginesCobraCommand)
 
 	engineInfoCommand, err := NewEngineInfoCommand()
 	cobra.CheckErr(err)
-	cobraEngineInfoCommand, err := cli.BuildCobraCommandFromGlazeCommand(engineInfoCommand)
+	cobraEngineInfoCommand, err := geppetto_cmds.BuildCobraCommandWithGeppettoMiddlewares(engineInfoCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraEngineInfoCommand)
 
 	getConversationCommand, err := get_conversation.NewGetConversationCommand()
 	cobra.CheckErr(err)
-	cobraGetConversationCommand, err := cli.BuildCobraCommandFromWriterCommand(getConversationCommand)
+	cobraGetConversationCommand, err := geppetto_cmds.BuildCobraCommandWithGeppettoMiddlewares(getConversationCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraGetConversationCommand)
 
 	transcribeCommand, err := NewTranscribeCommand()
 	cobra.CheckErr(err)
-	cobraTranscribeCommand, err := cli.BuildCobraCommandFromGlazeCommand(transcribeCommand)
+	cobraTranscribeCommand, err := geppetto_cmds.BuildCobraCommandWithGeppettoMiddlewares(transcribeCommand)
 	cobra.CheckErr(err)
 	OpenaiCmd.AddCommand(cobraTranscribeCommand)
 }

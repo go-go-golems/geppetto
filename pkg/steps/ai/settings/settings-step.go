@@ -13,10 +13,10 @@ type factoryConfigFileWrapper struct {
 }
 
 type StepSettings struct {
-	Chat   *ChatSettings    `yaml:"chat,omitempty"`
-	OpenAI *openai.Settings `yaml:"openai,omitempty"`
-	Client *ClientSettings  `yaml:"client,omitempty"`
-	Claude *claude.Settings `yaml:"claude,omitempty"`
+	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
+	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
+	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
+	Claude *claude.Settings `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
 }
 
 func NewStepSettings() *StepSettings {
@@ -44,37 +44,27 @@ func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 	return settings_.Factories, nil
 }
 
+// UpdateFromParsedLayers updates the settings of a chat step from the parsedLayers of a glazed command.
+// TODO(manuel, 2024-01-05) Not sure how this relates to InitializeStruct
 func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
-	aiChatLayer, ok := parsedLayers.Get("ai-chat")
-	if ok {
-		err := s.Chat.UpdateFromParsedLayer(aiChatLayer)
-		if err != nil {
-			return err
-		}
+	err := parsedLayers.InitializeStruct(AiClientSlug, s.Client)
+	if err != nil {
+		return err
 	}
 
-	openaiLayer, ok := parsedLayers.Get("openai-chat")
-	if ok {
-		err := s.OpenAI.UpdateFromParsedLayer(openaiLayer)
-		if err != nil {
-			return err
-		}
+	err = parsedLayers.InitializeStruct(AiChatSlug, s.Chat)
+	if err != nil {
+		return err
 	}
 
-	claudeChatLayer, ok := parsedLayers.Get("claude-chat")
-	if ok {
-		err := s.Claude.UpdateFromParsedLayer(claudeChatLayer)
-		if err != nil {
-			return err
-		}
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, s.OpenAI)
+	if err != nil {
+		return err
 	}
 
-	aiClientLayer, ok := parsedLayers.Get("ai-client")
-	if ok {
-		err := s.Client.UpdateFromParsedLayer(aiClientLayer)
-		if err != nil {
-			return err
-		}
+	err = parsedLayers.InitializeStruct(claude.ClaudeChatSlug, s.Claude)
+	if err != nil {
+		return err
 	}
 
 	return nil
