@@ -78,12 +78,14 @@ func (cs *ClientSettings) Clone() *ClientSettings {
 	}
 }
 
+const AiClientSlug = "ai-client"
+
 func (cs *ClientSettings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
 	_, ok := layer.Layer.(*ClientParameterLayer)
 	if !ok {
 		return layers.ErrInvalidParameterLayer{
 			Name:     layer.Layer.GetName(),
-			Expected: "ai-client",
+			Expected: AiClientSlug,
 		}
 	}
 

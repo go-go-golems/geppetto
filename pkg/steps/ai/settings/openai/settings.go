@@ -3,8 +3,6 @@ package openai
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 )
 
 type Settings struct {
@@ -33,35 +31,6 @@ func NewSettings() *Settings {
 	}
 }
 
-func NewSettingsFromParsedLayer(layer *layers.ParsedLayer) (*Settings, error) {
-	if layer == nil {
-		return nil, errors.New("layer is nil")
-	}
-	ret := NewSettings()
-
-	// TODO(manuel, 2023-03-28) map[string]int will probably clash with map[string]string for the logit-bias
-	err := ret.UpdateFromParsedLayer(layer)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(manuel, 2023-12-28) This loading from the config file should be done using middlewares now
-	if ret.APIKey == nil || *ret.APIKey == "" {
-		s := viper.GetString("openai-api-key")
-		ret.APIKey = &s
-	}
-
-	defaultBaseURL := layer.Layer.GetParameterDefinitions().GetDefaultValue("openai-base-url", "")
-	if ret.BaseURL == nil || *ret.BaseURL == defaultBaseURL {
-		s := viper.GetString("openai-base-url")
-		if s != "" {
-			ret.BaseURL = &s
-		}
-	}
-
-	return ret, nil
-}
-
 func (s *Settings) Clone() *Settings {
 	return &Settings{
 		N:                s.N,
@@ -73,46 +42,14 @@ func (s *Settings) Clone() *Settings {
 	}
 }
 
-func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
-	if layer == nil {
-		return errors.New("layer is nil")
-	}
-	_, ok := layer.Layer.(*ParameterLayer)
-	if !ok {
-		return layers.ErrInvalidParameterLayer{
-			Name:     layer.Layer.GetName(),
-			Expected: "openai",
-		}
-	}
-
-	// TODO(manuel, 2023-11-21) This is where we would load things from the currently chosen profile, amongst others
-	err := layer.InitializeStruct(s)
-	if err != nil {
-		return err
-	}
-
-	if s.APIKey == nil || *s.APIKey == "" {
-		s_ := viper.GetString("openai-api-key")
-		s.APIKey = &s_
-	}
-
-	defaultBaseURL := layer.Layer.GetParameterDefinitions().GetDefaultValue("openai-base-url", "")
-	if s.BaseURL == nil || *s.BaseURL == defaultBaseURL {
-		s_ := viper.GetString("openai-base-url")
-		if s_ != "" {
-			s.BaseURL = &s_
-		}
-	}
-
-	return nil
-}
-
 //go:embed "chat.yaml"
 var settingsYAML []byte
 
 type ParameterLayer struct {
 	*layers.ParameterLayerImpl `yaml:",inline"`
 }
+
+const OpenAiChatSlug = "openai-chat"
 
 func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer, error) {
 	ret, err := layers.NewParameterLayerFromYAML(settingsYAML, options...)

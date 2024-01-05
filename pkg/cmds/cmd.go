@@ -43,7 +43,7 @@ type GeppettoCommandDescription struct {
 	SystemPrompt string                      `yaml:"system-prompt,omitempty"`
 }
 
-const HelpersSlug = "helpers"
+const HelpersSlug = "geppetto-helpers"
 
 func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 	return layers.NewParameterLayer(HelpersSlug, "Geppetto helpers",
