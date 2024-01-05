@@ -3,8 +3,8 @@ package openai
 import (
 	"context"
 	"fmt"
-	openai3 "github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
-	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
+	openai_steps "github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
+	openai_settings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
+	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
 	"sync"
@@ -26,7 +27,7 @@ type TranscribeCommand struct {
 var _ cmds.GlazeCommand = &TranscribeCommand{}
 
 func NewTranscribeCommand() (*TranscribeCommand, error) {
-	layer, err := openai2.NewParameterLayer()
+	layer, err := openai_settings.NewParameterLayer()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create OpenAI parameter layer")
 	}
@@ -116,20 +117,15 @@ func (c *TranscribeCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	openaiChatLayer, ok := parsedLayers.Get("openai-chat")
-	if !ok {
-		return errors.New("openai-chat layer not found")
-	}
-	openaiSettings, err := openai2.NewSettingsFromParsedLayer(openaiChatLayer)
-	if err != nil {
-		return errors.Wrap(err, "could not create OpenAI settings")
-	}
+	openaiSettings := &openai_settings.Settings{}
+	err = parsedLayers.InitializeStruct(openai_settings.OpenAiChatSlug, openaiSettings)
+	cobra.CheckErr(err)
 	if openaiSettings.APIKey == nil || *openaiSettings.APIKey == "" {
 		return errors.New("OpenAI API key is required")
 	}
 
 	// Create the TranscriptionClient
-	tc := openai3.NewTranscriptionClient(*openaiSettings.APIKey, s.Model, s.Prompt, s.Language, float32(s.Temperature))
+	tc := openai_steps.NewTranscriptionClient(*openaiSettings.APIKey, s.Model, s.Prompt, s.Language, float32(s.Temperature))
 
 	var files []string
 	if s.FilePath != "" {
@@ -152,9 +148,9 @@ func (c *TranscribeCommand) RunIntoGlazeProcessor(
 	}
 
 	var wg sync.WaitGroup
-	out := make(chan openai3.Transcription, len(files))
+	out := make(chan openai_steps.Transcription, len(files))
 
-	transcriptions := map[string]openai3.Transcription{}
+	transcriptions := map[string]openai_steps.Transcription{}
 
 	for _, file := range files {
 		wg.Add(1)
