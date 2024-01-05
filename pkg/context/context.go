@@ -3,6 +3,7 @@ package context
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,10 @@ type Message struct {
 	Text string    `json:"text" yaml:"text"`
 	Time time.Time `json:"time" yaml:"time"`
 	Role string    `json:"role" yaml:"role"`
+
+	ID             uuid.UUID `json:"id" yaml:"id"`
+	ParentID       uuid.UUID `json:"parent_id" yaml:"parent_id"`
+	ConversationID uuid.UUID `json:"conversation_id" yaml:"conversation_id"`
 
 	// additional metadata for the message
 	Metadata map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
