@@ -81,7 +81,12 @@ func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 		return nil, err
 	}
 
-	ls := append(scd.Layers, chatParameterLayer, clientParameterLayer, claudeParameterLayer, openaiParameterLayer)
+	helpersLayer, err := NewHelpersParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	ls := append(scd.Layers, helpersLayer, chatParameterLayer, clientParameterLayer, claudeParameterLayer, openaiParameterLayer)
 
 	options_ := []cmds.CommandDescriptionOption{
 		cmds.WithShort(scd.Short),

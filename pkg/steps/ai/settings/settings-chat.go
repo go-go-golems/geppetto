@@ -36,26 +36,14 @@ func (s *ChatSettings) Clone() *ChatSettings {
 	}
 }
 
-func (s *ChatSettings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
-	_, ok := layer.Layer.(*ChatParameterLayer)
-	if !ok {
-		return layers.ErrInvalidParameterLayer{
-			Name:     layer.Layer.GetName(),
-			Expected: "ai-chat",
-		}
-	}
-
-	err := layer.InitializeStruct(s)
-
-	return err
-}
-
 //go:embed "flags/chat.yaml"
 var settingsYAML []byte
 
 type ChatParameterLayer struct {
 	*layers.ParameterLayerImpl `yaml:",inline"`
 }
+
+const AiChatSlug = "ai-chat"
 
 func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParameterLayer, error) {
 	ret, err := layers.NewParameterLayerFromYAML(settingsYAML, options...)

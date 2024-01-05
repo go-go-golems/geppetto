@@ -58,7 +58,7 @@ func main() {
 			fmt.Printf("Expected exactly one command, got %d", len(cmds_))
 		}
 
-		cobraCommand, err := cli.BuildCobraCommandFromCommand(cmds_[0])
+		cobraCommand, err := cmds.BuildCobraCommandWithGeppettoMiddlewares(cmds_[0])
 		if err != nil {
 			fmt.Printf("Could not build cobra command: %v\n", err)
 			os.Exit(1)
@@ -140,7 +140,9 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 	if !ok {
 		return fmt.Errorf("could not cast commands to GlazeCommand")
 	}
-	err = cli.AddCommandsToRootCommand(rootCmd, commands_, aliases)
+	err = cli.AddCommandsToRootCommand(rootCmd, commands_, aliases,
+		cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares),
+	)
 	if err != nil {
 		return err
 	}

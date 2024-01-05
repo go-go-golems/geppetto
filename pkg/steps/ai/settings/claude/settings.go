@@ -3,7 +3,6 @@ package claude
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/spf13/viper"
 )
 
 type Settings struct {
@@ -29,27 +28,7 @@ func (s *Settings) Clone() *Settings {
 	}
 }
 
-func (s *Settings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
-	_, ok := layer.Layer.(*ParameterLayer)
-	if !ok {
-		return layers.ErrInvalidParameterLayer{
-			Name:     layer.Layer.GetName(),
-			Expected: "claude",
-		}
-	}
-
-	err := layer.InitializeStruct(s)
-	if err != nil {
-		return err
-	}
-
-	if s.APIKey == nil || *s.APIKey == "" {
-		claudeAPIKey := viper.GetString("claude-api-key")
-		s.APIKey = &claudeAPIKey
-	}
-
-	return nil
-}
+const ClaudeChatSlug = "claude-chat"
 
 //go:embed "claude.yaml"
 var settingsYAML []byte
