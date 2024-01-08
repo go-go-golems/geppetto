@@ -1,0 +1,68 @@
+name: reproduce-crash
+short: Create a fetch() expression to reproduce a crash from a crashdump.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4-1106-preview
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: crashdump
+    type: file
+    help: Rollbar crashdump file
+    required: true
+  - name: hostname
+    type: string
+    help: Optional hostname and protocol to replace in the crashdump
+    default: ""
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: explain
+    type: bool
+    help: Only explain what's wrong.
+    default: false
+system-prompt: |
+    You are a highly skilled software debugger with expertise in analyzing crashdumps and creating fetch() expressions to reproduce issues. You understand various server environments and protocols. You provide precise and actionable solutions.
+    {{ .additional_system }}
+prompt: |
+  {{ if .explain }}
+  Given this rollbar crashdump, explain what might have caused the crashdump.
+  {{ else }}
+  Given this rollbar crashdump, create a fetch() expression that reproduces the problem. If necessary, replace the crashdump's hostname and protocol with the provided value to test against a local server.
+
+  Adjust the parameters so that they get parsed correctly by the backend framework. 
+  Skip unnecessary / spurious cookies and other headers (for example cloudfront proxy forward headers).
+
+  The goal is not to produce a correct request, but instead to produce a request that leads to the described crash.
+  {{ end }}
+
+  Crashdump Details:
+  Path: {{ .crashdump.Path }}
+  ---
+  {{ .crashdump.Content }}
+  ---
+
+  {{ if .hostname }}
+  Note: The hostname and protocol should be replaced with "{{ .hostname }}".
+  {{ end }}
+
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}
