@@ -14,8 +14,8 @@ require (
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/dave/jennifer v1.7.0
 	github.com/go-go-golems/bobatea v0.0.1
-	github.com/go-go-golems/clay v0.1.5
-	github.com/go-go-golems/glazed v0.5.1
+	github.com/go-go-golems/clay v0.1.6
+	github.com/go-go-golems/glazed v0.5.3
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
 	github.com/mattn/go-isatty v0.0.19
