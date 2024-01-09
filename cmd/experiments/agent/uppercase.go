@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/cmds"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/utils"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -20,20 +20,21 @@ var upperCaseCmd = &cobra.Command{
 	Use:   "uppercase",
 	Short: "uppercase test",
 	Run: func(cmd *cobra.Command, args []string) {
-		layer, err := openai2.NewParameterLayer()
-		cobra.CheckErr(err)
-		aiLayer, err := settings.NewChatParameterLayer()
-		cobra.CheckErr(err)
-
-		layers_ := layers.NewParameterLayers(layers.WithLayers(layer, aiLayer))
-
-		// TODO(manuel, 2023-11-28) Turn this into a "add all flags to command"
-		// function to create commands, like glazedParameterLayer
-		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, layers_)
-
-		cobra.CheckErr(err)
-
 		stepSettings := settings.NewStepSettings()
+		geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
+		cobra.CheckErr(err)
+		layers_ := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))
+
+		cobraParser, err := cli.NewCobraParserFromLayers(
+			layers_,
+			cli.WithCobraMiddlewaresFunc(
+				cmds.GetCobraCommandGeppettoMiddlewares,
+			))
+		cobra.CheckErr(err)
+
+		parsedLayers, err := cobraParser.Parse(cmd, args)
+		cobra.CheckErr(err)
+
 		err = stepSettings.UpdateFromParsedLayers(parsedLayers)
 		cobra.CheckErr(err)
 

@@ -4,8 +4,9 @@ import (
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/cmd/experiments/agent/codegen"
 	"github.com/go-go-golems/geppetto/cmd/experiments/agent/tool"
+	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	openai2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/spf13/cobra"
 )
@@ -25,37 +26,30 @@ func main() {
 
 	helpSystem.SetupCobraRootCommand(rootCmd)
 
-	err := clay.InitViper("pinocchio", rootCmd)
+	stepSettings := settings.NewStepSettings()
+	geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
+	cobra.CheckErr(err)
+
+	pLayers := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))
+
+	err = clay.InitViper("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 	err = clay.InitLogger()
 	cobra.CheckErr(err)
 
-	layer, err := openai2.NewParameterLayer()
-	cobra.CheckErr(err)
-	aiLayer, err := settings.NewChatParameterLayer()
-	cobra.CheckErr(err)
-
-	err = layer.AddLayerToCobraCommand(upperCaseCmd)
-	cobra.CheckErr(err)
-	err = aiLayer.AddLayerToCobraCommand(upperCaseCmd)
+	err = pLayers.AddToCobraCommand(upperCaseCmd)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(upperCaseCmd)
 
-	err = layer.AddLayerToCobraCommand(tool.ToolCallCmd)
-	cobra.CheckErr(err)
-	err = aiLayer.AddLayerToCobraCommand(tool.ToolCallCmd)
+	err = pLayers.AddToCobraCommand(tool.ToolCallCmd)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(tool.ToolCallCmd)
 
-	err = layer.AddLayerToCobraCommand(codegen.CodegenTestCmd)
-	cobra.CheckErr(err)
-	err = aiLayer.AddLayerToCobraCommand(codegen.CodegenTestCmd)
+	err = pLayers.AddToCobraCommand(codegen.CodegenTestCmd)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(codegen.CodegenTestCmd)
 
-	err = layer.AddLayerToCobraCommand(codegen.MultiStepCodgenTestCmd)
-	cobra.CheckErr(err)
-	err = aiLayer.AddLayerToCobraCommand(codegen.MultiStepCodgenTestCmd)
+	err = pLayers.AddToCobraCommand(codegen.MultiStepCodgenTestCmd)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(codegen.MultiStepCodgenTestCmd)
 
