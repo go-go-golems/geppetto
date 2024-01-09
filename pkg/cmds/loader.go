@@ -54,39 +54,10 @@ func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 		return nil, err
 	}
 
-	chatParameterLayer, err := settings.NewChatParameterLayer(
-		layers.WithDefaults(stepSettings.Chat),
-	)
+	ls, err := CreateGeppettoLayers(stepSettings)
 	if err != nil {
 		return nil, err
 	}
-
-	clientParameterLayer, err := settings.NewClientParameterLayer(
-		layers.WithDefaults(stepSettings.Client),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	claudeParameterLayer, err := claude.NewParameterLayer(
-		layers.WithDefaults(stepSettings.Claude),
-	)
-	if err != nil {
-		return nil, err
-	}
-	openaiParameterLayer, err := openai.NewParameterLayer(
-		layers.WithDefaults(stepSettings.OpenAI),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	helpersLayer, err := NewHelpersParameterLayer()
-	if err != nil {
-		return nil, err
-	}
-
-	ls := append(scd.Layers, helpersLayer, chatParameterLayer, clientParameterLayer, claudeParameterLayer, openaiParameterLayer)
 
 	options_ := []cmds.CommandDescriptionOption{
 		cmds.WithShort(scd.Short),
@@ -120,6 +91,44 @@ func (g *GeppettoCommandLoader) loadGeppettoCommandFromReader(
 	}
 
 	return []cmds.Command{sq}, nil
+}
+
+func CreateGeppettoLayers(stepSettings *settings.StepSettings) ([]layers.ParameterLayer, error) {
+	chatParameterLayer, err := settings.NewChatParameterLayer(
+		layers.WithDefaults(stepSettings.Chat),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	clientParameterLayer, err := settings.NewClientParameterLayer(
+		layers.WithDefaults(stepSettings.Client),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	claudeParameterLayer, err := claude.NewParameterLayer(
+		layers.WithDefaults(stepSettings.Claude),
+	)
+	if err != nil {
+		return nil, err
+	}
+	openaiParameterLayer, err := openai.NewParameterLayer(
+		layers.WithDefaults(stepSettings.OpenAI),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	helpersLayer, err := NewHelpersParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	return []layers.ParameterLayer{
+		helpersLayer, chatParameterLayer, clientParameterLayer, claudeParameterLayer, openaiParameterLayer,
+	}, nil
 }
 
 func (scl *GeppettoCommandLoader) LoadCommands(
