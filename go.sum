@@ -115,8 +115,8 @@ github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbS
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-go-golems/bobatea v0.0.2 h1:1+QC8amzIMJS4BZGJAWnSh/lpfbDlQXPvJX756zVwNE=
-github.com/go-go-golems/bobatea v0.0.2/go.mod h1:nXmdIqYDwJxkOFUDuh2PYxZ5fxof+Yi4244r1Dd4W+Q=
+github.com/go-go-golems/bobatea v0.0.3 h1:qrOPSPiKjdPXeyeuA3p0qcVNhgU5g6sPZtpx3oI1VFw=
+github.com/go-go-golems/bobatea v0.0.3/go.mod h1:aTB8n8vmI9RxYecHYtqYPqAAFuC3/MbyeXZEMJoo9mE=
 github.com/go-go-golems/clay v0.1.6 h1:/EeJebwa/RbogE/tQhj3lr26fY4+MrN+80hfSFnt4Uc=
 github.com/go-go-golems/clay v0.1.6/go.mod h1:RWsRR13123i6/OuW7dYIsQ61vGsFTCSC4zj57Tmvemg=
 github.com/go-go-golems/glazed v0.5.3 h1:TIxbbb0U8d7tM71LjkZ61FhvqNezziApuEwTYZ3dWGw=
