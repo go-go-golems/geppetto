@@ -2,6 +2,7 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
 	"github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/ui"
@@ -25,8 +26,10 @@ func main() {
 		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 	}
 	options = append(options, tea.WithAltScreen())
+
+	backend := ui.NewStepBackend(step)
 	p := tea.NewProgram(
-		ui.InitialModel(manager, step),
+		chat2.InitialModel(ui.NewGeppettoConversationManager(manager), backend),
 		options...,
 	)
 

@@ -9,6 +9,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	tea "github.com/charmbracelet/bubbletea"
+	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
@@ -433,7 +434,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 }
 
 func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, error) {
-	tty_, err := ui.OpenTTY()
+	tty_, err := chat2.OpenTTY()
 	if err != nil {
 		return false, err
 	}
@@ -494,8 +495,10 @@ func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *
 		options = append(options, tea.WithAltScreen())
 	}
 
+	backend := ui.NewStepBackend(step)
+
 	p := tea.NewProgram(
-		ui.InitialModel(contextManager, step),
+		chat2.InitialModel(ui.NewGeppettoConversationManager(contextManager), backend),
 		options...,
 	)
 
@@ -510,17 +513,17 @@ func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *
 
 			switch e.Type {
 			case chat.EventTypeError:
-				p.Send(ui.StreamCompletionError{
+				p.Send(chat2.StreamCompletionError{
 					Err: e.Error,
 				})
 			case chat.EventTypePartial:
-				p.Send(ui.StreamCompletionMsg{
+				p.Send(chat2.StreamCompletionMsg{
 					Completion: e.Text,
 				})
 			case chat.EventTypeFinal:
-				p.Send(ui.StreamDoneMsg{})
+				p.Send(chat2.StreamDoneMsg{})
 			case chat.EventTypeInterrupt:
-				p.Send(ui.StreamDoneMsg{})
+				p.Send(chat2.StreamDoneMsg{})
 			}
 
 			msg.Ack()
