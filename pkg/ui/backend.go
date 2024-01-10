@@ -68,7 +68,7 @@ func (s *StepBackend) GetNextCompletion() tea.Cmd {
 			if errors.Is(err, context.Canceled) {
 				return chat2.StreamDoneMsg{}
 			}
-			return chat2.StreamCompletionError{err}
+			return chat2.StreamCompletionError{Err: err}
 		}
 
 		return chat2.StreamCompletionMsg{Completion: v}
