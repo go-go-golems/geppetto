@@ -78,7 +78,6 @@ var ToolCallCmd = &cobra.Command{
 			),
 		}
 
-		//
 		reflector := new(jsonschema.Reflector)
 		err = reflector.AddGoComments("github.com/go-go-golems/geppetto", "./cmd/experiments/agent")
 		if err != nil {

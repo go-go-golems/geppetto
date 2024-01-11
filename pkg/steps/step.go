@@ -64,6 +64,12 @@ type StepFactory[T any, U any] interface {
 	NewStep() (Step[T, U], error)
 }
 
+type NewStepFunc[T any, U any] func() (Step[T, U], error)
+
+func (f NewStepFunc[T, U]) NewStep() (Step[T, U], error) {
+	return f()
+}
+
 // Step is the generalization of a lambda function, with cancellation and closing
 // to allow it to own resources.
 type Step[T any, U any] interface {

@@ -22,15 +22,23 @@ func (s *StandardStepFactory) NewStep(
 	}
 
 	var ret chat.Step
+	var err error
 	switch {
 	case openai.IsOpenAiEngine(*settings_.Chat.Engine):
-		ret = openai.NewStep(settings_)
+		ret, err = openai.NewStep(settings_)
+		if err != nil {
+			return nil, err
+		}
 
 	case claude.IsClaudeEngine(*settings_.Chat.Engine):
 		ret = claude.NewStep(settings_)
 
 	case IsAnyScaleEngine(*settings_.Chat.Engine):
-		ret = openai.NewStep(settings_)
+		ret, err = openai.NewStep(settings_)
+		if err != nil {
+			return nil, err
+		}
+
 	default:
 		return nil, errors.Errorf("unknown chat engine: %s", *settings_.Chat.Engine)
 	}

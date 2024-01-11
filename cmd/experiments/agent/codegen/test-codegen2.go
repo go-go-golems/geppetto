@@ -35,7 +35,7 @@ var _ context.GeppettoRunnable = (*TestCodegenCommand)(nil)
 
 func (c *TestCodegenCommand) CreateManager(
 	params *TestCodegenCommandParameters,
-) (*context.Manager, error) {
+) (*conversation.Manager, error) {
 	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
 }
 
@@ -51,7 +51,7 @@ func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
 
 func (c *TestCodegenCommand) RunWithManager(
 	ctx context2.Context,
-	manager *context.Manager,
+	manager *conversation.Manager,
 ) (steps.StepResult[string], error) {
 	// instantiate step frm factory
 	step, err := c.CreateStep()
@@ -93,7 +93,7 @@ func (c *TestCodegenCommand) RunToString(
 func (c *TestCodegenCommand) RunToContextManager(
 	ctx context2.Context,
 	params *TestCodegenCommandParameters,
-) (*context.Manager, error) {
+) (*conversation.Manager, error) {
 	manager, err := c.CreateManager(params)
 	if err != nil {
 		return nil, err

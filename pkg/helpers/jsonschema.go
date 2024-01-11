@@ -69,12 +69,7 @@ func CallFunctionFromJson(f Callable, jsonArgs interface{}) ([]reflect.Value, er
 }
 
 // GetFunctionParametersJsonSchema generates a JSON Schema for the arguments of the given function
-func GetFunctionParametersJsonSchema(f Callable) (*jsonschema.Schema, error) {
-	// Custom reflector configuration
-	reflector := &jsonschema.Reflector{
-		DoNotReference: true,
-	}
-
+func GetFunctionParametersJsonSchema(reflector *jsonschema.Reflector, f Callable) (*jsonschema.Schema, error) {
 	// Get the type of the function
 	funcVal := reflect.ValueOf(f)
 	funcType := funcVal.Type()

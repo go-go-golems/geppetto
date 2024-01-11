@@ -12,7 +12,7 @@ import (
 )
 
 type GeppettoRunnable interface {
-	RunWithManager(ctx context2.Context, manager *Manager) (steps.StepResult[string], error)
+	RunWithManager(ctx context2.Context, manager *conversation.Manager) (steps.StepResult[string], error)
 }
 
 // CreateManager creates a new Context Manager. It is used by the code generator
@@ -27,8 +27,8 @@ func CreateManager(
 	prompt string,
 	messages []*conversation.Message,
 	params interface{},
-	options ...ManagerOption,
-) (*Manager, error) {
+	options ...conversation.ManagerOption,
+) (*conversation.Manager, error) {
 	// convert the params to map[string]interface{}
 	var ps map[string]interface{}
 	if _, ok := params.(map[string]interface{}); !ok {
@@ -41,7 +41,7 @@ func CreateManager(
 		ps = params.(map[string]interface{})
 	}
 
-	manager := NewManager()
+	manager := conversation.NewManager()
 
 	if systemPrompt != "" {
 		systemPromptTemplate, err := templating.CreateTemplate("system-prompt").Parse(systemPrompt)
@@ -104,7 +104,7 @@ func CreateManager(
 func RunIntoWriter(
 	ctx context2.Context,
 	c GeppettoRunnable,
-	manager *Manager,
+	manager *conversation.Manager,
 	w io.Writer,
 ) error {
 	stepResult, err := c.RunWithManager(ctx, manager)
@@ -140,7 +140,7 @@ func RunIntoWriter(
 func RunToString(
 	ctx context2.Context,
 	c GeppettoRunnable,
-	manager *Manager,
+	manager *conversation.Manager,
 ) (string, error) {
 	var b []byte
 	w := bytes.NewBuffer(b)
@@ -155,8 +155,8 @@ func RunToString(
 func RunToContextManager(
 	ctx context2.Context,
 	c GeppettoRunnable,
-	manager *Manager,
-) (*Manager, error) {
+	manager *conversation.Manager,
+) (*conversation.Manager, error) {
 	s, err := RunToString(ctx, c, manager)
 	if err != nil {
 		return nil, err

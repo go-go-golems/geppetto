@@ -20,11 +20,7 @@ func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) e
 		return errors.New("Step is already running")
 	}
 
-	gptMessages := make([]*conversation.Message, len(msgs))
-	for i, m := range msgs {
-		gptMessages[i] = conversation.NewMessage(m.Text, m.Role, conversation.WithTime(m.Time), conversation.WithMetadata(m.Metadata))
-	}
-	stepResult, err := s.step.Start(ctx, gptMessages)
+	stepResult, err := s.step.Start(ctx, msgs)
 	if err != nil {
 		return err
 	}

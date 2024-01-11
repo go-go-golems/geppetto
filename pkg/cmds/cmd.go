@@ -10,8 +10,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	tea "github.com/charmbracelet/bubbletea"
 	bobatea_chat "github.com/go-go-golems/bobatea/pkg/chat"
-	ui2 "github.com/go-go-golems/bobatea/pkg/chat/conversation"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -39,9 +38,9 @@ type GeppettoCommandDescription struct {
 	Arguments []*parameters.ParameterDefinition `yaml:"arguments,omitempty"`
 	Layers    []layers.ParameterLayer           `yaml:"layers,omitempty"`
 
-	Prompt       string         `yaml:"prompt,omitempty"`
-	Messages     []*ui2.Message `yaml:"messages,omitempty"`
-	SystemPrompt string         `yaml:"system-prompt,omitempty"`
+	Prompt       string                  `yaml:"prompt,omitempty"`
+	Messages     []*conversation.Message `yaml:"messages,omitempty"`
+	SystemPrompt string                  `yaml:"system-prompt,omitempty"`
 }
 
 const HelpersSlug = "geppetto-helpers"
@@ -99,7 +98,7 @@ type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
 	StepSettings *settings.StepSettings
 	Prompt       string
-	Messages     []*ui2.Message
+	Messages     []*conversation.Message
 	SystemPrompt string
 }
 
@@ -113,7 +112,7 @@ func WithPrompt(prompt string) GeppettoCommandOption {
 	}
 }
 
-func WithMessages(messages []*ui2.Message) GeppettoCommandOption {
+func WithMessages(messages []*conversation.Message) GeppettoCommandOption {
 	return func(g *GeppettoCommand) {
 		g.Messages = messages
 	}
@@ -150,7 +149,7 @@ func NewGeppettoCommand(
 }
 
 func (g *GeppettoCommand) InitializeContextManager(
-	contextManager *geppetto_context.Manager,
+	contextManager *conversation.Manager,
 	ps map[string]interface{},
 ) error {
 	if g.SystemPrompt != "" {
@@ -166,7 +165,7 @@ func (g *GeppettoCommand) InitializeContextManager(
 		}
 
 		// TODO(manuel, 2023-12-07) Only do this conditionally, or maybe if the system prompt hasn't been set yet, if you use an agent.
-		contextManager.AddMessages(ui2.NewMessage(systemPromptBuffer.String(), ui2.RoleSystem))
+		contextManager.AddMessages(conversation.NewMessage(systemPromptBuffer.String(), conversation.RoleSystem))
 	}
 
 	for _, message := range g.Messages {
@@ -182,7 +181,7 @@ func (g *GeppettoCommand) InitializeContextManager(
 		}
 		s_ := messageBuffer.String()
 
-		contextManager.AddMessages(ui2.NewMessage(s_, message.Role, ui2.WithTime(message.Time)))
+		contextManager.AddMessages(conversation.NewMessage(s_, message.Role, conversation.WithTime(message.Time)))
 	}
 
 	// render the prompt
@@ -201,9 +200,9 @@ func (g *GeppettoCommand) InitializeContextManager(
 			return err
 		}
 
-		contextManager.AddMessages(ui2.NewMessage(
+		contextManager.AddMessages(conversation.NewMessage(
 			promptBuffer.String(),
-			ui2.RoleUser,
+			conversation.RoleUser,
 		))
 	}
 
@@ -212,8 +211,8 @@ func (g *GeppettoCommand) InitializeContextManager(
 
 func (g *GeppettoCommand) Run(
 	ctx context.Context,
-	step steps.Step[[]*ui2.Message, string],
-	contextManager *geppetto_context.Manager,
+	step steps.Step[[]*conversation.Message, string],
+	contextManager *conversation.Manager,
 	helpersSettings *HelpersSettings,
 	ps map[string]interface{},
 ) (steps.StepResult[string], error) {
@@ -228,7 +227,7 @@ func (g *GeppettoCommand) Run(
 	}
 
 	messagesM := steps.Resolve(contextManager.GetMessages())
-	m := steps.Bind[[]*ui2.Message, string](ctx, messagesM, step)
+	m := steps.Bind[[]*conversation.Message, string](ctx, messagesM, step)
 
 	return m, nil
 }
@@ -307,7 +306,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 			return nil
 		})
 
-	contextManager := geppetto_context.NewManager()
+	contextManager := conversation.NewManager()
 
 	var chatStep chat.Step
 	chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "chat"))
@@ -322,7 +321,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	// load and render messages
 	if s.MessageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(s.MessageFile)
+		messages_, err := conversation.LoadFromFile(s.MessageFile)
 		if err != nil {
 			return err
 		}
@@ -331,7 +330,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	if s.AppendMessageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(s.AppendMessageFile)
+		messages_, err := conversation.LoadFromFile(s.AppendMessageFile)
 		if err != nil {
 			return err
 		}
@@ -362,7 +361,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 				// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
 				return err
 			} else {
-				contextManager.AddMessages(ui2.NewMessage(s, ui2.RoleAssistant))
+				contextManager.AddMessages(conversation.NewMessage(s, conversation.RoleAssistant))
 
 				if !isStream {
 					_, err := w.Write([]byte(s))
@@ -471,7 +470,13 @@ func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, err
 	return continueInChat, nil
 }
 
-func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *gochannel.GoChannel, contextManager *geppetto_context.Manager) error {
+func chat_(
+	ctx context.Context,
+	step chat.Step,
+	router *message.Router,
+	pubSub *gochannel.GoChannel,
+	contextManager *conversation.Manager,
+) error {
 	// switch on streaming for chatting
 	// TODO(manuel, 2023-12-09) Probably need to create a new follow on step for enabling streaming
 

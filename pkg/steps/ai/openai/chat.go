@@ -26,11 +26,29 @@ func (csf *Step) Publish(publisher message.Publisher, topic string) error {
 	return nil
 }
 
-func NewStep(settings *settings.StepSettings) *Step {
-	return &Step{
+type StepOption func(*Step) error
+
+func WithSubscriptionManager(subscriptionManager *helpers.SubscriptionManager) StepOption {
+	return func(step *Step) error {
+		step.subscriptionManager = subscriptionManager
+		return nil
+	}
+}
+
+func NewStep(settings *settings.StepSettings, options ...StepOption) (*Step, error) {
+	ret := &Step{
 		Settings:            settings,
 		subscriptionManager: helpers.NewSubscriptionManager(),
 	}
+
+	for _, option := range options {
+		err := option(ret)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
 }
 
 func (csf *Step) Interrupt() {
@@ -89,8 +107,6 @@ func (csf *Step) Start(
 		c := make(chan helpers.Result[string])
 		ret := steps.NewStepResult[string](c)
 
-		message := ""
-
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
@@ -99,12 +115,15 @@ func (csf *Step) Start(
 				csf.cancel = nil
 			}()
 
+			message := ""
+
 			for {
 				select {
 				case <-cancellableCtx.Done():
 					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type: chat.EventTypeInterrupt,
-						Text: message,
+						Type:     chat.EventTypeInterrupt,
+						Text:     message,
+						Metadata: metadata,
 					})
 					c <- helpers.NewErrorResult[string](cancellableCtx.Err())
 					return
@@ -159,15 +178,6 @@ func (csf *Step) Start(
 		if errors.Is(err, context.Canceled) {
 			csf.subscriptionManager.PublishBlind(&chat.Event{
 				Type:     chat.EventTypeInterrupt,
-				Metadata: metadata,
-			})
-			return steps.Reject[string](err), nil
-		}
-
-		if err != nil {
-			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type:     chat.EventTypeError,
-				Error:    err,
 				Metadata: metadata,
 			})
 			return steps.Reject[string](err), nil
