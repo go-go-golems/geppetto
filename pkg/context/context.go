@@ -3,46 +3,15 @@ package context
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
 	"os"
 	"strings"
-	"time"
 )
 
-type Message struct {
-	Text string    `json:"text" yaml:"text"`
-	Time time.Time `json:"time" yaml:"time"`
-	Role string    `json:"role" yaml:"role"`
-
-	ID             uuid.UUID `json:"id" yaml:"id"`
-	ParentID       uuid.UUID `json:"parent_id" yaml:"parent_id"`
-	ConversationID uuid.UUID `json:"conversation_id" yaml:"conversation_id"`
-
-	// additional metadata for the message
-	Metadata map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-}
-
-const RoleSystem = "system"
-const RoleAssistant = "assistant"
-const RoleUser = "user"
-const RoleTool = "tool"
-
-// here is the openai definition
-// ChatCompletionRequestMessage is a message to use as the context for the chat completion API
-//
-//type ChatCompletionRequestMessage struct {
-//	// Role is the role is the role of the the message. Can be "system", "user", or "assistant"
-//	Role string `json:"role"`
-//
-//	// Content is the content of the message
-//	Content string `json:"content"`
-//}
-
 // LoadFromFile loads messages from a json file or yaml file
-func LoadFromFile(filename string) ([]*Message, error) {
+func LoadFromFile(filename string) ([]*conversation.Message, error) {
 	if strings.HasSuffix(filename, ".json") {
 		return loadFromJSONFile(filename)
 	} else if strings.HasSuffix(filename, ".yaml") || strings.HasSuffix(filename, ".yml") {
@@ -52,7 +21,7 @@ func LoadFromFile(filename string) ([]*Message, error) {
 	}
 }
 
-func loadFromYAMLFile(filename string) ([]*Message, error) {
+func loadFromYAMLFile(filename string) ([]*conversation.Message, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -61,7 +30,7 @@ func loadFromYAMLFile(filename string) ([]*Message, error) {
 		_ = f.Close()
 	}(f)
 
-	var messages []*Message
+	var messages []*conversation.Message
 	err = yaml.NewDecoder(f).Decode(&messages)
 	if err != nil {
 		return nil, err
@@ -70,7 +39,7 @@ func loadFromYAMLFile(filename string) ([]*Message, error) {
 	return messages, nil
 }
 
-func loadFromJSONFile(filename string) ([]*Message, error) {
+func loadFromJSONFile(filename string) ([]*conversation.Message, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -79,7 +48,7 @@ func loadFromJSONFile(filename string) ([]*Message, error) {
 		_ = f.Close()
 	}(f)
 
-	var messages []*Message
+	var messages []*conversation.Message
 	err = json.NewDecoder(f).Decode(&messages)
 	if err != nil {
 		return nil, err
@@ -89,83 +58,73 @@ func loadFromJSONFile(filename string) ([]*Message, error) {
 }
 
 type Manager struct {
-	Messages     []*Message
-	SystemPrompt string
+	Messages       []*conversation.Message
+	ConversationID uuid.UUID
 }
+
+var _ conversation.ConversationManager = (*Manager)(nil)
 
 type ManagerOption func(*Manager)
 
-func WithMessages(messages []*Message) ManagerOption {
+func WithMessages(messages []*conversation.Message) ManagerOption {
 	return func(m *Manager) {
-		m.Messages = messages
+		m.AddMessages(messages...)
 	}
 }
 
-func WithAddMessages(messages ...*Message) ManagerOption {
+func WithManagerConversationID(conversationID uuid.UUID) ManagerOption {
 	return func(m *Manager) {
-		m.Messages = append(m.Messages, messages...)
-	}
-}
-
-func WithSystemPrompt(systemPrompt string) ManagerOption {
-	return func(m *Manager) {
-		m.SystemPrompt = systemPrompt
+		m.ConversationID = conversationID
 	}
 }
 
 func NewManager(options ...ManagerOption) *Manager {
-	ret := &Manager{}
+	ret := &Manager{
+		ConversationID: uuid.Nil,
+	}
 	for _, option := range options {
 		option(ret)
 	}
+
+	if ret.ConversationID == uuid.Nil {
+		ret.ConversationID = uuid.New()
+	}
+
+	ret.setMessageIds()
+
 	return ret
 }
 
-func (c *Manager) GetMessages() []*Message {
+func (ret *Manager) setMessageIds() {
+	parentId := uuid.Nil
+	for _, message := range ret.Messages {
+		if message.ID == uuid.Nil {
+			message.ID = uuid.New()
+		}
+		message.ConversationID = ret.ConversationID
+		message.ParentID = parentId
+		parentId = message.ID
+	}
+}
+
+func (c *Manager) GetMessages() []*conversation.Message {
 	return c.Messages
 }
 
-// GetMessagesWithSystemPrompt returns all messages with the system prompt prepended
-func (c *Manager) GetMessagesWithSystemPrompt() []*Message {
-	messages := []*Message{}
-
-	if c.SystemPrompt != "" {
-		messages = append(messages, &Message{
-			Text: c.SystemPrompt,
-			Time: time.Now(),
-			Role: RoleSystem,
-		})
-	}
-
-	messages = append(messages, c.Messages...)
-
-	return messages
-}
-
-func (c *Manager) SetMessages(messages []*Message) {
-	c.Messages = messages
-}
-
-func (c *Manager) AddMessages(messages ...*Message) {
+func (c *Manager) AddMessages(messages ...*conversation.Message) {
 	c.Messages = append(c.Messages, messages...)
+	c.setMessageIds()
 }
 
-func (c *Manager) PrependMessages(messages ...*Message) {
+func (c *Manager) PrependMessages(messages ...*conversation.Message) {
 	c.Messages = append(messages, c.Messages...)
-}
-
-func (c *Manager) GetSystemPrompt() string {
-	return c.SystemPrompt
-}
-
-func (c *Manager) SetSystemPrompt(systemPrompt string) {
-	c.SystemPrompt = systemPrompt
+	c.setMessageIds()
 }
 
 // GetSinglePrompt is a helper to use the context manager with a completion api.
 // It just concatenates all the messages together with a prompt in front (if there are more than one message).
 func (c *Manager) GetSinglePrompt() string {
-	messages := c.GetMessagesWithSystemPrompt()
+	messages := c.GetMessages()
 	if len(messages) == 0 {
 		return ""
 	}
@@ -184,7 +143,7 @@ func (c *Manager) GetSinglePrompt() string {
 
 func (c *Manager) SaveToFile(s string) error {
 	// TODO(manuel, 2023-11-14) For now only json
-	msgs := c.GetMessagesWithSystemPrompt()
+	msgs := c.GetMessages()
 	f, err := os.Create(s)
 	if err != nil {
 		return err
@@ -202,24 +161,4 @@ func (c *Manager) SaveToFile(s string) error {
 	}
 
 	return nil
-}
-
-func ConvertMessagesToOpenAIMessages(messages []*Message) ([]openai.ChatCompletionMessage, error) {
-	res := make([]openai.ChatCompletionMessage, len(messages))
-	for i, message := range messages {
-		switch message.Role {
-		case openai.ChatMessageRoleSystem:
-		case openai.ChatMessageRoleAssistant:
-		case openai.ChatMessageRoleUser:
-		case openai.ChatMessageRoleFunction:
-		default:
-			return nil, errors.Errorf("invalid role: %s (should be one of system, assistant, user, function)", message.Role)
-		}
-		res[i] = openai.ChatCompletionMessage{
-			Role:    message.Role,
-			Content: message.Text,
-		}
-	}
-
-	return res, nil
 }

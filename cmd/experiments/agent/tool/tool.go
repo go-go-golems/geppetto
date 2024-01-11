@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -71,11 +71,11 @@ var ToolCallCmd = &cobra.Command{
 
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
-		messages := []*geppetto_context.Message{
-			{
-				Text: "Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
-				Role: geppetto_context.RoleUser,
-			},
+		messages := []*conversation.Message{
+			conversation.NewMessage(
+				"Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
+				conversation.RoleUser,
+			),
 		}
 
 		//

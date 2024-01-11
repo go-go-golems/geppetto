@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/charmbracelet/bubbletea"
 	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
-	context2 "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/pkg/errors"
@@ -15,19 +15,14 @@ type StepBackend struct {
 	stepResult steps.StepResult[string]
 }
 
-func (s *StepBackend) Start(ctx context.Context, msgs []*chat2.Message) error {
+func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) error {
 	if !s.IsFinished() {
 		return errors.New("Step is already running")
 	}
 
-	gptMessages := make([]*context2.Message, len(msgs))
+	gptMessages := make([]*conversation.Message, len(msgs))
 	for i, m := range msgs {
-		gptMessages[i] = &context2.Message{
-			Text:     m.Text,
-			Time:     m.Time,
-			Role:     m.Role,
-			Metadata: m.Metadata,
-		}
+		gptMessages[i] = conversation.NewMessage(m.Text, m.Role, conversation.WithTime(m.Time), conversation.WithMetadata(m.Metadata))
 	}
 	stepResult, err := s.step.Start(ctx, gptMessages)
 	if err != nil {
