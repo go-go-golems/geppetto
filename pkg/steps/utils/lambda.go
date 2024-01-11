@@ -43,6 +43,10 @@ func (l *LambdaStep[Input, Output]) Start(ctx context.Context, input Input) (ste
 	return steps.NewStepResult[Output](c), nil
 }
 
+func (l *LambdaStep[Input, Output]) NewStep() (steps.Step[Input, Output], error) {
+	return l, nil
+}
+
 func (l *BackgroundLambdaStep[Input, Output]) Start(ctx context.Context, input Input) (steps.StepResult[Output], error) {
 	l.c = make(chan helpers.Result[Output], 1)
 
@@ -61,6 +65,10 @@ func (l *BackgroundLambdaStep[Input, Output]) Close(ctx context.Context) error {
 	return nil
 }
 
+func (l *BackgroundLambdaStep[Input, Output]) NewStep() (steps.Step[Input, Output], error) {
+	return l, nil
+}
+
 func (l *MapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (steps.StepResult[Output], error) {
 	c := make(chan helpers.Result[Output], len(input))
 	defer close(c)
@@ -74,8 +82,8 @@ func (l *MapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input)
 	return steps.NewStepResult[Output](c), nil
 }
 
-func (l *MapLambdaStep[Input, Output]) Close(ctx context.Context) error {
-	return nil
+func (l *MapLambdaStep[Input, Output]) NewStep() (steps.Step[[]Input, Output], error) {
+	return l, nil
 }
 
 func (l *BackgroundMapLambdaStep[Input, Output]) Start(ctx context.Context, input []Input) (steps.StepResult[Output], error) {
@@ -91,4 +99,8 @@ func (l *BackgroundMapLambdaStep[Input, Output]) Start(ctx context.Context, inpu
 	}()
 
 	return steps.NewStepResult[Output](l.c), nil
+}
+
+func (l *BackgroundMapLambdaStep[Input, Output]) NewStep() (steps.Step[[]Input, Output], error) {
+	return l, nil
 }

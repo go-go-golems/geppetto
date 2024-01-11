@@ -55,7 +55,7 @@ func WithSubscription(publisher message.Publisher, topic string) StepOption {
 }
 
 type AddToHistoryStep struct {
-	manager *geppetto_context.Manager
+	manager *conversation.Manager
 	role    string
 }
 
@@ -69,7 +69,7 @@ func (a *AddToHistoryStep) Start(ctx context.Context, input string) (steps.StepR
 
 type RunnableStep struct {
 	c       geppetto_context.GeppettoRunnable
-	manager *geppetto_context.Manager
+	manager *conversation.Manager
 }
 
 var _ steps.Step[interface{}, string] = &RunnableStep{}

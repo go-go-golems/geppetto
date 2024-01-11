@@ -2,17 +2,16 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
-	ui2 "github.com/go-go-golems/bobatea/pkg/chat/conversation"
-	"github.com/go-go-golems/geppetto/pkg/context"
+	boba_chat "github.com/go-go-golems/bobatea/pkg/chat"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/ui"
 	"time"
 )
 
 func main() {
-	manager := context.NewManager(context.WithMessages([]*ui2.Message{
-		ui2.NewMessage("hahahahaha", ui2.RoleSystem),
+	manager := conversation.NewManager(conversation.WithMessages([]*conversation.Message{
+		conversation.NewMessage("hahahahaha", conversation.RoleSystem),
 	}))
 
 	step := &chat.EchoStep{
@@ -26,7 +25,7 @@ func main() {
 
 	backend := ui.NewStepBackend(step)
 	p := tea.NewProgram(
-		chat2.InitialModel(manager, backend),
+		boba_chat.InitialModel(manager, backend),
 		options...,
 	)
 

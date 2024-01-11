@@ -44,11 +44,11 @@ func (c *UnitTestsCommand) CreateStep(options ...chat.StepOption) (chat.Step, er
 	return stepFactory.NewStep(options...)
 }
 
-func (c *UnitTestsCommand) CreateManager(params *UnitTestsCommandParameters) (*context.Manager, error) {
+func (c *UnitTestsCommand) CreateManager(params *UnitTestsCommandParameters) (*conversation.Manager, error) {
 	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
 }
 
-func (c *UnitTestsCommand) RunWithManager(ctx context1.Context, manager *context.Manager) (steps.StepResult[string], error) {
+func (c *UnitTestsCommand) RunWithManager(ctx context1.Context, manager *conversation.Manager) (steps.StepResult[string], error) {
 	// instantiate step from factory
 	step, err := c.CreateStep()
 	if err != nil {
@@ -77,7 +77,7 @@ func (c *UnitTestsCommand) RunToString(ctx context1.Context, params *UnitTestsCo
 	return context.RunToString(ctx, c, manager)
 }
 
-func (c *UnitTestsCommand) RunToContextManager(ctx context1.Context, params *UnitTestsCommandParameters) (*context.Manager, error) {
+func (c *UnitTestsCommand) RunToContextManager(ctx context1.Context, params *UnitTestsCommandParameters) (*conversation.Manager, error) {
 	manager, err := c.CreateManager(params)
 	if err != nil {
 		return nil, err
