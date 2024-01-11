@@ -1,7 +1,7 @@
 package openai
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -56,11 +56,10 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
-func makeCompletionRequest(settings *settings.StepSettings,
-	//csf *Step,
-	messages []*context.Message,
-) (
-	*go_openai.ChatCompletionRequest, error) {
+func makeCompletionRequest(
+	settings *settings.StepSettings,
+	messages []*conversation.Message,
+) (*go_openai.ChatCompletionRequest, error) {
 	clientSettings := settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -143,7 +142,7 @@ func makeClient(openaiSettings *openai.Settings) *go_openai.Client {
 	return client
 }
 
-func messageToOpenAIMessage(msg *context.Message) go_openai.ChatCompletionMessage {
+func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionMessage {
 	res := go_openai.ChatCompletionMessage{
 		Role:    msg.Role,
 		Content: msg.Text,

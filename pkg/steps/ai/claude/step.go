@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ThreeDotsLabs/watermill/message"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -38,7 +38,7 @@ func (csf *Step) Interrupt() {
 	}
 }
 
-var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
+var _ steps.Step[[]*conversation.Message, string] = &Step{}
 
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
@@ -46,7 +46,7 @@ func IsClaudeEngine(engine string) bool {
 
 func (csf *Step) Start(
 	ctx context.Context,
-	messages []*geppetto_context.Message,
+	messages []*conversation.Message,
 ) (steps.StepResult[string], error) {
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
@@ -85,11 +85,11 @@ func (csf *Step) Start(
 	for _, msg := range messages {
 		rolePrefix := "Human"
 		switch msg.Role {
-		case geppetto_context.RoleSystem:
+		case conversation.RoleSystem:
 			rolePrefix = "System"
-		case geppetto_context.RoleAssistant:
+		case conversation.RoleAssistant:
 			rolePrefix = "Assistant"
-		case geppetto_context.RoleUser:
+		case conversation.RoleUser:
 			rolePrefix = "Human"
 		}
 		prompt += "\n\n" + rolePrefix + ": " + msg.Text

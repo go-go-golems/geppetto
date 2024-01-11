@@ -2,6 +2,7 @@ package codegen
 
 import (
 	context1 "context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	steps "github.com/go-go-golems/geppetto/pkg/steps"
 	ai "github.com/go-go-golems/geppetto/pkg/steps/ai"
@@ -17,10 +18,10 @@ const unitTestsCommandSystemPrompt = "You are a meticulous and experienced softw
 
 type UnitTestsCommand struct {
 	*cmds.CommandDescription
-	StepSettings settings.StepSettings `yaml:"-"`
-	Prompt       string                `yaml:"prompt"`
-	Messages     []*context.Message    `yaml:"messages,omitempty"`
-	SystemPrompt string                `yaml:"system-prompt"`
+	StepSettings settings.StepSettings   `yaml:"-"`
+	Prompt       string                  `yaml:"prompt"`
+	Messages     []*conversation.Message `yaml:"messages,omitempty"`
+	SystemPrompt string                  `yaml:"system-prompt"`
 }
 
 type UnitTestsCommandParameters struct {
@@ -53,7 +54,7 @@ func (c *UnitTestsCommand) RunWithManager(ctx context1.Context, manager *context
 	if err != nil {
 		return nil, err
 	}
-	stepResult, err := step.Start(ctx, manager.GetMessagesWithSystemPrompt())
+	stepResult, err := step.Start(ctx, manager.GetMessages())
 	if err != nil {
 		return nil, err
 	}

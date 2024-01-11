@@ -3,16 +3,17 @@ package openai
 import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/message"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"io"
 )
 
-var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
+var _ steps.Step[[]*conversation.Message, string] = &Step{}
 
 type Step struct {
 	Settings            *settings.StepSettings
@@ -40,7 +41,7 @@ func (csf *Step) Interrupt() {
 
 func (csf *Step) Start(
 	ctx context.Context,
-	messages []*geppetto_context.Message,
+	messages []*conversation.Message,
 ) (steps.StepResult[string], error) {
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
@@ -57,7 +58,28 @@ func (csf *Step) Start(
 		return nil, err
 	}
 
+	var parentMessage *conversation.Message
+	parentID := uuid.Nil
+	conversationID := uuid.New()
+
+	if len(messages) > 0 {
+		parentMessage = messages[len(messages)-1]
+		parentID = parentMessage.ID
+		conversationID = parentMessage.ConversationID
+	}
+
+	metadata := chat.EventMetadata{
+		ID:             uuid.New(),
+		ParentID:       parentID,
+		ConversationID: conversationID,
+	}
+
 	stream := csf.Settings.Chat.Stream
+
+	csf.subscriptionManager.PublishBlind(&chat.Event{
+		Type:     chat.EventTypeStart,
+		Metadata: metadata,
+	})
 
 	if stream {
 		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
@@ -92,8 +114,9 @@ func (csf *Step) Start(
 
 					if errors.Is(err, io.EOF) {
 						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type: chat.EventTypeFinal,
-							Text: message,
+							Type:     chat.EventTypeFinal,
+							Text:     message,
+							Metadata: metadata,
 						})
 						c <- helpers.NewValueResult[string](message)
 
@@ -102,24 +125,27 @@ func (csf *Step) Start(
 					if err != nil {
 						if errors.Is(err, context.Canceled) {
 							csf.subscriptionManager.PublishBlind(&chat.Event{
-								Type: chat.EventTypeInterrupt,
-								Text: message,
+								Type:     chat.EventTypeInterrupt,
+								Text:     message,
+								Metadata: metadata,
 							})
 							c <- helpers.NewErrorResult[string](err)
 							return
 						}
 
 						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:  chat.EventTypeError,
-							Error: err,
+							Type:     chat.EventTypeError,
+							Error:    err,
+							Metadata: metadata,
 						})
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
 
 					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type: chat.EventTypePartial,
-						Text: response.Choices[0].Delta.Content,
+						Type:     chat.EventTypePartial,
+						Text:     response.Choices[0].Delta.Content,
+						Metadata: metadata,
 					})
 
 					message += response.Choices[0].Delta.Content
@@ -132,30 +158,34 @@ func (csf *Step) Start(
 		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
 		if errors.Is(err, context.Canceled) {
 			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type: chat.EventTypeInterrupt,
+				Type:     chat.EventTypeInterrupt,
+				Metadata: metadata,
 			})
 			return steps.Reject[string](err), nil
 		}
 
 		if err != nil {
 			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: err,
+				Type:     chat.EventTypeError,
+				Error:    err,
+				Metadata: metadata,
 			})
 			return steps.Reject[string](err), nil
 		}
 
 		if err != nil {
 			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: err,
+				Type:     chat.EventTypeError,
+				Error:    err,
+				Metadata: metadata,
 			})
 			return steps.Reject[string](err), nil
 		}
 
 		csf.subscriptionManager.PublishBlind(&chat.Event{
-			Type: chat.EventTypeFinal,
-			Text: resp.Choices[0].Message.Content,
+			Type:     chat.EventTypeFinal,
+			Text:     resp.Choices[0].Message.Content,
+			Metadata: metadata,
 		})
 		return steps.Resolve(resp.Choices[0].Message.Content), nil
 	}

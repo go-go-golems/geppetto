@@ -3,13 +3,12 @@ package context
 import (
 	"bytes"
 	context2 "context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/glazed/pkg/helpers/maps"
+	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"io"
 	"strings"
-	"time"
-
-	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 )
 
 type GeppettoRunnable interface {
@@ -26,7 +25,7 @@ type GeppettoRunnable interface {
 func CreateManager(
 	systemPrompt string,
 	prompt string,
-	messages []*Message,
+	messages []*conversation.Message,
 	params interface{},
 	options ...ManagerOption,
 ) (*Manager, error) {
@@ -57,7 +56,7 @@ func CreateManager(
 		}
 
 		// TODO(manuel, 2023-12-07) Only do this conditionally, or maybe if the system prompt hasn't been set yet, if you use an agent.
-		manager.SetSystemPrompt(systemPromptBuffer.String())
+		manager.AddMessages(conversation.NewMessage(systemPromptBuffer.String(), conversation.RoleSystem))
 	}
 
 	for _, message := range messages {
@@ -73,11 +72,7 @@ func CreateManager(
 		}
 		s_ := messageBuffer.String()
 
-		manager.AddMessages(&Message{
-			Text: s_,
-			Role: message.Role,
-			Time: message.Time,
-		})
+		manager.AddMessages(conversation.NewMessage(s_, message.Role, conversation.WithTime(message.Time)))
 	}
 
 	// render the prompt
@@ -96,11 +91,7 @@ func CreateManager(
 			return nil, err
 		}
 
-		manager.AddMessages(&Message{
-			Text: promptBuffer.String(),
-			Role: RoleUser,
-			Time: time.Now(),
-		})
+		manager.AddMessages(conversation.NewMessage(promptBuffer.String(), conversation.RoleUser))
 	}
 
 	for _, option := range options {
@@ -171,11 +162,7 @@ func RunToContextManager(
 		return nil, err
 	}
 
-	manager.AddMessages(&Message{
-		Text: s,
-		Time: time.Now(),
-		Role: RoleAssistant,
-	})
+	manager.AddMessages(conversation.NewMessage(s, conversation.RoleAssistant))
 
 	return manager, nil
 }

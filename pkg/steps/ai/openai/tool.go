@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -19,7 +19,7 @@ type ToolStep struct {
 	Tools    []go_openai.Tool
 }
 
-var _ steps.Step[[]*geppetto_context.Message, ToolCompletionResponse] = (*ToolStep)(nil)
+var _ steps.Step[[]*conversation.Message, ToolCompletionResponse] = (*ToolStep)(nil)
 
 func (csf *ToolStep) SetStreaming(b bool) {
 	csf.Settings.Chat.Stream = b
@@ -33,7 +33,7 @@ type ToolCompletionResponse struct {
 
 func (csf *ToolStep) Start(
 	ctx context.Context,
-	messages []*geppetto_context.Message,
+	messages []*conversation.Message,
 ) (steps.StepResult[ToolCompletionResponse], error) {
 	client := makeClient(csf.Settings.OpenAI)
 

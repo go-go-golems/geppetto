@@ -195,7 +195,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 				jen.Return(jen.Nil(), jen.Err()),
 			),
 			jen.List(jen.Id("stepResult"), jen.Err()).Op(":=").Id("step").Dot("Start").
-				Call(jen.Id("ctx"), jen.Id("manager").Dot("GetMessagesWithSystemPrompt").Call()),
+				Call(jen.Id("ctx"), jen.Id("manager").Dot("GetMessages").Call()),
 			jen.If().Err().Op("!=").Nil().Block(
 				jen.Return(jen.Nil(), jen.Err()),
 			),

@@ -3,7 +3,7 @@ package chat
 import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/message"
-	context2 "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/pkg/errors"
@@ -36,7 +36,7 @@ func (e *EchoStep) Publish(publisher message.Publisher, topic string) error {
 	return nil
 }
 
-func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (steps.StepResult[string], error) {
+func (e *EchoStep) Start(ctx context.Context, input []*conversation.Message) (steps.StepResult[string], error) {
 	if len(input) == 0 {
 		return nil, errors.New("no input")
 	}

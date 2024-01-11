@@ -3,9 +3,7 @@ package ollama
 import (
 	"context"
 	"errors"
-	"time"
-
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -28,20 +26,15 @@ func NewChatCompletionStep(client *api.Client, settings *settings.StepSettings) 
 	}
 }
 
-func ConvertMessage(ollamaMsg *api.Message) *geppetto_context.Message {
-
-	gepMsg := &geppetto_context.Message{
-		Text: ollamaMsg.Content,
-		Role: ollamaMsg.Role,
-		Time: time.Now(),
-	}
+func ConvertMessage(ollamaMsg *api.Message) *conversation.Message {
+	gepMsg := conversation.NewMessage(ollamaMsg.Content, ollamaMsg.Role)
 
 	return gepMsg
 }
 
 func (ccs *ChatCompletionStep) Start(
 	ctx context.Context,
-	messages []*geppetto_context.Message,
+	messages []*conversation.Message,
 ) (steps.StepResult[string], error) {
 	if ccs.cancel != nil {
 		return nil, errors.New("step already started")
