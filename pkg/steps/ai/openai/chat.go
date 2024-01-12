@@ -120,10 +120,12 @@ func (csf *Step) Start(
 			for {
 				select {
 				case <-cancellableCtx.Done():
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type:     chat.EventTypeInterrupt,
-						Text:     message,
-						Metadata: metadata,
+					csf.subscriptionManager.PublishBlind(&chat.EventText{
+						Event: chat.Event{
+							Type:     chat.EventTypeInterrupt,
+							Metadata: metadata,
+						},
+						Text: message,
 					})
 					c <- helpers.NewErrorResult[string](cancellableCtx.Err())
 					return
@@ -132,10 +134,12 @@ func (csf *Step) Start(
 					response, err := stream.Recv()
 
 					if errors.Is(err, io.EOF) {
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:     chat.EventTypeFinal,
-							Text:     message,
-							Metadata: metadata,
+						csf.subscriptionManager.PublishBlind(&chat.EventText{
+							Event: chat.Event{
+								Type:     chat.EventTypeFinal,
+								Metadata: metadata,
+							},
+							Text: message,
 						})
 						c <- helpers.NewValueResult[string](message)
 
@@ -143,10 +147,12 @@ func (csf *Step) Start(
 					}
 					if err != nil {
 						if errors.Is(err, context.Canceled) {
-							csf.subscriptionManager.PublishBlind(&chat.Event{
-								Type:     chat.EventTypeInterrupt,
-								Text:     message,
-								Metadata: metadata,
+							csf.subscriptionManager.PublishBlind(&chat.EventText{
+								Event: chat.Event{
+									Type:     chat.EventTypeInterrupt,
+									Metadata: metadata,
+								},
+								Text: message,
 							})
 							c <- helpers.NewErrorResult[string](err)
 							return
@@ -161,13 +167,16 @@ func (csf *Step) Start(
 						return
 					}
 
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type:     chat.EventTypePartial,
-						Text:     response.Choices[0].Delta.Content,
-						Metadata: metadata,
-					})
-
 					message += response.Choices[0].Delta.Content
+
+					csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
+						Event: chat.Event{
+							Type:     chat.EventTypePartial,
+							Metadata: metadata,
+						},
+						Delta:      response.Choices[0].Delta.Content,
+						Completion: message,
+					})
 				}
 			}
 		}()
@@ -176,9 +185,12 @@ func (csf *Step) Start(
 	} else {
 		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
 		if errors.Is(err, context.Canceled) {
-			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type:     chat.EventTypeInterrupt,
-				Metadata: metadata,
+			csf.subscriptionManager.PublishBlind(&chat.EventText{
+				Event: chat.Event{
+					Type:     chat.EventTypeInterrupt,
+					Metadata: metadata,
+				},
+				Text: "",
 			})
 			return steps.Reject[string](err), nil
 		}
@@ -192,10 +204,12 @@ func (csf *Step) Start(
 			return steps.Reject[string](err), nil
 		}
 
-		csf.subscriptionManager.PublishBlind(&chat.Event{
-			Type:     chat.EventTypeFinal,
-			Text:     resp.Choices[0].Message.Content,
-			Metadata: metadata,
+		csf.subscriptionManager.PublishBlind(&chat.EventText{
+			Event: chat.Event{
+				Type:     chat.EventTypeFinal,
+				Metadata: metadata,
+			},
+			Text: resp.Choices[0].Message.Content,
 		})
 		return steps.Resolve(resp.Choices[0].Message.Content), nil
 	}

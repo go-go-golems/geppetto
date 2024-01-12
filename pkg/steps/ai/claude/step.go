@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"strings"
@@ -50,6 +51,22 @@ func (csf *Step) Start(
 ) (steps.StepResult[string], error) {
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
+	}
+
+	var parentMessage *conversation.Message
+	parentID := uuid.Nil
+	conversationID := uuid.New()
+
+	if len(messages) > 0 {
+		parentMessage = messages[len(messages)-1]
+		parentID = parentMessage.ID
+		conversationID = parentMessage.ConversationID
+	}
+
+	metadata := chat.EventMetadata{
+		ID:             uuid.New(),
+		ParentID:       parentID,
+		ConversationID: conversationID,
 	}
 
 	var cancel context.CancelFunc
@@ -140,15 +157,22 @@ func (csf *Step) Start(
 			for {
 				select {
 				case <-ctx.Done():
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type: chat.EventTypeInterrupt,
+					csf.subscriptionManager.PublishBlind(&chat.EventText{
+						Event: chat.Event{
+							Type:     chat.EventTypeInterrupt,
+							Metadata: metadata,
+						},
+						Text: message,
 					})
 					c <- helpers.NewErrorResult[string](ctx.Err())
 					return
 				case event, ok := <-events:
 					if !ok {
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type: chat.EventTypeFinal,
+						csf.subscriptionManager.PublishBlind(&chat.EventText{
+							Event: chat.Event{
+								Type:     chat.EventTypeFinal,
+								Metadata: metadata,
+							},
 							Text: message,
 						})
 						c <- helpers.NewValueResult[string](message)
@@ -158,8 +182,9 @@ func (csf *Step) Start(
 					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
 						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:  chat.EventTypeError,
-							Error: err,
+							Type:     chat.EventTypeError,
+							Metadata: metadata,
+							Error:    err,
 						})
 						c <- helpers.NewErrorResult[string](err)
 						return
@@ -169,11 +194,15 @@ func (csf *Step) Start(
 							completion = strings.TrimLeft(completion, " ")
 							isFirstEvent = false
 						}
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type: chat.EventTypePartial,
-							Text: completion,
-						})
 						message += completion
+						csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
+							Event: chat.Event{
+								Type:     chat.EventTypePartial,
+								Metadata: metadata,
+							},
+							Delta:      completion,
+							Completion: message,
+						})
 					}
 				}
 			}
@@ -194,8 +223,11 @@ func (csf *Step) Start(
 			return steps.Reject[string](err), nil
 		}
 
-		csf.subscriptionManager.PublishBlind(&chat.Event{
-			Type: chat.EventTypeFinal,
+		csf.subscriptionManager.PublishBlind(&chat.EventText{
+			Event: chat.Event{
+				Type:     chat.EventTypeFinal,
+				Metadata: metadata,
+			},
 			Text: resp.Completion,
 		})
 

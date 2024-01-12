@@ -10,6 +10,16 @@ import (
 	"strings"
 )
 
+func GetToolCallDelta(toolCalls []go_openai.ToolCall) string {
+	msg := ""
+	for _, call := range toolCalls {
+		msg += call.Function.Name
+		msg += call.Function.Arguments
+	}
+
+	return msg
+}
+
 type ToolCallMerger struct {
 	toolCalls map[int]go_openai.ToolCall
 }
