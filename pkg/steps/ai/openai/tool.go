@@ -14,7 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
 	"io"
-	"time"
 )
 
 type ToolCompletionResponse struct {
@@ -132,12 +131,10 @@ func (csf *ToolStep) Start(
 	})
 
 	if stream {
-		fmt.Println("creating stream")
 		stream, err := client.CreateChatCompletionStream(context.Background(), *req)
 		if err != nil {
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
-		fmt.Println("created stream")
 		c := make(chan helpers.Result[ToolCompletionResponse])
 		ret := steps.NewStepResult[ToolCompletionResponse](c)
 
@@ -146,8 +143,6 @@ func (csf *ToolStep) Start(
 			defer close(c)
 			defer stream.Close()
 
-			fmt.Println("starting stream")
-
 			message := ""
 
 			toolCallMerger := NewToolCallMerger()
@@ -155,24 +150,25 @@ func (csf *ToolStep) Start(
 			ret := ToolCompletionResponse{}
 
 			for {
-				// current time formatted
-				now := time.Now().Format("2006-01-02 15:04:05")
-				fmt.Println("waiting for delta", now)
 				select {
 				case <-ctx.Done():
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type:     chat.EventTypeInterrupt,
-						Text:     message,
-						Metadata: metadata,
+					csf.subscriptionManager.PublishBlind(&chat.EventText{
+						Event: chat.Event{
+							Type:     chat.EventTypeInterrupt,
+							Metadata: metadata,
+						},
+						Text: message,
 					})
 					return
 				default:
 					response, err := stream.Recv()
 					if errors.Is(err, io.EOF) {
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:     chat.EventTypeFinal,
-							Text:     message,
-							Metadata: metadata,
+						csf.subscriptionManager.PublishBlind(&chat.EventText{
+							Event: chat.Event{
+								Type:     chat.EventTypeFinal,
+								Metadata: metadata,
+							},
+							Text: message,
 						})
 						toolCalls := toolCallMerger.GetToolCalls()
 
@@ -194,15 +190,22 @@ func (csf *ToolStep) Start(
 
 					// TODO(manuel, 2023-11-28) Handle multiple choices
 					delta := response.Choices[0].Delta
+					deltaContent := delta.Content
+					if delta.Content == "" {
+						deltaContent = GetToolCallDelta(delta.ToolCalls)
+
+					}
 					toolCallMerger.AddToolCalls(delta.ToolCalls)
 
-					message += response.Choices[0].Delta.Content
+					message += deltaContent
 
-					fmt.Println("got delta", delta)
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type:     chat.EventTypePartial,
-						Text:     response.Choices[0].Delta.Content,
-						Metadata: metadata,
+					csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
+						Event: chat.Event{
+							Type:     chat.EventTypePartial,
+							Metadata: metadata,
+						},
+						Delta:      deltaContent,
+						Completion: message,
 					})
 
 					if delta.Role != "" {
@@ -233,10 +236,12 @@ func (csf *ToolStep) Start(
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
-		csf.subscriptionManager.PublishBlind(&chat.Event{
-			Type:     chat.EventTypeFinal,
-			Text:     resp.Choices[0].Message.Content,
-			Metadata: metadata,
+		csf.subscriptionManager.PublishBlind(&chat.EventText{
+			Event: chat.Event{
+				Type:     chat.EventTypeFinal,
+				Metadata: metadata,
+			},
+			Text: resp.Choices[0].Message.Content,
 		})
 
 		// TODO(manuel, 2023-11-28) Handle multiple choices
@@ -244,7 +249,7 @@ func (csf *ToolStep) Start(
 		fmt.Printf("final toolcalls:\n%s\n%s\n", resp.Choices[0].FinishReason, s)
 		ret := ToolCompletionResponse{
 			Role:      resp.Choices[0].Message.Role,
-			Content:   string(resp.Choices[0].Message.Content),
+			Content:   resp.Choices[0].Message.Content,
 			ToolCalls: resp.Choices[0].Message.ToolCalls,
 		}
 		return steps.Resolve(ret), nil

@@ -62,7 +62,7 @@ func (s *StepBackend) GetNextCompletion() tea.Cmd {
 			return chat2.StreamCompletionError{Err: err}
 		}
 
-		return chat2.StreamCompletionMsg{Completion: v}
+		return chat2.StreamCompletionMsg{Delta: v}
 	}
 }
 

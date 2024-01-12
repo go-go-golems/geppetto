@@ -48,26 +48,35 @@ func (e *EchoStep) Start(ctx context.Context, input []*conversation.Message) (st
 	c := make(chan helpers.Result[string], 1)
 	res := steps.NewStepResult(c)
 
+	// TODO(manuel, 2024-01-12) We need to add conversational metadata here
 	eg.Go(func() error {
 		defer close(c)
 		msg := input[len(input)-1]
-		for _, c_ := range msg.Text {
+		for idx, c_ := range msg.Text {
 			select {
 			case <-ctx.Done():
-				e.subscriptionManager.PublishBlind(&Event{
-					Type: EventTypeInterrupt,
+				e.subscriptionManager.PublishBlind(&EventText{
+					Event: Event{
+						Type: EventTypeInterrupt,
+					},
+					Text: msg.Text,
 				})
 				c <- helpers.NewErrorResult[string](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
-				e.subscriptionManager.PublishBlind(&Event{
-					Type: EventTypePartial,
-					Text: string(c_),
+				e.subscriptionManager.PublishBlind(&EventPartialCompletion{
+					Event: Event{
+						Type: EventTypePartial,
+					},
+					Delta:      string(c_),
+					Completion: msg.Text[:idx+1],
 				})
 			}
 		}
-		e.subscriptionManager.PublishBlind(&Event{
-			Type: EventTypeFinal,
+		e.subscriptionManager.PublishBlind(&EventText{
+			Event: Event{
+				Type: EventTypeFinal,
+			},
 			Text: msg.Text,
 		})
 		c <- helpers.NewValueResult[string](msg.Text)

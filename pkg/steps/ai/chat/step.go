@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
@@ -28,9 +29,20 @@ const (
 
 type Event struct {
 	Type     EventType     `json:"type"`
-	Text     string        `json:"text,omitempty"`
 	Error    error         `json:"error,omitempty"`
 	Metadata EventMetadata `json:"meta,omitempty"`
+	payload  []byte
+}
+
+type EventText struct {
+	Event
+	Text string `json:"text"`
+}
+
+type EventPartialCompletion struct {
+	Event
+	Delta      string `json:"delta"`
+	Completion string `json:"completion"`
 }
 
 // EventMetadata contains all the information that is passed along with watermill message,
@@ -39,6 +51,38 @@ type EventMetadata struct {
 	ID             uuid.UUID `json:"message_id"`
 	ParentID       uuid.UUID `json:"parent_id"`
 	ConversationID uuid.UUID `json:"conversation_id"`
+}
+
+func NewEventFromJson(b []byte) (Event, error) {
+	var e Event
+	err := json.Unmarshal(b, &e)
+	if err != nil {
+		return Event{}, err
+	}
+
+	e.payload = b
+
+	return e, nil
+}
+
+func (e Event) ToText() (EventText, bool) {
+	var ret EventText
+	err := json.Unmarshal(e.payload, &ret)
+	if err != nil {
+		return EventText{}, false
+	}
+
+	return ret, true
+}
+
+func (e Event) ToPartialCompletion() (EventPartialCompletion, bool) {
+	var ret EventPartialCompletion
+	err := json.Unmarshal(e.payload, &ret)
+	if err != nil {
+		return EventPartialCompletion{}, false
+	}
+
+	return ret, true
 }
 
 type StepOption func(Step) error

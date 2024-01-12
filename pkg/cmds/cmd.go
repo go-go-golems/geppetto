@@ -3,7 +3,6 @@ package cmds
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -283,8 +282,9 @@ func (g *GeppettoCommand) RunIntoWriter(
 		"chat",
 		pubSub,
 		func(msg *message.Message) error {
-			e := &chat.Event{}
-			err := json.Unmarshal(msg.Payload, e)
+			msg.Ack()
+
+			e, err := chat.NewEventFromJson(msg.Payload)
 			if err != nil {
 				return err
 			}
@@ -293,15 +293,17 @@ func (g *GeppettoCommand) RunIntoWriter(
 			case chat.EventTypeError:
 				return err
 			case chat.EventTypePartial:
-				_, err = w.Write([]byte(e.Text))
+				p_, ok := e.ToPartialCompletion()
+				if !ok {
+					return errors.Errorf("invalid payload type")
+				}
+				_, err = w.Write([]byte(p_.Delta))
 				if err != nil {
 					return err
 				}
 			case chat.EventTypeFinal:
 			case chat.EventTypeInterrupt:
 			}
-
-			msg.Ack()
 
 			return nil
 		})
@@ -507,8 +509,9 @@ func chat_(
 	router.AddNoPublisherHandler("ui",
 		"ui", pubSub,
 		func(msg *message.Message) error {
-			e := &chat.Event{}
-			err := json.Unmarshal(msg.Payload, e)
+			msg.Ack()
+
+			e, err := chat.NewEventFromJson(msg.Payload)
 			if err != nil {
 				return err
 			}
@@ -519,13 +522,30 @@ func chat_(
 					Err: e.Error,
 				})
 			case chat.EventTypePartial:
+				p_, ok := e.ToPartialCompletion()
+				if !ok {
+					return errors.New("payload is not of type EventPartialCompletionPayload")
+				}
 				p.Send(bobatea_chat.StreamCompletionMsg{
-					Completion: e.Text,
+					Delta:      p_.Delta,
+					Completion: p_.Completion,
 				})
 			case chat.EventTypeFinal:
-				p.Send(bobatea_chat.StreamDoneMsg{})
+				p_, ok := e.ToText()
+				if !ok {
+					return errors.New("payload is not of type EventTextPayload")
+				}
+				p.Send(bobatea_chat.StreamDoneMsg{
+					Completion: p_.Text,
+				})
 			case chat.EventTypeInterrupt:
-				p.Send(bobatea_chat.StreamDoneMsg{})
+				p_, ok := e.ToText()
+				if !ok {
+					return errors.New("payload is not of type EventTextPayload")
+				}
+				p.Send(bobatea_chat.StreamDoneMsg{
+					Completion: p_.Text,
+				})
 			}
 
 			msg.Ack()
