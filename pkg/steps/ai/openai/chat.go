@@ -21,8 +21,8 @@ type Step struct {
 	subscriptionManager *helpers.SubscriptionManager
 }
 
-func (csf *Step) Publish(publisher message.Publisher, topic string) error {
-	csf.subscriptionManager.AddSubscription(topic, publisher)
+func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	csf.subscriptionManager.AddPublishedTopic(topic, publisher)
 	return nil
 }
 

@@ -12,11 +12,7 @@ import (
 
 type EventType string
 
-type Step interface {
-	steps.Step[[]*conversation.Message, string]
-	Interrupt()
-	Publish(publisher message.Publisher, topic string) error
-}
+type Step steps.Step[[]*conversation.Message, string]
 
 const (
 	EventTypeStart     EventType = "start"
@@ -89,7 +85,7 @@ type StepOption func(Step) error
 
 func WithSubscription(publisher message.Publisher, topic string) StepOption {
 	return func(step Step) error {
-		err := step.Publish(publisher, topic)
+		err := step.AddPublishedTopic(publisher, topic)
 		if err != nil {
 			return err
 		}
@@ -111,6 +107,10 @@ func (a *AddToHistoryStep) Start(ctx context.Context, input string) (steps.StepR
 	return steps.Resolve(input), nil
 }
 
+func (a *AddToHistoryStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	return nil
+}
+
 type RunnableStep struct {
 	c       geppetto_context.GeppettoRunnable
 	manager *conversation.Manager
@@ -120,4 +120,8 @@ var _ steps.Step[interface{}, string] = &RunnableStep{}
 
 func (r *RunnableStep) Start(ctx context.Context, input interface{}) (steps.StepResult[string], error) {
 	return r.c.RunWithManager(ctx, r.manager)
+}
+
+func (r *RunnableStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	return nil
 }

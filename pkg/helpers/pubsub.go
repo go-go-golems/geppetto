@@ -17,7 +17,7 @@ func NewSubscriptionManager() *SubscriptionManager {
 	}
 }
 
-func (s *SubscriptionManager) AddSubscription(topic string, sub message.Publisher) {
+func (s *SubscriptionManager) AddPublishedTopic(topic string, sub message.Publisher) {
 	s.Subscriptions[topic] = append(s.Subscriptions[topic], sub)
 }
 

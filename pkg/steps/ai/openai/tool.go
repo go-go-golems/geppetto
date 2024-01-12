@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -130,18 +131,23 @@ func (csf *ToolStep) Start(
 		Metadata: metadata,
 	})
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	if stream {
-		stream, err := client.CreateChatCompletionStream(context.Background(), *req)
+		stream_, err := client.CreateChatCompletionStream(context.Background(), *req)
 		if err != nil {
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 		c := make(chan helpers.Result[ToolCompletionResponse])
-		ret := steps.NewStepResult[ToolCompletionResponse](c)
+		ret := steps.NewStepResult[ToolCompletionResponse](
+			c,
+			steps.WithCancel[ToolCompletionResponse](cancel),
+		)
 
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
-			defer stream.Close()
+			defer stream_.Close()
 
 			message := ""
 
@@ -161,7 +167,7 @@ func (csf *ToolStep) Start(
 					})
 					return
 				default:
-					response, err := stream.Recv()
+					response, err := stream_.Recv()
 					if errors.Is(err, io.EOF) {
 						csf.subscriptionManager.PublishBlind(&chat.EventText{
 							Event: chat.Event{
@@ -217,6 +223,7 @@ func (csf *ToolStep) Start(
 
 		return ret, nil
 	} else {
+		// XXX This should run in a go routine as well
 		resp, err := client.CreateChatCompletion(ctx, *req)
 
 		if errors.Is(err, context.Canceled) {
@@ -256,20 +263,9 @@ func (csf *ToolStep) Start(
 	}
 }
 
-type ToolStepFactory func() (steps.Step[[]*conversation.Message, ToolCompletionResponse], error)
-
-func (f ToolStepFactory) NewStep() (steps.Step[[]*conversation.Message, ToolCompletionResponse], error) {
-	return f()
-}
-
-func NewToolStepFactory(stepSettings *settings.StepSettings, tools []go_openai.Tool) ToolStepFactory {
-	return ToolStepFactory(
-		func() (steps.Step[[]*conversation.Message, ToolCompletionResponse], error) {
-			return &ToolStep{
-				Settings: stepSettings,
-				Tools:    tools,
-			}, nil
-		})
+func (r *ToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	r.subscriptionManager.AddPublishedTopic(topic, publisher)
+	return nil
 }
 
 var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
@@ -309,6 +305,11 @@ func NewExecuteToolStep(
 
 var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
 
+func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	e.subscriptionManager.AddPublishedTopic(topic, publisher)
+	return nil
+}
+
 func (e *ExecuteToolStep) Start(
 	ctx context.Context,
 	input ToolCompletionResponse,
@@ -347,22 +348,4 @@ func (e *ExecuteToolStep) Start(
 	}
 
 	return steps.Resolve(res), nil
-}
-
-// TODO(manuel, 2024-01-11) I am not sure we need factories... Potentially because we want new step IDs on creation...
-// But then really the ID should be in the step result...
-
-type ExecuteToolStepFactory func() (steps.Step[ToolCompletionResponse, map[string]interface{}], error)
-
-func (f ExecuteToolStepFactory) NewStep() (steps.Step[ToolCompletionResponse, map[string]interface{}], error) {
-	return f()
-}
-
-func NewExecuteToolStepFactory(tools map[string]interface{}) ExecuteToolStepFactory {
-	return ExecuteToolStepFactory(
-		func() (steps.Step[ToolCompletionResponse, map[string]interface{}], error) {
-			return &ExecuteToolStep{
-				Tools: tools,
-			}, nil
-		})
 }

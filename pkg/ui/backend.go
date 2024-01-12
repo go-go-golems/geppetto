@@ -8,11 +8,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type StepBackend struct {
-	step       chat.Step
-	stepResult steps.StepResult[string]
+	stepFactory chat.Step
+	stepResult  steps.StepResult[string]
 }
 
 func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) error {
@@ -20,7 +21,7 @@ func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) e
 		return errors.New("Step is already running")
 	}
 
-	stepResult, err := s.step.Start(ctx, msgs)
+	stepResult, err := s.stepFactory.Start(ctx, msgs)
 	if err != nil {
 		return err
 	}
@@ -31,17 +32,24 @@ func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) e
 
 func NewStepBackend(step chat.Step) *StepBackend {
 	return &StepBackend{
-		step: step,
+		stepFactory: step,
 	}
 }
 
 func (s *StepBackend) Interrupt() {
-	s.step.Interrupt()
+	if s.stepResult != nil {
+		s.stepResult.Cancel()
+	} else {
+		log.Warn().Msg("Step is not running")
+	}
 }
 
 func (s *StepBackend) Kill() {
-	s.step.Interrupt()
-	s.stepResult = nil
+	if s.stepResult != nil {
+		s.stepResult.Cancel()
+	} else {
+		log.Warn().Msg("Step is not running")
+	}
 }
 
 func (s *StepBackend) GetNextCompletion() tea.Cmd {

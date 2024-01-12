@@ -138,8 +138,8 @@ func (t *ChatToolStep) Interrupt() {
 	}
 }
 
-func (t *ChatToolStep) Publish(publisher message.Publisher, topic string) error {
-	t.subscriptionManager.AddSubscription(topic, publisher)
+func (t *ChatToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	t.subscriptionManager.AddPublishedTopic(topic, publisher)
 	return nil
 }
 

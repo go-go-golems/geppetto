@@ -2,24 +2,45 @@ package steps
 
 import (
 	"context"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 )
 
 type StepResult[T any] interface {
 	Return() []helpers.Result[T]
 	GetChannel() <-chan helpers.Result[T]
+	// Cancel can't fail
+	Cancel()
 }
 
 type StepResultImpl[T any] struct {
-	value <-chan helpers.Result[T]
+	value  <-chan helpers.Result[T]
+	cancel func()
 	// Additional monads:
 	// - metrics
 	// - logs (? maybe doing imperative logging is better,
 	//   although they should definitely be collected as part of plunger)
 }
 
-func NewStepResult[T any](value <-chan helpers.Result[T]) *StepResultImpl[T] {
-	return &StepResultImpl[T]{value: value}
+type StepResultOption[T any] func(*StepResultImpl[T])
+
+func WithCancel[T any](cancel func()) StepResultOption[T] {
+	return func(s *StepResultImpl[T]) {
+		s.cancel = cancel
+	}
+}
+
+func NewStepResult[T any](
+	value <-chan helpers.Result[T],
+	options ...StepResultOption[T],
+) *StepResultImpl[T] {
+	ret := &StepResultImpl[T]{value: value}
+
+	for _, option := range options {
+		option(ret)
+	}
+
+	return ret
 }
 
 func (m *StepResultImpl[T]) Return() []helpers.Result[T] {
@@ -28,6 +49,12 @@ func (m *StepResultImpl[T]) Return() []helpers.Result[T] {
 		res = append(res, r)
 	}
 	return res
+}
+
+func (m *StepResultImpl[T]) Cancel() {
+	if m.cancel != nil {
+		m.cancel()
+	}
 }
 
 func (m *StepResultImpl[T]) GetChannel() <-chan helpers.Result[T] {
@@ -76,6 +103,7 @@ type Step[T any, U any] interface {
 	// Start gets called multiple times for the same Step, once per incoming value,
 	// since StepResult is also the list monad (ie., supports multiple values)
 	Start(ctx context.Context, input T) (StepResult[U], error)
+	AddPublishedTopic(publisher message.Publisher, topic string) error
 }
 
 // Bind is the monadic bind operator for StepResult.
@@ -87,8 +115,9 @@ func Bind[T any, U any](
 	m StepResult[T],
 	step Step[T, U],
 ) StepResult[U] {
-	return &StepResultImpl[U]{
-		value: func() <-chan helpers.Result[U] {
+	ctx, cancel := context.WithCancel(ctx)
+	return NewStepResult[U](
+		func() <-chan helpers.Result[U] {
 			c := make(chan helpers.Result[U])
 			go func() {
 				defer close(c)
@@ -121,5 +150,5 @@ func Bind[T any, U any](
 			}()
 			return c
 		}(),
-	}
+		WithCancel[U](cancel))
 }
