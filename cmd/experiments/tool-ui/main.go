@@ -201,7 +201,7 @@ func (t *ToolUiCommand) setup(parsedLayers *layers.ParsedLayers) (
 			"getWeatherOnDay": getWeatherOnDay,
 		}),
 	)
-	err = chatToolStep.Publish(pubSub, "ui")
+	err = chatToolStep.AddPublishedTopic(pubSub, "ui")
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

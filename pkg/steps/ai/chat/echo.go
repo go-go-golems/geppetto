@@ -31,8 +31,8 @@ func (e *EchoStep) Interrupt() {
 	}
 }
 
-func (e *EchoStep) Publish(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.AddSubscription(topic, publisher)
+func (e *EchoStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	e.subscriptionManager.AddPublishedTopic(topic, publisher)
 	return nil
 }
 
