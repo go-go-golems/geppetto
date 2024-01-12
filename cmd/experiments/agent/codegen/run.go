@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -109,16 +108,18 @@ func NewPrinterFunc(name string, w io.Writer) func(string) error {
 func stepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error {
 	isFirst := true
 	return func(msg *message.Message) error {
-		e := &chat.Event{}
-		err := json.Unmarshal(msg.Payload, e)
-		if err != nil {
-			return err
-		}
+		msg.Ack()
+
+		e, err := chat.NewEventFromJson(msg.Payload)
 
 		switch e.Type {
 		case chat.EventTypeError:
 			return err
 		case chat.EventTypePartial:
+			p_, ok := e.ToPartialCompletion()
+			if !ok {
+				return fmt.Errorf("Invalid payload type")
+			}
 			if isFirst {
 				isFirst = false
 				err := printToStdout(fmt.Sprintf("\n%s: \n", name), w)
@@ -126,15 +127,13 @@ func stepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 					return err
 				}
 			}
-			err := printToStdout(e.Text, w)
+			err := printToStdout(p_.Delta, w)
 			if err != nil {
 				return err
 			}
 		case chat.EventTypeFinal:
 		case chat.EventTypeInterrupt:
 		}
-
-		msg.Ack()
 
 		return nil
 	}

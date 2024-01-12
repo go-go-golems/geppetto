@@ -83,11 +83,11 @@ var ToolCallCmd = &cobra.Command{
 		if err != nil {
 			log.Warn().Err(err).Msg("Could not add go comments")
 		}
-		getWeatherOnDayJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeatherOnDay)
+		getWeatherOnDayJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(reflector, getWeatherOnDay)
 		s, _ := json.MarshalIndent(getWeatherOnDayJsonSchema, "", " ")
 		fmt.Printf("getWeatherOnDayJsonSchema:\n%s\n\n", s)
 
-		getWeatherJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeather)
+		getWeatherJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(reflector, getWeather)
 		s, _ = json.MarshalIndent(getWeatherJsonSchema, "", " ")
 		fmt.Printf("getWeatherJsonSchema:\n%s\n\n", s)
 
