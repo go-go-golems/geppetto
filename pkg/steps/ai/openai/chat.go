@@ -13,7 +13,7 @@ import (
 	"io"
 )
 
-var _ steps.Step[[]*conversation.Message, string] = &Step{}
+var _ steps.Step[conversation.Conversation, string] = &Step{}
 
 type Step struct {
 	Settings            *settings.StepSettings
@@ -52,7 +52,7 @@ func NewStep(settings *settings.StepSettings, options ...StepOption) (*Step, err
 
 func (csf *Step) Start(
 	ctx context.Context,
-	messages []*conversation.Message,
+	messages conversation.Conversation,
 ) (steps.StepResult[string], error) {
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)

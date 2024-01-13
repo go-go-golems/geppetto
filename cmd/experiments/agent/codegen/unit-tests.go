@@ -1,9 +1,9 @@
 package codegen
 
 import (
-	context1 "context"
-	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
-	context "github.com/go-go-golems/geppetto/pkg/context"
+	"context"
+	conversation "github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	context1 "github.com/go-go-golems/geppetto/pkg/context"
 	steps "github.com/go-go-golems/geppetto/pkg/steps"
 	ai "github.com/go-go-golems/geppetto/pkg/steps/ai"
 	chat "github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -18,10 +18,10 @@ const unitTestsCommandSystemPrompt = "You are a meticulous and experienced softw
 
 type UnitTestsCommand struct {
 	*cmds.CommandDescription
-	StepSettings settings.StepSettings   `yaml:"-"`
-	Prompt       string                  `yaml:"prompt"`
-	Messages     []*conversation.Message `yaml:"messages,omitempty"`
-	SystemPrompt string                  `yaml:"system-prompt"`
+	StepSettings settings.StepSettings     `yaml:"-"`
+	Prompt       string                    `yaml:"prompt"`
+	Messages     conversation.Conversation `yaml:"messages,omitempty"`
+	SystemPrompt string                    `yaml:"system-prompt"`
 }
 
 type UnitTestsCommandParameters struct {
@@ -44,48 +44,48 @@ func (c *UnitTestsCommand) CreateStep(options ...chat.StepOption) (chat.Step, er
 	return stepFactory.NewStep(options...)
 }
 
-func (c *UnitTestsCommand) CreateManager(params *UnitTestsCommandParameters) (*conversation.Manager, error) {
-	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
+func (c *UnitTestsCommand) CreateManager(params *UnitTestsCommandParameters) (conversation.Manager, error) {
+	return conversation.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
 }
 
-func (c *UnitTestsCommand) RunWithManager(ctx context1.Context, manager *conversation.Manager) (steps.StepResult[string], error) {
+func (c *UnitTestsCommand) RunWithManager(ctx context.Context, manager conversation.Manager) (steps.StepResult[string], error) {
 	// instantiate step from factory
 	step, err := c.CreateStep()
 	if err != nil {
 		return nil, err
 	}
-	stepResult, err := step.Start(ctx, manager.GetMessages())
+	stepResult, err := step.Start(ctx, manager.GetConversation())
 	if err != nil {
 		return nil, err
 	}
 	return stepResult, nil
 }
 
-func (c *UnitTestsCommand) RunIntoWriter(ctx context1.Context, params *UnitTestsCommandParameters, w io.Writer) error {
+func (c *UnitTestsCommand) RunIntoWriter(ctx context.Context, params *UnitTestsCommandParameters, w io.Writer) error {
 	manager, err := c.CreateManager(params)
 	if err != nil {
 		return err
 	}
-	return context.RunIntoWriter(ctx, c, manager, w)
+	return context1.RunIntoWriter(ctx, c, manager, w)
 }
 
-func (c *UnitTestsCommand) RunToString(ctx context1.Context, params *UnitTestsCommandParameters) (string, error) {
+func (c *UnitTestsCommand) RunToString(ctx context.Context, params *UnitTestsCommandParameters) (string, error) {
 	manager, err := c.CreateManager(params)
 	if err != nil {
 		return "", err
 	}
-	return context.RunToString(ctx, c, manager)
+	return context1.RunToString(ctx, c, manager)
 }
 
-func (c *UnitTestsCommand) RunToContextManager(ctx context1.Context, params *UnitTestsCommandParameters) (*conversation.Manager, error) {
+func (c *UnitTestsCommand) RunToContextManager(ctx context.Context, params *UnitTestsCommandParameters) (conversation.Manager, error) {
 	manager, err := c.CreateManager(params)
 	if err != nil {
 		return nil, err
 	}
-	return context.RunToContextManager(ctx, c, manager)
+	return context1.RunToContextManager(ctx, c, manager)
 }
 
-var _ context.GeppettoRunnable = (*UnitTestsCommand)(nil)
+var _ context1.GeppettoRunnable = (*UnitTestsCommand)(nil)
 
 func NewUnitTestsCommand() (*UnitTestsCommand, error) {
 	var flagDefs = []*parameters.ParameterDefinition{{
