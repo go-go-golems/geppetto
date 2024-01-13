@@ -28,9 +28,8 @@ type ToolStep struct {
 	Settings            *settings.StepSettings
 	Tools               []go_openai.Tool
 	subscriptionManager *helpers.SubscriptionManager
-	parentID            uuid.UUID
-	conversationID      uuid.UUID
-	messageID           uuid.UUID
+	parentID            conversation.NodeID
+	messageID           conversation.NodeID
 }
 
 var _ steps.Step[[]*conversation.Message, ToolCompletionResponse] = (*ToolStep)(nil)
@@ -44,21 +43,14 @@ func WithToolStepSubscriptionManager(subscriptionManager *helpers.SubscriptionMa
 	}
 }
 
-func WithToolStepParentID(parentID uuid.UUID) ToolStepOption {
+func WithToolStepParentID(parentID conversation.NodeID) ToolStepOption {
 	return func(step *ToolStep) error {
 		step.parentID = parentID
 		return nil
 	}
 }
 
-func WithToolStepConversationID(conversationID uuid.UUID) ToolStepOption {
-	return func(step *ToolStep) error {
-		step.conversationID = conversationID
-		return nil
-	}
-}
-
-func WithToolStepMessageID(messageID uuid.UUID) ToolStepOption {
+func WithToolStepMessageID(messageID conversation.NodeID) ToolStepOption {
 	return func(step *ToolStep) error {
 		step.messageID = messageID
 		return nil
@@ -74,9 +66,6 @@ func NewToolStep(
 		Settings:            stepSettings,
 		Tools:               Tools,
 		subscriptionManager: helpers.NewSubscriptionManager(),
-		parentID:            uuid.Nil,
-		conversationID:      uuid.Nil,
-		messageID:           uuid.Nil,
 	}
 
 	for _, option := range options {
@@ -86,8 +75,8 @@ func NewToolStep(
 		}
 	}
 
-	if ret.messageID == uuid.Nil {
-		ret.messageID = uuid.New()
+	if ret.messageID == conversation.NullNode {
+		ret.messageID = conversation.NewNodeID()
 	}
 
 	return ret, nil
@@ -113,18 +102,14 @@ func (csf *ToolStep) Start(
 
 	if len(messages) > 0 {
 		parentMessage := messages[len(messages)-1]
-		if csf.parentID == uuid.Nil {
+		if csf.parentID == conversation.NullNode {
 			csf.parentID = parentMessage.ID
-		}
-		if csf.conversationID == uuid.Nil {
-			csf.conversationID = parentMessage.ConversationID
 		}
 	}
 
 	metadata := chat.EventMetadata{
-		ID:             csf.messageID,
-		ParentID:       csf.parentID,
-		ConversationID: csf.conversationID,
+		ID:       csf.messageID,
+		ParentID: csf.parentID,
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),

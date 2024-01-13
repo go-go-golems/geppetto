@@ -1,70 +1,66 @@
-slug: ollama-model
-name: Ollama Model Configuration
+slug: ollama-chat
+name: Ollama Chat Model Configuration
 description: Settings for the Ollama language model
 flags:
-  - name: mirostat
+  - name: ollama-mirostat
     description: "Enable Mirostat sampling for controlling perplexity. (default: 0, 0 = disabled, 1 = Mirostat, 2 = Mirostat 2.0)"
     type: int
     default: 0
-  - name: mirostat-eta
+  - name: ollama-mirostat-eta
     description: Influences how quickly the algorithm responds to feedback from the generated text.
     default: 0.1
     type: float
-  - name: mirostat-tau
+  - name: ollama-mirostat-tau
     description: Controls the balance between coherence and diversity of the output.
     default: 5.0
     type: float
-  - name: num-ctx
+  - name: ollama-num-ctx
     description: Sets the size of the context window used to generate the next token.
     default: 2048
     type: int
-  - name: num-gqa
+  - name: ollama-num-gqa
     description: The number of GQA groups in the transformer layer. Required for some models.
     default: 1
     type: int
-  - name: num-gpu
+  - name: ollama-num-gpu
     description: The number of layers to send to the GPU(s).
     default: 50
     type: int
-  - name: num-thread
+  - name: ollama-num-thread
     description: Sets the number of threads to use during computation.
-    default: <number_of_physical_cpu_cores>
     type: int
-  - name: repeat-last-n
+  - name: ollama-repeat-last-n
     description: Sets how far back for the model to look back to prevent repetition.
     default: 64
     type: int
-  - name: repeat-penalty
+  - name: ollama-repeat-penalty
     description: Sets how strongly to penalize repetitions.
     default: 1.1
     type: float
-  - name: temperature
+  - name: ollama-temperature
     description: The temperature of the model.
     default: 0.8
     type: float
-  - name: seed
+  - name: ollama-seed
     description: Sets the random number seed to use for generation.
     default: 0
     type: int
-  - name: stop
+  - name: ollama-stop
     description: Sets the stop sequences to use.
-    default: []
-    type: list
-    items:
-      type: string
-  - name: tfs-z
+    type: stringList
+  - name: ollama-tfs-z
     description: Tail free sampling is used to reduce the impact of less probable tokens from the output.
-    default: 1
+    default: 1.0
     type: float
-  - name: num-predict
+  - name: ollama-num-predict
     description: Maximum number of tokens to predict when generating text.
     default: 128
     type: int
-  - name: top-k
+  - name: ollama-top-k
     description: Reduces the probability of generating nonsense.
     default: 40
     type: int
-  - name: top-p
+  - name: ollama-top-p
     description: Works together with top-k.
     default: 0.9
     type: float

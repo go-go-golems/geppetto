@@ -51,7 +51,12 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 	// TODO(manuel, 2024-01-12) We need to add conversational metadata here
 	eg.Go(func() error {
 		defer close(c)
-		msg := input[len(input)-1]
+		msg, ok := input[len(input)-1].Content.(*conversation.ChatMessageContent)
+		if !ok {
+			c <- helpers.NewErrorResult[string](errors.New("invalid input"))
+			return errors.New("invalid input")
+		}
+
 		for idx, c_ := range msg.Text {
 			select {
 			case <-ctx.Done():

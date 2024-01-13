@@ -69,19 +69,16 @@ func (csf *Step) Start(
 	}
 
 	var parentMessage *conversation.Message
-	parentID := uuid.Nil
-	conversationID := uuid.New()
+	parentID := conversation.NullNode
 
 	if len(messages) > 0 {
 		parentMessage = messages[len(messages)-1]
 		parentID = parentMessage.ID
-		conversationID = parentMessage.ConversationID
 	}
 
 	metadata := chat.EventMetadata{
-		ID:             uuid.New(),
-		ParentID:       parentID,
-		ConversationID: conversationID,
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
