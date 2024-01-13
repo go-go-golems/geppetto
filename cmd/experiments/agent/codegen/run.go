@@ -105,40 +105,6 @@ func NewPrinterFunc(name string, w io.Writer) func(string) error {
 	return p.Print
 }
 
-func stepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error {
-	isFirst := true
-	return func(msg *message.Message) error {
-		msg.Ack()
-
-		e, err := chat.NewEventFromJson(msg.Payload)
-
-		switch e.Type {
-		case chat.EventTypeError:
-			return err
-		case chat.EventTypePartial:
-			p_, ok := e.ToPartialCompletion()
-			if !ok {
-				return fmt.Errorf("Invalid payload type")
-			}
-			if isFirst {
-				isFirst = false
-				err := printToStdout(fmt.Sprintf("\n%s: \n", name), w)
-				if err != nil {
-					return err
-				}
-			}
-			err := printToStdout(p_.Delta, w)
-			if err != nil {
-				return err
-			}
-		case chat.EventTypeFinal:
-		case chat.EventTypeInterrupt:
-		}
-
-		return nil
-	}
-}
-
 var MultiStepCodgenTestCmd = &cobra.Command{
 	Use:   "multi-step",
 	Short: "Test codegen prompt",
@@ -178,12 +144,12 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		router.AddNoPublisherHandler("scientist",
 			"scientist",
 			pubSub,
-			stepPrinterFunc("Scientist", cmd.OutOrStdout()),
+			chat.StepPrinterFunc("Scientist", cmd.OutOrStdout()),
 		)
 		router.AddNoPublisherHandler("writer",
 			"writer",
 			pubSub,
-			stepPrinterFunc("Writer", cmd.OutOrStdout()),
+			chat.StepPrinterFunc("Writer", cmd.OutOrStdout()),
 		)
 
 		writerParams := &TestCodegenCommandParameters{

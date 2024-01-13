@@ -86,7 +86,7 @@ func (csf *Step) Start(
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
 		Type:       "openai-chat",
-		InputType:  "[]*conversation.Message",
+		InputType:  "conversation.Conversation",
 		OutputType: "string",
 		Metadata:   csf.Settings.GetMetadata(),
 	}

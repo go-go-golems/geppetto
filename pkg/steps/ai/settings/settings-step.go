@@ -2,6 +2,7 @@ package settings
 
 import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"gopkg.in/yaml.v3"
@@ -17,6 +18,7 @@ type StepSettings struct {
 	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
 	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
 	Claude *claude.Settings `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
+	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
 }
 
 func NewStepSettings() *StepSettings {
@@ -25,6 +27,7 @@ func NewStepSettings() *StepSettings {
 		OpenAI: openai.NewSettings(),
 		Client: NewClientSettings(),
 		Claude: claude.NewSettings(),
+		Ollama: ollama.NewSettings(),
 	}
 }
 
@@ -35,6 +38,7 @@ func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 			OpenAI: openai.NewSettings(),
 			Client: NewClientSettings(),
 			Claude: claude.NewSettings(),
+			Ollama: ollama.NewSettings(),
 		},
 	}
 	if err := yaml.NewDecoder(s).Decode(&settings_); err != nil {
@@ -112,6 +116,32 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		}
 	}
 
+	if ss.Ollama != nil {
+		// 	Temperature   *float64 `yaml:"temperature,omitempty" glazed.parameter:"ollama-temperature"`
+		//	Seed          *int     `yaml:"seed,omitempty" glazed.parameter:"ollama-seed"`
+		//	Stop          *string  `yaml:"stop,omitempty" glazed.parameter:"ollama-stop"`
+		//	TopK          *int     `yaml:"top-k,omitempty" glazed.parameter:"ollama-top-k"`
+		//	TopP          *float64 `yaml:"top-p,omitempty" glazed.parameter:"ollama-top-p"`
+		if ss.Ollama.Temperature != nil && *ss.Ollama.Temperature != 0 {
+			metadata["ollama-temperature"] = *ss.Ollama.Temperature
+		}
+		if ss.Ollama.Seed != nil && *ss.Ollama.Seed != 0 {
+			metadata["ollama-seed"] = *ss.Ollama.Seed
+		}
+
+		if ss.Ollama.Stop != nil && *ss.Ollama.Stop != "" {
+			metadata["ollama-stop"] = *ss.Ollama.Stop
+		}
+
+		if ss.Ollama.TopK != nil && *ss.Ollama.TopK != 40 {
+			metadata["ollama-top-k"] = *ss.Ollama.TopK
+		}
+
+		if ss.Ollama.TopP != nil && *ss.Ollama.TopP != 0.9 {
+			metadata["ollama-top-p"] = *ss.Ollama.TopP
+		}
+	}
+
 	return metadata
 }
 
@@ -138,6 +168,11 @@ func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers)
 		return err
 	}
 
+	err = parsedLayers.InitializeStruct(ollama.OllamaChatSlug, s.Ollama)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -147,5 +182,6 @@ func (s *StepSettings) Clone() *StepSettings {
 		OpenAI: s.OpenAI.Clone(),
 		Client: s.Client.Clone(),
 		Claude: s.Claude.Clone(),
+		Ollama: s.Ollama.Clone(),
 	}
 }
