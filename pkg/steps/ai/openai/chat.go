@@ -17,7 +17,6 @@ var _ steps.Step[[]*conversation.Message, string] = &Step{}
 
 type Step struct {
 	Settings            *settings.StepSettings
-	cancel              context.CancelFunc
 	subscriptionManager *helpers.SubscriptionManager
 }
 
@@ -51,23 +50,16 @@ func NewStep(settings *settings.StepSettings, options ...StepOption) (*Step, err
 	return ret, nil
 }
 
-func (csf *Step) Interrupt() {
-	if csf.cancel != nil {
-		csf.cancel()
-	}
-}
-
 func (csf *Step) Start(
 	ctx context.Context,
 	messages []*conversation.Message,
 ) (steps.StepResult[string], error) {
-	if csf.cancel != nil {
-		return nil, errors.New("step already started")
-	}
-
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
-	csf.cancel = cancel
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
 
 	client := makeClient(csf.Settings.OpenAI)
 
@@ -91,12 +83,20 @@ func (csf *Step) Start(
 		ParentID:       parentID,
 		ConversationID: conversationID,
 	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "openai-chat",
+		InputType:  "[]*conversation.Message",
+		OutputType: "string",
+		Metadata:   csf.Settings.GetMetadata(),
+	}
 
 	stream := csf.Settings.Chat.Stream
 
 	csf.subscriptionManager.PublishBlind(&chat.Event{
 		Type:     chat.EventTypeStart,
 		Metadata: metadata,
+		Step:     stepMetadata,
 	})
 
 	if stream {
@@ -105,15 +105,18 @@ func (csf *Step) Start(
 			return steps.Reject[string](err), nil
 		}
 		c := make(chan helpers.Result[string])
-		ret := steps.NewStepResult[string](c)
+		ret := steps.NewStepResult[string](
+			c,
+			steps.WithCancel[string](cancel),
+			steps.WithMetadata[string](
+				stepMetadata,
+			),
+		)
 
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
 			defer stream.Close()
-			defer func() {
-				csf.cancel = nil
-			}()
 
 			message := ""
 
@@ -124,6 +127,7 @@ func (csf *Step) Start(
 						Event: chat.Event{
 							Type:     chat.EventTypeInterrupt,
 							Metadata: metadata,
+							Step:     ret.GetMetadata(),
 						},
 						Text: message,
 					})
@@ -138,6 +142,7 @@ func (csf *Step) Start(
 							Event: chat.Event{
 								Type:     chat.EventTypeFinal,
 								Metadata: metadata,
+								Step:     ret.GetMetadata(),
 							},
 							Text: message,
 						})
@@ -151,6 +156,7 @@ func (csf *Step) Start(
 								Event: chat.Event{
 									Type:     chat.EventTypeInterrupt,
 									Metadata: metadata,
+									Step:     ret.GetMetadata(),
 								},
 								Text: message,
 							})
@@ -162,6 +168,7 @@ func (csf *Step) Start(
 							Type:     chat.EventTypeError,
 							Error:    err,
 							Metadata: metadata,
+							Step:     ret.GetMetadata(),
 						})
 						c <- helpers.NewErrorResult[string](err)
 						return
@@ -173,6 +180,7 @@ func (csf *Step) Start(
 						Event: chat.Event{
 							Type:     chat.EventTypePartial,
 							Metadata: metadata,
+							Step:     ret.GetMetadata(),
 						},
 						Delta:      response.Choices[0].Delta.Content,
 						Completion: message,
@@ -189,10 +197,11 @@ func (csf *Step) Start(
 				Event: chat.Event{
 					Type:     chat.EventTypeInterrupt,
 					Metadata: metadata,
+					Step:     stepMetadata,
 				},
 				Text: "",
 			})
-			return steps.Reject[string](err), nil
+			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
 		}
 
 		if err != nil {
@@ -200,17 +209,19 @@ func (csf *Step) Start(
 				Type:     chat.EventTypeError,
 				Error:    err,
 				Metadata: metadata,
+				Step:     stepMetadata,
 			})
-			return steps.Reject[string](err), nil
+			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
 		}
 
 		csf.subscriptionManager.PublishBlind(&chat.EventText{
 			Event: chat.Event{
 				Type:     chat.EventTypeFinal,
 				Metadata: metadata,
+				Step:     stepMetadata,
 			},
 			Text: resp.Choices[0].Message.Content,
 		})
-		return steps.Resolve(resp.Choices[0].Message.Content), nil
+		return steps.Resolve(resp.Choices[0].Message.Content, steps.WithMetadata[string](stepMetadata)), nil
 	}
 }

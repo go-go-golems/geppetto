@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
+	"github.com/google/uuid"
 )
 
 type StepResult[T any] interface {
@@ -11,22 +12,48 @@ type StepResult[T any] interface {
 	GetChannel() <-chan helpers.Result[T]
 	// Cancel can't fail
 	Cancel()
+	GetMetadata() *StepMetadata
+}
+
+type StepMetadata struct {
+	StepID     uuid.UUID `json:"step_id"`
+	Type       string    `json:"type"`
+	InputType  string    `json:"input_type"`
+	OutputType string    `json:"output_type"`
+
+	Metadata map[string]interface{} `json:"meta"`
 }
 
 type StepResultImpl[T any] struct {
-	value  <-chan helpers.Result[T]
-	cancel func()
+	value        <-chan helpers.Result[T]
+	cancel       func()
+	metadata     *StepMetadata
+	metadataFunc func() *StepMetadata
 	// Additional monads:
 	// - metrics
 	// - logs (? maybe doing imperative logging is better,
 	//   although they should definitely be collected as part of plunger)
 }
 
+var _ StepResult[string] = &StepResultImpl[string]{}
+
 type StepResultOption[T any] func(*StepResultImpl[T])
 
 func WithCancel[T any](cancel func()) StepResultOption[T] {
 	return func(s *StepResultImpl[T]) {
 		s.cancel = cancel
+	}
+}
+
+func WithMetadata[T any](metadata *StepMetadata) StepResultOption[T] {
+	return func(s *StepResultImpl[T]) {
+		s.metadata = metadata
+	}
+}
+
+func WithMetadataFunc[T any](metadataFunc func() *StepMetadata) StepResultOption[T] {
+	return func(s *StepResultImpl[T]) {
+		s.metadataFunc = metadataFunc
 	}
 }
 
@@ -38,6 +65,10 @@ func NewStepResult[T any](
 
 	for _, option := range options {
 		option(ret)
+	}
+
+	if ret.metadata != nil && ret.metadata.StepID == uuid.Nil {
+		ret.metadata.StepID = uuid.New()
 	}
 
 	return ret
@@ -61,30 +92,32 @@ func (m *StepResultImpl[T]) GetChannel() <-chan helpers.Result[T] {
 	return m.value
 }
 
-func Resolve[T any](value T) *StepResultImpl[T] {
+func (m *StepResultImpl[T]) GetMetadata() *StepMetadata {
+	if m.metadataFunc != nil {
+		return m.metadataFunc()
+	}
+
+	return m.metadata
+}
+
+func Resolve[T any](value T, options ...StepResultOption[T]) *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	c <- helpers.NewValueResult[T](value)
 	close(c)
-	return &StepResultImpl[T]{
-		value: c,
-	}
+	return NewStepResult[T](c, options...)
 }
 
-func ResolveNone[T any]() *StepResultImpl[T] {
+func ResolveNone[T any](options ...StepResultOption[T]) *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	close(c)
-	return &StepResultImpl[T]{
-		value: c,
-	}
+	return NewStepResult[T](c, options...)
 }
 
-func Reject[T any](err error) *StepResultImpl[T] {
+func Reject[T any](err error, options ...StepResultOption[T]) *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	c <- helpers.NewErrorResult[T](err)
 	close(c)
-	return &StepResultImpl[T]{
-		value: c,
-	}
+	return NewStepResult[T](c, options...)
 }
 
 type StepFactory[T any, U any] interface {
