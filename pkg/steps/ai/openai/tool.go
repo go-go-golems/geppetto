@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
+	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
@@ -125,13 +126,24 @@ func (csf *ToolStep) Start(
 		ParentID:       csf.parentID,
 		ConversationID: csf.conversationID,
 	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "openai-tool-completion",
+		InputType:  "[]*conversation.Message",
+		OutputType: "ToolCompletionResponse",
+		Metadata:   csf.Settings.GetMetadata(),
+	}
 
 	csf.subscriptionManager.PublishBlind(&chat.Event{
 		Type:     chat.EventTypeStart,
 		Metadata: metadata,
 	})
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx_, cancel := context.WithCancel(ctx)
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
 
 	if stream {
 		stream_, err := client.CreateChatCompletionStream(context.Background(), *req)
@@ -142,6 +154,7 @@ func (csf *ToolStep) Start(
 		ret := steps.NewStepResult[ToolCompletionResponse](
 			c,
 			steps.WithCancel[ToolCompletionResponse](cancel),
+			steps.WithMetadata[ToolCompletionResponse](stepMetadata),
 		)
 
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
@@ -157,11 +170,12 @@ func (csf *ToolStep) Start(
 
 			for {
 				select {
-				case <-ctx.Done():
+				case <-ctx_.Done():
 					csf.subscriptionManager.PublishBlind(&chat.EventText{
 						Event: chat.Event{
 							Type:     chat.EventTypeInterrupt,
 							Metadata: metadata,
+							Step:     stepMetadata,
 						},
 						Text: message,
 					})
@@ -173,6 +187,7 @@ func (csf *ToolStep) Start(
 							Event: chat.Event{
 								Type:     chat.EventTypeFinal,
 								Metadata: metadata,
+								Step:     stepMetadata,
 							},
 							Text: message,
 						})
@@ -189,6 +204,7 @@ func (csf *ToolStep) Start(
 							Type:     chat.EventTypeError,
 							Error:    err,
 							Metadata: metadata,
+							Step:     stepMetadata,
 						})
 						c <- helpers.NewErrorResult[ToolCompletionResponse](err)
 						return
@@ -209,6 +225,7 @@ func (csf *ToolStep) Start(
 						Event: chat.Event{
 							Type:     chat.EventTypePartial,
 							Metadata: metadata,
+							Step:     stepMetadata,
 						},
 						Delta:      deltaContent,
 						Completion: message,
@@ -224,12 +241,13 @@ func (csf *ToolStep) Start(
 		return ret, nil
 	} else {
 		// XXX This should run in a go routine as well
-		resp, err := client.CreateChatCompletion(ctx, *req)
+		resp, err := client.CreateChatCompletion(ctx_, *req)
 
 		if errors.Is(err, context.Canceled) {
 			csf.subscriptionManager.PublishBlind(&chat.Event{
 				Type:     chat.EventTypeInterrupt,
 				Metadata: metadata,
+				Step:     stepMetadata,
 			})
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
@@ -239,14 +257,17 @@ func (csf *ToolStep) Start(
 				Type:     chat.EventTypeError,
 				Error:    err,
 				Metadata: metadata,
+				Step:     stepMetadata,
 			})
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
+		// TODO(manuel, 2024-01-12) Here we need to send the content of the toolcalls if the content is empty
 		csf.subscriptionManager.PublishBlind(&chat.EventText{
 			Event: chat.Event{
 				Type:     chat.EventTypeFinal,
 				Metadata: metadata,
+				Step:     stepMetadata,
 			},
 			Text: resp.Choices[0].Message.Content,
 		})
@@ -315,6 +336,38 @@ func (e *ExecuteToolStep) Start(
 	input ToolCompletionResponse,
 ) (steps.StepResult[map[string]interface{}], error) {
 	res := map[string]interface{}{}
+
+	toolMetadata := map[string]interface{}{}
+	for name, tool := range e.Tools {
+		jsonSchema, err := helpers.GetFunctionParametersJsonSchema(&jsonschema.Reflector{}, tool)
+		if err != nil {
+			return steps.Reject[map[string]interface{}](err), nil
+		}
+		s, _ := json.MarshalIndent(jsonSchema, "", "  ")
+		toolMetadata[name] = go_openai.Tool{
+			Type: "function",
+			Function: go_openai.FunctionDefinition{
+				Name:        name,
+				Description: jsonSchema.Description,
+				Parameters:  json.RawMessage(s),
+			},
+		}
+	}
+
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "execute-tool-step",
+		InputType:  "ToolCompletionResponse",
+		OutputType: "map[string]interface{}",
+		Metadata: map[string]interface{}{
+			"tools": toolMetadata,
+		},
+	}
+
+	e.subscriptionManager.PublishBlind(&chat.Event{
+		Type: chat.EventTypeStart,
+		Step: stepMetadata,
+	})
 	for _, toolCall := range input.ToolCalls {
 		if toolCall.Type != "function" {
 			log.Warn().Str("type", string(toolCall.Type)).Msg("Unknown tool type")
@@ -322,18 +375,42 @@ func (e *ExecuteToolStep) Start(
 		}
 		tool := e.Tools[toolCall.Function.Name]
 		if tool == nil {
-			return steps.Reject[map[string]interface{}](fmt.Errorf("could not find tool %s", toolCall.Function.Name)), nil
+			e.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				Step:  stepMetadata,
+			})
+			return steps.Reject[map[string]interface{}](
+				fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				steps.WithMetadata[map[string]interface{}](stepMetadata),
+			), nil
 		}
 
 		var v interface{}
 		err := json.Unmarshal([]byte(toolCall.Function.Arguments), &v)
 		if err != nil {
-			return steps.Reject[map[string]interface{}](err), nil
+			e.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				Step:  stepMetadata,
+			})
+			return steps.Reject[map[string]interface{}](
+				err,
+				steps.WithMetadata[map[string]interface{}](stepMetadata),
+			), nil
 		}
 
 		vs_, err := helpers.CallFunctionFromJson(tool, v)
 		if err != nil {
-			return steps.Reject[map[string]interface{}](err), nil
+			e.subscriptionManager.PublishBlind(&chat.Event{
+				Type:  chat.EventTypeError,
+				Error: fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				Step:  stepMetadata,
+			})
+			return steps.Reject[map[string]interface{}](
+				err,
+				steps.WithMetadata[map[string]interface{}](stepMetadata),
+			), nil
 		}
 
 		if len(vs_) == 1 {
@@ -347,5 +424,17 @@ func (e *ExecuteToolStep) Start(
 		}
 	}
 
-	return steps.Resolve(res), nil
+	r, _ := json.MarshalIndent(res, "", "  ")
+
+	e.subscriptionManager.PublishBlind(&chat.EventText{
+		Event: chat.Event{
+			Type: chat.EventTypeFinal,
+			Step: stepMetadata,
+		},
+		Text: string(r),
+	})
+
+	return steps.Resolve(res,
+		steps.WithMetadata[map[string]interface{}](stepMetadata),
+	), nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -56,6 +57,11 @@ func NewToolUiCommand() (*ToolUiCommand, error) {
 					parameters.ParameterTypeBool,
 					parameters.WithDefault(false),
 					parameters.WithHelp("start in UI mode")),
+				parameters.NewParameterDefinition(
+					"print-raw-events",
+					parameters.ParameterTypeBool,
+					parameters.WithDefault(false),
+					parameters.WithHelp("print raw events")),
 			),
 			glazed_cmds.WithLayersList(glazedParameterLayer),
 			glazed_cmds.WithLayersList(geppettoLayers...),
@@ -65,7 +71,8 @@ func NewToolUiCommand() (*ToolUiCommand, error) {
 }
 
 type ToolUiSettings struct {
-	UI bool `glazed.parameter:"ui"`
+	UI             bool `glazed.parameter:"ui"`
+	PrintRawEvents bool `glazed.parameter:"print-raw-events"`
 }
 
 func (t *ToolUiCommand) RunIntoGlazeProcessor(
@@ -99,6 +106,18 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 		pubSub,
 		func(msg *message.Message) error {
 			msg.Ack()
+
+			if s.PrintRawEvents {
+				// remarshal to have formatting
+				var s interface{}
+				err := json.Unmarshal(msg.Payload, &s)
+				if err != nil {
+					return err
+				}
+				b, err := json.MarshalIndent(s, "", "  ")
+				fmt.Printf("Received message %s\n", string(b))
+				return nil
+			}
 
 			e, err := chat.NewEventFromJson(msg.Payload)
 			if err != nil {

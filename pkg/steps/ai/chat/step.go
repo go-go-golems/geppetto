@@ -24,9 +24,10 @@ const (
 )
 
 type Event struct {
-	Type     EventType     `json:"type"`
-	Error    error         `json:"error,omitempty"`
-	Metadata EventMetadata `json:"meta,omitempty"`
+	Type     EventType           `json:"type"`
+	Error    error               `json:"error,omitempty"`
+	Metadata EventMetadata       `json:"meta,omitempty"`
+	Step     *steps.StepMetadata `json:"step,omitempty"`
 	payload  []byte
 }
 
