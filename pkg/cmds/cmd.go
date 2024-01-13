@@ -281,32 +281,8 @@ func (g *GeppettoCommand) RunIntoWriter(
 	router.AddNoPublisherHandler("chat",
 		"chat",
 		pubSub,
-		func(msg *message.Message) error {
-			msg.Ack()
-
-			e, err := chat.NewEventFromJson(msg.Payload)
-			if err != nil {
-				return err
-			}
-
-			switch e.Type {
-			case chat.EventTypeError:
-				return err
-			case chat.EventTypePartial:
-				p_, ok := e.ToPartialCompletion()
-				if !ok {
-					return errors.Errorf("invalid payload type")
-				}
-				_, err = w.Write([]byte(p_.Delta))
-				if err != nil {
-					return err
-				}
-			case chat.EventTypeFinal:
-			case chat.EventTypeInterrupt:
-			}
-
-			return nil
-		})
+		chat.StepPrinterFunc("", w),
+	)
 
 	contextManager := conversation.NewManager()
 
@@ -508,50 +484,7 @@ func chat_(
 
 	router.AddNoPublisherHandler("ui",
 		"ui", pubSub,
-		func(msg *message.Message) error {
-			msg.Ack()
-
-			e, err := chat.NewEventFromJson(msg.Payload)
-			if err != nil {
-				return err
-			}
-
-			switch e.Type {
-			case chat.EventTypeError:
-				p.Send(bobatea_chat.StreamCompletionError{
-					Err: e.Error,
-				})
-			case chat.EventTypePartial:
-				p_, ok := e.ToPartialCompletion()
-				if !ok {
-					return errors.New("payload is not of type EventPartialCompletionPayload")
-				}
-				p.Send(bobatea_chat.StreamCompletionMsg{
-					Delta:      p_.Delta,
-					Completion: p_.Completion,
-				})
-			case chat.EventTypeFinal:
-				p_, ok := e.ToText()
-				if !ok {
-					return errors.New("payload is not of type EventTextPayload")
-				}
-				p.Send(bobatea_chat.StreamDoneMsg{
-					Completion: p_.Text,
-				})
-			case chat.EventTypeInterrupt:
-				p_, ok := e.ToText()
-				if !ok {
-					return errors.New("payload is not of type EventTextPayload")
-				}
-				p.Send(bobatea_chat.StreamDoneMsg{
-					Completion: p_.Text,
-				})
-			}
-
-			msg.Ack()
-
-			return nil
-		})
+		ui.StepChatForwardFunc(p))
 	err := router.RunHandlers(ctx)
 	if err != nil {
 		return err

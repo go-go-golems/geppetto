@@ -3,6 +3,7 @@ package settings
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/huandu/go-clone"
 )
 
 type ChatSettings struct {
@@ -26,14 +27,7 @@ func NewChatSettings() *ChatSettings {
 }
 
 func (s *ChatSettings) Clone() *ChatSettings {
-	return &ChatSettings{
-		Engine:            s.Engine,
-		MaxResponseTokens: s.MaxResponseTokens,
-		TopP:              s.TopP,
-		Temperature:       s.Temperature,
-		Stop:              s.Stop,
-		Stream:            s.Stream,
-	}
+	return clone.Clone(s).(*ChatSettings)
 }
 
 //go:embed "flags/chat.yaml"

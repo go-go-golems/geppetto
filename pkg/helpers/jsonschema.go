@@ -11,6 +11,7 @@ import (
 // Callable is a type representing any callable function
 type Callable interface{}
 
+//nolint:unused
 func checkFirstArgContext(callable interface{}) bool {
 	funcVal := reflect.ValueOf(callable)
 	funcType := funcVal.Type()

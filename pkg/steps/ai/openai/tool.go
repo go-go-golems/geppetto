@@ -129,7 +129,7 @@ func (csf *ToolStep) Start(
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
 		Type:       "openai-tool-completion",
-		InputType:  "[]*conversation.Message",
+		InputType:  "conversation.Conversation",
 		OutputType: "ToolCompletionResponse",
 		Metadata:   csf.Settings.GetMetadata(),
 	}

@@ -2,8 +2,9 @@ package ui
 
 import (
 	"context"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/charmbracelet/bubbletea"
-	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
+	boba_chat "github.com/go-go-golems/bobatea/pkg/chat"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -60,17 +61,17 @@ func (s *StepBackend) GetNextCompletion() tea.Cmd {
 		// TODO(manuel, 2023-12-09) stream answers into the context manager
 		c, ok := <-s.stepResult.GetChannel()
 		if !ok {
-			return chat2.StreamDoneMsg{}
+			return boba_chat.StreamDoneMsg{}
 		}
 		v, err := c.Value()
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				return chat2.StreamDoneMsg{}
+				return boba_chat.StreamDoneMsg{}
 			}
-			return chat2.StreamCompletionError{Err: err}
+			return boba_chat.StreamCompletionError{Err: err}
 		}
 
-		return chat2.StreamCompletionMsg{Delta: v}
+		return boba_chat.StreamCompletionMsg{Delta: v}
 	}
 }
 
@@ -78,4 +79,101 @@ func (s *StepBackend) IsFinished() bool {
 	return s.stepResult == nil
 }
 
-var _ chat2.Backend = &StepBackend{}
+var _ boba_chat.Backend = &StepBackend{}
+
+func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
+	return func(msg *message.Message) error {
+		msg.Ack()
+
+		e, err := chat.NewEventFromJson(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		switch e.Type {
+		case chat.EventTypeError:
+			p_, ok := e.ToText()
+			if !ok {
+				return errors.New("payload is not of type EventTextPayload")
+			}
+			p.Send(boba_chat.StreamCompletionError{
+				StreamMetadata: boba_chat.StreamMetadata{
+					ID:             p_.Metadata.ID,
+					ParentID:       p_.Metadata.ParentID,
+					ConversationID: p_.Metadata.ConversationID,
+				},
+
+				Err: e.Error,
+			})
+		case chat.EventTypePartial:
+			p_, ok := e.ToPartialCompletion()
+			if !ok {
+				return errors.New("payload is not of type EventPartialCompletionPayload")
+			}
+			p.Send(boba_chat.StreamCompletionMsg{
+				StreamMetadata: boba_chat.StreamMetadata{
+					ID:             p_.Metadata.ID,
+					ParentID:       p_.Metadata.ParentID,
+					ConversationID: p_.Metadata.ConversationID,
+				},
+
+				Delta:      p_.Delta,
+				Completion: p_.Completion,
+			})
+		case chat.EventTypeFinal:
+			p_, ok := e.ToText()
+			if !ok {
+				return errors.New("payload is not of type EventTextPayload")
+			}
+			p.Send(boba_chat.StreamDoneMsg{
+				StreamMetadata: boba_chat.StreamMetadata{
+					ID:             p_.Metadata.ID,
+					ParentID:       p_.Metadata.ParentID,
+					ConversationID: p_.Metadata.ConversationID,
+				},
+
+				Completion: p_.Text,
+			})
+		case chat.EventTypeInterrupt:
+			p_, ok := e.ToText()
+			if !ok {
+				return errors.New("payload is not of type EventTextPayload")
+			}
+			p.Send(boba_chat.StreamDoneMsg{
+				StreamMetadata: boba_chat.StreamMetadata{
+					ID:             p_.Metadata.ID,
+					ParentID:       p_.Metadata.ParentID,
+					ConversationID: p_.Metadata.ConversationID,
+				},
+
+				Completion: p_.Text,
+			})
+
+		case chat.EventTypeStart:
+			p.Send(boba_chat.StreamStartMsg{
+				StreamMetadata: boba_chat.StreamMetadata{
+					ID:             e.Metadata.ID,
+					ParentID:       e.Metadata.ParentID,
+					ConversationID: e.Metadata.ConversationID,
+				},
+			})
+
+		case chat.EventTypeStatus:
+			p_, ok := e.ToText()
+			if !ok {
+				return errors.New("payload is not of type EventTextPayload")
+			}
+			p.Send(boba_chat.StreamStatusMsg{
+				StreamMetadata: boba_chat.StreamMetadata{
+					ID:             p_.Metadata.ID,
+					ParentID:       p_.Metadata.ParentID,
+					ConversationID: p_.Metadata.ConversationID,
+				},
+
+				Text: p_.Text,
+			})
+		}
+
+		return nil
+	}
+}
