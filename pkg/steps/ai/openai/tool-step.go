@@ -10,7 +10,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/utils"
-	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	go_openai "github.com/sashabaranov/go-openai"
@@ -82,20 +81,17 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 
 	// TODO(manuel, 2024-01-11) This should be refactored since it's going to be spread around
 	var parentMessage *conversation.Message
-	parentID := uuid.Nil
-	conversationID := uuid.New()
-	toolCompletionMessageID := uuid.New()
-	toolResultMessageID := uuid.New()
+	parentID := conversation.NullNode
+	toolCompletionMessageID := conversation.NewNodeID()
+	toolResultMessageID := conversation.NewNodeID()
 
 	if len(input) > 0 {
 		parentMessage = input[len(input)-1]
 		parentID = parentMessage.ID
-		conversationID = parentMessage.ConversationID
 	}
 
 	toolStep, err := NewToolStep(
 		t.stepSettings, t.tools,
-		WithToolStepConversationID(conversationID),
 		WithToolStepParentID(parentID),
 		WithToolStepMessageID(toolCompletionMessageID),
 		WithToolStepSubscriptionManager(t.subscriptionManager),
@@ -122,9 +118,8 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 			t.subscriptionManager.PublishBlind(&chat.Event{
 				Type: chat.EventTypeFinal,
 				Metadata: chat.EventMetadata{
-					ID:             toolResultMessageID,
-					ParentID:       toolCompletionMessageID,
-					ConversationID: conversationID,
+					ID:       toolResultMessageID,
+					ParentID: toolCompletionMessageID,
 				}})
 			return helpers.NewValueResult[string](string(s_))
 		},

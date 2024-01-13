@@ -164,23 +164,30 @@ func (g *GeppettoCommand) InitializeContextManager(
 		}
 
 		// TODO(manuel, 2023-12-07) Only do this conditionally, or maybe if the system prompt hasn't been set yet, if you use an agent.
-		contextManager.AddMessages(conversation.NewMessage(systemPromptBuffer.String(), conversation.RoleSystem))
+		contextManager.AppendMessages(conversation.NewChatMessage(
+			conversation.RoleSystem,
+			systemPromptBuffer.String(),
+		))
 	}
 
-	for _, message := range g.Messages {
-		messageTemplate, err := templating.CreateTemplate("message").Parse(message.Text)
-		if err != nil {
-			return err
-		}
+	for _, message_ := range g.Messages {
+		switch content := message_.Content.(type) {
+		case *conversation.ChatMessageContent:
+			messageTemplate, err := templating.CreateTemplate("message").Parse(content.Text)
+			if err != nil {
+				return err
+			}
 
-		var messageBuffer strings.Builder
-		err = messageTemplate.Execute(&messageBuffer, ps)
-		if err != nil {
-			return err
-		}
-		s_ := messageBuffer.String()
+			var messageBuffer strings.Builder
+			err = messageTemplate.Execute(&messageBuffer, ps)
+			if err != nil {
+				return err
+			}
+			s_ := messageBuffer.String()
 
-		contextManager.AddMessages(conversation.NewMessage(s_, message.Role, conversation.WithTime(message.Time)))
+			contextManager.AppendMessages(conversation.NewChatMessage(
+				content.Role, s_, conversation.WithTime(message_.Time)))
+		}
 	}
 
 	// render the prompt
@@ -199,9 +206,9 @@ func (g *GeppettoCommand) InitializeContextManager(
 			return err
 		}
 
-		contextManager.AddMessages(conversation.NewMessage(
-			promptBuffer.String(),
+		contextManager.AppendMessages(conversation.NewChatMessage(
 			conversation.RoleUser,
+			promptBuffer.String(),
 		))
 	}
 
@@ -220,12 +227,13 @@ func (g *GeppettoCommand) Run(
 		return nil, err
 	}
 
+	conversation_ := contextManager.GetConversation()
 	if helpersSettings.PrintPrompt {
-		fmt.Println(contextManager.GetConversation().GetSinglePrompt())
+		fmt.Println(conversation_.GetSinglePrompt())
 		return nil, nil
 	}
 
-	messagesM := steps.Resolve(contextManager.GetConversation())
+	messagesM := steps.Resolve(conversation_)
 	m := steps.Bind[conversation.Conversation, string](ctx, messagesM, step)
 
 	return m, nil
@@ -339,7 +347,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 				// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
 				return err
 			} else {
-				contextManager.AddMessages(conversation.NewMessage(s, conversation.RoleAssistant))
+				contextManager.AppendMessages(conversation.NewChatMessage(conversation.RoleAssistant, s))
 
 				if !isStream {
 					_, err := w.Write([]byte(s))
@@ -380,12 +388,10 @@ func (g *GeppettoCommand) RunIntoWriter(
 				return err
 			}
 
-			for idx, msg := range contextManager.GetConversation() {
-				// skip input prompt and first response that's already been printed out
-				if idx <= 1 {
-					continue
-				}
-				fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
+			fmt.Printf("\n---\n")
+			for _, msg := range contextManager.GetConversation() {
+				view := msg.Content.View()
+				fmt.Printf("\n%s\n", view)
 			}
 			if err != nil {
 				return err

@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"strings"
@@ -54,19 +53,16 @@ func (csf *Step) Start(
 	}
 
 	var parentMessage *conversation.Message
-	parentID := uuid.Nil
-	conversationID := uuid.New()
+	parentID := conversation.NullNode
 
 	if len(messages) > 0 {
 		parentMessage = messages[len(messages)-1]
 		parentID = parentMessage.ID
-		conversationID = parentMessage.ConversationID
 	}
 
 	metadata := chat.EventMetadata{
-		ID:             uuid.New(),
-		ParentID:       parentID,
-		ConversationID: conversationID,
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
 	}
 
 	var cancel context.CancelFunc
@@ -100,16 +96,19 @@ func (csf *Step) Start(
 	// Combine all the messages into a single prompt
 	prompt := ""
 	for _, msg := range messages {
-		rolePrefix := "Human"
-		switch msg.Role {
-		case conversation.RoleSystem:
-			rolePrefix = "System"
-		case conversation.RoleAssistant:
-			rolePrefix = "Assistant"
-		case conversation.RoleUser:
-			rolePrefix = "Human"
+		switch content := msg.Content.(type) {
+		case *conversation.ChatMessageContent:
+			rolePrefix := "Human"
+			switch content.Role {
+			case conversation.RoleSystem:
+				rolePrefix = "System"
+			case conversation.RoleAssistant:
+				rolePrefix = "Assistant"
+			case conversation.RoleUser:
+				rolePrefix = "Human"
+			}
+			prompt += "\n\n" + rolePrefix + ": " + content.Text
 		}
-		prompt += "\n\n" + rolePrefix + ": " + msg.Text
 	}
 	prompt += "\n\nAssistant: "
 

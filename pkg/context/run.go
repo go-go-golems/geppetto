@@ -73,7 +73,7 @@ func RunToContextManager(
 		return nil, err
 	}
 
-	manager.AddMessages(conversation.NewMessage(s, conversation.RoleAssistant))
+	manager.AppendMessages(conversation.NewChatMessage(conversation.RoleAssistant, s))
 
 	return manager, nil
 }

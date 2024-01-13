@@ -7,7 +7,6 @@ import (
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/google/uuid"
 )
 
 type EventType string
@@ -45,9 +44,8 @@ type EventPartialCompletion struct {
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
-	ID             uuid.UUID `json:"message_id"`
-	ParentID       uuid.UUID `json:"parent_id"`
-	ConversationID uuid.UUID `json:"conversation_id"`
+	ID       conversation.NodeID `json:"message_id"`
+	ParentID conversation.NodeID `json:"parent_id"`
 }
 
 func NewEventFromJson(b []byte) (Event, error) {
@@ -103,7 +101,7 @@ type AddToHistoryStep struct {
 var _ steps.Step[string, string] = &AddToHistoryStep{}
 
 func (a *AddToHistoryStep) Start(ctx context.Context, input string) (steps.StepResult[string], error) {
-	a.manager.AddMessages(conversation.NewMessage(input, a.role))
+	a.manager.AppendMessages(conversation.NewChatMessage(conversation.Role(a.role), input))
 
 	return steps.Resolve(input), nil
 }

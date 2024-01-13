@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"io"
+	"strings"
 )
 
 func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error {
@@ -13,7 +14,6 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 
 		e, err := NewEventFromJson(msg.Payload)
 
-		// TODO(manuel, 2024-01-13) This sound be consolidated (as well as the chat step ui function)
 		switch e.Type {
 		case EventTypeError:
 			return err
@@ -33,8 +33,19 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 			if err != nil {
 				return err
 			}
-		case EventTypeFinal,
-			EventTypeStart,
+		case EventTypeFinal:
+			p_, ok := e.ToText()
+			if !ok {
+				return fmt.Errorf("Invalid payload type")
+			}
+			if !strings.HasSuffix(p_.Text, "\n") {
+				_, err = w.Write([]byte("\n"))
+				if err != nil {
+					return err
+				}
+			}
+
+		case EventTypeStart,
 			EventTypeStatus,
 			EventTypeInterrupt:
 

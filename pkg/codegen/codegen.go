@@ -33,7 +33,8 @@ func (g *GeppettoCommandCodeGenerator) defineConstants(f *jen.File, cmdName stri
 
 	for i, message := range cmd.Messages {
 		messageConstName := strcase.ToLowerCamel(cmdName) + "CommandMessage" + strcase.ToCamel(strconv.Itoa(i))
-		f.Const().Id(messageConstName).Op("=").Lit(message.Text)
+		// TODO(manuel, 2024-01-13) Handle other message types, this is a shortcut
+		f.Const().Id(messageConstName).Op("=").Lit(message.Content.String())
 	}
 }
 

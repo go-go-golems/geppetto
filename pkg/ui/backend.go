@@ -48,12 +48,14 @@ func (s *StepBackend) Interrupt() {
 func (s *StepBackend) Kill() {
 	if s.stepResult != nil {
 		s.stepResult.Cancel()
+		s.stepResult = nil
 	} else {
-		log.Warn().Msg("Step is not running")
+		log.Debug().Msg("Step is not running")
 	}
 }
 
 func (s *StepBackend) GetNextCompletion() tea.Cmd {
+	return nil
 	return func() tea.Msg {
 		if s.IsFinished() {
 			return nil
@@ -61,10 +63,12 @@ func (s *StepBackend) GetNextCompletion() tea.Cmd {
 		// TODO(manuel, 2023-12-09) stream answers into the context manager
 		c, ok := <-s.stepResult.GetChannel()
 		if !ok {
+			s.stepResult = nil
 			return boba_chat.StreamDoneMsg{}
 		}
 		v, err := c.Value()
 		if err != nil {
+			s.stepResult = nil
 			if errors.Is(err, context.Canceled) {
 				return boba_chat.StreamDoneMsg{}
 			}
@@ -98,9 +102,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			}
 			p.Send(boba_chat.StreamCompletionError{
 				StreamMetadata: boba_chat.StreamMetadata{
-					ID:             p_.Metadata.ID,
-					ParentID:       p_.Metadata.ParentID,
-					ConversationID: p_.Metadata.ConversationID,
+					ID:       p_.Metadata.ID,
+					ParentID: p_.Metadata.ParentID,
 				},
 
 				Err: e.Error,
@@ -112,9 +115,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			}
 			p.Send(boba_chat.StreamCompletionMsg{
 				StreamMetadata: boba_chat.StreamMetadata{
-					ID:             p_.Metadata.ID,
-					ParentID:       p_.Metadata.ParentID,
-					ConversationID: p_.Metadata.ConversationID,
+					ID:       p_.Metadata.ID,
+					ParentID: p_.Metadata.ParentID,
 				},
 
 				Delta:      p_.Delta,
@@ -127,9 +129,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			}
 			p.Send(boba_chat.StreamDoneMsg{
 				StreamMetadata: boba_chat.StreamMetadata{
-					ID:             p_.Metadata.ID,
-					ParentID:       p_.Metadata.ParentID,
-					ConversationID: p_.Metadata.ConversationID,
+					ID:       p_.Metadata.ID,
+					ParentID: p_.Metadata.ParentID,
 				},
 
 				Completion: p_.Text,
@@ -141,9 +142,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			}
 			p.Send(boba_chat.StreamDoneMsg{
 				StreamMetadata: boba_chat.StreamMetadata{
-					ID:             p_.Metadata.ID,
-					ParentID:       p_.Metadata.ParentID,
-					ConversationID: p_.Metadata.ConversationID,
+					ID:       p_.Metadata.ID,
+					ParentID: p_.Metadata.ParentID,
 				},
 
 				Completion: p_.Text,
@@ -152,9 +152,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 		case chat.EventTypeStart:
 			p.Send(boba_chat.StreamStartMsg{
 				StreamMetadata: boba_chat.StreamMetadata{
-					ID:             e.Metadata.ID,
-					ParentID:       e.Metadata.ParentID,
-					ConversationID: e.Metadata.ConversationID,
+					ID:       e.Metadata.ID,
+					ParentID: e.Metadata.ParentID,
 				},
 			})
 
@@ -165,9 +164,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			}
 			p.Send(boba_chat.StreamStatusMsg{
 				StreamMetadata: boba_chat.StreamMetadata{
-					ID:             p_.Metadata.ID,
-					ParentID:       p_.Metadata.ParentID,
-					ConversationID: p_.Metadata.ConversationID,
+					ID:       p_.Metadata.ID,
+					ParentID: p_.Metadata.ParentID,
 				},
 
 				Text: p_.Text,

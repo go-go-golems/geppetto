@@ -17,10 +17,10 @@ func NewMergeStep(manager conversation.Manager, prepend bool) steps.Step[string,
 			if prepend {
 				// TODO(manuel, 2024-01-13) Hack for now because I'm not out to refactor the conversation manager interface yet
 				// FIXME
-				manager.(*conversation.ManagerImpl).PrependMessages(conversation.NewMessage(input, conversation.RoleUser))
+				manager.(*conversation.ManagerImpl).PrependMessages(conversation.NewChatMessage(conversation.RoleUser, input))
 			}
 
-			manager.AddMessages(conversation.NewMessage(input, conversation.RoleAssistant))
+			manager.AppendMessages(conversation.NewChatMessage(conversation.RoleAssistant, input))
 			return helpers.NewValueResult[conversation.Conversation](manager.GetConversation())
 		},
 	}
