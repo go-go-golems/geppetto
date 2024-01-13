@@ -12,7 +12,7 @@ import (
 
 type EventType string
 
-type Step steps.Step[[]*conversation.Message, string]
+type Step steps.Step[conversation.Conversation, string]
 
 const (
 	EventTypeStart     EventType = "start"
@@ -96,7 +96,7 @@ func WithSubscription(publisher message.Publisher, topic string) StepOption {
 }
 
 type AddToHistoryStep struct {
-	manager *conversation.Manager
+	manager conversation.Manager
 	role    string
 }
 
@@ -114,7 +114,7 @@ func (a *AddToHistoryStep) AddPublishedTopic(publisher message.Publisher, topic 
 
 type RunnableStep struct {
 	c       geppetto_context.GeppettoRunnable
-	manager *conversation.Manager
+	manager conversation.Manager
 }
 
 var _ steps.Step[interface{}, string] = &RunnableStep{}

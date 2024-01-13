@@ -25,6 +25,8 @@ type ChatToolStep struct {
 	subscriptionManager *helpers.SubscriptionManager
 }
 
+var _ chat.Step = &ChatToolStep{}
+
 type ChatToolStepOption func(step *ChatToolStep)
 
 func WithReflector(reflector *jsonschema.Reflector) ChatToolStepOption {
@@ -71,7 +73,7 @@ func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolSte
 	return step, nil
 }
 
-func (t *ChatToolStep) Start(ctx context.Context, input []*conversation.Message) (steps.StepResult[string], error) {
+func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
 	if t.cancel != nil {
 		return nil, errors.New("step already started")
 	}

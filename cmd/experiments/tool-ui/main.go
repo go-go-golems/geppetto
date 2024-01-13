@@ -108,13 +108,13 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 			msg.Ack()
 
 			if s.PrintRawEvents {
-				// remarshal to have formatting
-				var s interface{}
-				err := json.Unmarshal(msg.Payload, &s)
+				var s_ interface{}
+				// remarshal to have formattin s interface{}
+				err := json.Unmarshal(msg.Payload, &s_)
 				if err != nil {
 					return err
 				}
-				b, err := json.MarshalIndent(s, "", "  ")
+				b, err := json.MarshalIndent(s_, "", "  ")
 				fmt.Printf("Received message %s\n", string(b))
 				return nil
 			}
@@ -149,7 +149,7 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 	eg.Go(func() error {
 		defer cancel()
 
-		result, err := chatToolStep.Start(ctx, manager.GetMessages())
+		result, err := chatToolStep.Start(ctx, manager.GetConversation())
 		if err != nil {
 			return err
 		}
@@ -173,7 +173,7 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 }
 
 func (t *ToolUiCommand) setup(parsedLayers *layers.ParsedLayers) (
-	*message.Router, *gochannel.GoChannel, *conversation.Manager, *openai.ChatToolStep, error,
+	*message.Router, *gochannel.GoChannel, conversation.Manager, *openai.ChatToolStep, error,
 ) {
 	stepSettings := settings.NewStepSettings()
 

@@ -39,7 +39,7 @@ func (csf *Step) Interrupt() {
 	}
 }
 
-var _ steps.Step[[]*conversation.Message, string] = &Step{}
+var _ chat.Step = &Step{}
 
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
@@ -47,7 +47,7 @@ func IsClaudeEngine(engine string) bool {
 
 func (csf *Step) Start(
 	ctx context.Context,
-	messages []*conversation.Message,
+	messages conversation.Conversation,
 ) (steps.StepResult[string], error) {
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")

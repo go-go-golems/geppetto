@@ -215,10 +215,10 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		errgrp := errgroup.Group{}
 		errgrp.Go(func() error {
 			var scientistResult steps.StepResult[string]
-			scientistResult, err = scientistStep.Start(ctx, manager.GetMessages())
+			scientistResult, err = scientistStep.Start(ctx, manager.GetConversation())
 			cobra.CheckErr(err)
-			mergeResult := steps.Bind[string, []*conversation.Message](ctx, scientistResult, mergeStep)
-			writerResult := steps.Bind[[]*conversation.Message, string](ctx, mergeResult, writerStep)
+			mergeResult := steps.Bind[string, conversation.Conversation](ctx, scientistResult, mergeStep)
+			writerResult := steps.Bind[conversation.Conversation, string](ctx, mergeResult, writerStep)
 
 			res := writerResult.Return()
 			_ = res

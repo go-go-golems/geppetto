@@ -36,7 +36,7 @@ func (e *EchoStep) AddPublishedTopic(publisher message.Publisher, topic string) 
 	return nil
 }
 
-func (e *EchoStep) Start(ctx context.Context, input []*conversation.Message) (steps.StepResult[string], error) {
+func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
 	if len(input) == 0 {
 		return nil, errors.New("no input")
 	}

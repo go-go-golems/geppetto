@@ -148,7 +148,7 @@ func NewGeppettoCommand(
 }
 
 func (g *GeppettoCommand) InitializeContextManager(
-	contextManager *conversation.Manager,
+	contextManager conversation.Manager,
 	ps map[string]interface{},
 ) error {
 	if g.SystemPrompt != "" {
@@ -210,8 +210,8 @@ func (g *GeppettoCommand) InitializeContextManager(
 
 func (g *GeppettoCommand) Run(
 	ctx context.Context,
-	step steps.Step[[]*conversation.Message, string],
-	contextManager *conversation.Manager,
+	step steps.Step[conversation.Conversation, string],
+	contextManager conversation.Manager,
 	helpersSettings *HelpersSettings,
 	ps map[string]interface{},
 ) (steps.StepResult[string], error) {
@@ -221,12 +221,12 @@ func (g *GeppettoCommand) Run(
 	}
 
 	if helpersSettings.PrintPrompt {
-		fmt.Println(contextManager.GetSinglePrompt())
+		fmt.Println(contextManager.GetConversation().GetSinglePrompt())
 		return nil, nil
 	}
 
-	messagesM := steps.Resolve(contextManager.GetMessages())
-	m := steps.Bind[[]*conversation.Message, string](ctx, messagesM, step)
+	messagesM := steps.Resolve(contextManager.GetConversation())
+	m := steps.Bind[conversation.Conversation, string](ctx, messagesM, step)
 
 	return m, nil
 }
@@ -404,7 +404,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 				return err
 			}
 
-			for idx, msg := range contextManager.GetMessages() {
+			for idx, msg := range contextManager.GetConversation() {
 				// skip input prompt and first response that's already been printed out
 				if idx <= 1 {
 					continue
@@ -477,7 +477,7 @@ func chat_(
 	step chat.Step,
 	router *message.Router,
 	pubSub *gochannel.GoChannel,
-	contextManager *conversation.Manager,
+	contextManager conversation.Manager,
 ) error {
 	// switch on streaming for chatting
 	// TODO(manuel, 2023-12-09) Probably need to create a new follow on step for enabling streaming
