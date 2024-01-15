@@ -41,7 +41,7 @@ var upperCaseCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
 		messages := []*conversation.Message{
-			conversation.NewMessage("Hello, my friend?", conversation.RoleUser),
+			conversation.NewChatMessage(conversation.RoleUser, "Hello, my friend?"),
 		}
 
 		stepSettings.Chat.Stream = true
