@@ -72,9 +72,9 @@ var ToolCallCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
 		messages := []*conversation.Message{
-			conversation.NewMessage(
-				"Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
+			conversation.NewChatMessage(
 				conversation.RoleUser,
+				"Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
 			),
 		}
 

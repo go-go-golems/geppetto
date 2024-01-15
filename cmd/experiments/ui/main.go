@@ -10,9 +10,9 @@ import (
 )
 
 func main() {
-	manager := conversation.NewManager(conversation.WithMessages([]*conversation.Message{
-		conversation.NewMessage("hahahahaha", conversation.RoleSystem),
-	}))
+	manager := conversation.NewManager(conversation.WithMessages(
+		conversation.NewChatMessage(conversation.RoleSystem, "hahahahaha"),
+	))
 
 	step := &chat.EchoStep{
 		TimePerCharacter: 150 * time.Millisecond,
