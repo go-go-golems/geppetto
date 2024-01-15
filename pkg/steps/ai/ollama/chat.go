@@ -26,44 +26,40 @@ func NewChatCompletionStep(client *api.Client, settings *settings.StepSettings) 
 	}
 }
 
-func ConvertMessage(ollamaMsg *api.Message) *conversation.Message {
-	gepMsg := conversation.NewMessage(ollamaMsg.Content, ollamaMsg.Role)
-
-	return gepMsg
-}
-
 func (ccs *ChatCompletionStep) Start(
 	ctx context.Context,
 	messages []*conversation.Message,
 ) (steps.StepResult[string], error) {
 	ollamaMessages := []api.Message{}
 	for _, msg := range messages {
-		ollamaMessages = append(ollamaMessages, api.Message{
-			Content: msg.Text,
-			Role:    msg.Role,
-		})
+		switch content := msg.Content.(type) {
+		case *conversation.ChatMessageContent:
+			ollamaMessages = append(ollamaMessages, api.Message{
+				Content: content.Text,
+				Role:    string(content.Role),
+			})
+		}
 	}
 	var parentMessage *conversation.Message
-	parentID := uuid.Nil
-	conversationID := uuid.New()
+	parentID := conversation.NullNode
 
 	if len(messages) > 0 {
 		parentMessage = messages[len(messages)-1]
 		parentID = parentMessage.ID
-		conversationID = parentMessage.ConversationID
 	}
 
 	metadata := chat.EventMetadata{
-		ID:             uuid.New(),
-		ParentID:       parentID,
-		ConversationID: conversationID,
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
 		Type:       "openai-chat",
 		InputType:  "conversation.Conversation",
 		OutputType: "string",
-		Metadata:   ccs.Settings.GetMetadata(),
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: ccs.Settings.GetMetadata(),
+		},
 	}
 
 	stream := ccs.Settings.Chat.Stream

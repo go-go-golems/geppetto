@@ -41,6 +41,11 @@ type EventPartialCompletion struct {
 	Completion string `json:"completion"`
 }
 
+type ToolCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
@@ -60,24 +65,30 @@ func NewEventFromJson(b []byte) (Event, error) {
 	return e, nil
 }
 
-func (e Event) ToText() (EventText, bool) {
-	var ret EventText
+func ToTypedEvent[T any](e Event) (*T, bool) {
+	var ret *T
 	err := json.Unmarshal(e.payload, &ret)
 	if err != nil {
-		return EventText{}, false
+		return nil, false
 	}
 
 	return ret, true
 }
 
+func (e Event) ToText() (EventText, bool) {
+	ret, ok := ToTypedEvent[EventText](e)
+	if !ok || ret == nil {
+		return EventText{}, false
+	}
+	return *ret, true
+}
+
 func (e Event) ToPartialCompletion() (EventPartialCompletion, bool) {
-	var ret EventPartialCompletion
-	err := json.Unmarshal(e.payload, &ret)
-	if err != nil {
+	ret, ok := ToTypedEvent[EventPartialCompletion](e)
+	if !ok || ret == nil {
 		return EventPartialCompletion{}, false
 	}
-
-	return ret, true
+	return *ret, true
 }
 
 type StepOption func(Step) error

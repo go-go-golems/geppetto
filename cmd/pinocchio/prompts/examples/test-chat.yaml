@@ -22,5 +22,7 @@ flags:
     default: "you"
     help: Of what am I asking?
 
+system-prompt: |
+  You are a {{.pretend}}. You are {{.what}} {{.of}}.
 prompt: |
   Say "hello".

@@ -21,7 +21,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/middlewares"
 	glazed_settings "github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/invopop/jsonschema"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -223,69 +222,8 @@ func (t *ToolUiCommand) runWithUi(ctx context.Context,
 	_ = p
 
 	t.router.AddNoPublisherHandler("ui",
-		"ui", t.pubSub,
-		func(msg *message.Message) error {
-			msg.Ack()
-
-			e, err := chat.NewEventFromJson(msg.Payload)
-			if err != nil {
-				return err
-			}
-
-			metadata := boba_chat.StreamMetadata{
-				ID:             e.Metadata.ID,
-				ParentID:       e.Metadata.ParentID,
-				ConversationID: e.Metadata.ConversationID,
-			}
-
-			switch e.Type {
-			case chat.EventTypeError:
-				p.Send(boba_chat.StreamCompletionError{
-					Err:            e.Error,
-					StreamMetadata: metadata,
-				})
-			case chat.EventTypePartial:
-				p_, ok := e.ToPartialCompletion()
-				if !ok {
-					return errors.New("payload is not of type EventPartialCompletionPayload")
-				}
-				p.Send(boba_chat.StreamCompletionMsg{
-					Delta:          p_.Delta,
-					Completion:     p_.Completion,
-					StreamMetadata: metadata,
-				})
-			case chat.EventTypeFinal:
-				p_, ok := e.ToText()
-				if !ok {
-					return errors.New("payload is not of type EventTextPayload")
-				}
-				p.Send(boba_chat.StreamDoneMsg{
-					StreamMetadata: metadata,
-					Completion:     p_.Text,
-				})
-			case chat.EventTypeInterrupt:
-				p.Send(boba_chat.StreamDoneMsg{
-					StreamMetadata: metadata,
-				})
-			case chat.EventTypeStart:
-				p.Send(boba_chat.StreamStartMsg{
-					StreamMetadata: metadata,
-				})
-			case chat.EventTypeStatus:
-				p_, ok := e.ToText()
-				if !ok {
-					return errors.New("payload is not of type EventTextPayload")
-				}
-				p.Send(boba_chat.StreamStatusMsg{
-					Text:           p_.Text,
-					StreamMetadata: metadata,
-				})
-			}
-
-			_ = metadata
-
-			return nil
-		})
+		"ui", t.pubSub, ui.StepChatForwardFunc(p),
+	)
 
 	ctx, cancel := context.WithCancel(ctx)
 

@@ -24,6 +24,8 @@ type StepMetadata struct {
 	Metadata map[string]interface{} `json:"meta"`
 }
 
+const MetadataSettingsSlug = "settings"
+
 type StepResultImpl[T any] struct {
 	value        <-chan helpers.Result[T]
 	cancel       func()

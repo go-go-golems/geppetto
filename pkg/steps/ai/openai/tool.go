@@ -86,6 +86,8 @@ func (csf *ToolStep) SetStreaming(b bool) {
 	csf.Settings.Chat.Stream = b
 }
 
+const MetadataToolCallsSlug = "tool-calls"
+
 func (csf *ToolStep) Start(
 	ctx context.Context,
 	messages []*conversation.Message,
@@ -116,7 +118,9 @@ func (csf *ToolStep) Start(
 		Type:       "openai-tool-completion",
 		InputType:  "conversation.Conversation",
 		OutputType: "ToolCompletionResponse",
-		Metadata:   csf.Settings.GetMetadata(),
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
+		},
 	}
 
 	csf.subscriptionManager.PublishBlind(&chat.Event{
@@ -168,15 +172,26 @@ func (csf *ToolStep) Start(
 				default:
 					response, err := stream_.Recv()
 					if errors.Is(err, io.EOF) {
-						csf.subscriptionManager.PublishBlind(&chat.EventText{
+						toolCalls := toolCallMerger.GetToolCalls()
+						toolCalls_ := []chat.ToolCall{}
+						for _, toolCall := range toolCalls {
+							toolCalls_ = append(toolCalls_, chat.ToolCall{
+								Name:      toolCall.Function.Name,
+								Arguments: toolCall.Function.Arguments,
+							})
+						}
+						stepMetadata.Metadata[MetadataToolCallsSlug] = toolCalls_
+
+						msg := &chat.EventText{
 							Event: chat.Event{
 								Type:     chat.EventTypeFinal,
 								Metadata: metadata,
 								Step:     stepMetadata,
 							},
 							Text: message,
-						})
-						toolCalls := toolCallMerger.GetToolCalls()
+						}
+
+						csf.subscriptionManager.PublishBlind(msg)
 
 						ret.ToolCalls = toolCalls
 						ret.Content = message
@@ -316,6 +331,8 @@ func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic s
 	return nil
 }
 
+const MetadataToolsSlug = "tools"
+
 func (e *ExecuteToolStep) Start(
 	ctx context.Context,
 	input ToolCompletionResponse,
@@ -345,7 +362,7 @@ func (e *ExecuteToolStep) Start(
 		InputType:  "ToolCompletionResponse",
 		OutputType: "map[string]interface{}",
 		Metadata: map[string]interface{}{
-			"tools": toolMetadata,
+			MetadataToolsSlug: toolMetadata,
 		},
 	}
 
