@@ -17,18 +17,30 @@ type StepBackend struct {
 	stepResult  steps.StepResult[string]
 }
 
-func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) error {
+func (s *StepBackend) Start(ctx context.Context, msgs []*conversation.Message) (tea.Cmd, error) {
 	if !s.IsFinished() {
-		return errors.New("Step is already running")
+		return nil, errors.New("Step is already running")
 	}
 
 	stepResult, err := s.stepFactory.Start(ctx, msgs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	s.stepResult = stepResult
-	return nil
+
+	return func() tea.Msg {
+		if s.IsFinished() {
+			return nil
+		}
+		stepChannel := s.stepResult.GetChannel()
+		// TODO(manuel, 2023-12-09) stream answers into the context manager
+		for range stepChannel {
+		}
+
+		s.stepResult = nil
+		return boba_chat.BackendFinishedMsg{}
+	}, nil
 }
 
 func NewStepBackend(step chat.Step) *StepBackend {
@@ -54,31 +66,6 @@ func (s *StepBackend) Kill() {
 	}
 }
 
-func (s *StepBackend) GetNextCompletion() tea.Cmd {
-	return nil
-	return func() tea.Msg {
-		if s.IsFinished() {
-			return nil
-		}
-		// TODO(manuel, 2023-12-09) stream answers into the context manager
-		c, ok := <-s.stepResult.GetChannel()
-		if !ok {
-			s.stepResult = nil
-			return boba_chat.StreamDoneMsg{}
-		}
-		v, err := c.Value()
-		if err != nil {
-			s.stepResult = nil
-			if errors.Is(err, context.Canceled) {
-				return boba_chat.StreamDoneMsg{}
-			}
-			return boba_chat.StreamCompletionError{Err: err}
-		}
-
-		return boba_chat.StreamCompletionMsg{Delta: v}
-	}
-}
-
 func (s *StepBackend) IsFinished() bool {
 	return s.stepResult == nil
 }
@@ -100,8 +87,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(boba_chat.StreamCompletionError{
-				StreamMetadata: boba_chat.StreamMetadata{
+			p.Send(conversation.StreamCompletionError{
+				StreamMetadata: conversation.StreamMetadata{
 					ID:       p_.Metadata.ID,
 					ParentID: p_.Metadata.ParentID,
 				},
@@ -113,8 +100,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventPartialCompletionPayload")
 			}
-			p.Send(boba_chat.StreamCompletionMsg{
-				StreamMetadata: boba_chat.StreamMetadata{
+			p.Send(conversation.StreamCompletionMsg{
+				StreamMetadata: conversation.StreamMetadata{
 					ID:       p_.Metadata.ID,
 					ParentID: p_.Metadata.ParentID,
 				},
@@ -127,8 +114,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(boba_chat.StreamDoneMsg{
-				StreamMetadata: boba_chat.StreamMetadata{
+			p.Send(conversation.StreamDoneMsg{
+				StreamMetadata: conversation.StreamMetadata{
 					ID:       p_.Metadata.ID,
 					ParentID: p_.Metadata.ParentID,
 				},
@@ -140,8 +127,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(boba_chat.StreamDoneMsg{
-				StreamMetadata: boba_chat.StreamMetadata{
+			p.Send(conversation.StreamDoneMsg{
+				StreamMetadata: conversation.StreamMetadata{
 					ID:       p_.Metadata.ID,
 					ParentID: p_.Metadata.ParentID,
 				},
@@ -150,8 +137,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			})
 
 		case chat.EventTypeStart:
-			p.Send(boba_chat.StreamStartMsg{
-				StreamMetadata: boba_chat.StreamMetadata{
+			p.Send(conversation.StreamStartMsg{
+				StreamMetadata: conversation.StreamMetadata{
 					ID:       e.Metadata.ID,
 					ParentID: e.Metadata.ParentID,
 				},
@@ -162,8 +149,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(boba_chat.StreamStatusMsg{
-				StreamMetadata: boba_chat.StreamMetadata{
+			p.Send(conversation.StreamStatusMsg{
+				StreamMetadata: conversation.StreamMetadata{
 					ID:       p_.Metadata.ID,
 					ParentID: p_.Metadata.ParentID,
 				},

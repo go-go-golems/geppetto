@@ -85,7 +85,9 @@ func (csf *Step) Start(
 		Type:       "openai-chat",
 		InputType:  "conversation.Conversation",
 		OutputType: "string",
-		Metadata:   csf.Settings.GetMetadata(),
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
+		},
 	}
 
 	stream := csf.Settings.Chat.Stream
@@ -112,7 +114,9 @@ func (csf *Step) Start(
 
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
-			defer close(c)
+			defer func() {
+				close(c)
+			}()
 			defer stream.Close()
 
 			message := ""
