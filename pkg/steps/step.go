@@ -24,6 +24,21 @@ type StepMetadata struct {
 	Metadata map[string]interface{} `json:"meta"`
 }
 
+func (sm *StepMetadata) ToMap() map[string]interface{} {
+	ret := map[string]interface{}{
+		"step_id":     sm.StepID,
+		"type":        sm.Type,
+		"input_type":  sm.InputType,
+		"output_type": sm.OutputType,
+	}
+
+	for k, v := range sm.Metadata {
+		ret[k] = v
+	}
+
+	return ret
+}
+
 const MetadataSettingsSlug = "settings"
 
 type StepResultImpl[T any] struct {

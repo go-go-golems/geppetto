@@ -3,7 +3,6 @@ package openai
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
@@ -11,9 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
-	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
 	"io"
 )
@@ -125,6 +122,7 @@ func (csf *ToolStep) Start(
 
 	csf.subscriptionManager.PublishBlind(&chat.Event{
 		Type:     chat.EventTypeStart,
+		Step:     stepMetadata,
 		Metadata: metadata,
 	})
 
@@ -182,13 +180,16 @@ func (csf *ToolStep) Start(
 						}
 						stepMetadata.Metadata[MetadataToolCallsSlug] = toolCalls_
 
+						// TODO(manuel, 2023-11-28) Handle multiple choices
+						//s, _ := json.MarshalIndent(toolCalls_, "", " ")
+
 						msg := &chat.EventText{
 							Event: chat.Event{
 								Type:     chat.EventTypeFinal,
 								Metadata: metadata,
 								Step:     stepMetadata,
 							},
-							Text: message,
+							Text: GetToolCallDelta(toolCalls),
 						}
 
 						csf.subscriptionManager.PublishBlind(msg)
@@ -262,19 +263,18 @@ func (csf *ToolStep) Start(
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
-		// TODO(manuel, 2024-01-12) Here we need to send the content of the toolcalls if the content is empty
+		// TODO(manuel, 2023-11-28) Handle multiple choices
+		s, _ := json.MarshalIndent(resp.Choices[0].Message.ToolCalls, "", " ")
+
 		csf.subscriptionManager.PublishBlind(&chat.EventText{
 			Event: chat.Event{
 				Type:     chat.EventTypeFinal,
 				Metadata: metadata,
 				Step:     stepMetadata,
 			},
-			Text: resp.Choices[0].Message.Content,
+			Text: string(s),
 		})
 
-		// TODO(manuel, 2023-11-28) Handle multiple choices
-		s, _ := json.MarshalIndent(resp.Choices[0].Message.ToolCalls, "", " ")
-		fmt.Printf("final toolcalls:\n%s\n%s\n", resp.Choices[0].FinishReason, s)
 		ret := ToolCompletionResponse{
 			Role:      resp.Choices[0].Message.Role,
 			Content:   resp.Choices[0].Message.Content,
@@ -287,156 +287,4 @@ func (csf *ToolStep) Start(
 func (r *ToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	r.subscriptionManager.AddPublishedTopic(topic, publisher)
 	return nil
-}
-
-var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
-
-type ExecuteToolStep struct {
-	Tools               map[string]interface{}
-	subscriptionManager *helpers.SubscriptionManager
-}
-
-type ExecuteToolStepOption func(*ExecuteToolStep) error
-
-func WithExecuteToolStepSubscriptionManager(subscriptionManager *helpers.SubscriptionManager) ExecuteToolStepOption {
-	return func(step *ExecuteToolStep) error {
-		step.subscriptionManager = subscriptionManager
-		return nil
-	}
-}
-
-func NewExecuteToolStep(
-	tools map[string]interface{},
-	options ...ExecuteToolStepOption,
-) (*ExecuteToolStep, error) {
-	ret := &ExecuteToolStep{
-		Tools:               tools,
-		subscriptionManager: helpers.NewSubscriptionManager(),
-	}
-
-	for _, option := range options {
-		err := option(ret)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return ret, nil
-}
-
-var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
-
-func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.AddPublishedTopic(topic, publisher)
-	return nil
-}
-
-const MetadataToolsSlug = "tools"
-
-func (e *ExecuteToolStep) Start(
-	ctx context.Context,
-	input ToolCompletionResponse,
-) (steps.StepResult[map[string]interface{}], error) {
-	res := map[string]interface{}{}
-
-	toolMetadata := map[string]interface{}{}
-	for name, tool := range e.Tools {
-		jsonSchema, err := helpers.GetFunctionParametersJsonSchema(&jsonschema.Reflector{}, tool)
-		if err != nil {
-			return steps.Reject[map[string]interface{}](err), nil
-		}
-		s, _ := json.MarshalIndent(jsonSchema, "", "  ")
-		toolMetadata[name] = go_openai.Tool{
-			Type: "function",
-			Function: go_openai.FunctionDefinition{
-				Name:        name,
-				Description: jsonSchema.Description,
-				Parameters:  json.RawMessage(s),
-			},
-		}
-	}
-
-	stepMetadata := &steps.StepMetadata{
-		StepID:     uuid.New(),
-		Type:       "execute-tool-step",
-		InputType:  "ToolCompletionResponse",
-		OutputType: "map[string]interface{}",
-		Metadata: map[string]interface{}{
-			MetadataToolsSlug: toolMetadata,
-		},
-	}
-
-	e.subscriptionManager.PublishBlind(&chat.Event{
-		Type: chat.EventTypeStart,
-		Step: stepMetadata,
-	})
-	for _, toolCall := range input.ToolCalls {
-		if toolCall.Type != "function" {
-			log.Warn().Str("type", string(toolCall.Type)).Msg("Unknown tool type")
-			continue
-		}
-		tool := e.Tools[toolCall.Function.Name]
-		if tool == nil {
-			e.subscriptionManager.PublishBlind(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: fmt.Errorf("could not find tool %s", toolCall.Function.Name),
-				Step:  stepMetadata,
-			})
-			return steps.Reject[map[string]interface{}](
-				fmt.Errorf("could not find tool %s", toolCall.Function.Name),
-				steps.WithMetadata[map[string]interface{}](stepMetadata),
-			), nil
-		}
-
-		var v interface{}
-		err := json.Unmarshal([]byte(toolCall.Function.Arguments), &v)
-		if err != nil {
-			e.subscriptionManager.PublishBlind(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: fmt.Errorf("could not find tool %s", toolCall.Function.Name),
-				Step:  stepMetadata,
-			})
-			return steps.Reject[map[string]interface{}](
-				err,
-				steps.WithMetadata[map[string]interface{}](stepMetadata),
-			), nil
-		}
-
-		vs_, err := helpers.CallFunctionFromJson(tool, v)
-		if err != nil {
-			e.subscriptionManager.PublishBlind(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: fmt.Errorf("could not find tool %s", toolCall.Function.Name),
-				Step:  stepMetadata,
-			})
-			return steps.Reject[map[string]interface{}](
-				err,
-				steps.WithMetadata[map[string]interface{}](stepMetadata),
-			), nil
-		}
-
-		if len(vs_) == 1 {
-			res[toolCall.Function.Name] = vs_[0].Interface()
-		} else {
-			vals := []interface{}{}
-			for _, v_ := range vs_ {
-				vals = append(vals, v_.Interface())
-			}
-			res[toolCall.Function.Name] = vals
-		}
-	}
-
-	r, _ := json.MarshalIndent(res, "", "  ")
-
-	e.subscriptionManager.PublishBlind(&chat.EventText{
-		Event: chat.Event{
-			Type: chat.EventTypeFinal,
-			Step: stepMetadata,
-		},
-		Text: string(r),
-	})
-
-	return steps.Resolve(res,
-		steps.WithMetadata[map[string]interface{}](stepMetadata),
-	), nil
 }
