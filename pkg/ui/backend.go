@@ -81,19 +81,16 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			return err
 		}
 
+		metadata := conversation.StreamMetadata{
+			ID:       e.Metadata.ID,
+			ParentID: e.Metadata.ParentID,
+			Step:     e.Step,
+		}
 		switch e.Type {
 		case chat.EventTypeError:
-			p_, ok := e.ToText()
-			if !ok {
-				return errors.New("payload is not of type EventTextPayload")
-			}
 			p.Send(conversation.StreamCompletionError{
-				StreamMetadata: conversation.StreamMetadata{
-					ID:       p_.Metadata.ID,
-					ParentID: p_.Metadata.ParentID,
-				},
-
-				Err: e.Error,
+				StreamMetadata: metadata,
+				Err:            e.Error,
 			})
 		case chat.EventTypePartial:
 			p_, ok := e.ToPartialCompletion()
@@ -101,13 +98,9 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				return errors.New("payload is not of type EventPartialCompletionPayload")
 			}
 			p.Send(conversation.StreamCompletionMsg{
-				StreamMetadata: conversation.StreamMetadata{
-					ID:       p_.Metadata.ID,
-					ParentID: p_.Metadata.ParentID,
-				},
-
-				Delta:      p_.Delta,
-				Completion: p_.Completion,
+				StreamMetadata: metadata,
+				Delta:          p_.Delta,
+				Completion:     p_.Completion,
 			})
 		case chat.EventTypeFinal:
 			p_, ok := e.ToText()
@@ -115,12 +108,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				return errors.New("payload is not of type EventTextPayload")
 			}
 			p.Send(conversation.StreamDoneMsg{
-				StreamMetadata: conversation.StreamMetadata{
-					ID:       p_.Metadata.ID,
-					ParentID: p_.Metadata.ParentID,
-				},
-
-				Completion: p_.Text,
+				StreamMetadata: metadata,
+				Completion:     p_.Text,
 			})
 		case chat.EventTypeInterrupt:
 			p_, ok := e.ToText()
@@ -128,20 +117,13 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				return errors.New("payload is not of type EventTextPayload")
 			}
 			p.Send(conversation.StreamDoneMsg{
-				StreamMetadata: conversation.StreamMetadata{
-					ID:       p_.Metadata.ID,
-					ParentID: p_.Metadata.ParentID,
-				},
-
-				Completion: p_.Text,
+				StreamMetadata: metadata,
+				Completion:     p_.Text,
 			})
 
 		case chat.EventTypeStart:
 			p.Send(conversation.StreamStartMsg{
-				StreamMetadata: conversation.StreamMetadata{
-					ID:       e.Metadata.ID,
-					ParentID: e.Metadata.ParentID,
-				},
+				StreamMetadata: metadata,
 			})
 
 		case chat.EventTypeStatus:

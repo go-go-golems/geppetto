@@ -10,8 +10,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/utils"
+	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
-	"github.com/pkg/errors"
 	go_openai "github.com/sashabaranov/go-openai"
 )
 
@@ -20,7 +20,6 @@ type ChatToolStep struct {
 	toolFunctions       map[string]interface{}
 	tools               []go_openai.Tool
 	stepSettings        *settings.StepSettings
-	cancel              context.CancelFunc
 	subscriptionManager *helpers.SubscriptionManager
 }
 
@@ -73,13 +72,12 @@ func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolSte
 }
 
 func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
-	if t.cancel != nil {
-		return nil, errors.New("step already started")
-	}
+	cancellableCtx, cancel := context.WithCancel(ctx)
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
 
-	ctx, t.cancel = context.WithCancel(ctx)
-
-	// TODO(manuel, 2024-01-11) This should be refactored since it's going to be spread around
 	var parentMessage *conversation.Message
 	parentID := conversation.NullNode
 	toolCompletionMessageID := conversation.NewNodeID()
@@ -100,39 +98,55 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 		return nil, err
 	}
 
-	toolResult, err := toolStep.Start(ctx, input)
+	toolResult, err := toolStep.Start(cancellableCtx, input)
 	if err != nil {
 		return nil, err
 	}
 	step, err := NewExecuteToolStep(t.toolFunctions,
 		WithExecuteToolStepSubscriptionManager(t.subscriptionManager),
+		WithExecuteToolStepParentID(toolCompletionMessageID),
+		WithExecuteToolStepMessageID(toolResultMessageID),
 	)
 	if err != nil {
 		return nil, err
 	}
-	execResult := steps.Bind[ToolCompletionResponse, map[string]interface{}](ctx, toolResult, step)
+	execResult := steps.Bind[ToolCompletionResponse, map[string]interface{}](cancellableCtx, toolResult, step)
+
+	responseToStringID := conversation.NewNodeID()
 
 	responseToStringStep := &utils.LambdaStep[map[string]interface{}, string]{
 		Function: func(s map[string]interface{}) helpers.Result[string] {
-			s_, _ := json.MarshalIndent(s, "", " ")
+			stepMetadata := &steps.StepMetadata{
+				StepID:     uuid.New(),
+				Type:       "response-to-string",
+				InputType:  "map[string]interface{}",
+				OutputType: "string",
+				Metadata:   map[string]interface{}{},
+			}
 			t.subscriptionManager.PublishBlind(&chat.Event{
-				Type: chat.EventTypeFinal,
+				Type: chat.EventTypeStart,
+				Step: stepMetadata,
 				Metadata: chat.EventMetadata{
-					ID:       toolResultMessageID,
-					ParentID: toolCompletionMessageID,
+					ID:       responseToStringID,
+					ParentID: toolResultMessageID,
 				}})
+			s_, _ := json.MarshalIndent(s, "", " ")
+			t.subscriptionManager.PublishBlind(&chat.EventText{
+				Event: chat.Event{
+					Type: chat.EventTypeFinal,
+					Step: stepMetadata,
+					Metadata: chat.EventMetadata{
+						ID:       responseToStringID,
+						ParentID: toolResultMessageID,
+					}},
+				Text: string(s_),
+			})
 			return helpers.NewValueResult[string](string(s_))
 		},
 	}
-	stringResult := steps.Bind[map[string]interface{}, string](ctx, execResult, responseToStringStep)
+	stringResult := steps.Bind[map[string]interface{}, string](cancellableCtx, execResult, responseToStringStep)
 
 	return stringResult, nil
-}
-
-func (t *ChatToolStep) Interrupt() {
-	if t.cancel != nil {
-		t.cancel()
-	}
 }
 
 func (t *ChatToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
