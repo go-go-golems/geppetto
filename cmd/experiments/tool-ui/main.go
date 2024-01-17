@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -67,6 +68,11 @@ func NewToolUiCommand() (*ToolUiCommand, error) {
 					parameters.ParameterTypeBool,
 					parameters.WithDefault(false),
 					parameters.WithHelp("print raw events")),
+				parameters.NewParameterDefinition(
+					"verbose",
+					parameters.ParameterTypeBool,
+					parameters.WithDefault(false),
+					parameters.WithHelp("verbose")),
 			),
 			glazed_cmds.WithLayersList(glazedParameterLayer),
 			glazed_cmds.WithLayersList(geppettoLayers...),
@@ -78,19 +84,20 @@ func NewToolUiCommand() (*ToolUiCommand, error) {
 type ToolUiSettings struct {
 	UI             bool `glazed.parameter:"ui"`
 	PrintRawEvents bool `glazed.parameter:"print-raw-events"`
+	Verbose        bool `glazed.parameter:"verbose"`
 }
 
 func (t *ToolUiCommand) RunIntoGlazeProcessor(
 	ctx context.Context, parsedLayers *layers.ParsedLayers, gp middlewares.Processor,
 ) error {
-	s := &ToolUiSettings{}
+	settings := &ToolUiSettings{}
 
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, settings)
 	if err != nil {
 		return err
 	}
 
-	if s.UI {
+	if settings.UI {
 		return t.runWithUi(ctx, parsedLayers)
 	}
 
@@ -106,11 +113,38 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 		}
 	}(t.pubSub)
 
-	t.router.AddNoPublisherHandler("ui-stdout",
-		"ui",
-		t.pubSub,
-		chat.StepPrinterFunc("UI", os.Stdout),
-	)
+	if settings.PrintRawEvents {
+		t.router.AddNoPublisherHandler("raw-events-stdout",
+			"ui",
+			t.pubSub,
+			func(msg *message.Message) error {
+				msg.Ack()
+				var s map[string]interface{}
+				err = json.Unmarshal(msg.Payload, &s)
+				if err != nil {
+					return err
+				}
+				if !settings.Verbose {
+					s["id"] = s["meta"].(map[string]interface{})["message_id"]
+					s["step_type"] = s["step"].(map[string]interface{})["type"]
+					delete(s, "meta")
+					delete(s, "step")
+				}
+				s_, err := json.MarshalIndent(s, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(s_))
+				return nil
+			},
+		)
+	} else {
+		t.router.AddNoPublisherHandler("ui-stdout",
+			"ui",
+			t.pubSub,
+			chat.StepPrinterFunc("UI", os.Stdout),
+		)
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -141,7 +175,6 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 	return nil
 }
 
-// TODO(manuel, 2024-01-13) Turn this into ToolUiCommand fields and Init method
 func (t *ToolUiCommand) Init(parsedLayers *layers.ParsedLayers) error {
 	t.stepSettings = settings.NewStepSettings()
 	err := t.stepSettings.UpdateFromParsedLayers(parsedLayers)
