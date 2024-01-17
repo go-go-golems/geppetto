@@ -3,14 +3,13 @@ package cmds
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	tea "github.com/charmbracelet/bubbletea"
-	chat2 "github.com/go-go-golems/bobatea/pkg/chat"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	bobatea_chat "github.com/go-go-golems/bobatea/pkg/chat"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -28,7 +27,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 )
 
 type GeppettoCommandDescription struct {
@@ -39,9 +37,9 @@ type GeppettoCommandDescription struct {
 	Arguments []*parameters.ParameterDefinition `yaml:"arguments,omitempty"`
 	Layers    []layers.ParameterLayer           `yaml:"layers,omitempty"`
 
-	Prompt       string                      `yaml:"prompt,omitempty"`
-	Messages     []*geppetto_context.Message `yaml:"messages,omitempty"`
-	SystemPrompt string                      `yaml:"system-prompt,omitempty"`
+	Prompt       string                  `yaml:"prompt,omitempty"`
+	Messages     []*conversation.Message `yaml:"messages,omitempty"`
+	SystemPrompt string                  `yaml:"system-prompt,omitempty"`
 }
 
 const HelpersSlug = "geppetto-helpers"
@@ -99,7 +97,7 @@ type GeppettoCommand struct {
 	*glazedcmds.CommandDescription
 	StepSettings *settings.StepSettings
 	Prompt       string
-	Messages     []*geppetto_context.Message
+	Messages     []*conversation.Message
 	SystemPrompt string
 }
 
@@ -113,7 +111,7 @@ func WithPrompt(prompt string) GeppettoCommandOption {
 	}
 }
 
-func WithMessages(messages []*geppetto_context.Message) GeppettoCommandOption {
+func WithMessages(messages []*conversation.Message) GeppettoCommandOption {
 	return func(g *GeppettoCommand) {
 		g.Messages = messages
 	}
@@ -150,7 +148,7 @@ func NewGeppettoCommand(
 }
 
 func (g *GeppettoCommand) InitializeContextManager(
-	contextManager *geppetto_context.Manager,
+	contextManager conversation.Manager,
 	ps map[string]interface{},
 ) error {
 	if g.SystemPrompt != "" {
@@ -166,27 +164,30 @@ func (g *GeppettoCommand) InitializeContextManager(
 		}
 
 		// TODO(manuel, 2023-12-07) Only do this conditionally, or maybe if the system prompt hasn't been set yet, if you use an agent.
-		contextManager.SetSystemPrompt(systemPromptBuffer.String())
+		contextManager.AppendMessages(conversation.NewChatMessage(
+			conversation.RoleSystem,
+			systemPromptBuffer.String(),
+		))
 	}
 
-	for _, message := range g.Messages {
-		messageTemplate, err := templating.CreateTemplate("message").Parse(message.Text)
-		if err != nil {
-			return err
-		}
+	for _, message_ := range g.Messages {
+		switch content := message_.Content.(type) {
+		case *conversation.ChatMessageContent:
+			messageTemplate, err := templating.CreateTemplate("message").Parse(content.Text)
+			if err != nil {
+				return err
+			}
 
-		var messageBuffer strings.Builder
-		err = messageTemplate.Execute(&messageBuffer, ps)
-		if err != nil {
-			return err
-		}
-		s_ := messageBuffer.String()
+			var messageBuffer strings.Builder
+			err = messageTemplate.Execute(&messageBuffer, ps)
+			if err != nil {
+				return err
+			}
+			s_ := messageBuffer.String()
 
-		contextManager.AddMessages(&geppetto_context.Message{
-			Text: s_,
-			Role: message.Role,
-			Time: message.Time,
-		})
+			contextManager.AppendMessages(conversation.NewChatMessage(
+				content.Role, s_, conversation.WithTime(message_.Time)))
+		}
 	}
 
 	// render the prompt
@@ -205,11 +206,10 @@ func (g *GeppettoCommand) InitializeContextManager(
 			return err
 		}
 
-		contextManager.AddMessages(&geppetto_context.Message{
-			Text: promptBuffer.String(),
-			Role: geppetto_context.RoleUser,
-			Time: time.Now(),
-		})
+		contextManager.AppendMessages(conversation.NewChatMessage(
+			conversation.RoleUser,
+			promptBuffer.String(),
+		))
 	}
 
 	return nil
@@ -217,8 +217,8 @@ func (g *GeppettoCommand) InitializeContextManager(
 
 func (g *GeppettoCommand) Run(
 	ctx context.Context,
-	step steps.Step[[]*geppetto_context.Message, string],
-	contextManager *geppetto_context.Manager,
+	step steps.Step[conversation.Conversation, string],
+	contextManager conversation.Manager,
 	helpersSettings *HelpersSettings,
 	ps map[string]interface{},
 ) (steps.StepResult[string], error) {
@@ -227,13 +227,14 @@ func (g *GeppettoCommand) Run(
 		return nil, err
 	}
 
+	conversation_ := contextManager.GetConversation()
 	if helpersSettings.PrintPrompt {
-		fmt.Println(contextManager.GetSinglePrompt())
+		fmt.Println(conversation_.GetSinglePrompt())
 		return nil, nil
 	}
 
-	messagesM := steps.Resolve(contextManager.GetMessagesWithSystemPrompt())
-	m := steps.Bind[[]*geppetto_context.Message, string](ctx, messagesM, step)
+	messagesM := steps.Resolve(conversation_)
+	m := steps.Bind[conversation.Conversation, string](ctx, messagesM, step)
 
 	return m, nil
 }
@@ -288,31 +289,10 @@ func (g *GeppettoCommand) RunIntoWriter(
 	router.AddNoPublisherHandler("chat",
 		"chat",
 		pubSub,
-		func(msg *message.Message) error {
-			e := &chat.Event{}
-			err := json.Unmarshal(msg.Payload, e)
-			if err != nil {
-				return err
-			}
+		chat.StepPrinterFunc("", w),
+	)
 
-			switch e.Type {
-			case chat.EventTypeError:
-				return err
-			case chat.EventTypePartial:
-				_, err = w.Write([]byte(e.Text))
-				if err != nil {
-					return err
-				}
-			case chat.EventTypeFinal:
-			case chat.EventTypeInterrupt:
-			}
-
-			msg.Ack()
-
-			return nil
-		})
-
-	contextManager := geppetto_context.NewManager()
+	contextManager := conversation.NewManager()
 
 	var chatStep chat.Step
 	chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "chat"))
@@ -327,7 +307,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 	// load and render messages
 	if s.MessageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(s.MessageFile)
+		messages_, err := conversation.LoadFromFile(s.MessageFile)
 		if err != nil {
 			return err
 		}
@@ -336,7 +316,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	if s.AppendMessageFile != "" {
-		messages_, err := geppetto_context.LoadFromFile(s.AppendMessageFile)
+		messages_, err := conversation.LoadFromFile(s.AppendMessageFile)
 		if err != nil {
 			return err
 		}
@@ -367,11 +347,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 				// TODO(manuel, 2023-12-09) Better error handling here, to catch I guess streaming error and HTTP errors
 				return err
 			} else {
-				contextManager.AddMessages(&geppetto_context.Message{
-					Role: geppetto_context.RoleAssistant,
-					Time: time.Now(),
-					Text: s,
-				})
+				contextManager.AppendMessages(conversation.NewChatMessage(conversation.RoleAssistant, s))
 
 				if !isStream {
 					_, err := w.Write([]byte(s))
@@ -412,12 +388,10 @@ func (g *GeppettoCommand) RunIntoWriter(
 				return err
 			}
 
-			for idx, msg := range contextManager.GetMessages() {
-				// skip input prompt and first response that's already been printed out
-				if idx <= 1 {
-					continue
-				}
-				fmt.Printf("\n[%s]: %s\n", msg.Role, msg.Text)
+			fmt.Printf("\n---\n")
+			for _, msg := range contextManager.GetConversation() {
+				view := msg.Content.View()
+				fmt.Printf("\n%s\n", view)
 			}
 			if err != nil {
 				return err
@@ -434,7 +408,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 }
 
 func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, error) {
-	tty_, err := chat2.OpenTTY()
+	tty_, err := bobatea_chat.OpenTTY()
 	if err != nil {
 		return false, err
 	}
@@ -480,7 +454,13 @@ func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, err
 	return continueInChat, nil
 }
 
-func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *gochannel.GoChannel, contextManager *geppetto_context.Manager) error {
+func chat_(
+	ctx context.Context,
+	step chat.Step,
+	router *message.Router,
+	pubSub *gochannel.GoChannel,
+	contextManager conversation.Manager,
+) error {
 	// switch on streaming for chatting
 	// TODO(manuel, 2023-12-09) Probably need to create a new follow on step for enabling streaming
 
@@ -497,39 +477,20 @@ func chat_(ctx context.Context, step chat.Step, router *message.Router, pubSub *
 
 	backend := ui.NewStepBackend(step)
 
+	model := bobatea_chat.InitialModel(
+		contextManager,
+		backend,
+		bobatea_chat.WithTitle("PINOCCHIO AT YOUR SERVICE:"),
+	)
+
 	p := tea.NewProgram(
-		chat2.InitialModel(ui.NewGeppettoConversationManager(contextManager), backend),
+		model,
 		options...,
 	)
 
 	router.AddNoPublisherHandler("ui",
 		"ui", pubSub,
-		func(msg *message.Message) error {
-			e := &chat.Event{}
-			err := json.Unmarshal(msg.Payload, e)
-			if err != nil {
-				return err
-			}
-
-			switch e.Type {
-			case chat.EventTypeError:
-				p.Send(chat2.StreamCompletionError{
-					Err: e.Error,
-				})
-			case chat.EventTypePartial:
-				p.Send(chat2.StreamCompletionMsg{
-					Completion: e.Text,
-				})
-			case chat.EventTypeFinal:
-				p.Send(chat2.StreamDoneMsg{})
-			case chat.EventTypeInterrupt:
-				p.Send(chat2.StreamDoneMsg{})
-			}
-
-			msg.Ack()
-
-			return nil
-		})
+		ui.StepChatForwardFunc(p))
 	err := router.RunHandlers(ctx)
 	if err != nil {
 		return err

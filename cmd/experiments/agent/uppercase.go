@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -40,16 +40,15 @@ var upperCaseCmd = &cobra.Command{
 
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
-		messages := []*geppetto_context.Message{
-			{
-				Text: "Hello, my friend?",
-				Role: geppetto_context.RoleUser,
-			},
+		messages := []*conversation.Message{
+			conversation.NewChatMessage(conversation.RoleUser, "Hello, my friend?"),
 		}
 
 		stepSettings.Chat.Stream = true
 		// LLM completion step
-		step := openai.NewStep(stepSettings)
+		step, err := openai.NewStep(stepSettings)
+		cobra.CheckErr(err)
+
 		// uppercase lambda step
 		uppercaseStep := &utils.LambdaStep[string, string]{
 			Function: func(s string) helpers.Result[string] {

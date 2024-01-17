@@ -3,6 +3,7 @@ package openai
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/huandu/go-clone"
 )
 
 type Settings struct {
@@ -32,14 +33,7 @@ func NewSettings() *Settings {
 }
 
 func (s *Settings) Clone() *Settings {
-	return &Settings{
-		N:                s.N,
-		PresencePenalty:  s.PresencePenalty,
-		FrequencyPenalty: s.FrequencyPenalty,
-		LogitBias:        s.LogitBias,
-		APIKey:           s.APIKey,
-		BaseURL:          s.BaseURL,
-	}
+	return clone.Clone(s).(*Settings)
 }
 
 //go:embed "chat.yaml"

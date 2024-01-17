@@ -2,6 +2,7 @@ package codegen
 
 import (
 	context2 "context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
@@ -17,10 +18,10 @@ const testCodegenCommandSystemPrompt = ""
 
 type TestCodegenCommand struct {
 	*cmds.CommandDescription
-	StepSettings *settings.StepSettings `yaml:"-"`
-	Prompt       string                 `yaml:"prompt"`
-	Messages     []*context.Message     `yaml:"messages,omitempty"`
-	SystemPrompt string                 `yaml:"system-prompt"`
+	StepSettings *settings.StepSettings  `yaml:"-"`
+	Prompt       string                  `yaml:"prompt"`
+	Messages     []*conversation.Message `yaml:"messages,omitempty"`
+	SystemPrompt string                  `yaml:"system-prompt"`
 }
 
 type TestCodegenCommandParameters struct {
@@ -34,8 +35,8 @@ var _ context.GeppettoRunnable = (*TestCodegenCommand)(nil)
 
 func (c *TestCodegenCommand) CreateManager(
 	params *TestCodegenCommandParameters,
-) (*context.Manager, error) {
-	return context.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
+) (*conversation.ManagerImpl, error) {
+	return conversation.CreateManager(c.SystemPrompt, c.Prompt, c.Messages, params)
 }
 
 func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
@@ -50,7 +51,7 @@ func (c *TestCodegenCommand) CreateStep(options ...chat.StepOption) (
 
 func (c *TestCodegenCommand) RunWithManager(
 	ctx context2.Context,
-	manager *context.Manager,
+	manager conversation.Manager,
 ) (steps.StepResult[string], error) {
 	// instantiate step frm factory
 	step, err := c.CreateStep()
@@ -58,7 +59,7 @@ func (c *TestCodegenCommand) RunWithManager(
 		return nil, err
 	}
 
-	stepResult, err := step.Start(ctx, manager.GetMessagesWithSystemPrompt())
+	stepResult, err := step.Start(ctx, manager.GetConversation())
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func (c *TestCodegenCommand) RunToString(
 func (c *TestCodegenCommand) RunToContextManager(
 	ctx context2.Context,
 	params *TestCodegenCommandParameters,
-) (*context.Manager, error) {
+) (conversation.Manager, error) {
 	manager, err := c.CreateManager(params)
 	if err != nil {
 		return nil, err

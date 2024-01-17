@@ -157,9 +157,6 @@ func TestMapLambdaStep(t *testing.T) {
 	result, err := step.Start(context.Background(), inputs)
 	assert.NoError(t, err)
 
-	err = step.Close(context.Background())
-	assert.NoError(t, err)
-
 	resValues := result.Return()
 	assert.Len(t, resValues, len(inputs)) // make sure all results are there
 	for i, val := range resValues {
@@ -168,9 +165,6 @@ func TestMapLambdaStep(t *testing.T) {
 
 	// Test with empty input slice
 	result, err = step.Start(context.Background(), []string{})
-	assert.NoError(t, err)
-
-	err = step.Close(context.Background())
 	assert.NoError(t, err)
 
 	resValues = result.Return()
@@ -185,17 +179,11 @@ func TestMapLambdaStep(t *testing.T) {
 	resultErr, err := stepErr.Start(context.Background(), inputs)
 	assert.NoError(t, err)
 
-	err = step.Close(context.Background())
-	assert.NoError(t, err)
-
 	resErrValues := resultErr.Return()
 	for _, val := range resErrValues {
 		assert.Error(t, val.Error())
 		assert.Contains(t, val.Error().Error(), "Test Error")
 	}
-
-	// Test close method.
-	assert.NoError(t, step.Close(context.Background()))
 }
 
 func TestBackgroundMapLambdaStep(t *testing.T) {

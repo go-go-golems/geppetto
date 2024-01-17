@@ -1,7 +1,7 @@
 package openai
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -9,6 +9,16 @@ import (
 	go_openai "github.com/sashabaranov/go-openai"
 	"strings"
 )
+
+func GetToolCallDelta(toolCalls []go_openai.ToolCall) string {
+	msg := ""
+	for _, call := range toolCalls {
+		msg += call.Function.Name
+		msg += call.Function.Arguments
+	}
+
+	return msg
+}
 
 type ToolCallMerger struct {
 	toolCalls map[int]go_openai.ToolCall
@@ -56,11 +66,10 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
-func makeCompletionRequest(settings *settings.StepSettings,
-	//csf *Step,
-	messages []*context.Message,
-) (
-	*go_openai.ChatCompletionRequest, error) {
+func makeCompletionRequest(
+	settings *settings.StepSettings,
+	messages []*conversation.Message,
+) (*go_openai.ChatCompletionRequest, error) {
 	clientSettings := settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -143,27 +152,33 @@ func makeClient(openaiSettings *openai.Settings) *go_openai.Client {
 	return client
 }
 
-func messageToOpenAIMessage(msg *context.Message) go_openai.ChatCompletionMessage {
-	res := go_openai.ChatCompletionMessage{
-		Role:    msg.Role,
-		Content: msg.Text,
-	}
-	metadata := msg.Metadata
-	if metadata != nil {
-		functionCall := metadata["function_call"]
-		if functionCall_, ok := functionCall.(*go_openai.FunctionCall); ok {
-			res.FunctionCall = functionCall_
+func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionMessage {
+	// TODO(manuel, 2024-01-13) This is where we could have a proper tool call chat content
+	switch content := msg.Content.(type) {
+	case *conversation.ChatMessageContent:
+		res := go_openai.ChatCompletionMessage{
+			Role:    string(content.Role),
+			Content: content.Text,
 		}
+		metadata := msg.Metadata
+		if metadata != nil {
+			functionCall := metadata["function_call"]
+			if functionCall_, ok := functionCall.(*go_openai.FunctionCall); ok {
+				res.FunctionCall = functionCall_
+			}
 
-		toolCalls := metadata["tool_calls"]
-		if toolCalls_, ok := toolCalls.([]go_openai.ToolCall); ok {
-			res.ToolCalls = toolCalls_
-		}
+			toolCalls := metadata["tool_calls"]
+			if toolCalls_, ok := toolCalls.([]go_openai.ToolCall); ok {
+				res.ToolCalls = toolCalls_
+			}
 
-		toolCallID := metadata["tool_call_id"]
-		if toolCallID_, ok := toolCallID.(string); ok {
-			res.ToolCallID = toolCallID_
+			toolCallID := metadata["tool_call_id"]
+			if toolCallID_, ok := toolCallID.(string); ok {
+				res.ToolCallID = toolCallID_
+			}
 		}
+		return res
 	}
-	return res
+
+	return go_openai.ChatCompletionMessage{}
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ThreeDotsLabs/watermill/message"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -27,8 +27,8 @@ func NewStep(settings *settings.StepSettings) *Step {
 	}
 }
 
-func (csf *Step) Publish(publisher message.Publisher, topic string) error {
-	csf.subscriptionManager.AddSubscription(topic, publisher)
+func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	csf.subscriptionManager.AddPublishedTopic(topic, publisher)
 	return nil
 }
 
@@ -38,7 +38,7 @@ func (csf *Step) Interrupt() {
 	}
 }
 
-var _ steps.Step[[]*geppetto_context.Message, string] = &Step{}
+var _ chat.Step = &Step{}
 
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
@@ -46,10 +46,23 @@ func IsClaudeEngine(engine string) bool {
 
 func (csf *Step) Start(
 	ctx context.Context,
-	messages []*geppetto_context.Message,
+	messages conversation.Conversation,
 ) (steps.StepResult[string], error) {
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
+	}
+
+	var parentMessage *conversation.Message
+	parentID := conversation.NullNode
+
+	if len(messages) > 0 {
+		parentMessage = messages[len(messages)-1]
+		parentID = parentMessage.ID
+	}
+
+	metadata := chat.EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
 	}
 
 	var cancel context.CancelFunc
@@ -83,16 +96,19 @@ func (csf *Step) Start(
 	// Combine all the messages into a single prompt
 	prompt := ""
 	for _, msg := range messages {
-		rolePrefix := "Human"
-		switch msg.Role {
-		case geppetto_context.RoleSystem:
-			rolePrefix = "System"
-		case geppetto_context.RoleAssistant:
-			rolePrefix = "Assistant"
-		case geppetto_context.RoleUser:
-			rolePrefix = "Human"
+		switch content := msg.Content.(type) {
+		case *conversation.ChatMessageContent:
+			rolePrefix := "Human"
+			switch content.Role {
+			case conversation.RoleSystem:
+				rolePrefix = "System"
+			case conversation.RoleAssistant:
+				rolePrefix = "Assistant"
+			case conversation.RoleUser:
+				rolePrefix = "Human"
+			}
+			prompt += "\n\n" + rolePrefix + ": " + content.Text
 		}
-		prompt += "\n\n" + rolePrefix + ": " + msg.Text
 	}
 	prompt += "\n\nAssistant: "
 
@@ -140,15 +156,22 @@ func (csf *Step) Start(
 			for {
 				select {
 				case <-ctx.Done():
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type: chat.EventTypeInterrupt,
+					csf.subscriptionManager.PublishBlind(&chat.EventText{
+						Event: chat.Event{
+							Type:     chat.EventTypeInterrupt,
+							Metadata: metadata,
+						},
+						Text: message,
 					})
 					c <- helpers.NewErrorResult[string](ctx.Err())
 					return
 				case event, ok := <-events:
 					if !ok {
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type: chat.EventTypeFinal,
+						csf.subscriptionManager.PublishBlind(&chat.EventText{
+							Event: chat.Event{
+								Type:     chat.EventTypeFinal,
+								Metadata: metadata,
+							},
 							Text: message,
 						})
 						c <- helpers.NewValueResult[string](message)
@@ -158,8 +181,9 @@ func (csf *Step) Start(
 					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
 						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:  chat.EventTypeError,
-							Error: err,
+							Type:     chat.EventTypeError,
+							Metadata: metadata,
+							Error:    err,
 						})
 						c <- helpers.NewErrorResult[string](err)
 						return
@@ -169,11 +193,15 @@ func (csf *Step) Start(
 							completion = strings.TrimLeft(completion, " ")
 							isFirstEvent = false
 						}
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type: chat.EventTypePartial,
-							Text: completion,
-						})
 						message += completion
+						csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
+							Event: chat.Event{
+								Type:     chat.EventTypePartial,
+								Metadata: metadata,
+							},
+							Delta:      completion,
+							Completion: message,
+						})
 					}
 				}
 			}
@@ -194,8 +222,11 @@ func (csf *Step) Start(
 			return steps.Reject[string](err), nil
 		}
 
-		csf.subscriptionManager.PublishBlind(&chat.Event{
-			Type: chat.EventTypeFinal,
+		csf.subscriptionManager.PublishBlind(&chat.EventText{
+			Event: chat.Event{
+				Type:     chat.EventTypeFinal,
+				Metadata: metadata,
+			},
 			Text: resp.Completion,
 		})
 

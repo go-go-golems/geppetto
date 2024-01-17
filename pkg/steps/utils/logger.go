@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 )
 
@@ -21,6 +22,10 @@ func (ls *LoggerStep[T]) Start(ctx context.Context, input T) (steps.StepResult[T
 		fmt.Println(input)               // Print the input to stdout
 		return steps.Resolve(input), nil // Return the input as a successful result
 	}
+}
+
+func (r *LoggerStep[T]) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	return nil
 }
 
 //type CollectingStep[T any] struct {

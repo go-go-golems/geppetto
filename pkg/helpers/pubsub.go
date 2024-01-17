@@ -8,17 +8,17 @@ import (
 )
 
 type SubscriptionManager struct {
-	subscriptions map[string][]message.Publisher
+	Subscriptions map[string][]message.Publisher
 }
 
 func NewSubscriptionManager() *SubscriptionManager {
 	return &SubscriptionManager{
-		subscriptions: make(map[string][]message.Publisher),
+		Subscriptions: make(map[string][]message.Publisher),
 	}
 }
 
-func (s *SubscriptionManager) AddSubscription(topic string, sub message.Publisher) {
-	s.subscriptions[topic] = append(s.subscriptions[topic], sub)
+func (s *SubscriptionManager) AddPublishedTopic(topic string, sub message.Publisher) {
+	s.Subscriptions[topic] = append(s.Subscriptions[topic], sub)
 }
 
 func (s *SubscriptionManager) Publish(payload interface{}) error {
@@ -29,7 +29,7 @@ func (s *SubscriptionManager) Publish(payload interface{}) error {
 
 	msg := message.NewMessage(watermill.NewUUID(), b)
 
-	for topic, subs := range s.subscriptions {
+	for topic, subs := range s.Subscriptions {
 		for _, sub := range subs {
 			err = sub.Publish(topic, msg)
 			if err != nil {
