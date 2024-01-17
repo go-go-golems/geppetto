@@ -365,6 +365,8 @@ func (g *GeppettoCommand) RunIntoWriter(
 		continueInChat := s.Chat
 		askChat := (isOutputTerminal || interactive) && !continueInChat
 
+		lengthBeforeChat := len(contextManager.GetConversation())
+
 		if askChat {
 			if !endedInNewline {
 				fmt.Println()
@@ -389,7 +391,10 @@ func (g *GeppettoCommand) RunIntoWriter(
 			}
 
 			fmt.Printf("\n---\n")
-			for _, msg := range contextManager.GetConversation() {
+			for idx, msg := range contextManager.GetConversation() {
+				if idx < lengthBeforeChat {
+					continue
+				}
 				view := msg.Content.View()
 				fmt.Printf("\n%s\n", view)
 			}
