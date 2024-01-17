@@ -129,6 +129,9 @@ func CreateGeppettoLayers(stepSettings *settings.StepSettings) ([]layers.Paramet
 		return nil, err
 	}
 
+	// TODO(manuel, 2024-01-17) Disable not fully function ollama layer for now
+	_ = ollamaParameterLayer
+
 	helpersLayer, err := NewHelpersParameterLayer()
 	if err != nil {
 		return nil, err
@@ -139,7 +142,7 @@ func CreateGeppettoLayers(stepSettings *settings.StepSettings) ([]layers.Paramet
 		chatParameterLayer, clientParameterLayer,
 		claudeParameterLayer,
 		openaiParameterLayer,
-		ollamaParameterLayer,
+		//ollamaParameterLayer,
 	}, nil
 }
 

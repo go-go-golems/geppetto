@@ -84,7 +84,13 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 		metadata := conversation.StreamMetadata{
 			ID:       e.Metadata.ID,
 			ParentID: e.Metadata.ParentID,
-			Step:     e.Step,
+			Step: &conversation.StepMetadata{
+				StepID:     e.Step.StepID,
+				Type:       e.Step.Type,
+				InputType:  e.Step.InputType,
+				OutputType: e.Step.OutputType,
+				Metadata:   e.Step.Metadata,
+			},
 		}
 		switch e.Type {
 		case chat.EventTypeError:
