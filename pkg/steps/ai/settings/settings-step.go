@@ -163,10 +163,10 @@ func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers)
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(ollama.OllamaChatSlug, s.Ollama)
-	if err != nil {
-		return err
-	}
+	//err = parsedLayers.InitializeStruct(ollama.OllamaChatSlug, s.Ollama)
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
