@@ -63,7 +63,13 @@ var ToolCallCmd = &cobra.Command{
 		geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 		cobra.CheckErr(err)
 		layers_ := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))
-		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, layers_)
+
+		parser, err := cli.NewCobraParserFromLayers(
+			layers_,
+			cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares))
+		cobra.CheckErr(err)
+
+		parsedLayers, err := parser.Parse(cmd, nil)
 		cobra.CheckErr(err)
 
 		err = stepSettings.UpdateFromParsedLayers(parsedLayers)
