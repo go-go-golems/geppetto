@@ -11,9 +11,9 @@ require (
 	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/dave/jennifer v1.7.0
-	github.com/go-go-golems/bobatea v0.0.4
+	github.com/go-go-golems/bobatea v0.0.5
 	github.com/go-go-golems/clay v0.1.6
-	github.com/go-go-golems/glazed v0.5.4
+	github.com/go-go-golems/glazed v0.5.5
 	github.com/huandu/go-clone v1.7.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
