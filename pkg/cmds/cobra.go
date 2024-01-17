@@ -6,6 +6,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/middlewares"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ func BuildCobraCommandWithGeppettoMiddlewares(
 ) (*cobra.Command, error) {
 	options_ := append([]cli.CobraParserOption{
 		cli.WithCobraMiddlewaresFunc(GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraShortHelpLayers(layers.DefaultSlug, GeppettoHelpersSlug),
 	}, options...)
 
 	return cli.BuildCobraCommandFromCommand(cmd, options_...)
