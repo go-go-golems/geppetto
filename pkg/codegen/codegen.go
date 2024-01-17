@@ -16,6 +16,7 @@ const SettingsPath = "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 const StepsPath = "github.com/go-go-golems/geppetto/pkg/steps"
 const CommandPath = "github.com/go-go-golems/geppetto/pkg/cmds"
 const ContextPath = "github.com/go-go-golems/geppetto/pkg/context"
+const ConversationPath = "github.com/go-go-golems/bobatea/pkg/chat/conversation"
 const LayerPath = "github.com/go-go-golems/glazed/pkg/cmds/layers"
 
 type GeppettoCommandCodeGenerator struct {
@@ -32,7 +33,8 @@ func (g *GeppettoCommandCodeGenerator) defineConstants(f *jen.File, cmdName stri
 
 	for i, message := range cmd.Messages {
 		messageConstName := strcase.ToLowerCamel(cmdName) + "CommandMessage" + strcase.ToCamel(strconv.Itoa(i))
-		f.Const().Id(messageConstName).Op("=").Lit(message.Text)
+		// TODO(manuel, 2024-01-13) Handle other message types, this is a shortcut
+		f.Const().Id(messageConstName).Op("=").Lit(message.Content.String())
 	}
 }
 
@@ -42,7 +44,7 @@ func (g *GeppettoCommandCodeGenerator) defineStruct(f *jen.File, cmdName string)
 		jen.Op("*").Qual(codegen.GlazedCommandsPath, "CommandDescription"),
 		jen.Id("StepSettings").Qual(SettingsPath, "StepSettings").Tag(map[string]string{"yaml": "-"}),
 		jen.Id("Prompt").String().Tag(map[string]string{"yaml": "prompt"}),
-		jen.Id("Messages").Index().Op("*").Qual(ContextPath, "Message").
+		jen.Id("Messages").Qual(ConversationPath, "Conversation").
 			Tag(map[string]string{"yaml": "messages,omitempty"}),
 		jen.Id("SystemPrompt").String().Tag(map[string]string{"yaml": "system-prompt"}),
 	)
@@ -166,10 +168,10 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 		Params(
 			jen.Id("params").Op("*").Id(cmdName+"Parameters"),
 		).
-		Params(jen.Op("*").Qual(ContextPath, "Manager"), jen.Error()).
+		Params(jen.Qual(ConversationPath, "Manager"), jen.Error()).
 		Block(
 			jen.Return(
-				jen.Qual(ContextPath, "CreateManager").Call(
+				jen.Qual(ConversationPath, "CreateManager").Call(
 					jen.Id("c").Dot("SystemPrompt"),
 					jen.Id("c").Dot("Prompt"),
 					jen.Id("c").Dot("Messages"),
@@ -183,7 +185,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 		Params(jen.Id("c").Op("*").Id(cmdName)).Id("RunWithManager").
 		Params(
 			jen.Id("ctx").Qual("context", "Context"),
-			jen.Id("manager").Op("*").Qual(ContextPath, "Manager"),
+			jen.Id("manager").Qual(ConversationPath, "Manager"),
 		).
 		Params(jen.Qual(StepsPath, "StepResult").Index(jen.String()), jen.Error()).
 		Block(
@@ -195,7 +197,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 				jen.Return(jen.Nil(), jen.Err()),
 			),
 			jen.List(jen.Id("stepResult"), jen.Err()).Op(":=").Id("step").Dot("Start").
-				Call(jen.Id("ctx"), jen.Id("manager").Dot("GetMessagesWithSystemPrompt").Call()),
+				Call(jen.Id("ctx"), jen.Id("manager").Dot("GetConversation").Call()),
 			jen.If().Err().Op("!=").Nil().Block(
 				jen.Return(jen.Nil(), jen.Err()),
 			),
@@ -254,7 +256,7 @@ func (g *GeppettoCommandCodeGenerator) defineRunMethods(f *jen.File, cmdName str
 			jen.Id("params").Op("*").Id(cmdName+"Parameters"),
 		).
 		Params(
-			jen.Op("*").Qual(ContextPath, "Manager"),
+			jen.Qual(ConversationPath, "Manager"),
 			jen.Error()).
 		Block(
 			jen.List(

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -63,7 +63,13 @@ var ToolCallCmd = &cobra.Command{
 		geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 		cobra.CheckErr(err)
 		layers_ := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))
-		parsedLayers, err := cli.ParseLayersFromCobraCommand(cmd, layers_)
+
+		parser, err := cli.NewCobraParserFromLayers(
+			layers_,
+			cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares))
+		cobra.CheckErr(err)
+
+		parsedLayers, err := parser.Parse(cmd, nil)
 		cobra.CheckErr(err)
 
 		err = stepSettings.UpdateFromParsedLayers(parsedLayers)
@@ -71,24 +77,23 @@ var ToolCallCmd = &cobra.Command{
 
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
-		messages := []*geppetto_context.Message{
-			{
-				Text: "Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
-				Role: geppetto_context.RoleUser,
-			},
+		messages := []*conversation.Message{
+			conversation.NewChatMessage(
+				conversation.RoleUser,
+				"Give me the weather in Boston on november 9th 1924, please, including the windspeed for me, an old ass american. Also, the weather in paris today, with temperature.",
+			),
 		}
 
-		//
 		reflector := new(jsonschema.Reflector)
 		err = reflector.AddGoComments("github.com/go-go-golems/geppetto", "./cmd/experiments/agent")
 		if err != nil {
 			log.Warn().Err(err).Msg("Could not add go comments")
 		}
-		getWeatherOnDayJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeatherOnDay)
+		getWeatherOnDayJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(reflector, getWeatherOnDay)
 		s, _ := json.MarshalIndent(getWeatherOnDayJsonSchema, "", " ")
 		fmt.Printf("getWeatherOnDayJsonSchema:\n%s\n\n", s)
 
-		getWeatherJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(getWeather)
+		getWeatherJsonSchema, _ := helpers2.GetFunctionParametersJsonSchema(reflector, getWeather)
 		s, _ = json.MarshalIndent(getWeatherJsonSchema, "", " ")
 		fmt.Printf("getWeatherJsonSchema:\n%s\n\n", s)
 

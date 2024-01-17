@@ -2,14 +2,13 @@ package ollama
 
 import (
 	"context"
-	"errors"
-	"time"
-
-	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/glazed/pkg/helpers/maps"
+	"github.com/google/uuid"
 	"github.com/jmorganca/ollama/api"
 )
 
@@ -17,7 +16,6 @@ type ChatCompletionStep struct {
 	Client              *api.Client
 	Settings            *settings.StepSettings
 	subscriptionManager *helpers.SubscriptionManager
-	cancel              context.CancelFunc
 }
 
 func NewChatCompletionStep(client *api.Client, settings *settings.StepSettings) *ChatCompletionStep {
@@ -28,138 +26,115 @@ func NewChatCompletionStep(client *api.Client, settings *settings.StepSettings) 
 	}
 }
 
-func ConvertMessage(ollamaMsg *api.Message) *geppetto_context.Message {
-
-	gepMsg := &geppetto_context.Message{
-		Text: ollamaMsg.Content,
-		Role: ollamaMsg.Role,
-		Time: time.Now(),
-	}
-
-	return gepMsg
-}
-
 func (ccs *ChatCompletionStep) Start(
 	ctx context.Context,
-	messages []*geppetto_context.Message,
+	messages []*conversation.Message,
 ) (steps.StepResult[string], error) {
-	if ccs.cancel != nil {
-		return nil, errors.New("step already started")
-	}
-
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(ctx)
-	ccs.cancel = cancel
-
 	ollamaMessages := []api.Message{}
 	for _, msg := range messages {
-		ollamaMessages = append(ollamaMessages, api.Message{
-			Content: msg.Text,
-			Role:    msg.Role,
-		})
+		switch content := msg.Content.(type) {
+		case *conversation.ChatMessageContent:
+			ollamaMessages = append(ollamaMessages, api.Message{
+				Content: content.Text,
+				Role:    string(content.Role),
+			})
+		}
+	}
+	var parentMessage *conversation.Message
+	parentID := conversation.NullNode
+
+	if len(messages) > 0 {
+		parentMessage = messages[len(messages)-1]
+		parentID = parentMessage.ID
+	}
+
+	metadata := chat.EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
+	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "openai-chat",
+		InputType:  "conversation.Conversation",
+		OutputType: "string",
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: ccs.Settings.GetMetadata(),
+		},
 	}
 
 	stream := ccs.Settings.Chat.Stream
 
+	yaml, err := maps.StructToMapThroughYAML(ccs.Settings.Ollama)
+	if err != nil {
+		return nil, err
+	}
+
 	req := &api.ChatRequest{
-		Model:    "gpt-4", // Or any other desired model
+		Model:    *ccs.Settings.Chat.Engine,
 		Messages: ollamaMessages,
 		Stream:   &stream,
-		Format:   "text", // Assuming a text format
-		Options:  make(map[string]interface{}),
+		Format:   "json", // Assuming a text format
+		Options:  yaml,
 	}
 
-	if stream {
-		return ccs.handleStreaming(ctx, req)
-	} else {
-		return ccs.handleNonStreaming(ctx, req)
-	}
-}
+	cancellableCtx, cancel := context.WithCancel(ctx)
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
 
-func (ccs *ChatCompletionStep) handleStreaming(ctx context.Context, req *api.ChatRequest) (steps.StepResult[string], error) {
 	c := make(chan helpers.Result[string])
-	ret := steps.NewStepResult[string](c)
+	ret := steps.NewStepResult[string](c, steps.WithMetadata[string](stepMetadata), steps.WithCancel[string](cancel))
 
 	go func() {
 		defer close(c)
-		defer func() {
-			ccs.cancel = nil
-		}()
 
-		err := ccs.Client.Chat(ctx, req, func(resp api.ChatResponse) error {
+		message := ""
+
+		err := ccs.Client.Chat(cancellableCtx, req, func(resp api.ChatResponse) error {
+			// TODO(manuel, 2024-01-13) Handle metrics
+
 			if resp.Done {
-				ccs.subscriptionManager.PublishBlind(&chat.Event{
-					Type: chat.EventTypeFinal,
-					Text: resp.Message.Content,
+				ccs.subscriptionManager.PublishBlind(&chat.EventText{
+					Event: chat.Event{
+						Type:     chat.EventTypeFinal,
+						Metadata: metadata,
+						Step:     ret.GetMetadata(),
+					},
+					Text: message,
 				})
 				c <- helpers.NewValueResult[string](resp.Message.Content)
 				return nil
 			}
 
-			ccs.subscriptionManager.PublishBlind(&chat.Event{
-				Type: chat.EventTypePartial,
-				Text: resp.Message.Content,
+			message += resp.Message.Content
+
+			ccs.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
+				Event: chat.Event{
+					Type:     chat.EventTypePartial,
+					Metadata: metadata,
+					Step:     ret.GetMetadata(),
+				},
+				Delta:      resp.Message.Content,
+				Completion: message,
 			})
 
 			return nil
 		})
 
 		if err != nil {
-			ccs.subscriptionManager.PublishBlind(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: err,
+			ccs.subscriptionManager.PublishBlind(&chat.EventText{
+				Event: chat.Event{
+					Type:     chat.EventTypeError,
+					Error:    err,
+					Metadata: metadata,
+					Step:     ret.GetMetadata(),
+				},
+				Text: message,
 			})
 			c <- helpers.NewErrorResult[string](err)
 		}
 	}()
 
 	return ret, nil
-}
-
-func (ccs *ChatCompletionStep) handleNonStreaming(ctx context.Context, req *api.ChatRequest) (steps.StepResult[string], error) {
-	c := make(chan helpers.Result[string])
-	ret := steps.NewStepResult[string](c)
-
-	msg := ""
-	err := ccs.Client.Chat(ctx, req, func(resp api.ChatResponse) error {
-		msg += resp.Message.Content
-
-		if resp.Done {
-			ccs.subscriptionManager.PublishBlind(&chat.Event{
-				Type: chat.EventTypePartial,
-				Text: resp.Message.Content,
-			})
-
-			c <- helpers.NewValueResult[string](msg)
-			ccs.subscriptionManager.PublishBlind(&chat.Event{
-				Type: chat.EventTypeFinal,
-				Text: msg,
-			})
-
-			close(c)
-			return nil
-		}
-
-		ccs.subscriptionManager.PublishBlind(&chat.Event{
-			Type: chat.EventTypePartial,
-			Text: resp.Message.Content,
-		})
-
-		return nil
-	})
-	if err != nil {
-		ccs.subscriptionManager.PublishBlind(&chat.Event{
-			Type:  chat.EventTypeError,
-			Error: err,
-		})
-		return steps.Reject[string](err), nil
-	}
-
-	return ret, nil
-}
-
-func (ccs *ChatCompletionStep) Interrupt() {
-	if ccs.cancel != nil {
-		ccs.cancel()
-	}
 }

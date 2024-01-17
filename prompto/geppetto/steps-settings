@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+echo '## AI steps settings'
+echo
+echo "package github.com/go-go-golems/geppetto/steps/ai/settings"
+oak go definitions --recurse pkg/steps/ai/settings --definition-type struct
+echo "---"
+echo

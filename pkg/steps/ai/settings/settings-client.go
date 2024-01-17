@@ -3,6 +3,7 @@ package settings
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/huandu/go-clone"
 	"gopkg.in/yaml.v3"
 	"net/http"
 	"time"
@@ -69,13 +70,7 @@ func (cs *ClientSettings) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (cs *ClientSettings) Clone() *ClientSettings {
-	return &ClientSettings{
-		Timeout:        cs.Timeout,
-		TimeoutSeconds: cs.TimeoutSeconds,
-		Organization:   cs.Organization,
-		UserAgent:      cs.UserAgent,
-		HTTPClient:     cs.HTTPClient,
-	}
+	return clone.Clone(cs).(*ClientSettings)
 }
 
 const AiClientSlug = "ai-client"

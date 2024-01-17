@@ -3,7 +3,7 @@ package chat
 import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/message"
-	context2 "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/pkg/errors"
@@ -31,12 +31,12 @@ func (e *EchoStep) Interrupt() {
 	}
 }
 
-func (e *EchoStep) Publish(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.AddSubscription(topic, publisher)
+func (e *EchoStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	e.subscriptionManager.AddPublishedTopic(topic, publisher)
 	return nil
 }
 
-func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (steps.StepResult[string], error) {
+func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
 	if len(input) == 0 {
 		return nil, errors.New("no input")
 	}
@@ -48,26 +48,40 @@ func (e *EchoStep) Start(ctx context.Context, input []*context2.Message) (steps.
 	c := make(chan helpers.Result[string], 1)
 	res := steps.NewStepResult(c)
 
+	// TODO(manuel, 2024-01-12) We need to add conversational metadata here
 	eg.Go(func() error {
 		defer close(c)
-		msg := input[len(input)-1]
-		for _, c_ := range msg.Text {
+		msg, ok := input[len(input)-1].Content.(*conversation.ChatMessageContent)
+		if !ok {
+			c <- helpers.NewErrorResult[string](errors.New("invalid input"))
+			return errors.New("invalid input")
+		}
+
+		for idx, c_ := range msg.Text {
 			select {
 			case <-ctx.Done():
-				e.subscriptionManager.PublishBlind(&Event{
-					Type: EventTypeInterrupt,
+				e.subscriptionManager.PublishBlind(&EventText{
+					Event: Event{
+						Type: EventTypeInterrupt,
+					},
+					Text: msg.Text,
 				})
 				c <- helpers.NewErrorResult[string](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
-				e.subscriptionManager.PublishBlind(&Event{
-					Type: EventTypePartial,
-					Text: string(c_),
+				e.subscriptionManager.PublishBlind(&EventPartialCompletion{
+					Event: Event{
+						Type: EventTypePartial,
+					},
+					Delta:      string(c_),
+					Completion: msg.Text[:idx+1],
 				})
 			}
 		}
-		e.subscriptionManager.PublishBlind(&Event{
-			Type: EventTypeFinal,
+		e.subscriptionManager.PublishBlind(&EventText{
+			Event: Event{
+				Type: EventTypeFinal,
+			},
 			Text: msg.Text,
 		})
 		c <- helpers.NewValueResult[string](msg.Text)

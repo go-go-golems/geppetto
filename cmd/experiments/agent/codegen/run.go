@@ -2,13 +2,12 @@ package codegen
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
-	context2 "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -106,40 +105,6 @@ func NewPrinterFunc(name string, w io.Writer) func(string) error {
 	return p.Print
 }
 
-func stepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error {
-	isFirst := true
-	return func(msg *message.Message) error {
-		e := &chat.Event{}
-		err := json.Unmarshal(msg.Payload, e)
-		if err != nil {
-			return err
-		}
-
-		switch e.Type {
-		case chat.EventTypeError:
-			return err
-		case chat.EventTypePartial:
-			if isFirst {
-				isFirst = false
-				err := printToStdout(fmt.Sprintf("\n%s: \n", name), w)
-				if err != nil {
-					return err
-				}
-			}
-			err := printToStdout(e.Text, w)
-			if err != nil {
-				return err
-			}
-		case chat.EventTypeFinal:
-		case chat.EventTypeInterrupt:
-		}
-
-		msg.Ack()
-
-		return nil
-	}
-}
-
 var MultiStepCodgenTestCmd = &cobra.Command{
 	Use:   "multi-step",
 	Short: "Test codegen prompt",
@@ -179,12 +144,12 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		router.AddNoPublisherHandler("scientist",
 			"scientist",
 			pubSub,
-			stepPrinterFunc("Scientist", cmd.OutOrStdout()),
+			chat.StepPrinterFunc("Scientist", cmd.OutOrStdout()),
 		)
 		router.AddNoPublisherHandler("writer",
 			"writer",
 			pubSub,
-			stepPrinterFunc("Writer", cmd.OutOrStdout()),
+			chat.StepPrinterFunc("Writer", cmd.OutOrStdout()),
 		)
 
 		writerParams := &TestCodegenCommandParameters{
@@ -216,10 +181,10 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		errgrp := errgroup.Group{}
 		errgrp.Go(func() error {
 			var scientistResult steps.StepResult[string]
-			scientistResult, err = scientistStep.Start(ctx, manager.GetMessagesWithSystemPrompt())
+			scientistResult, err = scientistStep.Start(ctx, manager.GetConversation())
 			cobra.CheckErr(err)
-			mergeResult := steps.Bind[string, []*context2.Message](ctx, scientistResult, mergeStep)
-			writerResult := steps.Bind[[]*context2.Message, string](ctx, mergeResult, writerStep)
+			mergeResult := steps.Bind[string, conversation.Conversation](ctx, scientistResult, mergeStep)
+			writerResult := steps.Bind[conversation.Conversation, string](ctx, mergeResult, writerStep)
 
 			res := writerResult.Return()
 			_ = res

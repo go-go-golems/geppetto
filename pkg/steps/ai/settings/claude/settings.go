@@ -3,6 +3,7 @@ package claude
 import (
 	_ "embed"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/huandu/go-clone"
 )
 
 type Settings struct {
@@ -20,12 +21,7 @@ func NewSettings() *Settings {
 }
 
 func (s *Settings) Clone() *Settings {
-	return &Settings{
-		TopK:    s.TopK,
-		UserID:  s.UserID,
-		BaseURL: s.BaseURL,
-		APIKey:  s.APIKey,
-	}
+	return clone.Clone(s).(*Settings)
 }
 
 const ClaudeChatSlug = "claude-chat"
