@@ -117,11 +117,6 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 	}
 
 	if ss.Ollama != nil {
-		// 	Temperature   *float64 `yaml:"temperature,omitempty" glazed.parameter:"ollama-temperature"`
-		//	Seed          *int     `yaml:"seed,omitempty" glazed.parameter:"ollama-seed"`
-		//	Stop          *string  `yaml:"stop,omitempty" glazed.parameter:"ollama-stop"`
-		//	TopK          *int     `yaml:"top-k,omitempty" glazed.parameter:"ollama-top-k"`
-		//	TopP          *float64 `yaml:"top-p,omitempty" glazed.parameter:"ollama-top-p"`
 		if ss.Ollama.Temperature != nil && *ss.Ollama.Temperature != 0 {
 			metadata["ollama-temperature"] = *ss.Ollama.Temperature
 		}
