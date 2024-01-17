@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	glazed_cmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/alias"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -142,6 +143,7 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 	}
 	err = cli.AddCommandsToRootCommand(rootCmd, commands_, aliases,
 		cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraShortHelpLayers(layers.DefaultSlug, cmds.GeppettoHelpersSlug),
 	)
 	if err != nil {
 		return err

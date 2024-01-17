@@ -42,10 +42,10 @@ type GeppettoCommandDescription struct {
 	SystemPrompt string                  `yaml:"system-prompt,omitempty"`
 }
 
-const HelpersSlug = "geppetto-helpers"
+const GeppettoHelpersSlug = "geppetto-helpers"
 
 func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
-	return layers.NewParameterLayer(HelpersSlug, "Geppetto helpers",
+	return layers.NewParameterLayer(GeppettoHelpersSlug, "Geppetto helpers",
 		layers.WithParameterDefinitions(
 			parameters.NewParameterDefinition(
 				"print-prompt",
@@ -94,11 +94,11 @@ type HelpersSettings struct {
 }
 
 type GeppettoCommand struct {
-	*glazedcmds.CommandDescription
-	StepSettings *settings.StepSettings
-	Prompt       string
-	Messages     []*conversation.Message
-	SystemPrompt string
+	*glazedcmds.CommandDescription `yaml:",inline"`
+	StepSettings                   *settings.StepSettings  `yaml:"stepSettings,omitempty"`
+	Prompt                         string                  `yaml:"prompt,omitempty"`
+	Messages                       []*conversation.Message `yaml:"messages,omitempty"`
+	SystemPrompt                   string                  `yaml:"system-prompt,omitempty"`
 }
 
 var _ glazedcmds.WriterCommand = &GeppettoCommand{}
@@ -250,7 +250,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	s := &HelpersSettings{}
-	err := parsedLayers.InitializeStruct(HelpersSlug, s)
+	err := parsedLayers.InitializeStruct(GeppettoHelpersSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}
