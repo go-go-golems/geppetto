@@ -4,7 +4,9 @@ import (
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
-	clay_cmds "github.com/go-go-golems/clay/pkg/cmds/locations"
+	ls_commands "github.com/go-go-golems/clay/pkg/cmds/ls-commands"
+	"github.com/go-go-golems/clay/pkg/repositories"
+	"github.com/go-go-golems/clay/pkg/sql"
 	pinocchio_cmds "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/kagi"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
@@ -17,7 +19,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
@@ -110,44 +112,71 @@ func initRootCmd() (*help.HelpSystem, error) {
 }
 
 func initAllCommands(helpSystem *help.HelpSystem) error {
-	repositories := viper.GetStringSlice("repositories")
+	repositoryPaths := viper.GetStringSlice("repositories")
 
 	defaultDirectory := "$HOME/.pinocchio/prompts"
-	repositories = append(repositories, defaultDirectory)
-
-	locations := clay_cmds.CommandLocations{
-		Embedded: []clay_cmds.EmbeddedCommandLocation{
-			{
-				FS:      promptsFS,
-				Name:    "embed",
-				Root:    ".",
-				DocRoot: "prompts/doc",
-			},
-		},
-		Repositories: repositories,
-	}
+	repositoryPaths = append(repositoryPaths, defaultDirectory)
 
 	loader := &cmds.GeppettoCommandLoader{}
-	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
-	commands, aliases, err := commandLoader.LoadCommands(
-		loader, helpSystem,
-	)
-
-	if err != nil {
-		return err
+	repositories_ := []*repositories.Repository{
+		repositories.NewRepository(
+			repositories.WithFS(promptsFS),
+			repositories.WithName("embed:pinocchio"),
+			repositories.WithRootDirectory("."),
+			repositories.WithDocRootDirectory("prompts/doc"),
+		),
 	}
 
-	commands_, ok := cast.CastList[glazed_cmds.Command](commands)
-	if !ok {
-		return fmt.Errorf("could not cast commands to GlazeCommand")
+	for _, repositoryPath := range repositoryPaths {
+		dir := os.ExpandEnv(repositoryPath)
+		// check if dir exists
+		if fi, err := os.Stat(dir); os.IsNotExist(err) || !fi.IsDir() {
+			continue
+		}
+		repositories_ = append(repositories_, repositories.NewRepository(
+			repositories.WithDirectories(dir),
+			repositories.WithName(dir),
+			repositories.WithFS(os.DirFS(dir)),
+			repositories.WithCommandLoader(loader),
+		))
 	}
-	err = cli.AddCommandsToRootCommand(rootCmd, commands_, aliases,
+
+	allCommands := repositories.LoadRepositories(
+		helpSystem,
+		rootCmd,
+		repositories_,
 		cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares),
 		cli.WithCobraShortHelpLayers(layers.DefaultSlug, cmds.GeppettoHelpersSlug),
 	)
+
+	lsCommandsCommand, err := ls_commands.NewListCommandsCommand(allCommands,
+		ls_commands.WithCommandDescriptionOptions(
+			glazed_cmds.WithShort("Commands related to sqleton queries"),
+		),
+		ls_commands.WithAddCommandToRowFunc(func(
+			command glazed_cmds.Command,
+			row types.Row,
+			parsedLayers *layers.ParsedLayers,
+		) ([]types.Row, error) {
+			ret := []types.Row{row}
+			switch c := command.(type) {
+			case *cmds.GeppettoCommand:
+				row.Set("query", c.Prompt)
+				row.Set("type", "geppetto")
+			default:
+			}
+
+			return ret, nil
+		}),
+	)
 	if err != nil {
 		return err
 	}
+	cobraQueriesCommand, err := sql.BuildCobraCommandWithSqletonMiddlewares(lsCommandsCommand)
+	if err != nil {
+		return err
+	}
+	rootCmd.AddCommand(cobraQueriesCommand)
 
 	rootCmd.AddCommand(openai.OpenaiCmd)
 
