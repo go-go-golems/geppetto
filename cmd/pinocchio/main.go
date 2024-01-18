@@ -161,7 +161,7 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 			ret := []types.Row{row}
 			switch c := command.(type) {
 			case *cmds.GeppettoCommand:
-				row.Set("query", c.Prompt)
+				row.Set("prompt", c.Prompt)
 				row.Set("type", "geppetto")
 			default:
 			}
