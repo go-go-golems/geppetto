@@ -4,7 +4,7 @@ import (
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
-	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
+	clay_cmds "github.com/go-go-golems/clay/pkg/cmds/locations"
 	pinocchio_cmds "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/kagi"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
