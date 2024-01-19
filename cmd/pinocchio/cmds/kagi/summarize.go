@@ -71,14 +71,14 @@ func NewSummarizeCommand() (*SummarizeCommand, error) {
 					"engine",
 					parameters.ParameterTypeChoice,
 					parameters.WithHelp("Summarization engine"),
-					parameters.WithChoices([]string{"agnes", "cecil", "daphne", "muriel"}),
+					parameters.WithChoices("agnes", "cecil", "daphne", "muriel"),
 					parameters.WithDefault("cecil"),
 				),
 				parameters.NewParameterDefinition(
 					"summary_type",
 					parameters.ParameterTypeChoice,
 					parameters.WithHelp("Type of summary to generate"),
-					parameters.WithChoices([]string{"summary", "takeaway"}),
+					parameters.WithChoices("summary", "takeaway"),
 					parameters.WithDefault("summary"),
 				),
 				parameters.NewParameterDefinition(
