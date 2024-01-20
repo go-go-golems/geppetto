@@ -52,7 +52,7 @@ func main() {
 			fmt.Printf("Could not get absolute path: %v\n", err)
 			os.Exit(1)
 		}
-		cmds_, err := loaders.LoadCommandsFromFS(fs_, filePath, loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
+		cmds_, err := loaders.LoadCommandsFromFS(fs_, filePath, os.Args[2], loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)
@@ -118,14 +118,15 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 	repositoryPaths = append(repositoryPaths, defaultDirectory)
 
 	loader := &cmds.GeppettoCommandLoader{}
-	repositories_ := []*repositories.Repository{
-		repositories.NewRepository(
-			repositories.WithFS(promptsFS),
-			repositories.WithName("embed:pinocchio"),
-			repositories.WithRootDirectory("."),
-			repositories.WithDocRootDirectory("prompts/doc"),
-		),
-	}
+
+	directories := []repositories.Directory{
+		{
+			FS:               promptsFS,
+			RootDirectory:    "prompts",
+			RootDocDirectory: "prompts/doc",
+			Name:             "pinocchio",
+			SourcePrefix:     "embed",
+		}}
 
 	for _, repositoryPath := range repositoryPaths {
 		dir := os.ExpandEnv(repositoryPath)
@@ -133,21 +134,33 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		if fi, err := os.Stat(dir); os.IsNotExist(err) || !fi.IsDir() {
 			continue
 		}
-		repositories_ = append(repositories_, repositories.NewRepository(
-			repositories.WithDirectories(dir),
-			repositories.WithName(dir),
-			repositories.WithFS(os.DirFS(dir)),
-			repositories.WithCommandLoader(loader),
-		))
+		directories = append(directories, repositories.Directory{
+			FS:               os.DirFS(dir),
+			RootDirectory:    ".",
+			RootDocDirectory: "doc",
+			Directory:        dir,
+			Name:             dir,
+			SourcePrefix:     "file",
+		})
 	}
 
-	allCommands := repositories.LoadRepositories(
+	repositories_ := []*repositories.Repository{
+		repositories.NewRepository(
+			repositories.WithDirectories(directories...),
+			repositories.WithCommandLoader(loader),
+		),
+	}
+
+	allCommands, err := repositories.LoadRepositories(
 		helpSystem,
 		rootCmd,
 		repositories_,
 		cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares),
 		cli.WithCobraShortHelpLayers(layers.DefaultSlug, cmds.GeppettoHelpersSlug),
 	)
+	if err != nil {
+		return err
+	}
 
 	lsCommandsCommand, err := ls_commands.NewListCommandsCommand(allCommands,
 		ls_commands.WithCommandDescriptionOptions(
