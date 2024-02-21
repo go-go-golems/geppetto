@@ -141,7 +141,7 @@ func (c *EnrichWebCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	s := &EnrichWebSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}

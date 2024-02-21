@@ -57,7 +57,7 @@ func (d *DecodeCommand) RunIntoWriter(
 	w io.Writer,
 ) error {
 	s := &DecodeSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}

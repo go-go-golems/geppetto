@@ -83,19 +83,19 @@ func (c *ListEnginesCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	s := &ListEnginesSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
 
 	openaiSettings := &openai.Settings{}
-	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, openaiSettings)
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, openaiSettings)
 	if err != nil {
 		return err
 	}
 
 	apiSettings := &settings2.APISettings{}
-	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, apiSettings)
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, apiSettings)
 	if err != nil {
 		return err
 	}
@@ -203,17 +203,17 @@ func (c *EngineInfoCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	s := &EngineInfoSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
 
 	openaiSettings := &openai.Settings{}
-	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, openaiSettings)
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, openaiSettings)
 	cobra.CheckErr(err)
 
 	apiSettings := &settings2.APISettings{}
-	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, apiSettings)
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, apiSettings)
 	if err != nil {
 		return err
 	}

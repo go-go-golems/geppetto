@@ -59,7 +59,7 @@ func (cmd *EncodeCommand) RunIntoWriter(
 	w io.Writer,
 ) error {
 	s := &EncodeSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}

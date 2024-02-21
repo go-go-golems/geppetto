@@ -159,22 +159,22 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 
 // UpdateFromParsedLayers updates the settings of a chat step from the parsedLayers of a glazed command.
 func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
-	err := parsedLayers.InitializeStructFromLayer(AiClientSlug, s.Client)
+	err := parsedLayers.InitializeStruct(AiClientSlug, s.Client)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStructFromLayer(AiChatSlug, s.Chat)
+	err = parsedLayers.InitializeStruct(AiChatSlug, s.Chat)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, s.OpenAI)
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, s.OpenAI)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStructFromLayer(claude.ClaudeChatSlug, s.Claude)
+	err = parsedLayers.InitializeStruct(claude.ClaudeChatSlug, s.Claude)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers)
 		claude.ClaudeChatSlug,
 	}
 	for _, slug := range apiSlugs {
-		err = parsedLayers.InitializeStructFromLayer(slug, s.API)
+		err = parsedLayers.InitializeStruct(slug, s.API)
 		if err != nil {
 			return err
 		}

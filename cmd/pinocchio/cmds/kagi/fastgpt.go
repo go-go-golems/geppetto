@@ -149,7 +149,7 @@ func (c *FastGPTCommand) RunIntoWriter(
 	}
 
 	s := &FastGPTSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}
