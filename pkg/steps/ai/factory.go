@@ -50,24 +50,24 @@ func (s *StandardStepFactory) NewStep(
 			return nil, errors.New("cohere is not supported")
 		}
 
-		return ret, nil
-	}
+	} else {
 
-	switch {
-	case openai.IsOpenAiEngine(*settings_.Chat.Engine):
-		apiType := settings.ApiTypeOpenAI
-		settings_.Chat.ApiType = &apiType
-		ret, err = openai.NewStep(settings_)
-		if err != nil {
-			return nil, err
+		switch {
+		case openai.IsOpenAiEngine(*settings_.Chat.Engine):
+			apiType := settings.ApiTypeOpenAI
+			settings_.Chat.ApiType = &apiType
+			ret, err = openai.NewStep(settings_)
+			if err != nil {
+				return nil, err
+			}
+
+		case claude.IsClaudeEngine(*settings_.Chat.Engine):
+			apiType := settings.ApiTypeClaude
+			settings_.Chat.ApiType = &apiType
+			ret = claude.NewStep(settings_)
+
+		default:
 		}
-
-	case claude.IsClaudeEngine(*settings_.Chat.Engine):
-		apiType := settings.ApiTypeClaude
-		settings_.Chat.ApiType = &apiType
-		ret = claude.NewStep(settings_)
-
-	default:
 	}
 
 	for _, option := range options {
