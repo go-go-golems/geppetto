@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	get_conversation "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai/get-conversation"
 	geppetto_cmds "github.com/go-go-golems/geppetto/pkg/cmds"
+	settings2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/mb0/glob"
+	"github.com/pkg/errors"
 	openai2 "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 )
@@ -81,25 +83,42 @@ func (c *ListEnginesCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	s := &ListEnginesSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
 
 	openaiSettings := &openai.Settings{}
-	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, openaiSettings)
-	cobra.CheckErr(err)
+	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, openaiSettings)
+	if err != nil {
+		return err
+	}
 
-	client := openai2.NewClient(*openaiSettings.APIKey)
+	apiSettings := &settings2.APISettings{}
+	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, apiSettings)
+	if err != nil {
+		return err
+	}
+
+	openaiKey, ok := apiSettings.APIKeys[settings2.ApiTypeOpenAI+"-api-key"]
+	if !ok {
+		return errors.New("no openai api key")
+	}
+
+	client := openai2.NewClient(openaiKey)
 
 	engines, err := client.ListEngines(ctx)
-	cobra.CheckErr(err)
+	if err != nil {
+		return err
+	}
 
 	for _, engine := range engines.Engines {
 		if s.ID != "" {
 			// check if idGlob  matches id
 			matching, err := glob.Match(s.ID, engine.ID)
-			cobra.CheckErr(err)
+			if err != nil {
+				return err
+			}
 
 			if !matching {
 				continue
@@ -109,7 +128,9 @@ func (c *ListEnginesCommand) RunIntoGlazeProcessor(
 		if s.Owner != "" {
 			// check if ownerGlob matches owner
 			matching, err := glob.Match(s.Owner, engine.Owner)
-			cobra.CheckErr(err)
+			if err != nil {
+				return err
+			}
 
 			if !matching {
 				continue
@@ -129,7 +150,9 @@ func (c *ListEnginesCommand) RunIntoGlazeProcessor(
 			types.MRP("object", engine.Object),
 		)
 		err = gp.AddRow(ctx, row)
-		cobra.CheckErr(err)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -180,16 +203,27 @@ func (c *EngineInfoCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	s := &EngineInfoSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
 
 	openaiSettings := &openai.Settings{}
-	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, openaiSettings)
+	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, openaiSettings)
 	cobra.CheckErr(err)
 
-	client := openai2.NewClient(*openaiSettings.APIKey)
+	apiSettings := &settings2.APISettings{}
+	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, apiSettings)
+	if err != nil {
+		return err
+	}
+
+	openaiKey, ok := apiSettings.APIKeys[settings2.ApiTypeOpenAI+"-api-key"]
+	if !ok {
+		return errors.New("no openai api key")
+	}
+
+	client := openai2.NewClient(openaiKey)
 
 	resp, err := client.GetEngine(ctx, s.Engine)
 	cobra.CheckErr(err)

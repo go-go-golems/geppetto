@@ -17,8 +17,6 @@ type Settings struct {
 	// TODO(manuel, 2023-03-28) Properly load logit bias
 	// See https://github.com/go-go-golems/geppetto/issues/48
 	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
-	BaseURL   *string           `yaml:"base_url,omitempty" glazed.parameter:"openai-base-url"`
-	APIKey    *string           `yaml:"api_key,omitempty" glazed.parameter:"openai-api-key"`
 }
 
 func NewSettings() *Settings {
@@ -27,8 +25,6 @@ func NewSettings() *Settings {
 		PresencePenalty:  nil,
 		FrequencyPenalty: nil,
 		LogitBias:        map[string]string{},
-		BaseURL:          nil,
-		APIKey:           nil,
 	}
 }
 

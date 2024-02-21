@@ -5,6 +5,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/huandu/go-clone"
 	"gopkg.in/yaml.v3"
 	"io"
 )
@@ -13,7 +14,25 @@ type factoryConfigFileWrapper struct {
 	Factories *StepSettings
 }
 
+type APISettings struct {
+	APIKeys  map[ApiType]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+	BaseUrls map[ApiType]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
+}
+
+func NewAPISettings() *APISettings {
+	return &APISettings{
+		APIKeys:  map[ApiType]string{},
+		BaseUrls: map[ApiType]string{},
+	}
+}
+
+func (s *APISettings) Clone() *APISettings {
+	return clone.Clone(s).(*APISettings)
+}
+
 type StepSettings struct {
+	API *APISettings `yaml:"api_keys,omitempty"`
+	// TODO(manuel, 2024-02-21) glazed.layer is not yet implemented
 	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
 	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
 	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
@@ -28,18 +47,13 @@ func NewStepSettings() *StepSettings {
 		Client: NewClientSettings(),
 		Claude: claude.NewSettings(),
 		Ollama: ollama.NewSettings(),
+		API:    NewAPISettings(),
 	}
 }
 
 func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 	settings_ := factoryConfigFileWrapper{
-		Factories: &StepSettings{
-			Chat:   NewChatSettings(),
-			OpenAI: openai.NewSettings(),
-			Client: NewClientSettings(),
-			Claude: claude.NewSettings(),
-			Ollama: ollama.NewSettings(),
-		},
+		Factories: NewStepSettings(),
 	}
 	if err := yaml.NewDecoder(s).Decode(&settings_); err != nil {
 		return nil, err
@@ -55,6 +69,14 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if ss.Chat.Engine != nil {
 			metadata["ai-engine"] = *ss.Chat.Engine
 		}
+		if ss.Chat.ApiType != nil {
+			metadata["ai-api-type"] = *ss.Chat.ApiType
+
+			baseUrl, ok := ss.API.BaseUrls[*ss.Chat.ApiType]
+			if ok {
+				metadata["ai-base-url"] = baseUrl
+			}
+		}
 		if ss.Chat.MaxResponseTokens != nil {
 			metadata["ai-max-response-tokens"] = *ss.Chat.MaxResponseTokens
 		}
@@ -67,6 +89,7 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if len(ss.Chat.Stop) > 0 {
 			metadata["ai-stop"] = ss.Chat.Stop
 		}
+
 		metadata["ai-stream"] = ss.Chat.Stream
 	}
 
@@ -82,9 +105,6 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		}
 		if len(ss.OpenAI.LogitBias) > 0 {
 			metadata["openai-logit-bias"] = ss.OpenAI.LogitBias
-		}
-		if ss.OpenAI.BaseURL != nil {
-			metadata["openai-base-url"] = *ss.OpenAI.BaseURL
 		}
 	}
 
@@ -110,9 +130,6 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		}
 		if ss.Claude.UserID != nil && *ss.Claude.UserID != "" {
 			metadata["claude-user-id"] = *ss.Claude.UserID
-		}
-		if ss.Claude.BaseURL != nil {
-			metadata["claude-base-url"] = *ss.Claude.BaseURL
 		}
 	}
 
@@ -141,38 +158,44 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 }
 
 // UpdateFromParsedLayers updates the settings of a chat step from the parsedLayers of a glazed command.
-// TODO(manuel, 2024-01-05) Not sure how this relates to InitializeStruct
 func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
-	err := parsedLayers.InitializeStruct(AiClientSlug, s.Client)
+	err := parsedLayers.InitializeStructFromLayer(AiClientSlug, s.Client)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(AiChatSlug, s.Chat)
+	err = parsedLayers.InitializeStructFromLayer(AiChatSlug, s.Chat)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, s.OpenAI)
+	err = parsedLayers.InitializeStructFromLayer(openai.OpenAiChatSlug, s.OpenAI)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(claude.ClaudeChatSlug, s.Claude)
+	err = parsedLayers.InitializeStructFromLayer(claude.ClaudeChatSlug, s.Claude)
 	if err != nil {
 		return err
 	}
 
-	//err = parsedLayers.InitializeStruct(ollama.OllamaChatSlug, s.Ollama)
-	//if err != nil {
-	//	return err
-	//}
+	apiSlugs := []string{
+		openai.OpenAiChatSlug,
+		claude.ClaudeChatSlug,
+	}
+	for _, slug := range apiSlugs {
+		err = parsedLayers.InitializeStructFromLayer(slug, s.API)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
 func (s *StepSettings) Clone() *StepSettings {
 	return &StepSettings{
+		API:    s.API.Clone(),
 		Chat:   s.Chat.Clone(),
 		OpenAI: s.OpenAI.Clone(),
 		Client: s.Client.Clone(),

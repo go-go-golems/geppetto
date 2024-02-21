@@ -103,7 +103,7 @@ func (c *SummarizeCommand) RunIntoWriter(
 	}
 
 	s := &SummarizeSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}

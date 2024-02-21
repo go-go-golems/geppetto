@@ -61,7 +61,14 @@ func (csf *Step) Start(
 		cancel()
 	}()
 
-	client := makeClient(csf.Settings.OpenAI)
+	if csf.Settings.Chat.ApiType == nil {
+		return steps.Reject[string](errors.New("no chat engine specified")), nil
+	}
+
+	client, err := makeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := makeCompletionRequest(csf.Settings, messages)
 	if err != nil {

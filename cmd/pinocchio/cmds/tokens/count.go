@@ -56,7 +56,7 @@ func (cc *CountCommand) RunIntoWriter(
 	w io.Writer,
 ) error {
 	s := &CountSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
