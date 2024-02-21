@@ -9,8 +9,6 @@ import (
 	"net/http"
 )
 
-const apiURL = "https://api.anthropic.com/v1/complete"
-
 // Request represents the completion request payload.
 type Request struct {
 	Model             string    `json:"model"`
@@ -52,12 +50,13 @@ type Client struct {
 	httpClient *http.Client
 	APIKey     string
 	APIVersion string
+	BaseURL    string
 }
 
 const defaultAPIVersion = "2023-06-01"
 
 // NewClient initializes and returns a new API client.
-func NewClient(apiKey string, apiVersion ...string) *Client {
+func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 	version := defaultAPIVersion
 	if len(apiVersion) > 0 {
 		version = apiVersion[0]
@@ -65,6 +64,7 @@ func NewClient(apiKey string, apiVersion ...string) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		APIKey:     apiKey,
+		BaseURL:    baseURL,
 		APIVersion: version,
 	}
 }
@@ -83,7 +83,7 @@ func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
 		return nil, err
 	}
 
-	req_, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewBuffer(body))
+	req_, err := http.NewRequest(http.MethodPost, c.BaseURL, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
 		return nil, err
 	}
 
-	req_, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewBuffer(body))
+	req_, err := http.NewRequest(http.MethodPost, c.BaseURL, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}

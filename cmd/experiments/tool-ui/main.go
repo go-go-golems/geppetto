@@ -92,7 +92,7 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 ) error {
 	settings := &ToolUiSettings{}
 
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, settings)
+	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, settings)
 	if err != nil {
 		return err
 	}

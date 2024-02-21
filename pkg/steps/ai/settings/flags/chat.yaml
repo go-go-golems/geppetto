@@ -6,6 +6,16 @@ flags:
     type: string
     help: AI chat completion engine
     default: "gpt-3.5-turbo"
+  - name: ai-api-type
+    type: choice
+    choices:
+      - "openai"
+      - "claude"
+      - "ollama"
+      - "anyscale"
+      - "mistral"
+      - "perplexity"
+    help: AI chat completion API type
   - name: ai-temperature
     type: float
     help: AI chat completion temperature

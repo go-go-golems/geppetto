@@ -136,7 +136,7 @@ func (cmd *GetConversationCommand) RunIntoWriter(
 	w io.Writer,
 ) error {
 	s := &GetConversationSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
