@@ -250,7 +250,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 	}
 
 	s := &HelpersSettings{}
-	err := parsedLayers.InitializeStructFromLayer(GeppettoHelpersSlug, s)
+	err := parsedLayers.InitializeStruct(GeppettoHelpersSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}

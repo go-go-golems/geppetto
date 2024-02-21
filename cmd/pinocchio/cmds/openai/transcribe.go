@@ -113,17 +113,17 @@ func (c *TranscribeCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	s := &TranscribeSettings{}
-	err := parsedLayers.InitializeStructFromLayer(layers.DefaultSlug, s)
+	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
 	if err != nil {
 		return err
 	}
 
 	openaiSettings := &openai_settings.Settings{}
-	err = parsedLayers.InitializeStructFromLayer(openai_settings.OpenAiChatSlug, openaiSettings)
+	err = parsedLayers.InitializeStruct(openai_settings.OpenAiChatSlug, openaiSettings)
 	cobra.CheckErr(err)
 
 	apiSettings := &settings2.APISettings{}
-	err = parsedLayers.InitializeStructFromLayer(openai_settings.OpenAiChatSlug, apiSettings)
+	err = parsedLayers.InitializeStruct(openai_settings.OpenAiChatSlug, apiSettings)
 	if err != nil {
 		return err
 	}
