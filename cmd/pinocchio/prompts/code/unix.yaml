@@ -10,20 +10,24 @@ factories:
     stream: true
 flags:
   - name: additional_system
-    type: string
+    type: stringList
     help: Additional system prompt
-    default: ""
+    default: []
   - name: additional
-    type: string
+    type: stringList
     help: Additional prompt
-    default: ""
+    default: []
+  - name: context
+    type: fileList
+    help: Additional context from files
+  - name: bracket
+    type: bool
+    help: Use brackets in the answer
+    default: false
   - name: distribution
     type: string
     help: Linux distribution
     default: "ubuntu"
-  - name: context
-    type: stringFromFiles
-    help: Additional context from files
   - name: concise
     type: bool
     help: Give concise answers
@@ -45,18 +49,32 @@ system-prompt: |
   You are an expert linux administrator. You give concise answers for expert users.
   You use modern linux commands. You use the {{ .distribution }} distribution.
   You give concise answers for expert users.
+  {{ .additional_system | join "\n" }}
 prompt: |
+  {{ define "context" -}}
   {{ .query | join " " }}
-  {{- .additional }}
-  {{ if .context -}}
-    {{ .context }}
+  {{ if .additional }}Additional instructions:
+  {{ .additional | join "\n" }}{{ end }}
+  {{ if .concise }}
+  Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
+  {{- end }}{{ if .use_bullets }}
+  Use bullet points in the answer.
+  {{- end }}{{ if .use_keywords }}
+  Use keywords in the answer, not full sentences.
   {{- end }}
-  {{ if .concise -}}
-    Give a concise answer, answer in a single sentence if possible, skip unnecessary explanations.
   {{- end }}
-  {{ if .use_bullets -}}
-    Use bullet points in the answer.
+  
+  {{ template "context" . }}
+
+  {{ if .context}}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
   {{- end }}
-  {{ if .use_keywords -}}
-      Use keywords in the answer.
-  {{- end }}
+  {{ end }}
+  
+  {{ if .bracket }}
+  {{ template "context" . }}
+  {{ end }}

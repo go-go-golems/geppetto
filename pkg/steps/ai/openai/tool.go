@@ -89,7 +89,14 @@ func (csf *ToolStep) Start(
 	ctx context.Context,
 	messages []*conversation.Message,
 ) (steps.StepResult[ToolCompletionResponse], error) {
-	client := makeClient(csf.Settings.OpenAI)
+	if csf.Settings.Chat.ApiType == nil {
+		return steps.Reject[ToolCompletionResponse](errors.New("no chat engine specified")), nil
+	}
+
+	client, err := makeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := makeCompletionRequest(csf.Settings, messages)
 	if err != nil {

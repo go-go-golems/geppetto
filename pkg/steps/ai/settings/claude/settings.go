@@ -7,10 +7,8 @@ import (
 )
 
 type Settings struct {
-	TopK    *int    `yaml:"top_k,omitempty" glazed.parameter:"claude-top-k"`
-	UserID  *string `yaml:"user_id,omitempty" glazed.parameter:"claude-user-id"`
-	BaseURL *string `yaml:"base_url,omitempty" glazed.parameter:"claude-base-url"`
-	APIKey  *string `yaml:"api_key,omitempty" glazed.parameter:"claude-api-key"`
+	TopK   *int    `yaml:"top_k,omitempty" glazed.parameter:"claude-top-k"`
+	UserID *string `yaml:"user_id,omitempty" glazed.parameter:"claude-user-id"`
 }
 
 func NewSettings() *Settings {

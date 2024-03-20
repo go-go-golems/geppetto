@@ -23,24 +23,51 @@ func (s *StandardStepFactory) NewStep(
 
 	var ret chat.Step
 	var err error
-	switch {
-	case openai.IsOpenAiEngine(*settings_.Chat.Engine):
-		ret, err = openai.NewStep(settings_)
-		if err != nil {
-			return nil, err
+	if settings_.Chat.ApiType != nil {
+		switch *settings_.Chat.ApiType {
+		case settings.ApiTypeOpenAI, settings.ApiTypeAnyScale, settings.ApiTypeFireworks:
+			ret, err = openai.NewStep(settings_)
+			if err != nil {
+				return nil, err
+			}
+
+		case settings.ApiTypeClaude:
+			ret = claude.NewStep(settings_)
+			if err != nil {
+				return nil, err
+			}
+
+		case settings.ApiTypeOllama:
+			return nil, errors.New("ollama is not supported")
+
+		case settings.ApiTypeMistral:
+			return nil, errors.New("mistral is not supported")
+
+		case settings.ApiTypePerplexity:
+			return nil, errors.New("perplexity is not supported")
+
+		case settings.ApiTypeCohere:
+			return nil, errors.New("cohere is not supported")
 		}
 
-	case claude.IsClaudeEngine(*settings_.Chat.Engine):
-		ret = claude.NewStep(settings_)
+	} else {
 
-	case IsAnyScaleEngine(*settings_.Chat.Engine):
-		ret, err = openai.NewStep(settings_)
-		if err != nil {
-			return nil, err
+		switch {
+		case openai.IsOpenAiEngine(*settings_.Chat.Engine):
+			apiType := settings.ApiTypeOpenAI
+			settings_.Chat.ApiType = &apiType
+			ret, err = openai.NewStep(settings_)
+			if err != nil {
+				return nil, err
+			}
+
+		case claude.IsClaudeEngine(*settings_.Chat.Engine):
+			apiType := settings.ApiTypeClaude
+			settings_.Chat.ApiType = &apiType
+			ret = claude.NewStep(settings_)
+
+		default:
 		}
-
-	default:
-		return nil, errors.Errorf("unknown chat engine: %s", *settings_.Chat.Engine)
 	}
 
 	for _, option := range options {

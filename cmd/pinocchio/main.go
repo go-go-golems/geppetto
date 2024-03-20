@@ -4,7 +4,9 @@ import (
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
-	clay_cmds "github.com/go-go-golems/clay/pkg/cmds"
+	ls_commands "github.com/go-go-golems/clay/pkg/cmds/ls-commands"
+	"github.com/go-go-golems/clay/pkg/repositories"
+	"github.com/go-go-golems/clay/pkg/sql"
 	pinocchio_cmds "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/kagi"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
@@ -17,7 +19,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
 	"github.com/go-go-golems/glazed/pkg/help"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
@@ -50,7 +52,7 @@ func main() {
 			fmt.Printf("Could not get absolute path: %v\n", err)
 			os.Exit(1)
 		}
-		cmds_, err := loaders.LoadCommandsFromFS(fs_, filePath, loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
+		cmds_, err := loaders.LoadCommandsFromFS(fs_, filePath, os.Args[2], loader, []glazed_cmds.CommandDescriptionOption{}, []alias.Option{})
 		if err != nil {
 			fmt.Printf("Could not load command: %v\n", err)
 			os.Exit(1)
@@ -110,44 +112,84 @@ func initRootCmd() (*help.HelpSystem, error) {
 }
 
 func initAllCommands(helpSystem *help.HelpSystem) error {
-	repositories := viper.GetStringSlice("repositories")
+	repositoryPaths := viper.GetStringSlice("repositories")
 
 	defaultDirectory := "$HOME/.pinocchio/prompts"
-	repositories = append(repositories, defaultDirectory)
-
-	locations := clay_cmds.CommandLocations{
-		Embedded: []clay_cmds.EmbeddedCommandLocation{
-			{
-				FS:      promptsFS,
-				Name:    "embed",
-				Root:    ".",
-				DocRoot: "prompts/doc",
-			},
-		},
-		Repositories: repositories,
-	}
+	repositoryPaths = append(repositoryPaths, defaultDirectory)
 
 	loader := &cmds.GeppettoCommandLoader{}
-	commandLoader := clay_cmds.NewCommandLoader[*cmds.GeppettoCommand](&locations)
-	commands, aliases, err := commandLoader.LoadCommands(
-		loader, helpSystem,
-	)
 
-	if err != nil {
-		return err
+	directories := []repositories.Directory{
+		{
+			FS:               promptsFS,
+			RootDirectory:    "prompts",
+			RootDocDirectory: "prompts/doc",
+			Name:             "pinocchio",
+			SourcePrefix:     "embed",
+		}}
+
+	for _, repositoryPath := range repositoryPaths {
+		dir := os.ExpandEnv(repositoryPath)
+		// check if dir exists
+		if fi, err := os.Stat(dir); os.IsNotExist(err) || !fi.IsDir() {
+			continue
+		}
+		directories = append(directories, repositories.Directory{
+			FS:               os.DirFS(dir),
+			RootDirectory:    ".",
+			RootDocDirectory: "doc",
+			Directory:        dir,
+			Name:             dir,
+			SourcePrefix:     "file",
+		})
 	}
 
-	commands_, ok := cast.CastList[glazed_cmds.Command](commands)
-	if !ok {
-		return fmt.Errorf("could not cast commands to GlazeCommand")
+	repositories_ := []*repositories.Repository{
+		repositories.NewRepository(
+			repositories.WithDirectories(directories...),
+			repositories.WithCommandLoader(loader),
+		),
 	}
-	err = cli.AddCommandsToRootCommand(rootCmd, commands_, aliases,
+
+	allCommands, err := repositories.LoadRepositories(
+		helpSystem,
+		rootCmd,
+		repositories_,
 		cli.WithCobraMiddlewaresFunc(cmds.GetCobraCommandGeppettoMiddlewares),
 		cli.WithCobraShortHelpLayers(layers.DefaultSlug, cmds.GeppettoHelpersSlug),
 	)
 	if err != nil {
 		return err
 	}
+
+	lsCommandsCommand, err := ls_commands.NewListCommandsCommand(allCommands,
+		ls_commands.WithCommandDescriptionOptions(
+			glazed_cmds.WithShort("Commands related to sqleton queries"),
+		),
+		ls_commands.WithAddCommandToRowFunc(func(
+			command glazed_cmds.Command,
+			row types.Row,
+			parsedLayers *layers.ParsedLayers,
+		) ([]types.Row, error) {
+			ret := []types.Row{row}
+			switch c := command.(type) {
+			case *cmds.GeppettoCommand:
+				row.Set("prompt", c.Prompt)
+				row.Set("type", "geppetto")
+			default:
+			}
+
+			return ret, nil
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	cobraQueriesCommand, err := sql.BuildCobraCommandWithSqletonMiddlewares(lsCommandsCommand)
+	if err != nil {
+		return err
+	}
+	rootCmd.AddCommand(cobraQueriesCommand)
 
 	rootCmd.AddCommand(openai.OpenaiCmd)
 

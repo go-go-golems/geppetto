@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"strings"
@@ -78,11 +79,23 @@ func (csf *Step) Start(
 		return nil, errors.New("no claude settings")
 	}
 
-	if anthropicSettings.APIKey == nil {
-		return nil, steps.ErrMissingClientAPIKey
+	apiType_ := csf.Settings.Chat.ApiType
+	if apiType_ == nil {
+		return steps.Reject[string](errors.New("no chat engine specified")), nil
+	}
+	apiType := *apiType_
+	apiSettings := csf.Settings.API
+
+	apiKey, ok := apiSettings.APIKeys[apiType+"-api-key"]
+	if !ok {
+		return nil, errors.Errorf("no API key for %s", apiType)
+	}
+	baseURL, ok := apiSettings.BaseUrls[apiType+"-base-url"]
+	if !ok {
+		return nil, errors.Errorf("no base URL for %s", apiType)
 	}
 
-	client := NewClient(*anthropicSettings.APIKey)
+	client := NewClient(apiKey, baseURL)
 
 	engine := ""
 
@@ -140,13 +153,32 @@ func (csf *Step) Start(
 		Stream:            chatSettings.Stream,
 	}
 
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "claude-chat",
+		InputType:  "conversation.Conversation",
+		OutputType: "string",
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
+		},
+	}
+
+	csf.subscriptionManager.PublishBlind(&chat.Event{
+		Type:     chat.EventTypeStart,
+		Metadata: metadata,
+		Step:     stepMetadata,
+	})
+
 	if chatSettings.Stream {
 		events, err := client.StreamComplete(&req)
 		if err != nil {
 			return steps.Reject[string](err), nil
 		}
 		c := make(chan helpers.Result[string])
-		ret := steps.NewStepResult[string](c)
+		ret := steps.NewStepResult[string](c,
+			steps.WithCancel[string](cancel),
+			steps.WithMetadata[string](stepMetadata),
+		)
 
 		go func() {
 			defer close(c)
@@ -160,6 +192,7 @@ func (csf *Step) Start(
 						Event: chat.Event{
 							Type:     chat.EventTypeInterrupt,
 							Metadata: metadata,
+							Step:     ret.GetMetadata(),
 						},
 						Text: message,
 					})
@@ -171,6 +204,7 @@ func (csf *Step) Start(
 							Event: chat.Event{
 								Type:     chat.EventTypeFinal,
 								Metadata: metadata,
+								Step:     ret.GetMetadata(),
 							},
 							Text: message,
 						})
@@ -184,6 +218,7 @@ func (csf *Step) Start(
 							Type:     chat.EventTypeError,
 							Metadata: metadata,
 							Error:    err,
+							Step:     ret.GetMetadata(),
 						})
 						c <- helpers.NewErrorResult[string](err)
 						return
@@ -198,6 +233,7 @@ func (csf *Step) Start(
 							Event: chat.Event{
 								Type:     chat.EventTypePartial,
 								Metadata: metadata,
+								Step:     ret.GetMetadata(),
 							},
 							Delta:      completion,
 							Completion: message,
@@ -215,21 +251,23 @@ func (csf *Step) Start(
 			err = csf.subscriptionManager.Publish(&chat.Event{
 				Type:  chat.EventTypeError,
 				Error: err,
+				Step:  stepMetadata,
 			})
 			if err != nil {
 				log.Warn().Err(err).Msg("error publishing error event")
 			}
-			return steps.Reject[string](err), nil
+			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
 		}
 
 		csf.subscriptionManager.PublishBlind(&chat.EventText{
 			Event: chat.Event{
 				Type:     chat.EventTypeFinal,
 				Metadata: metadata,
+				Step:     stepMetadata,
 			},
 			Text: resp.Completion,
 		})
 
-		return steps.Resolve(resp.Completion), nil
+		return steps.Resolve(resp.Completion, steps.WithMetadata[string](stepMetadata)), nil
 	}
 }
