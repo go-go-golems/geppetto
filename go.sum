@@ -119,8 +119,8 @@ github.com/go-go-golems/bobatea v0.0.5 h1:JYlgmMeG5A3/rM+AyTPfAbhIbfFUpL7U/A7ZgV
 github.com/go-go-golems/bobatea v0.0.5/go.mod h1:SG1cXuzm0Bp48EJ8UAuANSBYYw++FQ4ImvHj7tXEzJQ=
 github.com/go-go-golems/clay v0.1.9 h1:CveV2T+HdCIzPMeoGb8btcsXgKZuc8XUYNEJX+jn9YQ=
 github.com/go-go-golems/clay v0.1.9/go.mod h1:ovEpMRRJQ3ndnoc9qKh9T+TTPAtWYvyHjupwo191GpU=
-github.com/go-go-golems/glazed v0.5.8 h1:28/sBWfAgt4JYi+M3y/h27mSk5pRW2Og4Iim54fg61M=
-github.com/go-go-golems/glazed v0.5.8/go.mod h1:K1600pUk7xB/LKmvIafRWyfAdxE1sboruqQ9Jia8V9M=
+github.com/go-go-golems/glazed v0.5.9 h1:Ih9t9g4WEIYLcZ35mhkx0dPTUqGFMG51QvPaoUgowlU=
+github.com/go-go-golems/glazed v0.5.9/go.mod h1:K1600pUk7xB/LKmvIafRWyfAdxE1sboruqQ9Jia8V9M=
 github.com/go-go-golems/sqleton v0.2.4 h1:qsgX0RxBXdjOC/+zmRrVvlsbBT8HCM2otLh/bV/f5uU=
 github.com/go-go-golems/sqleton v0.2.4/go.mod h1:GAGCz4/wsFwzN5mUA3ARmJfqanYu1k5yP4rCUiTeWgs=
 github.com/go-openapi/errors v0.20.3 h1:rz6kiC84sqNQoqrtulzaL/VERgkoCyB6WdEkc2ujzUc=
