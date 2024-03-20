@@ -4,7 +4,6 @@ import (
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/pkg/errors"
 	go_openai "github.com/sashabaranov/go-openai"
 	"strings"
@@ -79,10 +78,6 @@ func makeCompletionRequest(
 		return nil, errors.New("no openai settings")
 	}
 
-	if openaiSettings.APIKey == nil {
-		return nil, steps.ErrMissingClientAPIKey
-	}
-
 	engine := ""
 
 	chatSettings := settings.Chat
@@ -143,13 +138,19 @@ func makeCompletionRequest(
 	return &req, nil
 }
 
-func makeClient(openaiSettings *openai.Settings) *go_openai.Client {
-	config := go_openai.DefaultConfig(*openaiSettings.APIKey)
-	if openaiSettings.BaseURL != nil {
-		config.BaseURL = *openaiSettings.BaseURL
+func makeClient(apiSettings *settings.APISettings, apiType settings.ApiType) (*go_openai.Client, error) {
+	apiKey, ok := apiSettings.APIKeys[apiType+"-api-key"]
+	if !ok {
+		return nil, errors.Errorf("no API key for %s", apiType)
 	}
+	baseURL, ok := apiSettings.BaseUrls[apiType+"-base-url"]
+	if !ok {
+		return nil, errors.Errorf("no base URL for %s", apiType)
+	}
+	config := go_openai.DefaultConfig(apiKey)
+	config.BaseURL = baseURL
 	client := go_openai.NewClientWithConfig(config)
-	return client
+	return client, nil
 }
 
 func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionMessage {

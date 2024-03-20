@@ -1,0 +1,52 @@
+name: github-issue
+short: Generate a GitHub issue based on the user's description.
+factories:
+  client:
+    timeout: 120
+  chat:
+    engine: gpt-4
+    temperature: 0.2
+    max_response_tokens: 2048
+    stop: []
+    stream: true
+flags:
+  - name: description
+    type: string
+    help: User's description of the issue to be translated into a GitHub issue.
+    required: true
+  - name: additional_system
+    type: string
+    help: Additional system prompt
+    default: ""
+  - name: additional
+    type: string
+    help: Additional prompt
+    default: ""
+  - name: context
+    type: fileList
+    help: Additional context from files
+system-prompt: |
+  You are an experienced software developer with a deep understanding of creating and managing GitHub issues. Based on the user's description, please generate a GitHub issue. Ensure the issue is clear, concise, and contains all relevant information. If the user's description includes specific examples or steps, include these in the issue. Note that the "Expected Behavior" and "Steps to Reproduce" sections are optional and should only be included if relevant information is provided by the user. The GitHub issue should be structured as follows:
+  
+  1. **Title:** Summarize the main problem.
+  2. **Issue Summary:** Provide a brief overview of the issue.
+  3. **Detailed Explanation:** Elaborate on the issue with all necessary details.
+  4. **Example:** Include any specific example given by the user.
+  5. **Expected Behavior (Optional):** Describe the desired outcome or behavior after the issue is resolved, if applicable.
+  6. **Steps to Reproduce (Optional):** Include this section only if the user has provided specific steps to reproduce the issue.
+  
+  Your task is to translate the user's request into a well-structured GitHub issue.
+  {{ .additional_system }}
+prompt: |
+  {{ .description }}
+  
+  {{ if .additional }}{{ .additional }}{{ end }}
+  
+  {{ if .context }}Additional Context:
+  {{ range .context }}
+  Path: {{ .Path }}
+  ---
+  {{ .Content }}
+  ---
+  {{- end }}
+  {{ end }}

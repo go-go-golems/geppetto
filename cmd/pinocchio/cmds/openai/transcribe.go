@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	openai_steps "github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
+	settings2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openai_settings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -120,12 +121,20 @@ func (c *TranscribeCommand) RunIntoGlazeProcessor(
 	openaiSettings := &openai_settings.Settings{}
 	err = parsedLayers.InitializeStruct(openai_settings.OpenAiChatSlug, openaiSettings)
 	cobra.CheckErr(err)
-	if openaiSettings.APIKey == nil || *openaiSettings.APIKey == "" {
-		return errors.New("OpenAI API key is required")
+
+	apiSettings := &settings2.APISettings{}
+	err = parsedLayers.InitializeStruct(openai_settings.OpenAiChatSlug, apiSettings)
+	if err != nil {
+		return err
+	}
+
+	openaiKey, ok := apiSettings.APIKeys[settings2.ApiTypeOpenAI+"-api-key"]
+	if !ok {
+		return errors.New("no openai api key")
 	}
 
 	// Create the TranscriptionClient
-	tc := openai_steps.NewTranscriptionClient(*openaiSettings.APIKey, s.Model, s.Prompt, s.Language, float32(s.Temperature))
+	tc := openai_steps.NewTranscriptionClient(openaiKey, s.Model, s.Prompt, s.Language, float32(s.Temperature))
 
 	var files []string
 	if s.FilePath != "" {

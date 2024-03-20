@@ -12,8 +12,8 @@ require (
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/dave/jennifer v1.7.0
 	github.com/go-go-golems/bobatea v0.0.5
-	github.com/go-go-golems/clay v0.1.7
-	github.com/go-go-golems/glazed v0.5.6
+	github.com/go-go-golems/clay v0.1.9
+	github.com/go-go-golems/glazed v0.5.9
 	github.com/huandu/go-clone v1.7.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
@@ -37,6 +37,11 @@ require (
 require (
 	github.com/charmbracelet/bubbles v0.17.1 // indirect
 	github.com/charmbracelet/lipgloss v0.9.1 // indirect
+	github.com/go-go-golems/sqleton v0.2.4 // indirect
+	github.com/go-sql-driver/mysql v1.7.1 // indirect
+	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/lib/pq v1.10.9 // indirect
+	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	golang.design/x/clipboard v0.7.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20240103183307-be819d1f06fc // indirect
