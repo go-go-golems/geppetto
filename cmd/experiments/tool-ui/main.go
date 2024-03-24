@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/charmbracelet/bubbletea"
 	boba_chat "github.com/go-go-golems/bobatea/pkg/chat"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -32,11 +29,9 @@ type ToolUiCommand struct {
 	*glazed_cmds.CommandDescription
 	stepSettings *settings.StepSettings
 	manager      conversation.Manager
-	logger       watermill.LoggerAdapter
-	pubSub       *gochannel.GoChannel
-	router       *message.Router
 	reflector    *jsonschema.Reflector
 	chatToolStep *openai.ChatToolStep
+	eventRouter  *events.EventRouter
 }
 
 var _ glazed_cmds.GlazeCommand = (*ToolUiCommand)(nil)
@@ -106,42 +101,18 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	defer func(pubSub *gochannel.GoChannel) {
-		err := pubSub.Close()
+	defer func() {
+		err := t.eventRouter.Close()
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to close pubSub")
+			log.Error().Err(err).Msg("Failed to close eventRouter")
 		}
-	}(t.pubSub)
+	}()
 
 	if settings.PrintRawEvents {
-		t.router.AddNoPublisherHandler("raw-events-stdout",
-			"ui",
-			t.pubSub,
-			func(msg *message.Message) error {
-				msg.Ack()
-				var s map[string]interface{}
-				err = json.Unmarshal(msg.Payload, &s)
-				if err != nil {
-					return err
-				}
-				if !settings.Verbose {
-					s["id"] = s["meta"].(map[string]interface{})["message_id"]
-					s["step_type"] = s["step"].(map[string]interface{})["type"]
-					delete(s, "meta")
-					delete(s, "step")
-				}
-				s_, err := json.MarshalIndent(s, "", "  ")
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(s_))
-				return nil
-			},
-		)
+		t.eventRouter.AddHandler("raw-events-stdout", "ui", t.eventRouter.DumpRawEvents)
 	} else {
-		t.router.AddNoPublisherHandler("ui-stdout",
+		t.eventRouter.AddHandler("ui-stdout",
 			"ui",
-			t.pubSub,
 			chat.StepPrinterFunc("UI", os.Stdout),
 		)
 	}
@@ -162,8 +133,8 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 	})
 
 	eg.Go(func() error {
-		ret := t.router.Run(ctx)
-		fmt.Printf("router.Run returned %v\n", ret)
+		ret := t.eventRouter.Run(ctx)
+		fmt.Printf("eventRouter.Run returned %v\n", ret)
 		return nil
 	})
 
@@ -192,12 +163,7 @@ func (t *ToolUiCommand) Init(parsedLayers *layers.ParsedLayers) error {
 			),
 		))
 
-	t.logger = watermill.NopLogger{}
-	t.pubSub = gochannel.NewGoChannel(gochannel.Config{
-		BlockPublishUntilSubscriberAck: true,
-	}, t.logger)
-
-	t.router, err = message.NewRouter(message.RouterConfig{}, t.logger)
+	t.eventRouter, err = events.NewEventRouter()
 	if err != nil {
 		return err
 	}
@@ -221,7 +187,7 @@ func (t *ToolUiCommand) Init(parsedLayers *layers.ParsedLayers) error {
 	if err != nil {
 		return err
 	}
-	err = t.chatToolStep.AddPublishedTopic(t.pubSub, "ui")
+	err = t.chatToolStep.AddPublishedTopic(t.eventRouter.Publisher, "ui")
 	if err != nil {
 		return err
 	}
@@ -229,7 +195,8 @@ func (t *ToolUiCommand) Init(parsedLayers *layers.ParsedLayers) error {
 	return nil
 }
 
-func (t *ToolUiCommand) runWithUi(ctx context.Context,
+func (t *ToolUiCommand) runWithUi(
+	ctx context.Context,
 	parsedLayers *layers.ParsedLayers,
 ) error {
 	err := t.Init(parsedLayers)
@@ -254,16 +221,14 @@ func (t *ToolUiCommand) runWithUi(ctx context.Context,
 	)
 	_ = p
 
-	t.router.AddNoPublisherHandler("ui",
-		"ui", t.pubSub, ui.StepChatForwardFunc(p),
-	)
+	t.eventRouter.AddHandler("ui", "ui", ui.StepChatForwardFunc(p))
 
 	ctx, cancel := context.WithCancel(ctx)
 
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {
-		ret := t.router.Run(ctx)
+		ret := t.eventRouter.Run(ctx)
 		fmt.Printf("router.Run returned %v\n", ret)
 		return nil
 	})

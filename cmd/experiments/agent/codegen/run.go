@@ -166,11 +166,11 @@ var MultiStepCodgenTestCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		scientistStep, err := scientistCommand.CreateStep(
-			chat.WithSubscription(pubSub, "scientist"),
+			chat.WithPublishedTopic(pubSub, "scientist"),
 		)
 		cobra.CheckErr(err)
 		writerStep, err := writerCommand.CreateStep(
-			chat.WithSubscription(pubSub, "writer"),
+			chat.WithPublishedTopic(pubSub, "writer"),
 		)
 		cobra.CheckErr(err)
 

@@ -4,12 +4,10 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	tea "github.com/charmbracelet/bubbletea"
 	bobatea_chat "github.com/go-go-golems/bobatea/pkg/chat"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -268,34 +266,24 @@ func (g *GeppettoCommand) RunIntoWriter(
 		Settings: stepSettings,
 	}
 
-	logger := watermill.NopLogger{}
-	pubSub := gochannel.NewGoChannel(gochannel.Config{
-		// Guarantee that messages are delivered in the order of publishing.
-		BlockPublishUntilSubscriberAck: true,
-	}, logger)
-
-	router, err := message.NewRouter(message.RouterConfig{}, logger)
+	router, err := events.NewEventRouter()
 	if err != nil {
 		return err
 	}
 
-	defer func(pubSub *gochannel.GoChannel) {
-		err := pubSub.Close()
+	defer func() {
+		err := router.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to close pubSub")
 		}
-	}(pubSub)
+	}()
 
-	router.AddNoPublisherHandler("chat",
-		"chat",
-		pubSub,
-		chat.StepPrinterFunc("", w),
-	)
+	router.AddHandler("chat", "chat", chat.StepPrinterFunc("chat", w))
 
 	contextManager := conversation.NewManager()
 
 	var chatStep chat.Step
-	chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "chat"))
+	chatStep, err = stepFactory.NewStep(chat.WithPublishedTopic(router.Publisher, "chat"))
 	if err != nil {
 		return err
 	}
@@ -380,12 +368,12 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 		if continueInChat {
 			stepFactory.Settings.Chat.Stream = true
-			chatStep, err = stepFactory.NewStep(chat.WithSubscription(pubSub, "ui"))
+			chatStep, err = stepFactory.NewStep(chat.WithPublishedTopic(router.Publisher, "ui"))
 			if err != nil {
 				return err
 			}
 
-			err = chat_(ctx, chatStep, router, pubSub, contextManager)
+			err = chat_(ctx, chatStep, router, contextManager)
 			if err != nil {
 				return err
 			}
@@ -462,8 +450,7 @@ func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, err
 func chat_(
 	ctx context.Context,
 	step chat.Step,
-	router *message.Router,
-	pubSub *gochannel.GoChannel,
+	router *events.EventRouter,
 	contextManager conversation.Manager,
 ) error {
 	// switch on streaming for chatting
@@ -493,9 +480,7 @@ func chat_(
 		options...,
 	)
 
-	router.AddNoPublisherHandler("ui",
-		"ui", pubSub,
-		ui.StepChatForwardFunc(p))
+	router.AddHandler("ui", "ui", ui.StepChatForwardFunc(p))
 	err := router.RunHandlers(ctx)
 	if err != nil {
 		return err
