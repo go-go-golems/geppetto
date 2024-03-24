@@ -18,13 +18,13 @@ import (
 type Step struct {
 	Settings            *settings.StepSettings
 	cancel              context.CancelFunc
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 }
 
 func NewStep(settings *settings.StepSettings) *Step {
 	return &Step{
 		Settings:            settings,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 }
 

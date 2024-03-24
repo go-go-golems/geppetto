@@ -7,21 +7,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type SubscriptionManager struct {
-	Subscriptions map[string][]message.Publisher
+type PublisherManager struct {
+	Publishers map[string][]message.Publisher
 }
 
-func NewSubscriptionManager() *SubscriptionManager {
-	return &SubscriptionManager{
-		Subscriptions: make(map[string][]message.Publisher),
+func NewPublisherManager() *PublisherManager {
+	return &PublisherManager{
+		Publishers: make(map[string][]message.Publisher),
 	}
 }
 
-func (s *SubscriptionManager) AddPublishedTopic(topic string, sub message.Publisher) {
-	s.Subscriptions[topic] = append(s.Subscriptions[topic], sub)
+func (s *PublisherManager) AddPublishedTopic(topic string, sub message.Publisher) {
+	s.Publishers[topic] = append(s.Publishers[topic], sub)
 }
 
-func (s *SubscriptionManager) Publish(payload interface{}) error {
+func (s *PublisherManager) Publish(payload interface{}) error {
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -29,7 +29,7 @@ func (s *SubscriptionManager) Publish(payload interface{}) error {
 
 	msg := message.NewMessage(watermill.NewUUID(), b)
 
-	for topic, subs := range s.Subscriptions {
+	for topic, subs := range s.Publishers {
 		for _, sub := range subs {
 			err = sub.Publish(topic, msg)
 			if err != nil {
@@ -41,7 +41,7 @@ func (s *SubscriptionManager) Publish(payload interface{}) error {
 	return nil
 }
 
-func (s *SubscriptionManager) PublishBlind(payload interface{}) {
+func (s *PublisherManager) PublishBlind(payload interface{}) {
 	err := s.Publish(payload)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to publish")

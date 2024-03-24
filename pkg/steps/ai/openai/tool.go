@@ -24,7 +24,7 @@ type ToolCompletionResponse struct {
 type ToolStep struct {
 	Settings            *settings.StepSettings
 	Tools               []go_openai.Tool
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 	parentID            conversation.NodeID
 	messageID           conversation.NodeID
 }
@@ -33,7 +33,7 @@ var _ steps.Step[[]*conversation.Message, ToolCompletionResponse] = (*ToolStep)(
 
 type ToolStepOption func(*ToolStep) error
 
-func WithToolStepSubscriptionManager(subscriptionManager *helpers.SubscriptionManager) ToolStepOption {
+func WithToolStepSubscriptionManager(subscriptionManager *helpers.PublisherManager) ToolStepOption {
 	return func(step *ToolStep) error {
 		step.subscriptionManager = subscriptionManager
 		return nil
@@ -62,7 +62,7 @@ func NewToolStep(
 	ret := &ToolStep{
 		Settings:            stepSettings,
 		Tools:               Tools,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 
 	for _, option := range options {

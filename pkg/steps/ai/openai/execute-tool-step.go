@@ -17,7 +17,7 @@ import (
 
 type ExecuteToolStep struct {
 	Tools               map[string]interface{}
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 	messageID           conversation.NodeID
 	parentID            conversation.NodeID
 }
@@ -26,7 +26,7 @@ var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteTool
 
 type ExecuteToolStepOption func(*ExecuteToolStep) error
 
-func WithExecuteToolStepSubscriptionManager(subscriptionManager *helpers.SubscriptionManager) ExecuteToolStepOption {
+func WithExecuteToolStepSubscriptionManager(subscriptionManager *helpers.PublisherManager) ExecuteToolStepOption {
 	return func(step *ExecuteToolStep) error {
 		step.subscriptionManager = subscriptionManager
 		return nil
@@ -53,7 +53,7 @@ func NewExecuteToolStep(
 ) (*ExecuteToolStep, error) {
 	ret := &ExecuteToolStep{
 		Tools:               tools,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 
 	for _, option := range options {
