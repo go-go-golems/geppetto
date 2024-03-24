@@ -20,7 +20,7 @@ type ChatToolStep struct {
 	toolFunctions       map[string]interface{}
 	tools               []go_openai.Tool
 	stepSettings        *settings.StepSettings
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 }
 
 var _ chat.Step = &ChatToolStep{}
@@ -42,7 +42,7 @@ func WithToolFunctions(toolFunctions map[string]interface{}) ChatToolStepOption 
 func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolStepOption) (*ChatToolStep, error) {
 	step := &ChatToolStep{
 		stepSettings:        stepSettings,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 	for _, option := range options {
 		option(step)

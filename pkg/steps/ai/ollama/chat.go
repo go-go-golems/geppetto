@@ -15,14 +15,14 @@ import (
 type ChatCompletionStep struct {
 	Client              *api.Client
 	Settings            *settings.StepSettings
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 }
 
 func NewChatCompletionStep(client *api.Client, settings *settings.StepSettings) *ChatCompletionStep {
 	return &ChatCompletionStep{
 		Client:              client,
 		Settings:            settings,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 }
 

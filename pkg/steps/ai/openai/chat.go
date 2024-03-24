@@ -17,7 +17,7 @@ var _ steps.Step[conversation.Conversation, string] = &Step{}
 
 type Step struct {
 	Settings            *settings.StepSettings
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 }
 
 func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
@@ -27,7 +27,7 @@ func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) er
 
 type StepOption func(*Step) error
 
-func WithSubscriptionManager(subscriptionManager *helpers.SubscriptionManager) StepOption {
+func WithSubscriptionManager(subscriptionManager *helpers.PublisherManager) StepOption {
 	return func(step *Step) error {
 		step.subscriptionManager = subscriptionManager
 		return nil
@@ -37,7 +37,7 @@ func WithSubscriptionManager(subscriptionManager *helpers.SubscriptionManager) S
 func NewStep(settings *settings.StepSettings, options ...StepOption) (*Step, error) {
 	ret := &Step{
 		Settings:            settings,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 
 	for _, option := range options {

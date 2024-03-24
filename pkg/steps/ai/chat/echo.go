@@ -15,13 +15,13 @@ type EchoStep struct {
 	TimePerCharacter    time.Duration
 	cancel              context.CancelFunc
 	eg                  *errgroup.Group
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *helpers.PublisherManager
 }
 
 func NewEchoStep() *EchoStep {
 	return &EchoStep{
 		TimePerCharacter:    100 * time.Millisecond,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: helpers.NewPublisherManager(),
 	}
 }
 
