@@ -89,7 +89,8 @@ func (e *EventRouter) AddHandler(name string, topic string, f func(msg *message.
 }
 
 func (e *EventRouter) DumpRawEvents(msg *message.Message) error {
-	msg.Ack()
+	defer msg.Ack()
+
 	var s map[string]interface{}
 	err := json.Unmarshal(msg.Payload, &s)
 	if err != nil {
