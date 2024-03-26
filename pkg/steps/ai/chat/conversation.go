@@ -9,8 +9,9 @@ import (
 
 func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error {
 	isFirst := true
+
 	return func(msg *message.Message) error {
-		msg.Ack()
+		defer msg.Ack()
 
 		e, err := NewEventFromJson(msg.Payload)
 

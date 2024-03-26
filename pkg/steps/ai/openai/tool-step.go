@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -20,7 +21,7 @@ type ChatToolStep struct {
 	toolFunctions       map[string]interface{}
 	tools               []go_openai.Tool
 	stepSettings        *settings.StepSettings
-	subscriptionManager *helpers.SubscriptionManager
+	subscriptionManager *events.PublisherManager
 }
 
 var _ chat.Step = &ChatToolStep{}
@@ -42,7 +43,7 @@ func WithToolFunctions(toolFunctions map[string]interface{}) ChatToolStepOption 
 func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolStepOption) (*ChatToolStep, error) {
 	step := &ChatToolStep{
 		stepSettings:        stepSettings,
-		subscriptionManager: helpers.NewSubscriptionManager(),
+		subscriptionManager: events.NewPublisherManager(),
 	}
 	for _, option := range options {
 		option(step)
@@ -150,7 +151,7 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 }
 
 func (t *ChatToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	t.subscriptionManager.AddPublishedTopic(topic, publisher)
+	t.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 

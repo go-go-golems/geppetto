@@ -93,7 +93,7 @@ func (e Event) ToPartialCompletion() (EventPartialCompletion, bool) {
 
 type StepOption func(Step) error
 
-func WithSubscription(publisher message.Publisher, topic string) StepOption {
+func WithPublishedTopic(publisher message.Publisher, topic string) StepOption {
 	return func(step Step) error {
 		err := step.AddPublishedTopic(publisher, topic)
 		if err != nil {
