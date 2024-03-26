@@ -17,6 +17,7 @@ flags:
   - name: openai-logit-bias
     # TODO(manuel, 2023-03-28) We currently only have map[string]string for keyValue, but we need map[string]int
     # See https://github.com/go-go-golems/geppetto/issues/48
+
     type: keyValue
     help: OpenAI chat completion logit bias
     default: {}
