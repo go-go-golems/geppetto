@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/pkg/errors"
@@ -15,13 +16,13 @@ type EchoStep struct {
 	TimePerCharacter    time.Duration
 	cancel              context.CancelFunc
 	eg                  *errgroup.Group
-	subscriptionManager *helpers.PublisherManager
+	subscriptionManager *events.PublisherManager
 }
 
 func NewEchoStep() *EchoStep {
 	return &EchoStep{
 		TimePerCharacter:    100 * time.Millisecond,
-		subscriptionManager: helpers.NewPublisherManager(),
+		subscriptionManager: events.NewPublisherManager(),
 	}
 }
 
@@ -32,7 +33,7 @@ func (e *EchoStep) Interrupt() {
 }
 
 func (e *EchoStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.AddPublishedTopic(topic, publisher)
+	e.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 

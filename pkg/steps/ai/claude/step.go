@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -18,18 +19,18 @@ import (
 type Step struct {
 	Settings            *settings.StepSettings
 	cancel              context.CancelFunc
-	subscriptionManager *helpers.PublisherManager
+	subscriptionManager *events.PublisherManager
 }
 
 func NewStep(settings *settings.StepSettings) *Step {
 	return &Step{
 		Settings:            settings,
-		subscriptionManager: helpers.NewPublisherManager(),
+		subscriptionManager: events.NewPublisherManager(),
 	}
 }
 
 func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	csf.subscriptionManager.AddPublishedTopic(topic, publisher)
+	csf.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 

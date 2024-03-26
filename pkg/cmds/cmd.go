@@ -278,7 +278,7 @@ func (g *GeppettoCommand) RunIntoWriter(
 		}
 	}()
 
-	router.AddHandler("chat", "chat", chat.StepPrinterFunc("chat", w))
+	router.AddHandler("chat", "chat", chat.StepPrinterFunc("", w))
 
 	contextManager := conversation.NewManager()
 
