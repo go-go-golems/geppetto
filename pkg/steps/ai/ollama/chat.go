@@ -3,6 +3,7 @@ package ollama
 import (
 	"context"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -15,14 +16,14 @@ import (
 type ChatCompletionStep struct {
 	Client              *api.Client
 	Settings            *settings.StepSettings
-	subscriptionManager *helpers.PublisherManager
+	subscriptionManager *events.PublisherManager
 }
 
 func NewChatCompletionStep(client *api.Client, settings *settings.StepSettings) *ChatCompletionStep {
 	return &ChatCompletionStep{
 		Client:              client,
 		Settings:            settings,
-		subscriptionManager: helpers.NewPublisherManager(),
+		subscriptionManager: events.NewPublisherManager(),
 	}
 }
 

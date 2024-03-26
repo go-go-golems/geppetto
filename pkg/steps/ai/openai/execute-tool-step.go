@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -17,7 +18,7 @@ import (
 
 type ExecuteToolStep struct {
 	Tools               map[string]interface{}
-	subscriptionManager *helpers.PublisherManager
+	subscriptionManager *events.PublisherManager
 	messageID           conversation.NodeID
 	parentID            conversation.NodeID
 }
@@ -26,7 +27,7 @@ var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteTool
 
 type ExecuteToolStepOption func(*ExecuteToolStep) error
 
-func WithExecuteToolStepSubscriptionManager(subscriptionManager *helpers.PublisherManager) ExecuteToolStepOption {
+func WithExecuteToolStepSubscriptionManager(subscriptionManager *events.PublisherManager) ExecuteToolStepOption {
 	return func(step *ExecuteToolStep) error {
 		step.subscriptionManager = subscriptionManager
 		return nil
@@ -53,7 +54,7 @@ func NewExecuteToolStep(
 ) (*ExecuteToolStep, error) {
 	ret := &ExecuteToolStep{
 		Tools:               tools,
-		subscriptionManager: helpers.NewPublisherManager(),
+		subscriptionManager: events.NewPublisherManager(),
 	}
 
 	for _, option := range options {
@@ -69,7 +70,7 @@ func NewExecuteToolStep(
 var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
 
 func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.AddPublishedTopic(topic, publisher)
+	e.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 
