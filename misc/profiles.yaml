@@ -1,0 +1,7 @@
+test:
+  ai-chat:
+    ai-engine: gpt-4-turbo-preview-yolo
+
+test2:
+  ai-chat:
+    ai-engine: gpt-4-turbo-preview-yolo2
