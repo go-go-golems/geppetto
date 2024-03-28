@@ -53,9 +53,6 @@ func GetCobraCommandGeppettoMiddlewares(
 		return nil, err
 	}
 
-	// TODO(manuel, 2024-03-20) This should maybe rather be done in CobraParser.Parse because
-	// we currently don't parse default values of the commandSettings layer, but really we maybe should?
-	//
 	// TODO(manuel, 2024-03-20) I wonder if we should just use a custom layer for the profiles, as we want to load
 	// the profile from the environment as well. So the sequence would be defaults -> viper -> command line
 	defaultProfileFile := fmt.Sprintf("%s/pinocchio/profiles.yaml", xdgConfigPath)
