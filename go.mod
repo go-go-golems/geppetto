@@ -11,9 +11,9 @@ require (
 	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/dave/jennifer v1.7.0
-	github.com/go-go-golems/bobatea v0.0.5
-	github.com/go-go-golems/clay v0.1.9
-	github.com/go-go-golems/glazed v0.5.10
+	github.com/go-go-golems/bobatea v0.0.7
+	github.com/go-go-golems/clay v0.1.10
+	github.com/go-go-golems/glazed v0.5.12
 	github.com/huandu/go-clone v1.7.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
@@ -37,6 +37,7 @@ require (
 require (
 	github.com/charmbracelet/bubbles v0.17.1 // indirect
 	github.com/charmbracelet/lipgloss v0.9.1 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-go-golems/sqleton v0.2.4 // indirect
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
