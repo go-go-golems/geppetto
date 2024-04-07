@@ -5,7 +5,8 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/charmbracelet/bubbletea"
 	boba_chat "github.com/go-go-golems/bobatea/pkg/chat"
-	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	conversation2 "github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/pkg/errors"
@@ -81,10 +82,10 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			return err
 		}
 
-		metadata := conversation.StreamMetadata{
+		metadata := conversation2.StreamMetadata{
 			ID:       e.Metadata.ID,
 			ParentID: e.Metadata.ParentID,
-			Step: &conversation.StepMetadata{
+			Step: &conversation2.StepMetadata{
 				StepID:     e.Step.StepID,
 				Type:       e.Step.Type,
 				InputType:  e.Step.InputType,
@@ -94,7 +95,7 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 		}
 		switch e.Type {
 		case chat.EventTypeError:
-			p.Send(conversation.StreamCompletionError{
+			p.Send(conversation2.StreamCompletionError{
 				StreamMetadata: metadata,
 				Err:            e.Error,
 			})
@@ -103,7 +104,7 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventPartialCompletionPayload")
 			}
-			p.Send(conversation.StreamCompletionMsg{
+			p.Send(conversation2.StreamCompletionMsg{
 				StreamMetadata: metadata,
 				Delta:          p_.Delta,
 				Completion:     p_.Completion,
@@ -113,7 +114,7 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(conversation.StreamDoneMsg{
+			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
 				Completion:     p_.Text,
 			})
@@ -122,13 +123,13 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(conversation.StreamDoneMsg{
+			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
 				Completion:     p_.Text,
 			})
 
 		case chat.EventTypeStart:
-			p.Send(conversation.StreamStartMsg{
+			p.Send(conversation2.StreamStartMsg{
 				StreamMetadata: metadata,
 			})
 
@@ -137,8 +138,8 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 			if !ok {
 				return errors.New("payload is not of type EventTextPayload")
 			}
-			p.Send(conversation.StreamStatusMsg{
-				StreamMetadata: conversation.StreamMetadata{
+			p.Send(conversation2.StreamStatusMsg{
+				StreamMetadata: conversation2.StreamMetadata{
 					ID:       p_.Metadata.ID,
 					ParentID: p_.Metadata.ParentID,
 				},

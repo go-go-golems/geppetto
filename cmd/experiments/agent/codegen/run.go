@@ -6,7 +6,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
-	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"

@@ -16,7 +16,7 @@ const SettingsPath = "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 const StepsPath = "github.com/go-go-golems/geppetto/pkg/steps"
 const CommandPath = "github.com/go-go-golems/geppetto/pkg/cmds"
 const ContextPath = "github.com/go-go-golems/geppetto/pkg/context"
-const ConversationPath = "github.com/go-go-golems/bobatea/pkg/chat/conversation"
+const ConversationPath = "github.com/go-go-golems/bobatea/pkg/conversation"
 const LayerPath = "github.com/go-go-golems/glazed/pkg/cmds/layers"
 
 type GeppettoCommandCodeGenerator struct {

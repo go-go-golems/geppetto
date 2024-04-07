@@ -1,7 +1,7 @@
 package openai
 
 import (
-	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"

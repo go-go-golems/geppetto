@@ -2,7 +2,7 @@ package codegen
 
 import (
 	context2 "context"
-	"github.com/go-go-golems/bobatea/pkg/chat/conversation"
+	"github.com/go-go-golems/bobatea/pkg/conversation"
 	context "github.com/go-go-golems/geppetto/pkg/context"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
