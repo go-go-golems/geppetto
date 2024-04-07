@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+prompto get geppetto/steps
+
+---
+
+oak go definitions pkg/ui/backend.go
