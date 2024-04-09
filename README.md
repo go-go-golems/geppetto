@@ -97,7 +97,7 @@ as an inspiration.
 Creating your own prompt is easy. Create a yaml file in one of the configure repositories. 
 The directory layout will be mapped to the command verb hierarchy. For example,
 the file `~/.pinocchio/repository/prompts/examples/test.yaml` will be available as the command
-`pinocchio prompts examples test`.
+`pinocchio examples test`.
 
 A prompt description is a yaml file with the following structure, as shown for a prompt
 that can be used to rewrite text in a certain style. After a short description, the
@@ -167,14 +167,14 @@ In addition to prompts, you can define aliases, which are just shortcuts to othe
 prefilled. The resulting yaml file can be placed alongside other commands in one of the configured repositories.
 
 ```shell
-❯ pinocchio prompts examples test --pretend "100 year old explorer" --create-alias old-explorer \
+❯ pinocchio examples test --pretend "100 year old explorer" --create-alias old-explorer \
    | tee ~/.pinochio/repository/prompts/examples/old-explorer.yaml
 name: old-explorer
 aliasFor: test
 flags:
     pretend: 100 year old explorer
 
-❯ pinocchio prompts examples old-explorer
+❯ pinocchio examples old-explorer
 I am 100 years old.
 ```
 
