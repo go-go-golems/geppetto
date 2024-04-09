@@ -74,17 +74,17 @@ repositories:
 You can then start using `pinocchio`:
 
 ```bash
-❯ pinocchio prompts examples test --print-prompt
+❯ pinocchio examples test --print-prompt
 Pretend you are a scientist. What is the age of you?
 
-❯ pinocchio prompts examples test               
+❯ pinocchio examples test               
 
 As a scientist, I do not have an age.
 
-❯ pinocchio prompts examples test --pretend "100 year old explorer" --print-prompt
+❯ pinocchio examples test --pretend "100 year old explorer" --print-prompt
 Pretend you are a 100 year old explorer. What is the age of you?
 
-❯ pinocchio prompts examples test --pretend "100 year old explorer"               
+❯ pinocchio examples test --pretend "100 year old explorer"               
 
 I am 100 years old.
 ```
