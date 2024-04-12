@@ -67,6 +67,8 @@ prompt: |
   Use keywords in the answer, not full sentences.
   {{- end }}
   {{- end }}
+
+  {{ template "context" . }}
   
   {{ if .context}}Additional Context:
   {{ range .context }}
