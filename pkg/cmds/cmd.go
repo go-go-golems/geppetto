@@ -204,9 +204,10 @@ func (g *GeppettoCommand) InitializeContextManager(
 			return err
 		}
 
+		initialPrompt := promptBuffer.String()
 		contextManager.AppendMessages(conversation.NewChatMessage(
 			conversation.RoleUser,
-			promptBuffer.String(),
+			initialPrompt,
 		))
 	}
 
@@ -317,7 +318,13 @@ func (g *GeppettoCommand) RunIntoWriter(
 	eg.Go(func() error {
 		defer cancel()
 
-		m, err := g.Run(ctx, chatStep, contextManager, s, parsedLayers.GetDataMap())
+		// TODO(manuel, 2024-04-26) We really should only pass the default slug here
+		val, present := parsedLayers.Get(layers.DefaultSlug)
+		if !present {
+			return errors.New("could not get default layer")
+		}
+		m, err := g.Run(ctx, chatStep, contextManager, s, val.Parameters.ToMap())
+
 		if err != nil {
 			return err
 		}
