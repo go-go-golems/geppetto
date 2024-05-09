@@ -138,7 +138,7 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 			FS:               os.DirFS(dir),
 			RootDirectory:    ".",
 			RootDocDirectory: "doc",
-			Directory:        dir,
+			WatchDirectory:   dir,
 			Name:             dir,
 			SourcePrefix:     "file",
 		})
