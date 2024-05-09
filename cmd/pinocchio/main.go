@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	clay "github.com/go-go-golems/clay/pkg"
+	edit_command "github.com/go-go-golems/clay/pkg/cmds/edit-command"
 	ls_commands "github.com/go-go-golems/clay/pkg/cmds/ls-commands"
 	"github.com/go-go-golems/clay/pkg/repositories"
 	"github.com/go-go-golems/clay/pkg/sql"
@@ -197,6 +198,31 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 
 	kagiCmd := kagi.RegisterKagiCommands()
 	rootCmd.AddCommand(kagiCmd)
+
+	listCommandsCommand, err := ls_commands.NewListCommandsCommand(allCommands,
+		ls_commands.WithCommandDescriptionOptions(
+			glazed_cmds.WithShort("Commands related to sqleton queries"),
+		),
+	)
+
+	if err != nil {
+		return err
+	}
+	cobraListCommandsCommand, err := sql.BuildCobraCommandWithSqletonMiddlewares(listCommandsCommand)
+	if err != nil {
+		return err
+	}
+	rootCmd.AddCommand(cobraListCommandsCommand)
+
+	editCommandCommand, err := edit_command.NewEditCommand(allCommands)
+	if err != nil {
+		return err
+	}
+	cobraEditCommandCommand, err := sql.BuildCobraCommandWithSqletonMiddlewares(editCommandCommand)
+	if err != nil {
+		return err
+	}
+	rootCmd.AddCommand(cobraEditCommandCommand)
 
 	return nil
 }
