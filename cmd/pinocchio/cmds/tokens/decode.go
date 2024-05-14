@@ -2,10 +2,10 @@ package tokens
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/pkg/errors"
 	"io"
 	"strconv"
 	"strings"
@@ -66,7 +66,7 @@ func (d *DecodeCommand) RunIntoWriter(
 	if codecStr == "" {
 		codecStr, err = getDefaultEncoding(s.Model)
 		if err != nil {
-			return fmt.Errorf("error getting default encoding: %v", err)
+			return errors.Wrap(err, "error getting default encoding")
 		}
 	}
 
@@ -78,14 +78,14 @@ func (d *DecodeCommand) RunIntoWriter(
 	for _, t := range strings.Split(s.Input, " ") {
 		id, err := strconv.Atoi(t)
 		if err != nil {
-			return fmt.Errorf("invalid token id: %s", t)
+			return errors.Errorf("invalid token id: %s", t)
 		}
 		ids = append(ids, uint(id))
 	}
 
 	text, err := codec.Decode(ids)
 	if err != nil {
-		return fmt.Errorf("error decoding: %v", err)
+		return errors.Wrap(err, "error decoding")
 	}
 
 	// Write the result to the provided writer

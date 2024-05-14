@@ -3,8 +3,8 @@ package helpers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	"reflect"
 )
 
@@ -37,7 +37,7 @@ func CallFunctionFromJson(f Callable, jsonArgs interface{}) ([]reflect.Value, er
 
 	// Check if the function is indeed callable
 	if funcType.Kind() != reflect.Func {
-		return nil, fmt.Errorf("provided callable is not a function")
+		return nil, errors.Errorf("provided callable is not a function")
 	}
 
 	// Marshal the provided arguments back to JSON to work with individual arguments
@@ -96,7 +96,7 @@ func GetFunctionParametersJsonSchema(reflector *jsonschema.Reflector, f Callable
 
 	// Check if the function is indeed callable
 	if funcType.Kind() != reflect.Func {
-		return nil, fmt.Errorf("provided callable is not a function")
+		return nil, errors.Errorf("provided callable is not a function")
 	}
 
 	// Handle the case of a single parameter separately
