@@ -6,6 +6,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/pkg/errors"
 	"io"
 )
 
@@ -65,7 +66,7 @@ func (cc *CountCommand) RunIntoWriter(
 	if s.Codec == "" {
 		codecStr, err = getDefaultEncoding(s.Model)
 		if err != nil {
-			return fmt.Errorf("error getting default encoding: %v", err)
+			return errors.Wrap(err, "error getting default encoding")
 		}
 	}
 
@@ -74,7 +75,7 @@ func (cc *CountCommand) RunIntoWriter(
 
 	ids, _, err := codec.Encode(s.Input)
 	if err != nil {
-		return fmt.Errorf("error encoding input: %v", err)
+		return errors.Wrap(err, "error encoding input")
 	}
 
 	count := len(ids)
@@ -83,15 +84,15 @@ func (cc *CountCommand) RunIntoWriter(
 	// print model and encoding
 	_, err = w.Write([]byte(fmt.Sprintf("Model: %s\n", s.Model)))
 	if err != nil {
-		return fmt.Errorf("error writing to output: %v", err)
+		return errors.Wrap(err, "error writing to output")
 	}
 	_, err = w.Write([]byte(fmt.Sprintf("Codec: %s\n", codecStr)))
 	if err != nil {
-		return fmt.Errorf("error writing to output: %v", err)
+		return errors.Wrap(err, "error writing to output")
 	}
 	_, err = w.Write([]byte(fmt.Sprintf("Total tokens: %d\n", count)))
 	if err != nil {
-		return fmt.Errorf("error writing to output: %v", err)
+		return errors.Wrap(err, "error writing to output")
 	}
 
 	return nil

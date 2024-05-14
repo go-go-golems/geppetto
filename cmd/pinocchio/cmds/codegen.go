@@ -7,6 +7,7 @@ import (
 	cmds2 "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/alias"
 	"github.com/go-go-golems/glazed/pkg/cmds/loaders"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"os"
 	"path"
@@ -39,7 +40,7 @@ func NewCodegenCommand() *cobra.Command {
 					return err
 				}
 				if len(cmds_) != 1 {
-					return fmt.Errorf("expected exactly one command, got %d", len(cmds_))
+					return errors.Errorf("expected exactly one command, got %d", len(cmds_))
 				}
 				cmd := cmds_[0].(*cmds.GeppettoCommand)
 

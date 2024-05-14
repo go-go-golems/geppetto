@@ -1,9 +1,9 @@
 package steps
 
 import (
-	"gopkg.in/errgo.v2/fmt/errors"
+	"github.com/pkg/errors"
 )
 
-var ErrMissingClientSettings = errors.Newf("missing client settings")
+var ErrMissingClientSettings = errors.New("missing client settings")
 
-var ErrMissingClientAPIKey = errors.Newf("missing client settings api key")
+var ErrMissingClientAPIKey = errors.New("missing client settings api key")

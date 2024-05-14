@@ -2,7 +2,6 @@ package openai
 
 import (
 	"context"
-	"fmt"
 	openai_steps "github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	settings2 "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openai_settings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -144,7 +143,7 @@ func (c *TranscribeCommand) RunIntoGlazeProcessor(
 		// Read the directory
 		files_, err := os.ReadDir(s.DirPath)
 		if err != nil {
-			return fmt.Errorf("Failed to read the directory: %v", err)
+			return errors.Wrap(err, "Failed to read the directory")
 		}
 
 		for _, file := range files_ {

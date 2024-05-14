@@ -3,9 +3,9 @@ package parse
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/pkg/errors"
 	"github.com/xeipuuv/gojsonschema"
 	"text/template"
 )
@@ -36,7 +36,7 @@ func (v *ValidateJsonStep) Start(ctx context.Context, input string) (steps.StepR
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate json: %v", err)
+		return nil, errors.Wrap(err, "failed to validate json")
 	}
 
 	validationResult := ValidationResult{
@@ -53,12 +53,12 @@ func (v *ValidateJsonStep) Start(ctx context.Context, input string) (steps.StepR
 		// Render using the template
 		tmpl, err := template.New("errorTmpl").Parse(errorTemplateStr)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing the template: %v", err)
+			return nil, errors.Wrap(err, "error parsing the template")
 		}
 		var renderedErrors bytes.Buffer
 		err = tmpl.Execute(&renderedErrors, errorDescriptions)
 		if err != nil {
-			return nil, fmt.Errorf("error rendering the template: %v", err)
+			return nil, errors.Wrap(err, "error rendering the template")
 		}
 		validationResult.ValidationErrors = renderedErrors.String()
 	}

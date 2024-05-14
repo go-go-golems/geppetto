@@ -2,10 +2,10 @@ package tokens
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/pkg/errors"
 	_ "github.com/tiktoken-go/tokenizer"
 	"io"
 	"strconv"
@@ -68,7 +68,7 @@ func (cmd *EncodeCommand) RunIntoWriter(
 	if s.Codec == "" {
 		codecStr, err = getDefaultEncoding(s.Model)
 		if err != nil {
-			return fmt.Errorf("error getting default encoding: %v", err)
+			return errors.Wrap(err, "error getting default encoding")
 		}
 	}
 
@@ -76,7 +76,7 @@ func (cmd *EncodeCommand) RunIntoWriter(
 	codec := getCodec(s.Model, codecStr)
 	ids, _, err := codec.Encode(s.Input)
 	if err != nil {
-		return fmt.Errorf("error encoding: %v", err)
+		return errors.Wrap(err, "error encoding")
 	}
 
 	var textIds []string
@@ -103,7 +103,7 @@ func getDefaultEncoding(model string) (string, error) {
 		codecStr = "r50k_base"
 	}
 	if codecStr == "" {
-		return "", fmt.Errorf("invalid model: %s", model)
+		return "", errors.Errorf("invalid model: %s", model)
 	}
 	return codecStr, nil
 }

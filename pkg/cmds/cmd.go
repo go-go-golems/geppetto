@@ -434,7 +434,7 @@ func (g *GeppettoCommand) askForChatContinuation(continueInChat bool) (bool, err
 			case "y", "Y", "n", "N":
 				return nil
 			default:
-				return fmt.Errorf("please enter 'y' or 'n'")
+				return errors.Errorf("please enter 'y' or 'n'")
 			}
 		},
 	})

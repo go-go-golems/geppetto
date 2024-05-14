@@ -3,7 +3,6 @@ package openai
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	openai2 "github.com/sashabaranov/go-openai"
 )
@@ -128,12 +128,12 @@ func (e *ExecuteToolStep) Start(
 		if tool == nil {
 			e.subscriptionManager.PublishBlind(&chat.Event{
 				Type:     chat.EventTypeError,
-				Error:    fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				Error:    errors.Errorf("could not find tool %s", toolCall.Function.Name),
 				Metadata: metadata,
 				Step:     stepMetadata,
 			})
 			return steps.Reject[map[string]interface{}](
-				fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				errors.Errorf("could not find tool %s", toolCall.Function.Name),
 				steps.WithMetadata[map[string]interface{}](stepMetadata),
 			), nil
 		}
@@ -143,7 +143,7 @@ func (e *ExecuteToolStep) Start(
 		if err != nil {
 			e.subscriptionManager.PublishBlind(&chat.Event{
 				Type:     chat.EventTypeError,
-				Error:    fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				Error:    errors.Errorf("could not find tool %s", toolCall.Function.Name),
 				Metadata: metadata,
 				Step:     stepMetadata,
 			})
@@ -157,7 +157,7 @@ func (e *ExecuteToolStep) Start(
 		if err != nil {
 			e.subscriptionManager.PublishBlind(&chat.Event{
 				Type:     chat.EventTypeError,
-				Error:    fmt.Errorf("could not find tool %s", toolCall.Function.Name),
+				Error:    errors.Errorf("could not find tool %s", toolCall.Function.Name),
 				Metadata: metadata,
 				Step:     stepMetadata,
 			})

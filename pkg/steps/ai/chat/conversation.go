@@ -3,6 +3,7 @@ package chat
 import (
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/pkg/errors"
 	"io"
 	"strings"
 )
@@ -21,7 +22,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 		case EventTypePartial:
 			p_, ok := e.ToPartialCompletion()
 			if !ok {
-				return fmt.Errorf("Invalid payload type")
+				return errors.New("Invalid payload type")
 			}
 			if isFirst && name != "" {
 				isFirst = false
@@ -37,7 +38,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 		case EventTypeFinal:
 			p_, ok := e.ToText()
 			if !ok {
-				return fmt.Errorf("Invalid payload type")
+				return errors.New("Invalid payload type")
 			}
 			if !strings.HasSuffix(p_.Text, "\n") {
 				_, err = w.Write([]byte("\n"))
