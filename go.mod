@@ -12,8 +12,8 @@ require (
 	github.com/charmbracelet/glamour v0.6.1-0.20230531150759-6d5b52861a9d
 	github.com/dave/jennifer v1.7.0
 	github.com/go-go-golems/bobatea v0.0.7
-	github.com/go-go-golems/clay v0.1.10
-	github.com/go-go-golems/glazed v0.5.12
+	github.com/go-go-golems/clay v0.1.14
+	github.com/go-go-golems/glazed v0.5.15
 	github.com/huandu/go-clone v1.7.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
@@ -30,19 +30,16 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.6.0
 	golang.org/x/sync v0.6.0
-	gopkg.in/errgo.v2 v2.1.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/alecthomas/assert/v2 v2.2.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.7.0 // indirect
 	github.com/charmbracelet/bubbles v0.17.1 // indirect
 	github.com/charmbracelet/lipgloss v0.10.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-go-golems/sqleton v0.2.4 // indirect
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
@@ -51,7 +48,7 @@ require (
 	golang.org/x/exp/shiny v0.0.0-20240103183307-be819d1f06fc // indirect
 	golang.org/x/image v0.14.0 // indirect
 	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
 )
 
 require (
@@ -89,7 +86,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.25 // indirect
@@ -122,9 +119,9 @@ require (
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	github.com/yuin/goldmark-emoji v1.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.11.3 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
-	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
