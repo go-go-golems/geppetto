@@ -22,7 +22,7 @@ build:
 	go build ./...
 
 goreleaser:
-	goreleaser release --skip=sign --snapshot --clean
+	goreleaser release --skip-sign --snapshot --rm-dist
 
 tag-major:
 	git tag $(shell svu major)
