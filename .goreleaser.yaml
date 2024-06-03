@@ -22,8 +22,8 @@ builds:
       # this requires the installation of the osx cross compiler
       # (see the release.yml setup)
       # git clone https://github.com/plentico/osxcross-target.git /home/runner/work/osxcross/target
-      - CC=/home/runner/work/osxcross/target/bin/o64-clang
-      - CXX=/home/runner/work/osxcross/target/bin/o64-clang++
+      - CC={{ if eq .Env.ENABLE_OSXCROSS "1" }}/home/runner/work/osxcross/target/bin/o64-clang{{ end }}
+      - CXX={{ if eq .Env.ENABLE_OSXCROSS "1" }}/home/runner/work/osxcross/target/bin/o64-clang++{{ end }}
     main: ./cmd/pinocchio
     binary: pinocchio
     goos:
