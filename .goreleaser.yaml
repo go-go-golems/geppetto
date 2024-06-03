@@ -19,6 +19,11 @@ builds:
   - id: darwin-build
     env:
       - CGO_ENABLED=1
+      # this requires the installation of the osx cross compiler
+      # (see the release.yml setup)
+      # git clone https://github.com/plentico/osxcross-target.git /home/runner/work/osxcross/target
+      - CC=/home/runner/work/osxcross/target/bin/o64-clang
+      - CXX=/home/runner/work/osxcross/target/bin/o64-clang++
     main: ./cmd/pinocchio
     binary: pinocchio
     goos:
