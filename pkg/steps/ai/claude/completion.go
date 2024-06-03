@@ -126,7 +126,7 @@ func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
 // Event represents a server-sent event.
 type Event struct {
 	Data  string
-	Event string
+	Event string // message_start
 	ID    string
 	Retry int
 }
