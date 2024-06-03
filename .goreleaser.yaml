@@ -7,8 +7,7 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - id: linux-build
-    env:
+  - env:
       - CGO_ENABLED=0
     main: ./cmd/pinocchio
     binary: pinocchio
@@ -16,27 +15,7 @@ builds:
       - linux
 # I am not able to test windows at the time
 #      - windows
-  - id: darwin-build
-    env:
-      - CGO_ENABLED=1
-      # this requires the installation of the osx cross compiler
-      # (see the release.yml setup)
-      # git clone https://github.com/plentico/osxcross-target.git /home/runner/work/osxcross/target
-      - >-
-        {{- if and (index .Env "ENABLE_OSXCROSS") (eq .Env.ENABLE_OSXCROSS "1") }}
-          CC=/home/runner/work/osxcross/target/bin/o64-clang
-        {{- end }}
-      - >-
-        {{- if and (index .Env "ENABLE_OSXCROSS") (eq .Env.ENABLE_OSXCROSS "1") }}
-          CXX=/home/runner/work/osxcross/target/bin/o64-clang++
-        {{- end }}
-    main: ./cmd/pinocchio
-    binary: pinocchio
-    goos:
       - darwin
-    goarch:
-      - arm64
-      - amd64
 checksum:
   name_template: 'checksums.txt'
 snapshot:
