@@ -7,7 +7,8 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - env:
+  - id: linux-build
+    env:
       - CGO_ENABLED=0
     main: ./cmd/pinocchio
     binary: pinocchio
@@ -15,7 +16,16 @@ builds:
       - linux
 # I am not able to test windows at the time
 #      - windows
+  - id: darwin-build
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/pinocchio
+    binary: pinocchio
+    goos:
       - darwin
+    goarch:
+      - arm64
+      - amd64
 checksum:
   name_template: 'checksums.txt'
 snapshot:
