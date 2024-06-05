@@ -16,7 +16,8 @@ import (
 	go_openai "github.com/sashabaranov/go-openai"
 )
 
-type ChatToolStep struct {
+// ChatExecuteToolStep combines a chat step with a tool execution step.
+type ChatExecuteToolStep struct {
 	reflector           *jsonschema.Reflector
 	toolFunctions       map[string]interface{}
 	tools               []go_openai.Tool
@@ -24,24 +25,26 @@ type ChatToolStep struct {
 	subscriptionManager *events.PublisherManager
 }
 
-var _ chat.Step = &ChatToolStep{}
+var _ chat.Step = &ChatExecuteToolStep{}
 
-type ChatToolStepOption func(step *ChatToolStep)
+type ChatToolStepOption func(step *ChatExecuteToolStep)
 
+// WithReflector sets the JSON schema reflector for the step.
 func WithReflector(reflector *jsonschema.Reflector) ChatToolStepOption {
-	return func(step *ChatToolStep) {
+	return func(step *ChatExecuteToolStep) {
 		step.reflector = reflector
 	}
 }
 
+// WithToolFunctions sets the tool functions for the step. The schema is derived from these functions using the reflector.
 func WithToolFunctions(toolFunctions map[string]interface{}) ChatToolStepOption {
-	return func(step *ChatToolStep) {
+	return func(step *ChatExecuteToolStep) {
 		step.toolFunctions = toolFunctions
 	}
 }
 
-func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolStepOption) (*ChatToolStep, error) {
-	step := &ChatToolStep{
+func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolStepOption) (*ChatExecuteToolStep, error) {
+	step := &ChatExecuteToolStep{
 		stepSettings:        stepSettings,
 		subscriptionManager: events.NewPublisherManager(),
 	}
@@ -72,7 +75,7 @@ func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolSte
 	return step, nil
 }
 
-func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
+func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
 	cancellableCtx, cancel := context.WithCancel(ctx)
 	go func() {
 		<-ctx.Done()
@@ -89,17 +92,17 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 		parentID = parentMessage.ID
 	}
 
-	toolStep, err := NewToolStep(
+	chatWithToolsStep, err := NewChatWithToolsStep(
 		t.stepSettings, t.tools,
-		WithToolStepParentID(parentID),
-		WithToolStepMessageID(toolCompletionMessageID),
-		WithToolStepSubscriptionManager(t.subscriptionManager),
+		WithChatWithToolsStepParentID(parentID),
+		WithChatWithToolsStepMessageID(toolCompletionMessageID),
+		WithChatWithToolsStepSubscriptionManager(t.subscriptionManager),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	toolResult, err := toolStep.Start(cancellableCtx, input)
+	toolResult, err := chatWithToolsStep.Start(cancellableCtx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -150,9 +153,9 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 	return stringResult, nil
 }
 
-func (t *ChatToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (t *ChatExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	t.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 
-var _ chat.Step = &ChatToolStep{}
+var _ chat.Step = &ChatExecuteToolStep{}

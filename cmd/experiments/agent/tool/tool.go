@@ -98,7 +98,7 @@ var ToolCallCmd = &cobra.Command{
 		fmt.Printf("getWeatherJsonSchema:\n%s\n\n", s)
 
 		// LLM completion step
-		step := &openai.ToolStep{
+		step := &openai.ChatWithToolsStep{
 			Settings: stepSettings,
 			Tools: []go_openai.Tool{{
 				Type: "function",
