@@ -14,29 +14,29 @@ import (
 	"io"
 )
 
-var _ steps.Step[conversation.Conversation, string] = &Step{}
+var _ steps.Step[conversation.Conversation, string] = &ChatStep{}
 
-type Step struct {
+type ChatStep struct {
 	Settings         *settings.StepSettings
 	publisherManager *events.PublisherManager
 }
 
-func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (csf *ChatStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	csf.publisherManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 
-type StepOption func(*Step) error
+type StepOption func(*ChatStep) error
 
 func WithSubscriptionManager(subscriptionManager *events.PublisherManager) StepOption {
-	return func(step *Step) error {
+	return func(step *ChatStep) error {
 		step.publisherManager = subscriptionManager
 		return nil
 	}
 }
 
-func NewStep(settings *settings.StepSettings, options ...StepOption) (*Step, error) {
-	ret := &Step{
+func NewStep(settings *settings.StepSettings, options ...StepOption) (*ChatStep, error) {
+	ret := &ChatStep{
 		Settings:         settings,
 		publisherManager: events.NewPublisherManager(),
 	}
@@ -51,7 +51,7 @@ func NewStep(settings *settings.StepSettings, options ...StepOption) (*Step, err
 	return ret, nil
 }
 
-func (csf *Step) Start(
+func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (steps.StepResult[string], error) {

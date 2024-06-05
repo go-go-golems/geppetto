@@ -30,7 +30,7 @@ type ToolUiCommand struct {
 	stepSettings *settings.StepSettings
 	manager      conversation.Manager
 	reflector    *jsonschema.Reflector
-	chatToolStep *openai.ChatToolStep
+	chatToolStep *openai.ChatExecuteToolStep
 	eventRouter  *events.EventRouter
 }
 

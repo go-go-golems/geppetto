@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func GetToolCallDelta(toolCalls []go_openai.ToolCall) string {
+func GetToolCallString(toolCalls []go_openai.ToolCall) string {
 	msg := ""
 	for _, call := range toolCalls {
 		msg += call.Function.Name
@@ -154,13 +154,17 @@ func makeClient(apiSettings *settings.APISettings, apiType settings.ApiType) (*g
 }
 
 func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionMessage {
-	// TODO(manuel, 2024-01-13) This is where we could have a proper tool call chat content
 	switch content := msg.Content.(type) {
 	case *conversation.ChatMessageContent:
 		res := go_openai.ChatCompletionMessage{
 			Role:    string(content.Role),
 			Content: content.Text,
 		}
+
+		// TODO(manuel, 2024-06-04) This should actually pass in a ToolUse content in the conversation
+		// This is how claude expects it, and I also added a comment to ContentType's definition in message.go
+		//
+		// NOTE(manuel, 2024-06-04) It seems that these metadata keys are never set anywhere anyway
 		metadata := msg.Metadata
 		if metadata != nil {
 			functionCall := metadata["function_call"]
@@ -178,6 +182,21 @@ func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionM
 				res.ToolCallID = toolCallID_
 			}
 		}
+		return res
+
+	case *conversation.ToolUseContent:
+		res := go_openai.ChatCompletionMessage{
+			Role:    string(conversation.RoleUser),
+			Content: string(content.Result),
+			FunctionCall: &go_openai.FunctionCall{
+				Name:      content.Name,
+				Arguments: string(content.Input),
+			},
+			// TODO(manuel, 2024-06-04) Not sure what the tool calls list is here. Maybe for multi tool calls?
+			ToolCalls:  []go_openai.ToolCall{},
+			ToolCallID: content.ToolID,
+		}
+
 		return res
 	}
 

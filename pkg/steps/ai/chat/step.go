@@ -33,18 +33,25 @@ type Event struct {
 type EventText struct {
 	Event
 	Text string `json:"text"`
+	// TODO(manuel, 2024-06-04) Add ToolCall information here, and potentially multiple responses (see the claude API that allows multiple content blocks)
+	// This is currently stored in the metadata uder the MetadataToolCallsSlug (see chat-with-tools-step.go in openai)
 }
 
 type EventPartialCompletion struct {
 	Event
-	Delta      string `json:"delta"`
+	Delta string `json:"delta"`
+	// This is the complete completion string so far (when using openai, this is currently also the toolcall json)
 	Completion string `json:"completion"`
+	// TODO(manuel, 2024-06-04) This might need partial tool completion if it is of interest, this is less important than adding tool call information to the result above
 }
 
 type ToolCall struct {
 	Name      string `json:"name"`
 	Arguments string `json:"arguments"`
 }
+
+// MetadataToolCallsSlug is the slug used to store ToolCall metadata as returned by the openai API
+const MetadataToolCallsSlug = "tool-calls"
 
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
