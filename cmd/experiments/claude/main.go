@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"os"
 	"strings"
 )
@@ -13,16 +13,42 @@ func main() {
 	// Set up the Claude API client
 	apiKey := os.Getenv("CLAUDE_API_KEY")
 	baseURL := "https://api.anthropic.com"
-	client := claude.NewClient(apiKey, baseURL)
+	client := api.NewClient(apiKey, baseURL)
 
 	// Prepare the message request
-	req := &claude.MessageRequest{
+	req := &api.MessageRequest{
 		Model: "claude-3-sonnet-20240229",
-		Messages: []claude.Message{
+		Messages: []api.Message{
 			{
 				Role: "user",
 				// TODO(manuel, 2024-06-03) Find a better way to ensure that this is always a list (even though it can be a string in the response? maybe we don't need to care at all)
-				Content: []claude.Content{claude.NewTextContent("Hello, Claude! How are you doing today?")},
+				Content: []api.Content{api.NewTextContent("Hello, Claude! Please check my spelling on this sentiment filled sentence.")},
+			},
+		},
+		Tools: []api.Tool{
+			{
+				Name: "spellcheck",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"text": map[string]interface{}{
+							"type": "string",
+						},
+					},
+					"required": []string{"text"},
+				},
+			},
+			{
+				Name: "sentiment",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"text": map[string]interface{}{
+							"type": "string",
+						},
+					},
+					"required": []string{"text"},
+				},
 			},
 		},
 		MaxTokens: 100,
@@ -41,53 +67,53 @@ func main() {
 	fmt.Println("Streaming response:")
 	var response string
 	for event := range events {
+		fmt.Println("Type: ", event.Type)
 		switch event.Type {
-		case "message_start":
-			fmt.Println("Assistant: ")
-		case "content_block_start":
-			fmt.Println()
-		case "content_block_delta":
-			delta, ok := event.Delta.(map[string]interface{})
-			if !ok {
-				fmt.Printf("Error: invalid delta type: %T\n", event.Delta)
+		case api.PingType:
+			fmt.Println("Ping")
+		case api.MessageStartType:
+			if event.Message == nil {
+				fmt.Println("Error: message is nil")
 				continue
 			}
-			deltaType, ok := delta["type"].(string)
-			if !ok {
-				fmt.Printf("Error: invalid delta type: %v\n", delta["type"])
+			s, err := json.MarshalIndent(event.Message, "", "  ")
+			if err != nil {
+				fmt.Printf("Error: failed to marshal message: %v\n", err)
 				continue
 			}
+			fmt.Println(string(s))
+		case api.ContentBlockStartType:
+			if event.ContentBlock == nil {
+				fmt.Println("Error: content block is nil")
+				continue
+			}
+			s, err := json.MarshalIndent(event.ContentBlock, "", "  ")
+			if err != nil {
+				fmt.Printf("Error: failed to marshal content block: %v\n", err)
+				continue
+			}
+			fmt.Println(string(s))
+
+		case api.ContentBlockDeltaType:
+			if event.Delta == nil {
+				fmt.Println("Error: delta is nil")
+				continue
+			}
+			delta := event.Delta
+			deltaType := event.Delta.Type
 			switch deltaType {
-			case "text_delta":
-				text, ok := delta["text"].(string)
-				if !ok {
-					fmt.Printf("Error: invalid text delta: %v\n", delta["text"])
-					continue
-				}
-				fmt.Print(text)
-				response += text
-			case "input_json_delta":
-				partialJSON, ok := delta["partial_json"].(string)
-				if !ok {
-					fmt.Printf("Error: invalid input JSON delta: %v\n", delta["partial_json"])
-					continue
-				}
-				fmt.Print(partialJSON)
-				response += partialJSON
+			case api.TextDeltaType:
+				fmt.Println(delta.Text)
+				response += delta.Text
+			case api.InputJSONDeltaType:
+				fmt.Println(delta.PartialJSON)
+				response += delta.PartialJSON
 			default:
 				fmt.Printf("Unknown delta type: %s\n", deltaType)
 			}
-		case "content_block_stop":
-			contentBlockStop := make(map[string]interface{})
-			contentBlockStop["type"] = "content_block_stop"
-			contentBlockStop["index"] = event.Index
-			jsonBytes, err := json.MarshalIndent(contentBlockStop, "", "  ")
-			if err != nil {
-				fmt.Printf("Error: failed to marshal content_block_stop: %v\n", err)
-				continue
-			}
-			fmt.Printf("\n%s\n", string(jsonBytes))
-		case "message_delta":
+		case api.ContentBlockStopType:
+			fmt.Println()
+		case api.MessageDeltaType:
 			messageDelta := make(map[string]interface{})
 			messageDelta["type"] = "message_delta"
 			messageDelta["delta"] = event.Delta
@@ -100,11 +126,12 @@ func main() {
 				continue
 			}
 			fmt.Printf("\n%s\n", string(jsonBytes))
-		case "message_stop":
+		case api.MessageStopType:
 			fmt.Println()
 		default:
 			fmt.Printf("Unknown event type: %s\n", event.Type)
 		}
+		fmt.Println("---")
 	}
 	fmt.Println()
 

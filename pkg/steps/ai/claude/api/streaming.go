@@ -1,4 +1,4 @@
-package claude
+package api
 
 import (
 	"bufio"
@@ -10,27 +10,42 @@ import (
 	"strings"
 )
 
+type StreamingEventType string
+
+const (
+	PingType              StreamingEventType = "ping"
+	MessageStartType      StreamingEventType = "message_start"
+	ContentBlockStartType StreamingEventType = "content_block_start"
+	ContentBlockDeltaType StreamingEventType = "content_block_delta"
+	ContentBlockStopType  StreamingEventType = "content_block_stop"
+	MessageDeltaType      StreamingEventType = "message_delta"
+	MessageStopType       StreamingEventType = "message_stop"
+	ErrorType             StreamingEventType = "error"
+)
+
+type StreamingDeltaType string
+
+const (
+	TextDeltaType      StreamingDeltaType = "text_delta"
+	InputJSONDeltaType StreamingDeltaType = "input_json_delta"
+)
+
 type StreamingEvent struct {
-	Type    string           `json:"type"`
-	Message *MessageResponse `json:"message,omitempty"`
-	Delta   interface{}      `json:"delta,omitempty"`
-	Error   *Error           `json:"error,omitempty"`
-	Index   int              `json:"index,omitempty"`
+	Type         StreamingEventType `json:"type"`
+	Message      *MessageResponse   `json:"message,omitempty"`
+	Delta        *Delta             `json:"delta,omitempty"`
+	Error        *Error             `json:"error,omitempty"`
+	Index        int                `json:"index,omitempty"`
+	Usage        *Usage             `json:"usage,omitempty"`
+	ContentBlock *ContentBlock      `json:"content_block,omitempty"`
 }
 
-type StreamingContent struct {
-	Type     string      `json:"type"`
-	Text     string      `json:"text,omitempty"`
-	ToolUse  *ToolUse    `json:"tool_use,omitempty"`
-	Index    int         `json:"index,omitempty"`
-	Delta    interface{} `json:"delta,omitempty"`
-	ToolName string      `json:"name,omitempty"`
-	Input    interface{} `json:"input,omitempty"`
-}
-
-type ToolUse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type ContentBlock struct {
+	Type  string                 `json:"type"`
+	ID    string                 `json:"id,omitempty"`
+	Name  string                 `json:"name,omitempty"`
+	Input map[string]interface{} `json:"input,omitempty"`
+	Text  string                 `json:"text,omitempty"`
 }
 
 type Error struct {
@@ -38,14 +53,19 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+type Delta struct {
+	Type         StreamingDeltaType `json:"type"`
+	Text         string             `json:"text,omitempty"`
+	PartialJSON  string             `json:"partial_json"`
+	StopReason   string             `json:"stop_reason,omitempty"`
+	StopSequence string             `json:"stop_sequence,omitempty"`
+}
+
 type TextDelta struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
 }
 
 type InputJSONDelta struct {
-	Type        string `json:"type"`
-	PartialJSON string `json:"partial_json"`
+	Type string `json:"type"`
 }
 
 func streamEvents(ctx context.Context, resp *http.Response, events chan StreamingEvent) {

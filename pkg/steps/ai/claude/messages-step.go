@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -16,40 +17,41 @@ import (
 	"strings"
 )
 
-type Step struct {
+type MessagesStep struct {
 	Settings            *settings.StepSettings
 	cancel              context.CancelFunc
 	subscriptionManager *events.PublisherManager
 }
 
-func NewStep(settings *settings.StepSettings) *Step {
-	return &Step{
+func NewStep(settings *settings.StepSettings) *MessagesStep {
+	return &MessagesStep{
 		Settings:            settings,
 		subscriptionManager: events.NewPublisherManager(),
 	}
 }
 
-func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (csf *MessagesStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	csf.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 
-func (csf *Step) Interrupt() {
+func (csf *MessagesStep) Interrupt() {
 	if csf.cancel != nil {
 		csf.cancel()
 	}
 }
 
-var _ chat.Step = &Step{}
+var _ chat.Step = &MessagesStep{}
 
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
 }
 
-func (csf *Step) Start(
+func (csf *MessagesStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (steps.StepResult[string], error) {
+	// TODO(manuel, 2024-06-04) I think this can be removed now?
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
 	}
@@ -96,7 +98,7 @@ func (csf *Step) Start(
 		return nil, errors.Errorf("no base URL for %s", apiType)
 	}
 
-	client := NewClient(apiKey, baseURL)
+	client := api.NewClient(apiKey, baseURL)
 
 	engine := ""
 
@@ -142,7 +144,7 @@ func (csf *Step) Start(
 	stopSequences := []string{}
 	stopSequences = append(stopSequences, chatSettings.Stop...)
 
-	req := Request{
+	req := api.Request{
 		Model:             engine,
 		Prompt:            prompt,
 		MaxTokensToSample: maxTokens,
