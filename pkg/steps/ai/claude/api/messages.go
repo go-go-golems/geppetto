@@ -1,4 +1,4 @@
-package claude
+package api
 
 import (
 	"bytes"
@@ -35,41 +35,8 @@ type Tool struct {
 
 // Message represents a single message in the conversation.
 type Message struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content"` // Can be a string or an array of content blocks
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface for Message.
-func (m *Message) UnmarshalJSON(data []byte) error {
-	var rawMessage struct {
-		Role    string          `json:"role"`
-		Content json.RawMessage `json:"content"`
-	}
-
-	err := json.Unmarshal(data, &rawMessage)
-	if err != nil {
-		return err
-	}
-
-	m.Role = rawMessage.Role
-
-	// Try to unmarshal content as a string
-	var contentString string
-	err = json.Unmarshal(rawMessage.Content, &contentString)
-	if err == nil {
-		m.Content = contentString
-		return nil
-	}
-
-	// Try to unmarshal content as a []Content
-	var contentBlocks []Content
-	err = json.Unmarshal(rawMessage.Content, &contentBlocks)
-	if err == nil {
-		m.Content = contentBlocks
-		return nil
-	}
-
-	return errors.New("invalid content format")
+	Role    string    `json:"role"`
+	Content []Content `json:"content"` // Can be a string or an array of content blocks
 }
 
 // MessageResponse represents the Messages API response payload.
@@ -84,47 +51,57 @@ type MessageResponse struct {
 	Usage        Usage     `json:"usage"`
 }
 
+type ContentType string
+
+const (
+	ContentTypeText    ContentType = "text"
+	ContentTypeImage   ContentType = "image"
+	ContentTypeToolUse ContentType = "tool_use"
+)
+
 // Content represents a single block of content, which can be of various types.
 type Content struct {
-	Type    string          `json:"type"`
+	Type    ContentType     `json:"type"`
 	Text    *string         `json:"text,omitempty"`
 	Image   *ImageContent   `json:"image,omitempty"`
 	ToolUse *ToolUseContent `json:"tool_use,omitempty"`
 }
 
 // MarshalJSON implements the json.Marshaler interface for Content.
+// NOTE(manuel, 2024-06-04) Not sure if this isn't actually taken care of mostly by the Content struct
+// But at least it does add the validation of potential nil values at serialization time.
 func (c Content) MarshalJSON() ([]byte, error) {
 	switch c.Type {
-	case "text":
+	case ContentTypeText:
 		if c.Text == nil {
 			return nil, errors.New("text content is nil")
 		}
 		return json.Marshal(struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type ContentType `json:"type"`
+			Text string      `json:"text"`
 		}{
 			Type: c.Type,
 			Text: *c.Text,
 		})
 
-	case "image":
+	case ContentTypeImage:
 		if c.Image == nil {
 			return nil, errors.New("image content is nil")
 		}
 		return json.Marshal(struct {
-			Type  string       `json:"type"`
+			Type  ContentType  `json:"type"`
 			Image ImageContent `json:"image"`
 		}{
 			Type:  c.Type,
 			Image: *c.Image,
 		})
 
-	case "tool_use":
+	case ContentTypeToolUse:
 		if c.ToolUse == nil {
 			return nil, errors.New("tool use content is nil")
 		}
 		return json.Marshal(struct {
-			Type    string         `json:"type"`
+			Type    ContentType    `json:"type"`
 			ToolUse ToolUseContent `json:"tool_use"`
 		}{
 			Type:    c.Type,
