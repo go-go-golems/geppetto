@@ -27,7 +27,9 @@ type Event struct {
 	Error    error               `json:"error,omitempty"`
 	Metadata EventMetadata       `json:"meta,omitempty"`
 	Step     *steps.StepMetadata `json:"step,omitempty"`
-	payload  []byte
+
+	// store payload if the event was deserialized from JSON (see NewEventFromJson), not further used
+	payload []byte
 }
 
 type EventText struct {
@@ -42,6 +44,7 @@ type EventPartialCompletion struct {
 	Delta string `json:"delta"`
 	// This is the complete completion string so far (when using openai, this is currently also the toolcall json)
 	Completion string `json:"completion"`
+
 	// TODO(manuel, 2024-06-04) This might need partial tool completion if it is of interest, this is less important than adding tool call information to the result above
 }
 

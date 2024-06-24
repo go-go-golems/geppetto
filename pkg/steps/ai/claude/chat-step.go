@@ -156,9 +156,6 @@ func (csf *ChatStep) Start(
 		return steps.Reject[api.MessageResponse](err), nil
 	}
 
-	if err != nil {
-		return steps.Reject[api.MessageResponse](err), nil
-	}
 	c := make(chan helpers2.Result[api.MessageResponse])
 	ret := steps.NewStepResult[api.MessageResponse](
 		c,
@@ -203,7 +200,7 @@ func (csf *ChatStep) Start(
 
 					response := completionMerger.Response()
 
-					c <- helpers2.NewValueResult[api.MessageResponse](response)
+					c <- helpers2.NewValueResult[api.MessageResponse](*response)
 					return
 				}
 
@@ -228,33 +225,6 @@ func (csf *ChatStep) Start(
 	return ret, nil
 }
 
-type ContentBlockMerger struct {
-	metadata     chat.EventMetadata
-	stepMetadata *steps.StepMetadata
-}
-
-func NewContentBlockMerger(metadata chat.EventMetadata, stepMetadata *steps.StepMetadata) *ContentBlockMerger {
-	return &ContentBlockMerger{
-		metadata:     metadata,
-		stepMetadata: stepMetadata,
-	}
-}
-
-// Text returns the accumulated main response so far. In the claude case, this is the concatenated list of all the individual text blocks so far
-func (cbm *ContentBlockMerger) Text() string {
-	panic("Not implemented!")
-}
-
-func (cbm *ContentBlockMerger) Response() api.MessageResponse {
-	panic("Not implemented!")
-}
-
-func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartialCompletion, error) {
-	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
-	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
-	panic("Not implemented!")
-}
-
 func (csf *ChatStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	csf.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
@@ -268,10 +238,7 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 		res := api.Message{
 			Role: string(content.Role),
 			Content: []api.Content{
-				{
-					Type: api.ContentTypeText,
-					Text: helpers.StringPointer(content.Text),
-				},
+				api.NewTextContent(content.Text),
 			},
 		}
 		return res
@@ -281,15 +248,7 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 		res := api.Message{
 			Role: string(conversation.RoleUser),
 			Content: []api.Content{
-				{
-					Type: api.ContentTypeToolUse,
-					ToolUse: &api.ToolUseContent{
-						ID:     content.ToolID,
-						Name:   content.Name,
-						Input:  content.Input,
-						Result: helpers.StringPointer(string(content.Result)),
-					},
-				},
+				api.NewToolUseContent(content.ToolID, content.Name, content.Input),
 			},
 		}
 		return res

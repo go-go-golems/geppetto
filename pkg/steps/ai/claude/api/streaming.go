@@ -41,11 +41,11 @@ type StreamingEvent struct {
 }
 
 type ContentBlock struct {
-	Type  string                 `json:"type"`
-	ID    string                 `json:"id,omitempty"`
-	Name  string                 `json:"name,omitempty"`
-	Input map[string]interface{} `json:"input,omitempty"`
-	Text  string                 `json:"text,omitempty"`
+	Type  ContentType     `json:"type"`
+	ID    string          `json:"id,omitempty"`
+	Name  string          `json:"name,omitempty"`
+	Input json.RawMessage `json:"input,omitempty"`
+	Text  string          `json:"text,omitempty"`
 }
 
 type Error struct {
@@ -59,13 +59,6 @@ type Delta struct {
 	PartialJSON  string             `json:"partial_json"`
 	StopReason   string             `json:"stop_reason,omitempty"`
 	StopSequence string             `json:"stop_sequence,omitempty"`
-}
-
-type TextDelta struct {
-}
-
-type InputJSONDelta struct {
-	Type string `json:"type"`
 }
 
 func streamEvents(ctx context.Context, resp *http.Response, events chan StreamingEvent) {

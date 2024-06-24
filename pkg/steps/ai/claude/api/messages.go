@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -39,6 +40,60 @@ type Message struct {
 	Content []Content `json:"content"` // Can be a string or an array of content blocks
 }
 
+func (m *Message) UnmarshalJSON(data []byte) error {
+	var temp struct {
+		Role    string            `json:"role"`
+		Content []json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	m.Role = temp.Role
+
+	contents := []Content{}
+
+	for _, content := range temp.Content {
+		var base BaseContent
+		if err := json.Unmarshal(content, &base); err != nil {
+			return err
+		}
+
+		switch base.Type_ {
+		case ContentTypeText:
+			var text TextContent
+			if err := json.Unmarshal(content, &text); err != nil {
+				return err
+			}
+			contents = append(contents, text)
+		case ContentTypeImage:
+			var image ImageContent
+			if err := json.Unmarshal(content, &image); err != nil {
+				return err
+			}
+			contents = append(contents, image)
+		case ContentTypeToolUse:
+			var toolUse ToolUseContent
+			if err := json.Unmarshal(content, &toolUse); err != nil {
+				return err
+			}
+			contents = append(contents, toolUse)
+		case ContentTypeToolResult:
+			var toolResult ToolResultContent
+			if err := json.Unmarshal(content, &toolResult); err != nil {
+				return err
+			}
+			contents = append(contents, toolResult)
+		default:
+			return fmt.Errorf("unknown content type: %s", base.Type_)
+		}
+	}
+
+	m.Content = contents
+
+	return nil
+}
+
 // MessageResponse represents the Messages API response payload.
 type MessageResponse struct {
 	ID           string    `json:"id"`
@@ -51,120 +106,28 @@ type MessageResponse struct {
 	Usage        Usage     `json:"usage"`
 }
 
-type ContentType string
+// FullText is a way to quickly get the entire text of the message response,
+// for our current streaming system which only deals with full strings.
+func (m MessageResponse) FullText() string {
+	res := ""
+	for _, c := range m.Content {
+		switch v := c.(type) {
+		case TextContent:
+			res += v.Text
+		case ImageContent:
+		// skip images for now
+		case ToolUseContent:
+			res += "Tool Call: " + v.Name + "\n"
+			res += "ID: " + v.ID + "\n"
+			res += string(v.Input)
+		case ToolResultContent:
+			res += "Tool Call Result: " + v.ToolUseID + "\n"
+			res += v.Content
+		default:
 
-const (
-	ContentTypeText    ContentType = "text"
-	ContentTypeImage   ContentType = "image"
-	ContentTypeToolUse ContentType = "tool_use"
-)
-
-// Content represents a single block of content, which can be of various types.
-type Content struct {
-	Type    ContentType     `json:"type"`
-	Text    *string         `json:"text,omitempty"`
-	Image   *ImageContent   `json:"image,omitempty"`
-	ToolUse *ToolUseContent `json:"tool_use,omitempty"`
-}
-
-// MarshalJSON implements the json.Marshaler interface for Content.
-// NOTE(manuel, 2024-06-04) Not sure if this isn't actually taken care of mostly by the Content struct
-// But at least it does add the validation of potential nil values at serialization time.
-func (c Content) MarshalJSON() ([]byte, error) {
-	switch c.Type {
-	case ContentTypeText:
-		if c.Text == nil {
-			return nil, errors.New("text content is nil")
 		}
-		return json.Marshal(struct {
-			Type ContentType `json:"type"`
-			Text string      `json:"text"`
-		}{
-			Type: c.Type,
-			Text: *c.Text,
-		})
-
-	case ContentTypeImage:
-		if c.Image == nil {
-			return nil, errors.New("image content is nil")
-		}
-		return json.Marshal(struct {
-			Type  ContentType  `json:"type"`
-			Image ImageContent `json:"image"`
-		}{
-			Type:  c.Type,
-			Image: *c.Image,
-		})
-
-	case ContentTypeToolUse:
-		if c.ToolUse == nil {
-			return nil, errors.New("tool use content is nil")
-		}
-		return json.Marshal(struct {
-			Type    ContentType    `json:"type"`
-			ToolUse ToolUseContent `json:"tool_use"`
-		}{
-			Type:    c.Type,
-			ToolUse: *c.ToolUse,
-		})
-
-	default:
-		return nil, errors.New("unknown content type")
 	}
-}
-
-// ImageContent represents an image content block.
-type ImageContent struct {
-	Source ImageSource `json:"source"`
-}
-
-// ImageSource represents the source of an image, which can be a base64-encoded string.
-type ImageSource struct {
-	Type      string `json:"type"`       // e.g., "base64"
-	MediaType string `json:"media_type"` // e.g., "image/jpeg"
-	Data      string `json:"data"`
-}
-
-// ToolUseContent represents a content block where the model uses a tool.
-type ToolUseContent struct {
-	ID     string          `json:"id"`
-	Name   string          `json:"name"`
-	Input  json.RawMessage `json:"input"`            // JSON structure for the tool input
-	Result *string         `json:"result,omitempty"` // Optional result of the tool use
-}
-
-// NewTextContent creates a new text content block.
-func NewTextContent(text string) Content {
-	return Content{
-		Type: "text",
-		Text: &text,
-	}
-}
-
-// NewImageContent creates a new image content block with base64-encoded data.
-func NewImageContent(mediaType, base64Data string) Content {
-	return Content{
-		Type: "image",
-		Image: &ImageContent{
-			Source: ImageSource{
-				Type:      "base64",
-				MediaType: mediaType,
-				Data:      base64Data,
-			},
-		},
-	}
-}
-
-// NewToolUseContent creates a new tool use content block.
-func NewToolUseContent(toolID, toolName string, toolInput json.RawMessage) Content {
-	return Content{
-		Type: "tool_use",
-		ToolUse: &ToolUseContent{
-			ID:    toolID,
-			Name:  toolName,
-			Input: toolInput,
-		},
-	}
+	return res
 }
 
 // Usage represents the billing and rate-limit usage information.
