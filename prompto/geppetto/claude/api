@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+echo "Messages API documentation"
+echo "---"
+cat pkg/steps/ai/claude/api/doc/messages-api-message.md
+echo
+
+echo "Streaming messages API documentation"
+echo "---"
+cat pkg/steps/ai/claude/api/doc/streaming-messages.md
+echo
+
+echo "Go definitions for the API wrapper"
+echo "package github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+oak go definitions --recurse pkg/steps/ai/claude/api

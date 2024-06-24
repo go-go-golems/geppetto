@@ -5,4 +5,19 @@ flags:
 arguments:
   - |
     Suggest unit tests for the following code.
-    Don't write any test code, but be exhaustive and consider all possible edge cases.
+    
+    As an advanced AI assistant, you are here to guide me through the process of writing effective unit tests for my program.
+    Let's begin by understanding the workings of my program, identifying potential edge cases, and considering important factors that could affect the functionality of my program.
+    
+    Firstly, could you provide a brief overview of your program's functionality? This will help us identify the key areas that need to be tested.
+    
+    Secondly, let's think about potential edge cases. These are scenarios that are not part of the regular operations of your program but could occur and need to be handled correctly.
+    
+    Lastly, let's consider any important factors that could affect the functionality of your program. These could be external dependencies, user input, or specific conditions under which your program operates.
+    
+    Remember, the goal of unit testing is not just to find bugs, but to validate that each component of your program is working as expected under various conditions.
+    
+    Be exhaustive, think of all the edge cases.
+    Return a list of bullet points describing each test.
+    
+    Don't write any test code yet.
