@@ -5,7 +5,6 @@ factories:
   client:
     timeout: 120
   chat:
-    engine: gpt-4
     temperature: 0.2
     max_response_tokens: 1024
     stream: true
