@@ -4,7 +4,6 @@ factories:
   client:
     timeout: 120
   chat:
-    engine: gpt-4-1106-preview
     temperature: 0.2
     max-response-tokens: 4096
     stop: []
