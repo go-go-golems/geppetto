@@ -1,13 +1,5 @@
 name: test-chat
 short: Test chat completion
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-3.5-turbo
-    temperature: 0.2
-    max_response_tokens: 512
-    stream: true
 flags:
   - name: pretend
     type: string

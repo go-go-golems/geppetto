@@ -32,8 +32,8 @@ type ChatSettings struct {
 	APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
 }
 
-func NewChatSettings() *ChatSettings {
-	return &ChatSettings{
+func NewChatSettings() (*ChatSettings, error) {
+	s := &ChatSettings{
 		Engine:            nil,
 		ApiType:           nil,
 		MaxResponseTokens: nil,
@@ -43,6 +43,17 @@ func NewChatSettings() *ChatSettings {
 		Stream:            false,
 		APIKeys:           map[string]string{},
 	}
+
+	p, err := NewChatParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+	err = p.InitializeStructFromParameterDefaults(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *ChatSettings) Clone() *ChatSettings {

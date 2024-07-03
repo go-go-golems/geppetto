@@ -1,8 +1,5 @@
 name: create-pull-request
 short: Generate comprehensive pull request descriptions
-factories:
-  client:
-    timeout: 120
 flags:
   - name: commits
     type: stringFromFile

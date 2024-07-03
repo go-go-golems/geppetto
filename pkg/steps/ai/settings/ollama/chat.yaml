@@ -48,6 +48,7 @@ flags:
   - name: ollama-stop
     description: Sets the stop sequences to use.
     type: stringList
+    default: []
   - name: ollama-tfs-z
     description: Tail free sampling is used to reduce the impact of less probable tokens from the output.
     default: 1.0

@@ -1,13 +1,5 @@
 name: generate-dsl-diff
 short: Generate a 'differential' DSL YAML diff for adding docstrings to methods.
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-3.5-turbo
-    temperature: 0.2
-    stop: [END_DIFF]
-    stream: true
 flags:
   - name: additional_system
     type: stringList

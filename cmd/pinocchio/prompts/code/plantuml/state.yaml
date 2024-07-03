@@ -1,14 +1,6 @@
 name: state
 short: Generate a PlantUML state machine diagram from source code
 
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 1024
-    stream: true
-
 arguments:
   - name: input
     type: stringFromFile

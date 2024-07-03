@@ -122,6 +122,8 @@ func (csf *MessagesStep) Start(
 				rolePrefix = "Assistant"
 			case conversation.RoleUser:
 				rolePrefix = "Human"
+			case conversation.RoleTool:
+				rolePrefix = "Tool"
 			}
 			prompt += "\n\n" + rolePrefix + ": " + content.Text
 		}

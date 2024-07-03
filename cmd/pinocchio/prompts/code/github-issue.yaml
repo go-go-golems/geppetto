@@ -1,13 +1,5 @@
 name: github-issue
 short: Generate a GitHub issue based on the user's description.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: description
     type: string

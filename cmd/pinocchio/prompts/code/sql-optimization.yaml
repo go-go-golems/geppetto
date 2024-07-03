@@ -1,12 +1,5 @@
 name: sql-optimize
 short: Analyze and optimize SQL queries based on provided schema, indexes, and EXPLAIN output.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 1024
-    stream: true
 flags:
   - name: ddl
     type: stringFromFiles

@@ -16,6 +16,7 @@ flags:
       - "mistral"
       - "perplexity"
     help: AI chat completion API type
+    default: openai
   - name: ai-temperature
     type: float
     help: AI chat completion temperature
@@ -23,7 +24,6 @@ flags:
   - name: ai-max-response-tokens
     type: int
     help: AI chat completion max response tokens
-    default: 512
   - name: ai-stream
     type: bool
     help: AI chat completion stream

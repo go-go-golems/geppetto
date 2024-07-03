@@ -1,13 +1,5 @@
 name: howtos
 short: Generate concise, clear bullet-point HOWTO guides for developers.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: functionality
     type: string

@@ -20,7 +20,8 @@ var upperCaseCmd = &cobra.Command{
 	Use:   "uppercase",
 	Short: "uppercase test",
 	Run: func(cmd *cobra.Command, args []string) {
-		stepSettings := settings.NewStepSettings()
+		stepSettings, err := settings.NewStepSettings()
+		cobra.CheckErr(err)
 		geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 		cobra.CheckErr(err)
 		layers_ := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))

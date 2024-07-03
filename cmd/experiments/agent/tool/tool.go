@@ -59,7 +59,8 @@ var ToolCallCmd = &cobra.Command{
 	Use:   "tool-call",
 	Short: "Tool call",
 	Run: func(cmd *cobra.Command, args []string) {
-		stepSettings := settings.NewStepSettings()
+		stepSettings, err := settings.NewStepSettings()
+		cobra.CheckErr(err)
 		geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 		cobra.CheckErr(err)
 		layers_ := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))

@@ -11,11 +11,23 @@ type Settings struct {
 	UserID *string `yaml:"user_id,omitempty" glazed.parameter:"claude-user-id"`
 }
 
-func NewSettings() *Settings {
-	return &Settings{
+func NewSettings() (*Settings, error) {
+	s := &Settings{
 		TopK:   nil,
 		UserID: nil,
 	}
+
+	p, err := NewParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.InitializeStructFromParameterDefaults(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *Settings) Clone() *Settings {

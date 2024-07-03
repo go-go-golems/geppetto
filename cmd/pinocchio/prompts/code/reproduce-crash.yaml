@@ -1,13 +1,5 @@
 name: reproduce-crash
 short: Create a fetch() expression to reproduce a crash from a crashdump.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: crashdump
     type: file
