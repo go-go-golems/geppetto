@@ -1,13 +1,5 @@
 name: unit-tests
 short: Generate a list of unit tests for given code.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: code
     type: stringFromFiles

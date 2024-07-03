@@ -1,11 +1,5 @@
 name: typescript
 short: Answer questions about the typescript programming language
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    stream: true
 flags:
   - name: additional_system
     type: string

@@ -40,20 +40,42 @@ type StepSettings struct {
 	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
 }
 
-func NewStepSettings() *StepSettings {
-	return &StepSettings{
-		Chat:   NewChatSettings(),
-		OpenAI: openai.NewSettings(),
-		Client: NewClientSettings(),
-		Claude: claude.NewSettings(),
-		Ollama: ollama.NewSettings(),
-		API:    NewAPISettings(),
+func NewStepSettings() (*StepSettings, error) {
+	chatSettings, err := NewChatSettings()
+	if err != nil {
+		return nil, err
 	}
+	openaiSettings, err := openai.NewSettings()
+	if err != nil {
+		return nil, err
+	}
+	claudeSettings, err := claude.NewSettings()
+	if err != nil {
+		return nil, err
+	}
+	ollamaSettings, err := ollama.NewSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	return &StepSettings{
+		Chat:   chatSettings,
+		OpenAI: openaiSettings,
+		Client: NewClientSettings(),
+		Claude: claudeSettings,
+		Ollama: ollamaSettings,
+		API:    NewAPISettings(),
+	}, nil
 }
 
 func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
+	stepSettings, err := NewStepSettings()
+	if err != nil {
+		return nil, err
+	}
+
 	settings_ := factoryConfigFileWrapper{
-		Factories: NewStepSettings(),
+		Factories: stepSettings,
 	}
 	if err := yaml.NewDecoder(s).Decode(&settings_); err != nil {
 		return nil, err
@@ -141,8 +163,9 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 			metadata["ollama-seed"] = *ss.Ollama.Seed
 		}
 
-		if ss.Ollama.Stop != nil && *ss.Ollama.Stop != "" {
-			metadata["ollama-stop"] = *ss.Ollama.Stop
+		// TODO(manuel, 2024-07-03) I think this needs to be removed
+		if len(ss.Ollama.Stop) > 0 {
+			metadata["ollama-stop"] = ss.Ollama.Stop
 		}
 
 		if ss.Ollama.TopK != nil && *ss.Ollama.TopK != 40 {

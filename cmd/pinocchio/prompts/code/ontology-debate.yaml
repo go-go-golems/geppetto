@@ -1,13 +1,5 @@
 name: ontology-debate
 short: Organize a round of discussion, review, and editing for developers to transform documentation into a formal YAML representation.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max-response-tokens: 4096
-    stop: []
-    stream: true
 flags:
   - name: documents
     type: fileList

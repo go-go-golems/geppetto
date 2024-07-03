@@ -107,14 +107,6 @@ the bottom.
 ```yaml
 name: command-name
 short: Rewrite text in a certain style
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-3.5-turbo
-    temperature: 0.8
-    max_response_tokens: 1024
-    stream: true
 flags:
   - name: author
     type: stringList

@@ -241,10 +241,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 			// TODO(manuel, 2024-06-23) At this point we should take the tool call and put it in the metadata.
 
 		case api.ContentTypeImage:
-			// TODO(manuel, 2024-06-24) Handle encoded image data
-			// cbm.response.Content = append(cbm.response.Content, api.NewImageContent(cb.Text))
+		// TODO(manuel, 2024-06-24) Handle encoded image data
+		// cbm.response.Content = append(cbm.response.Content, api.NewImageContent(cb.Text))
 
-		default:
+		case api.ContentTypeToolResult:
 			return nil, errors.Errorf("Unknown content block type: %s", cb.Type)
 		}
 

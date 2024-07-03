@@ -1,13 +1,5 @@
 name: create-command
 short: Generate a pinocchio query
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: additional_system
     type: stringList
@@ -51,14 +43,6 @@ flags:
     default: |
       name: animals
       short: Generate animal descriptions.
-      factories:
-        client:
-          timeout: 120
-        chat:
-          temperature: 0.2
-          max_response_tokens: 2048
-          stop: []
-          stream: true
       flags:
         - name: name
           type: string
@@ -174,25 +158,7 @@ prompt: |
     FileType: File's type.
     Path: File's path.
   
-  The `factories` section is used to configure the API call to the model. Copy it as is unless requested.
-  
-  Instead of "x > 10", the template language uses "gt x 10".
-  
-  Here is a (short) example that uses a LLM to do {{ .example_name }}. While this example has terse
-  system prompt and prompt, real command will have exhaustive and detailed prompts.
-  
-  ```yaml
-  {{ .example }}
-  ```
-  
-  {{- .additional | join "\n" }}
-  
-  Create a command that executes the following prompt. The resulting command should split the given prompt
-  into a system prompt (about the persona and the role of the LLM) and a prompt (about the task at hand).
-  
-  The entire original prompt should be present in the command, don't abbreviate.
-  
-  Locations to use as template flags are marked XXX or in template format
+  The `flags are marked XXX or in template format
   already, using golang template curly brace syntax.
   
   Try to minimally modify the original prompt. Do not try to add additional flags besides the marked ones.

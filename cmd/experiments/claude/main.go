@@ -128,8 +128,8 @@ func main() {
 			fmt.Printf("\n%s\n", string(jsonBytes))
 		case api.MessageStopType:
 			fmt.Println()
-		default:
-			fmt.Printf("Unknown event type: %s\n", event.Type)
+		case api.ErrorType:
+			fmt.Println("Error: ", event.Error)
 		}
 		fmt.Println("---")
 	}

@@ -26,7 +26,9 @@ func main() {
 
 	helpSystem.SetupCobraRootCommand(rootCmd)
 
-	stepSettings := settings.NewStepSettings()
+	stepSettings, err := settings.NewStepSettings()
+	cobra.CheckErr(err)
+
 	geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 	cobra.CheckErr(err)
 
