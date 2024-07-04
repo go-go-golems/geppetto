@@ -4,14 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/clay/pkg"
+	"github.com/go-go-golems/geppetto/pkg/cmds"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
-	"os"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"strings"
 )
 
-func main() {
+func testSimple() {
+	err := pkg.InitViperWithAppName("pinocchio", "")
+	if err != nil {
+		fmt.Printf("Error initializing viper: %v\n", err)
+		return
+	}
+
 	// Set up the Claude API client
-	apiKey := os.Getenv("CLAUDE_API_KEY")
+	settings_, err := cmds.LoadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		return
+	}
+	apiKey, ok := settings_.API.APIKeys[settings.ApiTypeClaude+"-api-key"]
+	if !ok {
+		fmt.Printf("Error: Claude API key not found in settings\n")
+		return
+	}
+
 	baseURL := "https://api.anthropic.com"
 	client := api.NewClient(apiKey, baseURL)
 
@@ -138,4 +156,8 @@ func main() {
 	// Print the full response
 	fmt.Println("Full response:")
 	fmt.Println(strings.TrimSpace(response))
+}
+
+func main() {
+	testSimple()
 }
