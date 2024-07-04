@@ -94,37 +94,25 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				Metadata:   e.StepMetadata().Metadata,
 			},
 		}
-		switch e.Type() {
-		case chat.EventTypeError:
-			e_, ok := chat.ToTypedEvent[chat.EventError](e)
-			if !ok {
-				return errors.New("payload is not of type EventError")
-			}
+		switch e_ := e.(type) {
+		case *chat.EventError:
 			p.Send(conversation2.StreamCompletionError{
 				StreamMetadata: metadata,
 				Err:            e_.Error(),
 			})
-		case chat.EventTypePartialCompletion:
-			e_, ok := chat.ToTypedEvent[chat.EventPartialCompletion](e)
-			if !ok {
-				return errors.New("payload is not of type EventPartialCompletion")
-			}
+		case *chat.EventPartialCompletion:
 			p.Send(conversation2.StreamCompletionMsg{
 				StreamMetadata: metadata,
 				Delta:          e_.Delta,
 				Completion:     e_.Completion,
 			})
-		case chat.EventTypeFinal:
-			p_, ok := chat.ToTypedEvent[chat.EventFinal](e)
-			if !ok {
-				return errors.New("payload is not of type EventFinal")
-			}
+		case *chat.EventFinal:
 			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
-				Completion:     p_.Text,
+				Completion:     e_.Text,
 			})
 
-		case chat.EventTypeInterrupt:
+		case *chat.EventInterrupt:
 			p_, ok := chat.ToTypedEvent[chat.EventInterrupt](e)
 			if !ok {
 				return errors.New("payload is not of type EventInterrupt")
@@ -134,32 +122,21 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				Completion:     p_.Text,
 			})
 
-		case chat.EventTypeToolCall:
-			p_, ok := chat.ToTypedEvent[chat.EventToolCall](e)
-			if !ok {
-				return errors.New("payload is not of type EventToolCall")
-			}
-
+		case *chat.EventToolCall:
 			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
-				Completion:     fmt.Sprintf("%s(%s)", p_.ToolCall.Name, p_.ToolCall.Input),
+				Completion:     fmt.Sprintf("%s(%s)", e_.ToolCall.Name, e_.ToolCall.Input),
 			})
-		case chat.EventTypeToolResult:
-			p_, ok := chat.ToTypedEvent[chat.EventToolResult](e)
-			if !ok {
-				return errors.New("payload is not of type EventError")
-			}
+		case *chat.EventToolResult:
 			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
-				Completion:     fmt.Sprintf("Result: %s", p_.ToolResult.Result),
+				Completion:     fmt.Sprintf("Result: %s", e_.ToolResult.Result),
 			})
 
-		case chat.EventTypeStart:
+		case *chat.EventPartialCompletionStart:
 			p.Send(conversation2.StreamStartMsg{
 				StreamMetadata: metadata,
 			})
-
-		case chat.EventTypeStatus:
 		}
 
 		return nil

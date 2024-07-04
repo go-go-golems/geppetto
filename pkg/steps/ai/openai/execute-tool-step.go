@@ -25,7 +25,12 @@ type ExecuteToolStep struct {
 	parentID            conversation.NodeID
 }
 
-var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
+var _ steps.Step[ToolCompletionResponse, []chat.ToolResult] = (*ExecuteToolStep)(nil)
+
+//type ToolResult struct {
+//	ID string
+//	Result interface{}
+//}
 
 type ExecuteToolStepOption func(*ExecuteToolStep) error
 
@@ -69,7 +74,7 @@ func NewExecuteToolStep(
 	return ret, nil
 }
 
-var _ steps.Step[ToolCompletionResponse, map[string]interface{}] = (*ExecuteToolStep)(nil)
+var _ steps.Step[ToolCompletionResponse, []chat.ToolResult] = (*ExecuteToolStep)(nil)
 
 func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	e.subscriptionManager.SubscribePublisher(topic, publisher)
@@ -81,14 +86,14 @@ const MetadataToolsSlug = "tools"
 func (e *ExecuteToolStep) Start(
 	ctx context.Context,
 	input ToolCompletionResponse,
-) (steps.StepResult[map[string]interface{}], error) {
-	res := map[string]interface{}{}
+) (steps.StepResult[[]chat.ToolResult], error) {
+	res := []chat.ToolResult{}
 
 	toolMetadata := map[string]interface{}{}
 	for name, tool := range e.Tools {
 		jsonSchema, err := helpers.GetFunctionParametersJsonSchema(&jsonschema.Reflector{}, tool)
 		if err != nil {
-			return steps.Reject[map[string]interface{}](err), nil
+			return steps.Reject[[]chat.ToolResult](err), nil
 		}
 		s, _ := json.MarshalIndent(jsonSchema, "", "  ")
 		toolMetadata[name] = openai2.Tool{
@@ -126,9 +131,9 @@ func (e *ExecuteToolStep) Start(
 		if tool == nil {
 			errorString := fmt.Sprintf("could not find tool %s", toolCall.Function.Name)
 			e.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, errorString))
-			return steps.Reject[map[string]interface{}](
+			return steps.Reject[[]chat.ToolResult](
 				errors.Errorf("could not find tool %s", toolCall.Function.Name),
-				steps.WithMetadata[map[string]interface{}](stepMetadata),
+				steps.WithMetadata[[]chat.ToolResult](stepMetadata),
 			), nil
 		}
 
@@ -136,30 +141,44 @@ func (e *ExecuteToolStep) Start(
 		err := json.Unmarshal([]byte(toolCall.Function.Arguments), &v)
 		if err != nil {
 			e.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-			return steps.Reject[map[string]interface{}](
+			return steps.Reject[[]chat.ToolResult](
 				err,
-				steps.WithMetadata[map[string]interface{}](stepMetadata),
+				steps.WithMetadata[[]chat.ToolResult](stepMetadata),
 			), nil
 		}
 
 		vs_, err := helpers.CallFunctionFromJson(tool, v)
 		if err != nil {
 			e.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-			return steps.Reject[map[string]interface{}](
+			return steps.Reject[[]chat.ToolResult](
 				err,
-				steps.WithMetadata[map[string]interface{}](stepMetadata),
+				steps.WithMetadata[[]chat.ToolResult](stepMetadata),
 			), nil
 		}
 
+		toolResult := chat.ToolResult{ID: toolCall.ID}
+
 		if len(vs_) == 1 {
-			res[toolCall.Function.Name] = vs_[0].Interface()
+			v_, err := json.Marshal(vs_[0].Interface())
+			if err != nil {
+				return steps.Reject[[]chat.ToolResult](err,
+					steps.WithMetadata[[]chat.ToolResult](stepMetadata),
+				), nil
+			}
+			toolResult.Result = string(v_)
 		} else {
 			vals := []interface{}{}
 			for _, v_ := range vs_ {
 				vals = append(vals, v_.Interface())
 			}
-			res[toolCall.Function.Name] = vals
+			v_, err := json.Marshal(vals)
+			if err != nil {
+				return steps.Reject[[]chat.ToolResult](err, steps.WithMetadata[[]chat.ToolResult](stepMetadata)), nil
+			}
+			toolResult.Result = string(v_)
 		}
+
+		res = append(res, toolResult)
 	}
 
 	r, _ := json.MarshalIndent(res, "", "  ")
@@ -167,6 +186,6 @@ func (e *ExecuteToolStep) Start(
 	e.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(r)))
 
 	return steps.Resolve(res,
-		steps.WithMetadata[map[string]interface{}](stepMetadata),
+		steps.WithMetadata[[]chat.ToolResult](stepMetadata),
 	), nil
 }
