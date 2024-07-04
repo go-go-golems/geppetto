@@ -12,9 +12,11 @@ type EventType string
 const (
 	// EventTypeStart to EventTypeFinal are for text completion, actually
 	EventTypeStart             EventType = "start"
-	EventTypeStatus            EventType = "status"
 	EventTypeFinal             EventType = "final"
 	EventTypePartialCompletion EventType = "partial"
+
+	// TODO(manuel, 2024-07-04) I'm not sure if this is needed
+	EventTypeStatus EventType = "status"
 
 	// TODO(manuel, 2024-07-04) Should potentially have a EventTypeText for a block stop here
 	EventTypeToolCall   EventType = "tool-call"
