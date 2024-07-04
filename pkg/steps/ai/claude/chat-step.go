@@ -133,11 +133,7 @@ func (csf *ChatStep) Start(
 		},
 	}
 
-	csf.subscriptionManager.PublishBlind(&chat.Event{
-		Type:     chat.EventTypeStart,
-		Step:     stepMetadata,
-		Metadata: metadata,
-	})
+	csf.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
 
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
@@ -175,44 +171,21 @@ func (csf *ChatStep) Start(
 		for {
 			select {
 			case <-cancellableCtx.Done():
-				csf.subscriptionManager.PublishBlind(&chat.EventText{
-					Event: chat.Event{
-						Type:     chat.EventTypeInterrupt,
-						Metadata: metadata,
-						Step:     stepMetadata,
-					},
-					Text: completionMerger.Text(),
-					// TODO(manuel, 2024-06-04) Add tool calls so far
-				})
+				// TODO(manuel, 2024-07-04) Add tool calls so far
+				csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, completionMerger.Text()))
 				return
 
 			case event, ok := <-eventCh:
 				if !ok {
-					csf.subscriptionManager.PublishBlind(&chat.EventText{
-						Event: chat.Event{
-							Type:     chat.EventTypeFinal,
-							Metadata: metadata,
-							Step:     stepMetadata,
-						},
-						Text: completionMerger.Text(),
-						// TODO(manuel, 2024-06-04) Add tool calls so far (once tool calls is added to the EventText / EventPartial
-					})
-
+					csf.subscriptionManager.PublishBlind(chat.NewTextEvent(metadata, stepMetadata, completionMerger.Text()))
 					response := completionMerger.Response()
-
 					c <- helpers2.NewValueResult[api.MessageResponse](*response)
 					return
 				}
 
-				// this returns a &chat.EventPartialCompletion
 				partialEvent, err := completionMerger.Add(event)
 				if err != nil {
-					csf.subscriptionManager.PublishBlind(&chat.Event{
-						Type:     chat.EventTypeError,
-						Metadata: metadata,
-						Error:    err,
-						Step:     stepMetadata,
-					})
+					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 					c <- helpers2.NewErrorResult[api.MessageResponse](err)
 					return
 				}
@@ -248,7 +221,7 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 		res := api.Message{
 			Role: string(conversation.RoleUser),
 			Content: []api.Content{
-				api.NewToolUseContent(content.ToolID, content.Name, content.Input),
+				api.NewToolUseContent(content.ToolID, content.Name, string(content.Input)),
 			},
 		}
 		return res

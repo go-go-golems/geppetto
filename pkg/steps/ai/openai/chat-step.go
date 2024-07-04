@@ -187,7 +187,7 @@ func (csf *ChatStep) Start(
 
 					csf.publisherManager.PublishBlind(&chat.EventPartialCompletion{
 						Event: chat.Event{
-							Type:     chat.EventTypePartial,
+							Type:     chat.EventTypePartialCompletion,
 							Metadata: metadata,
 							Step:     ret.GetMetadata(),
 						},

@@ -41,11 +41,11 @@ type StreamingEvent struct {
 }
 
 type ContentBlock struct {
-	Type  ContentType     `json:"type"`
-	ID    string          `json:"id,omitempty"`
-	Name  string          `json:"name,omitempty"`
-	Input json.RawMessage `json:"input,omitempty"`
-	Text  string          `json:"text,omitempty"`
+	Type  ContentType `json:"type"`
+	ID    string      `json:"id,omitempty"`
+	Name  string      `json:"name,omitempty"`
+	Input string      `json:"input,omitempty"`
+	Text  string      `json:"text,omitempty"`
 }
 
 type Error struct {

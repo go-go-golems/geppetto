@@ -112,7 +112,7 @@ func (ccs *ChatCompletionStep) Start(
 
 			ccs.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
 				Event: chat.Event{
-					Type:     chat.EventTypePartial,
+					Type:     chat.EventTypePartialCompletion,
 					Metadata: metadata,
 					Step:     ret.GetMetadata(),
 				},

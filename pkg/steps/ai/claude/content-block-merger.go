@@ -62,21 +62,13 @@ const UsageMetadataSlug = "claude_usage"
 const MessageIdMetadataSlug = "claude_message_id"
 const RoleMetadataSlug = "claude_role"
 
-func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartialCompletion, error) {
+func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, error) {
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
 
 	switch event.Type {
 	case api.PingType:
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypePartial,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			Delta:      "",
-			Completion: cbm.response.FullText(),
-		}, nil
+		return []chat.Event{}, nil
 
 	case api.MessageStartType:
 		if event.Message == nil {
@@ -89,15 +81,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 		cbm.stepMetadata.Metadata[MessageIdMetadataSlug] = event.Message.ID
 		cbm.stepMetadata.Metadata[RoleMetadataSlug] = event.Message.Role
 
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypePartial,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			Delta:      "",
-			Completion: cbm.response.FullText(),
-		}, nil
+		return []chat.Event{chat.NewStartEvent(cbm.metadata, cbm.stepMetadata)}, nil
 
 	case api.MessageDeltaType:
 		if event.Delta == nil {
@@ -117,26 +101,14 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 		}
 
 		// create an "empty" partial completion event
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypePartial,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			Delta:      "",
-			Completion: cbm.response.FullText(),
-		}, nil
+		return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
 
 	case api.MessageStopType:
-		// for now, we concatenate all the content blocks, although it's unclear what to do if we have
-		// both text and tool calls for example, and we might need to adjust the API to match
-		// doing the same for openai as well.
 		if cbm.response == nil {
 			return nil, errors.New("MessageStopType event must have a message to store the finished content block")
 		}
 
 		if event.Message != nil {
-
 			if event.Message.StopReason != "" {
 				cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
 			}
@@ -147,23 +119,8 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 			cbm.stepMetadata.Metadata[UsageMetadataSlug] = event.Message.Usage
 		}
 
-		// TODO(manuel, 2024-06-23) Hmm, shouldn't we send a completion event back here? Gosh I wish I had finished this project back then.
-		//  Oh I remember the issue here, it's that there can be many messages within the same stream. No actually this should be th efinal message in the stream, iirc.
-		//
-		// how do we signal completion of the message here, since we also have to deal with signaling things from the event channel.
-		// here we actually try to press too much into our current partial completion event, since claude has its own wrapping of streaming
-		// a message status. For now let's return an empty result
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypeFinal,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			// NOTE(manuel, 2024-06-05) This is not truly the case if we chain multiple blocks (for example, tool call following a string)
-			// NOTE(manuel, 2024-06-23) I think this refers to returning a partial completion event with tools.
-			Delta:      "",
-			Completion: cbm.response.FullText(),
-		}, nil
+		// TODO(manuel, 2024-07-04) This should be differentiated from a block stop, which is just a single block
+		return []chat.Event{chat.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
@@ -180,16 +137,8 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 		}
 		cbm.contentBlocks[event.Index] = event.ContentBlock
 
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypePartial,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			// NOTE(manuel, 2024-06-05) This is not truly the case if we chain multiple blocks (for example, tool call following a string)
-			Delta:      "",
-			Completion: cbm.response.FullText(),
-		}, nil
+		// TODO(manuel, 2024-07-04) We should have a proper BlockStart message here
+		return []chat.Event{}, nil
 
 	case api.ContentBlockDeltaType:
 		if cbm.response == nil {
@@ -207,21 +156,12 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 		case api.TextDeltaType:
 			delta = event.Delta.Text
 			cb.Text += event.Delta.Text
+			return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, delta, cbm.response.FullText()+cb.Text)}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
-			cb.Text += event.Delta.PartialJSON
+			cb.Input += event.Delta.PartialJSON
 		}
-
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypePartial,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			Delta: delta,
-			// prepend previously received content blocks
-			Completion: cbm.response.FullText() + cb.Text,
-		}, nil
+		return []chat.Event{}, nil
 
 	case api.ContentBlockStopType:
 		if cbm.response == nil {
@@ -234,44 +174,29 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 		switch cb.Type {
 		case api.ContentTypeText:
 			cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
+			// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
+			return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
 
 		case api.ContentTypeToolUse:
 			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, cb.Input))
-			// TODO(manuel, 2024-06-23) At this point we should take the tool call and put it in the metadata.
+			return []chat.Event{chat.NewToolCallEvent(cbm.metadata, cbm.stepMetadata, chat.ToolCall{
+				ID:    cb.ID,
+				Name:  cb.Name,
+				Input: cb.Input,
+			})}, nil
 
-		case api.ContentTypeImage:
-		// TODO(manuel, 2024-06-24) Handle encoded image data
-		// cbm.response.Content = append(cbm.response.Content, api.NewImageContent(cb.Text))
-
-		case api.ContentTypeToolResult:
-			return nil, errors.Errorf("Unknown content block type: %s", cb.Type)
+		case api.ContentTypeImage, api.ContentTypeToolResult:
+			return nil, errors.Errorf("Unsupported content block type: %s", cb.Type)
 		}
 
-		// not a real partial completion, we have to wait for message_stop
-		// TODO(manuel, 2024-06-23) We still need to send back proper metadata and all that
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypePartial,
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-			Delta:      "",
-			Completion: cbm.response.FullText(),
-		}, nil
+		return nil, errors.Errorf("Unknown content block type: %s", cb.Type)
 
 	case api.ErrorType:
 		if event.Error == nil {
 			return nil, errors.New("ErrorType event must have an error")
 		}
 		cbm.error = event.Error
-		return &chat.EventPartialCompletion{
-			Event: chat.Event{
-				Type:     chat.EventTypeError,
-				Error:    errors.New(event.Error.Message),
-				Metadata: cbm.metadata,
-				Step:     cbm.stepMetadata,
-			},
-		}, nil
+		return []chat.Event{chat.NewErrorEvent(cbm.metadata, cbm.stepMetadata, event.Error.Message)}, nil
 
 	default:
 		return nil, errors.Errorf("Unknown event type: %s", event.Type)

@@ -99,7 +99,7 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				StreamMetadata: metadata,
 				Err:            e.Error,
 			})
-		case chat.EventTypePartial:
+		case chat.EventTypePartialCompletion:
 			p_, ok := e.ToPartialCompletion()
 			if !ok {
 				return errors.New("payload is not of type EventPartialCompletionPayload")
