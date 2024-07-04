@@ -266,14 +266,42 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventPartialCompletionStart")
 		}
 		return ret, nil
+	case EventTypePartialCompletion:
+		ret, ok := ToTypedEvent[EventPartialCompletion](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventPartialCompletion")
+		}
+		return ret, nil
 	case EventTypeToolCall:
-		return &EventToolCall{EventImpl: *e}, nil
+		ret, ok := ToTypedEvent[EventToolCall](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolCall")
+		}
+		return ret, nil
 	case EventTypeToolResult:
-		return &EventToolResult{EventImpl: *e}, nil
-	case EventTypeError, EventTypeInterrupt:
-		return e, nil
-	default:
-		return nil, nil
+		ret, ok := ToTypedEvent[EventToolResult](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolResult")
+		}
+		return ret, nil
+	case EventTypeError:
+		ret, ok := ToTypedEvent[EventError](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventError")
+		}
+		return ret, nil
+	case EventTypeInterrupt:
+		ret, ok := ToTypedEvent[EventInterrupt](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventInterrupt")
+		}
+		return ret, nil
+	case EventTypeFinal:
+		ret, ok := ToTypedEvent[EventFinal](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventFinal")
+		}
+		return ret, nil
 	}
 
 	return e, nil

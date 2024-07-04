@@ -116,16 +116,16 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 	}
 	// TODO(manuel, 2024-07-04) The return type of this step should actually be multiple ToolResult, and we can make
 	// this more generic to have it handle claude tool calls as well
-	execResult := steps.Bind[ToolCompletionResponse, map[string]interface{}](cancellableCtx, toolCompletionResponse, step)
+	execResult := steps.Bind[ToolCompletionResponse, []chat.ToolResult](cancellableCtx, toolCompletionResponse, step)
 
 	responseToStringID := conversation.NewNodeID()
 
-	responseToStringStep := &utils.LambdaStep[map[string]interface{}, string]{
-		Function: func(s map[string]interface{}) helpers.Result[string] {
+	responseToStringStep := &utils.LambdaStep[[]chat.ToolResult, string]{
+		Function: func(s []chat.ToolResult) helpers.Result[string] {
 			stepMetadata := &steps.StepMetadata{
 				StepID:     uuid.New(),
 				Type:       "response-to-string",
-				InputType:  "map[string]interface{}",
+				InputType:  "[]chat.ToolResult",
 				OutputType: "string",
 				Metadata:   map[string]interface{}{},
 			}
@@ -148,7 +148,7 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 			return helpers.NewValueResult[string](string(s_))
 		},
 	}
-	stringResult := steps.Bind[map[string]interface{}, string](cancellableCtx, execResult, responseToStringStep)
+	stringResult := steps.Bind[[]chat.ToolResult, string](cancellableCtx, execResult, responseToStringStep)
 
 	return stringResult, nil
 }
