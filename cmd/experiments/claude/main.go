@@ -4,80 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/pkg/cmds"
+	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/google/uuid"
 	"strings"
 )
 
 func testSimple() {
-	err := pkg.InitViperWithAppName("pinocchio", "")
-	if err != nil {
-		fmt.Printf("Error initializing viper: %v\n", err)
-		return
-	}
-
-	// Set up the Claude API client
-	settings_, err := cmds.LoadConfig()
-	if err != nil {
-		fmt.Printf("Error loading config: %v\n", err)
-		return
-	}
-	apiKey, ok := settings_.API.APIKeys[settings.ApiTypeClaude+"-api-key"]
-	if !ok {
-		fmt.Printf("Error: Claude API key not found in settings\n")
-		return
-	}
-
-	baseURL := "https://api.anthropic.com"
-	client := api.NewClient(apiKey, baseURL)
-
-	// Prepare the message request
-	req := &api.MessageRequest{
-		Model: "claude-3-sonnet-20240229",
-		Messages: []api.Message{
-			{
-				Role: "user",
-				// TODO(manuel, 2024-06-03) Find a better way to ensure that this is always a list (even though it can be a string in the response? maybe we don't need to care at all)
-				Content: []api.Content{api.NewTextContent("Hello, Claude! Please check my spelling on this sentiment filled sentence.")},
-			},
-		},
-		Tools: []api.Tool{
-			{
-				Name: "spellcheck",
-				InputSchema: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"text": map[string]interface{}{
-							"type": "string",
-						},
-					},
-					"required": []string{"text"},
-				},
-			},
-			{
-				Name: "sentiment",
-				InputSchema: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"text": map[string]interface{}{
-							"type": "string",
-						},
-					},
-					"required": []string{"text"},
-				},
-			},
-		},
-		MaxTokens: 100,
-		Stream:    true,
-	}
-
-	// Send the message request and receive the streaming response
-	ctx := context.Background()
-	events, err := client.StreamMessage(ctx, req)
-	if err != nil {
-		fmt.Printf("Error streaming message: %v\n", err)
+	events, _, done := streamTestRequest()
+	if done {
 		return
 	}
 
@@ -158,6 +99,134 @@ func testSimple() {
 	fmt.Println(strings.TrimSpace(response))
 }
 
+func streamTestRequest() (<-chan api.StreamingEvent, *settings.StepSettings, bool) {
+	err := pkg.InitViperWithAppName("pinocchio", "")
+	if err != nil {
+		fmt.Printf("Error initializing viper: %v\n", err)
+		return nil, nil, true
+	}
+
+	// Set up the Claude API client
+	settings_, err := cmds.LoadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		return nil, nil, true
+	}
+	apiKey, ok := settings_.API.APIKeys[settings.ApiTypeClaude+"-api-key"]
+	if !ok {
+		fmt.Printf("Error: Claude API key not found in settings\n")
+		return nil, nil, true
+	}
+
+	baseURL := "https://api.anthropic.com"
+	client := api.NewClient(apiKey, baseURL)
+
+	// Prepare the message request
+	req := &api.MessageRequest{
+		Model: "claude-3-sonnet-20240229",
+		Messages: []api.Message{
+			{
+				Role: "user",
+				// TODO(manuel, 2024-06-03) Find a better way to ensure that this is always a list (even though it can be a string in the response? maybe we don't need to care at all)
+				Content: []api.Content{api.NewTextContent("Hello, Claude! Please check my spelling on this sentiment filled sentence.")},
+			},
+		},
+		Tools: []api.Tool{
+			{
+				Name: "spellcheck",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"text": map[string]interface{}{
+							"type": "string",
+						},
+					},
+					"required": []string{"text"},
+				},
+			},
+			{
+				Name: "sentiment",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"text": map[string]interface{}{
+							"type": "string",
+						},
+					},
+					"required": []string{"text"},
+				},
+			},
+		},
+		MaxTokens: 100,
+		Stream:    true,
+	}
+
+	// Send the message request and receive the streaming response
+	ctx := context.Background()
+	events, err := client.StreamMessage(ctx, req)
+	if err != nil {
+		fmt.Printf("Error streaming message: %v\n", err)
+		return nil, nil, true
+	}
+	return events, settings_, false
+}
+
+func testBlockMerger() {
+	events, stepSettings, done := streamTestRequest()
+	if done {
+		fmt.Println("Error streaming message")
+		return
+	}
+
+	metadata := chat.EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: conversation.NewNodeID(),
+	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "claude-messages",
+		InputType:  "conversation.Conversation",
+		OutputType: "api.MessageResponse",
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: stepSettings.GetMetadata(),
+		},
+	}
+	completionMerger := claude.NewContentBlockMerger(metadata, stepMetadata)
+
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				response := completionMerger.Response()
+				fmt.Printf("\n\n\n")
+				for _, v := range response.Content {
+					switch v.Type() {
+					case api.ContentTypeText:
+						fmt.Printf("TEXT: %s\n", v.(api.TextContent).Text)
+					case api.ContentTypeImage:
+						fmt.Println("IMAGE")
+					case api.ContentTypeToolUse:
+						v_ := v.(api.ToolUseContent)
+						fmt.Printf("TOOL_USE: name %s input %s\n", v_.Name, string(v_.Input))
+
+					case api.ContentTypeToolResult:
+						v_ := v.(api.ToolResultContent)
+						fmt.Printf("TOOL_RESULT: %s\n", v_.Content)
+					}
+				}
+				return
+			}
+			partialCompletion, err := completionMerger.Add(event)
+			if err != nil {
+				fmt.Println("Error adding event to completionMerger:", err)
+				return
+			}
+
+			fmt.Printf("Partial: %s\n  %s\n  %s\n", partialCompletion.Type, partialCompletion.Delta, partialCompletion.Completion)
+		}
+	}
+}
 func main() {
-	testSimple()
+	//testSimple()
+	testBlockMerger()
 }
