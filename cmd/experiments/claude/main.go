@@ -17,6 +17,7 @@ import (
 	"strings"
 )
 
+//nolint:unused
 func testSimple() {
 	events, _, done := streamTestRequest()
 	if done {
@@ -194,40 +195,34 @@ func testBlockMerger() {
 	}
 	completionMerger := claude.NewContentBlockMerger(metadata, stepMetadata)
 
-	for {
-		select {
-		case event, ok := <-events:
-			if !ok {
-				response := completionMerger.Response()
-				fmt.Printf("\n\n\n")
-				for _, v := range response.Content {
-					switch v.Type() {
-					case api.ContentTypeText:
-						fmt.Printf("TEXT: %s\n", v.(api.TextContent).Text)
-					case api.ContentTypeImage:
-						fmt.Println("IMAGE")
-					case api.ContentTypeToolUse:
-						v_ := v.(api.ToolUseContent)
-						fmt.Printf("TOOL_USE: name %s input %s\n", v_.Name, string(v_.Input))
+	for event := range events {
+		completions, err := completionMerger.Add(event)
+		if err != nil {
+			fmt.Println("Error adding event to completionMerger:", err)
+			return
+		}
 
-					case api.ContentTypeToolResult:
-						v_ := v.(api.ToolResultContent)
-						fmt.Printf("TOOL_RESULT: %s\n", v_.Content)
-					}
-				}
-				return
-			}
-			completions, err := completionMerger.Add(event)
-			if err != nil {
-				fmt.Println("Error adding event to completionMerger:", err)
-				return
-			}
+		for _, partialCompletion := range completions {
+			v_, _ := yaml.Marshal(partialCompletion)
+			fmt.Println(v_)
+		}
+	}
 
-			for _, partialCompletion := range completions {
-				v_, _ := yaml.Marshal(partialCompletion)
-				fmt.Println(v_)
-			}
+	response := completionMerger.Response()
+	fmt.Printf("\n\n\n")
+	for _, v := range response.Content {
+		switch v.Type() {
+		case api.ContentTypeText:
+			fmt.Printf("TEXT: %s\n", v.(api.TextContent).Text)
+		case api.ContentTypeImage:
+			fmt.Println("IMAGE")
+		case api.ContentTypeToolUse:
+			v_ := v.(api.ToolUseContent)
+			fmt.Printf("TOOL_USE: name %s input %s\n", v_.Name, string(v_.Input))
 
+		case api.ContentTypeToolResult:
+			v_ := v.(api.ToolResultContent)
+			fmt.Printf("TOOL_RESULT: %s\n", v_.Content)
 		}
 	}
 }

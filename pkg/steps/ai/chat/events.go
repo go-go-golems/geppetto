@@ -302,6 +302,8 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventFinal")
 		}
 		return ret, nil
+
+	case EventTypeStatus:
 	}
 
 	return e, nil
