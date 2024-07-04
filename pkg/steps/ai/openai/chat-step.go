@@ -100,11 +100,7 @@ func (csf *ChatStep) Start(
 
 	stream := csf.Settings.Chat.Stream
 
-	csf.publisherManager.PublishBlind(&chat.Event{
-		Type:     chat.EventTypeStart,
-		Metadata: metadata,
-		Step:     stepMetadata,
-	})
+	csf.publisherManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
 
 	if stream {
 		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
@@ -132,14 +128,7 @@ func (csf *ChatStep) Start(
 			for {
 				select {
 				case <-cancellableCtx.Done():
-					csf.publisherManager.PublishBlind(&chat.EventText{
-						Event: chat.Event{
-							Type:     chat.EventTypeInterrupt,
-							Metadata: metadata,
-							Step:     ret.GetMetadata(),
-						},
-						Text: message,
-					})
+					csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
 					c <- helpers.NewErrorResult[string](cancellableCtx.Err())
 					return
 
@@ -147,53 +136,26 @@ func (csf *ChatStep) Start(
 					response, err := stream.Recv()
 
 					if errors.Is(err, io.EOF) {
-						csf.publisherManager.PublishBlind(&chat.EventText{
-							Event: chat.Event{
-								Type:     chat.EventTypeFinal,
-								Metadata: metadata,
-								Step:     ret.GetMetadata(),
-							},
-							Text: message,
-						})
+						csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
 						c <- helpers.NewValueResult[string](message)
 
 						return
 					}
 					if err != nil {
 						if errors.Is(err, context.Canceled) {
-							csf.publisherManager.PublishBlind(&chat.EventText{
-								Event: chat.Event{
-									Type:     chat.EventTypeInterrupt,
-									Metadata: metadata,
-									Step:     ret.GetMetadata(),
-								},
-								Text: message,
-							})
+							csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
 							c <- helpers.NewErrorResult[string](err)
 							return
 						}
 
-						csf.publisherManager.PublishBlind(&chat.Event{
-							Type:     chat.EventTypeError,
-							Error:    err,
-							Metadata: metadata,
-							Step:     ret.GetMetadata(),
-						})
+						csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
 
 					message += response.Choices[0].Delta.Content
 
-					csf.publisherManager.PublishBlind(&chat.EventPartialCompletion{
-						Event: chat.Event{
-							Type:     chat.EventTypePartialCompletion,
-							Metadata: metadata,
-							Step:     ret.GetMetadata(),
-						},
-						Delta:      response.Choices[0].Delta.Content,
-						Completion: message,
-					})
+					csf.publisherManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), response.Choices[0].Delta.Content, message))
 				}
 			}
 		}()
@@ -202,35 +164,16 @@ func (csf *ChatStep) Start(
 	} else {
 		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
 		if errors.Is(err, context.Canceled) {
-			csf.publisherManager.PublishBlind(&chat.EventText{
-				Event: chat.Event{
-					Type:     chat.EventTypeInterrupt,
-					Metadata: metadata,
-					Step:     stepMetadata,
-				},
-				Text: "",
-			})
+			csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, ""))
 			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
 		}
 
 		if err != nil {
-			csf.publisherManager.PublishBlind(&chat.Event{
-				Type:     chat.EventTypeError,
-				Error:    err,
-				Metadata: metadata,
-				Step:     stepMetadata,
-			})
+			csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
 		}
 
-		csf.publisherManager.PublishBlind(&chat.EventText{
-			Event: chat.Event{
-				Type:     chat.EventTypeFinal,
-				Metadata: metadata,
-				Step:     stepMetadata,
-			},
-			Text: resp.Choices[0].Message.Content,
-		})
+		csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
 		return steps.Resolve(resp.Choices[0].Message.Content, steps.WithMetadata[string](stepMetadata)), nil
 	}
 }

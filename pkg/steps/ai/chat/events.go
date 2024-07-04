@@ -165,6 +165,7 @@ type ToolCall struct {
 	Input string `json:"input"`
 }
 
+// TODO(manuel, 2024-07-04) Handle multiple tool calls
 type EventToolCall struct {
 	EventImpl
 	ToolCall ToolCall `json:"tool_call"`
