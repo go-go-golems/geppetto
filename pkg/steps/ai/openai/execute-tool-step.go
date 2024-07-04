@@ -178,6 +178,8 @@ func (e *ExecuteToolStep) Start(
 			toolResult.Result = string(v_)
 		}
 
+		e.subscriptionManager.PublishBlind(chat.NewToolResultEvent(metadata, stepMetadata, toolResult))
+
 		res = append(res, toolResult)
 	}
 

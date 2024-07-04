@@ -181,12 +181,14 @@ func (csf *ChatWithToolsStep) Start(
 								Name:  toolCall.Function.Name,
 								Input: toolCall.Function.Arguments,
 							})
+
+							csf.subscriptionManager.PublishBlind(chat.NewToolCallEvent(metadata, stepMetadata, chat.ToolCall{
+								ID:    toolCall.ID,
+								Name:  toolCall.Function.Name,
+								Input: toolCall.Function.Arguments,
+							}))
 						}
 						stepMetadata.Metadata[chat.MetadataToolCallsSlug] = toolCalls_
-
-						// TODO(manuel, 2024-07-04) Add a proper tool call event here
-						msg := chat.NewFinalEvent(metadata, stepMetadata, GetToolCallString(toolCalls))
-						csf.subscriptionManager.PublishBlind(msg)
 
 						ret.ToolCalls = toolCalls
 						ret.Content = message

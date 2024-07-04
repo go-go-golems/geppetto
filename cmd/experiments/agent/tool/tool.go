@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -133,7 +134,7 @@ var ToolCallCmd = &cobra.Command{
 		res, err := step.Start(ctx, messages)
 		cobra.CheckErr(err)
 
-		res_ := steps.Bind[openai.ToolCompletionResponse, map[string]interface{}](ctx, res, execStep)
+		res_ := steps.Bind[openai.ToolCompletionResponse, []chat.ToolResult](ctx, res, execStep)
 
 		c := res_.GetChannel()
 		for i := range c {

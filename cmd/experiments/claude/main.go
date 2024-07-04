@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v3"
 	"strings"
 )
 
@@ -216,13 +217,17 @@ func testBlockMerger() {
 				}
 				return
 			}
-			partialCompletion, err := completionMerger.Add(event)
+			completions, err := completionMerger.Add(event)
 			if err != nil {
 				fmt.Println("Error adding event to completionMerger:", err)
 				return
 			}
 
-			fmt.Printf("Partial: %s\n  %s\n  %s\n", partialCompletion.Type, partialCompletion.Delta, partialCompletion.Completion)
+			for _, partialCompletion := range completions {
+				v_, _ := yaml.Marshal(partialCompletion)
+				fmt.Println(v_)
+			}
+
 		}
 	}
 }

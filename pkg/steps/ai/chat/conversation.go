@@ -3,7 +3,7 @@ package chat
 import (
 	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 	"io"
 	"strings"
 )
@@ -16,14 +16,10 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 
 		e, err := NewEventFromJson(msg.Payload)
 
-		switch e.Type() {
-		case EventTypeError:
+		switch p_ := e.(type) {
+		case *EventError:
 			return err
-		case EventTypePartialCompletion:
-			p_, ok := ToTypedEvent[EventPartialCompletion](e)
-			if !ok {
-				return errors.New("Invalid payload type")
-			}
+		case *EventPartialCompletion:
 			if isFirst && name != "" {
 				isFirst = false
 				_, err = w.Write([]byte(fmt.Sprintf("\n%s: \n", name)))
@@ -35,11 +31,8 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 			if err != nil {
 				return err
 			}
-		case EventTypeFinal:
-			p_, ok := ToTypedEvent[EventFinal](e)
-			if !ok {
-				return errors.New("Invalid payload type")
-			}
+
+		case *EventText:
 			if !strings.HasSuffix(p_.Text, "\n") {
 				_, err = w.Write([]byte("\n"))
 				if err != nil {
@@ -47,9 +40,30 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				}
 			}
 
-		case EventTypeStart,
-			EventTypeStatus,
-			EventTypeInterrupt:
+		case *EventFinal:
+			if !strings.HasSuffix(p_.Text, "\n") {
+				_, err = w.Write([]byte("\n"))
+				if err != nil {
+					return err
+				}
+			}
+
+		case *EventToolCall:
+			v_, err := yaml.Marshal(p_.ToolCall)
+			if err != nil {
+				return err
+			}
+			_, err = w.Write([]byte(fmt.Sprintf("%s\n", v_)))
+
+		case *EventToolResult:
+			v_, err := yaml.Marshal(p_.ToolResult)
+			if err != nil {
+				return err
+			}
+			_, err = w.Write([]byte(fmt.Sprintf("%s\n", v_)))
+
+		case *EventPartialCompletionStart,
+			*EventInterrupt:
 
 		}
 
