@@ -160,6 +160,8 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
 			cb.Input += event.Delta.PartialJSON
+			// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
+			_ = delta
 		}
 		return []chat.Event{}, nil
 

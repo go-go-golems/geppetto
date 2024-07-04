@@ -54,6 +54,9 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return err
 			}
 			_, err = w.Write([]byte(fmt.Sprintf("%s\n", v_)))
+			if err != nil {
+				return err
+			}
 
 		case *EventToolResult:
 			v_, err := yaml.Marshal(p_.ToolResult)
@@ -61,6 +64,9 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return err
 			}
 			_, err = w.Write([]byte(fmt.Sprintf("%s\n", v_)))
+			if err != nil {
+				return err
+			}
 
 		case *EventPartialCompletionStart,
 			*EventInterrupt:
