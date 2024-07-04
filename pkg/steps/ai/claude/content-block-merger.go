@@ -38,7 +38,8 @@ func NewContentBlockMerger(metadata chat.EventMetadata, stepMetadata *steps.Step
 	}
 }
 
-// Text returns the accumulated main response so far. In the claude case, this is the concatenated list of all the individual text blocks so far
+// Text returns the accumulated main response so far.
+// In the claude case, this is the concatenated list of all the individual text blocks so far
 func (cbm *ContentBlockMerger) Text() string {
 	panic("Not implemented!")
 }
@@ -134,19 +135,17 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) (*chat.EventPartial
 			return nil, errors.New("MessageStopType event must have a message to store the finished content block")
 		}
 
-		if event.Message == nil {
-			return nil, errors.New("MessageStopType event must have a message")
+		if event.Message != nil {
 
-		}
+			if event.Message.StopReason != "" {
+				cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
+			}
+			if event.Message.StopSequence != "" {
+				cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence
+			}
 
-		if event.Message.StopReason != "" {
-			cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
+			cbm.stepMetadata.Metadata[UsageMetadataSlug] = event.Message.Usage
 		}
-		if event.Message.StopSequence != "" {
-			cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence
-		}
-
-		cbm.stepMetadata.Metadata[UsageMetadataSlug] = event.Message.Usage
 
 		// TODO(manuel, 2024-06-23) Hmm, shouldn't we send a completion event back here? Gosh I wish I had finished this project back then.
 		//  Oh I remember the issue here, it's that there can be many messages within the same stream. No actually this should be th efinal message in the stream, iirc.
