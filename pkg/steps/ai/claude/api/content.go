@@ -1,9 +1,5 @@
 package api
 
-import (
-	"encoding/json"
-)
-
 type ContentType string
 
 const (
@@ -48,9 +44,9 @@ type ImageSource struct {
 
 type ToolUseContent struct {
 	BaseContent
-	ID    string          `json:"id"`
-	Name  string          `json:"name"`
-	Input json.RawMessage `json:"input"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Input string `json:"input"`
 }
 
 func (t ToolUseContent) Type() ContentType {
@@ -84,7 +80,7 @@ func NewImageContent(mediaType, base64Data string) Content {
 	}
 }
 
-func NewToolUseContent(toolID, toolName string, toolInput json.RawMessage) Content {
+func NewToolUseContent(toolID, toolName string, toolInput string) Content {
 	return ToolUseContent{
 		BaseContent: BaseContent{Type_: ContentTypeToolUse},
 		ID:          toolID,

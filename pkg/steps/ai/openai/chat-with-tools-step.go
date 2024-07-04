@@ -189,8 +189,8 @@ func (csf *ChatWithToolsStep) Start(
 						toolCalls_ := []chat.ToolCall{}
 						for _, toolCall := range toolCalls {
 							toolCalls_ = append(toolCalls_, chat.ToolCall{
-								Name:      toolCall.Function.Name,
-								Arguments: toolCall.Function.Arguments,
+								Name:  toolCall.Function.Name,
+								Input: toolCall.Function.Arguments,
 							})
 						}
 						stepMetadata.Metadata[chat.MetadataToolCallsSlug] = toolCalls_
@@ -238,7 +238,7 @@ func (csf *ChatWithToolsStep) Start(
 
 					csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
 						Event: chat.Event{
-							Type:     chat.EventTypePartial,
+							Type:     chat.EventTypePartialCompletion,
 							Metadata: metadata,
 							Step:     stepMetadata,
 						},

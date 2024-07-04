@@ -16,11 +16,11 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 
 		e, err := NewEventFromJson(msg.Payload)
 
-		switch e.Type {
+		switch e.Type() {
 		case EventTypeError:
 			return err
-		case EventTypePartial:
-			p_, ok := e.ToPartialCompletion()
+		case EventTypePartialCompletion:
+			p_, ok := ToTypedEvent[EventPartialCompletion](e)
 			if !ok {
 				return errors.New("Invalid payload type")
 			}
@@ -36,7 +36,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return err
 			}
 		case EventTypeFinal:
-			p_, ok := e.ToText()
+			p_, ok := ToTypedEvent[EventFinal](e)
 			if !ok {
 				return errors.New("Invalid payload type")
 			}
