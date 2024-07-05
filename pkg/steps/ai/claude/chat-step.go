@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/weaviate/weaviate-go-client/v4/test/helpers"
 )
 
@@ -71,10 +72,12 @@ func NewChatStep(
 	return ret, nil
 }
 
+var _ chat.Step = &ChatStep{}
+
 func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (steps.StepResult[api.MessageResponse], error) {
+) (steps.StepResult[string], error) {
 
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
@@ -87,7 +90,7 @@ func (csf *ChatStep) Start(
 
 	apiType_ := csf.Settings.Chat.ApiType
 	if apiType_ == nil {
-		return steps.Reject[api.MessageResponse](errors.New("no chat engine specified")), nil
+		return steps.Reject[string](errors.New("no chat engine specified")), nil
 	}
 	apiType := *apiType_
 	apiSettings := csf.Settings.API
@@ -114,7 +117,7 @@ func (csf *ChatStep) Start(
 
 	req, err := makeMessageRequest(csf.Settings, messages)
 	if err != nil {
-		return steps.Reject[api.MessageResponse](err), nil
+		return steps.Reject[string](err), nil
 	}
 
 	req.Tools = csf.Tools
@@ -125,15 +128,17 @@ func (csf *ChatStep) Start(
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
-		Type:       "claude-messages",
+		Type:       "claude-chat",
 		InputType:  "conversation.Conversation",
-		OutputType: "api.MessageResponse",
+		OutputType: "string",
 		Metadata: map[string]interface{}{
 			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
 		},
 	}
 
-	csf.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+	//startEvent := chat.NewStartEvent(metadata, stepMetadata)
+	//log.Debug().Interface("event", startEvent).Msg("Start chat step")
+	//csf.subscriptionManager.PublishBlind(startEvent)
 
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
@@ -149,14 +154,14 @@ func (csf *ChatStep) Start(
 
 	eventCh, err := client.StreamMessage(cancellableCtx, req)
 	if err != nil {
-		return steps.Reject[api.MessageResponse](err), nil
+		return steps.Reject[string](err), nil
 	}
 
-	c := make(chan helpers2.Result[api.MessageResponse])
-	ret := steps.NewStepResult[api.MessageResponse](
+	c := make(chan helpers2.Result[string])
+	ret := steps.NewStepResult[string](
 		c,
-		steps.WithCancel[api.MessageResponse](cancel),
-		steps.WithMetadata[api.MessageResponse](stepMetadata),
+		steps.WithCancel[string](cancel),
+		steps.WithMetadata[string](stepMetadata),
 	)
 
 	// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
@@ -177,20 +182,26 @@ func (csf *ChatStep) Start(
 
 			case event, ok := <-eventCh:
 				if !ok {
-					csf.subscriptionManager.PublishBlind(chat.NewTextEvent(metadata, stepMetadata, completionMerger.Text()))
+					// TODO(manuel, 2024-07-04) Probably not necessary, the completionMerger probably took care of it
 					response := completionMerger.Response()
-					c <- helpers2.NewValueResult[api.MessageResponse](*response)
+					c <- helpers2.NewValueResult[string](response.FullText())
 					return
 				}
 
-				partialEvent, err := completionMerger.Add(event)
+				events_, err := completionMerger.Add(event)
+				for _, event_ := range events_ {
+					log.Debug().Interface("event", event_).Msg("processing event")
+				}
+
 				if err != nil {
 					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-					c <- helpers2.NewErrorResult[api.MessageResponse](err)
+					c <- helpers2.NewErrorResult[string](err)
 					return
 				}
 
-				csf.subscriptionManager.PublishBlind(partialEvent)
+				for _, event_ := range events_ {
+					csf.subscriptionManager.PublishBlind(event_)
+				}
 			}
 		}
 	}()
@@ -202,8 +213,6 @@ func (csf *ChatStep) AddPublishedTopic(publisher message.Publisher, topic string
 	csf.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
-
-var _ steps.Step[conversation.Conversation, api.MessageResponse] = (*ChatStep)(nil)
 
 func messageToClaudeMessage(msg *conversation.Message) api.Message {
 	switch content := msg.Content.(type) {
@@ -225,10 +234,18 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 			},
 		}
 		return res
+
+	case *conversation.ToolResultContent:
+		res := api.Message{
+			Role: string(conversation.RoleTool),
+			Content: []api.Content{
+				api.NewToolResultContent(content.ToolID, content.Result),
+			},
+		}
+		return res
 	}
 
 	return api.Message{}
-
 }
 
 func makeMessageRequest(
@@ -257,8 +274,15 @@ func makeMessageRequest(
 	}
 
 	msgs_ := []api.Message{}
+	var systemPrompt string
 	for _, msg := range messages {
-		msgs_ = append(msgs_, messageToClaudeMessage(msg))
+		chatMessage, ok := msg.Content.(*conversation.ChatMessageContent)
+		if ok && chatMessage.Role == conversation.RoleSystem {
+			systemPrompt = chatMessage.Text
+			continue
+		}
+		msg_ := messageToClaudeMessage(msg)
+		msgs_ = append(msgs_, msg_)
 	}
 
 	temperature := 0.0
@@ -269,8 +293,8 @@ func makeMessageRequest(
 	if chatSettings.TopP != nil {
 		topP = *chatSettings.TopP
 	}
-	maxTokens := 32
-	if chatSettings.MaxResponseTokens != nil {
+	maxTokens := 1024
+	if chatSettings.MaxResponseTokens != nil && *chatSettings.MaxResponseTokens > 0 {
 		maxTokens = *chatSettings.MaxResponseTokens
 	}
 
@@ -283,7 +307,7 @@ func makeMessageRequest(
 		Metadata:      nil,
 		StopSequences: stop,
 		Stream:        stream,
-		System:        "",
+		System:        systemPrompt,
 		Temperature:   helpers.Float64Pointer(temperature),
 		Tools:         nil,
 		TopK:          nil,

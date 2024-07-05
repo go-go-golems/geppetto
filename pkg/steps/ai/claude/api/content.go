@@ -1,5 +1,7 @@
 package api
 
+import "github.com/rs/zerolog"
+
 type ContentType string
 
 const (
@@ -95,4 +97,38 @@ func NewToolResultContent(toolUseID, content string) Content {
 		ToolUseID:   toolUseID,
 		Content:     content,
 	}
+}
+
+func (bc BaseContent) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("type", string(bc.Type_))
+}
+
+func (tc TextContent) MarshalZerologObject(e *zerolog.Event) {
+	e.Object("base", tc.BaseContent)
+	e.Str("text", tc.Text)
+}
+
+func (ic ImageContent) MarshalZerologObject(e *zerolog.Event) {
+	e.Object("base", ic.BaseContent)
+	e.Object("source", ic.Source)
+}
+
+func (is ImageSource) MarshalZerologObject(e *zerolog.Event) {
+	e.Object("base", is.BaseContent)
+	e.Str("type", is.Type)
+	e.Str("media_type", is.MediaType)
+	e.Str("data", is.Data)
+}
+
+func (tuc ToolUseContent) MarshalZerologObject(e *zerolog.Event) {
+	e.Object("base", tuc.BaseContent)
+	e.Str("id", tuc.ID)
+	e.Str("name", tuc.Name)
+	e.Str("input", tuc.Input)
+}
+
+func (trc ToolResultContent) MarshalZerologObject(e *zerolog.Event) {
+	e.Object("base", trc.BaseContent)
+	e.Str("tool_use_id", trc.ToolUseID)
+	e.Str("content", trc.Content)
 }

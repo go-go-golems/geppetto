@@ -94,6 +94,7 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 				Metadata:   e.StepMetadata().Metadata,
 			},
 		}
+		log.Debug().Interface("event", e).Msg("Dispatching event to UI")
 		switch e_ := e.(type) {
 		case *chat.EventError:
 			p.Send(conversation2.StreamCompletionError{

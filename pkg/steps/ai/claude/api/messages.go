@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rs/zerolog"
 	"io"
 	"net/http"
 )
@@ -106,6 +107,22 @@ type MessageResponse struct {
 	Usage        Usage     `json:"usage"`
 }
 
+var _ zerolog.LogObjectMarshaler = MessageResponse{}
+
+func (s MessageResponse) MarshalZerologObject(e *zerolog.Event) {
+	arr := zerolog.Arr()
+	for _, content := range s.Content {
+		arr.Interface(content)
+	}
+	e.Str("id", s.ID).
+		Str("type", s.Type).
+		Str("role", s.Role).
+		Str("model", s.Model).
+		Str("stop_reason", s.StopReason).
+		Str("stop_sequence", s.StopSequence).
+		Array("content", arr)
+}
+
 // FullText is a way to quickly get the entire text of the message response,
 // for our current streaming system which only deals with full strings.
 func (m MessageResponse) FullText() string {
@@ -134,6 +151,11 @@ func (m MessageResponse) FullText() string {
 type Usage struct {
 	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`
+}
+
+func (u Usage) MarshalZerologObject(e *zerolog.Event) {
+	e.Int("input_tokens", u.InputTokens).
+		Int("output_tokens", u.OutputTokens)
 }
 
 // SendMessage sends a message request and returns the response.
