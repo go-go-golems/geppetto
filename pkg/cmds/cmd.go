@@ -67,13 +67,19 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 				parameters.WithHelp("File containing messages (json or yaml, list of objects with fields text, time, role)"),
 			),
 			parameters.NewParameterDefinition(
+				"interactive",
+				parameters.ParameterTypeBool,
+				parameters.WithHelp("Ask for chat continuation after inference"),
+				parameters.WithDefault(true),
+			),
+			parameters.NewParameterDefinition(
 				"chat",
 				parameters.ParameterTypeBool,
-				parameters.WithHelp("Continue in chat mode"),
+				parameters.WithHelp("Automatically continue in chat mode"),
 				parameters.WithDefault(false),
 			),
 			parameters.NewParameterDefinition(
-				"interactive",
+				"force-interactive",
 				parameters.ParameterTypeBool,
 				parameters.WithHelp("Always enter interactive mode, even with non-tty stdout"),
 				parameters.WithDefault(false),
@@ -83,12 +89,13 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 }
 
 type HelpersSettings struct {
-	PrintPrompt       bool   `glazed.parameter:"print-prompt"`
-	System            string `glazed.parameter:"system"`
-	AppendMessageFile string `glazed.parameter:"append-message-file"`
-	MessageFile       string `glazed.parameter:"message-file"`
-	Chat              bool   `glazed.parameter:"chat"`
-	Interactive       bool   `glazed.parameter:"interactive"`
+	PrintPrompt                 bool   `glazed.parameter:"print-prompt"`
+	System                      string `glazed.parameter:"system"`
+	AppendMessageFile           string `glazed.parameter:"append-message-file"`
+	MessageFile                 string `glazed.parameter:"message-file"`
+	AutomaticallyContinueInChat bool   `glazed.parameter:"chat"`
+	Interactive                 bool   `glazed.parameter:"interactive"`
+	ForceInteractive            bool   `glazed.parameter:"force-interactive"`
 }
 
 type GeppettoCommand struct {
@@ -356,9 +363,9 @@ func (g *GeppettoCommand) RunIntoWriter(
 
 		// check if terminal is tty
 		isOutputTerminal := isatty.IsTerminal(os.Stdout.Fd())
-		interactive := s.Interactive
-		continueInChat := s.Chat
-		askChat := (isOutputTerminal || interactive) && !continueInChat
+		forceInteractive := s.ForceInteractive
+		continueInChat := s.AutomaticallyContinueInChat && s.Interactive
+		askChat := (isOutputTerminal || forceInteractive) && !s.AutomaticallyContinueInChat && s.Interactive
 
 		lengthBeforeChat := len(contextManager.GetConversation())
 
