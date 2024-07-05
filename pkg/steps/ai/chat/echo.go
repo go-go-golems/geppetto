@@ -7,6 +7,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"time"
@@ -46,10 +47,29 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 	ctx, cancel := context.WithCancel(ctx)
 	e.cancel = cancel
 
+	parentID := conversation.NullNode
+	if len(input) > 1 {
+		parentID = input[0].ID
+	}
+
+	metadata := EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
+	}
+
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "echo-completion",
+		InputType:  "conversation.Conversation",
+		OutputType: "string",
+		Metadata: map[string]interface{}{
+			"timePerCharacter": e.TimePerCharacter,
+		},
+	}
+
 	c := make(chan helpers.Result[string], 1)
 	res := steps.NewStepResult(c)
 
-	// TODO(manuel, 2024-01-12) We need to add conversational metadata here
 	eg.Go(func() error {
 		defer close(c)
 		msg, ok := input[len(input)-1].Content.(*conversation.ChatMessageContent)
@@ -61,30 +81,14 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 		for idx, c_ := range msg.Text {
 			select {
 			case <-ctx.Done():
-				e.subscriptionManager.PublishBlind(&EventText{
-					Event: Event{
-						Type: EventTypeInterrupt,
-					},
-					Text: msg.Text,
-				})
+				e.subscriptionManager.PublishBlind(NewInterruptEvent(metadata, stepMetadata, msg.Text))
 				c <- helpers.NewErrorResult[string](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
-				e.subscriptionManager.PublishBlind(&EventPartialCompletion{
-					Event: Event{
-						Type: EventTypePartial,
-					},
-					Delta:      string(c_),
-					Completion: msg.Text[:idx+1],
-				})
+				e.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, string(c_), msg.Text[:idx+1]))
 			}
 		}
-		e.subscriptionManager.PublishBlind(&EventText{
-			Event: Event{
-				Type: EventTypeFinal,
-			},
-			Text: msg.Text,
-		})
+		e.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, msg.Text))
 		c <- helpers.NewValueResult[string](msg.Text)
 		return nil
 	})

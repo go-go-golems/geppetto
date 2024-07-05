@@ -1,14 +1,5 @@
 name: simplify-specs
 short: Simplify specifications for plantuml diagrams.
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-4
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: file
     type: stringFromFile

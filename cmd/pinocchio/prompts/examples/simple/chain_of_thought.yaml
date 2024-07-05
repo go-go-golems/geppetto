@@ -1,13 +1,5 @@
 name: chain-of-thought
 short: Show a chain of thought example
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: text-curie-001
-    temperature: 0.2
-    max_response_tokens: 256
-    # stream: true
 flags:
   - name: with_chain_of_thought
     type: bool

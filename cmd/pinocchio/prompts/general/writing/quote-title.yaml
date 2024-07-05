@@ -1,12 +1,5 @@
 name: quote-title
 short: Generate titles for quotes.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    stop: []
-    stream: true
 flags:
   - name: quote
     type: stringFromFile

@@ -1,16 +1,5 @@
 name: write-article
 short: Take a list of headings and paragraphs and extract question answers
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: text-davinci-003
-    temperature: 0.2
-    max_response_tokens: 256
-    # stream: true
-step:
-  type: multi
-  multi_input: article
 flags:
   - name: questions
     type: stringList

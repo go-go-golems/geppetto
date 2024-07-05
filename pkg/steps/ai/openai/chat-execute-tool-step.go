@@ -16,7 +16,8 @@ import (
 	go_openai "github.com/sashabaranov/go-openai"
 )
 
-type ChatToolStep struct {
+// ChatExecuteToolStep combines a chat step with a tool execution step.
+type ChatExecuteToolStep struct {
 	reflector           *jsonschema.Reflector
 	toolFunctions       map[string]interface{}
 	tools               []go_openai.Tool
@@ -24,24 +25,26 @@ type ChatToolStep struct {
 	subscriptionManager *events.PublisherManager
 }
 
-var _ chat.Step = &ChatToolStep{}
+var _ chat.Step = &ChatExecuteToolStep{}
 
-type ChatToolStepOption func(step *ChatToolStep)
+type ChatToolStepOption func(step *ChatExecuteToolStep)
 
+// WithReflector sets the JSON schema reflector for the step.
 func WithReflector(reflector *jsonschema.Reflector) ChatToolStepOption {
-	return func(step *ChatToolStep) {
+	return func(step *ChatExecuteToolStep) {
 		step.reflector = reflector
 	}
 }
 
+// WithToolFunctions sets the tool functions for the step. The schema is derived from these functions using the reflector.
 func WithToolFunctions(toolFunctions map[string]interface{}) ChatToolStepOption {
-	return func(step *ChatToolStep) {
+	return func(step *ChatExecuteToolStep) {
 		step.toolFunctions = toolFunctions
 	}
 }
 
-func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolStepOption) (*ChatToolStep, error) {
-	step := &ChatToolStep{
+func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolStepOption) (*ChatExecuteToolStep, error) {
+	step := &ChatExecuteToolStep{
 		stepSettings:        stepSettings,
 		subscriptionManager: events.NewPublisherManager(),
 	}
@@ -72,7 +75,7 @@ func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolSte
 	return step, nil
 }
 
-func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
+func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
 	cancellableCtx, cancel := context.WithCancel(ctx)
 	go func() {
 		<-ctx.Done()
@@ -89,17 +92,17 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 		parentID = parentMessage.ID
 	}
 
-	toolStep, err := NewToolStep(
+	chatWithToolsStep, err := NewChatWithToolsStep(
 		t.stepSettings, t.tools,
-		WithToolStepParentID(parentID),
-		WithToolStepMessageID(toolCompletionMessageID),
-		WithToolStepSubscriptionManager(t.subscriptionManager),
+		WithChatWithToolsStepParentID(parentID),
+		WithChatWithToolsStepMessageID(toolCompletionMessageID),
+		WithChatWithToolsStepSubscriptionManager(t.subscriptionManager),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	toolResult, err := toolStep.Start(cancellableCtx, input)
+	toolCompletionResponse, err := chatWithToolsStep.Start(cancellableCtx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -111,48 +114,48 @@ func (t *ChatToolStep) Start(ctx context.Context, input conversation.Conversatio
 	if err != nil {
 		return nil, err
 	}
-	execResult := steps.Bind[ToolCompletionResponse, map[string]interface{}](cancellableCtx, toolResult, step)
+	// TODO(manuel, 2024-07-04) The return type of this step should actually be multiple ToolResult, and we can make
+	// this more generic to have it handle claude tool calls as well
+	execResult := steps.Bind[ToolCompletionResponse, []chat.ToolResult](cancellableCtx, toolCompletionResponse, step)
 
 	responseToStringID := conversation.NewNodeID()
 
-	responseToStringStep := &utils.LambdaStep[map[string]interface{}, string]{
-		Function: func(s map[string]interface{}) helpers.Result[string] {
+	responseToStringStep := &utils.LambdaStep[[]chat.ToolResult, string]{
+		Function: func(s []chat.ToolResult) helpers.Result[string] {
 			stepMetadata := &steps.StepMetadata{
 				StepID:     uuid.New(),
 				Type:       "response-to-string",
-				InputType:  "map[string]interface{}",
+				InputType:  "[]chat.ToolResult",
 				OutputType: "string",
 				Metadata:   map[string]interface{}{},
 			}
-			t.subscriptionManager.PublishBlind(&chat.Event{
-				Type: chat.EventTypeStart,
-				Step: stepMetadata,
-				Metadata: chat.EventMetadata{
-					ID:       responseToStringID,
-					ParentID: toolResultMessageID,
-				}})
+			metadata := chat.EventMetadata{
+				ID:       responseToStringID,
+				ParentID: toolResultMessageID,
+			}
+			t.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+
 			s_, _ := json.MarshalIndent(s, "", " ")
-			t.subscriptionManager.PublishBlind(&chat.EventText{
-				Event: chat.Event{
-					Type: chat.EventTypeFinal,
-					Step: stepMetadata,
-					Metadata: chat.EventMetadata{
-						ID:       responseToStringID,
-						ParentID: toolResultMessageID,
-					}},
-				Text: string(s_),
-			})
+
+			// TODO(manuel, 2024-07-04) Handle multiple tool calls
+			// actually needs to have one per tool call, so that we can send the result message to openai
+			t.subscriptionManager.PublishBlind(chat.NewToolResultEvent(metadata, stepMetadata, chat.ToolResult{
+				ID:     "",
+				Result: "",
+			}))
+			// TODO(manuel, 2024-07-04) Should there be a ToolResult event here?
+			t.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(s_)))
 			return helpers.NewValueResult[string](string(s_))
 		},
 	}
-	stringResult := steps.Bind[map[string]interface{}, string](cancellableCtx, execResult, responseToStringStep)
+	stringResult := steps.Bind[[]chat.ToolResult, string](cancellableCtx, execResult, responseToStringStep)
 
 	return stringResult, nil
 }
 
-func (t *ChatToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (t *ChatExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	t.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 
-var _ chat.Step = &ChatToolStep{}
+var _ chat.Step = &ChatExecuteToolStep{}

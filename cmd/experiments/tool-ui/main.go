@@ -30,7 +30,7 @@ type ToolUiCommand struct {
 	stepSettings *settings.StepSettings
 	manager      conversation.Manager
 	reflector    *jsonschema.Reflector
-	chatToolStep *openai.ChatToolStep
+	chatToolStep *openai.ChatExecuteToolStep
 	eventRouter  *events.EventRouter
 }
 
@@ -42,7 +42,10 @@ func NewToolUiCommand() (*ToolUiCommand, error) {
 		return nil, err
 	}
 
-	stepSettings := settings.NewStepSettings()
+	stepSettings, err := settings.NewStepSettings()
+	if err != nil {
+		return nil, err
+	}
 	geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 	if err != nil {
 		return nil, err
@@ -147,8 +150,12 @@ func (t *ToolUiCommand) RunIntoGlazeProcessor(
 }
 
 func (t *ToolUiCommand) Init(parsedLayers *layers.ParsedLayers) error {
-	t.stepSettings = settings.NewStepSettings()
-	err := t.stepSettings.UpdateFromParsedLayers(parsedLayers)
+	var err error
+	t.stepSettings, err = settings.NewStepSettings()
+	if err != nil {
+		return err
+	}
+	err = t.stepSettings.UpdateFromParsedLayers(parsedLayers)
 	if err != nil {
 		return err
 	}

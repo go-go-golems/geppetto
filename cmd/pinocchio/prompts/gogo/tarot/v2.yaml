@@ -1,13 +1,5 @@
 name: v2
 short: Interpret tarot card readings
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-3.5-turbo
-    temperature: 1.2
-    max_response_tokens: 1024
-    stream: true
 flags:
   - name: cards
     type: stringList

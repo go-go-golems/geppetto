@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func GetToolCallDelta(toolCalls []go_openai.ToolCall) string {
+func GetToolCallString(toolCalls []go_openai.ToolCall) string {
 	msg := ""
 	for _, call := range toolCalls {
 		msg += call.Function.Name
@@ -153,14 +153,20 @@ func makeClient(apiSettings *settings.APISettings, apiType settings.ApiType) (*g
 	return client, nil
 }
 
+// TODO(manuel, 2024-06-25) We actually need a processor like the content block merger here, where we merge tool use blocks with previous messages to properly create openai messages
+// So we would need to get a message block, then slurp up all the following tool use messages, and then finally emit the message block
 func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionMessage {
-	// TODO(manuel, 2024-01-13) This is where we could have a proper tool call chat content
 	switch content := msg.Content.(type) {
 	case *conversation.ChatMessageContent:
 		res := go_openai.ChatCompletionMessage{
 			Role:    string(content.Role),
 			Content: content.Text,
 		}
+
+		// TODO(manuel, 2024-06-04) This should actually pass in a ToolUse content in the conversation
+		// This is how claude expects it, and I also added a comment to ContentType's definition in message.go
+		//
+		// NOTE(manuel, 2024-06-04) It seems that these metadata keys are never set anywhere anyway
 		metadata := msg.Metadata
 		if metadata != nil {
 			functionCall := metadata["function_call"]
@@ -178,6 +184,34 @@ func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionM
 				res.ToolCallID = toolCallID_
 			}
 		}
+		return res
+
+	case *conversation.ToolResultContent:
+		res := go_openai.ChatCompletionMessage{
+			Role:       string(conversation.RoleTool),
+			Content:    string(content.Result),
+			ToolCallID: content.ToolID,
+		}
+
+		return res
+
+	case *conversation.ToolUseContent:
+		// openai encodes tool use messages within the assistant completion message
+		// TODO(manuel, 2024-06-25) This should be aggregated into a multi call chat message content, instead of being serialized individually
+		res := go_openai.ChatCompletionMessage{
+			Role: string(conversation.RoleAssistant),
+			ToolCalls: []go_openai.ToolCall{
+				{
+					ID:   content.ToolID,
+					Type: "function",
+					Function: go_openai.FunctionCall{
+						Name:      content.Name,
+						Arguments: string(content.Input),
+					},
+				},
+			},
+		}
+
 		return res
 	}
 

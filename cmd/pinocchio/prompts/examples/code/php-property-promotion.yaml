@@ -1,15 +1,5 @@
 name: php-property-promotion
 short: Generate a class with constructor property promotion
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: code-cushman-001
-    temperature: 0.2
-    max_response_tokens: 1024
-    stop:
-        - // End Output
-      # stream: true
 flags:
   - name: instructions
     type: string

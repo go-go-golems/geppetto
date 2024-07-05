@@ -3,6 +3,7 @@ package ai
 import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
@@ -32,7 +33,7 @@ func (s *StandardStepFactory) NewStep(
 			}
 
 		case settings.ApiTypeClaude:
-			ret = claude.NewStep(settings_)
+			ret, err = claude.NewChatStep(settings_, []api.Tool{})
 			if err != nil {
 				return nil, err
 			}

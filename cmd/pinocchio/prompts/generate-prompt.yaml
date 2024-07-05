@@ -1,14 +1,5 @@
 name: generate-prompt
 short: Generate prompt for large language models.
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-4
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: goal
     type: string

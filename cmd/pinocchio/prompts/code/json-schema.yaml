@@ -1,19 +1,5 @@
 name: json-schema
 short: Generate JSON schema based on input files.
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-4
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
-arguments:
-  - name: input_files
-    type: fileList
-    help: Input files for generating JSON schema
-    required: true
 flags:
   - name: additional_system
     type: string
