@@ -98,7 +98,7 @@ func (csf *MessagesStep) Start(
 		return nil, errors.Errorf("no base URL for %s", apiType)
 	}
 
-	client := api.NewClient(apiKey, baseURL)
+	client := api.NewClient(apiKey, baseURL+"/v1/complete")
 
 	engine := ""
 

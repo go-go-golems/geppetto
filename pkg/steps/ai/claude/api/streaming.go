@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/rs/zerolog"
 	"io"
 	"net/http"
 	"strings"
@@ -40,6 +41,36 @@ type StreamingEvent struct {
 	ContentBlock *ContentBlock      `json:"content_block,omitempty"`
 }
 
+func (s StreamingEvent) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("type", string(s.Type))
+
+	if s.Message != nil {
+		e.Object("message", s.Message)
+	}
+
+	if s.Delta != nil {
+		e.Object("delta", s.Delta)
+	}
+
+	if s.Error != nil {
+		e.Object("error", s.Error)
+	}
+
+	if s.Index != 0 {
+		e.Int("index", s.Index)
+	}
+
+	if s.Usage != nil {
+		e.Object("usage", s.Usage)
+	}
+
+	if s.ContentBlock != nil {
+		e.Object("content_block", s.ContentBlock)
+	}
+}
+
+var _ zerolog.LogObjectMarshaler = StreamingEvent{}
+
 type ContentBlock struct {
 	Type  ContentType `json:"type"`
 	ID    string      `json:"id,omitempty"`
@@ -59,6 +90,41 @@ type Delta struct {
 	PartialJSON  string             `json:"partial_json"`
 	StopReason   string             `json:"stop_reason,omitempty"`
 	StopSequence string             `json:"stop_sequence,omitempty"`
+}
+
+func (cb ContentBlock) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("type", string(cb.Type))
+	if cb.ID != "" {
+		e.Str("id", cb.ID)
+	}
+	if cb.Name != "" {
+		e.Str("name", cb.Name)
+	}
+	if cb.Input != "" {
+		e.Str("input", cb.Input)
+	}
+	if cb.Text != "" {
+		e.Str("text", cb.Text)
+	}
+}
+
+func (err Error) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("type", err.Type)
+	e.Str("message", err.Message)
+}
+
+func (d Delta) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("type", string(d.Type))
+	if d.Text != "" {
+		e.Str("text", d.Text)
+	}
+	e.Str("partial_json", d.PartialJSON)
+	if d.StopReason != "" {
+		e.Str("stop_reason", d.StopReason)
+	}
+	if d.StopSequence != "" {
+		e.Str("stop_sequence", d.StopSequence)
+	}
 }
 
 func streamEvents(ctx context.Context, resp *http.Response, events chan StreamingEvent) {

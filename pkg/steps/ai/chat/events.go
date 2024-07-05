@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/rs/zerolog"
 )
 
 type EventType string
@@ -40,6 +41,22 @@ type EventImpl struct {
 
 	// store payload if the event was deserialized from JSON (see NewEventFromJson), not further used
 	payload []byte
+}
+
+func (e *EventImpl) MarshalZerologObject(ev *zerolog.Event) {
+	ev.Str("type", string(e.Type_))
+
+	if e.Error_ != nil {
+		ev.Err(e.Error_)
+	}
+
+	if e.Metadata_ != (EventMetadata{}) {
+		ev.Object("meta", e.Metadata_)
+	}
+
+	if e.Step_ != nil {
+		ev.Object("step", e.Step_)
+	}
 }
 
 func (e *EventImpl) Type() EventType {
@@ -140,6 +157,7 @@ func NewErrorEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, err
 
 var _ Event = &EventError{}
 
+// TODO(manuel, 2024-07-05) This might be possible to delete
 type EventText struct {
 	EventImpl
 	Text string `json:"text"`
@@ -250,6 +268,11 @@ type EventMetadata struct {
 	ParentID conversation.NodeID `json:"parent_id"`
 }
 
+func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("message_id", em.ID.String())
+	e.Str("parent_id", em.ParentID.String())
+}
+
 func NewEventFromJson(b []byte) (Event, error) {
 	var e *EventImpl
 	err := json.Unmarshal(b, &e)
@@ -341,4 +364,51 @@ func (e *EventImpl) ToToolCall() (EventToolCall, bool) {
 		return EventToolCall{}, false
 	}
 	return *ret, true
+}
+
+func (e EventPartialCompletionStart) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+}
+
+func (e EventInterrupt) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("text", e.Text)
+}
+
+func (e EventFinal) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("text", e.Text)
+}
+
+func (e EventError) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("error", e.Error_)
+}
+
+func (e EventText) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("text", e.Text)
+}
+
+func (tc ToolCall) MarshalZerologObject(ev *zerolog.Event) {
+	ev.Str("id", tc.ID).Str("name", tc.Name).Str("input", tc.Input)
+}
+
+func (e EventToolCall) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Object("tool_call", e.ToolCall)
+}
+
+func (tr ToolResult) MarshalZerologObject(ev *zerolog.Event) {
+	ev.Str("id", tr.ID).Str("result", tr.Result)
+}
+
+func (e EventToolResult) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Object("tool_result", e.ToolResult)
+}
+
+func (e EventPartialCompletion) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("delta", e.Delta).Str("completion", e.Completion)
 }

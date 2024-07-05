@@ -5,6 +5,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"sort"
 )
 
 // ContentBlockMerger manages the streaming response from Claude AI API for chat completion.
@@ -41,7 +43,24 @@ func NewContentBlockMerger(metadata chat.EventMetadata, stepMetadata *steps.Step
 // Text returns the accumulated main response so far.
 // In the claude case, this is the concatenated list of all the individual text blocks so far
 func (cbm *ContentBlockMerger) Text() string {
-	panic("Not implemented!")
+	res := ""
+	// Create a slice to store the keys
+	keys := make([]int, 0, len(cbm.contentBlocks))
+
+	// Collect all keys from the map
+	for k := range cbm.contentBlocks {
+		keys = append(keys, k)
+	}
+
+	// Sort the keys in ascending order
+	sort.Ints(keys)
+
+	// Iterate over the sorted keys
+	for _, k := range keys {
+		res += cbm.contentBlocks[k].Text
+	}
+
+	return res
 }
 
 func (cbm *ContentBlockMerger) Response() *api.MessageResponse {
@@ -65,6 +84,8 @@ const RoleMetadataSlug = "claude_role"
 func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, error) {
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
+
+	log.Debug().Object("event", event).Msg("ContentBlockMerger.Add")
 
 	switch event.Type {
 	case api.PingType:
