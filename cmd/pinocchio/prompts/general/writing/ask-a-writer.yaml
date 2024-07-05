@@ -1,12 +1,5 @@
 name: ask-a-writer
 short: Generate engaging, clear, and SEO-friendly content about technology
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 1024
-    stream: true
 flags:
   - name: additional_system
     type: string

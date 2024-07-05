@@ -1,13 +1,5 @@
 name: create-persona
 short: Generate persona descriptions.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: ["CONFIRM"]
-    stream: true
 flags:
   - name: profession
     type: string

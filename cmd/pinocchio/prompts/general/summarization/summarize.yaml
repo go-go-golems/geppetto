@@ -1,13 +1,5 @@
 name: summarize
 short: Summarize online articles in a concise and informative manner.
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: article
     type: stringFromFile

@@ -4,14 +4,6 @@ long: |
   Generate increasingly concise, entity-dense summaries of an article.
   See: https://twitter.com/alphasignalai/status/1703825582889263473
   See: https://arxiv.org/pdf/2309.04269.pdf
-factories:
-  client:
-    timeout: 120
-  chat:
-    temperature: 0.2
-    max_response_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: article
     type: stringFromFile
