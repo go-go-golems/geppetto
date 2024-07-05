@@ -1,13 +1,8 @@
 name: cleanup-transcript
 short: Clean up and summarize a conversation transcript.
 factories:
-  client:
-    timeout: 120
   chat:
-    temperature: 0.2
-    max_response_tokens: 2048
     stop: [ "--- END CLEANED UP TRANSCRIPT", ]
-    stream: true
 flags:
   - name: type
     type: choice
