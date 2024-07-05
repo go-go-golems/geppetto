@@ -34,6 +34,9 @@ func (s *StandardStepFactory) NewStep(
 
 		case settings.ApiTypeClaude:
 			ret, err = claude.NewChatStep(settings_, []api.Tool{})
+			if err != nil {
+				return nil, err
+			}
 
 		case settings.ApiTypeOllama:
 			return nil, errors.New("ollama is not supported")
