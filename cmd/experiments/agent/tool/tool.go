@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/cmds"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -59,7 +60,8 @@ var ToolCallCmd = &cobra.Command{
 	Use:   "tool-call",
 	Short: "Tool call",
 	Run: func(cmd *cobra.Command, args []string) {
-		stepSettings := settings.NewStepSettings()
+		stepSettings, err := settings.NewStepSettings()
+		cobra.CheckErr(err)
 		geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 		cobra.CheckErr(err)
 		layers_ := layers.NewParameterLayers(layers.WithLayers(geppettoLayers...))
@@ -98,7 +100,7 @@ var ToolCallCmd = &cobra.Command{
 		fmt.Printf("getWeatherJsonSchema:\n%s\n\n", s)
 
 		// LLM completion step
-		step := &openai.ToolStep{
+		step := &openai.ChatWithToolsStep{
 			Settings: stepSettings,
 			Tools: []go_openai.Tool{{
 				Type: "function",
@@ -132,7 +134,7 @@ var ToolCallCmd = &cobra.Command{
 		res, err := step.Start(ctx, messages)
 		cobra.CheckErr(err)
 
-		res_ := steps.Bind[openai.ToolCompletionResponse, map[string]interface{}](ctx, res, execStep)
+		res_ := steps.Bind[openai.ToolCompletionResponse, []chat.ToolResult](ctx, res, execStep)
 
 		c := res_.GetChannel()
 		for i := range c {

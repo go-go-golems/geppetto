@@ -19,13 +19,25 @@ type Settings struct {
 	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
 }
 
-func NewSettings() *Settings {
-	return &Settings{
+func NewSettings() (*Settings, error) {
+	s := &Settings{
 		N:                nil,
 		PresencePenalty:  nil,
 		FrequencyPenalty: nil,
 		LogitBias:        map[string]string{},
 	}
+
+	p, err := NewParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.InitializeStructFromParameterDefaults(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *Settings) Clone() *Settings {

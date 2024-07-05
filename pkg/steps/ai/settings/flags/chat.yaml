@@ -5,7 +5,7 @@ flags:
   - name: ai-engine
     type: string
     help: AI chat completion engine
-    default: "gpt-3.5-turbo"
+    default: "gpt-4o"
   - name: ai-api-type
     type: choice
     choices:
@@ -16,6 +16,7 @@ flags:
       - "mistral"
       - "perplexity"
     help: AI chat completion API type
+    default: openai
   - name: ai-temperature
     type: float
     help: AI chat completion temperature
@@ -23,11 +24,10 @@ flags:
   - name: ai-max-response-tokens
     type: int
     help: AI chat completion max response tokens
-    default: 512
   - name: ai-stream
     type: bool
     help: AI chat completion stream
-    default: false
+    default: true
   - name: ai-stop
     type: stringList
     help: AI chat completion stop

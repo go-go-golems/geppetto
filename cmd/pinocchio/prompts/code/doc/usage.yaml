@@ -1,14 +1,5 @@
 name: usage
 short: Generate practical and accessible documentation for new developers.
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-4
-    temperature: 0.2
-    max_tokens: 2048
-    stop: []
-    stream: true
 flags:
   - name: additional
     type: stringList

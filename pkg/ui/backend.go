@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/charmbracelet/bubbletea"
 	boba_chat "github.com/go-go-golems/bobatea/pkg/chat"
@@ -83,68 +84,59 @@ func StepChatForwardFunc(p *tea.Program) func(msg *message.Message) error {
 		}
 
 		metadata := conversation2.StreamMetadata{
-			ID:       e.Metadata.ID,
-			ParentID: e.Metadata.ParentID,
+			ID:       e.Metadata().ID,
+			ParentID: e.Metadata().ParentID,
 			Step: &conversation2.StepMetadata{
-				StepID:     e.Step.StepID,
-				Type:       e.Step.Type,
-				InputType:  e.Step.InputType,
-				OutputType: e.Step.OutputType,
-				Metadata:   e.Step.Metadata,
+				StepID:     e.StepMetadata().StepID,
+				Type:       e.StepMetadata().Type,
+				InputType:  e.StepMetadata().InputType,
+				OutputType: e.StepMetadata().OutputType,
+				Metadata:   e.StepMetadata().Metadata,
 			},
 		}
-		switch e.Type {
-		case chat.EventTypeError:
+		log.Debug().Interface("event", e).Msg("Dispatching event to UI")
+		switch e_ := e.(type) {
+		case *chat.EventError:
 			p.Send(conversation2.StreamCompletionError{
 				StreamMetadata: metadata,
-				Err:            e.Error,
+				Err:            e_.Error(),
 			})
-		case chat.EventTypePartial:
-			p_, ok := e.ToPartialCompletion()
-			if !ok {
-				return errors.New("payload is not of type EventPartialCompletionPayload")
-			}
+		case *chat.EventPartialCompletion:
 			p.Send(conversation2.StreamCompletionMsg{
 				StreamMetadata: metadata,
-				Delta:          p_.Delta,
-				Completion:     p_.Completion,
+				Delta:          e_.Delta,
+				Completion:     e_.Completion,
 			})
-		case chat.EventTypeFinal:
-			p_, ok := e.ToText()
-			if !ok {
-				return errors.New("payload is not of type EventTextPayload")
-			}
+		case *chat.EventFinal:
 			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
-				Completion:     p_.Text,
+				Completion:     e_.Text,
 			})
-		case chat.EventTypeInterrupt:
-			p_, ok := e.ToText()
+
+		case *chat.EventInterrupt:
+			p_, ok := chat.ToTypedEvent[chat.EventInterrupt](e)
 			if !ok {
-				return errors.New("payload is not of type EventTextPayload")
+				return errors.New("payload is not of type EventInterrupt")
 			}
 			p.Send(conversation2.StreamDoneMsg{
 				StreamMetadata: metadata,
 				Completion:     p_.Text,
 			})
 
-		case chat.EventTypeStart:
+		case *chat.EventToolCall:
+			p.Send(conversation2.StreamDoneMsg{
+				StreamMetadata: metadata,
+				Completion:     fmt.Sprintf("%s(%s)", e_.ToolCall.Name, e_.ToolCall.Input),
+			})
+		case *chat.EventToolResult:
+			p.Send(conversation2.StreamDoneMsg{
+				StreamMetadata: metadata,
+				Completion:     fmt.Sprintf("Result: %s", e_.ToolResult.Result),
+			})
+
+		case *chat.EventPartialCompletionStart:
 			p.Send(conversation2.StreamStartMsg{
 				StreamMetadata: metadata,
-			})
-
-		case chat.EventTypeStatus:
-			p_, ok := e.ToText()
-			if !ok {
-				return errors.New("payload is not of type EventTextPayload")
-			}
-			p.Send(conversation2.StreamStatusMsg{
-				StreamMetadata: conversation2.StreamMetadata{
-					ID:       p_.Metadata.ID,
-					ParentID: p_.Metadata.ParentID,
-				},
-
-				Text: p_.Text,
 			})
 		}
 

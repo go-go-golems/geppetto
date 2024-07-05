@@ -1,13 +1,5 @@
 name: example-driven
 short: Show a chain of thought example
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: text-davinci-003
-    temperature: 0.2
-    max_response_tokens: 512
-    # stream: true
 flags:
   - name: question
     type: string

@@ -22,7 +22,8 @@ type ToolCompletionResponse struct {
 	ToolCalls []go_openai.ToolCall `json:"tool_calls"`
 }
 
-type ToolStep struct {
+// ChatWithToolsStep is actually just like ChatStep, except that it also accumulates tool calls.
+type ChatWithToolsStep struct {
 	Settings            *settings.StepSettings
 	Tools               []go_openai.Tool
 	subscriptionManager *events.PublisherManager
@@ -30,37 +31,37 @@ type ToolStep struct {
 	messageID           conversation.NodeID
 }
 
-var _ steps.Step[[]*conversation.Message, ToolCompletionResponse] = (*ToolStep)(nil)
+var _ steps.Step[[]*conversation.Message, ToolCompletionResponse] = (*ChatWithToolsStep)(nil)
 
-type ToolStepOption func(*ToolStep) error
+type ToolStepOption func(*ChatWithToolsStep) error
 
-func WithToolStepSubscriptionManager(subscriptionManager *events.PublisherManager) ToolStepOption {
-	return func(step *ToolStep) error {
+func WithChatWithToolsStepSubscriptionManager(subscriptionManager *events.PublisherManager) ToolStepOption {
+	return func(step *ChatWithToolsStep) error {
 		step.subscriptionManager = subscriptionManager
 		return nil
 	}
 }
 
-func WithToolStepParentID(parentID conversation.NodeID) ToolStepOption {
-	return func(step *ToolStep) error {
+func WithChatWithToolsStepParentID(parentID conversation.NodeID) ToolStepOption {
+	return func(step *ChatWithToolsStep) error {
 		step.parentID = parentID
 		return nil
 	}
 }
 
-func WithToolStepMessageID(messageID conversation.NodeID) ToolStepOption {
-	return func(step *ToolStep) error {
+func WithChatWithToolsStepMessageID(messageID conversation.NodeID) ToolStepOption {
+	return func(step *ChatWithToolsStep) error {
 		step.messageID = messageID
 		return nil
 	}
 }
 
-func NewToolStep(
+func NewChatWithToolsStep(
 	stepSettings *settings.StepSettings,
 	Tools []go_openai.Tool,
 	options ...ToolStepOption,
-) (*ToolStep, error) {
-	ret := &ToolStep{
+) (*ChatWithToolsStep, error) {
+	ret := &ChatWithToolsStep{
 		Settings:            stepSettings,
 		Tools:               Tools,
 		subscriptionManager: events.NewPublisherManager(),
@@ -80,13 +81,12 @@ func NewToolStep(
 	return ret, nil
 }
 
-func (csf *ToolStep) SetStreaming(b bool) {
+// NOTE(manuel, 2024-06-04) I think this can be removed
+func (csf *ChatWithToolsStep) SetStreaming(b bool) {
 	csf.Settings.Chat.Stream = b
 }
 
-const MetadataToolCallsSlug = "tool-calls"
-
-func (csf *ToolStep) Start(
+func (csf *ChatWithToolsStep) Start(
 	ctx context.Context,
 	messages []*conversation.Message,
 ) (steps.StepResult[ToolCompletionResponse], error) {
@@ -107,6 +107,7 @@ func (csf *ToolStep) Start(
 	req.Tools = csf.Tools
 	stream := csf.Settings.Chat.Stream
 
+	// If we don't have a parent ID, we'll use the last message's ID
 	if len(messages) > 0 {
 		parentMessage := messages[len(messages)-1]
 		if csf.parentID == conversation.NullNode {
@@ -128,20 +129,20 @@ func (csf *ToolStep) Start(
 		},
 	}
 
-	csf.subscriptionManager.PublishBlind(&chat.Event{
-		Type:     chat.EventTypeStart,
-		Step:     stepMetadata,
-		Metadata: metadata,
-	})
+	csf.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
 
 	ctx_, cancel := context.WithCancel(ctx)
+	// NOTE(manuel, 2024-06-04) Not sure if we need to collect this goroutine as well when closing the step.
+	// Probably (see the other comments for the other goroutines both here and in the claude steps).
+	// In fact, do we even need this? Wouldn't the context.WithCancel take care of that anyway?
+	// God damn it, context cancellation...
 	go func() {
 		<-ctx.Done()
 		cancel()
 	}()
 
 	if stream {
-		stream_, err := client.CreateChatCompletionStream(context.Background(), *req)
+		stream_, err := client.CreateChatCompletionStream(ctx_, *req)
 		if err != nil {
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
@@ -155,6 +156,8 @@ func (csf *ToolStep) Start(
 		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 		go func() {
 			defer close(c)
+			// NOTE(manuel, 2024-06-04) Added this because we now use ctx_ as the chat completion stream context
+			defer cancel()
 			defer stream_.Close()
 
 			message := ""
@@ -166,14 +169,7 @@ func (csf *ToolStep) Start(
 			for {
 				select {
 				case <-ctx_.Done():
-					csf.subscriptionManager.PublishBlind(&chat.EventText{
-						Event: chat.Event{
-							Type:     chat.EventTypeInterrupt,
-							Metadata: metadata,
-							Step:     stepMetadata,
-						},
-						Text: message,
-					})
+					csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, message))
 					return
 				default:
 					response, err := stream_.Recv()
@@ -182,25 +178,17 @@ func (csf *ToolStep) Start(
 						toolCalls_ := []chat.ToolCall{}
 						for _, toolCall := range toolCalls {
 							toolCalls_ = append(toolCalls_, chat.ToolCall{
-								Name:      toolCall.Function.Name,
-								Arguments: toolCall.Function.Arguments,
+								Name:  toolCall.Function.Name,
+								Input: toolCall.Function.Arguments,
 							})
+
+							csf.subscriptionManager.PublishBlind(chat.NewToolCallEvent(metadata, stepMetadata, chat.ToolCall{
+								ID:    toolCall.ID,
+								Name:  toolCall.Function.Name,
+								Input: toolCall.Function.Arguments,
+							}))
 						}
-						stepMetadata.Metadata[MetadataToolCallsSlug] = toolCalls_
-
-						// TODO(manuel, 2023-11-28) Handle multiple choices
-						//s, _ := json.MarshalIndent(toolCalls_, "", " ")
-
-						msg := &chat.EventText{
-							Event: chat.Event{
-								Type:     chat.EventTypeFinal,
-								Metadata: metadata,
-								Step:     stepMetadata,
-							},
-							Text: GetToolCallDelta(toolCalls),
-						}
-
-						csf.subscriptionManager.PublishBlind(msg)
+						stepMetadata.Metadata[chat.MetadataToolCallsSlug] = toolCalls_
 
 						ret.ToolCalls = toolCalls
 						ret.Content = message
@@ -209,36 +197,24 @@ func (csf *ToolStep) Start(
 						return
 					}
 					if err != nil {
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:     chat.EventTypeError,
-							Error:    err,
-							Metadata: metadata,
-							Step:     stepMetadata,
-						})
+						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 						c <- helpers.NewErrorResult[ToolCompletionResponse](err)
 						return
 					}
 
+					// NOTE(manuel, 2024-06-04) This could be moved to a proper deltaCompletionMerger like the one sketched out in the claude step implementation
 					// TODO(manuel, 2023-11-28) Handle multiple choices
 					delta := response.Choices[0].Delta
 					deltaContent := delta.Content
 					if delta.Content == "" {
-						deltaContent = GetToolCallDelta(delta.ToolCalls)
+						deltaContent = GetToolCallString(delta.ToolCalls)
 
 					}
 					toolCallMerger.AddToolCalls(delta.ToolCalls)
 
 					message += deltaContent
 
-					csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
-						Event: chat.Event{
-							Type:     chat.EventTypePartial,
-							Metadata: metadata,
-							Step:     stepMetadata,
-						},
-						Delta:      deltaContent,
-						Completion: message,
-					})
+					csf.subscriptionManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, stepMetadata, deltaContent, message))
 
 					if delta.Role != "" {
 						ret.Role = delta.Role
@@ -253,35 +229,19 @@ func (csf *ToolStep) Start(
 		resp, err := client.CreateChatCompletion(ctx_, *req)
 
 		if errors.Is(err, context.Canceled) {
-			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type:     chat.EventTypeInterrupt,
-				Metadata: metadata,
-				Step:     stepMetadata,
-			})
+			csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, ""))
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
 		if err != nil {
-			csf.subscriptionManager.PublishBlind(&chat.Event{
-				Type:     chat.EventTypeError,
-				Error:    err,
-				Metadata: metadata,
-				Step:     stepMetadata,
-			})
+			csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
 		// TODO(manuel, 2023-11-28) Handle multiple choices
 		s, _ := json.MarshalIndent(resp.Choices[0].Message.ToolCalls, "", " ")
 
-		csf.subscriptionManager.PublishBlind(&chat.EventText{
-			Event: chat.Event{
-				Type:     chat.EventTypeFinal,
-				Metadata: metadata,
-				Step:     stepMetadata,
-			},
-			Text: string(s),
-		})
+		csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(s)))
 
 		ret := ToolCompletionResponse{
 			Role:      resp.Choices[0].Message.Role,
@@ -292,7 +252,7 @@ func (csf *ToolStep) Start(
 	}
 }
 
-func (r *ToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (r *ChatWithToolsStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	r.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }

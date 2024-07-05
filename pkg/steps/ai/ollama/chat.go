@@ -96,43 +96,20 @@ func (ccs *ChatCompletionStep) Start(
 			// TODO(manuel, 2024-01-13) Handle metrics
 
 			if resp.Done {
-				ccs.subscriptionManager.PublishBlind(&chat.EventText{
-					Event: chat.Event{
-						Type:     chat.EventTypeFinal,
-						Metadata: metadata,
-						Step:     ret.GetMetadata(),
-					},
-					Text: message,
-				})
+				ccs.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
 				c <- helpers.NewValueResult[string](resp.Message.Content)
 				return nil
 			}
 
 			message += resp.Message.Content
 
-			ccs.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
-				Event: chat.Event{
-					Type:     chat.EventTypePartial,
-					Metadata: metadata,
-					Step:     ret.GetMetadata(),
-				},
-				Delta:      resp.Message.Content,
-				Completion: message,
-			})
+			ccs.subscriptionManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), resp.Message.Content, message))
 
 			return nil
 		})
 
 		if err != nil {
-			ccs.subscriptionManager.PublishBlind(&chat.EventText{
-				Event: chat.Event{
-					Type:     chat.EventTypeError,
-					Error:    err,
-					Metadata: metadata,
-					Step:     ret.GetMetadata(),
-				},
-				Text: message,
-			})
+			ccs.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
 			c <- helpers.NewErrorResult[string](err)
 		}
 	}()

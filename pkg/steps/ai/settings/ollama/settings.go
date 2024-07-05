@@ -16,17 +16,32 @@ type Settings struct {
 	NumThread     *int     `yaml:"num-thread,omitempty" glazed.parameter:"ollama-num-thread"`
 	RepeatLastN   *int     `yaml:"repeat-last-n,omitempty" glazed.parameter:"ollama-repeat-last-n"`
 	RepeatPenalty *float64 `yaml:"repeat-penalty,omitempty" glazed.parameter:"ollama-repeat-penalty"`
-	Temperature   *float64 `yaml:"temperature,omitempty" glazed.parameter:"ollama-temperature"`
-	Seed          *int     `yaml:"seed,omitempty" glazed.parameter:"ollama-seed"`
-	Stop          *string  `yaml:"stop,omitempty" glazed.parameter:"ollama-stop"`
-	TfsZ          *float64 `yaml:"tfs-z,omitempty" glazed.parameter:"ollama-tfs-z"`
-	NumPredict    *int     `yaml:"num-predict,omitempty" glazed.parameter:"ollama-num-predict"`
-	TopK          *int     `yaml:"top-k,omitempty" glazed.parameter:"ollama-top-k"`
-	TopP          *float64 `yaml:"top-p,omitempty" glazed.parameter:"ollama-top-p"`
+	// TODO(manuel, 2024-07-03) I think this needs to be removed
+	Temperature *float64 `yaml:"temperature,omitempty" glazed.parameter:"ollama-temperature"`
+	Seed        *int     `yaml:"seed,omitempty" glazed.parameter:"ollama-seed"`
+	// TODO(manuel, 2024-07-03) I think this needs to be removed
+	Stop       []string `yaml:"stop,omitempty" glazed.parameter:"ollama-stop"`
+	TfsZ       *float64 `yaml:"tfs-z,omitempty" glazed.parameter:"ollama-tfs-z"`
+	NumPredict *int     `yaml:"num-predict,omitempty" glazed.parameter:"ollama-num-predict"`
+	TopK       *int     `yaml:"top-k,omitempty" glazed.parameter:"ollama-top-k"`
+	// TODO(manuel, 2024-07-03) I think this needs to be removed
+	TopP *float64 `yaml:"top-p,omitempty" glazed.parameter:"ollama-top-p"`
 }
 
-func NewSettings() *Settings {
-	return &Settings{}
+func NewSettings() (*Settings, error) {
+	s := &Settings{}
+
+	p, err := NewParameterLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.InitializeStructFromParameterDefaults(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *Settings) Clone() *Settings {

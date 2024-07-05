@@ -1,14 +1,5 @@
 name: class
 short: Simulate a classroom debate scenario with distinct personalities.
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: gpt-4
-    temperature: 0.7
-    max_response_tokens: 4096
-    stop: []
-    stream: true
 flags:
   - name: topic
     type: string

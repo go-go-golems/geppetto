@@ -46,7 +46,10 @@ var CodegenTestCmd = &cobra.Command{
 }
 
 func createSettingsFromCobra(cmd *cobra.Command) (*settings.StepSettings, error) {
-	stepSettings := settings.NewStepSettings()
+	stepSettings, err := settings.NewStepSettings()
+	if err != nil {
+		return nil, err
+	}
 	geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
 	if err != nil {
 		return nil, err

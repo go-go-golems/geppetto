@@ -1,14 +1,6 @@
 name: gtmgen
 short: Generate a GTM file
 long: Generate commented type interfaces to GTM objects straight from the HTML documentation
-factories:
-  client:
-    timeout: 120
-  chat:
-    engine: text-davinci-003
-    temperature: 0.2
-    max_response_tokens: 2048
-    # stream: true
 flags:
   - name: language
     type: string

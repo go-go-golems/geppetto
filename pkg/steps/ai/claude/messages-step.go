@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -16,40 +17,41 @@ import (
 	"strings"
 )
 
-type Step struct {
+type MessagesStep struct {
 	Settings            *settings.StepSettings
 	cancel              context.CancelFunc
 	subscriptionManager *events.PublisherManager
 }
 
-func NewStep(settings *settings.StepSettings) *Step {
-	return &Step{
+func NewStep(settings *settings.StepSettings) *MessagesStep {
+	return &MessagesStep{
 		Settings:            settings,
 		subscriptionManager: events.NewPublisherManager(),
 	}
 }
 
-func (csf *Step) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (csf *MessagesStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	csf.subscriptionManager.SubscribePublisher(topic, publisher)
 	return nil
 }
 
-func (csf *Step) Interrupt() {
+func (csf *MessagesStep) Interrupt() {
 	if csf.cancel != nil {
 		csf.cancel()
 	}
 }
 
-var _ chat.Step = &Step{}
+var _ chat.Step = &MessagesStep{}
 
 func IsClaudeEngine(engine string) bool {
 	return strings.HasPrefix(engine, "claude")
 }
 
-func (csf *Step) Start(
+func (csf *MessagesStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (steps.StepResult[string], error) {
+	// TODO(manuel, 2024-06-04) I think this can be removed now?
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
 	}
@@ -96,7 +98,7 @@ func (csf *Step) Start(
 		return nil, errors.Errorf("no base URL for %s", apiType)
 	}
 
-	client := NewClient(apiKey, baseURL)
+	client := api.NewClient(apiKey, baseURL+"/v1/complete")
 
 	engine := ""
 
@@ -120,6 +122,8 @@ func (csf *Step) Start(
 				rolePrefix = "Assistant"
 			case conversation.RoleUser:
 				rolePrefix = "Human"
+			case conversation.RoleTool:
+				rolePrefix = "Tool"
 			}
 			prompt += "\n\n" + rolePrefix + ": " + content.Text
 		}
@@ -142,7 +146,7 @@ func (csf *Step) Start(
 	stopSequences := []string{}
 	stopSequences = append(stopSequences, chatSettings.Stop...)
 
-	req := Request{
+	req := api.Request{
 		Model:             engine,
 		Prompt:            prompt,
 		MaxTokensToSample: maxTokens,
@@ -164,14 +168,10 @@ func (csf *Step) Start(
 		},
 	}
 
-	csf.subscriptionManager.PublishBlind(&chat.Event{
-		Type:     chat.EventTypeStart,
-		Metadata: metadata,
-		Step:     stepMetadata,
-	})
+	csf.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
 
 	if chatSettings.Stream {
-		events, err := client.StreamComplete(&req)
+		eventsCh, err := client.StreamComplete(&req)
 		if err != nil {
 			return steps.Reject[string](err), nil
 		}
@@ -189,38 +189,19 @@ func (csf *Step) Start(
 			for {
 				select {
 				case <-ctx.Done():
-					csf.subscriptionManager.PublishBlind(&chat.EventText{
-						Event: chat.Event{
-							Type:     chat.EventTypeInterrupt,
-							Metadata: metadata,
-							Step:     ret.GetMetadata(),
-						},
-						Text: message,
-					})
+					csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
 					c <- helpers.NewErrorResult[string](ctx.Err())
 					return
-				case event, ok := <-events:
+				case event, ok := <-eventsCh:
 					if !ok {
-						csf.subscriptionManager.PublishBlind(&chat.EventText{
-							Event: chat.Event{
-								Type:     chat.EventTypeFinal,
-								Metadata: metadata,
-								Step:     ret.GetMetadata(),
-							},
-							Text: message,
-						})
+						csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
 						c <- helpers.NewValueResult[string](message)
 						return
 					}
 					decoded := map[string]interface{}{}
 					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
-						csf.subscriptionManager.PublishBlind(&chat.Event{
-							Type:     chat.EventTypeError,
-							Metadata: metadata,
-							Error:    err,
-							Step:     ret.GetMetadata(),
-						})
+						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
@@ -230,15 +211,7 @@ func (csf *Step) Start(
 							isFirstEvent = false
 						}
 						message += completion
-						csf.subscriptionManager.PublishBlind(&chat.EventPartialCompletion{
-							Event: chat.Event{
-								Type:     chat.EventTypePartial,
-								Metadata: metadata,
-								Step:     ret.GetMetadata(),
-							},
-							Delta:      completion,
-							Completion: message,
-						})
+						csf.subscriptionManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), completion, message))
 					}
 				}
 			}
@@ -249,25 +222,14 @@ func (csf *Step) Start(
 		resp, err := client.Complete(&req)
 
 		if err != nil {
-			err = csf.subscriptionManager.Publish(&chat.Event{
-				Type:  chat.EventTypeError,
-				Error: err,
-				Step:  stepMetadata,
-			})
+			err = csf.subscriptionManager.Publish(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			if err != nil {
 				log.Warn().Err(err).Msg("error publishing error event")
 			}
 			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
 		}
 
-		csf.subscriptionManager.PublishBlind(&chat.EventText{
-			Event: chat.Event{
-				Type:     chat.EventTypeFinal,
-				Metadata: metadata,
-				Step:     stepMetadata,
-			},
-			Text: resp.Completion,
-		})
+		csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Completion))
 
 		return steps.Resolve(resp.Completion, steps.WithMetadata[string](stepMetadata)), nil
 	}

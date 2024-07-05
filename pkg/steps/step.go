@@ -5,6 +5,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type StepResult[T any] interface {
@@ -22,6 +23,17 @@ type StepMetadata struct {
 	OutputType string    `json:"output_type"`
 
 	Metadata map[string]interface{} `json:"meta"`
+}
+
+func (sm StepMetadata) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("step_id", sm.StepID.String())
+	e.Str("type", sm.Type)
+	e.Str("input_type", sm.InputType)
+	e.Str("output_type", sm.OutputType)
+
+	if len(sm.Metadata) > 0 {
+		e.Dict("meta", zerolog.Dict().Fields(sm.Metadata))
+	}
 }
 
 func (sm *StepMetadata) ToMap() map[string]interface{} {

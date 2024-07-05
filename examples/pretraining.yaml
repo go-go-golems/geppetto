@@ -1,15 +1,9 @@
 name: pretraining
 short: Try out pretraining
 factories:
-  client:
-    timeout: 120
   chat:
-    engine: text-davinci-003
-    temperature: 0.2
-    max_response_tokens: 128
     stop:
         - "-- END ACTIONS"
-    # stream: true
 flags:
   - name: actions
     type: stringList
