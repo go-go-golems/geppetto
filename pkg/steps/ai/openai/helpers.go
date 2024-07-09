@@ -223,7 +223,7 @@ func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionM
 	case *conversation.ToolResultContent:
 		res := go_openai.ChatCompletionMessage{
 			Role:       string(conversation.RoleTool),
-			Content:    string(content.Result),
+			Content:    content.Result,
 			ToolCallID: content.ToolID,
 		}
 
