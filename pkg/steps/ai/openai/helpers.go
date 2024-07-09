@@ -1,6 +1,8 @@
 package openai
 
 import (
+	"encoding/base64"
+	"fmt"
 	"github.com/go-go-golems/bobatea/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -161,6 +163,38 @@ func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionM
 		res := go_openai.ChatCompletionMessage{
 			Role:    string(content.Role),
 			Content: content.Text,
+		}
+
+		if len(content.Images) > 0 {
+			res = go_openai.ChatCompletionMessage{
+				Role: string(content.Role),
+				MultiContent: []go_openai.ChatMessagePart{
+					{
+						Type: go_openai.ChatMessagePartTypeText,
+						Text: content.Text,
+					},
+				},
+			}
+
+			for _, img := range content.Images {
+				imagePart := go_openai.ChatMessagePart{
+					Type: go_openai.ChatMessagePartTypeImageURL,
+					ImageURL: &go_openai.ChatMessageImageURL{
+						URL:    img.ImageURL,
+						Detail: go_openai.ImageURLDetail(img.Detail),
+					},
+				}
+				if img.ImageURL == "" {
+					// base64 encoded Content
+					imagePart.ImageURL.URL =
+						fmt.Sprintf(
+							"data:%s;base64,%s",
+							img.MediaType,
+							base64.StdEncoding.EncodeToString(img.ImageContent),
+						)
+				}
+				res.MultiContent = append(res.MultiContent, imagePart)
+			}
 		}
 
 		// TODO(manuel, 2024-06-04) This should actually pass in a ToolUse content in the conversation
