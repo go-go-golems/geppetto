@@ -9,7 +9,7 @@ gifs: $(TAPES)
 	for i in $(TAPES); do vhs < $$i; done
 
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.50.1 golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.59.1 golangci-lint run -v
 
 lint:
 	golangci-lint run -v
@@ -22,7 +22,7 @@ build:
 	go build ./...
 
 goreleaser:
-	goreleaser release --skip-sign --snapshot --rm-dist
+	goreleaser release --skip=sign --snapshot --clean
 
 tag-major:
 	git tag $(shell svu major)
