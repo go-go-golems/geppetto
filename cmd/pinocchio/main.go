@@ -225,7 +225,11 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 	}
 	rootCmd.AddCommand(cobraEditCommandCommand)
 
-	rootCmd.AddCommand(pinocchio_cmds.NewConfigGroupCommand())
+	command, err := pinocchio_cmds.NewConfigGroupCommand(helpSystem)
+	if err != nil {
+		return err
+	}
+	rootCmd.AddCommand(command)
 
 	return nil
 }
