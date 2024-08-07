@@ -12,8 +12,8 @@ require (
 	github.com/charmbracelet/glamour v0.6.1-0.20230531150759-6d5b52861a9d
 	github.com/dave/jennifer v1.7.0
 	github.com/go-go-golems/bobatea v0.0.10
-	github.com/go-go-golems/clay v0.1.15
-	github.com/go-go-golems/glazed v0.5.17
+	github.com/go-go-golems/clay v0.1.17
+	github.com/go-go-golems/glazed v0.5.18
 	github.com/huandu/go-clone v1.7.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
