@@ -2,6 +2,7 @@ package claude
 
 import (
 	"context"
+	"encoding/base64"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/bobatea/pkg/conversation"
 	events2 "github.com/go-go-golems/geppetto/pkg/events"
@@ -223,6 +224,10 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 				api.NewTextContent(content.Text),
 			},
 		}
+		for _, img := range content.Images {
+			res.Content = append(res.Content, api.NewImageContent(img.MediaType, base64.StdEncoding.EncodeToString(img.ImageContent)))
+		}
+
 		return res
 
 	case *conversation.ToolUseContent:

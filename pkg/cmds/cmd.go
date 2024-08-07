@@ -84,18 +84,24 @@ func NewHelpersParameterLayer() (layers.ParameterLayer, error) {
 				parameters.WithHelp("Always enter interactive mode, even with non-tty stdout"),
 				parameters.WithDefault(false),
 			),
+			parameters.NewParameterDefinition(
+				"images",
+				parameters.ParameterTypeFileList,
+				parameters.WithHelp("Images to display"),
+			),
 		),
 	)
 }
 
 type HelpersSettings struct {
-	PrintPrompt                 bool   `glazed.parameter:"print-prompt"`
-	System                      string `glazed.parameter:"system"`
-	AppendMessageFile           string `glazed.parameter:"append-message-file"`
-	MessageFile                 string `glazed.parameter:"message-file"`
-	AutomaticallyContinueInChat bool   `glazed.parameter:"chat"`
-	Interactive                 bool   `glazed.parameter:"interactive"`
-	ForceInteractive            bool   `glazed.parameter:"force-interactive"`
+	PrintPrompt                 bool                   `glazed.parameter:"print-prompt"`
+	System                      string                 `glazed.parameter:"system"`
+	AppendMessageFile           string                 `glazed.parameter:"append-message-file"`
+	MessageFile                 string                 `glazed.parameter:"message-file"`
+	AutomaticallyContinueInChat bool                   `glazed.parameter:"chat"`
+	Interactive                 bool                   `glazed.parameter:"interactive"`
+	ForceInteractive            bool                   `glazed.parameter:"force-interactive"`
+	Images                      []*parameters.FileData `glazed.parameter:"images"`
 }
 
 type GeppettoCommand struct {
@@ -154,6 +160,7 @@ func NewGeppettoCommand(
 
 func (g *GeppettoCommand) InitializeContextManager(
 	contextManager conversation.Manager,
+	helperSettings *HelpersSettings,
 	ps map[string]interface{},
 ) error {
 	if g.SystemPrompt != "" {
@@ -211,11 +218,22 @@ func (g *GeppettoCommand) InitializeContextManager(
 			return err
 		}
 
+		images := []*conversation.ImageContent{}
+		for _, img := range helperSettings.Images {
+			image, err := conversation.NewImageContentFromFile(img.Path)
+			if err != nil {
+				return err
+			}
+
+			images = append(images, image)
+		}
 		initialPrompt := promptBuffer.String()
-		contextManager.AppendMessages(conversation.NewChatMessage(
-			conversation.RoleUser,
-			initialPrompt,
-		))
+		messageContent := &conversation.ChatMessageContent{
+			Role:   conversation.RoleUser,
+			Text:   initialPrompt,
+			Images: images,
+		}
+		contextManager.AppendMessages(conversation.NewMessage(messageContent))
 	}
 
 	return nil
@@ -228,7 +246,7 @@ func (g *GeppettoCommand) Run(
 	helpersSettings *HelpersSettings,
 	ps map[string]interface{},
 ) (steps.StepResult[string], error) {
-	err := g.InitializeContextManager(contextManager, ps)
+	err := g.InitializeContextManager(contextManager, helpersSettings, ps)
 	if err != nil {
 		return nil, err
 	}
