@@ -185,11 +185,21 @@ func (csf *ChatStep) Start(
 				if !ok {
 					// TODO(manuel, 2024-07-04) Probably not necessary, the completionMerger probably took care of it
 					response := completionMerger.Response()
+					if response == nil {
+						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, "no response"))
+						c <- helpers2.NewErrorResult[string](errors.New("no response"))
+						return
+					}
 					c <- helpers2.NewValueResult[string](response.FullText())
 					return
 				}
 
 				events_, err := completionMerger.Add(event)
+				if err != nil {
+					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+					c <- helpers2.NewErrorResult[string](err)
+					return
+				}
 				for _, event_ := range events_ {
 					log.Debug().Interface("event", event_).Msg("processing event")
 				}
