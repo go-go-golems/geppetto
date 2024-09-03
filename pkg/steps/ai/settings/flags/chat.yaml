@@ -35,4 +35,4 @@ flags:
   - name: ai-top-p
     type: float
     help: AI chat completion top p
-    default: 1.0
+    default: 0.9
