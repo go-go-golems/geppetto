@@ -98,7 +98,7 @@ func (e *ExecuteToolStep) Start(
 		s, _ := json.MarshalIndent(jsonSchema, "", "  ")
 		toolMetadata[name] = openai2.Tool{
 			Type: "function",
-			Function: openai2.FunctionDefinition{
+			Function: &openai2.FunctionDefinition{
 				Name:        name,
 				Description: jsonSchema.Description,
 				Parameters:  json.RawMessage(s),

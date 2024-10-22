@@ -64,7 +64,7 @@ func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolSte
 		s, _ := json.MarshalIndent(jsonSchema, "", "  ")
 		step.tools = append(step.tools, go_openai.Tool{
 			Type: "function",
-			Function: go_openai.FunctionDefinition{
+			Function: &go_openai.FunctionDefinition{
 				Name:        name,
 				Description: jsonSchema.Description,
 				Parameters:  json.RawMessage(s),
