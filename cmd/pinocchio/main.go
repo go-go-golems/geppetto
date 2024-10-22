@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/clay/pkg/repositories"
 	"github.com/go-go-golems/clay/pkg/sql"
 	pinocchio_cmds "github.com/go-go-golems/geppetto/cmd/pinocchio/cmds"
+	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/catter"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/kagi"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/openai"
 	"github.com/go-go-golems/geppetto/cmd/pinocchio/cmds/tokens"
@@ -230,6 +231,8 @@ func initAllCommands(helpSystem *help.HelpSystem) error {
 		return err
 	}
 	rootCmd.AddCommand(command)
+
+	catter.AddToRootCommand(rootCmd)
 
 	return nil
 }
