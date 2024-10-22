@@ -12,8 +12,8 @@ require (
 	github.com/charmbracelet/glamour v0.6.1-0.20230531150759-6d5b52861a9d
 	github.com/dave/jennifer v1.7.0
 	github.com/go-go-golems/bobatea v0.0.10
-	github.com/go-go-golems/clay v0.1.17
-	github.com/go-go-golems/glazed v0.5.18
+	github.com/go-go-golems/clay v0.1.19
+	github.com/go-go-golems/glazed v0.5.19
 	github.com/huandu/go-clone v1.7.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/invopop/jsonschema v0.12.0
@@ -27,6 +27,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8
 	github.com/tiktoken-go/tokenizer v0.1.0
+	github.com/weaviate/tiktoken-go v0.0.2
 	github.com/weaviate/weaviate-go-client/v4 v4.14.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.6.0
@@ -42,6 +43,8 @@ require (
 	github.com/charmbracelet/x/input v0.1.1 // indirect
 	github.com/charmbracelet/x/term v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.1.2 // indirect
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
+	github.com/denormal/go-gitignore v0.0.0-20180930084346-ae8ad1d07817 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-go-golems/sqleton v0.2.4 // indirect

@@ -7,6 +7,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
 	"strings"
 )
@@ -121,6 +122,18 @@ func makeCompletionRequest(
 	if openaiSettings.FrequencyPenalty != nil {
 		frequencyPenalty = *openaiSettings.FrequencyPenalty
 	}
+
+	log.Debug().
+		Str("model", engine).
+		Int("max_tokens", maxTokens).
+		Float64("temperature", temperature).
+		Float64("top_p", topP).
+		Int("n", n).
+		Bool("stream", stream).
+		Strs("stop", stop).
+		Float64("presence_penalty", presencePenalty).
+		Float64("frequency_penalty", frequencyPenalty).
+		Msg("Making request to openai")
 
 	req := go_openai.ChatCompletionRequest{
 		Model:            engine,
