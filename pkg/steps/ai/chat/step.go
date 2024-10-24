@@ -3,8 +3,8 @@ package chat
 import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/go-go-golems/bobatea/pkg/conversation"
 	geppetto_context "github.com/go-go-golems/geppetto/pkg/context"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 )
 
