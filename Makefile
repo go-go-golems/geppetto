@@ -41,10 +41,5 @@ bump-glazed:
 	go get github.com/go-go-golems/glazed@latest
 	go get github.com/go-go-golems/clay@latest
 	go get github.com/go-go-golems/parka@latest
-	go get github.com/go-go-golems/bobatea@latest
 	go mod tidy
 
-PINOCCHIO_BINARY=$(shell which pinocchio)
-install:
-	go build -o ./dist/pinocchio ./cmd/pinocchio && \
-		cp ./dist/pinocchio $(PINOCCHIO_BINARY)
