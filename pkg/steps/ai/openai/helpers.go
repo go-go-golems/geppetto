@@ -3,7 +3,7 @@ package openai
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/go-go-golems/bobatea/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"

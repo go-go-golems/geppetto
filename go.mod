@@ -6,8 +6,6 @@ toolchain go1.21.5
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.5
-	github.com/charmbracelet/bubbletea v0.25.0
-	github.com/go-go-golems/bobatea v0.0.10
 	github.com/go-go-golems/glazed v0.5.19
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.12.0
@@ -25,18 +23,12 @@ require (
 require (
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/alecthomas/chroma/v2 v2.7.0 // indirect
-	github.com/charmbracelet/bubbles v0.18.0 // indirect
 	github.com/charmbracelet/glamour v0.6.1-0.20230531150759-6d5b52861a9d // indirect
-	github.com/charmbracelet/lipgloss v0.11.0 // indirect
-	github.com/charmbracelet/x/ansi v0.1.2 // indirect
-	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/viper v1.16.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/term v0.20.0 // indirect
 )
 
 require (
@@ -45,7 +37,6 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
-	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -67,14 +58,11 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.25 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
-	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect

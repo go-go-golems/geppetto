@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+cat pkg/conversation/README.md
+
+echo "---"
+  echo "package github.com/go-go-golems/geppetto/pkg/conversation"
+  echo "---"
+
+# TODO replace with oak and filters
+catter -i .go pkg/conversation -F '.*_test.*'

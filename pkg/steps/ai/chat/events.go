@@ -3,7 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-go-golems/bobatea/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/rs/zerolog"
 )
