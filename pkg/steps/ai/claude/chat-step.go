@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/go-go-golems/bobatea/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
 	events2 "github.com/go-go-golems/geppetto/pkg/events"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
