@@ -10,8 +10,6 @@ pre-commit:
 
 pre-push:
   commands:
-    release:
-      run: make goreleaser
     lint:
       run: make lint
     test:

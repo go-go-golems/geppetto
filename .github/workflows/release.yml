@@ -1,8 +1,8 @@
-on:
-  push:
+#on:
+#  push:
     # run only against tags
-    tags:
-      - '*'
+#    tags:
+#      - '*'
 
 permissions:
   contents: write
