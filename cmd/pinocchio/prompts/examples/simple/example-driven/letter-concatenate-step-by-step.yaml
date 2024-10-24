@@ -1,6 +1,0 @@
-name: letter-concatenate-step-by-step
-aliasFor: example-driven
-flags:
-  examples: ./examples/letter-concatenation/standard-prompting.yaml
-  problem: Concatenate the last letter of the given words.
-  instructions: Explain step by step.
