@@ -1,0 +1,3 @@
+- [ ] Crash on unknown api-type
+- [ ] Command to print out current model settings
+- [ ] Count and show token usage
