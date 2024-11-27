@@ -77,7 +77,7 @@ func NewExecuteToolStep(
 var _ steps.Step[ToolCompletionResponse, []chat.ToolResult] = (*ExecuteToolStep)(nil)
 
 func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.SubscribePublisher(topic, publisher)
+	e.subscriptionManager.RegisterPublisher(topic, publisher)
 	return nil
 }
 

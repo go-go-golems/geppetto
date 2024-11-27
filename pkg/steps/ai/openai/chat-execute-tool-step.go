@@ -154,7 +154,7 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 }
 
 func (t *ChatExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	t.subscriptionManager.SubscribePublisher(topic, publisher)
+	t.subscriptionManager.RegisterPublisher(topic, publisher)
 	return nil
 }
 

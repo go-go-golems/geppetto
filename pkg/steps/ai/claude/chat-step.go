@@ -221,7 +221,7 @@ func (csf *ChatStep) Start(
 }
 
 func (csf *ChatStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	csf.subscriptionManager.SubscribePublisher(topic, publisher)
+	csf.subscriptionManager.RegisterPublisher(topic, publisher)
 	return nil
 }
 
