@@ -13,9 +13,9 @@ import (
 // It sounds also logical that this is the thing that would add sequence numbers to events?
 
 // PublisherManager is used to distribute messages to a set of Publishers.
-// As such, you "subscribe" a publisher to the given topic.
-// When you Publish a message, it will get distributed to all publishers
-// on the channel they were subscribed with.
+// As such, you "register" a publisher to the given topic.
+// When you Publish a message to a topic, it will get distributed to all publishers
+// on the channel they were registered with that topic.
 //
 // The Manager also keeps a sequence number for each outgoing message,
 // in the order they are handled by Publish.
@@ -31,7 +31,7 @@ func NewPublisherManager() *PublisherManager {
 	}
 }
 
-func (s *PublisherManager) SubscribePublisher(topic string, sub message.Publisher) {
+func (s *PublisherManager) RegisterPublisher(topic string, sub message.Publisher) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.Publishers[topic] = append(s.Publishers[topic], sub)

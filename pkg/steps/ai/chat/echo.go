@@ -34,7 +34,7 @@ func (e *EchoStep) Interrupt() {
 }
 
 func (e *EchoStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	e.subscriptionManager.SubscribePublisher(topic, publisher)
+	e.subscriptionManager.RegisterPublisher(topic, publisher)
 	return nil
 }
 

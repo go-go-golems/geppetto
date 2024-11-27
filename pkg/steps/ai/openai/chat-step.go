@@ -22,7 +22,7 @@ type ChatStep struct {
 }
 
 func (csf *ChatStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	csf.publisherManager.SubscribePublisher(topic, publisher)
+	csf.publisherManager.RegisterPublisher(topic, publisher)
 	return nil
 }
 
