@@ -1,11 +1,27 @@
 package conversation
 
 import (
+	"strings"
+
 	"github.com/go-go-golems/glazed/pkg/helpers/maps"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
-	"github.com/google/uuid"
-	"strings"
 )
+
+// Package conversation provides functionality for managing AI chat conversations.
+//
+// The conversation package implements a tree-based conversation structure that can handle
+// both linear and branching chat histories. It supports different message roles (system, user, assistant),
+// conversation persistence, and template-based message rendering.
+//
+// The Manager interface provides the main entry point for conversation operations:
+// - Creating and managing conversation threads
+// - Appending and attaching messages
+// - Retrieving messages and conversation history
+// - Saving conversations to persistent storage
+//
+// The package uses a tree data structure to represent conversations, allowing for
+// features like conversation branching, message threading, and maintaining the full
+// history of interactions while providing easy access to the current conversation thread.
 
 // Manager defines the interface for high-level conversation management operations.
 type Manager interface {
@@ -105,49 +121,4 @@ func CreateManager(
 	}
 
 	return manager, nil
-}
-
-type ManagerImpl struct {
-	Tree           *ConversationTree
-	ConversationID uuid.UUID
-}
-
-var _ Manager = (*ManagerImpl)(nil)
-
-type ManagerOption func(*ManagerImpl)
-
-func WithMessages(messages ...*Message) ManagerOption {
-	return func(m *ManagerImpl) {
-		m.AppendMessages(messages...)
-	}
-}
-
-func WithManagerConversationID(conversationID uuid.UUID) ManagerOption {
-	return func(m *ManagerImpl) {
-		m.ConversationID = conversationID
-	}
-}
-
-func NewManager(options ...ManagerOption) *ManagerImpl {
-	ret := &ManagerImpl{
-		ConversationID: uuid.Nil,
-		Tree:           NewConversationTree(),
-	}
-	for _, option := range options {
-		option(ret)
-	}
-
-	if ret.ConversationID == uuid.Nil {
-		ret.ConversationID = uuid.New()
-	}
-
-	return ret
-}
-
-func (c *ManagerImpl) GetConversation() Conversation {
-	return c.Tree.GetLeftMostThread(c.Tree.RootID)
-}
-
-func (c *ManagerImpl) GetMessage(ID NodeID) (*Message, bool) {
-	return c.Tree.GetMessageByID(ID)
 }
