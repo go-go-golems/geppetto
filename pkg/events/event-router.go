@@ -4,16 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/rs/zerolog/log"
 )
-
-// things to build / group
-// waternmill.LoggerAdapter
-// gochannel
-// router
 
 type EventRouter struct {
 	logger     watermill.LoggerAdapter

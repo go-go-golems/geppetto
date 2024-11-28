@@ -53,7 +53,7 @@ func ExtractContentFromMarkdown(markdownText string) ([]interface{}, error) {
 			switch v := n.(type) {
 			case *ast.Heading:
 				content = append(content, Header{
-					Text:  string(v.Text(source)),
+					Text:  string(v.Lines().Value(source)),
 					Level: v.Level,
 				})
 			case *ast.FencedCodeBlock:
@@ -63,20 +63,20 @@ func ExtractContentFromMarkdown(markdownText string) ([]interface{}, error) {
 				})
 			case *ast.Paragraph:
 				content = append(content, Paragraph{
-					Text: string(v.Text(source)),
+					Text: string(v.Lines().Value(source)),
 				})
 			case *ast.List:
 				var list List
 				cur := v.FirstChild()
 				for cur != nil {
-					text_ := cur.Text(source)
+					text_ := cur.Lines().Value(source)
 					cur = cur.NextSibling()
 					list.Entries = append(list.Entries, string(text_))
 				}
 				content = append(content, list)
 			case *ast.Blockquote:
 				content = append(content, QuotedText{
-					Text: string(v.Text(source)),
+					Text: string(v.Lines().Value(source)),
 				})
 			}
 		}
