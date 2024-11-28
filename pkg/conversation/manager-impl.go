@@ -18,6 +18,7 @@ type ManagerImpl struct {
 	autosaveEnabled bool
 	autosaveFormat  string
 	autosaveDir     string
+	startTime       time.Time
 }
 
 var _ Manager = (*ManagerImpl)(nil)
@@ -36,12 +37,23 @@ func WithManagerConversationID(conversationID uuid.UUID) ManagerOption {
 	}
 }
 
-func WithAutosave(enabled bool, format string, dir string) ManagerOption {
+func WithAutosave(enabled string, format string, dir string) ManagerOption {
 	return func(m *ManagerImpl) {
-		m.autosaveEnabled = enabled
-		m.autosaveDir = dir
+		m.autosaveEnabled = strings.ToLower(enabled) == "yes"
+
+		if dir == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				// fallback to current directory if home dir cannot be determined
+				homeDir = "."
+			}
+			m.autosaveDir = filepath.Join(homeDir, ".pinocchio", "history")
+		} else {
+			m.autosaveDir = dir
+		}
+
 		if format == "" {
-			m.autosaveFormat = "{{.Year}}/{{.Month}}/{{.Day}}/{{.ConversationID}}-{{.Time.Format \"150405\"}}-{{len .Messages}}.json"
+			m.autosaveFormat = "{{.Year}}/{{.Month}}/{{.Day}}/{{.Time.Format \"150405\"}}-{{.ConversationID}}.json"
 		} else {
 			m.autosaveFormat = format
 		}
@@ -143,6 +155,7 @@ func NewManager(options ...ManagerOption) *ManagerImpl {
 	ret := &ManagerImpl{
 		ConversationID: uuid.Nil,
 		Tree:           NewConversationTree(),
+		startTime:      time.Now(),
 	}
 	for _, option := range options {
 		option(ret)
@@ -204,15 +217,14 @@ func (c *ManagerImpl) SaveToFile(s string) error {
 }
 
 func (c *ManagerImpl) autoSave() error {
-	now := time.Now()
 	data := map[string]interface{}{
-		"Year":           now.Format("2006"),
-		"Month":          now.Format("01"),
-		"Day":            now.Format("02"),
+		"Year":           c.startTime.Format("2006"),
+		"Month":          c.startTime.Format("01"),
+		"Day":            c.startTime.Format("02"),
 		"ConversationID": c.ConversationID.String(),
 		"Messages":       c.GetConversation(),
 		"Tree":           c.Tree,
-		"Time":           now,
+		"Time":           c.startTime,
 	}
 
 	tmpl, err := templating.CreateTemplate("autosave").Parse(c.autosaveFormat)
