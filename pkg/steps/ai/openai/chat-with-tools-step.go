@@ -253,6 +253,6 @@ func (csf *ChatWithToolsStep) Start(
 }
 
 func (r *ChatWithToolsStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	r.subscriptionManager.SubscribePublisher(topic, publisher)
+	r.subscriptionManager.RegisterPublisher(topic, publisher)
 	return nil
 }
