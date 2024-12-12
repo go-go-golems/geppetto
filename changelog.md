@@ -59,3 +59,58 @@ Added proper event loop termination handling to prevent goroutine leaks and ensu
 - Updated runChatStepTest to properly signal completion
 - Added documentation for event loop termination patterns
 - Improved error handling in JavaScript callbacks 
+
+# Documentation: JavaScript Embeddings API
+
+## Why
+Added comprehensive documentation for the JavaScript Embeddings API to help developers understand and effectively use the embeddings functionality in JavaScript applications.
+
+- Added embeddings-js.md with detailed API documentation
+- Included usage examples, best practices, and integration patterns
+- Added technical details and advanced topics 
+
+# Embeddings Integration Tests
+
+## Why
+Added integration tests for the JavaScript embeddings API to verify functionality and provide usage examples.
+
+- Added runEmbeddingsTest function to test embeddings functionality
+- Added mock embeddings provider for testing
+- Added semantic similarity search example
+- Added flag to control embeddings test execution 
+
+# Settings-Based Embeddings Factory
+
+Added a new factory for creating embeddings providers that uses the existing chat settings infrastructure.
+
+- Added SettingsFactory to create embedding providers from StepSettings
+- Supports both OpenAI and Ollama providers
+- Reuses existing API keys and base URLs from chat settings
+- Provides consistent configuration across chat and embeddings
+
+# Dedicated Embeddings Settings
+
+Added dedicated embeddings settings to separate embeddings configuration from chat settings.
+
+- Added new EmbeddingsSettings type with model, provider type, and dimensions
+- Updated SettingsFactory to use dedicated embeddings settings
+- Added embeddings parameter layer with defaults
+- Integrated embeddings settings into StepSettings
+
+# Embeddings Settings Reorganization
+
+Reorganized embeddings settings to match the chat settings structure.
+
+- Moved embeddings settings to dedicated settings-embeddings.go file
+- Added embeddings.yaml flags file with proper parameter definitions
+- Updated StepSettings to use the new EmbeddingsSettings type
+- Added embeddings layer to UpdateFromParsedLayers
+
+# Embeddings Test Integration
+
+Updated embeddings test to use the new settings-based provider.
+
+- Replaced mock provider with real provider from settings
+- Added proper error handling for provider creation
+- Maintained existing semantic similarity test functionality
+- Added support for both OpenAI and Ollama providers

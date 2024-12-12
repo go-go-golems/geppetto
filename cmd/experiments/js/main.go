@@ -8,6 +8,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	clay "github.com/go-go-golems/clay/pkg"
+	"github.com/go-go-golems/geppetto/pkg/embeddings"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/js"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -23,6 +24,7 @@ type testFlags struct {
 	runStepTests        bool
 	runConversationTest bool
 	runChatStepTest     bool
+	runEmbeddingsTest   bool
 }
 
 var rootCmd = &cobra.Command{
@@ -58,6 +60,7 @@ func main() {
 		runStepTests:        true,
 		runConversationTest: true,
 		runChatStepTest:     true,
+		runEmbeddingsTest:   true,
 	}
 
 	// Add run command that executes JS tests
@@ -99,6 +102,10 @@ func main() {
 				if flags.runChatStepTest {
 					runChatStepTest(vm, loop, stepSettings)
 				}
+
+				if flags.runEmbeddingsTest {
+					runEmbeddingsTest(vm, loop, stepSettings)
+				}
 			})
 
 			// Wait for completion or error
@@ -114,6 +121,7 @@ func main() {
 	runCmd.Flags().BoolVar(&flags.runStepTests, "step-tests", false, "Run step tests")
 	runCmd.Flags().BoolVar(&flags.runConversationTest, "conversation-test", true, "Run conversation test")
 	runCmd.Flags().BoolVar(&flags.runChatStepTest, "chat-step-test", true, "Run chat step test")
+	runCmd.Flags().BoolVar(&flags.runEmbeddingsTest, "embeddings-test", true, "Run embeddings test")
 
 	err = parser.AddToCobraCommand(runCmd)
 	cobra.CheckErr(err)
@@ -348,5 +356,84 @@ func runChatStepTest(vm *goja.Runtime, loop *eventloop.EventLoop, stepSettings *
 	`
 
 	_, err = vm.RunString(chatStepTestJS)
+	cobra.CheckErr(err)
+}
+
+func runEmbeddingsTest(vm *goja.Runtime, loop *eventloop.EventLoop, stepSettings *settings.StepSettings) {
+	// Create embeddings provider from settings
+	factory := embeddings.NewSettingsFactory(stepSettings)
+	provider, err := factory.NewProvider()
+	cobra.CheckErr(err)
+
+	// Register embeddings in JavaScript
+	err = js.RegisterEmbeddings(vm, "embeddings", provider)
+	cobra.CheckErr(err)
+
+	embeddingsTestJS := `
+		console.log("=== Running Embeddings Test ===");
+
+		// Test model info
+		const model = embeddings.getModel();
+		console.log("Model info:", model);
+
+		// Test basic embedding generation
+		const text = "Hello, world!";
+		try {
+			const embedding = embeddings.generateEmbedding(text);
+			console.log("Generated embedding:", embedding);
+			console.log("Embedding dimensions:", embedding.length);
+		} catch (err) {
+			console.error("Embedding generation failed:", err);
+		}
+
+		// Test semantic similarity example
+		const documents = [
+			"The weather is sunny today",
+			"Machine learning is fascinating",
+			"I love programming in JavaScript"
+		];
+
+		function cosineSimilarity(a, b) {
+			let dotProduct = 0;
+			let normA = 0;
+			let normB = 0;
+			
+			for (let i = 0; i < a.length; i++) {
+				dotProduct += a[i] * b[i];
+				normA += a[i] * a[i];
+				normB += b[i] * b[i];
+			}
+			
+			return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+		}
+
+		try {
+			// Generate embeddings for all documents
+			const documentEmbeddings = documents.map(doc => 
+				embeddings.generateEmbedding(doc)
+			);
+			
+			// Generate query embedding
+			const query = "What's the weather like?";
+			const queryEmbedding = embeddings.generateEmbedding(query);
+			
+			// Find most similar document
+			const similarities = documentEmbeddings.map(docEmb => 
+				cosineSimilarity(queryEmbedding, docEmb)
+			);
+			
+			const mostSimilarIndex = similarities.indexOf(Math.max(...similarities));
+			console.log("Query:", query);
+			console.log("Most similar document:", documents[mostSimilarIndex]);
+			console.log("Similarity score:", similarities[mostSimilarIndex]);
+			
+		} catch (err) {
+			console.error("Semantic search failed:", err);
+		}
+
+		console.log("Embeddings test complete");
+	`
+
+	_, err = vm.RunString(embeddingsTestJS)
 	cobra.CheckErr(err)
 }

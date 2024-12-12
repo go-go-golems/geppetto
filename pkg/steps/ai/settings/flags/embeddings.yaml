@@ -1,0 +1,19 @@
+slug: embeddings
+name: Embeddings generation settings
+description: Settings for generating embeddings from text
+flags:
+  - name: embeddings-engine
+    type: string
+    help: The model to use for embeddings generation
+    default: "text-embedding-3-small"
+  - name: embeddings-type
+    type: choice
+    choices:
+      - "openai"
+      - "ollama"
+    help: The provider type to use for embeddings
+    default: openai
+  - name: embeddings-dimensions
+    type: int
+    help: The output dimension of the embeddings (384 for Ollama all-minilm, 1536 for OpenAI text-embedding-3-small)
+    default: 1536 
