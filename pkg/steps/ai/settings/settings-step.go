@@ -31,13 +31,13 @@ func (s *APISettings) Clone() *APISettings {
 }
 
 type StepSettings struct {
-	API *APISettings `yaml:"api_keys,omitempty"`
-	// TODO(manuel, 2024-02-21) glazed.layer is not yet implemented
-	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
-	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
-	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
-	Claude *claude.Settings `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
-	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
+	API        *APISettings        `yaml:"api_keys,omitempty"`
+	Chat       *ChatSettings       `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
+	OpenAI     *openai.Settings    `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
+	Client     *ClientSettings     `yaml:"client,omitempty" glazed.layer:"ai-client"`
+	Claude     *claude.Settings    `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
+	Ollama     *ollama.Settings    `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
+	Embeddings *EmbeddingsSettings `yaml:"embeddings,omitempty" glazed.layer:"embeddings"`
 }
 
 func NewStepSettings() (*StepSettings, error) {
@@ -57,14 +57,19 @@ func NewStepSettings() (*StepSettings, error) {
 	if err != nil {
 		return nil, err
 	}
+	embeddingsSettings, err := NewEmbeddingsSettings()
+	if err != nil {
+		return nil, err
+	}
 
 	return &StepSettings{
-		Chat:   chatSettings,
-		OpenAI: openaiSettings,
-		Client: NewClientSettings(),
-		Claude: claudeSettings,
-		Ollama: ollamaSettings,
-		API:    NewAPISettings(),
+		Chat:       chatSettings,
+		OpenAI:     openaiSettings,
+		Client:     NewClientSettings(),
+		Claude:     claudeSettings,
+		Ollama:     ollamaSettings,
+		API:        NewAPISettings(),
+		Embeddings: embeddingsSettings,
 	}, nil
 }
 
@@ -143,7 +148,6 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if ss.Client.UserAgent != nil {
 			metadata["user-agent"] = *ss.Client.UserAgent
 		}
-		// Note: HTTPClient is not included as it's not a simple scalar value
 	}
 
 	if ss.Claude != nil {
@@ -162,42 +166,66 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if ss.Ollama.Seed != nil && *ss.Ollama.Seed != 0 {
 			metadata["ollama-seed"] = *ss.Ollama.Seed
 		}
-
-		// TODO(manuel, 2024-07-03) I think this needs to be removed
 		if len(ss.Ollama.Stop) > 0 {
 			metadata["ollama-stop"] = ss.Ollama.Stop
 		}
-
 		if ss.Ollama.TopK != nil && *ss.Ollama.TopK != 40 {
 			metadata["ollama-top-k"] = *ss.Ollama.TopK
 		}
-
 		if ss.Ollama.TopP != nil && *ss.Ollama.TopP != 0.9 {
 			metadata["ollama-top-p"] = *ss.Ollama.TopP
+		}
+	}
+
+	if ss.Embeddings != nil {
+		if ss.Embeddings.Engine != nil {
+			metadata["embeddings-engine"] = *ss.Embeddings.Engine
+		}
+		if ss.Embeddings.Type != nil {
+			metadata["embeddings-type"] = *ss.Embeddings.Type
+		}
+		if ss.Embeddings.Dimensions != nil {
+			metadata["embeddings-dimensions"] = *ss.Embeddings.Dimensions
 		}
 	}
 
 	return metadata
 }
 
-// UpdateFromParsedLayers updates the settings of a chat step from the parsedLayers of a glazed command.
-func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
-	err := parsedLayers.InitializeStruct(AiClientSlug, s.Client)
+func (s *StepSettings) Clone() *StepSettings {
+	return &StepSettings{
+		API:        s.API.Clone(),
+		Chat:       s.Chat.Clone(),
+		OpenAI:     s.OpenAI.Clone(),
+		Client:     s.Client.Clone(),
+		Claude:     s.Claude.Clone(),
+		Ollama:     s.Ollama.Clone(),
+		Embeddings: s.Embeddings.Clone(),
+	}
+}
+
+func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
+	err := parsedLayers.InitializeStruct(AiClientSlug, ss.Client)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(AiChatSlug, s.Chat)
+	err = parsedLayers.InitializeStruct(AiChatSlug, ss.Chat)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, s.OpenAI)
+	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, ss.OpenAI)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(claude.ClaudeChatSlug, s.Claude)
+	err = parsedLayers.InitializeStruct(claude.ClaudeChatSlug, ss.Claude)
+	if err != nil {
+		return err
+	}
+
+	err = parsedLayers.InitializeStruct(EmbeddingsSlug, ss.Embeddings)
 	if err != nil {
 		return err
 	}
@@ -205,24 +233,14 @@ func (s *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers)
 	apiSlugs := []string{
 		openai.OpenAiChatSlug,
 		claude.ClaudeChatSlug,
+		EmbeddingsSlug,
 	}
 	for _, slug := range apiSlugs {
-		err = parsedLayers.InitializeStruct(slug, s.API)
+		err = parsedLayers.InitializeStruct(slug, ss.API)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (s *StepSettings) Clone() *StepSettings {
-	return &StepSettings{
-		API:    s.API.Clone(),
-		Chat:   s.Chat.Clone(),
-		OpenAI: s.OpenAI.Clone(),
-		Client: s.Client.Clone(),
-		Claude: s.Claude.Clone(),
-		Ollama: s.Ollama.Clone(),
-	}
 }

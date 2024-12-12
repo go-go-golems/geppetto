@@ -4,6 +4,7 @@
 - [ ] Expose published events
 - [ ] Add stepsettings options override
 - [ ] Add calling javascript tools
+- [ ] Add pinocchio javascript execution
 
 
 ## Older, migiht be deprecated
