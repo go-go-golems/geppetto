@@ -151,7 +151,7 @@ func RegisterStep[T any, U any](
     step steps.Step[T, U],
     inputConverter func(goja.Value) T,
     outputConverter func(U) goja.Value,
-)
+) error
 ```
 
 The function requires:

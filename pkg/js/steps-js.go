@@ -26,7 +26,7 @@ func RegisterStep[T any, U any](
 	step steps.Step[T, U],
 	inputConverter func(goja.Value) T,
 	outputConverter func(U) goja.Value,
-) {
+) error {
 	wrapper := &JSStepWrapper[T, U]{
 		runtime: runtime,
 		step:    step,
@@ -34,10 +34,23 @@ func RegisterStep[T any, U any](
 	}
 
 	stepObj := runtime.NewObject()
-	stepObj.Set("startAsync", wrapper.makeStartAsync(inputConverter, outputConverter))
-	stepObj.Set("startBlocking", wrapper.makeStartBlocking(inputConverter, outputConverter))
-	stepObj.Set("startWithCallbacks", wrapper.makeStartWithCallbacks(inputConverter, outputConverter))
-	runtime.Set(name, stepObj)
+	err := stepObj.Set("startAsync", wrapper.makeStartAsync(inputConverter, outputConverter))
+	if err != nil {
+		return err
+	}
+	err = stepObj.Set("startBlocking", wrapper.makeStartBlocking(inputConverter, outputConverter))
+	if err != nil {
+		return err
+	}
+	err = stepObj.Set("startWithCallbacks", wrapper.makeStartWithCallbacks(inputConverter, outputConverter))
+	if err != nil {
+		return err
+	}
+	err = runtime.Set(name, stepObj)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (w *JSStepWrapper[T, U]) makeStartAsync(
@@ -61,7 +74,10 @@ func (w *JSStepWrapper[T, U]) makeStartAsync(
 			result, err := w.step.Start(ctx, input)
 			if err != nil {
 				w.loop.RunOnLoop(func(*goja.Runtime) {
-					reject(w.runtime.ToValue(fmt.Sprintf("failed to start step: %v", err)))
+					rejectErr := reject(w.runtime.ToValue(fmt.Sprintf("failed to start step: %v", err)))
+					if rejectErr != nil {
+						log.Error().Err(rejectErr).Msg("failed to reject promise")
+					}
 				})
 				return
 			}
@@ -70,7 +86,10 @@ func (w *JSStepWrapper[T, U]) makeStartAsync(
 			results := result.Return()
 			if len(results) == 0 {
 				w.loop.RunOnLoop(func(*goja.Runtime) {
-					resolve(w.runtime.ToValue([]interface{}{}))
+					resolveErr := resolve(w.runtime.ToValue([]interface{}{}))
+					if resolveErr != nil {
+						log.Error().Err(resolveErr).Msg("failed to resolve promise")
+					}
 				})
 				return
 			}
@@ -81,7 +100,10 @@ func (w *JSStepWrapper[T, U]) makeStartAsync(
 			for i, r := range results {
 				if r.Error() != nil {
 					w.loop.RunOnLoop(func(*goja.Runtime) {
-						reject(w.runtime.ToValue(r.Error().Error()))
+						rejectErr := reject(w.runtime.ToValue(r.Error().Error()))
+						if rejectErr != nil {
+							log.Error().Err(rejectErr).Msg("failed to reject promise")
+						}
 					})
 					return
 				}
@@ -91,10 +113,16 @@ func (w *JSStepWrapper[T, U]) makeStartAsync(
 			// Must resolve on the event loop
 			w.loop.RunOnLoop(func(*goja.Runtime) {
 				if resolveErr != nil {
-					reject(w.runtime.ToValue(resolveErr.Error()))
+					rejectErr := reject(w.runtime.ToValue(resolveErr.Error()))
+					if rejectErr != nil {
+						log.Error().Err(rejectErr).Msg("failed to reject promise")
+					}
 					return
 				}
-				resolve(w.runtime.ToValue(jsResults))
+				resolveErr = resolve(w.runtime.ToValue(jsResults))
+				if resolveErr != nil {
+					log.Error().Err(resolveErr).Msg("failed to resolve promise")
+				}
 			})
 		}()
 
@@ -187,8 +215,10 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+
 		result, err := w.step.Start(ctx, input)
 		if err != nil {
+			cancel()
 			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to start step: %w", err)})
 		}
 
@@ -198,7 +228,10 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 			result.Cancel()
 			if callbacks.OnCancel != nil {
 				w.loop.RunOnLoop(func(*goja.Runtime) {
-					callbacks.OnCancel(goja.Undefined())
+					_, err := callbacks.OnCancel(goja.Undefined())
+					if err != nil {
+						log.Error().Err(err).Msg("failed to call onCancel")
+					}
 				})
 			}
 			return goja.Undefined()
@@ -208,7 +241,10 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 			defer func() {
 				if callbacks.OnDone != nil {
 					w.loop.RunOnLoop(func(*goja.Runtime) {
-						callbacks.OnDone(goja.Undefined())
+						_, err := callbacks.OnDone(goja.Undefined())
+						if err != nil {
+							log.Error().Err(err).Msg("failed to call onDone")
+						}
 					})
 				}
 			}()
@@ -224,14 +260,20 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 					if r.Error() != nil {
 						if callbacks.OnError != nil {
 							w.loop.RunOnLoop(func(*goja.Runtime) {
-								callbacks.OnError(goja.Undefined(), w.runtime.ToValue(r.Error().Error()))
+								_, err := callbacks.OnError(goja.Undefined(), w.runtime.ToValue(r.Error().Error()))
+								if err != nil {
+									log.Error().Err(err).Msg("failed to call onError")
+								}
 							})
 						}
 						continue
 					}
 					if callbacks.OnResult != nil {
 						w.loop.RunOnLoop(func(*goja.Runtime) {
-							callbacks.OnResult(goja.Undefined(), outputConverter(r.Unwrap()))
+							_, err := callbacks.OnResult(goja.Undefined(), outputConverter(r.Unwrap()))
+							if err != nil {
+								log.Error().Err(err).Msg("failed to call onResult")
+							}
 						})
 					}
 				}
@@ -243,7 +285,7 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 }
 
 // Example usage with embeddings step
-func RegisterEmbeddingsStep(runtime *goja.Runtime, loop *eventloop.EventLoop, name string, provider steps.Step[string, []float32]) {
+func RegisterEmbeddingsStep(runtime *goja.Runtime, loop *eventloop.EventLoop, name string, provider steps.Step[string, []float32]) error {
 	inputConverter := func(v goja.Value) string {
 		return v.String()
 	}
@@ -257,7 +299,7 @@ func RegisterEmbeddingsStep(runtime *goja.Runtime, loop *eventloop.EventLoop, na
 		return runtime.ToValue(embeddingInterface)
 	}
 
-	RegisterStep(runtime, loop, name, provider, inputConverter, outputConverter)
+	return RegisterStep(runtime, loop, name, provider, inputConverter, outputConverter)
 }
 
 // Helper to create a LambdaStep from a JavaScript function
