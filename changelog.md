@@ -114,3 +114,21 @@ Updated embeddings test to use the new settings-based provider.
 - Added proper error handling for provider creation
 - Maintained existing semantic similarity test functionality
 - Added support for both OpenAI and Ollama providers
+
+# Enhanced JavaScript Embeddings API
+
+Added async/callback-based methods to the JavaScript embeddings API for better integration with event-loop based applications.
+
+- Added generateEmbeddingAsync for Promise-based embedding generation
+- Added generateEmbeddingWithCallbacks for callback-based embedding generation
+- Updated embeddings documentation with new API methods
+- Improved error handling and type safety
+
+# Async Embeddings Test Wrapper
+
+Improved embeddings test structure by wrapping it in an async function for better async/await support and error handling.
+
+- Wrapped embeddings test in async function
+- Added proper error signaling through done channel
+- Updated main loop to wait for embeddings test completion
+- Maintained existing test functionality
