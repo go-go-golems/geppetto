@@ -138,7 +138,7 @@ func (csf *ChatStep) Start(
 	}
 
 	//startEvent := chat.NewStartEvent(metadata, stepMetadata)
-	//log.Debug().Interface("event", startEvent).Msg("Start chat step")
+	//log.Trace().Interface("event", startEvent).Msg("Start chat step")
 	//csf.subscriptionManager.PublishBlind(startEvent)
 
 	var cancel context.CancelFunc
@@ -201,7 +201,7 @@ func (csf *ChatStep) Start(
 					return
 				}
 				for _, event_ := range events_ {
-					log.Debug().Interface("event", event_).Msg("processing event")
+					log.Trace().Interface("event", event_).Msg("processing event")
 				}
 
 				if err != nil {
