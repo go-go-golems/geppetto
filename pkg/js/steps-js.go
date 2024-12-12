@@ -1,0 +1,286 @@
+package js
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/dop251/goja"
+	"github.com/dop251/goja_nodejs/eventloop"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
+	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/utils"
+	"github.com/rs/zerolog/log"
+)
+
+type JSStepWrapper[T any, U any] struct {
+	runtime *goja.Runtime
+	step    steps.Step[T, U]
+	loop    *eventloop.EventLoop
+}
+
+// RegisterStep registers a Step in the given Goja runtime with Promise, blocking and callback APIs
+func RegisterStep[T any, U any](
+	runtime *goja.Runtime,
+	loop *eventloop.EventLoop,
+	name string,
+	step steps.Step[T, U],
+	inputConverter func(goja.Value) T,
+	outputConverter func(U) goja.Value,
+) {
+	wrapper := &JSStepWrapper[T, U]{
+		runtime: runtime,
+		step:    step,
+		loop:    loop,
+	}
+
+	stepObj := runtime.NewObject()
+	stepObj.Set("startAsync", wrapper.makeStartAsync(inputConverter, outputConverter))
+	stepObj.Set("startBlocking", wrapper.makeStartBlocking(inputConverter, outputConverter))
+	stepObj.Set("startWithCallbacks", wrapper.makeStartWithCallbacks(inputConverter, outputConverter))
+	runtime.Set(name, stepObj)
+}
+
+func (w *JSStepWrapper[T, U]) makeStartAsync(
+	inputConverter func(goja.Value) T,
+	outputConverter func(U) goja.Value,
+) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		log.Info().Msg("makeStartAsync called")
+		if len(call.Arguments) < 1 {
+			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("startAsync requires an input argument")})
+		}
+
+		input := inputConverter(call.Arguments[0])
+		ctx := context.Background()
+
+		log.Info().Interface("input", input).Msg("makeStartAsync called")
+
+		promise, resolve, reject := w.runtime.NewPromise()
+
+		go func() {
+			result, err := w.step.Start(ctx, input)
+			if err != nil {
+				w.loop.RunOnLoop(func(*goja.Runtime) {
+					reject(w.runtime.ToValue(fmt.Sprintf("failed to start step: %v", err)))
+				})
+				return
+			}
+			defer result.Cancel()
+
+			results := result.Return()
+			if len(results) == 0 {
+				w.loop.RunOnLoop(func(*goja.Runtime) {
+					resolve(w.runtime.ToValue([]interface{}{}))
+				})
+				return
+			}
+
+			// Convert results to JS values
+			jsResults := make([]goja.Value, len(results))
+			var resolveErr error
+			for i, r := range results {
+				if r.Error() != nil {
+					w.loop.RunOnLoop(func(*goja.Runtime) {
+						reject(w.runtime.ToValue(r.Error().Error()))
+					})
+					return
+				}
+				jsResults[i] = outputConverter(r.Unwrap())
+			}
+
+			// Must resolve on the event loop
+			w.loop.RunOnLoop(func(*goja.Runtime) {
+				if resolveErr != nil {
+					reject(w.runtime.ToValue(resolveErr.Error()))
+					return
+				}
+				resolve(w.runtime.ToValue(jsResults))
+			})
+		}()
+
+		return w.runtime.ToValue(promise)
+	}
+}
+
+func (w *JSStepWrapper[T, U]) makeStartBlocking(
+	inputConverter func(goja.Value) T,
+	outputConverter func(U) goja.Value,
+) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("startBlocking requires an input argument")})
+		}
+
+		input := inputConverter(call.Arguments[0])
+		ctx := context.Background()
+		result, err := w.step.Start(ctx, input)
+		if err != nil {
+			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to start step: %w", err)})
+		}
+		defer result.Cancel()
+
+		results := result.Return()
+		if len(results) == 0 {
+			return goja.Undefined()
+		}
+
+		// Convert results to JS values
+		jsResults := make([]goja.Value, len(results))
+		for i, r := range results {
+			if r.Error() != nil {
+				return w.runtime.ToValue([]interface{}{nil, r.Error()})
+			}
+			jsResults[i] = outputConverter(r.Unwrap())
+		}
+
+		// Return the value directly on success
+		return w.runtime.ToValue(jsResults)
+	}
+}
+
+type CallbackFunctions struct {
+	OnResult goja.Callable
+	OnError  goja.Callable
+	OnDone   goja.Callable
+	OnCancel goja.Callable
+}
+
+func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
+	inputConverter func(goja.Value) T,
+	outputConverter func(U) goja.Value,
+) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("startWithCallbacks requires input and callbacks object")})
+		}
+
+		input := inputConverter(call.Arguments[0])
+
+		// Extract callbacks
+		callbacks := CallbackFunctions{}
+		callbacksObj := call.Arguments[1].ToObject(w.runtime)
+
+		var ok bool
+		if onResult := callbacksObj.Get("onResult"); onResult != nil {
+			callbacks.OnResult, ok = goja.AssertFunction(onResult)
+			if !ok {
+				return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to assert onResult")})
+			}
+		}
+		if onError := callbacksObj.Get("onError"); onError != nil {
+			callbacks.OnError, ok = goja.AssertFunction(onError)
+			if !ok {
+				return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to assert onError")})
+			}
+		}
+		if onDone := callbacksObj.Get("onDone"); onDone != nil {
+			callbacks.OnDone, ok = goja.AssertFunction(onDone)
+			if !ok {
+				return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to assert onDone")})
+			}
+		}
+		if onCancel := callbacksObj.Get("onCancel"); onCancel != nil {
+			callbacks.OnCancel, ok = goja.AssertFunction(onCancel)
+			if !ok {
+				return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to assert onCancel")})
+			}
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		result, err := w.step.Start(ctx, input)
+		if err != nil {
+			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to start step: %w", err)})
+		}
+
+		// Return a cancel function to JavaScript
+		cancelFn := func(call goja.FunctionCall) goja.Value {
+			cancel()
+			result.Cancel()
+			if callbacks.OnCancel != nil {
+				w.loop.RunOnLoop(func(*goja.Runtime) {
+					callbacks.OnCancel(goja.Undefined())
+				})
+			}
+			return goja.Undefined()
+		}
+
+		go func() {
+			defer func() {
+				if callbacks.OnDone != nil {
+					w.loop.RunOnLoop(func(*goja.Runtime) {
+						callbacks.OnDone(goja.Undefined())
+					})
+				}
+			}()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case r, ok := <-result.GetChannel():
+					if !ok {
+						return
+					}
+					if r.Error() != nil {
+						if callbacks.OnError != nil {
+							w.loop.RunOnLoop(func(*goja.Runtime) {
+								callbacks.OnError(goja.Undefined(), w.runtime.ToValue(r.Error().Error()))
+							})
+						}
+						continue
+					}
+					if callbacks.OnResult != nil {
+						w.loop.RunOnLoop(func(*goja.Runtime) {
+							callbacks.OnResult(goja.Undefined(), outputConverter(r.Unwrap()))
+						})
+					}
+				}
+			}
+		}()
+
+		return w.runtime.ToValue(cancelFn)
+	}
+}
+
+// Example usage with embeddings step
+func RegisterEmbeddingsStep(runtime *goja.Runtime, loop *eventloop.EventLoop, name string, provider steps.Step[string, []float32]) {
+	inputConverter := func(v goja.Value) string {
+		return v.String()
+	}
+
+	outputConverter := func(embedding []float32) goja.Value {
+		// Convert []float32 to []interface{} for Goja
+		embeddingInterface := make([]interface{}, len(embedding))
+		for i, v := range embedding {
+			embeddingInterface[i] = v
+		}
+		return runtime.ToValue(embeddingInterface)
+	}
+
+	RegisterStep(runtime, loop, name, provider, inputConverter, outputConverter)
+}
+
+// Helper to create a LambdaStep from a JavaScript function
+func NewJSLambdaStep[T any, U any](
+	runtime *goja.Runtime,
+	fn goja.Callable,
+	inputConverter func(T) goja.Value,
+	outputConverter func(goja.Value) (U, error),
+) steps.Step[T, U] {
+	return &utils.LambdaStep[T, U]{
+		Function: func(input T) helpers.Result[U] {
+			jsInput := inputConverter(input)
+			jsResult, err := fn(goja.Undefined(), jsInput)
+			if err != nil {
+				return helpers.NewErrorResult[U](err)
+			}
+
+			result, err := outputConverter(jsResult)
+			if err != nil {
+				return helpers.NewErrorResult[U](err)
+			}
+
+			return helpers.NewValueResult(result)
+		},
+	}
+}
