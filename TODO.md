@@ -5,6 +5,7 @@
 - [ ] Add stepsettings options override
 - [ ] Add calling javascript tools
 - [ ] Add pinocchio javascript execution
+- [ ] Batched embeddings generation
 
 
 ## Older, migiht be deprecated
