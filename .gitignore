@@ -17,3 +17,5 @@
 go.work
 dist
 envs/
+
+.history
