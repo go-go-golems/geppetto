@@ -85,7 +85,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
 
-	log.Debug().Object("event", event).Msg("ContentBlockMerger.Add")
+	log.Trace().Object("event", event).Msg("ContentBlockMerger.Add")
 
 	switch event.Type {
 	case api.PingType:
