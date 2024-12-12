@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Embeddings API provides JavaScript bindings for generating vector embeddings from text using various embedding models. It supports different providers (like OpenAI, Ollama) and offers a simple interface for text-to-vector conversion.
+The Embeddings API provides JavaScript bindings for generating vector embeddings from text using various embedding models. It supports different providers (like OpenAI, Ollama) and offers synchronous, Promise-based, and callback-based APIs for text-to-vector conversion.
 
 ## Core Concepts
 
@@ -23,11 +23,13 @@ Each embeddings provider exposes information about its model:
 
 ## API Reference
 
-The Embeddings API exposes two main functions:
+The Embeddings API exposes the following functions:
 
-### generateEmbedding
+### Synchronous API
 
-Converts text into a vector embedding.
+#### generateEmbedding
+
+Converts text into a vector embedding synchronously.
 
 ```javascript
 const text = "Hello, world!";
@@ -35,7 +37,7 @@ const embedding = embeddings.generateEmbedding(text);
 // Returns: Float32Array of dimensions length
 ```
 
-### getModel
+#### getModel
 
 Returns information about the current embedding model.
 
@@ -44,15 +46,75 @@ const model = embeddings.getModel();
 // Returns: { name: string, dimensions: number }
 ```
 
+### Asynchronous API
+
+#### generateEmbeddingAsync
+
+Promise-based API for generating embeddings.
+
+```javascript
+const text = "Hello, world!";
+try {
+    const embedding = await embeddings.generateEmbeddingAsync(text);
+    console.log("Embedding dimensions:", embedding.length);
+} catch (err) {
+    console.error("Failed to generate embedding:", err);
+}
+```
+
+#### generateEmbeddingWithCallbacks
+
+Callback-based API for generating embeddings with cancellation support.
+
+```javascript
+const text = "Hello, world!";
+const cancel = embeddings.generateEmbeddingWithCallbacks(text, {
+    onSuccess: (embedding) => {
+        console.log("Embedding generated:", embedding);
+    },
+    onError: (err) => {
+        console.error("Error:", err);
+    }
+});
+
+// Cancel the operation if needed
+cancel();
+```
+
 ## Usage Examples
 
 ### Basic Text Embedding
 
 ```javascript
-// Generate embedding for a single text
+// Synchronous API
 const text = "The quick brown fox jumps over the lazy dog";
-const embedding = embeddings.generateEmbedding(text);
-console.log("Embedding dimensions:", embedding.length);
+try {
+    const embedding = embeddings.generateEmbedding(text);
+    console.log("Embedding dimensions:", embedding.length);
+} catch (err) {
+    console.error("Failed to generate embedding:", err);
+}
+
+// Async/Promise API
+async function generateEmbedding(text) {
+    try {
+        const embedding = await embeddings.generateEmbeddingAsync(text);
+        return embedding;
+    } catch (err) {
+        console.error("Failed to generate embedding:", err);
+        throw err;
+    }
+}
+
+// Callback API with error handling
+const cancel = embeddings.generateEmbeddingWithCallbacks(text, {
+    onSuccess: (embedding) => {
+        console.log("Success! Dimensions:", embedding.length);
+    },
+    onError: (err) => {
+        console.error("Error generating embedding:", err);
+    }
+});
 ```
 
 ### Model Information
@@ -67,14 +129,24 @@ console.log("Vector dimensions:", model.dimensions);
 ### Batch Processing
 
 ```javascript
-// Process multiple texts
+// Process multiple texts with Promise.all
 const texts = [
     "First document",
     "Second document",
     "Third document"
 ];
 
-const embeddings = texts.map(text => embeddings.generateEmbedding(text));
+async function batchProcess(texts) {
+    try {
+        const embeddings = await Promise.all(
+            texts.map(text => embeddings.generateEmbeddingAsync(text))
+        );
+        return embeddings;
+    } catch (err) {
+        console.error("Batch processing failed:", err);
+        throw err;
+    }
+}
 ```
 
 ### Semantic Search Example
@@ -95,39 +167,44 @@ function cosineSimilarity(a, b) {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-// Create embeddings for a document collection
-const documents = [
-    "The weather is sunny today",
-    "Machine learning is fascinating",
-    "I love programming in JavaScript"
-];
-
-const documentEmbeddings = documents.map(doc => 
-    embeddings.generateEmbedding(doc)
-);
-
-// Search for similar documents
-const query = "What's the weather like?";
-const queryEmbedding = embeddings.generateEmbedding(query);
-
-// Find most similar document
-const similarities = documentEmbeddings.map(docEmb => 
-    cosineSimilarity(queryEmbedding, docEmb)
-);
-
-const mostSimilarIndex = similarities.indexOf(Math.max(...similarities));
-console.log("Most similar document:", documents[mostSimilarIndex]);
+// Async semantic search implementation
+async function semanticSearch(query, documents) {
+    try {
+        // Generate query embedding
+        const queryEmbedding = await embeddings.generateEmbeddingAsync(query);
+        
+        // Generate document embeddings
+        const documentEmbeddings = await Promise.all(
+            documents.map(doc => embeddings.generateEmbeddingAsync(doc))
+        );
+        
+        // Calculate similarities
+        const similarities = documentEmbeddings.map(docEmb => 
+            cosineSimilarity(queryEmbedding, docEmb)
+        );
+        
+        // Find best match
+        const bestMatchIndex = similarities.indexOf(Math.max(...similarities));
+        return {
+            document: documents[bestMatchIndex],
+            similarity: similarities[bestMatchIndex]
+        };
+    } catch (err) {
+        console.error("Semantic search failed:", err);
+        throw err;
+    }
+}
 ```
 
 ## Best Practices
 
 ### 1. Error Handling
 
-Always wrap embedding generation in try-catch blocks:
+Always wrap embedding generation in try-catch blocks and handle errors appropriately:
 
 ```javascript
 try {
-    const embedding = embeddings.generateEmbedding(text);
+    const embedding = await embeddings.generateEmbeddingAsync(text);
     // Process embedding...
 } catch (err) {
     console.error("Failed to generate embedding:", err);
@@ -135,21 +212,26 @@ try {
 }
 ```
 
-### 2. Input Preprocessing
+### 2. Cancellation
 
-Clean and normalize text before generating embeddings:
+Use the callback API when you need cancellation support:
 
 ```javascript
-function preprocessText(text) {
-    return text
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, ' ');
+let cancel;
+
+function startEmbedding() {
+    cancel = embeddings.generateEmbeddingWithCallbacks(text, {
+        onSuccess: handleSuccess,
+        onError: handleError
+    });
 }
 
-const text = "  Multiple    spaces   and CAPS  ";
-const processed = preprocessText(text);
-const embedding = embeddings.generateEmbedding(processed);
+function stopEmbedding() {
+    if (cancel) {
+        cancel();
+        cancel = null;
+    }
+}
 ```
 
 ### 3. Resource Management
@@ -166,105 +248,20 @@ const estimatedMemory = memoryPerEmbedding * batchSize;
 console.log(`Estimated memory usage: ${estimatedMemory / 1024 / 1024} MB`);
 ```
 
-### 4. Caching
+### 4. Choosing the Right API
 
-Cache embeddings for frequently used texts:
+- Use `generateEmbedding` for simple, synchronous operations
+- Use `generateEmbeddingAsync` for Promise-based async operations and better error handling
+- Use `generateEmbeddingWithCallbacks` when you need cancellation support or progress updates
 
-```javascript
-const embeddingCache = new Map();
+### 5. Performance Optimization
 
-function getCachedEmbedding(text) {
-    const key = preprocessText(text);
-    if (!embeddingCache.has(key)) {
-        embeddingCache.set(key, embeddings.generateEmbedding(key));
-    }
-    return embeddingCache.get(key);
-}
-```
+- Batch similar requests using Promise.all
+- Cache frequently used embeddings
+- Consider using Web Workers for heavy computation
+- Use cancellation to prevent unnecessary work
 
-## Integration Examples
-
-### With Document Processing
-
-```javascript
-class Document {
-    constructor(text, metadata = {}) {
-        this.text = text;
-        this.metadata = metadata;
-        this.embedding = null;
-    }
-
-    generateEmbedding() {
-        this.embedding = embeddings.generateEmbedding(this.text);
-        return this.embedding;
-    }
-}
-
-// Usage
-const doc = new Document("Sample text", { source: "user-input" });
-doc.generateEmbedding();
-```
-
-### With Vector Database
-
-```javascript
-class VectorStore {
-    constructor() {
-        this.documents = [];
-        this.embeddings = [];
-    }
-
-    addDocument(text, metadata = {}) {
-        const embedding = embeddings.generateEmbedding(text);
-        this.documents.push({ text, metadata });
-        this.embeddings.push(embedding);
-    }
-
-    search(query, topK = 5) {
-        const queryEmbedding = embeddings.generateEmbedding(query);
-        const similarities = this.embeddings.map(emb => 
-            cosineSimilarity(queryEmbedding, emb)
-        );
-
-        // Get top K results
-        return similarities
-            .map((score, idx) => ({ score, idx }))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, topK)
-            .map(({ score, idx }) => ({
-                document: this.documents[idx],
-                similarity: score
-            }));
-    }
-}
-
-// Usage
-const store = new VectorStore();
-store.addDocument("First document");
-store.addDocument("Second document");
-
-const results = store.search("document");
-console.log("Search results:", results);
-```
-
-## Technical Details
-
-### Provider Configuration
-
-The embeddings provider is configured during initialization and cannot be changed at runtime. The available providers include:
-
-- OpenAI
-- Ollama
-- Custom providers (if implemented)
-
-### Performance Considerations
-
-1. **Batch Size**: Consider batching multiple texts when possible
-2. **Vector Dimensions**: Be aware of the model's dimension size
-3. **Memory Usage**: Monitor memory when processing large datasets
-4. **Caching**: Implement caching for repeated texts
-
-### Error Types
+## Error Types
 
 Common errors to handle:
 
@@ -273,46 +270,6 @@ Common errors to handle:
 3. Rate limiting
 4. Network issues
 5. Model loading errors
+6. Cancellation errors
 
-## Advanced Topics
-
-### Custom Distance Metrics
-
-Beyond cosine similarity:
-
-```javascript
-class EmbeddingMetrics {
-    static euclideanDistance(a, b) {
-        return Math.sqrt(
-            a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0)
-        );
-    }
-
-    static manhattanDistance(a, b) {
-        return a.reduce((sum, val, i) => sum + Math.abs(val - b[i]), 0);
-    }
-}
-```
-
-### Dimensionality Reduction
-
-For visualization or optimization:
-
-```javascript
-function reduceDimensions(embedding, targetDim = 2) {
-    // Simple dimension reduction (average pooling)
-    const result = new Array(targetDim).fill(0);
-    const stride = Math.floor(embedding.length / targetDim);
-    
-    for (let i = 0; i < targetDim; i++) {
-        const start = i * stride;
-        const end = start + stride;
-        const slice = embedding.slice(start, end);
-        result[i] = slice.reduce((a, b) => a + b) / slice.length;
-    }
-    
-    return result;
-}
-```
-
-The Embeddings API provides a powerful interface for text-to-vector conversion, enabling various natural language processing and machine learning applications. By following these patterns and best practices, you can effectively integrate embeddings into your JavaScript applications. 
+The Embeddings API provides a flexible interface for text-to-vector conversion with multiple paradigms to suit different use cases. Choose the appropriate API based on your needs for synchronous vs asynchronous operation and error handling requirements. 
