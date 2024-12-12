@@ -50,3 +50,12 @@ Simplified the JavaScript conversation bindings by leveraging Goja's automatic s
 - Changed method signatures to use native Go types instead of Goja-specific types
 - Improved error handling by returning proper errors instead of panicking
 - Methods now return promises in JavaScript for better async handling 
+
+# Event Loop Termination Improvements
+
+Added proper event loop termination handling to prevent goroutine leaks and ensure clean program shutdown.
+
+- Added done channel for signaling completion in main.go
+- Updated runChatStepTest to properly signal completion
+- Added documentation for event loop termination patterns
+- Improved error handling in JavaScript callbacks 

@@ -3,6 +3,7 @@
 - [ ] Add streaming API for model low level streaming
 - [ ] Expose published events
 - [ ] Add stepsettings options override
+- [ ] Add calling javascript tools
 
 
 ## Older, migiht be deprecated

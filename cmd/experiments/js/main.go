@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dop251/goja"
@@ -70,14 +71,22 @@ func main() {
 			err = stepSettings.UpdateFromParsedLayers(parsedLayers)
 			cobra.CheckErr(err)
 
-			// Create event loop
+			// Create event loop and done channel
 			loop := eventloop.NewEventLoop()
-			// loop.Start()
+			done := make(chan error)
+			loop.Start()
 			defer loop.Stop()
 
-			// Run tests in event loop
+			log.Info().Msg("Starting loop")
+
 			loop.RunOnLoop(func(vm *goja.Runtime) {
 				setupConsole(vm)
+
+				// Register done callback
+				err := vm.Set("done", func() {
+					done <- nil
+				})
+				cobra.CheckErr(err)
 
 				if flags.runStepTests {
 					runStepTests(vm, loop)
@@ -92,12 +101,13 @@ func main() {
 				}
 			})
 
-			log.Info().Msg("Starting loop")
-			loop.StartInForeground()
+			// Wait for completion or error
+			if err := <-done; err != nil {
+				log.Error().Err(err).Msg("Error during execution")
+				os.Exit(1)
+			}
 
-			log.Info().Msg("Waiting for 10 seconds")
-			time.Sleep(10 * time.Second)
-			log.Info().Msg("Done")
+			log.Info().Msg("Loop stopped")
 		},
 	}
 
@@ -301,6 +311,8 @@ func runChatStepTest(vm *goja.Runtime, loop *eventloop.EventLoop, stepSettings *
 				conv.AddMessage("assistant", response);
 			} catch (err) {
 				console.error("Promise API error:", err);
+				done(err); // Signal error
+				return;
 			}
 			
 			// Test Streaming API
@@ -315,24 +327,24 @@ func runChatStepTest(vm *goja.Runtime, loop *eventloop.EventLoop, stepSettings *
 				},
 				onError: (err) => {
 					console.error("Streaming error:", err);
+					done(err); // Signal error
 				},
 				onDone: () => {
 					console.log("\nFinal streaming response:", streamingResponse);
+					
 					conv.AddMessage("assistant", streamingResponse);
 					console.log("Chat step test complete");
+					done(); // Signal completion
 				}
 			});
 			console.log("Streaming started")
-			
-			// Cancel after 10 seconds if not done
-			setTimeout(() => {
-				console.log("Cancelling streaming response")
-				cancel();
-				console.log("Cancelled streaming response");
-			}, 10000);
 		}
 		
-		runChatStepTest().catch(console.error);
+		console.log("Starting ChatStep Test")
+		runChatStepTest().catch(err => {
+			console.error("Test failed:", err);
+			done(err); // Signal error
+		});
 	`
 
 	_, err = vm.RunString(chatStepTestJS)

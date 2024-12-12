@@ -147,7 +147,8 @@ func (csf *ChatStep) Start(
 
 	eventCh, err := client.StreamMessage(cancellableCtx, req)
 	if err != nil {
-		defer cancel()
+		cancel()
+
 		return steps.Reject[string](err), nil
 	}
 
@@ -163,7 +164,6 @@ func (csf *ChatStep) Start(
 		defer close(c)
 		// NOTE(manuel, 2024-06-04) Added this because we now use ctx_ as the chat completion stream context
 		defer cancel()
-		defer func() { log.Info().Msg("Claude chat step done") }()
 
 		// we need to accumulate all the blocks that get streamed
 		completionMerger := NewContentBlockMerger(metadata, stepMetadata)
@@ -196,17 +196,9 @@ func (csf *ChatStep) Start(
 				}
 				for _, event_ := range events_ {
 					log.Trace().Interface("event", event_).Msg("processing event")
-				}
-
-				if err != nil {
-					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-					c <- helpers2.NewErrorResult[string](err)
-					return
-				}
-
-				for _, event_ := range events_ {
 					csf.subscriptionManager.PublishBlind(event_)
 				}
+
 			}
 		}
 	}()
