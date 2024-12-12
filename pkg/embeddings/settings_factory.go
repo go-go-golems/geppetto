@@ -41,7 +41,7 @@ func (f *SettingsFactory) NewProvider() (Provider, error) {
 	case "ollama":
 		baseURL := "http://localhost:11434"
 		if urls := f.stepSettings.API.BaseUrls; urls != nil {
-			if url, ok := urls[settings.ApiTypeOllama]; ok {
+			if url, ok := urls[settings.ApiTypeOllama+"-base-url"]; ok {
 				baseURL = url
 			}
 		}
@@ -50,7 +50,7 @@ func (f *SettingsFactory) NewProvider() (Provider, error) {
 	case "openai":
 		apiKey := ""
 		if keys := f.stepSettings.API.APIKeys; keys != nil {
-			if key, ok := keys[settings.ApiTypeOpenAI]; ok {
+			if key, ok := keys[settings.ApiTypeOpenAI+"-api-key"]; ok {
 				apiKey = key
 			}
 		}
