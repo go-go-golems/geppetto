@@ -106,7 +106,7 @@ func main() {
 			// Register step and console in event loop
 			loop.RunOnLoop(func(vm *goja.Runtime) {
 				// Register the step in JS
-				js.RegisterStep(
+				err := js.RegisterStep(
 					vm,
 					loop,
 					"doubleStep",
@@ -117,6 +117,7 @@ func main() {
 					func(v float64) goja.Value {
 						return vm.ToValue(v)
 					})
+				cobra.CheckErr(err)
 
 				// Create console object for logging
 				console := vm.NewObject()
@@ -136,7 +137,8 @@ func main() {
 					fmt.Printf("ERROR: %v\n", args...)
 					return goja.Undefined()
 				})
-				vm.Set("console", console)
+				err = vm.Set("console", console)
+				cobra.CheckErr(err)
 
 				// Run the test program
 				_, err = vm.RunString(testJS)
