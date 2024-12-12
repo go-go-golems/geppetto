@@ -43,6 +43,67 @@
 - ArrayBuffers
 - Custom object prototypes
 
+## 7. Event Loop Termination Patterns
+
+When working with the event loop, it's important to properly handle program termination. Here's a pattern for clean termination:
+
+```go
+func main() {
+    // Create event loop and done channel
+    loop := eventloop.NewEventLoop()
+    done := make(chan error)
+    loop.Start()
+    defer loop.Stop()
+
+    // Run your code in the loop
+    loop.RunOnLoop(func(vm *goja.Runtime) {
+        // Register done callback for JavaScript
+        vm.Set("done", func(err ...goja.Value) {
+            if len(err) > 0 && !goja.IsUndefined(err[0]) && !goja.IsNull(err[0]) {
+                done <- fmt.Errorf("JavaScript error: %v", err[0])
+                return
+            }
+            done <- nil
+        })
+
+        // Run your JavaScript code
+        _, err := vm.RunString(`
+            async function main() {
+                try {
+                    await someAsyncOperation();
+                    done(); // Signal successful completion
+                } catch (err) {
+                    done(err); // Signal error
+                }
+            }
+            main();
+        `)
+        if err != nil {
+            done <- err
+        }
+    })
+
+    // Wait for completion or error
+    if err := <-done; err != nil {
+        log.Error().Err(err).Msg("Error during execution")
+        os.Exit(1)
+    }
+}
+```
+
+Key points:
+1. Create a done channel to signal completion
+2. Register a done callback in JavaScript
+3. Use the callback to signal both successful completion and errors
+4. Wait for the done signal before exiting
+5. Properly handle cleanup with defer loop.Stop()
+
+This pattern ensures:
+- Clean program termination
+- Proper error handling
+- No goroutine leaks
+- Graceful shutdown of the event loop
+
 I'll help analyze the documentation outline and provide relevant information from the Goja documentation for each section.
 
 # Documentation Analysis

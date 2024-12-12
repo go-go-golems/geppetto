@@ -510,14 +510,14 @@ const chatStep = factory.newStep();
 
 // Use the step with a conversation
 const conversation = new Conversation();
-conversation.addMessage("user", "Hello, how are you?");
+conversation.AddMessage("user", "Hello, how are you?");
 
 // Start chat completion with Promise API
-const response = await chatStep.startAsync(conversation);
+const response = await chatStep.StartAsync(conversation);
 console.log("Response:", response);
 
 // Or use streaming with callbacks
-const cancel = chatStep.startWithCallbacks(conversation, {
+const cancel = chatStep.StartWithCallbacks(conversation, {
     onResult: (chunk) => {
         process.stdout.write(chunk);
     },
@@ -536,21 +536,21 @@ The factory supports two ways to provide conversations:
 const conv = new Conversation();
 
 // Add messages
-conv.addMessage("system", "You are a helpful assistant");
-conv.addMessage("user", "What is quantum computing?");
+conv.AddMessage("system", "You are a helpful assistant");
+conv.AddMessage("user", "What is quantum computing?");
 
 // Add messages with metadata
-conv.addMessage("user", "Hello", {
+conv.AddMessage("user", "Hello", {
     metadata: { source: "user-input" },
     time: "2024-03-20T15:04:05Z"
 });
 
 // Add messages with images
-conv.addMessageWithImage("user", "What's in this image?", "path/to/image.jpg");
+conv.AddMessageWithImage("user", "What's in this image?", "path/to/image.jpg");
 
 // Add tool usage
-conv.addToolUse("tool123", "search", { query: "quantum computing" });
-conv.addToolResult("tool123", "Found relevant articles...");
+conv.AddToolUse("tool123", "search", { query: "quantum computing" });
+conv.AddToolResult("tool123", "Found relevant articles...");
 ```
 
 2. Legacy format (backward compatibility):
@@ -568,7 +568,7 @@ const input = {
 Chat steps support streaming responses for real-time output:
 
 ```javascript
-const cancel = chatStep.startWithCallbacks(conversation, {
+const cancel = chatStep.StartWithCallbacks(conversation, {
     onResult: (chunk) => {
         // Handle each response chunk
         process.stdout.write(chunk);
@@ -593,7 +593,7 @@ For simpler use cases, you can use the Promise API:
 
 ```javascript
 try {
-    const response = await chatStep.startAsync(conversation);
+    const response = await chatStep.StartAsync(conversation);
     console.log("Complete response:", response);
 } catch (err) {
     console.error("Chat failed:", err);
@@ -606,7 +606,7 @@ The chat step properly propagates errors from the underlying LLM:
 
 ```javascript
 // With callbacks
-chatStep.startWithCallbacks(conversation, {
+chatStep.StartWithCallbacks(conversation, {
     onResult: (chunk) => { /* ... */ },
     onError: (err) => {
         console.error("LLM error:", err);
@@ -619,7 +619,7 @@ chatStep.startWithCallbacks(conversation, {
 
 // With promises
 try {
-    await chatStep.startAsync(conversation);
+    await chatStep.StartAsync(conversation);
 } catch (err) {
     if (err.includes("context length")) {
         // Handle context length errors
@@ -663,18 +663,18 @@ const chatStep = factory.newStep([
 
 // Create and setup conversation
 const conversation = new Conversation();
-conversation.addMessage("system", 
+conversation.AddMessage("system", 
     "You are a helpful AI assistant. Be concise and clear in your responses."
 );
 
 // Function to send user message and get response
 async function chat(userInput) {
     // Add user message
-    conversation.addMessage("user", userInput);
+    conversation.AddMessage("user", userInput);
     
     // Stream response
     let response = "";
-    const cancel = chatStep.startWithCallbacks(conversation, {
+    const cancel = chatStep.StartWithCallbacks(conversation, {
         onResult: (chunk) => {
             response += chunk;
             // Update UI with streaming response
@@ -686,7 +686,7 @@ async function chat(userInput) {
         },
         onDone: () => {
             // Add assistant's response to conversation
-            conversation.addMessage("assistant", response);
+            conversation.AddMessage("assistant", response);
             // Update UI to show completion
             markComplete();
         }
