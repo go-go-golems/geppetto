@@ -3,6 +3,7 @@ package claude
 import (
 	"context"
 	"encoding/base64"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	events2 "github.com/go-go-golems/geppetto/pkg/events"
@@ -144,17 +145,9 @@ func (csf *ChatStep) Start(
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
 
-	// NOTE(manuel, 2024-06-04) Not sure if we need to collect this goroutine as well when closing the step.
-	// Probably (see the other comments for the other goroutines both here and in the openai steps).
-	// IN fact, do we even need this? Wouldn't the context.WithCancel take care of that anyway?
-	// God damn it, context cancellation...
-	go func() {
-		<-ctx.Done()
-		cancel()
-	}()
-
 	eventCh, err := client.StreamMessage(cancellableCtx, req)
 	if err != nil {
+		defer cancel()
 		return steps.Reject[string](err), nil
 	}
 
@@ -170,6 +163,7 @@ func (csf *ChatStep) Start(
 		defer close(c)
 		// NOTE(manuel, 2024-06-04) Added this because we now use ctx_ as the chat completion stream context
 		defer cancel()
+		defer func() { log.Info().Msg("Claude chat step done") }()
 
 		// we need to accumulate all the blocks that get streamed
 		completionMerger := NewContentBlockMerger(metadata, stepMetadata)

@@ -14,15 +14,34 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/pinocchio/pkg/cmds"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 type testFlags struct {
 	runStepTests        bool
 	runConversationTest bool
+	runChatStepTest     bool
 }
 
+var rootCmd = &cobra.Command{
+	Use:   "js-experiments",
+	Short: "JavaScript experiments for Geppetto",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// reinitialize the logger because we can now parse --log-level and co
+		err := clay.InitLogger()
+		cobra.CheckErr(err)
+	},
+}
+
+var runCmd *cobra.Command
+
 func main() {
+	err := clay.InitViper("pinocchio", rootCmd)
+	cobra.CheckErr(err)
+	err = clay.InitLogger()
+	cobra.CheckErr(err)
+
 	stepSettings, err := settings.NewStepSettings()
 	cobra.CheckErr(err)
 	geppettoLayers, err := cmds.CreateGeppettoLayers(stepSettings)
@@ -37,10 +56,11 @@ func main() {
 	flags := &testFlags{
 		runStepTests:        true,
 		runConversationTest: true,
+		runChatStepTest:     true,
 	}
 
 	// Add run command that executes JS tests
-	runCmd := &cobra.Command{
+	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Run JavaScript tests",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -52,7 +72,7 @@ func main() {
 
 			// Create event loop
 			loop := eventloop.NewEventLoop()
-			loop.Start()
+			// loop.Start()
 			defer loop.Stop()
 
 			// Run tests in event loop
@@ -66,24 +86,31 @@ func main() {
 				if flags.runConversationTest {
 					runConversationTest(vm)
 				}
+
+				if flags.runChatStepTest {
+					runChatStepTest(vm, loop, stepSettings)
+				}
 			})
 
+			log.Info().Msg("Starting loop")
+			loop.StartInForeground()
+
+			log.Info().Msg("Waiting for 10 seconds")
 			time.Sleep(10 * time.Second)
+			log.Info().Msg("Done")
 		},
 	}
 
-	runCmd.Flags().BoolVar(&flags.runStepTests, "step-tests", true, "Run step tests")
+	runCmd.Flags().BoolVar(&flags.runStepTests, "step-tests", false, "Run step tests")
 	runCmd.Flags().BoolVar(&flags.runConversationTest, "conversation-test", true, "Run conversation test")
-
-	err = clay.InitViper("geppetto", runCmd)
-	cobra.CheckErr(err)
-	err = clay.InitLogger()
-	cobra.CheckErr(err)
+	runCmd.Flags().BoolVar(&flags.runChatStepTest, "chat-step-test", true, "Run chat step test")
 
 	err = parser.AddToCobraCommand(runCmd)
 	cobra.CheckErr(err)
 
-	err = runCmd.Execute()
+	rootCmd.AddCommand(runCmd)
+
+	err = rootCmd.Execute()
 	cobra.CheckErr(err)
 }
 
@@ -191,43 +218,123 @@ func runConversationTest(vm *goja.Runtime) {
 			console.log("=== Running Conversation Test ===");
 			
 			const conv = new Conversation();
+			console.log("Conversation created:", conv);
 			
-			// Test adding messages
-			const msgId1 = conv.addMessage("system", "You are a helpful assistant.");
-			console.log("Added system message:", msgId1);
-			
-			const msgId2 = conv.addMessage("user", "Hello, can you help me?");
-			console.log("Added user message:", msgId2);
-			
-			const msgId3 = conv.addMessage("assistant", "Of course! What can I help you with?");
-			console.log("Added assistant message:", msgId3);
-			
-			// Test tool use
-			const toolId = "search-123";
-			const toolUseId = conv.addToolUse(toolId, "search", { query: "test query" });
-			console.log("Added tool use:", toolUseId);
-			
-			const toolResultId = conv.addToolResult(toolId, "Found results for test query");
-			console.log("Added tool result:", toolResultId);
-			
-			// Test getting messages
-			const messages = conv.getMessages();
-			console.log("All messages:", JSON.stringify(messages, null, 2));
-			
-			// Test getting single prompt
-			const prompt = conv.getSinglePrompt();
-			console.log("Single prompt:", prompt);
-			
-			// Test converting back to Go
-			const goConv = conv.toGoConversation();
-			console.log("Converted back to Go conversation");
-			
-			console.log("Conversation test complete");
+			try {
+				// Test adding messages
+				const msgId1 = await conv.AddMessage("system", "You are a helpful assistant.");
+				console.log("Added system message:", msgId1);
+				
+				const msgId2 = await conv.AddMessage("user", "Hello, can you help me?");
+				console.log("Added user message:", msgId2);
+				
+				const msgId3 = await conv.AddMessage("assistant", "Of course! What can I help you with?");
+				console.log("Added assistant message:", msgId3);
+				
+				// Test tool use
+				const toolId = "search-123";
+				const toolUseId = await conv.AddToolUse(toolId, "search", { query: "test query" });
+				console.log("Added tool use:", toolUseId);
+				
+				const toolResultId = await conv.AddToolResult(toolId, "Found results for test query");
+				console.log("Added tool result:", toolResultId);
+				
+				// Test getting messages
+				const messages = conv.GetMessages();
+				console.log("Messages count:", messages.length);
+				console.log("First message role:", messages[0].Content.Role);
+				
+				// Test getting single prompt
+				const prompt = conv.GetSinglePrompt();
+				console.log("Single prompt:", prompt);
+				
+				// Test message view
+				const view = await conv.GetMessageView(msgId1);
+				console.log("Message view:", view);
+				
+				// Test metadata update
+				const updated = await conv.UpdateMetadata(msgId1, { processed: true });
+				console.log("Metadata updated:", updated);
+				
+				console.log("Conversation test complete");
+			} catch (err) {
+				console.error("Test error:", err);
+			}
 		}
 		
 		runConversationTest().catch(console.error);
 	`
 
 	_, err = vm.RunString(conversationTestJS)
+	cobra.CheckErr(err)
+}
+
+func runChatStepTest(vm *goja.Runtime, loop *eventloop.EventLoop, stepSettings *settings.StepSettings) {
+	// Register conversation constructor
+	err := js.RegisterConversation(vm)
+	cobra.CheckErr(err)
+
+	// Register chat step factory
+	err = js.RegisterFactory(vm, loop, stepSettings)
+	cobra.CheckErr(err)
+
+	chatStepTestJS := `
+		async function runChatStepTest() {
+			console.log("=== Running Chat Step Test ===");
+			
+			// Create factory and step
+			const factory = new ChatStepFactory();
+			const chatStep = factory.newStep();
+			
+			// Create conversation
+			const conv = new Conversation();
+			conv.AddMessage("system", "You are a helpful AI assistant. Be concise.");
+			conv.AddMessage("user", "What is the capital of France?");
+			
+			// Test Promise API
+			console.log("Testing Promise API...");
+			try {
+				const response = await chatStep.startAsync(conv);
+				console.log("Promise response:", response);
+				
+				// Add assistant's response to conversation
+				conv.AddMessage("assistant", response);
+			} catch (err) {
+				console.error("Promise API error:", err);
+			}
+			
+			// Test Streaming API
+			console.log("\nTesting Streaming API...");
+			conv.AddMessage("user", "And what is France's population?");
+			
+			let streamingResponse = "";
+			const cancel = chatStep.startWithCallbacks(conv, {
+				onResult: (chunk) => {
+					streamingResponse += chunk;
+					console.log("Chunk received:", chunk);
+				},
+				onError: (err) => {
+					console.error("Streaming error:", err);
+				},
+				onDone: () => {
+					console.log("\nFinal streaming response:", streamingResponse);
+					conv.AddMessage("assistant", streamingResponse);
+					console.log("Chat step test complete");
+				}
+			});
+			console.log("Streaming started")
+			
+			// Cancel after 10 seconds if not done
+			setTimeout(() => {
+				console.log("Cancelling streaming response")
+				cancel();
+				console.log("Cancelled streaming response");
+			}, 10000);
+		}
+		
+		runChatStepTest().catch(console.error);
+	`
+
+	_, err = vm.RunString(chatStepTestJS)
 	cobra.CheckErr(err)
 }

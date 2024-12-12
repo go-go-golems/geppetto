@@ -8,8 +8,10 @@ import (
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
+// JSConversation wraps a conversation.Manager to expose it to JavaScript
 type JSConversation struct {
 	runtime *goja.Runtime
 	manager conversation.Manager
@@ -22,65 +24,51 @@ func NewJSConversation(runtime *goja.Runtime) *JSConversation {
 	}
 }
 
-func (jc *JSConversation) AddMessage(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 2 {
-		panic(jc.runtime.NewTypeError("AddMessage requires role and text arguments"))
-	}
+// AddMessage adds a new chat message to the conversation
+func (jc *JSConversation) AddMessage(role string, text string, options *goja.Object) (string, error) {
+	var msgOptions []conversation.MessageOption
 
-	role := conversation.Role(call.Arguments[0].String())
-	text := call.Arguments[1].String()
-
-	var options []conversation.MessageOption
-	if len(call.Arguments) > 2 && !goja.IsUndefined(call.Arguments[2]) {
-		opts := call.Arguments[2].ToObject(jc.runtime)
-
-		if metadata := opts.Get("metadata"); metadata != nil {
-			options = append(options, conversation.WithMetadata(metadata.Export().(map[string]interface{})))
+	if options != nil {
+		if metadata := options.Get("metadata"); metadata != nil {
+			msgOptions = append(msgOptions, conversation.WithMetadata(metadata.Export().(map[string]interface{})))
 		}
-		if parentID := opts.Get("parentID"); parentID != nil {
+		if parentID := options.Get("parentID"); parentID != nil {
 			parentUUID, err := uuid.Parse(parentID.String())
 			if err != nil {
-				return jc.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to parse parentID: %v", err)})
+				return "", fmt.Errorf("failed to parse parentID: %v", err)
 			}
-			options = append(options, conversation.WithParentID(conversation.NodeID(parentUUID)))
+			msgOptions = append(msgOptions, conversation.WithParentID(conversation.NodeID(parentUUID)))
 		}
-		if timeStr := opts.Get("time"); timeStr != nil {
+		if timeStr := options.Get("time"); timeStr != nil {
 			t, err := time.Parse(time.RFC3339, timeStr.String())
 			if err == nil {
-				options = append(options, conversation.WithTime(t))
+				msgOptions = append(msgOptions, conversation.WithTime(t))
 			}
 		}
-		if id := opts.Get("id"); id != nil {
+		if id := options.Get("id"); id != nil {
 			idUUID, err := uuid.Parse(id.String())
 			if err != nil {
-				return jc.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to parse id: %v", err)})
+				return "", fmt.Errorf("failed to parse id: %v", err)
 			}
-			options = append(options, conversation.WithID(conversation.NodeID(idUUID)))
+			msgOptions = append(msgOptions, conversation.WithID(conversation.NodeID(idUUID)))
 		}
 	}
 
-	msg := conversation.NewChatMessage(role, text, options...)
+	msg := conversation.NewChatMessage(conversation.Role(role), text, msgOptions...)
 	jc.manager.AppendMessages(msg)
 
-	return jc.runtime.ToValue(msg.ID.String())
+	return msg.ID.String(), nil
 }
 
-func (jc *JSConversation) AddMessageWithImage(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 3 {
-		panic(jc.runtime.NewTypeError("AddMessageWithImage requires role, text, and imagePath arguments"))
-	}
-
-	role := conversation.Role(call.Arguments[0].String())
-	text := call.Arguments[1].String()
-	imagePath := call.Arguments[2].String()
-
+// AddMessageWithImage adds a chat message with an attached image
+func (jc *JSConversation) AddMessageWithImage(role string, text string, imagePath string) (string, error) {
 	img, err := conversation.NewImageContentFromFile(imagePath)
 	if err != nil {
-		panic(jc.runtime.NewTypeError(fmt.Sprintf("failed to create image content: %v", err)))
+		return "", fmt.Errorf("failed to create image content: %v", err)
 	}
 
 	content := &conversation.ChatMessageContent{
-		Role:   role,
+		Role:   conversation.Role(role),
 		Text:   text,
 		Images: []*conversation.ImageContent{img},
 	}
@@ -88,21 +76,14 @@ func (jc *JSConversation) AddMessageWithImage(call goja.FunctionCall) goja.Value
 	msg := conversation.NewMessage(content)
 	jc.manager.AppendMessages(msg)
 
-	return jc.runtime.ToValue(msg.ID.String())
+	return msg.ID.String(), nil
 }
 
-func (jc *JSConversation) AddToolUse(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 3 {
-		panic(jc.runtime.NewTypeError("AddToolUse requires toolID, name, and input arguments"))
-	}
-
-	toolID := call.Arguments[0].String()
-	name := call.Arguments[1].String()
-	input := call.Arguments[2].Export()
-
+// AddToolUse adds a tool use message
+func (jc *JSConversation) AddToolUse(toolID string, name string, input interface{}) (string, error) {
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		panic(jc.runtime.NewTypeError(fmt.Sprintf("failed to marshal input: %v", err)))
+		return "", fmt.Errorf("failed to marshal input: %v", err)
 	}
 
 	content := &conversation.ToolUseContent{
@@ -115,17 +96,11 @@ func (jc *JSConversation) AddToolUse(call goja.FunctionCall) goja.Value {
 	msg := conversation.NewMessage(content)
 	jc.manager.AppendMessages(msg)
 
-	return jc.runtime.ToValue(msg.ID.String())
+	return msg.ID.String(), nil
 }
 
-func (jc *JSConversation) AddToolResult(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 2 {
-		panic(jc.runtime.NewTypeError("AddToolResult requires toolID and result arguments"))
-	}
-
-	toolID := call.Arguments[0].String()
-	result := call.Arguments[1].String()
-
+// AddToolResult adds a tool result message
+func (jc *JSConversation) AddToolResult(toolID string, result string) (string, error) {
 	content := &conversation.ToolResultContent{
 		ToolID: toolID,
 		Result: result,
@@ -134,123 +109,63 @@ func (jc *JSConversation) AddToolResult(call goja.FunctionCall) goja.Value {
 	msg := conversation.NewMessage(content)
 	jc.manager.AppendMessages(msg)
 
-	return jc.runtime.ToValue(msg.ID.String())
+	return msg.ID.String(), nil
 }
 
-func (jc *JSConversation) GetMessages() goja.Value {
-	conv := jc.manager.GetConversation()
-	messages := make([]map[string]interface{}, len(conv))
-
-	for i, msg := range conv {
-		msgMap := map[string]interface{}{
-			"id":         msg.ID.String(),
-			"parentID":   msg.ParentID.String(),
-			"time":       msg.Time,
-			"lastUpdate": msg.LastUpdate,
-			"metadata":   msg.Metadata,
-		}
-
-		switch content := msg.Content.(type) {
-		case *conversation.ChatMessageContent:
-			msgMap["type"] = "chat-message"
-			msgMap["role"] = content.Role
-			msgMap["text"] = content.Text
-			if len(content.Images) > 0 {
-				images := make([]map[string]interface{}, len(content.Images))
-				for j, img := range content.Images {
-					images[j] = map[string]interface{}{
-						"imageURL":  img.ImageURL,
-						"imageName": img.ImageName,
-						"mediaType": img.MediaType,
-						"detail":    img.Detail,
-					}
-				}
-				msgMap["images"] = images
-			}
-		case *conversation.ToolUseContent:
-			msgMap["type"] = "tool-use"
-			msgMap["toolID"] = content.ToolID
-			msgMap["name"] = content.Name
-			var input interface{}
-			_ = json.Unmarshal(content.Input, &input)
-			msgMap["input"] = input
-			msgMap["toolType"] = content.Type
-		case *conversation.ToolResultContent:
-			msgMap["type"] = "tool-result"
-			msgMap["toolID"] = content.ToolID
-			msgMap["result"] = content.Result
-		}
-
-		messages[i] = msgMap
-	}
-
-	return jc.runtime.ToValue(messages)
+// GetMessages returns all messages in the conversation
+func (jc *JSConversation) GetMessages() conversation.Conversation {
+	return jc.manager.GetConversation()
 }
 
-func (jc *JSConversation) GetMessageView(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 1 {
-		panic(jc.runtime.NewTypeError("GetMessageView requires messageID argument"))
-	}
-
-	messageID := call.Arguments[0].String()
+// GetMessageView returns a formatted view of a specific message
+func (jc *JSConversation) GetMessageView(messageID string) (string, error) {
 	msgUUID, err := uuid.Parse(messageID)
 	if err != nil {
-		return goja.Undefined()
+		return "", fmt.Errorf("invalid message ID: %v", err)
 	}
 
 	if msg, ok := jc.manager.GetMessage(conversation.NodeID(msgUUID)); ok {
-		return jc.runtime.ToValue(msg.Content.View())
+		return msg.Content.View(), nil
 	}
 
-	return goja.Undefined()
+	return "", fmt.Errorf("message not found")
 }
 
-func (jc *JSConversation) UpdateMetadata(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 2 {
-		panic(jc.runtime.NewTypeError("UpdateMetadata requires messageID and metadata arguments"))
-	}
-
-	messageID := call.Arguments[0].String()
-	metadata := call.Arguments[1].Export().(map[string]interface{})
-
+// UpdateMetadata updates a message's metadata
+func (jc *JSConversation) UpdateMetadata(messageID string, metadata map[string]interface{}) (bool, error) {
 	msgUUID, err := uuid.Parse(messageID)
 	if err != nil {
-		return jc.runtime.ToValue(false)
+		return false, fmt.Errorf("invalid message ID: %v", err)
 	}
 
 	if msg, ok := jc.manager.GetMessage(conversation.NodeID(msgUUID)); ok {
 		msg.Metadata = metadata
-		return jc.runtime.ToValue(true)
+		return true, nil
 	}
 
-	return jc.runtime.ToValue(false)
+	return false, nil
 }
 
-func (jc *JSConversation) GetSinglePrompt() goja.Value {
-	return jc.runtime.ToValue(jc.manager.GetConversation().GetSinglePrompt())
+// GetSinglePrompt returns the conversation as a single prompt string
+func (jc *JSConversation) GetSinglePrompt() string {
+	return jc.manager.GetConversation().GetSinglePrompt()
 }
 
+// ToGoConversation returns the underlying Go conversation
 func (jc *JSConversation) ToGoConversation() conversation.Conversation {
 	return jc.manager.GetConversation()
 }
 
+// RegisterConversation registers the Conversation constructor in the JavaScript runtime
 func RegisterConversation(runtime *goja.Runtime) error {
-	constructor := func(call goja.ConstructorCall) *goja.Object {
+	return runtime.Set("Conversation", runtime.ToValue(func(call goja.ConstructorCall) *goja.Object {
 		jsConv := NewJSConversation(runtime)
-
-		obj := call.This.ToObject(runtime)
-		_ = obj.Set("addMessage", jsConv.AddMessage)
-		_ = obj.Set("addMessageWithImage", jsConv.AddMessageWithImage)
-		_ = obj.Set("addToolUse", jsConv.AddToolUse)
-		_ = obj.Set("addToolResult", jsConv.AddToolResult)
-		_ = obj.Set("getMessages", jsConv.GetMessages)
-		_ = obj.Set("getMessageView", jsConv.GetMessageView)
-		_ = obj.Set("updateMetadata", jsConv.UpdateMetadata)
-		_ = obj.Set("getSinglePrompt", jsConv.GetSinglePrompt)
-		_ = obj.Set("toGoConversation", jsConv.ToGoConversation)
-
-		return obj
-	}
-
-	return runtime.Set("Conversation", constructor)
+		// Return the Go conversation object directly
+		val := runtime.ToValue(jsConv).(*goja.Object)
+		err := val.SetPrototype(call.This.Prototype())
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to set prototype")
+		}
+		return val
+	}))
 }
