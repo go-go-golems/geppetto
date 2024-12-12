@@ -5,10 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/rs/zerolog"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog"
 )
 
 type StreamingEventType string
@@ -136,7 +137,7 @@ func streamEvents(ctx context.Context, resp *http.Response, events chan Streamin
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF && err != context.Canceled {
 				// Handle the error if needed
 				panic("Not implemented")
 			}

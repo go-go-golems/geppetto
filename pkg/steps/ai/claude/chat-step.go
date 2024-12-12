@@ -3,6 +3,7 @@ package claude
 import (
 	"context"
 	"encoding/base64"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	events2 "github.com/go-go-golems/geppetto/pkg/events"
@@ -138,23 +139,16 @@ func (csf *ChatStep) Start(
 	}
 
 	//startEvent := chat.NewStartEvent(metadata, stepMetadata)
-	//log.Debug().Interface("event", startEvent).Msg("Start chat step")
+	//log.Trace().Interface("event", startEvent).Msg("Start chat step")
 	//csf.subscriptionManager.PublishBlind(startEvent)
 
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
 
-	// NOTE(manuel, 2024-06-04) Not sure if we need to collect this goroutine as well when closing the step.
-	// Probably (see the other comments for the other goroutines both here and in the openai steps).
-	// IN fact, do we even need this? Wouldn't the context.WithCancel take care of that anyway?
-	// God damn it, context cancellation...
-	go func() {
-		<-ctx.Done()
-		cancel()
-	}()
-
 	eventCh, err := client.StreamMessage(cancellableCtx, req)
 	if err != nil {
+		cancel()
+
 		return steps.Reject[string](err), nil
 	}
 
@@ -201,18 +195,10 @@ func (csf *ChatStep) Start(
 					return
 				}
 				for _, event_ := range events_ {
-					log.Debug().Interface("event", event_).Msg("processing event")
-				}
-
-				if err != nil {
-					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-					c <- helpers2.NewErrorResult[string](err)
-					return
-				}
-
-				for _, event_ := range events_ {
+					log.Trace().Interface("event", event_).Msg("processing event")
 					csf.subscriptionManager.PublishBlind(event_)
 				}
+
 			}
 		}
 	}()

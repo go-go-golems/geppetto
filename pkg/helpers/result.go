@@ -1,5 +1,11 @@
 package helpers
 
+import (
+	"fmt"
+
+	"github.com/rs/zerolog"
+)
+
 type Nothing struct{}
 
 type Result[T any] struct {
@@ -50,4 +56,35 @@ func (r Result[T]) ValueOr(v T) T {
 		return v
 	}
 	return r.value
+}
+
+func (r Result[T]) String() string {
+	if r.err != nil {
+		return fmt.Sprintf("Result{error: %v}", r.err)
+	}
+	return fmt.Sprintf("Result{value: %v}", r.value)
+}
+
+// MarshalZerologObject implements zerolog.LogObjectMarshaler
+func (r Result[T]) MarshalZerologObject(e *zerolog.Event) {
+	if r.err != nil {
+		e.Err(r.err)
+	} else {
+		e.Interface("value", r.value)
+	}
+}
+
+// ResultSlice is a slice of Results that can be marshaled by zerolog
+type ResultSlice[T any] []Result[T]
+
+// MarshalZerologArray implements zerolog.LogArrayMarshaler
+func (rs ResultSlice[T]) MarshalZerologArray(a *zerolog.Array) {
+	for _, r := range rs {
+		a.Object(&r)
+	}
+}
+
+// ToResultSlice converts a slice of Results to a ResultSlice for logging
+func ToResultSlice[T any](results []Result[T]) ResultSlice[T] {
+	return ResultSlice[T](results)
 }

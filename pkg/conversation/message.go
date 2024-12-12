@@ -281,6 +281,10 @@ func (mn *Message) MarshalJSON() ([]byte, error) {
 
 type Conversation []*Message
 
+func NewConversation(messages ...*Message) Conversation {
+	return messages
+}
+
 // GetSinglePrompt concatenates all the messages together with a prompt in front.
 // It just concatenates all the messages together with a prompt in front (if there are more than one message).
 func (messages Conversation) GetSinglePrompt() string {
