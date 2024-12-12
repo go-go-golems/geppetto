@@ -494,3 +494,215 @@ stepPromise
 ```
 
 The Step abstraction combined with goja_nodejs provides a robust way to bridge Go and JavaScript async operations while maintaining proper error handling and cancellation support. 
+
+## Chat Step Factory
+
+The Chat Step Factory provides a way to create chat completion steps in JavaScript. It integrates with various LLM providers and handles conversation management.
+
+### Basic Usage
+
+```javascript
+// Create a factory instance
+const factory = new ChatStepFactory();
+
+// Create a new chat step
+const chatStep = factory.newStep();
+
+// Use the step with a conversation
+const conversation = new Conversation();
+conversation.addMessage("user", "Hello, how are you?");
+
+// Start chat completion with Promise API
+const response = await chatStep.startAsync(conversation);
+console.log("Response:", response);
+
+// Or use streaming with callbacks
+const cancel = chatStep.startWithCallbacks(conversation, {
+    onResult: (chunk) => {
+        process.stdout.write(chunk);
+    },
+    onDone: () => {
+        console.log("\nChat complete");
+    }
+});
+```
+
+### Conversation Management
+
+The factory supports two ways to provide conversations:
+
+1. Using the Conversation class (recommended):
+```javascript
+const conv = new Conversation();
+
+// Add messages
+conv.addMessage("system", "You are a helpful assistant");
+conv.addMessage("user", "What is quantum computing?");
+
+// Add messages with metadata
+conv.addMessage("user", "Hello", {
+    metadata: { source: "user-input" },
+    time: "2024-03-20T15:04:05Z"
+});
+
+// Add messages with images
+conv.addMessageWithImage("user", "What's in this image?", "path/to/image.jpg");
+
+// Add tool usage
+conv.addToolUse("tool123", "search", { query: "quantum computing" });
+conv.addToolResult("tool123", "Found relevant articles...");
+```
+
+2. Legacy format (backward compatibility):
+```javascript
+const input = {
+    messages: [
+        { role: "system", content: "You are a helpful assistant" },
+        { role: "user", content: "What is quantum computing?" }
+    ]
+};
+```
+
+### Streaming Responses
+
+Chat steps support streaming responses for real-time output:
+
+```javascript
+const cancel = chatStep.startWithCallbacks(conversation, {
+    onResult: (chunk) => {
+        // Handle each response chunk
+        process.stdout.write(chunk);
+    },
+    onError: (err) => {
+        console.error("Error:", err);
+    },
+    onDone: () => {
+        console.log("\nChat complete");
+    }
+});
+
+// Cancel streaming if needed
+setTimeout(() => {
+    cancel();
+}, 5000);
+```
+
+### Promise-based Usage
+
+For simpler use cases, you can use the Promise API:
+
+```javascript
+try {
+    const response = await chatStep.startAsync(conversation);
+    console.log("Complete response:", response);
+} catch (err) {
+    console.error("Chat failed:", err);
+}
+```
+
+### Error Handling
+
+The chat step properly propagates errors from the underlying LLM:
+
+```javascript
+// With callbacks
+chatStep.startWithCallbacks(conversation, {
+    onResult: (chunk) => { /* ... */ },
+    onError: (err) => {
+        console.error("LLM error:", err);
+        // Handle specific error cases
+        if (err.includes("rate limit")) {
+            // Handle rate limiting
+        }
+    }
+});
+
+// With promises
+try {
+    await chatStep.startAsync(conversation);
+} catch (err) {
+    if (err.includes("context length")) {
+        // Handle context length errors
+    }
+}
+```
+
+### Best Practices
+
+1. **Use Conversation Objects**
+   - Prefer the Conversation class over raw message arrays
+   - Leverage metadata for tracking message context
+   - Use proper message roles (system, user, assistant)
+
+2. **Streaming for Long Responses**
+   - Use streaming for better user experience with long responses
+   - Handle chunks appropriately for your UI
+   - Always implement error handling for streams
+
+3. **Resource Management**
+   - Cancel streaming when no longer needed
+   - Clean up resources in onDone handlers
+   - Handle errors gracefully
+
+4. **Context Management**
+   - Use system messages to set conversation context
+   - Maintain conversation history appropriately
+   - Consider token limits when building conversations
+
+### Example: Complete Chat Application
+
+```javascript
+// Create factory and step
+const factory = new ChatStepFactory();
+const chatStep = factory.newStep([
+    {
+        temperature: 0.7,
+        maxTokens: 2000
+    }
+]);
+
+// Create and setup conversation
+const conversation = new Conversation();
+conversation.addMessage("system", 
+    "You are a helpful AI assistant. Be concise and clear in your responses."
+);
+
+// Function to send user message and get response
+async function chat(userInput) {
+    // Add user message
+    conversation.addMessage("user", userInput);
+    
+    // Stream response
+    let response = "";
+    const cancel = chatStep.startWithCallbacks(conversation, {
+        onResult: (chunk) => {
+            response += chunk;
+            // Update UI with streaming response
+            updateUI(response);
+        },
+        onError: (err) => {
+            console.error("Chat error:", err);
+            handleError(err);
+        },
+        onDone: () => {
+            // Add assistant's response to conversation
+            conversation.addMessage("assistant", response);
+            // Update UI to show completion
+            markComplete();
+        }
+    });
+    
+    // Return cancel function for cleanup
+    return cancel;
+}
+
+// Usage
+const cancelChat = await chat("Explain quantum computing briefly");
+
+// Cancel if needed
+setTimeout(() => {
+    cancelChat();
+}, 10000);
+```
+
+This example shows a complete chat application with proper conversation management, streaming responses, and error handling. The chat step factory provides a flexible way to create and configure chat completions while maintaining a clean JavaScript interface to the underlying Go implementation. 

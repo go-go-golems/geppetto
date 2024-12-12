@@ -9,10 +9,10 @@ The conversation JS wrapper provides a JavaScript interface for working with Gep
 const conv = new Conversation();
 
 // Add a simple chat message
-const msgId = conv.addMessage("user", "Hello, how can I help you?");
+const msgId = conv.AddMessage("user", "Hello, how can I help you?");
 
 // Add a message with options
-const msgWithOptions = conv.addMessage("system", "System prompt", {
+const msgWithOptions = conv.AddMessage("system", "System prompt", {
     metadata: { source: "config" },
     parentID: "parent-message-id",
     time: "2024-01-01T00:00:00Z",
@@ -20,37 +20,37 @@ const msgWithOptions = conv.addMessage("system", "System prompt", {
 });
 
 // Add a message with an image
-const msgWithImage = conv.addMessageWithImage(
+const msgWithImage = conv.AddMessageWithImage(
     "user",
     "Here's an image",
     "/path/to/image.jpg"  // supports local files and URLs
 );
 
 // Add a tool use
-const toolUseId = conv.addToolUse(
+const toolUseId = conv.AddToolUse(
     "tool123",
     "searchCode",
     { query: "find main function" }
 );
 
 // Add a tool result
-const resultId = conv.addToolResult(
+const resultId = conv.AddToolResult(
     "tool123",
     "Found main function in main.go"
 );
 
 // Get all messages
-const messages = conv.getMessages();
+const messages = conv.GetMessages();
 // messages is an array of message objects, see Message Objects section below
 
 // Get formatted view of a specific message
-const messageView = conv.getMessageView(msgId);
+const messageView = conv.GetMessageView(msgId);
 
 // Update message metadata
-conv.updateMetadata(msgId, { processed: true });
+conv.UpdateMetadata(msgId, { processed: true });
 
 // Get conversation as a single prompt string
-const prompt = conv.getSinglePrompt();
+const prompt = conv.GetSinglePrompt();
 
 // Convert back to Go conversation object
 const goConv = conv.toGoConversation();
@@ -64,7 +64,7 @@ const goConv = conv.toGoConversation();
 
 ### Methods
 
-- `addMessage(role: string, text: string, options?: MessageOptions): string` - Adds a chat message with the given role and text. Returns the message ID.
+- `AddMessage(role: string, text: string, options?: MessageOptions): string` - Adds a chat message with the given role and text. Returns the message ID.
   - Roles: "system", "assistant", "user", "tool"
   - Options:
     ```typescript
@@ -76,40 +76,40 @@ const goConv = conv.toGoConversation();
     }
     ```
 
-- `addMessageWithImage(role: string, text: string, imagePath: string): string` - Adds a chat message with an attached image. Returns the message ID.
+- `AddMessageWithImage(role: string, text: string, imagePath: string): string` - Adds a chat message with an attached image. Returns the message ID.
   - `imagePath`: Local file path or URL
   - Supports PNG, JPEG, WebP, and GIF formats
   - Maximum file size: 20MB
 
-- `addToolUse(toolId: string, name: string, input: object): string` - Adds a tool use message. Returns the message ID.
+- `AddToolUse(toolId: string, name: string, input: object): string` - Adds a tool use message. Returns the message ID.
   - `toolId`: Unique identifier for the tool
   - `name`: Name of the tool being used
   - `input`: Tool input parameters as a JavaScript object
 
-- `addToolResult(toolId: string, result: string): string` - Adds a tool result message. Returns the message ID.
+- `AddToolResult(toolId: string, result: string): string` - Adds a tool result message. Returns the message ID.
   - `toolId`: ID matching the tool use
   - `result`: Result string from the tool execution
 
-- `getMessages(): Message[]` - Returns array of message objects (see Message Objects section)
+- `GetMessages(): Message[]` - Returns array of message objects (see Message Objects section)
 
-- `getMessageView(messageId: string): string | undefined` - Returns a formatted string representation of the message
+- `GetMessageView(messageId: string): string | undefined` - Returns a formatted string representation of the message
   - Returns undefined if message not found
   - Format varies by message type:
     - Chat: "[role]: text"
     - Tool Use: "ToolUseContent{...}"
     - Tool Result: "ToolResultContent{...}"
 
-- `updateMetadata(messageId: string, metadata: object): boolean` - Updates a message's metadata
+- `UpdateMetadata(messageId: string, metadata: object): boolean` - Updates a message's metadata
   - Returns true if message was found and updated
   - Returns false if message not found
 
-- `getSinglePrompt(): string` - Returns the conversation formatted as a single prompt string
+- `GetSinglePrompt(): string` - Returns the conversation formatted as a single prompt string
 
-- `toGoConversation(): Conversation` - Converts the JS conversation back to a Go conversation object
+- `ToGoConversation(): Conversation` - Converts the JS conversation back to a Go conversation object
 
 ## Message Objects
 
-The `getMessages()` method returns an array of message objects. Each message has common fields and type-specific fields based on its `type`.
+The `GetMessages()` method returns an array of message objects. Each message has common fields and type-specific fields based on its `type`.
 
 ### Common Fields
 All message objects include:

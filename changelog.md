@@ -23,3 +23,30 @@ Refactored steps-js.go to create step objects directly without global registrati
 - Maintained RegisterStep for backward compatibility
 - Updated factory.go to use CreateStepObject instead of RegisterStep
 - Removed need for generating unique step names 
+
+# Chat Step Factory Documentation
+
+Added comprehensive documentation for the JavaScript chat step factory bindings.
+
+- Added usage examples and best practices
+- Documented Conversation class integration
+- Added streaming and Promise-based examples
+- Included error handling patterns 
+
+# Chat Step Integration Tests
+
+Added chat step integration tests to demonstrate the JavaScript bindings.
+
+- Added runChatStepTest function to test ChatStepFactory
+- Added tests for both Promise and Streaming APIs
+- Added example of conversation management with chat steps
+- Added flag to control chat step test execution 
+
+# Improved JavaScript Conversation Bindings
+
+Simplified the JavaScript conversation bindings by leveraging Goja's automatic struct mapping capabilities. This provides better type safety and reduces boilerplate code.
+
+- Removed manual method bindings in RegisterConversation
+- Changed method signatures to use native Go types instead of Goja-specific types
+- Improved error handling by returning proper errors instead of panicking
+- Methods now return promises in JavaScript for better async handling 

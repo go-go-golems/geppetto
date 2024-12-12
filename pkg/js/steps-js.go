@@ -82,64 +82,79 @@ func (w *JSStepWrapper[T, U]) makeStartAsync(
 
 		promise, resolve, reject := w.runtime.NewPromise()
 
-		go func() {
-			result, err := w.step.Start(ctx, input)
-			if err != nil {
-				w.loop.RunOnLoop(func(*goja.Runtime) {
-					rejectErr := reject(w.runtime.ToValue(fmt.Sprintf("failed to start step: %v", err)))
-					if rejectErr != nil {
-						log.Error().Err(rejectErr).Msg("failed to reject promise")
-					}
-				})
-				return
-			}
-			defer result.Cancel()
-
-			results := result.Return()
-			if len(results) == 0 {
-				w.loop.RunOnLoop(func(*goja.Runtime) {
-					resolveErr := resolve(w.runtime.ToValue([]interface{}{}))
-					if resolveErr != nil {
-						log.Error().Err(resolveErr).Msg("failed to resolve promise")
-					}
-				})
-				return
-			}
-
-			// Convert results to JS values
-			jsResults := make([]goja.Value, len(results))
-			var resolveErr error
-			for i, r := range results {
-				if r.Error() != nil {
+		w.loop.RunOnLoop(func(*goja.Runtime) {
+			go func() {
+				log.Info().Msg("Starting step")
+				result, err := w.step.Start(ctx, input)
+				if err != nil {
+					log.Info().Msg("Failed to start step")
 					w.loop.RunOnLoop(func(*goja.Runtime) {
-						rejectErr := reject(w.runtime.ToValue(r.Error().Error()))
+						rejectErr := reject(w.runtime.ToValue(fmt.Sprintf("failed to start step: %v", err)))
 						if rejectErr != nil {
 							log.Error().Err(rejectErr).Msg("failed to reject promise")
 						}
 					})
 					return
 				}
-				jsResults[i] = outputConverter(r.Unwrap())
-			}
+				defer result.Cancel()
 
-			// Must resolve on the event loop
-			w.loop.RunOnLoop(func(*goja.Runtime) {
-				if resolveErr != nil {
-					rejectErr := reject(w.runtime.ToValue(resolveErr.Error()))
-					if rejectErr != nil {
-						log.Error().Err(rejectErr).Msg("failed to reject promise")
-					}
+				results := result.Return()
+				if len(results) > 0 {
+					log.Info().Interface("result", results[0]).Msg("Result")
+				}
+				log.Info().Array("results", helpers.ToResultSlice(results)).Msg("Results")
+
+				if len(results) == 0 {
+					w.loop.RunOnLoop(func(*goja.Runtime) {
+						log.Info().Msg("Resolving promise")
+						resolveErr := resolve(w.runtime.ToValue([]interface{}{}))
+						if resolveErr != nil {
+							log.Error().Err(resolveErr).Msg("failed to resolve promise")
+						}
+					})
 					return
 				}
-				resolveErr = resolve(w.runtime.ToValue(jsResults))
-				if resolveErr != nil {
-					log.Error().Err(resolveErr).Msg("failed to resolve promise")
+
+				// Convert results to JS values
+				jsResults := make([]goja.Value, len(results))
+				var resolveErr error
+				for i, r := range results {
+					if r.Error() != nil {
+						w.loop.RunOnLoop(func(*goja.Runtime) {
+							rejectErr := reject(w.runtime.ToValue(r.Error().Error()))
+							if rejectErr != nil {
+								log.Error().Err(rejectErr).Msg("failed to reject promise")
+							}
+						})
+						return
+					}
+					jsResults[i] = outputConverter(r.Unwrap())
 				}
-			})
-		}()
+
+				// Must resolve on the event loop
+				w.loop.RunOnLoop(func(*goja.Runtime) {
+					if resolveErr != nil {
+						rejectErr := reject(w.runtime.ToValue(resolveErr.Error()))
+						if rejectErr != nil {
+							log.Error().Err(rejectErr).Msg("failed to reject promise")
+						}
+						return
+					}
+					resolveErr = resolve(w.runtime.ToValue(jsResults))
+					if resolveErr != nil {
+						log.Error().Err(resolveErr).Msg("failed to resolve promise")
+					}
+				})
+
+				log.Info().Msg("Done")
+			}()
+		})
+
+		log.Info().Msg("Returning promise")
 
 		return w.runtime.ToValue(promise)
 	}
+
 }
 
 func (w *JSStepWrapper[T, U]) makeStartBlocking(
@@ -194,6 +209,8 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("startWithCallbacks requires input and callbacks object")})
 		}
 
+		log.Info().Msg("makeStartWithCallbacks called")
+
 		input := inputConverter(call.Arguments[0])
 
 		// Extract callbacks
@@ -228,69 +245,91 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 
 		ctx, cancel := context.WithCancel(context.Background())
 
+		log.Info().Msg("Starting step")
+
 		result, err := w.step.Start(ctx, input)
 		if err != nil {
 			cancel()
 			return w.runtime.ToValue([]interface{}{nil, fmt.Errorf("failed to start step: %w", err)})
 		}
 
+		log.Info().Msg("Step started")
+
 		// Return a cancel function to JavaScript
 		cancelFn := func(call goja.FunctionCall) goja.Value {
+			log.Info().Msg("Cancelling step")
 			cancel()
 			result.Cancel()
 			if callbacks.OnCancel != nil {
+				log.Info().Msg("Calling onCancel")
 				w.loop.RunOnLoop(func(*goja.Runtime) {
+					log.Info().Msg("Calling onCancel")
 					_, err := callbacks.OnCancel(goja.Undefined())
 					if err != nil {
 						log.Error().Err(err).Msg("failed to call onCancel")
 					}
+					log.Info().Msg("onCancel called")
 				})
 			}
+			log.Info().Msg("Done")
 			return goja.Undefined()
 		}
 
-		go func() {
-			defer func() {
-				if callbacks.OnDone != nil {
-					w.loop.RunOnLoop(func(*goja.Runtime) {
-						_, err := callbacks.OnDone(goja.Undefined())
-						if err != nil {
-							log.Error().Err(err).Msg("failed to call onDone")
-						}
-					})
-				}
-			}()
+		w.loop.RunOnLoop(func(*goja.Runtime) {
+			go func() {
+				defer func() {
+					log.Info().Msg("StepsJS Done")
+				}()
 
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case r, ok := <-result.GetChannel():
-					if !ok {
-						return
-					}
-					if r.Error() != nil {
-						if callbacks.OnError != nil {
-							w.loop.RunOnLoop(func(*goja.Runtime) {
-								_, err := callbacks.OnError(goja.Undefined(), w.runtime.ToValue(r.Error().Error()))
-								if err != nil {
-									log.Error().Err(err).Msg("failed to call onError")
-								}
-							})
-						}
-						continue
-					}
-					if callbacks.OnResult != nil {
+				defer func() {
+					log.Info().Msg("Done")
+					if callbacks.OnDone != nil {
 						w.loop.RunOnLoop(func(*goja.Runtime) {
-							_, err := callbacks.OnResult(goja.Undefined(), outputConverter(r.Unwrap()))
+							log.Info().Msg("Calling onDone")
+							_, err := callbacks.OnDone(goja.Undefined())
 							if err != nil {
-								log.Error().Err(err).Msg("failed to call onResult")
+								log.Error().Err(err).Msg("failed to call onDone")
 							}
 						})
 					}
+				}()
+
+				for {
+					select {
+					case <-ctx.Done():
+						log.Info().Msg("StepsJS Context done")
+						return
+					case r, ok := <-result.GetChannel():
+						if !ok {
+							return
+						}
+						if r.Error() != nil {
+							log.Info().Msg("Error")
+							if callbacks.OnError != nil {
+								w.loop.RunOnLoop(func(*goja.Runtime) {
+									log.Info().Msg("Calling onError")
+									_, err := callbacks.OnError(goja.Undefined(), w.runtime.ToValue(r.Error().Error()))
+									if err != nil {
+										log.Error().Err(err).Msg("failed to call onError")
+									}
+								})
+							}
+							continue
+						}
+						if callbacks.OnResult != nil {
+							w.loop.RunOnLoop(func(*goja.Runtime) {
+								log.Info().Msg("Calling onResult")
+								_, err := callbacks.OnResult(goja.Undefined(), outputConverter(r.Unwrap()))
+								if err != nil {
+									log.Error().Err(err).Msg("failed to call onResult")
+								}
+							})
+						}
+					}
 				}
-			}
-		}()
+
+			}()
+		})
 
 		return w.runtime.ToValue(cancelFn)
 	}

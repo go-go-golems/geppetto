@@ -19,3 +19,5 @@ dist
 envs/
 
 .history
+
+__debug*
