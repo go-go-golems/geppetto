@@ -18,15 +18,14 @@ type JSStepWrapper[T any, U any] struct {
 	loop    *eventloop.EventLoop
 }
 
-// RegisterStep registers a Step in the given Goja runtime with Promise, blocking and callback APIs
-func RegisterStep[T any, U any](
+// CreateStepObject creates a JavaScript object wrapping a Step with Promise, blocking and callback APIs
+func CreateStepObject[T any, U any](
 	runtime *goja.Runtime,
 	loop *eventloop.EventLoop,
-	name string,
 	step steps.Step[T, U],
 	inputConverter func(goja.Value) T,
 	outputConverter func(U) goja.Value,
-) error {
+) (*goja.Object, error) {
 	wrapper := &JSStepWrapper[T, U]{
 		runtime: runtime,
 		step:    step,
@@ -36,21 +35,34 @@ func RegisterStep[T any, U any](
 	stepObj := runtime.NewObject()
 	err := stepObj.Set("startAsync", wrapper.makeStartAsync(inputConverter, outputConverter))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = stepObj.Set("startBlocking", wrapper.makeStartBlocking(inputConverter, outputConverter))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = stepObj.Set("startWithCallbacks", wrapper.makeStartWithCallbacks(inputConverter, outputConverter))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = runtime.Set(name, stepObj)
+
+	return stepObj, nil
+}
+
+// RegisterStep is kept for backward compatibility
+func RegisterStep[T any, U any](
+	runtime *goja.Runtime,
+	loop *eventloop.EventLoop,
+	name string,
+	step steps.Step[T, U],
+	inputConverter func(goja.Value) T,
+	outputConverter func(U) goja.Value,
+) error {
+	stepObj, err := CreateStepObject(runtime, loop, step, inputConverter, outputConverter)
 	if err != nil {
 		return err
 	}
-	return nil
+	return runtime.Set(name, stepObj)
 }
 
 func (w *JSStepWrapper[T, U]) makeStartAsync(
@@ -285,13 +297,12 @@ func (w *JSStepWrapper[T, U]) makeStartWithCallbacks(
 }
 
 // Example usage with embeddings step
-func RegisterEmbeddingsStep(runtime *goja.Runtime, loop *eventloop.EventLoop, name string, provider steps.Step[string, []float32]) error {
+func CreateEmbeddingsStepObject(runtime *goja.Runtime, loop *eventloop.EventLoop, provider steps.Step[string, []float32]) (*goja.Object, error) {
 	inputConverter := func(v goja.Value) string {
 		return v.String()
 	}
 
 	outputConverter := func(embedding []float32) goja.Value {
-		// Convert []float32 to []interface{} for Goja
 		embeddingInterface := make([]interface{}, len(embedding))
 		for i, v := range embedding {
 			embeddingInterface[i] = v
@@ -299,7 +310,7 @@ func RegisterEmbeddingsStep(runtime *goja.Runtime, loop *eventloop.EventLoop, na
 		return runtime.ToValue(embeddingInterface)
 	}
 
-	return RegisterStep(runtime, loop, name, provider, inputConverter, outputConverter)
+	return CreateStepObject(runtime, loop, provider, inputConverter, outputConverter)
 }
 
 // Helper to create a LambdaStep from a JavaScript function
