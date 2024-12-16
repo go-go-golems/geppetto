@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
 )
 
@@ -305,4 +306,44 @@ func (messages Conversation) GetSinglePrompt() string {
 	}
 
 	return prompt
+}
+
+// HashBytes returns a fast hash of the conversation content suitable for caching
+func (messages Conversation) HashBytes() []byte {
+	h := xxhash.New()
+	for _, message := range messages {
+		// Write role and content for chat messages
+		if chatMsg, ok := message.Content.(*ChatMessageContent); ok {
+			h.Write([]byte(string(chatMsg.Role)))
+			h.Write([]byte(chatMsg.Text))
+			// Hash any images
+			for _, img := range chatMsg.Images {
+				if img.ImageContent != nil {
+					h.Write(img.ImageContent)
+				}
+				if img.ImageURL != "" {
+					h.Write([]byte(img.ImageURL))
+				}
+			}
+		}
+
+		// Write tool use content
+		if toolUse, ok := message.Content.(*ToolUseContent); ok {
+			h.Write([]byte(toolUse.ToolID))
+			h.Write([]byte(toolUse.Name))
+			h.Write(toolUse.Input)
+		}
+
+		// Write tool result content
+		if toolResult, ok := message.Content.(*ToolResultContent); ok {
+			h.Write([]byte(toolResult.ToolID))
+			h.Write([]byte(toolResult.Result))
+		}
+
+		// Include message metadata
+		if metadataBytes, err := json.Marshal(message.Metadata); err == nil {
+			h.Write(metadataBytes)
+		}
+	}
+	return h.Sum(nil)
 }

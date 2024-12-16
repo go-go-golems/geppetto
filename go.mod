@@ -6,6 +6,7 @@ toolchain go1.23.3
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.7
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dop251/goja v0.0.0-20241024094426-79f3a7efcdbd
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.1.20

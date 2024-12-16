@@ -64,3 +64,13 @@ func (f *SettingsFactory) NewProvider() (Provider, error) {
 		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", *f.stepSettings.Embeddings.Type)
 	}
 }
+
+// NewCachedProvider creates a new cached embedding provider based on the step settings
+// maxSize determines how many embeddings to keep in cache (default 1000)
+func (f *SettingsFactory) NewCachedProvider(maxSize int) (Provider, error) {
+	provider, err := f.NewProvider()
+	if err != nil {
+		return nil, err
+	}
+	return NewCachedProvider(provider, maxSize), nil
+}

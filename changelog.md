@@ -132,3 +132,55 @@ Improved embeddings test structure by wrapping it in an async function for bette
 - Added proper error signaling through done channel
 - Updated main loop to wait for embeddings test completion
 - Maintained existing test functionality
+
+# Add Conversation HashBytes method
+
+Added HashBytes() method to Conversation type to generate deterministic hashes of conversation content. This enables caching, comparison and verification of conversation content.
+
+- Added HashBytes() method that generates xxHash of all message content
+- Handles all message types including chat messages, tool use, tool results
+- Includes image content and metadata in hash calculation
+
+# Add fast hash method for Conversation caching
+
+Changed HashBytes() method to use xxHash instead of SHA-256 for better performance when used as a cache key.
+
+- Switched from crypto/sha256 to xxhash for faster hashing
+- Maintained same content coverage (messages, tools, images, metadata)
+- Optimized for caching use case
+
+# Add conversation caching to LLMHelper
+
+Added caching support to LLMHelper to avoid redundant LLM calls for identical conversations.
+
+- Added ExecuteCached method that uses conversation hash as cache key
+- Added thread-safe in-memory cache with RWMutex
+- Added ClearCache method to reset the cache
+- Cache stores both results and errors
+
+# Add caching support for embedding providers
+
+Added a caching wrapper for embedding providers to avoid redundant embedding generation.
+
+- Added CachedProvider that wraps any Provider implementation
+- Added thread-safe in-memory cache with RWMutex
+- Added ClearCache method to reset the cache
+- Updated SettingsFactory to support creating cached providers
+
+# Update embedding cache to use LRU
+
+Changed the embedding cache to use a Least Recently Used (LRU) eviction policy to prevent unbounded memory growth.
+
+- Added size limit to embedding cache with LRU eviction
+- Added Size() and MaxSize() methods for monitoring
+- Used container/list for efficient LRU implementation
+- Updated factory to support configuring cache size
+
+# Update LLMHelper to use LRU cache
+
+Changed the LLMHelper cache to use a Least Recently Used (LRU) eviction policy to prevent unbounded memory growth.
+
+- Added size limit to conversation cache with LRU eviction
+- Added Size() and MaxSize() methods for monitoring
+- Used container/list for efficient LRU implementation
+- Updated NewLLMHelper to support configuring cache size
