@@ -18,6 +18,8 @@ type JSStepWrapper[T any, U any] struct {
 	loop    *eventloop.EventLoop
 }
 
+// XXX we could convert this to take a list of options (for example for the async functionality, or even for a cache)
+
 // CreateStepObject creates a JavaScript object wrapping a Step with Promise, blocking and callback APIs
 func CreateStepObject[T any, U any](
 	runtime *goja.Runtime,
@@ -33,9 +35,12 @@ func CreateStepObject[T any, U any](
 	}
 
 	stepObj := runtime.NewObject()
-	err := stepObj.Set("startAsync", wrapper.makeStartAsync(inputConverter, outputConverter))
-	if err != nil {
-		return nil, err
+	var err error
+	if loop != nil {
+		err = stepObj.Set("startAsync", wrapper.makeStartAsync(inputConverter, outputConverter))
+		if err != nil {
+			return nil, err
+		}
 	}
 	err = stepObj.Set("startBlocking", wrapper.makeStartBlocking(inputConverter, outputConverter))
 	if err != nil {
