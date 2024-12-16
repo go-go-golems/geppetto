@@ -314,35 +314,35 @@ func (messages Conversation) HashBytes() []byte {
 	for _, message := range messages {
 		// Write role and content for chat messages
 		if chatMsg, ok := message.Content.(*ChatMessageContent); ok {
-			h.Write([]byte(string(chatMsg.Role)))
-			h.Write([]byte(chatMsg.Text))
+			_, _ = h.Write([]byte(string(chatMsg.Role)))
+			_, _ = h.Write([]byte(chatMsg.Text))
 			// Hash any images
 			for _, img := range chatMsg.Images {
 				if img.ImageContent != nil {
-					h.Write(img.ImageContent)
+					_, _ = h.Write(img.ImageContent)
 				}
 				if img.ImageURL != "" {
-					h.Write([]byte(img.ImageURL))
+					_, _ = h.Write([]byte(img.ImageURL))
 				}
 			}
 		}
 
 		// Write tool use content
 		if toolUse, ok := message.Content.(*ToolUseContent); ok {
-			h.Write([]byte(toolUse.ToolID))
-			h.Write([]byte(toolUse.Name))
-			h.Write(toolUse.Input)
+			_, _ = h.Write([]byte(toolUse.ToolID))
+			_, _ = h.Write([]byte(toolUse.Name))
+			_, _ = h.Write(toolUse.Input)
 		}
 
 		// Write tool result content
 		if toolResult, ok := message.Content.(*ToolResultContent); ok {
-			h.Write([]byte(toolResult.ToolID))
-			h.Write([]byte(toolResult.Result))
+			_, _ = h.Write([]byte(toolResult.ToolID))
+			_, _ = h.Write([]byte(toolResult.Result))
 		}
 
 		// Include message metadata
 		if metadataBytes, err := json.Marshal(message.Metadata); err == nil {
-			h.Write(metadataBytes)
+			_, _ = h.Write(metadataBytes)
 		}
 	}
 	return h.Sum(nil)
