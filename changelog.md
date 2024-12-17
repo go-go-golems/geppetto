@@ -184,3 +184,13 @@ Changed the LLMHelper cache to use a Least Recently Used (LRU) eviction policy t
 - Added Size() and MaxSize() methods for monitoring
 - Used container/list for efficient LRU implementation
 - Updated NewLLMHelper to support configuring cache size
+
+# Add LLM Toggle for Query Testing
+
+Added ability to toggle LLM processing in query testing. This allows testing raw queries without LLM processing.
+
+- Added UseLLM flag to PromptData to control LLM processing
+- Added UI toggle in prompt details form
+- Updated runner to support bypassing LLM processing
+- Added LLM toggle state persistence in prompt metadata
+- Simplified prompt update handling by using PromptData struct
