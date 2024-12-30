@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
@@ -89,7 +90,10 @@ func (csf *ChatStep) Start(
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
 		LLMMessageMetadata: conversation.LLMMessageMetadata{
-			Engine: string(*csf.Settings.Chat.ApiType),
+			Engine:      string(*csf.Settings.Chat.Engine),
+			Temperature: *csf.Settings.Chat.Temperature,
+			TopP:        *csf.Settings.Chat.TopP,
+			MaxTokens:   *csf.Settings.Chat.MaxResponseTokens,
 		},
 	}
 	if csf.Settings.Chat.Temperature != nil {
@@ -152,9 +156,11 @@ func (csf *ChatStep) Start(
 						// Update both step metadata and event metadata with usage information
 						if openaiMetadata, ok := stepMetadata.Metadata["openai-metadata"].(map[string]interface{}); ok {
 							if usage, ok := openaiMetadata["usage"].(map[string]interface{}); ok {
+								inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
+								outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
 								metadata.LLMMessageMetadata.Usage = &conversation.Usage{
-									InputTokens:  int(usage["prompt_tokens"].(float64)),
-									OutputTokens: int(usage["completion_tokens"].(float64)),
+									InputTokens:  inputTokens,
+									OutputTokens: outputTokens,
 								}
 							}
 							if finishReason, ok := openaiMetadata["finish_reason"].(string); ok {
@@ -196,9 +202,11 @@ func (csf *ChatStep) Start(
 					if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
 						stepMetadata.Metadata["openai-metadata"] = responseMetadata
 						if usage, ok := responseMetadata["usage"].(map[string]interface{}); ok {
+							inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
+							outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
 							metadata.LLMMessageMetadata.Usage = &conversation.Usage{
-								InputTokens:  int(usage["prompt_tokens"].(float64)),
-								OutputTokens: int(usage["completion_tokens"].(float64)),
+								InputTokens:  inputTokens,
+								OutputTokens: outputTokens,
 							}
 						}
 						if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
