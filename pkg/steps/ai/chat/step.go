@@ -45,9 +45,9 @@ type RunnableStep struct {
 	manager conversation.Manager
 }
 
-var _ steps.Step[interface{}, string] = &RunnableStep{}
+var _ steps.Step[interface{}, *conversation.Message] = &RunnableStep{}
 
-func (r *RunnableStep) Start(ctx context.Context, input interface{}) (steps.StepResult[string], error) {
+func (r *RunnableStep) Start(ctx context.Context, input interface{}) (steps.StepResult[*conversation.Message], error) {
 	return r.c.RunWithManager(ctx, r.manager)
 }
 
