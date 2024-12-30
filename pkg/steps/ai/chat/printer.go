@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/mitchellh/mapstructure"
 )
 
 // Package chat provides functionality for printing AI chat events in various formats.
@@ -73,6 +74,25 @@ type structuredOutput struct {
 	Content      interface{} `json:"content,omitempty" yaml:"content,omitempty"`
 	Metadata     interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	StepMetadata interface{} `json:"step_metadata,omitempty" yaml:"step_metadata,omitempty"`
+}
+
+type ClaudeUsage struct {
+	InputTokens  float64 `mapstructure:"input_tokens"`
+	OutputTokens float64 `mapstructure:"output_tokens"`
+}
+
+type AISettings struct {
+	Temperature float64 `mapstructure:"ai-temperature"`
+	MaxTokens   float64 `mapstructure:"ai-max-response-tokens"`
+	Engine      string  `mapstructure:"ai-engine"`
+	ApiType     string  `mapstructure:"ai-api-type"`
+	TopP        float64 `mapstructure:"ai-top-p"`
+}
+
+type StepMetadataContent struct {
+	ClaudeUsage ClaudeUsage `mapstructure:"claude_usage"`
+	Settings    AISettings  `mapstructure:"settings"`
+	StopReason  string      `mapstructure:"claude_stop_reason"`
 }
 
 func NewStructuredPrinter(w io.Writer, options PrinterOptions) func(msg *message.Message) error {
@@ -199,36 +219,68 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 }
 
 func extractImportantMetadata(e Event) map[string]interface{} {
-	if e.StepMetadata() == nil {
+	if e.StepMetadata() == nil || e.StepMetadata().Metadata == nil {
 		return nil
 	}
 
-	metadata := e.StepMetadata().Metadata
-	if metadata == nil {
+	stepMetadata := e.StepMetadata()
+
+	var content StepMetadataContent
+	if err := mapstructure.Decode(stepMetadata.Metadata, &content); err != nil {
 		return nil
 	}
 
 	switch e.Type() {
 	case EventTypeStart:
-		return map[string]interface{}{
-			"type":         e.StepMetadata().Type,
-			"model":        metadata["claude_model"],
-			"temp":         metadata["settings"].(map[string]interface{})["ai-temperature"],
-			"max_tokens":   metadata["settings"].(map[string]interface{})["ai-max-response-tokens"],
-			"input_tokens": metadata["claude_usage"].(map[string]interface{})["input_tokens"],
+		result := map[string]interface{}{
+			"type": stepMetadata.Type,
 		}
 
-	case EventTypeError, EventTypeInterrupt, EventTypeToolCall, EventTypeToolResult, EventTypePartialCompletion, EventTypeStatus:
+		if content.Settings.Engine != "" {
+			result["engine"] = content.Settings.Engine
+		}
+		if content.Settings.Temperature != 0 {
+			result["temp"] = content.Settings.Temperature
+		}
+		if content.Settings.MaxTokens != 0 {
+			result["max_tokens"] = content.Settings.MaxTokens
+		}
+		if content.Settings.TopP != 0 {
+			result["top_p"] = content.Settings.TopP
+		}
+		if content.ClaudeUsage.InputTokens != 0 {
+			result["input_tokens"] = content.ClaudeUsage.InputTokens
+		}
+
+		return result
 
 	case EventTypeFinal:
-		usage := metadata["claude_usage"].(map[string]interface{})
-		return map[string]interface{}{
-			"tokens": map[string]interface{}{
-				"in":  usage["input_tokens"],
-				"out": usage["output_tokens"],
-			},
-			"stop_reason": metadata["claude_stop_reason"],
+		result := map[string]interface{}{
+			"type": stepMetadata.Type,
 		}
+
+		if content.ClaudeUsage.InputTokens != 0 || content.ClaudeUsage.OutputTokens != 0 {
+			result["tokens"] = map[string]interface{}{
+				"in":  content.ClaudeUsage.InputTokens,
+				"out": content.ClaudeUsage.OutputTokens,
+			}
+		}
+
+		if content.Settings.Engine != "" {
+			result["engine"] = content.Settings.Engine
+		}
+		if content.Settings.TopP != 0 {
+			result["top_p"] = content.Settings.TopP
+		}
+
+		if content.StopReason != "" {
+			result["stop_reason"] = content.StopReason
+		}
+		if content.Settings.Temperature != 0 {
+			result["temp"] = content.Settings.Temperature
+		}
+
+		return result
 	}
 	return nil
 }
