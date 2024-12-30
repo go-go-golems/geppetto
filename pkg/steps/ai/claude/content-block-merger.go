@@ -86,17 +86,24 @@ const RoleMetadataSlug = "claude_role"
 
 // updateUsage updates the usage statistics and metadata from an event usage
 func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
-	cbm.metadata.Usage = nil
+	cbm.metadata.LLMMessageMetadata.Usage = nil
 	if event.Usage != nil {
 		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
 			InputTokens:  event.Usage.InputTokens,
 			OutputTokens: event.Usage.OutputTokens,
 		}
 	}
+
 	if event.Message != nil {
 		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
 			InputTokens:  event.Message.Usage.InputTokens,
 			OutputTokens: event.Message.Usage.OutputTokens,
+		}
+	}
+	if event.Usage != nil {
+		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+			InputTokens:  event.Usage.InputTokens,
+			OutputTokens: event.Usage.OutputTokens,
 		}
 	}
 
@@ -165,10 +172,6 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 			if event.Message.StopSequence != "" {
 				cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence
 			}
-
-			cbm.updateUsage(event)
-		} else {
-			cbm.updateUsage(event)
 		}
 
 		return []chat.Event{chat.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
