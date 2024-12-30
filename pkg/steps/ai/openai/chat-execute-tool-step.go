@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -75,7 +76,9 @@ func NewChatToolStep(stepSettings *settings.StepSettings, options ...ChatToolSte
 	return step, nil
 }
 
-func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
+func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conversation) (
+	steps.StepResult[*conversation.Message], error,
+) {
 	cancellableCtx, cancel := context.WithCancel(ctx)
 	go func() {
 		<-ctx.Done()
@@ -120,8 +123,9 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 
 	responseToStringID := conversation.NewNodeID()
 
-	responseToStringStep := &utils.LambdaStep[[]chat.ToolResult, string]{
-		Function: func(s []chat.ToolResult) helpers.Result[string] {
+	// XXX a conversation message should be able to hold tool results as well
+	responseToStringStep := &utils.LambdaStep[[]chat.ToolResult, *conversation.Message]{
+		Function: func(s []chat.ToolResult) helpers.Result[*conversation.Message] {
 			stepMetadata := &steps.StepMetadata{
 				StepID:     uuid.New(),
 				Type:       "response-to-string",
@@ -145,10 +149,10 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 			}))
 			// TODO(manuel, 2024-07-04) Should there be a ToolResult event here?
 			t.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(s_)))
-			return helpers.NewValueResult[string](string(s_))
+			return helpers.NewValueResult[*conversation.Message](conversation.NewChatMessage(conversation.RoleTool, string(s_), nil))
 		},
 	}
-	stringResult := steps.Bind[[]chat.ToolResult, string](cancellableCtx, execResult, responseToStringStep)
+	stringResult := steps.Bind[[]chat.ToolResult, *conversation.Message](cancellableCtx, execResult, responseToStringStep)
 
 	return stringResult, nil
 }

@@ -6,6 +6,7 @@ toolchain go1.23.3
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.7
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dop251/goja v0.0.0-20241024094426-79f3a7efcdbd
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.1.20
@@ -102,7 +103,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/muesli/termenv v0.15.3-0.20240618155329-98d742f6907a // indirect
 	github.com/oklog/ulid v1.3.1 // indirect

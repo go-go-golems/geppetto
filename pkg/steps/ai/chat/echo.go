@@ -2,6 +2,8 @@ package chat
 
 import (
 	"context"
+	"time"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -10,7 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type EchoStep struct {
@@ -38,7 +41,7 @@ func (e *EchoStep) AddPublishedTopic(publisher message.Publisher, topic string) 
 	return nil
 }
 
-func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[string], error) {
+func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (steps.StepResult[*conversation.Message], error) {
 	if len(input) == 0 {
 		return nil, errors.New("no input")
 	}
@@ -67,34 +70,38 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 		},
 	}
 
-	c := make(chan helpers.Result[string], 1)
-	res := steps.NewStepResult(c)
+	c := make(chan helpers.Result[*conversation.Message], 1)
 
 	eg.Go(func() error {
 		defer close(c)
-		msg, ok := input[len(input)-1].Content.(*conversation.ChatMessageContent)
+		msg := input[len(input)-1]
+		msgContent, ok := msg.Content.(*conversation.ChatMessageContent)
 		if !ok {
-			c <- helpers.NewErrorResult[string](errors.New("invalid input"))
+			c <- helpers.NewErrorResult[*conversation.Message](errors.New("invalid input"))
 			return errors.New("invalid input")
 		}
 
-		for idx, c_ := range msg.Text {
+		for idx, c_ := range msgContent.Text {
 			select {
 			case <-ctx.Done():
-				e.subscriptionManager.PublishBlind(NewInterruptEvent(metadata, stepMetadata, msg.Text))
-				c <- helpers.NewErrorResult[string](ctx.Err())
+				log.Debug().Msg("Interrupting step")
+				e.subscriptionManager.PublishBlind(NewInterruptEvent(metadata, stepMetadata, msgContent.Text))
+				c <- helpers.NewErrorResult[*conversation.Message](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
-				e.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, string(c_), msg.Text[:idx+1]))
+				log.Debug().Msg("Publishing partial completion event")
+				e.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, string(c_), msgContent.Text[:idx+1]))
 			}
 		}
-		e.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, msg.Text))
-		c <- helpers.NewValueResult[string](msg.Text)
+		log.Debug().Msg("Publishing final event")
+		e.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, msgContent.Text))
+		c <- helpers.NewValueResult[*conversation.Message](msg)
 		return nil
 	})
 	e.eg = eg
 
-	return res, nil
+	msg := conversation.NewChatMessageFromContent(conversation.NewChatMessageContent(conversation.RoleAssistant, "", nil), conversation.WithTime(time.Now()))
+	return steps.Resolve(msg, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 }
 
 var _ Step = (*EchoStep)(nil)
