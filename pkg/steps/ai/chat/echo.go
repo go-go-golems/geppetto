@@ -2,6 +2,8 @@ package chat
 
 import (
 	"context"
+	"time"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -10,7 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type EchoStep struct {
@@ -81,13 +84,16 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 		for idx, c_ := range msg.Text {
 			select {
 			case <-ctx.Done():
+				log.Debug().Msg("Interrupting step")
 				e.subscriptionManager.PublishBlind(NewInterruptEvent(metadata, stepMetadata, msg.Text))
 				c <- helpers.NewErrorResult[string](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
+				log.Debug().Msg("Publishing partial completion event")
 				e.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, string(c_), msg.Text[:idx+1]))
 			}
 		}
+		log.Debug().Msg("Publishing final event")
 		e.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, msg.Text))
 		c <- helpers.NewValueResult[string](msg.Text)
 		return nil

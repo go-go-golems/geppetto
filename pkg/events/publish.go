@@ -3,10 +3,11 @@ package events
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 // NOTE(manuel, 2024-03-24) This might be worth moving / integrating into the event router
@@ -32,6 +33,7 @@ func NewPublisherManager() *PublisherManager {
 }
 
 func (s *PublisherManager) RegisterPublisher(topic string, sub message.Publisher) {
+	log.Trace().Str("topic", topic).Interface("sub", sub).Msg("Registering publisher")
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.Publishers[topic] = append(s.Publishers[topic], sub)
@@ -56,7 +58,13 @@ func (s *PublisherManager) Publish(payload interface{}) error {
 	s.sequenceNumber++
 
 	for topic, subs := range s.Publishers {
+		log.Trace().Str("topic", topic).Msg("Publishing message")
 		for _, sub := range subs {
+			log.Trace().
+				Str("topic", topic).
+				Str("sequence_number", fmt.Sprintf("%d", s.sequenceNumber)).
+				Interface("sub", sub).
+				Msg("Publishing message")
 			err = sub.Publish(topic, msg)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to publish")
