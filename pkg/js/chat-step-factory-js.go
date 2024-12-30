@@ -47,8 +47,9 @@ func RegisterFactory(runtime *goja.Runtime, loop *eventloop.EventLoop, stepSetti
 				return conversation.NewConversation()
 			}
 
-			outputConverter := func(s string) goja.Value {
-				return runtime.ToValue(s)
+			outputConverter := func(s *conversation.Message) goja.Value {
+				// XXX return the full message to javascript here
+				return runtime.ToValue(s.Content.String())
 			}
 
 			// Create step object directly
