@@ -2,6 +2,7 @@ package steps
 
 import (
 	"context"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/google/uuid"
@@ -17,12 +18,11 @@ type StepResult[T any] interface {
 }
 
 type StepMetadata struct {
-	StepID     uuid.UUID `json:"step_id"`
-	Type       string    `json:"type"`
-	InputType  string    `json:"input_type"`
-	OutputType string    `json:"output_type"`
-
-	Metadata map[string]interface{} `json:"meta"`
+	StepID     uuid.UUID              `json:"step_id" yaml:"step_id" mapstructure:"step_id"`
+	Type       string                 `json:"type" yaml:"type" mapstructure:"type"`
+	InputType  string                 `json:"input_type" yaml:"input_type" mapstructure:"input_type"`
+	OutputType string                 `json:"output_type" yaml:"output_type" mapstructure:"output_type"`
+	Metadata   map[string]interface{} `json:"meta" yaml:"meta" mapstructure:"meta"`
 }
 
 func (sm StepMetadata) MarshalZerologObject(e *zerolog.Event) {
@@ -36,21 +36,6 @@ func (sm StepMetadata) MarshalZerologObject(e *zerolog.Event) {
 	}
 }
 
-func (sm *StepMetadata) ToMap() map[string]interface{} {
-	ret := map[string]interface{}{
-		"step_id":     sm.StepID,
-		"type":        sm.Type,
-		"input_type":  sm.InputType,
-		"output_type": sm.OutputType,
-	}
-
-	for k, v := range sm.Metadata {
-		ret[k] = v
-	}
-
-	return ret
-}
-
 const MetadataSettingsSlug = "settings"
 
 type StepResultImpl[T any] struct {
@@ -59,6 +44,7 @@ type StepResultImpl[T any] struct {
 	metadata     *StepMetadata
 	metadataFunc func() *StepMetadata
 	// Additional monads:
+	// - in a way, the eventrouter we use is part of it
 	// - metrics
 	// - logs (? maybe doing imperative logging is better,
 	//   although they should definitely be collected as part of plunger)
