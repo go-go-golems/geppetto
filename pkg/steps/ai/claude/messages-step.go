@@ -3,6 +3,9 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"strings"
+	"time"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -14,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"strings"
 )
 
 type MessagesStep struct {
@@ -50,7 +52,7 @@ func IsClaudeEngine(engine string) bool {
 func (csf *MessagesStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (steps.StepResult[string], error) {
+) (steps.StepResult[*conversation.Message], error) {
 	// TODO(manuel, 2024-06-04) I think this can be removed now?
 	if csf.cancel != nil {
 		return nil, errors.New("step already started")
@@ -84,7 +86,7 @@ func (csf *MessagesStep) Start(
 
 	apiType_ := csf.Settings.Chat.ApiType
 	if apiType_ == nil {
-		return steps.Reject[string](errors.New("no chat engine specified")), nil
+		return steps.Reject[*conversation.Message](errors.New("no chat engine specified")), nil
 	}
 	apiType := *apiType_
 	apiSettings := csf.Settings.API
@@ -173,12 +175,12 @@ func (csf *MessagesStep) Start(
 	if chatSettings.Stream {
 		eventsCh, err := client.StreamComplete(&req)
 		if err != nil {
-			return steps.Reject[string](err), nil
+			return steps.Reject[*conversation.Message](err), nil
 		}
-		c := make(chan helpers.Result[string])
-		ret := steps.NewStepResult[string](c,
-			steps.WithCancel[string](cancel),
-			steps.WithMetadata[string](stepMetadata),
+		c := make(chan helpers.Result[*conversation.Message])
+		ret := steps.NewStepResult[*conversation.Message](c,
+			steps.WithCancel[*conversation.Message](cancel),
+			steps.WithMetadata[*conversation.Message](stepMetadata),
 		)
 
 		go func() {
@@ -190,19 +192,20 @@ func (csf *MessagesStep) Start(
 				select {
 				case <-ctx.Done():
 					csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
-					c <- helpers.NewErrorResult[string](ctx.Err())
+					c <- helpers.NewErrorResult[*conversation.Message](ctx.Err())
 					return
 				case event, ok := <-eventsCh:
 					if !ok {
 						csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
-						c <- helpers.NewValueResult[string](message)
+						msg := conversation.NewChatMessage(conversation.RoleAssistant, message, conversation.WithTime(time.Now()))
+						c <- helpers.NewValueResult[*conversation.Message](msg)
 						return
 					}
 					decoded := map[string]interface{}{}
 					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
 						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
-						c <- helpers.NewErrorResult[string](err)
+						c <- helpers.NewErrorResult[*conversation.Message](err)
 						return
 					}
 					if completion, exists := decoded["completion"].(string); exists {
@@ -226,11 +229,12 @@ func (csf *MessagesStep) Start(
 			if err != nil {
 				log.Warn().Err(err).Msg("error publishing error event")
 			}
-			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
+			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 		}
 
 		csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Completion))
 
-		return steps.Resolve(resp.Completion, steps.WithMetadata[string](stepMetadata)), nil
+		msg := conversation.NewChatMessage(conversation.RoleAssistant, resp.Completion, conversation.WithTime(time.Now()))
+		return steps.Resolve(msg, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 	}
 }

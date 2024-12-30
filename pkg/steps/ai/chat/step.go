@@ -8,7 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 )
 
-type Step steps.Step[conversation.Conversation, string]
+type Step steps.Step[conversation.Conversation, *conversation.Message]
 
 type StepOption func(Step) error
 

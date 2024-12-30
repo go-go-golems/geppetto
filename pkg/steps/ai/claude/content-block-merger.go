@@ -3,6 +3,7 @@ package claude
 import (
 	"sort"
 
+	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
@@ -87,13 +88,13 @@ const RoleMetadataSlug = "claude_role"
 func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 	cbm.metadata.Usage = nil
 	if event.Usage != nil {
-		cbm.metadata.Usage = &chat.Usage{
+		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
 			InputTokens:  event.Usage.InputTokens,
 			OutputTokens: event.Usage.OutputTokens,
 		}
 	}
 	if event.Message != nil {
-		cbm.metadata.Usage = &chat.Usage{
+		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
 			InputTokens:  event.Message.Usage.InputTokens,
 			OutputTokens: event.Message.Usage.OutputTokens,
 		}
