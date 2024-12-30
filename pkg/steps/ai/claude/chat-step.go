@@ -201,9 +201,12 @@ func (csf *ChatStep) Start(
 					msg := conversation.NewChatMessage(
 						conversation.RoleAssistant, response.FullText(),
 						conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
-							Engine:      req.Model,
-							Usage:       nil,
-							StopReason:  "",
+							Engine: req.Model,
+							Usage: &conversation.Usage{
+								InputTokens:  response.Usage.InputTokens,
+								OutputTokens: response.Usage.OutputTokens,
+							},
+							StopReason:  response.StopReason,
 							Temperature: *req.Temperature,
 							TopP:        *req.TopP,
 							MaxTokens:   req.MaxTokens,
