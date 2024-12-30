@@ -3,6 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/rs/zerolog"
@@ -264,13 +265,37 @@ const MetadataToolCallsSlug = "tool-calls"
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
-	ID       conversation.NodeID `json:"message_id"`
-	ParentID conversation.NodeID `json:"parent_id"`
+	ID       conversation.NodeID `json:"message_id" yaml:"message_id"`
+	ParentID conversation.NodeID `json:"parent_id" yaml:"parent_id"`
+
+	// Common metadata fields
+	Engine      string  `json:"engine,omitempty" yaml:"engine,omitempty"`
+	Temperature float64 `json:"temperature,omitempty" yaml:"temperature,omitempty"`
+	TopP        float64 `json:"top_p,omitempty" yaml:"top_p,omitempty"`
+	MaxTokens   int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty"`
+	StopReason  string  `json:"stop_reason,omitempty" yaml:"stop_reason,omitempty"`
+	Usage       *Usage  `json:"usage,omitempty" yaml:"usage,omitempty"`
+}
+
+// Usage represents token usage information common across LLM providers
+type Usage struct {
+	InputTokens  int `json:"input_tokens" yaml:"input_tokens"`
+	OutputTokens int `json:"output_tokens" yaml:"output_tokens"`
 }
 
 func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("message_id", em.ID.String())
 	e.Str("parent_id", em.ParentID.String())
+	if em.Engine != "" {
+		e.Str("engine", em.Engine)
+	}
+	if em.StopReason != "" {
+		e.Str("stop_reason", em.StopReason)
+	}
+	if em.Usage != nil {
+		e.Int("input_tokens", em.Usage.InputTokens)
+		e.Int("output_tokens", em.Usage.OutputTokens)
+	}
 }
 
 func NewEventFromJson(b []byte) (Event, error) {

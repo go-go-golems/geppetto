@@ -144,6 +144,7 @@ func makeCompletionRequest(
 		N:                n,
 		Stream:           stream,
 		Stop:             stop,
+		StreamOptions:    &go_openai.StreamOptions{IncludeUsage: true},
 		PresencePenalty:  float32(presencePenalty),
 		FrequencyPenalty: float32(frequencyPenalty),
 		// TODO(manuel, 2023-03-28) Properly load logit bias

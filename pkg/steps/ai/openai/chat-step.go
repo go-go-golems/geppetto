@@ -2,6 +2,8 @@ package openai
 
 import (
 	"context"
+	"io"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -11,7 +13,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"io"
 )
 
 var _ steps.Step[conversation.Conversation, string] = &ChatStep{}
@@ -87,6 +88,16 @@ func (csf *ChatStep) Start(
 	metadata := chat.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
+		Engine:   string(*csf.Settings.Chat.ApiType),
+	}
+	if csf.Settings.Chat.Temperature != nil {
+		metadata.Temperature = *csf.Settings.Chat.Temperature
+	}
+	if csf.Settings.Chat.TopP != nil {
+		metadata.TopP = *csf.Settings.Chat.TopP
+	}
+	if csf.Settings.Chat.MaxResponseTokens != nil {
+		metadata.MaxTokens = *csf.Settings.Chat.MaxResponseTokens
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
@@ -136,26 +147,68 @@ func (csf *ChatStep) Start(
 					response, err := stream.Recv()
 
 					if errors.Is(err, io.EOF) {
-						csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
+						// Update both step metadata and event metadata with usage information
+						if openaiMetadata, ok := stepMetadata.Metadata["openai-metadata"].(map[string]interface{}); ok {
+							if usage, ok := openaiMetadata["usage"].(map[string]interface{}); ok {
+								stepMetadata.Metadata["usage"] = map[string]interface{}{
+									"input_tokens":  usage["prompt_tokens"],
+									"output_tokens": usage["completion_tokens"],
+								}
+								metadata.Usage = &chat.Usage{
+									InputTokens:  int(usage["prompt_tokens"].(float64)),
+									OutputTokens: int(usage["completion_tokens"].(float64)),
+								}
+							}
+							if finishReason, ok := openaiMetadata["finish_reason"].(string); ok {
+								metadata.StopReason = finishReason
+							}
+						}
+						csf.publisherManager.PublishBlind(chat.NewFinalEvent(
+							metadata,
+							stepMetadata,
+							message,
+						))
 						c <- helpers.NewValueResult[string](message)
 
 						return
 					}
 					if err != nil {
 						if errors.Is(err, context.Canceled) {
-							csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
+							csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, message))
 							c <- helpers.NewErrorResult[string](err)
 							return
 						}
 
-						csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
+						csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 						c <- helpers.NewErrorResult[string](err)
 						return
 					}
+					delta := ""
+					if len(response.Choices) > 0 {
+						delta = response.Choices[0].Delta.Content
+						message += delta
+					}
 
-					message += response.Choices[0].Delta.Content
+					// Extract metadata from OpenAI chat response and update both step and event metadata
+					if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
+						stepMetadata.Metadata["openai-metadata"] = responseMetadata
+						if usage, ok := responseMetadata["usage"].(map[string]interface{}); ok {
+							metadata.Usage = &chat.Usage{
+								InputTokens:  int(usage["prompt_tokens"].(float64)),
+								OutputTokens: int(usage["completion_tokens"].(float64)),
+							}
+						}
+						if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
+							metadata.StopReason = finishReason
+						}
+					}
 
-					csf.publisherManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), response.Choices[0].Delta.Content, message))
+					csf.publisherManager.PublishBlind(
+						chat.NewPartialCompletionEvent(
+							metadata,
+							stepMetadata,
+							delta, message),
+					)
 				}
 			}
 		}()
@@ -171,6 +224,21 @@ func (csf *ChatStep) Start(
 		if err != nil {
 			csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
+		}
+
+		// Extract metadata from non-streaming response
+		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
+			metadata.Usage = &chat.Usage{
+				InputTokens:  usage.PromptTokens,
+				OutputTokens: usage.CompletionTokens,
+			}
+			stepMetadata.Metadata["usage"] = map[string]interface{}{
+				"input_tokens":  usage.PromptTokens,
+				"output_tokens": usage.CompletionTokens,
+			}
+		}
+		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
+			metadata.StopReason = string(resp.Choices[0].FinishReason)
 		}
 
 		csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
