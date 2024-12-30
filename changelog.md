@@ -424,3 +424,28 @@ Enhanced the Claude ContentBlockMerger to properly maintain input token counts a
 - Added inputTokens field to ContentBlockMerger to persist input token count
 - Updated updateUsage to maintain input tokens from start event
 - Ensured consistent input token reporting in usage metadata across all events
+
+# Added mapstructure tags to StepMetadata
+
+Added mapstructure tags to StepMetadata struct fields to support direct decoding using mapstructure.
+
+- Added mapstructure tags to all fields in StepMetadata struct
+- Maintained compatibility with existing JSON tags
+- Improved integration with libraries that use mapstructure for decoding
+
+# Removed ToMap and Added YAML Tags to StepMetadata
+
+Simplified StepMetadata by removing ToMap method and adding YAML tags for better serialization support.
+
+- Removed ToMap method in favor of using mapstructure for decoding
+- Added YAML tags to all StepMetadata fields
+- Maintained compatibility with existing JSON tags and mapstructure tags
+
+# Added mapstructure tags to EventMetadata and Usage
+
+Added mapstructure tags to EventMetadata and Usage structs for better serialization support.
+
+- Added mapstructure tags to all EventMetadata fields
+- Added mapstructure tags to Usage fields
+- Maintained compatibility with existing JSON and YAML tags
+- Improved integration with libraries that use mapstructure for decoding
