@@ -75,25 +75,6 @@ type structuredOutput struct {
 	StepMetadata interface{} `json:"step_metadata,omitempty" yaml:"step_metadata,omitempty"`
 }
 
-type ClaudeUsage struct {
-	InputTokens  float64 `mapstructure:"input_tokens"`
-	OutputTokens float64 `mapstructure:"output_tokens"`
-}
-
-type AISettings struct {
-	Temperature float64 `mapstructure:"ai-temperature"`
-	MaxTokens   float64 `mapstructure:"ai-max-response-tokens"`
-	Engine      string  `mapstructure:"ai-engine"`
-	ApiType     string  `mapstructure:"ai-api-type"`
-	TopP        float64 `mapstructure:"ai-top-p"`
-}
-
-type StepMetadataContent struct {
-	ClaudeUsage ClaudeUsage `mapstructure:"claude_usage"`
-	Settings    AISettings  `mapstructure:"settings"`
-	StopReason  string      `mapstructure:"claude_stop_reason"`
-}
-
 func NewStructuredPrinter(w io.Writer, options PrinterOptions) func(msg *message.Message) error {
 	isFirst := true
 
