@@ -48,6 +48,14 @@ type ChatMessageContent struct {
 	Images []*ImageContent `json:"images"`
 }
 
+func NewChatMessageContent(role Role, text string, images []*ImageContent) *ChatMessageContent {
+	return &ChatMessageContent{
+		Role:   role,
+		Text:   text,
+		Images: images,
+	}
+}
+
 func (c *ChatMessageContent) ContentType() ContentType {
 	return ContentTypeChatMessage
 }
@@ -206,6 +214,21 @@ func (i *ImageContent) View() string {
 
 var _ MessageContent = (*ImageContent)(nil)
 
+// Usage represents token usage information common across LLM providers
+type Usage struct {
+	InputTokens  int `json:"input_tokens" yaml:"input_tokens" mapstructure:"input_tokens"`
+	OutputTokens int `json:"output_tokens" yaml:"output_tokens" mapstructure:"output_tokens"`
+}
+
+type LLMMessageMetadata struct {
+	Engine      string  `json:"engine,omitempty" yaml:"engine,omitempty" mapstructure:"engine,omitempty"`
+	Temperature float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" mapstructure:"temperature,omitempty"`
+	TopP        float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" mapstructure:"top_p,omitempty"`
+	MaxTokens   int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty" mapstructure:"max_tokens,omitempty"`
+	StopReason  string  `json:"stop_reason,omitempty" yaml:"stop_reason,omitempty" mapstructure:"stop_reason,omitempty"`
+	Usage       *Usage  `json:"usage,omitempty" yaml:"usage,omitempty" mapstructure:"usage,omitempty"`
+}
+
 // Message represents a single message node in the conversation tree.
 type Message struct {
 	ParentID   NodeID    `json:"parentID"`
@@ -213,8 +236,9 @@ type Message struct {
 	Time       time.Time `json:"time"`
 	LastUpdate time.Time `json:"lastUpdate"`
 
-	Content  MessageContent         `json:"content"`
-	Metadata map[string]interface{} `json:"metadata"` // Flexible metadata field
+	Content            MessageContent         `json:"content"`
+	Metadata           map[string]interface{} `json:"metadata"` // Flexible metadata field
+	LLMMessageMetadata *LLMMessageMetadata    `json:"llm_message_metadata"`
 
 	// TODO(manuel, 2024-04-07) Add Parent and Sibling lists
 	// omit in json
@@ -226,6 +250,12 @@ type MessageOption func(*Message)
 func WithMetadata(metadata map[string]interface{}) MessageOption {
 	return func(message *Message) {
 		message.Metadata = metadata
+	}
+}
+
+func WithLLMMessageMetadata(metadata *LLMMessageMetadata) MessageOption {
+	return func(message *Message) {
+		message.LLMMessageMetadata = metadata
 	}
 }
 
@@ -267,6 +297,10 @@ func NewChatMessage(role Role, text string, options ...MessageOption) *Message {
 		Role: role,
 		Text: text,
 	}, options...)
+}
+
+func NewChatMessageFromContent(content *ChatMessageContent, options ...MessageOption) *Message {
+	return NewMessage(content, options...)
 }
 
 func (mn *Message) MarshalJSON() ([]byte, error) {

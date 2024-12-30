@@ -79,7 +79,7 @@ var _ chat.Step = &ChatStep{}
 func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (steps.StepResult[string], error) {
+) (steps.StepResult[*conversation.Message], error) {
 
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
@@ -92,7 +92,7 @@ func (csf *ChatStep) Start(
 
 	apiType_ := csf.Settings.Chat.ApiType
 	if apiType_ == nil {
-		return steps.Reject[string](errors.New("no chat engine specified")), nil
+		return steps.Reject[*conversation.Message](errors.New("no chat engine specified")), nil
 	}
 	apiType := *apiType_
 	apiSettings := csf.Settings.API
@@ -119,7 +119,7 @@ func (csf *ChatStep) Start(
 
 	req, err := makeMessageRequest(csf.Settings, messages)
 	if err != nil {
-		return steps.Reject[string](err), nil
+		return steps.Reject[*conversation.Message](err), nil
 	}
 
 	req.Tools = csf.Tools
@@ -134,14 +134,16 @@ func (csf *ChatStep) Start(
 	}
 
 	metadata := chat.EventMetadata{
-		ID:          conversation.NewNodeID(),
-		ParentID:    csf.parentID,
-		Engine:      req.Model,
-		Usage:       nil,
-		StopReason:  "",
-		Temperature: *req.Temperature,
-		TopP:        *req.TopP,
-		MaxTokens:   req.MaxTokens,
+		ID:       conversation.NewNodeID(),
+		ParentID: csf.parentID,
+		LLMMessageMetadata: conversation.LLMMessageMetadata{
+			Engine:      req.Model,
+			Usage:       nil,
+			StopReason:  "",
+			Temperature: *req.Temperature,
+			TopP:        *req.TopP,
+			MaxTokens:   req.MaxTokens,
+		},
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
@@ -160,14 +162,14 @@ func (csf *ChatStep) Start(
 	if err != nil {
 		cancel()
 
-		return steps.Reject[string](err), nil
+		return steps.Reject[*conversation.Message](err), nil
 	}
 
-	c := make(chan helpers2.Result[string])
-	ret := steps.NewStepResult[string](
+	c := make(chan helpers2.Result[*conversation.Message])
+	ret := steps.NewStepResult[*conversation.Message](
 		c,
-		steps.WithCancel[string](cancel),
-		steps.WithMetadata[string](stepMetadata),
+		steps.WithCancel[*conversation.Message](cancel),
+		steps.WithMetadata[*conversation.Message](stepMetadata),
 	)
 
 	// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
@@ -192,17 +194,30 @@ func (csf *ChatStep) Start(
 					response := completionMerger.Response()
 					if response == nil {
 						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, "no response"))
-						c <- helpers2.NewErrorResult[string](errors.New("no response"))
+						c <- helpers2.NewErrorResult[*conversation.Message](errors.New("no response"))
 						return
 					}
-					c <- helpers2.NewValueResult[string](response.FullText())
+
+					msg := conversation.NewChatMessage(
+						conversation.RoleAssistant, response.FullText(),
+						conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
+							Engine:      req.Model,
+							Usage:       nil,
+							StopReason:  "",
+							Temperature: *req.Temperature,
+							TopP:        *req.TopP,
+							MaxTokens:   req.MaxTokens,
+						}),
+					)
+
+					c <- helpers2.NewValueResult[*conversation.Message](msg)
 					return
 				}
 
 				events_, err := completionMerger.Add(event)
 				if err != nil {
 					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-					c <- helpers2.NewErrorResult[string](err)
+					c <- helpers2.NewErrorResult[*conversation.Message](err)
 					return
 				}
 				for _, event_ := range events_ {
