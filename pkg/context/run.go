@@ -9,7 +9,7 @@ import (
 )
 
 type GeppettoRunnable interface {
-	RunWithManager(ctx context2.Context, manager conversation.Manager) (steps.StepResult[string], error)
+	RunWithManager(ctx context2.Context, manager conversation.Manager) (steps.StepResult[*conversation.Message], error)
 }
 
 func RunIntoWriter(
@@ -37,7 +37,7 @@ func RunIntoWriter(
 			if err != nil {
 				return err
 			}
-			_, err = w.Write([]byte(s))
+			_, err = w.Write([]byte(s.Content.String()))
 			if err != nil {
 				return err
 			}
