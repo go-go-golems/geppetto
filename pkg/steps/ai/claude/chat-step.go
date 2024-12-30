@@ -123,10 +123,25 @@ func (csf *ChatStep) Start(
 	}
 
 	req.Tools = csf.Tools
+	// Safely handle Temperature and TopP settings with default fallback
+	if req.Temperature == nil {
+		defaultTemp := float64(1.0)
+		req.Temperature = &defaultTemp
+	}
+	if req.TopP == nil {
+		defaultTopP := float64(1.0)
+		req.TopP = &defaultTopP
+	}
 
 	metadata := chat.EventMetadata{
-		ID:       conversation.NewNodeID(),
-		ParentID: csf.parentID,
+		ID:          conversation.NewNodeID(),
+		ParentID:    csf.parentID,
+		Engine:      req.Model,
+		Usage:       nil,
+		StopReason:  "",
+		Temperature: *req.Temperature,
+		TopP:        *req.TopP,
+		MaxTokens:   req.MaxTokens,
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
@@ -137,10 +152,6 @@ func (csf *ChatStep) Start(
 			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
 		},
 	}
-
-	//startEvent := chat.NewStartEvent(metadata, stepMetadata)
-	//log.Trace().Interface("event", startEvent).Msg("Start chat step")
-	//csf.subscriptionManager.PublishBlind(startEvent)
 
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)

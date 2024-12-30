@@ -8,7 +8,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/mitchellh/mapstructure"
 )
 
 // Package chat provides functionality for printing AI chat events in various formats.
@@ -219,37 +218,34 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 }
 
 func extractImportantMetadata(e Event) map[string]interface{} {
-	if e.StepMetadata() == nil || e.StepMetadata().Metadata == nil {
+	if e.StepMetadata() == nil {
 		return nil
 	}
 
+	metadata := e.Metadata()
 	stepMetadata := e.StepMetadata()
 
-	var content StepMetadataContent
-	if err := mapstructure.Decode(stepMetadata.Metadata, &content); err != nil {
-		return nil
-	}
-
+	//nolint:exhaustive
 	switch e.Type() {
 	case EventTypeStart:
 		result := map[string]interface{}{
 			"type": stepMetadata.Type,
 		}
 
-		if content.Settings.Engine != "" {
-			result["engine"] = content.Settings.Engine
+		if metadata.Engine != "" {
+			result["engine"] = metadata.Engine
 		}
-		if content.Settings.Temperature != 0 {
-			result["temp"] = content.Settings.Temperature
+		if metadata.Temperature != 0 {
+			result["temp"] = metadata.Temperature
 		}
-		if content.Settings.MaxTokens != 0 {
-			result["max_tokens"] = content.Settings.MaxTokens
+		if metadata.MaxTokens != 0 {
+			result["max_tokens"] = metadata.MaxTokens
 		}
-		if content.Settings.TopP != 0 {
-			result["top_p"] = content.Settings.TopP
+		if metadata.TopP != 0 {
+			result["top_p"] = metadata.TopP
 		}
-		if content.ClaudeUsage.InputTokens != 0 {
-			result["input_tokens"] = content.ClaudeUsage.InputTokens
+		if metadata.Usage.InputTokens != 0 {
+			result["input_tokens"] = metadata.Usage.InputTokens
 		}
 
 		return result
@@ -259,28 +255,29 @@ func extractImportantMetadata(e Event) map[string]interface{} {
 			"type": stepMetadata.Type,
 		}
 
-		if content.ClaudeUsage.InputTokens != 0 || content.ClaudeUsage.OutputTokens != 0 {
+		if metadata.Usage.InputTokens != 0 || metadata.Usage.OutputTokens != 0 {
 			result["tokens"] = map[string]interface{}{
-				"in":  content.ClaudeUsage.InputTokens,
-				"out": content.ClaudeUsage.OutputTokens,
+				"in":  metadata.Usage.InputTokens,
+				"out": metadata.Usage.OutputTokens,
 			}
 		}
 
-		if content.Settings.Engine != "" {
-			result["engine"] = content.Settings.Engine
+		if metadata.Engine != "" {
+			result["engine"] = metadata.Engine
 		}
-		if content.Settings.TopP != 0 {
-			result["top_p"] = content.Settings.TopP
+		if metadata.TopP != 0 {
+			result["top_p"] = metadata.TopP
 		}
-
-		if content.StopReason != "" {
-			result["stop_reason"] = content.StopReason
+		if metadata.StopReason != "" {
+			result["stop_reason"] = metadata.StopReason
 		}
-		if content.Settings.Temperature != 0 {
-			result["temp"] = content.Settings.Temperature
+		if metadata.Temperature != 0 {
+			result["temp"] = metadata.Temperature
 		}
 
 		return result
+
+	default:
 	}
 	return nil
 }

@@ -1,12 +1,13 @@
 package claude
 
 import (
+	"sort"
+
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"sort"
 )
 
 // ContentBlockMerger manages the streaming response from Claude AI API for chat completion.
@@ -30,6 +31,7 @@ type ContentBlockMerger struct {
 	response      *api.MessageResponse
 	error         *api.Error
 	contentBlocks map[int]*api.ContentBlock
+	inputTokens   int // Track input tokens from start event
 }
 
 func NewContentBlockMerger(metadata chat.EventMetadata, stepMetadata *steps.StepMetadata) *ContentBlockMerger {
@@ -37,6 +39,7 @@ func NewContentBlockMerger(metadata chat.EventMetadata, stepMetadata *steps.Step
 		metadata:      metadata,
 		stepMetadata:  stepMetadata,
 		contentBlocks: make(map[int]*api.ContentBlock),
+		inputTokens:   0,
 	}
 }
 
@@ -77,9 +80,35 @@ const StopSequenceMetadataSlug = "claude_stop_sequence"
 
 // TODO(manuel, 2024-06-07) Unify counting usage across steps and LLM calls so that we can use it for openai and other completion APIs as well.
 
-const UsageMetadataSlug = "claude_usage"
 const MessageIdMetadataSlug = "claude_message_id"
 const RoleMetadataSlug = "claude_role"
+
+// updateUsage updates the usage statistics and metadata from an event usage
+func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
+	cbm.metadata.Usage = nil
+	if event.Usage != nil {
+		cbm.metadata.Usage = &chat.Usage{
+			InputTokens:  event.Usage.InputTokens,
+			OutputTokens: event.Usage.OutputTokens,
+		}
+	}
+	if event.Message != nil {
+		cbm.metadata.Usage = &chat.Usage{
+			InputTokens:  event.Message.Usage.InputTokens,
+			OutputTokens: event.Message.Usage.OutputTokens,
+		}
+	}
+
+	if cbm.metadata.Usage == nil {
+		return
+	}
+
+	if cbm.metadata.Usage.InputTokens > 0 {
+		cbm.inputTokens = cbm.metadata.Usage.InputTokens
+	} else {
+		cbm.metadata.Usage.InputTokens = cbm.inputTokens
+	}
+}
 
 func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, error) {
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
@@ -96,11 +125,13 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 			return nil, errors.New("MessageStartType event must have a message")
 		}
 		cbm.response = event.Message
-		// TODO(manuel, 2024-06-05) Where do we store all the metadata we get from the model? in step metadata?
 		cbm.stepMetadata.Metadata[ModelMetadataSlug] = event.Message.Model
-		cbm.stepMetadata.Metadata[UsageMetadataSlug] = event.Message.Usage
 		cbm.stepMetadata.Metadata[MessageIdMetadataSlug] = event.Message.ID
 		cbm.stepMetadata.Metadata[RoleMetadataSlug] = event.Message.Role
+
+		// Update event metadata with common fields
+		cbm.metadata.Engine = event.Message.Model
+		cbm.updateUsage(event)
 
 		return []chat.Event{chat.NewStartEvent(cbm.metadata, cbm.stepMetadata)}, nil
 
@@ -108,20 +139,16 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		if event.Delta == nil {
 			return nil, errors.New("MessageDeltaType event must have a delta")
 		}
-		// NOTE(manuel, 2024-06-07) I don't know if this means we need to append to the stop reason so far
 		if event.Delta.StopReason != "" {
 			cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Delta.StopReason
+			cbm.metadata.StopReason = event.Delta.StopReason
 		}
 		if event.Delta.StopSequence != "" {
 			cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Delta.StopSequence
 		}
-		// update the usage
-		if event.Usage != nil {
-			// Similarly, I don't know if we need to add to the usage count or if this represents the total so far.
-			cbm.stepMetadata.Metadata[UsageMetadataSlug] = event.Usage
-		}
 
-		// create an "empty" partial completion event
+		cbm.updateUsage(event)
+
 		return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
 
 	case api.MessageStopType:
@@ -132,15 +159,17 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		if event.Message != nil {
 			if event.Message.StopReason != "" {
 				cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
+				cbm.metadata.StopReason = event.Message.StopReason
 			}
 			if event.Message.StopSequence != "" {
 				cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence
 			}
 
-			cbm.stepMetadata.Metadata[UsageMetadataSlug] = event.Message.Usage
+			cbm.updateUsage(event)
+		} else {
+			cbm.updateUsage(event)
 		}
 
-		// TODO(manuel, 2024-07-04) This should be differentiated from a block stop, which is just a single block
 		return []chat.Event{chat.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
@@ -172,6 +201,9 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		if !exists {
 			return nil, errors.Errorf("ContentBlockDeltaType event with index %d does not exist", event.Index)
 		}
+
+		cbm.updateUsage(event)
+
 		delta := ""
 		switch event.Delta.Type {
 		case api.TextDeltaType:

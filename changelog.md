@@ -377,3 +377,50 @@ Improved code organization by moving handlers from standalone functions into Ser
 - Reduces global state by keeping all server-related functionality in the Server struct
 - Simplifies handler registration with a single Register method
 - Removes the need for a separate handlers.go file
+
+## OpenAI Chat Completion Metadata Extraction
+
+Added functionality to extract and include metadata from OpenAI chat completion stream responses in events. This includes model information, system fingerprint, prompt annotations, usage statistics, and content filter results.
+
+- Added independent metadata types to avoid direct OpenAI package dependencies
+- Added mapstructure tags for flexible metadata conversion
+- Added helper function to convert OpenAI content filter results
+- Updated chat step to handle metadata extraction errors
+- Added support for JailBreak and Profanity filter results
+- Added detailed token usage information including audio, cached, and reasoning tokens
+
+# Improved Usage Tracking in Claude Content Block Merger
+
+Added proper usage tracking in the Claude ContentBlockMerger to maintain accurate token counts throughout streaming responses.
+
+- Added dedicated usage field to ContentBlockMerger struct
+- Updated usage tracking to maintain running totals from streaming events
+- Ensured consistent usage metadata format across all events
+
+# Unified Event Metadata Across Chat Steps
+
+Moved common metadata fields from step metadata to event metadata for better consistency and accessibility.
+
+- Added common fields (engine, temperature, topP, maxTokens, stopReason, usage) to EventMetadata
+- Updated ContentBlockMerger to track metadata in both event and step metadata
+- Updated OpenAI chat step to use new event metadata fields
+- Improved metadata extraction from OpenAI responses
+- Updated printer to use event metadata instead of step metadata for common fields
+- Ensured consistent metadata format across all chat events
+- Improved logging of metadata fields
+
+# Optional Usage in EventMetadata
+
+Made Usage field in EventMetadata optional by using a pointer to improve flexibility and better handle cases where usage information is not available.
+
+- Updated EventMetadata to use *Usage instead of Usage
+- Modified content-block-merger.go to handle nil Usage
+- Updated chat-step.go to use pointer for Usage assignments
+
+# Improved Input Token Tracking in Claude Content Block Merger
+
+Enhanced the Claude ContentBlockMerger to properly maintain input token counts across streaming events, since input tokens are only received in the initial start event.
+
+- Added inputTokens field to ContentBlockMerger to persist input token count
+- Updated updateUsage to maintain input tokens from start event
+- Ensured consistent input token reporting in usage metadata across all events
