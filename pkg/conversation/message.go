@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
 )
 
@@ -45,6 +46,14 @@ type ChatMessageContent struct {
 	Role   Role            `json:"role"`
 	Text   string          `json:"text"`
 	Images []*ImageContent `json:"images"`
+}
+
+func NewChatMessageContent(role Role, text string, images []*ImageContent) *ChatMessageContent {
+	return &ChatMessageContent{
+		Role:   role,
+		Text:   text,
+		Images: images,
+	}
 }
 
 func (c *ChatMessageContent) ContentType() ContentType {
@@ -205,6 +214,21 @@ func (i *ImageContent) View() string {
 
 var _ MessageContent = (*ImageContent)(nil)
 
+// Usage represents token usage information common across LLM providers
+type Usage struct {
+	InputTokens  int `json:"input_tokens" yaml:"input_tokens" mapstructure:"input_tokens"`
+	OutputTokens int `json:"output_tokens" yaml:"output_tokens" mapstructure:"output_tokens"`
+}
+
+type LLMMessageMetadata struct {
+	Engine      string  `json:"engine,omitempty" yaml:"engine,omitempty" mapstructure:"engine,omitempty"`
+	Temperature float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" mapstructure:"temperature,omitempty"`
+	TopP        float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" mapstructure:"top_p,omitempty"`
+	MaxTokens   int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty" mapstructure:"max_tokens,omitempty"`
+	StopReason  string  `json:"stop_reason,omitempty" yaml:"stop_reason,omitempty" mapstructure:"stop_reason,omitempty"`
+	Usage       *Usage  `json:"usage,omitempty" yaml:"usage,omitempty" mapstructure:"usage,omitempty"`
+}
+
 // Message represents a single message node in the conversation tree.
 type Message struct {
 	ParentID   NodeID    `json:"parentID"`
@@ -212,8 +236,9 @@ type Message struct {
 	Time       time.Time `json:"time"`
 	LastUpdate time.Time `json:"lastUpdate"`
 
-	Content  MessageContent         `json:"content"`
-	Metadata map[string]interface{} `json:"metadata"` // Flexible metadata field
+	Content            MessageContent         `json:"content"`
+	Metadata           map[string]interface{} `json:"metadata"` // Flexible metadata field
+	LLMMessageMetadata *LLMMessageMetadata    `json:"llm_message_metadata"`
 
 	// TODO(manuel, 2024-04-07) Add Parent and Sibling lists
 	// omit in json
@@ -225,6 +250,12 @@ type MessageOption func(*Message)
 func WithMetadata(metadata map[string]interface{}) MessageOption {
 	return func(message *Message) {
 		message.Metadata = metadata
+	}
+}
+
+func WithLLMMessageMetadata(metadata *LLMMessageMetadata) MessageOption {
+	return func(message *Message) {
+		message.LLMMessageMetadata = metadata
 	}
 }
 
@@ -268,6 +299,10 @@ func NewChatMessage(role Role, text string, options ...MessageOption) *Message {
 	}, options...)
 }
 
+func NewChatMessageFromContent(content *ChatMessageContent, options ...MessageOption) *Message {
+	return NewMessage(content, options...)
+}
+
 func (mn *Message) MarshalJSON() ([]byte, error) {
 	type Alias Message
 	return json.Marshal(&struct {
@@ -305,4 +340,44 @@ func (messages Conversation) GetSinglePrompt() string {
 	}
 
 	return prompt
+}
+
+// HashBytes returns a fast hash of the conversation content suitable for caching
+func (messages Conversation) HashBytes() []byte {
+	h := xxhash.New()
+	for _, message := range messages {
+		// Write role and content for chat messages
+		if chatMsg, ok := message.Content.(*ChatMessageContent); ok {
+			_, _ = h.Write([]byte(string(chatMsg.Role)))
+			_, _ = h.Write([]byte(chatMsg.Text))
+			// Hash any images
+			for _, img := range chatMsg.Images {
+				if img.ImageContent != nil {
+					_, _ = h.Write(img.ImageContent)
+				}
+				if img.ImageURL != "" {
+					_, _ = h.Write([]byte(img.ImageURL))
+				}
+			}
+		}
+
+		// Write tool use content
+		if toolUse, ok := message.Content.(*ToolUseContent); ok {
+			_, _ = h.Write([]byte(toolUse.ToolID))
+			_, _ = h.Write([]byte(toolUse.Name))
+			_, _ = h.Write(toolUse.Input)
+		}
+
+		// Write tool result content
+		if toolResult, ok := message.Content.(*ToolResultContent); ok {
+			_, _ = h.Write([]byte(toolResult.ToolID))
+			_, _ = h.Write([]byte(toolResult.Result))
+		}
+
+		// Include message metadata
+		if metadataBytes, err := json.Marshal(message.Metadata); err == nil {
+			_, _ = h.Write(metadataBytes)
+		}
+	}
+	return h.Sum(nil)
 }

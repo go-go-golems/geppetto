@@ -1,12 +1,13 @@
 package claude
 
 import (
+	"testing"
+
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestContentBlockMerger(t *testing.T) {
@@ -47,7 +48,6 @@ func TestContentBlockMerger(t *testing.T) {
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "claude-2", metadata[ModelMetadataSlug])
-				assert.Equal(t, api.Usage{InputTokens: 10, OutputTokens: 20}, metadata[UsageMetadataSlug])
 				assert.Equal(t, "msg_123", metadata[MessageIdMetadataSlug])
 				assert.Equal(t, "assistant", metadata[RoleMetadataSlug])
 				assert.NotContains(t, metadata, StopReasonMetadataSlug)
@@ -72,7 +72,6 @@ func TestContentBlockMerger(t *testing.T) {
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "end_turn", metadata[StopReasonMetadataSlug])
-				assert.Equal(t, api.Usage{InputTokens: 15, OutputTokens: 25}, metadata[UsageMetadataSlug])
 			},
 		},
 		{

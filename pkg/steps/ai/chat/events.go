@@ -3,6 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/rs/zerolog"
@@ -264,13 +265,24 @@ const MetadataToolCallsSlug = "tool-calls"
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
-	ID       conversation.NodeID `json:"message_id"`
-	ParentID conversation.NodeID `json:"parent_id"`
+	conversation.LLMMessageMetadata
+	ID       conversation.NodeID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
+	ParentID conversation.NodeID `json:"parent_id" yaml:"parent_id" mapstructure:"parent_id"`
 }
 
 func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("message_id", em.ID.String())
 	e.Str("parent_id", em.ParentID.String())
+	if em.Engine != "" {
+		e.Str("engine", em.Engine)
+	}
+	if em.StopReason != "" {
+		e.Str("stop_reason", em.StopReason)
+	}
+	if em.Usage != nil {
+		e.Int("input_tokens", em.Usage.InputTokens)
+		e.Int("output_tokens", em.Usage.OutputTokens)
+	}
 }
 
 func NewEventFromJson(b []byte) (Event, error) {

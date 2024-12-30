@@ -2,9 +2,10 @@ package conversation
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"os"
 )
 
 type NodeID uuid.UUID
@@ -16,6 +17,19 @@ func (id NodeID) MarshalJSON() ([]byte, error) {
 func (id *NodeID) UnmarshalJSON(data []byte) error {
 	var uuid uuid.UUID
 	if err := json.Unmarshal(data, &uuid); err != nil {
+		return err
+	}
+	*id = NodeID(uuid)
+	return nil
+}
+
+func (id NodeID) MarshalYAML() (interface{}, error) {
+	return uuid.UUID(id), nil
+}
+
+func (id *NodeID) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var uuid uuid.UUID
+	if err := unmarshal(&uuid); err != nil {
 		return err
 	}
 	*id = NodeID(uuid)

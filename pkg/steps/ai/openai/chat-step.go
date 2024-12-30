@@ -2,6 +2,8 @@ package openai
 
 import (
 	"context"
+	"io"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -9,12 +11,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"io"
 )
 
-var _ steps.Step[conversation.Conversation, string] = &ChatStep{}
+var _ chat.Step = &ChatStep{}
 
 type ChatStep struct {
 	Settings         *settings.StepSettings
@@ -54,7 +56,7 @@ func NewStep(settings *settings.StepSettings, options ...StepOption) (*ChatStep,
 func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (steps.StepResult[string], error) {
+) (steps.StepResult[*conversation.Message], error) {
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
 	go func() {
@@ -63,7 +65,7 @@ func (csf *ChatStep) Start(
 	}()
 
 	if csf.Settings.Chat.ApiType == nil {
-		return steps.Reject[string](errors.New("no chat engine specified")), nil
+		return steps.Reject[*conversation.Message](errors.New("no chat engine specified")), nil
 	}
 
 	client, err := makeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
@@ -87,6 +89,21 @@ func (csf *ChatStep) Start(
 	metadata := chat.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
+		LLMMessageMetadata: conversation.LLMMessageMetadata{
+			Engine:      string(*csf.Settings.Chat.Engine),
+			Temperature: *csf.Settings.Chat.Temperature,
+			TopP:        *csf.Settings.Chat.TopP,
+			MaxTokens:   *csf.Settings.Chat.MaxResponseTokens,
+		},
+	}
+	if csf.Settings.Chat.Temperature != nil {
+		metadata.LLMMessageMetadata.Temperature = *csf.Settings.Chat.Temperature
+	}
+	if csf.Settings.Chat.TopP != nil {
+		metadata.LLMMessageMetadata.TopP = *csf.Settings.Chat.TopP
+	}
+	if csf.Settings.Chat.MaxResponseTokens != nil {
+		metadata.LLMMessageMetadata.MaxTokens = *csf.Settings.Chat.MaxResponseTokens
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
@@ -105,13 +122,13 @@ func (csf *ChatStep) Start(
 	if stream {
 		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
 		if err != nil {
-			return steps.Reject[string](err), nil
+			return steps.Reject[*conversation.Message](err), nil
 		}
-		c := make(chan helpers.Result[string])
-		ret := steps.NewStepResult[string](
+		c := make(chan helpers.Result[*conversation.Message])
+		ret := steps.NewStepResult[*conversation.Message](
 			c,
-			steps.WithCancel[string](cancel),
-			steps.WithMetadata[string](
+			steps.WithCancel[*conversation.Message](cancel),
+			steps.WithMetadata[*conversation.Message](
 				stepMetadata,
 			),
 		)
@@ -129,33 +146,80 @@ func (csf *ChatStep) Start(
 				select {
 				case <-cancellableCtx.Done():
 					csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
-					c <- helpers.NewErrorResult[string](cancellableCtx.Err())
+					c <- helpers.NewErrorResult[*conversation.Message](cancellableCtx.Err())
 					return
 
 				default:
 					response, err := stream.Recv()
 
 					if errors.Is(err, io.EOF) {
-						csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
-						c <- helpers.NewValueResult[string](message)
+						// Update both step metadata and event metadata with usage information
+						if openaiMetadata, ok := stepMetadata.Metadata["openai-metadata"].(map[string]interface{}); ok {
+							if usage, ok := openaiMetadata["usage"].(map[string]interface{}); ok {
+								inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
+								outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
+								metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+									InputTokens:  inputTokens,
+									OutputTokens: outputTokens,
+								}
+							}
+							if finishReason, ok := openaiMetadata["finish_reason"].(string); ok {
+								metadata.StopReason = finishReason
+							}
+						}
+						csf.publisherManager.PublishBlind(chat.NewFinalEvent(
+							metadata,
+							stepMetadata,
+							message,
+						))
+						messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+						c <- helpers.NewValueResult[*conversation.Message](conversation.NewMessage(
+							messageContent,
+							conversation.WithLLMMessageMetadata(&metadata.LLMMessageMetadata),
+						),
+						)
 
 						return
 					}
 					if err != nil {
 						if errors.Is(err, context.Canceled) {
-							csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
-							c <- helpers.NewErrorResult[string](err)
+							csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, message))
+							c <- helpers.NewErrorResult[*conversation.Message](err)
 							return
 						}
 
-						csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
-						c <- helpers.NewErrorResult[string](err)
+						csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+						c <- helpers.NewErrorResult[*conversation.Message](err)
 						return
 					}
+					delta := ""
+					if len(response.Choices) > 0 {
+						delta = response.Choices[0].Delta.Content
+						message += delta
+					}
 
-					message += response.Choices[0].Delta.Content
+					// Extract metadata from OpenAI chat response and update both step and event metadata
+					if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
+						stepMetadata.Metadata["openai-metadata"] = responseMetadata
+						if usage, ok := responseMetadata["usage"].(map[string]interface{}); ok {
+							inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
+							outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
+							metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+								InputTokens:  inputTokens,
+								OutputTokens: outputTokens,
+							}
+						}
+						if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
+							metadata.StopReason = finishReason
+						}
+					}
 
-					csf.publisherManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), response.Choices[0].Delta.Content, message))
+					csf.publisherManager.PublishBlind(
+						chat.NewPartialCompletionEvent(
+							metadata,
+							stepMetadata,
+							delta, message),
+					)
 				}
 			}
 		}()
@@ -165,15 +229,34 @@ func (csf *ChatStep) Start(
 		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
 		if errors.Is(err, context.Canceled) {
 			csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, ""))
-			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
+			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 		}
 
 		if err != nil {
 			csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-			return steps.Reject[string](err, steps.WithMetadata[string](stepMetadata)), nil
+			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
+		}
+
+		// Extract metadata from non-streaming response
+		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
+			metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+				InputTokens:  usage.PromptTokens,
+				OutputTokens: usage.CompletionTokens,
+			}
+			stepMetadata.Metadata["usage"] = map[string]interface{}{
+				"input_tokens":  usage.PromptTokens,
+				"output_tokens": usage.CompletionTokens,
+			}
+		}
+		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
+			metadata.StopReason = string(resp.Choices[0].FinishReason)
 		}
 
 		csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
-		return steps.Resolve(resp.Choices[0].Message.Content, steps.WithMetadata[string](stepMetadata)), nil
+		return steps.Resolve(conversation.NewMessage(
+			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
+			conversation.WithLLMMessageMetadata(&metadata.LLMMessageMetadata),
+		),
+			steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 	}
 }
