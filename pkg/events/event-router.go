@@ -106,6 +106,10 @@ func (e *EventRouter) DumpRawEvents(msg *message.Message) error {
 	return nil
 }
 
+func (e *EventRouter) Running() chan struct{} {
+	return e.router.Running()
+}
+
 func (e *EventRouter) Run(ctx context.Context) error {
 	return e.router.Run(ctx)
 }
