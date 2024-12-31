@@ -2,10 +2,11 @@ package chat
 
 import (
 	"fmt"
-	"github.com/ThreeDotsLabs/watermill/message"
-	"gopkg.in/yaml.v3"
 	"io"
 	"strings"
+
+	"github.com/ThreeDotsLabs/watermill/message"
+	"gopkg.in/yaml.v3"
 )
 
 func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error {

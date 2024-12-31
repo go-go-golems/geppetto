@@ -449,3 +449,11 @@ Added mapstructure tags to EventMetadata and Usage structs for better serializat
 - Added mapstructure tags to Usage fields
 - Maintained compatibility with existing JSON and YAML tags
 - Improved integration with libraries that use mapstructure for decoding
+
+# Refactor RunIntoWriter in pinocchio package
+
+Improved code organization and readability by breaking down the RunIntoWriter method into smaller, focused functions:
+- Split infrastructure setup into separate methods
+- Created dedicated methods for chat and non-chat modes
+- Improved error handling and resource cleanup
+- Added better separation of concerns with commandContext struct
