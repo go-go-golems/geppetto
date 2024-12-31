@@ -95,13 +95,16 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 		}
 		log.Debug().Msg("Publishing final event")
 		e.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, msgContent.Text))
-		c <- helpers.NewValueResult[*conversation.Message](msg)
+		c <- helpers.NewValueResult[*conversation.Message](conversation.NewChatMessage(conversation.RoleAssistant, msgContent.Text))
 		return nil
 	})
 	e.eg = eg
 
-	msg := conversation.NewChatMessageFromContent(conversation.NewChatMessageContent(conversation.RoleAssistant, "", nil), conversation.WithTime(time.Now()))
-	return steps.Resolve(msg, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
+	ret := steps.NewStepResult[*conversation.Message](
+		c,
+		steps.WithMetadata[*conversation.Message](stepMetadata),
+	)
+	return ret, nil
 }
 
 var _ Step = (*EchoStep)(nil)
