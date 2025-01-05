@@ -151,6 +151,7 @@ type Step[T any, U any] interface {
 	// Start gets called multiple times for the same Step, once per incoming value,
 	// since StepResult is also the list monad (ie., supports multiple values)
 	Start(ctx context.Context, input T) (StepResult[U], error)
+	// XXX this needs to be replaced as a step that creates a stream of PartialCompletionEvent etc...
 	AddPublishedTopic(publisher message.Publisher, topic string) error
 }
 
