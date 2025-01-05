@@ -31,12 +31,16 @@ func (s *APISettings) Clone() *APISettings {
 }
 
 type StepSettings struct {
-	API        *APISettings        `yaml:"api_keys,omitempty"`
-	Chat       *ChatSettings       `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
-	OpenAI     *openai.Settings    `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
-	Client     *ClientSettings     `yaml:"client,omitempty" glazed.layer:"ai-client"`
-	Claude     *claude.Settings    `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
-	Ollama     *ollama.Settings    `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
+	API    *APISettings     `yaml:"api_keys,omitempty"`
+	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
+	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
+	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
+	Claude *claude.Settings `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
+	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
+	// NOTE: Maybe we should separate the StepSettings struct into:
+	// - Provider settings (API, OpenAI, Claude, Ollama)
+	// - Chat settings (Chat, OpenAI, Claude, Ollama)
+	// - Embeddings settings (Embeddings)
 	Embeddings *EmbeddingsSettings `yaml:"embeddings,omitempty" glazed.layer:"embeddings"`
 }
 
