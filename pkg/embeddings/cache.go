@@ -21,6 +21,8 @@ type CachedProvider struct {
 	mu       sync.RWMutex
 }
 
+var _ Provider = &CachedProvider{}
+
 // NewCachedProvider creates a new cached wrapper around an embedding provider
 // maxSize determines how many embeddings to keep in cache (default 1000)
 func NewCachedProvider(provider Provider, maxSize int) *CachedProvider {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type ContentType string
@@ -348,14 +349,25 @@ func (messages Conversation) HashBytes() []byte {
 	for _, message := range messages {
 		// Write role and content for chat messages
 		if chatMsg, ok := message.Content.(*ChatMessageContent); ok {
+			log.Debug().
+				Str("role", string(chatMsg.Role)).
+				Str("text", chatMsg.Text).
+				Msg("hashing chat message")
 			_, _ = h.Write([]byte(string(chatMsg.Role)))
 			_, _ = h.Write([]byte(chatMsg.Text))
 			// Hash any images
 			for _, img := range chatMsg.Images {
 				if img.ImageContent != nil {
+					log.Debug().
+						Str("imageName", img.ImageName).
+						Int("contentLength", len(img.ImageContent)).
+						Msg("hashing image content")
 					_, _ = h.Write(img.ImageContent)
 				}
 				if img.ImageURL != "" {
+					log.Debug().
+						Str("imageURL", img.ImageURL).
+						Msg("hashing image URL")
 					_, _ = h.Write([]byte(img.ImageURL))
 				}
 			}
@@ -363,6 +375,11 @@ func (messages Conversation) HashBytes() []byte {
 
 		// Write tool use content
 		if toolUse, ok := message.Content.(*ToolUseContent); ok {
+			log.Debug().
+				Str("toolID", toolUse.ToolID).
+				Str("name", toolUse.Name).
+				RawJSON("input", toolUse.Input).
+				Msg("hashing tool use")
 			_, _ = h.Write([]byte(toolUse.ToolID))
 			_, _ = h.Write([]byte(toolUse.Name))
 			_, _ = h.Write(toolUse.Input)
@@ -370,14 +387,23 @@ func (messages Conversation) HashBytes() []byte {
 
 		// Write tool result content
 		if toolResult, ok := message.Content.(*ToolResultContent); ok {
+			log.Debug().
+				Str("toolID", toolResult.ToolID).
+				Str("result", toolResult.Result).
+				Msg("hashing tool result")
 			_, _ = h.Write([]byte(toolResult.ToolID))
 			_, _ = h.Write([]byte(toolResult.Result))
 		}
 
 		// Include message metadata
 		if metadataBytes, err := json.Marshal(message.Metadata); err == nil {
+			log.Debug().
+				RawJSON("metadata", metadataBytes).
+				Msg("hashing metadata")
 			_, _ = h.Write(metadataBytes)
 		}
 	}
-	return h.Sum(nil)
+	hash := h.Sum(nil)
+	log.Debug().Hex("hash", hash).Msg("conversation hash computed")
+	return hash
 }
