@@ -32,7 +32,9 @@ type Option func(*DiskCacheProvider)
 
 func WithDirectory(dir string) Option {
 	return func(p *DiskCacheProvider) {
-		p.directory = dir
+		if dir != "" {
+			p.directory = dir
+		}
 	}
 }
 
