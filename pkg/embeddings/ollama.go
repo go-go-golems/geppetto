@@ -24,6 +24,8 @@ type ollamaResponse struct {
 	Embedding []float32 `json:"embedding"`
 }
 
+var _ Provider = &OllamaProvider{}
+
 func NewOllamaProvider(baseURL string, model string, dimensions int) *OllamaProvider {
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"

@@ -12,6 +12,8 @@ type OpenAIProvider struct {
 	dimensions int
 }
 
+var _ Provider = &OpenAIProvider{}
+
 func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions int) *OpenAIProvider {
 	if model == "" {
 		model = openai.SmallEmbedding3
