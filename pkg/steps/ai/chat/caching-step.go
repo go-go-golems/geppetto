@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/rs/zerolog/log"
 )
 
 type CacheEntry struct {
@@ -79,12 +79,8 @@ func NewCachingStep(step Step, opts ...Option) (*CachingStep, error) {
 }
 
 func (c *CachingStep) getCacheFilePath(input conversation.Conversation) (string, error) {
-	data, err := json.Marshal(input)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal input: %w", err)
-	}
-	hash := sha256.Sum256(data)
-	return filepath.Join(c.directory, hex.EncodeToString(hash[:])), nil
+	hash := input.HashBytes()
+	return filepath.Join(c.directory, hex.EncodeToString(hash)), nil
 }
 
 func (c *CachingStep) writeEntry(input conversation.Conversation, messages []*conversation.Message) error {
@@ -99,13 +95,30 @@ func (c *CachingStep) writeEntry(input conversation.Conversation, messages []*co
 		return fmt.Errorf("failed to marshal entry: %w", err)
 	}
 
+	// Check size before writing
+	if int64(len(data)) > c.maxSize {
+		return fmt.Errorf("entry size %d exceeds maximum size %d", len(data), c.maxSize)
+	}
+
 	path, err := c.getCacheFilePath(input)
 	if err != nil {
 		return err
 	}
 
+	log.Debug().
+		Str("path", path).
+		Int("messageCount", len(messages)).
+		Int("dataSize", len(data)).
+		Time("created", entry.Created).
+		Msg("writing cache entry")
+
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write cache file: %w", err)
+	}
+
+	// Enforce size limits after writing
+	if err := c.enforceSize(); err != nil {
+		log.Error().Err(err).Msg("failed to enforce cache size limits")
 	}
 
 	return nil
@@ -117,9 +130,16 @@ func (c *CachingStep) readEntry(input conversation.Conversation) (*CacheEntry, e
 		return nil, err
 	}
 
+	log.Debug().
+		Str("path", path).
+		Msg("attempting to read cache entry")
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Debug().
+				Str("path", path).
+				Msg("cache miss - file does not exist")
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to read cache file: %w", err)
@@ -134,9 +154,19 @@ func (c *CachingStep) readEntry(input conversation.Conversation) (*CacheEntry, e
 	var entry CacheEntry
 	if err := json.Unmarshal(data, &entry); err != nil {
 		// Treat corrupted files as non-existent
+		log.Debug().
+			Str("path", path).
+			Err(err).
+			Msg("cache entry corrupted, removing file")
 		_ = os.Remove(path) // Best effort cleanup
 		return nil, nil
 	}
+
+	log.Debug().
+		Str("path", path).
+		Int("messageCount", len(entry.Messages)).
+		Time("created", entry.Created).
+		Msg("successfully read cache entry")
 
 	return &entry, nil
 }
@@ -226,10 +256,6 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 	defer c.mu.Unlock()
 
 	if err := c.writeEntry(input, messages); err != nil {
-		return nil, err
-	}
-
-	if err := c.enforceSize(); err != nil {
 		return nil, err
 	}
 
