@@ -3,9 +3,11 @@ package helpers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"reflect"
+
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 // Callable is a type representing any callable function
@@ -125,6 +127,123 @@ func GetFunctionParametersJsonSchema(reflector *jsonschema.Reflector, f Callable
 
 	// Use PrefixItems to define schemas for each parameter in the array
 	schema.PrefixItems = paramSchemas
+
+	return schema, nil
+}
+
+// SimplifiedJsonSchemaProperty represents a simplified property in the JSON Schema
+type SimplifiedJsonSchemaProperty struct {
+	Type        string                                   `json:"type"`
+	Description string                                   `json:"description,omitempty"`
+	Required    bool                                     `json:"-"`
+	Properties  map[string]*SimplifiedJsonSchemaProperty `json:"properties,omitempty"`
+	Items       *SimplifiedJsonSchemaProperty            `json:"items,omitempty"`
+}
+
+// SimplifiedJsonSchema represents a simplified root JSON Schema
+type SimplifiedJsonSchema struct {
+	Type        string                                   `json:"type"`
+	Description string                                   `json:"description,omitempty"`
+	Properties  map[string]*SimplifiedJsonSchemaProperty `json:"properties"`
+	Required    []string                                 `json:"required,omitempty"`
+}
+
+// getParameterName attempts to get the parameter name from debug information
+// Returns an empty string if the name cannot be determined
+func getParameterName(f Callable, index int) string {
+	t := reflect.TypeOf(f)
+	if t.Kind() != reflect.Func {
+		return ""
+	}
+	return t.In(index).Name()
+}
+
+// GetSimplifiedFunctionParametersJsonSchema generates a simplified JSON Schema for the arguments of the given function
+func GetSimplifiedFunctionParametersJsonSchema(reflector *jsonschema.Reflector, f Callable) (*SimplifiedJsonSchema, error) {
+	// Get the type of the function
+	funcVal := reflect.ValueOf(f)
+	funcType := funcVal.Type()
+
+	// Check if the function is indeed callable
+	if funcType.Kind() != reflect.Func {
+		return nil, errors.Errorf("provided callable is not a function")
+	}
+
+	// Create the root schema
+	schema := &SimplifiedJsonSchema{
+		Type:       "object",
+		Properties: make(map[string]*SimplifiedJsonSchemaProperty),
+		Required:   []string{},
+	}
+
+	// Handle the case of a single parameter
+	if funcType.NumIn() == 1 {
+		singleParamType := funcType.In(0)
+		fullSchema := reflector.Reflect(reflect.New(singleParamType).Elem().Interface())
+
+		// Convert the full schema to our simplified version
+		for i := fullSchema.Properties.Oldest(); i != nil; i = i.Next() {
+			name, prop := i.Key, i.Value
+			simplified := &SimplifiedJsonSchemaProperty{
+				Type:        string(prop.Type),
+				Description: prop.Description,
+			}
+
+			// Check if this property is required
+			for _, req := range fullSchema.Required {
+				if req == name {
+					schema.Required = append(schema.Required, name)
+					break
+				}
+			}
+
+			// Handle nested objects
+			if prop.Type == "object" && prop.Properties != nil {
+				simplified.Properties = make(map[string]*SimplifiedJsonSchemaProperty)
+				for i := prop.Properties.Oldest(); i != nil; i = i.Next() {
+					subName, subProp := i.Key, i.Value
+					simplified.Properties[subName] = &SimplifiedJsonSchemaProperty{
+						Type:        string(subProp.Type),
+						Description: subProp.Description,
+					}
+				}
+			}
+
+			// Handle arrays
+			if prop.Type == "array" && prop.Items != nil {
+				simplified.Items = &SimplifiedJsonSchemaProperty{
+					Type: string(prop.Items.Type),
+				}
+			}
+
+			schema.Properties[name] = simplified
+		}
+
+		return schema, nil
+	}
+
+	// For multiple parameters, create a property for each parameter
+	for i := 0; i < funcType.NumIn(); i++ {
+		paramType := funcType.In(i)
+		paramName := getParameterName(f, i)
+		if paramName == "" {
+			paramName = fmt.Sprintf("param%d", i)
+		}
+
+		fullSchema := reflector.Reflect(reflect.New(paramType).Elem().Interface())
+
+		simplified := &SimplifiedJsonSchemaProperty{
+			Type:        string(fullSchema.Type),
+			Description: fullSchema.Description,
+		}
+
+		// Check if this parameter is required
+		if len(fullSchema.Required) > 0 {
+			schema.Required = append(schema.Required, paramName)
+		}
+
+		schema.Properties[paramName] = simplified
+	}
 
 	return schema, nil
 }
