@@ -11,6 +11,8 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/huandu/go-clone"
 	"gopkg.in/yaml.v3"
+
+	"github.com/go-go-golems/geppetto/pkg/embeddings"
 )
 
 type factoryConfigFileWrapper struct {
@@ -384,4 +386,36 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 	}
 
 	return summary.String()
+}
+
+// CreateEmbeddingsConfig creates a minimal configuration for embeddings providers
+func (s *StepSettings) CreateEmbeddingsConfig() *embeddings.EmbeddingsConfig {
+	config := &embeddings.EmbeddingsConfig{
+		APIKeys:  make(map[string]string),
+		BaseURLs: make(map[string]string),
+	}
+
+	if s.Embeddings != nil {
+		if s.Embeddings.Type != nil {
+			config.Type = *s.Embeddings.Type
+		}
+		if s.Embeddings.Engine != nil {
+			config.Engine = *s.Embeddings.Engine
+		}
+		if s.Embeddings.Dimensions != nil {
+			config.Dimensions = *s.Embeddings.Dimensions
+		}
+	}
+
+	if s.API != nil {
+		// Copy relevant API keys and base URLs
+		for apiType, key := range s.API.APIKeys {
+			config.APIKeys[string(apiType)] = key
+		}
+		for apiType, url := range s.API.BaseUrls {
+			config.BaseURLs[string(apiType)] = url
+		}
+	}
+
+	return config
 }

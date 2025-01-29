@@ -2,55 +2,75 @@ package embeddings
 
 import (
 	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+
 	"github.com/sashabaranov/go-openai"
 )
 
-// SettingsFactory creates embedding providers based on chat settings
+// EmbeddingsConfig contains the minimal configuration needed for embeddings
+type EmbeddingsConfig struct {
+	// Type specifies the provider type (e.g. "openai", "ollama")
+	Type string
+	// Engine specifies the model to use (e.g. "text-embedding-ada-002" for OpenAI)
+	Engine string
+	// Dimensions specifies the embedding dimensions (defaults to 1536 for OpenAI)
+	Dimensions int `glazed.parameter:"dimensions"`
+	// APIKeys maps provider types to their API keys
+	APIKeys map[string]string
+	// BaseURLs maps provider types to their base URLs
+	BaseURLs map[string]string
+}
+
+// SettingsFactory creates embedding providers based on configuration
 type SettingsFactory struct {
-	stepSettings *settings.StepSettings
+	config *EmbeddingsConfig
 }
 
-// NewSettingsFactory creates a new factory that uses step settings
-func NewSettingsFactory(stepSettings *settings.StepSettings) *SettingsFactory {
+// NewSettingsFactory creates a new factory that uses the provided configuration
+func NewSettingsFactory(config *EmbeddingsConfig) *SettingsFactory {
 	return &SettingsFactory{
-		stepSettings: stepSettings,
+		config: config,
 	}
 }
 
-// NewProvider creates a new embedding provider based on the step settings
+// NewProvider creates a new embedding provider based on the configuration
 func (f *SettingsFactory) NewProvider() (Provider, error) {
-	if f.stepSettings == nil {
-		return nil, fmt.Errorf("no settings provided")
+	if f.config == nil {
+		return nil, fmt.Errorf("no configuration provided")
 	}
 
-	if f.stepSettings.Embeddings == nil || f.stepSettings.Embeddings.Type == nil {
-		return nil, fmt.Errorf("no embeddings type specified in settings")
+	if f.config.Type == "" {
+		return nil, fmt.Errorf("no embeddings type specified in configuration")
 	}
 
-	if f.stepSettings.Embeddings.Engine == nil {
-		return nil, fmt.Errorf("no embeddings model specified in settings")
+	if f.config.Engine == "" {
+		return nil, fmt.Errorf("no embeddings model specified in configuration")
 	}
 
-	dimensions := 1536 // Default for OpenAI
-	if f.stepSettings.Embeddings.Dimensions != nil {
-		dimensions = *f.stepSettings.Embeddings.Dimensions
+	dimensions := 0
+	if f.config.Dimensions != 0 {
+		dimensions = f.config.Dimensions
+	} else {
+		if f.config.Type == "openai" {
+			dimensions = 1536 // Default for OpenAI
+		} else {
+			return nil, fmt.Errorf("no dimensions specified for embeddings")
+		}
 	}
 
-	switch *f.stepSettings.Embeddings.Type {
+	switch f.config.Type {
 	case "ollama":
 		baseURL := "http://localhost:11434"
-		if urls := f.stepSettings.API.BaseUrls; urls != nil {
-			if url, ok := urls[settings.ApiTypeOllama+"-base-url"]; ok {
+		if f.config.BaseURLs != nil {
+			if url, ok := f.config.BaseURLs["ollama-base-url"]; ok {
 				baseURL = url
 			}
 		}
-		return NewOllamaProvider(baseURL, *f.stepSettings.Embeddings.Engine, dimensions), nil
+		return NewOllamaProvider(baseURL, f.config.Engine, dimensions), nil
 
 	case "openai":
 		apiKey := ""
-		if keys := f.stepSettings.API.APIKeys; keys != nil {
-			if key, ok := keys[settings.ApiTypeOpenAI+"-api-key"]; ok {
+		if f.config.APIKeys != nil {
+			if key, ok := f.config.APIKeys["openai-api-key"]; ok {
 				apiKey = key
 			}
 		}
@@ -58,14 +78,14 @@ func (f *SettingsFactory) NewProvider() (Provider, error) {
 			return nil, fmt.Errorf("no API key provided for OpenAI")
 		}
 
-		return NewOpenAIProvider(apiKey, openai.EmbeddingModel(*f.stepSettings.Embeddings.Engine), dimensions), nil
+		return NewOpenAIProvider(apiKey, openai.EmbeddingModel(f.config.Engine), dimensions), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", *f.stepSettings.Embeddings.Type)
+		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", f.config.Type)
 	}
 }
 
-// NewCachedProvider creates a new cached embedding provider based on the step settings
+// NewCachedProvider creates a new cached embedding provider based on the configuration
 // maxSize determines how many embeddings to keep in cache (default 1000)
 func (f *SettingsFactory) NewCachedProvider(maxSize int) (Provider, error) {
 	provider, err := f.NewProvider()
@@ -73,4 +93,10 @@ func (f *SettingsFactory) NewCachedProvider(maxSize int) (Provider, error) {
 		return nil, err
 	}
 	return NewCachedProvider(provider, maxSize), nil
+}
+
+// NewSettingsFactoryFromStepSettings creates a new factory from StepSettings for backwards compatibility
+func NewSettingsFactoryFromStepSettings(stepSettings interface{ CreateEmbeddingsConfig() *EmbeddingsConfig }) *SettingsFactory {
+	config := stepSettings.CreateEmbeddingsConfig()
+	return NewSettingsFactory(config)
 }
