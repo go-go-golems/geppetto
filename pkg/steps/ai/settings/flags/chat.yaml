@@ -1,38 +1,61 @@
 slug: ai-chat
-name: AI chat completion API flags, shared by OpenAI and Claude
-description: Settings for the AI chat completion API
+name: AI Chat settings
+description: Settings for AI chat operations
 flags:
   - name: ai-engine
     type: string
-    help: AI chat completion engine
-    default: "gpt-4o"
+    help: The model to use for chat
+    default: "gpt-4"
   - name: ai-api-type
     type: choice
     choices:
       - "openai"
+      - "anyscale"
+      - "fireworks"
       - "claude"
       - "ollama"
-      - "anyscale"
       - "mistral"
       - "perplexity"
-    help: AI chat completion API type
+      - "cohere"
+    help: The provider type to use for chat
     default: openai
-  - name: ai-temperature
-    type: float
-    help: AI chat completion temperature
-    default: 0.2
   - name: ai-max-response-tokens
     type: int
-    help: AI chat completion max response tokens
-  - name: ai-stream
-    type: bool
-    help: AI chat completion stream
-    default: true
-  - name: ai-stop
-    type: stringList
-    help: AI chat completion stop
-    default: []
+    help: Maximum number of tokens in the response
+    default: 1000
   - name: ai-top-p
     type: float
-    help: AI chat completion top p
-    default: 0.9
+    help: Top-p sampling value
+    default: 1.0
+  - name: ai-temperature
+    type: float
+    help: Temperature for response generation
+    default: 0.7
+  - name: ai-stop
+    type: stringList
+    help: Stop sequences for response generation
+    default: []
+  - name: ai-stream
+    type: bool
+    help: Whether to stream responses
+    default: false
+  - name: ai-cache-type
+    type: choice
+    choices:
+      - "none"
+      - "memory"
+      - "disk"
+    help: Type of caching to use for chat responses (none, memory, or disk)
+    default: none
+  - name: ai-cache-max-size
+    type: int64
+    help: Maximum size of cache in bytes (for disk cache)
+    default: 1073741824  # 1GB
+  - name: ai-cache-max-entries
+    type: int
+    help: Maximum number of entries in cache (for memory cache)
+    default: 1000
+  - name: ai-cache-directory
+    type: string
+    help: Directory to store cache files (for disk cache)
+    default: ""
