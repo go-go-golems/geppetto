@@ -36,7 +36,9 @@ type Option func(*CachingStep)
 
 func WithCacheDirectory(dir string) Option {
 	return func(p *CachingStep) {
-		p.directory = dir
+		if dir != "" {
+			p.directory = dir
+		}
 	}
 }
 
@@ -72,7 +74,7 @@ func NewCachingStep(step Step, opts ...Option) (*CachingStep, error) {
 	}
 
 	if err := os.MkdirAll(s.directory, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+		return nil, fmt.Errorf("failed to create cache directory %s: %w", s.directory, err)
 	}
 
 	return s, nil

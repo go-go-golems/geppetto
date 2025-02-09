@@ -33,3 +33,23 @@ flags:
     type: string
     help: The API key to use for Ollama embeddings
     default: ""
+  - name: embeddings-cache-type
+    type: choice
+    choices:
+      - "none"
+      - "memory"
+      - "disk"
+    help: Type of caching to use for embeddings (none, memory, or disk)
+    default: none
+  - name: embeddings-cache-max-size
+    type: int64
+    help: Maximum size of cache in bytes (for disk cache)
+    default: 1073741824  # 1GB
+  - name: embeddings-cache-max-entries
+    type: int
+    help: Maximum number of entries in cache (for memory cache)
+    default: 1000
+  - name: embeddings-cache-directory
+    type: string
+    help: Directory to store cache files (for disk cache)
+    default: ""
