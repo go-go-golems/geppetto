@@ -239,7 +239,7 @@ type Message struct {
 
 	Content            MessageContent         `json:"content"`
 	Metadata           map[string]interface{} `json:"metadata"` // Flexible metadata field
-	LLMMessageMetadata *LLMMessageMetadata    `json:"llm_message_metadata"`
+	LLMMessageMetadata *LLMMessageMetadata    `json:"llm_message_metadata,omitempty" yaml:"llm_message_metadata,omitempty" mapstructure:"llm_message_metadata,omitempty"`
 
 	// TODO(manuel, 2024-04-07) Add Parent and Sibling lists
 	// omit in json
@@ -340,6 +340,14 @@ func (messages Conversation) GetSinglePrompt() string {
 		}
 	}
 
+	return prompt
+}
+
+func (conversation Conversation) ToString() string {
+	prompt := ""
+	for _, message := range conversation {
+		prompt += message.Content.String() + "\n"
+	}
 	return prompt
 }
 

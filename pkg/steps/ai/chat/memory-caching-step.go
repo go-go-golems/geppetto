@@ -10,23 +10,26 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/google/uuid"
 )
 
 type MemoryCacheEntry struct {
-	Messages []*conversation.Message
-	Input    conversation.Conversation
-	Created  time.Time
-	element  *list.Element // for LRU tracking
+	Conversation conversation.Conversation
+	Input        conversation.Conversation
+	Created      time.Time
+	element      *list.Element // for LRU tracking
 }
 
 type MemoryCachingStep struct {
-	step    Step
-	cache   map[string]MemoryCacheEntry
-	lruList *list.List
-	maxSize int
-	mu      sync.RWMutex
+	step                Step
+	cache               map[string]MemoryCacheEntry
+	lruList             *list.List
+	maxSize             int
+	mu                  sync.RWMutex
+	subscriptionManager *events.PublisherManager
 }
 
 type MemoryOption func(*MemoryCachingStep)
@@ -37,14 +40,21 @@ func WithMemoryMaxSize(size int) MemoryOption {
 	}
 }
 
+func WithMemorySubscriptionManager(subscriptionManager *events.PublisherManager) MemoryOption {
+	return func(p *MemoryCachingStep) {
+		p.subscriptionManager = subscriptionManager
+	}
+}
+
 var _ steps.Step[conversation.Conversation, *conversation.Message] = &MemoryCachingStep{}
 
 func NewMemoryCachingStep(step Step, opts ...MemoryOption) (*MemoryCachingStep, error) {
 	s := &MemoryCachingStep{
-		step:    step,
-		cache:   make(map[string]MemoryCacheEntry),
-		lruList: list.New(),
-		maxSize: 1000, // reasonable default
+		step:                step,
+		cache:               make(map[string]MemoryCacheEntry),
+		lruList:             list.New(),
+		maxSize:             1000, // reasonable default
+		subscriptionManager: events.NewPublisherManager(),
 	}
 
 	for _, opt := range opts {
@@ -72,10 +82,10 @@ func (c *MemoryCachingStep) writeEntry(key string, input conversation.Conversati
 	// Add new entry
 	element := c.lruList.PushFront(key)
 	c.cache[key] = MemoryCacheEntry{
-		Messages: messages,
-		Input:    input,
-		Created:  time.Now(),
-		element:  element,
+		Conversation: messages,
+		Input:        input,
+		Created:      time.Now(),
+		element:      element,
 	}
 }
 
@@ -110,7 +120,29 @@ func (c *MemoryCachingStep) Start(ctx context.Context, input conversation.Conver
 		return nil, err
 	}
 	if entry != nil {
-		return createMemoryCachedStepResult(entry.Messages), nil
+		// Create metadata for cache hit
+		metadata := EventMetadata{
+			ID:       conversation.NewNodeID(),
+			ParentID: conversation.NullNode,
+		}
+		stepMetadata := &steps.StepMetadata{
+			StepID:     uuid.New(),
+			Type:       "cache-hit",
+			InputType:  "conversation.Conversation",
+			OutputType: "string",
+			Metadata: map[string]interface{}{
+				"cache_type": "memory",
+				"created":    entry.Created,
+			},
+		}
+
+		conversationString := entry.Conversation.ToString()
+
+		// Publish final event for cache hit
+		c.subscriptionManager.PublishBlind(NewStartEvent(metadata, stepMetadata))
+		c.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, conversationString, conversationString))
+		c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, conversationString))
+		return createMemoryCachedStepResult(entry.Conversation), nil
 	}
 
 	// Cache miss, call underlying step
@@ -133,11 +165,30 @@ func (c *MemoryCachingStep) Start(ctx context.Context, input conversation.Conver
 	c.writeEntry(key, input, messages)
 	c.mu.Unlock()
 
+	// Create metadata for cache write
+	metadata := EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: conversation.NullNode,
+	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "cache-write",
+		InputType:  "conversation.Conversation",
+		OutputType: "string",
+		Metadata: map[string]interface{}{
+			"cache_type": "memory",
+		},
+	}
+
+	// Publish final event for cache write
+	c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, ""))
+
 	return createMemoryCachedStepResult(messages), nil
 }
 
 func (c *MemoryCachingStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	return c.step.AddPublishedTopic(publisher, topic)
+	c.subscriptionManager.RegisterPublisher(topic, publisher)
+	return nil
 }
 
 func (c *MemoryCachingStep) ClearCache() {
