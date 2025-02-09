@@ -86,4 +86,13 @@ Updated the transcribe command with comprehensive options:
 - Added performance and error handling options
 - Added rate limiting controls
 - Improved error handling and logging
+
 - Added proper parameter validation 
+
+## Documentation for Embeddings Tag Function
+
+Added comprehensive documentation for the !Embeddings tag function, including:
+- Basic usage examples
+- Configuration options for OpenAI and Ollama providers
+- Default settings and environment variables
+- Error handling guidelines 
