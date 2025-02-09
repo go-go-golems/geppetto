@@ -48,7 +48,7 @@ flags:
     help: Type of caching to use for chat responses (none, memory, or disk)
     default: none
   - name: ai-cache-max-size
-    type: int64
+    type: int
     help: Maximum size of cache in bytes (for disk cache)
     default: 1073741824  # 1GB
   - name: ai-cache-max-entries

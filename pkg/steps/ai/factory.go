@@ -52,7 +52,6 @@ func (s *StandardStepFactory) NewStep(
 		}
 
 	} else {
-
 		switch {
 		case openai.IsOpenAiEngine(*settings_.Chat.Engine):
 			apiType := settings.ApiTypeOpenAI
@@ -71,10 +70,19 @@ func (s *StandardStepFactory) NewStep(
 		}
 	}
 
+	// Apply step options
 	for _, option := range options {
 		err := option(ret)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	// Wrap with caching if configured
+	if ret != nil && settings_.Chat != nil {
+		ret, err = settings_.Chat.WrapWithCache(ret)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to wrap step with cache")
 		}
 	}
 
