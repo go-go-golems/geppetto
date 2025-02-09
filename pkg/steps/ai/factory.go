@@ -84,6 +84,14 @@ func (s *StandardStepFactory) NewStep(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to wrap step with cache")
 		}
+
+		// Apply step options to the caching step too
+		for _, option := range options {
+			err := option(ret)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return ret, nil
