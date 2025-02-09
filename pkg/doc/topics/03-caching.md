@@ -125,6 +125,41 @@ if err != nil {
 result, err := cachedStep.Start(ctx, conversation)
 ```
 
+### Using with StandardStepFactory
+
+The recommended way to create chat steps is using the `StandardStepFactory`, which automatically handles caching based on settings:
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/steps/ai"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+)
+
+// Create settings with caching configuration
+stepSettings := &settings.StepSettings{
+    Chat: &settings.ChatSettings{
+        Engine:          &engine,
+        ApiType:         &apiType,
+        CacheType:       "memory",
+        CacheMaxEntries: 1000,
+    },
+}
+
+// Create factory
+factory := &ai.StandardStepFactory{
+    Settings: stepSettings,
+}
+
+// Create step (will automatically be wrapped with caching)
+step, err := factory.NewStep()
+if err != nil {
+    // Handle error
+}
+
+// Use step as normal
+result, err := step.Start(ctx, conversation)
+```
+
 ### Using with Glazed Commands
 
 When building Glazed commands that use caching, you can access the caching settings through the parsed layers:
