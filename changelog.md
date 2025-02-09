@@ -86,6 +86,7 @@ Updated the transcribe command with comprehensive options:
 - Added performance and error handling options
 - Added rate limiting controls
 - Improved error handling and logging
+
 - Added proper parameter validation 
 
 ## Documentation for Embeddings Tag Function
