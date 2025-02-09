@@ -13,23 +13,26 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
 type CacheEntry struct {
-	Messages []*conversation.Message   `json:"messages"`
-	Input    conversation.Conversation `json:"input"`
-	Created  time.Time                 `json:"created"`
+	Conversation conversation.Conversation `json:"messages"`
+	Input        conversation.Conversation `json:"input"`
+	Created      time.Time                 `json:"created"`
 }
 
 type CachingStep struct {
-	step       Step
-	directory  string
-	maxSize    int64
-	maxEntries int
-	mu         sync.RWMutex
+	step                Step
+	directory           string
+	maxSize             int64
+	maxEntries          int
+	mu                  sync.RWMutex
+	subscriptionManager *events.PublisherManager
 }
 
 type Option func(*CachingStep)
@@ -54,6 +57,12 @@ func WithMaxEntries(count int) Option {
 	}
 }
 
+func WithSubscriptionManager(subscriptionManager *events.PublisherManager) Option {
+	return func(p *CachingStep) {
+		p.subscriptionManager = subscriptionManager
+	}
+}
+
 var _ steps.Step[conversation.Conversation, *conversation.Message] = &CachingStep{}
 
 func NewCachingStep(step Step, opts ...Option) (*CachingStep, error) {
@@ -63,10 +72,11 @@ func NewCachingStep(step Step, opts ...Option) (*CachingStep, error) {
 	}
 
 	s := &CachingStep{
-		step:       step,
-		directory:  filepath.Join(homeDir, ".geppetto", "cache", "chat"),
-		maxSize:    1 << 30, // 1GB default
-		maxEntries: 10000,   // 10k entries default
+		step:                step,
+		directory:           filepath.Join(homeDir, ".geppetto", "cache", "chat"),
+		maxSize:             1 << 30, // 1GB default
+		maxEntries:          10000,   // 10k entries default
+		subscriptionManager: events.NewPublisherManager(),
 	}
 
 	for _, opt := range opts {
@@ -87,9 +97,9 @@ func (c *CachingStep) getCacheFilePath(input conversation.Conversation) (string,
 
 func (c *CachingStep) writeEntry(input conversation.Conversation, messages []*conversation.Message) error {
 	entry := &CacheEntry{
-		Messages: messages,
-		Input:    input,
-		Created:  time.Now(),
+		Conversation: messages,
+		Input:        input,
+		Created:      time.Now(),
 	}
 
 	data, err := json.Marshal(entry)
@@ -166,7 +176,7 @@ func (c *CachingStep) readEntry(input conversation.Conversation) (*CacheEntry, e
 
 	log.Debug().
 		Str("path", path).
-		Int("messageCount", len(entry.Messages)).
+		Int("messageCount", len(entry.Conversation)).
 		Time("created", entry.Created).
 		Msg("successfully read cache entry")
 
@@ -235,7 +245,29 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 		return nil, err
 	}
 	if entry != nil {
-		return createCachedStepResult(entry.Messages), nil
+		// Create metadata for cache hit
+		metadata := EventMetadata{
+			ID:       conversation.NewNodeID(),
+			ParentID: conversation.NullNode,
+		}
+		stepMetadata := &steps.StepMetadata{
+			StepID:     uuid.New(),
+			Type:       "cache-hit",
+			InputType:  "conversation.Conversation",
+			OutputType: "string",
+			Metadata: map[string]interface{}{
+				"cache_type": "disk",
+				"created":    entry.Created,
+			},
+		}
+
+		conversationString := entry.Conversation.ToString()
+
+		// Publish final event for cache hit
+		c.subscriptionManager.PublishBlind(NewStartEvent(metadata, stepMetadata))
+		c.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, conversationString, conversationString))
+		c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, conversationString))
+		return createCachedStepResult(entry.Conversation), nil
 	}
 
 	// Cache miss, call underlying step
@@ -261,9 +293,28 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 		return nil, err
 	}
 
+	// Create metadata for cache write
+	metadata := EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: conversation.NullNode,
+	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "cache-write",
+		InputType:  "conversation.Conversation",
+		OutputType: "string",
+		Metadata: map[string]interface{}{
+			"cache_type": "disk",
+		},
+	}
+
+	// Publish final event for cache write
+	c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, ""))
+
 	return createCachedStepResult(messages), nil
 }
 
 func (c *CachingStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	return c.step.AddPublishedTopic(publisher, topic)
+	c.subscriptionManager.RegisterPublisher(topic, publisher)
+	return nil
 }
