@@ -9,7 +9,8 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dop251/goja v0.0.0-20241024094426-79f3a7efcdbd
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
-	github.com/go-go-golems/glazed v0.5.24
+	github.com/go-go-golems/glazed v0.5.26
+	github.com/go-go-golems/go-emrichen v0.0.4
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.12.0
 	github.com/pkg/errors v0.9.1
@@ -29,7 +30,6 @@ require (
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/charmbracelet/glamour v0.7.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
@@ -41,6 +41,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/sys v0.28.0 // indirect
+	k8s.io/client-go v0.29.1 // indirect
 )
 
 require (
