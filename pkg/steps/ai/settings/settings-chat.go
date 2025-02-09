@@ -2,6 +2,9 @@ package settings
 
 import (
 	_ "embed"
+	"fmt"
+
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/huandu/go-clone"
 )
@@ -30,6 +33,12 @@ type ChatSettings struct {
 	Stop              []string          `yaml:"stop,omitempty" glazed.parameter:"ai-stop"`
 	Stream            bool              `yaml:"stream,omitempty" glazed.parameter:"ai-stream"`
 	APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+
+	// Caching settings
+	CacheType       string `yaml:"cache_type,omitempty" glazed.parameter:"ai-cache-type"`
+	CacheMaxSize    int64  `yaml:"cache_max_size,omitempty" glazed.parameter:"ai-cache-max-size"`
+	CacheMaxEntries int    `yaml:"cache_max_entries,omitempty" glazed.parameter:"ai-cache-max-entries"`
+	CacheDirectory  string `yaml:"cache_directory,omitempty" glazed.parameter:"ai-cache-directory"`
 }
 
 func NewChatSettings() (*ChatSettings, error) {
@@ -78,4 +87,22 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 	return &ChatParameterLayer{
 		ParameterLayerImpl: ret,
 	}, nil
+}
+
+// WrapWithCache wraps a chat step with caching if enabled
+func (s *ChatSettings) WrapWithCache(step chat.Step) (chat.Step, error) {
+	switch s.CacheType {
+	case "none":
+		return step, nil
+	case "memory":
+		return chat.NewMemoryCachingStep(step,
+			chat.WithMemoryMaxSize(s.CacheMaxEntries))
+	case "disk":
+		return chat.NewCachingStep(step,
+			chat.WithMaxSize(s.CacheMaxSize),
+			chat.WithMaxEntries(s.CacheMaxEntries),
+			chat.WithCacheDirectory(s.CacheDirectory))
+	default:
+		return nil, fmt.Errorf("unsupported cache type for chat: %s", s.CacheType)
+	}
 }
