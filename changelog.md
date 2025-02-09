@@ -104,3 +104,12 @@ Added configurable caching support for embeddings with both memory and disk-base
 - Implemented memory and disk caching options for embeddings
 - Cache is disabled by default (using "none" type)
 - Configurable cache size and entry limits 
+
+## Unified Caching Configuration
+
+Standardized caching configuration across embeddings and chat:
+
+- Added consistent caching options (none/memory/disk) for both embeddings and chat
+- Simplified configuration by using cache type to control enabling/disabling
+- Added shared configuration parameters for cache size and entries
+- Cache is disabled by default (using "none" type) 
