@@ -236,10 +236,17 @@ func extractImportantMetadata(e Event) map[string]interface{} {
 			"type": stepMetadata.Type,
 		}
 
-		if metadata.Usage.InputTokens != 0 || metadata.Usage.OutputTokens != 0 {
+		if metadata.Usage != nil {
+			if metadata.Usage.InputTokens != 0 || metadata.Usage.OutputTokens != 0 {
+				result["tokens"] = map[string]interface{}{
+					"in":  metadata.Usage.InputTokens,
+					"out": metadata.Usage.OutputTokens,
+				}
+			}
+		} else {
 			result["tokens"] = map[string]interface{}{
-				"in":  metadata.Usage.InputTokens,
-				"out": metadata.Usage.OutputTokens,
+				"in":  0,
+				"out": 0,
 			}
 		}
 
