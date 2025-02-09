@@ -74,6 +74,12 @@ type EmbeddingsConfig struct {
 	APIKeys map[settings.ApiType]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
 	// BaseURLs maps provider types to their base URLs
 	BaseURLs map[settings.ApiType]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
+
+	// Caching settings
+	CacheType       string `glazed.parameter:"embeddings-cache-type"`
+	CacheMaxSize    int64  `glazed.parameter:"embeddings-cache-max-size"`
+	CacheMaxEntries int    `glazed.parameter:"embeddings-cache-max-entries"`
+	CacheDirectory  string `glazed.parameter:"embeddings-cache-directory"`
 }
 
 func NewEmbeddingsConfig() (*EmbeddingsConfig, error) {
@@ -158,6 +164,8 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 		}
 	}
 
+	var provider Provider
+
 	switch options.providerType {
 	case "ollama":
 		baseURL := "http://localhost:11434"
@@ -168,7 +176,7 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 				baseURL = url
 			}
 		}
-		return NewOllamaProvider(baseURL, options.engine, options.dimensions), nil
+		provider = NewOllamaProvider(baseURL, options.engine, options.dimensions)
 
 	case "openai":
 		apiKey := options.apiKey
@@ -181,10 +189,25 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 			return nil, fmt.Errorf("no API key provided for OpenAI")
 		}
 
-		return NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions), nil
+		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions)
 
 	default:
 		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", options.providerType)
+	}
+
+	// Wrap with caching if enabled
+	switch f.config.CacheType {
+	case "none":
+		return provider, nil
+	case "memory":
+		return NewCachedProvider(provider, f.config.CacheMaxEntries), nil
+	case "disk":
+		return NewDiskCacheProvider(provider,
+			WithDirectory(f.config.CacheDirectory),
+			WithMaxSize(f.config.CacheMaxSize),
+			WithMaxEntries(f.config.CacheMaxEntries))
+	default:
+		return nil, fmt.Errorf("unsupported cache type for embeddings: %s", f.config.CacheType)
 	}
 }
 

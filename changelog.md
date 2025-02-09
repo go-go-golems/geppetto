@@ -95,3 +95,12 @@ Added comprehensive documentation for the !Embeddings tag function, including:
 - Configuration options for OpenAI and Ollama providers
 - Default settings and environment variables
 - Error handling guidelines 
+
+## Embeddings Caching Support
+
+Added configurable caching support for embeddings with both memory and disk-based options.
+
+- Added caching configuration to embeddings settings with none/memory/disk options
+- Implemented memory and disk caching options for embeddings
+- Cache is disabled by default (using "none" type)
+- Configurable cache size and entry limits 
