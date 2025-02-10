@@ -90,18 +90,22 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 }
 
 // WrapWithCache wraps a chat step with caching if enabled
-func (s *ChatSettings) WrapWithCache(step chat.Step) (chat.Step, error) {
+func (s *ChatSettings) WrapWithCache(step chat.Step, options ...chat.StepOption) (chat.Step, error) {
 	switch s.CacheType {
 	case "none":
 		return step, nil
 	case "memory":
 		return chat.NewMemoryCachingStep(step,
-			chat.WithMemoryMaxSize(s.CacheMaxEntries))
+			chat.WithMemoryMaxSize(s.CacheMaxEntries),
+			chat.WithMemoryStepOptions(options...),
+		)
 	case "disk":
 		return chat.NewCachingStep(step,
 			chat.WithMaxSize(s.CacheMaxSize),
 			chat.WithMaxEntries(s.CacheMaxEntries),
-			chat.WithCacheDirectory(s.CacheDirectory))
+			chat.WithCacheDirectory(s.CacheDirectory),
+			chat.WithStepOptions(options...),
+		)
 	default:
 		return nil, fmt.Errorf("unsupported cache type for chat: %s", s.CacheType)
 	}
