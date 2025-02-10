@@ -35,31 +35,47 @@ type CachingStep struct {
 	subscriptionManager *events.PublisherManager
 }
 
-type Option func(*CachingStep)
+type Option func(*CachingStep) error
 
 func WithCacheDirectory(dir string) Option {
-	return func(p *CachingStep) {
+	return func(p *CachingStep) error {
 		if dir != "" {
 			p.directory = dir
 		}
+		return nil
 	}
 }
 
 func WithMaxSize(size int64) Option {
-	return func(p *CachingStep) {
+	return func(p *CachingStep) error {
 		p.maxSize = size
+		return nil
 	}
 }
 
 func WithMaxEntries(count int) Option {
-	return func(p *CachingStep) {
+	return func(p *CachingStep) error {
 		p.maxEntries = count
+		return nil
 	}
 }
 
 func WithSubscriptionManager(subscriptionManager *events.PublisherManager) Option {
-	return func(p *CachingStep) {
+	return func(p *CachingStep) error {
 		p.subscriptionManager = subscriptionManager
+		return nil
+	}
+}
+
+func WithStepOptions(options ...StepOption) Option {
+	return func(p *CachingStep) error {
+		for _, option := range options {
+			err := option(p.step)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 }
 
@@ -80,7 +96,10 @@ func NewCachingStep(step Step, opts ...Option) (*CachingStep, error) {
 	}
 
 	for _, opt := range opts {
-		opt(s)
+		err := opt(s)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := os.MkdirAll(s.directory, 0755); err != nil {
