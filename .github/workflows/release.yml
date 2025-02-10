@@ -1,6 +1,7 @@
-#on:
+name: release  # Adding name for clarity
+on: 
+  workflow_dispatch:  # Allow manual triggers only
 #  push:
-    # run only against tags
 #    tags:
 #      - '*'
 
