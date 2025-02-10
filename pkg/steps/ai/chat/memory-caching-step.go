@@ -32,17 +32,32 @@ type MemoryCachingStep struct {
 	subscriptionManager *events.PublisherManager
 }
 
-type MemoryOption func(*MemoryCachingStep)
+type MemoryOption func(*MemoryCachingStep) error
 
 func WithMemoryMaxSize(size int) MemoryOption {
-	return func(p *MemoryCachingStep) {
+	return func(p *MemoryCachingStep) error {
 		p.maxSize = size
+		return nil
 	}
 }
 
 func WithMemorySubscriptionManager(subscriptionManager *events.PublisherManager) MemoryOption {
-	return func(p *MemoryCachingStep) {
+	return func(p *MemoryCachingStep) error {
 		p.subscriptionManager = subscriptionManager
+		return nil
+	}
+}
+
+func WithMemoryStepOptions(options ...StepOption) MemoryOption {
+	return func(p *MemoryCachingStep) error {
+		// Apply step options to the caching step too
+		for _, option := range options {
+			err := option(p.step)
+			if err != nil {
+				panic(err)
+			}
+		}
+		return nil
 	}
 }
 
@@ -58,7 +73,10 @@ func NewMemoryCachingStep(step Step, opts ...MemoryOption) (*MemoryCachingStep, 
 	}
 
 	for _, opt := range opts {
-		opt(s)
+		err := opt(s)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return s, nil

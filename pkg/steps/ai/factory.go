@@ -80,18 +80,11 @@ func (s *StandardStepFactory) NewStep(
 
 	// Wrap with caching if configured
 	if ret != nil && settings_.Chat != nil {
-		ret, err = settings_.Chat.WrapWithCache(ret)
+		ret, err = settings_.Chat.WrapWithCache(ret, options...)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to wrap step with cache")
 		}
 
-		// Apply step options to the caching step too
-		for _, option := range options {
-			err := option(ret)
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	return ret, nil
