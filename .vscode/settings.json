@@ -1,6 +1,7 @@
 {
     "go.lintTool": "golangci-lint",
     "go.lintFlags": ["--fast"],
+    "go.lintOnSave": "package",
     "[go]": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "golang.go",
