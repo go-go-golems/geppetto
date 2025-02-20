@@ -9,8 +9,8 @@ import (
 
 	_ "embed"
 
+	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/go-emrichen/pkg/emrichen"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
@@ -62,67 +62,13 @@ func WithDimensions(d int) ProviderOption {
 	}
 }
 
-// EmbeddingsConfig contains the minimal configuration needed for embeddings
-type EmbeddingsConfig struct {
-	// Type specifies the provider type (e.g. "openai", "ollama")
-	Type string `glazed.parameter:"embeddings-type"`
-	// Engine specifies the model to use (e.g. "text-embedding-ada-002" for OpenAI)
-	Engine string `glazed.parameter:"embeddings-engine"`
-	// Dimensions specifies the embedding dimensions (defaults to 1536 for OpenAI)
-	Dimensions int `glazed.parameter:"embeddings-dimensions"`
-	// APIKeys maps provider types to their API keys
-	APIKeys map[settings.ApiType]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
-	// BaseURLs maps provider types to their base URLs
-	BaseURLs map[settings.ApiType]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
-
-	// Caching settings
-	CacheType       string `glazed.parameter:"embeddings-cache-type"`
-	CacheMaxSize    int64  `glazed.parameter:"embeddings-cache-max-size"`
-	CacheMaxEntries int    `glazed.parameter:"embeddings-cache-max-entries"`
-	CacheDirectory  string `glazed.parameter:"embeddings-cache-directory"`
-}
-
-func NewEmbeddingsConfig() (*EmbeddingsConfig, error) {
-	s := &EmbeddingsConfig{
-		APIKeys:  make(map[settings.ApiType]string),
-		BaseURLs: make(map[settings.ApiType]string),
-	}
-
-	p, err := NewEmbeddingsFlagsLayer()
-	if err != nil {
-		return nil, err
-	}
-	err = p.InitializeStructFromParameterDefaults(s)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-//go:embed "flags/embeddings.yaml"
-var embeddingsFlagsYAML []byte
-
-type EmbeddingsFlagsLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
-}
-
-const EmbeddingsSlug = "embeddings"
-
-func NewEmbeddingsFlagsLayer(options ...layers.ParameterLayerOptions) (*EmbeddingsFlagsLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(embeddingsFlagsYAML, options...)
-	if err != nil {
-		return nil, err
-	}
-	return &EmbeddingsFlagsLayer{ParameterLayerImpl: ret}, nil
-}
-
 // SettingsFactory creates embedding providers based on configuration
 type SettingsFactory struct {
-	config *EmbeddingsConfig
+	config *config.EmbeddingsConfig
 }
 
 // NewSettingsFactory creates a new factory that uses the provided configuration
-func NewSettingsFactory(config *EmbeddingsConfig) *SettingsFactory {
+func NewSettingsFactory(config *config.EmbeddingsConfig) *SettingsFactory {
 	return &SettingsFactory{
 		config: config,
 	}
@@ -223,20 +169,20 @@ func (f *SettingsFactory) NewCachedProvider(maxSize int) (Provider, error) {
 
 // NewSettingsFactoryFromStepSettings creates a new factory from StepSettings for backwards compatibility
 func NewSettingsFactoryFromStepSettings(s *settings.StepSettings) *SettingsFactory {
-	config := &EmbeddingsConfig{
-		APIKeys:  make(map[settings.ApiType]string),
-		BaseURLs: make(map[settings.ApiType]string),
+	config := &config.EmbeddingsConfig{
+		APIKeys:  make(map[string]string),
+		BaseURLs: make(map[string]string),
 	}
 
 	if s.Embeddings != nil {
-		if s.Embeddings.Type != nil {
-			config.Type = *s.Embeddings.Type
+		if s.Embeddings.Type != "" {
+			config.Type = s.Embeddings.Type
 		}
-		if s.Embeddings.Engine != nil {
-			config.Engine = *s.Embeddings.Engine
+		if s.Embeddings.Engine != "" {
+			config.Engine = s.Embeddings.Engine
 		}
-		if s.Embeddings.Dimensions != nil {
-			config.Dimensions = *s.Embeddings.Dimensions
+		if s.Embeddings.Dimensions != 0 {
+			config.Dimensions = s.Embeddings.Dimensions
 		}
 	}
 

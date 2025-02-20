@@ -17,22 +17,6 @@ flags:
     type: int
     help: The output dimension of the embeddings (384 for Ollama all-minilm, 1536 for OpenAI text-embedding-3-small)
     default: 1536 
-  - name: openai-api-key
-    type: string
-    help: The API key to use for OpenAI embeddings
-    default: ""
-  - name: openai-base-url
-    type: string
-    help: The base URL to use for OpenAI embeddings
-    default: "https://api.openai.com/v1"
-  - name: ollama-base-url
-    type: string
-    help: The base URL to use for Ollama embeddings
-    default: "http://localhost:11434"
-  - name: ollama-api-key
-    type: string
-    help: The API key to use for Ollama embeddings
-    default: ""
   - name: embeddings-cache-type
     type: choice
     choices:

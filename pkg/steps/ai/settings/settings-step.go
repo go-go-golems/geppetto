@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -18,14 +19,14 @@ type factoryConfigFileWrapper struct {
 }
 
 type APISettings struct {
-	APIKeys  map[ApiType]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
-	BaseUrls map[ApiType]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
+	APIKeys  map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+	BaseUrls map[string]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
 }
 
 func NewAPISettings() *APISettings {
 	return &APISettings{
-		APIKeys:  map[ApiType]string{},
-		BaseUrls: map[ApiType]string{},
+		APIKeys:  map[string]string{},
+		BaseUrls: map[string]string{},
 	}
 }
 
@@ -44,7 +45,7 @@ type StepSettings struct {
 	// - Provider settings (API, OpenAI, Claude, Ollama)
 	// - Chat settings (Chat, OpenAI, Claude, Ollama)
 	// - Embeddings settings (Embeddings)
-	Embeddings *EmbeddingsSettings `yaml:"embeddings,omitempty" glazed.layer:"embeddings"`
+	Embeddings *config.EmbeddingsConfig `yaml:"embeddings,omitempty" glazed.layer:"embeddings"`
 }
 
 func NewStepSettings() (*StepSettings, error) {
@@ -64,7 +65,7 @@ func NewStepSettings() (*StepSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	embeddingsSettings, err := NewEmbeddingsSettings()
+	embeddingsSettings, err := config.NewEmbeddingsConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +107,7 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if ss.Chat.ApiType != nil {
 			metadata["ai-api-type"] = *ss.Chat.ApiType
 
-			baseUrl, ok := ss.API.BaseUrls[*ss.Chat.ApiType]
+			baseUrl, ok := ss.API.BaseUrls[string(*ss.Chat.ApiType)]
 			if ok {
 				metadata["ai-base-url"] = baseUrl
 			}
@@ -185,14 +186,14 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 	}
 
 	if ss.Embeddings != nil {
-		if ss.Embeddings.Engine != nil {
-			metadata["embeddings-engine"] = *ss.Embeddings.Engine
+		if ss.Embeddings.Engine != "" {
+			metadata["embeddings-engine"] = ss.Embeddings.Engine
 		}
-		if ss.Embeddings.Type != nil {
-			metadata["embeddings-type"] = *ss.Embeddings.Type
+		if ss.Embeddings.Type != "" {
+			metadata["embeddings-type"] = ss.Embeddings.Type
 		}
-		if ss.Embeddings.Dimensions != nil {
-			metadata["embeddings-dimensions"] = *ss.Embeddings.Dimensions
+		if ss.Embeddings.Dimensions != 0 {
+			metadata["embeddings-dimensions"] = ss.Embeddings.Dimensions
 		}
 	}
 
@@ -232,7 +233,7 @@ func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(EmbeddingsSlug, ss.Embeddings)
+	err = parsedLayers.InitializeStruct(config.EmbeddingsSlug, ss.Embeddings)
 	if err != nil {
 		return err
 	}
@@ -240,7 +241,7 @@ func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers
 	apiSlugs := []string{
 		openai.OpenAiChatSlug,
 		claude.ClaudeChatSlug,
-		EmbeddingsSlug,
+		config.EmbeddingsSlug,
 	}
 	for _, slug := range apiSlugs {
 		err = parsedLayers.InitializeStruct(slug, ss.API)
@@ -372,14 +373,14 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 	// Embeddings Settings
 	if ss.Embeddings != nil {
 		summary.WriteString("\nEmbeddings Settings:\n")
-		if ss.Embeddings.Engine != nil {
-			summary.WriteString(fmt.Sprintf("  - Engine: %s\n", *ss.Embeddings.Engine))
+		if ss.Embeddings.Engine != "" {
+			summary.WriteString(fmt.Sprintf("  - Engine: %s\n", ss.Embeddings.Engine))
 		}
-		if ss.Embeddings.Type != nil {
-			summary.WriteString(fmt.Sprintf("  - Type: %s\n", *ss.Embeddings.Type))
+		if ss.Embeddings.Type != "" {
+			summary.WriteString(fmt.Sprintf("  - Type: %s\n", ss.Embeddings.Type))
 		}
-		if ss.Embeddings.Dimensions != nil {
-			summary.WriteString(fmt.Sprintf("  - Dimensions: %d\n", *ss.Embeddings.Dimensions))
+		if ss.Embeddings.Dimensions != 0 {
+			summary.WriteString(fmt.Sprintf("  - Dimensions: %d\n", ss.Embeddings.Dimensions))
 		}
 	}
 
