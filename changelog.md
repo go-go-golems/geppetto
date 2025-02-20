@@ -114,3 +114,12 @@ Standardized caching configuration across embeddings and chat:
 - Simplified configuration by using cache type to control enabling/disabling
 - Added shared configuration parameters for cache size and entries
 - Cache is disabled by default (using "none" type) 
+
+## Preserve pointer types in reflect package
+
+Changed the behavior of StripInterface and related functions to preserve pointer types while stripping interfaces. This allows for more accurate type handling when dealing with pointer types that contain interfaces.
+
+- Updated `StripInterface` to preserve pointer types while stripping interfaces
+- Updated `StripInterfaceFromValue` to maintain pointer structure
+- Added comprehensive test cases for pointer type handling
+- Fixed behavior for nested pointers and interfaces 

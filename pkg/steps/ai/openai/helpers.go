@@ -3,13 +3,15 @@ package openai
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
+
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
-	"strings"
 )
 
 func GetToolCallString(toolCalls []go_openai.ToolCall) string {
@@ -154,12 +156,12 @@ func makeCompletionRequest(
 	return &req, nil
 }
 
-func makeClient(apiSettings *settings.APISettings, apiType settings.ApiType) (*go_openai.Client, error) {
-	apiKey, ok := apiSettings.APIKeys[apiType+"-api-key"]
+func makeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*go_openai.Client, error) {
+	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
 	if !ok {
 		return nil, errors.Errorf("no API key for %s", apiType)
 	}
-	baseURL, ok := apiSettings.BaseUrls[apiType+"-base-url"]
+	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
 	if !ok {
 		return nil, errors.Errorf("no base URL for %s", apiType)
 	}

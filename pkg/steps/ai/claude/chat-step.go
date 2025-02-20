@@ -97,11 +97,11 @@ func (csf *ChatStep) Start(
 	apiType := *apiType_
 	apiSettings := csf.Settings.API
 
-	apiKey, ok := apiSettings.APIKeys[apiType+"-api-key"]
+	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
 	if !ok {
 		return nil, errors.Errorf("no API key for %s", apiType)
 	}
-	baseURL, ok := apiSettings.BaseUrls[apiType+"-base-url"]
+	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
 	if !ok {
 		return nil, errors.Errorf("no base URL for %s", apiType)
 	}
