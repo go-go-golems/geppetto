@@ -29,6 +29,7 @@ flags:
   - name: ollama-num-thread
     description: Sets the number of threads to use during computation.
     type: int
+    default: 1
   - name: ollama-repeat-last-n
     description: Sets how far back for the model to look back to prevent repetition.
     default: 64

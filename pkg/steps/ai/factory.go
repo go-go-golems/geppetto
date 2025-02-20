@@ -6,6 +6,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
 )
 
@@ -26,35 +27,35 @@ func (s *StandardStepFactory) NewStep(
 	var err error
 	if settings_.Chat.ApiType != nil {
 		switch *settings_.Chat.ApiType {
-		case settings.ApiTypeOpenAI, settings.ApiTypeAnyScale, settings.ApiTypeFireworks:
+		case ai_types.ApiTypeOpenAI, ai_types.ApiTypeAnyScale, ai_types.ApiTypeFireworks:
 			ret, err = openai.NewStep(settings_)
 			if err != nil {
 				return nil, err
 			}
 
-		case settings.ApiTypeClaude:
+		case ai_types.ApiTypeClaude:
 			ret, err = claude.NewChatStep(settings_, []api.Tool{})
 			if err != nil {
 				return nil, err
 			}
 
-		case settings.ApiTypeOllama:
+		case ai_types.ApiTypeOllama:
 			return nil, errors.New("ollama is not supported")
 
-		case settings.ApiTypeMistral:
+		case ai_types.ApiTypeMistral:
 			return nil, errors.New("mistral is not supported")
 
-		case settings.ApiTypePerplexity:
+		case ai_types.ApiTypePerplexity:
 			return nil, errors.New("perplexity is not supported")
 
-		case settings.ApiTypeCohere:
+		case ai_types.ApiTypeCohere:
 			return nil, errors.New("cohere is not supported")
 		}
 
 	} else {
 		switch {
 		case openai.IsOpenAiEngine(*settings_.Chat.Engine):
-			apiType := settings.ApiTypeOpenAI
+			apiType := ai_types.ApiTypeOpenAI
 			settings_.Chat.ApiType = &apiType
 			ret, err = openai.NewStep(settings_)
 			if err != nil {
@@ -62,7 +63,7 @@ func (s *StandardStepFactory) NewStep(
 			}
 
 		case claude.IsClaudeEngine(*settings_.Chat.Engine):
-			apiType := settings.ApiTypeClaude
+			apiType := ai_types.ApiTypeClaude
 			settings_.Chat.ApiType = &apiType
 			ret = claude.NewStep(settings_)
 
