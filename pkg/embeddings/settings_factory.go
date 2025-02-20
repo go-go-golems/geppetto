@@ -153,7 +153,7 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 			WithMaxSize(f.config.CacheMaxSize),
 			WithMaxEntries(f.config.CacheMaxEntries))
 	default:
-		return nil, fmt.Errorf("unsupported cache type for embeddings: %s", f.config.CacheType)
+		return provider, nil
 	}
 }
 
