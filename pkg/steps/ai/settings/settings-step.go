@@ -382,6 +382,20 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 		if ss.Embeddings.Dimensions != 0 {
 			summary.WriteString(fmt.Sprintf("  - Dimensions: %d\n", ss.Embeddings.Dimensions))
 		}
+
+		// Embeddings Cache Settings
+		if ss.Embeddings.CacheType != "" {
+			summary.WriteString(fmt.Sprintf("  - Cache Type: %s\n", ss.Embeddings.CacheType))
+		}
+		if ss.Embeddings.CacheMaxSize != 0 {
+			summary.WriteString(fmt.Sprintf("  - Max Size: %d\n", ss.Embeddings.CacheMaxSize))
+		}
+		if ss.Embeddings.CacheMaxEntries != 0 {
+			summary.WriteString(fmt.Sprintf("  - Max Entries: %d\n", ss.Embeddings.CacheMaxEntries))
+		}
+		if ss.Embeddings.CacheDirectory != "" {
+			summary.WriteString(fmt.Sprintf("  - Cache Directory: %s\n", ss.Embeddings.CacheDirectory))
+		}
 	}
 
 	return summary.String()

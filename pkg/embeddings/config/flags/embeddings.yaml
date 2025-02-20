@@ -22,7 +22,7 @@ flags:
     choices:
       - "none"
       - "memory"
-      - "disk"
+      - "file"
     help: Type of caching to use for embeddings (none, memory, or disk)
     default: none
   - name: embeddings-cache-max-size
