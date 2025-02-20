@@ -147,7 +147,7 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 		return provider, nil
 	case "memory":
 		return NewCachedProvider(provider, f.config.CacheMaxEntries), nil
-	case "disk":
+	case "file":
 		return NewDiskCacheProvider(provider,
 			WithDirectory(f.config.CacheDirectory),
 			WithMaxSize(f.config.CacheMaxSize),
