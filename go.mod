@@ -12,7 +12,7 @@ require (
 	github.com/go-go-golems/glazed v0.5.34
 	github.com/go-go-golems/go-emrichen v0.0.4
 	github.com/huandu/go-clone v1.7.2
-	github.com/invopop/jsonschema v0.12.0
+	github.com/invopop/jsonschema v0.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/sashabaranov/go-openai v1.36.0
@@ -40,7 +40,7 @@ require (
 	github.com/spf13/viper v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	k8s.io/client-go v0.29.1 // indirect
 )
 
