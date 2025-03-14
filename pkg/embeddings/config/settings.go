@@ -4,6 +4,7 @@ import (
 	_ "embed"
 
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/huandu/go-clone"
 )
 
@@ -56,6 +57,7 @@ type EmbeddingsParameterLayer struct {
 }
 
 const EmbeddingsSlug = "embeddings"
+const EmbeddingsApiKeySlug = "embeddings-api-key"
 
 func NewEmbeddingsParameterLayer(options ...layers.ParameterLayerOptions) (*EmbeddingsParameterLayer, error) {
 	ret, err := layers.NewParameterLayerFromYAML(embeddingsFlagsYAML, options...)
@@ -63,4 +65,17 @@ func NewEmbeddingsParameterLayer(options ...layers.ParameterLayerOptions) (*Embe
 		return nil, err
 	}
 	return &EmbeddingsParameterLayer{ParameterLayerImpl: ret}, nil
+}
+
+func NewEmbeddingsApiKeyParameter() (*layers.ParameterLayerImpl, error) {
+	return layers.NewParameterLayer(EmbeddingsApiKeySlug,
+		"Embeddings API Key Settings",
+		layers.WithParameterDefinitions(
+			parameters.NewParameterDefinition(
+				"openai-api-key",
+				parameters.ParameterTypeString,
+				parameters.WithHelp("The API key for the OpenAI embeddings provider"),
+			),
+		),
+	)
 }
