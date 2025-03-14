@@ -55,46 +55,15 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	}
 
 	m.Role = temp.Role
+	m.Content = make([]Content, len(temp.Content))
 
-	contents := []Content{}
-
-	for _, content := range temp.Content {
-		var base BaseContent
-		if err := json.Unmarshal(content, &base); err != nil {
-			return err
+	for i, contentData := range temp.Content {
+		content, err := UnmarshalContent(contentData)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal content at index %d: %w", i, err)
 		}
-
-		switch base.Type_ {
-		case ContentTypeText:
-			var text TextContent
-			if err := json.Unmarshal(content, &text); err != nil {
-				return err
-			}
-			contents = append(contents, text)
-		case ContentTypeImage:
-			var image ImageContent
-			if err := json.Unmarshal(content, &image); err != nil {
-				return err
-			}
-			contents = append(contents, image)
-		case ContentTypeToolUse:
-			var toolUse ToolUseContent
-			if err := json.Unmarshal(content, &toolUse); err != nil {
-				return err
-			}
-			contents = append(contents, toolUse)
-		case ContentTypeToolResult:
-			var toolResult ToolResultContent
-			if err := json.Unmarshal(content, &toolResult); err != nil {
-				return err
-			}
-			contents = append(contents, toolResult)
-		default:
-			return fmt.Errorf("unknown content type: %s", base.Type_)
-		}
+		m.Content[i] = content
 	}
-
-	m.Content = contents
 
 	return nil
 }
@@ -167,13 +136,17 @@ func (m MessageResponse) FullText() string {
 
 // Usage represents the billing and rate-limit usage information.
 type Usage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
 func (u Usage) MarshalZerologObject(e *zerolog.Event) {
 	e.Int("input_tokens", u.InputTokens).
-		Int("output_tokens", u.OutputTokens)
+		Int("output_tokens", u.OutputTokens).
+		Int("cache_creation_input_tokens", u.CacheCreationInputTokens).
+		Int("cache_read_input_tokens", u.CacheReadInputTokens)
 }
 
 // SendMessage sends a message request and returns the response.
@@ -210,6 +183,7 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 
 	var messageResp MessageResponse
 	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Println(string(respBody))
 	if unmarshalErr := json.Unmarshal(respBody, &messageResp); unmarshalErr != nil {
 		return nil, unmarshalErr
 	}
@@ -254,4 +228,28 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	}()
 
 	return events, nil
+}
+
+func (m *MessageResponse) UnmarshalJSON(data []byte) error {
+	type Alias MessageResponse
+	var temp struct {
+		*Alias
+		Content []json.RawMessage `json:"content"`
+	}
+	temp.Alias = (*Alias)(m)
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	m.Content = make([]Content, len(temp.Content))
+	for i, contentData := range temp.Content {
+		content, err := UnmarshalContent(contentData)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal content at index %d: %w", i, err)
+		}
+		m.Content[i] = content
+	}
+
+	return nil
 }

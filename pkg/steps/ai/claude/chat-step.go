@@ -155,13 +155,25 @@ func (csf *ChatStep) Start(
 		},
 	}
 
+	if !csf.Settings.Chat.Stream {
+		response, err := client.SendMessage(ctx, req)
+		if err != nil {
+			return steps.Reject[*conversation.Message](err), nil
+		}
+		message := conversation.NewChatMessage(
+			conversation.RoleAssistant, response.FullText(),
+			conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
+				Engine: req.Model,
+			}),
+		)
+		return steps.Resolve(message), nil
+	}
+
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
-
 	eventCh, err := client.StreamMessage(cancellableCtx, req)
 	if err != nil {
 		cancel()
-
 		return steps.Reject[*conversation.Message](err), nil
 	}
 
