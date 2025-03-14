@@ -184,6 +184,19 @@ func NewSettingsFactoryFromStepSettings(s *settings.StepSettings) *SettingsFacto
 		if s.Embeddings.Dimensions != 0 {
 			config.Dimensions = s.Embeddings.Dimensions
 		}
+
+		if s.Embeddings.CacheType != "" {
+			config.CacheType = s.Embeddings.CacheType
+		}
+		if s.Embeddings.CacheMaxSize != 0 {
+			config.CacheMaxSize = s.Embeddings.CacheMaxSize
+		}
+		if s.Embeddings.CacheMaxEntries != 0 {
+			config.CacheMaxEntries = s.Embeddings.CacheMaxEntries
+		}
+		if s.Embeddings.CacheDirectory != "" {
+			config.CacheDirectory = s.Embeddings.CacheDirectory
+		}
 	}
 
 	if s.API != nil {
