@@ -1,6 +1,11 @@
 package api
 
-import "github.com/rs/zerolog"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/rs/zerolog"
+)
 
 type ContentType string
 
@@ -131,4 +136,40 @@ func (trc ToolResultContent) MarshalZerologObject(e *zerolog.Event) {
 	e.Object("base", trc.BaseContent)
 	e.Str("tool_use_id", trc.ToolUseID)
 	e.Str("content", trc.Content)
+}
+
+func UnmarshalContent(data []byte) (Content, error) {
+	var base BaseContent
+	if err := json.Unmarshal(data, &base); err != nil {
+		return nil, err
+	}
+
+	switch base.Type_ {
+	case ContentTypeText:
+		var text TextContent
+		if err := json.Unmarshal(data, &text); err != nil {
+			return nil, err
+		}
+		return text, nil
+	case ContentTypeImage:
+		var image ImageContent
+		if err := json.Unmarshal(data, &image); err != nil {
+			return nil, err
+		}
+		return image, nil
+	case ContentTypeToolUse:
+		var toolUse ToolUseContent
+		if err := json.Unmarshal(data, &toolUse); err != nil {
+			return nil, err
+		}
+		return toolUse, nil
+	case ContentTypeToolResult:
+		var toolResult ToolResultContent
+		if err := json.Unmarshal(data, &toolResult); err != nil {
+			return nil, err
+		}
+		return toolResult, nil
+	default:
+		return nil, fmt.Errorf("unknown content type: %s", base.Type_)
+	}
 }
