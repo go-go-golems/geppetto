@@ -137,17 +137,21 @@ func makeCompletionRequest(
 		Float64("frequency_penalty", frequencyPenalty).
 		Msg("Making request to openai")
 
+	var streamOptions *go_openai.StreamOptions
+	if stream && !strings.Contains(engine, "mistral") {
+		streamOptions = &go_openai.StreamOptions{IncludeUsage: true}
+	}
+
 	req := go_openai.ChatCompletionRequest{
-		Model:       engine,
-		Messages:    msgs_,
-		MaxTokens:   maxTokens,
-		Temperature: float32(temperature),
-		TopP:        float32(topP),
-		N:           n,
-		Stream:      stream,
-		Stop:        stop,
-		// does not work for mistral
-		// StreamOptions:    &go_openai.StreamOptions{IncludeUsage: true},
+		Model:            engine,
+		Messages:         msgs_,
+		MaxTokens:        maxTokens,
+		Temperature:      float32(temperature),
+		TopP:             float32(topP),
+		N:                n,
+		Stream:           stream,
+		Stop:             stop,
+		StreamOptions:    streamOptions,
 		PresencePenalty:  float32(presencePenalty),
 		FrequencyPenalty: float32(frequencyPenalty),
 		// TODO(manuel, 2023-03-28) Properly load logit bias
