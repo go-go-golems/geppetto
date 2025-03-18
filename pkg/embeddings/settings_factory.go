@@ -11,10 +11,18 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	geppetto_openai "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/go-emrichen/pkg/emrichen"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
 )
+
+type ProviderFactory interface {
+	NewProvider(opts ...ProviderOption) (Provider, error)
+	GetEmbeddingFuncMap() template.FuncMap
+	GetEmbeddingTagFunc() emrichen.TagFunc
+}
 
 // ProviderOption is a function that configures a provider
 type ProviderOption func(*providerOptions)
@@ -66,6 +74,8 @@ func WithDimensions(d int) ProviderOption {
 type SettingsFactory struct {
 	config *config.EmbeddingsConfig
 }
+
+var _ ProviderFactory = &SettingsFactory{}
 
 // NewSettingsFactory creates a new factory that uses the provided configuration
 func NewSettingsFactory(config *config.EmbeddingsConfig) *SettingsFactory {
@@ -157,14 +167,23 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 	}
 }
 
-// NewCachedProvider creates a new cached embedding provider based on the configuration
-// maxSize determines how many embeddings to keep in cache (default 1000)
-func (f *SettingsFactory) NewCachedProvider(maxSize int) (Provider, error) {
-	provider, err := f.NewProvider()
+func NewSettingsFactoryFromParsedLayers(parsedLayers *layers.ParsedLayers) (ProviderFactory, error) {
+	embeddingsSettings := &config.EmbeddingsConfig{}
+	// try loading openai API keys
+	err := parsedLayers.InitializeStruct(geppetto_openai.OpenAiChatSlug, embeddingsSettings)
 	if err != nil {
 		return nil, err
 	}
-	return NewCachedProvider(provider, maxSize), nil
+	err = parsedLayers.InitializeStruct(config.EmbeddingsSlug, embeddingsSettings)
+	if err != nil {
+		return nil, err
+	}
+	err = parsedLayers.InitializeStruct(config.EmbeddingsApiKeySlug, embeddingsSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSettingsFactory(embeddingsSettings), nil
 }
 
 // NewSettingsFactoryFromStepSettings creates a new factory from StepSettings for backwards compatibility
@@ -214,9 +233,6 @@ func NewSettingsFactoryFromStepSettings(s *settings.StepSettings) *SettingsFacto
 
 func (f *SettingsFactory) GetEmbeddingFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"foobar": func() []float32 {
-			return []float32{1, 2, 3}
-		},
 		"embeddings": func(text string) ([]float32, error) {
 			provider, err := f.NewProvider()
 			if err != nil {
