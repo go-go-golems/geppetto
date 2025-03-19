@@ -170,11 +170,13 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 func NewSettingsFactoryFromParsedLayers(parsedLayers *layers.ParsedLayers) (ProviderFactory, error) {
 	embeddingsSettings := &config.EmbeddingsConfig{}
 	// try loading openai API keys
-	err := parsedLayers.InitializeStruct(geppetto_openai.OpenAiChatSlug, embeddingsSettings)
-	if err != nil {
-		return nil, err
+	if _, ok := parsedLayers.Get(geppetto_openai.OpenAiChatSlug); ok {
+		err := parsedLayers.InitializeStruct(geppetto_openai.OpenAiChatSlug, embeddingsSettings)
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = parsedLayers.InitializeStruct(config.EmbeddingsSlug, embeddingsSettings)
+	err := parsedLayers.InitializeStruct(config.EmbeddingsSlug, embeddingsSettings)
 	if err != nil {
 		return nil, err
 	}
