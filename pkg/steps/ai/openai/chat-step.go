@@ -91,19 +91,19 @@ func (csf *ChatStep) Start(
 		ParentID: parentID,
 		LLMMessageMetadata: conversation.LLMMessageMetadata{
 			Engine:      string(*csf.Settings.Chat.Engine),
-			Temperature: *csf.Settings.Chat.Temperature,
-			TopP:        *csf.Settings.Chat.TopP,
-			MaxTokens:   *csf.Settings.Chat.MaxResponseTokens,
+			Temperature: csf.Settings.Chat.Temperature,
+			TopP:        csf.Settings.Chat.TopP,
+			MaxTokens:   csf.Settings.Chat.MaxResponseTokens,
 		},
 	}
 	if csf.Settings.Chat.Temperature != nil {
-		metadata.LLMMessageMetadata.Temperature = *csf.Settings.Chat.Temperature
+		metadata.LLMMessageMetadata.Temperature = csf.Settings.Chat.Temperature
 	}
 	if csf.Settings.Chat.TopP != nil {
-		metadata.LLMMessageMetadata.TopP = *csf.Settings.Chat.TopP
+		metadata.LLMMessageMetadata.TopP = csf.Settings.Chat.TopP
 	}
 	if csf.Settings.Chat.MaxResponseTokens != nil {
-		metadata.LLMMessageMetadata.MaxTokens = *csf.Settings.Chat.MaxResponseTokens
+		metadata.LLMMessageMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
@@ -164,7 +164,7 @@ func (csf *ChatStep) Start(
 								}
 							}
 							if finishReason, ok := openaiMetadata["finish_reason"].(string); ok {
-								metadata.StopReason = finishReason
+								metadata.StopReason = &finishReason
 							}
 						}
 						csf.publisherManager.PublishBlind(chat.NewFinalEvent(
@@ -210,7 +210,7 @@ func (csf *ChatStep) Start(
 							}
 						}
 						if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
-							metadata.StopReason = finishReason
+							metadata.StopReason = &finishReason
 						}
 					}
 
@@ -249,7 +249,8 @@ func (csf *ChatStep) Start(
 			}
 		}
 		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
-			metadata.StopReason = string(resp.Choices[0].FinishReason)
+			finishReason := string(resp.Choices[0].FinishReason)
+			metadata.StopReason = &finishReason
 		}
 
 		csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
