@@ -9,8 +9,8 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dop251/goja v0.0.0-20241024094426-79f3a7efcdbd
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
-	github.com/go-go-golems/glazed v0.5.35
-	github.com/go-go-golems/go-emrichen v0.0.4
+	github.com/go-go-golems/glazed v0.5.39
+	github.com/go-go-golems/go-emrichen v0.0.5
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
 	github.com/pkg/errors v0.9.1
@@ -20,7 +20,7 @@ require (
 	github.com/weaviate/weaviate-go-client/v4 v4.14.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.7.8
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -161,8 +161,11 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 		return nil, err
 	}
 	c.setHeaders(httpReq)
-
-	log.Debug().Msgf("Sending message request: %s", string(body))
+	truncatedBody := string(body)
+	if len(truncatedBody) > 100 {
+		truncatedBody = truncatedBody[:50] + "..." + truncatedBody[len(truncatedBody)-50:]
+	}
+	log.Debug().Msgf("Sending message request: %s", truncatedBody)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {

@@ -216,16 +216,16 @@ func extractImportantMetadata(e Event) map[string]interface{} {
 		if metadata.Engine != "" {
 			result["engine"] = metadata.Engine
 		}
-		if metadata.Temperature != 0 {
+		if metadata.Temperature != nil {
 			result["temp"] = metadata.Temperature
 		}
-		if metadata.MaxTokens != 0 {
+		if metadata.MaxTokens != nil {
 			result["max_tokens"] = metadata.MaxTokens
 		}
-		if metadata.TopP != 0 {
+		if metadata.TopP != nil {
 			result["top_p"] = metadata.TopP
 		}
-		if metadata.Usage.InputTokens != 0 {
+		if metadata.Usage != nil && metadata.Usage.InputTokens != 0 {
 			result["input_tokens"] = metadata.Usage.InputTokens
 		}
 
@@ -253,13 +253,13 @@ func extractImportantMetadata(e Event) map[string]interface{} {
 		if metadata.Engine != "" {
 			result["engine"] = metadata.Engine
 		}
-		if metadata.TopP != 0 {
+		if metadata.TopP != nil {
 			result["top_p"] = metadata.TopP
 		}
-		if metadata.StopReason != "" {
+		if metadata.StopReason != nil && *metadata.StopReason != "" {
 			result["stop_reason"] = metadata.StopReason
 		}
-		if metadata.Temperature != 0 {
+		if metadata.Temperature != nil {
 			result["temp"] = metadata.Temperature
 		}
 
