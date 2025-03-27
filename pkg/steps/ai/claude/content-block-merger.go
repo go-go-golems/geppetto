@@ -149,7 +149,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		}
 		if event.Delta.StopReason != "" {
 			cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Delta.StopReason
-			cbm.metadata.StopReason = event.Delta.StopReason
+			cbm.metadata.StopReason = &event.Delta.StopReason
 		}
 		if event.Delta.StopSequence != "" {
 			cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Delta.StopSequence
@@ -167,7 +167,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		if event.Message != nil {
 			if event.Message.StopReason != "" {
 				cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
-				cbm.metadata.StopReason = event.Message.StopReason
+				cbm.metadata.StopReason = &event.Message.StopReason
 			}
 			if event.Message.StopSequence != "" {
 				cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence

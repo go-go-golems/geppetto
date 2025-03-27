@@ -222,12 +222,12 @@ type Usage struct {
 }
 
 type LLMMessageMetadata struct {
-	Engine      string  `json:"engine,omitempty" yaml:"engine,omitempty" mapstructure:"engine,omitempty"`
-	Temperature float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" mapstructure:"temperature,omitempty"`
-	TopP        float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" mapstructure:"top_p,omitempty"`
-	MaxTokens   int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty" mapstructure:"max_tokens,omitempty"`
-	StopReason  string  `json:"stop_reason,omitempty" yaml:"stop_reason,omitempty" mapstructure:"stop_reason,omitempty"`
-	Usage       *Usage  `json:"usage,omitempty" yaml:"usage,omitempty" mapstructure:"usage,omitempty"`
+	Engine      string   `json:"engine,omitempty" yaml:"engine,omitempty" mapstructure:"engine,omitempty"`
+	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" mapstructure:"temperature,omitempty"`
+	TopP        *float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" mapstructure:"top_p,omitempty"`
+	MaxTokens   *int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty" mapstructure:"max_tokens,omitempty"`
+	StopReason  *string  `json:"stop_reason,omitempty" yaml:"stop_reason,omitempty" mapstructure:"stop_reason,omitempty"`
+	Usage       *Usage   `json:"usage,omitempty" yaml:"usage,omitempty" mapstructure:"usage,omitempty"`
 }
 
 // Message represents a single message node in the conversation tree.
