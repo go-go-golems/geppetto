@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -139,10 +140,10 @@ func (csf *ChatStep) Start(
 		LLMMessageMetadata: conversation.LLMMessageMetadata{
 			Engine:      req.Model,
 			Usage:       nil,
-			StopReason:  "",
-			Temperature: *req.Temperature,
-			TopP:        *req.TopP,
-			MaxTokens:   req.MaxTokens,
+			StopReason:  nil,
+			Temperature: req.Temperature,
+			TopP:        req.TopP,
+			MaxTokens:   cast.WrapAddr[int](req.MaxTokens),
 		},
 	}
 	stepMetadata := &steps.StepMetadata{
@@ -160,11 +161,20 @@ func (csf *ChatStep) Start(
 		if err != nil {
 			return steps.Reject[*conversation.Message](err), nil
 		}
+		llmMessageMetadata := &conversation.LLMMessageMetadata{
+			Engine:    req.Model,
+			MaxTokens: cast.WrapAddr[int](req.MaxTokens),
+			Usage: &conversation.Usage{
+				InputTokens:  response.Usage.InputTokens,
+				OutputTokens: response.Usage.OutputTokens,
+			},
+		}
+		if response.StopReason != "" {
+			llmMessageMetadata.StopReason = &response.StopReason
+		}
 		message := conversation.NewChatMessage(
 			conversation.RoleAssistant, response.FullText(),
-			conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
-				Engine: req.Model,
-			}),
+			conversation.WithLLMMessageMetadata(llmMessageMetadata),
 		)
 		return steps.Resolve(message), nil
 	}
@@ -218,10 +228,10 @@ func (csf *ChatStep) Start(
 								InputTokens:  response.Usage.InputTokens,
 								OutputTokens: response.Usage.OutputTokens,
 							},
-							StopReason:  response.StopReason,
-							Temperature: *req.Temperature,
-							TopP:        *req.TopP,
-							MaxTokens:   req.MaxTokens,
+							StopReason:  &response.StopReason,
+							Temperature: req.Temperature,
+							TopP:        req.TopP,
+							MaxTokens:   &req.MaxTokens,
 						}),
 					)
 

@@ -276,8 +276,8 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	if em.Engine != "" {
 		e.Str("engine", em.Engine)
 	}
-	if em.StopReason != "" {
-		e.Str("stop_reason", em.StopReason)
+	if em.StopReason != nil && *em.StopReason != "" {
+		e.Str("stop_reason", *em.StopReason)
 	}
 	if em.Usage != nil {
 		e.Int("input_tokens", em.Usage.InputTokens)
