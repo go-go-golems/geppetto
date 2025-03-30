@@ -1,8 +1,9 @@
-package chat
+package steps
 
 import (
 	"container/list"
 	"context"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"sync"
 	"time"
 
@@ -24,7 +25,7 @@ type MemoryCacheEntry struct {
 }
 
 type MemoryCachingStep struct {
-	step                Step
+	step                chat.Step
 	cache               map[string]MemoryCacheEntry
 	lruList             *list.List
 	maxSize             int
@@ -48,7 +49,7 @@ func WithMemorySubscriptionManager(subscriptionManager *events.PublisherManager)
 	}
 }
 
-func WithMemoryStepOptions(options ...StepOption) MemoryOption {
+func WithMemoryStepOptions(options ...chat.StepOption) MemoryOption {
 	return func(p *MemoryCachingStep) error {
 		// Apply step options to the caching step too
 		for _, option := range options {
@@ -63,7 +64,7 @@ func WithMemoryStepOptions(options ...StepOption) MemoryOption {
 
 var _ steps.Step[conversation.Conversation, *conversation.Message] = &MemoryCachingStep{}
 
-func NewMemoryCachingStep(step Step, opts ...MemoryOption) (*MemoryCachingStep, error) {
+func NewMemoryCachingStep(step chat.Step, opts ...MemoryOption) (*MemoryCachingStep, error) {
 	s := &MemoryCachingStep{
 		step:                step,
 		cache:               make(map[string]MemoryCacheEntry),
@@ -139,7 +140,7 @@ func (c *MemoryCachingStep) Start(ctx context.Context, input conversation.Conver
 	}
 	if entry != nil {
 		// Create metadata for cache hit
-		metadata := EventMetadata{
+		metadata := events.EventMetadata{
 			ID:       conversation.NewNodeID(),
 			ParentID: conversation.NullNode,
 		}
@@ -157,9 +158,9 @@ func (c *MemoryCachingStep) Start(ctx context.Context, input conversation.Conver
 		conversationString := entry.Conversation.ToString()
 
 		// Publish final event for cache hit
-		c.subscriptionManager.PublishBlind(NewStartEvent(metadata, stepMetadata))
-		c.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, conversationString, conversationString))
-		c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, conversationString))
+		c.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
+		c.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, stepMetadata, conversationString, conversationString))
+		c.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, conversationString))
 		return createMemoryCachedStepResult(entry.Conversation), nil
 	}
 
@@ -184,7 +185,7 @@ func (c *MemoryCachingStep) Start(ctx context.Context, input conversation.Conver
 	c.mu.Unlock()
 
 	// Create metadata for cache write
-	metadata := EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: conversation.NullNode,
 	}
@@ -199,7 +200,7 @@ func (c *MemoryCachingStep) Start(ctx context.Context, input conversation.Conver
 	}
 
 	// Publish final event for cache write
-	c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, ""))
+	c.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, ""))
 
 	return createMemoryCachedStepResult(messages), nil
 }

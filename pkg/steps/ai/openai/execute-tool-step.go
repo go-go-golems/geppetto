@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
@@ -25,7 +24,7 @@ type ExecuteToolStep struct {
 	parentID            conversation.NodeID
 }
 
-var _ steps.Step[ToolCompletionResponse, []chat.ToolResult] = (*ExecuteToolStep)(nil)
+var _ steps.Step[ToolCompletionResponse, []events.ToolResult] = (*ExecuteToolStep)(nil)
 
 //type ToolResult struct {
 //	ID string
@@ -74,7 +73,7 @@ func NewExecuteToolStep(
 	return ret, nil
 }
 
-var _ steps.Step[ToolCompletionResponse, []chat.ToolResult] = (*ExecuteToolStep)(nil)
+var _ steps.Step[ToolCompletionResponse, []events.ToolResult] = (*ExecuteToolStep)(nil)
 
 func (e *ExecuteToolStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
 	e.subscriptionManager.RegisterPublisher(topic, publisher)
@@ -86,14 +85,14 @@ const MetadataToolsSlug = "tools"
 func (e *ExecuteToolStep) Start(
 	ctx context.Context,
 	input ToolCompletionResponse,
-) (steps.StepResult[[]chat.ToolResult], error) {
-	res := []chat.ToolResult{}
+) (steps.StepResult[[]events.ToolResult], error) {
+	res := []events.ToolResult{}
 
 	toolMetadata := map[string]interface{}{}
 	for name, tool := range e.Tools {
 		jsonSchema, err := helpers.GetFunctionParametersJsonSchema(&jsonschema.Reflector{}, tool)
 		if err != nil {
-			return steps.Reject[[]chat.ToolResult](err), nil
+			return steps.Reject[[]events.ToolResult](err), nil
 		}
 		s, _ := json.MarshalIndent(jsonSchema, "", "  ")
 		toolMetadata[name] = openai2.Tool{
@@ -106,7 +105,7 @@ func (e *ExecuteToolStep) Start(
 		}
 	}
 
-	metadata := chat.EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       e.messageID,
 		ParentID: e.parentID,
 	}
@@ -121,7 +120,7 @@ func (e *ExecuteToolStep) Start(
 		},
 	}
 
-	e.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+	e.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 	for _, toolCall := range input.ToolCalls {
 		if toolCall.Type != "function" {
 			log.Warn().Str("type", string(toolCall.Type)).Msg("Unknown tool type")
@@ -130,39 +129,39 @@ func (e *ExecuteToolStep) Start(
 		tool := e.Tools[toolCall.Function.Name]
 		if tool == nil {
 			errorString := fmt.Sprintf("could not find tool %s", toolCall.Function.Name)
-			e.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, errorString))
-			return steps.Reject[[]chat.ToolResult](
+			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, errorString))
+			return steps.Reject[[]events.ToolResult](
 				errors.Errorf("could not find tool %s", toolCall.Function.Name),
-				steps.WithMetadata[[]chat.ToolResult](stepMetadata),
+				steps.WithMetadata[[]events.ToolResult](stepMetadata),
 			), nil
 		}
 
 		var v interface{}
 		err := json.Unmarshal([]byte(toolCall.Function.Arguments), &v)
 		if err != nil {
-			e.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-			return steps.Reject[[]chat.ToolResult](
+			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			return steps.Reject[[]events.ToolResult](
 				err,
-				steps.WithMetadata[[]chat.ToolResult](stepMetadata),
+				steps.WithMetadata[[]events.ToolResult](stepMetadata),
 			), nil
 		}
 
 		vs_, err := helpers.CallFunctionFromJson(tool, v)
 		if err != nil {
-			e.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
-			return steps.Reject[[]chat.ToolResult](
+			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			return steps.Reject[[]events.ToolResult](
 				err,
-				steps.WithMetadata[[]chat.ToolResult](stepMetadata),
+				steps.WithMetadata[[]events.ToolResult](stepMetadata),
 			), nil
 		}
 
-		toolResult := chat.ToolResult{ID: toolCall.ID}
+		toolResult := events.ToolResult{ID: toolCall.ID}
 
 		if len(vs_) == 1 {
 			v_, err := json.Marshal(vs_[0].Interface())
 			if err != nil {
-				return steps.Reject[[]chat.ToolResult](err,
-					steps.WithMetadata[[]chat.ToolResult](stepMetadata),
+				return steps.Reject[[]events.ToolResult](err,
+					steps.WithMetadata[[]events.ToolResult](stepMetadata),
 				), nil
 			}
 			toolResult.Result = string(v_)
@@ -173,21 +172,21 @@ func (e *ExecuteToolStep) Start(
 			}
 			v_, err := json.Marshal(vals)
 			if err != nil {
-				return steps.Reject[[]chat.ToolResult](err, steps.WithMetadata[[]chat.ToolResult](stepMetadata)), nil
+				return steps.Reject[[]events.ToolResult](err, steps.WithMetadata[[]events.ToolResult](stepMetadata)), nil
 			}
 			toolResult.Result = string(v_)
 		}
 
-		e.subscriptionManager.PublishBlind(chat.NewToolResultEvent(metadata, stepMetadata, toolResult))
+		e.subscriptionManager.PublishBlind(events.NewToolResultEvent(metadata, stepMetadata, toolResult))
 
 		res = append(res, toolResult)
 	}
 
 	r, _ := json.MarshalIndent(res, "", "  ")
 
-	e.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(r)))
+	e.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, string(r)))
 
 	return steps.Resolve(res,
-		steps.WithMetadata[[]chat.ToolResult](stepMetadata),
+		steps.WithMetadata[[]events.ToolResult](stepMetadata),
 	), nil
 }
