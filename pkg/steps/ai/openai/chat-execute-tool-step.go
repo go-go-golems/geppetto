@@ -119,13 +119,13 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 	}
 	// TODO(manuel, 2024-07-04) The return type of this step should actually be multiple ToolResult, and we can make
 	// this more generic to have it handle claude tool calls as well
-	execResult := steps.Bind[ToolCompletionResponse, []chat.ToolResult](cancellableCtx, toolCompletionResponse, step)
+	execResult := steps.Bind[ToolCompletionResponse, []events.ToolResult](cancellableCtx, toolCompletionResponse, step)
 
 	responseToStringID := conversation.NewNodeID()
 
 	// XXX a conversation message should be able to hold tool results as well
-	responseToStringStep := &utils.LambdaStep[[]chat.ToolResult, *conversation.Message]{
-		Function: func(s []chat.ToolResult) helpers.Result[*conversation.Message] {
+	responseToStringStep := &utils.LambdaStep[[]events.ToolResult, *conversation.Message]{
+		Function: func(s []events.ToolResult) helpers.Result[*conversation.Message] {
 			stepMetadata := &steps.StepMetadata{
 				StepID:     uuid.New(),
 				Type:       "response-to-string",
@@ -133,26 +133,26 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 				OutputType: "string",
 				Metadata:   map[string]interface{}{},
 			}
-			metadata := chat.EventMetadata{
+			metadata := events.EventMetadata{
 				ID:       responseToStringID,
 				ParentID: toolResultMessageID,
 			}
-			t.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+			t.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 
 			s_, _ := json.MarshalIndent(s, "", " ")
 
 			// TODO(manuel, 2024-07-04) Handle multiple tool calls
 			// actually needs to have one per tool call, so that we can send the result message to openai
-			t.subscriptionManager.PublishBlind(chat.NewToolResultEvent(metadata, stepMetadata, chat.ToolResult{
+			t.subscriptionManager.PublishBlind(events.NewToolResultEvent(metadata, stepMetadata, events.ToolResult{
 				ID:     "",
 				Result: "",
 			}))
 			// TODO(manuel, 2024-07-04) Should there be a ToolResult event here?
-			t.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(s_)))
+			t.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, string(s_)))
 			return helpers.NewValueResult[*conversation.Message](conversation.NewChatMessage(conversation.RoleTool, string(s_), nil))
 		},
 	}
-	stringResult := steps.Bind[[]chat.ToolResult, *conversation.Message](cancellableCtx, execResult, responseToStringStep)
+	stringResult := steps.Bind[[]events.ToolResult, *conversation.Message](cancellableCtx, execResult, responseToStringStep)
 
 	return stringResult, nil
 }

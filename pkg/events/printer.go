@@ -1,4 +1,4 @@
-package chat
+package events
 
 import (
 	"encoding/json"
