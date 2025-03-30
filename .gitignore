@@ -19,5 +19,6 @@ dist
 envs/
 
 .history
+.specstory
 
 __debug*
