@@ -18,9 +18,15 @@ Here's how we could introduce it to @client.go:
        err = c.registerChatHandler(ctx)
       RunHandlers
    }
-  - registerChatHandler shoudl be able to return an error, so that Start also handles errors
+  - [x] registerChatHandler shoudl be able to return an error, so that Start also handles errors
 
-- move the callback function in registerHandler out to something reusable
+- [x] move the callback function in registerHandler out to something reusable
 
-- move all that chatEventHandler and callback and registering to the router entirely to @event-router.go so that all we do is  call
+- [x] move all that chatEventHandler and callback and registering to the router entirely to @event-router.go so that all we do is  call
 eventRouter.RegisterChatEventHandler(chatClient)
+
+## Next steps
+
+- refactor pinocchio and other experiments to use the new the UI callback handler
+- make a simple we bapplication that is not chat to showcase how to spin up a step and use its inference
+- add the possibility to dispatch tool call events
