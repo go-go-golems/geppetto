@@ -1,10 +1,11 @@
-package chat
+package steps
 
 import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,7 +28,7 @@ type CacheEntry struct {
 }
 
 type CachingStep struct {
-	step                Step
+	step                chat.Step
 	directory           string
 	maxSize             int64
 	maxEntries          int
@@ -67,7 +68,7 @@ func WithSubscriptionManager(subscriptionManager *events.PublisherManager) Optio
 	}
 }
 
-func WithStepOptions(options ...StepOption) Option {
+func WithStepOptions(options ...chat.StepOption) Option {
 	return func(p *CachingStep) error {
 		for _, option := range options {
 			err := option(p.step)
@@ -81,7 +82,7 @@ func WithStepOptions(options ...StepOption) Option {
 
 var _ steps.Step[conversation.Conversation, *conversation.Message] = &CachingStep{}
 
-func NewCachingStep(step Step, opts ...Option) (*CachingStep, error) {
+func NewCachingStep(step chat.Step, opts ...Option) (*CachingStep, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
@@ -265,7 +266,7 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 	}
 	if entry != nil {
 		// Create metadata for cache hit
-		metadata := EventMetadata{
+		metadata := events.EventMetadata{
 			ID:       conversation.NewNodeID(),
 			ParentID: conversation.NullNode,
 		}
@@ -283,9 +284,9 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 		conversationString := entry.Conversation.ToString()
 
 		// Publish final event for cache hit
-		c.subscriptionManager.PublishBlind(NewStartEvent(metadata, stepMetadata))
-		c.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, conversationString, conversationString))
-		c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, conversationString))
+		c.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
+		c.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, stepMetadata, conversationString, conversationString))
+		c.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, conversationString))
 		return createCachedStepResult(entry.Conversation), nil
 	}
 
@@ -313,7 +314,7 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 	}
 
 	// Create metadata for cache write
-	metadata := EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: conversation.NullNode,
 	}
@@ -328,7 +329,7 @@ func (c *CachingStep) Start(ctx context.Context, input conversation.Conversation
 	}
 
 	// Publish final event for cache write
-	c.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, ""))
+	c.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, ""))
 
 	return createCachedStepResult(messages), nil
 }

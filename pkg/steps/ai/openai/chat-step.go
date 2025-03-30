@@ -86,7 +86,7 @@ func (csf *ChatStep) Start(
 		parentID = parentMessage.ID
 	}
 
-	metadata := chat.EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
 		LLMMessageMetadata: conversation.LLMMessageMetadata{
@@ -117,7 +117,7 @@ func (csf *ChatStep) Start(
 
 	stream := csf.Settings.Chat.Stream
 
-	csf.publisherManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+	csf.publisherManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 
 	if stream {
 		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
@@ -145,7 +145,7 @@ func (csf *ChatStep) Start(
 			for {
 				select {
 				case <-cancellableCtx.Done():
-					csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
+					csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, ret.GetMetadata(), message))
 					c <- helpers.NewErrorResult[*conversation.Message](cancellableCtx.Err())
 					return
 
@@ -167,7 +167,7 @@ func (csf *ChatStep) Start(
 								metadata.StopReason = &finishReason
 							}
 						}
-						csf.publisherManager.PublishBlind(chat.NewFinalEvent(
+						csf.publisherManager.PublishBlind(events.NewFinalEvent(
 							metadata,
 							stepMetadata,
 							message,
@@ -183,12 +183,12 @@ func (csf *ChatStep) Start(
 					}
 					if err != nil {
 						if errors.Is(err, context.Canceled) {
-							csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, message))
+							csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, message))
 							c <- helpers.NewErrorResult[*conversation.Message](err)
 							return
 						}
 
-						csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+						csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
 						c <- helpers.NewErrorResult[*conversation.Message](err)
 						return
 					}
@@ -215,7 +215,7 @@ func (csf *ChatStep) Start(
 					}
 
 					csf.publisherManager.PublishBlind(
-						chat.NewPartialCompletionEvent(
+						events.NewPartialCompletionEvent(
 							metadata,
 							stepMetadata,
 							delta, message),
@@ -228,12 +228,12 @@ func (csf *ChatStep) Start(
 	} else {
 		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
 		if errors.Is(err, context.Canceled) {
-			csf.publisherManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, ""))
+			csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, ""))
 			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 		}
 
 		if err != nil {
-			csf.publisherManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 		}
 
@@ -253,7 +253,7 @@ func (csf *ChatStep) Start(
 			metadata.StopReason = &finishReason
 		}
 
-		csf.publisherManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
+		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
 		return steps.Resolve(conversation.NewMessage(
 			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
 			conversation.WithLLMMessageMetadata(&metadata.LLMMessageMetadata),
