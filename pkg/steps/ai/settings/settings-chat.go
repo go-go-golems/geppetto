@@ -3,6 +3,7 @@ package settings
 import (
 	_ "embed"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat/steps"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -81,16 +82,16 @@ func (s *ChatSettings) WrapWithCache(step chat.Step, options ...chat.StepOption)
 	case "none":
 		return step, nil
 	case "memory":
-		return chat.NewMemoryCachingStep(step,
-			chat.WithMemoryMaxSize(s.CacheMaxEntries),
-			chat.WithMemoryStepOptions(options...),
+		return steps.NewMemoryCachingStep(step,
+			steps.WithMemoryMaxSize(s.CacheMaxEntries),
+			steps.WithMemoryStepOptions(options...),
 		)
 	case "disk":
-		return chat.NewCachingStep(step,
-			chat.WithMaxSize(s.CacheMaxSize),
-			chat.WithMaxEntries(s.CacheMaxEntries),
-			chat.WithCacheDirectory(s.CacheDirectory),
-			chat.WithStepOptions(options...),
+		return steps.NewCachingStep(step,
+			steps.WithMaxSize(s.CacheMaxSize),
+			steps.WithMaxEntries(s.CacheMaxEntries),
+			steps.WithCacheDirectory(s.CacheDirectory),
+			steps.WithStepOptions(options...),
 		)
 	default:
 		return nil, fmt.Errorf("unsupported cache type for chat: %s", s.CacheType)

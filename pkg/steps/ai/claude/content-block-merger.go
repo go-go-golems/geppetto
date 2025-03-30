@@ -1,11 +1,11 @@
 package claude
 
 import (
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"sort"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -27,7 +27,7 @@ import (
 // The merger handles parallel stream fragments, ensuring proper ordering and
 // combination of content blocks in the final response.
 type ContentBlockMerger struct {
-	metadata      chat.EventMetadata
+	metadata      events.EventMetadata
 	stepMetadata  *steps.StepMetadata
 	response      *api.MessageResponse
 	error         *api.Error
@@ -35,7 +35,7 @@ type ContentBlockMerger struct {
 	inputTokens   int // Track input tokens from start event
 }
 
-func NewContentBlockMerger(metadata chat.EventMetadata, stepMetadata *steps.StepMetadata) *ContentBlockMerger {
+func NewContentBlockMerger(metadata events.EventMetadata, stepMetadata *steps.StepMetadata) *ContentBlockMerger {
 	return &ContentBlockMerger{
 		metadata:      metadata,
 		stepMetadata:  stepMetadata,
@@ -118,7 +118,7 @@ func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 	}
 }
 
-func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, error) {
+func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, error) {
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
 
@@ -126,7 +126,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 
 	switch event.Type {
 	case api.PingType:
-		return []chat.Event{}, nil
+		return []events.Event{}, nil
 
 	case api.MessageStartType:
 		if event.Message == nil {
@@ -141,7 +141,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		cbm.metadata.Engine = event.Message.Model
 		cbm.updateUsage(event)
 
-		return []chat.Event{chat.NewStartEvent(cbm.metadata, cbm.stepMetadata)}, nil
+		return []events.Event{events.NewStartEvent(cbm.metadata, cbm.stepMetadata)}, nil
 
 	case api.MessageDeltaType:
 		if event.Delta == nil {
@@ -157,7 +157,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 
 		cbm.updateUsage(event)
 
-		return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
+		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
 
 	case api.MessageStopType:
 		if cbm.response == nil {
@@ -174,7 +174,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 			}
 		}
 
-		return []chat.Event{chat.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
+		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
@@ -192,7 +192,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		cbm.contentBlocks[event.Index] = event.ContentBlock
 
 		// TODO(manuel, 2024-07-04) We should have a proper BlockStart message here
-		return []chat.Event{}, nil
+		return []events.Event{}, nil
 
 	case api.ContentBlockDeltaType:
 		if cbm.response == nil {
@@ -213,14 +213,14 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		case api.TextDeltaType:
 			delta = event.Delta.Text
 			cb.Text += event.Delta.Text
-			return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, delta, cbm.response.FullText()+cb.Text)}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, delta, cbm.response.FullText()+cb.Text)}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
 			cb.Input += event.Delta.PartialJSON
 			// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
 			_ = delta
 		}
-		return []chat.Event{}, nil
+		return []events.Event{}, nil
 
 	case api.ContentBlockStopType:
 		if cbm.response == nil {
@@ -234,11 +234,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 		case api.ContentTypeText:
 			cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
 			// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
-			return []chat.Event{chat.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
 
 		case api.ContentTypeToolUse:
 			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, cb.Input))
-			return []chat.Event{chat.NewToolCallEvent(cbm.metadata, cbm.stepMetadata, chat.ToolCall{
+			return []events.Event{events.NewToolCallEvent(cbm.metadata, cbm.stepMetadata, events.ToolCall{
 				ID:    cb.ID,
 				Name:  cb.Name,
 				Input: cb.Input,
@@ -255,7 +255,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]chat.Event, erro
 			return nil, errors.New("ErrorType event must have an error")
 		}
 		cbm.error = event.Error
-		return []chat.Event{chat.NewErrorEvent(cbm.metadata, cbm.stepMetadata, event.Error.Message)}, nil
+		return []events.Event{events.NewErrorEvent(cbm.metadata, cbm.stepMetadata, event.Error.Message)}, nil
 
 	default:
 		return nil, errors.Errorf("Unknown event type: %s", event.Type)

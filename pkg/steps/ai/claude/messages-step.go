@@ -66,7 +66,7 @@ func (csf *MessagesStep) Start(
 		parentID = parentMessage.ID
 	}
 
-	metadata := chat.EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
 	}
@@ -170,7 +170,7 @@ func (csf *MessagesStep) Start(
 		},
 	}
 
-	csf.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+	csf.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 
 	if chatSettings.Stream {
 		eventsCh, err := client.StreamComplete(&req)
@@ -191,12 +191,12 @@ func (csf *MessagesStep) Start(
 			for {
 				select {
 				case <-ctx.Done():
-					csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, ret.GetMetadata(), message))
+					csf.subscriptionManager.PublishBlind(events.NewInterruptEvent(metadata, ret.GetMetadata(), message))
 					c <- helpers.NewErrorResult[*conversation.Message](ctx.Err())
 					return
 				case event, ok := <-eventsCh:
 					if !ok {
-						csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
+						csf.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, ret.GetMetadata(), message))
 						msg := conversation.NewChatMessage(conversation.RoleAssistant, message, conversation.WithTime(time.Now()))
 						c <- helpers.NewValueResult[*conversation.Message](msg)
 						return
@@ -204,7 +204,7 @@ func (csf *MessagesStep) Start(
 					decoded := map[string]interface{}{}
 					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
-						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
+						csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
 						c <- helpers.NewErrorResult[*conversation.Message](err)
 						return
 					}
@@ -214,7 +214,7 @@ func (csf *MessagesStep) Start(
 							isFirstEvent = false
 						}
 						message += completion
-						csf.subscriptionManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), completion, message))
+						csf.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, ret.GetMetadata(), completion, message))
 					}
 				}
 			}
@@ -225,14 +225,14 @@ func (csf *MessagesStep) Start(
 		resp, err := client.Complete(&req)
 
 		if err != nil {
-			err = csf.subscriptionManager.Publish(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			err = csf.subscriptionManager.Publish(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			if err != nil {
 				log.Warn().Err(err).Msg("error publishing error event")
 			}
 			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 		}
 
-		csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, resp.Completion))
+		csf.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, resp.Completion))
 
 		msg := conversation.NewChatMessage(conversation.RoleAssistant, resp.Completion, conversation.WithTime(time.Now()))
 		return steps.Resolve(msg, steps.WithMetadata[*conversation.Message](stepMetadata)), nil

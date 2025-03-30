@@ -8,7 +8,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -115,7 +114,7 @@ func (csf *ChatWithToolsStep) Start(
 		}
 	}
 
-	metadata := chat.EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       csf.messageID,
 		ParentID: csf.parentID,
 	}
@@ -129,7 +128,7 @@ func (csf *ChatWithToolsStep) Start(
 		},
 	}
 
-	csf.subscriptionManager.PublishBlind(chat.NewStartEvent(metadata, stepMetadata))
+	csf.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 
 	ctx_, cancel := context.WithCancel(ctx)
 	// NOTE(manuel, 2024-06-04) Not sure if we need to collect this goroutine as well when closing the step.
@@ -169,26 +168,26 @@ func (csf *ChatWithToolsStep) Start(
 			for {
 				select {
 				case <-ctx_.Done():
-					csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, message))
+					csf.subscriptionManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, message))
 					return
 				default:
 					response, err := stream_.Recv()
 					if errors.Is(err, io.EOF) {
 						toolCalls := toolCallMerger.GetToolCalls()
-						toolCalls_ := []chat.ToolCall{}
+						toolCalls_ := []events.ToolCall{}
 						for _, toolCall := range toolCalls {
-							toolCalls_ = append(toolCalls_, chat.ToolCall{
+							toolCalls_ = append(toolCalls_, events.ToolCall{
 								Name:  toolCall.Function.Name,
 								Input: toolCall.Function.Arguments,
 							})
 
-							csf.subscriptionManager.PublishBlind(chat.NewToolCallEvent(metadata, stepMetadata, chat.ToolCall{
+							csf.subscriptionManager.PublishBlind(events.NewToolCallEvent(metadata, stepMetadata, events.ToolCall{
 								ID:    toolCall.ID,
 								Name:  toolCall.Function.Name,
 								Input: toolCall.Function.Arguments,
 							}))
 						}
-						stepMetadata.Metadata[chat.MetadataToolCallsSlug] = toolCalls_
+						stepMetadata.Metadata[events.MetadataToolCallsSlug] = toolCalls_
 
 						ret.ToolCalls = toolCalls
 						ret.Content = message
@@ -197,7 +196,7 @@ func (csf *ChatWithToolsStep) Start(
 						return
 					}
 					if err != nil {
-						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+						csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
 						c <- helpers.NewErrorResult[ToolCompletionResponse](err)
 						return
 					}
@@ -214,7 +213,7 @@ func (csf *ChatWithToolsStep) Start(
 
 					message += deltaContent
 
-					csf.subscriptionManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, stepMetadata, deltaContent, message))
+					csf.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, stepMetadata, deltaContent, message))
 
 					if delta.Role != "" {
 						ret.Role = delta.Role
@@ -229,19 +228,19 @@ func (csf *ChatWithToolsStep) Start(
 		resp, err := client.CreateChatCompletion(ctx_, *req)
 
 		if errors.Is(err, context.Canceled) {
-			csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, ""))
+			csf.subscriptionManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, ""))
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
 		if err != nil {
-			csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 
 		// TODO(manuel, 2023-11-28) Handle multiple choices
 		s, _ := json.MarshalIndent(resp.Choices[0].Message.ToolCalls, "", " ")
 
-		csf.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, stepMetadata, string(s)))
+		csf.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, string(s)))
 
 		ret := ToolCompletionResponse{
 			Role:      resp.Choices[0].Message.Role,

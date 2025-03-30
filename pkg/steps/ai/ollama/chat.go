@@ -6,7 +6,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/helpers/maps"
 	"github.com/google/uuid"
@@ -49,7 +48,7 @@ func (ccs *ChatCompletionStep) Start(
 		parentID = parentMessage.ID
 	}
 
-	metadata := chat.EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
 	}
@@ -96,20 +95,20 @@ func (ccs *ChatCompletionStep) Start(
 			// TODO(manuel, 2024-01-13) Handle metrics
 
 			if resp.Done {
-				ccs.subscriptionManager.PublishBlind(chat.NewFinalEvent(metadata, ret.GetMetadata(), message))
+				ccs.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, ret.GetMetadata(), message))
 				c <- helpers.NewValueResult[string](resp.Message.Content)
 				return nil
 			}
 
 			message += resp.Message.Content
 
-			ccs.subscriptionManager.PublishBlind(chat.NewPartialCompletionEvent(metadata, ret.GetMetadata(), resp.Message.Content, message))
+			ccs.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, ret.GetMetadata(), resp.Message.Content, message))
 
 			return nil
 		})
 
 		if err != nil {
-			ccs.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
+			ccs.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
 			c <- helpers.NewErrorResult[string](err)
 		}
 	}()

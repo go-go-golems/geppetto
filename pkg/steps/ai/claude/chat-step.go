@@ -134,7 +134,7 @@ func (csf *ChatStep) Start(
 		req.TopP = &defaultTopP
 	}
 
-	metadata := chat.EventMetadata{
+	metadata := events2.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: csf.parentID,
 		LLMMessageMetadata: conversation.LLMMessageMetadata{
@@ -207,7 +207,7 @@ func (csf *ChatStep) Start(
 			select {
 			case <-cancellableCtx.Done():
 				// TODO(manuel, 2024-07-04) Add tool calls so far
-				csf.subscriptionManager.PublishBlind(chat.NewInterruptEvent(metadata, stepMetadata, completionMerger.Text()))
+				csf.subscriptionManager.PublishBlind(events2.NewInterruptEvent(metadata, stepMetadata, completionMerger.Text()))
 				return
 
 			case event, ok := <-eventCh:
@@ -215,7 +215,7 @@ func (csf *ChatStep) Start(
 					// TODO(manuel, 2024-07-04) Probably not necessary, the completionMerger probably took care of it
 					response := completionMerger.Response()
 					if response == nil {
-						csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, "no response"))
+						csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, "no response"))
 						c <- helpers2.NewErrorResult[*conversation.Message](errors.New("no response"))
 						return
 					}
@@ -241,7 +241,7 @@ func (csf *ChatStep) Start(
 
 				events_, err := completionMerger.Add(event)
 				if err != nil {
-					csf.subscriptionManager.PublishBlind(chat.NewErrorEvent(metadata, stepMetadata, err.Error()))
+					csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, err.Error()))
 					c <- helpers2.NewErrorResult[*conversation.Message](err)
 					return
 				}

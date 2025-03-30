@@ -1,7 +1,8 @@
-package chat
+package steps
 
 import (
 	"context"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -55,7 +56,7 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 		parentID = input[0].ID
 	}
 
-	metadata := EventMetadata{
+	metadata := events.EventMetadata{
 		ID:       conversation.NewNodeID(),
 		ParentID: parentID,
 	}
@@ -85,16 +86,16 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 			select {
 			case <-ctx.Done():
 				log.Debug().Msg("Interrupting step")
-				e.subscriptionManager.PublishBlind(NewInterruptEvent(metadata, stepMetadata, msgContent.Text))
+				e.subscriptionManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, msgContent.Text))
 				c <- helpers.NewErrorResult[*conversation.Message](ctx.Err())
 				return ctx.Err()
 			case <-time.After(e.TimePerCharacter):
 				log.Debug().Msg("Publishing partial completion event")
-				e.subscriptionManager.PublishBlind(NewPartialCompletionEvent(metadata, stepMetadata, string(c_), msgContent.Text[:idx+1]))
+				e.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, stepMetadata, string(c_), msgContent.Text[:idx+1]))
 			}
 		}
 		log.Debug().Msg("Publishing final event")
-		e.subscriptionManager.PublishBlind(NewFinalEvent(metadata, stepMetadata, msgContent.Text))
+		e.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, msgContent.Text))
 		c <- helpers.NewValueResult[*conversation.Message](conversation.NewChatMessage(conversation.RoleAssistant, msgContent.Text))
 		return nil
 	})
@@ -107,4 +108,4 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 	return ret, nil
 }
 
-var _ Step = (*EchoStep)(nil)
+var _ chat.Step = (*EchoStep)(nil)

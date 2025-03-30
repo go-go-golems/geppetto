@@ -1,10 +1,10 @@
 package claude
 
 import (
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ func TestContentBlockMerger(t *testing.T) {
 	tests := []struct {
 		name           string
 		events         []api.StreamingEvent
-		expectedEvents []chat.Event
+		expectedEvents []events.Event
 		expectedError  string
 		checkMetadata  func(*testing.T, map[string]interface{})
 		checkResponse  func(*testing.T, *api.MessageResponse)
@@ -26,8 +26,8 @@ func TestContentBlockMerger(t *testing.T) {
 			events: []api.StreamingEvent{
 				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
 			},
-			expectedEvents: []chat.Event{
-				chat.NewStartEvent(chat.EventMetadata{}, &steps.StepMetadata{}),
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
 			},
 		},
 		{
@@ -43,8 +43,8 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-			expectedEvents: []chat.Event{
-				chat.NewStartEvent(chat.EventMetadata{}, &steps.StepMetadata{}),
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "claude-2", metadata[ModelMetadataSlug])
@@ -66,9 +66,9 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-			expectedEvents: []chat.Event{
-				chat.NewStartEvent(chat.EventMetadata{}, &steps.StepMetadata{}),
-				chat.NewFinalEvent(chat.EventMetadata{}, &steps.StepMetadata{}, ""),
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, ""),
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "end_turn", metadata[StopReasonMetadataSlug])
@@ -110,12 +110,12 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-			expectedEvents: []chat.Event{
-				chat.NewStartEvent(chat.EventMetadata{}, &steps.StepMetadata{}),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "Hello, ", "Hello, "),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "world!", "Hello, world!"),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "", "Hello, world!"),
-				chat.NewFinalEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "Hello, world!"),
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "Hello, ", "Hello, "),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "world!", "Hello, world!"),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "", "Hello, world!"),
+				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, "Hello, world!"),
 			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 1)
@@ -189,18 +189,18 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-			expectedEvents: []chat.Event{
-				chat.NewStartEvent(chat.EventMetadata{}, &steps.StepMetadata{}),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "Here's the result: ", "Here's the result: "),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "", "Here's the result: "),
-				chat.NewToolCallEvent(chat.EventMetadata{}, &steps.StepMetadata{}, chat.ToolCall{
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "Here's the result: ", "Here's the result: "),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "", "Here's the result: "),
+				events.NewToolCallEvent(events.EventMetadata{}, &steps.StepMetadata{}, events.ToolCall{
 					ID:    "tool_1",
 					Name:  "calculator",
 					Input: toolCallResult,
 				}),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, " is the sum.", finalToolCallText),
-				chat.NewPartialCompletionEvent(chat.EventMetadata{}, &steps.StepMetadata{}, "", finalToolCallText),
-				chat.NewFinalEvent(chat.EventMetadata{}, &steps.StepMetadata{}, finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, " is the sum.", finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "", finalToolCallText),
+				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, finalToolCallText),
 			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 3)
@@ -219,18 +219,18 @@ func TestContentBlockMerger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metadata := chat.EventMetadata{}
+			metadata := events.EventMetadata{}
 			stepMetadata := &steps.StepMetadata{
 				Metadata: make(map[string]interface{}),
 			}
 			merger := NewContentBlockMerger(metadata, stepMetadata)
 
-			var events []chat.Event
+			var events_ []events.Event
 			var err error
 
 			for _, event := range tt.events {
 				newEvents, newErr := merger.Add(event)
-				events = append(events, newEvents...)
+				events_ = append(events_, newEvents...)
 				if newErr != nil {
 					err = newErr
 					break
@@ -241,22 +241,22 @@ func TestContentBlockMerger(t *testing.T) {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
 				assert.NoError(t, err)
-				require.Equal(t, len(tt.expectedEvents), len(events), "Number of events mismatch")
+				require.Equal(t, len(tt.expectedEvents), len(events_), "Number of events mismatch")
 				for i, expectedEvent := range tt.expectedEvents {
-					assert.Equal(t, expectedEvent.Type(), events[i].Type(), "Event type mismatch at index %d", i)
+					assert.Equal(t, expectedEvent.Type(), events_[i].Type(), "Event type mismatch at index %d", i)
 
 					switch expected := expectedEvent.(type) {
-					case *chat.EventPartialCompletion:
-						actual, ok := events[i].(*chat.EventPartialCompletion)
+					case *events.EventPartialCompletion:
+						actual, ok := events_[i].(*events.EventPartialCompletion)
 						require.True(t, ok, "Event at index %d is not EventPartialCompletion", i)
 						assert.Equal(t, expected.Delta, actual.Delta, "Delta mismatch at index %d", i)
 						assert.Equal(t, expected.Completion, actual.Completion, "Completion mismatch at index %d", i)
-					case *chat.EventToolCall:
-						actual, ok := events[i].(*chat.EventToolCall)
+					case *events.EventToolCall:
+						actual, ok := events_[i].(*events.EventToolCall)
 						require.True(t, ok, "Event at index %d is not EventToolCall", i)
 						assert.Equal(t, expected.ToolCall, actual.ToolCall, "ToolCall mismatch at index %d", i)
-					case *chat.EventFinal:
-						actual, ok := events[i].(*chat.EventFinal)
+					case *events.EventFinal:
+						actual, ok := events_[i].(*events.EventFinal)
 						require.True(t, ok, "Event at index %d is not EventFinal", i)
 						assert.Equal(t, expected.Text, actual.Text, "Final text mismatch at index %d", i)
 					}
