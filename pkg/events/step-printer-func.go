@@ -23,19 +23,19 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 		case *EventPartialCompletion:
 			if isFirst && name != "" {
 				isFirst = false
-				_, err = w.Write([]byte(fmt.Sprintf("\n%s: \n", name)))
+				_, err = fmt.Fprintf(w, "\n%s: \n", name)
 				if err != nil {
 					return err
 				}
 			}
-			_, err = w.Write([]byte(p_.Delta))
+			_, err = fmt.Fprintf(w, "%s", p_.Delta)
 			if err != nil {
 				return err
 			}
 
 		case *EventText:
 			if !strings.HasSuffix(p_.Text, "\n") {
-				_, err = w.Write([]byte("\n"))
+				_, err = fmt.Fprintf(w, "\n")
 				if err != nil {
 					return err
 				}
@@ -43,7 +43,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 
 		case *EventFinal:
 			if !strings.HasSuffix(p_.Text, "\n") {
-				_, err = w.Write([]byte("\n"))
+				_, err = fmt.Fprintf(w, "\n")
 				if err != nil {
 					return err
 				}
@@ -54,7 +54,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 			if err != nil {
 				return err
 			}
-			_, err = w.Write([]byte(fmt.Sprintf("%s\n", v_)))
+			_, err = fmt.Fprintf(w, "%s\n", v_)
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 			if err != nil {
 				return err
 			}
-			_, err = w.Write([]byte(fmt.Sprintf("%s\n", v_)))
+			_, err = fmt.Fprintf(w, "%s\n", v_)
 			if err != nil {
 				return err
 			}

@@ -220,7 +220,7 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
 			return nil, unmarshalErr
 		}
-		return nil, fmt.Errorf("Claude API Error: %s", errorResp.Error.Message)
+		return nil, fmt.Errorf("claude API error: %s", errorResp.Error.Message)
 	}
 
 	events := make(chan StreamingEvent)

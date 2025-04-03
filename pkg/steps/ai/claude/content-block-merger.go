@@ -1,8 +1,9 @@
 package claude
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/events"
 	"sort"
+
+	"github.com/go-go-golems/geppetto/pkg/events"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -86,22 +87,22 @@ const RoleMetadataSlug = "claude_role"
 
 // updateUsage updates the usage statistics and metadata from an event usage
 func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
-	cbm.metadata.LLMMessageMetadata.Usage = nil
+	cbm.metadata.Usage = nil
 	if event.Usage != nil {
-		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+		cbm.metadata.Usage = &conversation.Usage{
 			InputTokens:  event.Usage.InputTokens,
 			OutputTokens: event.Usage.OutputTokens,
 		}
 	}
 
 	if event.Message != nil {
-		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+		cbm.metadata.Usage = &conversation.Usage{
 			InputTokens:  event.Message.Usage.InputTokens,
 			OutputTokens: event.Message.Usage.OutputTokens,
 		}
 	}
 	if event.Usage != nil {
-		cbm.metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+		cbm.metadata.Usage = &conversation.Usage{
 			InputTokens:  event.Usage.InputTokens,
 			OutputTokens: event.Usage.OutputTokens,
 		}
