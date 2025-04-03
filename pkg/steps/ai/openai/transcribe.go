@@ -475,7 +475,12 @@ func (tc *TranscriptionClient) handleStreamingTranscription(
 		tc.handleError(err, options, out, mp3FilePath)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Just log the error since we're already returning
+			log.Warn().Err(err).Str("file", mp3FilePath).Msg("Failed to close file")
+		}
+	}()
 
 	buffer := make([]byte, options.ChunkSize)
 	var processedBytes int64
