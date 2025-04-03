@@ -14,6 +14,9 @@ docker-lint:
 lint:
 	golangci-lint run -v
 
+lintmax: 
+	golangci-lint run --max-same-issues
+
 test:
 	go test ./...
 

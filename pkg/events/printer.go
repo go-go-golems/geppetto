@@ -138,14 +138,14 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 		if err != nil {
 			return err
 		}
-		_, err = w.Write([]byte(fmt.Sprintf("%s\n", toolCallBytes)))
+		_, err = fmt.Fprintf(w, "%s\n", toolCallBytes)
 		return err
 	case *EventToolResult:
 		toolResultBytes, err := yaml.Marshal(p.ToolResult)
 		if err != nil {
 			return err
 		}
-		_, err = w.Write([]byte(fmt.Sprintf("%s\n", toolResultBytes)))
+		_, err = fmt.Fprintf(w, "%s\n", toolResultBytes)
 		return err
 	}
 	return nil

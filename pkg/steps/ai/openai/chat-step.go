@@ -164,7 +164,7 @@ func (csf *ChatStep) Start(
 							if usage, ok := openaiMetadata["usage"].(map[string]interface{}); ok {
 								inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
 								outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
-								metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+								metadata.Usage = &conversation.Usage{
 									InputTokens:  inputTokens,
 									OutputTokens: outputTokens,
 								}
@@ -210,7 +210,7 @@ func (csf *ChatStep) Start(
 						if usage, ok := responseMetadata["usage"].(map[string]interface{}); ok {
 							inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
 							outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
-							metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+							metadata.Usage = &conversation.Usage{
 								InputTokens:  inputTokens,
 								OutputTokens: outputTokens,
 							}
@@ -245,7 +245,7 @@ func (csf *ChatStep) Start(
 
 		// Extract metadata from non-streaming response
 		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
-			metadata.LLMMessageMetadata.Usage = &conversation.Usage{
+			metadata.Usage = &conversation.Usage{
 				InputTokens:  usage.PromptTokens,
 				OutputTokens: usage.CompletionTokens,
 			}
