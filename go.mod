@@ -1,6 +1,7 @@
 module github.com/go-go-golems/geppetto
 
 go 1.23
+toolchain go1.24.1
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.4.6
@@ -18,7 +19,7 @@ require (
 	github.com/weaviate/weaviate-go-client/v4 v4.16.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.7.8
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
