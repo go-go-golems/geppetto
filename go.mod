@@ -12,7 +12,7 @@ require (
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.36.0
 	github.com/stretchr/testify v1.10.0
 	github.com/weaviate/weaviate-go-client/v4 v4.16.1
