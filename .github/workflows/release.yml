@@ -15,7 +15,7 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
@@ -30,7 +30,7 @@ jobs:
           echo "ENABLE_OSXCROSS=1" >> $GITHUB_ENV
       - name: Import GPG key
         id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v5
+        uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GO_GO_GOLEMS_SIGN_KEY }}
           passphrase: ${{ secrets.GO_GO_GOLEMS_SIGN_PASSPHRASE }}
