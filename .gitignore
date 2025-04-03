@@ -18,7 +18,7 @@ go.work
 dist
 envs/
 
-.history
-.specstory
+.history/
+.specstory/
 
 __debug*

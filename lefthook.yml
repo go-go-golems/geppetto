@@ -10,8 +10,8 @@ pre-commit:
 
 pre-push:
   commands:
-    release:
-      run: make goreleaser
+    # release:
+    #   run: make goreleaser
     lint:
       run: make lintmax gosec govulncheck
     test:
