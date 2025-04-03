@@ -1,8 +1,8 @@
-.PHONY: gifs
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install
 
-all: gifs
+all: test build
 
-VERSION=v0.1.8
+VERSION=v0.1.14
 
 TAPES=$(shell ls doc/vhs/*tape)
 gifs: $(TAPES)
@@ -14,8 +14,8 @@ docker-lint:
 lint:
 	golangci-lint run -v
 
-lintmax: 
-	golangci-lint run --max-same-issues
+lintmax:
+	golangci-lint run -v --max-same-issues=100
 
 test:
 	go test ./...
@@ -43,7 +43,16 @@ release:
 bump-glazed:
 	go get github.com/go-go-golems/glazed@latest
 	go get github.com/go-go-golems/clay@latest
-	go get github.com/go-go-golems/parka@latest
-	go get github.com/go-go-golems/go-emrichen@latest
 	go mod tidy
 
+gosec:
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	gosec ./...
+
+govulncheck:
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	govulncheck ./...
+
+install:
+	go build -o ./dist/geppetto ./cmd/geppetto && \
+		cp ./dist/geppetto $(shell which geppetto)
