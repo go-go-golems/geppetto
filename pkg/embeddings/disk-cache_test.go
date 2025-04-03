@@ -17,12 +17,18 @@ func setupTest(t *testing.T) string {
 	t.Helper()
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatalf("Failed to set HOME environment variable: %v", err)
+	}
 	t.Cleanup(func() {
 		if oldHome != "" {
-			os.Setenv("HOME", oldHome)
+			if err := os.Setenv("HOME", oldHome); err != nil {
+				t.Logf("Failed to restore HOME environment variable: %v", err)
+			}
 		} else {
-			os.Unsetenv("HOME")
+			if err := os.Unsetenv("HOME"); err != nil {
+				t.Logf("Failed to unset HOME environment variable: %v", err)
+			}
 		}
 	})
 	return tmpDir

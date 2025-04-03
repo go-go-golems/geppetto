@@ -106,7 +106,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 	case *EventPartialCompletion:
 		if *isFirst && options.Name != "" {
 			*isFirst = false
-			if _, err := w.Write([]byte(fmt.Sprintf("\n%s: \n", options.Name))); err != nil {
+			if _, err := fmt.Fprintf(w, "\n%s: \n", options.Name); err != nil {
 				return err
 			}
 		}
@@ -119,7 +119,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 			if err != nil {
 				return err
 			}
-			if _, err := w.Write([]byte(fmt.Sprintf("\nMetadata:\n%s\n", metaBytes))); err != nil {
+			if _, err := fmt.Fprintf(w, "\nMetadata:\n%s\n", metaBytes); err != nil {
 				return err
 			}
 			if e.StepMetadata() != nil {
@@ -127,7 +127,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 				if err != nil {
 					return err
 				}
-				if _, err := w.Write([]byte(fmt.Sprintf("\nStep Metadata:\n%s\n", stepMetaBytes))); err != nil {
+				if _, err := fmt.Fprintf(w, "\nStep Metadata:\n%s\n", stepMetaBytes); err != nil {
 					return err
 				}
 			}

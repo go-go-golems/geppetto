@@ -14,7 +14,11 @@ func TestCachingStep(t *testing.T) {
 	// Create a temporary directory for the cache
 	tempDir, err := os.MkdirTemp("", "caching-step-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temporary directory: %v", err)
+		}
+	}()
 
 	// Create mock messages
 	messages := []*conversation.Message{
@@ -123,7 +127,11 @@ func TestCachingStepMultipleMessages(t *testing.T) {
 	// Create a temporary directory for the cache
 	tempDir, err := os.MkdirTemp("", "caching-step-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temporary directory: %v", err)
+		}
+	}()
 
 	// Create mock messages that will be returned in sequence
 	messages := []*conversation.Message{

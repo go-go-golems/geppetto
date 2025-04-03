@@ -3,6 +3,9 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log"
+
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -12,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	go_openai "github.com/sashabaranov/go-openai"
-	"io"
 )
 
 type ToolCompletionResponse struct {
@@ -157,7 +159,12 @@ func (csf *ChatWithToolsStep) Start(
 			defer close(c)
 			// NOTE(manuel, 2024-06-04) Added this because we now use ctx_ as the chat completion stream context
 			defer cancel()
-			defer stream_.Close()
+			defer func() {
+				if err := stream_.Close(); err != nil {
+					// Just log the error since we can't return it
+					log.Printf("Failed to close stream: %v", err)
+				}
+			}()
 
 			message := ""
 

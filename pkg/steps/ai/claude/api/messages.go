@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -181,7 +180,7 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
 			return nil, unmarshalErr
 		}
-		return nil, errors.New(errorResp.Error.Message)
+		return nil, fmt.Errorf("claude API error: %s", errorResp.Error.Message)
 	}
 
 	var messageResp MessageResponse

@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"io"
+	"log"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
@@ -97,13 +98,13 @@ func (csf *ChatStep) Start(
 		},
 	}
 	if csf.Settings.Chat.Temperature != nil {
-		metadata.LLMMessageMetadata.Temperature = csf.Settings.Chat.Temperature
+		metadata.Temperature = csf.Settings.Chat.Temperature
 	}
 	if csf.Settings.Chat.TopP != nil {
-		metadata.LLMMessageMetadata.TopP = csf.Settings.Chat.TopP
+		metadata.TopP = csf.Settings.Chat.TopP
 	}
 	if csf.Settings.Chat.MaxResponseTokens != nil {
-		metadata.LLMMessageMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
+		metadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
 	}
 	stepMetadata := &steps.StepMetadata{
 		StepID:     uuid.New(),
@@ -138,7 +139,12 @@ func (csf *ChatStep) Start(
 			defer func() {
 				close(c)
 			}()
-			defer stream.Close()
+			defer func() {
+				if err := stream.Close(); err != nil {
+					// Just log the error since we can't return it
+					log.Printf("Failed to close stream: %v", err)
+				}
+			}()
 
 			message := ""
 
