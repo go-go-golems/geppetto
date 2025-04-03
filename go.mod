@@ -2,8 +2,6 @@ module github.com/go-go-golems/geppetto
 
 go 1.23
 
-toolchain go1.23.7
-
 require (
 	github.com/ThreeDotsLabs/watermill v1.4.6
 	github.com/cespare/xxhash/v2 v2.3.0
@@ -17,7 +15,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/sashabaranov/go-openai v1.36.0
 	github.com/stretchr/testify v1.10.0
-	github.com/weaviate/weaviate-go-client/v4 v4.14.0
+	github.com/weaviate/weaviate-go-client/v4 v4.16.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/sync v0.11.0
