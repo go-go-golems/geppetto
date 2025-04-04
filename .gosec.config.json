@@ -1,5 +1,0 @@
-{
-  "exclude": {
-    "paths": [".history/", "dist/", "examples/", "testdata/"]
-  }
-} 

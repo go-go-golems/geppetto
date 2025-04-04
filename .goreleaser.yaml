@@ -8,6 +8,13 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 builds:
+  - binary: geppetto
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
 checksum:
   name_template: 'checksums.txt'
 snapshot:
