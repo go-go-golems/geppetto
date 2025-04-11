@@ -108,7 +108,7 @@ func (ccs *ChatCompletionStep) Start(
 		})
 
 		if err != nil {
-			ccs.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
+			ccs.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, ret.GetMetadata(), err))
 			c <- helpers.NewErrorResult[string](err)
 		}
 	}()

@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/rs/zerolog/log"
+
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 )
 
 // ChatEventHandler defines an interface for handling different chat events.
@@ -59,7 +62,7 @@ func WithVerbose(verbose bool) EventRouterOption {
 
 func NewEventRouter(options ...EventRouterOption) (*EventRouter, error) {
 	ret := &EventRouter{
-		logger: watermill.NopLogger{},
+		logger: helpers.NewWatermill(log.Logger),
 	}
 
 	for _, o := range options {
@@ -83,19 +86,23 @@ func NewEventRouter(options ...EventRouterOption) (*EventRouter, error) {
 }
 
 func (e *EventRouter) Close() error {
+	log.Debug().Msg("Closing publisher")
 	err := e.Publisher.Close()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to close pubsub")
 		// not returning just yet
 	}
+	log.Debug().Msg("Publisher closed")
 
 	// XXX(2025-03-30, manuel): I am not sure if this is fully correct, but 09-sonnet-event-router-investigation.md surfaced the
 	// fact that the watermill router is not closed by EventRouter.Close().
+	log.Debug().Msg("Closing router")
 	err = e.router.Close()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to close router")
 		// not returning just yet
 	}
+	log.Debug().Msg("Router closed")
 
 	return nil
 }
@@ -215,6 +222,10 @@ func (e *EventRouter) DumpRawEvents(msg *message.Message) error {
 
 func (e *EventRouter) Running() chan struct{} {
 	return e.router.Running()
+}
+
+func (e *EventRouter) IsRunning() bool {
+	return e.router.IsRunning()
 }
 
 func (e *EventRouter) Run(ctx context.Context) error {

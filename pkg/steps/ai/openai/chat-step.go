@@ -194,7 +194,7 @@ func (csf *ChatStep) Start(
 							return
 						}
 
-						csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+						csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 						c <- helpers.NewErrorResult[*conversation.Message](err)
 						return
 					}
@@ -239,7 +239,7 @@ func (csf *ChatStep) Start(
 		}
 
 		if err != nil {
-			csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
 		}
 

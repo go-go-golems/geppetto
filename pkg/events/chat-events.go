@@ -141,10 +141,10 @@ var _ Event = &EventFinal{}
 
 type EventError struct {
 	EventImpl
-	Error_ string `json:"error"`
+	ErrorString string `json:"error_string"`
 }
 
-func NewErrorEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, err string) *EventError {
+func NewErrorEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, err error) *EventError {
 	return &EventError{
 		EventImpl: EventImpl{
 			Type_:     EventTypeError,
@@ -152,7 +152,7 @@ func NewErrorEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, err
 			Metadata_: metadata,
 			payload:   nil,
 		},
-		Error_: err,
+		ErrorString: err.Error(),
 	}
 }
 
@@ -394,7 +394,7 @@ func (e EventFinal) MarshalZerologObject(ev *zerolog.Event) {
 
 func (e EventError) MarshalZerologObject(ev *zerolog.Event) {
 	e.EventImpl.MarshalZerologObject(ev)
-	ev.Str("error", e.Error_)
+	ev.Str("error", e.ErrorString)
 }
 
 func (e EventText) MarshalZerologObject(ev *zerolog.Event) {

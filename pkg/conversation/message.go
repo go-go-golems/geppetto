@@ -70,7 +70,7 @@ func (c *ChatMessageContent) View() string {
 	if strings.HasPrefix(c.Text, "```") {
 		c.Text = "\n" + c.Text
 	}
-	return fmt.Sprintf("[%s]: %s", c.Role, strings.TrimRight(c.Text, "\n"))
+	return fmt.Sprintf("(%s): %s", c.Role, strings.TrimRight(c.Text, "\n"))
 }
 
 var _ MessageContent = (*ChatMessageContent)(nil)

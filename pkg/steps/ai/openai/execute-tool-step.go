@@ -129,7 +129,7 @@ func (e *ExecuteToolStep) Start(
 		tool := e.Tools[toolCall.Function.Name]
 		if tool == nil {
 			errorString := fmt.Sprintf("could not find tool %s", toolCall.Function.Name)
-			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, errorString))
+			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, errors.New(errorString)))
 			return steps.Reject[[]events.ToolResult](
 				errors.Errorf("could not find tool %s", toolCall.Function.Name),
 				steps.WithMetadata[[]events.ToolResult](stepMetadata),
@@ -139,7 +139,7 @@ func (e *ExecuteToolStep) Start(
 		var v interface{}
 		err := json.Unmarshal([]byte(toolCall.Function.Arguments), &v)
 		if err != nil {
-			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 			return steps.Reject[[]events.ToolResult](
 				err,
 				steps.WithMetadata[[]events.ToolResult](stepMetadata),
@@ -148,7 +148,7 @@ func (e *ExecuteToolStep) Start(
 
 		vs_, err := helpers.CallFunctionFromJson(tool, v)
 		if err != nil {
-			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			e.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 			return steps.Reject[[]events.ToolResult](
 				err,
 				steps.WithMetadata[[]events.ToolResult](stepMetadata),
