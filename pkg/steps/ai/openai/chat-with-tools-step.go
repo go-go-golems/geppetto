@@ -145,6 +145,7 @@ func (csf *ChatWithToolsStep) Start(
 	if stream {
 		stream_, err := client.CreateChatCompletionStream(ctx_, *req)
 		if err != nil {
+			csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 		c := make(chan helpers.Result[ToolCompletionResponse])
@@ -203,7 +204,7 @@ func (csf *ChatWithToolsStep) Start(
 						return
 					}
 					if err != nil {
-						csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+						csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 						c <- helpers.NewErrorResult[ToolCompletionResponse](err)
 						return
 					}
@@ -240,7 +241,7 @@ func (csf *ChatWithToolsStep) Start(
 		}
 
 		if err != nil {
-			csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
 			return steps.Reject[ToolCompletionResponse](err), nil
 		}
 

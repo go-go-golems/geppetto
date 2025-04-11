@@ -97,6 +97,20 @@ func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 	return settings_.Factories, nil
 }
 
+func NewStepSettingsFromParsedLayers(parsedLayers *layers.ParsedLayers) (*StepSettings, error) {
+	stepSettings, err := NewStepSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	err = stepSettings.UpdateFromParsedLayers(parsedLayers)
+	if err != nil {
+		return nil, err
+	}
+
+	return stepSettings, nil
+}
+
 func (ss *StepSettings) GetMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
