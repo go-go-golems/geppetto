@@ -82,6 +82,8 @@ func (e *EchoStep) Start(ctx context.Context, input conversation.Conversation) (
 			return errors.New("invalid input")
 		}
 
+		e.subscriptionManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
+
 		for idx, c_ := range msgContent.Text {
 			select {
 			case <-ctx.Done():
