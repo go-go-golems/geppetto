@@ -23,6 +23,9 @@ type ToolCompletionResponse struct {
 	ToolCalls []go_openai.ToolCall `json:"tool_calls"`
 }
 
+// weird place holder for the Step which still has *conversation.Message as output and conversation.Conversation as input
+// XXX we need to allow conversation.Message to have tool calls as well, and be an interface basically
+
 // ChatWithToolsStep is actually just like ChatStep, except that it also accumulates tool calls.
 type ChatWithToolsStep struct {
 	Settings            *settings.StepSettings
@@ -211,21 +214,23 @@ func (csf *ChatWithToolsStep) Start(
 
 					// NOTE(manuel, 2024-06-04) This could be moved to a proper deltaCompletionMerger like the one sketched out in the claude step implementation
 					// TODO(manuel, 2023-11-28) Handle multiple choices
-					delta := response.Choices[0].Delta
-					deltaContent := delta.Content
-					if delta.Content == "" {
-						deltaContent = GetToolCallString(delta.ToolCalls)
-
+					var deltaContent string
+					if len(response.Choices) > 0 {
+						delta := response.Choices[0].Delta
+						deltaContent = delta.Content
+						if delta.Content == "" {
+							deltaContent = GetToolCallString(delta.ToolCalls)
+						}
+						toolCallMerger.AddToolCalls(delta.ToolCalls)
+						if delta.Role != "" {
+							ret.Role = delta.Role
+						}
 					}
-					toolCallMerger.AddToolCalls(delta.ToolCalls)
 
 					message += deltaContent
 
 					csf.subscriptionManager.PublishBlind(events.NewPartialCompletionEvent(metadata, stepMetadata, deltaContent, message))
 
-					if delta.Role != "" {
-						ret.Role = delta.Role
-					}
 				}
 			}
 		}()
