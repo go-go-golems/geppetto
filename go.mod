@@ -7,7 +7,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dop251/goja v0.0.0-20241024094426-79f3a7efcdbd
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
-	github.com/go-go-golems/glazed v0.5.44
+	github.com/go-go-golems/glazed v0.5.47
 	github.com/go-go-golems/go-emrichen v0.0.5
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
@@ -69,7 +69,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmorganca/ollama v0.1.29
 	github.com/kopoli/go-terminal-size v0.0.0-20170219200355-5c97524c8b54 // indirect
-	github.com/lithammer/shortuuid/v3 v3.0.7 // indirect
+	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
