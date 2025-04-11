@@ -204,7 +204,7 @@ func (csf *MessagesStep) Start(
 					decoded := map[string]interface{}{}
 					err = json.Unmarshal([]byte(event.Data), &decoded)
 					if err != nil {
-						csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, ret.GetMetadata(), err.Error()))
+						csf.subscriptionManager.PublishBlind(events.NewErrorEvent(metadata, ret.GetMetadata(), err))
 						c <- helpers.NewErrorResult[*conversation.Message](err)
 						return
 					}
@@ -225,7 +225,7 @@ func (csf *MessagesStep) Start(
 		resp, err := client.Complete(&req)
 
 		if err != nil {
-			err = csf.subscriptionManager.Publish(events.NewErrorEvent(metadata, stepMetadata, err.Error()))
+			err = csf.subscriptionManager.Publish(events.NewErrorEvent(metadata, stepMetadata, err))
 			if err != nil {
 				log.Warn().Err(err).Msg("error publishing error event")
 			}

@@ -256,7 +256,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("ErrorType event must have an error")
 		}
 		cbm.error = event.Error
-		return []events.Event{events.NewErrorEvent(cbm.metadata, cbm.stepMetadata, event.Error.Message)}, nil
+		return []events.Event{events.NewErrorEvent(cbm.metadata, cbm.stepMetadata, errors.New(event.Error.Message))}, nil
 
 	default:
 		return nil, errors.Errorf("Unknown event type: %s", event.Type)

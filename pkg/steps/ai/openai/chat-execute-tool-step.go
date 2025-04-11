@@ -149,7 +149,9 @@ func (t *ChatExecuteToolStep) Start(ctx context.Context, input conversation.Conv
 			}))
 			// TODO(manuel, 2024-07-04) Should there be a ToolResult event here?
 			t.subscriptionManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, string(s_)))
-			return helpers.NewValueResult[*conversation.Message](conversation.NewChatMessage(conversation.RoleTool, string(s_), nil))
+			return helpers.NewValueResult[*conversation.Message](
+				conversation.NewChatMessage(conversation.RoleTool, string(s_)),
+			)
 		},
 	}
 	stringResult := steps.Bind[[]events.ToolResult, *conversation.Message](cancellableCtx, execResult, responseToStringStep)
