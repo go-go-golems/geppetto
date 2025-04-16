@@ -21,7 +21,8 @@ func (w *WatermillZerologAdapter) Error(msg string, err error, fields watermill.
 }
 
 func (w *WatermillZerologAdapter) Info(msg string, fields watermill.LogFields) {
-	w.logger.Info().Fields(fields).Caller(1).Msg(msg)
+	// map INFO to DEBUG because watermill is chatty
+	w.logger.Debug().Fields(fields).Caller(1).Msg(msg)
 }
 
 func (w *WatermillZerologAdapter) Debug(msg string, fields watermill.LogFields) {
