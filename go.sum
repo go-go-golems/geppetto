@@ -65,8 +65,8 @@ github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHk
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
-github.com/go-go-golems/glazed v0.5.47 h1:e6nXWO4/j/odHfyp65A+KOGVE3U6ooLE6fbElxn1DrU=
-github.com/go-go-golems/glazed v0.5.47/go.mod h1:9BLzfCpwtvcf+JESxhT3QBCAPt2H2Yk3NDi0FBhCwQw=
+github.com/go-go-golems/glazed v0.5.48 h1:+3Ten55liFn8HxGDBccpp76Lg6Ws8OSR8jLHHKUojoI=
+github.com/go-go-golems/glazed v0.5.48/go.mod h1:9BLzfCpwtvcf+JESxhT3QBCAPt2H2Yk3NDi0FBhCwQw=
 github.com/go-go-golems/go-emrichen v0.0.5 h1:zCmwTjvj7vtNWKj9JC1OYOgLiQ2OYZSHLZR1XoZv534=
 github.com/go-go-golems/go-emrichen v0.0.5/go.mod h1:SKKb5juUGwK7rTWFXYFrjFdM9GxfXdRCY9Lhc2MHx8U=
 github.com/go-sourcemap/sourcemap v2.1.4+incompatible h1:a+iTbH5auLKxaNwQFg0B+TCYl6lbukKPc7b5x0n1s6Q=

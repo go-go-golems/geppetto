@@ -11,6 +11,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // DiskCacheEntry represents a single cached embedding with metadata
@@ -83,12 +85,14 @@ func (p *DiskCacheProvider) getCacheFilePath(text string) string {
 func (p *DiskCacheProvider) writeEntry(text string, entry *DiskCacheEntry) error {
 	data, err := json.Marshal(entry)
 	if err != nil {
-		return fmt.Errorf("failed to marshal entry: %w", err)
+		log.Warn().Err(err).Msg("failed to marshal entry")
+		return err
 	}
 
 	path := p.getCacheFilePath(text)
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write cache file: %w", err)
+		log.Warn().Err(err).Msg("failed to write cache file")
+		return err
 	}
 
 	return nil
@@ -158,7 +162,7 @@ func (p *DiskCacheProvider) enforceSize() error {
 	// Remove oldest files until we're under limits
 	for i := 0; i < len(files) && (len(files)-i > p.maxEntries || totalSize > p.maxSize); i++ {
 		if err := os.Remove(files[i].path); err != nil {
-			return fmt.Errorf("failed to remove cache file: %w", err)
+			log.Warn().Err(err).Msg("failed to remove cache file")
 		}
 		totalSize -= files[i].size
 	}
@@ -171,9 +175,8 @@ func (p *DiskCacheProvider) GenerateEmbedding(ctx context.Context, text string) 
 	entry, err := p.readEntry(text)
 	p.mu.RUnlock()
 	if err != nil {
-		return nil, err
-	}
-	if entry != nil {
+		log.Warn().Err(err).Msg("failed to read cache entry")
+	} else if entry != nil {
 		return entry.Embedding, nil
 	}
 
@@ -197,11 +200,13 @@ func (p *DiskCacheProvider) GenerateEmbedding(ctx context.Context, text string) 
 	}
 
 	if err := p.writeEntry(text, entry); err != nil {
-		return nil, err
+		log.Warn().Err(err).Msg("failed to write cache entry")
+		return embedding, nil
 	}
 
 	if err := p.enforceSize(); err != nil {
-		return nil, err
+		log.Warn().Err(err).Msg("failed to enforce cache size")
+		return embedding, nil
 	}
 
 	return embedding, nil
