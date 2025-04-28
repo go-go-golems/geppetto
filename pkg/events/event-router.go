@@ -57,12 +57,13 @@ func WithSubscriber(subscriber message.Subscriber) EventRouterOption {
 func WithVerbose(verbose bool) EventRouterOption {
 	return func(r *EventRouter) {
 		r.verbose = verbose
+		r.logger = helpers.NewWatermill(log.Logger)
 	}
 }
 
 func NewEventRouter(options ...EventRouterOption) (*EventRouter, error) {
 	ret := &EventRouter{
-		logger: helpers.NewWatermill(log.Logger),
+		logger: watermill.NopLogger{},
 	}
 
 	for _, o := range options {
