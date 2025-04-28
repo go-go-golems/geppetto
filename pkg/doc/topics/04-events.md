@@ -236,6 +236,8 @@ func (e *EventRouter) AddHandler(name string, topic string, f func(msg *message.
 }
 ```
 
+The router will publish events to all registered topics.
+
 The router manages the flow of messages and provides features like middleware, metrics, and recovery.
 
 #### ChatEventHandler Interface
@@ -327,3 +329,26 @@ This composition is possible because:
 - The value flow is handled by the Step/StepResult system
 - The event flow is handled by the publisher/topic system
 - Context cancellation propagates correctly through the entire chain
+
+## Practical Usage: Running the Event Router
+
+While the sections above detail the internal mechanisms, a common practical pattern is needed when *using* the `EventRouter` in an application.
+
+The `router.Run(ctx)` method is blocking and listens for events until its context is canceled. Therefore, it must typically be run in a background goroutine.
+
+Simultaneously, the application logic that triggers event publishing (e.g., calling `step.Start` or a higher-level function like `llm.Generate` which uses steps internally) needs to execute.
+
+To coordinate these concurrent operations and ensure clean startup and shutdown, it's recommended to use `golang.org/x/sync/errgroup`:
+
+1.  Create a parent `context.Context` with cancellation (`context.WithCancel`).
+2.  Create an `errgroup.Group` associated with this cancellable context (`errgroup.WithContext`).
+3.  Launch `router.Run(routerCtx)` in one goroutine managed by the `errgroup` (`eg.Go`).
+4.  Launch the main event-producing task (e.g., `llm.Generate(ctx, ...)` or `step.Start(ctx, ...)` ) in another goroutine managed by the `errgroup`.
+5.  **Crucially**, ensure both goroutines call the `cancel()` function (e.g., using `defer cancel()`) when they complete or encounter an error. This signals the *other* goroutine via the shared context to stop.
+6.  Call `eg.Wait()` in the main thread. This blocks until both the router and the main task have finished (or one errors out, triggering cancellation for the other).
+
+This pattern ensures that:
+- The router stays alive as long as the main task is running.
+- If the main task finishes or fails, the router is signalled to shut down.
+- If the router fails unexpectedly, the main task is signalled to stop.
+- The application waits for both components to terminate cleanly before exiting.
