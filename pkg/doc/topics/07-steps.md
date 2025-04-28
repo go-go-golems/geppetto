@@ -60,7 +60,7 @@ The `Step` interface is parameterized by:
 
 This generic design allows for type-safe composition of steps. A step takes an input of type `T`, performs some computation, and produces a `StepResult` containing values of type `U`.
 
-The `AddPublishedTopic` method enables steps to publish events to a specified topic using a Watermill publisher. This allows external components to observe the step's progress and receive intermediate results.
+The `AddPublishedTopic` method is the fundamental mechanism for connecting a step instance to the event system. It allows external code (like a factory or a runner) to provide the step with a specific `message.Publisher` and `topic` string. The step implementation should store this publisher and topic internally (often using a `PublisherManager`) and use them to publish events during its `Start` execution. This enables external components to observe the step's progress and receive intermediate results without the step needing prior knowledge of the exact publisher or topic.
 
 ### StepResult Interface
 
@@ -276,7 +276,43 @@ Custom step implementations are useful when you need:
 
 ## AI Inference Steps
 
-Now let's look at how to create and configure AI inference steps for different providers.
+Now let's look at how to create and configure AI inference steps for different providers. These steps often require specific configuration, including how they connect to the event publishing system.
+
+### Configuring Steps with Options
+
+Many step implementations, especially those created via factories or constructors, use the functional options pattern for configuration. This allows for flexible and readable setup. A common option related to event publishing is `WithPublishedTopic`.
+
+```go
+// Example Option definition (from pkg/steps/ai/chat/step.go)
+type StepOption func(Step) error
+
+func WithPublishedTopic(publisher message.Publisher, topic string) StepOption {
+	return func(step Step) error {
+		// This option function calls the core AddPublishedTopic method
+		err := step.AddPublishedTopic(publisher, topic) 
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+```
+
+This pattern provides a convenient way to configure the step's event publishing during its creation:
+
+```go
+// Example usage with a hypothetical NewStep function that accepts options
+publisher := // ... get your message.Publisher ...
+topic := "my-step-events"
+
+myStep, err := NewMyStep(
+    stepSettings,
+    chat.WithPublishedTopic(publisher, topic), // Apply the option
+    // ... other options ...
+)
+```
+
+Using `WithPublishedTopic` (or similar options) abstracts the direct call to `AddPublishedTopic`, making the step creation code cleaner, especially when multiple configuration aspects are involved.
 
 ### OpenAI Chat Step
 
