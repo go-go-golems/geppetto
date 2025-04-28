@@ -303,6 +303,34 @@ func createProviderFromLayers(parsedLayers *layers.ParsedLayers) (embeddings.Pro
 }
 ```
 
+### Creating Provider from StepSettings
+
+If you already have a populated `settings.StepSettings` object (perhaps loaded via layers or other means), you can also create an embeddings provider directly from it. This is useful when integrating embedding functionality into components that primarily deal with AI step configurations.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/go-go-golems/geppetto/pkg/embeddings"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+)
+
+func createProviderFromStepSettings(stepSettings *settings.StepSettings) (embeddings.Provider, error) {
+	// Create a factory directly from StepSettings
+	embeddingFactory := embeddings.NewSettingsFactoryFromStepSettings(stepSettings)
+	
+	// Create the provider using the derived factory
+	provider, err := embeddingFactory.NewProvider()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create provider from step settings: %w", err)
+	}
+	
+	return provider, nil
+}
+```
+
 ## Practical Applications
 
 ### Computing Text Similarity

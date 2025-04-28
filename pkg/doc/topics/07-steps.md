@@ -498,6 +498,90 @@ Key configuration options include:
    - `MaxRetries`: Number of retries for failed requests
    - `RetryBackoff`: Backoff strategy for retries
 
+## Using StandardStepFactory
+
+Geppetto provides a factory pattern implementation for creating AI steps through the `StandardStepFactory` in `pkg/steps/ai/factory.go`. This simplifies step creation by automatically selecting the appropriate implementation based on the configured API type and model.
+
+### Benefits of Using StandardStepFactory
+
+1. **Abstraction**: Hides the implementation details of different AI providers
+2. **Simplification**: Reduces boilerplate code for step creation
+3. **Maintenance**: Makes adding new providers easier without changing client code
+4. **Consistency**: Ensures proper initialization and configuration for all step types
+
+### Using the Factory
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+    
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+)
+
+func main() {
+    // Create step settings
+    stepSettings, err := settings.NewStepSettings()
+    if err != nil {
+        fmt.Printf("Error creating settings: %v\n", err)
+        return
+    }
+    
+    // Configure settings - this works for any provider
+    apiType := types.ApiTypeClaude // Could be ApiTypeOpenAI, ApiTypeClaude, etc.
+    stepSettings.Chat.ApiType = &apiType
+    
+    engine := "claude-3-opus-20240229" // Or "gpt-4" for OpenAI
+    stepSettings.Chat.Engine = &engine
+    
+    // Set API key and base URL
+    stepSettings.API.APIKeys = map[string]string{
+        "claude-api-key": os.Getenv("ANTHROPIC_API_KEY"),
+        // "openai-api-key": os.Getenv("OPENAI_API_KEY"), // For OpenAI
+    }
+    
+    // Create the factory with our settings
+    factory := &ai.StandardStepFactory{
+        Settings: stepSettings,
+    }
+    
+    // Create the appropriate step using the factory
+    chatStep, err := factory.NewStep()
+    if err != nil {
+        fmt.Printf("Error creating step: %v\n", err)
+        return
+    }
+    
+    // Use the step as usual
+    messages := []*conversation.Message{
+        conversation.NewChatMessage(conversation.RoleSystem, 
+            "You are a helpful assistant."),
+        conversation.NewChatMessage(conversation.RoleUser, 
+            "What is the meaning of life?"),
+    }
+    
+    ctx := context.Background()
+    result, err := chatStep.Start(ctx, messages)
+    // Process results...
+}
+```
+
+### Factory Implementation
+
+The StandardStepFactory determines which step implementation to create based on the `ApiType` in the settings. It handles the appropriate initialization and configuration for each provider type, including:
+
+1. OpenAI and compatible providers (Anyscale, Fireworks)
+2. Claude (Anthropic)
+3. Other providers as they're added to Geppetto
+
+The factory also applies additional configuration like caching when needed, simplifying the client code.
+
 ## Composing Steps with Bind
 
 The real power of the step abstraction comes from composition. The `Bind` function in `pkg/steps/step.go` implements monadic binding, allowing you to chain steps together:
