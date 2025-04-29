@@ -189,66 +189,148 @@ func buildConversation() conversation.Conversation {
 }
 ```
 
-## Working with Message Trees
+## Managing Conversations with the Manager
 
-The conversation package supports tree-structured conversations with parents and children:
+While you can build conversations manually by linking messages as shown in the "Building Conversations" and "Working with Message Trees" sections, the `conversation` package provides a `Manager` type (specifically `ManagerImpl`) to simplify this process, especially for typical LLM interaction flows. The `Manager` handles message organization, tree management, and optionally, automatic saving of conversations.
+
+### Creating a Manager
+
+You create a new conversation manager using the `NewManager` function. You can provide options to customize its behavior, such as enabling autosave.
 
 ```go
-func buildConversationTree() *conversation.Message {
-    // Create root message
-    rootMsg := conversation.NewChatMessage(
-        conversation.RoleSystem,
-        "You are a helpful assistant.",
-    )
-    
-    // Create child message with parent ID
-    childMsg := conversation.NewChatMessage(
-        conversation.RoleUser,
-        "Hello!",
-        conversation.WithParentID(rootMsg.ID),
-    )
-    
-    // Add child to parent's children list
-    rootMsg.Children = append(rootMsg.Children, childMsg)
-    
-    // Create a response to the user
-    responseMsg := conversation.NewChatMessage(
-        conversation.RoleAssistant,
-        "Hi there! How can I help you today?",
-        conversation.WithParentID(childMsg.ID),
-    )
-    
-    // Add response to user message's children
-    childMsg.Children = append(childMsg.Children, responseMsg)
-    
-    return rootMsg
+package main
+
+import (
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/your-org/geppetto/pkg/conversation"
+)
+
+func main() {
+	// Create a basic manager
+	manager := conversation.NewManager()
+	fmt.Printf("Created manager with conversation ID: %s\n", manager.ConversationID)
+
+	// Create a manager with autosave enabled (saves to ~/.pinocchio/history by default)
+	managerWithAutosave := conversation.NewManager(
+		conversation.WithAutosave("yes", "", ""), // enable, default format, default dir
+	)
+	fmt.Printf("Created manager with autosave enabled, ID: %s\n", managerWithAutosave.ConversationID)
+	
+	// Create a manager with a specific ID
+	specificID := uuid.New()
+	managerWithID := conversation.NewManager(
+		conversation.WithManagerConversationID(specificID),
+	)
+	fmt.Printf("Created manager with specific ID: %s\n", managerWithID.ConversationID)
+
+}
+
+```
+
+### Adding Messages
+
+The `Manager` automatically handles adding messages to the conversation tree. The `AppendMessages` method adds messages sequentially, extending the main conversation thread.
+
+```go
+func addMessagesToManager() {
+	manager := conversation.NewManager()
+
+	// Add a system message
+	systemMsg := conversation.NewChatMessage(conversation.RoleSystem, "You are a Go expert.")
+	manager.AppendMessages(systemMsg)
+
+	// Add a user message (implicitly becomes a child of the system message)
+	userMsg := conversation.NewChatMessage(conversation.RoleUser, "How do I use channels?")
+	manager.AppendMessages(userMsg)
+
+	// Add an assistant response (implicitly becomes a child of the user message)
+	assistantMsg := conversation.NewChatMessage(conversation.RoleAssistant, "Channels are used for communication between goroutines...")
+	manager.AppendMessages(assistantMsg)
+
+	// If autosave is enabled, these messages are automatically saved.
 }
 ```
 
-## Using Conversation Utility Methods
-
-The Conversation type provides several utility methods:
+For more complex scenarios, like exploring alternative responses or handling tool calls that branch off the main flow, you can use `AttachMessages`. This method lets you specify the parent message ID to which the new messages should be attached, creating a branch in the conversation tree.
 
 ```go
-func demonstrateConversationMethods() {
-    // Build a conversation
-    conv := buildConversation() // Using the function from earlier
-    
-    // Get a single prompt string representation
-    prompt := conv.GetSinglePrompt()
-    fmt.Println("Single prompt:")
-    fmt.Println(prompt)
-    
-    // Get a string representation of the conversation
-    convString := conv.ToString()
-    fmt.Println("\nConversation string:")
-    fmt.Println(convString)
-    
-    // Get a hash of the conversation for caching
-    hash := conv.HashBytes()
-    fmt.Printf("\nConversation hash: %x\n", hash)
+func attachMessageBranch(manager *conversation.ManagerImpl) {
+	// Assume manager already has some messages, get the ID of the last user message
+	conv := manager.GetConversation()
+	if len(conv) == 0 {
+		fmt.Println("Cannot attach, conversation is empty.")
+		return
+	}
+	// NOTE: This assumes the last message has a valid ID and is the desired parent.
+	// In a real application, you might need more robust logic to find the correct parent ID.
+	lastMsgID := conv[len(conv)-1].ID 
+
+	// Create an alternative assistant response
+	altAssistantMsg := conversation.NewChatMessage(
+		conversation.RoleAssistant, 
+		"Alternatively, you could consider using mutexes if...",
+	)
+	
+	// Attach the alternative response to the last message
+	manager.AttachMessages(lastMsgID, altAssistantMsg)
+
+	// Note: GetConversation() still returns the main (left-most) thread.
+	// Accessing branches requires direct tree traversal (not shown here).
 }
 ```
+
+
+### Retrieving the Conversation for LLMs
+
+Most LLM APIs expect a linear sequence of messages. The `Manager` provides the `GetConversation()` method, which retrieves the current main thread (specifically, the left-most path from the root to the latest message) as a `Conversation` slice (`[]*Message`). This is exactly the format needed for many LLM client libraries.
+
+```go
+func getConversationForLLM(manager conversation.Manager) {
+	// Get the current linear conversation thread
+	messagesForLLM := manager.GetConversation()
+
+	// This slice can now be passed to your LLM API client
+	fmt.Printf("Retrieved %d messages for LLM:\n", len(messagesForLLM))
+	for _, msg := range messagesForLLM {
+		// Truncate long messages for brevity in example output
+		contentStr := msg.Content.String()
+		if len(contentStr) > 50 {
+			contentStr = contentStr[:47] + "..."
+		}
+		fmt.Printf("- Role: %s, Content: %s\n", msg.Content.GetRole(), contentStr)
+	}
+
+	// Example: Prepare for an API call (pseudo-code)
+	// apiRequest := &LLMAPIRequest{
+	//     Model:    "claude-3-opus",
+	//     Messages: messagesForLLM,
+	// }
+	// response := callLLMAPI(apiRequest)
+	// processResponse(response)
+}
+
+```
+
+### Saving and Loading (Briefly)
+
+The `Manager` includes a `SaveToFile(filename string)` method to manually save the *current linear conversation* (obtained via `GetConversation()`) to a JSON file. As mentioned, you can also configure autosave during manager creation using `WithAutosave`. Loading conversations currently requires manual implementation by reading the JSON file and reconstructing the `Manager` or `ConversationTree`.
+
+```go
+func manualSave(manager conversation.Manager) error {
+	filename := fmt.Sprintf("conversation_%s.json", uuid.New().String())
+	fmt.Printf("Saving conversation to %s\n", filename)
+	err := manager.SaveToFile(filename)
+	if err != nil {
+		fmt.Printf("Error saving conversation: %v\n", err)
+		return err
+	}
+	fmt.Println("Conversation saved successfully.")
+	return nil
+}
+```
+
+Using the `Manager` provides a structured way to handle the flow of messages in an LLM interaction, maintain the history correctly, and easily retrieve the required message format for API calls.
 
 ## Working with LLM Message Metadata
 
