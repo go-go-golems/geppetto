@@ -336,19 +336,80 @@ While the sections above detail the internal mechanisms, a common practical patt
 
 The `router.Run(ctx)` method is blocking and listens for events until its context is canceled. Therefore, it must typically be run in a background goroutine.
 
-Simultaneously, the application logic that triggers event publishing (e.g., calling `step.Start` or a higher-level function like `llm.Generate` which uses steps internally) needs to execute.
+Simultaneously, the application logic that triggers event publishing (e.g., calling `step.Start` or a higher-level function like `llm.Generate` which uses steps internally) needs to execute. This logic often depends on the router being active to receive published events.
 
-To coordinate these concurrent operations and ensure clean startup and shutdown, it's recommended to use `golang.org/x/sync/errgroup`:
+To coordinate these concurrent operations and ensure clean startup, shutdown, and avoid race conditions, it's recommended to use `golang.org/x/sync/errgroup`:
 
 1.  Create a parent `context.Context` with cancellation (`context.WithCancel`).
-2.  Create an `errgroup.Group` associated with this cancellable context (`errgroup.WithContext`).
-3.  Launch `router.Run(routerCtx)` in one goroutine managed by the `errgroup` (`eg.Go`).
-4.  Launch the main event-producing task (e.g., `llm.Generate(ctx, ...)` or `step.Start(ctx, ...)` ) in another goroutine managed by the `errgroup`.
-5.  **Crucially**, ensure both goroutines call the `cancel()` function (e.g., using `defer cancel()`) when they complete or encounter an error. This signals the *other* goroutine via the shared context to stop.
-6.  Call `eg.Wait()` in the main thread. This blocks until both the router and the main task have finished (or one errors out, triggering cancellation for the other).
+2.  Create an `errgroup.Group` associated with this cancellable context (`eg, groupCtx := errgroup.WithContext(ctx)`). Using `errgroup.WithContext` automatically handles cancellation propagation if any goroutine in the group returns an error.
+3.  Launch `router.Run(groupCtx)` in one goroutine managed by the `errgroup` (`eg.Go`).
+    *   **Crucially**, use `defer router.Close()` inside this goroutine to ensure the router's resources are released when it stops.
+    *   It's also good practice to include `defer cancel()` here, although `errgroup.WithContext` handles cancellation on error, this ensures cancellation if the goroutine exits cleanly.
+4.  Launch the main event-producing task (e.g., `llm.Generate(groupCtx, ...)` or `step.Start(groupCtx, ...)` ) in another goroutine managed by the `errgroup`.
+    *   **Wait for the router**: Before the task starts publishing events, wait for the router to be ready by reading from its `Running()` channel: `<-router.Running()`.
+    *   Use `defer cancel()` in this goroutine as well to signal the router goroutine to stop if this task finishes or fails.
+5.  Call `eg.Wait()` in the main thread. This blocks until all goroutines launched via `eg.Go` have finished (either successfully or due to an error/cancellation).
 
 This pattern ensures that:
+- The router is confirmed to be running before the main task starts publishing.
 - The router stays alive as long as the main task is running.
-- If the main task finishes or fails, the router is signalled to shut down.
-- If the router fails unexpectedly, the main task is signalled to stop.
+- If the main task finishes or fails, the router is signalled to shut down via context cancellation.
+- If the router fails unexpectedly, the main task is signalled to stop via context cancellation.
+- The router's `Close()` method is called reliably upon shutdown.
 - The application waits for both components to terminate cleanly before exiting.
+
+Example structure:
+
+```go
+ctx, cancel := context.WithCancel(context.Background())
+// NOTE: No defer cancel() here, errgroup handles it via groupCtx
+
+eg, groupCtx := errgroup.WithContext(ctx)
+router, _ := events.NewEventRouter() // Assume router creation
+
+// Goroutine for the router
+eg.Go(func() error {
+    defer func() {
+        log.Info().Msg("Closing event router")
+        _ = router.Close() // Ensure router is closed
+        log.Info().Msg("Event router closed")
+        // cancel() // Optional: Signal cancellation if router exits cleanly
+    }()
+
+    log.Info().Msg("Starting event router")
+    runErr := router.Run(groupCtx) // Use group's context
+    log.Info().Err(runErr).Msg("Event router stopped")
+    // Don't return context.Canceled as a fatal error from the group
+    if runErr != nil && !errors.Is(runErr, context.Canceled) {
+        return runErr // Return other errors
+    }
+    return nil
+})
+
+// Goroutine for the main task (e.g., LLM call)
+eg.Go(func() error {
+    defer cancel() // Signal router to stop when this task is done
+
+    // Wait for router to be ready
+    <-router.Running()
+    log.Info().Msg("Event router is running, proceeding with main task")
+
+    // ... your logic that publishes events ...
+    // err := llm.Generate(groupCtx, ...)
+    // if err != nil { 
+    //    return err // errgroup will trigger cancellation
+    // }
+    
+    log.Info().Msg("Main task finished")
+    return nil 
+})
+
+// Wait for both goroutines to complete
+log.Info().Msg("Waiting for goroutines to finish")
+if err := eg.Wait(); err != nil {
+    log.Error().Err(err).Msg("Application finished with error")
+    // Handle error (errgroup returns the first non-nil error)
+} else {
+    log.Info().Msg("Application finished successfully")
+}
+```
