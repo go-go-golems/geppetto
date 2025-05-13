@@ -58,6 +58,19 @@ func (m *MockProvider) GenerateEmbedding(_ context.Context, text string) ([]floa
 	return []float32{float32(len(text)), 1.0, 2.0}, nil
 }
 
+func (m *MockProvider) GenerateBatchEmbeddings(_ context.Context, texts []string) ([][]float32, error) {
+	results := make([][]float32, len(texts))
+	for i, text := range texts {
+		if e, ok := m.embeddings[text]; ok {
+			results[i] = e
+		} else {
+			// Return predictable embedding based on text length
+			results[i] = []float32{float32(len(text)), 1.0, 2.0}
+		}
+	}
+	return results, nil
+}
+
 func (m *MockProvider) GetModel() EmbeddingModel {
 	return m.model
 }
