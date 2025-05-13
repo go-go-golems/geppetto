@@ -185,7 +185,6 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 
 	var messageResp MessageResponse
 	respBody, _ := io.ReadAll(resp.Body)
-	fmt.Println(string(respBody))
 	if unmarshalErr := json.Unmarshal(respBody, &messageResp); unmarshalErr != nil {
 		return nil, unmarshalErr
 	}

@@ -15,6 +15,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Helper function to truncate text to a maximum length
+func truncateText(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+	return text[:maxLen] + "..."
+}
+
 // DiskCacheEntry represents a single cached embedding with metadata
 type DiskCacheEntry struct {
 	Embedding  []float32 `json:"embedding"`
@@ -216,6 +224,77 @@ func (p *DiskCacheProvider) GetCachedEntry(text string) (*DiskCacheEntry, error)
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.readEntry(text)
+}
+
+func (p *DiskCacheProvider) GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
+	results := make([][]float32, len(texts))
+
+	// Track which texts need to be fetched from the provider
+	missedIndices := []int{}
+	missedTexts := []string{}
+
+	// First try to get entries from disk cache
+	for i, text := range texts {
+		p.mu.RLock()
+		entry, err := p.readEntry(text)
+		p.mu.RUnlock()
+
+		if err != nil {
+			log.Warn().Err(err).Str("text", truncateText(text, 20)).Msg("failed to read cache entry")
+			missedIndices = append(missedIndices, i)
+			missedTexts = append(missedTexts, text)
+		} else if entry != nil {
+			// Cache hit
+			results[i] = entry.Embedding
+		} else {
+			// Cache miss
+			missedIndices = append(missedIndices, i)
+			missedTexts = append(missedTexts, text)
+		}
+	}
+
+	// If everything was in cache, return results
+	if len(missedTexts) == 0 {
+		return results, nil
+	}
+
+	// Get missing embeddings from provider
+	missedEmbeddings, err := p.provider.GenerateBatchEmbeddings(ctx, missedTexts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Write new entries to disk and add to results
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for i, embedding := range missedEmbeddings {
+		originalIdx := missedIndices[i]
+		text := missedTexts[i]
+		results[originalIdx] = embedding
+
+		// Store in cache
+		prefix := text
+		if len(prefix) > 100 {
+			prefix = prefix[:100]
+		}
+
+		entry := &DiskCacheEntry{
+			Embedding:  embedding,
+			TextPrefix: prefix,
+		}
+
+		if err := p.writeEntry(text, entry); err != nil {
+			log.Warn().Err(err).Str("text", truncateText(text, 20)).Msg("failed to write cache entry")
+		}
+	}
+
+	// Enforce cache size limits
+	if err := p.enforceSize(); err != nil {
+		log.Warn().Err(err).Msg("failed to enforce cache size")
+	}
+
+	return results, nil
 }
 
 func (p *DiskCacheProvider) GetModel() EmbeddingModel {

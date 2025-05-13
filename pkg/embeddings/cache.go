@@ -81,6 +81,82 @@ func (c *CachedProvider) GenerateEmbedding(ctx context.Context, text string) ([]
 	return embedding, nil
 }
 
+// GenerateBatchEmbeddings handles batch processing with caching
+func (c *CachedProvider) GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
+	results := make([][]float32, len(texts))
+
+	// Track which texts need to be fetched from the provider
+	missedIndices := []int{}
+	missedTexts := []string{}
+
+	// Check cache first for each text
+	c.mu.RLock()
+	for i, text := range texts {
+		if entry, ok := c.cache[text]; ok {
+			// Cache hit
+			results[i] = entry.embedding
+		} else {
+			// Cache miss
+			missedIndices = append(missedIndices, i)
+			missedTexts = append(missedTexts, text)
+		}
+	}
+
+	// Update LRU status for all cache hits
+	if len(missedIndices) < len(texts) {
+		c.mu.RUnlock()
+		c.mu.Lock()
+		for _, text := range texts {
+			if entry, ok := c.cache[text]; ok {
+				c.lruList.MoveToFront(entry.element)
+			}
+		}
+		c.mu.Unlock()
+	} else {
+		c.mu.RUnlock()
+	}
+
+	// If there were no cache misses, return results
+	if len(missedTexts) == 0 {
+		return results, nil
+	}
+
+	// Generate embeddings for cache misses
+	missedEmbeddings, err := c.provider.GenerateBatchEmbeddings(ctx, missedTexts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add missed embeddings to results and update cache
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, embedding := range missedEmbeddings {
+		originalIdx := missedIndices[i]
+		text := missedTexts[i]
+		results[originalIdx] = embedding
+
+		// If we're at capacity, remove the least recently used item
+		if c.lruList.Len() >= c.maxSize {
+			oldest := c.lruList.Back()
+			if oldest != nil {
+				oldestKey := oldest.Value.(string)
+				delete(c.cache, oldestKey)
+				c.lruList.Remove(oldest)
+			}
+		}
+
+		// Add to cache
+		element := c.lruList.PushFront(text)
+		c.cache[text] = cacheEntry{
+			embedding: embedding,
+			element:   element,
+		}
+	}
+
+	return results, nil
+}
+
 // GetModel delegates to the underlying provider
 func (c *CachedProvider) GetModel() EmbeddingModel {
 	return c.provider.GetModel()
