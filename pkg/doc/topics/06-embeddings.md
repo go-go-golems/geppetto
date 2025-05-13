@@ -42,6 +42,10 @@ type Provider interface {
     // GenerateEmbedding creates an embedding vector for the given text
     GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
     
+    // GenerateBatchEmbeddings creates embedding vectors for multiple texts at once
+    // This is typically more efficient than calling GenerateEmbedding multiple times
+    GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error)
+    
     // GetModel returns information about the embedding model being used
     GetModel() EmbeddingModel
 }
@@ -113,6 +117,27 @@ ollamaProvider := embeddings.NewOllamaProvider(
 
 // Generate an embedding
 embedding, err := ollamaProvider.GenerateEmbedding(ctx, "Hello, world!")
+if err != nil {
+    fmt.Printf("Error generating embedding: %v\n", err)
+    return
+}
+```
+
+### Using Cohere for Embeddings
+
+For high-quality embeddings with various optimization options, you can use Cohere:
+
+```go
+// Create a Cohere embedding provider
+cohereProvider := embeddings.NewCohereProvider(
+    "your-api-key",             // Cohere API key
+    "embed-v4.0",              // Model to use (embed-v4.0 recommended)
+    1024,                       // Vector dimensions (up to 1536)
+    embeddings.WithCohereInputType("search_document"), // Optional: specify input type
+)
+
+// Generate an embedding
+embedding, err := cohereProvider.GenerateEmbedding(ctx, "Hello, world!")
 if err != nil {
     fmt.Printf("Error generating embedding: %v\n", err)
     return
@@ -230,13 +255,14 @@ import (
 func main() {
     // Create a configuration
     embeddingsConfig := &config.EmbeddingsConfig{
-        Type:          "openai",
+        Type:          "openai",  // Options: "openai", "ollama", "cohere"
         Engine:        "text-embedding-3-small",
         Dimensions:    1536,
         CacheType:     "memory",
         CacheMaxEntries: 1000,
         APIKeys: map[string]string{
             "openai-api-key": "your-api-key",
+            // "cohere-api-key": "your-cohere-key", // For Cohere
         },
     }
     
@@ -260,6 +286,14 @@ func main() {
         embeddings.WithEngine("all-minilm"),
         embeddings.WithDimensions(384),
         embeddings.WithBaseURL("http://localhost:11434"),
+    )
+    
+    // Or create a Cohere provider
+    cohereProvider, _ := factory.NewProvider(
+        embeddings.WithType("cohere"),
+        embeddings.WithEngine("embed-v4.0"),
+        embeddings.WithDimensions(1024),
+        embeddings.WithAPIKey("your-cohere-api-key"),
     )
     
     // Use the custom provider
@@ -421,10 +455,22 @@ func main() {
         {ID: "doc4", Text: "TypeScript adds types to JavaScript."},
     }
     
-    // Precompute embeddings for all documents
+    // Precompute embeddings for all documents efficiently using batch processing
     ctx := context.Background()
-    for i := range documents {
-        embedding, _ := provider.GenerateEmbedding(ctx, documents[i].Text)
+    texts := make([]string, len(documents))
+    for i, doc := range documents {
+        texts[i] = doc.Text
+    }
+    
+    // Generate all embeddings at once
+    embeddings, err := provider.GenerateBatchEmbeddings(ctx, texts)
+    if err != nil {
+        fmt.Printf("Error generating embeddings: %v\n", err)
+        return
+    }
+    
+    // Assign embeddings to documents
+    for i, embedding := range embeddings {
         documents[i].Embedding = embedding
     }
     
@@ -796,6 +842,11 @@ func (l *LLMWithEmbeddings) GenerateEmbedding(ctx context.Context, text string) 
     return l.embeddingProvider.GenerateEmbedding(ctx, text)
 }
 
+// GenerateBatchEmbeddings delegates to the embedding provider
+func (l *LLMWithEmbeddings) GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
+    return l.embeddingProvider.GenerateBatchEmbeddings(ctx, texts)
+}
+
 // GetModel returns the embedding model information
 func (l *LLMWithEmbeddings) GetModel() embeddings.EmbeddingModel {
     return l.embeddingProvider.GetModel()
@@ -817,6 +868,105 @@ func main() {
 }
 ```
 
+## Batch Processing
+
+When you need to generate embeddings for multiple texts, using batch processing is much more efficient than making separate calls:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    
+    "github.com/go-go-golems/geppetto/pkg/embeddings"
+    "github.com/sashabaranov/go-openai"
+)
+
+func main() {
+    // Create a provider
+    provider := embeddings.NewOpenAIProvider(
+        "your-api-key",
+        openai.SmallEmbedding3,
+        1536,
+    )
+    
+    // Prepare multiple texts
+    texts := []string{
+        "Golang is a statically typed language",
+        "Python is dynamically typed",
+        "JavaScript runs in browsers",
+        "TypeScript adds types to JavaScript",
+    }
+    
+    // Generate embeddings for all texts at once
+    ctx := context.Background()
+    embeddings, err := provider.GenerateBatchEmbeddings(ctx, texts)
+    if err != nil {
+        fmt.Printf("Error generating batch embeddings: %v\n", err)
+        return
+    }
+    
+    // Process the results
+    fmt.Printf("Generated %d embeddings\n", len(embeddings))
+    for i, embedding := range embeddings {
+        fmt.Printf("Embedding %d: %d dimensions\n", i+1, len(embedding))
+    }
+}
+```
+
+### Provider-Specific Optimizations
+
+Different providers implement batch processing differently:
+
+- **OpenAI**: Makes a single API call with all texts, using the API's native batch support
+- **Ollama**: Uses controlled parallelization since the API doesn't natively support batching
+
+### Batch Processing with Caching
+
+Both `CachedProvider` and `DiskCacheProvider` are optimized for batch operations:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    
+    "github.com/go-go-golems/geppetto/pkg/embeddings"
+)
+
+func main() {
+    // Create a base provider and wrap with cache
+    baseProvider := createProvider() // Implementation omitted
+    cachedProvider := embeddings.NewCachedProvider(baseProvider, 1000)
+    
+    // First batch - will generate all embeddings
+    ctx := context.Background()
+    texts := []string{"text1", "text2", "text3", "text4"}
+    batch1, _ := cachedProvider.GenerateBatchEmbeddings(ctx, texts)
+    
+    // Second batch with some overlap - will only generate new embeddings
+    moreTexts := []string{"text2", "text3", "text5", "text6"}
+    batch2, _ := cachedProvider.GenerateBatchEmbeddings(ctx, moreTexts)
+    
+    // The cache intelligently handles partial hits
+    fmt.Printf("Cached entries: %d/%d\n", cachedProvider.Size(), cachedProvider.MaxSize())
+}
+```
+
+### Helper Functions
+
+The package provides helper functions for implementing batch processing:
+
+```go
+// For sequential processing (fallback implementation)
+results, err := embeddings.DefaultGenerateBatchEmbeddings(ctx, provider, texts)
+
+// For parallel processing with controlled concurrency
+results, err := embeddings.ParallelGenerateBatchEmbeddings(ctx, provider, texts, 4)
+```
+
 ## Best Practices
 
 When working with the embeddings package, keep these best practices in mind:
@@ -826,3 +976,5 @@ When working with the embeddings package, keep these best practices in mind:
   - Ollama all-minilm: 384 dimensions
 - **Configuration**: Use the parameter system to allow flexible configuration of embedding providers.
 - **Storage**: For large-scale applications, consider using vector databases instead of in-memory storage.
+- **Batch Processing**: Always use batch processing when dealing with multiple texts for better performance.
+- **Caching**: Combine batch processing with caching for optimal efficiency.
