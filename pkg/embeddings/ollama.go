@@ -86,6 +86,12 @@ func (p *OllamaProvider) GenerateEmbedding(ctx context.Context, text string) ([]
 	return result.Embedding, nil
 }
 
+func (p *OllamaProvider) GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
+	// Ollama doesn't currently support native batch embedding, so we use the parallel helper
+	// with a concurrency limit of 4 to avoid overwhelming the server
+	return ParallelGenerateBatchEmbeddings(ctx, p, texts, 4)
+}
+
 func (p *OllamaProvider) GetModel() EmbeddingModel {
 	return EmbeddingModel{
 		Name:       p.model,

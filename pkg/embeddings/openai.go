@@ -45,6 +45,38 @@ func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, text string) ([]
 	return resp.Data[0].Embedding, nil
 }
 
+func (p *OpenAIProvider) GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
+	// Handle empty input
+	if len(texts) == 0 {
+		return [][]float32{}, nil
+	}
+
+	// OpenAI API has native batch support
+	resp, err := p.client.CreateEmbeddings(ctx, openai.EmbeddingRequest{
+		Input: texts,
+		Model: p.model,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp.Data) == 0 {
+		return nil, fmt.Errorf("no embedding data received from OpenAI")
+	}
+
+	if len(resp.Data) != len(texts) {
+		return nil, fmt.Errorf("received %d embeddings but expected %d", len(resp.Data), len(texts))
+	}
+
+	// Extract embeddings from response
+	results := make([][]float32, len(texts))
+	for i, data := range resp.Data {
+		results[i] = data.Embedding
+	}
+
+	return results, nil
+}
+
 func (p *OpenAIProvider) GetModel() EmbeddingModel {
 	return EmbeddingModel{
 		Name:       string(p.model),
