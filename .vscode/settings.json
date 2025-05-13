@@ -9,5 +9,10 @@
             "source.organizeImports": "always",
             "source.fixAll": "always"
         }
-    }
+    },
+    "amp.commands.allowlist": [
+        "npm",
+        "go build",
+        "make test ./pkg/embeddings"
+    ]
 }
