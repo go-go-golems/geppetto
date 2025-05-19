@@ -30,6 +30,9 @@ type StreamingDeltaType string
 const (
 	TextDeltaType      StreamingDeltaType = "text_delta"
 	InputJSONDeltaType StreamingDeltaType = "input_json_delta"
+	CitationsDeltaType StreamingDeltaType = "citations_delta"
+	ThinkingDeltaType  StreamingDeltaType = "thinking_delta"
+	SignatureDeltaType StreamingDeltaType = "signature_delta"
 )
 
 type StreamingEvent struct {
@@ -73,11 +76,15 @@ func (s StreamingEvent) MarshalZerologObject(e *zerolog.Event) {
 var _ zerolog.LogObjectMarshaler = StreamingEvent{}
 
 type ContentBlock struct {
-	Type  ContentType `json:"type"`
-	ID    string      `json:"id,omitempty"`
-	Name  string      `json:"name,omitempty"`
-	Input string      `json:"input,omitempty"`
-	Text  string      `json:"text,omitempty"`
+	Type      ContentType     `json:"type"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     string          `json:"input,omitempty"`
+	Text      string          `json:"text,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+	Thinking  string          `json:"thinking,omitempty"`
+	Signature string          `json:"signature,omitempty"`
 }
 
 type Error struct {
@@ -91,6 +98,8 @@ type Delta struct {
 	PartialJSON  string             `json:"partial_json"`
 	StopReason   string             `json:"stop_reason,omitempty"`
 	StopSequence string             `json:"stop_sequence,omitempty"`
+	Thinking     string             `json:"thinking,omitempty"`
+	Signature    string             `json:"signature,omitempty"`
 }
 
 func (cb ContentBlock) MarshalZerologObject(e *zerolog.Event) {
@@ -106,6 +115,18 @@ func (cb ContentBlock) MarshalZerologObject(e *zerolog.Event) {
 	}
 	if cb.Text != "" {
 		e.Str("text", cb.Text)
+	}
+	if cb.ToolUseID != "" {
+		e.Str("tool_use_id", cb.ToolUseID)
+	}
+	if len(cb.Content) > 0 {
+		e.RawJSON("content", cb.Content)
+	}
+	if cb.Thinking != "" {
+		e.Str("thinking", cb.Thinking)
+	}
+	if cb.Signature != "" {
+		e.Str("signature", cb.Signature)
 	}
 }
 
@@ -125,6 +146,12 @@ func (d Delta) MarshalZerologObject(e *zerolog.Event) {
 	}
 	if d.StopSequence != "" {
 		e.Str("stop_sequence", d.StopSequence)
+	}
+	if d.Thinking != "" {
+		e.Str("thinking", d.Thinking)
+	}
+	if d.Signature != "" {
+		e.Str("signature", d.Signature)
 	}
 }
 
