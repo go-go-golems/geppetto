@@ -215,6 +215,112 @@ func TestContentBlockMerger(t *testing.T) {
 				assert.Equal(t, " is the sum.", response.Content[2].(api.TextContent).Text)
 			},
 		},
+		{
+			name: "Test server tool use and web search result blocks",
+			events: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
+				{
+					Type:         api.ContentBlockStartType,
+					Index:        0,
+					ContentBlock: &api.ContentBlock{Type: api.ContentTypeServerToolUse, ID: "search_1", Name: "web_search"},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 0,
+					Delta: &api.Delta{Type: api.InputJSONDeltaType, PartialJSON: "{\"query\":\"golang\"}"},
+				},
+				{Type: api.ContentBlockStopType, Index: 0},
+				{
+					Type:         api.ContentBlockStartType,
+					Index:        1,
+					ContentBlock: &api.ContentBlock{Type: api.ContentTypeWebSearchToolResult, ToolUseID: "search_1"},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 1,
+					Delta: &api.Delta{Type: api.InputJSONDeltaType, PartialJSON: "[{\"snippet\":\"result\"}]"},
+				},
+				{Type: api.ContentBlockStopType, Index: 1},
+				{Type: api.MessageStopType, Message: &api.MessageResponse{}},
+			},
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewToolCallEvent(events.EventMetadata{}, &steps.StepMetadata{}, events.ToolCall{ID: "search_1", Name: "web_search", Input: "{\"query\":\"golang\"}"}),
+				events.NewToolResultEvent(events.EventMetadata{}, &steps.StepMetadata{}, events.ToolResult{ID: "search_1", Result: "[{\"snippet\":\"result\"}]"}),
+				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, ""),
+			},
+			checkResponse: func(t *testing.T, response *api.MessageResponse) {
+				require.Len(t, response.Content, 2)
+				stuc := response.Content[0].(api.ServerToolUseContent)
+				assert.Equal(t, "search_1", stuc.ID)
+				assert.Equal(t, "web_search", stuc.Name)
+				assert.Equal(t, "{\"query\":\"golang\"}", stuc.Input)
+				wsrc := response.Content[1].(api.WebSearchToolResultContent)
+				assert.Equal(t, "search_1", wsrc.ToolUseID)
+				assert.Equal(t, "[{\"snippet\":\"result\"}]", string(wsrc.Content))
+			},
+		},
+		{
+			name: "Test thinking block",
+			events: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
+				{
+					Type:         api.ContentBlockStartType,
+					Index:        0,
+					ContentBlock: &api.ContentBlock{Type: api.ContentTypeThinking},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 0,
+					Delta: &api.Delta{Type: api.SignatureDeltaType, Signature: "sig1"},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 0,
+					Delta: &api.Delta{Type: api.ThinkingDeltaType, Thinking: "pondering"},
+				},
+				{Type: api.ContentBlockStopType, Index: 0},
+				{Type: api.MessageStopType, Message: &api.MessageResponse{}},
+			},
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, ""),
+			},
+			checkResponse: func(t *testing.T, response *api.MessageResponse) {
+				require.Len(t, response.Content, 1)
+				tc := response.Content[0].(api.ThinkingContent)
+				assert.Equal(t, "sig1", tc.Signature)
+				assert.Equal(t, "pondering", tc.Thinking)
+			},
+		},
+		{
+			name: "Test redacted thinking block",
+			events: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
+				{
+					Type:         api.ContentBlockStartType,
+					Index:        0,
+					ContentBlock: &api.ContentBlock{Type: api.ContentTypeRedactedThinking},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 0,
+					Delta: &api.Delta{Type: api.TextDeltaType, Text: "[redacted]"},
+				},
+				{Type: api.ContentBlockStopType, Index: 0},
+				{Type: api.MessageStopType, Message: &api.MessageResponse{}},
+			},
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "[redacted]", "[redacted]"),
+				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, ""),
+			},
+			checkResponse: func(t *testing.T, response *api.MessageResponse) {
+				require.Len(t, response.Content, 1)
+				rtc := response.Content[0].(api.RedactedThinkingContent)
+				assert.Equal(t, "[redacted]", rtc.Data)
+			},
+		},
 	}
 
 	for _, tt := range tests {
