@@ -1,7 +1,7 @@
 ---
 Title: JavaScript API for Geppetto - Complete Reference Guide
 Slug: geppetto-javascript-api
-Short: A comprehensive guide to using Geppetto's JavaScript API for conversations, embeddings, steps, and chat functionality through Goja bindings.
+Short: A comprehensive guide to using Geppetto's watermill-based JavaScript RuntimeEngine for conversations, embeddings, steps, and chat functionality through Goja bindings.
 Topics:
 - geppetto
 - javascript
@@ -12,6 +12,8 @@ Topics:
 - chat
 - bindings
 - goja
+- watermill
+- runtime-engine
 Commands: []
 Flags: []
 IsTopLevel: true
@@ -22,49 +24,87 @@ SectionType: Tutorial
 
 # JavaScript API for Geppetto - Complete Reference Guide
 
-This guide provides comprehensive documentation for Geppetto's JavaScript API, which allows you to interact with conversations, generate embeddings, execute steps, and perform AI chat operations from JavaScript code through Goja bindings.
+This guide provides comprehensive documentation for Geppetto's JavaScript API, which allows you to interact with conversations, generate embeddings, execute steps, and perform AI chat operations from JavaScript code through a watermill-based RuntimeEngine.
 
 ## Overview
 
-Geppetto's JavaScript API exposes four main components:
+Geppetto's JavaScript API exposes four main components through the **RuntimeEngine**:
 
 1. **Conversation API**: Create and manage conversations with messages, tool uses, and tool results
 2. **Embeddings API**: Generate vector embeddings from text using various embedding models
-3. **Steps API**: Execute asynchronous computation steps with streaming, cancellation, and composition
-4. **Chat Step Factory**: Create and manage chat completion steps for AI interactions
+3. **Steps API**: Execute asynchronous computation steps with watermill event streaming
+4. **Setup Functions**: Modular JavaScript environment configuration
 
-These APIs provide both synchronous and asynchronous interfaces, with full support for streaming, error handling, and cancellation patterns.
+These APIs provide event-driven streaming capabilities through Watermill pub/sub architecture with automatic handler lifecycle management.
 
 ## Core Architecture
 
+### RuntimeEngine - Watermill-Based JavaScript Execution
+
+The new RuntimeEngine provides a clean, event-driven approach to JavaScript execution:
+
+```go
+// Create and configure engine
+engine := js.NewRuntimeEngine()
+defer engine.Close()
+
+// Add setup functions
+engine.AddSetupFunction(js.SetupDoubleStep())
+engine.AddSetupFunction(js.SetupConversation())
+engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
+engine.AddSetupFunction(js.SetupDoneCallback())
+
+// Start engine (blocking until completion)
+engine.Start()
+
+// Or execute JavaScript code on running loop
+err := engine.RunOnLoop("console.log('Hello World');")
+```
+
+### Key Features
+
+- **Watermill Integration**: Uses Watermill pub/sub for event streaming with automatic topic management
+- **Per-Step Handlers**: Each step gets its own handler that auto-registers/unregisters on completion
+- **Event Loop Management**: Proper `Loop.Run()` usage for setup and `RunOnLoop()` for execution
+- **Modular Setup**: Setup functions for different components (steps, conversations, embeddings)
+- **Auto-Cleanup**: Handlers and subscriptions automatically cleaned up when steps complete
+
 ### JavaScript-Go Integration
 
-The JavaScript API is built on top of Goja, a JavaScript engine for Go, with special integration for Node.js-style event loops. This enables:
+The JavaScript API is built on top of Goja with watermill event streaming:
 
-- **Promise-based async operations**: Using goja_nodejs eventloop package
-- **Streaming results**: Real-time data processing with callbacks
-- **Proper cancellation**: Context-based cancellation from Go propagated to JavaScript
+- **Event-driven execution**: Steps publish events to watermill topics
+- **Automatic handler management**: Per-step handlers auto-register and cleanup
+- **Real-time streaming**: Events flow through watermill pub/sub system
 - **Type conversion**: Seamless conversion between Go and JavaScript types
-- **Event loop integration**: All callbacks and Promise resolutions happen on the event loop
+- **Event loop integration**: All callbacks happen on the managed event loop
 
 ### Common Patterns
 
-All APIs follow consistent patterns:
+The new API uses event-driven patterns with watermill:
 
 ```javascript
-// Promise-based API for single results
-const result = await api.operationAsync(input);
-
-// Synchronous API for immediate results
-const result = api.operationBlocking(input);
-
-// Callback-based API for streaming results
-const cancel = api.operationWithCallbacks(input, {
-    onResult: (result) => { /* handle result */ },
-    onError: (error) => { /* handle error */ },
-    onDone: () => { /* operation complete */ },
-    onCancel: () => { /* operation cancelled */ }
+// Event-driven step execution with streaming
+const stepID = step.runWithEvents(input, function(event) {
+    console.log("Event:", event.type, event);
+    
+    switch(event.type) {
+        case "start":
+            console.log("Step started");
+            break;
+        case "partial-completion":
+            console.log("Partial result:", event.delta);
+            break;
+        case "final":
+            console.log("Final result:", event.text);
+            break;
+        case "error":
+            console.error("Step error:", event.error);
+            break;
+    }
 });
+
+console.log("Step ID:", stepID);
 ```
 
 ## Conversation API
@@ -425,482 +465,420 @@ function stopEmbedding() {
 
 ## Steps API
 
-The Steps API provides JavaScript access to Geppetto's step abstraction - a powerful system for asynchronous computation that combines features of async operations and list monads.
+The Steps API provides JavaScript access to Geppetto's step abstraction through the watermill-based RuntimeEngine. Steps now use event-driven execution with automatic handler lifecycle management.
 
 ### Core Step Concepts
 
-A Step represents a computation that:
+A Step in the new architecture:
 
-1. **Takes a single input** and produces zero or more outputs asynchronously
-2. **Can be cancelled** at any point during execution
-3. **Can be composed** with other steps to create pipelines
-4. **Supports streaming results** for real-time feedback
-5. **Carries metadata** about its execution
+1. **Event-driven execution**: Steps publish events to watermill topics for real-time feedback
+2. **Automatic handler management**: Each step gets a unique handler that auto-registers/unregisters
+3. **Streaming support**: Real-time event flow through watermill pub/sub system
+4. **Per-step topics**: Each step execution gets its own watermill topic for isolation
+5. **Carries metadata**: Events include both step and event metadata
 
 #### Key Step Characteristics
 
-##### 1. Multiple Results
-A Step can produce multiple results over time, similar to an async iterator:
+##### 1. Event Streaming
+Steps now stream events through watermill rather than returning results directly:
 
 ```javascript
-const step = steps.createMapStep((x) => x * 2);
-const cancel = step.startWithCallbacks([1, 2, 3], {
-    onResult: (result) => console.log(result) // Prints: 2, 4, 6
+const stepID = step.runWithEvents(input, function(event) {
+    console.log("Event type:", event.type);
+    console.log("Event data:", event);
 });
+
+console.log("Step ID:", stepID);
 ```
 
-This multiple-result capability enables streaming processing where results are delivered incrementally rather than all at once.
+This event-driven approach enables real-time feedback and better observability.
 
-##### 2. Composition
-Steps can be chained together using `bind` operations:
+##### 2. Event Types
+Steps publish various event types during execution:
 
-```javascript
-// Create a pipeline that:
-// 1. Generates embeddings
-// 2. Searches similar documents
-// 3. Summarizes results with an LLM
-const pipeline = steps.compose([
-    embedStep,
-    (embeddings) => searchStep.startAsync(embeddings),
-    (documents) => llmStep.startAsync({
-        messages: [{
-            role: "user",
-            content: `Summarize these documents: ${documents.join('\n')}`
-        }]
-    })
-]);
-```
+- **`start`**: Step execution begins
+- **`partial-completion`**: Incremental results (for streaming steps)
+- **`final`**: Step completed successfully with final result
+- **`error`**: Step encountered an error
+- **`interrupt`**: Step was interrupted/cancelled
+- **`tool-call`**: AI step is calling a tool (for AI steps)
+- **`tool-result`**: Tool call completed (for AI steps)
 
-Steps are particularly useful for:
-- LLM interactions with streaming responses
-- Data processing pipelines
-- Parallel computations
-- Operations requiring cancellation
-- Event-driven processing
+##### 3. Automatic Cleanup
+Each step execution automatically:
+- Registers a handler on the watermill router
+- Creates a unique topic (`step.{stepID}`)
+- Unregisters the handler when the step completes
+- Cleans up subscriptions and resources
 
-### Step Execution APIs
+### Step Execution API
 
-Each registered step provides three execution methods:
+Steps provide the new `runWithEvents` method for watermill-based execution:
 
-#### Promise-based API
-Best for single-result operations or when you want to wait for all results:
+#### Event-driven API
+The primary method for executing steps with real-time event streaming:
 
 ```javascript
-// Async/await style
-try {
-    const promise = step.startAsync(input);
-    console.log("Promise created");
-    const results = await promise;
-    console.log("Results:", results);
-} catch (err) {
-    console.error("Error:", err);
-}
-```
-
-#### Synchronous API
-Use when you need blocking behavior and have all results immediately:
-
-```javascript
-try {
-    const results = step.startBlocking(input);
-    console.log("Results:", results);
-} catch (err) {
-    console.error("Error:", err);
-}
-```
-
-#### Callback-based Streaming API
-Best for handling streaming results or long-running operations:
-
-```javascript
-const cancel = step.startWithCallbacks(input, {
-    onResult: (result) => {
-        console.log("Got result:", result);
-    },
-    onError: (err) => {
-        console.error("Error occurred:", err);
-    },
-    onDone: () => {
-        console.log("Processing complete");
-    },
-    onCancel: () => {
-        console.log("Operation cancelled");
+const stepID = step.runWithEvents(input, function(event) {
+    // Handle different event types
+    switch(event.type) {
+        case "start":
+            console.log("Step started");
+            break;
+            
+        case "partial-completion":
+            console.log("Partial result:", event.delta);
+            console.log("Full completion so far:", event.completion);
+            break;
+            
+        case "final":
+            console.log("Final result:", event.text);
+            break;
+            
+        case "error":
+            console.error("Step failed:", event.error);
+            break;
+            
+        case "tool-call":
+            console.log("Tool call:", event.toolCall.name, event.toolCall.input);
+            break;
+            
+        case "tool-result":
+            console.log("Tool result:", event.toolResult.result);
+            break;
     }
 });
 
-// Cancel the operation when needed
-setTimeout(() => {
-    cancel();
-}, 5000);
+console.log("Step execution started with ID:", stepID);
 ```
 
-### Step Composition
-
-Steps can be chained together using composition patterns:
+#### Event Object Structure
+Events have a common structure with type-specific fields:
 
 ```javascript
-// Create a pipeline that:
-// 1. Generates embeddings
-// 2. Searches similar documents  
-// 3. Summarizes results with an LLM
-const pipeline = steps.compose([
-    embedStep,
-    (embeddings) => searchStep.startAsync(embeddings),
-    (documents) => llmStep.startAsync({
-        messages: [{
-            role: "user",
-            content: `Summarize these documents: ${documents.join('\n')}`
-        }]
-    })
-]);
+// Common fields
+{
+    type: string,           // Event type
+    meta: {                 // Event metadata
+        messageId: string,
+        parentId: string,
+        engine: string
+    },
+    step: {                 // Step metadata
+        stepId: string,
+        type: string,
+        inputType: string,
+        outputType: string,
+        metadata: object
+    }
+}
+
+// Type-specific fields for partial-completion
+{
+    ...commonFields,
+    delta: string,          // New text added
+    completion: string      // Full text so far
+}
+
+// Type-specific fields for final
+{
+    ...commonFields,
+    text: string           // Final result text
+}
+
+// Type-specific fields for tool-call
+{
+    ...commonFields,
+    toolCall: {
+        id: string,
+        name: string,
+        input: object
+    }
+}
+
+// Type-specific fields for tool-result
+{
+    ...commonFields,
+    toolResult: {
+        id: string,
+        result: any
+    }
+}
 ```
 
-### Cancellation Support
+### Step Registration and Setup
 
-All step operations support cancellation:
+Steps are now registered through setup functions rather than direct registration:
 
-```javascript
-// With callbacks
-const cancel = step.startWithCallbacks(input, callbacks);
-// Later...
-cancel();
+#### Creating Setup Functions
+```go
+// In Go - create a setup function
+func SetupMyStep() js.SetupFunction {
+    return func(vm *goja.Runtime, engine *js.RuntimeEngine) {
+        // Create your step
+        myStep := &MyStep{...}
+        
+        // Create watermill step object factory
+        stepFactory := js.CreateWatermillStepObject(
+            engine,
+            myStep,
+            inputConverter,
+            outputConverter,
+        )
+        
+        // Register in VM
+        stepObj := stepFactory(vm)
+        vm.Set("myStep", stepObj)
+    }
+}
 
-// With promises using AbortController
-const controller = new AbortController();
-const promise = step.startAsync(input, { signal: controller.signal });
-// Later...
-controller.abort();
+// Add to engine
+engine.AddSetupFunction(SetupMyStep())
 ```
 
-### Metadata and Results
-
-Steps carry metadata about their execution:
-
-```javascript
-const result = await step.startAsync(input);
-console.log(result.metadata); // Execution details, timing, etc.
-```
-
-### Step Registration Implementation
-
-Steps are registered using the `RegisterStep` function in Go:
+#### Built-in Setup Functions
+Geppetto provides several built-in setup functions:
 
 ```go
-func RegisterStep[T any, U any](
-    runtime *goja.Runtime,
-    loop *eventloop.EventLoop,
-    name string,
-    step steps.Step[T, U],
-    inputConverter func(goja.Value) T,
-    outputConverter func(U) goja.Value,
-) error
+// Basic test step
+engine.AddSetupFunction(js.SetupDoubleStep())
+
+// Conversation API
+engine.AddSetupFunction(js.SetupConversation())
+
+// Embeddings API
+engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
+
+// Done callback for script completion
+engine.AddSetupFunction(js.SetupDoneCallback())
 ```
 
-This registration process:
-- Integrates with the JavaScript event loop for proper Promise handling
-- Provides type conversion between Go and JavaScript
-- Enables all three execution APIs (async, blocking, callbacks)
-- Handles error propagation and cancellation
+### Watermill Integration Details
 
-### Step Factory Pattern
+#### Topic Management
+- Each step execution gets a unique topic: `step.{stepID}`
+- Topics are automatically created and cleaned up
+- Events are published to the step's topic during execution
 
-Steps can be created from factories for reusability:
+#### Handler Lifecycle
+1. **Registration**: Handler registered when `runWithEvents` is called
+2. **Event Processing**: Handler receives and processes events from watermill
+3. **JavaScript Callback**: Events converted to JavaScript and passed to callback
+4. **Cleanup**: Handler automatically unregistered when step completes
 
+#### Error Handling
 ```javascript
-// Create a reusable step factory
-const createProcessingStep = (options) => steps.createStep({
-    input: options.preprocessor,
-    process: options.processor,
-    output: options.postprocessor
-});
-
-// Create instances with different configurations
-const textStep = createProcessingStep({
-    preprocessor: (text) => text.toLowerCase(),
-    processor: async (text) => /* process */,
-    postprocessor: (result) => result.toString()
-});
-```
-
-### Advanced Step Patterns
-
-#### Event Publishing and Monitoring
-Steps can publish events for monitoring and debugging:
-
-```javascript
-const monitoredStep = steps.withEvents(step, {
-    onStart: (input) => console.log("Starting with:", input),
-    onResult: (result) => console.log("Produced:", result),
-    onComplete: () => console.log("Step completed"),
-    onError: (err) => console.error("Step failed:", err)
+const stepID = step.runWithEvents(input, function(event) {
+    if (event.type === "error") {
+        console.error("Step failed:", event.error);
+        // Handle error appropriately
+        return;
+    }
+    
+    // Process successful events
+    console.log("Event:", event.type, event);
 });
 ```
 
-#### Parallel Processing
-```javascript
-// Process multiple inputs in parallel
-const parallelStep = steps.createParallelStep({
-    maxConcurrency: 3,
-    step: processingStep
-});
+### Migration from Legacy API
 
-const results = await parallelStep.startAsync(inputs);
-```
+The new watermill-based API replaces the previous Promise/callback patterns:
 
-#### Error Recovery
+#### Legacy Pattern (Removed)
 ```javascript
-const robustStep = steps.withRetry(step, {
-    maxAttempts: 3,
-    backoff: (attempt) => Math.pow(2, attempt) * 1000,
-    shouldRetry: (error) => error.isTransient
+// Old Promise-based API (no longer available)
+const results = await step.startAsync(input);
+
+// Old callback API (no longer available)
+const cancel = step.startWithCallbacks(input, {
+    onResult: (result) => console.log(result),
+    onError: (error) => console.error(error)
 });
 ```
 
-#### State Management
+#### New Watermill Pattern
 ```javascript
-const statefulStep = steps.withState({
-    initialState: { count: 0 },
-    step: (input, state) => {
-        state.count++;
-        return processWithState(input, state);
+// New event-driven API
+const stepID = step.runWithEvents(input, function(event) {
+    switch(event.type) {
+        case "final":
+            console.log("Result:", event.text);
+            break;
+        case "error":
+            console.error("Error:", event.error);
+            break;
     }
 });
 ```
 
-## Chat Step Factory
+### Advanced Patterns
 
-The Chat Step Factory provides a specialized interface for creating chat completion steps that integrate with various LLM providers.
-
-### Basic Usage
-
+#### Event Filtering
 ```javascript
-// Create a factory instance
-const factory = new ChatStepFactory();
-
-// Create a new chat step
-const step = factory.newStep();
-
-// Use Promise-based API
-step.startAsync({ 
-    messages: [
-        { role: "user", content: "Hello, how can I help you?" }
-    ]
-})
-.then(result => {
-    console.log("Response:", result);
-})
-.catch(err => {
-    console.error("Error:", err);
-});
-```
-
-### Streaming Chat Responses
-
-Chat steps excel at streaming responses for real-time output:
-
-```javascript
-step.startWithCallbacks(
-    { 
-        messages: [
-            { role: "user", content: "Explain quantum computing" }
-        ]
-    },
-    {
-        onResult: (result) => {
-            console.log("Got chunk:", result);
-            // Display streaming text in UI
-        },
-        onError: (err) => {
-            console.error("Error occurred:", err);
-        },
-        onDone: () => {
-            console.log("Chat complete");
-        }
+const stepID = step.runWithEvents(input, function(event) {
+    // Only handle specific event types
+    if (event.type === "partial-completion") {
+        updateUI(event.delta);
+    } else if (event.type === "final") {
+        showFinalResult(event.text);
     }
-);
-```
-
-### Conversation Integration
-
-The Chat Step Factory supports two input formats:
-
-#### Using Conversation Objects (Recommended)
-```javascript
-const conv = new Conversation();
-
-// Add messages with full conversation management
-conv.AddMessage("system", "You are a helpful assistant");
-conv.AddMessage("user", "What is quantum computing?");
-
-// Add messages with metadata
-conv.AddMessage("user", "Hello", {
-    metadata: { source: "user-input" },
-    time: "2024-03-20T15:04:05Z"
 });
-
-// Add messages with images
-conv.AddMessageWithImage("user", "What's in this image?", "path/to/image.jpg");
-
-// Add tool usage
-conv.AddToolUse("tool123", "search", { query: "quantum computing" });
-conv.AddToolResult("tool123", "Found relevant articles...");
-
-// Use with chat step
-const response = await step.startAsync(conv);
 ```
 
-#### Legacy Format (Backward Compatibility)
+#### Event Aggregation
 ```javascript
-const input = {
-    messages: [
-        { role: "system", content: "You are a helpful assistant" },
-        { role: "user", content: "What is quantum computing?" }
-    ]
+let fullText = "";
+
+const stepID = step.runWithEvents(input, function(event) {
+    if (event.type === "partial-completion") {
+        // Build up complete text from deltas
+        fullText += event.delta;
+        console.log("Current text length:", fullText.length);
+    } else if (event.type === "final") {
+        console.log("Final text:", fullText);
+    }
+});
+```
+
+#### Step Monitoring
+```javascript
+const stepStats = {
+    startTime: null,
+    eventCount: 0,
+    errors: []
 };
 
-const response = await step.startAsync(input);
-```
-
-### Custom Configuration
-
-Create steps with custom options:
-
-```javascript
-const step = factory.newStep([
-    (step) => {
-        // Custom option function that can modify the step
-        // Return null or undefined if no error
-        // Return an error if something goes wrong
-        return null;
-    }
-]);
-```
-
-### Cancellation Support
-
-Chat operations support cancellation through AbortController:
-
-```javascript
-const controller = new AbortController();
-
-step.startAsync(input, { signal: controller.signal })
-    .then(result => {
-        console.log("Success:", result);
-    })
-    .catch(err => {
-        if (err.name === 'AbortError') {
-            console.log("Operation cancelled");
-        } else {
-            console.error("Error:", err);
-        }
-    });
-
-// Cancel the operation
-setTimeout(() => {
-    controller.abort();
-}, 5000);
-```
-
-### Complete Chat Application Example
-
-```javascript
-// Create factory and step
-const factory = new ChatStepFactory();
-const chatStep = factory.newStep([
-    {
-        temperature: 0.7,
-        maxTokens: 2000
-    }
-]);
-
-// Create and setup conversation
-const conversation = new Conversation();
-conversation.AddMessage("system", 
-    "You are a helpful AI assistant. Be concise and clear in your responses."
-);
-
-// Function to send user message and get response
-async function chat(userInput) {
-    // Add user message
-    conversation.AddMessage("user", userInput);
+const stepID = step.runWithEvents(input, function(event) {
+    stepStats.eventCount++;
     
-    // Stream response
-    let response = "";
-    const cancel = chatStep.startWithCallbacks(conversation, {
-        onResult: (chunk) => {
-            response += chunk;
-            // Update UI with streaming response
-            updateUI(response);
-        },
-        onError: (err) => {
-            console.error("Chat error:", err);
-            handleError(err);
-        },
-        onDone: () => {
-            // Add assistant's response to conversation
-            conversation.AddMessage("assistant", response);
-            // Update UI to show completion
-            markComplete();
-        }
-    });
-    
-    // Return cancel function for cleanup
-    return cancel;
-}
-
-// Usage
-const cancelChat = await chat("Explain quantum computing briefly");
-
-// Cancel if needed
-setTimeout(() => {
-    cancelChat();
-}, 10000);
-```
-
-### Input Format
-
-The input object should follow this structure:
-
-```javascript
-{
-    messages: [
-        {
-            role: string,    // "system", "user", "assistant"
-            content: string  // The message content
-        }
-    ],
-    // Additional configuration options depending on the chat model
-    temperature?: number,
-    maxTokens?: number,
-    // etc...
-}
-```
-
-### Error Handling Best Practices
-
-```javascript
-// With callbacks
-chatStep.startWithCallbacks(conversation, {
-    onResult: (chunk) => { /* ... */ },
-    onError: (err) => {
-        console.error("LLM error:", err);
-        // Handle specific error cases
-        if (err.includes("rate limit")) {
-            // Handle rate limiting
-        } else if (err.includes("context length")) {
-            // Handle context length errors
-        }
+    if (event.type === "start") {
+        stepStats.startTime = Date.now();
+    } else if (event.type === "error") {
+        stepStats.errors.push(event.error);
+    } else if (event.type === "final") {
+        const duration = Date.now() - stepStats.startTime;
+        console.log("Step completed in", duration, "ms");
+        console.log("Total events:", stepStats.eventCount);
     }
 });
+```
 
-// With promises
-try {
-    await chatStep.startAsync(conversation);
-} catch (err) {
-    if (err.includes("context length")) {
-        // Handle context length errors
-    } else if (err.includes("invalid api key")) {
-        // Handle authentication errors
+## RuntimeEngine Setup and Configuration
+
+The RuntimeEngine provides a modular approach to setting up the JavaScript environment through setup functions.
+
+### Engine Lifecycle
+
+```go
+// 1. Create engine (does not start event loop)
+engine := js.NewRuntimeEngine()
+defer engine.Close()
+
+// 2. Add setup functions
+engine.AddSetupFunction(js.SetupDoubleStep())
+engine.AddSetupFunction(js.SetupConversation())
+engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
+
+// 3. Start engine and run setup (blocking until completion)
+engine.Start()
+
+// Or add custom JavaScript execution
+engine.AddSetupFunction(func(vm *goja.Runtime, engine *js.RuntimeEngine) {
+    _, err := vm.RunString("console.log('Custom setup complete');")
+    if err != nil {
+        panic(err)
+    }
+})
+```
+
+### Setup Functions
+
+Setup functions allow modular configuration of the JavaScript environment:
+
+#### Built-in Setup Functions
+
+```go
+// Test step that doubles numbers
+js.SetupDoubleStep()
+
+// Conversation management API
+js.SetupConversation()
+
+// Embeddings generation API
+js.SetupEmbeddings(stepSettings)
+
+// Done callback for script completion signaling
+js.SetupDoneCallback()
+```
+
+#### Custom Setup Functions
+
+```go
+func MyCustomSetup() js.SetupFunction {
+    return func(vm *goja.Runtime, engine *js.RuntimeEngine) {
+        // Set up custom JavaScript objects
+        customObj := vm.NewObject()
+        customObj.Set("version", "1.0.0")
+        customObj.Set("author", "My App")
+        vm.Set("myApp", customObj)
+        
+        // Register custom steps
+        myStep := &MyCustomStep{}
+        stepFactory := js.CreateWatermillStepObject(
+            engine,
+            myStep,
+            func(v goja.Value) MyInput { /* convert input */ },
+            func(output MyOutput) goja.Value { /* convert output */ },
+        )
+        stepObj := stepFactory(vm)
+        vm.Set("myCustomStep", stepObj)
+    }
+}
+
+// Add to engine
+engine.AddSetupFunction(MyCustomSetup())
+```
+
+### Console and Utilities
+
+The RuntimeEngine automatically sets up basic console functionality:
+
+```javascript
+// Available in all scripts
+console.log("Hello", "World");
+console.error("Error message");
+
+// Done callback (when SetupDoneCallback is used)
+done(); // Signals script completion
+```
+
+### Event Loop Management
+
+The RuntimeEngine properly manages the Goja event loop:
+
+- **`engine.Start()`**: Calls `Loop.Run()` with all setup functions
+- **Setup Phase**: All setup functions called within the event loop
+- **Execution Phase**: Scripts can be executed via setup functions
+- **Cleanup Phase**: Event loop terminates when all work is complete
+
+### Error Handling
+
+```go
+// Setup functions can handle errors
+func MySetupWithErrorHandling() js.SetupFunction {
+    return func(vm *goja.Runtime, engine *js.RuntimeEngine) {
+        defer func() {
+            if r := recover(); r != nil {
+                log.Error().Interface("panic", r).Msg("Setup function panicked")
+            }
+        }()
+        
+        // Setup code that might fail
+        _, err := vm.RunString("potentially.failing.code();")
+        if err != nil {
+            log.Error().Err(err).Msg("JavaScript execution failed in setup")
+            // Handle error appropriately
+        }
     }
 }
 ```
