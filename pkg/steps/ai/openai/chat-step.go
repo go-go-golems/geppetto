@@ -3,7 +3,7 @@ package openai
 import (
 	"context"
 	"io"
-	"log"
+	stdlog "log"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
@@ -15,6 +15,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 var _ chat.Step = &ChatStep{}
@@ -59,6 +60,7 @@ func (csf *ChatStep) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (*conversation.Message, error) {
+	log.Debug().Int("num_messages", len(messages)).Bool("stream", csf.Settings.Chat.Stream).Msg("OpenAI RunInference started")
 	if csf.Settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
@@ -73,145 +75,7 @@ func (csf *ChatStep) RunInference(
 		return nil, err
 	}
 
-	if csf.Settings.Chat.Stream {
-		// For streaming, collect all chunks and return the final message
-		stream, err := client.CreateChatCompletionStream(ctx, *req)
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := stream.Close(); err != nil {
-				log.Printf("Failed to close stream: %v", err)
-			}
-		}()
-
-		message := ""
-		var usage *conversation.Usage
-		var stopReason *string
-
-		for {
-			response, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-
-			if len(response.Choices) > 0 {
-				message += response.Choices[0].Delta.Content
-			}
-
-			// Extract metadata from OpenAI chat response
-			if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
-				if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
-					inputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
-					outputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
-					usage = &conversation.Usage{
-						InputTokens:  inputTokens,
-						OutputTokens: outputTokens,
-					}
-				}
-				if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
-					stopReason = &finishReason
-				}
-			}
-		}
-
-		llmMetadata := &conversation.LLMMessageMetadata{
-			Engine: string(*csf.Settings.Chat.Engine),
-		}
-		if csf.Settings.Chat.Temperature != nil {
-			llmMetadata.Temperature = csf.Settings.Chat.Temperature
-		}
-		if csf.Settings.Chat.TopP != nil {
-			llmMetadata.TopP = csf.Settings.Chat.TopP
-		}
-		if csf.Settings.Chat.MaxResponseTokens != nil {
-			llmMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
-		}
-		if usage != nil {
-			llmMetadata.Usage = usage
-		}
-		if stopReason != nil {
-			llmMetadata.StopReason = stopReason
-		}
-
-		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
-		return conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)), nil
-	} else {
-		resp, err := client.CreateChatCompletion(ctx, *req)
-		if err != nil {
-			return nil, err
-		}
-
-		llmMetadata := &conversation.LLMMessageMetadata{
-			Engine: string(*csf.Settings.Chat.Engine),
-		}
-		if csf.Settings.Chat.Temperature != nil {
-			llmMetadata.Temperature = csf.Settings.Chat.Temperature
-		}
-		if csf.Settings.Chat.TopP != nil {
-			llmMetadata.TopP = csf.Settings.Chat.TopP
-		}
-		if csf.Settings.Chat.MaxResponseTokens != nil {
-			llmMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
-		}
-
-		// Extract metadata from non-streaming response
-		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
-			llmMetadata.Usage = &conversation.Usage{
-				InputTokens:  usage.PromptTokens,
-				OutputTokens: usage.CompletionTokens,
-			}
-		}
-		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
-			finishReason := string(resp.Choices[0].FinishReason)
-			llmMetadata.StopReason = &finishReason
-		}
-
-		return conversation.NewMessage(
-			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
-			conversation.WithLLMMessageMetadata(llmMetadata),
-		), nil
-	}
-}
-
-func (csf *ChatStep) Start(
-	ctx context.Context,
-	messages conversation.Conversation,
-) (steps.StepResult[*conversation.Message], error) {
-	// For non-streaming, use the simplified RunInference method
-	if !csf.Settings.Chat.Stream {
-		message, err := csf.RunInference(ctx, messages)
-		if err != nil {
-			return steps.Reject[*conversation.Message](err), nil
-		}
-		return steps.Resolve(message), nil
-	}
-
-	// For streaming, maintain the original complex logic with events
-	var cancel context.CancelFunc
-	cancellableCtx, cancel := context.WithCancel(ctx)
-	go func() {
-		<-ctx.Done()
-		cancel()
-	}()
-
-	if csf.Settings.Chat.ApiType == nil {
-		return steps.Reject[*conversation.Message](errors.New("no chat engine specified")), nil
-	}
-
-	client, err := makeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := makeCompletionRequest(csf.Settings, messages)
-	if err != nil {
-		return nil, err
-	}
-
+	// Setup metadata and event publishing
 	var parentMessage *conversation.Message
 	parentID := conversation.NullNode
 
@@ -249,117 +113,243 @@ func (csf *ChatStep) Start(
 		},
 	}
 
+	// Publish start event
+	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
 	csf.publisherManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 
-	// Streaming logic
-		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
+	if csf.Settings.Chat.Stream {
+		// For streaming, collect all chunks and return the final message
+		log.Debug().Msg("OpenAI using streaming mode")
+		stream, err := client.CreateChatCompletionStream(ctx, *req)
 		if err != nil {
-			return steps.Reject[*conversation.Message](err), nil
+			log.Error().Err(err).Msg("OpenAI streaming request failed")
+			csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
+			return nil, err
 		}
-		c := make(chan helpers.Result[*conversation.Message])
-		ret := steps.NewStepResult[*conversation.Message](
-			c,
-			steps.WithCancel[*conversation.Message](cancel),
-			steps.WithMetadata[*conversation.Message](
-				stepMetadata,
-			),
-		)
-
-		// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
-		go func() {
-			defer func() {
-				close(c)
-			}()
-			defer func() {
-				if err := stream.Close(); err != nil {
-					// Just log the error since we can't return it
-					log.Printf("Failed to close stream: %v", err)
-				}
-			}()
-
-			message := ""
-
-			for {
-				select {
-				case <-cancellableCtx.Done():
-					csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, ret.GetMetadata(), message))
-					c <- helpers.NewErrorResult[*conversation.Message](cancellableCtx.Err())
-					return
-
-				default:
-					response, err := stream.Recv()
-
-					if errors.Is(err, io.EOF) {
-						// Update both step metadata and event metadata with usage information
-						if openaiMetadata, ok := stepMetadata.Metadata["openai-metadata"].(map[string]interface{}); ok {
-							if usage, ok := openaiMetadata["usage"].(map[string]interface{}); ok {
-								inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
-								outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
-								metadata.Usage = &conversation.Usage{
-									InputTokens:  inputTokens,
-									OutputTokens: outputTokens,
-								}
-							}
-							if finishReason, ok := openaiMetadata["finish_reason"].(string); ok {
-								metadata.StopReason = &finishReason
-							}
-						}
-						csf.publisherManager.PublishBlind(events.NewFinalEvent(
-							metadata,
-							stepMetadata,
-							message,
-						))
-						messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
-						c <- helpers.NewValueResult[*conversation.Message](conversation.NewMessage(
-							messageContent,
-							conversation.WithLLMMessageMetadata(&metadata.LLMMessageMetadata),
-						),
-						)
-
-						return
-					}
-					if err != nil {
-						if errors.Is(err, context.Canceled) {
-							csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, message))
-							c <- helpers.NewErrorResult[*conversation.Message](err)
-							return
-						}
-
-						csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
-						c <- helpers.NewErrorResult[*conversation.Message](err)
-						return
-					}
-					delta := ""
-					if len(response.Choices) > 0 {
-						delta = response.Choices[0].Delta.Content
-						message += delta
-					}
-
-					// Extract metadata from OpenAI chat response and update both step and event metadata
-					if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
-						stepMetadata.Metadata["openai-metadata"] = responseMetadata
-						if usage, ok := responseMetadata["usage"].(map[string]interface{}); ok {
-							inputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["prompt_tokens"])
-							outputTokens, _ := cast.CastNumberInterfaceToInt[int](usage["completion_tokens"])
-							metadata.Usage = &conversation.Usage{
-								InputTokens:  inputTokens,
-								OutputTokens: outputTokens,
-							}
-						}
-						if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
-							metadata.StopReason = &finishReason
-						}
-					}
-
-					csf.publisherManager.PublishBlind(
-						events.NewPartialCompletionEvent(
-							metadata,
-							stepMetadata,
-							delta, message),
-					)
-				}
+		defer func() {
+			if err := stream.Close(); err != nil {
+				stdlog.Printf("Failed to close stream: %v", err)
 			}
 		}()
 
-		return ret, nil
+		message := ""
+		var usage *conversation.Usage
+		var stopReason *string
+
+		log.Debug().Msg("OpenAI starting streaming loop")
+		chunkCount := 0
+		for {
+			select {
+			case <-ctx.Done():
+				log.Debug().Msg("OpenAI streaming cancelled by context")
+				// Publish interrupt event with current partial text
+				csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, message))
+				return nil, ctx.Err()
+				
+			default:
+				response, err := stream.Recv()
+				if errors.Is(err, io.EOF) {
+					log.Debug().Int("chunks_received", chunkCount).Msg("OpenAI stream completed")
+					goto streamingComplete
+				}
+				if err != nil {
+					log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
+					csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
+					return nil, err
+				}
+				chunkCount++
+
+				delta := ""
+				if len(response.Choices) > 0 {
+					delta = response.Choices[0].Delta.Content
+					message += delta
+					log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+				}
+
+				// Extract metadata from OpenAI chat response
+				if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
+					if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
+						inputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
+						outputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
+						usage = &conversation.Usage{
+							InputTokens:  inputTokens,
+							OutputTokens: outputTokens,
+						}
+					}
+					if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
+						stopReason = &finishReason
+					}
+				}
+
+				// Publish intermediate streaming event (this was missing!)
+				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
+				csf.publisherManager.PublishBlind(
+					events.NewPartialCompletionEvent(
+						metadata,
+						stepMetadata,
+						delta, message),
+				)
+			}
+		}
+
+streamingComplete:
+
+		// Update event metadata with usage information
+		if usage != nil {
+			metadata.Usage = usage
+		}
+		if stopReason != nil {
+			metadata.StopReason = stopReason
+		}
+
+		llmMetadata := &conversation.LLMMessageMetadata{
+			Engine: string(*csf.Settings.Chat.Engine),
+		}
+		if csf.Settings.Chat.Temperature != nil {
+			llmMetadata.Temperature = csf.Settings.Chat.Temperature
+		}
+		if csf.Settings.Chat.TopP != nil {
+			llmMetadata.TopP = csf.Settings.Chat.TopP
+		}
+		if csf.Settings.Chat.MaxResponseTokens != nil {
+			llmMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
+		}
+		if usage != nil {
+			llmMetadata.Usage = usage
+		}
+		if stopReason != nil {
+			llmMetadata.StopReason = stopReason
+		}
+
+		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+		finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
+		
+		// Publish final event for streaming
+		log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
+		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, message))
+		
+		log.Debug().Msg("OpenAI RunInference completed (streaming)")
+		return finalMessage, nil
+	} else {
+		log.Debug().Msg("OpenAI using non-streaming mode")
+		resp, err := client.CreateChatCompletion(ctx, *req)
+		if err != nil {
+			log.Error().Err(err).Msg("OpenAI non-streaming request failed")
+			csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
+			return nil, err
+		}
+
+		llmMetadata := &conversation.LLMMessageMetadata{
+			Engine: string(*csf.Settings.Chat.Engine),
+		}
+		if csf.Settings.Chat.Temperature != nil {
+			llmMetadata.Temperature = csf.Settings.Chat.Temperature
+		}
+		if csf.Settings.Chat.TopP != nil {
+			llmMetadata.TopP = csf.Settings.Chat.TopP
+		}
+		if csf.Settings.Chat.MaxResponseTokens != nil {
+			llmMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
+		}
+
+		// Extract metadata from non-streaming response and update event metadata
+		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
+			usageData := &conversation.Usage{
+				InputTokens:  usage.PromptTokens,
+				OutputTokens: usage.CompletionTokens,
+			}
+			llmMetadata.Usage = usageData
+			metadata.Usage = usageData
+		}
+		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
+			finishReason := string(resp.Choices[0].FinishReason)
+			llmMetadata.StopReason = &finishReason
+			metadata.StopReason = &finishReason
+		}
+
+		finalMessage := conversation.NewMessage(
+			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
+			conversation.WithLLMMessageMetadata(llmMetadata),
+		)
+		
+		// Publish final event for non-streaming
+		log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing final event (non-streaming)")
+		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
+		
+		log.Debug().Msg("OpenAI RunInference completed (non-streaming)")
+		return finalMessage, nil
+	}
+}
+
+func (csf *ChatStep) Start(
+	ctx context.Context,
+	messages conversation.Conversation,
+) (steps.StepResult[*conversation.Message], error) {
+	log.Debug().Bool("stream", csf.Settings.Chat.Stream).Msg("OpenAI Start called")
+	// For non-streaming, use the simplified RunInference method
+	if !csf.Settings.Chat.Stream {
+		log.Debug().Msg("OpenAI Start using non-streaming path")
+		message, err := csf.RunInference(ctx, messages)
+		if err != nil {
+			return steps.Reject[*conversation.Message](err), nil
+		}
+		return steps.Resolve(message), nil
+	}
+
+	// For streaming, use RunInference in a goroutine to handle cancellation
+	log.Debug().Msg("OpenAI Start using streaming path with goroutine")
+	var cancel context.CancelFunc
+	cancellableCtx, cancel := context.WithCancel(ctx)
+
+	c := make(chan helpers.Result[*conversation.Message])
+	ret := steps.NewStepResult[*conversation.Message](
+		c,
+		steps.WithCancel[*conversation.Message](cancel),
+		steps.WithMetadata[*conversation.Message](&steps.StepMetadata{
+			StepID:     uuid.New(),
+			Type:       "openai-chat",
+			InputType:  "conversation.Conversation",
+			OutputType: "*conversation.Message",
+			Metadata: map[string]interface{}{
+				steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
+			},
+		}),
+	)
+
+	go func() {
+		defer close(c)
+		defer cancel()
+		log.Debug().Msg("OpenAI streaming goroutine started")
+
+		// Check for cancellation before starting
+		select {
+		case <-cancellableCtx.Done():
+			log.Debug().Msg("OpenAI context cancelled before starting")
+			c <- helpers.NewErrorResult[*conversation.Message](context.Canceled)
+			return
+		default:
+		}
+
+		// Use RunInference which now handles all the streaming logic
+		log.Debug().Msg("OpenAI calling RunInference from goroutine")
+		message, err := csf.RunInference(cancellableCtx, messages)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				// Context was cancelled during RunInference
+				log.Debug().Msg("OpenAI RunInference cancelled")
+				c <- helpers.NewErrorResult[*conversation.Message](context.Canceled)
+			} else {
+				log.Error().Err(err).Msg("OpenAI RunInference failed")
+				c <- helpers.NewErrorResult[*conversation.Message](err)
+			}
+			return
+		}
+		log.Debug().Msg("OpenAI RunInference succeeded, sending result")
+		result := helpers.NewValueResult[*conversation.Message](message)
+		log.Debug().Msg("OpenAI about to send result to channel")
+		c <- result
+		log.Debug().Msg("OpenAI result sent to channel successfully")
+	}()
+
+	return ret, nil
 }
