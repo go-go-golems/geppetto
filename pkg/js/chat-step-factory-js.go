@@ -1,75 +1,134 @@
 package js
 
 import (
+	"fmt"
+
 	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/rs/zerolog/log"
 )
 
-// RegisterFactory registers the chat step factory functionality in the JavaScript runtime
-func RegisterFactory(runtime *goja.Runtime, loop *eventloop.EventLoop, stepSettings *settings.StepSettings) error {
-	factory := &ai.StandardStepFactory{
-		Settings: stepSettings,
+// SetupChatStepFactory creates a setup function for the ChatStepFactory
+func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
+	return func(vm *goja.Runtime, engine *RuntimeEngine) {
+		log.Debug().Msg("Setting up ChatStepFactory")
+
+		// Create factory constructor
+		factoryConstructor := func(call goja.FunctionCall) goja.Value {
+			log.Debug().Msg("Creating new ChatStepFactory instance")
+
+			factory := &ai.StandardStepFactory{
+				Settings: stepSettings,
+			}
+
+			factoryObj := vm.NewObject()
+
+			// Add newStep method to factory
+			err := factoryObj.Set("newStep", func(call goja.FunctionCall) goja.Value {
+				log.Debug().Msg("Creating new chat step")
+
+				// Create the step using the factory
+				step, err := factory.NewStep()
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to create chat step")
+					panic(vm.NewGoError(fmt.Errorf("failed to create chat step: %w", err)))
+				}
+				log.Debug().Msg("Chat step created successfully")
+
+				// Create watermill-based step object
+				stepObjectFactory := CreateWatermillStepObject(
+					engine,
+					step,
+					// Input converter: goja.Value -> conversation.Conversation
+					func(v goja.Value) conversation.Conversation {
+						log.Debug().Msg("Converting input to conversation")
+						if jsConv, ok := v.Export().(*JSConversation); ok {
+							return jsConv.ToGoConversation()
+						}
+						// If it's not a JSConversation, assume it's a raw conversation object
+						// This is a fallback case
+						if convData := v.Export(); convData != nil {
+							// Try to convert back to conversation - this is a simplified approach
+							log.Warn().Msg("Attempting to convert non-JSConversation to conversation")
+							return conversation.NewConversation()
+						}
+						log.Error().Msg("Invalid conversation input")
+						panic(vm.NewTypeError("expected Conversation object"))
+					},
+					// Output converter: *conversation.Message -> goja.Value
+					func(msg *conversation.Message) goja.Value {
+						log.Debug().Msg("Converting message output to JS value")
+						if msg == nil {
+							return vm.ToValue(nil)
+						}
+
+						// Convert message to a JavaScript-friendly object
+						msgObj := vm.NewObject()
+						_ = msgObj.Set("id", msg.ID.String())
+						_ = msgObj.Set("parentID", msg.ParentID.String())
+						_ = msgObj.Set("time", msg.Time.Format("2006-01-02T15:04:05Z07:00"))
+						_ = msgObj.Set("lastUpdate", msg.LastUpdate.Format("2006-01-02T15:04:05Z07:00"))
+						_ = msgObj.Set("metadata", msg.Metadata)
+
+						// Handle different message types
+						switch content := msg.Content.(type) {
+						case *conversation.ChatMessageContent:
+							_ = msgObj.Set("type", "chat-message")
+							_ = msgObj.Set("role", string(content.Role))
+							_ = msgObj.Set("text", content.Text)
+							if len(content.Images) > 0 {
+								images := make([]interface{}, len(content.Images))
+								for i, img := range content.Images {
+									imgObj := map[string]interface{}{
+										"imageURL":  img.ImageURL,
+										"imageName": img.ImageName,
+										"mediaType": img.MediaType,
+										"detail":    img.Detail,
+									}
+									images[i] = imgObj
+								}
+								_ = msgObj.Set("images", images)
+							}
+						case *conversation.ToolUseContent:
+							_ = msgObj.Set("type", "tool-use")
+							_ = msgObj.Set("toolID", content.ToolID)
+							_ = msgObj.Set("name", content.Name)
+							_ = msgObj.Set("input", content.Input)
+							_ = msgObj.Set("toolType", content.Type)
+						case *conversation.ToolResultContent:
+							_ = msgObj.Set("type", "tool-result")
+							_ = msgObj.Set("toolID", content.ToolID)
+							_ = msgObj.Set("result", content.Result)
+						default:
+							log.Warn().Interface("content", content).Msg("Unknown message content type")
+							_ = msgObj.Set("type", "unknown")
+						}
+
+						return msgObj
+					},
+				)
+
+				stepObj := stepObjectFactory(vm)
+				log.Debug().Msg("Chat step object created successfully")
+				return stepObj
+			})
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to set newStep method")
+				panic(vm.NewGoError(err))
+			}
+
+			log.Debug().Msg("ChatStepFactory instance created successfully")
+			return factoryObj
+		}
+
+		// Register the constructor in the VM
+		err := vm.Set("ChatStepFactory", factoryConstructor)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to register ChatStepFactory")
+		} else {
+			log.Debug().Msg("ChatStepFactory registered successfully")
+		}
 	}
-
-	// Create the factory object constructor
-	constructor := runtime.ToValue(func(call goja.ConstructorCall) *goja.Object {
-		this := call.This
-
-		// Create newStep method
-		_ = this.Set("newStep", func(call goja.FunctionCall) goja.Value {
-
-			// Create new step
-			step, err := factory.NewStep()
-			if err != nil {
-				panic(runtime.ToValue(err))
-			}
-
-			// Define converters for the step
-			inputConverter := func(v goja.Value) conversation.Conversation {
-				if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
-					return conversation.NewConversation()
-				}
-
-				// Try to get the conversation directly
-				if conv, ok := v.Export().(conversation.Conversation); ok {
-					return conv
-				}
-
-				// Handle JSConversation case
-				if jsConv, ok := v.Export().(*JSConversation); ok {
-					return jsConv.ToGoConversation()
-				}
-
-				// Fallback to empty conversation
-				return conversation.NewConversation()
-			}
-
-			outputConverter := func(s *conversation.Message) goja.Value {
-				// XXX return the full message to javascript here
-				return runtime.ToValue(s.Content.String())
-			}
-
-			// Create step object directly
-			stepObj, err := CreateStepObject(
-				runtime,
-				loop,
-				step,
-				inputConverter,
-				outputConverter,
-			)
-			if err != nil {
-				panic(runtime.ToValue(err))
-			}
-
-			return stepObj
-		})
-
-		return nil
-	})
-
-	// Register the factory constructor
-	return runtime.Set("ChatStepFactory", constructor)
 }
