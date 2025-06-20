@@ -18,17 +18,17 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 		// Create factory constructor
 		factoryConstructor := func(call goja.FunctionCall) goja.Value {
 			log.Debug().Msg("Creating new ChatStepFactory instance")
-			
+
 			factory := &ai.StandardStepFactory{
 				Settings: stepSettings,
 			}
 
 			factoryObj := vm.NewObject()
-			
+
 			// Add newStep method to factory
 			err := factoryObj.Set("newStep", func(call goja.FunctionCall) goja.Value {
 				log.Debug().Msg("Creating new chat step")
-				
+
 				// Create the step using the factory
 				step, err := factory.NewStep()
 				if err != nil {
@@ -41,7 +41,7 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 				stepObjectFactory := CreateWatermillStepObject(
 					engine,
 					step,
-					// Input converter: goja.Value -> conversation.Conversation  
+					// Input converter: goja.Value -> conversation.Conversation
 					func(v goja.Value) conversation.Conversation {
 						log.Debug().Msg("Converting input to conversation")
 						if jsConv, ok := v.Export().(*JSConversation); ok {
@@ -63,7 +63,7 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 						if msg == nil {
 							return vm.ToValue(nil)
 						}
-						
+
 						// Convert message to a JavaScript-friendly object
 						msgObj := vm.NewObject()
 						msgObj.Set("id", msg.ID.String())
@@ -71,7 +71,7 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 						msgObj.Set("time", msg.Time.Format("2006-01-02T15:04:05Z07:00"))
 						msgObj.Set("lastUpdate", msg.LastUpdate.Format("2006-01-02T15:04:05Z07:00"))
 						msgObj.Set("metadata", msg.Metadata)
-						
+
 						// Handle different message types
 						switch content := msg.Content.(type) {
 						case *conversation.ChatMessageContent:
@@ -105,7 +105,7 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 							log.Warn().Interface("content", content).Msg("Unknown message content type")
 							msgObj.Set("type", "unknown")
 						}
-						
+
 						return msgObj
 					},
 				)

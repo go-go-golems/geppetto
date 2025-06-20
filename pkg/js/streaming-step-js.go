@@ -8,6 +8,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,81 +20,211 @@ func CreateWatermillStepObject[T any, U any](
 	inputConverter func(goja.Value) T,
 	outputConverter func(U) goja.Value,
 ) func(vm *goja.Runtime) *goja.Object {
-	log.Debug().Str("stepType", fmt.Sprintf("%T", step)).Msg("Creating watermill step object factory")
+	stepID := uuid.NewString()
+	logger := log.With().
+		Str("stepType", fmt.Sprintf("%T", step)).
+		Str("stepID", stepID).
+		Logger()
+
+	logger.Debug().Msg("Creating watermill step object factory")
 
 	return func(vm *goja.Runtime) *goja.Object {
-		log.Debug().Msg("Creating step object in VM context")
+		logger.Debug().Msg("Creating step object in VM context")
 		stepObj := vm.NewObject()
 
-		// Add the watermill-based streaming method
-		log.Debug().Msg("Adding runWithEvents method to step object")
-		err := stepObj.Set("runWithEvents", func(call goja.FunctionCall) goja.Value {
-			log.Debug().Msg("runWithEvents called")
-			if len(call.Arguments) < 2 {
-				log.Error().Msg("runWithEvents requires input and onEvent callback")
-				panic(vm.NewTypeError("runWithEvents requires input and onEvent callback"))
+		// Add the runAsync method
+		err := stepObj.Set("runAsync", func(call goja.FunctionCall) goja.Value {
+			logger.Debug().Msg("runAsync called")
+
+			if len(call.Arguments) < 1 {
+				logger.Error().Msg("runAsync requires at least an input argument")
+				panic(vm.NewTypeError("runAsync requires input"))
 			}
 
+			// Convert input
+			logger.Debug().Interface("args", call.Arguments).Msg("runAsync called")
 			input := inputConverter(call.Arguments[0])
-			log.Debug().Interface("input", input).Msg("Input converted")
+			logger.Debug().Interface("input", input).Msg("input converted")
 
-			onEvent, ok := goja.AssertFunction(call.Arguments[1])
-			if !ok {
-				log.Error().Msg("onEvent must be a function")
-				panic(vm.NewTypeError("onEvent must be a function"))
+			// Optional onEvent callback (may be undefined/null)
+			var userOnEvent goja.Callable
+			if len(call.Arguments) >= 2 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
+				callable, ok := goja.AssertFunction(call.Arguments[1])
+				if !ok {
+					logger.Error().Msg("onEvent must be a function")
+					panic(vm.NewTypeError("onEvent must be a function"))
+				}
+				userOnEvent = callable
+			} else {
+				userOnEvent = goja.Callable(func(this goja.Value, args ...goja.Value) (goja.Value, error) {
+					logger.Debug().Interface("args", args).Msg("userOnEvent called")
+					return goja.Undefined(), nil
+				})
 			}
-			log.Debug().Msg("onEvent callback validated")
 
-			// Create a generic step that can be used with RunStep
-			log.Debug().Msg("Creating generic step wrapper")
-			genericStep := &GenericStepWrapper[T, U]{step: step}
+			// Create promise
+			promise, resolve, reject := vm.NewPromise()
+			logger.Debug().Msg("promise created")
 
-			log.Debug().Msg("Calling engine.RunStep")
-			stepID := engine.RunStep(genericStep, input, onEvent)
-			log.Debug().Str("stepID", stepID).Msg("RunStep completed")
+			// Start the step with internal callback; obtain stepID
+			logger.Debug().Str("stepID", stepID).Msg("stepID created")
+			stepResult, err := StartTypedStep(engine, step, stepID, input, userOnEvent)
+			logger.Debug().Str("stepID", stepID).Msg("stepResult created")
+			if err != nil {
+				logger.Error().Err(err).Msg("error starting step")
+				panic(vm.NewGoError(err))
+			}
 
-			return vm.ToValue(stepID)
+			go func() {
+				logger.Debug().Msg("Waiting for step to finish")
+				// Wait for the step to finish
+				r := stepResult.Return()
+				logger.Debug().Interface("r", r).Msg("stepResult returned")
+				engine.Loop.RunOnLoop(func(vm *goja.Runtime) {
+					if len(r) == 0 {
+						logger.Error().Msg("no result")
+						reject(vm.NewGoError(fmt.Errorf("no result")))
+						return
+					}
+					result := r[0]
+					if result.Error() != nil {
+						logger.Error().Err(result.Error()).Msg("error in result")
+						reject(vm.NewGoError(result.Error()))
+						return
+					}
+					logger.Debug().Interface("result", result.Unwrap()).Msg("result")
+					resolve(result.Unwrap())
+				})
+			}()
+
+			// Build return object { stepID, promise }
+			logger.Debug().Msg("Building return object")
+			retObj := vm.NewObject()
+			retObj.Set("stepID", stepID)
+			retObj.Set("promise", promise)
+
+			return retObj
 		})
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to set runWithEvents method")
+			logger.Error().Err(err).Msg("Failed to set runAsync method")
 			panic(vm.NewGoError(err))
 		}
 
-		log.Debug().Msg("Watermill step object created successfully")
+		// Add the run (blocking) method
+		err = stepObj.Set("run", func(call goja.FunctionCall) goja.Value {
+			logger.Debug().Msg("run (blocking) called")
+
+			if len(call.Arguments) < 1 {
+				logger.Error().Msg("run requires at least an input argument")
+				panic(vm.NewTypeError("run requires input"))
+			}
+
+			logger.Debug().Interface("args", call.Arguments).Msg("run called")
+			input := inputConverter(call.Arguments[0])
+			logger.Debug().Interface("input", input).Msg("input converted")
+
+			var userOnEvent goja.Callable
+			if len(call.Arguments) >= 2 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
+				callable, ok := goja.AssertFunction(call.Arguments[1])
+				if !ok {
+					panic(vm.NewTypeError("onEvent must be a function"))
+				}
+				userOnEvent = callable
+			} else {
+				userOnEvent = goja.Callable(func(this goja.Value, args ...goja.Value) (goja.Value, error) {
+					logger.Debug().Interface("args", args).Msg("userOnEvent called")
+					return goja.Undefined(), nil
+				})
+			}
+
+			// Start the step
+			logger.Debug().Str("stepID", stepID).Msg("Starting step")
+			stepResult, err := StartTypedStep(engine, step, stepID, input, userOnEvent)
+			if err != nil {
+				panic(vm.NewGoError(err))
+			}
+
+			logger.Debug().Msg("Step started")
+			r := stepResult.Return()
+			if len(r) == 0 {
+				logger.Error().Msg("no result")
+				panic(vm.NewGoError(fmt.Errorf("no result")))
+			}
+			result := r[0]
+			if result.Error() != nil {
+				logger.Error().Err(result.Error()).Msg("error in result")
+				panic(vm.NewGoError(result.Error()))
+			}
+
+			logger.Debug().Interface("result", result.Unwrap()).Msg("result")
+			return outputConverter(result.Unwrap())
+		})
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to set run method")
+			panic(vm.NewGoError(err))
+		}
+
+		logger.Debug().Msg("Watermill step object created successfully (simplified API)")
 		return stepObj
 	}
 }
 
-// GenericStepWrapper wraps a typed step to make it compatible with RunStep's any type
-type GenericStepWrapper[T any, U any] struct {
+// StartTypedStep is a helper function that allows running a typed step through RuntimeEngine
+// It performs the necessary type conversion inline without wrapper classes
+func StartTypedStep[T, U any](
+	engine *RuntimeEngine,
+	step steps.Step[T, U],
+	stepID string,
+	input T,
+	onEvent goja.Callable,
+) (steps.StepResult[U], error) {
+	// Create an inline adapter that converts the typed step to work with RunStep
+	genericStep := genericStepAdapter[T, U]{step: step}
+	result, err := engine.RunStep(genericStep, stepID, input, onEvent)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cast the generic result back to the typed result
+	typedResult, ok := result.(steps.StepResult[U])
+	if !ok {
+		return nil, fmt.Errorf("result type mismatch: expected StepResult[%T], got %T", *new(U), result)
+	}
+
+
+	return typedResult, nil
+}
+
+// genericStepAdapter is a minimal adapter that implements steps.Step[any, any]
+type genericStepAdapter[T, U any] struct {
 	step steps.Step[T, U]
 }
 
-func (w *GenericStepWrapper[T, U]) Start(ctx context.Context, input any) (steps.StepResult[any], error) {
+func (a genericStepAdapter[T, U]) Start(ctx context.Context, input any) (steps.StepResult[any], error) {
 	typedInput, ok := input.(T)
 	if !ok {
 		return nil, fmt.Errorf("input type mismatch: expected %T, got %T", *new(T), input)
 	}
 
-	result, err := w.step.Start(ctx, typedInput)
+	result, err := a.step.Start(ctx, typedInput)
 	if err != nil {
 		return nil, err
 	}
 
-	return &GenericStepResultWrapper[U]{result: result}, nil
+	return genericStepResultAdapter[U]{result: result}, nil
 }
 
-func (w *GenericStepWrapper[T, U]) AddPublishedTopic(publisher message.Publisher, topic string) error {
-	return w.step.AddPublishedTopic(publisher, topic)
+func (a genericStepAdapter[T, U]) AddPublishedTopic(publisher message.Publisher, topic string) error {
+	return a.step.AddPublishedTopic(publisher, topic)
 }
 
-// GenericStepResultWrapper wraps a typed step result to make it compatible with any type
-type GenericStepResultWrapper[U any] struct {
+// genericStepResultAdapter converts typed results to work with any type
+type genericStepResultAdapter[U any] struct {
 	result steps.StepResult[U]
 }
 
-func (w *GenericStepResultWrapper[U]) Return() []helpers.Result[any] {
-	typedResults := w.result.Return()
+func (a genericStepResultAdapter[U]) Return() []helpers.Result[any] {
+	typedResults := a.result.Return()
 	genericResults := make([]helpers.Result[any], len(typedResults))
 	for i, tr := range typedResults {
 		if tr.Error() != nil {
@@ -105,8 +236,8 @@ func (w *GenericStepResultWrapper[U]) Return() []helpers.Result[any] {
 	return genericResults
 }
 
-func (w *GenericStepResultWrapper[U]) GetChannel() <-chan helpers.Result[any] {
-	typedCh := w.result.GetChannel()
+func (a genericStepResultAdapter[U]) GetChannel() <-chan helpers.Result[any] {
+	typedCh := a.result.GetChannel()
 	genericCh := make(chan helpers.Result[any])
 
 	go func() {
@@ -123,10 +254,10 @@ func (w *GenericStepResultWrapper[U]) GetChannel() <-chan helpers.Result[any] {
 	return genericCh
 }
 
-func (w *GenericStepResultWrapper[U]) Cancel() {
-	w.result.Cancel()
+func (a genericStepResultAdapter[U]) Cancel() {
+	a.result.Cancel()
 }
 
-func (w *GenericStepResultWrapper[U]) GetMetadata() *steps.StepMetadata {
-	return w.result.GetMetadata()
+func (a genericStepResultAdapter[U]) GetMetadata() *steps.StepMetadata {
+	return a.result.GetMetadata()
 }
