@@ -35,7 +35,7 @@ Geppetto's JavaScript API exposes four main components through the **RuntimeEngi
 3. **Steps API**: Execute asynchronous computation steps with watermill event streaming
 4. **Setup Functions**: Modular JavaScript environment configuration
 
-These APIs provide event-driven streaming capabilities through Watermill pub/sub architecture with automatic handler lifecycle management.
+These APIs provide event-driven streaming capabilities through Watermill pub/sub architecture with automatic handler lifecycle management and per-step topic isolation.
 
 ## Core Architecture
 
@@ -54,20 +54,21 @@ engine.AddSetupFunction(js.SetupConversation())
 engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
 engine.AddSetupFunction(js.SetupDoneCallback())
 
-// Start engine (blocking until completion)
+// Start engine (non-blocking, starts event loop in background)
 engine.Start()
 
-// Or execute JavaScript code on running loop
+// Execute JavaScript code on running loop (must be called after Start())
 err := engine.RunOnLoop("console.log('Hello World');")
 ```
 
 ### Key Features
 
 - **Watermill Integration**: Uses Watermill pub/sub for event streaming with automatic topic management
-- **Per-Step Handlers**: Each step gets its own handler that auto-registers/unregisters on completion
-- **Event Loop Management**: Proper `Loop.Run()` usage for setup and `RunOnLoop()` for execution
+- **Per-Step Topic Isolation**: Each step execution gets its own topic (`step.{stepID}`) with dedicated handlers
+- **Handler Lifecycle Management**: Handlers auto-register on step execution and auto-unregister on completion
+- **Event Loop Management**: Non-blocking start with background event loop and `RunOnLoop()` for execution
 - **Modular Setup**: Setup functions for different components (steps, conversations, embeddings)
-- **Auto-Cleanup**: Handlers and subscriptions automatically cleaned up when steps complete
+- **Auto-Cleanup**: Topics, handlers and subscriptions automatically cleaned up when steps complete
 
 ### JavaScript-Go Integration
 
@@ -92,14 +93,21 @@ const stepID = step.runWithEvents(input, function(event) {
         case "start":
             console.log("Step started");
             break;
-        case "partial-completion":
+        case "partial":
             console.log("Partial result:", event.delta);
+            console.log("Full completion so far:", event.completion);
             break;
         case "final":
             console.log("Final result:", event.text);
             break;
         case "error":
             console.error("Step error:", event.error);
+            break;
+        case "tool-call":
+            console.log("Tool call:", event.toolCall.name, event.toolCall.input);
+            break;
+        case "tool-result":
+            console.log("Tool result:", event.toolResult.result);
             break;
     }
 });
@@ -497,12 +505,12 @@ This event-driven approach enables real-time feedback and better observability.
 Steps publish various event types during execution:
 
 - **`start`**: Step execution begins
-- **`partial-completion`**: Incremental results (for streaming steps)
-- **`final`**: Step completed successfully with final result
-- **`error`**: Step encountered an error
-- **`interrupt`**: Step was interrupted/cancelled
-- **`tool-call`**: AI step is calling a tool (for AI steps)
-- **`tool-result`**: Tool call completed (for AI steps)
+- **`partial`**: Incremental results (for streaming steps) with `delta` and `completion` fields
+- **`final`**: Step completed successfully with final result in `text` field
+- **`error`**: Step encountered an error with `error` field
+- **`interrupt`**: Step was interrupted/cancelled with `text` field
+- **`tool-call`**: AI step is calling a tool with `toolCall` object
+- **`tool-result`**: Tool call completed with `toolResult` object
 
 ##### 3. Automatic Cleanup
 Each step execution automatically:
@@ -526,7 +534,7 @@ const stepID = step.runWithEvents(input, function(event) {
             console.log("Step started");
             break;
             
-        case "partial-completion":
+        case "partial":
             console.log("Partial result:", event.delta);
             console.log("Full completion so far:", event.completion);
             break;
@@ -556,15 +564,15 @@ console.log("Step execution started with ID:", stepID);
 Events have a common structure with type-specific fields:
 
 ```javascript
-// Common fields
+// Common fields for all events
 {
-    type: string,           // Event type
+    type: string,           // Event type ("start", "partial", "final", "error", "tool-call", "tool-result", "interrupt")
     meta: {                 // Event metadata
         messageId: string,
         parentId: string,
         engine: string
     },
-    step: {                 // Step metadata
+    step: {                 // Step metadata  
         stepId: string,
         type: string,
         inputType: string,
@@ -573,35 +581,41 @@ Events have a common structure with type-specific fields:
     }
 }
 
-// Type-specific fields for partial-completion
+// Type-specific fields for "partial" events
 {
     ...commonFields,
-    delta: string,          // New text added
-    completion: string      // Full text so far
+    delta: string,          // New text added since last event
+    completion: string      // Full text accumulated so far
 }
 
-// Type-specific fields for final
+// Type-specific fields for "final" events
 {
     ...commonFields,
     text: string           // Final result text
 }
 
-// Type-specific fields for tool-call
+// Type-specific fields for "error" events
+{
+    ...commonFields,
+    error: string          // Error message
+}
+
+// Type-specific fields for "tool-call" events
 {
     ...commonFields,
     toolCall: {
-        id: string,
-        name: string,
-        input: object
+        id: string,        // Unique tool call ID
+        name: string,      // Tool name
+        input: object      // Tool input parameters
     }
 }
 
-// Type-specific fields for tool-result
+// Type-specific fields for "tool-result" events
 {
     ...commonFields,
     toolResult: {
-        id: string,
-        result: any
+        id: string,        // Tool call ID this result corresponds to
+        result: any        // Tool execution result
     }
 }
 ```
@@ -615,15 +629,21 @@ Steps are now registered through setup functions rather than direct registration
 // In Go - create a setup function
 func SetupMyStep() js.SetupFunction {
     return func(vm *goja.Runtime, engine *js.RuntimeEngine) {
-        // Create your step
+        // Create your step (must implement steps.Step[T, U])
         myStep := &MyStep{...}
         
-        // Create watermill step object factory
+        // Create watermill step object factory with type converters
         stepFactory := js.CreateWatermillStepObject(
             engine,
             myStep,
-            inputConverter,
-            outputConverter,
+            func(v goja.Value) MyInputType {
+                // Convert JavaScript input to Go type
+                return v.Export().(MyInputType)
+            },
+            func(output MyOutputType) goja.Value {
+                // Convert Go output to JavaScript value
+                return vm.ToValue(output)
+            },
         )
         
         // Register in VM
@@ -661,10 +681,11 @@ engine.AddSetupFunction(js.SetupDoneCallback())
 - Events are published to the step's topic during execution
 
 #### Handler Lifecycle
-1. **Registration**: Handler registered when `runWithEvents` is called
-2. **Event Processing**: Handler receives and processes events from watermill
-3. **JavaScript Callback**: Events converted to JavaScript and passed to callback
-4. **Cleanup**: Handler automatically unregistered when step completes
+1. **Registration**: Handler registered on shared router when `runWithEvents` is called
+2. **Topic Creation**: Unique topic `step.{stepID}` created for this step execution
+3. **Event Processing**: Handler receives and processes events from watermill topic
+4. **JavaScript Callback**: Events converted to JavaScript and passed to callback via `RunOnLoop`
+5. **Cleanup**: Handler automatically unregistered and topic cleaned up when step completes
 
 #### Error Handling
 ```javascript
@@ -682,23 +703,26 @@ const stepID = step.runWithEvents(input, function(event) {
 
 ### Migration from Legacy API
 
-The new watermill-based API replaces the previous Promise/callback patterns:
+The new watermill-based API replaces the previous Promise/callback patterns. The previous `GenericStepWrapper` classes and Promise-based APIs have been completely removed.
 
 #### Legacy Pattern (Removed)
 ```javascript
 // Old Promise-based API (no longer available)
 const results = await step.startAsync(input);
 
-// Old callback API (no longer available)
+// Old callback API (no longer available)  
 const cancel = step.startWithCallbacks(input, {
     onResult: (result) => console.log(result),
     onError: (error) => console.error(error)
 });
+
+// Old wrapper classes (no longer available)
+new GenericStepWrapper(step, inputConverter, outputConverter)
 ```
 
 #### New Watermill Pattern
 ```javascript
-// New event-driven API
+// New event-driven API with real-time streaming
 const stepID = step.runWithEvents(input, function(event) {
     switch(event.type) {
         case "final":
@@ -707,9 +731,19 @@ const stepID = step.runWithEvents(input, function(event) {
         case "error":
             console.error("Error:", event.error);
             break;
+        case "partial":
+            console.log("Streaming:", event.delta);
+            break;
     }
 });
 ```
+
+#### Key Differences
+- No more Promise-based APIs or wrapper classes
+- Events are streamed in real-time rather than batched
+- Each step execution gets isolated topic and handler
+- Automatic cleanup removes need for manual cancellation
+- Type conversion handled by setup functions rather than wrapper classes
 
 ### Advanced Patterns
 
@@ -717,7 +751,7 @@ const stepID = step.runWithEvents(input, function(event) {
 ```javascript
 const stepID = step.runWithEvents(input, function(event) {
     // Only handle specific event types
-    if (event.type === "partial-completion") {
+    if (event.type === "partial") {
         updateUI(event.delta);
     } else if (event.type === "final") {
         showFinalResult(event.text);
@@ -730,12 +764,13 @@ const stepID = step.runWithEvents(input, function(event) {
 let fullText = "";
 
 const stepID = step.runWithEvents(input, function(event) {
-    if (event.type === "partial-completion") {
-        // Build up complete text from deltas
+    if (event.type === "partial") {
+        // Build up complete text from deltas or use completion field
         fullText += event.delta;
+        // Or alternatively: fullText = event.completion;
         console.log("Current text length:", fullText.length);
     } else if (event.type === "final") {
-        console.log("Final text:", fullText);
+        console.log("Final text:", event.text);
     }
 });
 ```
@@ -770,7 +805,7 @@ The RuntimeEngine provides a modular approach to setting up the JavaScript envir
 ### Engine Lifecycle
 
 ```go
-// 1. Create engine (does not start event loop)
+// 1. Create engine (does not start event loop, initializes watermill router)
 engine := js.NewRuntimeEngine()
 defer engine.Close()
 
@@ -779,7 +814,7 @@ engine.AddSetupFunction(js.SetupDoubleStep())
 engine.AddSetupFunction(js.SetupConversation())
 engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
 
-// 3. Start engine and run setup (blocking until completion)
+// 3. Start engine and run setup (non-blocking, starts event loop in background)
 engine.Start()
 
 // Or add custom JavaScript execution
@@ -822,13 +857,17 @@ func MyCustomSetup() js.SetupFunction {
         customObj.Set("author", "My App")
         vm.Set("myApp", customObj)
         
-        // Register custom steps
+        // Register custom steps (must implement steps.Step[T, U])
         myStep := &MyCustomStep{}
         stepFactory := js.CreateWatermillStepObject(
             engine,
             myStep,
-            func(v goja.Value) MyInput { /* convert input */ },
-            func(output MyOutput) goja.Value { /* convert output */ },
+            func(v goja.Value) MyInput { 
+                return v.Export().(MyInput) // Convert JS to Go
+            },
+            func(output MyOutput) goja.Value { 
+                return vm.ToValue(output) // Convert Go to JS
+            },
         )
         stepObj := stepFactory(vm)
         vm.Set("myCustomStep", stepObj)
@@ -856,10 +895,11 @@ done(); // Signals script completion
 
 The RuntimeEngine properly manages the Goja event loop:
 
-- **`engine.Start()`**: Calls `Loop.Run()` with all setup functions
-- **Setup Phase**: All setup functions called within the event loop
-- **Execution Phase**: Scripts can be executed via setup functions
-- **Cleanup Phase**: Event loop terminates when all work is complete
+- **`engine.Start()`**: Starts event loop in background goroutine with all setup functions
+- **Setup Phase**: All setup functions called within the event loop context
+- **Execution Phase**: Scripts executed via `RunOnLoop()` or within setup functions  
+- **Background Operation**: Event loop runs continuously until `Close()` is called
+- **Cleanup Phase**: `Close()` stops event loop and watermill router
 
 ### Error Handling
 
@@ -1011,38 +1051,54 @@ Common errors across all APIs:
 
 ### 1. Resource Management
 ```javascript
-// Always clean up resources
-const cancel = operation.startWithCallbacks(input, callbacks);
-
-// Clean up when done
-window.addEventListener('beforeunload', () => {
-    if (cancel) cancel();
+// The watermill-based API automatically cleans up resources
+// No manual cleanup needed for step execution
+const stepID = step.runWithEvents(input, function(event) {
+    // Event handler automatically cleaned up when step completes
+    console.log("Event:", event.type, event);
 });
+
+// Engine cleanup when done
+engine.Close(); // Stops event loop and watermill router
 ```
 
 ### 2. Error Handling
 ```javascript
-// Use appropriate error handling for each API
+// Handle errors in event streams
+const stepID = step.runWithEvents(input, function(event) {
+    if (event.type === "error") {
+        console.error("Step failed:", event.error);
+        // Handle error appropriately
+        return;
+    }
+    
+    // Process successful events
+    console.log("Event:", event.type, event);
+});
+
+// Handle embeddings errors
 try {
-    const result = await api.operationAsync(input);
-    // Process result
+    const embedding = await embeddings.generateEmbeddingAsync(text);
+    // Process embedding
 } catch (err) {
-    console.error("Operation failed:", err);
-    // Handle error appropriately
+    console.error("Embedding generation failed:", err);
 }
 ```
 
 ### 3. Performance Optimization
 ```javascript
-// Batch similar requests
-const results = await Promise.all(
-    inputs.map(input => api.operationAsync(input))
+// Process multiple embeddings efficiently
+const texts = ["text1", "text2", "text3"];
+const embeddings = await Promise.all(
+    texts.map(text => embeddings.generateEmbeddingAsync(text))
 );
 
-// Use streaming for large datasets
-const cancel = api.operationWithCallbacks(largeInput, {
-    onResult: processChunk,
-    onDone: finalizeResults
+// Use event filtering to handle only relevant events
+const stepID = step.runWithEvents(input, function(event) {
+    // Only handle final results for performance
+    if (event.type === "final") {
+        processResult(event.text);
+    }
 });
 ```
 
@@ -1050,19 +1106,16 @@ const cancel = api.operationWithCallbacks(largeInput, {
 ```javascript
 // Consider memory usage for embeddings
 const model = embeddings.getModel();
-const memoryPerEmbedding = model.dimensions * 4; // bytes
+const memoryPerEmbedding = model.dimensions * 4; // bytes per float32
 
-// Use cancellation to prevent unnecessary work
-const controller = new AbortController();
-const promise = api.operationAsync(input, { 
-    signal: controller.signal 
-});
+// Watermill automatically cleans up step handlers and topics
+// No manual cleanup needed for steps
 ```
 
 ### 5. Choosing the Right API
-- Use **synchronous APIs** for simple, fast operations
-- Use **Promise APIs** for single results with proper error handling
-- Use **callback APIs** when you need streaming or cancellation support
+- Use **event-driven step API** (`runWithEvents`) for all step operations with streaming support
+- Use **async embeddings API** (`generateEmbeddingAsync`) for single embeddings with error handling  
+- Use **callback embeddings API** (`generateEmbeddingWithCallbacks`) when you need cancellation support
 - Use **Conversation objects** instead of raw message arrays for chat operations
 
 This comprehensive JavaScript API enables powerful AI application development while maintaining clean separation between JavaScript application logic and Go-based AI infrastructure. The consistent patterns across all APIs make it easy to build complex, responsive applications that can handle streaming data, provide real-time feedback, and gracefully handle errors and cancellation.

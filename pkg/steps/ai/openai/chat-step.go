@@ -18,6 +18,7 @@ import (
 )
 
 var _ chat.Step = &ChatStep{}
+var _ chat.SimpleChatStep = &ChatStep{}
 
 type ChatStep struct {
 	Settings         *settings.StepSettings
@@ -54,10 +55,142 @@ func NewStep(settings *settings.StepSettings, options ...StepOption) (*ChatStep,
 	return ret, nil
 }
 
+func (csf *ChatStep) RunInference(
+	ctx context.Context,
+	messages conversation.Conversation,
+) (*conversation.Message, error) {
+	if csf.Settings.Chat.ApiType == nil {
+		return nil, errors.New("no chat engine specified")
+	}
+
+	client, err := makeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := makeCompletionRequest(csf.Settings, messages)
+	if err != nil {
+		return nil, err
+	}
+
+	if csf.Settings.Chat.Stream {
+		// For streaming, collect all chunks and return the final message
+		stream, err := client.CreateChatCompletionStream(ctx, *req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := stream.Close(); err != nil {
+				log.Printf("Failed to close stream: %v", err)
+			}
+		}()
+
+		message := ""
+		var usage *conversation.Usage
+		var stopReason *string
+
+		for {
+			response, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			if len(response.Choices) > 0 {
+				message += response.Choices[0].Delta.Content
+			}
+
+			// Extract metadata from OpenAI chat response
+			if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
+				if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
+					inputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
+					outputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
+					usage = &conversation.Usage{
+						InputTokens:  inputTokens,
+						OutputTokens: outputTokens,
+					}
+				}
+				if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
+					stopReason = &finishReason
+				}
+			}
+		}
+
+		llmMetadata := &conversation.LLMMessageMetadata{
+			Engine: string(*csf.Settings.Chat.Engine),
+		}
+		if csf.Settings.Chat.Temperature != nil {
+			llmMetadata.Temperature = csf.Settings.Chat.Temperature
+		}
+		if csf.Settings.Chat.TopP != nil {
+			llmMetadata.TopP = csf.Settings.Chat.TopP
+		}
+		if csf.Settings.Chat.MaxResponseTokens != nil {
+			llmMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
+		}
+		if usage != nil {
+			llmMetadata.Usage = usage
+		}
+		if stopReason != nil {
+			llmMetadata.StopReason = stopReason
+		}
+
+		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+		return conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)), nil
+	} else {
+		resp, err := client.CreateChatCompletion(ctx, *req)
+		if err != nil {
+			return nil, err
+		}
+
+		llmMetadata := &conversation.LLMMessageMetadata{
+			Engine: string(*csf.Settings.Chat.Engine),
+		}
+		if csf.Settings.Chat.Temperature != nil {
+			llmMetadata.Temperature = csf.Settings.Chat.Temperature
+		}
+		if csf.Settings.Chat.TopP != nil {
+			llmMetadata.TopP = csf.Settings.Chat.TopP
+		}
+		if csf.Settings.Chat.MaxResponseTokens != nil {
+			llmMetadata.MaxTokens = csf.Settings.Chat.MaxResponseTokens
+		}
+
+		// Extract metadata from non-streaming response
+		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
+			llmMetadata.Usage = &conversation.Usage{
+				InputTokens:  usage.PromptTokens,
+				OutputTokens: usage.CompletionTokens,
+			}
+		}
+		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
+			finishReason := string(resp.Choices[0].FinishReason)
+			llmMetadata.StopReason = &finishReason
+		}
+
+		return conversation.NewMessage(
+			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
+			conversation.WithLLMMessageMetadata(llmMetadata),
+		), nil
+	}
+}
+
 func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (steps.StepResult[*conversation.Message], error) {
+	// For non-streaming, use the simplified RunInference method
+	if !csf.Settings.Chat.Stream {
+		message, err := csf.RunInference(ctx, messages)
+		if err != nil {
+			return steps.Reject[*conversation.Message](err), nil
+		}
+		return steps.Resolve(message), nil
+	}
+
+	// For streaming, maintain the original complex logic with events
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
 	go func() {
@@ -116,11 +249,9 @@ func (csf *ChatStep) Start(
 		},
 	}
 
-	stream := csf.Settings.Chat.Stream
-
 	csf.publisherManager.PublishBlind(events.NewStartEvent(metadata, stepMetadata))
 
-	if stream {
+	// Streaming logic
 		stream, err := client.CreateChatCompletionStream(cancellableCtx, *req)
 		if err != nil {
 			return steps.Reject[*conversation.Message](err), nil
@@ -231,39 +362,4 @@ func (csf *ChatStep) Start(
 		}()
 
 		return ret, nil
-	} else {
-		resp, err := client.CreateChatCompletion(cancellableCtx, *req)
-		if errors.Is(err, context.Canceled) {
-			csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, ""))
-			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
-		}
-
-		if err != nil {
-			csf.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMetadata, err))
-			return steps.Reject[*conversation.Message](err, steps.WithMetadata[*conversation.Message](stepMetadata)), nil
-		}
-
-		// Extract metadata from non-streaming response
-		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
-			metadata.Usage = &conversation.Usage{
-				InputTokens:  usage.PromptTokens,
-				OutputTokens: usage.CompletionTokens,
-			}
-			stepMetadata.Metadata["usage"] = map[string]interface{}{
-				"input_tokens":  usage.PromptTokens,
-				"output_tokens": usage.CompletionTokens,
-			}
-		}
-		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
-			finishReason := string(resp.Choices[0].FinishReason)
-			metadata.StopReason = &finishReason
-		}
-
-		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
-		return steps.Resolve(conversation.NewMessage(
-			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
-			conversation.WithLLMMessageMetadata(&metadata.LLMMessageMetadata),
-		),
-			steps.WithMetadata[*conversation.Message](stepMetadata)), nil
-	}
 }
