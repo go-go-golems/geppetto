@@ -220,6 +220,12 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			cb.Input += event.Delta.PartialJSON
 			// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
 			_ = delta
+		case api.ThinkingDeltaType:
+			cb.Thinking += event.Delta.Thinking
+			return []events.Event{}, nil
+		case api.SignatureDeltaType:
+			cb.Signature += event.Delta.Signature
+			return []events.Event{}, nil
 		}
 		return []events.Event{}, nil
 
@@ -244,6 +250,26 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 				Name:  cb.Name,
 				Input: cb.Input,
 			})}, nil
+
+		case api.ContentTypeServerToolUse:
+			cbm.response.Content = append(cbm.response.Content, api.NewServerToolUseContent(cb.ID, cb.Name, cb.Input))
+			return []events.Event{events.NewToolCallEvent(cbm.metadata, cbm.stepMetadata, events.ToolCall{
+				ID:    cb.ID,
+				Name:  cb.Name,
+				Input: cb.Input,
+			})}, nil
+
+		case api.ContentTypeWebSearchToolResult:
+			cbm.response.Content = append(cbm.response.Content, api.NewWebSearchToolResultContent(cb.ToolUseID, cb.Content))
+			return []events.Event{events.NewToolResultEvent(cbm.metadata, cbm.stepMetadata, events.ToolResult{ID: cb.ToolUseID, Result: string(cb.Content)})}, nil
+
+		case api.ContentTypeThinking:
+			cbm.response.Content = append(cbm.response.Content, api.NewThinkingContent(cb.Signature, cb.Thinking))
+			return []events.Event{}, nil
+
+		case api.ContentTypeRedactedThinking:
+			cbm.response.Content = append(cbm.response.Content, api.NewRedactedThinkingContent(cb.Text))
+			return []events.Event{}, nil
 
 		case api.ContentTypeImage, api.ContentTypeToolResult:
 			return nil, errors.Errorf("Unsupported content block type: %s", cb.Type)
