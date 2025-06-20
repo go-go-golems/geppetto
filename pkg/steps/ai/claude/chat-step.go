@@ -82,6 +82,7 @@ func (csf *ChatStep) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (*conversation.Message, error) {
+	log.Debug().Int("num_messages", len(messages)).Bool("stream", csf.Settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -125,35 +126,7 @@ func (csf *ChatStep) RunInference(
 		req.TopP = &defaultTopP
 	}
 
-	if !csf.Settings.Chat.Stream {
-		response, err := client.SendMessage(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		llmMessageMetadata := &conversation.LLMMessageMetadata{
-			Engine:    req.Model,
-			MaxTokens: cast.WrapAddr[int](req.MaxTokens),
-			Usage: &conversation.Usage{
-				InputTokens:  response.Usage.InputTokens,
-				OutputTokens: response.Usage.OutputTokens,
-			},
-		}
-		if response.StopReason != "" {
-			llmMessageMetadata.StopReason = &response.StopReason
-		}
-		message := conversation.NewChatMessage(
-			conversation.RoleAssistant, response.FullText(),
-			conversation.WithLLMMessageMetadata(llmMessageMetadata),
-		)
-		return message, nil
-	}
-
-	// For streaming, we need to collect all events and return the final message
-	eventCh, err := client.StreamMessage(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
+	// Setup metadata and event publishing
 	var parentMessage *conversation.Message
 	parentID := conversation.NullNode
 	if len(messages) > 0 {
@@ -187,18 +160,133 @@ func (csf *ChatStep) RunInference(
 		},
 	}
 
+	// Publish start event
+	if csf.subscriptionManager != nil {
+		log.Debug().Str("event_id", metadata.ID.String()).Msg("Claude publishing start event")
+		csf.subscriptionManager.PublishBlind(events2.NewStartEvent(metadata, stepMetadata))
+	}
+
+	if !csf.Settings.Chat.Stream {
+		log.Debug().Msg("Claude using non-streaming mode")
+		response, err := client.SendMessage(ctx, req)
+		if err != nil {
+			log.Error().Err(err).Msg("Claude non-streaming request failed")
+			if csf.subscriptionManager != nil {
+				csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, err))
+			}
+			return nil, err
+		}
+		
+		// Update metadata with response data
+		metadata.Usage = &conversation.Usage{
+			InputTokens:  response.Usage.InputTokens,
+			OutputTokens: response.Usage.OutputTokens,
+		}
+		if response.StopReason != "" {
+			metadata.StopReason = &response.StopReason
+		}
+		
+		llmMessageMetadata := &conversation.LLMMessageMetadata{
+			Engine:    req.Model,
+			MaxTokens: cast.WrapAddr[int](req.MaxTokens),
+			Usage: &conversation.Usage{
+				InputTokens:  response.Usage.InputTokens,
+				OutputTokens: response.Usage.OutputTokens,
+			},
+		}
+		if response.StopReason != "" {
+			llmMessageMetadata.StopReason = &response.StopReason
+		}
+
+		message := conversation.NewChatMessage(
+			conversation.RoleAssistant, response.FullText(),
+			conversation.WithLLMMessageMetadata(llmMessageMetadata),
+		)
+
+		// Publish final event
+		if csf.subscriptionManager != nil {
+			log.Debug().Str("event_id", metadata.ID.String()).Msg("Claude publishing final event (non-streaming)")
+			csf.subscriptionManager.PublishBlind(events2.NewFinalEvent(metadata, stepMetadata, response.FullText()))
+		}
+
+		log.Debug().Msg("Claude RunInference completed (non-streaming)")
+		return message, nil
+	}
+
+	// For streaming, we need to collect all events and return the final message
+	log.Debug().Msg("Claude starting streaming mode")
+	eventCh, err := client.StreamMessage(ctx, req)
+	if err != nil {
+		log.Error().Err(err).Msg("Claude streaming request failed")
+		if csf.subscriptionManager != nil {
+			csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, err))
+		}
+		return nil, err
+	}
+
+	log.Debug().Msg("Claude creating ContentBlockMerger")
 	completionMerger := NewContentBlockMerger(metadata, stepMetadata)
 
-	for event := range eventCh {
-		_, err := completionMerger.Add(event)
-		if err != nil {
-			return nil, err
+	log.Debug().Msg("Claude starting streaming event loop")
+	eventCount := 0
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug().Msg("Claude streaming cancelled by context")
+			// Publish interrupt event with current partial text
+			if csf.subscriptionManager != nil {
+				csf.subscriptionManager.PublishBlind(events2.NewInterruptEvent(metadata, stepMetadata, completionMerger.Text()))
+			}
+			return nil, ctx.Err()
+			
+		case event, ok := <-eventCh:
+			if !ok {
+				log.Debug().Int("total_events", eventCount).Msg("Claude streaming channel closed, loop completed")
+				goto streamingComplete
+			}
+			
+			eventCount++
+			log.Debug().Int("event_count", eventCount).Interface("event", event).Msg("Claude processing streaming event")
+			
+			events_, err := completionMerger.Add(event)
+			if err != nil {
+				log.Error().Err(err).Int("event_count", eventCount).Msg("Claude ContentBlockMerger.Add failed")
+				if csf.subscriptionManager != nil {
+					csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, err))
+				}
+				return nil, err
+			}
+			// Publish intermediate events generated by the ContentBlockMerger
+			if csf.subscriptionManager != nil {
+				log.Debug().Int("num_events", len(events_)).Msg("Claude publishing intermediate events")
+				for _, event_ := range events_ {
+					csf.subscriptionManager.PublishBlind(event_)
+				}
+			}
 		}
 	}
 
+streamingComplete:
+
+	log.Debug().Msg("Claude getting final response from ContentBlockMerger")
 	response := completionMerger.Response()
 	if response == nil {
-		return nil, errors.New("no response")
+		err := errors.New("no response")
+		log.Error().Err(err).Msg("Claude ContentBlockMerger returned nil response")
+		if csf.subscriptionManager != nil {
+			csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, err))
+		}
+		return nil, err
+	}
+
+	log.Debug().Str("response_text", response.FullText()).Msg("Claude creating final message")
+	// Update metadata with final response data
+	metadata.Usage = &conversation.Usage{
+		InputTokens:  response.Usage.InputTokens,
+		OutputTokens: response.Usage.OutputTokens,
+	}
+	if response.StopReason != "" {
+		metadata.StopReason = &response.StopReason
 	}
 
 	msg := conversation.NewChatMessage(
@@ -216,6 +304,9 @@ func (csf *ChatStep) RunInference(
 		}),
 	)
 
+	// NOTE: Final event is already published by ContentBlockMerger during event processing
+	// Do not publish duplicate final event here
+	log.Debug().Msg("Claude RunInference completed (streaming)")
 	return msg, nil
 }
 
@@ -223,8 +314,10 @@ func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (steps.StepResult[*conversation.Message], error) {
+	log.Debug().Bool("stream", csf.Settings.Chat.Stream).Msg("Claude Start called")
 	// For non-streaming, use the simplified RunInference method
 	if !csf.Settings.Chat.Stream {
+		log.Debug().Msg("Claude Start using non-streaming path")
 		message, err := csf.RunInference(ctx, messages)
 		if err != nil {
 			return steps.Reject[*conversation.Message](err), nil
@@ -232,154 +325,59 @@ func (csf *ChatStep) Start(
 		return steps.Resolve(message), nil
 	}
 
-	// For streaming, maintain the original complex logic with events
-	clientSettings := csf.Settings.Client
-	if clientSettings == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
-	anthropicSettings := csf.Settings.Claude
-	if anthropicSettings == nil {
-		return nil, errors.New("no claude settings")
-	}
-
-	apiType_ := csf.Settings.Chat.ApiType
-	if apiType_ == nil {
-		return steps.Reject[*conversation.Message](errors.New("no chat engine specified")), nil
-	}
-	apiType := *apiType_
-	apiSettings := csf.Settings.API
-
-	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
-	if !ok {
-		return nil, errors.Errorf("no API key for %s", apiType)
-	}
-	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
-	if !ok {
-		return nil, errors.Errorf("no base URL for %s", apiType)
-	}
-
-	client := api.NewClient(apiKey, baseURL)
-
-	var parentMessage *conversation.Message
-
-	if len(messages) > 0 {
-		parentMessage = messages[len(messages)-1]
-		if csf.parentID == conversation.NullNode {
-			csf.parentID = parentMessage.ID
-		}
-	}
-
-	req, err := makeMessageRequest(csf.Settings, messages)
-	if err != nil {
-		return steps.Reject[*conversation.Message](err), nil
-	}
-
-	req.Tools = csf.Tools
-	// Safely handle Temperature and TopP settings with default fallback
-	if req.Temperature == nil {
-		defaultTemp := float64(1.0)
-		req.Temperature = &defaultTemp
-	}
-	if req.TopP == nil {
-		defaultTopP := float64(1.0)
-		req.TopP = &defaultTopP
-	}
-
-	metadata := events2.EventMetadata{
-		ID:       conversation.NewNodeID(),
-		ParentID: csf.parentID,
-		LLMMessageMetadata: conversation.LLMMessageMetadata{
-			Engine:      req.Model,
-			Usage:       nil,
-			StopReason:  nil,
-			Temperature: req.Temperature,
-			TopP:        req.TopP,
-			MaxTokens:   cast.WrapAddr[int](req.MaxTokens),
-		},
-	}
-	stepMetadata := &steps.StepMetadata{
-		StepID:     uuid.New(),
-		Type:       "claude-chat",
-		InputType:  "conversation.Conversation",
-		OutputType: "string",
-		Metadata: map[string]interface{}{
-			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
-		},
-	}
-
+	// For streaming, use RunInference in a goroutine to handle cancellation
+	log.Debug().Msg("Claude Start using streaming path with goroutine")
 	var cancel context.CancelFunc
 	cancellableCtx, cancel := context.WithCancel(ctx)
-	eventCh, err := client.StreamMessage(cancellableCtx, req)
-	if err != nil {
-		cancel()
-		return steps.Reject[*conversation.Message](err), nil
-	}
 
 	c := make(chan helpers2.Result[*conversation.Message])
 	ret := steps.NewStepResult[*conversation.Message](
 		c,
 		steps.WithCancel[*conversation.Message](cancel),
-		steps.WithMetadata[*conversation.Message](stepMetadata),
+		steps.WithMetadata[*conversation.Message](&steps.StepMetadata{
+			StepID:     uuid.New(),
+			Type:       "claude-chat",
+			InputType:  "conversation.Conversation",
+			OutputType: "*conversation.Message",
+			Metadata: map[string]interface{}{
+				steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
+			},
+		}),
 	)
 
-	// TODO(manuel, 2023-11-28) We need to collect this goroutine in Close(), or at least I think so?
 	go func() {
 		defer close(c)
-		// NOTE(manuel, 2024-06-04) Added this because we now use ctx_ as the chat completion stream context
 		defer cancel()
+		log.Debug().Msg("Claude streaming goroutine started")
 
-		// we need to accumulate all the blocks that get streamed
-		completionMerger := NewContentBlockMerger(metadata, stepMetadata)
-
-		for {
-			select {
-			case <-cancellableCtx.Done():
-				// TODO(manuel, 2024-07-04) Add tool calls so far
-				csf.subscriptionManager.PublishBlind(events2.NewInterruptEvent(metadata, stepMetadata, completionMerger.Text()))
-				return
-
-			case event, ok := <-eventCh:
-				if !ok {
-					// TODO(manuel, 2024-07-04) Probably not necessary, the completionMerger probably took care of it
-					response := completionMerger.Response()
-					if response == nil {
-						csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, errors.New("no response")))
-						c <- helpers2.NewErrorResult[*conversation.Message](errors.New("no response"))
-						return
-					}
-
-					msg := conversation.NewChatMessage(
-						conversation.RoleAssistant, response.FullText(),
-						conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
-							Engine: req.Model,
-							Usage: &conversation.Usage{
-								InputTokens:  response.Usage.InputTokens,
-								OutputTokens: response.Usage.OutputTokens,
-							},
-							StopReason:  &response.StopReason,
-							Temperature: req.Temperature,
-							TopP:        req.TopP,
-							MaxTokens:   &req.MaxTokens,
-						}),
-					)
-
-					c <- helpers2.NewValueResult[*conversation.Message](msg)
-					return
-				}
-
-				events_, err := completionMerger.Add(event)
-				if err != nil {
-					csf.subscriptionManager.PublishBlind(events2.NewErrorEvent(metadata, stepMetadata, err))
-					c <- helpers2.NewErrorResult[*conversation.Message](err)
-					return
-				}
-				for _, event_ := range events_ {
-					log.Trace().Interface("event", event_).Msg("processing event")
-					csf.subscriptionManager.PublishBlind(event_)
-				}
-
-			}
+		// Check for cancellation before starting
+		select {
+		case <-cancellableCtx.Done():
+			log.Debug().Msg("Claude context cancelled before starting")
+			c <- helpers2.NewErrorResult[*conversation.Message](context.Canceled)
+			return
+		default:
 		}
+
+		// Use RunInference which now handles all the ContentBlockMerger logic
+		log.Debug().Msg("Claude calling RunInference from goroutine")
+		message, err := csf.RunInference(cancellableCtx, messages)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				// Context was cancelled during RunInference
+				log.Debug().Msg("Claude RunInference cancelled")
+				c <- helpers2.NewErrorResult[*conversation.Message](context.Canceled)
+			} else {
+				log.Error().Err(err).Msg("Claude RunInference failed")
+				c <- helpers2.NewErrorResult[*conversation.Message](err)
+			}
+			return
+		}
+		log.Debug().Msg("Claude RunInference succeeded, sending result")
+		result := helpers2.NewValueResult[*conversation.Message](message)
+		log.Debug().Msg("Claude about to send result to channel")
+		c <- result
+		log.Debug().Msg("Claude result sent to channel successfully")
 	}()
 
 	return ret, nil
