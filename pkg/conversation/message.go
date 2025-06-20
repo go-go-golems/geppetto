@@ -24,6 +24,7 @@ const (
 	ContentTypeToolUse    ContentType = "tool-use"
 	ContentTypeToolResult ContentType = "tool-result"
 	ContentTypeImage      ContentType = "image"
+	ContentTypeError      ContentType = "error"
 	// TODO(manuel, 2024-10-16) Add "ui" type which is only used for ui elements and should be filtered out of the LLM conversation
 )
 
@@ -215,6 +216,66 @@ func (i *ImageContent) View() string {
 
 var _ MessageContent = (*ImageContent)(nil)
 
+type ErrorType string
+
+const (
+	ErrorTypeGeneral         ErrorType = "general"
+	ErrorTypeTreeCorruption  ErrorType = "tree_corruption"
+	ErrorTypeDuplicateDetect ErrorType = "duplicate_detect"
+	ErrorTypeNetworkError    ErrorType = "network_error"
+	ErrorTypeAPIError        ErrorType = "api_error"
+)
+
+type ErrorContent struct {
+	ErrorType   ErrorType `json:"errorType"`
+	Message     string    `json:"message"`
+	Details     string    `json:"details,omitempty"`
+	Timestamp   time.Time `json:"timestamp"`
+	StackTrace  string    `json:"stackTrace,omitempty"`
+	Recoverable bool      `json:"recoverable"`
+}
+
+func NewErrorContent(errorType ErrorType, message string, recoverable bool) *ErrorContent {
+	return &ErrorContent{
+		ErrorType:   errorType,
+		Message:     message,
+		Timestamp:   time.Now(),
+		Recoverable: recoverable,
+	}
+}
+
+func NewErrorContentWithDetails(errorType ErrorType, message, details string, recoverable bool) *ErrorContent {
+	return &ErrorContent{
+		ErrorType:   errorType,
+		Message:     message,
+		Details:     details,
+		Timestamp:   time.Now(),
+		Recoverable: recoverable,
+	}
+}
+
+func (e *ErrorContent) ContentType() ContentType {
+	return ContentTypeError
+}
+
+func (e *ErrorContent) String() string {
+	return fmt.Sprintf("Error [%s]: %s", e.ErrorType, e.Message)
+}
+
+func (e *ErrorContent) View() string {
+	view := fmt.Sprintf("**Error**: %s\n\n%s", e.ErrorType, e.Message)
+	if e.Details != "" {
+		view += "\n\n**Details**: " + e.Details
+	}
+	view += fmt.Sprintf("\n\n*Timestamp*: %s", e.Timestamp.Format(time.RFC3339))
+	if !e.Recoverable {
+		view += "\n\n*This error is not recoverable.*"
+	}
+	return view
+}
+
+var _ MessageContent = (*ErrorContent)(nil)
+
 // Usage represents token usage information common across LLM providers
 type Usage struct {
 	InputTokens  int `json:"input_tokens" yaml:"input_tokens" mapstructure:"input_tokens"`
@@ -302,6 +363,14 @@ func NewChatMessage(role Role, text string, options ...MessageOption) *Message {
 
 func NewChatMessageFromContent(content *ChatMessageContent, options ...MessageOption) *Message {
 	return NewMessage(content, options...)
+}
+
+func NewErrorMessage(errorType ErrorType, message string, recoverable bool, options ...MessageOption) *Message {
+	return NewMessage(NewErrorContent(errorType, message, recoverable), options...)
+}
+
+func NewErrorMessageWithDetails(errorType ErrorType, message, details string, recoverable bool, options ...MessageOption) *Message {
+	return NewMessage(NewErrorContentWithDetails(errorType, message, details, recoverable), options...)
 }
 
 func (mn *Message) MarshalJSON() ([]byte, error) {
@@ -401,6 +470,19 @@ func (messages Conversation) HashBytes() []byte {
 				Msg("hashing tool result")
 			_, _ = h.Write([]byte(toolResult.ToolID))
 			_, _ = h.Write([]byte(toolResult.Result))
+		}
+
+		// Write error content
+		if errorContent, ok := message.Content.(*ErrorContent); ok {
+			log.Debug().
+				Str("errorType", string(errorContent.ErrorType)).
+				Str("message", errorContent.Message).
+				Msg("hashing error content")
+			_, _ = h.Write([]byte(errorContent.ErrorType))
+			_, _ = h.Write([]byte(errorContent.Message))
+			if errorContent.Details != "" {
+				_, _ = h.Write([]byte(errorContent.Details))
+			}
 		}
 
 		// Include message metadata
