@@ -66,18 +66,18 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 
 						// Convert message to a JavaScript-friendly object
 						msgObj := vm.NewObject()
-						msgObj.Set("id", msg.ID.String())
-						msgObj.Set("parentID", msg.ParentID.String())
-						msgObj.Set("time", msg.Time.Format("2006-01-02T15:04:05Z07:00"))
-						msgObj.Set("lastUpdate", msg.LastUpdate.Format("2006-01-02T15:04:05Z07:00"))
-						msgObj.Set("metadata", msg.Metadata)
+						_ = msgObj.Set("id", msg.ID.String())
+						_ = msgObj.Set("parentID", msg.ParentID.String())
+						_ = msgObj.Set("time", msg.Time.Format("2006-01-02T15:04:05Z07:00"))
+						_ = msgObj.Set("lastUpdate", msg.LastUpdate.Format("2006-01-02T15:04:05Z07:00"))
+						_ = msgObj.Set("metadata", msg.Metadata)
 
 						// Handle different message types
 						switch content := msg.Content.(type) {
 						case *conversation.ChatMessageContent:
-							msgObj.Set("type", "chat-message")
-							msgObj.Set("role", string(content.Role))
-							msgObj.Set("text", content.Text)
+							_ = msgObj.Set("type", "chat-message")
+							_ = msgObj.Set("role", string(content.Role))
+							_ = msgObj.Set("text", content.Text)
 							if len(content.Images) > 0 {
 								images := make([]interface{}, len(content.Images))
 								for i, img := range content.Images {
@@ -89,21 +89,21 @@ func SetupChatStepFactory(stepSettings *settings.StepSettings) SetupFunction {
 									}
 									images[i] = imgObj
 								}
-								msgObj.Set("images", images)
+								_ = msgObj.Set("images", images)
 							}
 						case *conversation.ToolUseContent:
-							msgObj.Set("type", "tool-use")
-							msgObj.Set("toolID", content.ToolID)
-							msgObj.Set("name", content.Name)
-							msgObj.Set("input", content.Input)
-							msgObj.Set("toolType", content.Type)
+							_ = msgObj.Set("type", "tool-use")
+							_ = msgObj.Set("toolID", content.ToolID)
+							_ = msgObj.Set("name", content.Name)
+							_ = msgObj.Set("input", content.Input)
+							_ = msgObj.Set("toolType", content.Type)
 						case *conversation.ToolResultContent:
-							msgObj.Set("type", "tool-result")
-							msgObj.Set("toolID", content.ToolID)
-							msgObj.Set("result", content.Result)
+							_ = msgObj.Set("type", "tool-result")
+							_ = msgObj.Set("toolID", content.ToolID)
+							_ = msgObj.Set("result", content.Result)
 						default:
 							log.Warn().Interface("content", content).Msg("Unknown message content type")
-							msgObj.Set("type", "unknown")
+							_ = msgObj.Set("type", "unknown")
 						}
 
 						return msgObj

@@ -145,7 +145,7 @@ func (csf *ChatStep) RunInference(
 				// Publish interrupt event with current partial text
 				csf.publisherManager.PublishBlind(events.NewInterruptEvent(metadata, stepMetadata, message))
 				return nil, ctx.Err()
-				
+
 			default:
 				response, err := stream.Recv()
 				if errors.Is(err, io.EOF) {
@@ -192,7 +192,7 @@ func (csf *ChatStep) RunInference(
 			}
 		}
 
-streamingComplete:
+	streamingComplete:
 
 		// Update event metadata with usage information
 		if usage != nil {
@@ -223,11 +223,11 @@ streamingComplete:
 
 		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
 		finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
-		
+
 		// Publish final event for streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
 		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, message))
-		
+
 		log.Debug().Msg("OpenAI RunInference completed (streaming)")
 		return finalMessage, nil
 	} else {
@@ -271,11 +271,11 @@ streamingComplete:
 			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
 			conversation.WithLLMMessageMetadata(llmMetadata),
 		)
-		
+
 		// Publish final event for non-streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing final event (non-streaming)")
 		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
-		
+
 		log.Debug().Msg("OpenAI RunInference completed (non-streaming)")
 		return finalMessage, nil
 	}

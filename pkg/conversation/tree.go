@@ -95,6 +95,12 @@ func (mn *Message) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		mn.Content = content
+	case ContentTypeError:
+		var content *ErrorContent
+		if err := json.Unmarshal(mna.Content, &content); err != nil {
+			return err
+		}
+		mn.Content = content
 	default:
 		return errors.New("unknown content type")
 	}
@@ -138,14 +144,14 @@ func (ct *ConversationTree) InsertMessages(msgs ...*Message) error {
 		if msg.ID == msg.ParentID {
 			return errors.Errorf("self-reference cycle detected: message %s cannot be its own parent", msg.ID.String())
 		}
-		
+
 		// Check for duplicate message with same content
 		if existingMsg, exists := ct.Nodes[msg.ID]; exists {
 			if existingMsg.Content.String() == msg.Content.String() {
 				return errors.Errorf("duplicate message detected: message %s already exists with identical content", msg.ID.String())
 			}
 		}
-		
+
 		ct.Nodes[msg.ID] = msg
 		if ct.RootID == NullNode {
 			ct.RootID = msg.ID
@@ -234,7 +240,7 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) e
 					return content
 				}()).
 				Msg("MESSAGE ALREADY EXISTS - POTENTIAL DUPLICATE/OVERWRITE")
-			
+
 			// If content is identical and parent isn't changing, return error for duplicate
 			if existingMsg.Content.String() == msg.Content.String() && existingMsg.ParentID == parentID {
 				log.Trace().
@@ -255,7 +261,7 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) e
 				Msg("PREVENTING SELF-REFERENCE CYCLE - RETURNING ERROR")
 			return errors.Errorf("self-reference cycle detected: message %s cannot be attached to itself as parent", msg.ID.String())
 		}
-		
+
 		msg.ParentID = parentID
 
 		// CRITICAL: This overwrites existing messages with same ID

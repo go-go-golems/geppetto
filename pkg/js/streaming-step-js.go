@@ -83,25 +83,25 @@ func CreateWatermillStepObject[T any, U any](
 				engine.Loop.RunOnLoop(func(vm *goja.Runtime) {
 					if len(r) == 0 {
 						logger.Error().Msg("no result")
-						reject(vm.NewGoError(fmt.Errorf("no result")))
+						_ = reject(vm.NewGoError(fmt.Errorf("no result")))
 						return
 					}
 					result := r[0]
 					if result.Error() != nil {
 						logger.Error().Err(result.Error()).Msg("error in result")
-						reject(vm.NewGoError(result.Error()))
+						_ = reject(vm.NewGoError(result.Error()))
 						return
 					}
 					logger.Debug().Interface("result", result.Unwrap()).Msg("result")
-					resolve(result.Unwrap())
+					_ = resolve(result.Unwrap())
 				})
 			}()
 
 			// Build return object { stepID, promise }
 			logger.Debug().Msg("Building return object")
 			retObj := vm.NewObject()
-			retObj.Set("stepID", stepID)
-			retObj.Set("promise", promise)
+			_ = retObj.Set("stepID", stepID)
+			_ = retObj.Set("promise", promise)
 
 			return retObj
 		})
@@ -190,7 +190,6 @@ func StartTypedStep[T, U any](
 	if !ok {
 		return nil, fmt.Errorf("result type mismatch: expected StepResult[%T], got %T", *new(U), result)
 	}
-
 
 	return typedResult, nil
 }
