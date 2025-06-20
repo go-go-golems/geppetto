@@ -5,12 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-go-golems/glazed/pkg/helpers/maps"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
+
+// Debugging counter for append operations
+var appendCallCounter = int64(0)
 
 type ManagerImpl struct {
 	Tree            *ConversationTree
@@ -177,10 +182,71 @@ func (c *ManagerImpl) GetMessage(ID NodeID) (*Message, bool) {
 }
 
 func (c *ManagerImpl) AppendMessages(messages ...*Message) {
+	appendCallID := atomic.AddInt64(&appendCallCounter, 1)
+	appendStart := time.Now()
+	
+	log.Trace().
+		Int64("append_call_id", appendCallID).
+		Int("message_count", len(messages)).
+		Int("tree_node_count", len(c.Tree.Nodes)).
+		Str("last_id", c.Tree.LastID.String()).
+		Str("root_id", c.Tree.RootID.String()).
+		Msg("MANAGER APPEND ENTRY - Delegating to Tree")
+	
+	// Log each message being appended
+	for i, msg := range messages {
+		existingMsg, exists := c.Tree.Nodes[msg.ID]
+		
+		// Extract role if it's a ChatMessageContent
+		roleStr := "unknown"
+		if chatContent, ok := msg.Content.(*ChatMessageContent); ok {
+			roleStr = string(chatContent.Role)
+		}
+		
+		log.Trace().
+			Int64("append_call_id", appendCallID).
+			Int("message_index", i).
+			Str("message_id", msg.ID.String()).
+			Str("parent_id", msg.ParentID.String()).
+			Str("role", roleStr).
+			Bool("already_exists", exists).
+			Str("content_preview", msg.Content.String()[:min(50, len(msg.Content.String()))]).
+			Msg("PROCESSING MESSAGE FOR APPEND")
+		
+		if exists {
+			log.Trace().
+				Int64("append_call_id", appendCallID).
+				Str("message_id", msg.ID.String()).
+				Str("existing_parent", existingMsg.ParentID.String()).
+				Str("new_parent", msg.ParentID.String()).
+				Bool("parent_changed", existingMsg.ParentID != msg.ParentID).
+				Str("existing_content", existingMsg.Content.String()[:min(50, len(existingMsg.Content.String()))]).
+				Str("new_content", msg.Content.String()[:min(50, len(msg.Content.String()))]).
+				Bool("content_changed", existingMsg.Content.String() != msg.Content.String()).
+				Msg("DUPLICATE MESSAGE DETECTED - POTENTIAL RECURSION TRIGGER")
+		}
+	}
+	
 	c.Tree.AppendMessages(messages)
+	
+	appendDuration := time.Since(appendStart)
+	log.Trace().
+		Int64("append_call_id", appendCallID).
+		Dur("duration", appendDuration).
+		Int("new_tree_node_count", len(c.Tree.Nodes)).
+		Str("new_last_id", c.Tree.LastID.String()).
+		Msg("MANAGER APPEND COMPLETE")
+	
 	if c.autosaveEnabled {
 		_ = c.autoSave() // Intentionally ignoring errors for now
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (c *ManagerImpl) AttachMessages(parentID NodeID, messages ...*Message) {
