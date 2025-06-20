@@ -7,7 +7,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 // SetupConversation creates a setup function for conversation handling
 func SetupConversation() SetupFunction {
 	return func(vm *goja.Runtime, engine *RuntimeEngine) {
@@ -36,7 +35,3 @@ func SetupEmbeddings(stepSettings *settings.StepSettings) SetupFunction {
 		}
 	}
 }
-
-
-
-

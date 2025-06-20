@@ -170,7 +170,7 @@ func (csf *ChatStep) RunInference(
 			}
 			return nil, err
 		}
-		
+
 		// Update metadata with response data
 		metadata.Usage = &conversation.Usage{
 			InputTokens:  response.Usage.InputTokens,
@@ -179,7 +179,7 @@ func (csf *ChatStep) RunInference(
 		if response.StopReason != "" {
 			metadata.StopReason = &response.StopReason
 		}
-		
+
 		llmMessageMetadata := &conversation.LLMMessageMetadata{
 			Engine:    req.Model,
 			MaxTokens: cast.WrapAddr[int](req.MaxTokens),
@@ -232,16 +232,16 @@ func (csf *ChatStep) RunInference(
 				csf.subscriptionManager.PublishBlind(events2.NewInterruptEvent(metadata, stepMetadata, completionMerger.Text()))
 			}
 			return nil, ctx.Err()
-			
+
 		case event, ok := <-eventCh:
 			if !ok {
 				log.Debug().Int("total_events", eventCount).Msg("Claude streaming channel closed, loop completed")
 				goto streamingComplete
 			}
-			
+
 			eventCount++
 			log.Debug().Int("event_count", eventCount).Interface("event", event).Msg("Claude processing streaming event")
-			
+
 			events_, err := completionMerger.Add(event)
 			if err != nil {
 				log.Error().Err(err).Int("event_count", eventCount).Msg("Claude ContentBlockMerger.Add failed")

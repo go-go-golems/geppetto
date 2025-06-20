@@ -332,8 +332,7 @@ func (e *RuntimeEngine) Close() error {
 }
 
 type StepRun struct {
-	stepID   string
-	finished chan struct{}
+	// This struct is currently unused but kept for potential future use
 }
 
 // RunStep executes a step with event streaming, automatically registering
@@ -386,56 +385,56 @@ func (e *RuntimeEngine) RunStep(
 			e.Loop.RunOnLoop(func(vm *goja.Runtime) {
 				// Convert event to a JavaScript-friendly object
 				eventObj := vm.NewObject()
-				eventObj.Set("type", string(ev.Type()))
+				_ = eventObj.Set("type", string(ev.Type()))
 
 				// Set event-specific fields based on type
 				switch typedEvent := ev.(type) {
 				case *events.EventPartialCompletionStart:
 					// Start event
 				case *events.EventFinal:
-					eventObj.Set("text", typedEvent.Text)
+					_ = eventObj.Set("text", typedEvent.Text)
 				case *events.EventPartialCompletion:
-					eventObj.Set("delta", typedEvent.Delta)
-					eventObj.Set("completion", typedEvent.Completion)
+					_ = eventObj.Set("delta", typedEvent.Delta)
+					_ = eventObj.Set("completion", typedEvent.Completion)
 				case *events.EventError:
-					eventObj.Set("error", typedEvent.Error)
+					_ = eventObj.Set("error", typedEvent.Error)
 				case *events.EventToolCall:
 					toolCallObj := vm.NewObject()
-					toolCallObj.Set("id", typedEvent.ToolCall.ID)
-					toolCallObj.Set("name", typedEvent.ToolCall.Name)
-					toolCallObj.Set("input", vm.ToValue(typedEvent.ToolCall.Input))
-					eventObj.Set("toolCall", toolCallObj)
+					_ = toolCallObj.Set("id", typedEvent.ToolCall.ID)
+					_ = toolCallObj.Set("name", typedEvent.ToolCall.Name)
+					_ = toolCallObj.Set("input", vm.ToValue(typedEvent.ToolCall.Input))
+					_ = eventObj.Set("toolCall", toolCallObj)
 				case *events.EventToolResult:
 					toolResultObj := vm.NewObject()
-					toolResultObj.Set("id", typedEvent.ToolResult.ID)
-					toolResultObj.Set("result", vm.ToValue(typedEvent.ToolResult.Result))
-					eventObj.Set("toolResult", toolResultObj)
+					_ = toolResultObj.Set("id", typedEvent.ToolResult.ID)
+					_ = toolResultObj.Set("result", vm.ToValue(typedEvent.ToolResult.Result))
+					_ = eventObj.Set("toolResult", toolResultObj)
 				}
 
 				// Add metadata
 				metaObj := vm.NewObject()
 				meta := ev.Metadata()
-				metaObj.Set("engine", meta.Engine)
-				metaObj.Set("temperature", vm.ToValue(meta.Temperature))
-				metaObj.Set("top_p", vm.ToValue(meta.TopP))
-				metaObj.Set("max_tokens", vm.ToValue(meta.MaxTokens))
-				metaObj.Set("stop_reason", vm.ToValue(meta.StopReason))
-				metaObj.Set("usage", vm.ToValue(meta.Usage))
-				metaObj.Set("message_id", vm.ToValue(meta.ID))
-				metaObj.Set("parent_id", vm.ToValue(meta.ParentID))
-				eventObj.Set("meta", metaObj)
+				_ = metaObj.Set("engine", meta.Engine)
+				_ = metaObj.Set("temperature", vm.ToValue(meta.Temperature))
+				_ = metaObj.Set("top_p", vm.ToValue(meta.TopP))
+				_ = metaObj.Set("max_tokens", vm.ToValue(meta.MaxTokens))
+				_ = metaObj.Set("stop_reason", vm.ToValue(meta.StopReason))
+				_ = metaObj.Set("usage", vm.ToValue(meta.Usage))
+				_ = metaObj.Set("message_id", vm.ToValue(meta.ID))
+				_ = metaObj.Set("parent_id", vm.ToValue(meta.ParentID))
+				_ = eventObj.Set("meta", metaObj)
 
 				// Add step metadata
 				stepMetaObj := vm.NewObject()
 				stepMeta := ev.StepMetadata()
 				if stepMeta != nil {
-					stepMetaObj.Set("step_id", vm.ToValue(stepMeta.StepID))
-					stepMetaObj.Set("type", stepMeta.Type)
-					stepMetaObj.Set("input_type", stepMeta.InputType)
-					stepMetaObj.Set("output_type", stepMeta.OutputType)
-					stepMetaObj.Set("meta", vm.ToValue(stepMeta.Metadata))
+					_ = stepMetaObj.Set("step_id", vm.ToValue(stepMeta.StepID))
+					_ = stepMetaObj.Set("type", stepMeta.Type)
+					_ = stepMetaObj.Set("input_type", stepMeta.InputType)
+					_ = stepMetaObj.Set("output_type", stepMeta.OutputType)
+					_ = stepMetaObj.Set("meta", vm.ToValue(stepMeta.Metadata))
 				}
-				eventObj.Set("step", stepMetaObj)
+				_ = eventObj.Set("step", stepMetaObj)
 
 				_, err := runner.onEvent(goja.Undefined(), eventObj)
 				if err != nil {
