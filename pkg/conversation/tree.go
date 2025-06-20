@@ -209,9 +209,28 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) {
 					return content
 				}()).
 				Msg("MESSAGE ALREADY EXISTS - POTENTIAL DUPLICATE/OVERWRITE")
+			
+			// If content is identical and parent isn't changing, skip processing
+			if existingMsg.Content.String() == msg.Content.String() && existingMsg.ParentID == parentID {
+				log.Trace().
+					Int64("attach_call_id", attachCallID).
+					Str("message_id", msg.ID.String()).
+					Msg("IDENTICAL MESSAGE DETECTED - SKIPPING DUPLICATE PROCESSING")
+				continue
+			}
 		}
 
 		// CRITICAL: This is where we modify the message parent ID
+		// Prevent self-referencing cycles
+		if msg.ID == parentID {
+			log.Trace().
+				Int64("attach_call_id", attachCallID).
+				Str("message_id", msg.ID.String()).
+				Str("parent_id", parentID.String()).
+				Msg("PREVENTING SELF-REFERENCE CYCLE - SKIPPING MESSAGE")
+			continue
+		}
+		
 		msg.ParentID = parentID
 
 		// CRITICAL: This overwrites existing messages with same ID
@@ -261,10 +280,15 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) {
 					Int64("attach_call_id", attachCallID).
 					Str("parent_id", msg.ParentID.String()).
 					Str("child_id", msg.ID.String()).
-					Msg("MESSAGE ALREADY IN PARENT CHILDREN - POTENTIAL BUG")
+					Msg("MESSAGE ALREADY IN PARENT CHILDREN - SKIPPING DUPLICATE")
+			} else {
+				parent.Children = append(parent.Children, msg)
+				log.Trace().
+					Int64("attach_call_id", attachCallID).
+					Str("parent_id", msg.ParentID.String()).
+					Str("child_id", msg.ID.String()).
+					Msg("MESSAGE ADDED TO PARENT CHILDREN")
 			}
-
-			parent.Children = append(parent.Children, msg)
 
 			log.Trace().
 				Int64("attach_call_id", attachCallID).
