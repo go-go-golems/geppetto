@@ -131,8 +131,21 @@ var NullNode NodeID = NodeID(uuid.Nil)
 // InsertMessages adds new messages to the conversation tree.
 // It updates the root ID if the tree is empty and sets the last inserted node ID.
 // If a message has a parent ID that exists in the tree, it is added as a child of that parent node.
-func (ct *ConversationTree) InsertMessages(msgs ...*Message) {
+// Returns an error if duplicate messages are detected or if self-reference cycles would be created.
+func (ct *ConversationTree) InsertMessages(msgs ...*Message) error {
 	for _, msg := range msgs {
+		// Check for self-reference cycle
+		if msg.ID == msg.ParentID {
+			return errors.Errorf("self-reference cycle detected: message %s cannot be its own parent", msg.ID.String())
+		}
+		
+		// Check for duplicate message with same content
+		if existingMsg, exists := ct.Nodes[msg.ID]; exists {
+			if existingMsg.Content.String() == msg.Content.String() {
+				return errors.Errorf("duplicate message detected: message %s already exists with identical content", msg.ID.String())
+			}
+		}
+		
 		ct.Nodes[msg.ID] = msg
 		if ct.RootID == NullNode {
 			ct.RootID = msg.ID
@@ -140,15 +153,27 @@ func (ct *ConversationTree) InsertMessages(msgs ...*Message) {
 		ct.LastID = msg.ID
 
 		if parent, exists := ct.Nodes[msg.ParentID]; exists {
-			parent.Children = append(parent.Children, msg)
+			// Check if message is already a child to prevent duplicates
+			alreadyChild := false
+			for _, child := range parent.Children {
+				if child.ID == msg.ID {
+					alreadyChild = true
+					break
+				}
+			}
+			if !alreadyChild {
+				parent.Children = append(parent.Children, msg)
+			}
 		}
 	}
+	return nil
 }
 
 // AttachThread attaches a conversation thread to a specified parent message.
 // It updates the parent IDs of the messages in the thread to link them to the parent message.
 // The last message in the thread becomes the new last inserted node ID.
-func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) {
+// Returns an error if duplicate messages are detected or if self-reference cycles would be created.
+func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) error {
 	attachCallID := atomic.AddInt64(&attachThreadCallCounter, 1)
 	attachStart := time.Now()
 
@@ -210,13 +235,13 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) {
 				}()).
 				Msg("MESSAGE ALREADY EXISTS - POTENTIAL DUPLICATE/OVERWRITE")
 			
-			// If content is identical and parent isn't changing, skip processing
+			// If content is identical and parent isn't changing, return error for duplicate
 			if existingMsg.Content.String() == msg.Content.String() && existingMsg.ParentID == parentID {
 				log.Trace().
 					Int64("attach_call_id", attachCallID).
 					Str("message_id", msg.ID.String()).
-					Msg("IDENTICAL MESSAGE DETECTED - SKIPPING DUPLICATE PROCESSING")
-				continue
+					Msg("IDENTICAL MESSAGE DETECTED - RETURNING DUPLICATE ERROR")
+				return errors.Errorf("duplicate message detected: message %s already exists with identical content and parent", msg.ID.String())
 			}
 		}
 
@@ -227,8 +252,8 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) {
 				Int64("attach_call_id", attachCallID).
 				Str("message_id", msg.ID.String()).
 				Str("parent_id", parentID.String()).
-				Msg("PREVENTING SELF-REFERENCE CYCLE - SKIPPING MESSAGE")
-			continue
+				Msg("PREVENTING SELF-REFERENCE CYCLE - RETURNING ERROR")
+			return errors.Errorf("self-reference cycle detected: message %s cannot be attached to itself as parent", msg.ID.String())
 		}
 		
 		msg.ParentID = parentID
@@ -330,12 +355,14 @@ func (ct *ConversationTree) AttachThread(parentID NodeID, thread Conversation) {
 		Int("node_count_increase", newNodeCount-originalNodeCount).
 		Str("final_last_id", ct.LastID.String()).
 		Msg("TREE ATTACH THREAD COMPLETE")
+	return nil
 }
 
 // AppendMessages appends a conversation thread to the end of the tree.
 // It attaches the thread to the last inserted node in the tree, making it the parent of the thread.
 // The messages in the thread are inserted as nodes, extending the parent-child chain.
-func (ct *ConversationTree) AppendMessages(thread Conversation) {
+// Returns an error if duplicate messages are detected or if self-reference cycles would be created.
+func (ct *ConversationTree) AppendMessages(thread Conversation) error {
 	appendCallID := atomic.AddInt64(&appendMsgCallCounter, 1)
 	appendStart := time.Now()
 
@@ -346,7 +373,9 @@ func (ct *ConversationTree) AppendMessages(thread Conversation) {
 		Int("tree_node_count", len(ct.Nodes)).
 		Msg("TREE APPEND MESSAGES - Delegating to AttachThread")
 
-	ct.AttachThread(ct.LastID, thread)
+	if err := ct.AttachThread(ct.LastID, thread); err != nil {
+		return errors.Wrap(err, "failed to attach thread during append")
+	}
 
 	appendDuration := time.Since(appendStart)
 	log.Trace().
@@ -355,6 +384,7 @@ func (ct *ConversationTree) AppendMessages(thread Conversation) {
 		Str("new_last_id", ct.LastID.String()).
 		Int("new_node_count", len(ct.Nodes)).
 		Msg("TREE APPEND MESSAGES COMPLETE")
+	return nil
 }
 
 // PrependThread prepends a conversation thread to the beginning of the tree.

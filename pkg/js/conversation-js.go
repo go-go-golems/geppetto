@@ -55,7 +55,9 @@ func (jc *JSConversation) AddMessage(role string, text string, options *goja.Obj
 	}
 
 	msg := conversation.NewChatMessage(conversation.Role(role), text, msgOptions...)
-	jc.manager.AppendMessages(msg)
+	if err := jc.manager.AppendMessages(msg); err != nil {
+		return "", fmt.Errorf("failed to append message: %v", err)
+	}
 
 	return msg.ID.String(), nil
 }
@@ -74,7 +76,9 @@ func (jc *JSConversation) AddMessageWithImage(role string, text string, imagePat
 	}
 
 	msg := conversation.NewMessage(content)
-	jc.manager.AppendMessages(msg)
+	if err := jc.manager.AppendMessages(msg); err != nil {
+		return "", fmt.Errorf("failed to append message with image: %v", err)
+	}
 
 	return msg.ID.String(), nil
 }
@@ -94,7 +98,9 @@ func (jc *JSConversation) AddToolUse(toolID string, name string, input interface
 	}
 
 	msg := conversation.NewMessage(content)
-	jc.manager.AppendMessages(msg)
+	if err := jc.manager.AppendMessages(msg); err != nil {
+		return "", fmt.Errorf("failed to append tool use message: %v", err)
+	}
 
 	return msg.ID.String(), nil
 }
@@ -107,7 +113,9 @@ func (jc *JSConversation) AddToolResult(toolID string, result string) (string, e
 	}
 
 	msg := conversation.NewMessage(content)
-	jc.manager.AppendMessages(msg)
+	if err := jc.manager.AppendMessages(msg); err != nil {
+		return "", fmt.Errorf("failed to append tool result message: %v", err)
+	}
 
 	return msg.ID.String(), nil
 }

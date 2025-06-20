@@ -15,7 +15,9 @@ type AddToHistoryStep struct {
 var _ steps.Step[string, string] = &AddToHistoryStep{}
 
 func (a *AddToHistoryStep) Start(ctx context.Context, input string) (steps.StepResult[string], error) {
-	a.manager.AppendMessages(conversation.NewChatMessage(conversation.Role(a.role), input))
+	if err := a.manager.AppendMessages(conversation.NewChatMessage(conversation.Role(a.role), input)); err != nil {
+		return steps.Reject[string](err), nil
+	}
 
 	return steps.Resolve(input), nil
 }
