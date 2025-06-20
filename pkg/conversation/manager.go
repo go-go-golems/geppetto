@@ -19,8 +19,8 @@ package conversation
 // Manager defines the interface for high-level conversation management operations.
 type Manager interface {
 	GetConversation() Conversation
-	AppendMessages(msgs ...*Message)
-	AttachMessages(parentID NodeID, msgs ...*Message)
+	AppendMessages(msgs ...*Message) error
+	AttachMessages(parentID NodeID, msgs ...*Message) error
 	GetMessage(ID NodeID) (*Message, bool)
 	SaveToFile(filename string) error
 }

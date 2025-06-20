@@ -17,7 +17,9 @@ func NewMergeStep(manager conversation.Manager, prepend bool) steps.Step[*conver
 			if prepend {
 				manager.(*conversation.ManagerImpl).PrependMessages(input)
 			} else {
-				manager.(*conversation.ManagerImpl).AppendMessages(input)
+				if err := manager.AppendMessages(input); err != nil {
+					return helpers.NewErrorResult[conversation.Conversation](err)
+				}
 			}
 
 			return helpers.NewValueResult[conversation.Conversation](manager.GetConversation())

@@ -123,10 +123,12 @@ func (b *ManagerBuilder) initializeConversation(manager conversation.Manager) er
 			return errors.Wrap(err, "failed to execute system prompt template")
 		}
 
-		manager.AppendMessages(conversation.NewChatMessage(
+		if err := manager.AppendMessages(conversation.NewChatMessage(
 			conversation.RoleSystem,
 			systemPromptBuffer.String(),
-		))
+		)); err != nil {
+			return errors.Wrap(err, "failed to append system prompt message")
+		}
 	}
 
 	for _, message_ := range b.messages {
@@ -144,8 +146,10 @@ func (b *ManagerBuilder) initializeConversation(manager conversation.Manager) er
 			}
 			s_ := messageBuffer.String()
 
-			manager.AppendMessages(conversation.NewChatMessage(
-				content.Role, s_, conversation.WithTime(message_.Time)))
+			if err := manager.AppendMessages(conversation.NewChatMessage(
+				content.Role, s_, conversation.WithTime(message_.Time))); err != nil {
+				return errors.Wrap(err, "failed to append template-rendered message")
+			}
 		}
 	}
 
@@ -175,7 +179,9 @@ func (b *ManagerBuilder) initializeConversation(manager conversation.Manager) er
 			Text:   promptBuffer.String(),
 			Images: images,
 		}
-		manager.AppendMessages(conversation.NewMessage(messageContent))
+		if err := manager.AppendMessages(conversation.NewMessage(messageContent)); err != nil {
+			return errors.Wrap(err, "failed to append prompt message with images")
+		}
 	}
 
 	return nil
