@@ -73,7 +73,9 @@ func RunToContextManager(
 		return nil, err
 	}
 
-	manager.AppendMessages(conversation.NewChatMessage(conversation.RoleAssistant, s))
+	if err := manager.AppendMessages(conversation.NewChatMessage(conversation.RoleAssistant, s)); err != nil {
+		return nil, err
+	}
 
 	return manager, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/helpers/maps"
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -32,7 +33,9 @@ type ManagerOption func(*ManagerImpl)
 
 func WithMessages(messages ...*Message) ManagerOption {
 	return func(m *ManagerImpl) {
-		m.AppendMessages(messages...)
+		if err := m.AppendMessages(messages...); err != nil {
+			log.Error().Err(err).Msg("Failed to append messages in WithMessages option")
+		}
 	}
 }
 
@@ -109,7 +112,9 @@ func CreateManager(
 		}
 
 		// TODO(manuel, 2023-12-07) Only do this conditionally, or maybe if the system prompt hasn't been set yet, if you use an agent.
-		manager.AppendMessages(NewChatMessage(RoleSystem, systemPromptBuffer.String()))
+		if err := manager.AppendMessages(NewChatMessage(RoleSystem, systemPromptBuffer.String())); err != nil {
+			return nil, errors.Wrap(err, "failed to append system prompt message")
+		}
 	}
 
 	for _, message := range messages {
@@ -126,7 +131,9 @@ func CreateManager(
 			}
 			s_ := messageBuffer.String()
 
-			manager.AppendMessages(NewChatMessage(msg.Role, s_, WithTime(message.Time)))
+			if err := manager.AppendMessages(NewChatMessage(msg.Role, s_, WithTime(message.Time))); err != nil {
+				return nil, errors.Wrap(err, "failed to append template-rendered message")
+			}
 		}
 	}
 
@@ -146,7 +153,9 @@ func CreateManager(
 			return nil, err
 		}
 
-		manager.AppendMessages(NewChatMessage(RoleUser, promptBuffer.String()))
+		if err := manager.AppendMessages(NewChatMessage(RoleUser, promptBuffer.String())); err != nil {
+			return nil, errors.Wrap(err, "failed to append prompt message")
+		}
 	}
 
 	for _, option := range options {
@@ -181,7 +190,7 @@ func (c *ManagerImpl) GetMessage(ID NodeID) (*Message, bool) {
 	return c.Tree.GetMessageByID(ID)
 }
 
-func (c *ManagerImpl) AppendMessages(messages ...*Message) {
+func (c *ManagerImpl) AppendMessages(messages ...*Message) error {
 	appendCallID := atomic.AddInt64(&appendCallCounter, 1)
 	appendStart := time.Now()
 	
@@ -227,7 +236,9 @@ func (c *ManagerImpl) AppendMessages(messages ...*Message) {
 		}
 	}
 	
-	c.Tree.AppendMessages(messages)
+	if err := c.Tree.AppendMessages(messages); err != nil {
+		return errors.Wrap(err, "failed to append messages to conversation tree")
+	}
 	
 	appendDuration := time.Since(appendStart)
 	log.Trace().
@@ -240,6 +251,8 @@ func (c *ManagerImpl) AppendMessages(messages ...*Message) {
 	if c.autosaveEnabled {
 		_ = c.autoSave() // Intentionally ignoring errors for now
 	}
+	
+	return nil
 }
 
 func min(a, b int) int {
@@ -249,8 +262,11 @@ func min(a, b int) int {
 	return b
 }
 
-func (c *ManagerImpl) AttachMessages(parentID NodeID, messages ...*Message) {
-	c.Tree.AttachThread(parentID, messages)
+func (c *ManagerImpl) AttachMessages(parentID NodeID, messages ...*Message) error {
+	if err := c.Tree.AttachThread(parentID, messages); err != nil {
+		return errors.Wrap(err, "failed to attach messages to conversation tree")
+	}
+	return nil
 }
 
 func (c *ManagerImpl) PrependMessages(messages ...*Message) {
