@@ -160,12 +160,6 @@ func (csf *ChatStep) RunInference(
 		},
 	}
 
-	// Publish start event // THIS IS BUGGY
-	if csf.subscriptionManager != nil {
-		log.Debug().Str("event_id", metadata.ID.String()).Msg("Claude publishing start event")
-		csf.subscriptionManager.PublishBlind(events2.NewStartEvent(metadata, stepMetadata))
-	}
-
 	if !csf.Settings.Chat.Stream {
 		log.Debug().Msg("Claude using non-streaming mode")
 		response, err := client.SendMessage(ctx, req)
