@@ -76,12 +76,163 @@ func NewChatStep(
 }
 
 var _ chat.Step = &ChatStep{}
+var _ chat.SimpleChatStep = &ChatStep{}
+
+func (csf *ChatStep) RunInference(
+	ctx context.Context,
+	messages conversation.Conversation,
+) (*conversation.Message, error) {
+	clientSettings := csf.Settings.Client
+	if clientSettings == nil {
+		return nil, steps.ErrMissingClientSettings
+	}
+	anthropicSettings := csf.Settings.Claude
+	if anthropicSettings == nil {
+		return nil, errors.New("no claude settings")
+	}
+
+	apiType_ := csf.Settings.Chat.ApiType
+	if apiType_ == nil {
+		return nil, errors.New("no chat engine specified")
+	}
+	apiType := *apiType_
+	apiSettings := csf.Settings.API
+
+	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
+	if !ok {
+		return nil, errors.Errorf("no API key for %s", apiType)
+	}
+	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
+	if !ok {
+		return nil, errors.Errorf("no base URL for %s", apiType)
+	}
+
+	client := api.NewClient(apiKey, baseURL)
+
+	req, err := makeMessageRequest(csf.Settings, messages)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Tools = csf.Tools
+	// Safely handle Temperature and TopP settings with default fallback
+	if req.Temperature == nil {
+		defaultTemp := float64(1.0)
+		req.Temperature = &defaultTemp
+	}
+	if req.TopP == nil {
+		defaultTopP := float64(1.0)
+		req.TopP = &defaultTopP
+	}
+
+	if !csf.Settings.Chat.Stream {
+		response, err := client.SendMessage(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		llmMessageMetadata := &conversation.LLMMessageMetadata{
+			Engine:    req.Model,
+			MaxTokens: cast.WrapAddr[int](req.MaxTokens),
+			Usage: &conversation.Usage{
+				InputTokens:  response.Usage.InputTokens,
+				OutputTokens: response.Usage.OutputTokens,
+			},
+		}
+		if response.StopReason != "" {
+			llmMessageMetadata.StopReason = &response.StopReason
+		}
+		message := conversation.NewChatMessage(
+			conversation.RoleAssistant, response.FullText(),
+			conversation.WithLLMMessageMetadata(llmMessageMetadata),
+		)
+		return message, nil
+	}
+
+	// For streaming, we need to collect all events and return the final message
+	eventCh, err := client.StreamMessage(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var parentMessage *conversation.Message
+	parentID := conversation.NullNode
+	if len(messages) > 0 {
+		parentMessage = messages[len(messages)-1]
+		if csf.parentID == conversation.NullNode {
+			parentID = parentMessage.ID
+		} else {
+			parentID = csf.parentID
+		}
+	}
+
+	metadata := events2.EventMetadata{
+		ID:       conversation.NewNodeID(),
+		ParentID: parentID,
+		LLMMessageMetadata: conversation.LLMMessageMetadata{
+			Engine:      req.Model,
+			Usage:       nil,
+			StopReason:  nil,
+			Temperature: req.Temperature,
+			TopP:        req.TopP,
+			MaxTokens:   cast.WrapAddr[int](req.MaxTokens),
+		},
+	}
+	stepMetadata := &steps.StepMetadata{
+		StepID:     uuid.New(),
+		Type:       "claude-chat",
+		InputType:  "conversation.Conversation",
+		OutputType: "string",
+		Metadata: map[string]interface{}{
+			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
+		},
+	}
+
+	completionMerger := NewContentBlockMerger(metadata, stepMetadata)
+
+	for event := range eventCh {
+		_, err := completionMerger.Add(event)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	response := completionMerger.Response()
+	if response == nil {
+		return nil, errors.New("no response")
+	}
+
+	msg := conversation.NewChatMessage(
+		conversation.RoleAssistant, response.FullText(),
+		conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
+			Engine: req.Model,
+			Usage: &conversation.Usage{
+				InputTokens:  response.Usage.InputTokens,
+				OutputTokens: response.Usage.OutputTokens,
+			},
+			StopReason:  &response.StopReason,
+			Temperature: req.Temperature,
+			TopP:        req.TopP,
+			MaxTokens:   &req.MaxTokens,
+		}),
+	)
+
+	return msg, nil
+}
 
 func (csf *ChatStep) Start(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (steps.StepResult[*conversation.Message], error) {
+	// For non-streaming, use the simplified RunInference method
+	if !csf.Settings.Chat.Stream {
+		message, err := csf.RunInference(ctx, messages)
+		if err != nil {
+			return steps.Reject[*conversation.Message](err), nil
+		}
+		return steps.Resolve(message), nil
+	}
 
+	// For streaming, maintain the original complex logic with events
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -154,29 +305,6 @@ func (csf *ChatStep) Start(
 		Metadata: map[string]interface{}{
 			steps.MetadataSettingsSlug: csf.Settings.GetMetadata(),
 		},
-	}
-
-	if !csf.Settings.Chat.Stream {
-		response, err := client.SendMessage(ctx, req)
-		if err != nil {
-			return steps.Reject[*conversation.Message](err), nil
-		}
-		llmMessageMetadata := &conversation.LLMMessageMetadata{
-			Engine:    req.Model,
-			MaxTokens: cast.WrapAddr[int](req.MaxTokens),
-			Usage: &conversation.Usage{
-				InputTokens:  response.Usage.InputTokens,
-				OutputTokens: response.Usage.OutputTokens,
-			},
-		}
-		if response.StopReason != "" {
-			llmMessageMetadata.StopReason = &response.StopReason
-		}
-		message := conversation.NewChatMessage(
-			conversation.RoleAssistant, response.FullText(),
-			conversation.WithLLMMessageMetadata(llmMessageMetadata),
-		)
-		return steps.Resolve(message), nil
 	}
 
 	var cancel context.CancelFunc
