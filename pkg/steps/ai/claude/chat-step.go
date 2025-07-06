@@ -7,6 +7,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	events2 "github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/helpers"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
@@ -16,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/weaviate/weaviate-go-client/v4/test/helpers"
 )
 
 type ChatStep struct {
