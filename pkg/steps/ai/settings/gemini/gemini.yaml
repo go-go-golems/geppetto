@@ -1,0 +1,12 @@
+slug: gemini-chat
+name: Gemini chat API flags
+description: Settings for the Gemini chat API
+flags:
+  - name: gemini-base-url
+    type: string
+    help: base URL
+    default: "https://generativelanguage.googleapis.com/"
+  - name: gemini-api-key
+    type: string
+    help: API key
+    default: ""

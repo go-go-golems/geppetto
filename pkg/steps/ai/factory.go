@@ -4,6 +4,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -39,6 +40,12 @@ func (s *StandardStepFactory) NewStep(
 				return nil, err
 			}
 
+		case ai_types.ApiTypeGemini:
+			ret, err = gemini.NewChatStep(settings_)
+			if err != nil {
+				return nil, err
+			}
+
 		case ai_types.ApiTypeOllama:
 			return nil, errors.New("ollama is not supported")
 
@@ -66,6 +73,14 @@ func (s *StandardStepFactory) NewStep(
 			apiType := ai_types.ApiTypeClaude
 			settings_.Chat.ApiType = &apiType
 			ret = claude.NewStep(settings_)
+
+		case gemini.IsGeminiEngine(*settings_.Chat.Engine):
+			apiType := ai_types.ApiTypeGemini
+			settings_.Chat.ApiType = &apiType
+			ret, err = gemini.NewChatStep(settings_)
+			if err != nil {
+				return nil, err
+			}
 
 		default:
 		}
