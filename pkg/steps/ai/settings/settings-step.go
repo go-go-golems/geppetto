@@ -188,10 +188,6 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		}
 	}
 
-	if ss.Gemini != nil {
-		// no gemini specific metadata yet
-	}
-
 	if ss.Ollama != nil {
 		if ss.Ollama.Temperature != nil && *ss.Ollama.Temperature != 0 {
 			metadata["ollama-temperature"] = *ss.Ollama.Temperature
