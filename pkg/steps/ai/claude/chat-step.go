@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/weaviate/weaviate-go-client/v4/test/helpers"
 )
 
 type ChatStep struct {
@@ -480,10 +479,10 @@ func makeMessageRequest(
 		StopSequences: stop,
 		Stream:        stream,
 		System:        systemPrompt,
-		Temperature:   helpers.Float64Pointer(temperature),
-		Tools:         nil,
-		TopK:          nil,
-		TopP:          helpers.Float64Pointer(topP),
+               Temperature:   cast.WrapAddr[float64](temperature),
+               Tools:         nil,
+               TopK:          nil,
+               TopP:          cast.WrapAddr[float64](topP),
 	}
 
 	return ret, nil

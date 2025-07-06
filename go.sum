@@ -186,8 +186,6 @@ github.com/tj/assert v0.0.0-20190920132354-ee03d75cd160 h1:NSWpaDaurcAJY7PkL8Xt0
 github.com/tj/assert v0.0.0-20190920132354-ee03d75cd160/go.mod h1:mZ9/Rh9oLWpLLDRpvE+3b7gP/C2YyLFYxNmcLnPTMe0=
 github.com/tj/go-naturaldate v1.3.0 h1:OgJIPkR/Jk4bFMBLbxZ8w+QUxwjqSvzd9x+yXocY4RI=
 github.com/tj/go-naturaldate v1.3.0/go.mod h1:rpUbjivDKiS1BlfMGc2qUKNZ/yxgthOfmytQs8d8hKk=
-github.com/weaviate/weaviate-go-client/v4 v4.16.1 h1:jkDYuRCYly6zG2ngqTpv6z8azzbqiMUXcmaJHJmAV0Q=
-github.com/weaviate/weaviate-go-client/v4 v4.16.1/go.mod h1:XmoRpzNpWrTW5/TE07dUtxy5kMZbG3uAG/3b69nuwFk=
 github.com/wk8/go-ordered-map/v2 v2.1.8 h1:5h/BUHu93oj4gIdvHHHGsScSTMijfx5PeYkE/fJgbpc=
 github.com/wk8/go-ordered-map/v2 v2.1.8/go.mod h1:5nJHM5DyteebpVlHnWMV0rPz6Zp7+xBAnxjb1X5vnTw=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
