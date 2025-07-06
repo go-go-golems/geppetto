@@ -479,10 +479,10 @@ func makeMessageRequest(
 		StopSequences: stop,
 		Stream:        stream,
 		System:        systemPrompt,
-               Temperature:   cast.WrapAddr[float64](temperature),
-               Tools:         nil,
-               TopK:          nil,
-               TopP:          cast.WrapAddr[float64](topP),
+		Temperature:   cast.WrapAddr[float64](temperature),
+		Tools:         nil,
+		TopK:          nil,
+		TopP:          cast.WrapAddr[float64](topP),
 	}
 
 	return ret, nil
