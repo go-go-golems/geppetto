@@ -4,10 +4,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type StandardStepFactory struct {
@@ -26,6 +28,7 @@ func (s *StandardStepFactory) NewStep(
 	var ret chat.Step
 	var err error
 	if settings_.Chat.ApiType != nil {
+		log.Debug().Interface("api_type", settings_.Chat.ApiType).Msg("creating chat based on api type")
 		switch *settings_.Chat.ApiType {
 		case ai_types.ApiTypeOpenAI, ai_types.ApiTypeAnyScale, ai_types.ApiTypeFireworks:
 			ret, err = openai.NewStep(settings_)
@@ -35,6 +38,12 @@ func (s *StandardStepFactory) NewStep(
 
 		case ai_types.ApiTypeClaude:
 			ret, err = claude.NewChatStep(settings_, []api.Tool{})
+			if err != nil {
+				return nil, err
+			}
+
+		case ai_types.ApiTypeGemini:
+			ret, err = gemini.NewChatStep(settings_)
 			if err != nil {
 				return nil, err
 			}
@@ -66,6 +75,14 @@ func (s *StandardStepFactory) NewStep(
 			apiType := ai_types.ApiTypeClaude
 			settings_.Chat.ApiType = &apiType
 			ret = claude.NewStep(settings_)
+
+		case gemini.IsGeminiEngine(*settings_.Chat.Engine):
+			apiType := ai_types.ApiTypeGemini
+			settings_.Chat.ApiType = &apiType
+			ret, err = gemini.NewChatStep(settings_)
+			if err != nil {
+				return nil, err
+			}
 
 		default:
 		}

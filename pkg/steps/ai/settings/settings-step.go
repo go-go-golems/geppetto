@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
@@ -40,6 +41,7 @@ type StepSettings struct {
 	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
 	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
 	Claude *claude.Settings `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
+	Gemini *gemini.Settings `yaml:"gemini,omitempty" glazed.layer:"gemini-chat"`
 	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
 	// NOTE: Maybe we should separate the StepSettings struct into:
 	// - Provider settings (API, OpenAI, Claude, Ollama)
@@ -61,6 +63,10 @@ func NewStepSettings() (*StepSettings, error) {
 	if err != nil {
 		return nil, err
 	}
+	geminiSettings, err := gemini.NewSettings()
+	if err != nil {
+		return nil, err
+	}
 	ollamaSettings, err := ollama.NewSettings()
 	if err != nil {
 		return nil, err
@@ -75,6 +81,7 @@ func NewStepSettings() (*StepSettings, error) {
 		OpenAI:     openaiSettings,
 		Client:     NewClientSettings(),
 		Claude:     claudeSettings,
+		Gemini:     geminiSettings,
 		Ollama:     ollamaSettings,
 		API:        NewAPISettings(),
 		Embeddings: embeddingsSettings,
@@ -221,6 +228,7 @@ func (s *StepSettings) Clone() *StepSettings {
 		OpenAI:     s.OpenAI.Clone(),
 		Client:     s.Client.Clone(),
 		Claude:     s.Claude.Clone(),
+		Gemini:     s.Gemini.Clone(),
 		Ollama:     s.Ollama.Clone(),
 		Embeddings: s.Embeddings.Clone(),
 	}
@@ -247,6 +255,11 @@ func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers
 		return err
 	}
 
+	err = parsedLayers.InitializeStruct(gemini.GeminiChatSlug, ss.Gemini)
+	if err != nil {
+		return err
+	}
+
 	err = parsedLayers.InitializeStruct(config.EmbeddingsSlug, ss.Embeddings)
 	if err != nil {
 		return err
@@ -255,6 +268,7 @@ func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers
 	apiSlugs := []string{
 		openai.OpenAiChatSlug,
 		claude.ClaudeChatSlug,
+		gemini.GeminiChatSlug,
 		config.EmbeddingsSlug,
 	}
 	for _, slug := range apiSlugs {
@@ -362,6 +376,10 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 		if ss.Claude.UserID != nil && *ss.Claude.UserID != "" {
 			summary.WriteString(fmt.Sprintf("  - User ID: %s\n", *ss.Claude.UserID))
 		}
+	}
+
+	if ss.Gemini != nil && verbose {
+		summary.WriteString("\nGemini Settings:\n")
 	}
 
 	// Ollama Settings
