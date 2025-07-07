@@ -108,7 +108,7 @@ func (cs *ChatStep) RunInference(ctx context.Context, messages conversation.Conv
 	contents := makeContents(messages)
 	model := *cs.Settings.Chat.Engine
 
-	var parentID conversation.NodeID = conversation.NullNode
+	parentID := conversation.NullNode
 	if len(messages) > 0 {
 		parentID = messages[len(messages)-1].ID
 	}
