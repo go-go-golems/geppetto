@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type StandardStepFactory struct {
@@ -27,6 +28,7 @@ func (s *StandardStepFactory) NewStep(
 	var ret chat.Step
 	var err error
 	if settings_.Chat.ApiType != nil {
+		log.Debug().Interface("api_type", settings_.Chat.ApiType).Msg("creating chat based on api type")
 		switch *settings_.Chat.ApiType {
 		case ai_types.ApiTypeOpenAI, ai_types.ApiTypeAnyScale, ai_types.ApiTypeFireworks:
 			ret, err = openai.NewStep(settings_)

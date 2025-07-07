@@ -10,13 +10,8 @@ flags:
     type: choice
     choices:
       - "openai"
-      - "anyscale"
-      - "fireworks"
       - "claude"
-      - "ollama"
-      - "mistral"
-      - "perplexity"
-      - "cohere"
+      - "gemini"
     help: The provider type to use for chat
     default: openai
   - name: ai-max-response-tokens

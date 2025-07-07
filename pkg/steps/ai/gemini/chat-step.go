@@ -14,6 +14,7 @@ import (
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	genai "google.golang.org/genai"
 )
 
@@ -127,19 +128,26 @@ func (cs *ChatStep) RunInference(ctx context.Context, messages conversation.Conv
 	cs.publisherManager.PublishBlind(events.NewStartEvent(metadata, stepMeta))
 
 	if cs.Settings.Chat.Stream {
+		log.Debug().Int("num_messages", len(messages)).Str("model", model).Msg("Gemini starting streaming mode")
 		var text string
+		chunkCount := 0
 		for chunk, err := range client.Models.GenerateContentStream(ctx, model, contents, nil) {
 			if err != nil {
 				if errors.Is(err, io.EOF) {
+					log.Debug().Int("chunks_received", chunkCount).Msg("Gemini stream completed")
 					break
 				}
+				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("Gemini stream receive failed")
 				cs.publisherManager.PublishBlind(events.NewErrorEvent(metadata, stepMeta, err))
 				return nil, err
 			}
+			chunkCount++
 			delta := chunk.Text()
 			text += delta
+			log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(text)).Msg("Gemini received chunk")
 			cs.publisherManager.PublishBlind(events.NewPartialCompletionEvent(metadata, stepMeta, delta, text))
 		}
+		log.Debug().Int("final_length", len(text)).Int("total_chunks", chunkCount).Msg("Gemini streaming completed")
 		cs.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMeta, text))
 		msg := conversation.NewMessage(
 			conversation.NewChatMessageContent(conversation.RoleAssistant, text, nil),
