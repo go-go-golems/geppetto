@@ -336,6 +336,14 @@ Recommended for advanced use cases only. You usually only need to use `temperatu
         - Type: integer
         - Description: The number of output tokens which were used.
 
+    - cache_creation_input_tokens
+        - Type: integer
+        - Description: The number of input tokens used to create the cache entry.
+
+    - cache_read_input_tokens
+        - Type: integer
+        - Description: The number of input tokens read from the cache.
+
   </details>
 
 </details>

@@ -14,6 +14,12 @@ ShowPerDefault: true
 SectionType: GeneralTopic
 ---
 
+# ⚠️ DEPRECATED: This file is deprecated
+
+This documentation is specific to the Pinocchio CLI tool and is not relevant to the Geppetto library. This file remains for historical reference only.
+
+For current Geppetto documentation, please refer to the main documentation in the `doc/` directory.
+
 # Profile Configuration in Pinocchio
 
 Pinocchio allows users to override layer parameters using profiles. This

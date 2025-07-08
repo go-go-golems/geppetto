@@ -1,13 +1,12 @@
-## JS bindings
+# Geppetto TODO
 
+## JavaScript Runtime API
 - [ ] Add streaming API for model low level streaming
-- [ ] Expose published events
-- [ ] Add stepsettings options override
-- [ ] Add calling javascript tools
-- [ ] Add pinocchio javascript execution
+- [ ] Expose published events through JS bindings
+- [ ] Add step settings options override
+- [ ] Add calling JavaScript tools from Go
 - [ ] Batched embeddings generation
 
-
-## Older, migiht be deprecated
-- [ ] Crash on unknown api-type
+## Core Features
+- [ ] Crash on unknown api-type (validate API type early)
 - [ ] Command to print out current model settings

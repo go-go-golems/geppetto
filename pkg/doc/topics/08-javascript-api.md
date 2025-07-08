@@ -44,21 +44,25 @@ These APIs provide event-driven streaming capabilities through Watermill pub/sub
 The new RuntimeEngine provides a clean, event-driven approach to JavaScript execution:
 
 ```go
-// Create and configure engine
-engine := js.NewRuntimeEngine()
+// Create engine with setup functions as options
+engine, err := js.NewRuntimeEngine(
+    js.WithSetupFunctions(
+        js.SetupDoubleStep(),
+        js.SetupConversation(),
+        js.SetupEmbeddings(stepSettings),
+        js.SetupDoneCallback(),
+    ),
+)
+if err != nil {
+    panic(err)
+}
 defer engine.Close()
-
-// Add setup functions
-engine.AddSetupFunction(js.SetupDoubleStep())
-engine.AddSetupFunction(js.SetupConversation())
-engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
-engine.AddSetupFunction(js.SetupDoneCallback())
 
 // Start engine (non-blocking, starts event loop in background)
 engine.Start()
 
 // Execute JavaScript code on running loop (must be called after Start())
-err := engine.RunOnLoop("console.log('Hello World');")
+err = engine.RunOnLoop("console.log('Hello World');")
 ```
 
 ### Key Features
@@ -805,25 +809,30 @@ The RuntimeEngine provides a modular approach to setting up the JavaScript envir
 ### Engine Lifecycle
 
 ```go
-// 1. Create engine (does not start event loop, initializes watermill router)
-engine := js.NewRuntimeEngine()
+// 1. Create engine with setup functions (initializes watermill router)
+engine, err := js.NewRuntimeEngine(
+    js.WithSetupFunctions(
+        js.SetupDoubleStep(),
+        js.SetupConversation(),
+        js.SetupEmbeddings(stepSettings),
+        func(vm *goja.Runtime, engine *js.RuntimeEngine) {
+            _, err := vm.RunString("console.log('Custom setup complete');")
+            if err != nil {
+                panic(err)
+            }
+        },
+    ),
+)
+if err != nil {
+    panic(err)
+}
 defer engine.Close()
 
-// 2. Add setup functions
-engine.AddSetupFunction(js.SetupDoubleStep())
-engine.AddSetupFunction(js.SetupConversation())
-engine.AddSetupFunction(js.SetupEmbeddings(stepSettings))
-
-// 3. Start engine and run setup (non-blocking, starts event loop in background)
+// 2. Start engine and run setup (non-blocking, starts event loop in background)
 engine.Start()
 
-// Or add custom JavaScript execution
-engine.AddSetupFunction(func(vm *goja.Runtime, engine *js.RuntimeEngine) {
-    _, err := vm.RunString("console.log('Custom setup complete');")
-    if err != nil {
-        panic(err)
-    }
-})
+// Or add setup functions after creation (deprecated)
+engine.AddSetupFunction(js.SetupDoneCallback())
 ```
 
 ### Setup Functions
@@ -874,7 +883,12 @@ func MyCustomSetup() js.SetupFunction {
     }
 }
 
-// Add to engine
+// Add to engine (using options pattern)
+engine, err := js.NewRuntimeEngine(
+    js.WithSetupFunction(MyCustomSetup()),
+)
+
+// Or add after creation (deprecated)
 engine.AddSetupFunction(MyCustomSetup())
 ```
 

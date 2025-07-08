@@ -57,7 +57,56 @@ event: content_block_delta
 data: {"type": "content_block_delta","index": 1,"delta": {"type": "input_json_delta","partial_json": "{\"location\": \"San Fra"}}}
 ```
 
+Note: The `partial_json` field contains incremental JSON content that should be accumulated until the content block is complete.
+
 Note: Our current models only support emitting one complete key and value property from `input` at a time. As such, when using tools, there may be delays between streaming events while the model is working. Once an `input` key and value are accumulated, we emit them as multiple `content_block_delta` events with chunked `partial_json` so that the format can automatically support finer granularity in future models.
+
+## Go Implementation Types
+
+The following Go types are used in the implementation:
+
+### StreamingEvent
+```go
+type StreamingEvent struct {
+    Type         StreamingEventType `json:"type"`
+    Message      *MessageResponse   `json:"message,omitempty"`
+    Delta        *Delta             `json:"delta,omitempty"`
+    Error        *Error             `json:"error,omitempty"`
+    Index        int                `json:"index,omitempty"`
+    Usage        *Usage             `json:"usage,omitempty"`
+    ContentBlock *ContentBlock      `json:"content_block,omitempty"`
+}
+```
+
+### ContentBlock
+```go
+type ContentBlock struct {
+    Type  ContentType `json:"type"`
+    ID    string      `json:"id,omitempty"`
+    Name  string      `json:"name,omitempty"`
+    Input string      `json:"input,omitempty"`
+    Text  string      `json:"text,omitempty"`
+}
+```
+
+### Delta
+```go
+type Delta struct {
+    Type         StreamingDeltaType `json:"type"`
+    Text         string             `json:"text,omitempty"`
+    PartialJSON  string             `json:"partial_json"`
+    StopReason   string             `json:"stop_reason,omitempty"`
+    StopSequence string             `json:"stop_sequence,omitempty"`
+}
+```
+
+### Error
+```go
+type Error struct {
+    Type    string `json:"type"`
+    Message string `json:"message"`
+}
+```
 
 ## Raw HTTP Stream response
 

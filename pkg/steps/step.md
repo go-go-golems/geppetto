@@ -15,6 +15,7 @@ import (
     "github.com/ThreeDotsLabs/watermill/message"
     "github.com/go-go-golems/geppetto/pkg/steps"
     "github.com/go-go-golems/geppetto/pkg/helpers"
+    "github.com/google/uuid"
 )
 ```
 
@@ -37,18 +38,26 @@ type Step[T any, U any] interface {
 
 ### Result Type
 
-The `helpers.Result[T]` type is used to handle both successful values and errors:
+The `helpers.Result[T]` type is a struct (not interface) used to handle both successful values and errors:
 
 ```go
 // From github.com/go-go-golems/geppetto/pkg/helpers
-type Result[T any] interface {
-    Error() error
-    Unwrap() T
+type Result[T any] struct {
+    value T
+    err   error
 }
 
 // Create results
 successResult := helpers.NewValueResult[string]("success")
 errorResult := helpers.NewErrorResult[string](err)
+
+// Available methods
+func (r Result[T]) Error() error       // Returns the error, if any
+func (r Result[T]) Ok() bool          // Returns true if no error
+func (r Result[T]) Unwrap() T         // Returns value or panics on error
+func (r Result[T]) ValueOr(v T) T     // Returns value or default on error
+func (r Result[T]) String() string    // String representation
+func (r Result[T]) Value() (T, error) // Returns both value and error
 ```
 
 ### StepResult
@@ -63,14 +72,40 @@ type StepResult[T any] interface {
     GetMetadata() *StepMetadata        
 }
 
+// StepMetadata contains step execution metadata
+type StepMetadata struct {
+    StepID     uuid.UUID              `json:"step_id"`
+    Type       string                 `json:"type"`
+    InputType  string                 `json:"input_type"`
+    OutputType string                 `json:"output_type"`
+    Metadata   map[string]interface{} `json:"meta"`
+}
+
+// Concrete implementation
+type StepResultImpl[T any] struct {
+    value        <-chan helpers.Result[T]
+    cancel       func()
+    metadata     *StepMetadata
+    metadataFunc func() *StepMetadata
+}
+
+// Functional options for StepResult creation
+type StepResultOption[T any] func(*StepResultImpl[T])
+
+func WithCancel[T any](cancel func()) StepResultOption[T]
+func WithMetadata[T any](metadata *StepMetadata) StepResultOption[T]
+func WithMetadataFunc[T any](metadataFunc func() *StepMetadata) StepResultOption[T]
+
 // Create a new StepResult
 result := steps.NewStepResult[string](
     channel,
     steps.WithCancel[string](cancelFunc),
     steps.WithMetadata[string](&steps.StepMetadata{
-        Type: "myStep",
-        InputType: "string",
+        StepID:     uuid.New(),
+        Type:       "myStep",
+        InputType:  "string",
         OutputType: "string",
+        Metadata:   map[string]interface{}{"key": "value"},
     }),
 )
 ```
@@ -154,6 +189,23 @@ for result := range finalResult.GetChannel() {
         continue
     }
     // Process result.Unwrap()
+}
+```
+
+### StepFactory Interface
+
+StepFactory provides a way to create new instances of steps:
+
+```go
+type StepFactory[T any, U any] interface {
+    NewStep() (Step[T, U], error)
+}
+
+// Function-based factory
+type NewStepFunc[T any, U any] func() (Step[T, U], error)
+
+func (f NewStepFunc[T, U]) NewStep() (Step[T, U], error) {
+    return f()
 }
 ```
 

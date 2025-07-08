@@ -1,3 +1,11 @@
+# ⚠️ DEPRECATED: External Documentation Copy
+
+This file is a deprecated copy of external Goja documentation that was temporarily placed here. This documentation is not maintained and may be outdated.
+
+For current Goja documentation, please refer to the official Goja documentation at https://pkg.go.dev/github.com/dop251/goja
+
+For Geppetto-specific JavaScript engine usage, please refer to the main Geppetto documentation.
+
 # Goja - Javascript Golang Engine
 
 ## 1. Basic Usage

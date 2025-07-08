@@ -138,7 +138,8 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Load existing conversation
+// Load existing conversation - use context for loading
+ctx := context.Background()
 loadedManager := conversation.NewManager()
 err = loadedManager.LoadFromFile("conversation.json")
 ```

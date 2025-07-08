@@ -455,11 +455,7 @@ func main() {
     }
     
     // Create Claude chat step
-    chatStep, err := claude.NewChatStep(stepSettings, nil)
-    if err != nil {
-        fmt.Printf("Error creating step: %v\n", err)
-        return
-    }
+    chatStep := claude.NewStep(stepSettings)
     
     // Create conversation input
     messages := []*conversation.Message{
