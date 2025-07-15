@@ -17,7 +17,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yuin/goldmark v1.7.8
-	golang.org/x/sync v0.15.0
+	golang.org/x/sync v0.16.0
 	google.golang.org/genai v1.14.0
 	gopkg.in/yaml.v3 v3.0.1
 )
