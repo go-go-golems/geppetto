@@ -24,7 +24,7 @@ This proposal introduces an "Engine-first, Step-wrapper" architecture that repla
 │                    Application Layer                        │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
 │  │ Blocking Mode   │  │ Interactive     │  │ Chat UI      │ │
-│  │ (Direct Engine) │  │ (Engine+Events) │  │ (Adapter)    │ │
+│  │ (EngineFactory) │  │ (Factory+Events)│  │ (Adapter)    │ │
 │  └─────────────────┘  └─────────────────┘  └──────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
@@ -36,10 +36,13 @@ This proposal introduces an "Engine-first, Step-wrapper" architecture that repla
 ┌─────────────────────────────────────────────────────────────┐
 │                      Core Layer                             │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │   Engine     │  │  EventSink   │  │  Watermill       │   │
-│  │ (OpenAI/     │  │ (Null/       │  │  Integration     │   │
-│  │  Claude/     │  │  Watermill/  │  │                  │   │
-│  │  Gemini)     │  │  Buffer)     │  │                  │   │
+│  │ EngineFactory│  │  EventSink   │  │  Watermill       │   │
+│  │     │        │  │ (Null/       │  │  Integration     │   │
+│  │     ▼        │  │  Watermill/  │  │                  │   │
+│  │   Engine     │  │  Buffer)     │  │                  │   │
+│  │ (OpenAI/     │  │              │  │                  │   │
+│  │  Claude/     │  │              │  │                  │   │
+│  │  Gemini)     │  │              │  │                  │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -62,7 +65,46 @@ type Engine interface {
 }
 ```
 
-### 2.2 EventSink Interface
+### 2.2 Engine Factory Interface
+```go
+// EngineFactory creates engines based on settings/configuration
+// This allows external control over which provider engine is used
+type EngineFactory interface {
+    // CreateEngine creates an appropriate engine based on the provided settings
+    // The factory determines which provider (OpenAI, Claude, Gemini, etc.) to use
+    CreateEngine(settings *settings.StepSettings) (Engine, error)
+    
+    // SupportedProviders returns a list of AI providers this factory supports
+    SupportedProviders() []string
+    
+    // DefaultProvider returns the default provider when none is specified
+    DefaultProvider() string
+}
+
+// StandardEngineFactory is the default implementation
+type StandardEngineFactory struct{}
+
+func NewStandardEngineFactory() EngineFactory {
+    return &StandardEngineFactory{}
+}
+
+func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (Engine, error) {
+    // Determine provider from settings.Chat.ApiType or similar
+    switch settings.Chat.ApiType {
+    case "openai":
+        return NewOpenAIEngine(settings.OpenAI), nil
+    case "claude", "anthropic":
+        return NewClaudeEngine(settings.Claude), nil
+    case "gemini":
+        return NewGeminiEngine(settings.Gemini), nil
+    default:
+        // Fallback to OpenAI as default
+        return NewOpenAIEngine(settings.OpenAI), nil
+    }
+}
+```
+
+### 2.3 EventSink Interface
 ```go
 // EventSink receives events during inference execution
 type EventSink interface {
@@ -76,7 +118,7 @@ type EventSink interface {
 // - BufferSink(callback func(Event))
 ```
 
-### 2.3 Functional Options Pattern
+### 2.4 Functional Options Pattern
 ```go
 type Option func(*config)
 
@@ -298,8 +340,11 @@ func (n NullSink) Close() error              { return nil }
 ```go
 // In pinocchio/pkg/cmds/cmd.go - runBlocking()
 func (g *PinocchioCommand) runBlocking(ctx context.Context, rc *run.RunContext) ([]*conversation.Message, error) {
-    // Create engine directly from settings
-    engine, err := createEngineFromSettings(rc.StepSettings)
+    // Create engine factory
+    factory := inference.NewStandardEngineFactory()
+    
+    // Create appropriate engine based on settings (external control)
+    engine, err := factory.CreateEngine(rc.StepSettings)
     if err != nil {
         return nil, err
     }
@@ -327,8 +372,11 @@ func (g *PinocchioCommand) runChat(ctx context.Context, rc *run.RunContext) ([]*
     // Create router (unchanged)
     router := rc.Router
     
-    // Create engine
-    engine, err := createEngineFromSettings(rc.StepSettings)
+    // Create engine factory
+    factory := inference.NewStandardEngineFactory()
+    
+    // Create appropriate engine based on settings (external control)
+    engine, err := factory.CreateEngine(rc.StepSettings)
     if err != nil {
         return nil, err
     }
@@ -351,8 +399,11 @@ func (g *PinocchioCommand) runChat(ctx context.Context, rc *run.RunContext) ([]*
 ```go
 // In existing Step factory functions
 func (sf *StandardStepFactory) NewStep(options ...chat.StepOption) (chat.Step, error) {
-    // Create engine from settings
-    engine, err := sf.createEngine()
+    // Create engine factory
+    engineFactory := inference.NewStandardEngineFactory()
+    
+    // Create appropriate engine based on step settings (external control)
+    engine, err := engineFactory.CreateEngine(sf.Settings)
     if err != nil {
         return nil, err
     }
@@ -375,16 +426,17 @@ func (sf *StandardStepFactory) NewStep(options ...chat.StepOption) (chat.Step, e
 ```go
 // In pinocchio/pkg/chatrunner/chat_runner.go
 type ChatSession struct {
-    ctx          context.Context
-    engineFactory func() (inference.Engine, error)  // Changed from stepFactory
-    manager      geppetto_conversation.Manager
-    uiOptions    []bobachat.ModelOption
+    ctx           context.Context
+    engineFactory inference.EngineFactory        // Changed to use factory interface
+    stepSettings  *settings.StepSettings         // Settings for engine creation
+    manager       geppetto_conversation.Manager
+    uiOptions     []bobachat.ModelOption
     // ... rest unchanged
 }
 
 func (cs *ChatSession) runBlockingInternal() error {
-    // Direct engine usage - much simpler
-    engine, err := cs.engineFactory()
+    // Create engine via factory - provider determined by settings
+    engine, err := cs.engineFactory.CreateEngine(cs.stepSettings)
     if err != nil {
         return err
     }
@@ -408,8 +460,8 @@ func (cs *ChatSession) runChatInternal() error {
     router := cs.router
     // ... router setup unchanged
 
-    // Create engine with watermill sink
-    engine, err := cs.engineFactory()
+    // Create engine via factory - provider determined by settings  
+    engine, err := cs.engineFactory.CreateEngine(cs.stepSettings)
     if err != nil {
         return err
     }
@@ -430,20 +482,24 @@ func (cs *ChatSession) runChatInternal() error {
 ## 7. Migration Strategy
 
 ### Phase 0: Foundation (Week 1-2)
-- [ ] Create `geppetto/pkg/inference` package
-- [ ] Implement `Engine` interface with OpenAI and Claude implementations
-- [ ] Implement `EventSink` interface with Null and Watermill sinks
+- [x] Create `geppetto/pkg/inference` package
+- [x] Implement `Engine` interface with OpenAI and Claude implementations
+- [x] Implement `EventSink` interface with Null and Watermill sinks
+- [x] Implement `EngineFactory` interface for provider abstraction
+- [x] Add `StandardEngineFactory` for automatic engine selection
 - [ ] Add comprehensive tests for new components
 
 ### Phase 1: Adapter Introduction (Week 3)
-- [ ] Implement `StepAdapter` in `geppetto/pkg/steps/adapter`
-- [ ] Update existing `StepFactory` implementations to return adapters
+- [x] Implement `StepAdapter` in `geppetto/pkg/steps/adapter`
+- [x] Update existing `StepFactory` implementations to return adapters
+- [x] Integrate `EngineFactory` into step creation process
 - [ ] Verify all existing tests pass with zero functional changes
 - [ ] Add adapter-specific tests
 
 ### Phase 2: Pinocchio Blocking Mode (Week 4)
-- [ ] Refactor `runBlocking()` in `pinocchio/pkg/cmds/cmd.go` to use Engine directly
-- [ ] Update `ChatSession.runBlockingInternal()` to use Engine
+- [ ] Refactor `runBlocking()` in `pinocchio/pkg/cmds/cmd.go` to use EngineFactory
+- [ ] Update `ChatSession.runBlockingInternal()` to use EngineFactory
+- [ ] Update ChatBuilder to accept EngineFactory instead of step factories
 - [ ] Remove Step framework dependency from blocking paths
 - [ ] Performance testing and validation
 
@@ -463,11 +519,13 @@ func (cs *ChatSession) runChatInternal() error {
 
 ### Benefits
 1. **Simplified API Surface:** `RunInference(ctx, msgs) → (msg, error)` for basic cases
-2. **Flexible Event Publishing:** Optional, configurable, testable
-3. **Clear Separation of Concerns:** Engine does inference, Sink handles events
-4. **Backwards Compatibility:** Existing code continues working during migration
-5. **Performance:** Direct engine calls avoid channel/goroutine overhead for blocking cases
-6. **Testability:** Easy to test inference without event infrastructure
+2. **Provider Abstraction:** `EngineFactory` allows external control of AI provider selection
+3. **Flexible Event Publishing:** Optional, configurable, testable event sinks
+4. **Clear Separation of Concerns:** Factory creates engines, engines do inference, sinks handle events
+5. **Backwards Compatibility:** Existing code continues working during migration
+6. **Performance:** Direct engine calls avoid channel/goroutine overhead for blocking cases
+7. **Testability:** Easy to test inference without event infrastructure
+8. **External Configuration:** AI provider selection controlled by settings, not hard-coded
 
 ### Trade-offs
 1. **Initial Complexity:** Two APIs exist during migration period
@@ -511,10 +569,11 @@ This "Engine-first, Step-wrapper" architecture provides a clear path to simplify
 
 The proposal addresses all requirements:
 - ✅ Simple RunInference API for basic usage
-- ✅ Optional watermill event publishing
-- ✅ Backwards compatibility during migration
+- ✅ Optional watermill event publishing with multiple sink support
+- ✅ Backwards compatibility during migration via StepAdapter
 - ✅ Flexible event integration (on/off toggle)
 - ✅ Support for all existing pinocchio modes
 - ✅ Preservation of existing event types
+- ✅ Provider abstraction via EngineFactory for external control
 
 Implementation can begin immediately with Phase 0, providing value at each step of the migration process.
