@@ -115,6 +115,15 @@ func (m *StepResultImpl[T]) GetMetadata() *StepMetadata {
 	return m.metadata
 }
 
+// Deprecated: Resolve is part of the deprecated Steps API and will be removed in a future version.
+// Use direct input to inference.Engine.RunInference() instead of wrapping in StepResult.
+//
+// Migration:
+//   Old: result := steps.Resolve(input)
+//        bound := steps.Bind(ctx, result, step)
+//   New: message, err := engine.RunInference(ctx, input)
+//
+// The new approach eliminates the need for monadic operations and channel-based results.
 func Resolve[T any](value T, options ...StepResultOption[T]) *StepResultImpl[T] {
 	c := make(chan helpers.Result[T], 1)
 	c <- helpers.NewValueResult[T](value)
@@ -145,6 +154,22 @@ func (f NewStepFunc[T, U]) NewStep() (Step[T, U], error) {
 	return f()
 }
 
+// Deprecated: The Step interface is part of the deprecated Steps API and will be removed in a future version.
+// Use the new inference.Engine interface instead, which provides a simpler and more powerful way to handle AI inference operations.
+//
+// Migration guide:
+// - Replace Step[T, U] with inference.Engine
+// - Replace Step.Start() with Engine.RunInference()
+// - Replace AddPublishedTopic() with inference.WatermillSink passed to engine creation
+// - Use direct engine execution instead of complex channel-based StepResult handling
+//
+// The Engine interface is much simpler:
+//   type Engine interface {
+//     RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error)
+//   }
+//
+// For more information, see the Engine-first architecture documentation.
+//
 // Step is the generalization of a lambda function, with cancellation and closing
 // to allow it to own resources.
 type Step[T any, U any] interface {
@@ -155,6 +180,14 @@ type Step[T any, U any] interface {
 	AddPublishedTopic(publisher message.Publisher, topic string) error
 }
 
+// Deprecated: Bind is part of the deprecated Steps API and will be removed in a future version.
+// Use inference.Engine.RunInference() directly instead of complex channel-based operations.
+//
+// Migration:
+//   Old: result := steps.Bind(ctx, steps.Resolve(input), step)
+//   New: message, err := engine.RunInference(ctx, input)
+//
+// The new approach is much simpler and avoids the complexity of monadic operations.
 // Bind is the monadic bind operator for StepResult.
 // It takes a step result, a step (which is just a lambda turned into a struct)
 // iterates over the results in the StepResult, and starts the Step for each
