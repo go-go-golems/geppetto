@@ -109,7 +109,7 @@ func (csf *ChatStep) RunInference(
 
 	client := api.NewClient(apiKey, baseURL)
 
-	req, err := makeMessageRequest(csf.Settings, messages)
+	req, err := MakeMessageRequest(csf.Settings, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +419,7 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 	return api.Message{}
 }
 
-func makeMessageRequest(
+func MakeMessageRequest(
 	settings *settings.StepSettings,
 	messages conversation.Conversation,
 ) (
