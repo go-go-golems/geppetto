@@ -36,7 +36,7 @@ func (f *EngineStepFactory) NewStep(
 	}
 
 	// For now, we'll create the existing step implementations and wrap them
-	// This allows us to preserve all the complex streaming logic while 
+	// This allows us to preserve all the complex streaming logic while
 	// gradually transitioning to the engine architecture
 
 	var chatStep chat.SimpleChatStep
