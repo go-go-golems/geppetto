@@ -70,9 +70,9 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
-func makeCompletionRequest(
+func MakeCompletionRequest(
 	settings *settings.StepSettings,
-	messages []*conversation.Message,
+	messages conversation.Conversation,
 ) (*go_openai.ChatCompletionRequest, error) {
 	clientSettings := settings.Client
 	if clientSettings == nil {
@@ -161,7 +161,7 @@ func makeCompletionRequest(
 	return &req, nil
 }
 
-func makeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*go_openai.Client, error) {
+func MakeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*go_openai.Client, error) {
 	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
 	if !ok {
 		return nil, errors.Errorf("no API key for %s", apiType)

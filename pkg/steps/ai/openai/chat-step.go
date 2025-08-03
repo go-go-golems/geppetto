@@ -65,12 +65,12 @@ func (csf *ChatStep) RunInference(
 		return nil, errors.New("no chat engine specified")
 	}
 
-	client, err := makeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
+	client, err := MakeClient(csf.Settings.API, *csf.Settings.Chat.ApiType)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := makeCompletionRequest(csf.Settings, messages)
+	req, err := MakeCompletionRequest(csf.Settings, messages)
 	if err != nil {
 		return nil, err
 	}
