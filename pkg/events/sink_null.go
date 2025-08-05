@@ -1,6 +1,4 @@
-package inference
-
-import "github.com/go-go-golems/geppetto/pkg/events"
+package events
 
 // NullSink is a no-op EventSink implementation that discards all events.
 // Useful for testing or when event publishing is not desired.
@@ -12,7 +10,7 @@ func NewNullSink() *NullSink {
 }
 
 // PublishEvent discards the event and always returns nil.
-func (n *NullSink) PublishEvent(event events.Event) error {
+func (n *NullSink) PublishEvent(event Event) error {
 	// No-op: discard the event
 	return nil
 }

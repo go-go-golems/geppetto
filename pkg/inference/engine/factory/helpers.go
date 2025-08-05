@@ -1,13 +1,14 @@
-package inference
+package factory
 
 import (
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 )
 
 // NewEngineFromStepSettings creates an engine directly from step settings.
 // This is a convenience function that creates a StandardEngineFactory and uses it to create an engine.
-func NewEngineFromStepSettings(stepSettings *settings.StepSettings, options ...Option) (Engine, error) {
+func NewEngineFromStepSettings(stepSettings *settings.StepSettings, options ...engine.Option) (engine.Engine, error) {
 	factory := NewStandardEngineFactory()
 	return factory.CreateEngine(stepSettings, options...)
 }
@@ -17,7 +18,7 @@ func NewEngineFromStepSettings(stepSettings *settings.StepSettings, options ...O
 // 1. Creates new step settings
 // 2. Updates them from the parsed layers
 // 3. Creates and returns an engine
-func NewEngineFromParsedLayers(parsedLayers *layers.ParsedLayers, options ...Option) (Engine, error) {
+func NewEngineFromParsedLayers(parsedLayers *layers.ParsedLayers, options ...engine.Option) (engine.Engine, error) {
 	// Create step settings
 	stepSettings, err := settings.NewStepSettings()
 	if err != nil {

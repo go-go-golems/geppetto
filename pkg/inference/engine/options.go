@@ -1,4 +1,6 @@
-package inference
+package engine
+
+import "github.com/go-go-golems/geppetto/pkg/events"
 
 // Option is a functional option for configuring inference components.
 type Option func(*Config) error
@@ -7,19 +9,19 @@ type Option func(*Config) error
 type Config struct {
 	// EventSinks holds all registered event sinks for publishing inference events.
 	// Events are published to all sinks in the order they were added.
-	EventSinks []EventSink
+	EventSinks []events.EventSink
 }
 
 // NewConfig creates a new configuration with default values.
 func NewConfig() *Config {
 	return &Config{
-		EventSinks: make([]EventSink, 0),
+		EventSinks: make([]events.EventSink, 0),
 	}
 }
 
 // WithSink adds an EventSink to the configuration.
 // Multiple sinks can be added and events will be published to all of them.
-func WithSink(sink EventSink) Option {
+func WithSink(sink events.EventSink) Option {
 	return func(c *Config) error {
 		c.EventSinks = append(c.EventSinks, sink)
 		return nil

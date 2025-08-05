@@ -1,6 +1,8 @@
-package inference
+package factory
 
 import (
+	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -19,7 +21,7 @@ func TestHelperFunctionsExist(t *testing.T) {
 
 	// Test NewEngineFromStepSettings function exists (will fail due to missing API key, but that's expected)
 	_, err = NewEngineFromStepSettings(stepSettings)
-	assert.Error(t, err) // Expected to fail due to missing API key
+	assert.Error(t, err)                              // Expected to fail due to missing API key
 	assert.Contains(t, err.Error(), "openai-api-key") // Should mention the missing API key
 
 	// Test NewEngineFromParsedLayers function exists
@@ -28,8 +30,8 @@ func TestHelperFunctionsExist(t *testing.T) {
 	assert.Error(t, err) // Expected to fail due to missing layers
 
 	// Test that options can be passed
-	nullSink := NewNullSink()
-	_, err = NewEngineFromStepSettings(stepSettings, WithSink(nullSink))
+	nullSink := events.NewNullSink()
+	_, err = NewEngineFromStepSettings(stepSettings, engine.WithSink(nullSink))
 	assert.Error(t, err) // Still expected to fail due to missing API key
 	assert.Contains(t, err.Error(), "openai-api-key")
 }
@@ -42,14 +44,18 @@ func TestHelperFunctionSignatures(t *testing.T) {
 	require.NoError(t, err)
 
 	parsedLayers := layers.NewParsedLayers()
-	nullSink := NewNullSink()
+	nullSink := events.NewNullSink()
 
 	// These should compile but will fail at runtime due to missing config
-	_ = func() (Engine, error) { return NewEngineFromStepSettings(stepSettings) }
-	_ = func() (Engine, error) { return NewEngineFromStepSettings(stepSettings, WithSink(nullSink)) }
-	_ = func() (Engine, error) { return NewEngineFromParsedLayers(parsedLayers) }
-	_ = func() (Engine, error) { return NewEngineFromParsedLayers(parsedLayers, WithSink(nullSink)) }
-	
+	_ = func() (engine.Engine, error) { return NewEngineFromStepSettings(stepSettings) }
+	_ = func() (engine.Engine, error) {
+		return NewEngineFromStepSettings(stepSettings, engine.WithSink(nullSink))
+	}
+	_ = func() (engine.Engine, error) { return NewEngineFromParsedLayers(parsedLayers) }
+	_ = func() (engine.Engine, error) {
+		return NewEngineFromParsedLayers(parsedLayers, engine.WithSink(nullSink))
+	}
+
 	// If we get here, the function signatures are correct
 	assert.True(t, true)
 }

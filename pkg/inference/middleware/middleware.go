@@ -1,8 +1,9 @@
-package inference
+package middleware
 
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 )
@@ -25,7 +26,7 @@ func Chain(handler HandlerFunc, middlewares ...Middleware) HandlerFunc {
 }
 
 // EngineHandler adapts an Engine to HandlerFunc interface.
-func EngineHandler(engine Engine) HandlerFunc {
+func EngineHandler(engine engine.Engine) HandlerFunc {
 	return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 		response, err := engine.RunInference(ctx, messages)
 		if err != nil {
@@ -39,17 +40,17 @@ func EngineHandler(engine Engine) HandlerFunc {
 // EngineWithMiddleware wraps an Engine with a middleware chain.
 type EngineWithMiddleware struct {
 	handler HandlerFunc
-	config  *Config
+	config  *engine.Config
 }
 
 // NewEngineWithMiddleware creates a new engine with middleware support.
-func NewEngineWithMiddleware(engine Engine, middlewares ...Middleware) *EngineWithMiddleware {
-	handler := EngineHandler(engine)
+func NewEngineWithMiddleware(e engine.Engine, middlewares ...Middleware) *EngineWithMiddleware {
+	handler := EngineHandler(e)
 	chainedHandler := Chain(handler, middlewares...)
 
 	return &EngineWithMiddleware{
 		handler: chainedHandler,
-		config:  NewConfig(),
+		config:  engine.NewConfig(),
 	}
 }
 
