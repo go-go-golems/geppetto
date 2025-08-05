@@ -2,10 +2,10 @@ package builder
 
 import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/pkg/errors"
 	"strings"
 
 	"github.com/go-go-golems/glazed/pkg/helpers/templating"
-	"github.com/pkg/errors"
 )
 
 // ManagerBuilder helps construct a conversation.Manager with the given settings
@@ -20,42 +20,41 @@ type ManagerBuilder struct {
 	autosaveTemplate string
 	autosavePath     string
 }
-
-type ConversationManagerOption func(*ManagerBuilder) error
-
-func WithSystemPrompt(systemPrompt string) ConversationManagerOption {
-	return func(b *ManagerBuilder) error {
-		b.systemPrompt = systemPrompt
-		return nil
+// NewManagerBuilder creates a new builder for conversation.Manager
+func NewManagerBuilder() *ManagerBuilder {
+	return &ManagerBuilder{
+		variables: make(map[string]interface{}),
 	}
 }
 
-func WithMessages(messages []*conversation.Message) ConversationManagerOption {
-	return func(b *ManagerBuilder) error {
-		b.messages = messages
-		return nil
-	}
+func (b *ManagerBuilder) WithSystemPrompt(systemPrompt string) *ManagerBuilder {
+	b.systemPrompt = systemPrompt
+	return b
 }
 
-func WithPrompt(prompt string) ConversationManagerOption {
-	return func(b *ManagerBuilder) error {
-		b.prompt = prompt
-		return nil
-	}
+func (b *ManagerBuilder) WithMessages(messages []*conversation.Message) *ManagerBuilder {
+	b.messages = messages
+	return b
 }
 
-func WithVariables(variables map[string]interface{}) ConversationManagerOption {
-	return func(b *ManagerBuilder) error {
-		b.variables = variables
-		return nil
-	}
+func (b *ManagerBuilder) WithPrompt(prompt string) *ManagerBuilder {
+	b.prompt = prompt
+	return b
 }
 
-func WithImages(images []string) ConversationManagerOption {
-	return func(b *ManagerBuilder) error {
-		b.images = images
-		return nil
+func (b *ManagerBuilder) WithVariables(variables map[string]interface{}) *ManagerBuilder {
+	if b.variables == nil {
+		b.variables = make(map[string]interface{})
 	}
+	for k, v := range variables {
+		b.variables[k] = v
+	}
+	return b
+}
+
+func (b *ManagerBuilder) WithImages(images []string) *ManagerBuilder {
+	b.images = images
+	return b
 }
 
 type AutosaveSettings struct {
@@ -64,28 +63,11 @@ type AutosaveSettings struct {
 	Path     string
 }
 
-func WithAutosaveSettings(settings AutosaveSettings) ConversationManagerOption {
-	return func(b *ManagerBuilder) error {
-		b.autosaveEnabled = settings.Enabled
-		b.autosaveTemplate = settings.Template
-		b.autosavePath = settings.Path
-		return nil
-	}
-}
-
-// NewConversationManagerBuilder creates a new builder for conversation.Manager
-func NewConversationManagerBuilder(options ...ConversationManagerOption) (*ManagerBuilder, error) {
-	builder := &ManagerBuilder{
-		variables: make(map[string]interface{}),
-	}
-
-	for _, opt := range options {
-		if err := opt(builder); err != nil {
-			return nil, err
-		}
-	}
-
-	return builder, nil
+func (b *ManagerBuilder) WithAutosaveSettings(settings AutosaveSettings) *ManagerBuilder {
+	b.autosaveEnabled = settings.Enabled
+	b.autosaveTemplate = settings.Template
+	b.autosavePath = settings.Path
+	return b
 }
 
 // Build creates and initializes a new conversation.Manager
