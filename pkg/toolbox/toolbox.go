@@ -4,26 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"reflect"
 
 	"github.com/go-go-golems/geppetto/pkg/helpers"
-	"github.com/go-go-golems/geppetto/pkg/inference"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 )
 
 // RealToolbox implements the Toolbox interface using reflection-based tool execution
 type RealToolbox struct {
-	tools         map[string]interface{}
-	descriptions  []inference.ToolDescription
-	reflector     *jsonschema.Reflector
+	tools        map[string]interface{}
+	descriptions []middleware.ToolDescription
+	reflector    *jsonschema.Reflector
 }
 
 // NewRealToolbox creates a new real toolbox instance
 func NewRealToolbox() *RealToolbox {
 	return &RealToolbox{
 		tools:        make(map[string]interface{}),
-		descriptions: []inference.ToolDescription{},
+		descriptions: []middleware.ToolDescription{},
 		reflector:    &jsonschema.Reflector{},
 	}
 }
@@ -58,7 +58,7 @@ func (rt *RealToolbox) RegisterTool(name string, function interface{}) error {
 	rt.tools[name] = function
 
 	// Create tool description
-	description := inference.ToolDescription{
+	description := middleware.ToolDescription{
 		Name:        name,
 		Description: schema.Description,
 		Parameters:  schemaMap,
@@ -120,18 +120,18 @@ func (rt *RealToolbox) ExecuteTool(ctx context.Context, name string, arguments m
 // convertArgumentsForFunction converts map arguments to the format expected by CallFunctionFromJson
 func (rt *RealToolbox) convertArgumentsForFunction(function interface{}, arguments map[string]interface{}) (interface{}, error) {
 	funcType := reflect.TypeOf(function)
-	
+
 	// For single parameter functions
 	if funcType.NumIn() == 1 {
 		// If we only have one parameter, we need to figure out what it should be
 		paramType := funcType.In(0)
-		
-		// If the parameter is a struct, we marshal the arguments map and return it 
+
+		// If the parameter is a struct, we marshal the arguments map and return it
 		// so it can be unmarshaled into the struct
 		if paramType.Kind() == reflect.Struct {
 			return arguments, nil
 		}
-		
+
 		// If it's a simple type, look for a single argument value
 		// For simple types, we expect the arguments map to have one key-value pair
 		if len(arguments) == 1 {
@@ -139,27 +139,27 @@ func (rt *RealToolbox) convertArgumentsForFunction(function interface{}, argumen
 				return v, nil
 			}
 		}
-		
+
 		// If no single value found, return the map itself
 		return arguments, nil
 	}
-	
+
 	// For multiple parameter functions, we need to convert to an ordered slice
 	// This is tricky because we need to know the parameter names
 	// For now, we'll assume the arguments are provided in a way that can be converted to a slice
 	// This might need refinement based on actual usage patterns
-	
+
 	// Try to extract values in some reasonable order
 	values := make([]interface{}, 0, len(arguments))
 	for _, v := range arguments {
 		values = append(values, v)
 	}
-	
+
 	return values, nil
 }
 
 // GetToolDescriptions returns descriptions of all available tools
-func (rt *RealToolbox) GetToolDescriptions() []inference.ToolDescription {
+func (rt *RealToolbox) GetToolDescriptions() []middleware.ToolDescription {
 	return rt.descriptions
 }
 
@@ -179,4 +179,4 @@ func (rt *RealToolbox) HasTool(name string) bool {
 }
 
 // Ensure RealToolbox implements Toolbox interface
-var _ inference.Toolbox = (*RealToolbox)(nil)
+var _ middleware.Toolbox = (*RealToolbox)(nil)

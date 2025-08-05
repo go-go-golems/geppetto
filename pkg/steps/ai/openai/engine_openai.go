@@ -1,14 +1,14 @@
-package inference
+package openai
 
 import (
 	"context"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"io"
 	stdlog "log"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
@@ -20,13 +20,13 @@ import (
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
 	settings *settings.StepSettings
-	config   *Config
+	config   *engine.Config
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
-func NewOpenAIEngine(settings *settings.StepSettings, options ...Option) (*OpenAIEngine, error) {
-	config := NewConfig()
-	if err := ApplyOptions(config, options...); err != nil {
+func NewOpenAIEngine(settings *settings.StepSettings, options ...engine.Option) (*OpenAIEngine, error) {
+	config := engine.NewConfig()
+	if err := engine.ApplyOptions(config, options...); err != nil {
 		return nil, err
 	}
 
@@ -47,12 +47,12 @@ func (e *OpenAIEngine) RunInference(
 		return nil, errors.New("no chat engine specified")
 	}
 
-	client, err := openai.MakeClient(e.settings.API, *e.settings.Chat.ApiType)
+	client, err := MakeClient(e.settings.API, *e.settings.Chat.ApiType)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := openai.MakeCompletionRequest(e.settings, messages)
+	req, err := MakeCompletionRequest(e.settings, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (e *OpenAIEngine) RunInference(
 				}
 
 				// Extract metadata from OpenAI chat response
-				if responseMetadata, err := openai.ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
+				if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
 					if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
 						inputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
 						outputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
@@ -272,4 +272,4 @@ func (e *OpenAIEngine) publishEvent(event events.Event) {
 	}
 }
 
-var _ Engine = (*OpenAIEngine)(nil)
+var _ engine.Engine = (*OpenAIEngine)(nil)

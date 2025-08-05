@@ -1,12 +1,11 @@
-package inference
+package claude
 
 import (
 	"context"
-
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -19,14 +18,14 @@ import (
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
 	settings *settings.StepSettings
-	config   *Config
+	config   *engine.Config
 	tools    []api.Tool
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.StepSettings, tools []api.Tool, options ...Option) (*ClaudeEngine, error) {
-	config := NewConfig()
-	if err := ApplyOptions(config, options...); err != nil {
+func NewClaudeEngine(settings *settings.StepSettings, tools []api.Tool, options ...engine.Option) (*ClaudeEngine, error) {
+	config := engine.NewConfig()
+	if err := engine.ApplyOptions(config, options...); err != nil {
 		return nil, err
 	}
 
@@ -71,7 +70,7 @@ func (e *ClaudeEngine) RunInference(
 
 	client := api.NewClient(apiKey, baseURL)
 
-	req, err := claude.MakeMessageRequest(e.settings, messages)
+	req, err := MakeMessageRequest(e.settings, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +169,7 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	log.Debug().Msg("Claude creating ContentBlockMerger")
-	completionMerger := claude.NewContentBlockMerger(metadata, stepMetadata)
+	completionMerger := NewContentBlockMerger(metadata, stepMetadata)
 
 	log.Debug().Msg("Claude starting streaming event loop")
 	eventCount := 0
@@ -256,4 +255,4 @@ func (e *ClaudeEngine) publishEvent(event events.Event) {
 	}
 }
 
-var _ Engine = (*ClaudeEngine)(nil)
+var _ engine.Engine = (*ClaudeEngine)(nil)

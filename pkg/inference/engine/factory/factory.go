@@ -1,6 +1,9 @@
-package inference
+package factory
 
 import (
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
@@ -16,7 +19,7 @@ type EngineFactory interface {
 	// CreateEngine creates an Engine instance based on the provided settings.
 	// The actual provider is determined from settings.Chat.ApiType.
 	// Returns an error if the provider is unsupported or configuration is invalid.
-	CreateEngine(settings *settings.StepSettings, options ...Option) (Engine, error)
+	CreateEngine(settings *settings.StepSettings, options ...engine.Option) (engine.Engine, error)
 
 	// SupportedProviders returns a list of provider names this factory supports.
 	// Provider names match the ApiType constants (e.g., "openai", "claude", "gemini").
@@ -46,7 +49,7 @@ func NewStandardEngineFactory(claudeTools ...api.Tool) *StandardEngineFactory {
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
 // If no ApiType is specified, defaults to OpenAI.
 // Supported providers: openai, anyscale, fireworks, claude, anthropic, gemini.
-func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, options ...Option) (Engine, error) {
+func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, options ...engine.Option) (engine.Engine, error) {
 	if settings == nil {
 		return nil, errors.New("settings cannot be nil")
 	}
@@ -65,10 +68,10 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return NewOpenAIEngine(settings, options...)
+		return openai.NewOpenAIEngine(settings, options...)
 
 	case string(types.ApiTypeClaude), "anthropic":
-		return NewClaudeEngine(settings, f.ClaudeTools, options...)
+		return claude.NewClaudeEngine(settings, f.ClaudeTools, options...)
 
 	case string(types.ApiTypeGemini):
 		// TODO: Implement GeminiEngine when available

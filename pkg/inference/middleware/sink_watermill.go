@@ -1,8 +1,7 @@
-package inference
+package middleware
 
 import (
 	"encoding/json"
-
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -50,4 +49,4 @@ func (w *WatermillSink) PublishEvent(event events.Event) error {
 	return nil
 }
 
-var _ EventSink = (*WatermillSink)(nil)
+var _ events.EventSink = (*WatermillSink)(nil)

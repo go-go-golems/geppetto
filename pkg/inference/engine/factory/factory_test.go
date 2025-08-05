@@ -1,6 +1,8 @@
-package inference
+package factory
 
 import (
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -48,7 +50,7 @@ func TestStandardEngineFactory_CreateEngine_OpenAI_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, engine)
-	assert.IsType(t, &OpenAIEngine{}, engine)
+	assert.IsType(t, &openai.OpenAIEngine{}, engine)
 }
 
 func TestStandardEngineFactory_CreateEngine_Claude_Success(t *testing.T) {
@@ -61,7 +63,7 @@ func TestStandardEngineFactory_CreateEngine_Claude_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, engine)
-	assert.IsType(t, &ClaudeEngine{}, engine)
+	assert.IsType(t, &claude.ClaudeEngine{}, engine)
 }
 
 func TestStandardEngineFactory_CreateEngine_UnsupportedProvider(t *testing.T) {
@@ -109,7 +111,7 @@ func TestStandardEngineFactory_CreateEngine_DefaultsToOpenAI(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, engine)
-	assert.IsType(t, &OpenAIEngine{}, engine)
+	assert.IsType(t, &openai.OpenAIEngine{}, engine)
 }
 
 // Helper function to create valid OpenAI settings for testing

@@ -1,4 +1,4 @@
-package inference
+package engine
 
 import (
 	"context"
