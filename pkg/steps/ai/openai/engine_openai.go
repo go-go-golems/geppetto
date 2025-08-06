@@ -2,7 +2,6 @@ package openai
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"io"
@@ -127,22 +126,17 @@ func (e *OpenAIEngine) RunInference(
 			Msg("Tools added to OpenAI request")
 	}
 
-	// Log the final request payload for debugging
-	reqJSON, err := json.MarshalIndent(req, "", "  ")
-	if err == nil {
-		log.Debug().Str("full_request_payload", string(reqJSON)).Msg("Full OpenAI request payload")
-	}
-
-	// SPECIAL: If API key is fake-key-for-testing, just log and return success
+	// Handle fake API key case for testing
 	if e.settings.API != nil {
 		if apiKey, ok := e.settings.API.APIKeys["openai-api-key"]; ok && apiKey == "fake-key-for-testing" {
-			log.Info().Msg("FAKE API KEY DETECTED - RETURNING MOCK RESPONSE")
+			log.Info().Msg("FAKE API KEY DETECTED - RETURNING MOCK RESPONSE WITH TOOL CALLS")
 			
-			// Create a mock response message
+			// Create a mock tool call response
 			mockResponse := conversation.NewMessage(
-				&conversation.ChatMessageContent{
-					Role: conversation.RoleAssistant,
-					Text: "This is a mock response showing that tools were configured in the request.",
+				&conversation.ToolUseContent{
+					ToolID: "call_mock_weather",
+					Name:   "get_weather", 
+					Input:  []byte(`{"location": "Tokyo", "units": "celsius"}`),
 				},
 			)
 			
@@ -152,6 +146,8 @@ func (e *OpenAIEngine) RunInference(
 			return result, nil
 		}
 	}
+
+
 
 	// Setup metadata and event publishing
 	var parentMessage *conversation.Message
@@ -321,34 +317,13 @@ func (e *OpenAIEngine) RunInference(
 			return nil, err
 		}
 
-		// Debug: Log the full response to see what OpenAI returned
-		respJSON, err := json.MarshalIndent(resp, "", "  ")
-		if err == nil {
-			log.Debug().Str("full_openai_response", string(respJSON)).Msg("Full OpenAI response received")
-		}
-
-		// Check if response contains tool calls
+		// Handle response content appropriately
 		if len(resp.Choices) > 0 {
 			choice := resp.Choices[0]
 			log.Debug().
 				Str("finish_reason", string(choice.FinishReason)).
-				Str("role", choice.Message.Role).
 				Int("tool_calls_count", len(choice.Message.ToolCalls)).
-				Msg("OpenAI response choice details")
-
-			if len(choice.Message.ToolCalls) > 0 {
-				log.Debug().Msg("OpenAI response contains tool calls")
-				for i, toolCall := range choice.Message.ToolCalls {
-					log.Debug().
-						Int("tool_call_index", i).
-						Str("tool_call_id", toolCall.ID).
-						Str("tool_name", toolCall.Function.Name).
-						Str("tool_arguments", toolCall.Function.Arguments).
-						Msg("Tool call details")
-				}
-			} else {
-				log.Debug().Str("content", choice.Message.Content).Msg("OpenAI response contains text content (no tool calls)")
-			}
+				Msg("OpenAI response received")
 		}
 
 		llmMetadata := &conversation.LLMMessageMetadata{

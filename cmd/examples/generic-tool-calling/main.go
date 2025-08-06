@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
@@ -20,11 +19,11 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -32,15 +31,22 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "tool-calling",
-	Short: "Tool calling example with weather tool",
+	Use:   "generic-tool-calling",
+	Short: "Generic tool calling example that works with any AI provider",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		err := logging.InitLoggerFromViper()
+		if err != nil {
+			return err
+		}
+		return nil
+	},
 }
 
-type ToolCallingCommand struct {
+type GenericToolCallingCommand struct {
 	*cmds.CommandDescription
 }
 
-var _ cmds.WriterCommand = (*ToolCallingCommand)(nil)
+var _ cmds.WriterCommand = (*GenericToolCallingCommand)(nil)
 
 type ToolCallingSettings struct {
 	PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
@@ -74,21 +80,21 @@ type WeatherResponse struct {
 	Units       string  `json:"units"`
 }
 
-// CustomCalculatorRequest represents input for the calculator tool
-type CustomCalculatorRequest struct {
+// CalculatorRequest represents input for the calculator tool
+type CalculatorRequest struct {
 	Expression string `json:"expression" jsonschema:"required,description=Mathematical expression to evaluate"`
 }
 
-// CustomCalculatorResponse represents the calculator tool's response
-type CustomCalculatorResponse struct {
+// CalculatorResponse represents the calculator tool's response
+type CalculatorResponse struct {
 	Expression string  `json:"expression"`
 	Result     float64 `json:"result"`
 	Message    string  `json:"message"`
 }
 
-// customCalculator is a very basic calculator tool that's clearly custom
-func customCalculator(req CustomCalculatorRequest) CustomCalculatorResponse {
-	log.Info().Str("expression", req.Expression).Msg("CUSTOM CALCULATOR TOOL CALLED!")
+// calculator is a simple calculator tool for demonstration
+func calculator(req CalculatorRequest) CalculatorResponse {
+	log.Info().Str("expression", req.Expression).Msg("Calculator tool called")
 	
 	// Very simple calculator - just handle basic cases for demo
 	var result float64
@@ -97,31 +103,34 @@ func customCalculator(req CustomCalculatorRequest) CustomCalculatorResponse {
 	switch req.Expression {
 	case "2+2", "2 + 2":
 		result = 4
-		message = "Simple addition performed by custom tool"
+		message = "Simple addition performed"
 	case "10*5", "10 * 5":
 		result = 50
-		message = "Simple multiplication performed by custom tool"
+		message = "Simple multiplication performed"
 	case "100/4", "100 / 4":
 		result = 25
-		message = "Simple division performed by custom tool"
+		message = "Simple division performed"
+	case "5-3", "5 - 3":
+		result = 2
+		message = "Simple subtraction performed"
 	default:
 		result = 42
-		message = "Default answer from custom calculator tool (this proves it's our custom implementation!)"
+		message = "Default result for unrecognized expression"
 	}
 	
-	response := CustomCalculatorResponse{
+	response := CalculatorResponse{
 		Expression: req.Expression,
 		Result:     result,
 		Message:    message,
 	}
 	
-	log.Info().Interface("response", response).Msg("CUSTOM CALCULATOR TOOL RETURNING RESPONSE")
+	log.Info().Interface("response", response).Msg("Calculator tool returning response")
 	return response
 }
 
-// weatherTool is a mock weather tool that returns fake data
+// weatherTool is a mock weather tool that returns realistic data
 func weatherTool(req WeatherRequest) WeatherResponse {
-	log.Info().Str("location", req.Location).Str("units", req.Units).Msg("Weather tool called!")
+	log.Info().Str("location", req.Location).Str("units", req.Units).Msg("Weather tool called")
 	
 	// Mock weather data based on location
 	var temp float64
@@ -168,20 +177,21 @@ func weatherTool(req WeatherRequest) WeatherResponse {
 	return response
 }
 
-func NewToolCallingCommand() (*ToolCallingCommand, error) {
+func NewGenericToolCallingCommand() (*GenericToolCallingCommand, error) {
 	geppettoLayers, err := geppettolayers.CreateGeppettoLayers()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create geppetto parameter layer")
 	}
 	
 	description := cmds.NewCommandDescription(
-		"tool-calling",
-		cmds.WithShort("Tool calling example with weather tool"),
+		"generic-tool-calling",
+		cmds.WithShort("Generic tool calling example that works with any AI provider"),
 		cmds.WithArguments(
 			parameters.NewParameterDefinition(
 				"prompt",
 				parameters.ParameterTypeString,
 				parameters.WithHelp("Prompt to run"),
+				parameters.WithRequired(true),
 			),
 		),
 		cmds.WithFlags(
@@ -247,13 +257,13 @@ func NewToolCallingCommand() (*ToolCallingCommand, error) {
 		),
 	)
 
-	return &ToolCallingCommand{
+	return &GenericToolCallingCommand{
 		CommandDescription: description,
 	}, nil
 }
 
-func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
-	log.Info().Msg("Starting tool calling command")
+func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
+	log.Info().Msg("Starting generic tool calling example")
 
 	s := &ToolCallingSettings{}
 	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
@@ -304,7 +314,7 @@ func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *la
 		router.AddHandler("chat", "chat", printer)
 	}
 
-	// 4. Create base engine with sink
+	// 4. Create base engine with sink - provider agnostic!
 	engineOptions := []engine.Option{
 		engine.WithSink(watermillSink),
 	}
@@ -334,9 +344,10 @@ func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *la
 		baseEngine = middleware.NewEngineWithMiddleware(baseEngine, loggingMiddleware)
 	}
 
-	// 5. Create tool registry and register weather tool
+	// 5. Create tool registry and register tools
 	registry := tools.NewInMemoryToolRegistry()
 	
+	// Register weather tool
 	weatherToolDef, err := tools.NewToolFromFunc(
 		"get_weather",
 		"Get current weather information for a specific location",
@@ -351,17 +362,17 @@ func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *la
 		return errors.Wrap(err, "failed to register weather tool")
 	}
 
-	// Register calculator tool with unique name
+	// Register calculator tool
 	calculatorToolDef, err := tools.NewToolFromFunc(
-		"geppetto_custom_math_42",
-		"A totally unique calculator that proves we're using custom tools - returns 42 by default",
-		customCalculator,
+		"calculator",
+		"Perform basic mathematical calculations",
+		calculator,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create calculator tool")
 	}
 	
-	err = registry.RegisterTool("geppetto_custom_math_42", *calculatorToolDef)
+	err = registry.RegisterTool("calculator", *calculatorToolDef)
 	if err != nil {
 		return errors.Wrap(err, "failed to register calculator tool")
 	}
@@ -397,14 +408,14 @@ func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *la
 		},
 	}
 
-	// 7. Create engine wrapper that forces orchestrator tool usage
+	// 7. Create engine wrapper with orchestrator for tool execution
 	engineWrapper := tools.NewEngineWrapper(baseEngine, registry, toolConfig)
 	
-	log.Info().Msg("Created engine wrapper with orchestrator tool support")
+	log.Info().Msg("Created provider-agnostic engine wrapper with tool orchestration")
 
 	// 8. Build conversation
 	b := builder.NewManagerBuilder().
-		WithSystemPrompt("You are a helpful assistant with access to tools. Use get_weather for weather queries and custom_calculator for math problems.").
+		WithSystemPrompt("You are a helpful assistant with access to tools. Use get_weather for weather queries and calculator for math problems. Always use the appropriate tool when possible.").
 		WithPrompt(s.Prompt)
 
 	manager, err := b.Build()
@@ -429,7 +440,7 @@ func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *la
 		defer cancel()
 		<-router.Running()
 
-		// Run inference with tool support
+		// Run inference with tool support - works with any provider!
 		updatedConversation, err := engineWrapper.RunInference(ctx, conversation_)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
@@ -469,15 +480,11 @@ func (c *ToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *la
 		}
 	}
 
-	log.Info().Int("total_messages", len(messages)).Msg("Tool calling command completed successfully")
+	log.Info().Int("total_messages", len(messages)).Msg("Generic tool calling example completed successfully")
 	return nil
 }
 
 func main() {
-	// Initialize zerolog with pretty console output
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
 	err := clay.InitViper("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
@@ -485,7 +492,7 @@ func main() {
 	help_cmd.SetupCobraRootCommand(helpSystem, rootCmd)
 	cobra.CheckErr(err)
 
-	toolCallingCmd, err := NewToolCallingCommand()
+	toolCallingCmd, err := NewGenericToolCallingCommand()
 	cobra.CheckErr(err)
 
 	command, err := cli.BuildCobraCommand(toolCallingCmd,
