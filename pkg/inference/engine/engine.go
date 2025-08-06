@@ -16,3 +16,30 @@ type Engine interface {
 	// The returned conversation includes all original messages plus the AI response(s).
 	RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error)
 }
+
+// EngineWithTools extends Engine to support tool calling capabilities
+// This interface is implemented by engines that can handle tool definitions
+// and tool calling in their inference process.
+type EngineWithTools interface {
+	Engine
+	
+	// GetSupportedToolFeatures returns what tool features this engine supports
+	GetSupportedToolFeatures() ToolFeatures
+	
+	// PrepareToolsForRequest converts tools to provider-specific format
+	PrepareToolsForRequest(tools []ToolDefinition, config ToolConfig) (interface{}, error)
+}
+
+// StreamingEngine extends Engine to support streaming inference
+type StreamingEngine interface {
+	Engine
+	
+	// RunInferenceStream processes with streaming support
+	RunInferenceStream(ctx context.Context, messages conversation.Conversation, chunkHandler StreamChunkHandler) error
+}
+
+// EngineWithToolsAndStreaming combines tool support and streaming
+type EngineWithToolsAndStreaming interface {
+	EngineWithTools
+	StreamingEngine
+}
