@@ -21,12 +21,12 @@ import (
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
-	settings      *settings.StepSettings
-	config        *engine.Config
-	toolAdapter   *tools.OpenAIToolAdapter
-	toolsEnabled  bool
-	tools         []engine.ToolDefinition
-	toolConfig    engine.ToolConfig
+	settings     *settings.StepSettings
+	config       *engine.Config
+	toolAdapter  *tools.OpenAIToolAdapter
+	toolsEnabled bool
+	tools        []engine.ToolDefinition
+	toolConfig   engine.ToolConfig
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
@@ -82,7 +82,7 @@ func (e *OpenAIEngine) RunInference(
 	// Add tools to the request if enabled
 	if e.toolsEnabled && len(e.tools) > 0 {
 		log.Debug().Int("tool_count", len(e.tools)).Msg("Adding tools to OpenAI request")
-		
+
 		// Convert our tools to go_openai.Tool format
 		var openaiTools []go_openai.Tool
 		for _, tool := range e.tools {
@@ -96,10 +96,10 @@ func (e *OpenAIEngine) RunInference(
 			}
 			openaiTools = append(openaiTools, openaiTool)
 		}
-		
+
 		// Set tools in request
 		req.Tools = openaiTools
-		
+
 		// Set tool choice if specified
 		switch e.toolConfig.ToolChoice {
 		case engine.ToolChoiceNone:
@@ -111,14 +111,14 @@ func (e *OpenAIEngine) RunInference(
 		default:
 			req.ToolChoice = "auto"
 		}
-		
+
 		// Set parallel tool calls preference
 		if e.toolConfig.MaxParallelTools > 1 {
 			req.ParallelToolCalls = true
 		} else if e.toolConfig.MaxParallelTools == 1 {
 			req.ParallelToolCalls = false
 		}
-		
+
 		log.Debug().
 			Int("openai_tool_count", len(openaiTools)).
 			Interface("tool_choice", req.ToolChoice).
@@ -130,24 +130,22 @@ func (e *OpenAIEngine) RunInference(
 	if e.settings.API != nil {
 		if apiKey, ok := e.settings.API.APIKeys["openai-api-key"]; ok && apiKey == "fake-key-for-testing" {
 			log.Info().Msg("FAKE API KEY DETECTED - RETURNING MOCK RESPONSE WITH TOOL CALLS")
-			
+
 			// Create a mock tool call response
 			mockResponse := conversation.NewMessage(
 				&conversation.ToolUseContent{
 					ToolID: "call_mock_weather",
-					Name:   "get_weather", 
+					Name:   "get_weather",
 					Input:  []byte(`{"location": "Tokyo", "units": "celsius"}`),
 				},
 			)
-			
+
 			result := append(conversation.Conversation(nil), messages...)
 			result = append(result, mockResponse)
-			
+
 			return result, nil
 		}
 	}
-
-
 
 	// Setup metadata and event publishing
 	var parentMessage *conversation.Message
@@ -357,10 +355,10 @@ func (e *OpenAIEngine) RunInference(
 		// Handle tool calls if present
 		choice := resp.Choices[0]
 		var newMessages []*conversation.Message
-		
+
 		if len(choice.Message.ToolCalls) > 0 {
 			log.Debug().Int("tool_calls", len(choice.Message.ToolCalls)).Msg("OpenAI response contains tool calls, creating ToolUseContent messages")
-			
+
 			// Create a tool use message for each tool call
 			for _, toolCall := range choice.Message.ToolCalls {
 				log.Debug().
@@ -368,7 +366,7 @@ func (e *OpenAIEngine) RunInference(
 					Str("tool_name", toolCall.Function.Name).
 					Str("tool_arguments", toolCall.Function.Arguments).
 					Msg("Processing OpenAI tool call")
-					
+
 				toolUseMessage := conversation.NewMessage(
 					&conversation.ToolUseContent{
 						ToolID: toolCall.ID,
@@ -456,14 +454,14 @@ func (e *OpenAIEngine) PrepareToolsForRequest(toolDefs []engine.ToolDefinition, 
 
 	// Filter tools based on config
 	toolConfig := tools.ToolConfig{
-		Enabled:             config.Enabled,
-		ToolChoice:          tools.ToolChoice(config.ToolChoice),
-		MaxIterations:       config.MaxIterations,
-		ExecutionTimeout:    config.ExecutionTimeout,
-		MaxParallelTools:    config.MaxParallelTools,
-		AllowedTools:        config.AllowedTools,
-		ToolErrorHandling:   tools.ToolErrorHandling(config.ToolErrorHandling),
-		RetryConfig:         tools.RetryConfig(config.RetryConfig),
+		Enabled:           config.Enabled,
+		ToolChoice:        tools.ToolChoice(config.ToolChoice),
+		MaxIterations:     config.MaxIterations,
+		ExecutionTimeout:  config.ExecutionTimeout,
+		MaxParallelTools:  config.MaxParallelTools,
+		AllowedTools:      config.AllowedTools,
+		ToolErrorHandling: tools.ToolErrorHandling(config.ToolErrorHandling),
+		RetryConfig:       tools.RetryConfig(config.RetryConfig),
 	}
 	filteredTools := toolConfig.FilterTools(convertedTools)
 
@@ -480,54 +478,9 @@ func (e *OpenAIEngine) PrepareToolsForRequest(toolDefs []engine.ToolDefinition, 
 	return openaiTools, nil
 }
 
-// RunInferenceStream implements streaming inference for OpenAI with tool support
-func (e *OpenAIEngine) RunInferenceStream(ctx context.Context, messages conversation.Conversation, chunkHandler engine.StreamChunkHandler) error {
-	// For now, delegate to the existing streaming logic in RunInference
-	// A full implementation would properly handle streaming tool calls
-	
-	result, err := e.RunInference(ctx, messages)
-	if err != nil {
-		return err
-	}
-
-	// Extract the last message and send as chunks
-	if len(result) > len(messages) {
-		lastMessage := result[len(result)-1]
-		
-		if chatContent, ok := lastMessage.Content.(*conversation.ChatMessageContent); ok {
-			chunk := engine.StreamChunk{
-				Type:       engine.ChunkTypeContent,
-				Content:    chatContent.Text,
-				IsComplete: true,
-			}
-			if err := chunkHandler(chunk); err != nil {
-				return err
-			}
-		}
-		
-		// Handle tool use content as well
-		if toolUse, ok := lastMessage.Content.(*conversation.ToolUseContent); ok {
-			chunk := engine.StreamChunk{
-				Type: engine.ChunkTypeToolCall,
-				ToolCall: &engine.PartialToolCall{
-					ID:        toolUse.ToolID,
-					Name:      toolUse.Name,
-					Arguments: string(toolUse.Input),
-				},
-				IsComplete: true,
-			}
-			if err := chunkHandler(chunk); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Send completion chunk
-	return chunkHandler(engine.StreamChunk{
-		Type:       engine.ChunkTypeComplete,
-		IsComplete: true,
-	})
-}
+// NOTE: RunInferenceStream has been removed in the simplified tool calling architecture.
+// Streaming is now handled internally by engines when event sinks are configured.
+// As noted in the design: "if you don't pass an event sink, then you won't notice it anyway"
 
 // Helper function to convert tool examples
 func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
@@ -543,5 +496,6 @@ func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
 }
 
 var _ engine.Engine = (*OpenAIEngine)(nil)
+
 // var _ engine.EngineWithTools = (*OpenAIEngine)(nil)  // Commented out - simplified approach
 // var _ engine.StreamingEngine = (*OpenAIEngine)(nil)  // Commented out - simplified approach
