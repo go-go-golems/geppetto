@@ -138,7 +138,7 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	if s.Verbose {
 		routerOptions = append(routerOptions, events.WithVerbose(true))
 	}
-	
+
 	router, err := events.NewEventRouter(routerOptions...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create event router")
@@ -151,7 +151,7 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 
 	// 2. Create watermill sink
 	watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-	
+
 	// 3. Add printer handler based on output format
 	if s.OutputFormat == "" {
 		router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
@@ -169,7 +169,7 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	engineOptions := []engine.Option{
 		engine.WithSink(watermillSink),
 	}
-	
+
 	engine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
@@ -220,20 +220,23 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	eg.Go(func() error {
 		defer cancel()
 		<-router.Running()
-		
+
 		// Run inference
-		msg, err := engine.RunInference(ctx, conversation_)
+		updatedConversation, err := engine.RunInference(ctx, conversation_)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
-		
-		// Append result
-		if err := manager.AppendMessages(msg); err != nil {
-			log.Error().Err(err).Msg("Failed to append message to conversation")
-			return fmt.Errorf("failed to append message: %w", err)
+
+		// Extract new messages from the updated conversation
+		newMessages := updatedConversation[len(conversation_):]
+		for _, msg := range newMessages {
+			if err := manager.AppendMessages(msg); err != nil {
+				log.Error().Err(err).Msg("Failed to append message to conversation")
+				return fmt.Errorf("failed to append message: %w", err)
+			}
 		}
-		
+
 		return nil
 	})
 
@@ -279,4 +282,4 @@ func main() {
 	rootCmd.AddCommand(command)
 
 	cobra.CheckErr(rootCmd.Execute())
-} 
+}

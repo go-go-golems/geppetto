@@ -12,7 +12,7 @@ import (
 //
 // Migration guide:
 // - Replace chat.Step with inference.Engine
-// - Replace ai.StandardStepFactory with inference.StandardEngineFactory 
+// - Replace ai.StandardStepFactory with inference.StandardEngineFactory
 // - Use Engine.RunInference() instead of steps.Resolve() and steps.Bind()
 // - Use inference.WatermillSink for event publishing instead of WithPublishedTopic
 //
@@ -28,8 +28,9 @@ type StepOption func(Step) error
 // This function is part of the deprecated Steps API.
 //
 // Migration:
-//   sink := inference.NewWatermillSink(publisher, topic)
-//   engine, err := factory.CreateEngine(settings, inference.WithSink(sink))
+//
+//	sink := inference.NewWatermillSink(publisher, topic)
+//	engine, err := factory.CreateEngine(settings, inference.WithSink(sink))
 func WithPublishedTopic(publisher message.Publisher, topic string) StepOption {
 	return func(step Step) error {
 		err := step.AddPublishedTopic(publisher, topic)

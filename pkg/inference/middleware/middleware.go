@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
@@ -25,15 +24,11 @@ func Chain(handler HandlerFunc, middlewares ...Middleware) HandlerFunc {
 	return handler
 }
 
-// EngineHandler adapts an Engine to HandlerFunc interface.
-func EngineHandler(engine engine.Engine) HandlerFunc {
+// engineHandlerFunc adapts an Engine to HandlerFunc interface.
+// Since engines now return full conversations, this is a simple wrapper.
+func engineHandlerFunc(engine engine.Engine) HandlerFunc {
 	return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-		response, err := engine.RunInference(ctx, messages)
-		if err != nil {
-			return nil, err
-		}
-		// Return the original conversation plus the new AI response
-		return append(messages, response), nil
+		return engine.RunInference(ctx, messages)
 	}
 }
 
@@ -45,7 +40,7 @@ type EngineWithMiddleware struct {
 
 // NewEngineWithMiddleware creates a new engine with middleware support.
 func NewEngineWithMiddleware(e engine.Engine, middlewares ...Middleware) *EngineWithMiddleware {
-	handler := EngineHandler(e)
+	handler := engineHandlerFunc(e)
 	chainedHandler := Chain(handler, middlewares...)
 
 	return &EngineWithMiddleware{
@@ -55,7 +50,8 @@ func NewEngineWithMiddleware(e engine.Engine, middlewares ...Middleware) *Engine
 }
 
 // RunInference executes the middleware chain followed by the underlying engine.
-func (e *EngineWithMiddleware) RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error) {
+// Returns the full updated conversation.
+func (e *EngineWithMiddleware) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 	// TODO(middleware): Add EventSinks to context for middleware access
 	// ctx = events.WithSinks(ctx, e.config.EventSinks)
 
@@ -63,17 +59,7 @@ func (e *EngineWithMiddleware) RunInference(ctx context.Context, messages conver
 	messages = cloneConversation(messages)
 
 	// Execute middleware chain and get complete conversation
-	resultConversation, err := e.handler(ctx, messages)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return the last message (the final AI response)
-	if len(resultConversation) == 0 {
-		return nil, fmt.Errorf("middleware returned empty conversation")
-	}
-
-	return resultConversation[len(resultConversation)-1], nil
+	return e.handler(ctx, messages)
 }
 
 // RunInferenceWithHistory returns the complete conversation including tool calls.

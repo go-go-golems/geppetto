@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 
-	"github.com/ThreeDotsLabs/watermill/message"
+	watermillmsg "github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	events2 "github.com/go-go-golems/geppetto/pkg/events"
 	helpers2 "github.com/go-go-golems/geppetto/pkg/helpers"
@@ -17,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
+
+type Message = conversation.Message
 
 type ChatStep struct {
 	Settings            *settings.StepSettings
@@ -80,7 +82,7 @@ var _ chat.SimpleChatStep = &ChatStep{}
 func (csf *ChatStep) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (*conversation.Message, error) {
+) (conversation.Conversation, error) {
 	log.Debug().Int("num_messages", len(messages)).Bool("stream", csf.Settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := csf.Settings.Client
 	if clientSettings == nil {
@@ -202,8 +204,12 @@ func (csf *ChatStep) RunInference(
 			csf.subscriptionManager.PublishBlind(events2.NewFinalEvent(metadata, stepMetadata, response.FullText()))
 		}
 
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, message)
+
 		log.Debug().Msg("Claude RunInference completed (non-streaming)")
-		return message, nil
+		return result, nil
 	}
 
 	// For streaming, we need to collect all events and return the final message
@@ -297,10 +303,14 @@ streamingComplete:
 		}),
 	)
 
+	// Clone the input conversation and append the new message
+	result := append(conversation.Conversation(nil), messages...)
+	result = append(result, msg)
+
 	// NOTE: Final event is already published by ContentBlockMerger during event processing
 	// Do not publish duplicate final event here
 	log.Debug().Msg("Claude RunInference completed (streaming)")
-	return msg, nil
+	return result, nil
 }
 
 func (csf *ChatStep) Start(
@@ -311,11 +321,16 @@ func (csf *ChatStep) Start(
 	// For non-streaming, use the simplified RunInference method
 	if !csf.Settings.Chat.Stream {
 		log.Debug().Msg("Claude Start using non-streaming path")
-		message, err := csf.RunInference(ctx, messages)
+		result, err := csf.RunInference(ctx, messages)
 		if err != nil {
 			return steps.Reject[*conversation.Message](err), nil
 		}
-		return steps.Resolve(message), nil
+		// Extract the last message (the AI response) from the conversation
+		if len(result) == 0 {
+			return steps.Reject[*conversation.Message](errors.New("empty conversation returned")), nil
+		}
+		lastMsg := result[len(result)-1]
+		return steps.Resolve(lastMsg), nil
 	}
 
 	// For streaming, use RunInference in a goroutine to handle cancellation
@@ -354,20 +369,27 @@ func (csf *ChatStep) Start(
 
 		// Use RunInference which now handles all the ContentBlockMerger logic
 		log.Debug().Msg("Claude calling RunInference from goroutine")
-		message, err := csf.RunInference(cancellableCtx, messages)
+		conversation, err := csf.RunInference(cancellableCtx, messages)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				// Context was cancelled during RunInference
 				log.Debug().Msg("Claude RunInference cancelled")
-				c <- helpers2.NewErrorResult[*conversation.Message](context.Canceled)
+				c <- helpers2.NewErrorResult[*Message](context.Canceled)
 			} else {
 				log.Error().Err(err).Msg("Claude RunInference failed")
-				c <- helpers2.NewErrorResult[*conversation.Message](err)
+				c <- helpers2.NewErrorResult[*Message](err)
 			}
 			return
 		}
+		// Extract the last message (the AI response) from the conversation
+		if len(conversation) == 0 {
+			log.Error().Msg("Claude RunInference returned empty conversation")
+			c <- helpers2.NewErrorResult[*Message](errors.New("empty conversation returned"))
+			return
+		}
+		lastMsg := conversation[len(conversation)-1]
 		log.Debug().Msg("Claude RunInference succeeded, sending result")
-		result := helpers2.NewValueResult[*conversation.Message](message)
+		result := helpers2.NewValueResult[*Message](lastMsg)
 		log.Debug().Msg("Claude about to send result to channel")
 		c <- result
 		log.Debug().Msg("Claude result sent to channel successfully")
@@ -376,7 +398,7 @@ func (csf *ChatStep) Start(
 	return ret, nil
 }
 
-func (csf *ChatStep) AddPublishedTopic(publisher message.Publisher, topic string) error {
+func (csf *ChatStep) AddPublishedTopic(publisher watermillmsg.Publisher, topic string) error {
 	csf.subscriptionManager.RegisterPublisher(topic, publisher)
 	return nil
 }

@@ -36,12 +36,12 @@ func NewClaudeEngine(settings *settings.StepSettings, tools []api.Tool, options 
 	}, nil
 }
 
-// RunInference processes a conversation using Claude API and returns the generated message.
+// RunInference processes a conversation using Claude API and returns the full updated conversation.
 // This implementation is extracted from the existing Claude ChatStep RunInference method.
 func (e *ClaudeEngine) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (*conversation.Message, error) {
+) (conversation.Conversation, error) {
 	log.Debug().Int("num_messages", len(messages)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := e.settings.Client
 	if clientSettings == nil {
@@ -151,12 +151,16 @@ func (e *ClaudeEngine) RunInference(
 			conversation.WithLLMMessageMetadata(llmMessageMetadata),
 		)
 
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, message)
+
 		// Publish final event
 		log.Debug().Str("event_id", metadata.ID.String()).Msg("Claude publishing final event (non-streaming)")
 		e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, response.FullText()))
 
 		log.Debug().Msg("Claude RunInference completed (non-streaming)")
-		return message, nil
+		return result, nil
 	}
 
 	// For streaming, we need to collect all events and return the final message
@@ -240,10 +244,14 @@ streamingComplete:
 		}),
 	)
 
+	// Clone the input conversation and append the new message
+	result := append(conversation.Conversation(nil), messages...)
+	result = append(result, msg)
+
 	// NOTE: Final event is already published by ContentBlockMerger during event processing
 	// Do not publish duplicate final event here
 	log.Debug().Msg("Claude RunInference completed (streaming)")
-	return msg, nil
+	return result, nil
 }
 
 // publishEvent publishes an event to all configured sinks.

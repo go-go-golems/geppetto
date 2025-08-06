@@ -18,6 +18,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type Message = conversation.Message
+
 var _ chat.Step = &ChatStep{}
 var _ chat.SimpleChatStep = &ChatStep{}
 
@@ -59,7 +61,7 @@ func NewStep(settings *settings.StepSettings, options ...StepOption) (*ChatStep,
 func (csf *ChatStep) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (*conversation.Message, error) {
+) (conversation.Conversation, error) {
 	log.Debug().Int("num_messages", len(messages)).Bool("stream", csf.Settings.Chat.Stream).Msg("OpenAI RunInference started")
 	if csf.Settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
@@ -224,12 +226,16 @@ func (csf *ChatStep) RunInference(
 		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
 		finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
 
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, finalMessage)
+
 		// Publish final event for streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
 		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, message))
 
 		log.Debug().Msg("OpenAI RunInference completed (streaming)")
-		return finalMessage, nil
+		return result, nil
 	} else {
 		log.Debug().Msg("OpenAI using non-streaming mode")
 		resp, err := client.CreateChatCompletion(ctx, *req)
@@ -272,12 +278,16 @@ func (csf *ChatStep) RunInference(
 			conversation.WithLLMMessageMetadata(llmMetadata),
 		)
 
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, finalMessage)
+
 		// Publish final event for non-streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing final event (non-streaming)")
 		csf.publisherManager.PublishBlind(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
 
 		log.Debug().Msg("OpenAI RunInference completed (non-streaming)")
-		return finalMessage, nil
+		return result, nil
 	}
 }
 
@@ -289,11 +299,16 @@ func (csf *ChatStep) Start(
 	// For non-streaming, use the simplified RunInference method
 	if !csf.Settings.Chat.Stream {
 		log.Debug().Msg("OpenAI Start using non-streaming path")
-		message, err := csf.RunInference(ctx, messages)
+		result, err := csf.RunInference(ctx, messages)
 		if err != nil {
 			return steps.Reject[*conversation.Message](err), nil
 		}
-		return steps.Resolve(message), nil
+		// Extract the last message (the AI response) from the conversation
+		if len(result) == 0 {
+			return steps.Reject[*conversation.Message](errors.New("empty conversation returned")), nil
+		}
+		lastMsg := result[len(result)-1]
+		return steps.Resolve(lastMsg), nil
 	}
 
 	// For streaming, use RunInference in a goroutine to handle cancellation
@@ -332,20 +347,27 @@ func (csf *ChatStep) Start(
 
 		// Use RunInference which now handles all the streaming logic
 		log.Debug().Msg("OpenAI calling RunInference from goroutine")
-		message, err := csf.RunInference(cancellableCtx, messages)
+		conversation, err := csf.RunInference(cancellableCtx, messages)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				// Context was cancelled during RunInference
 				log.Debug().Msg("OpenAI RunInference cancelled")
-				c <- helpers.NewErrorResult[*conversation.Message](context.Canceled)
+				c <- helpers.NewErrorResult[*Message](context.Canceled)
 			} else {
 				log.Error().Err(err).Msg("OpenAI RunInference failed")
-				c <- helpers.NewErrorResult[*conversation.Message](err)
+				c <- helpers.NewErrorResult[*Message](err)
 			}
 			return
 		}
+		// Extract the last message (the AI response) from the conversation
+		if len(conversation) == 0 {
+			log.Error().Msg("OpenAI RunInference returned empty conversation")
+			c <- helpers.NewErrorResult[*Message](errors.New("empty conversation returned"))
+			return
+		}
+		lastMsg := conversation[len(conversation)-1]
 		log.Debug().Msg("OpenAI RunInference succeeded, sending result")
-		result := helpers.NewValueResult[*conversation.Message](message)
+		result := helpers.NewValueResult[*Message](lastMsg)
 		log.Debug().Msg("OpenAI about to send result to channel")
 		c <- result
 		log.Debug().Msg("OpenAI result sent to channel successfully")
