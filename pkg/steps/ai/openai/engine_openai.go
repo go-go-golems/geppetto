@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"io"
 	stdlog "log"
 
@@ -19,8 +20,9 @@ import (
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
-	settings *settings.StepSettings
-	config   *engine.Config
+	settings    *settings.StepSettings
+	config      *engine.Config
+	toolAdapter *tools.OpenAIToolAdapter
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
@@ -31,8 +33,9 @@ func NewOpenAIEngine(settings *settings.StepSettings, options ...engine.Option) 
 	}
 
 	return &OpenAIEngine{
-		settings: settings,
-		config:   config,
+		settings:    settings,
+		config:      config,
+		toolAdapter: tools.NewOpenAIToolAdapter(),
 	}, nil
 }
 
@@ -280,4 +283,137 @@ func (e *OpenAIEngine) publishEvent(event events.Event) {
 	}
 }
 
+// GetSupportedToolFeatures returns the tool features supported by OpenAI
+func (e *OpenAIEngine) GetSupportedToolFeatures() engine.ToolFeatures {
+	limits := e.toolAdapter.GetProviderLimits()
+	return engine.ToolFeatures{
+		SupportsParallelCalls: true,
+		SupportsToolChoice:    true,
+		SupportsSystemTools:   false,
+		SupportsStreaming:     true,
+		Limits: engine.ProviderLimits{
+			MaxToolsPerRequest:      limits.MaxToolsPerRequest,
+			MaxToolNameLength:       limits.MaxToolNameLength,
+			MaxTotalSizeBytes:       limits.MaxTotalSizeBytes,
+			SupportedParameterTypes: limits.SupportedParameterTypes,
+		},
+		SupportedChoiceTypes: []engine.ToolChoice{
+			engine.ToolChoiceAuto,
+			engine.ToolChoiceNone,
+			engine.ToolChoiceRequired,
+		},
+	}
+}
+
+// PrepareToolsForRequest converts tools to OpenAI-specific format
+func (e *OpenAIEngine) PrepareToolsForRequest(toolDefs []engine.ToolDefinition, config engine.ToolConfig) (interface{}, error) {
+	if !config.Enabled {
+		return nil, nil
+	}
+
+	// Convert our ToolDefinition to tools.ToolDefinition
+	var convertedTools []tools.ToolDefinition
+	for _, td := range toolDefs {
+		converted := tools.ToolDefinition{
+			Name:        td.Name,
+			Description: td.Description,
+			Parameters:  td.Parameters,
+			Function:    tools.ToolFunc{}, // Function not needed for preparation
+			Examples:    convertToolExamples(td.Examples),
+			Tags:        td.Tags,
+			Version:     td.Version,
+		}
+		convertedTools = append(convertedTools, converted)
+	}
+
+	// Filter tools based on config
+	toolConfig := tools.ToolConfig{
+		Enabled:             config.Enabled,
+		ToolChoice:          tools.ToolChoice(config.ToolChoice),
+		MaxIterations:       config.MaxIterations,
+		ExecutionTimeout:    config.ExecutionTimeout,
+		MaxParallelTools:    config.MaxParallelTools,
+		AllowedTools:        config.AllowedTools,
+		ToolErrorHandling:   tools.ToolErrorHandling(config.ToolErrorHandling),
+		RetryConfig:         tools.RetryConfig(config.RetryConfig),
+	}
+	filteredTools := toolConfig.FilterTools(convertedTools)
+
+	// Convert to OpenAI format
+	var openaiTools []interface{}
+	for _, tool := range filteredTools {
+		converted, err := e.toolAdapter.ConvertToProviderFormat(tool)
+		if err != nil {
+			return nil, err
+		}
+		openaiTools = append(openaiTools, converted)
+	}
+
+	return openaiTools, nil
+}
+
+// RunInferenceStream implements streaming inference for OpenAI with tool support
+func (e *OpenAIEngine) RunInferenceStream(ctx context.Context, messages conversation.Conversation, chunkHandler engine.StreamChunkHandler) error {
+	// For now, delegate to the existing streaming logic in RunInference
+	// A full implementation would properly handle streaming tool calls
+	
+	result, err := e.RunInference(ctx, messages)
+	if err != nil {
+		return err
+	}
+
+	// Extract the last message and send as chunks
+	if len(result) > len(messages) {
+		lastMessage := result[len(result)-1]
+		
+		if chatContent, ok := lastMessage.Content.(*conversation.ChatMessageContent); ok {
+			chunk := engine.StreamChunk{
+				Type:       engine.ChunkTypeContent,
+				Content:    chatContent.Text,
+				IsComplete: true,
+			}
+			if err := chunkHandler(chunk); err != nil {
+				return err
+			}
+		}
+		
+		// Handle tool use content as well
+		if toolUse, ok := lastMessage.Content.(*conversation.ToolUseContent); ok {
+			chunk := engine.StreamChunk{
+				Type: engine.ChunkTypeToolCall,
+				ToolCall: &engine.PartialToolCall{
+					ID:        toolUse.ToolID,
+					Name:      toolUse.Name,
+					Arguments: string(toolUse.Input),
+				},
+				IsComplete: true,
+			}
+			if err := chunkHandler(chunk); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Send completion chunk
+	return chunkHandler(engine.StreamChunk{
+		Type:       engine.ChunkTypeComplete,
+		IsComplete: true,
+	})
+}
+
+// Helper function to convert tool examples
+func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
+	var converted []tools.ToolExample
+	for _, ex := range examples {
+		converted = append(converted, tools.ToolExample{
+			Input:       ex.Input,
+			Output:      ex.Output,
+			Description: ex.Description,
+		})
+	}
+	return converted
+}
+
 var _ engine.Engine = (*OpenAIEngine)(nil)
+var _ engine.EngineWithTools = (*OpenAIEngine)(nil)
+var _ engine.StreamingEngine = (*OpenAIEngine)(nil)
