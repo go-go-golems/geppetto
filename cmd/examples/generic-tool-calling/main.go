@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 
 	clay "github.com/go-go-golems/clay/pkg"
@@ -57,7 +58,7 @@ type ToolCallingSettings struct {
 	WithMetadata     bool   `glazed.parameter:"with-metadata"`
 	FullOutput       bool   `glazed.parameter:"full-output"`
 	Verbose          bool   `glazed.parameter:"verbose"`
-	
+
 	// Tool configuration
 	MaxIterations    int    `glazed.parameter:"max-iterations"`
 	ToolChoice       string `glazed.parameter:"tool-choice"`
@@ -95,11 +96,11 @@ type CalculatorResponse struct {
 // calculator is a simple calculator tool for demonstration
 func calculator(req CalculatorRequest) CalculatorResponse {
 	log.Info().Str("expression", req.Expression).Msg("Calculator tool called")
-	
+
 	// Very simple calculator - just handle basic cases for demo
 	var result float64
 	var message string
-	
+
 	switch req.Expression {
 	case "2+2", "2 + 2":
 		result = 4
@@ -117,13 +118,13 @@ func calculator(req CalculatorRequest) CalculatorResponse {
 		result = 42
 		message = "Default result for unrecognized expression"
 	}
-	
+
 	response := CalculatorResponse{
 		Expression: req.Expression,
 		Result:     result,
 		Message:    message,
 	}
-	
+
 	log.Info().Interface("response", response).Msg("Calculator tool returning response")
 	return response
 }
@@ -131,12 +132,12 @@ func calculator(req CalculatorRequest) CalculatorResponse {
 // weatherTool is a mock weather tool that returns realistic data
 func weatherTool(req WeatherRequest) WeatherResponse {
 	log.Info().Str("location", req.Location).Str("units", req.Units).Msg("Weather tool called")
-	
+
 	// Mock weather data based on location
 	var temp float64
 	var conditions string
 	var humidity int
-	
+
 	switch req.Location {
 	case "San Francisco", "san francisco":
 		temp = 18.0
@@ -159,12 +160,12 @@ func weatherTool(req WeatherRequest) WeatherResponse {
 		conditions = "Partly cloudy"
 		humidity = 70
 	}
-	
+
 	// Convert to Fahrenheit if requested
 	if req.Units == "fahrenheit" {
 		temp = temp*9/5 + 32
 	}
-	
+
 	response := WeatherResponse{
 		Location:    req.Location,
 		Temperature: temp,
@@ -172,7 +173,7 @@ func weatherTool(req WeatherRequest) WeatherResponse {
 		Humidity:    humidity,
 		Units:       req.Units,
 	}
-	
+
 	log.Info().Interface("response", response).Msg("Weather tool returning response")
 	return response
 }
@@ -182,7 +183,7 @@ func NewGenericToolCallingCommand() (*GenericToolCallingCommand, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create geppetto parameter layer")
 	}
-	
+
 	description := cmds.NewCommandDescription(
 		"generic-tool-calling",
 		cmds.WithShort("Generic tool calling example that works with any AI provider"),
@@ -346,7 +347,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 	// 5. Create tool registry and register tools
 	registry := tools.NewInMemoryToolRegistry()
-	
+
 	// Register weather tool
 	weatherToolDef, err := tools.NewToolFromFunc(
 		"get_weather",
@@ -356,7 +357,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	if err != nil {
 		return errors.Wrap(err, "failed to create weather tool")
 	}
-	
+
 	err = registry.RegisterTool("get_weather", *weatherToolDef)
 	if err != nil {
 		return errors.Wrap(err, "failed to register weather tool")
@@ -371,18 +372,18 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	if err != nil {
 		return errors.Wrap(err, "failed to create calculator tool")
 	}
-	
+
 	err = registry.RegisterTool("calculator", *calculatorToolDef)
 	if err != nil {
 		return errors.Wrap(err, "failed to register calculator tool")
 	}
-	
+
 	log.Info().Int("registered_tools", registry.Count()).Msg("Tool registry initialized")
 	for _, tool := range registry.ListTools() {
 		log.Info().Str("tool_name", tool.Name).Str("description", tool.Description).Msg("Registered tool")
 	}
 
-	// 6. Create tool configuration
+	// 5.5. Determine tool choice for configuration
 	toolChoice := tools.ToolChoiceAuto
 	switch s.ToolChoice {
 	case "none":
@@ -393,25 +394,55 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		toolChoice = tools.ToolChoiceAuto
 	}
 
-	toolConfig := tools.ToolConfig{
-		Enabled:           s.ToolsEnabled,
-		ToolChoice:        toolChoice,
-		MaxIterations:     s.MaxIterations,
-		ExecutionTimeout:  30 * time.Second,
-		MaxParallelTools:  s.MaxParallelTools,
-		AllowedTools:      nil, // Allow all tools
-		ToolErrorHandling: tools.ToolErrorContinue,
-		RetryConfig: tools.RetryConfig{
-			MaxRetries:    2,
-			BackoffBase:   time.Second,
-			BackoffFactor: 2.0,
-		},
+	// 5.6. In the simplified approach, engines need tool definitions for API calls
+	// but they DON'T handle orchestration - helpers handle that
+	log.Info().Msg("Configuring tools on engine for API calls, helpers handle orchestration")
+
+	// Check if engine supports tool configuration (needed for API calls to include tools)
+	if configurableEngine, ok := baseEngine.(interface {
+		ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)
+	}); ok {
+		log.Info().Msg("Engine supports tool configuration, providing tools for API calls")
+		
+		// Convert registry tools to engine format
+		var engineTools []engine.ToolDefinition
+		for _, tool := range registry.ListTools() {
+			engineTool := engine.ToolDefinition{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.Parameters,
+			}
+			engineTools = append(engineTools, engineTool)
+		}
+
+		// Configure tools on engine with minimal orchestration
+		// The engine will include tools in API calls but won't handle execution
+		engineConfig := engine.ToolConfig{
+			Enabled:           s.ToolsEnabled,
+			ToolChoice:        engine.ToolChoice(toolChoice),
+			MaxIterations:     1, // Single iteration - helper handles the loop
+			ExecutionTimeout:  30 * time.Second,
+			MaxParallelTools:  s.MaxParallelTools,
+			AllowedTools:      nil,
+			ToolErrorHandling: engine.ToolErrorHandling(tools.ToolErrorContinue),
+		}
+		configurableEngine.ConfigureTools(engineTools, engineConfig)
+		log.Info().Int("tool_count", len(engineTools)).Msg("Configured tools on engine for API calls")
+	} else {
+		log.Info().Msg("Engine doesn't support tool configuration, using pure helper orchestration")
 	}
 
-	// 7. Create engine wrapper with orchestrator for tool execution
-	engineWrapper := tools.NewEngineWrapper(baseEngine, registry, toolConfig)
-	
-	log.Info().Msg("Created provider-agnostic engine wrapper with tool orchestration")
+	// 6. Create simplified tool configuration for helpers
+
+	helperConfig := toolhelpers.NewToolConfig().
+		WithMaxIterations(s.MaxIterations).
+		WithTimeout(30 * time.Second).
+		WithMaxParallelTools(s.MaxParallelTools).
+		WithToolChoice(toolChoice).
+		WithAllowedTools(nil). // Allow all tools
+		WithToolErrorHandling(tools.ToolErrorContinue)
+
+	log.Info().Msg("Created simplified tool helper configuration")
 
 	// 8. Build conversation
 	b := builder.NewManagerBuilder().
@@ -440,8 +471,8 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		// Run inference with tool support - works with any provider!
-		updatedConversation, err := engineWrapper.RunInference(ctx, conversation_)
+		// Run inference with simplified tool calling helpers - works with any provider!
+		updatedConversation, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, conversation_, registry, helperConfig)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
