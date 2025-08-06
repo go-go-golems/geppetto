@@ -104,15 +104,9 @@ type EngineWrapper struct {
 
 // NewEngineWrapper creates a wrapper that adds tool support to any engine
 func NewEngineWrapper(baseEngine engine.Engine, registry ToolRegistry, config ToolConfig) *EngineWrapper {
-	// Create an adapter for engines that don't support tools natively
-	var toolEngine Engine
-	if engineWithTools, ok := baseEngine.(engine.EngineWithTools); ok {
-		// Engine already supports tools, create an adapter for it
-		toolEngine = NewEngineWithToolsAdapter(engineWithTools)
-	} else {
-		// Engine doesn't support tools, wrap it
-		toolEngine = NewLegacyEngineAdapter(baseEngine)
-	}
+	// In the simplified approach, all engines are treated as legacy engines
+	// since tool orchestration is handled by helpers, not engine interfaces
+	toolEngine := NewLegacyEngineAdapter(baseEngine)
 	
 	orchestrator := NewInferenceOrchestrator(toolEngine, registry, config)
 	
@@ -137,24 +131,28 @@ func (w *EngineWrapper) GetOrchestrator() *InferenceOrchestrator {
 	return w.orchestrator
 }
 
-// EngineWithToolsAdapter adapts engine.EngineWithTools to tools.Engine
-type EngineWithToolsAdapter struct {
-	baseEngine engine.EngineWithTools
-}
+// EngineWithToolsAdapter is deprecated in the simplified approach
+// All tool orchestration is now handled by helpers, not engine interfaces
+// 
+// TODO: Remove this adapter when migration to simplified approach is complete
+//
+// type EngineWithToolsAdapter struct {
+// 	baseEngine engine.EngineWithTools
+// }
+//
+// func NewEngineWithToolsAdapter(baseEngine engine.EngineWithTools) *EngineWithToolsAdapter {
+// 	return &EngineWithToolsAdapter{
+// 		baseEngine: baseEngine,
+// 	}
+// }
 
-// NewEngineWithToolsAdapter creates an adapter for engines that implement EngineWithTools
-func NewEngineWithToolsAdapter(baseEngine engine.EngineWithTools) *EngineWithToolsAdapter {
-	return &EngineWithToolsAdapter{
-		baseEngine: baseEngine,
-	}
-}
-
-// RunInference delegates to the base engine
+// EngineWithToolsAdapter is deprecated in the simplified approach
+// All methods are commented out - tool orchestration is handled by helpers
+/*
 func (a *EngineWithToolsAdapter) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 	return a.baseEngine.RunInference(ctx, messages)
 }
 
-// ConfigureTools configures tools on the underlying engine if it supports direct configuration
 func (a *EngineWithToolsAdapter) ConfigureTools(tools []ToolDefinition, config ToolConfig) error {
 	// Convert tools.ToolDefinition to engine.ToolDefinition
 	var engineTools []engine.ToolDefinition
@@ -195,7 +193,6 @@ func (a *EngineWithToolsAdapter) ConfigureTools(tools []ToolDefinition, config T
 	return err
 }
 
-// GetSupportedToolFeatures delegates to the base engine
 func (a *EngineWithToolsAdapter) GetSupportedToolFeatures() ToolFeatures {
 	baseFeatures := a.baseEngine.GetSupportedToolFeatures()
 	
@@ -215,7 +212,6 @@ func (a *EngineWithToolsAdapter) GetSupportedToolFeatures() ToolFeatures {
 	}
 }
 
-// PrepareToolsForRequest delegates to the base engine
 func (a *EngineWithToolsAdapter) PrepareToolsForRequest(tools []ToolDefinition, config ToolConfig) (interface{}, error) {
 	// Convert tools.ToolDefinition to engine.ToolDefinition
 	var engineTools []engine.ToolDefinition
@@ -246,7 +242,6 @@ func (a *EngineWithToolsAdapter) PrepareToolsForRequest(tools []ToolDefinition, 
 	return a.baseEngine.PrepareToolsForRequest(engineTools, engineConfig)
 }
 
-// RunInferenceStream provides streaming support if the base engine supports it
 func (a *EngineWithToolsAdapter) RunInferenceStream(ctx context.Context, messages conversation.Conversation, chunkHandler StreamChunkHandler) error {
 	// Check if the base engine supports streaming
 	if streamingEngine, ok := a.baseEngine.(engine.StreamingEngine); ok {
@@ -301,6 +296,7 @@ func (a *EngineWithToolsAdapter) RunInferenceStream(ctx context.Context, message
 		IsComplete: true,
 	})
 }
+*/
 
 // Helper functions for type conversion
 func convertToolChoices(choices []engine.ToolChoice) []ToolChoice {
@@ -326,5 +322,5 @@ func convertExamples(examples []ToolExample) []engine.ToolExample {
 // Ensure compatibility with engine interfaces
 var _ engine.Engine = (*LegacyEngineAdapter)(nil)
 var _ Engine = (*LegacyEngineAdapter)(nil)
-var _ Engine = (*EngineWithToolsAdapter)(nil)
+// var _ Engine = (*EngineWithToolsAdapter)(nil)  // Commented out - deprecated in simplified approach
 var _ engine.Engine = (*EngineWrapper)(nil)

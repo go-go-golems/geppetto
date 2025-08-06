@@ -354,14 +354,44 @@ func (e *OpenAIEngine) RunInference(
 			metadata.StopReason = &finishReason
 		}
 
-		finalMessage := conversation.NewMessage(
-			conversation.NewChatMessageContent(conversation.RoleAssistant, resp.Choices[0].Message.Content, nil),
-			conversation.WithLLMMessageMetadata(llmMetadata),
-		)
+		// Handle tool calls if present
+		choice := resp.Choices[0]
+		var newMessages []*conversation.Message
+		
+		if len(choice.Message.ToolCalls) > 0 {
+			log.Debug().Int("tool_calls", len(choice.Message.ToolCalls)).Msg("OpenAI response contains tool calls, creating ToolUseContent messages")
+			
+			// Create a tool use message for each tool call
+			for _, toolCall := range choice.Message.ToolCalls {
+				log.Debug().
+					Str("tool_call_id", toolCall.ID).
+					Str("tool_name", toolCall.Function.Name).
+					Str("tool_arguments", toolCall.Function.Arguments).
+					Msg("Processing OpenAI tool call")
+					
+				toolUseMessage := conversation.NewMessage(
+					&conversation.ToolUseContent{
+						ToolID: toolCall.ID,
+						Name:   toolCall.Function.Name,
+						Input:  []byte(toolCall.Function.Arguments),
+					},
+					conversation.WithLLMMessageMetadata(llmMetadata),
+				)
+				newMessages = append(newMessages, toolUseMessage)
+			}
+		} else {
+			// No tool calls, create regular chat message
+			log.Debug().Msg("OpenAI response contains no tool calls, creating ChatMessageContent")
+			finalMessage := conversation.NewMessage(
+				conversation.NewChatMessageContent(conversation.RoleAssistant, choice.Message.Content, nil),
+				conversation.WithLLMMessageMetadata(llmMetadata),
+			)
+			newMessages = append(newMessages, finalMessage)
+		}
 
-		// Clone the input conversation and append the new message
+		// Clone the input conversation and append the new messages
 		result := append(conversation.Conversation(nil), messages...)
-		result = append(result, finalMessage)
+		result = append(result, newMessages...)
 
 		// Publish final event for non-streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing final event (non-streaming)")
@@ -513,5 +543,5 @@ func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
 }
 
 var _ engine.Engine = (*OpenAIEngine)(nil)
-var _ engine.EngineWithTools = (*OpenAIEngine)(nil)
-var _ engine.StreamingEngine = (*OpenAIEngine)(nil)
+// var _ engine.EngineWithTools = (*OpenAIEngine)(nil)  // Commented out - simplified approach
+// var _ engine.StreamingEngine = (*OpenAIEngine)(nil)  // Commented out - simplified approach
