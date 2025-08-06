@@ -8,6 +8,6 @@ import (
 
 // SimpleChatStep provides a simplified interface for LLM inference without the complex step mechanism
 type SimpleChatStep interface {
-	// RunInference executes the LLM call directly and returns the response message
-	RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error)
+	// RunInference executes the LLM call directly and returns the full updated conversation
+	RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error)
 }

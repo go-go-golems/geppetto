@@ -119,9 +119,10 @@ func (m *StepResultImpl[T]) GetMetadata() *StepMetadata {
 // Use direct input to inference.Engine.RunInference() instead of wrapping in StepResult.
 //
 // Migration:
-//   Old: result := steps.Resolve(input)
-//        bound := steps.Bind(ctx, result, step)
-//   New: message, err := engine.RunInference(ctx, input)
+//
+//	Old: result := steps.Resolve(input)
+//	     bound := steps.Bind(ctx, result, step)
+//	New: message, err := engine.RunInference(ctx, input)
 //
 // The new approach eliminates the need for monadic operations and channel-based results.
 func Resolve[T any](value T, options ...StepResultOption[T]) *StepResultImpl[T] {
@@ -164,9 +165,10 @@ func (f NewStepFunc[T, U]) NewStep() (Step[T, U], error) {
 // - Use direct engine execution instead of complex channel-based StepResult handling
 //
 // The Engine interface is much simpler:
-//   type Engine interface {
-//     RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error)
-//   }
+//
+//	type Engine interface {
+//	  RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error)
+//	}
 //
 // For more information, see the Engine-first architecture documentation.
 //
@@ -184,8 +186,9 @@ type Step[T any, U any] interface {
 // Use inference.Engine.RunInference() directly instead of complex channel-based operations.
 //
 // Migration:
-//   Old: result := steps.Bind(ctx, steps.Resolve(input), step)
-//   New: message, err := engine.RunInference(ctx, input)
+//
+//	Old: result := steps.Bind(ctx, steps.Resolve(input), step)
+//	New: message, err := engine.RunInference(ctx, input)
 //
 // The new approach is much simpler and avoids the complexity of monadic operations.
 // Bind is the monadic bind operator for StepResult.

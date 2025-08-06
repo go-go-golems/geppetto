@@ -27,14 +27,18 @@ func NewMultiResponseMockEngine(responses ...*conversation.Message) *MultiRespon
 }
 
 // RunInference implements the Engine interface
-func (me *MultiResponseMockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error) {
+func (me *MultiResponseMockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 	if me.callCount >= len(me.responses) {
 		return nil, fmt.Errorf("no more mock responses available")
 	}
 
 	response := me.responses[me.callCount]
 	me.callCount++
-	return response, nil
+
+	// Clone input conversation and append response
+	result := append(conversation.Conversation(nil), messages...)
+	result = append(result, response)
+	return result, nil
 }
 
 // Reset resets the mock engine's call count
@@ -103,7 +107,7 @@ func TestToolMiddleware_NoToolCalls(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with no tool calls
 	messages := conversation.NewConversation(
@@ -151,7 +155,7 @@ func TestToolMiddleware_SingleToolCall_OpenAIStyle(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with tool call
 	messages := conversation.NewConversation(
@@ -197,7 +201,7 @@ func TestToolMiddleware_SingleToolCall_ClaudeStyle(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with tool call
 	messages := conversation.NewConversation(
@@ -276,7 +280,7 @@ func TestToolMiddleware_MultipleToolCalls(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with multiple tool calls
 	messages := conversation.NewConversation(
@@ -325,7 +329,7 @@ func TestToolMiddleware_MaxIterationsLimit(t *testing.T) {
 		ToolFilter:    nil,
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test that it stops after max iterations
 	messages := conversation.NewConversation(
@@ -372,7 +376,7 @@ func TestToolMiddleware_ToolFilter(t *testing.T) {
 		ToolFilter:    []string{"allowed_tool"}, // Only allow specific tool
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with filtered tool call
 	messages := conversation.NewConversation(
@@ -410,7 +414,7 @@ func TestToolMiddleware_ToolExecutionError(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with error tool call
 	messages := conversation.NewConversation(
@@ -466,7 +470,7 @@ func TestToolMiddleware_TimeoutHandling(t *testing.T) {
 		ToolFilter:    nil,
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(EngineHandler(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with slow tool call
 	messages := conversation.NewConversation(

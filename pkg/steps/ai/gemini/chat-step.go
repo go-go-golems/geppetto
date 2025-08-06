@@ -98,7 +98,7 @@ func makeClient(ctx context.Context, api *settings.APISettings) (*genai.Client, 
 	})
 }
 
-func (cs *ChatStep) RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error) {
+func (cs *ChatStep) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 	if cs.Settings.Chat.Engine == nil {
 		return nil, errors.New("no engine specified")
 	}
@@ -153,7 +153,11 @@ func (cs *ChatStep) RunInference(ctx context.Context, messages conversation.Conv
 			conversation.NewChatMessageContent(conversation.RoleAssistant, text, nil),
 			conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{Engine: model}),
 		)
-		return msg, nil
+
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, msg)
+		return result, nil
 	}
 
 	resp, err := client.Models.GenerateContent(ctx, model, contents, nil)
@@ -174,16 +178,25 @@ func (cs *ChatStep) RunInference(ctx context.Context, messages conversation.Conv
 		conversation.NewChatMessageContent(conversation.RoleAssistant, text, nil),
 		conversation.WithLLMMessageMetadata(meta),
 	)
-	return msg, nil
+
+	// Clone the input conversation and append the new message
+	result := append(conversation.Conversation(nil), messages...)
+	result = append(result, msg)
+	return result, nil
 }
 
 func (cs *ChatStep) Start(ctx context.Context, messages conversation.Conversation) (steps.StepResult[*conversation.Message], error) {
 	if !cs.Settings.Chat.Stream {
-		msg, err := cs.RunInference(ctx, messages)
+		result, err := cs.RunInference(ctx, messages)
 		if err != nil {
 			return steps.Reject[*conversation.Message](err), nil
 		}
-		return steps.Resolve(msg), nil
+		// Extract the last message (the AI response) from the conversation
+		if len(result) == 0 {
+			return steps.Reject[*conversation.Message](errors.New("empty conversation returned")), nil
+		}
+		lastMsg := result[len(result)-1]
+		return steps.Resolve(lastMsg), nil
 	}
 
 	cancellableCtx, cancel := context.WithCancel(ctx)
@@ -203,7 +216,7 @@ func (cs *ChatStep) Start(ctx context.Context, messages conversation.Conversatio
 	go func() {
 		defer close(c)
 		defer cancel()
-		msg, err := cs.RunInference(cancellableCtx, messages)
+		result, err := cs.RunInference(cancellableCtx, messages)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				c <- helpers.NewErrorResult[*conversation.Message](context.Canceled)
@@ -212,7 +225,13 @@ func (cs *ChatStep) Start(ctx context.Context, messages conversation.Conversatio
 			}
 			return
 		}
-		c <- helpers.NewValueResult[*conversation.Message](msg)
+		// Extract the last message (the AI response) from the conversation
+		if len(result) == 0 {
+			c <- helpers.NewErrorResult[*conversation.Message](errors.New("empty conversation returned"))
+			return
+		}
+		lastMsg := result[len(result)-1]
+		c <- helpers.NewValueResult[*conversation.Message](lastMsg)
 	}()
 
 	return ret, nil

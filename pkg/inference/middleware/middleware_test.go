@@ -15,11 +15,14 @@ type MockEngine struct {
 	err      error
 }
 
-func (m *MockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (*conversation.Message, error) {
+func (m *MockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.response, nil
+	// Clone input conversation and append response
+	result := append(conversation.Conversation(nil), messages...)
+	result = append(result, m.response)
+	return result, nil
 }
 
 func TestEngineHandler(t *testing.T) {
@@ -28,7 +31,7 @@ func TestEngineHandler(t *testing.T) {
 	mockEngine := &MockEngine{response: mockResponse}
 
 	// Create handler from engine
-	handler := EngineHandler(mockEngine)
+	handler := engineHandlerFunc(mockEngine)
 
 	// Test with input messages
 	inputMessages := conversation.NewConversation(
@@ -69,7 +72,7 @@ func TestMiddlewareChain(t *testing.T) {
 	mockEngine := &MockEngine{response: mockResponse}
 
 	// Create middleware chain
-	handler := EngineHandler(mockEngine)
+	handler := engineHandlerFunc(mockEngine)
 	chainedHandler := Chain(handler, prefixMiddleware)
 
 	// Test
@@ -109,7 +112,9 @@ func TestEngineWithMiddleware(t *testing.T) {
 	response, err := engine.RunInference(context.Background(), inputMessages)
 
 	require.NoError(t, err)
-	assert.Equal(t, "Response", response.Content.(*conversation.ChatMessageContent).Text)
+	require.Len(t, response, 2) // Original message + response
+	lastMessage := response[len(response)-1]
+	assert.Equal(t, "Response", lastMessage.Content.(*conversation.ChatMessageContent).Text)
 	assert.Len(t, loggedMessages, 1) // Middleware should have logged the input
 
 	// Test RunInferenceWithHistory

@@ -36,12 +36,12 @@ func NewOpenAIEngine(settings *settings.StepSettings, options ...engine.Option) 
 	}, nil
 }
 
-// RunInference processes a conversation using OpenAI API and returns the generated message.
+// RunInference processes a conversation using OpenAI API and returns the full updated conversation.
 // This implementation is extracted from the existing OpenAI ChatStep RunInference method.
 func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
-) (*conversation.Message, error) {
+) (conversation.Conversation, error) {
 	log.Debug().Int("num_messages", len(messages)).Bool("stream", e.settings.Chat.Stream).Msg("OpenAI RunInference started")
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
@@ -206,12 +206,16 @@ func (e *OpenAIEngine) RunInference(
 		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
 		finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
 
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, finalMessage)
+
 		// Publish final event for streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
 		e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, message))
 
 		log.Debug().Msg("OpenAI RunInference completed (streaming)")
-		return finalMessage, nil
+		return result, nil
 	} else {
 		log.Debug().Msg("OpenAI using non-streaming mode")
 		resp, err := client.CreateChatCompletion(ctx, *req)
@@ -254,12 +258,16 @@ func (e *OpenAIEngine) RunInference(
 			conversation.WithLLMMessageMetadata(llmMetadata),
 		)
 
+		// Clone the input conversation and append the new message
+		result := append(conversation.Conversation(nil), messages...)
+		result = append(result, finalMessage)
+
 		// Publish final event for non-streaming
 		log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing final event (non-streaming)")
 		e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
 
 		log.Debug().Msg("OpenAI RunInference completed (non-streaming)")
-		return finalMessage, nil
+		return result, nil
 	}
 }
 

@@ -20,6 +20,7 @@ type ManagerBuilder struct {
 	autosaveTemplate string
 	autosavePath     string
 }
+
 // NewManagerBuilder creates a new builder for conversation.Manager
 func NewManagerBuilder() *ManagerBuilder {
 	return &ManagerBuilder{
