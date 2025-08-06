@@ -9,13 +9,13 @@ import (
 
 // ToolDefinition represents a tool that can be called by AI models
 type ToolDefinition struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
 	Parameters  *jsonschema.Schema `json:"parameters"`
-	Function    interface{}       `json:"-"` // Function to execute
-	Examples    []ToolExample     `json:"examples,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Version     string            `json:"version,omitempty"`
+	Function    interface{}        `json:"-"` // Function to execute
+	Examples    []ToolExample      `json:"examples,omitempty"`
+	Tags        []string           `json:"tags,omitempty"`
+	Version     string             `json:"version,omitempty"`
 }
 
 // ToolExample represents an example of tool usage
@@ -27,14 +27,14 @@ type ToolExample struct {
 
 // ToolConfig specifies how tools should be used during inference
 type ToolConfig struct {
-	Enabled             bool              `json:"enabled"`
-	ToolChoice          ToolChoice        `json:"tool_choice"`          
-	MaxIterations       int               `json:"max_iterations"`       
-	ExecutionTimeout    time.Duration     `json:"execution_timeout"`    
-	MaxParallelTools    int               `json:"max_parallel_tools"`   
-	AllowedTools        []string          `json:"allowed_tools"`        
-	ToolErrorHandling   ToolErrorHandling `json:"tool_error_handling"`  
-	RetryConfig         RetryConfig       `json:"retry_config"`         
+	Enabled           bool              `json:"enabled"`
+	ToolChoice        ToolChoice        `json:"tool_choice"`
+	MaxIterations     int               `json:"max_iterations"`
+	ExecutionTimeout  time.Duration     `json:"execution_timeout"`
+	MaxParallelTools  int               `json:"max_parallel_tools"`
+	AllowedTools      []string          `json:"allowed_tools"`
+	ToolErrorHandling ToolErrorHandling `json:"tool_error_handling"`
+	RetryConfig       RetryConfig       `json:"retry_config"`
 }
 
 // RetryConfig defines retry behavior for tool execution
@@ -62,32 +62,9 @@ const (
 	ToolErrorRetry    ToolErrorHandling = "retry"    // Retry with exponential backoff
 )
 
-// StreamChunkHandler processes streaming chunks that may include partial tool calls
-type StreamChunkHandler func(chunk StreamChunk) error
-
-// StreamChunk represents a piece of streaming response
-type StreamChunk struct {
-	Type       ChunkType        `json:"type"`
-	Content    string           `json:"content,omitempty"`
-	ToolCall   *PartialToolCall `json:"tool_call,omitempty"`
-	IsComplete bool             `json:"is_complete"`
-}
-
-// ChunkType defines the type of streaming chunk
-type ChunkType string
-
-const (
-	ChunkTypeContent  ChunkType = "content"
-	ChunkTypeToolCall ChunkType = "tool_call"
-	ChunkTypeComplete ChunkType = "complete"
-)
-
-// PartialToolCall represents a partial tool call during streaming
-type PartialToolCall struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"` // May be partial JSON
-}
+// NOTE: Streaming types have been removed in the simplified tool calling architecture.
+// Streaming is now handled internally by engines when event sinks are configured.
+// The RunInferenceStream method has been removed from the Engine interface.
 
 // ToolFeatures describes what tool features an engine supports
 type ToolFeatures struct {

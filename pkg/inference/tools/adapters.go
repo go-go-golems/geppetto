@@ -3,6 +3,8 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 )
 
 // ToolAdapter converts our generic ToolDefinition to provider-specific formats
@@ -10,7 +12,7 @@ type ToolAdapter interface {
 	ConvertToProviderFormat(tool ToolDefinition) (interface{}, error)
 	ConvertFromProviderResponse(response interface{}) ([]ToolCall, error)
 	ValidateToolDefinition(tool ToolDefinition) error
-	GetProviderLimits() ProviderLimits
+	GetProviderLimits() engine.ProviderLimits
 }
 
 // OpenAIToolAdapter converts to go_openai.Tool format
@@ -41,12 +43,12 @@ func (a *OpenAIToolAdapter) ConvertToProviderFormat(tool ToolDefinition) (interf
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal parameters: %w", err)
 		}
-		
+
 		var parametersMap map[string]interface{}
 		if err := json.Unmarshal(parametersBytes, &parametersMap); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
 		}
-		
+
 		openaiTool["function"].(map[string]interface{})["parameters"] = parametersMap
 	}
 
@@ -61,17 +63,17 @@ func (a *OpenAIToolAdapter) ConvertFromProviderResponse(response interface{}) ([
 
 func (a *OpenAIToolAdapter) ValidateToolDefinition(tool ToolDefinition) error {
 	limits := a.GetProviderLimits()
-	
+
 	if len(tool.Name) > limits.MaxToolNameLength {
 		return fmt.Errorf("tool name too long: %d > %d", len(tool.Name), limits.MaxToolNameLength)
 	}
-	
+
 	// Additional OpenAI-specific validations
 	return nil
 }
 
-func (a *OpenAIToolAdapter) GetProviderLimits() ProviderLimits {
-	return ProviderLimits{
+func (a *OpenAIToolAdapter) GetProviderLimits() engine.ProviderLimits {
+	return engine.ProviderLimits{
 		MaxToolsPerRequest:      64,
 		MaxToolNameLength:       64,
 		SupportedParameterTypes: []string{"string", "number", "integer", "boolean", "object", "array"},
@@ -103,12 +105,12 @@ func (a *ClaudeToolAdapter) ConvertToProviderFormat(tool ToolDefinition) (interf
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal parameters: %w", err)
 		}
-		
+
 		var inputSchema map[string]interface{}
 		if err := json.Unmarshal(parametersBytes, &inputSchema); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
 		}
-		
+
 		claudeTool["input_schema"] = inputSchema
 	}
 
@@ -122,24 +124,24 @@ func (a *ClaudeToolAdapter) ConvertFromProviderResponse(response interface{}) ([
 
 func (a *ClaudeToolAdapter) ValidateToolDefinition(tool ToolDefinition) error {
 	limits := a.GetProviderLimits()
-	
+
 	if len(tool.Name) > limits.MaxToolNameLength {
 		return fmt.Errorf("tool name too long: %d > %d", len(tool.Name), limits.MaxToolNameLength)
 	}
-	
+
 	// Additional Claude-specific validations
 	return nil
 }
 
-func (a *ClaudeToolAdapter) GetProviderLimits() ProviderLimits {
-	return ProviderLimits{
+func (a *ClaudeToolAdapter) GetProviderLimits() engine.ProviderLimits {
+	return engine.ProviderLimits{
 		MaxToolsPerRequest:      20,
 		MaxTotalSizeBytes:       51200, // 50KB total
 		SupportedParameterTypes: []string{"string", "number", "integer", "boolean", "object", "array"},
 	}
 }
 
-// GeminiToolAdapter converts to Gemini's function calling format  
+// GeminiToolAdapter converts to Gemini's function calling format
 type GeminiToolAdapter struct{}
 
 // NewGeminiToolAdapter creates a new Gemini tool adapter
@@ -164,12 +166,12 @@ func (a *GeminiToolAdapter) ConvertToProviderFormat(tool ToolDefinition) (interf
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal parameters: %w", err)
 		}
-		
+
 		var parameters map[string]interface{}
 		if err := json.Unmarshal(parametersBytes, &parameters); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
 		}
-		
+
 		geminiTool["parameters"] = parameters
 	}
 
@@ -183,17 +185,17 @@ func (a *GeminiToolAdapter) ConvertFromProviderResponse(response interface{}) ([
 
 func (a *GeminiToolAdapter) ValidateToolDefinition(tool ToolDefinition) error {
 	limits := a.GetProviderLimits()
-	
+
 	if len(tool.Name) > limits.MaxToolNameLength {
 		return fmt.Errorf("tool name too long: %d > %d", len(tool.Name), limits.MaxToolNameLength)
 	}
-	
+
 	// Additional Gemini-specific validations
 	return nil
 }
 
-func (a *GeminiToolAdapter) GetProviderLimits() ProviderLimits {
-	return ProviderLimits{
+func (a *GeminiToolAdapter) GetProviderLimits() engine.ProviderLimits {
+	return engine.ProviderLimits{
 		MaxToolsPerRequest:      50, // Placeholder value
 		MaxToolNameLength:       100,
 		SupportedParameterTypes: []string{"string", "number", "integer", "boolean", "object", "array"},
