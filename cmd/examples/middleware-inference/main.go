@@ -15,21 +15,27 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "middleware-inference",
 	Short: "A demo command that shows how to use middleware with inference engines",
 	Long:  "This command demonstrates how to use logging and uppercase text transformation middleware with inference engines.",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		err := logging.InitLoggerFromViper()
+		if err != nil {
+			return err
+		}
+		return nil
+	},
 }
 
 type MiddlewareInferenceCommand struct {
@@ -247,10 +253,6 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 }
 
 func main() {
-	// Initialize zerolog with pretty console output
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
 	err := clay.InitViper("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 

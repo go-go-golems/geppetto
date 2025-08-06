@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/rs/zerolog/log"
 )
 
 // Engine interface for tool-enabled inference engines
@@ -88,11 +89,68 @@ func NewInferenceOrchestrator(engine Engine, registry ToolRegistry, config ToolC
 	}
 }
 
+// configureToolsOnEngine configures the available tools on the underlying engine
+func (o *InferenceOrchestrator) configureToolsOnEngine() error {
+	// Get all tools from registry
+	allTools := o.toolRegistry.ListTools()
+	
+	// Filter tools based on configuration
+	var allowedTools []ToolDefinition
+	if len(o.toolConfig.AllowedTools) > 0 {
+		// Only include explicitly allowed tools
+		allowedMap := make(map[string]bool)
+		for _, name := range o.toolConfig.AllowedTools {
+			allowedMap[name] = true
+		}
+		
+		for _, tool := range allTools {
+			if allowedMap[tool.Name] {
+				allowedTools = append(allowedTools, tool)
+			}
+		}
+	} else {
+		// Include all tools
+		allowedTools = allTools
+	}
+	
+	if len(allowedTools) == 0 {
+		log.Debug().Msg("No tools available for configuration")
+		return nil
+	}
+	
+	log.Debug().Int("tool_count", len(allowedTools)).Msg("Configuring tools on engine")
+	
+	// Check if the engine supports direct tool configuration
+	if configurableEngine, ok := o.engine.(interface {
+		ConfigureTools([]ToolDefinition, ToolConfig) error
+	}); ok {
+		// Engine supports ConfigureTools method, use it
+		err := configurableEngine.ConfigureTools(allowedTools, o.toolConfig)
+		if err != nil {
+			return fmt.Errorf("failed to configure tools on engine: %w", err)
+		}
+	} else {
+		// Fallback to PrepareToolsForRequest
+		_, err := o.engine.PrepareToolsForRequest(allowedTools, o.toolConfig)
+		if err != nil {
+			return fmt.Errorf("failed to prepare tools for engine: %w", err)
+		}
+	}
+	
+	return nil
+}
+
 // RunInference orchestrates the inference process with tool calling
 func (o *InferenceOrchestrator) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
 	if !o.toolConfig.Enabled {
 		// Tools disabled, just run the engine
 		return o.engine.RunInference(ctx, messages)
+	}
+	
+	// Configure tools on the engine before running inference
+	err := o.configureToolsOnEngine()
+	if err != nil {
+		return messages, fmt.Errorf("failed to configure tools on engine: %w", err)
 	}
 	
 	currentConversation := messages

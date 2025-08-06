@@ -8,7 +8,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"io"
-	"os"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
@@ -18,11 +17,11 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -32,6 +31,13 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "simple-streaming-inference",
 	Short: "Simple streaming inference example with Engine-first architecture",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		err := logging.InitLoggerFromViper()
+		if err != nil {
+			return err
+		}
+		return nil
+	},
 }
 
 type SimpleStreamingInferenceCommand struct {
@@ -261,10 +267,6 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 }
 
 func main() {
-	// Initialize zerolog with pretty console output
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
 	err := clay.InitViper("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
