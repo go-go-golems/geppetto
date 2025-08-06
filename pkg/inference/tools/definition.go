@@ -127,8 +127,21 @@ func generateSchemaFromFunc(funcType reflect.Type) (*jsonschema.Schema, error) {
 	}
 
 	inputType := funcType.In(0)
-	reflector := jsonschema.Reflector{}
-	schema := reflector.Reflect(inputType)
+	
+	// Create an instance of the type to properly generate schema with properties
+	// This matches the approach used in the old GetFunctionParametersJsonSchema
+	inputInstance := reflect.New(inputType).Elem().Interface()
+	
+	reflector := jsonschema.Reflector{
+		// Expand definitions inline instead of using $refs
+		DoNotReference: true,
+	}
+	schema := reflector.Reflect(inputInstance)
+	
+	// Ensure the root schema has type "object" for OpenAI compatibility
+	if schema.Type == "" && schema.Ref == "" {
+		schema.Type = "object"
+	}
 	
 	return schema, nil
 }
