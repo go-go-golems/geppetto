@@ -26,14 +26,13 @@ The implementation follows the streaming inference pattern described in the docu
 ### Basic Streaming
 
 ```bash
-./simple-streaming-inference simple-streaming-inference "Your prompt here" --ai-stream=true
+./simple-streaming-inference simple-streaming-inference "Your prompt here"
 ```
 
 ### JSON Output with Metadata
 
 ```bash
 ./simple-streaming-inference simple-streaming-inference "Your prompt" \
-  --ai-stream=true \
   --output-format=json \
   --with-metadata=true
 ```
@@ -42,7 +41,6 @@ The implementation follows the streaming inference pattern described in the docu
 
 ```bash
 ./simple-streaming-inference simple-streaming-inference "Your prompt" \
-  --ai-stream=true \
   --output-format=yaml \
   --full-output=true \
   --with-metadata=true
@@ -52,7 +50,6 @@ The implementation follows the streaming inference pattern described in the docu
 
 ```bash
 ./simple-streaming-inference simple-streaming-inference "Your prompt" \
-  --ai-stream=true \
   --verbose=true \
   --with-logging=true
 ```
@@ -73,10 +70,11 @@ The implementation follows the streaming inference pattern described in the docu
 
 ### AI Configuration
 
-- `--ai-stream`: Whether to stream responses - default: false
 - `--ai-engine`: The model to use for chat
 - `--ai-temperature`: Temperature for response generation
 - `--ai-max-response-tokens`: Maximum number of tokens in the response
+
+**Note**: Streaming is always enabled in this implementation - no configuration needed.
 
 ## Event Flow
 
@@ -114,4 +112,4 @@ This streaming version extends the basic simple inference example by adding:
 - Rich metadata and debugging options
 - Coordinated parallel execution
 
-The core inference logic remains the same, but now supports real-time streaming with proper event distribution and handling. 
+The core inference logic remains the same, but now supports real-time streaming with proper event distribution and handling.

@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -69,6 +70,15 @@ func (cbm *ContentBlockMerger) Text() string {
 }
 
 func (cbm *ContentBlockMerger) Response() *api.MessageResponse {
+	if cbm.response != nil {
+		log.Debug().
+			Str("stop_reason", cbm.response.StopReason).
+			Str("full_text", cbm.response.FullText()).
+			Int("content_blocks", len(cbm.response.Content)).
+			Msg("ContentBlockMerger returning final response")
+	} else {
+		log.Debug().Msg("ContentBlockMerger returning nil response")
+	}
 	return cbm.response
 }
 
@@ -123,7 +133,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
 
-	log.Trace().Object("event", event).Msg("ContentBlockMerger.Add")
+	log.Debug().
+		Str("event_type", string(event.Type)).
+		Interface("event", event).
+		Msg("ContentBlockMerger processing event")
 
 	switch event.Type {
 	case api.PingType:
@@ -175,6 +188,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			}
 		}
 
+		log.Debug().
+			Str("stop_reason", cbm.response.StopReason).
+			Str("full_text", cbm.response.FullText()).
+			Msg("ContentBlockMerger received message_stop - message complete")
+
 		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
@@ -217,7 +235,12 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, delta, cbm.response.FullText()+cb.Text)}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
-			cb.Input += event.Delta.PartialJSON
+			// Append to existing input string for tool use
+			if currentInput, ok := cb.Input.(string); ok {
+				cb.Input = currentInput + event.Delta.PartialJSON
+			} else {
+				cb.Input = event.Delta.PartialJSON
+			}
 			// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
 			_ = delta
 		}
@@ -238,11 +261,23 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
 
 		case api.ContentTypeToolUse:
-			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, cb.Input))
+			// Convert Input to string for API compatibility
+			inputStr := ""
+			if cb.Input != nil {
+				if str, ok := cb.Input.(string); ok {
+					inputStr = str
+				} else {
+					// For non-string inputs, marshal to JSON
+					if inputBytes, err := json.Marshal(cb.Input); err == nil {
+						inputStr = string(inputBytes)
+					}
+				}
+			}
+			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, inputStr))
 			return []events.Event{events.NewToolCallEvent(cbm.metadata, cbm.stepMetadata, events.ToolCall{
 				ID:    cb.ID,
 				Name:  cb.Name,
-				Input: cb.Input,
+				Input: inputStr,
 			})}, nil
 
 		case api.ContentTypeImage, api.ContentTypeToolResult:

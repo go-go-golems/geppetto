@@ -64,7 +64,7 @@ func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	messages conversation.Conversation,
 ) (conversation.Conversation, error) {
-	log.Debug().Int("num_messages", len(messages)).Bool("stream", e.settings.Chat.Stream).Msg("OpenAI RunInference started")
+	log.Debug().Int("num_messages", len(messages)).Bool("stream", true).Msg("OpenAI RunInference started")
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
@@ -126,26 +126,7 @@ func (e *OpenAIEngine) RunInference(
 			Msg("Tools added to OpenAI request")
 	}
 
-	// Handle fake API key case for testing
-	if e.settings.API != nil {
-		if apiKey, ok := e.settings.API.APIKeys["openai-api-key"]; ok && apiKey == "fake-key-for-testing" {
-			log.Info().Msg("FAKE API KEY DETECTED - RETURNING MOCK RESPONSE WITH TOOL CALLS")
 
-			// Create a mock tool call response
-			mockResponse := conversation.NewMessage(
-				&conversation.ToolUseContent{
-					ToolID: "call_mock_weather",
-					Name:   "get_weather",
-					Input:  []byte(`{"location": "Tokyo", "units": "celsius"}`),
-				},
-			)
-
-			result := append(conversation.Conversation(nil), messages...)
-			result = append(result, mockResponse)
-
-			return result, nil
-		}
-	}
 
 	// Setup metadata and event publishing
 	var parentMessage *conversation.Message
@@ -189,215 +170,122 @@ func (e *OpenAIEngine) RunInference(
 	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
 	e.publishEvent(events.NewStartEvent(metadata, stepMetadata))
 
-	if e.settings.Chat.Stream {
-		// For streaming, collect all chunks and return the final message
-		log.Debug().Msg("OpenAI using streaming mode")
-		stream, err := client.CreateChatCompletionStream(ctx, *req)
-		if err != nil {
-			log.Error().Err(err).Msg("OpenAI streaming request failed")
-			e.publishEvent(events.NewErrorEvent(metadata, stepMetadata, err))
-			return nil, err
-		}
-		defer func() {
-			if err := stream.Close(); err != nil {
-				stdlog.Printf("Failed to close stream: %v", err)
-			}
-		}()
-
-		message := ""
-		var usage *conversation.Usage
-		var stopReason *string
-
-		log.Debug().Msg("OpenAI starting streaming loop")
-		chunkCount := 0
-		for {
-			select {
-			case <-ctx.Done():
-				log.Debug().Msg("OpenAI streaming cancelled by context")
-				// Publish interrupt event with current partial text
-				e.publishEvent(events.NewInterruptEvent(metadata, stepMetadata, message))
-				return nil, ctx.Err()
-
-			default:
-				response, err := stream.Recv()
-				if errors.Is(err, io.EOF) {
-					log.Debug().Int("chunks_received", chunkCount).Msg("OpenAI stream completed")
-					goto streamingComplete
-				}
-				if err != nil {
-					log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
-					e.publishEvent(events.NewErrorEvent(metadata, stepMetadata, err))
-					return nil, err
-				}
-				chunkCount++
-
-				delta := ""
-				if len(response.Choices) > 0 {
-					delta = response.Choices[0].Delta.Content
-					message += delta
-					log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
-				}
-
-				// Extract metadata from OpenAI chat response
-				if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
-					if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
-						inputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
-						outputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
-						usage = &conversation.Usage{
-							InputTokens:  inputTokens,
-							OutputTokens: outputTokens,
-						}
-					}
-					if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
-						stopReason = &finishReason
-					}
-				}
-
-				// Publish intermediate streaming event
-				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
-				e.publishEvent(
-					events.NewPartialCompletionEvent(
-						metadata,
-						stepMetadata,
-						delta, message),
-				)
-			}
-		}
-
-	streamingComplete:
-
-		// Update event metadata with usage information
-		if usage != nil {
-			metadata.Usage = usage
-		}
-		if stopReason != nil {
-			metadata.StopReason = stopReason
-		}
-
-		llmMetadata := &conversation.LLMMessageMetadata{
-			Engine: string(*e.settings.Chat.Engine),
-		}
-		if e.settings.Chat.Temperature != nil {
-			llmMetadata.Temperature = e.settings.Chat.Temperature
-		}
-		if e.settings.Chat.TopP != nil {
-			llmMetadata.TopP = e.settings.Chat.TopP
-		}
-		if e.settings.Chat.MaxResponseTokens != nil {
-			llmMetadata.MaxTokens = e.settings.Chat.MaxResponseTokens
-		}
-		if usage != nil {
-			llmMetadata.Usage = usage
-		}
-		if stopReason != nil {
-			llmMetadata.StopReason = stopReason
-		}
-
-		messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
-		finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
-
-		// Clone the input conversation and append the new message
-		result := append(conversation.Conversation(nil), messages...)
-		result = append(result, finalMessage)
-
-		// Publish final event for streaming
-		log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
-		e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, message))
-
-		log.Debug().Msg("OpenAI RunInference completed (streaming)")
-		return result, nil
-	} else {
-		log.Debug().Msg("OpenAI using non-streaming mode")
-		resp, err := client.CreateChatCompletion(ctx, *req)
-		if err != nil {
-			log.Error().Err(err).Msg("OpenAI non-streaming request failed")
-			e.publishEvent(events.NewErrorEvent(metadata, stepMetadata, err))
-			return nil, err
-		}
-
-		// Handle response content appropriately
-		if len(resp.Choices) > 0 {
-			choice := resp.Choices[0]
-			log.Debug().
-				Str("finish_reason", string(choice.FinishReason)).
-				Int("tool_calls_count", len(choice.Message.ToolCalls)).
-				Msg("OpenAI response received")
-		}
-
-		llmMetadata := &conversation.LLMMessageMetadata{
-			Engine: string(*e.settings.Chat.Engine),
-		}
-		if e.settings.Chat.Temperature != nil {
-			llmMetadata.Temperature = e.settings.Chat.Temperature
-		}
-		if e.settings.Chat.TopP != nil {
-			llmMetadata.TopP = e.settings.Chat.TopP
-		}
-		if e.settings.Chat.MaxResponseTokens != nil {
-			llmMetadata.MaxTokens = e.settings.Chat.MaxResponseTokens
-		}
-
-		// Extract metadata from non-streaming response and update event metadata
-		if usage := resp.Usage; usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
-			usageData := &conversation.Usage{
-				InputTokens:  usage.PromptTokens,
-				OutputTokens: usage.CompletionTokens,
-			}
-			llmMetadata.Usage = usageData
-			metadata.Usage = usageData
-		}
-		if len(resp.Choices) > 0 && resp.Choices[0].FinishReason != "" {
-			finishReason := string(resp.Choices[0].FinishReason)
-			llmMetadata.StopReason = &finishReason
-			metadata.StopReason = &finishReason
-		}
-
-		// Handle tool calls if present
-		choice := resp.Choices[0]
-		var newMessages []*conversation.Message
-
-		if len(choice.Message.ToolCalls) > 0 {
-			log.Debug().Int("tool_calls", len(choice.Message.ToolCalls)).Msg("OpenAI response contains tool calls, creating ToolUseContent messages")
-
-			// Create a tool use message for each tool call
-			for _, toolCall := range choice.Message.ToolCalls {
-				log.Debug().
-					Str("tool_call_id", toolCall.ID).
-					Str("tool_name", toolCall.Function.Name).
-					Str("tool_arguments", toolCall.Function.Arguments).
-					Msg("Processing OpenAI tool call")
-
-				toolUseMessage := conversation.NewMessage(
-					&conversation.ToolUseContent{
-						ToolID: toolCall.ID,
-						Name:   toolCall.Function.Name,
-						Input:  []byte(toolCall.Function.Arguments),
-					},
-					conversation.WithLLMMessageMetadata(llmMetadata),
-				)
-				newMessages = append(newMessages, toolUseMessage)
-			}
-		} else {
-			// No tool calls, create regular chat message
-			log.Debug().Msg("OpenAI response contains no tool calls, creating ChatMessageContent")
-			finalMessage := conversation.NewMessage(
-				conversation.NewChatMessageContent(conversation.RoleAssistant, choice.Message.Content, nil),
-				conversation.WithLLMMessageMetadata(llmMetadata),
-			)
-			newMessages = append(newMessages, finalMessage)
-		}
-
-		// Clone the input conversation and append the new messages
-		result := append(conversation.Conversation(nil), messages...)
-		result = append(result, newMessages...)
-
-		// Publish final event for non-streaming
-		log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing final event (non-streaming)")
-		e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, resp.Choices[0].Message.Content))
-
-		log.Debug().Msg("OpenAI RunInference completed (non-streaming)")
-		return result, nil
+	// Always use streaming mode
+	log.Debug().Msg("OpenAI using streaming mode")
+	stream, err := client.CreateChatCompletionStream(ctx, *req)
+	if err != nil {
+		log.Error().Err(err).Msg("OpenAI streaming request failed")
+		e.publishEvent(events.NewErrorEvent(metadata, stepMetadata, err))
+		return nil, err
 	}
+	defer func() {
+		if err := stream.Close(); err != nil {
+			stdlog.Printf("Failed to close stream: %v", err)
+		}
+	}()
+
+	message := ""
+	var usage *conversation.Usage
+	var stopReason *string
+
+	log.Debug().Msg("OpenAI starting streaming loop")
+	chunkCount := 0
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug().Msg("OpenAI streaming cancelled by context")
+			// Publish interrupt event with current partial text
+			e.publishEvent(events.NewInterruptEvent(metadata, stepMetadata, message))
+			return nil, ctx.Err()
+
+		default:
+			response, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				log.Debug().Int("chunks_received", chunkCount).Msg("OpenAI stream completed")
+				goto streamingComplete
+			}
+			if err != nil {
+				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
+				e.publishEvent(events.NewErrorEvent(metadata, stepMetadata, err))
+				return nil, err
+			}
+			chunkCount++
+
+			delta := ""
+			if len(response.Choices) > 0 {
+				delta = response.Choices[0].Delta.Content
+				message += delta
+				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+			}
+
+			// Extract metadata from OpenAI chat response
+			if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
+				if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
+					inputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
+					outputTokens, _ := cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
+					usage = &conversation.Usage{
+						InputTokens:  inputTokens,
+						OutputTokens: outputTokens,
+					}
+				}
+				if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
+					stopReason = &finishReason
+				}
+			}
+
+			// Publish intermediate streaming event
+			log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
+			e.publishEvent(
+				events.NewPartialCompletionEvent(
+					metadata,
+					stepMetadata,
+					delta, message),
+			)
+		}
+	}
+
+streamingComplete:
+
+	// Update event metadata with usage information
+	if usage != nil {
+		metadata.Usage = usage
+	}
+	if stopReason != nil {
+		metadata.StopReason = stopReason
+	}
+
+	llmMetadata := &conversation.LLMMessageMetadata{
+		Engine: string(*e.settings.Chat.Engine),
+	}
+	if e.settings.Chat.Temperature != nil {
+		llmMetadata.Temperature = e.settings.Chat.Temperature
+	}
+	if e.settings.Chat.TopP != nil {
+		llmMetadata.TopP = e.settings.Chat.TopP
+	}
+	if e.settings.Chat.MaxResponseTokens != nil {
+		llmMetadata.MaxTokens = e.settings.Chat.MaxResponseTokens
+	}
+	if usage != nil {
+		llmMetadata.Usage = usage
+	}
+	if stopReason != nil {
+		llmMetadata.StopReason = stopReason
+	}
+
+	messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+	finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
+
+	// Clone the input conversation and append the new message
+	result := append(conversation.Conversation(nil), messages...)
+	result = append(result, finalMessage)
+
+	// Publish final event for streaming
+	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
+	e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, message))
+
+	log.Debug().Msg("OpenAI RunInference completed (streaming)")
+	return result, nil
 }
 
 // publishEvent publishes an event to all configured sinks.

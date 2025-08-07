@@ -318,7 +318,7 @@ type ChatSettings struct {
     TopP              *float64          `yaml:"top_p,omitempty" glazed.parameter:"ai-top-p"`
     Temperature       *float64          `yaml:"temperature,omitempty" glazed.parameter:"ai-temperature"`
     Stop              []string          `yaml:"stop,omitempty" glazed.parameter:"ai-stop"`
-    Stream            bool              `yaml:"stream,omitempty" glazed.parameter:"ai-stream"`
+    Stream            bool              `yaml:"stream,omitempty"`
     APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
 
     // Caching settings
