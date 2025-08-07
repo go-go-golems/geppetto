@@ -18,8 +18,8 @@ type ChatSettings struct {
 	TopP              *float64          `yaml:"top_p,omitempty" glazed.parameter:"ai-top-p"`
 	Temperature       *float64          `yaml:"temperature,omitempty" glazed.parameter:"ai-temperature"`
 	Stop              []string          `yaml:"stop,omitempty" glazed.parameter:"ai-stop"`
-	Stream            bool              `yaml:"stream,omitempty" glazed.parameter:"ai-stream"`
 	APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+	Stream            bool              `yaml:"stream,omitempty"`
 
 	// Caching settings
 	CacheType       string `yaml:"cache_type,omitempty" glazed.parameter:"ai-cache-type"`
@@ -36,8 +36,8 @@ func NewChatSettings() (*ChatSettings, error) {
 		TopP:              nil,
 		Temperature:       nil,
 		Stop:              []string{},
-		Stream:            false,
 		APIKeys:           map[string]string{},
+		Stream:            true, // Always enable streaming
 	}
 
 	p, err := NewChatParameterLayer()

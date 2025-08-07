@@ -30,10 +30,6 @@ flags:
     type: stringList
     help: Stop sequences for response generation
     default: []
-  - name: ai-stream
-    type: bool
-    help: Whether to stream responses
-    default: false
   - name: ai-cache-type
     type: choice
     choices:

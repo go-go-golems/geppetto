@@ -6,7 +6,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"strings"
 
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
@@ -34,16 +33,11 @@ type EngineFactory interface {
 // It supports creating engines for OpenAI, Claude, and other configured providers.
 // Provider selection is based on settings.Chat.ApiType with fallback to OpenAI.
 type StandardEngineFactory struct {
-	// ClaudeTools are the tools to pass to Claude engines
-	// This can be empty for basic text generation
-	ClaudeTools []api.Tool
 }
 
-// NewStandardEngineFactory creates a new StandardEngineFactory with optional Claude tools.
-func NewStandardEngineFactory(claudeTools ...api.Tool) *StandardEngineFactory {
-	return &StandardEngineFactory{
-		ClaudeTools: claudeTools,
-	}
+// NewStandardEngineFactory creates a new StandardEngineFactory.
+func NewStandardEngineFactory() *StandardEngineFactory {
+	return &StandardEngineFactory{}
 }
 
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
@@ -71,7 +65,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 		return openai.NewOpenAIEngine(settings, options...)
 
 	case string(types.ApiTypeClaude), "anthropic":
-		return claude.NewClaudeEngine(settings, f.ClaudeTools, options...)
+		return claude.NewClaudeEngine(settings, options...)
 
 	case string(types.ApiTypeGemini):
 		// TODO: Implement GeminiEngine when available

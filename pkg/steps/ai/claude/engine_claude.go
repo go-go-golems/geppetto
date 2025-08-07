@@ -5,6 +5,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -17,23 +18,41 @@ import (
 // ClaudeEngine implements the Engine interface for Claude (Anthropic) API calls.
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
-	settings *settings.StepSettings
-	config   *engine.Config
-	tools    []api.Tool
+	settings     *settings.StepSettings
+	config       *engine.Config
+	toolAdapter  *tools.ClaudeToolAdapter
+	toolsEnabled bool
+	tools        []engine.ToolDefinition
+	toolConfig   engine.ToolConfig
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.StepSettings, tools []api.Tool, options ...engine.Option) (*ClaudeEngine, error) {
+func NewClaudeEngine(settings *settings.StepSettings, options ...engine.Option) (*ClaudeEngine, error) {
 	config := engine.NewConfig()
 	if err := engine.ApplyOptions(config, options...); err != nil {
 		return nil, err
 	}
 
 	return &ClaudeEngine{
-		settings: settings,
-		config:   config,
-		tools:    tools,
+		settings:     settings,
+		config:       config,
+		toolAdapter:  tools.NewClaudeToolAdapter(),
+		toolsEnabled: false,
+		tools:        nil,
+		toolConfig:   engine.ToolConfig{},
 	}, nil
+}
+
+// ConfigureTools configures the engine to use tools
+func (e *ClaudeEngine) ConfigureTools(tools []engine.ToolDefinition, config engine.ToolConfig) {
+	e.toolsEnabled = config.Enabled
+	e.tools = tools
+	e.toolConfig = config
+	log.Debug().
+		Bool("enabled", e.toolsEnabled).
+		Int("tool_count", len(e.tools)).
+		Str("tool_choice", string(config.ToolChoice)).
+		Msg("Claude engine tools configured")
 }
 
 // RunInference processes a conversation using Claude API and returns the full updated conversation.
@@ -75,7 +94,34 @@ func (e *ClaudeEngine) RunInference(
 		return nil, err
 	}
 
-	req.Tools = e.tools
+	// Add tools to the request if enabled
+	if e.toolsEnabled && len(e.tools) > 0 {
+		log.Debug().Int("tool_count", len(e.tools)).Msg("Adding tools to Claude request")
+
+		// Convert our tools to api.Tool format
+		var claudeTools []api.Tool
+		for _, tool := range e.tools {
+			claudeTool := api.Tool{
+				Name:        tool.Name,
+				Description: tool.Description,
+				InputSchema: tool.Parameters,
+			}
+			claudeTools = append(claudeTools, claudeTool)
+			log.Debug().
+				Str("tool_name", claudeTool.Name).
+				Str("tool_description", claudeTool.Description).
+				Interface("tool_input_schema", claudeTool.InputSchema).
+				Msg("Converted tool to Claude format")
+		}
+
+		// Set tools in request
+		req.Tools = claudeTools
+
+		log.Debug().
+			Int("claude_tool_count", len(claudeTools)).
+			Interface("claude_tools", claudeTools).
+			Msg("Tools added to Claude request")
+	}
 	// Safely handle Temperature and TopP settings with default fallback
 	if req.Temperature == nil {
 		defaultTemp := float64(1.0)
@@ -261,6 +307,86 @@ func (e *ClaudeEngine) publishEvent(event events.Event) {
 			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
 		}
 	}
+}
+
+// GetSupportedToolFeatures returns the tool features supported by Claude
+func (e *ClaudeEngine) GetSupportedToolFeatures() engine.ToolFeatures {
+	limits := e.toolAdapter.GetProviderLimits()
+	return engine.ToolFeatures{
+		SupportsParallelCalls: false, // Claude currently doesn't support parallel tool calls
+		SupportsToolChoice:    false, // Claude doesn't have explicit tool choice like OpenAI
+		SupportsSystemTools:   false,
+		SupportsStreaming:     true,
+		Limits: engine.ProviderLimits{
+			MaxToolsPerRequest:      limits.MaxToolsPerRequest,
+			MaxToolNameLength:       limits.MaxToolNameLength,
+			MaxTotalSizeBytes:       limits.MaxTotalSizeBytes,
+			SupportedParameterTypes: limits.SupportedParameterTypes,
+		},
+		SupportedChoiceTypes: []engine.ToolChoice{
+			engine.ToolChoiceAuto, // Claude automatically decides when to use tools
+		},
+	}
+}
+
+// PrepareToolsForRequest converts tools to Claude-specific format
+func (e *ClaudeEngine) PrepareToolsForRequest(toolDefs []engine.ToolDefinition, config engine.ToolConfig) (interface{}, error) {
+	if !config.Enabled {
+		return nil, nil
+	}
+
+	// Convert our ToolDefinition to tools.ToolDefinition
+	var convertedTools []tools.ToolDefinition
+	for _, td := range toolDefs {
+		converted := tools.ToolDefinition{
+			Name:        td.Name,
+			Description: td.Description,
+			Parameters:  td.Parameters,
+			Function:    tools.ToolFunc{}, // Function not needed for preparation
+			Examples:    convertToolExamples(td.Examples),
+			Tags:        td.Tags,
+			Version:     td.Version,
+		}
+		convertedTools = append(convertedTools, converted)
+	}
+
+	// Filter tools based on config
+	toolConfig := tools.ToolConfig{
+		Enabled:           config.Enabled,
+		ToolChoice:        tools.ToolChoice(config.ToolChoice),
+		MaxIterations:     config.MaxIterations,
+		ExecutionTimeout:  config.ExecutionTimeout,
+		MaxParallelTools:  config.MaxParallelTools,
+		AllowedTools:      config.AllowedTools,
+		ToolErrorHandling: tools.ToolErrorHandling(config.ToolErrorHandling),
+		RetryConfig:       tools.RetryConfig(config.RetryConfig),
+	}
+	filteredTools := toolConfig.FilterTools(convertedTools)
+
+	// Convert to Claude format
+	var claudeTools []interface{}
+	for _, tool := range filteredTools {
+		converted, err := e.toolAdapter.ConvertToProviderFormat(tool)
+		if err != nil {
+			return nil, err
+		}
+		claudeTools = append(claudeTools, converted)
+	}
+
+	return claudeTools, nil
+}
+
+// Helper function to convert tool examples
+func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
+	var converted []tools.ToolExample
+	for _, ex := range examples {
+		converted = append(converted, tools.ToolExample{
+			Input:       ex.Input,
+			Output:      ex.Output,
+			Description: ex.Description,
+		})
+	}
+	return converted
 }
 
 var _ engine.Engine = (*ClaudeEngine)(nil)
