@@ -192,14 +192,49 @@ func (e *ClaudeEngine) RunInference(
 			llmMessageMetadata.StopReason = &response.StopReason
 		}
 
-		message := conversation.NewChatMessage(
-			conversation.RoleAssistant, response.FullText(),
-			conversation.WithLLMMessageMetadata(llmMessageMetadata),
-		)
-
-		// Clone the input conversation and append the new message
+		// Clone the input conversation
 		result := append(conversation.Conversation(nil), messages...)
-		result = append(result, message)
+
+		// Check if there's text content - if so, create one message with the original content
+		// If not, create separate messages for each content block
+		textContent := ""
+		hasText := false
+		for _, content := range response.Content {
+			if tc, ok := content.(api.TextContent); ok {
+				textContent += tc.Text
+				hasText = true
+			}
+		}
+
+		if hasText {
+			// Create one message with original Claude content (text + tool_use combined)
+			textMsg := conversation.NewChatMessage(
+				conversation.RoleAssistant, textContent,
+				conversation.WithLLMMessageMetadata(llmMessageMetadata),
+			)
+			// Store the original Claude response for proper reconstruction
+			if textMsg.Metadata == nil {
+				textMsg.Metadata = make(map[string]interface{})
+			}
+			textMsg.Metadata["claude_original_content"] = response.Content
+			result = append(result, textMsg)
+		} else {
+			// No text content, create separate ToolUseContent messages
+			for _, content := range response.Content {
+				if toolUseContent, ok := content.(api.ToolUseContent); ok {
+					toolUseMsg := conversation.NewMessage(
+						&conversation.ToolUseContent{
+							ToolID: toolUseContent.ID,
+							Name:   toolUseContent.Name,
+							Input:  toolUseContent.Input,
+							Type:   "function",
+						},
+						conversation.WithLLMMessageMetadata(llmMessageMetadata),
+					)
+					result = append(result, toolUseMsg)
+				}
+			}
+		}
 
 		// Publish final event
 		log.Debug().Str("event_id", metadata.ID.String()).Msg("Claude publishing final event (non-streaming)")
@@ -275,24 +310,62 @@ streamingComplete:
 		metadata.StopReason = &response.StopReason
 	}
 
-	msg := conversation.NewChatMessage(
-		conversation.RoleAssistant, response.FullText(),
-		conversation.WithLLMMessageMetadata(&conversation.LLMMessageMetadata{
-			Engine: req.Model,
-			Usage: &conversation.Usage{
-				InputTokens:  response.Usage.InputTokens,
-				OutputTokens: response.Usage.OutputTokens,
-			},
-			StopReason:  &response.StopReason,
-			Temperature: req.Temperature,
-			TopP:        req.TopP,
-			MaxTokens:   &req.MaxTokens,
-		}),
-	)
+	// Create separate messages for each content block so tool extraction can work
+	llmMetadata := &conversation.LLMMessageMetadata{
+		Engine: req.Model,
+		Usage: &conversation.Usage{
+			InputTokens:  response.Usage.InputTokens,
+			OutputTokens: response.Usage.OutputTokens,
+		},
+		StopReason:  &response.StopReason,
+		Temperature: req.Temperature,
+		TopP:        req.TopP,
+		MaxTokens:   &req.MaxTokens,
+	}
 
-	// Clone the input conversation and append the new message
+	// Clone the input conversation
 	result := append(conversation.Conversation(nil), messages...)
-	result = append(result, msg)
+
+	// Check if there's text content - if so, create one message with the original content
+	// If not, create separate messages for each content block
+	textContent := ""
+	hasText := false
+	for _, content := range response.Content {
+		if tc, ok := content.(api.TextContent); ok {
+			textContent += tc.Text
+			hasText = true
+		}
+	}
+
+	if hasText {
+		// Create one message with original Claude content (text + tool_use combined)
+		textMsg := conversation.NewChatMessage(
+			conversation.RoleAssistant, textContent,
+			conversation.WithLLMMessageMetadata(llmMetadata),
+		)
+		// Store the original Claude response for proper reconstruction
+		if textMsg.Metadata == nil {
+			textMsg.Metadata = make(map[string]interface{})
+		}
+		textMsg.Metadata["claude_original_content"] = response.Content
+		result = append(result, textMsg)
+	} else {
+		// No text content, create separate ToolUseContent messages
+		for _, content := range response.Content {
+			if toolUseContent, ok := content.(api.ToolUseContent); ok {
+				toolUseMsg := conversation.NewMessage(
+					&conversation.ToolUseContent{
+						ToolID: toolUseContent.ID,
+						Name:   toolUseContent.Name,
+						Input:  toolUseContent.Input,
+						Type:   "function",
+					},
+					conversation.WithLLMMessageMetadata(llmMetadata),
+				)
+				result = append(result, toolUseMsg)
+			}
+		}
+	}
 
 	// NOTE: Final event is already published by ContentBlockMerger during event processing
 	// Do not publish duplicate final event here
