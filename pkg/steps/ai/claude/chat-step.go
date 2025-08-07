@@ -406,6 +406,16 @@ func (csf *ChatStep) AddPublishedTopic(publisher watermillmsg.Publisher, topic s
 func messageToClaudeMessage(msg *conversation.Message) api.Message {
 	switch content := msg.Content.(type) {
 	case *conversation.ChatMessageContent:
+		// Check if this message has original Claude content (text + tool_use combined)
+		if claudeContent, exists := msg.Metadata["claude_original_content"]; exists {
+			if originalContent, ok := claudeContent.([]api.Content); ok {
+				return api.Message{
+					Role:    string(content.Role),
+					Content: originalContent,
+				}
+			}
+		}
+		
 		res := api.Message{
 			Role: string(content.Role),
 			Content: []api.Content{
@@ -421,7 +431,7 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 	case *conversation.ToolUseContent:
 		// NOTE(manuel, 2024-06-04) I think multi tool calls in the claude API would be represented by multiple content blocks
 		res := api.Message{
-			Role: string(conversation.RoleUser),
+			Role: string(conversation.RoleAssistant), // Claude expects tool_use blocks in assistant messages
 			Content: []api.Content{
 				api.NewToolUseContent(content.ToolID, content.Name, string(content.Input)),
 			},
@@ -430,7 +440,7 @@ func messageToClaudeMessage(msg *conversation.Message) api.Message {
 
 	case *conversation.ToolResultContent:
 		res := api.Message{
-			Role: string(conversation.RoleTool),
+			Role: string(conversation.RoleUser), // Claude expects tool results in user messages
 			Content: []api.Content{
 				api.NewToolResultContent(content.ToolID, content.Result),
 			},

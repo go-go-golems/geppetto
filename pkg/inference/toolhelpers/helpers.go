@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/rs/zerolog/log"
 )
 
@@ -77,6 +78,43 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 		log.Info().Interface("tool_call", toolCall).Msg("ExtractToolCalls: extracted tool call")
 		return []ToolCall{toolCall}
 	}
+
+	// Check for Claude original content containing tool calls  
+	if _, ok := lastMessage.Content.(*conversation.ChatMessageContent); ok {
+		if claudeContent, exists := lastMessage.Metadata["claude_original_content"]; exists {
+			if originalContent, ok := claudeContent.([]api.Content); ok {
+				log.Debug().Int("content_blocks", len(originalContent)).Msg("ExtractToolCalls: found Claude original content")
+				
+				var toolCalls []ToolCall
+				for _, content := range originalContent {
+					if toolUseContent, ok := content.(api.ToolUseContent); ok {
+						// Parse the input JSON into a map
+						var args map[string]interface{}
+						if err := json.Unmarshal(toolUseContent.Input, &args); err != nil {
+							log.Warn().Err(err).Str("tool_id", toolUseContent.ID).Msg("ExtractToolCalls: failed to parse Claude tool input, using empty args")
+							args = make(map[string]interface{})
+						}
+
+						toolCall := ToolCall{
+							ID:        toolUseContent.ID,
+							Name:      toolUseContent.Name,
+							Arguments: args,
+						}
+						
+						log.Debug().Interface("tool_call", toolCall).Msg("ExtractToolCalls: extracted Claude tool call from original content")
+						toolCalls = append(toolCalls, toolCall)
+					}
+				}
+				
+				if len(toolCalls) > 0 {
+					log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted Claude tool calls from original content")
+					return toolCalls
+				}
+			}
+		}
+	}
+
+
 
 	// TODO: Handle multiple tool calls in a single message
 	// This would require provider-specific parsing logic for different formats
