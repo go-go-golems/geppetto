@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const multipleContentTypesExpected = `{"role":"assistant","content":[{"type":"text","text":"Text"},{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"base64data"}},{"type":"tool_use","id":"tool1","name":"calculator","input":"{\"operation\":\"add\",\"numbers\":[1,2]}"}]}`
+const multipleContentTypesExpected = `{"role":"assistant","content":[{"type":"text","text":"Text"},{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"base64data"}},{"type":"tool_use","id":"tool1","name":"calculator","input":{"operation":"add","numbers":[1,2]}}]}`
 
 func TestMessageSerialization(t *testing.T) {
 	tests := []struct {

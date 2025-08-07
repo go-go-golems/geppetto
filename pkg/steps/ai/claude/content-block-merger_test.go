@@ -1,9 +1,10 @@
 package claude
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/events"
+	"encoding/json"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/stretchr/testify/assert"
@@ -210,7 +211,7 @@ func TestContentBlockMerger(t *testing.T) {
 				toolUseContent := response.Content[1].(api.ToolUseContent)
 				assert.Equal(t, "tool_1", toolUseContent.ID)
 				assert.Equal(t, "calculator", toolUseContent.Name)
-				assert.Equal(t, toolCallResult, toolUseContent.Input)
+				assert.Equal(t, json.RawMessage(toolCallResult), toolUseContent.Input)
 				assert.Equal(t, api.ContentTypeText, response.Content[2].Type())
 				assert.Equal(t, " is the sum.", response.Content[2].(api.TextContent).Text)
 			},
