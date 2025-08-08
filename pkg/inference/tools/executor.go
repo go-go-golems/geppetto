@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"sync"
 	"time"
+    
+    "encoding/json"
+    "github.com/go-go-golems/geppetto/pkg/events"
 )
 
 // ToolExecutor handles the execution of tool calls
@@ -48,13 +51,53 @@ func (e *DefaultToolExecutor) ExecuteToolCall(ctx context.Context, toolCall Tool
 		}, nil
 	}
 	
-	// Execute with timeout and retries
+    // Publish ToolCall event prior to execution (best effort)
+    argStr := ""
+    if len(toolCall.Arguments) > 0 {
+        // Compact JSON for logging/event payload
+        var tmp interface{}
+        if err := json.Unmarshal(toolCall.Arguments, &tmp); err == nil {
+            if b, err2 := json.Marshal(tmp); err2 == nil {
+                argStr = string(b)
+            }
+        } else {
+            argStr = string(toolCall.Arguments)
+        }
+    }
+    events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+        events.EventMetadata{}, nil,
+        events.ToolCall{ID: toolCall.ID, Name: toolCall.Name, Input: argStr},
+    ))
+
+    // Execute with timeout and retries
 	result, err := e.executeWithRetry(ctx, toolCall, toolDef)
 	
-	result.ID = toolCall.ID
-	result.Duration = time.Since(start)
-	
-	return result, err
+    result.ID = toolCall.ID
+    result.Duration = time.Since(start)
+
+    // Publish ToolResult event
+    resultStr := ""
+    if result != nil && result.Result != nil {
+        if b, err := json.Marshal(result.Result); err == nil {
+            resultStr = string(b)
+        } else {
+            resultStr = fmt.Sprintf("%v", result.Result)
+        }
+    }
+    if result != nil && result.Error != "" {
+        // Include error in result payload string for visibility
+        if resultStr == "" {
+            resultStr = fmt.Sprintf("Error: %s", result.Error)
+        } else {
+            resultStr = fmt.Sprintf("%s | Error: %s", resultStr, result.Error)
+        }
+    }
+    events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+        events.EventMetadata{}, nil,
+        events.ToolResult{ID: toolCall.ID, Result: resultStr},
+    ))
+
+    return result, err
 }
 
 // ExecuteToolCalls executes multiple tool calls, potentially in parallel

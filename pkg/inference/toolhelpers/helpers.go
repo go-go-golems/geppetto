@@ -42,43 +42,46 @@ type ToolConfig struct {
 
 // ExtractToolCalls extracts tool calls from the last message in a conversation
 func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
-	log.Debug().Int("conversation_length", len(conv)).Msg("ExtractToolCalls: analyzing conversation")
-	
-	if len(conv) == 0 {
-		log.Debug().Msg("ExtractToolCalls: empty conversation, no tool calls")
-		return nil
-	}
+    log.Debug().Int("conversation_length", len(conv)).Msg("ExtractToolCalls: analyzing conversation")
+    
+    if len(conv) == 0 {
+        log.Debug().Msg("ExtractToolCalls: empty conversation, no tool calls")
+        return nil
+    }
 
-	lastMessage := conv[len(conv)-1]
-	log.Debug().
-		Str("content_type", string(lastMessage.Content.ContentType())).
-		Msg("ExtractToolCalls: examining last message")
+    // Collect all trailing ToolUseContent messages (OpenAI can emit multiple in one turn)
+    toolCallsReversed := []ToolCall{}
+    for i := len(conv) - 1; i >= 0; i-- {
+        msg := conv[i]
+        if toolUse, ok := msg.Content.(*conversation.ToolUseContent); ok {
+            // Parse input JSON
+            var args map[string]interface{}
+            if err := json.Unmarshal(toolUse.Input, &args); err != nil {
+                log.Warn().Err(err).Msg("ExtractToolCalls: failed to parse tool input, using empty args")
+                args = make(map[string]interface{})
+            }
+            toolCall := ToolCall{ID: toolUse.ToolID, Name: toolUse.Name, Arguments: args}
+            log.Debug().Interface("tool_call", toolCall).Msg("ExtractToolCalls: found trailing tool call")
+            toolCallsReversed = append(toolCallsReversed, toolCall)
+            continue
+        }
+        // Stop once we hit a non tool-use message
+        break
+    }
+    if len(toolCallsReversed) > 0 {
+        // Reverse to restore original order
+        toolCalls := make([]ToolCall, len(toolCallsReversed))
+        for i := range toolCallsReversed {
+            toolCalls[i] = toolCallsReversed[len(toolCallsReversed)-1-i]
+        }
+        log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted trailing tool calls")
+        return toolCalls
+    }
 
-	// Check if the last message contains tool calls
-	if toolUse, ok := lastMessage.Content.(*conversation.ToolUseContent); ok {
-		log.Debug().
-			Str("tool_id", toolUse.ToolID).
-			Str("tool_name", toolUse.Name).
-			RawJSON("tool_input", toolUse.Input).
-			Msg("ExtractToolCalls: found tool use content")
-		
-		// Parse the input JSON into a map
-		var args map[string]interface{}
-		if err := json.Unmarshal(toolUse.Input, &args); err != nil {
-			log.Warn().Err(err).Msg("ExtractToolCalls: failed to parse tool input, using empty args")
-			// If parsing fails, return empty args
-			args = make(map[string]interface{})
-		}
-
-		toolCall := ToolCall{
-			ID:        toolUse.ToolID,
-			Name:      toolUse.Name,
-			Arguments: args,
-		}
-		
-		log.Info().Interface("tool_call", toolCall).Msg("ExtractToolCalls: extracted tool call")
-		return []ToolCall{toolCall}
-	}
+    lastMessage := conv[len(conv)-1]
+    log.Debug().
+        Str("content_type", string(lastMessage.Content.ContentType())).
+        Msg("ExtractToolCalls: examining last message")
 
 	// Check for Claude original content containing tool calls  
 	if _, ok := lastMessage.Content.(*conversation.ChatMessageContent); ok {
@@ -107,7 +110,7 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 					}
 				}
 				
-				if len(toolCalls) > 0 {
+                if len(toolCalls) > 0 {
 					log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted Claude tool calls from original content")
 					return toolCalls
 				}
@@ -119,7 +122,7 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 
 	// TODO: Handle multiple tool calls in a single message
 	// This would require provider-specific parsing logic for different formats
-	log.Debug().Msg("ExtractToolCalls: no tool calls found in last message")
+    log.Debug().Msg("ExtractToolCalls: no tool calls found in last message")
 	return nil
 }
 
@@ -286,11 +289,11 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 			Int("tool_calls_found", len(toolCalls)).
 			Msg("RunToolCallingLoop: found tool calls, executing")
 
-    // Publish tool call events for visibility
+    // Publish execution-phase tool call events for visibility
     for _, tc := range toolCalls {
         // Best effort: serialize arguments
         argBytes, _ := json.Marshal(tc.Arguments)
-        events.PublishEventToContext(ctx, events.NewToolCallEvent(
+        events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
             events.EventMetadata{}, nil,
             events.ToolCall{ID: tc.ID, Name: tc.Name, Input: string(argBytes)},
         ))
@@ -299,7 +302,7 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
     // Execute tools
     toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
 
-    // Publish tool results events
+    // Publish execution-phase tool result events
     for _, tr := range toolResults {
         resultStr := ""
         if tr.Result != nil {
@@ -309,7 +312,7 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
                 resultStr = fmt.Sprintf("%v", tr.Result)
             }
         }
-        events.PublishEventToContext(ctx, events.NewToolResultEvent(
+        events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
             events.EventMetadata{}, nil,
             events.ToolResult{ID: tr.ToolCallID, Result: resultStr},
         ))
