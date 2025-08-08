@@ -403,7 +403,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)
 	}); ok {
 		log.Info().Msg("Engine supports tool configuration, providing tools for API calls")
-		
+
 		// Convert registry tools to engine format
 		var engineTools []engine.ToolDefinition
 		for _, tool := range registry.ListTools() {

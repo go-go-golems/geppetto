@@ -11,18 +11,18 @@ import (
 
 // ToolDefinition represents a tool that can be called by AI models
 type ToolDefinition struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
 	Parameters  *jsonschema.Schema `json:"parameters"`
-	Function    ToolFunc          `json:"-"` // Type-safe function wrapper
-	Examples    []ToolExample     `json:"examples,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Version     string            `json:"version,omitempty"` // For provider compatibility
+	Function    ToolFunc           `json:"-"` // Type-safe function wrapper
+	Examples    []ToolExample      `json:"examples,omitempty"`
+	Tags        []string           `json:"tags,omitempty"`
+	Version     string             `json:"version,omitempty"` // For provider compatibility
 }
 
 // ToolFunc wraps the actual function with validation and fast execution
 type ToolFunc struct {
-	Fn         interface{}                        `json:"-"` // The actual function
+	Fn         interface{}                       `json:"-"` // The actual function
 	executor   func([]byte) (interface{}, error) `json:"-"` // Pre-compiled executor
 	inputType  reflect.Type                      `json:"-"` // Cached input type
 	outputType reflect.Type                      `json:"-"` // Cached output type
@@ -127,29 +127,29 @@ func generateSchemaFromFunc(funcType reflect.Type) (*jsonschema.Schema, error) {
 	}
 
 	inputType := funcType.In(0)
-	
+
 	// Create an instance of the type to properly generate schema with properties
 	// This matches the approach used in the old GetFunctionParametersJsonSchema
 	inputInstance := reflect.New(inputType).Elem().Interface()
-	
+
 	reflector := jsonschema.Reflector{
 		// Expand definitions inline instead of using $refs
 		DoNotReference: true,
 	}
 	schema := reflector.Reflect(inputInstance)
-	
+
 	// Ensure the root schema has type "object" for OpenAI compatibility
 	if schema.Type == "" && schema.Ref == "" {
 		schema.Type = "object"
 	}
-	
+
 	return schema, nil
 }
 
 // createExecutor creates a pre-compiled executor for the function
 func createExecutor(fn interface{}, funcType reflect.Type) func([]byte) (interface{}, error) {
 	funcValue := reflect.ValueOf(fn)
-	
+
 	return func(args []byte) (interface{}, error) {
 		if funcType.NumIn() == 0 {
 			// No parameters
@@ -160,7 +160,7 @@ func createExecutor(fn interface{}, funcType reflect.Type) func([]byte) (interfa
 		// Unmarshal arguments into the expected type
 		inputType := funcType.In(0)
 		input := reflect.New(inputType).Interface()
-		
+
 		if err := json.Unmarshal(args, input); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal arguments: %w", err)
 		}
@@ -168,7 +168,7 @@ func createExecutor(fn interface{}, funcType reflect.Type) func([]byte) (interfa
 		// Call the function
 		inputValue := reflect.ValueOf(input).Elem()
 		results := funcValue.Call([]reflect.Value{inputValue})
-		
+
 		return extractResults(results)
 	}
 }
@@ -178,21 +178,21 @@ func extractResults(results []reflect.Value) (interface{}, error) {
 	if len(results) == 1 {
 		return results[0].Interface(), nil
 	}
-	
+
 	if len(results) == 2 {
 		result := results[0].Interface()
 		errInterface := results[1].Interface()
-		
+
 		if errInterface == nil {
 			return result, nil
 		}
-		
+
 		if err, ok := errInterface.(error); ok {
 			return result, err
 		}
-		
+
 		return result, fmt.Errorf("unexpected error type: %T", errInterface)
 	}
-	
+
 	return nil, fmt.Errorf("unexpected number of return values: %d", len(results))
 }

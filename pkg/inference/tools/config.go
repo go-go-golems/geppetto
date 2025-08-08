@@ -4,14 +4,14 @@ import "time"
 
 // ToolConfig specifies how tools should be used during inference
 type ToolConfig struct {
-	Enabled             bool              `json:"enabled"`
-	ToolChoice          ToolChoice        `json:"tool_choice"`          
-	MaxIterations       int               `json:"max_iterations"`       
-	ExecutionTimeout    time.Duration     `json:"execution_timeout"`    
-	MaxParallelTools    int               `json:"max_parallel_tools"`   
-	AllowedTools        []string          `json:"allowed_tools"`        
-	ToolErrorHandling   ToolErrorHandling `json:"tool_error_handling"`  
-	RetryConfig         RetryConfig       `json:"retry_config"`         
+	Enabled           bool              `json:"enabled"`
+	ToolChoice        ToolChoice        `json:"tool_choice"`
+	MaxIterations     int               `json:"max_iterations"`
+	ExecutionTimeout  time.Duration     `json:"execution_timeout"`
+	MaxParallelTools  int               `json:"max_parallel_tools"`
+	AllowedTools      []string          `json:"allowed_tools"`
+	ToolErrorHandling ToolErrorHandling `json:"tool_error_handling"`
+	RetryConfig       RetryConfig       `json:"retry_config"`
 }
 
 // DefaultToolConfig returns a sensible default configuration
@@ -62,13 +62,13 @@ func (tc *ToolConfig) IsToolAllowed(toolName string) bool {
 	if tc.AllowedTools == nil {
 		return true // All tools allowed
 	}
-	
+
 	for _, allowed := range tc.AllowedTools {
 		if allowed == toolName {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -77,13 +77,13 @@ func (tc *ToolConfig) FilterTools(tools []ToolDefinition) []ToolDefinition {
 	if tc.AllowedTools == nil {
 		return tools // All tools allowed
 	}
-	
+
 	filtered := make([]ToolDefinition, 0, len(tools))
 	for _, tool := range tools {
 		if tc.IsToolAllowed(tool.Name) {
 			filtered = append(filtered, tool)
 		}
 	}
-	
+
 	return filtered
 }

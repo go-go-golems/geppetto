@@ -1,10 +1,10 @@
 package settings
 
 import (
-    _ "embed"
-    "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/huandu/go-clone"
+	_ "embed"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/huandu/go-clone"
 )
 
 type ChatSettings struct {

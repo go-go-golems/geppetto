@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-    "github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/rs/zerolog"
 )
 
@@ -20,21 +20,21 @@ const (
 	EventTypeStatus EventType = "status"
 
 	// TODO(manuel, 2024-07-04) Should potentially have a EventTypeText for a block stop here
-    // Model requested a tool call (received from provider stream)
-    EventTypeToolCall   EventType = "tool-call"
-    EventTypeToolResult EventType = "tool-result"
+	// Model requested a tool call (received from provider stream)
+	EventTypeToolCall   EventType = "tool-call"
+	EventTypeToolResult EventType = "tool-result"
 
-    // Execution-phase events (we are actually executing tools locally)
-    EventTypeToolCallExecute          EventType = "tool-call-execute"
-    EventTypeToolCallExecutionResult  EventType = "tool-call-execution-result"
-	EventTypeError      EventType = "error"
-	EventTypeInterrupt  EventType = "interrupt"
+	// Execution-phase events (we are actually executing tools locally)
+	EventTypeToolCallExecute         EventType = "tool-call-execute"
+	EventTypeToolCallExecutionResult EventType = "tool-call-execution-result"
+	EventTypeError                   EventType = "error"
+	EventTypeInterrupt               EventType = "interrupt"
 )
 
 type Event interface {
 	Type() EventType
 	Metadata() EventMetadata
-    StepMetadata() *StepMetadata
+	StepMetadata() *StepMetadata
 	Payload() []byte
 }
 
@@ -43,29 +43,29 @@ const MetadataSettingsSlug = "settings"
 
 // StepMetadata contains execution context for steps/engines used in events
 type StepMetadata struct {
-    StepID     conversation.NodeID     `json:"step_id" yaml:"step_id" mapstructure:"step_id"`
-    Type       string                  `json:"type" yaml:"type" mapstructure:"type"`
-    InputType  string                  `json:"input_type" yaml:"input_type" mapstructure:"input_type"`
-    OutputType string                  `json:"output_type" yaml:"output_type" mapstructure:"output_type"`
-    Metadata   map[string]interface{}  `json:"meta" yaml:"meta" mapstructure:"meta"`
+	StepID     conversation.NodeID    `json:"step_id" yaml:"step_id" mapstructure:"step_id"`
+	Type       string                 `json:"type" yaml:"type" mapstructure:"type"`
+	InputType  string                 `json:"input_type" yaml:"input_type" mapstructure:"input_type"`
+	OutputType string                 `json:"output_type" yaml:"output_type" mapstructure:"output_type"`
+	Metadata   map[string]interface{} `json:"meta" yaml:"meta" mapstructure:"meta"`
 }
 
 func (sm StepMetadata) MarshalZerologObject(e *zerolog.Event) {
-    e.Str("step_id", sm.StepID.String())
-    e.Str("type", sm.Type)
-    e.Str("input_type", sm.InputType)
-    e.Str("output_type", sm.OutputType)
+	e.Str("step_id", sm.StepID.String())
+	e.Str("type", sm.Type)
+	e.Str("input_type", sm.InputType)
+	e.Str("output_type", sm.OutputType)
 
-    if len(sm.Metadata) > 0 {
-        e.Dict("meta", zerolog.Dict().Fields(sm.Metadata))
-    }
+	if len(sm.Metadata) > 0 {
+		e.Dict("meta", zerolog.Dict().Fields(sm.Metadata))
+	}
 }
 
 type EventImpl struct {
-    Type_     EventType     `json:"type"`
-    Error_    error         `json:"error,omitempty"`
-    Metadata_ EventMetadata `json:"meta,omitempty"`
-    Step_     *StepMetadata `json:"step,omitempty"`
+	Type_     EventType     `json:"type"`
+	Error_    error         `json:"error,omitempty"`
+	Metadata_ EventMetadata `json:"meta,omitempty"`
+	Step_     *StepMetadata `json:"step,omitempty"`
 
 	// store payload if the event was deserialized from JSON (see NewEventFromJson), not further used
 	payload []byte
@@ -259,40 +259,40 @@ var _ Event = &EventToolResult{}
 
 // EventToolCallExecute captures the intent to execute a tool locally
 type EventToolCallExecute struct {
-    EventImpl
-    ToolCall ToolCall `json:"tool_call"`
+	EventImpl
+	ToolCall ToolCall `json:"tool_call"`
 }
 
 func NewToolCallExecuteEvent(metadata EventMetadata, stepMetadata *StepMetadata, toolCall ToolCall) *EventToolCallExecute {
-    return &EventToolCallExecute{
-        EventImpl: EventImpl{
-            Type_:     EventTypeToolCallExecute,
-            Step_:     stepMetadata,
-            Metadata_: metadata,
-            payload:   nil,
-        },
-        ToolCall: toolCall,
-    }
+	return &EventToolCallExecute{
+		EventImpl: EventImpl{
+			Type_:     EventTypeToolCallExecute,
+			Step_:     stepMetadata,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		ToolCall: toolCall,
+	}
 }
 
 var _ Event = &EventToolCallExecute{}
 
 // EventToolCallExecutionResult captures the result of executing a tool locally
 type EventToolCallExecutionResult struct {
-    EventImpl
-    ToolResult ToolResult `json:"tool_result"`
+	EventImpl
+	ToolResult ToolResult `json:"tool_result"`
 }
 
 func NewToolCallExecutionResultEvent(metadata EventMetadata, stepMetadata *StepMetadata, toolResult ToolResult) *EventToolCallExecutionResult {
-    return &EventToolCallExecutionResult{
-        EventImpl: EventImpl{
-            Type_:     EventTypeToolCallExecutionResult,
-            Step_:     stepMetadata,
-            Metadata_: metadata,
-            payload:   nil,
-        },
-        ToolResult: toolResult,
-    }
+	return &EventToolCallExecutionResult{
+		EventImpl: EventImpl{
+			Type_:     EventTypeToolCallExecutionResult,
+			Step_:     stepMetadata,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		ToolResult: toolResult,
+	}
 }
 
 var _ Event = &EventToolCallExecutionResult{}
