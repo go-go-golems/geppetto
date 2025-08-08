@@ -93,6 +93,20 @@ func MakeCompletionRequest(
 	}
 
     msgs_ := []go_openai.ChatCompletionMessage{}
+
+    // Accumulate consecutive tool-use messages into a single assistant message with multiple tool_calls
+    pendingToolCalls := []go_openai.ToolCall{}
+    flushToolCalls := func() {
+        if len(pendingToolCalls) == 0 {
+            return
+        }
+        msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
+            Role:      string(conversation.RoleAssistant),
+            ToolCalls: pendingToolCalls,
+        })
+        pendingToolCalls = nil
+    }
+
     for _, msg := range messages {
         // Debug log type and metadata, but not full body
         msgType := string(msg.Content.ContentType())
@@ -100,6 +114,53 @@ func MakeCompletionRequest(
         switch c := msg.Content.(type) {
         case *conversation.ChatMessageContent:
             role = string(c.Role)
+            // Regular chat message flushes pending tool calls first
+            flushToolCalls()
+        case *conversation.ToolUseContent:
+            // Log tool-use message id and name
+            argPreview := string(c.Input)
+            if len(argPreview) > 120 {
+                argPreview = argPreview[:120] + "…"
+            }
+            log.Debug().
+                Str("content_type", "tool-use").
+                Str("tool_id", c.ToolID).
+                Str("name", c.Name).
+                Str("input_preview", argPreview).
+                Msg("OpenAI request tool-use message")
+
+            // Accumulate into a single assistant message with multiple tool_calls
+            pendingToolCalls = append(pendingToolCalls, go_openai.ToolCall{
+                ID:   c.ToolID,
+                Type: go_openai.ToolTypeFunction,
+                Function: go_openai.FunctionCall{
+                    Name:      c.Name,
+                    Arguments: string(c.Input),
+                },
+            })
+            // Skip per-message conversion; continue to next message
+            // without appending an individual assistant message
+            metaKeys := []string{}
+            if msg.Metadata != nil {
+                for k := range msg.Metadata {
+                    metaKeys = append(metaKeys, k)
+                }
+            }
+            log.Debug().
+                Str("content_type", msgType).
+                Str("role", role).
+                Strs("meta_keys", metaKeys).
+                Msg("OpenAI request message (batched tool-use)")
+            continue
+        case *conversation.ToolResultContent:
+            // Log tool-result tool id only (no body)
+            log.Debug().
+                Str("content_type", "tool-result").
+                Str("tool_id", c.ToolID).
+                Msg("OpenAI request tool-result message")
+
+            // Tool result messages must immediately follow the single assistant tool_calls message
+            flushToolCalls()
         }
         metaKeys := []string{}
         if msg.Metadata != nil {
@@ -115,6 +176,9 @@ func MakeCompletionRequest(
 
         msgs_ = append(msgs_, messageToOpenAIMessage(msg))
     }
+
+    // Flush any remaining pending tool calls at the end
+    flushToolCalls()
 
 	temperature := 0.0
 	if chatSettings.Temperature != nil {
