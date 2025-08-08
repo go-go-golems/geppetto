@@ -342,8 +342,8 @@ func NewToolConfig() ToolConfig {
 }
 
 // WithMaxIterations sets the maximum number of tool calling iterations
-func (c ToolConfig) WithMaxIterations(max int) ToolConfig {
-	c.MaxIterations = max
+func (c ToolConfig) WithMaxIterations(maxIterations int) ToolConfig {
+	c.MaxIterations = maxIterations
 	return c
 }
 
@@ -354,8 +354,8 @@ func (c ToolConfig) WithTimeout(timeout time.Duration) ToolConfig {
 }
 
 // WithMaxParallelTools sets the maximum number of parallel tool executions
-func (c ToolConfig) WithMaxParallelTools(max int) ToolConfig {
-	c.MaxParallelTools = max
+func (c ToolConfig) WithMaxParallelTools(maxParallel int) ToolConfig {
+	c.MaxParallelTools = maxParallel
 	return c
 }
 
