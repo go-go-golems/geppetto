@@ -8,7 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 
@@ -44,7 +44,7 @@ type WeatherResponse struct {
 // weatherTool is a mock weather tool that returns fake data
 func weatherTool(req WeatherRequest) WeatherResponse {
 	log.Info().Str("location", req.Location).Str("units", req.Units).Msg("Weather tool called!")
-	
+
 	return WeatherResponse{
 		Location:    req.Location,
 		Temperature: 22.5,
@@ -81,7 +81,7 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create geppetto parameter layer")
 	}
-	
+
 	description := cmds.NewCommandDescription(
 		"test-openai-tools",
 		cmds.WithShort("Test OpenAI tools integration with debug logging"),
@@ -142,7 +142,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		fmt.Fprintln(w, "Warning: Tool schema is nil")
 	}
 
-    // Convert to engine tool definition
+	// Convert to engine tool definition
 	engineTool := engine.ToolDefinition{
 		Name:        weatherToolDef.Name,
 		Description: weatherToolDef.Description,
@@ -170,8 +170,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		fmt.Fprintf(w, "Engine type: %T\n", engineInstance)
 	}
 
-    // Create a simple conversation
-    conversation := conversation.Conversation{
+	// Create a simple conversation
+	conversation := conversation.Conversation{
 		conversation.NewMessage(
 			conversation.NewChatMessageContent(
 				conversation.RoleUser,
@@ -181,32 +181,32 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		),
 	}
 
-    // Prepare registry and register our tool for execution
-    registry := tools.NewInMemoryToolRegistry()
-    if err := registry.RegisterTool("get_weather", *weatherToolDef); err != nil {
-        return errors.Wrap(err, "failed to register weather tool")
-    }
+	// Prepare registry and register our tool for execution
+	registry := tools.NewInMemoryToolRegistry()
+	if err := registry.RegisterTool("get_weather", *weatherToolDef); err != nil {
+		return errors.Wrap(err, "failed to register weather tool")
+	}
 
-    fmt.Fprintln(w, "=== Testing OpenAI Engine With Tool Calling Helper ===")
-    fmt.Fprintf(w, "Conversation has %d messages\n", len(conversation))
-    fmt.Fprintln(w, "Running full tool-calling loop (max 2 iterations)...")
-    fmt.Fprintln(w)
+	fmt.Fprintln(w, "=== Testing OpenAI Engine With Tool Calling Helper ===")
+	fmt.Fprintf(w, "Conversation has %d messages\n", len(conversation))
+	fmt.Fprintln(w, "Running full tool-calling loop (max 2 iterations)...")
+	fmt.Fprintln(w)
 
-    // Configure helper to allow the model to call the tool and then respond
-    helperConfig := toolhelpers.NewToolConfig().
-        WithMaxIterations(2)
+	// Configure helper to allow the model to call the tool and then respond
+	helperConfig := toolhelpers.NewToolConfig().
+		WithMaxIterations(2)
 
-    // Run the automated tool calling loop
-    result, err := toolhelpers.RunToolCallingLoop(ctx, engineInstance, conversation, registry, helperConfig)
-    if err != nil {
-        log.Error().Err(err).Msg("Tool calling workflow failed")
-        return errors.Wrap(err, "tool calling workflow failed")
-    }
+	// Run the automated tool calling loop
+	result, err := toolhelpers.RunToolCallingLoop(ctx, engineInstance, conversation, registry, helperConfig)
+	if err != nil {
+		log.Error().Err(err).Msg("Tool calling workflow failed")
+		return errors.Wrap(err, "tool calling workflow failed")
+	}
 
-    fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(result))
-    for i, msg := range result {
-        fmt.Fprintf(w, "Message %d: type=%s text=%q\n", i, msg.Content.ContentType(), msg.Content.String())
-    }
+	fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(result))
+	for i, msg := range result {
+		fmt.Fprintf(w, "Message %d: type=%s text=%q\n", i, msg.Content.ContentType(), msg.Content.String())
+	}
 
 	return nil
 }

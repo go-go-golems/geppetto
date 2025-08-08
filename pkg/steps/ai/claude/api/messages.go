@@ -204,7 +204,7 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		return nil, err
 	}
 	c.setHeaders(httpReq)
-	
+
 	// Log the request body for debugging
 	truncatedBody := string(body)
 	if len(truncatedBody) > 1000 {

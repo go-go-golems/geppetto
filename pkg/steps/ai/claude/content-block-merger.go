@@ -29,7 +29,7 @@ import (
 // combination of content blocks in the final response.
 type ContentBlockMerger struct {
 	metadata      events.EventMetadata
-    stepMetadata  *events.StepMetadata
+	stepMetadata  *events.StepMetadata
 	response      *api.MessageResponse
 	error         *api.Error
 	contentBlocks map[int]*api.ContentBlock
@@ -146,10 +146,12 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("MessageStartType event must have a message")
 		}
 		cbm.response = event.Message
-    if cbm.stepMetadata.Metadata == nil { cbm.stepMetadata.Metadata = map[string]interface{}{} }
-    cbm.stepMetadata.Metadata[ModelMetadataSlug] = event.Message.Model
-    cbm.stepMetadata.Metadata[MessageIdMetadataSlug] = event.Message.ID
-    cbm.stepMetadata.Metadata[RoleMetadataSlug] = event.Message.Role
+		if cbm.stepMetadata.Metadata == nil {
+			cbm.stepMetadata.Metadata = map[string]interface{}{}
+		}
+		cbm.stepMetadata.Metadata[ModelMetadataSlug] = event.Message.Model
+		cbm.stepMetadata.Metadata[MessageIdMetadataSlug] = event.Message.ID
+		cbm.stepMetadata.Metadata[RoleMetadataSlug] = event.Message.Role
 
 		// Update event metadata with common fields
 		cbm.metadata.Engine = event.Message.Model
@@ -161,11 +163,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		if event.Delta == nil {
 			return nil, errors.New("MessageDeltaType event must have a delta")
 		}
-        if event.Delta.StopReason != "" {
+		if event.Delta.StopReason != "" {
 			cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Delta.StopReason
 			cbm.metadata.StopReason = &event.Delta.StopReason
 		}
-        if event.Delta.StopSequence != "" {
+		if event.Delta.StopSequence != "" {
 			cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Delta.StopSequence
 		}
 
@@ -179,11 +181,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		}
 
 		if event.Message != nil {
-            if event.Message.StopReason != "" {
+			if event.Message.StopReason != "" {
 				cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
 				cbm.metadata.StopReason = &event.Message.StopReason
 			}
-            if event.Message.StopSequence != "" {
+			if event.Message.StopSequence != "" {
 				cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence
 			}
 		}

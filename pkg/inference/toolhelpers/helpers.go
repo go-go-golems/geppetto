@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
@@ -42,53 +42,53 @@ type ToolConfig struct {
 
 // ExtractToolCalls extracts tool calls from the last message in a conversation
 func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
-    log.Debug().Int("conversation_length", len(conv)).Msg("ExtractToolCalls: analyzing conversation")
-    
-    if len(conv) == 0 {
-        log.Debug().Msg("ExtractToolCalls: empty conversation, no tool calls")
-        return nil
-    }
+	log.Debug().Int("conversation_length", len(conv)).Msg("ExtractToolCalls: analyzing conversation")
 
-    // Collect all trailing ToolUseContent messages (OpenAI can emit multiple in one turn)
-    toolCallsReversed := []ToolCall{}
-    for i := len(conv) - 1; i >= 0; i-- {
-        msg := conv[i]
-        if toolUse, ok := msg.Content.(*conversation.ToolUseContent); ok {
-            // Parse input JSON
-            var args map[string]interface{}
-            if err := json.Unmarshal(toolUse.Input, &args); err != nil {
-                log.Warn().Err(err).Msg("ExtractToolCalls: failed to parse tool input, using empty args")
-                args = make(map[string]interface{})
-            }
-            toolCall := ToolCall{ID: toolUse.ToolID, Name: toolUse.Name, Arguments: args}
-            log.Debug().Interface("tool_call", toolCall).Msg("ExtractToolCalls: found trailing tool call")
-            toolCallsReversed = append(toolCallsReversed, toolCall)
-            continue
-        }
-        // Stop once we hit a non tool-use message
-        break
-    }
-    if len(toolCallsReversed) > 0 {
-        // Reverse to restore original order
-        toolCalls := make([]ToolCall, len(toolCallsReversed))
-        for i := range toolCallsReversed {
-            toolCalls[i] = toolCallsReversed[len(toolCallsReversed)-1-i]
-        }
-        log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted trailing tool calls")
-        return toolCalls
-    }
+	if len(conv) == 0 {
+		log.Debug().Msg("ExtractToolCalls: empty conversation, no tool calls")
+		return nil
+	}
 
-    lastMessage := conv[len(conv)-1]
-    log.Debug().
-        Str("content_type", string(lastMessage.Content.ContentType())).
-        Msg("ExtractToolCalls: examining last message")
+	// Collect all trailing ToolUseContent messages (OpenAI can emit multiple in one turn)
+	toolCallsReversed := []ToolCall{}
+	for i := len(conv) - 1; i >= 0; i-- {
+		msg := conv[i]
+		if toolUse, ok := msg.Content.(*conversation.ToolUseContent); ok {
+			// Parse input JSON
+			var args map[string]interface{}
+			if err := json.Unmarshal(toolUse.Input, &args); err != nil {
+				log.Warn().Err(err).Msg("ExtractToolCalls: failed to parse tool input, using empty args")
+				args = make(map[string]interface{})
+			}
+			toolCall := ToolCall{ID: toolUse.ToolID, Name: toolUse.Name, Arguments: args}
+			log.Debug().Interface("tool_call", toolCall).Msg("ExtractToolCalls: found trailing tool call")
+			toolCallsReversed = append(toolCallsReversed, toolCall)
+			continue
+		}
+		// Stop once we hit a non tool-use message
+		break
+	}
+	if len(toolCallsReversed) > 0 {
+		// Reverse to restore original order
+		toolCalls := make([]ToolCall, len(toolCallsReversed))
+		for i := range toolCallsReversed {
+			toolCalls[i] = toolCallsReversed[len(toolCallsReversed)-1-i]
+		}
+		log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted trailing tool calls")
+		return toolCalls
+	}
 
-	// Check for Claude original content containing tool calls  
+	lastMessage := conv[len(conv)-1]
+	log.Debug().
+		Str("content_type", string(lastMessage.Content.ContentType())).
+		Msg("ExtractToolCalls: examining last message")
+
+	// Check for Claude original content containing tool calls
 	if _, ok := lastMessage.Content.(*conversation.ChatMessageContent); ok {
 		if claudeContent, exists := lastMessage.Metadata["claude_original_content"]; exists {
 			if originalContent, ok := claudeContent.([]api.Content); ok {
 				log.Debug().Int("content_blocks", len(originalContent)).Msg("ExtractToolCalls: found Claude original content")
-				
+
 				var toolCalls []ToolCall
 				for _, content := range originalContent {
 					if toolUseContent, ok := content.(api.ToolUseContent); ok {
@@ -104,13 +104,13 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 							Name:      toolUseContent.Name,
 							Arguments: args,
 						}
-						
+
 						log.Debug().Interface("tool_call", toolCall).Msg("ExtractToolCalls: extracted Claude tool call from original content")
 						toolCalls = append(toolCalls, toolCall)
 					}
 				}
-				
-                if len(toolCalls) > 0 {
+
+				if len(toolCalls) > 0 {
 					log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted Claude tool calls from original content")
 					return toolCalls
 				}
@@ -118,18 +118,16 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 		}
 	}
 
-
-
 	// TODO: Handle multiple tool calls in a single message
 	// This would require provider-specific parsing logic for different formats
-    log.Debug().Msg("ExtractToolCalls: no tool calls found in last message")
+	log.Debug().Msg("ExtractToolCalls: no tool calls found in last message")
 	return nil
 }
 
 // ExecuteToolCalls executes multiple tool calls and returns their results
 func ExecuteToolCalls(ctx context.Context, toolCalls []ToolCall, registry tools.ToolRegistry) []ToolResult {
 	log.Debug().Int("tool_call_count", len(toolCalls)).Msg("ExecuteToolCalls: starting tool execution")
-	
+
 	if len(toolCalls) == 0 {
 		log.Debug().Msg("ExecuteToolCalls: no tool calls to execute")
 		return nil
@@ -138,7 +136,7 @@ func ExecuteToolCalls(ctx context.Context, toolCalls []ToolCall, registry tools.
 	// Create a tool executor with default config
 	config := tools.DefaultToolConfig()
 	executor := tools.NewDefaultToolExecutor(config)
-	
+
 	log.Debug().Interface("executor_config", config).Msg("ExecuteToolCalls: created tool executor")
 
 	// Convert our ToolCall to tools.ToolCall
@@ -149,7 +147,7 @@ func ExecuteToolCalls(ctx context.Context, toolCalls []ToolCall, registry tools.
 			Str("tool_name", call.Name).
 			Interface("arguments", call.Arguments).
 			Msg("ExecuteToolCalls: converting tool call")
-			
+
 		argBytes, err := json.Marshal(call.Arguments)
 		if err != nil {
 			log.Warn().Err(err).Str("tool_name", call.Name).Msg("ExecuteToolCalls: failed to marshal arguments, using empty object")
@@ -165,10 +163,10 @@ func ExecuteToolCalls(ctx context.Context, toolCalls []ToolCall, registry tools.
 	}
 
 	log.Info().Int("exec_call_count", len(execCalls)).Msg("ExecuteToolCalls: executing tools")
-	
+
 	// Execute the tools
 	execResults, err := executor.ExecuteToolCalls(ctx, execCalls, registry)
-	
+
 	if err != nil {
 		log.Error().Err(err).Msg("ExecuteToolCalls: tool execution failed")
 	} else {
@@ -213,7 +211,7 @@ func AppendToolResults(conv conversation.Conversation, results []ToolResult) con
 		Int("conversation_length", len(conv)).
 		Int("results_count", len(results)).
 		Msg("AppendToolResults: appending tool results to conversation")
-		
+
 	updated := make(conversation.Conversation, len(conv))
 	copy(updated, conv)
 
@@ -256,20 +254,20 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 		Int("max_iterations", config.MaxIterations).
 		Int("initial_conversation_length", len(initialConversation)).
 		Msg("RunToolCallingLoop: starting tool calling workflow")
-		
+
 	conv := initialConversation
 
 	for i := 0; i < config.MaxIterations; i++ {
 		log.Info().Int("iteration", i+1).Msg("RunToolCallingLoop: starting iteration")
-		
-    // Run inference
+
+		// Run inference
 		log.Debug().Msg("RunToolCallingLoop: calling engine.RunInference")
 		response, err := engine.RunInference(ctx, conv)
 		if err != nil {
 			log.Error().Err(err).Int("iteration", i+1).Msg("RunToolCallingLoop: engine inference failed")
 			return nil, err
 		}
-		
+
 		log.Debug().
 			Int("response_length", len(response)).
 			Int("new_messages", len(response)-len(conv)).
@@ -289,38 +287,38 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 			Int("tool_calls_found", len(toolCalls)).
 			Msg("RunToolCallingLoop: found tool calls, executing")
 
-    // Publish execution-phase tool call events for visibility
-    for _, tc := range toolCalls {
-        // Best effort: serialize arguments
-        argBytes, _ := json.Marshal(tc.Arguments)
-        events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
-            events.EventMetadata{}, nil,
-            events.ToolCall{ID: tc.ID, Name: tc.Name, Input: string(argBytes)},
-        ))
-    }
+		// Publish execution-phase tool call events for visibility
+		for _, tc := range toolCalls {
+			// Best effort: serialize arguments
+			argBytes, _ := json.Marshal(tc.Arguments)
+			events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+				events.EventMetadata{}, nil,
+				events.ToolCall{ID: tc.ID, Name: tc.Name, Input: string(argBytes)},
+			))
+		}
 
-    // Execute tools
-    toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
+		// Execute tools
+		toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
 
-    // Publish execution-phase tool result events
-    for _, tr := range toolResults {
-        resultStr := ""
-        if tr.Result != nil {
-            if b, err := json.Marshal(tr.Result); err == nil {
-                resultStr = string(b)
-            } else {
-                resultStr = fmt.Sprintf("%v", tr.Result)
-            }
-        }
-        events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
-            events.EventMetadata{}, nil,
-            events.ToolResult{ID: tr.ToolCallID, Result: resultStr},
-        ))
-    }
+		// Publish execution-phase tool result events
+		for _, tr := range toolResults {
+			resultStr := ""
+			if tr.Result != nil {
+				if b, err := json.Marshal(tr.Result); err == nil {
+					resultStr = string(b)
+				} else {
+					resultStr = fmt.Sprintf("%v", tr.Result)
+				}
+			}
+			events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+				events.EventMetadata{}, nil,
+				events.ToolResult{ID: tr.ToolCallID, Result: resultStr},
+			))
+		}
 
-    // Append results to conversation for next iteration
+		// Append results to conversation for next iteration
 		conv = AppendToolResults(response, toolResults)
-		
+
 		log.Debug().
 			Int("iteration", i+1).
 			Int("updated_conversation_length", len(conv)).

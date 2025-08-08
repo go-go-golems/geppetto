@@ -173,11 +173,11 @@ func (e *EventRouter) DumpRawEvents(msg *message.Message) error {
 	if err != nil {
 		return err
 	}
-    if !e.verbose {
+	if !e.verbose {
 		s["id"] = s["meta"].(map[string]interface{})["message_id"]
-        if step, ok := s["step"].(map[string]interface{}); ok {
-            s["step_type"] = step["type"]
-        }
+		if step, ok := s["step"].(map[string]interface{}); ok {
+			s["step_type"] = step["type"]
+		}
 		delete(s, "meta")
 		delete(s, "step")
 	}

@@ -2,17 +2,17 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"io"
 	stdlog "log"
-    "encoding/json"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/events"
-    
+	"github.com/go-go-golems/geppetto/pkg/events"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-    "github.com/go-go-golems/glazed/pkg/helpers/cast"
+	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
@@ -126,8 +126,6 @@ func (e *OpenAIEngine) RunInference(
 			Msg("Tools added to OpenAI request")
 	}
 
-
-
 	// Setup metadata and event publishing
 	var parentMessage *conversation.Message
 	parentID := conversation.NullNode
@@ -156,21 +154,21 @@ func (e *OpenAIEngine) RunInference(
 	if e.settings.Chat.MaxResponseTokens != nil {
 		metadata.MaxTokens = e.settings.Chat.MaxResponseTokens
 	}
-    stepMetadata := &events.StepMetadata{
-        StepID:     conversation.NewNodeID(),
+	stepMetadata := &events.StepMetadata{
+		StepID:     conversation.NewNodeID(),
 		Type:       "openai-chat",
 		InputType:  "conversation.Conversation",
 		OutputType: "string",
 		Metadata: map[string]interface{}{
-            events.MetadataSettingsSlug: e.settings.GetMetadata(),
+			events.MetadataSettingsSlug: e.settings.GetMetadata(),
 		},
 	}
 
-    // Publish start event
-    log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
-    startEvent := events.NewStartEvent(metadata, stepMetadata)
-    e.publishEvent(startEvent)
-    events.PublishEventToContext(ctx, startEvent)
+	// Publish start event
+	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
+	startEvent := events.NewStartEvent(metadata, stepMetadata)
+	e.publishEvent(startEvent)
+	events.PublishEventToContext(ctx, startEvent)
 
 	// Always use streaming mode
 	log.Debug().Msg("OpenAI using streaming mode")
@@ -186,9 +184,9 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}()
 
-    message := ""
-    // Collect streamed tool calls so we can preserve them in the conversation
-    toolCallMerger := NewToolCallMerger()
+	message := ""
+	// Collect streamed tool calls so we can preserve them in the conversation
+	toolCallMerger := NewToolCallMerger()
 	var usage *conversation.Usage
 	var stopReason *string
 
@@ -197,11 +195,11 @@ func (e *OpenAIEngine) RunInference(
 	for {
 		select {
 		case <-ctx.Done():
-            log.Debug().Msg("OpenAI streaming cancelled by context")
-            // Publish interrupt event with current partial text
-            interruptEvent := events.NewInterruptEvent(metadata, stepMetadata, message)
-            e.publishEvent(interruptEvent)
-            events.PublishEventToContext(ctx, interruptEvent)
+			log.Debug().Msg("OpenAI streaming cancelled by context")
+			// Publish interrupt event with current partial text
+			interruptEvent := events.NewInterruptEvent(metadata, stepMetadata, message)
+			e.publishEvent(interruptEvent)
+			events.PublishEventToContext(ctx, interruptEvent)
 			return nil, ctx.Err()
 
 		default:
@@ -210,41 +208,41 @@ func (e *OpenAIEngine) RunInference(
 				log.Debug().Int("chunks_received", chunkCount).Msg("OpenAI stream completed")
 				goto streamingComplete
 			}
-            if err != nil {
+			if err != nil {
 				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
-                errEvent := events.NewErrorEvent(metadata, stepMetadata, err)
-                e.publishEvent(errEvent)
-                events.PublishEventToContext(ctx, errEvent)
+				errEvent := events.NewErrorEvent(metadata, stepMetadata, err)
+				e.publishEvent(errEvent)
+				events.PublishEventToContext(ctx, errEvent)
 				return nil, err
 			}
 			chunkCount++
 
-            delta := ""
-            if len(response.Choices) > 0 {
-                choice := response.Choices[0]
-                // Text delta
-                delta = choice.Delta.Content
-                message += delta
-                log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+			delta := ""
+			if len(response.Choices) > 0 {
+				choice := response.Choices[0]
+				// Text delta
+				delta = choice.Delta.Content
+				message += delta
+				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
 
-                // Tool call deltas
-                if len(choice.Delta.ToolCalls) > 0 {
-                    toolCallMerger.AddToolCalls(choice.Delta.ToolCalls)
-                    for _, tc := range choice.Delta.ToolCalls {
-                        // Safe logging of arguments size to avoid very long logs
-                        argPreview := tc.Function.Arguments
-                        if len(argPreview) > 200 {
-                            argPreview = argPreview[:200] + "…"
-                        }
-                        log.Debug().
-                            Int("chunk", chunkCount).
-                            Str("tool_id", tc.ID).
-                            Str("name", tc.Function.Name).
-                            Str("arguments_delta", argPreview).
-                            Msg("OpenAI received tool_call delta")
-                    }
-                }
-            }
+				// Tool call deltas
+				if len(choice.Delta.ToolCalls) > 0 {
+					toolCallMerger.AddToolCalls(choice.Delta.ToolCalls)
+					for _, tc := range choice.Delta.ToolCalls {
+						// Safe logging of arguments size to avoid very long logs
+						argPreview := tc.Function.Arguments
+						if len(argPreview) > 200 {
+							argPreview = argPreview[:200] + "…"
+						}
+						log.Debug().
+							Int("chunk", chunkCount).
+							Str("tool_id", tc.ID).
+							Str("name", tc.Function.Name).
+							Str("arguments_delta", argPreview).
+							Msg("OpenAI received tool_call delta")
+					}
+				}
+			}
 
 			// Extract metadata from OpenAI chat response
 			if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
@@ -262,14 +260,14 @@ func (e *OpenAIEngine) RunInference(
 			}
 
 			// Publish intermediate streaming event
-            log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
-            partialEvent := events.NewPartialCompletionEvent(
-                metadata,
-                stepMetadata,
-                delta, message,
-            )
-            e.publishEvent(partialEvent)
-            events.PublishEventToContext(ctx, partialEvent)
+			log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
+			partialEvent := events.NewPartialCompletionEvent(
+				metadata,
+				stepMetadata,
+				delta, message,
+			)
+			e.publishEvent(partialEvent)
+			events.PublishEventToContext(ctx, partialEvent)
 		}
 	}
 
@@ -302,58 +300,58 @@ streamingComplete:
 		llmMetadata.StopReason = stopReason
 	}
 
-    mergedToolCalls := toolCallMerger.GetToolCalls()
-    log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
+	mergedToolCalls := toolCallMerger.GetToolCalls()
+	log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
 
-    // Clone the input conversation
-    result := append(conversation.Conversation(nil), messages...)
+	// Clone the input conversation
+	result := append(conversation.Conversation(nil), messages...)
 
-    // If we have tool calls, publish ToolCall events now
-    if len(mergedToolCalls) > 0 {
-        for _, tc := range mergedToolCalls {
-            inputStr := tc.Function.Arguments
-            toolCallEvent := events.NewToolCallEvent(
-                metadata,
-                stepMetadata,
-                events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
-            )
-            e.publishEvent(toolCallEvent)
-            events.PublishEventToContext(ctx, toolCallEvent)
-        }
-    }
+	// If we have tool calls, publish ToolCall events now
+	if len(mergedToolCalls) > 0 {
+		for _, tc := range mergedToolCalls {
+			inputStr := tc.Function.Arguments
+			toolCallEvent := events.NewToolCallEvent(
+				metadata,
+				stepMetadata,
+				events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
+			)
+			e.publishEvent(toolCallEvent)
+			events.PublishEventToContext(ctx, toolCallEvent)
+		}
+	}
 
-    // Append messages in order that keeps last message as tool-use when present
-    if len(mergedToolCalls) > 0 {
-        // Optional assistant text first (if any)
-        if len(message) > 0 {
-            messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
-            result = append(result, conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)))
-        }
-        // Then tool calls so the last message is a tool-use for the helper loop
-        for _, tc := range mergedToolCalls {
-            // Ensure arguments are valid JSON
-            args := json.RawMessage([]byte(tc.Function.Arguments))
-            toolUse := &conversation.ToolUseContent{
-                ToolID: tc.ID,
-                Name:   tc.Function.Name,
-                Input:  args,
-                Type:   "function",
-            }
-            result = append(result, conversation.NewMessage(toolUse, conversation.WithLLMMessageMetadata(llmMetadata)))
-        }
-    } else {
-        // No tool calls, just assistant text if any
-        if len(message) > 0 {
-            messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
-            result = append(result, conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)))
-        }
-    }
+	// Append messages in order that keeps last message as tool-use when present
+	if len(mergedToolCalls) > 0 {
+		// Optional assistant text first (if any)
+		if len(message) > 0 {
+			messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+			result = append(result, conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)))
+		}
+		// Then tool calls so the last message is a tool-use for the helper loop
+		for _, tc := range mergedToolCalls {
+			// Ensure arguments are valid JSON
+			args := json.RawMessage([]byte(tc.Function.Arguments))
+			toolUse := &conversation.ToolUseContent{
+				ToolID: tc.ID,
+				Name:   tc.Function.Name,
+				Input:  args,
+				Type:   "function",
+			}
+			result = append(result, conversation.NewMessage(toolUse, conversation.WithLLMMessageMetadata(llmMetadata)))
+		}
+	} else {
+		// No tool calls, just assistant text if any
+		if len(message) > 0 {
+			messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+			result = append(result, conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)))
+		}
+	}
 
-    // Publish final event for streaming
-    log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
-    finalEvent := events.NewFinalEvent(metadata, stepMetadata, message)
-    e.publishEvent(finalEvent)
-    events.PublishEventToContext(ctx, finalEvent)
+	// Publish final event for streaming
+	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
+	finalEvent := events.NewFinalEvent(metadata, stepMetadata, message)
+	e.publishEvent(finalEvent)
+	events.PublishEventToContext(ctx, finalEvent)
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")
 	return result, nil
@@ -366,8 +364,8 @@ func (e *OpenAIEngine) publishEvent(event events.Event) {
 			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
 		}
 	}
-    // Also publish to sinks carried in the context if present
-    // Note: we cannot access ctx here; callers should wrap ctx with events.WithEventSinks
+	// Also publish to sinks carried in the context if present
+	// Note: we cannot access ctx here; callers should wrap ctx with events.WithEventSinks
 }
 
 // GetSupportedToolFeatures returns the tool features supported by OpenAI

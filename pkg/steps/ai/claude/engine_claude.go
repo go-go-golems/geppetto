@@ -3,10 +3,10 @@ package claude
 import (
 	"context"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-    "github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -88,7 +88,7 @@ func (e *ClaudeEngine) RunInference(
 
 	client := api.NewClient(apiKey, baseURL)
 
-    req, err := MakeMessageRequest(e.settings, messages)
+	req, err := MakeMessageRequest(e.settings, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +151,13 @@ func (e *ClaudeEngine) RunInference(
 			MaxTokens:   cast.WrapAddr[int](req.MaxTokens),
 		},
 	}
-    stepMetadata := &events.StepMetadata{
-        StepID:     conversation.NewNodeID(),
+	stepMetadata := &events.StepMetadata{
+		StepID:     conversation.NewNodeID(),
 		Type:       "claude-chat",
 		InputType:  "conversation.Conversation",
 		OutputType: "string",
 		Metadata: map[string]interface{}{
-            events.MetadataSettingsSlug: e.settings.GetMetadata(),
+			events.MetadataSettingsSlug: e.settings.GetMetadata(),
 		},
 	}
 
