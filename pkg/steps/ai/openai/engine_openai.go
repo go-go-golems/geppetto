@@ -8,11 +8,10 @@ import (
 	stdlog "log"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/steps"
+    "github.com/go-go-golems/geppetto/pkg/events"
+    
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
-	"github.com/google/uuid"
+    "github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
@@ -156,13 +155,13 @@ func (e *OpenAIEngine) RunInference(
 	if e.settings.Chat.MaxResponseTokens != nil {
 		metadata.MaxTokens = e.settings.Chat.MaxResponseTokens
 	}
-	stepMetadata := &steps.StepMetadata{
-		StepID:     uuid.New(),
+    stepMetadata := &events.StepMetadata{
+        StepID:     conversation.NewNodeID(),
 		Type:       "openai-chat",
 		InputType:  "conversation.Conversation",
 		OutputType: "string",
 		Metadata: map[string]interface{}{
-			steps.MetadataSettingsSlug: e.settings.GetMetadata(),
+            events.MetadataSettingsSlug: e.settings.GetMetadata(),
 		},
 	}
 

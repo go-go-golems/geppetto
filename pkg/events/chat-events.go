@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/steps"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/rs/zerolog"
 )
 
@@ -30,15 +29,38 @@ const (
 type Event interface {
 	Type() EventType
 	Metadata() EventMetadata
-	StepMetadata() *steps.StepMetadata
+    StepMetadata() *StepMetadata
 	Payload() []byte
 }
 
+// MetadataSettingsSlug is the slug used to store settings metadata inside StepMetadata.Metadata
+const MetadataSettingsSlug = "settings"
+
+// StepMetadata contains execution context for steps/engines used in events
+type StepMetadata struct {
+    StepID     conversation.NodeID     `json:"step_id" yaml:"step_id" mapstructure:"step_id"`
+    Type       string                  `json:"type" yaml:"type" mapstructure:"type"`
+    InputType  string                  `json:"input_type" yaml:"input_type" mapstructure:"input_type"`
+    OutputType string                  `json:"output_type" yaml:"output_type" mapstructure:"output_type"`
+    Metadata   map[string]interface{}  `json:"meta" yaml:"meta" mapstructure:"meta"`
+}
+
+func (sm StepMetadata) MarshalZerologObject(e *zerolog.Event) {
+    e.Str("step_id", sm.StepID.String())
+    e.Str("type", sm.Type)
+    e.Str("input_type", sm.InputType)
+    e.Str("output_type", sm.OutputType)
+
+    if len(sm.Metadata) > 0 {
+        e.Dict("meta", zerolog.Dict().Fields(sm.Metadata))
+    }
+}
+
 type EventImpl struct {
-	Type_     EventType           `json:"type"`
-	Error_    error               `json:"error,omitempty"`
-	Metadata_ EventMetadata       `json:"meta,omitempty"`
-	Step_     *steps.StepMetadata `json:"step,omitempty"`
+    Type_     EventType     `json:"type"`
+    Error_    error         `json:"error,omitempty"`
+    Metadata_ EventMetadata `json:"meta,omitempty"`
+    Step_     *StepMetadata `json:"step,omitempty"`
 
 	// store payload if the event was deserialized from JSON (see NewEventFromJson), not further used
 	payload []byte
@@ -72,7 +94,7 @@ func (e *EventImpl) Metadata() EventMetadata {
 	return e.Metadata_
 }
 
-func (e *EventImpl) StepMetadata() *steps.StepMetadata {
+func (e *EventImpl) StepMetadata() *StepMetadata {
 	return e.Step_
 }
 
@@ -86,7 +108,7 @@ type EventPartialCompletionStart struct {
 	EventImpl
 }
 
-func NewStartEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata) *EventPartialCompletionStart {
+func NewStartEvent(metadata EventMetadata, stepMetadata *StepMetadata) *EventPartialCompletionStart {
 	return &EventPartialCompletionStart{
 		EventImpl: EventImpl{
 			Type_:     EventTypeStart,
@@ -105,7 +127,7 @@ type EventInterrupt struct {
 	// TODO(manuel, 2024-07-04) Add all collected tool calls so far
 }
 
-func NewInterruptEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, text string) *EventInterrupt {
+func NewInterruptEvent(metadata EventMetadata, stepMetadata *StepMetadata, text string) *EventInterrupt {
 	return &EventInterrupt{
 		EventImpl: EventImpl{
 			Type_:     EventTypeInterrupt,
@@ -125,7 +147,7 @@ type EventFinal struct {
 	// TODO(manuel, 2024-07-04) Add all collected tool calls so far
 }
 
-func NewFinalEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, text string) *EventFinal {
+func NewFinalEvent(metadata EventMetadata, stepMetadata *StepMetadata, text string) *EventFinal {
 	return &EventFinal{
 		EventImpl: EventImpl{
 			Type_:     EventTypeFinal,
@@ -144,7 +166,7 @@ type EventError struct {
 	ErrorString string `json:"error_string"`
 }
 
-func NewErrorEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, err error) *EventError {
+func NewErrorEvent(metadata EventMetadata, stepMetadata *StepMetadata, err error) *EventError {
 	return &EventError{
 		EventImpl: EventImpl{
 			Type_:     EventTypeError,
@@ -166,7 +188,7 @@ type EventText struct {
 	// This is currently stored in the metadata uder the MetadataToolCallsSlug (see chat-with-tools-step.go in openai)
 }
 
-func NewTextEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, text string) *EventText {
+func NewTextEvent(metadata EventMetadata, stepMetadata *StepMetadata, text string) *EventText {
 	return &EventText{
 		EventImpl: EventImpl{
 			Type_:     EventTypeStart,
@@ -192,7 +214,7 @@ type EventToolCall struct {
 	ToolCall ToolCall `json:"tool_call"`
 }
 
-func NewToolCallEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, toolCall ToolCall) *EventToolCall {
+func NewToolCallEvent(metadata EventMetadata, stepMetadata *StepMetadata, toolCall ToolCall) *EventToolCall {
 	return &EventToolCall{
 		EventImpl: EventImpl{
 			Type_:     EventTypeToolCall,
@@ -216,7 +238,7 @@ type EventToolResult struct {
 	ToolResult ToolResult `json:"tool_result"`
 }
 
-func NewToolResultEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, toolResult ToolResult) *EventToolResult {
+func NewToolResultEvent(metadata EventMetadata, stepMetadata *StepMetadata, toolResult ToolResult) *EventToolResult {
 	return &EventToolResult{
 		EventImpl: EventImpl{
 			Type_:     EventTypeToolResult,
@@ -243,7 +265,7 @@ type EventPartialCompletion struct {
 	// this is less important than adding tool call information to the result above
 }
 
-func NewPartialCompletionEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, delta string, completion string) *EventPartialCompletion {
+func NewPartialCompletionEvent(metadata EventMetadata, stepMetadata *StepMetadata, delta string, completion string) *EventPartialCompletion {
 	return &EventPartialCompletion{
 		EventImpl: EventImpl{
 			Type_:     EventTypePartialCompletion,
