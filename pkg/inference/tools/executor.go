@@ -72,8 +72,10 @@ func (e *DefaultToolExecutor) ExecuteToolCall(ctx context.Context, toolCall Tool
 	// Execute with timeout and retries
 	result, err := e.executeWithRetry(ctx, toolCall, toolDef)
 
-	result.ID = toolCall.ID
-	result.Duration = time.Since(start)
+	if result != nil {
+		result.ID = toolCall.ID
+		result.Duration = time.Since(start)
+	}
 
 	// Publish ToolResult event
 	resultStr := ""

@@ -386,6 +386,18 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventToolResult")
 		}
 		return ret, nil
+	case EventTypeToolCallExecute:
+		ret, ok := ToTypedEvent[EventToolCallExecute](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolCallExecute")
+		}
+		return ret, nil
+	case EventTypeToolCallExecutionResult:
+		ret, ok := ToTypedEvent[EventToolCallExecutionResult](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolCallExecutionResult")
+		}
+		return ret, nil
 	case EventTypeError:
 		ret, ok := ToTypedEvent[EventError](e)
 		if !ok {

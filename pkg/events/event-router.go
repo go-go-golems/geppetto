@@ -114,6 +114,7 @@ func (e *EventRouter) Close() error {
 // createChatDispatchHandler creates a Watermill handler function that parses chat events
 // and dispatches them to the appropriate method of the provided ChatEventHandler.
 // Moved from pinocchio/cmd/experiments/web-ui/client/client.go
+// nolint:unused // kept for legacy compatibility
 func createChatDispatchHandler(handler ChatEventHandler) message.NoPublishHandlerFunc {
 	return func(msg *message.Message) error {
 		logFields := watermill.LogFields{"message_id": msg.UUID}
