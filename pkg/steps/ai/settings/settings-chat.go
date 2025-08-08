@@ -1,14 +1,10 @@
 package settings
 
 import (
-	_ "embed"
-	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat/steps"
-
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/huandu/go-clone"
+    _ "embed"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+    "github.com/go-go-golems/glazed/pkg/cmds/layers"
+    "github.com/huandu/go-clone"
 )
 
 type ChatSettings struct {
@@ -76,24 +72,4 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 	}, nil
 }
 
-// WrapWithCache wraps a chat step with caching if enabled
-func (s *ChatSettings) WrapWithCache(step chat.Step, options ...chat.StepOption) (chat.Step, error) {
-	switch s.CacheType {
-	case "none":
-		return step, nil
-	case "memory":
-		return steps.NewMemoryCachingStep(step,
-			steps.WithMemoryMaxSize(s.CacheMaxEntries),
-			steps.WithMemoryStepOptions(options...),
-		)
-	case "disk":
-		return steps.NewCachingStep(step,
-			steps.WithMaxSize(s.CacheMaxSize),
-			steps.WithMaxEntries(s.CacheMaxEntries),
-			steps.WithCacheDirectory(s.CacheDirectory),
-			steps.WithStepOptions(options...),
-		)
-	default:
-		return nil, fmt.Errorf("unsupported cache type for chat: %s", s.CacheType)
-	}
-}
+// WrapWithCache removed with steps API deprecation. Use engine-level caching/middleware instead.
