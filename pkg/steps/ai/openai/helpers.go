@@ -92,10 +92,29 @@ func MakeCompletionRequest(
 		return nil, errors.New("no engine specified")
 	}
 
-	msgs_ := []go_openai.ChatCompletionMessage{}
-	for _, msg := range messages {
-		msgs_ = append(msgs_, messageToOpenAIMessage(msg))
-	}
+    msgs_ := []go_openai.ChatCompletionMessage{}
+    for _, msg := range messages {
+        // Debug log type and metadata, but not full body
+        msgType := string(msg.Content.ContentType())
+        role := ""
+        switch c := msg.Content.(type) {
+        case *conversation.ChatMessageContent:
+            role = string(c.Role)
+        }
+        metaKeys := []string{}
+        if msg.Metadata != nil {
+            for k := range msg.Metadata {
+                metaKeys = append(metaKeys, k)
+            }
+        }
+        log.Debug().
+            Str("content_type", msgType).
+            Str("role", role).
+            Strs("meta_keys", metaKeys).
+            Msg("OpenAI request message")
+
+        msgs_ = append(msgs_, messageToOpenAIMessage(msg))
+    }
 
 	temperature := 0.0
 	if chatSettings.Temperature != nil {

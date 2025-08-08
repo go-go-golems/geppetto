@@ -20,8 +20,13 @@ const (
 	EventTypeStatus EventType = "status"
 
 	// TODO(manuel, 2024-07-04) Should potentially have a EventTypeText for a block stop here
-	EventTypeToolCall   EventType = "tool-call"
-	EventTypeToolResult EventType = "tool-result"
+    // Model requested a tool call (received from provider stream)
+    EventTypeToolCall   EventType = "tool-call"
+    EventTypeToolResult EventType = "tool-result"
+
+    // Execution-phase events (we are actually executing tools locally)
+    EventTypeToolCallExecute          EventType = "tool-call-execute"
+    EventTypeToolCallExecutionResult  EventType = "tool-call-execution-result"
 	EventTypeError      EventType = "error"
 	EventTypeInterrupt  EventType = "interrupt"
 )
@@ -251,6 +256,46 @@ func NewToolResultEvent(metadata EventMetadata, stepMetadata *StepMetadata, tool
 }
 
 var _ Event = &EventToolResult{}
+
+// EventToolCallExecute captures the intent to execute a tool locally
+type EventToolCallExecute struct {
+    EventImpl
+    ToolCall ToolCall `json:"tool_call"`
+}
+
+func NewToolCallExecuteEvent(metadata EventMetadata, stepMetadata *StepMetadata, toolCall ToolCall) *EventToolCallExecute {
+    return &EventToolCallExecute{
+        EventImpl: EventImpl{
+            Type_:     EventTypeToolCallExecute,
+            Step_:     stepMetadata,
+            Metadata_: metadata,
+            payload:   nil,
+        },
+        ToolCall: toolCall,
+    }
+}
+
+var _ Event = &EventToolCallExecute{}
+
+// EventToolCallExecutionResult captures the result of executing a tool locally
+type EventToolCallExecutionResult struct {
+    EventImpl
+    ToolResult ToolResult `json:"tool_result"`
+}
+
+func NewToolCallExecutionResultEvent(metadata EventMetadata, stepMetadata *StepMetadata, toolResult ToolResult) *EventToolCallExecutionResult {
+    return &EventToolCallExecutionResult{
+        EventImpl: EventImpl{
+            Type_:     EventTypeToolCallExecutionResult,
+            Step_:     stepMetadata,
+            Metadata_: metadata,
+            payload:   nil,
+        },
+        ToolResult: toolResult,
+    }
+}
+
+var _ Event = &EventToolCallExecutionResult{}
 
 // TODO(manuel, 2024-07-03) Then, we can add those to the openai step as well, and to the UI, and then we should have a good way to do auto tool calling
 
