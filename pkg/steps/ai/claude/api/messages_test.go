@@ -80,7 +80,7 @@ func TestMessageDeserialization(t *testing.T) {
 				Content: []Content{
 					TextContent{BaseContent: BaseContent{Type_: "text"}, Text: "Text"},
 					ImageContent{BaseContent: BaseContent{Type_: "image"}, Source: ImageSource{Type: "base64", MediaType: "image/jpeg", Data: "base64data"}},
-					ToolUseContent{BaseContent: BaseContent{Type_: "tool_use"}, ID: "tool1", Name: "calculator", Input: json.RawMessage(`"{\"operation\":\"add\",\"numbers\":[1,2]}"`)},
+					ToolUseContent{BaseContent: BaseContent{Type_: "tool_use"}, ID: "tool1", Name: "calculator", Input: json.RawMessage(`{"operation":"add","numbers":[1,2]}`)},
 				},
 			},
 		},

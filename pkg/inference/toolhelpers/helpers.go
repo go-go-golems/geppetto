@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
@@ -258,7 +259,7 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 	for i := 0; i < config.MaxIterations; i++ {
 		log.Info().Int("iteration", i+1).Msg("RunToolCallingLoop: starting iteration")
 		
-		// Run inference
+    // Run inference
 		log.Debug().Msg("RunToolCallingLoop: calling engine.RunInference")
 		response, err := engine.RunInference(ctx, conv)
 		if err != nil {
@@ -285,10 +286,36 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 			Int("tool_calls_found", len(toolCalls)).
 			Msg("RunToolCallingLoop: found tool calls, executing")
 
-		// Execute tools
-		toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
+    // Publish tool call events for visibility
+    for _, tc := range toolCalls {
+        // Best effort: serialize arguments
+        argBytes, _ := json.Marshal(tc.Arguments)
+        events.PublishEventToContext(ctx, events.NewToolCallEvent(
+            events.EventMetadata{}, nil,
+            events.ToolCall{ID: tc.ID, Name: tc.Name, Input: string(argBytes)},
+        ))
+    }
 
-		// Append results to conversation for next iteration
+    // Execute tools
+    toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
+
+    // Publish tool results events
+    for _, tr := range toolResults {
+        resultStr := ""
+        if tr.Result != nil {
+            if b, err := json.Marshal(tr.Result); err == nil {
+                resultStr = string(b)
+            } else {
+                resultStr = fmt.Sprintf("%v", tr.Result)
+            }
+        }
+        events.PublishEventToContext(ctx, events.NewToolResultEvent(
+            events.EventMetadata{}, nil,
+            events.ToolResult{ID: tr.ToolCallID, Result: resultStr},
+        ))
+    }
+
+    // Append results to conversation for next iteration
 		conv = AppendToolResults(response, toolResults)
 		
 		log.Debug().
