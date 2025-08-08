@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 
@@ -180,25 +181,32 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		),
 	}
 
-	fmt.Fprintln(w, "=== Testing Claude Engine Direct Tool Support ===")
-	fmt.Fprintf(w, "Conversation has %d messages\n", len(conversation))
-	fmt.Fprintln(w, "Running inference with tools configured...")
-	fmt.Fprintln(w, "Check the debug logs to see the Claude request payload with tools!")
-	fmt.Fprintln(w)
+    // Prepare registry and register our tool for execution
+    registry := tools.NewInMemoryToolRegistry()
+    if err := registry.RegisterTool("get_weather", *weatherToolDef); err != nil {
+        return errors.Wrap(err, "failed to register weather tool")
+    }
 
-	// Run inference directly on engine - this should log the request with tools
-	result, err := engineInstance.RunInference(ctx, conversation)
-	if err != nil {
-		log.Error().Err(err).Msg("Inference failed")
-		return errors.Wrap(err, "inference failed")
-	}
+    fmt.Fprintln(w, "=== Testing Claude Engine With Tool Calling Helper ===")
+    fmt.Fprintf(w, "Conversation has %d messages\n", len(conversation))
+    fmt.Fprintln(w, "Running full tool-calling loop (max 2 iterations)...")
+    fmt.Fprintln(w)
 
-	fmt.Fprintf(w, "\nInference completed. Result has %d messages\n", len(result))
-	
-	// Print basic conversation info
-	for i, msg := range result {
-		fmt.Fprintf(w, "Message %d: %s\n", i, msg.Content.String())
-	}
+    // Configure helper
+    helperConfig := toolhelpers.NewToolConfig().
+        WithMaxIterations(2)
+
+    // Run the automated tool calling loop
+    result, err := toolhelpers.RunToolCallingLoop(ctx, engineInstance, conversation, registry, helperConfig)
+    if err != nil {
+        log.Error().Err(err).Msg("Tool calling workflow failed")
+        return errors.Wrap(err, "tool calling workflow failed")
+    }
+
+    fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(result))
+    for i, msg := range result {
+        fmt.Fprintf(w, "Message %d: type=%s text=%q\n", i, msg.Content.ContentType(), msg.Content.String())
+    }
 
 	return nil
 }

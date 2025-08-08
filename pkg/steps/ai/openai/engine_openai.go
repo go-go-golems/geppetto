@@ -6,6 +6,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"io"
 	stdlog "log"
+    "encoding/json"
 
 	"github.com/go-go-golems/geppetto/pkg/conversation"
     "github.com/go-go-golems/geppetto/pkg/events"
@@ -183,7 +184,9 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}()
 
-	message := ""
+    message := ""
+    // Collect streamed tool calls so we can preserve them in the conversation
+    toolCallMerger := NewToolCallMerger()
 	var usage *conversation.Usage
 	var stopReason *string
 
@@ -210,12 +213,32 @@ func (e *OpenAIEngine) RunInference(
 			}
 			chunkCount++
 
-			delta := ""
-			if len(response.Choices) > 0 {
-				delta = response.Choices[0].Delta.Content
-				message += delta
-				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
-			}
+            delta := ""
+            if len(response.Choices) > 0 {
+                choice := response.Choices[0]
+                // Text delta
+                delta = choice.Delta.Content
+                message += delta
+                log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+
+                // Tool call deltas
+                if len(choice.Delta.ToolCalls) > 0 {
+                    toolCallMerger.AddToolCalls(choice.Delta.ToolCalls)
+                    for _, tc := range choice.Delta.ToolCalls {
+                        // Safe logging of arguments size to avoid very long logs
+                        argPreview := tc.Function.Arguments
+                        if len(argPreview) > 200 {
+                            argPreview = argPreview[:200] + "…"
+                        }
+                        log.Debug().
+                            Int("chunk", chunkCount).
+                            Str("tool_id", tc.ID).
+                            Str("name", tc.Function.Name).
+                            Str("arguments_delta", argPreview).
+                            Msg("OpenAI received tool_call delta")
+                    }
+                }
+            }
 
 			// Extract metadata from OpenAI chat response
 			if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
@@ -272,16 +295,42 @@ streamingComplete:
 		llmMetadata.StopReason = stopReason
 	}
 
-	messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
-	finalMessage := conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata))
+    mergedToolCalls := toolCallMerger.GetToolCalls()
+    log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
 
-	// Clone the input conversation and append the new message
-	result := append(conversation.Conversation(nil), messages...)
-	result = append(result, finalMessage)
+    // Clone the input conversation
+    result := append(conversation.Conversation(nil), messages...)
+
+    // Append messages in order that keeps last message as tool-use when present
+    if len(mergedToolCalls) > 0 {
+        // Optional assistant text first (if any)
+        if len(message) > 0 {
+            messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+            result = append(result, conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)))
+        }
+        // Then tool calls so the last message is a tool-use for the helper loop
+        for _, tc := range mergedToolCalls {
+            // Ensure arguments are valid JSON
+            args := json.RawMessage([]byte(tc.Function.Arguments))
+            toolUse := &conversation.ToolUseContent{
+                ToolID: tc.ID,
+                Name:   tc.Function.Name,
+                Input:  args,
+                Type:   "function",
+            }
+            result = append(result, conversation.NewMessage(toolUse, conversation.WithLLMMessageMetadata(llmMetadata)))
+        }
+    } else {
+        // No tool calls, just assistant text if any
+        if len(message) > 0 {
+            messageContent := conversation.NewChatMessageContent(conversation.RoleAssistant, message, nil)
+            result = append(result, conversation.NewMessage(messageContent, conversation.WithLLMMessageMetadata(llmMetadata)))
+        }
+    }
 
 	// Publish final event for streaming
-	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Msg("OpenAI publishing final event (streaming)")
-	e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, message))
+    log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
+    e.publishEvent(events.NewFinalEvent(metadata, stepMetadata, message))
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")
 	return result, nil
