@@ -19,198 +19,207 @@ SectionType: Tutorial
 
 # Build a Streaming Inference Command with Tool Calling
 
-This tutorial shows how to build a Cobra command that performs streaming inference and supports tool calling using Geppetto. It follows the engine-first architecture: engines handle provider I/O and emit events; helpers orchestrate tools.
+This tutorial explains how to build a Cobra command that performs streaming inference and supports tool calling using Geppetto. We follow the engine-first architecture: engines handle provider I/O and emit events, while helpers orchestrate tools. The focus is on concepts, small runnable snippets, and the key APIs you will use, not a single large code dump. See the style guide for expectations around examples and structure: `glaze help how-to-write-good-documentation-pages`.
 
-For background, see:
+For foundational background, see:
 - `glaze help geppetto-inference-engines`
 - `glaze help geppetto-events-streaming-watermill`
 
 ## What You’ll Build
 
-- A Cobra command that:
+- A CLI command that:
   - Parses provider config layers (Pinocchio profiles)
-  - Starts a Watermill-backed event router
-  - Creates an engine with an EventSink for streaming
-  - Registers a sample tool
-  - Runs the tool-calling loop with streaming
-  - Prints streamed output to the console
+  - Starts a Watermill-backed event router and console printers
+  - Creates an engine configured with an EventSink for streaming
+  - Registers a sample tool and runs a tool-calling loop
+  - Streams assistant output (and tool activity) to the console
+
+## Learning Objectives
+
+- Understand the streaming event flow and why the sink matters
+- Learn how to register tools and enable tool calls with streaming
+- See how conversations are built and updated
+- Know which APIs to use when composing your own command
 
 ## Prerequisites
 
-- Basic Go and Cobra CLI knowledge
+- Basic Go and Cobra knowledge
 - Configured Pinocchio profile(s) for your provider
 - Geppetto modules in your project
 
-## 1) CLI Skeleton
+## Architecture at a Glance
+
+- Engine: runs inference against a provider and emits events
+- Event router: transports events (Watermill) and drives printers
+- Event sink: connects the engine and helpers to the router
+- Tool registry: in-memory store of callable tools
+- Tool helpers: manage the tool-calling loop and conversation updates
+
+## Key APIs You’ll Use
+
+- Engine and sink
+  - `factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))`
+  - `middleware.NewWatermillSink(publisher, topic)`
+- Events and printers
+  - `events.NewEventRouter()`
+  - `events.StepPrinterFunc(prefix, w)` or `events.NewStructuredPrinter(w, options)`
+- Tools
+  - `tools.NewInMemoryToolRegistry()`
+  - `tools.NewToolFromFunc(name, description, func)`
+  - Optional: `ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)` when supported by the provider engine
+- Conversation and helpers
+  - `builder.NewManagerBuilder().WithSystemPrompt(...).WithPrompt(...).Build()`
+  - `toolhelpers.RunToolCallingLoop(ctx, eng, conv, registry, toolConfig)`
+
+## Step 1 — Define the CLI Command
+
+Create a command description with arguments and flags, including a `pinocchio-profile` to load provider layers.
 
 ```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
-    "github.com/go-go-golems/geppetto/pkg/events"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
-    "github.com/go-go-golems/geppetto/pkg/inference/tools"
-    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-    "github.com/go-go-golems/glazed/pkg/cli"
-    "github.com/go-go-golems/glazed/pkg/cmds"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
-    "github.com/go-go-golems/glazed/pkg/help"
-    "github.com/go-go-golems/glazed/pkg/cmds/logging"
-    help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-    clay "github.com/go-go-golems/clay/pkg"
-    "github.com/pkg/errors"
-    "github.com/rs/zerolog/log"
-    "github.com/spf13/cobra"
-    "golang.org/x/sync/errgroup"
-    "io"
+// inside NewStreamingCmd()
+desc := cmds.NewCommandDescription(
+    "stream-with-tools",
+    cmds.WithShort("Streaming inference with tools"),
+    cmds.WithArguments(
+        parameters.NewParameterDefinition("prompt", parameters.ParameterTypeString,
+            parameters.WithHelp("Prompt")),
+    ),
+    cmds.WithFlags(
+        parameters.NewParameterDefinition("pinocchio-profile", parameters.ParameterTypeString,
+            parameters.WithDefault("4o-mini")),
+        parameters.NewParameterDefinition("output-format", parameters.ParameterTypeString,
+            parameters.WithDefault("text")),
+        parameters.NewParameterDefinition("with-metadata", parameters.ParameterTypeBool,
+            parameters.WithDefault(false)),
+    ),
+    cmds.WithLayersList(geppettolayers.CreateGeppettoLayers()...),
 )
+```
 
-type StreamingCmd struct { *cmds.CommandDescription }
+## Step 2 — Start the Event Router and Printers
 
-type Settings struct {
-    PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
-    Prompt           string `glazed.parameter:"prompt"`
-    OutputFormat     string `glazed.parameter:"output-format"`
-    WithMetadata     bool   `glazed.parameter:"with-metadata"`
-}
+The event router moves tokens and tool events through Watermill. Attach a human-readable printer or a structured one.
 
-func NewStreamingCmd() (*StreamingCmd, error) {
-    geLayers, err := geppettolayers.CreateGeppettoLayers()
-    if err != nil { return nil, err }
-    desc := cmds.NewCommandDescription(
-        "stream-with-tools",
-        cmds.WithShort("Streaming inference with tools"),
-        cmds.WithArguments(
-            parameters.NewParameterDefinition("prompt", parameters.ParameterTypeString, parameters.WithHelp("Prompt")),
-        ),
-        cmds.WithFlags(
-            parameters.NewParameterDefinition("pinocchio-profile", parameters.ParameterTypeString, parameters.WithDefault("4o-mini")),
-            parameters.NewParameterDefinition("output-format", parameters.ParameterTypeString, parameters.WithDefault("text")),
-            parameters.NewParameterDefinition("with-metadata", parameters.ParameterTypeBool, parameters.WithDefault(false)),
-        ),
-        cmds.WithLayersList(geLayers...),
-    )
-    return &StreamingCmd{CommandDescription: desc}, nil
-}
+```go
+router, _ := events.NewEventRouter()
+defer router.Close()
 
-func (c *StreamingCmd) RunIntoWriter(ctx context.Context, parsed *layers.ParsedLayers, w io.Writer) error {
-    // Parse settings
-    s := &Settings{}
-    if err := parsed.InitializeStruct(layers.DefaultSlug, s); err != nil { return errors.Wrap(err, "init settings") }
+// Text printer for humans
+router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
-    // 1) Event router + sink
-    router, err := events.NewEventRouter()
-    if err != nil { return errors.Wrap(err, "router") }
-    defer router.Close()
+// OR machine-readable output
+// printer := events.NewStructuredPrinter(os.Stdout, events.PrinterOptions{
+//   Format: events.PrinterFormat("json"), IncludeMetadata: false,
+// })
+// router.AddHandler("chat", "chat", printer)
 
-    // Console printers
-    if s.OutputFormat == "" || s.OutputFormat == "text" {
-        // Handler signature is func(*message.Message) error
-        router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
-    } else {
-        printer := events.NewStructuredPrinter(w, events.PrinterOptions{Format: events.PrinterFormat(s.OutputFormat), IncludeMetadata: s.WithMetadata})
-        router.AddHandler("chat", "chat", printer)
-    }
+sink := middleware.NewWatermillSink(router.Publisher, "chat")
+```
 
-    sink := middleware.NewWatermillSink(router.Publisher, "chat")
+Why this matters: the sink ties your engine and helpers to the router so that tokens and tool activity can be streamed and printed as they happen.
 
-    // 2) Engine
-    eng, err := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))
-    if err != nil { return errors.Wrap(err, "engine") }
+## Step 3 — Create the Engine (Streaming Enabled)
 
-    // 3) Tools (registry + one sample tool)
-    registry := tools.NewInMemoryToolRegistry()
-    weatherDef, err := tools.NewToolFromFunc("get_weather", "Get weather for a location", func(req struct{ Location, Units string }) struct{ Temperature float64 } {
+Pass the sink to the engine so it can emit streaming events.
+
+```go
+eng, err := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))
+if err != nil { return err }
+```
+
+## Step 4 — Register a Tool
+
+Use the in-memory registry and define a simple tool. Providers that support built-in tool schemas can be configured with those definitions.
+
+```go
+registry := tools.NewInMemoryToolRegistry()
+getWeather, _ := tools.NewToolFromFunc(
+    "get_weather",
+    "Get weather for a location",
+    func(req struct{ Location, Units string }) struct{ Temperature float64 } {
         return struct{ Temperature float64 }{Temperature: 22.0}
-    })
-    if err != nil { return errors.Wrap(err, "tool") }
-    if err := registry.RegisterTool("get_weather", *weatherDef); err != nil { return errors.Wrap(err, "register tool") }
+    },
+)
+_ = registry.RegisterTool("get_weather", *getWeather)
 
-    // Optionally configure engine tools (if provider supports built-in tool schemas)
-    // ConfigureTools lets you pass tool definitions to engines that support it (e.g., OpenAI function calling).
-    if cfg, ok := eng.(interface{ ConfigureTools([]engine.ToolDefinition, engine.ToolConfig) }); ok {
-        var defs []engine.ToolDefinition
-        for _, t := range registry.ListTools() {
-            defs = append(defs, engine.ToolDefinition{Name: t.Name, Description: t.Description, Parameters: t.Parameters})
-        }
-        cfg.ConfigureTools(defs, engine.ToolConfig{Enabled: true})
+// Optionally, pass tool schemas to the engine (provider-dependent)
+if cfg, ok := eng.(interface{ ConfigureTools([]engine.ToolDefinition, engine.ToolConfig) }); ok {
+    var defs []engine.ToolDefinition
+    for _, t := range registry.ListTools() {
+        defs = append(defs, engine.ToolDefinition{
+            Name: t.Name, Description: t.Description, Parameters: t.Parameters,
+        })
     }
-
-    // 4) Conversation
-    mb := builder.NewManagerBuilder().
-        WithSystemPrompt("You are a helpful assistant with access to tools.").
-        WithPrompt(s.Prompt)
-    manager, err := mb.Build()
-    if err != nil { return errors.Wrap(err, "build conversation") }
-    conv := manager.GetConversation()
-
-    // 5) Run router + inference with tool-calling in parallel
-    eg, groupCtx := errgroup.WithContext(ctx)
-
-    eg.Go(func() error { return router.Run(groupCtx) })
-    eg.Go(func() error {
-        <-router.Running()
-        runCtx := events.WithEventSinks(groupCtx, sink) // allow helpers/tools to publish
-        updated, err := toolhelpers.RunToolCallingLoop(
-            runCtx, eng, conv, registry, toolhelpers.NewToolConfig().WithMaxIterations(5),
-        )
-        if err != nil { return err }
-        // Append new messages
-        for _, m := range updated[len(conv):] {
-            if err := manager.AppendMessages(m); err != nil { return err }
-        }
-        return nil
-    })
-
-    if err := eg.Wait(); err != nil { return err }
-    log.Info().Msg("Finished")
-    return nil
-}
-
-func main() {
-    root := &cobra.Command{Use: "stream-with-tools", PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-        return logging.InitLoggerFromViper()
-    }}
-    helpSystem := help.NewHelpSystem()
-    help_cmd.SetupCobraRootCommand(helpSystem, root)
-    _ = clay.InitViper("pinocchio", root)
-
-    c, err := NewStreamingCmd()
-    cobra.CheckErr(err)
-    command, err := cli.BuildCobraCommand(c, cli.WithCobraMiddlewaresFunc(geppettolayers.GetCobraCommandGeppettoMiddlewares))
-    cobra.CheckErr(err)
-    root.AddCommand(command)
-    cobra.CheckErr(root.Execute())
+    cfg.ConfigureTools(defs, engine.ToolConfig{Enabled: true})
 }
 ```
 
-Key points:
-- The engine is created with `engine.WithSink(...)`. This enables streaming events.
-- The same sink is attached to the context with `events.WithEventSinks(...)` so tool helpers and tools can publish events.
-- `toolhelpers.RunToolCallingLoop` manages the tool-calling workflow; you simply append the new messages to your `manager`.
+## Step 5 — Build the Conversation
 
-## 2) Minimal Variants
+Create a conversation with a system prompt and the user’s prompt.
+
+```go
+mb := builder.NewManagerBuilder().
+    WithSystemPrompt("You are a helpful assistant with access to tools.").
+    WithPrompt(s.Prompt)
+manager, _ := mb.Build()
+conv := manager.GetConversation()
+```
+
+## Step 6 — Run the Router and Tool-Calling Loop
+
+Run the router and the helper loop concurrently. Attach the sink to the context so helpers and tools can publish events.
+
+```go
+eg, groupCtx := errgroup.WithContext(ctx)
+
+eg.Go(func() error { return router.Run(groupCtx) })
+eg.Go(func() error {
+    <-router.Running()
+    runCtx := events.WithEventSinks(groupCtx, sink)
+    updated, err := toolhelpers.RunToolCallingLoop(
+        runCtx, eng, conv, registry, toolhelpers.NewToolConfig().WithMaxIterations(5),
+    )
+    if err != nil { return err }
+    for _, m := range updated[len(conv):] {
+        if err := manager.AppendMessages(m); err != nil { return err }
+    }
+    return nil
+})
+
+if err := eg.Wait(); err != nil { return err }
+```
+
+### Sample Text Output
+
+```
+assistant: Thinking…
+assistant: I will check the current temperature.
+call: get_weather {"location":"Paris","units":"celsius"}
+result: {"temperature":22}
+assistant: It’s about 22°C in Paris right now.
+```
+
+## Minimal Variants
 
 - Without tools: call `eng.RunInference(ctx, conv)` and skip the helper loop.
-- Structured output: use `events.NewStructuredPrinter` with `json`/`yaml` formats for machine-readable streams.
+- Structured streaming: use `events.NewStructuredPrinter` with `json` or `yaml` for machine-readable logs.
 
-## 3) Explore Working Examples
+## Troubleshooting and Tips
 
-Check the example programs shipped with the repo for complete references:
-- `geppetto/cmd/examples/simple-streaming-inference/main.go`
-- `geppetto/cmd/examples/openai-tools/main.go`
-- `geppetto/cmd/examples/claude-tools/main.go`
-- `geppetto/cmd/examples/generic-tool-calling/main.go`
+- No output streaming? Ensure the engine is constructed with `engine.WithSink(sink)` and that the sink is also placed on the context via `events.WithEventSinks(...)`.
+- Blank console? Confirm a handler is registered for the same topic you used when creating the sink (here: `"chat"`).
+- Tool schemas not applied? Some providers don’t accept external tool definitions; fall back to the generic helper loop which inspects model output and invokes tools from the registry.
+- Infinite loops: cap iterations with `toolhelpers.NewToolConfig().WithMaxIterations(n)`.
 
-These demonstrate provider-specific nuances, logging middleware, and different output formatting strategies.
+## See Also
 
+- Engines and providers: `glaze help geppetto-inference-engines`
+- Streaming and printers: `glaze help geppetto-events-streaming-watermill`
+- Working example programs:
+  - `geppetto/cmd/examples/simple-streaming-inference/main.go`
+  - `geppetto/cmd/examples/openai-tools/main.go`
+  - `geppetto/cmd/examples/claude-tools/main.go`
+  - `geppetto/cmd/examples/generic-tool-calling/main.go`
 
-
-
+If you need a full, copy-paste command, use the example apps above as a reference implementation and adapt the snippets here to your project structure.
