@@ -62,7 +62,9 @@ import (
     "github.com/go-go-golems/glazed/pkg/cmds/layers"
     "github.com/go-go-golems/glazed/pkg/cmds/parameters"
     "github.com/go-go-golems/glazed/pkg/help"
+    "github.com/go-go-golems/glazed/pkg/cmds/logging"
     help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+    clay "github.com/go-go-golems/clay/pkg"
     "github.com/pkg/errors"
     "github.com/rs/zerolog/log"
     "github.com/spf13/cobra"
@@ -110,6 +112,7 @@ func (c *StreamingCmd) RunIntoWriter(ctx context.Context, parsed *layers.ParsedL
 
     // Console printers
     if s.OutputFormat == "" || s.OutputFormat == "text" {
+        // Handler signature is func(*message.Message) error
         router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
     } else {
         printer := events.NewStructuredPrinter(w, events.PrinterOptions{Format: events.PrinterFormat(s.OutputFormat), IncludeMetadata: s.WithMetadata})
@@ -130,7 +133,8 @@ func (c *StreamingCmd) RunIntoWriter(ctx context.Context, parsed *layers.ParsedL
     if err != nil { return errors.Wrap(err, "tool") }
     if err := registry.RegisterTool("get_weather", *weatherDef); err != nil { return errors.Wrap(err, "register tool") }
 
-    // Optionally configure engine tools (provider supports it)
+    // Optionally configure engine tools (if provider supports built-in tool schemas)
+    // ConfigureTools lets you pass tool definitions to engines that support it (e.g., OpenAI function calling).
     if cfg, ok := eng.(interface{ ConfigureTools([]engine.ToolDefinition, engine.ToolConfig) }); ok {
         var defs []engine.ToolDefinition
         for _, t := range registry.ListTools() {
@@ -171,9 +175,12 @@ func (c *StreamingCmd) RunIntoWriter(ctx context.Context, parsed *layers.ParsedL
 }
 
 func main() {
-    root := &cobra.Command{Use: "stream-with-tools"}
+    root := &cobra.Command{Use: "stream-with-tools", PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+        return logging.InitLoggerFromViper()
+    }}
     helpSystem := help.NewHelpSystem()
     help_cmd.SetupCobraRootCommand(helpSystem, root)
+    _ = clay.InitViper("pinocchio", root)
 
     c, err := NewStreamingCmd()
     cobra.CheckErr(err)
@@ -203,6 +210,7 @@ Check the example programs shipped with the repo for complete references:
 - `geppetto/cmd/examples/generic-tool-calling/main.go`
 
 These demonstrate provider-specific nuances, logging middleware, and different output formatting strategies.
+
 
 
 

@@ -33,6 +33,27 @@ Engines and helpers publish structured chat events defined in `pkg/events/chat-e
 - **interrupt (`EventTypeInterrupt`)**: Context cancelled; may include partial text.
 - **final (`EventTypeFinal`)**: Inference finished; includes final text.
 - status/text exist for legacy/debug use and may be phased out.
+### Event Type Cheat Sheet
+
+These are the concrete Go types and commonly used fields you will receive after parsing with `events.NewEventFromJson`:
+
+- `*events.EventPartialCompletionStart`
+  - Marks start of an inference stream
+- `*events.EventPartialCompletion`
+  - Fields: `Delta` (string), `Completion` (string)
+- `*events.EventFinal`
+  - Fields: `Text` (string)
+- `*events.EventToolCall`
+  - Fields: `ToolCall` (struct) with `Name` (string), `Input` (string), `ID` (string)
+- `*events.EventToolResult`
+  - Fields: `ToolResult` (struct) with `ID` (string), `Result` (string)
+- `*events.EventError`
+  - Fields: `ErrorString` (string)
+- `*events.EventInterrupt`
+  - Fields: `Text` (string)
+
+See the source for full definitions: `geppetto/pkg/events/chat-events.go`.
+
 
 Events carry `EventMetadata` (IDs, engine info, token usage, stop reason) and `StepMetadata` (type, input/output types, and settings snapshot). They serialize to JSON for transport.
 
@@ -103,6 +124,7 @@ _ = eg.Wait()
 [Watermill](https://github.com/ThreeDotsLabs/watermill) provides the message router, publisher, and subscriber. Geppetto’s `EventRouter` wraps Watermill to simplify adding handlers:
 
 ```go
+// Handler signature is func(*message.Message) error
 router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
 // Or structured output (text/json/yaml):
 printer := events.NewStructuredPrinter(w, events.PrinterOptions{Format: events.FormatText})
@@ -137,25 +159,48 @@ This is the same pattern used in the example client (see `geppetto/cmd/examples/
 ### 2) Custom handler (aggregate deltas, handle errors)
 
 ```go
+// import "github.com/ThreeDotsLabs/watermill/message"
+
 router.AddHandler("collector", "chat", func(msg *message.Message) error {
     defer msg.Ack()
     e, err := events.NewEventFromJson(msg.Payload)
     if err != nil { return err }
 
     switch ev := e.(type) {
+    case *events.EventPartialCompletionStart:
+        // initialize buffer / UI
     case *events.EventPartialCompletion:
-        // append ev.Delta to your buffer
+        // append ev.Delta
     case *events.EventFinal:
         // flush buffer or update UI with ev.Text
     case *events.EventToolCall:
-        // show tool name and input
+        // access via ev.ToolCall.Name and ev.ToolCall.Input (string)
     case *events.EventToolResult:
-        // display tool result
+        // access via ev.ToolResult.ID and ev.ToolResult.Result (string)
     case *events.EventError:
         return fmt.Errorf(ev.ErrorString)
     }
     return nil
 })
+```
+
+#### Pretty-printing tool payloads (JSON-aware)
+
+`ToolCall.Input` and `ToolResult.Result` are strings. If they contain JSON, pretty-print them for readability:
+
+```go
+func prettyJSONIfPossible(s string) string {
+    t := strings.TrimSpace(s)
+    if strings.HasPrefix(t, "{") || strings.HasPrefix(t, "[") {
+        var v interface{}
+        if err := json.Unmarshal([]byte(s), &v); err == nil {
+            if b, err := json.MarshalIndent(v, "", "  "); err == nil {
+                return string(b)
+            }
+        }
+    }
+    return s
+}
 ```
 
 ### 3) Cross-process consumption
