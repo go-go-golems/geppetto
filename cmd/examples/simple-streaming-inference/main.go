@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -227,15 +229,15 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		defer cancel()
 		<-router.Running()
 
-		// Run inference
-		updatedConversation, err := engine.RunInference(ctx, conversation_)
+		conv := conversation.NewInferenceContext(conversation_)
+		updatedConversation, err := engine.RunInference(ctx, conv)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
 
 		// Extract new messages from the updated conversation
-		newMessages := updatedConversation[len(conversation_):]
+		newMessages := updatedConversation.Messages[len(conversation_):]
 		for _, msg := range newMessages {
 			if err := manager.AppendMessages(msg); err != nil {
 				log.Error().Err(err).Msg("Failed to append message to conversation")

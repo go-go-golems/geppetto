@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -192,19 +194,16 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	fmt.Fprintln(w, "Running full tool-calling loop (max 2 iterations)...")
 	fmt.Fprintln(w)
 
-	// Configure helper to allow the model to call the tool and then respond
-	helperConfig := toolhelpers.NewToolConfig().
-		WithMaxIterations(2)
-
-	// Run the automated tool calling loop
-	result, err := toolhelpers.RunToolCallingLoop(ctx, engineInstance, conversation, registry, helperConfig)
+	helperConfig := toolhelpers.NewToolConfig().WithMaxIterations(2)
+	conv := conversation.NewInferenceContext(conversation)
+	result, err := toolhelpers.RunToolCallingLoop(ctx, engineInstance, conv, registry, helperConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Tool calling workflow failed")
 		return errors.Wrap(err, "tool calling workflow failed")
 	}
 
-	fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(result))
-	for i, msg := range result {
+	fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(result.Messages))
+	for i, msg := range result.Messages {
 		fmt.Fprintf(w, "Message %d: type=%s text=%q\n", i, msg.Content.ContentType(), msg.Content.String())
 	}
 

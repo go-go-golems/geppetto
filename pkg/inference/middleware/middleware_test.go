@@ -15,13 +15,12 @@ type MockEngine struct {
 	err      error
 }
 
-func (m *MockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
+func (m *MockEngine) RunInference(ctx context.Context, conv conversation.InferenceContext) (conversation.InferenceContext, error) {
 	if m.err != nil {
-		return nil, m.err
+		return conversation.InferenceContext{}, m.err
 	}
-	// Clone input conversation and append response
-	result := append(conversation.Conversation(nil), messages...)
-	result = append(result, m.response)
+	result := conversation.InferenceContext{Messages: append(conversation.Conversation(nil), conv.Messages...)}
+	result.Messages = append(result.Messages, m.response)
 	return result, nil
 }
 
@@ -37,32 +36,30 @@ func TestEngineHandler(t *testing.T) {
 	inputMessages := conversation.NewConversation(
 		conversation.NewChatMessage(conversation.RoleUser, "Hi there!"),
 	)
+	conv := conversation.NewInferenceContext(inputMessages)
 
-	result, err := handler(context.Background(), inputMessages)
+	result, err := handler(context.Background(), conv)
 
 	require.NoError(t, err)
-	assert.Len(t, result, 2) // original message + response
-	assert.Equal(t, "Hi there!", result[0].Content.(*conversation.ChatMessageContent).Text)
-	assert.Equal(t, "Hello, world!", result[1].Content.(*conversation.ChatMessageContent).Text)
+	assert.Len(t, result.Messages, 2)
+	assert.Equal(t, "Hi there!", result.Messages[0].Content.(*conversation.ChatMessageContent).Text)
+	assert.Equal(t, "Hello, world!", result.Messages[1].Content.(*conversation.ChatMessageContent).Text)
 }
 
 func TestMiddlewareChain(t *testing.T) {
 	// Create a middleware that adds "(prefix)" to the response
 	prefixMiddleware := func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-			result, err := next(ctx, messages)
+		return func(ctx context.Context, conv conversation.InferenceContext) (conversation.InferenceContext, error) {
+			result, err := next(ctx, conv)
 			if err != nil {
-				return nil, err
+				return conversation.InferenceContext{}, err
 			}
-
-			// Modify the last message (AI response)
-			if len(result) > 0 {
-				lastMsg := result[len(result)-1]
+			if len(result.Messages) > 0 {
+				lastMsg := result.Messages[len(result.Messages)-1]
 				if content, ok := lastMsg.Content.(*conversation.ChatMessageContent); ok {
 					content.Text = "(prefix) " + content.Text
 				}
 			}
-
 			return result, nil
 		}
 	}
@@ -79,21 +76,22 @@ func TestMiddlewareChain(t *testing.T) {
 	inputMessages := conversation.NewConversation(
 		conversation.NewChatMessage(conversation.RoleUser, "Hi"),
 	)
+	conv := conversation.NewInferenceContext(inputMessages)
 
-	result, err := chainedHandler(context.Background(), inputMessages)
+	result, err := chainedHandler(context.Background(), conv)
 
 	require.NoError(t, err)
-	assert.Len(t, result, 2)
-	assert.Equal(t, "(prefix) Hello", result[1].Content.(*conversation.ChatMessageContent).Text)
+	assert.Len(t, result.Messages, 2)
+	assert.Equal(t, "(prefix) Hello", result.Messages[1].Content.(*conversation.ChatMessageContent).Text)
 }
 
 func TestEngineWithMiddleware(t *testing.T) {
 	// Create a simple logging middleware
-	var loggedMessages []conversation.Conversation
+	var logged []conversation.InferenceContext
 	loggingMiddleware := func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-			loggedMessages = append(loggedMessages, messages)
-			return next(ctx, messages)
+		return func(ctx context.Context, conv conversation.InferenceContext) (conversation.InferenceContext, error) {
+			logged = append(logged, conv)
+			return next(ctx, conv)
 		}
 	}
 
@@ -108,36 +106,19 @@ func TestEngineWithMiddleware(t *testing.T) {
 	inputMessages := conversation.NewConversation(
 		conversation.NewChatMessage(conversation.RoleUser, "Test"),
 	)
+	conv := conversation.NewInferenceContext(inputMessages)
 
-	response, err := engine.RunInference(context.Background(), inputMessages)
+	response, err := engine.RunInference(context.Background(), conv)
 
 	require.NoError(t, err)
-	require.Len(t, response, 2) // Original message + response
-	lastMessage := response[len(response)-1]
+	require.Len(t, response.Messages, 2)
+	lastMessage := response.Messages[len(response.Messages)-1]
 	assert.Equal(t, "Response", lastMessage.Content.(*conversation.ChatMessageContent).Text)
-	assert.Len(t, loggedMessages, 1) // Middleware should have logged the input
+	assert.Len(t, logged, 1)
 
-	// Test RunInferenceWithHistory
-	fullConversation, err := engine.RunInferenceWithHistory(context.Background(), inputMessages)
+	fullConversation, err := engine.RunInferenceWithHistory(context.Background(), conv)
 
 	require.NoError(t, err)
-	assert.Len(t, fullConversation, 2) // input + response
-	assert.Len(t, loggedMessages, 2)   // Middleware called twice
-}
-
-func TestCloneConversation(t *testing.T) {
-	original := conversation.NewConversation(
-		conversation.NewChatMessage(conversation.RoleUser, "Original"),
-	)
-
-	cloned := cloneConversation(original)
-
-	// Modify original
-	original[0].Content.(*conversation.ChatMessageContent).Text = "Modified"
-
-	// Cloned should be unchanged (shallow copy behavior)
-	// Note: This is a shallow copy, so the underlying message content is shared
-	// For full safety, we'd need deep cloning, but this is sufficient for basic protection
-	assert.Len(t, cloned, 1)
-	assert.True(t, &original != &cloned) // Different slices
+	assert.Len(t, fullConversation.Messages, 2)
+	assert.Len(t, logged, 2)
 }

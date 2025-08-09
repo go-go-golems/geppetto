@@ -72,8 +72,8 @@ func (tr ToolResult) ToMessage() *conversation.Message {
 // NewToolMiddleware creates middleware that handles function calling workflows for OpenAI/Claude
 func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-			return executeToolWorkflow(ctx, messages, toolbox, config, next)
+		return func(ctx context.Context, conv conversation.InferenceContext) (conversation.InferenceContext, error) {
+			return executeToolWorkflow(ctx, conv, toolbox, config, next)
 		}
 	}
 }
@@ -81,30 +81,24 @@ func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
 // executeToolWorkflow handles the complete tool calling workflow
 func executeToolWorkflow(
 	ctx context.Context,
-	messages conversation.Conversation,
+	conv conversation.InferenceContext,
 	toolbox Toolbox,
 	config ToolConfig,
 	next HandlerFunc,
-) (conversation.Conversation, error) {
-	// Prevent infinite tool calling loops
+) (conversation.InferenceContext, error) {
 	iterations := 0
-	currentMessages := messages
+	currentConv := conv
 
 	for iterations < config.MaxIterations {
-		// Add tool descriptions to the conversation if needed
-		enrichedMessages := addToolContext(currentMessages, toolbox)
-
-		// Execute inference with tools available
-		resultConversation, err := next(ctx, enrichedMessages)
+		enriched := addToolContext(currentConv, toolbox)
+		resultConversation, err := next(ctx, enriched)
 		if err != nil {
-			return nil, fmt.Errorf("tool inference failed: %w", err)
+			return conversation.InferenceContext{}, fmt.Errorf("tool inference failed: %w", err)
 		}
-
-		// Get the last message (AI response) from the result
-		if len(resultConversation) == 0 {
-			return nil, fmt.Errorf("empty conversation returned from inference")
+		if len(resultConversation.Messages) == 0 {
+			return conversation.InferenceContext{}, fmt.Errorf("empty conversation returned from inference")
 		}
-		aiResponse := resultConversation[len(resultConversation)-1]
+		aiResponse := resultConversation.Messages[len(resultConversation.Messages)-1]
 
 		// Check if response contains tool calls
 		toolCalls := extractToolCalls(aiResponse)
@@ -138,13 +132,11 @@ func executeToolWorkflow(
 		// Execute all tool calls
 		toolResults, err := executeToolCalls(ctx, toolCalls, toolbox, config.Timeout)
 		if err != nil {
-			return nil, fmt.Errorf("tool execution failed: %w", err)
+			return conversation.InferenceContext{}, fmt.Errorf("tool execution failed: %w", err)
 		}
-
-		// Update conversation with AI response and tool results
-		currentMessages = resultConversation
+		currentConv = resultConversation
 		for _, result := range toolResults {
-			currentMessages = append(currentMessages, result.ToMessage())
+			currentConv.Messages = append(currentConv.Messages, result.ToMessage())
 		}
 
 		// Publish tool result events
@@ -164,15 +156,19 @@ func executeToolWorkflow(
 		iterations++
 	}
 
-	return nil, fmt.Errorf("tool calling exceeded maximum iterations (%d)", config.MaxIterations)
+	return currentConv, fmt.Errorf("tool calling exceeded maximum iterations (%d)", config.MaxIterations)
 }
 
 // addToolContext adds tool descriptions to the conversation if not already present
-func addToolContext(messages conversation.Conversation, toolbox Toolbox) conversation.Conversation {
-	// For now, we'll rely on the AI provider (OpenAI/Claude) to handle tool descriptions
-	// through their API. This function can be extended later to inject tool context
-	// into system messages if needed.
-	return messages
+func addToolContext(conv conversation.InferenceContext, toolbox Toolbox) conversation.InferenceContext {
+	if len(conv.Tools) > 0 {
+		return conv
+	}
+	descs := toolbox.GetToolDescriptions()
+	for _, d := range descs {
+		conv.Tools = append(conv.Tools, conversation.ToolDefinition{Name: d.Name, Description: d.Description, Parameters: d.Parameters})
+	}
+	return conv
 }
 
 // extractToolCalls extracts tool calls from an AI response message

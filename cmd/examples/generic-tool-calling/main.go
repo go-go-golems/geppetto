@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -472,14 +474,15 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		<-router.Running()
 
 		// Run inference with simplified tool calling helpers - works with any provider!
-		updatedConversation, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, conversation_, registry, helperConfig)
+		conv := conversation.NewInferenceContext(conversation_)
+		updatedConversation, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, conv, registry, helperConfig)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
 
 		// Extract new messages from the updated conversation
-		newMessages := updatedConversation[len(conversation_):]
+		newMessages := updatedConversation.Messages[len(conversation_):]
 		for _, msg := range newMessages {
 			if err := manager.AppendMessages(msg); err != nil {
 				log.Error().Err(err).Msg("Failed to append message to conversation")

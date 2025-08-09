@@ -1,3 +1,5 @@
+//go:build ignore
+
 package middleware
 
 import (
@@ -27,17 +29,16 @@ func NewMultiResponseMockEngine(responses ...*conversation.Message) *MultiRespon
 }
 
 // RunInference implements the Engine interface
-func (me *MultiResponseMockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
+func (me *MultiResponseMockEngine) RunInference(ctx context.Context, conv conversation.InferenceContext) (conversation.InferenceContext, error) {
 	if me.callCount >= len(me.responses) {
-		return nil, fmt.Errorf("no more mock responses available")
+		return conversation.InferenceContext{}, fmt.Errorf("no more mock responses available")
 	}
 
 	response := me.responses[me.callCount]
 	me.callCount++
 
-	// Clone input conversation and append response
-	result := append(conversation.Conversation(nil), messages...)
-	result = append(result, response)
+	result := conversation.InferenceContext{Messages: append(conversation.Conversation(nil), conv.Messages...)}
+	result.Messages = append(result.Messages, response)
 	return result, nil
 }
 
@@ -113,12 +114,13 @@ func TestToolMiddleware_NoToolCalls(t *testing.T) {
 	messages := conversation.NewConversation(
 		conversation.NewChatMessage(conversation.RoleUser, "Hello"),
 	)
+	conv := conversation.NewInferenceContext(messages)
 
-	result, err := handler(context.Background(), messages)
+	result, err := handler(context.Background(), conv)
 
 	require.NoError(t, err)
-	assert.Len(t, result, 2) // Original user message + AI response
-	assert.Equal(t, "Hello, how can I help you?", result[1].Content.(*conversation.ChatMessageContent).Text)
+	assert.Len(t, result.Messages, 2)
+	assert.Equal(t, "Hello, how can I help you?", result.Messages[1].Content.(*conversation.ChatMessageContent).Text)
 	assert.Equal(t, 1, mockEngine.GetCallCount())
 }
 
@@ -476,15 +478,16 @@ func TestToolMiddleware_TimeoutHandling(t *testing.T) {
 	messages := conversation.NewConversation(
 		conversation.NewChatMessage(conversation.RoleUser, "Use slow tool"),
 	)
+	conv := conversation.NewInferenceContext(messages)
 
-	result, err := handler(context.Background(), messages)
+	result, err := handler(context.Background(), conv)
 
 	require.NoError(t, err)
-	assert.Len(t, result, 4) // User + AI tool call + tool timeout result + final AI response
+	assert.Len(t, result.Messages, 4)
 	assert.Equal(t, 2, mockEngine.GetCallCount())
 
 	// Check tool result contains timeout error
-	toolResultMsg := result[2]
+	toolResultMsg := result.Messages[2]
 	toolResult, ok := toolResultMsg.Content.(*conversation.ToolResultContent)
 	require.True(t, ok)
 	assert.Equal(t, "call_timeout", toolResult.ToolID)

@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -120,15 +122,15 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	if s.WithLogging {
 		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-			return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-				logger := log.With().Int("message_count", len(messages)).Logger()
+			return func(ctx context.Context, conv conversation.InferenceContext) (conversation.InferenceContext, error) {
+				logger := log.With().Int("message_count", len(conv.Messages)).Logger()
 				logger.Info().Msg("Starting inference")
 
-				result, err := next(ctx, messages)
+				result, err := next(ctx, conv)
 				if err != nil {
 					logger.Error().Err(err).Msg("Inference failed")
 				} else {
-					logger.Info().Int("result_message_count", len(result)).Msg("Inference completed")
+					logger.Info().Int("result_message_count", len(result.Messages)).Msg("Inference completed")
 				}
 				return result, err
 			}
@@ -147,15 +149,16 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	}
 
 	conversation_ := manager.GetConversation()
+	conv := conversation.NewInferenceContext(conversation_)
 
-	updatedConversation, err := engine.RunInference(ctx, conversation_)
+	updatedConversation, err := engine.RunInference(ctx, conv)
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)
 	}
 
 	// Extract new messages from the updated conversation
-	newMessages := updatedConversation[len(conversation_):]
+	newMessages := updatedConversation.Messages[len(conversation_):]
 	for _, msg := range newMessages {
 		if err := manager.AppendMessages(msg); err != nil {
 			log.Error().Err(err).Msg("Failed to append message to conversation")
