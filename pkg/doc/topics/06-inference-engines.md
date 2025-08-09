@@ -153,7 +153,10 @@ import (
 
     "github.com/go-go-golems/geppetto/pkg/conversation"
     "github.com/go-go-golems/geppetto/pkg/conversation/builder"
+    clay "github.com/go-go-golems/clay/pkg"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+    "github.com/go-go-golems/glazed/pkg/cmds/logging"
+    "github.com/spf13/cobra"
 )
 
 func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, prompt string) error {
@@ -190,6 +193,15 @@ func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, pro
 
     return nil
 }
+
+func main() {
+    // Minimal pattern for Geppetto-based tools
+    root := &cobra.Command{Use: "example", PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+        return logging.InitLoggerFromViper()
+    }}
+    _ = clay.InitViper("pinocchio", root)
+    // add commands and execute...
+}
 ```
 
 ## Tool Calling with Helpers
@@ -204,6 +216,18 @@ The main helper functions are:
 - `ExecuteToolCalls`: Execute tools and return results
 - `AppendToolResults`: Add tool results to conversations
 - `RunToolCallingLoop`: Complete automated workflow
+
+### Appending user messages
+
+To append a user message to a conversation managed by `conversation.Manager`:
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/conversation"
+
+if err := manager.AppendMessages(conversation.NewChatMessage(conversation.RoleUser, "Hello")); err != nil {
+    // handle error
+}
+```
 
 ### Setting Up Tools
 
@@ -361,6 +385,7 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
     defer router.Close()
 
     // 2. Add console printer for events (or use structured printer)
+    // Handler signature is func(*message.Message) error
     router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
     // Alternative structured printer:
     // printer := events.NewStructuredPrinter(w, events.PrinterOptions{Format: events.FormatText})
