@@ -164,20 +164,19 @@ func (e *OpenAIEngine) RunInference(
 		},
 	}
 
-	// Publish start event
-	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
-	startEvent := events.NewStartEvent(metadata, stepMetadata)
-	e.publishEvent(startEvent)
-	events.PublishEventToContext(ctx, startEvent)
+    // Publish start event
+    log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
+    startEvent := events.NewStartEvent(metadata, stepMetadata)
+    e.publishEvent(ctx, startEvent)
 
 	// Always use streaming mode
 	log.Debug().Msg("OpenAI using streaming mode")
 	stream, err := client.CreateChatCompletionStream(ctx, *req)
-	if err != nil {
-		log.Error().Err(err).Msg("OpenAI streaming request failed")
-		e.publishEvent(events.NewErrorEvent(metadata, stepMetadata, err))
-		return nil, err
-	}
+    if err != nil {
+        log.Error().Err(err).Msg("OpenAI streaming request failed")
+        e.publishEvent(ctx, events.NewErrorEvent(metadata, stepMetadata, err))
+        return nil, err
+    }
 	defer func() {
 		if err := stream.Close(); err != nil {
 			stdlog.Printf("Failed to close stream: %v", err)
@@ -196,10 +195,9 @@ func (e *OpenAIEngine) RunInference(
 		select {
 		case <-ctx.Done():
 			log.Debug().Msg("OpenAI streaming cancelled by context")
-			// Publish interrupt event with current partial text
-			interruptEvent := events.NewInterruptEvent(metadata, stepMetadata, message)
-			e.publishEvent(interruptEvent)
-			events.PublishEventToContext(ctx, interruptEvent)
+            // Publish interrupt event with current partial text
+            interruptEvent := events.NewInterruptEvent(metadata, stepMetadata, message)
+            e.publishEvent(ctx, interruptEvent)
 			return nil, ctx.Err()
 
 		default:
@@ -208,13 +206,12 @@ func (e *OpenAIEngine) RunInference(
 				log.Debug().Int("chunks_received", chunkCount).Msg("OpenAI stream completed")
 				goto streamingComplete
 			}
-			if err != nil {
-				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
-				errEvent := events.NewErrorEvent(metadata, stepMetadata, err)
-				e.publishEvent(errEvent)
-				events.PublishEventToContext(ctx, errEvent)
-				return nil, err
-			}
+            if err != nil {
+                log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
+                errEvent := events.NewErrorEvent(metadata, stepMetadata, err)
+                e.publishEvent(ctx, errEvent)
+                return nil, err
+            }
 			chunkCount++
 
 			delta := ""
@@ -259,15 +256,14 @@ func (e *OpenAIEngine) RunInference(
 				}
 			}
 
-			// Publish intermediate streaming event
-			log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
-			partialEvent := events.NewPartialCompletionEvent(
-				metadata,
-				stepMetadata,
-				delta, message,
-			)
-			e.publishEvent(partialEvent)
-			events.PublishEventToContext(ctx, partialEvent)
+            // Publish intermediate streaming event
+            log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
+            partialEvent := events.NewPartialCompletionEvent(
+                metadata,
+                stepMetadata,
+                delta, message,
+            )
+            e.publishEvent(ctx, partialEvent)
 		}
 	}
 
@@ -307,18 +303,17 @@ streamingComplete:
 	result := append(conversation.Conversation(nil), messages...)
 
 	// If we have tool calls, publish ToolCall events now
-	if len(mergedToolCalls) > 0 {
-		for _, tc := range mergedToolCalls {
-			inputStr := tc.Function.Arguments
-			toolCallEvent := events.NewToolCallEvent(
-				metadata,
-				stepMetadata,
-				events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
-			)
-			e.publishEvent(toolCallEvent)
-			events.PublishEventToContext(ctx, toolCallEvent)
-		}
-	}
+    if len(mergedToolCalls) > 0 {
+        for _, tc := range mergedToolCalls {
+            inputStr := tc.Function.Arguments
+            toolCallEvent := events.NewToolCallEvent(
+                metadata,
+                stepMetadata,
+                events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
+            )
+            e.publishEvent(ctx, toolCallEvent)
+        }
+    }
 
 	// Append messages in order that keeps last message as tool-use when present
 	if len(mergedToolCalls) > 0 {
@@ -349,23 +344,22 @@ streamingComplete:
 
 	// Publish final event for streaming
 	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
-	finalEvent := events.NewFinalEvent(metadata, stepMetadata, message)
-	e.publishEvent(finalEvent)
-	events.PublishEventToContext(ctx, finalEvent)
+    finalEvent := events.NewFinalEvent(metadata, stepMetadata, message)
+    e.publishEvent(ctx, finalEvent)
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")
 	return result, nil
 }
 
-// publishEvent publishes an event to all configured sinks.
-func (e *OpenAIEngine) publishEvent(event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
-	// Also publish to sinks carried in the context if present
-	// Note: we cannot access ctx here; callers should wrap ctx with events.WithEventSinks
+// publishEvent publishes an event to all configured sinks and any sinks carried in context.
+func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
+    for _, sink := range e.config.EventSinks {
+        if err := sink.PublishEvent(event); err != nil {
+            log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
+        }
+    }
+    // Best-effort publish to context sinks
+    events.PublishEventToContext(ctx, event)
 }
 
 // GetSupportedToolFeatures returns the tool features supported by OpenAI

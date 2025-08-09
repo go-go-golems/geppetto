@@ -35,13 +35,13 @@ SectionType: Tutorial
 10. [Debugging and Troubleshooting](#debugging-and-troubleshooting)
 11. [Conclusion](#conclusion)
 
-This tutorial provides a comprehensive guide to using the simplified inference engine architecture in Geppetto. The new design separates concerns between pure API communication (engines) and tool orchestration (helpers), making the system more testable, maintainable, and provider-agnostic.
+This tutorial explains the engine-first inference architecture in Geppetto. Engines handle provider I/O and publish streaming events via sinks. Orchestration (like tool calling) is handled by helpers. The result is simpler, more testable, and provider-agnostic.
 
 ## Core Architecture Principles
 
 The Geppetto inference architecture is built around a clean separation of concerns:
 
-- **Engines**: Handle provider-specific API calls and streaming
+- **Engines**: Handle provider-specific API calls and streaming (emit events)
 - **Tool Helpers**: Manage tool calling orchestration and workflows
 - **Factories**: Create engines from configuration layers
 - **Middleware**: Add cross-cutting concerns like logging and event publishing
@@ -55,7 +55,7 @@ The Geppetto inference architecture is built around a clean separation of concer
 
 ## The Engine Interface
 
-The heart of the architecture is the simple `Engine` interface:
+The heart of the architecture is the simple `Engine` interface (no explicit streaming method; streaming happens when sinks are configured on the engine):
 
 ```go
 package main
@@ -134,8 +134,6 @@ func createEngineWithOptions(parsedLayers *layers.ParsedLayers) (engine.Engine, 
     // Engine options for customization
     engineOptions := []engine.Option{
         engine.WithSink(watermillSink),
-        engine.WithTemperature(0.7),
-        engine.WithMaxTokens(1024),
     }
 
     return factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
@@ -333,7 +331,7 @@ func automatedToolCalling(ctx context.Context, engine engine.Engine, registry to
 
 ## Complete Tool Calling Example
 
-Here's a complete example showing tool calling with streaming events:
+Here's a complete example showing tool calling with streaming events (engine emits start/partial/final; helpers emit tool-call/tool-result via context):
 
 ```go
 package main
@@ -362,8 +360,11 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
     }
     defer router.Close()
 
-    // 2. Add console printer for events
+    // 2. Add console printer for events (or use structured printer)
     router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
+    // Alternative structured printer:
+    // printer := events.NewStructuredPrinter(w, events.PrinterOptions{Format: events.FormatText})
+    // router.AddHandler("chat", "chat", printer)
 
     // 3. Create watermill sink for publishing events
     watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
@@ -459,9 +460,12 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         defer cancel()
         <-router.Running() // Wait for router to be ready
 
+        // Attach engine sink to context so helpers/tools can publish too
+        runCtx := events.WithEventSinks(ctx, watermillSink)
+
         // Run complete tool calling workflow
         updatedConversation, err := toolhelpers.RunToolCallingLoop(
-            ctx, baseEngine, conversation, registry, helperConfig,
+            runCtx, baseEngine, conversation, registry, helperConfig,
         )
         if err != nil {
             return fmt.Errorf("tool calling failed: %w", err)
@@ -655,12 +659,15 @@ The `toolhelpers` package includes extensive debug logging:
 
 ### Event Monitoring
 
-Monitor events for real-time debugging:
+Monitor events for real-time debugging through the Watermill router:
 
 ```go
-// Add debug event handler
-router.AddHandler("chat", "debug", func(event events.Event) error {
-    log.Debug().Interface("event", event).Msg("Received event")
+// Add debug event handler that parses messages into events
+router.AddHandler("debug", "chat", func(msg *message.Message) error {
+    e, err := events.NewEventFromJson(msg.Payload)
+    if err != nil { return err }
+    log.Debug().Interface("event", e).Msg("Received event")
+    msg.Ack()
     return nil
 })
 ```
