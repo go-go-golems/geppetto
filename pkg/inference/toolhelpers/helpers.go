@@ -74,7 +74,7 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 		for i := range toolCallsReversed {
 			toolCalls[i] = toolCallsReversed[len(toolCallsReversed)-1-i]
 		}
-		log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted trailing tool calls")
+        log.Debug().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted trailing tool calls")
 		return toolCalls
 	}
 
@@ -110,10 +110,10 @@ func ExtractToolCalls(conv conversation.Conversation) []ToolCall {
 					}
 				}
 
-				if len(toolCalls) > 0 {
-					log.Info().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted Claude tool calls from original content")
-					return toolCalls
-				}
+                if len(toolCalls) > 0 {
+                    log.Debug().Int("tool_calls_count", len(toolCalls)).Msg("ExtractToolCalls: extracted Claude tool calls from original content")
+                    return toolCalls
+                }
 			}
 		}
 	}
@@ -162,7 +162,7 @@ func ExecuteToolCalls(ctx context.Context, toolCalls []ToolCall, registry tools.
 		})
 	}
 
-	log.Info().Int("exec_call_count", len(execCalls)).Msg("ExecuteToolCalls: executing tools")
+    log.Debug().Int("exec_call_count", len(execCalls)).Msg("ExecuteToolCalls: executing tools")
 
 	// Execute the tools
 	execResults, err := executor.ExecuteToolCalls(ctx, execCalls, registry)
@@ -170,7 +170,7 @@ func ExecuteToolCalls(ctx context.Context, toolCalls []ToolCall, registry tools.
 	if err != nil {
 		log.Error().Err(err).Msg("ExecuteToolCalls: tool execution failed")
 	} else {
-		log.Info().Int("result_count", len(execResults)).Msg("ExecuteToolCalls: tool execution completed")
+        log.Debug().Int("result_count", len(execResults)).Msg("ExecuteToolCalls: tool execution completed")
 	}
 
 	// Convert results back to our format
@@ -250,7 +250,7 @@ func AppendToolResults(conv conversation.Conversation, results []ToolResult) con
 
 // RunToolCallingLoop runs a complete tool calling workflow with automatic iteration
 func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConversation conversation.Conversation, registry tools.ToolRegistry, config ToolConfig) (conversation.Conversation, error) {
-	log.Info().
+    log.Debug().
 		Int("max_iterations", config.MaxIterations).
 		Int("initial_conversation_length", len(initialConversation)).
 		Msg("RunToolCallingLoop: starting tool calling workflow")
@@ -258,7 +258,7 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 	conv := initialConversation
 
 	for i := 0; i < config.MaxIterations; i++ {
-		log.Info().Int("iteration", i+1).Msg("RunToolCallingLoop: starting iteration")
+        log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: starting iteration")
 
 		// Run inference
 		log.Debug().Msg("RunToolCallingLoop: calling engine.RunInference")
@@ -277,12 +277,12 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 		log.Debug().Msg("RunToolCallingLoop: extracting tool calls")
 		toolCalls := ExtractToolCalls(response)
 		if len(toolCalls) == 0 {
-			log.Info().Int("iteration", i+1).Msg("RunToolCallingLoop: no tool calls found, workflow complete")
+            log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: no tool calls found, workflow complete")
 			// No more tool calls, we're done
 			return response, nil
 		}
 
-		log.Info().
+        log.Debug().
 			Int("iteration", i+1).
 			Int("tool_calls_found", len(toolCalls)).
 			Msg("RunToolCallingLoop: found tool calls, executing")
