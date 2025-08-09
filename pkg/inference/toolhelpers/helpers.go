@@ -1,17 +1,16 @@
 package toolhelpers
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "time"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
-	"github.com/rs/zerolog/log"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+    "github.com/rs/zerolog/log"
 )
 
 // ToolCall represents a tool call extracted from an AI response
@@ -287,34 +286,14 @@ func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConver
 			Int("tool_calls_found", len(toolCalls)).
 			Msg("RunToolCallingLoop: found tool calls, executing")
 
-		// Publish execution-phase tool call events for visibility
-		for _, tc := range toolCalls {
-			// Best effort: serialize arguments
-			argBytes, _ := json.Marshal(tc.Arguments)
-			events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
-				events.EventMetadata{}, nil,
-				events.ToolCall{ID: tc.ID, Name: tc.Name, Input: string(argBytes)},
-			))
-		}
+        // Execution-phase events are published by the tool executor.
+        // No-op here to avoid duplicate ToolCallExecute emissions.
 
 		// Execute tools
 		toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
 
-		// Publish execution-phase tool result events
-		for _, tr := range toolResults {
-			resultStr := ""
-			if tr.Result != nil {
-				if b, err := json.Marshal(tr.Result); err == nil {
-					resultStr = string(b)
-				} else {
-					resultStr = fmt.Sprintf("%v", tr.Result)
-				}
-			}
-			events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
-				events.EventMetadata{}, nil,
-				events.ToolResult{ID: tr.ToolCallID, Result: resultStr},
-			))
-		}
+        // Execution-phase results are published by the tool executor.
+        // No-op here to avoid duplicate ToolCallExecutionResult emissions.
 
 		// Append results to conversation for next iteration
 		conv = AppendToolResults(response, toolResults)
