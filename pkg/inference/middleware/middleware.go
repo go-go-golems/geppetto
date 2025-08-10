@@ -1,9 +1,9 @@
 package middleware
 
 import (
-    "context"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/turns"
+	"context"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 // HandlerFunc represents a function that processes a Turn.
@@ -26,9 +26,9 @@ func Chain(handler HandlerFunc, middlewares ...Middleware) HandlerFunc {
 // engineHandlerFunc adapts an Engine to HandlerFunc interface.
 // Since engines now return full conversations, this is a simple wrapper.
 func engineHandlerFunc(engine engine.Engine) HandlerFunc {
-    return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-        return engine.RunInference(ctx, t)
-    }
+	return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+		return engine.RunInference(ctx, t)
+	}
 }
 
 // EngineWithMiddleware wraps an Engine with a middleware chain.
@@ -54,14 +54,13 @@ func (e *EngineWithMiddleware) RunInference(ctx context.Context, t *turns.Turn) 
 	// TODO(middleware): Add EventSinks to context for middleware access
 	// ctx = events.WithSinks(ctx, e.config.EventSinks)
 
-    // Execute middleware chain on the provided turn
-    return e.handler(ctx, t)
+	// Execute middleware chain on the provided turn
+	return e.handler(ctx, t)
 }
 
 // RunInferenceWithHistory returns the complete conversation including tool calls.
 func (e *EngineWithMiddleware) RunInferenceWithHistory(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	// TODO(middleware): Add EventSinks to context for middleware access
 	// ctx = events.WithSinks(ctx, e.config.EventSinks)
-    return e.handler(ctx, t)
+	return e.handler(ctx, t)
 }
-
