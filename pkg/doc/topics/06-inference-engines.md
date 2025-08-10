@@ -1,11 +1,12 @@
 ---
-Title: Understanding and Using the Geppetto Inference Engine Architecture
+Title: Understanding and Using the Geppetto Inference Engine Architecture (Turn-based)
 Slug: geppetto-inference-engines
-Short: A comprehensive guide to the simplified inference engine architecture, covering engines, tool helpers, and provider implementations.
+Short: A comprehensive guide to the Turn-based inference engine architecture, covering engines, streaming, and provider implementations.
 Topics:
   - geppetto
   - inference
   - engines
+  - turns
   - tools
   - architecture
   - tutorial
@@ -35,7 +36,7 @@ SectionType: Tutorial
 10. [Debugging and Troubleshooting](#debugging-and-troubleshooting)
 11. [Conclusion](#conclusion)
 
-This tutorial explains the engine-first inference architecture in Geppetto. Engines handle provider I/O and publish streaming events via sinks. Orchestration (like tool calling) is handled by helpers. The result is simpler, more testable, and provider-agnostic.
+This tutorial explains the Turn-based inference architecture in Geppetto. Engines operate on a `Turn` (ordered `Block`s plus metadata), handle provider I/O, and publish streaming events via sinks. Tool orchestration can be handled by middleware or helpers. The result is simpler, more testable, and provider-agnostic.
 
 ## Core Architecture Principles
 
@@ -58,21 +59,15 @@ The Geppetto inference architecture is built around a clean separation of concer
 The heart of the architecture is the simple `Engine` interface (no explicit streaming method; streaming happens when sinks are configured on the engine):
 
 ```go
-package main
-
 import (
     "context"
-    "github.com/go-go-golems/geppetto/pkg/conversation"
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-// Engine represents an AI inference engine that processes conversations
-// and returns AI-generated responses. All provider-specific engines implement this.
+// Engine processes a Turn and returns the updated Turn.
 type Engine interface {
-    // RunInference processes a conversation and returns the full updated conversation.
-    // The engine handles provider-specific API calls but does NOT handle tool orchestration.
-    // Tool calls in the response should be preserved as-is for helper processing.
-    RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error)
+    RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
 }
 ```
 
@@ -81,7 +76,7 @@ type Engine interface {
 Engines focus solely on API communication:
 
 1. **API Calls**: Make provider-specific HTTP requests
-2. **Response Parsing**: Convert API responses to conversation messages
+2. **Response Parsing**: Convert API responses to Turn blocks (`llm_text`, `tool_call`)
 3. **Streaming**: Publish events for real-time updates
 4. **Error Handling**: Manage API-level errors and retries
 
@@ -582,48 +577,11 @@ func addMiddleware(baseEngine engine.Engine) engine.Engine {
 The simple engine interface makes testing straightforward:
 
 ```go
-package main
+type MockEngine struct{ add func(*turns.Turn) }
 
-import (
-    "context"
-    "testing"
-
-    "github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-)
-
-// MockEngine for testing
-type MockEngine struct {
-    responses []conversation.Conversation
-    callCount int
-}
-
-func (m *MockEngine) RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-    if m.callCount < len(m.responses) {
-        response := m.responses[m.callCount]
-        m.callCount++
-        return response, nil
-    }
-    return messages, nil
-}
-
-func TestToolCalling(t *testing.T) {
-    // Create mock engine
-    mockEngine := &MockEngine{
-        responses: []conversation.Conversation{
-            {conversation.NewChatMessage(conversation.RoleAssistant, "Mock response")},
-        },
-    }
-
-    // Test tool calling logic
-    registry := tools.NewInMemoryToolRegistry()
-    config := toolhelpers.NewToolConfig().WithMaxIterations(1)
-
-    result, err := toolhelpers.RunToolCallingLoop(
-        context.Background(), mockEngine, nil, registry, config,
-    )
-
-    // Assert results...
+func (m *MockEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+    if m.add != nil { m.add(t) }
+    return t, nil
 }
 ```
 

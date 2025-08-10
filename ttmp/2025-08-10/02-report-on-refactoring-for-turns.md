@@ -147,6 +147,29 @@ Document the end-to-end refactor from Conversation-slice based inference to a Tu
 - `helpers_ids.go` is dead code and should be removed to avoid confusion.
 - Tests for Turn-based middleware and engines are not yet added; existing middleware tests are conversation-based.
 
+### What went wrong (why we had to “TOUCH GRASS”)
+
+While wiring proper tool calling end-to-end, a few issues caused churn and back-and-forth fixes:
+
+- Semantics mismatch for MaxIterations in tool middleware tests:
+  - The legacy conversation-based test `TestToolMiddleware_MaxIterationsLimit` expected an error once `MaxIterations` is reached, regardless of whether any pending tool calls remain.
+  - The new Turn middleware intentionally loops “until no more tool calls or limits reached.” In practice, when providers emit a tool_call and we append the corresponding tool_use, there are no pending calls on the next iteration, so the loop exits cleanly with no error even if we performed multiple iterations.
+  - We briefly oscillated between “error vs no error” expectations. The new design is to finish successfully when no pending tool calls remain. Action: update or replace the old test to align with Turn semantics (no error when tool calls are exhausted). If we still want to enforce an upper bound, introduce an explicit policy that errors only when the iteration bound is hit while tool calls remain pending.
+
+- Partial test migration and stale fixtures:
+  - `pkg/inference/middleware/tool_middleware_test.go` still held conversation-style fixtures (e.g., `createMessageWithToolCall`, `ToolUseContent`), while the runtime moved to `turns.Turn` and block-level tool logic.
+  - We ported tests and added `tool_middleware_turns_test.go` for Turn-focused coverage, but some conversation fixtures lingered and caused compilation noise and expectation mismatches. Action: finish pruning or fully migrate the remaining conversation-based tests, keeping only Turn-based assertions (or isolate conversation tests behind a dedicated adapter test if needed).
+
+- Duplicate Turn tool-call logic between middleware and helpers:
+  - To get provider-agnostic harnesses working, `pkg/inference/toolhelpers/helpers.go` now includes Turn-based versions of extract/execute/append helpers similar to those in the middleware. This avoids import cycles for now, but duplicates logic and risks drift.
+  - Action: consolidate the Turn tool-call primitives into a small internal/shared package (e.g., `pkg/inference/toolruntime` or `pkg/turns/tooling`) and have both the middleware and helpers depend on it. This removes duplication and stabilizes semantics across paths.
+
+- Example migrations created mixed states:
+  - We updated `openai-tools`, `claude-tools`, `middleware-inference`, and `simple-streaming-inference` to Turn semantics. `generic-tool-calling` relies on the helper loop (now Turn-based under the hood). These compile, but the docs and some tests still reflect conversation flows.
+  - Action: finish aligning examples and docs to a single mental model: Turn as the runtime structure; Conversation only for rendering and input seeding.
+
+Net effect: We briefly went too deep into debugging a failing test with unclear desired semantics. The correct path is to codify the intended Turn behavior (no error when tool calls are exhausted) and update tests/docs, then centralize Turn tool helpers to eliminate duplication.
+
 ### Next steps (checklist)
 
 1. Engines

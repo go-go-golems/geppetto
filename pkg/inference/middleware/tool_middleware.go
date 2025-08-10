@@ -111,7 +111,9 @@ func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
                 current = updated
                 iterations++
             }
-            return current, fmt.Errorf("tool calling exceeded maximum iterations (%d)", config.MaxIterations)
+            // New Turn semantics: hitting MaxIterations is a soft cap.
+            // Return the current turn without error so callers can decide next steps.
+            return current, nil
         }
     }
 }

@@ -9,8 +9,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"io"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -183,23 +184,9 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	}
 
 	// Add logging middleware if requested
-	if s.WithLogging {
-		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-			return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-				logger := log.With().Int("message_count", len(messages)).Logger()
-				logger.Info().Msg("Starting inference")
-
-				result, err := next(ctx, messages)
-				if err != nil {
-					logger.Error().Err(err).Msg("Inference failed")
-				} else {
-					logger.Info().Int("result_message_count", len(result)).Msg("Inference completed")
-				}
-				return result, err
-			}
-		}
-		engine = middleware.NewEngineWithMiddleware(engine, loggingMiddleware)
-	}
+    if s.WithLogging {
+        engine = middleware.NewEngineWithMiddleware(engine, middleware.NewTurnLoggingMiddleware(log.Logger))
+    }
 
 	b := builder.NewManagerBuilder().
 		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner. ").
@@ -227,15 +214,18 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		defer cancel()
 		<-router.Running()
 
-		// Run inference
-		updatedConversation, err := engine.RunInference(ctx, conversation_)
+        // Seed a Turn from the conversation and run inference
+        seed := &turns.Turn{}
+        turns.AppendBlocks(seed, turns.BlocksFromConversationDelta(conversation_, 0)...)
+        updatedTurn, err := engine.RunInference(ctx, seed)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
 
-		// Extract new messages from the updated conversation
-		newMessages := updatedConversation[len(conversation_):]
+        // Convert back to conversation and append only new messages
+        updatedConversation := turns.BuildConversationFromTurn(updatedTurn)
+        newMessages := updatedConversation[len(conversation_):]
 		for _, msg := range newMessages {
 			if err := manager.AppendMessages(msg); err != nil {
 				log.Error().Err(err).Msg("Failed to append message to conversation")
