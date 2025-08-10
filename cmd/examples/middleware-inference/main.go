@@ -5,10 +5,12 @@ import (
     "fmt"
     "io"
     "strings"
+    "time"
 
     clay "github.com/go-go-golems/clay/pkg"
     "github.com/go-go-golems/geppetto/pkg/conversation"
     "github.com/go-go-golems/geppetto/pkg/conversation/builder"
+    enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -20,6 +22,7 @@ import (
     "github.com/go-go-golems/glazed/pkg/cmds/parameters"
     "github.com/go-go-golems/glazed/pkg/help"
     help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+    "github.com/invopop/jsonschema"
     "github.com/pkg/errors"
     "github.com/rs/zerolog/log"
     "github.com/spf13/cobra"
@@ -47,7 +50,8 @@ type MiddlewareInferenceSettings struct {
 	PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
 	Debug            bool   `glazed.parameter:"debug"`
 	WithLogging      bool   `glazed.parameter:"with-logging"`
-	WithUppercase    bool   `glazed.parameter:"with-uppercase"`
+    WithUppercase    bool   `glazed.parameter:"with-uppercase"`
+    WithTools        bool   `glazed.parameter:"with-tools"`
 	Prompt           string `glazed.parameter:"prompt"`
 }
 
@@ -89,6 +93,11 @@ func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
 				parameters.WithHelp("Enable uppercase text transformation middleware"),
 				parameters.WithDefault(false),
 			),
+            parameters.NewParameterDefinition("with-tools",
+                parameters.ParameterTypeBool,
+                parameters.WithHelp("Enable tool-calling middleware (expects provider to emit tool_call blocks)"),
+                parameters.WithDefault(false),
+            ),
 		),
 		cmds.WithLayersList(
 			geppettoLayers...,
@@ -170,6 +179,45 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
             }
         }
         middlewares = append(middlewares, uppercaseMiddleware)
+    }
+
+    if s.WithTools {
+        // Minimal toolbox with a demo tool
+        tb := middleware.NewMockToolbox()
+        tb.RegisterTool("echo", "Echo back the input text", map[string]interface{}{
+            "text": map[string]interface{}{"type": "string"},
+        }, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+            if v, ok := args["text"].(string); ok {
+                return v, nil
+            }
+            return "", nil
+        })
+        toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
+        middlewares = append(middlewares, toolMw)
+
+        // Also configure provider engines with a matching tool definition so Claude/OpenAI emit structured tool calls
+        if cfgEngine, ok := engine.(interface{ ConfigureTools([]enginepkg.ToolDefinition, enginepkg.ToolConfig) }); ok {
+            echoSchema := &jsonschema.Schema{Type: "object"}
+            props := jsonschema.NewProperties()
+            props.Set("text", &jsonschema.Schema{Type: "string"})
+            echoSchema.Properties = props
+            echoSchema.Required = []string{"text"}
+            defs := []enginepkg.ToolDefinition{{
+                Name:        "echo",
+                Description: "Echo back the input text",
+                Parameters:  echoSchema,
+                Examples:    []enginepkg.ToolExample{},
+                Tags:        []string{"demo"},
+                Version:     "1.0",
+            }}
+            cfgEngine.ConfigureTools(defs, enginepkg.ToolConfig{
+                Enabled:          true,
+                ToolChoice:       enginepkg.ToolChoiceAuto,
+                MaxIterations:    5,
+                ExecutionTimeout: 30 * time.Second,
+                MaxParallelTools: 1,
+            })
+        }
     }
 
 	// Wrap engine with middleware if any are provided
