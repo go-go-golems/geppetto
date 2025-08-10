@@ -13,7 +13,8 @@ import (
 	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -181,7 +182,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		middlewares = append(middlewares, uppercaseMiddleware)
 	}
 
-	if s.WithTools {
+    if s.WithTools {
 		// Minimal toolbox with a demo tool
 		tb := middleware.NewMockToolbox()
 		tb.RegisterTool("echo", "Echo back the input text", map[string]interface{}{
@@ -192,32 +193,9 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 			}
 			return "", nil
 		})
-		toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
+        toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
 		middlewares = append(middlewares, toolMw)
-
-		// Also configure provider engines with a matching tool definition so Claude/OpenAI emit structured tool calls
-        if cfgEngine, ok := engine.(enginepkg.ToolsConfigurable); ok {
-			echoSchema := &jsonschema.Schema{Type: "object"}
-			props := jsonschema.NewProperties()
-			props.Set("text", &jsonschema.Schema{Type: "string"})
-			echoSchema.Properties = props
-			echoSchema.Required = []string{"text"}
-			defs := []enginepkg.ToolDefinition{{
-				Name:        "echo",
-				Description: "Echo back the input text",
-				Parameters:  echoSchema,
-				Examples:    []enginepkg.ToolExample{},
-				Tags:        []string{"demo"},
-				Version:     "1.0",
-			}}
-			cfgEngine.ConfigureTools(defs, enginepkg.ToolConfig{
-				Enabled:          true,
-				ToolChoice:       enginepkg.ToolChoiceAuto,
-				MaxIterations:    5,
-				ExecutionTimeout: 30 * time.Second,
-				MaxParallelTools: 1,
-			})
-		}
+        // Attach registry and minimal tool config to Turn at seeding time below
 	}
 
 	// Wrap engine with middleware if any are provided
@@ -238,7 +216,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	conversation_ := manager.GetConversation()
 	// Seed a Turn from the initial conversation
-	initialTurn := &turns.Turn{}
+    initialTurn := &turns.Turn{Data: map[string]any{}}
 	for _, msg := range conversation_ {
 		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
 			kind := turns.BlockKindOther
@@ -247,11 +225,11 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 				kind = turns.BlockKindSystem
 			case conversation.RoleUser:
 				kind = turns.BlockKindUser
-			case conversation.RoleAssistant:
+            case conversation.RoleAssistant:
 				kind = turns.BlockKindLLMText
 			case conversation.RoleTool:
 				kind = turns.BlockKindOther
-			}
+            }
             switch kind {
             case turns.BlockKindUser:
                 turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
@@ -265,6 +243,32 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
             }
 		}
 	}
+
+    // If tools enabled, pass registry and a minimal engine ToolConfig via Turn.Data
+    if s.WithTools {
+        echoSchema := &jsonschema.Schema{Type: "object"}
+        props := jsonschema.NewProperties()
+        props.Set("text", &jsonschema.Schema{Type: "string"})
+        echoSchema.Properties = props
+        echoSchema.Required = []string{"text"}
+        // Build a lightweight registry the engine can read
+        reg := tools.NewInMemoryToolRegistry()
+        _ = reg.RegisterTool("echo", tools.ToolDefinition{
+            Name:        "echo",
+            Description: "Echo back the input text",
+            Parameters:  echoSchema,
+            Tags:        []string{"demo"},
+            Version:     "1.0",
+        })
+        initialTurn.Data[turns.DataKeyToolRegistry] = reg
+        initialTurn.Data[turns.DataKeyToolConfig] = enginepkg.ToolConfig{
+            Enabled:          true,
+            ToolChoice:       enginepkg.ToolChoiceAuto,
+            MaxIterations:    5,
+            ExecutionTimeout: 30 * time.Second,
+            MaxParallelTools: 1,
+        }
+    }
 
 	// Run inference
 	updatedTurn, err := engine.RunInference(ctx, initialTurn)

@@ -11,7 +11,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -141,36 +140,12 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		fmt.Fprintln(w, "Warning: Tool schema is nil")
 	}
 
-	// Convert to engine tool definition
-	engineTool := engine.ToolDefinition{
-		Name:        weatherToolDef.Name,
-		Description: weatherToolDef.Description,
-		Parameters:  weatherToolDef.Parameters,
-		Examples:    []engine.ToolExample{},
-		Tags:        []string{"weather"},
-		Version:     "1.0",
-	}
-
-	toolConfig := engine.ToolConfig{
-		Enabled:           true,
-		ToolChoice:        engine.ToolChoiceAuto,
-		MaxIterations:     3,
-		MaxParallelTools:  1,
-		AllowedTools:      []string{"get_weather"},
-		ToolErrorHandling: engine.ToolErrorContinue,
-	}
-
-	// Check if engine is OpenAI engine and configure tools
-	if openaiEngine, ok := engineInstance.(*openai.OpenAIEngine); ok {
-		openaiEngine.ConfigureTools([]engine.ToolDefinition{engineTool}, toolConfig)
-		fmt.Fprintln(w, "OpenAI engine found - configured weather tool")
-	} else {
-		fmt.Fprintln(w, "Warning: Engine is not OpenAI engine, cannot configure tools directly")
-		fmt.Fprintf(w, "Engine type: %T\n", engineInstance)
-	}
+    // Attach registry and config to a Turn instead
+    reg := tools.NewInMemoryToolRegistry()
+    _ = reg.RegisterTool("get_weather", *weatherToolDef)
 
 	// Build a Turn seeded with a user prompt
-    turn := &turns.Turn{}
+    turn := &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: 1, ToolErrorHandling: engine.ToolErrorContinue}}}
     turns.AppendBlock(turn, turns.NewUserTextBlock("Please use get_weather to check the weather in San Francisco, in celsius."))
 
 	// Prepare a toolbox and register executable implementation

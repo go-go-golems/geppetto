@@ -256,10 +256,24 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversat
 		Int("initial_conversation_length", len(initialConversation)).
 		Msg("RunToolCallingLoop: starting tool calling workflow (Turn-based)")
 
-	// Seed a Turn from the initial conversation
-	t := &turns.Turn{}
+    // Seed a Turn from the initial conversation
+    t := &turns.Turn{Data: map[string]any{}}
 	blocks := turns.BlocksFromConversationDelta(initialConversation, 0)
 	turns.AppendBlocks(t, blocks...)
+
+    // Attach registry and minimal engine tool config so providers can advertise tools
+    if registry != nil {
+        t.Data[turns.DataKeyToolRegistry] = registry
+    }
+    t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+        Enabled:           true,
+        ToolChoice:        engine.ToolChoice(config.ToolChoice),
+        MaxIterations:     config.MaxIterations,
+        ExecutionTimeout:  config.Timeout,
+        MaxParallelTools:  config.MaxParallelTools,
+        AllowedTools:      config.AllowedTools,
+        ToolErrorHandling: engine.ToolErrorHandling(config.ToolErrorHandling),
+    }
 
 	for i := 0; i < config.MaxIterations; i++ {
 		log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: engine step")
