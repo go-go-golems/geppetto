@@ -10,6 +10,7 @@ import (
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+    "github.com/go-go-golems/geppetto/pkg/turns"
     "github.com/rs/zerolog/log"
 )
 
@@ -248,64 +249,140 @@ func AppendToolResults(conv conversation.Conversation, results []ToolResult) con
 }
 
 // RunToolCallingLoop runs a complete tool calling workflow with automatic iteration
-func RunToolCallingLoop(ctx context.Context, engine engine.Engine, initialConversation conversation.Conversation, registry tools.ToolRegistry, config ToolConfig) (conversation.Conversation, error) {
+func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversation conversation.Conversation, registry tools.ToolRegistry, config ToolConfig) (conversation.Conversation, error) {
     log.Debug().
-		Int("max_iterations", config.MaxIterations).
-		Int("initial_conversation_length", len(initialConversation)).
-		Msg("RunToolCallingLoop: starting tool calling workflow")
+        Int("max_iterations", config.MaxIterations).
+        Int("initial_conversation_length", len(initialConversation)).
+        Msg("RunToolCallingLoop: starting tool calling workflow (Turn-based)")
 
-	conv := initialConversation
+    // Seed a Turn from the initial conversation
+    t := &turns.Turn{}
+    blocks := turns.BlocksFromConversationDelta(initialConversation, 0)
+    turns.AppendBlocks(t, blocks...)
 
-	for i := 0; i < config.MaxIterations; i++ {
-        log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: starting iteration")
+    for i := 0; i < config.MaxIterations; i++ {
+        log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: engine step")
 
-		// Run inference
-		log.Debug().Msg("RunToolCallingLoop: calling engine.RunInference")
-		response, err := engine.RunInference(ctx, conv)
-		if err != nil {
-			log.Error().Err(err).Int("iteration", i+1).Msg("RunToolCallingLoop: engine inference failed")
-			return nil, err
-		}
+        // Run inference (provider may append llm_text and tool_call blocks)
+        updated, err := eng.RunInference(ctx, t)
+        if err != nil {
+            log.Error().Err(err).Int("iteration", i+1).Msg("RunToolCallingLoop: engine inference failed")
+            return nil, err
+        }
 
-		log.Debug().
-			Int("response_length", len(response)).
-			Int("new_messages", len(response)-len(conv)).
-			Msg("RunToolCallingLoop: engine inference completed")
+        // Extract pending tool calls from blocks
+        calls := extractPendingToolCallsTurn(updated)
+        if len(calls) == 0 {
+            // Done; convert to conversation and return
+            return turns.BuildConversationFromTurn(updated), nil
+        }
 
-		// Extract tool calls
-		log.Debug().Msg("RunToolCallingLoop: extracting tool calls")
-		toolCalls := ExtractToolCalls(response)
-		if len(toolCalls) == 0 {
-            log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: no tool calls found, workflow complete")
-			// No more tool calls, we're done
-			return response, nil
-		}
+        // Execute tools
+        results := ExecuteToolCallsTurn(ctx, calls, registry)
 
-        log.Debug().
-			Int("iteration", i+1).
-			Int("tool_calls_found", len(toolCalls)).
-			Msg("RunToolCallingLoop: found tool calls, executing")
+        // Append tool_use blocks
+        appendToolResultsBlocksTurn(updated, results)
 
-        // Execution-phase events are published by the tool executor.
-        // No-op here to avoid duplicate ToolCallExecute emissions.
+        // Continue next iteration with same turn
+        t = updated
+    }
 
-		// Execute tools
-		toolResults := ExecuteToolCalls(ctx, toolCalls, registry)
+    log.Warn().Int("max_iterations", config.MaxIterations).Msg("RunToolCallingLoop: maximum iterations reached")
+    return turns.BuildConversationFromTurn(t), fmt.Errorf("max iterations (%d) reached", config.MaxIterations)
+}
 
-        // Execution-phase results are published by the tool executor.
-        // No-op here to avoid duplicate ToolCallExecutionResult emissions.
+// extractPendingToolCallsTurn mirrors middleware logic locally to avoid import cycles
+func extractPendingToolCallsTurn(t *turns.Turn) []ToolCall {
+    if t == nil {
+        return nil
+    }
+    used := map[string]bool{}
+    for _, b := range t.Blocks {
+        if b.Kind == turns.BlockKindToolUse {
+            if id, ok := b.Payload["id"].(string); ok && id != "" {
+                used[id] = true
+            }
+        }
+    }
+    var calls []ToolCall
+    for _, b := range t.Blocks {
+        if b.Kind != turns.BlockKindToolCall {
+            continue
+        }
+        id, _ := b.Payload["id"].(string)
+        if id == "" || used[id] {
+            continue
+        }
+        name, _ := b.Payload["name"].(string)
+        // Normalize args to map
+        var args map[string]interface{}
+        if raw := b.Payload["args"]; raw != nil {
+            switch v := raw.(type) {
+            case map[string]interface{}:
+                args = v
+            case string:
+                _ = json.Unmarshal([]byte(v), &args)
+            case json.RawMessage:
+                _ = json.Unmarshal(v, &args)
+            default:
+                if bts, err := json.Marshal(v); err == nil {
+                    _ = json.Unmarshal(bts, &args)
+                }
+            }
+        }
+        if args == nil {
+            args = map[string]interface{}{}
+        }
+        calls = append(calls, ToolCall{ID: id, Name: name, Arguments: args})
+    }
+    return calls
+}
 
-		// Append results to conversation for next iteration
-		conv = AppendToolResults(response, toolResults)
+// ExecuteToolCallsTurn executes ToolCalls using the default executor and returns simplified results
+func ExecuteToolCallsTurn(ctx context.Context, toolCalls []ToolCall, registry tools.ToolRegistry) []ToolResult {
+    log.Debug().Int("tool_call_count", len(toolCalls)).Msg("ExecuteToolCallsTurn: starting tool execution")
+    if len(toolCalls) == 0 {
+        return nil
+    }
+    executor := tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
+    // Convert calls
+    execCalls := make([]tools.ToolCall, 0, len(toolCalls))
+    for _, call := range toolCalls {
+        argBytes, _ := json.Marshal(call.Arguments)
+        execCalls = append(execCalls, tools.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(argBytes)})
+    }
+    execResults, err := executor.ExecuteToolCalls(ctx, execCalls, registry)
+    results := make([]ToolResult, len(toolCalls))
+    for i, c := range toolCalls {
+        if err != nil || i >= len(execResults) || execResults[i] == nil {
+            results[i] = ToolResult{ToolCallID: c.ID, Result: nil, Error: fmt.Errorf("no result returned")}
+            continue
+        }
+        var resultErr error
+        if execResults[i].Error != "" {
+            resultErr = fmt.Errorf("%s", execResults[i].Error)
+        }
+        results[i] = ToolResult{ToolCallID: c.ID, Result: execResults[i].Result, Error: resultErr}
+    }
+    return results
+}
 
-		log.Debug().
-			Int("iteration", i+1).
-			Int("updated_conversation_length", len(conv)).
-			Msg("RunToolCallingLoop: appended tool results, continuing to next iteration")
-	}
-
-	log.Warn().Int("max_iterations", config.MaxIterations).Msg("RunToolCallingLoop: maximum iterations reached")
-	return conv, fmt.Errorf("max iterations (%d) reached", config.MaxIterations)
+// appendToolResultsBlocksTurn appends tool_use blocks for results
+func appendToolResultsBlocksTurn(t *turns.Turn, results []ToolResult) {
+    for _, r := range results {
+        payload := map[string]any{"id": r.ToolCallID}
+        if r.Error != nil {
+            payload["result"] = fmt.Sprintf("Error: %s", r.Error.Error())
+        } else {
+            // stringify result
+            if b, err := json.Marshal(r.Result); err == nil {
+                payload["result"] = string(b)
+            } else {
+                payload["result"] = fmt.Sprintf("%v", r.Result)
+            }
+        }
+        turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolUse, Payload: payload})
+    }
 }
 
 // NewToolConfig creates a default tool configuration

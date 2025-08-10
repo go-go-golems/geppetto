@@ -12,8 +12,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+    // "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -327,23 +328,9 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	}
 
 	// Add logging middleware if requested
-	if s.WithLogging {
-		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-			return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-				logger := log.With().Int("message_count", len(messages)).Logger()
-				logger.Info().Msg("Starting inference")
-
-				result, err := next(ctx, messages)
-				if err != nil {
-					logger.Error().Err(err).Msg("Inference failed")
-				} else {
-					logger.Info().Int("result_message_count", len(result)).Msg("Inference completed")
-				}
-				return result, err
-			}
-		}
-		baseEngine = middleware.NewEngineWithMiddleware(baseEngine, loggingMiddleware)
-	}
+    if s.WithLogging {
+        baseEngine = middleware.NewEngineWithMiddleware(baseEngine, middleware.NewTurnLoggingMiddleware(log.Logger))
+    }
 
 	// 5. Create tool registry and register tools
 	registry := tools.NewInMemoryToolRegistry()
