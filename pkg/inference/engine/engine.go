@@ -1,16 +1,16 @@
 package engine
 
 import (
-	"context"
+    "context"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-// Engine represents an AI inference engine that processes conversations
-// and returns AI-generated responses. All provider-specific engines implement this.
+// Engine represents an AI inference engine that processes a Turn and returns an updated Turn.
+// All provider-specific engines implement this.
 type Engine interface {
-	// RunInference processes a conversation and returns the full updated conversation.
-	// The engine handles provider-specific API calls but does NOT handle tool orchestration.
-	// Tool calls in the response should be preserved as-is for helper processing.
-	RunInference(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error)
+    // RunInference processes a Turn and returns the updated Turn.
+    // The engine handles provider-specific API calls but does NOT handle tool orchestration.
+    // Tool calls in the response should be preserved as blocks for helper processing.
+    RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
 }

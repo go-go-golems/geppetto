@@ -1,28 +1,29 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"strings"
+    "context"
+    "fmt"
+    "io"
+    "strings"
 
-	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-	"github.com/go-go-golems/glazed/pkg/cli"
-	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/go-go-golems/glazed/pkg/help"
-	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+    clay "github.com/go-go-golems/clay/pkg"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/glazed/pkg/cli"
+    "github.com/go-go-golems/glazed/pkg/cmds"
+    "github.com/go-go-golems/glazed/pkg/cmds/layers"
+    "github.com/go-go-golems/glazed/pkg/cmds/logging"
+    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
+    "github.com/go-go-golems/glazed/pkg/help"
+    help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+    "github.com/pkg/errors"
+    "github.com/rs/zerolog/log"
+    "github.com/spf13/cobra"
+    "gopkg.in/yaml.v3"
 )
 
 var rootCmd = &cobra.Command{
@@ -130,65 +131,46 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	var middlewares []middleware.Middleware
 
 	// Add logging middleware if requested
-	if s.WithLogging {
-		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-			return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-				logger := log.With().Int("message_count", len(messages)).Logger()
-				logger.Info().Msg("Starting inference")
+    if s.WithLogging {
+        loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
+            return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+                logger := log.With().Int("block_count", len(t.Blocks)).Logger()
+                logger.Info().Msg("Starting inference")
 
-				result, err := next(ctx, messages)
-				if err != nil {
-					logger.Error().Err(err).Msg("Inference failed")
-				} else {
-					logger.Info().Int("result_message_count", len(result)).Msg("Inference completed")
-				}
-				return result, err
-			}
-		}
-		middlewares = append(middlewares, loggingMiddleware)
-	}
+                result, err := next(ctx, t)
+                if err != nil {
+                    logger.Error().Err(err).Msg("Inference failed")
+                } else {
+                    logger.Info().Int("result_block_count", len(result.Blocks)).Msg("Inference completed")
+                }
+                return result, err
+            }
+        }
+        middlewares = append(middlewares, loggingMiddleware)
+    }
 
 	// Add uppercase middleware if requested
-	if s.WithUppercase {
-		uppercaseMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-			return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-				result, err := next(ctx, messages)
-				if err != nil {
-					return result, err
-				}
-
-				// Transform the last message (AI response) to uppercase
-				if len(result) > len(messages) {
-					// Find new messages
-					for i := len(messages); i < len(result); i++ {
-						if chatContent, ok := result[i].Content.(*conversation.ChatMessageContent); ok {
-							// Create a new message with uppercase text
-							newContent := conversation.NewChatMessageContent(
-								chatContent.Role,
-								strings.ToUpper(chatContent.Text),
-								chatContent.Images,
-							)
-							// Copy the message with metadata properly
-							originalMsg := result[i]
-							result[i] = &conversation.Message{
-								ParentID:           originalMsg.ParentID,
-								ID:                 originalMsg.ID,
-								Time:               originalMsg.Time,
-								LastUpdate:         originalMsg.LastUpdate,
-								Content:            newContent,
-								Metadata:           originalMsg.Metadata,
-								LLMMessageMetadata: originalMsg.LLMMessageMetadata,
-								Children:           originalMsg.Children,
-							}
-						}
-					}
-				}
-
-				return result, nil
-			}
-		}
-		middlewares = append(middlewares, uppercaseMiddleware)
-	}
+    if s.WithUppercase {
+        uppercaseMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
+            return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+                result, err := next(ctx, t)
+                if err != nil {
+                    return result, err
+                }
+                // Uppercase any newly appended assistant LLMText blocks
+                for i := range result.Blocks {
+                    b := &result.Blocks[i]
+                    if b.Kind == turns.BlockKindLLMText {
+                        if txt, ok := b.Payload["text"].(string); ok {
+                            b.Payload["text"] = strings.ToUpper(txt)
+                        }
+                    }
+                }
+                return result, nil
+            }
+        }
+        middlewares = append(middlewares, uppercaseMiddleware)
+    }
 
 	// Wrap engine with middleware if any are provided
 	if len(middlewares) > 0 {
@@ -206,25 +188,33 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		return err
 	}
 
-	conversation_ := manager.GetConversation()
+    conversation_ := manager.GetConversation()
+    // Seed a Turn from the initial conversation
+    initialTurn := &turns.Turn{}
+    for _, msg := range conversation_ {
+        if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
+            kind := turns.BlockKindOther
+            switch chatMsg.Role {
+            case conversation.RoleSystem:
+                kind = turns.BlockKindSystem
+            case conversation.RoleUser:
+                kind = turns.BlockKindUser
+            case conversation.RoleAssistant:
+                kind = turns.BlockKindLLMText
+            }
+            turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
+        }
+    }
 
-	// Run inference
-	updatedConversation, err := engine.RunInference(ctx, conversation_)
+    // Run inference
+    updatedTurn, err := engine.RunInference(ctx, initialTurn)
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)
 	}
 
-	// Extract new messages from the updated conversation
-	newMessages := updatedConversation[len(conversation_):]
-	for _, msg := range newMessages {
-		if err := manager.AppendMessages(msg); err != nil {
-			log.Error().Err(err).Msg("Failed to append message to conversation")
-			return fmt.Errorf("failed to append message: %w", err)
-		}
-	}
-
-	messages := manager.GetConversation()
+    // Build conversation from updated Turn for display
+    messages := turns.BuildConversationFromTurn(updatedTurn)
 
 	fmt.Fprintln(w, "\n=== Final Conversation ===")
 	for _, msg := range messages {

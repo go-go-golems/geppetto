@@ -1,28 +1,28 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"io"
+    "context"
+    "fmt"
+    "io"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
-
-	clay "github.com/go-go-golems/clay/pkg"
-	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-	"github.com/go-go-golems/glazed/pkg/cli"
-	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	"github.com/go-go-golems/glazed/pkg/help"
-	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+    clay "github.com/go-go-golems/clay/pkg"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/glazed/pkg/cli"
+    "github.com/go-go-golems/glazed/pkg/cmds"
+    "github.com/go-go-golems/glazed/pkg/cmds/layers"
+    "github.com/go-go-golems/glazed/pkg/cmds/logging"
+    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
+    "github.com/go-go-golems/glazed/pkg/help"
+    help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+    "github.com/pkg/errors"
+    "github.com/rs/zerolog/log"
+    "github.com/spf13/cobra"
+    "gopkg.in/yaml.v3"
 )
 
 var rootCmd = &cobra.Command{
@@ -118,23 +118,23 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return errors.Wrap(err, "failed to create engine")
 	}
 
-	if s.WithLogging {
-		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-			return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-				logger := log.With().Int("message_count", len(messages)).Logger()
-				logger.Info().Msg("Starting inference")
+    if s.WithLogging {
+        loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
+            return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+                logger := log.With().Int("block_count", len(t.Blocks)).Logger()
+                logger.Info().Msg("Starting inference")
 
-				result, err := next(ctx, messages)
-				if err != nil {
-					logger.Error().Err(err).Msg("Inference failed")
-				} else {
-					logger.Info().Int("result_message_count", len(result)).Msg("Inference completed")
-				}
-				return result, err
-			}
-		}
-		engine = middleware.NewEngineWithMiddleware(engine, loggingMiddleware)
-	}
+                result, err := next(ctx, t)
+                if err != nil {
+                    logger.Error().Err(err).Msg("Inference failed")
+                } else {
+                    logger.Info().Int("result_block_count", len(result.Blocks)).Msg("Inference completed")
+                }
+                return result, err
+            }
+        }
+        engine = middleware.NewEngineWithMiddleware(engine, loggingMiddleware)
+    }
 
 	b := builder.NewManagerBuilder().
 		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner. ").
@@ -146,24 +146,32 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return err
 	}
 
-	conversation_ := manager.GetConversation()
+    conversation_ := manager.GetConversation()
+    // Initialize a Turn from the initial conversation (system + user prompt)
+    initialTurn := &turns.Turn{}
+    for _, msg := range conversation_ {
+        if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
+            kind := turns.BlockKindOther
+            switch chatMsg.Role {
+            case conversation.RoleSystem:
+                kind = turns.BlockKindSystem
+            case conversation.RoleUser:
+                kind = turns.BlockKindUser
+            case conversation.RoleAssistant:
+                kind = turns.BlockKindLLMText
+            }
+            turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
+        }
+    }
 
-	updatedConversation, err := engine.RunInference(ctx, conversation_)
+    updatedTurn, err := engine.RunInference(ctx, initialTurn)
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)
 	}
 
-	// Extract new messages from the updated conversation
-	newMessages := updatedConversation[len(conversation_):]
-	for _, msg := range newMessages {
-		if err := manager.AppendMessages(msg); err != nil {
-			log.Error().Err(err).Msg("Failed to append message to conversation")
-			return fmt.Errorf("failed to append message: %w", err)
-		}
-	}
-
-	messages := manager.GetConversation()
+    // Convert updated Turn back to conversation for display
+    messages := turns.BuildConversationFromTurn(updatedTurn)
 
 	fmt.Fprintln(w, "\n=== Final Conversation ===")
 	for _, msg := range messages {

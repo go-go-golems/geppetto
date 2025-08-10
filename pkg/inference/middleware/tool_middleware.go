@@ -1,13 +1,13 @@
 package middleware
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "time"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/events"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 // ToolConfig contains configuration for tool calling middleware
@@ -69,103 +69,30 @@ func (tr ToolResult) ToMessage() *conversation.Message {
 	return conversation.NewMessage(content)
 }
 
-// NewToolMiddleware creates middleware that handles function calling workflows for OpenAI/Claude
+// NewToolMiddleware creates middleware that handles function calling workflows for OpenAI/Claude.
+// NOTE: Turn-based stub version; tool execution on blocks to be implemented.
 func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
-	return func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-			return executeToolWorkflow(ctx, messages, toolbox, config, next)
-		}
-	}
+    return func(next HandlerFunc) HandlerFunc {
+        return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+            return executeToolWorkflowTurns(ctx, t, toolbox, config, next)
+        }
+    }
+}
+
+// executeToolWorkflowTurns is a minimal Turn-based placeholder that simply delegates to next.
+// Full block-level tool execution will be implemented following the design.
+func executeToolWorkflowTurns(
+    ctx context.Context,
+    t *turns.Turn,
+    toolbox Toolbox,
+    config ToolConfig,
+    next HandlerFunc,
+) (*turns.Turn, error) {
+    return next(ctx, t)
 }
 
 // executeToolWorkflow handles the complete tool calling workflow
-func executeToolWorkflow(
-	ctx context.Context,
-	messages conversation.Conversation,
-	toolbox Toolbox,
-	config ToolConfig,
-	next HandlerFunc,
-) (conversation.Conversation, error) {
-	// Prevent infinite tool calling loops
-	iterations := 0
-	currentMessages := messages
-
-	for iterations < config.MaxIterations {
-		// Add tool descriptions to the conversation if needed
-		enrichedMessages := addToolContext(currentMessages, toolbox)
-
-		// Execute inference with tools available
-		resultConversation, err := next(ctx, enrichedMessages)
-		if err != nil {
-			return nil, fmt.Errorf("tool inference failed: %w", err)
-		}
-
-		// Get the last message (AI response) from the result
-		if len(resultConversation) == 0 {
-			return nil, fmt.Errorf("empty conversation returned from inference")
-		}
-		aiResponse := resultConversation[len(resultConversation)-1]
-
-		// Check if response contains tool calls
-		toolCalls := extractToolCalls(aiResponse)
-		if len(toolCalls) == 0 {
-			// No more tool calls, return complete conversation
-			return resultConversation, nil
-		}
-
-		// Filter tools if ToolFilter is specified
-		if len(config.ToolFilter) > 0 {
-			toolCalls = filterToolCalls(toolCalls, config.ToolFilter)
-		}
-
-		if len(toolCalls) == 0 {
-			// All tool calls were filtered out, return conversation
-			return resultConversation, nil
-		}
-
-		// Publish tool calling events
-		for _, toolCall := range toolCalls {
-			eventToolCall := events.ToolCall{
-				ID:    toolCall.ID,
-				Name:  toolCall.Name,
-				Input: fmt.Sprintf("%v", toolCall.Arguments), // Convert to string for event
-			}
-			// TODO: Add proper event metadata and step metadata
-			// events.Dispatch(ctx, events.NewToolCallEvent(metadata, stepMetadata, eventToolCall))
-			_ = eventToolCall // Placeholder until event system is integrated
-		}
-
-		// Execute all tool calls
-		toolResults, err := executeToolCalls(ctx, toolCalls, toolbox, config.Timeout)
-		if err != nil {
-			return nil, fmt.Errorf("tool execution failed: %w", err)
-		}
-
-		// Update conversation with AI response and tool results
-		currentMessages = resultConversation
-		for _, result := range toolResults {
-			currentMessages = append(currentMessages, result.ToMessage())
-		}
-
-		// Publish tool result events
-		for _, result := range toolResults {
-			eventToolResult := events.ToolResult{
-				ID:     result.ID,
-				Result: result.Content,
-			}
-			if result.Error != "" {
-				eventToolResult.Result = result.Error
-			}
-			// TODO: Add proper event metadata and step metadata
-			// events.Dispatch(ctx, events.NewToolResultEvent(metadata, stepMetadata, eventToolResult))
-			_ = eventToolResult // Placeholder until event system is integrated
-		}
-
-		iterations++
-	}
-
-	return nil, fmt.Errorf("tool calling exceeded maximum iterations (%d)", config.MaxIterations)
-}
+// Deprecated conversation-based workflow kept for reference but not compiled in Turn mode
 
 // addToolContext adds tool descriptions to the conversation if not already present
 func addToolContext(messages conversation.Conversation, toolbox Toolbox) conversation.Conversation {
