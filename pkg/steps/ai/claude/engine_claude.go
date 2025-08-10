@@ -236,14 +236,14 @@ streamingComplete:
 	// Create blocks from content blocks: text -> llm_text, tool_use -> tool_call
 	for _, c := range response.Content {
 		switch v := c.(type) {
-		case api.TextContent:
-			if s := v.Text; s != "" {
-				turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": s}})
-			}
-		case api.ToolUseContent:
-			var args any
-			_ = json.Unmarshal(v.Input, &args)
-			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": v.ID, "name": v.Name, "args": args}})
+        case api.TextContent:
+            if s := v.Text; s != "" {
+                turns.AppendBlock(t, turns.NewAssistantTextBlock(s))
+            }
+        case api.ToolUseContent:
+            var args any
+            _ = json.Unmarshal(v.Input, &args)
+            turns.AppendBlock(t, turns.NewToolCallBlock(v.ID, v.Name, args))
 		}
 	}
 

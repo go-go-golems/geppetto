@@ -279,17 +279,16 @@ streamingComplete:
 	// Convert conversation delta back to Turn blocks and append
 	// First, reconstruct a temporary conversation with new messages based on streamed results
 	// Append assistant text and tool calls as blocks on the Turn
-	if len(message) > 0 {
-		// simple assistant message
-		// reuse conversation conversion by creating a block
-		turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": message}})
-	}
+    if len(message) > 0 {
+        // simple assistant message
+        turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+    }
 	// append tool calls
-	for _, tc := range mergedToolCalls {
-		var args any
-		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-		turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": tc.ID, "name": tc.Function.Name, "args": args}})
-	}
+    for _, tc := range mergedToolCalls {
+        var args any
+        _ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+        turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
+    }
 
 	// Publish final event for streaming
 	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")

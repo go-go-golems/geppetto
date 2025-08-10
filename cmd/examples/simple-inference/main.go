@@ -162,7 +162,16 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 			case conversation.RoleTool:
 				kind = turns.BlockKindOther
 			}
-			turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
+            switch kind {
+            case turns.BlockKindUser:
+                turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
+            case turns.BlockKindLLMText:
+                turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
+            case turns.BlockKindSystem:
+                turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
+            default:
+                turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
+            }
 		}
 	}
 

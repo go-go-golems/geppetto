@@ -170,8 +170,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	}
 
 	// Build a Turn seeded with a user prompt
-	turn := &turns.Turn{}
-	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Role: "user", Payload: map[string]any{"text": "Please use get_weather to check the weather in San Francisco, in celsius."}})
+    turn := &turns.Turn{}
+    turns.AppendBlock(turn, turns.NewUserTextBlock("Please use get_weather to check the weather in San Francisco, in celsius."))
 
 	// Prepare a toolbox and register executable implementation
 	tb := middleware.NewMockToolbox()
