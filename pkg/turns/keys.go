@@ -20,4 +20,10 @@ const (
     MetaKeyModel       = "model"        // model identifier
 )
 
+// Standard keys for Turn.Data map
+const (
+    DataKeyToolRegistry = "tool_registry"
+    DataKeyToolConfig   = "tool_config"
+)
+
 

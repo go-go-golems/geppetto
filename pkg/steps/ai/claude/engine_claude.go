@@ -21,10 +21,7 @@ import (
 type ClaudeEngine struct {
 	settings     *settings.StepSettings
 	config       *engine.Config
-	toolAdapter  *tools.ClaudeToolAdapter
-	toolsEnabled bool
-	tools        []engine.ToolDefinition
-	toolConfig   engine.ToolConfig
+    toolAdapter  *tools.ClaudeToolAdapter
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
@@ -34,27 +31,14 @@ func NewClaudeEngine(settings *settings.StepSettings, options ...engine.Option) 
 		return nil, err
 	}
 
-	return &ClaudeEngine{
-		settings:     settings,
-		config:       config,
-		toolAdapter:  tools.NewClaudeToolAdapter(),
-		toolsEnabled: false,
-		tools:        nil,
-		toolConfig:   engine.ToolConfig{},
-	}, nil
+    return &ClaudeEngine{
+        settings:     settings,
+        config:       config,
+        toolAdapter:  tools.NewClaudeToolAdapter(),
+    }, nil
 }
 
-// ConfigureTools configures the engine to use tools
-func (e *ClaudeEngine) ConfigureTools(tools []engine.ToolDefinition, config engine.ToolConfig) {
-	e.toolsEnabled = config.Enabled
-	e.tools = tools
-	e.toolConfig = config
-	log.Debug().
-		Bool("enabled", e.toolsEnabled).
-		Int("tool_count", len(e.tools)).
-		Str("tool_choice", string(config.ToolChoice)).
-		Msg("Claude engine tools configured")
-}
+// Tool configuration now read from Turn.Data; no ConfigureTools method
 
 // RunInference processes a conversation using Claude API and returns the full updated conversation.
 // This implementation is extracted from the existing Claude ChatStep RunInference method.
@@ -97,34 +81,32 @@ func (e *ClaudeEngine) RunInference(
 		return nil, err
 	}
 
-	// Add tools to the request if enabled
-	if e.toolsEnabled && len(e.tools) > 0 {
-		log.Debug().Int("tool_count", len(e.tools)).Msg("Adding tools to Claude request")
-
-		// Convert our tools to api.Tool format
-		var claudeTools []api.Tool
-		for _, tool := range e.tools {
-			claudeTool := api.Tool{
-				Name:        tool.Name,
-				Description: tool.Description,
-				InputSchema: tool.Parameters,
-			}
-			claudeTools = append(claudeTools, claudeTool)
-			log.Debug().
-				Str("tool_name", claudeTool.Name).
-				Str("tool_description", claudeTool.Description).
-				Interface("tool_input_schema", claudeTool.InputSchema).
-				Msg("Converted tool to Claude format")
-		}
-
-		// Set tools in request
-		req.Tools = claudeTools
-
-		log.Debug().
-			Int("claude_tool_count", len(claudeTools)).
-			Interface("claude_tools", claudeTools).
-			Msg("Tools added to Claude request")
-	}
+    // Add tools from Turn.Data if present
+    if t != nil && t.Data != nil {
+        if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
+            if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
+                var claudeTools []api.Tool
+                for _, tool := range reg.ListTools() {
+                    claudeTool := api.Tool{
+                        Name:        tool.Name,
+                        Description: tool.Description,
+                        InputSchema: tool.Parameters,
+                    }
+                    claudeTools = append(claudeTools, claudeTool)
+                    log.Debug().
+                        Str("tool_name", claudeTool.Name).
+                        Str("tool_description", claudeTool.Description).
+                        Interface("tool_input_schema", claudeTool.InputSchema).
+                        Msg("Converted tool to Claude format")
+                }
+                req.Tools = claudeTools
+                log.Debug().
+                    Int("claude_tool_count", len(claudeTools)).
+                    Interface("claude_tools", claudeTools).
+                    Msg("Tools added to Claude request from Turn.Data")
+            }
+        }
+    }
 	// Safely handle Temperature and TopP settings with default fallback
 	if req.Temperature == nil {
 		defaultTemp := float64(1.0)
