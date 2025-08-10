@@ -210,15 +210,13 @@ func executeToolCallsTurn(ctx context.Context, calls []ToolCall, toolbox Toolbox
 
 // appendToolResultsBlocks appends tool_use blocks from results
 func appendToolResultsBlocks(t *turns.Turn, results []ToolResult) {
-	for _, r := range results {
-		payload := map[string]any{"id": r.ID}
-		if r.Error != "" {
-			payload["result"] = fmt.Sprintf("Error: %s", r.Error)
-		} else {
-			payload["result"] = r.Content
-		}
-		turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolUse, Payload: payload})
-	}
+    for _, r := range results {
+        result := any(r.Content)
+        if r.Error != "" {
+            result = fmt.Sprintf("Error: %s", r.Error)
+        }
+        turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
+    }
 }
 
 // executeToolWorkflow handles the complete tool calling workflow

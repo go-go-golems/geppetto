@@ -170,8 +170,8 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	}
 
 	// Build a Turn seeded with a user prompt that asks to use the tool
-	turn := &turns.Turn{}
-	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Role: "user", Payload: map[string]any{"text": "Use get_weather to check the weather in Paris, France. Return the result."}})
+    turn := &turns.Turn{}
+    turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
 
 	// Prepare a toolbox and register executable implementation
 	tb := middleware.NewMockToolbox()

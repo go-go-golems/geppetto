@@ -67,13 +67,11 @@ func ExtractPendingToolCalls(t *turns.Turn) []ToolCall {
 
 // AppendToolResultsBlocks appends tool_use blocks to the Turn from provided results.
 func AppendToolResultsBlocks(t *turns.Turn, results []ToolResult) {
-	for _, r := range results {
-		payload := map[string]any{"id": r.ID}
-		if r.Error != "" {
-			payload["result"] = "Error: " + r.Error
-		} else {
-			payload["result"] = r.Content
-		}
-		turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolUse, Payload: payload})
-	}
+    for _, r := range results {
+        result := any(r.Content)
+        if r.Error != "" {
+            result = "Error: " + r.Error
+        }
+        turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
+    }
 }

@@ -26,18 +26,14 @@ func mockNextHandler() HandlerFunc {
 			}
 		}
 
-		if !hasToolCall {
-			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{
-				"id":   "call_1",
-				"name": "echo",
-				"args": map[string]any{"text": "hello"},
-			}})
+        if !hasToolCall {
+            turns.AppendBlock(t, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hello"}))
 			return t, nil
 		}
 
-		if hasToolUse {
-			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "done"}})
-		}
+        if hasToolUse {
+            turns.AppendBlock(t, turns.NewAssistantTextBlock("done"))
+        }
 		return t, nil
 	}
 }
@@ -45,8 +41,8 @@ func mockNextHandler() HandlerFunc {
 func TestExtractPendingToolCalls_Turns(t *testing.T) {
 	turn := &turns.Turn{}
 	// tool_call id a, plus an unrelated tool_use id b
-	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "a", "name": "x", "args": map[string]any{"k": "v"}}})
-	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindToolUse, Payload: map[string]any{"id": "b", "result": "ok"}})
+    turns.AppendBlock(turn, turns.NewToolCallBlock("a", "x", map[string]any{"k": "v"}))
+    turns.AppendBlock(turn, turns.NewToolUseBlock("b", "ok"))
 
 	calls := extractPendingToolCalls(turn)
 	require.Len(t, calls, 1)
@@ -64,7 +60,7 @@ func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 
 	// Build a turn with a tool_call
 	turn := &turns.Turn{}
-	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_1", "name": "echo", "args": map[string]any{"text": "hi"}}})
+    turns.AppendBlock(turn, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hi"}))
 
 	calls := extractPendingToolCalls(turn)
 	require.Len(t, calls, 1)
@@ -101,7 +97,7 @@ func TestToolMiddleware_EndToEnd_Turns(t *testing.T) {
 
 	// Seed with a user block
 	turn := &turns.Turn{}
-	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Role: "user", Payload: map[string]any{"text": "please echo hello"}})
+    turns.AppendBlock(turn, turns.NewUserTextBlock("please echo hello"))
 
 	updated, err := handler(context.Background(), turn)
 	require.NoError(t, err)
