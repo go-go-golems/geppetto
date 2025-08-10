@@ -381,41 +381,9 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		toolChoice = tools.ToolChoiceAuto
 	}
 
-	// 5.6. In the simplified approach, engines need tool definitions for API calls
-	// but they DON'T handle orchestration - helpers handle that
-	log.Info().Msg("Configuring tools on engine for API calls, helpers handle orchestration")
-
-	// Check if engine supports tool configuration (needed for API calls to include tools)
-    if configurableEngine, ok := baseEngine.(engine.ToolsConfigurable); ok {
-		log.Info().Msg("Engine supports tool configuration, providing tools for API calls")
-
-		// Convert registry tools to engine format
-		var engineTools []engine.ToolDefinition
-		for _, tool := range registry.ListTools() {
-			engineTool := engine.ToolDefinition{
-				Name:        tool.Name,
-				Description: tool.Description,
-				Parameters:  tool.Parameters,
-			}
-			engineTools = append(engineTools, engineTool)
-		}
-
-		// Configure tools on engine with minimal orchestration
-		// The engine will include tools in API calls but won't handle execution
-		engineConfig := engine.ToolConfig{
-			Enabled:           s.ToolsEnabled,
-			ToolChoice:        engine.ToolChoice(toolChoice),
-			MaxIterations:     1, // Single iteration - helper handles the loop
-			ExecutionTimeout:  30 * time.Second,
-			MaxParallelTools:  s.MaxParallelTools,
-			AllowedTools:      nil,
-			ToolErrorHandling: engine.ToolErrorHandling(tools.ToolErrorContinue),
-		}
-		configurableEngine.ConfigureTools(engineTools, engineConfig)
-		log.Info().Int("tool_count", len(engineTools)).Msg("Configured tools on engine for API calls")
-	} else {
-		log.Info().Msg("Engine doesn't support tool configuration, using pure helper orchestration")
-	}
+    // 5.6. Providers discover tools via Turn.Data (registry/config) during inference.
+    // Orchestration remains with helpers; no engine-level configuration needed.
+    log.Info().Msg("Using helper orchestration; tools provided via Turn scope at runtime")
 
 	// 6. Create simplified tool configuration for helpers
 

@@ -1,7 +1,7 @@
 ---
 Title: Tools in Geppetto (Turn-based)
 Slug: geppetto-tools
-Short: A complete guide to defining, registering, configuring, and executing tools with Turns
+Short: A complete guide to defining, attaching, and executing tools with Turns. Tools are discoverable per Turn via `Turn.Data`.
 Topics:
 - geppetto
 - tools
@@ -16,16 +16,27 @@ SectionType: Tutorial
 
 ## Tools in Geppetto (Turn-based)
 
-Tools enable models to call functions with structured inputs. In the Turn-based architecture, provider engines emit `tool_call` blocks; middleware (or helpers) execute tools and append `tool_use` blocks containing results.
+Tools enable models to call functions with structured inputs. In the Turn-based architecture, provider engines emit `tool_call` blocks; middleware (or helpers) execute tools and append `tool_use` blocks. As of this refactor, tools are attached per Turn: the engine reads which tools are available for that Turn from `Turn.Data`. This allows dynamic tools per step without mutating the engine’s state. We follow the Glaze documentation guidelines for clarity and completeness [[memory:5699956]].
 
-### Overview
+### What you’ll learn
 
-- Tool definitions: name, description, JSON Schema for parameters, optional examples/tags/version
-- Registry: stores callable tools for execution
-- Engine config: providers need tool definitions to advertise capabilities
-- Middleware/helpers: detect tool_call blocks, execute tools, append tool_use, re-enter engine step
+- How to define tools and register them
+- How to attach tools to a `Turn` for provider advertisement
+- How middleware and helpers execute tools
+- How engines map model outputs to Turn blocks
 
-### Define and register a tool
+### Key concepts (at a glance)
+
+- Registry: `tools.ToolRegistry` holds callable tools
+- Per-Turn tools: `turns.DataKeyToolRegistry` and `turns.DataKeyToolConfig` on `Turn.Data`
+- Blocks: `llm_text`, `tool_call`, `tool_use`
+- Payload keys: use `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
+
+---
+
+## Quickstart: From zero to tool execution
+
+1) Define a tool function and register it
 
 ```go
 type WeatherRequest struct {
@@ -33,65 +44,137 @@ type WeatherRequest struct {
     Units    string `json:"units,omitempty" jsonschema:"enum=celsius,enum=fahrenheit,default=celsius"`
 }
 
-type WeatherResponse struct { Location string; Temperature float64 }
+type WeatherResponse struct {
+    Location    string
+    Temperature float64
+}
 
-func weatherTool(req WeatherRequest) WeatherResponse { return WeatherResponse{Location: req.Location, Temperature: 22} }
+func weatherTool(req WeatherRequest) WeatherResponse {
+    return WeatherResponse{Location: req.Location, Temperature: 22}
+}
 
 reg := tools.NewInMemoryToolRegistry()
 def, _ := tools.NewToolFromFunc("get_weather", "Get weather", weatherTool)
 _ = reg.RegisterTool("get_weather", *def)
 ```
 
-### Pass tools to provider engines
-
-Engines include tools in API requests so models can emit structured calls.
+2) Attach the registry (and optional tool config) to a Turn
 
 ```go
-// Convert registry entries to engine.ToolDefinition and configure on engine (if supported)
-var defs []engine.ToolDefinition
-for _, t := range reg.ListTools() {
-    defs = append(defs, engine.ToolDefinition{Name: t.Name, Description: t.Description, Parameters: t.Parameters})
-}
-if cfg, ok := e.(engine.ToolsConfigurable); ok {
-    cfg.ConfigureTools(defs, engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxParallelTools: 1})
+seed := &turns.Turn{ Data: map[string]any{} }
+seed.Data[turns.DataKeyToolRegistry] = reg
+seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+    Enabled:          true,
+    ToolChoice:       engine.ToolChoiceAuto,
+    MaxParallelTools: 1,
 }
 ```
 
-### Turn blocks emitted by engines
-
-- `llm_text`: assistant text
-- `tool_call`: model requests invoking a tool `{id,name,args}`
-- `tool_use`: result of tool execution `{id,result}`
-
-### Executing tools with middleware
+3) Run the engine and execute tools with middleware or helpers
 
 ```go
+// Middleware route (Turn-native)
 tb := middleware.NewMockToolbox()
-tb.RegisterTool("echo", "Echo text", map[string]any{"text": {"type":"string"}}, func(ctx context.Context, args map[string]any) (any, error) { return args["text"], nil })
-
+tb.RegisterTool("echo", "Echo text", map[string]any{"text": {"type": "string"}},
+    func(ctx context.Context, args map[string]any) (any, error) { return args["text"], nil })
 mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5})
 wrapped := middleware.NewEngineWithMiddleware(e, mw)
 
-seed := &turns.Turn{}
-turns.AppendBlock(seed, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use echo with 'hello'"}})
+turns.AppendBlock(seed, turns.NewUserTextBlock("Use echo with 'hello'"))
 updated, _ := wrapped.RunInference(ctx, seed)
-```
 
-### Executing tools with helpers (from conversations)
-
-For compatibility with conversation flows, `toolhelpers` provides an automated loop. Internally this now seeds a Turn, runs the engine, and translates results back to conversation.
-
-```go
+// Helper route (conversation-first)
 cfg := toolhelpers.NewToolConfig().WithMaxIterations(5)
 finalConv, _ := toolhelpers.RunToolCallingLoop(ctx, e, initialConversation, reg, cfg)
 ```
 
-### Best practices
+---
 
-- Define precise JSON Schemas; prefer required fields only when necessary
-- Keep tool inputs small; providers have payload limits
-- Log tool execution and results for observability
+## Guided walkthrough: End-to-end example
+
+The following example shows how to:
+- Define a tool with JSON Schema inferred from a Go function
+- Seed a Turn with a per-Turn registry
+- Let the engine advertise tools to the provider
+- Execute tools via middleware and return results as `tool_use` blocks
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+)
+
+type AddRequest struct { A, B float64 `json:"a" jsonschema:"required"` }
+type AddResponse struct { Sum float64 `json:"sum"` }
+
+func addTool(req AddRequest) AddResponse { return AddResponse{Sum: req.A + req.B} }
+
+func run(ctx context.Context, e engine.Engine) error {
+    // 1) Create registry and register the tool
+    reg := tools.NewInMemoryToolRegistry()
+    def, _ := tools.NewToolFromFunc("add", "Add two numbers", addTool)
+    _ = reg.RegisterTool("add", *def)
+
+    // 2) Seed a Turn with registry and minimal tool config
+    t := &turns.Turn{ Data: map[string]any{} }
+    t.Data[turns.DataKeyToolRegistry] = reg
+    t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true }
+    turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
+
+    // 3) Attach tool middleware to execute tool_use blocks
+    tb := middleware.NewMockToolbox()
+    tb.RegisterTool("add", "Add two numbers", map[string]any{
+        "a": {"type": "number"},
+        "b": {"type": "number"},
+    }, func(ctx context.Context, args map[string]any) (any, error) {
+        return args["a"].(float64) + args["b"].(float64), nil
+    })
+    e = middleware.NewEngineWithMiddleware(e, middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3}))
+
+    // 4) Run inference (engine may emit tool_call; middleware executes and appends tool_use)
+    _, err := e.RunInference(ctx, t)
+    return err
+}
+```
+
+---
+
+## Reference: payload and data keys
+
+When reading/writing block payloads, always use the constants:
+
+```go
+turns.PayloadKeyText
+turns.PayloadKeyID
+turns.PayloadKeyName
+turns.PayloadKeyArgs
+turns.PayloadKeyResult
+```
+
+Engine discovery keys in `Turn.Data`:
+
+```go
+turns.DataKeyToolRegistry // tools.ToolRegistry
+turns.DataKeyToolConfig   // engine.ToolConfig
+```
+
+---
+
+## Best practices
+
+- Define precise JSON Schemas; mark required params judiciously
+- Keep tool inputs small (provider payload limits apply)
+- Log tool execution steps and responses
 - Use timeouts and iteration limits to prevent loops
-- Prefer middleware for Turn-native apps; use helpers when starting from conversations
+- Prefer middleware for Turn-native use; use helpers for conversation-first flows
 
+## Troubleshooting and tips
 
+- If an engine doesn’t seem to advertise your tools, ensure `Turn.Data[turns.DataKeyToolRegistry]` is set and non-empty
+- When reading payloads, always use the payload key constants to avoid typos
+- To change tools at runtime, modify the Turn’s registry or config before calling `RunInference`
