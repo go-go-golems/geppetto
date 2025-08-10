@@ -14,3 +14,10 @@ type Engine interface {
 	// Tool calls in the response should be preserved as blocks for helper processing.
 	RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
 }
+
+// ToolsConfigurable is implemented by engines that can accept tool definitions
+// for inclusion in provider requests. Engines that don't support tools may
+// simply not implement this interface.
+type ToolsConfigurable interface {
+    ConfigureTools([]ToolDefinition, ToolConfig)
+}

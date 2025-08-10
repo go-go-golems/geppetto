@@ -392,7 +392,7 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
 
     // 6. Configure engine for tool calling (if supported)
     if configurableEngine, ok := baseEngine.(interface {
-        ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)
+        engine.ToolsConfigurable
     }); ok {
         // Convert registry tools to engine format
         var engineTools []engine.ToolDefinition

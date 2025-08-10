@@ -52,7 +52,7 @@ var defs []engine.ToolDefinition
 for _, t := range reg.ListTools() {
     defs = append(defs, engine.ToolDefinition{Name: t.Name, Description: t.Description, Parameters: t.Parameters})
 }
-if cfg, ok := e.(interface{ ConfigureTools([]engine.ToolDefinition, engine.ToolConfig) }); ok {
+if cfg, ok := e.(engine.ToolsConfigurable); ok {
     cfg.ConfigureTools(defs, engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxParallelTools: 1})
 }
 ```

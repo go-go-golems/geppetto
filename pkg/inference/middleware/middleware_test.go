@@ -51,13 +51,13 @@ func TestMiddlewareChain(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			for i := range res.Blocks {
-				if res.Blocks[i].Kind == turns.BlockKindLLMText {
-					if s, ok := res.Blocks[i].Payload["text"].(string); ok {
-						res.Blocks[i].Payload["text"] = "(prefix) " + s
-					}
-				}
-			}
+            for i := range res.Blocks {
+                if res.Blocks[i].Kind == turns.BlockKindLLMText {
+                    if s, ok := res.Blocks[i].Payload[turns.PayloadKeyText].(string); ok {
+                        res.Blocks[i].Payload[turns.PayloadKeyText] = "(prefix) " + s
+                    }
+                }
+            }
 			return res, nil
 		}
 	}

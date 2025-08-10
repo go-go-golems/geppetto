@@ -386,9 +386,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	log.Info().Msg("Configuring tools on engine for API calls, helpers handle orchestration")
 
 	// Check if engine supports tool configuration (needed for API calls to include tools)
-	if configurableEngine, ok := baseEngine.(interface {
-		ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)
-	}); ok {
+    if configurableEngine, ok := baseEngine.(engine.ToolsConfigurable); ok {
 		log.Info().Msg("Engine supports tool configuration, providing tools for API calls")
 
 		// Convert registry tools to engine format

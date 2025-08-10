@@ -143,7 +143,7 @@ getWeather, _ := tools.NewToolFromFunc(
 _ = registry.RegisterTool("get_weather", *getWeather)
 
 // Optionally, pass tool schemas to the engine (provider-dependent)
-if cfg, ok := eng.(interface{ ConfigureTools([]engine.ToolDefinition, engine.ToolConfig) }); ok {
+if cfg, ok := eng.(engine.ToolsConfigurable); ok {
     var defs []engine.ToolDefinition
     for _, t := range registry.ListTools() {
         defs = append(defs, engine.ToolDefinition{

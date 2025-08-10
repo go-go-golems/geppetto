@@ -169,10 +169,10 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 				// Uppercase any newly appended assistant LLMText blocks
 				for i := range result.Blocks {
 					b := &result.Blocks[i]
-					if b.Kind == turns.BlockKindLLMText {
-						if txt, ok := b.Payload["text"].(string); ok {
-							b.Payload["text"] = strings.ToUpper(txt)
-						}
+                    if b.Kind == turns.BlockKindLLMText {
+                        if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
+                            b.Payload[turns.PayloadKeyText] = strings.ToUpper(txt)
+                        }
 					}
 				}
 				return result, nil
@@ -196,9 +196,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		middlewares = append(middlewares, toolMw)
 
 		// Also configure provider engines with a matching tool definition so Claude/OpenAI emit structured tool calls
-		if cfgEngine, ok := engine.(interface {
-			ConfigureTools([]enginepkg.ToolDefinition, enginepkg.ToolConfig)
-		}); ok {
+        if cfgEngine, ok := engine.(enginepkg.ToolsConfigurable); ok {
 			echoSchema := &jsonschema.Schema{Type: "object"}
 			props := jsonschema.NewProperties()
 			props.Set("text", &jsonschema.Schema{Type: "string"})
@@ -263,7 +261,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
                 turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
             default:
                 // Preserve Other/tool role as-is
-                turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
+                turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{turns.PayloadKeyText: chatMsg.Text}})
             }
 		}
 	}
