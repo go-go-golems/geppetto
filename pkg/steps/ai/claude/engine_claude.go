@@ -1,17 +1,19 @@
 package claude
 
 import (
-	"context"
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+    "context"
+    "encoding/json"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/events"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/steps"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/glazed/pkg/helpers/cast"
+    "github.com/pkg/errors"
+    "github.com/rs/zerolog/log"
 )
 
 // ClaudeEngine implements the Engine interface for Claude (Anthropic) API calls.
@@ -57,9 +59,11 @@ func (e *ClaudeEngine) ConfigureTools(tools []engine.ToolDefinition, config engi
 // RunInference processes a conversation using Claude API and returns the full updated conversation.
 // This implementation is extracted from the existing Claude ChatStep RunInference method.
 func (e *ClaudeEngine) RunInference(
-	ctx context.Context,
-	messages conversation.Conversation,
-) (conversation.Conversation, error) {
+    ctx context.Context,
+    t *turns.Turn,
+) (*turns.Turn, error) {
+    // Convert Turn to conversation for existing request machinery
+    messages := turns.BuildConversationFromTurn(t)
 	log.Debug().Int("num_messages", len(messages)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := e.settings.Client
 	if clientSettings == nil {
@@ -229,23 +233,9 @@ streamingComplete:
 		metadata.StopReason = &response.StopReason
 	}
 
-	// Create separate messages for each content block so tool extraction can work
-	llmMetadata := &conversation.LLMMessageMetadata{
-		Engine: req.Model,
-		Usage: &conversation.Usage{
-			InputTokens:  response.Usage.InputTokens,
-			OutputTokens: response.Usage.OutputTokens,
-		},
-		StopReason:  &response.StopReason,
-		Temperature: req.Temperature,
-		TopP:        req.TopP,
-		MaxTokens:   &req.MaxTokens,
-	}
+    // Create separate messages for each content block so tool extraction can work (metadata tracked in events only)
 
-	// Clone the input conversation
-	result := append(conversation.Conversation(nil), messages...)
-
-	// Check if there's text content - if so, create one message with the original content
+    // Check if there's text content - if so, we create one llm_text block; otherwise we add tool_call blocks
 	// If not, create separate messages for each content block
 	textContent := ""
 	hasText := false
@@ -256,40 +246,27 @@ streamingComplete:
 		}
 	}
 
-	if hasText {
-		// Create one message with original Claude content (text + tool_use combined)
-		textMsg := conversation.NewChatMessage(
-			conversation.RoleAssistant, textContent,
-			conversation.WithLLMMessageMetadata(llmMetadata),
-		)
-		// Store the original Claude response for proper reconstruction
-		if textMsg.Metadata == nil {
-			textMsg.Metadata = make(map[string]interface{})
-		}
-		textMsg.Metadata["claude_original_content"] = response.Content
-		result = append(result, textMsg)
-	} else {
-		// No text content, create separate ToolUseContent messages
-		for _, content := range response.Content {
-			if toolUseContent, ok := content.(api.ToolUseContent); ok {
-				toolUseMsg := conversation.NewMessage(
-					&conversation.ToolUseContent{
-						ToolID: toolUseContent.ID,
-						Name:   toolUseContent.Name,
-						Input:  toolUseContent.Input,
-						Type:   "function",
-					},
-					conversation.WithLLMMessageMetadata(llmMetadata),
-				)
-				result = append(result, toolUseMsg)
-			}
-		}
-	}
+    if hasText {
+        turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": textContent}})
+        // Store original content in metadata for possible reconstruction
+        // Encode response.Content as JSON string to store safely
+        raw, _ := json.Marshal(response.Content)
+        turns.SetTurnMetadata(t, "claude_original_content", string(raw))
+    } else {
+        for _, content := range response.Content {
+            if toolUseContent, ok := content.(api.ToolUseContent); ok {
+                // Represent as tool_call block for middleware/tool runner
+                var args any
+                _ = json.Unmarshal(toolUseContent.Input, &args)
+                turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": toolUseContent.ID, "name": toolUseContent.Name, "args": args}})
+            }
+        }
+    }
 
 	// NOTE: Final event is already published by ContentBlockMerger during event processing
 	// Do not publish duplicate final event here
-	log.Debug().Msg("Claude RunInference completed (streaming)")
-	return result, nil
+    log.Debug().Msg("Claude RunInference completed (streaming)")
+    return t, nil
 }
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
