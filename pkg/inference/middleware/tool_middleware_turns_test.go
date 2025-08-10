@@ -17,7 +17,7 @@ func mockNextHandler() HandlerFunc {
 	return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 		hasToolCall := false
 		hasToolUse := false
-		for _, b := range t.Blocks {
+        for _, b := range t.Blocks {
 			if b.Kind == turns.BlockKindToolCall {
 				hasToolCall = true
 			}
@@ -75,10 +75,10 @@ func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 	appendToolResultsBlocks(turn, results)
 	// Expect a tool_use block appended
 	foundToolUse := false
-	for _, b := range turn.Blocks {
+    for _, b := range turn.Blocks {
 		if b.Kind == turns.BlockKindToolUse {
 			foundToolUse = true
-			assert.Equal(t, "call_1", b.Payload["id"])
+            assert.Equal(t, "call_1", b.Payload[turns.PayloadKeyID])
 			break
 		}
 	}

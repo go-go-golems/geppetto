@@ -16,13 +16,6 @@ const (
 	BlockKindOther
 )
 
-// MetadataKV stores a metadata key/value with a source namespace.
-type MetadataKV struct {
-	Source string
-	Key    string
-	Value  string
-}
-
 // Block represents a single atomic unit within a Turn.
 type Block struct {
 	ID       string
@@ -31,7 +24,8 @@ type Block struct {
 	Kind     BlockKind
 	Role     string
 	Payload  map[string]any
-	Metadata []MetadataKV
+    // Metadata stores arbitrary metadata about the block
+    Metadata map[string]interface{}
 }
 
 // Turn contains an ordered list of Blocks and associated metadata.
@@ -50,7 +44,8 @@ type Run struct {
 	ID       string
 	Name     string
 	Turns    []Turn
-	Metadata []MetadataKV
+    // Metadata stores arbitrary metadata about the run
+    Metadata map[string]interface{}
 }
 
 // AppendBlock appends a Block to a Turn, assigning an order if missing.
@@ -85,7 +80,7 @@ func FindLastBlocksByKind(t Turn, kinds ...BlockKind) []Block {
 	return ret
 }
 
-// UpsertTurnMetadata inserts or updates a Turn metadata entry keyed by (source,key).
+// SetTurnMetadata inserts or updates a Turn metadata entry keyed by simple key.
 func SetTurnMetadata(t *Turn, key string, value interface{}) {
 	if t.Metadata == nil {
 		t.Metadata = make(map[string]interface{})
@@ -93,13 +88,10 @@ func SetTurnMetadata(t *Turn, key string, value interface{}) {
 	t.Metadata[key] = value
 }
 
-// UpsertBlockMetadata inserts or updates a Block metadata entry keyed by (source,key).
-func UpsertBlockMetadata(b *Block, kv MetadataKV) {
-	for i := range b.Metadata {
-		if b.Metadata[i].Source == kv.Source && b.Metadata[i].Key == kv.Key {
-			b.Metadata[i].Value = kv.Value
-			return
-		}
-	}
-	b.Metadata = append(b.Metadata, kv)
+// SetBlockMetadata inserts or updates a Block metadata entry by simple key.
+func SetBlockMetadata(b *Block, key string, value interface{}) {
+    if b.Metadata == nil {
+        b.Metadata = make(map[string]interface{})
+    }
+    b.Metadata[key] = value
 }
