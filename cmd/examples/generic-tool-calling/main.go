@@ -12,9 +12,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-    // "github.com/go-go-golems/geppetto/pkg/turns"
+	// "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -328,9 +328,9 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	}
 
 	// Add logging middleware if requested
-    if s.WithLogging {
-        baseEngine = middleware.NewEngineWithMiddleware(baseEngine, middleware.NewTurnLoggingMiddleware(log.Logger))
-    }
+	if s.WithLogging {
+		baseEngine = middleware.NewEngineWithMiddleware(baseEngine, middleware.NewTurnLoggingMiddleware(log.Logger))
+	}
 
 	// 5. Create tool registry and register tools
 	registry := tools.NewInMemoryToolRegistry()

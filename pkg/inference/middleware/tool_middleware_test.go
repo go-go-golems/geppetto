@@ -7,35 +7,35 @@ import (
 	"testing"
 	"time"
 
-    "github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // MultiResponseMockEngine provides a mock implementation with multiple responses for testing
 type MultiResponseMockEngine struct {
-    adders   []func(*turns.Turn)
-    callCount int
+	adders    []func(*turns.Turn)
+	callCount int
 }
 
 func NewMultiResponseMockEngine(adders ...func(*turns.Turn)) *MultiResponseMockEngine {
-    return &MultiResponseMockEngine{adders: adders}
+	return &MultiResponseMockEngine{adders: adders}
 }
 
 func (me *MultiResponseMockEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-    if me.callCount >= len(me.adders) {
-        return nil, fmt.Errorf("no more mock responses available")
-    }
-    adder := me.adders[me.callCount]
-    me.callCount++
-    if adder != nil {
-        adder(t)
-    }
-    return t, nil
+	if me.callCount >= len(me.adders) {
+		return nil, fmt.Errorf("no more mock responses available")
+	}
+	adder := me.adders[me.callCount]
+	me.callCount++
+	if adder != nil {
+		adder(t)
+	}
+	return t, nil
 }
 
-func (me *MultiResponseMockEngine) Reset() { me.callCount = 0 }
+func (me *MultiResponseMockEngine) Reset()            { me.callCount = 0 }
 func (me *MultiResponseMockEngine) GetCallCount() int { return me.callCount }
 
 // Helper function to create a tool call in message metadata (OpenAI style)
@@ -78,9 +78,9 @@ func createToolUseMessage(toolID, toolName string, arguments map[string]interfac
 
 func TestToolMiddleware_NoToolCalls(t *testing.T) {
 	// Create mock engine that returns a simple text response
-    mockEngine := NewMultiResponseMockEngine(func(t *turns.Turn) {
-        turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "Hello, how can I help you?"}})
-    })
+	mockEngine := NewMultiResponseMockEngine(func(t *turns.Turn) {
+		turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "Hello, how can I help you?"}})
+	})
 
 	// Create mock toolbox
 	toolbox := NewMockToolbox()
@@ -92,32 +92,32 @@ func TestToolMiddleware_NoToolCalls(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with no tool calls
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Hello"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
-    assert.Equal(t, 1, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Hello"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
+	assert.Equal(t, 1, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_SingleToolCall_OpenAIStyle(t *testing.T) {
 	// Create tool call response (OpenAI style)
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
 	// Create final response after tool execution
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) {
-            args := map[string]any{"operation": "add", "a": 5.0, "b": 3.0}
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_123", "name": "calculator", "args": args}})
-        },
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The result is 8"}})
-        },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			args := map[string]any{"operation": "add", "a": 5.0, "b": 3.0}
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_123", "name": "calculator", "args": args}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The result is 8"}})
+		},
+	)
 
 	// Create mock toolbox
 	toolbox := NewMockToolbox()
@@ -136,32 +136,32 @@ func TestToolMiddleware_SingleToolCall_OpenAIStyle(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with tool call
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "What is 5 + 3?"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
-    assert.Equal(t, 2, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "What is 5 + 3?"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
+	assert.Equal(t, 2, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_SingleToolCall_ClaudeStyle(t *testing.T) {
 	// Create tool use response (Claude style)
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
 	// Create final response after tool execution
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) {
-            args := map[string]any{"location": "San Francisco"}
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_456", "name": "weather", "args": args}})
-        },
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The weather in San Francisco is sunny and 72°F"}})
-        },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			args := map[string]any{"location": "San Francisco"}
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_456", "name": "weather", "args": args}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The weather in San Francisco is sunny and 72°F"}})
+		},
+	)
 
 	// Create mock toolbox
 	toolbox := NewMockToolbox()
@@ -174,14 +174,14 @@ func TestToolMiddleware_SingleToolCall_ClaudeStyle(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with tool call
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "What's the weather in San Francisco?"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
-    assert.Equal(t, 2, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "What's the weather in San Francisco?"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
+	assert.Equal(t, 2, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_MultipleToolCalls(t *testing.T) {
@@ -189,7 +189,7 @@ func TestToolMiddleware_MultipleToolCalls(t *testing.T) {
 	argsJson1, _ := json.Marshal(map[string]interface{}{"a": 5.0, "b": 3.0})
 	argsJson2, _ := json.Marshal(map[string]interface{}{"location": "New York"})
 
-    toolCalls := []interface{}{
+	toolCalls := []interface{}{
 		map[string]interface{}{
 			"id":   "call_1",
 			"type": "function",
@@ -208,23 +208,23 @@ func TestToolMiddleware_MultipleToolCalls(t *testing.T) {
 		},
 	}
 
-    _ = toolCalls // kept for reference; not used in Turn-based tests
+	_ = toolCalls // kept for reference; not used in Turn-based tests
 
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) {
-            args1 := map[string]any{"a": 5.0, "b": 3.0}
-            args2 := map[string]any{"location": "New York"}
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_1", "name": "calculator", "args": args1}})
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_2", "name": "weather", "args": args2}})
-        },
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The calculation result is 8 and the weather in New York is cloudy"}})
-        },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			args1 := map[string]any{"a": 5.0, "b": 3.0}
+			args2 := map[string]any{"location": "New York"}
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_1", "name": "calculator", "args": args1}})
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_2", "name": "weather", "args": args2}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The calculation result is 8 and the weather in New York is cloudy"}})
+		},
+	)
 
 	// Create mock toolbox
 	toolbox := NewMockToolbox()
@@ -243,26 +243,34 @@ func TestToolMiddleware_MultipleToolCalls(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with multiple tool calls
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Calculate 5+3 and get weather for NYC"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
-    assert.Equal(t, 2, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Calculate 5+3 and get weather for NYC"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
+	assert.Equal(t, 2, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_MaxIterationsLimit(t *testing.T) {
 	// Create engine that always returns tool calls (infinite loop scenario)
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) { turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_1", "name": "infinite_tool", "args": map[string]any{"value": 1}}}) },
-        func(t *turns.Turn) { turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_2", "name": "infinite_tool", "args": map[string]any{"value": 1}}}) },
-        func(t *turns.Turn) { turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_3", "name": "infinite_tool", "args": map[string]any{"value": 1}}}) },
-        func(t *turns.Turn) { turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_4", "name": "infinite_tool", "args": map[string]any{"value": 1}}}) },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_1", "name": "infinite_tool", "args": map[string]any{"value": 1}}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_2", "name": "infinite_tool", "args": map[string]any{"value": 1}}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_3", "name": "infinite_tool", "args": map[string]any{"value": 1}}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_loop_4", "name": "infinite_tool", "args": map[string]any{"value": 1}}})
+		},
+	)
 
 	// Create mock toolbox
 	toolbox := NewMockToolbox()
@@ -278,35 +286,35 @@ func TestToolMiddleware_MaxIterationsLimit(t *testing.T) {
 		ToolFilter:    nil,
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test that it stops after max iterations
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Start infinite loop"}})
-    result, err := handler(context.Background(), turn)
-    // New Turn semantics: loop exits successfully when no pending tool calls remain,
-    // even if multiple iterations occurred. No error expected here.
-    require.NoError(t, err)
-    assert.NotNil(t, result)
-    assert.Equal(t, 3, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Start infinite loop"}})
+	result, err := handler(context.Background(), turn)
+	// New Turn semantics: loop exits successfully when no pending tool calls remain,
+	// even if multiple iterations occurred. No error expected here.
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 3, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_ToolFilter(t *testing.T) {
 	// Create tool call for filtered tool
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
 	// Since tool is filtered, it should proceed to final response
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) {
-            args := map[string]any{"data": "test"}
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_filtered", "name": "blocked_tool", "args": args}})
-        },
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "I can't use that tool"}})
-        },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			args := map[string]any{"data": "test"}
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_filtered", "name": "blocked_tool", "args": args}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "I can't use that tool"}})
+		},
+	)
 
 	// Create mock toolbox
 	toolbox := NewMockToolbox()
@@ -326,31 +334,31 @@ func TestToolMiddleware_ToolFilter(t *testing.T) {
 		ToolFilter:    []string{"allowed_tool"}, // Only allow specific tool
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with filtered tool call
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use blocked tool"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
-    assert.Equal(t, 1, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use blocked tool"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
+	assert.Equal(t, 1, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_ToolExecutionError(t *testing.T) {
 	// Create tool call response
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
 	// Create final response after tool error
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_error", "name": "error_tool", "args": map[string]any{"should_error": true}}})
-        },
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "There was an error with the tool"}})
-        },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_error", "name": "error_tool", "args": map[string]any{"should_error": true}}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "There was an error with the tool"}})
+		},
+	)
 
 	// Create mock toolbox with error tool
 	toolbox := NewMockToolbox()
@@ -362,31 +370,31 @@ func TestToolMiddleware_ToolExecutionError(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with error tool call
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use error tool"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
-    assert.Equal(t, 2, mockEngine.GetCallCount())
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use error tool"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
+	assert.Equal(t, 2, mockEngine.GetCallCount())
 }
 
 func TestToolMiddleware_TimeoutHandling(t *testing.T) {
 	// Create tool call response
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
 	// Create final response after tool timeout
-    // conversation-based fixture no longer used
+	// conversation-based fixture no longer used
 
-    mockEngine := NewMultiResponseMockEngine(
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_timeout", "name": "slow_tool", "args": map[string]any{"delay": 2.0}}})
-        },
-        func(t *turns.Turn) {
-            turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The tool timed out"}})
-        },
-    )
+	mockEngine := NewMultiResponseMockEngine(
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolCall, Payload: map[string]any{"id": "call_timeout", "name": "slow_tool", "args": map[string]any{"delay": 2.0}}})
+		},
+		func(t *turns.Turn) {
+			turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindLLMText, Payload: map[string]any{"text": "The tool timed out"}})
+		},
+	)
 
 	// Create mock toolbox with slow tool
 	toolbox := NewMockToolbox()
@@ -409,13 +417,13 @@ func TestToolMiddleware_TimeoutHandling(t *testing.T) {
 		ToolFilter:    nil,
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-    handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFunc(mockEngine))
 
 	// Test with slow tool call
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use slow tool"}})
-    _, err := handler(context.Background(), turn)
-    require.NoError(t, err)
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Payload: map[string]any{"text": "Use slow tool"}})
+	_, err := handler(context.Background(), turn)
+	require.NoError(t, err)
 }
 
 func TestExtractToolCalls_OpenAIStyle(t *testing.T) {

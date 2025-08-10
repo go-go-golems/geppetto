@@ -140,62 +140,35 @@ func createEngineWithOptions(parsedLayers *layers.ParsedLayers) (engine.Engine, 
 For simple text generation without tool calling:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
-
-    "github.com/go-go-golems/geppetto/pkg/conversation"
     "github.com/go-go-golems/geppetto/pkg/conversation/builder"
-    clay "github.com/go-go-golems/clay/pkg"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/glazed/pkg/cmds/logging"
-    "github.com/spf13/cobra"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, prompt string) error {
-    // 1. Create engine
-    engine, err := factory.NewEngineFromParsedLayers(parsedLayers)
-    if err != nil {
-        return fmt.Errorf("failed to create engine: %w", err)
-    }
+    e, err := factory.NewEngineFromParsedLayers(parsedLayers)
+    if err != nil { return fmt.Errorf("failed to create engine: %w", err) }
 
-    // 2. Build conversation
-    builder := builder.NewManagerBuilder().
+    mgr, err := builder.NewManagerBuilder().
         WithSystemPrompt("You are a helpful assistant.").
-        WithPrompt(prompt)
+        WithPrompt(prompt).Build()
+    if err != nil { return fmt.Errorf("failed to build conversation: %w", err) }
 
-    manager, err := builder.Build()
-    if err != nil {
-        return fmt.Errorf("failed to build conversation: %w", err)
+    // Seed a Turn from the initial conversation
+    seed := &turns.Turn{}
+    turns.AppendBlocks(seed, turns.BlocksFromConversationDelta(mgr.GetConversation(), 0)...)
+
+    updated, err := e.RunInference(ctx, seed)
+    if err != nil { return fmt.Errorf("inference failed: %w", err) }
+
+    // Convert back to conversation for display
+    for _, m := range turns.BuildConversationFromTurn(updated) {
+        fmt.Println(m.Content.String())
     }
-
-    // 3. Run inference
-    conversation := manager.GetConversation()
-    updatedConversation, err := engine.RunInference(ctx, conversation)
-    if err != nil {
-        return fmt.Errorf("inference failed: %w", err)
-    }
-
-    // 4. Process results
-    newMessages := updatedConversation[len(conversation):]
-    for _, msg := range newMessages {
-        if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-            fmt.Printf("%s: %s\n", chatMsg.Role, chatMsg.Text)
-        }
-    }
-
     return nil
-}
-
-func main() {
-    // Minimal pattern for Geppetto-based tools
-    root := &cobra.Command{Use: "example", PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-        return logging.InitLoggerFromViper()
-    }}
-    _ = clay.InitViper("pinocchio", root)
-    // add commands and execute...
 }
 ```
 

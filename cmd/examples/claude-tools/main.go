@@ -1,28 +1,28 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "io"
+	"context"
+	"fmt"
+	"io"
 
-    clay "github.com/go-go-golems/clay/pkg"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    "github.com/go-go-golems/geppetto/pkg/inference/tools"
-    "github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
-    "github.com/go-go-golems/geppetto/pkg/turns"
-    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-    "github.com/go-go-golems/glazed/pkg/cli"
-    "github.com/go-go-golems/glazed/pkg/cmds"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/go-go-golems/glazed/pkg/cmds/logging"
-    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
-    "github.com/go-go-golems/glazed/pkg/help"
-    help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-    "github.com/pkg/errors"
-    "github.com/rs/zerolog/log"
-    "github.com/spf13/cobra"
+	clay "github.com/go-go-golems/clay/pkg"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/logging"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/help"
+	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
 )
 
 // WeatherRequest represents the input for the weather tool
@@ -116,8 +116,8 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
 
-    // Create tool definition using NewToolFromFunc which handles schema generation
-    weatherToolDef, err := tools.NewToolFromFunc(
+	// Create tool definition using NewToolFromFunc which handles schema generation
+	weatherToolDef, err := tools.NewToolFromFunc(
 		"get_weather",
 		"Get current weather information for a specific location",
 		weatherTool,
@@ -141,8 +141,8 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		fmt.Fprintln(w, "Warning: Tool schema is nil")
 	}
 
-    // Convert to engine tool definition
-    engineTool := engine.ToolDefinition{
+	// Convert to engine tool definition
+	engineTool := engine.ToolDefinition{
 		Name:        weatherToolDef.Name,
 		Description: weatherToolDef.Description,
 		Parameters:  weatherToolDef.Parameters,
@@ -160,47 +160,51 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		ToolErrorHandling: engine.ToolErrorContinue,
 	}
 
-    // Check if engine is Claude engine and configure tools
-    if claudeEngine, ok := engineInstance.(*claude.ClaudeEngine); ok {
-        claudeEngine.ConfigureTools([]engine.ToolDefinition{engineTool}, toolConfig)
-        fmt.Fprintln(w, "Claude engine found - configured weather tool")
-    } else {
-        fmt.Fprintln(w, "Warning: Engine is not Claude engine, cannot configure tools directly")
-        fmt.Fprintf(w, "Engine type: %T\n", engineInstance)
-    }
+	// Check if engine is Claude engine and configure tools
+	if claudeEngine, ok := engineInstance.(*claude.ClaudeEngine); ok {
+		claudeEngine.ConfigureTools([]engine.ToolDefinition{engineTool}, toolConfig)
+		fmt.Fprintln(w, "Claude engine found - configured weather tool")
+	} else {
+		fmt.Fprintln(w, "Warning: Engine is not Claude engine, cannot configure tools directly")
+		fmt.Fprintf(w, "Engine type: %T\n", engineInstance)
+	}
 
-    // Build a Turn seeded with a user prompt that asks to use the tool
-    turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Role: "user", Payload: map[string]any{"text": "Use get_weather to check the weather in Paris, France. Return the result."}})
+	// Build a Turn seeded with a user prompt that asks to use the tool
+	turn := &turns.Turn{}
+	turns.AppendBlock(turn, turns.Block{Kind: turns.BlockKindUser, Role: "user", Payload: map[string]any{"text": "Use get_weather to check the weather in Paris, France. Return the result."}})
 
-    // Prepare a toolbox and register executable implementation
-    tb := middleware.NewMockToolbox()
-    tb.RegisterTool("get_weather", "Get current weather information for a specific location", map[string]any{
-        "location": map[string]any{"type": "string"},
-        "units":    map[string]any{"type": "string"},
-    }, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-        req := WeatherRequest{Units: "celsius"}
-        if v, ok := args["location"].(string); ok { req.Location = v }
-        if v, ok := args["units"].(string); ok && v != "" { req.Units = v }
-        return weatherTool(req), nil
-    })
+	// Prepare a toolbox and register executable implementation
+	tb := middleware.NewMockToolbox()
+	tb.RegisterTool("get_weather", "Get current weather information for a specific location", map[string]any{
+		"location": map[string]any{"type": "string"},
+		"units":    map[string]any{"type": "string"},
+	}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		req := WeatherRequest{Units: "celsius"}
+		if v, ok := args["location"].(string); ok {
+			req.Location = v
+		}
+		if v, ok := args["units"].(string); ok && v != "" {
+			req.Units = v
+		}
+		return weatherTool(req), nil
+	})
 
-    // Wrap engine with tool middleware
-    mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-    wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
+	// Wrap engine with tool middleware
+	mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
+	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
 
-    // Run inference with middleware-managed tool execution
-    updatedTurn, err := wrapped.RunInference(ctx, turn)
-    if err != nil {
-        return errors.Wrap(err, "inference with tools failed")
-    }
+	// Run inference with middleware-managed tool execution
+	updatedTurn, err := wrapped.RunInference(ctx, turn)
+	if err != nil {
+		return errors.Wrap(err, "inference with tools failed")
+	}
 
-    // Render final conversation from Turn
-    msgs := turns.BuildConversationFromTurn(updatedTurn)
-    fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(msgs))
-    for i, msg := range msgs {
-        fmt.Fprintf(w, "Message %d: %s\n", i, msg.Content.String())
-    }
+	// Render final conversation from Turn
+	msgs := turns.BuildConversationFromTurn(updatedTurn)
+	fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(msgs))
+	for i, msg := range msgs {
+		fmt.Fprintf(w, "Message %d: %s\n", i, msg.Content.String())
+	}
 
 	return nil
 }

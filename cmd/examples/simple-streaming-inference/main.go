@@ -9,9 +9,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"io"
 
-    "github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
-    "github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -184,9 +184,9 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	}
 
 	// Add logging middleware if requested
-    if s.WithLogging {
-        engine = middleware.NewEngineWithMiddleware(engine, middleware.NewTurnLoggingMiddleware(log.Logger))
-    }
+	if s.WithLogging {
+		engine = middleware.NewEngineWithMiddleware(engine, middleware.NewTurnLoggingMiddleware(log.Logger))
+	}
 
 	b := builder.NewManagerBuilder().
 		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner. ").
@@ -214,18 +214,18 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		defer cancel()
 		<-router.Running()
 
-        // Seed a Turn from the conversation and run inference
-        seed := &turns.Turn{}
-        turns.AppendBlocks(seed, turns.BlocksFromConversationDelta(conversation_, 0)...)
-        updatedTurn, err := engine.RunInference(ctx, seed)
+		// Seed a Turn from the conversation and run inference
+		seed := &turns.Turn{}
+		turns.AppendBlocks(seed, turns.BlocksFromConversationDelta(conversation_, 0)...)
+		updatedTurn, err := engine.RunInference(ctx, seed)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
 
-        // Convert back to conversation and append only new messages
-        updatedConversation := turns.BuildConversationFromTurn(updatedTurn)
-        newMessages := updatedConversation[len(conversation_):]
+		// Convert back to conversation and append only new messages
+		updatedConversation := turns.BuildConversationFromTurn(updatedTurn)
+		newMessages := updatedConversation[len(conversation_):]
 		for _, msg := range newMessages {
 			if err := manager.AppendMessages(msg); err != nil {
 				log.Error().Err(err).Msg("Failed to append message to conversation")

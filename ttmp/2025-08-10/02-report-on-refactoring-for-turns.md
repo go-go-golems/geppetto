@@ -136,6 +136,7 @@ Document the end-to-end refactor from Conversation-slice based inference to a Tu
 - `turns` domain package is in place with metadata and data maps on `Turn`.
 - Engines (OpenAI, Claude) implement Turn-based `RunInference`; they convert Turn→Conversation internally where needed.
 - Middleware framework is Turn-based; Tool middleware runs an execution loop based on `tool_call`/`tool_use` blocks.
+- Consolidated tool-call helpers for Turns in `pkg/inference/toolblocks` and adopted them in both middleware and `toolhelpers`.
 - Examples (`simple-inference`, `middleware-inference`) compile and run.
 - With `--with-tools`, the example configures a demo tool and provider tool definitions; Claude conversion now appends `tool_call` blocks based on content blocks. The middleware is prepared to execute tools when providers emit structured tool calls.
 
@@ -170,23 +171,25 @@ While wiring proper tool calling end-to-end, a few issues caused churn and back-
 
 Net effect: We briefly went too deep into debugging a failing test with unclear desired semantics. The correct path is to codify the intended Turn behavior (no error when tool calls are exhausted) and update tests/docs, then centralize Turn tool helpers to eliminate duplication.
 
-### Next steps (checklist)
+### Next steps (hand-off checklist)
 
 1. Engines
    - [ ] Audit all engine implementations and migrate to Turn-based signature.
    - [ ] Ensure each engine maps provider responses to `Block` consistently (text/tool_call/system).
 
 2. Middleware
-   - [ ] Add unit tests for `extractPendingToolCalls`, `executeToolCallsTurn`, `appendToolResultsBlocks`.
-   - [ ] Add a Turn-based logging middleware that includes run/turn/block IDs in logs.
+   - [ ] Add unit tests for `toolblocks.ExtractPendingToolCalls` and `toolblocks.AppendToolResultsBlocks`.
+   - [ ] Expand Turn-based logging to include event correlation ids.
 
 3. Examples and docs
-   - [ ] Update `geppetto/pkg/doc/topics/05-conversation.md` and `06-inference-engines.md` with Turn sections.
-   - [ ] Add an example that shows a full Run with multiple Turns and windowing helpers.
+   - [x] Update `06-inference-engines.md` with Turn-based engine interface and Turn seeding example.
+   - [x] Add `07-tools.md` (tools end-to-end) and `08-turns.md` (Turn/Block model).
+   - [ ] Review `05-conversation.md` to clearly label it as compatibility; point to Turn seeding/conversion helpers.
 
 4. Cleanup and polish
-   - [ ] Remove `geppetto/pkg/steps/ai/openai/helpers_ids.go`.
-   - [ ] Grep for any remaining conversation-based `RunInference` usages and remove/port.
+   - [x] Remove `geppetto/pkg/steps/ai/openai/helpers_ids.go`.
+   - [ ] Grep for and remove/port remaining conversation-based `RunInference` code paths (docs/examples/tests).
+   - [x] Consolidate tool-call Turn helpers into `pkg/inference/toolblocks` and use in middleware and `toolhelpers`.
    - [ ] Consider adding `RunManager` (`turns`) for multi-turn orchestration and context window utilities.
 
 ### Lessons learned

@@ -1,13 +1,14 @@
 package middleware
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
-    "github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 // ToolConfig contains configuration for tool calling middleware
@@ -72,163 +73,159 @@ func (tr ToolResult) ToMessage() *conversation.Message {
 // NewToolMiddleware creates middleware that handles function calling workflows for OpenAI/Claude.
 // NOTE: Turn-based stub version; tool execution on blocks to be implemented.
 func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
-    return func(next HandlerFunc) HandlerFunc {
-        return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-            // Prevent infinite loops
-            iterations := 0
-            current := t
-            for iterations < config.MaxIterations {
-                // Run engine step to possibly produce tool_call blocks
-                updated, err := next(ctx, current)
-                if err != nil {
-                    return nil, fmt.Errorf("tool middleware engine step failed: %w", err)
-                }
+	return func(next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+			// Prevent infinite loops
+			iterations := 0
+			current := t
+			for iterations < config.MaxIterations {
+				// Run engine step to possibly produce tool_call blocks
+				updated, err := next(ctx, current)
+				if err != nil {
+					return nil, fmt.Errorf("tool middleware engine step failed: %w", err)
+				}
 
-                // Extract pending tool calls
-                toolCalls := extractPendingToolCalls(updated)
-                if len(toolCalls) == 0 {
-                    return updated, nil
-                }
+				// Extract pending tool calls
+				toolCalls_ := toolblocks.ExtractPendingToolCalls(updated)
+				// adapt to local ToolCall type
+				var toolCalls []ToolCall
+				for _, c := range toolCalls_ {
+					toolCalls = append(toolCalls, ToolCall{ID: c.ID, Name: c.Name, Arguments: c.Arguments})
+				}
+				if len(toolCalls) == 0 {
+					return updated, nil
+				}
 
-                // Filter tools if configured
-                if len(config.ToolFilter) > 0 {
-                    toolCalls = filterToolCalls(toolCalls, config.ToolFilter)
-                }
-                if len(toolCalls) == 0 {
-                    return updated, nil
-                }
+				// Filter tools if configured
+				if len(config.ToolFilter) > 0 {
+					toolCalls = filterToolCalls(toolCalls, config.ToolFilter)
+				}
+				if len(toolCalls) == 0 {
+					return updated, nil
+				}
 
-                // Execute tool calls with timeout per call
-                results, err := executeToolCallsTurn(ctx, toolCalls, toolbox, config.Timeout)
-                if err != nil {
-                    return nil, fmt.Errorf("tool execution failed: %w", err)
-                }
+				// Execute tool calls with timeout per call
+				results, err := executeToolCallsTurn(ctx, toolCalls, toolbox, config.Timeout)
+				if err != nil {
+					return nil, fmt.Errorf("tool execution failed: %w", err)
+				}
 
-                // Append tool_use blocks to the same turn
-                appendToolResultsBlocks(updated, results)
+				// Append tool_use blocks to the same turn
+				// convert to shared results and append via toolblocks
+				var shared []toolblocks.ToolResult
+				for _, r := range results {
+					shared = append(shared, toolblocks.ToolResult{ID: r.ID, Content: r.Content, Error: r.Error})
+				}
+				toolblocks.AppendToolResultsBlocks(updated, shared)
 
-                // Continue loop with the same updated turn to let engine consume tool results
-                current = updated
-                iterations++
-            }
-            // New Turn semantics: hitting MaxIterations is a soft cap.
-            // Return the current turn without error so callers can decide next steps.
-            return current, nil
-        }
-    }
+				// Continue loop with the same updated turn to let engine consume tool results
+				current = updated
+				iterations++
+			}
+			// New Turn semantics: hitting MaxIterations is a soft cap.
+			// Return the current turn without error so callers can decide next steps.
+			return current, nil
+		}
+	}
 }
 
 // executeToolWorkflowTurns is a minimal Turn-based placeholder that simply delegates to next.
 // Full block-level tool execution will be implemented following the design.
-func executeToolWorkflowTurns(
-    ctx context.Context,
-    t *turns.Turn,
-    toolbox Toolbox,
-    config ToolConfig,
-    next HandlerFunc,
-) (*turns.Turn, error) {
-    // Kept for compatibility; defer to NewToolMiddleware logic above
-    return NewToolMiddleware(toolbox, config)(next)(ctx, t)
-}
+// Deprecated: conversation-based tool workflow helper removed in Turn-based path
 
 // extractPendingToolCalls finds tool_call blocks without a corresponding tool_use block with same id
 func extractPendingToolCalls(t *turns.Turn) []ToolCall {
-    if t == nil {
-        return nil
-    }
-    used := make(map[string]bool)
-    for _, b := range t.Blocks {
-        if b.Kind == turns.BlockKindToolUse {
-            if id, ok := b.Payload["id"].(string); ok && id != "" {
-                used[id] = true
-            }
-        }
-    }
-    var calls []ToolCall
-    for _, b := range t.Blocks {
-        if b.Kind != turns.BlockKindToolCall {
-            continue
-        }
-        id, _ := b.Payload["id"].(string)
-        if id == "" || used[id] {
-            continue
-        }
-        name, _ := b.Payload["name"].(string)
-        // args may be an object or json.RawMessage string
-        var args map[string]interface{}
-        if raw := b.Payload["args"]; raw != nil {
-            switch v := raw.(type) {
-            case map[string]interface{}:
-                args = v
-            case string:
-                _ = json.Unmarshal([]byte(v), &args)
-            case json.RawMessage:
-                _ = json.Unmarshal(v, &args)
-            default:
-                // attempt generic marshal/unmarshal
-                if bts, err := json.Marshal(v); err == nil {
-                    _ = json.Unmarshal(bts, &args)
-                }
-            }
-        }
-        if args == nil {
-            args = map[string]interface{}{}
-        }
-        calls = append(calls, ToolCall{ID: id, Name: name, Arguments: args})
-    }
-    return calls
+	if t == nil {
+		return nil
+	}
+	used := make(map[string]bool)
+	for _, b := range t.Blocks {
+		if b.Kind == turns.BlockKindToolUse {
+			if id, ok := b.Payload["id"].(string); ok && id != "" {
+				used[id] = true
+			}
+		}
+	}
+	var calls []ToolCall
+	for _, b := range t.Blocks {
+		if b.Kind != turns.BlockKindToolCall {
+			continue
+		}
+		id, _ := b.Payload["id"].(string)
+		if id == "" || used[id] {
+			continue
+		}
+		name, _ := b.Payload["name"].(string)
+		// args may be an object or json.RawMessage string
+		var args map[string]interface{}
+		if raw := b.Payload["args"]; raw != nil {
+			switch v := raw.(type) {
+			case map[string]interface{}:
+				args = v
+			case string:
+				_ = json.Unmarshal([]byte(v), &args)
+			case json.RawMessage:
+				_ = json.Unmarshal(v, &args)
+			default:
+				// attempt generic marshal/unmarshal
+				if bts, err := json.Marshal(v); err == nil {
+					_ = json.Unmarshal(bts, &args)
+				}
+			}
+		}
+		if args == nil {
+			args = map[string]interface{}{}
+		}
+		calls = append(calls, ToolCall{ID: id, Name: name, Arguments: args})
+	}
+	return calls
 }
 
 // executeToolCallsTurn executes the tool calls with per-call timeout
 func executeToolCallsTurn(ctx context.Context, calls []ToolCall, toolbox Toolbox, timeout time.Duration) ([]ToolResult, error) {
-    results := make([]ToolResult, len(calls))
-    for i, call := range calls {
-        cctx := ctx
-        cancel := func() {}
-        if timeout > 0 {
-            cctx, cancel = context.WithTimeout(ctx, timeout)
-        }
-        res, err := toolbox.ExecuteTool(cctx, call.Name, call.Arguments)
-        cancel()
-        if err != nil {
-            results[i] = ToolResult{ID: call.ID, Error: err.Error()}
-            continue
-        }
-        // Try JSON encode first; fallback to fmt
-        content := ""
-        if b, err := json.Marshal(res); err == nil {
-            content = string(b)
-        } else {
-            content = fmt.Sprintf("%v", res)
-        }
-        results[i] = ToolResult{ID: call.ID, Content: content}
-    }
-    return results, nil
+	results := make([]ToolResult, len(calls))
+	for i, call := range calls {
+		cctx := ctx
+		cancel := func() {}
+		if timeout > 0 {
+			cctx, cancel = context.WithTimeout(ctx, timeout)
+		}
+		res, err := toolbox.ExecuteTool(cctx, call.Name, call.Arguments)
+		cancel()
+		if err != nil {
+			results[i] = ToolResult{ID: call.ID, Error: err.Error()}
+			continue
+		}
+		// Try JSON encode first; fallback to fmt
+		content := ""
+		if b, err := json.Marshal(res); err == nil {
+			content = string(b)
+		} else {
+			content = fmt.Sprintf("%v", res)
+		}
+		results[i] = ToolResult{ID: call.ID, Content: content}
+	}
+	return results, nil
 }
 
 // appendToolResultsBlocks appends tool_use blocks from results
 func appendToolResultsBlocks(t *turns.Turn, results []ToolResult) {
-    for _, r := range results {
-        payload := map[string]any{"id": r.ID}
-        if r.Error != "" {
-            payload["result"] = fmt.Sprintf("Error: %s", r.Error)
-        } else {
-            payload["result"] = r.Content
-        }
-        turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolUse, Payload: payload})
-    }
+	for _, r := range results {
+		payload := map[string]any{"id": r.ID}
+		if r.Error != "" {
+			payload["result"] = fmt.Sprintf("Error: %s", r.Error)
+		} else {
+			payload["result"] = r.Content
+		}
+		turns.AppendBlock(t, turns.Block{Kind: turns.BlockKindToolUse, Payload: payload})
+	}
 }
 
 // executeToolWorkflow handles the complete tool calling workflow
 // Deprecated conversation-based workflow kept for reference but not compiled in Turn mode
 
 // addToolContext adds tool descriptions to the conversation if not already present
-func addToolContext(messages conversation.Conversation, toolbox Toolbox) conversation.Conversation {
-	// For now, we'll rely on the AI provider (OpenAI/Claude) to handle tool descriptions
-	// through their API. This function can be extended later to inject tool context
-	// into system messages if needed.
-	return messages
-}
+// addToolContext kept for backward-compat in comments; no longer used in Turn mode
 
 // extractToolCalls extracts tool calls from an AI response message
 func extractToolCalls(message *conversation.Message) []ToolCall {
@@ -307,37 +304,7 @@ func filterToolCalls(toolCalls []ToolCall, allowedTools []string) []ToolCall {
 }
 
 // executeToolCalls executes all tool calls with timeout handling
-func executeToolCalls(ctx context.Context, toolCalls []ToolCall, toolbox Toolbox, timeout time.Duration) ([]ToolResult, error) {
-	results := make([]ToolResult, len(toolCalls))
-
-	for i, call := range toolCalls {
-		// Create context with timeout for each tool call
-		childCtx, cancel := context.WithTimeout(ctx, timeout)
-
-		result, err := toolbox.ExecuteTool(childCtx, call.Name, call.Arguments)
-		cancel() // Always cancel the context
-
-		if err != nil {
-			results[i] = ToolResult{
-				ID:    call.ID,
-				Error: err.Error(),
-			}
-		} else {
-			// Convert result to string representation
-			resultStr := fmt.Sprintf("%v", result)
-			if resultBytes, err := json.Marshal(result); err == nil {
-				resultStr = string(resultBytes)
-			}
-
-			results[i] = ToolResult{
-				ID:      call.ID,
-				Content: resultStr,
-			}
-		}
-	}
-
-	return results, nil
-}
+// executeToolCalls kept in conversation mode; Turn path uses executeToolCallsTurn
 
 // MockToolbox provides a simple implementation for testing
 type MockToolbox struct {

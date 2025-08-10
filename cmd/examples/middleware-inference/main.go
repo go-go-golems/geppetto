@@ -1,32 +1,32 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "io"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"io"
+	"strings"
+	"time"
 
-    clay "github.com/go-go-golems/clay/pkg"
-    "github.com/go-go-golems/geppetto/pkg/conversation"
-    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
-    enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-    "github.com/go-go-golems/geppetto/pkg/turns"
-    "github.com/go-go-golems/glazed/pkg/cli"
-    "github.com/go-go-golems/glazed/pkg/cmds"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/go-go-golems/glazed/pkg/cmds/logging"
-    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
-    "github.com/go-go-golems/glazed/pkg/help"
-    help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-    "github.com/invopop/jsonschema"
-    "github.com/pkg/errors"
-    "github.com/rs/zerolog/log"
-    "github.com/spf13/cobra"
-    "gopkg.in/yaml.v3"
+	clay "github.com/go-go-golems/clay/pkg"
+	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
+	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/logging"
+	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/help"
+	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var rootCmd = &cobra.Command{
@@ -50,8 +50,8 @@ type MiddlewareInferenceSettings struct {
 	PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
 	Debug            bool   `glazed.parameter:"debug"`
 	WithLogging      bool   `glazed.parameter:"with-logging"`
-    WithUppercase    bool   `glazed.parameter:"with-uppercase"`
-    WithTools        bool   `glazed.parameter:"with-tools"`
+	WithUppercase    bool   `glazed.parameter:"with-uppercase"`
+	WithTools        bool   `glazed.parameter:"with-tools"`
 	Prompt           string `glazed.parameter:"prompt"`
 }
 
@@ -93,11 +93,11 @@ func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
 				parameters.WithHelp("Enable uppercase text transformation middleware"),
 				parameters.WithDefault(false),
 			),
-            parameters.NewParameterDefinition("with-tools",
-                parameters.ParameterTypeBool,
-                parameters.WithHelp("Enable tool-calling middleware (expects provider to emit tool_call blocks)"),
-                parameters.WithDefault(false),
-            ),
+			parameters.NewParameterDefinition("with-tools",
+				parameters.ParameterTypeBool,
+				parameters.WithHelp("Enable tool-calling middleware (expects provider to emit tool_call blocks)"),
+				parameters.WithDefault(false),
+			),
 		),
 		cmds.WithLayersList(
 			geppettoLayers...,
@@ -140,85 +140,87 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	var middlewares []middleware.Middleware
 
 	// Add logging middleware if requested
-    if s.WithLogging {
-        loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-            return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-                logger := log.With().Int("block_count", len(t.Blocks)).Logger()
-                logger.Info().Msg("Starting inference")
+	if s.WithLogging {
+		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
+			return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+				logger := log.With().Int("block_count", len(t.Blocks)).Logger()
+				logger.Info().Msg("Starting inference")
 
-                result, err := next(ctx, t)
-                if err != nil {
-                    logger.Error().Err(err).Msg("Inference failed")
-                } else {
-                    logger.Info().Int("result_block_count", len(result.Blocks)).Msg("Inference completed")
-                }
-                return result, err
-            }
-        }
-        middlewares = append(middlewares, loggingMiddleware)
-    }
+				result, err := next(ctx, t)
+				if err != nil {
+					logger.Error().Err(err).Msg("Inference failed")
+				} else {
+					logger.Info().Int("result_block_count", len(result.Blocks)).Msg("Inference completed")
+				}
+				return result, err
+			}
+		}
+		middlewares = append(middlewares, loggingMiddleware)
+	}
 
 	// Add uppercase middleware if requested
-    if s.WithUppercase {
-        uppercaseMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-            return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-                result, err := next(ctx, t)
-                if err != nil {
-                    return result, err
-                }
-                // Uppercase any newly appended assistant LLMText blocks
-                for i := range result.Blocks {
-                    b := &result.Blocks[i]
-                    if b.Kind == turns.BlockKindLLMText {
-                        if txt, ok := b.Payload["text"].(string); ok {
-                            b.Payload["text"] = strings.ToUpper(txt)
-                        }
-                    }
-                }
-                return result, nil
-            }
-        }
-        middlewares = append(middlewares, uppercaseMiddleware)
-    }
+	if s.WithUppercase {
+		uppercaseMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
+			return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+				result, err := next(ctx, t)
+				if err != nil {
+					return result, err
+				}
+				// Uppercase any newly appended assistant LLMText blocks
+				for i := range result.Blocks {
+					b := &result.Blocks[i]
+					if b.Kind == turns.BlockKindLLMText {
+						if txt, ok := b.Payload["text"].(string); ok {
+							b.Payload["text"] = strings.ToUpper(txt)
+						}
+					}
+				}
+				return result, nil
+			}
+		}
+		middlewares = append(middlewares, uppercaseMiddleware)
+	}
 
-    if s.WithTools {
-        // Minimal toolbox with a demo tool
-        tb := middleware.NewMockToolbox()
-        tb.RegisterTool("echo", "Echo back the input text", map[string]interface{}{
-            "text": map[string]interface{}{"type": "string"},
-        }, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-            if v, ok := args["text"].(string); ok {
-                return v, nil
-            }
-            return "", nil
-        })
-        toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
-        middlewares = append(middlewares, toolMw)
+	if s.WithTools {
+		// Minimal toolbox with a demo tool
+		tb := middleware.NewMockToolbox()
+		tb.RegisterTool("echo", "Echo back the input text", map[string]interface{}{
+			"text": map[string]interface{}{"type": "string"},
+		}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+			if v, ok := args["text"].(string); ok {
+				return v, nil
+			}
+			return "", nil
+		})
+		toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
+		middlewares = append(middlewares, toolMw)
 
-        // Also configure provider engines with a matching tool definition so Claude/OpenAI emit structured tool calls
-        if cfgEngine, ok := engine.(interface{ ConfigureTools([]enginepkg.ToolDefinition, enginepkg.ToolConfig) }); ok {
-            echoSchema := &jsonschema.Schema{Type: "object"}
-            props := jsonschema.NewProperties()
-            props.Set("text", &jsonschema.Schema{Type: "string"})
-            echoSchema.Properties = props
-            echoSchema.Required = []string{"text"}
-            defs := []enginepkg.ToolDefinition{{
-                Name:        "echo",
-                Description: "Echo back the input text",
-                Parameters:  echoSchema,
-                Examples:    []enginepkg.ToolExample{},
-                Tags:        []string{"demo"},
-                Version:     "1.0",
-            }}
-            cfgEngine.ConfigureTools(defs, enginepkg.ToolConfig{
-                Enabled:          true,
-                ToolChoice:       enginepkg.ToolChoiceAuto,
-                MaxIterations:    5,
-                ExecutionTimeout: 30 * time.Second,
-                MaxParallelTools: 1,
-            })
-        }
-    }
+		// Also configure provider engines with a matching tool definition so Claude/OpenAI emit structured tool calls
+		if cfgEngine, ok := engine.(interface {
+			ConfigureTools([]enginepkg.ToolDefinition, enginepkg.ToolConfig)
+		}); ok {
+			echoSchema := &jsonschema.Schema{Type: "object"}
+			props := jsonschema.NewProperties()
+			props.Set("text", &jsonschema.Schema{Type: "string"})
+			echoSchema.Properties = props
+			echoSchema.Required = []string{"text"}
+			defs := []enginepkg.ToolDefinition{{
+				Name:        "echo",
+				Description: "Echo back the input text",
+				Parameters:  echoSchema,
+				Examples:    []enginepkg.ToolExample{},
+				Tags:        []string{"demo"},
+				Version:     "1.0",
+			}}
+			cfgEngine.ConfigureTools(defs, enginepkg.ToolConfig{
+				Enabled:          true,
+				ToolChoice:       enginepkg.ToolChoiceAuto,
+				MaxIterations:    5,
+				ExecutionTimeout: 30 * time.Second,
+				MaxParallelTools: 1,
+			})
+		}
+	}
 
 	// Wrap engine with middleware if any are provided
 	if len(middlewares) > 0 {
@@ -236,33 +238,35 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		return err
 	}
 
-    conversation_ := manager.GetConversation()
-    // Seed a Turn from the initial conversation
-    initialTurn := &turns.Turn{}
-    for _, msg := range conversation_ {
-        if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-            kind := turns.BlockKindOther
-            switch chatMsg.Role {
-            case conversation.RoleSystem:
-                kind = turns.BlockKindSystem
-            case conversation.RoleUser:
-                kind = turns.BlockKindUser
-            case conversation.RoleAssistant:
-                kind = turns.BlockKindLLMText
-            }
-            turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
-        }
-    }
+	conversation_ := manager.GetConversation()
+	// Seed a Turn from the initial conversation
+	initialTurn := &turns.Turn{}
+	for _, msg := range conversation_ {
+		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
+			kind := turns.BlockKindOther
+			switch chatMsg.Role {
+			case conversation.RoleSystem:
+				kind = turns.BlockKindSystem
+			case conversation.RoleUser:
+				kind = turns.BlockKindUser
+			case conversation.RoleAssistant:
+				kind = turns.BlockKindLLMText
+			case conversation.RoleTool:
+				kind = turns.BlockKindOther
+			}
+			turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{"text": chatMsg.Text}})
+		}
+	}
 
-    // Run inference
-    updatedTurn, err := engine.RunInference(ctx, initialTurn)
+	// Run inference
+	updatedTurn, err := engine.RunInference(ctx, initialTurn)
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)
 	}
 
-    // Build conversation from updated Turn for display
-    messages := turns.BuildConversationFromTurn(updatedTurn)
+	// Build conversation from updated Turn for display
+	messages := turns.BuildConversationFromTurn(updatedTurn)
 
 	fmt.Fprintln(w, "\n=== Final Conversation ===")
 	for _, msg := range messages {
