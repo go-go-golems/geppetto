@@ -172,9 +172,9 @@ func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, pro
 }
 ```
 
-## Tool Calling with Helpers
+## Tool Calling with Helpers (Per-Turn tools)
 
-The `toolhelpers` package provides utilities for tool calling workflows. This separation allows engines to focus on API calls while helpers handle orchestration.
+The `toolhelpers` package provides utilities for tool calling workflows. Engines focus on API calls while helpers handle orchestration. Providers learn about available tools from `Turn.Data` (registry/config), enabling different tools per Turn.
 
 ### Tool Helper Functions
 
@@ -321,9 +321,9 @@ func automatedToolCalling(ctx context.Context, engine engine.Engine, registry to
 }
 ```
 
-## Complete Tool Calling Example
+## Complete Tool Calling Example (with per-Turn tools)
 
-Here's a complete example showing tool calling with streaming events (engine emits start/partial/final; helpers emit tool-call/tool-result via context):
+Here's a complete example showing tool calling with streaming events (engine emits start/partial/final; helpers emit tool-call/tool-result via context). Tools are attached to the Turn instead of the Engine.
 
 ```go
 package main
