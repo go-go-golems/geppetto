@@ -36,6 +36,14 @@ type Turn struct {
 	Data map[string]interface{}
 }
 
+// PrependBlock inserts a block at the beginning of the Turn's block slice.
+func PrependBlock(t *Turn, b Block) {
+    if t == nil {
+        return
+    }
+    t.Blocks = append([]Block{b}, t.Blocks...)
+}
+
 // Run captures a multi-turn session.
 type Run struct {
 	ID       string

@@ -70,6 +70,8 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 				t.Data = map[string]any{}
 			}
 
+			log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Msg("agentmode: middleware start")
+
 			// Determine current mode: from Turn.Data or Store fallback
 			modeName, _ := t.Data[DataKeyAgentMode].(string)
 			if modeName == "" && svc != nil && t.RunID != "" {
@@ -104,13 +106,25 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 					bldr.WriteString("\n\n")
 				}
 				bldr.WriteString(BuildYamlModeSwitchInstructions(mode.Name, listModeNames(svc)))
-				if bldr.Len() > 0 {
-					usr := turns.WithBlockMetadata(
-						turns.NewUserTextBlock(bldr.String()),
-						map[string]any{"agentmode_tag": "agentmode_user_prompt", "agentmode": mode.Name},
-					)
-					// Insert as second-to-last
-					turns.InsertBlockBeforeLast(t, usr)
+                if bldr.Len() > 0 {
+                    text := bldr.String()
+                    prev := text
+                    if len(prev) > 120 { prev = prev[:120] + "…" }
+                    usr := turns.WithBlockMetadata(
+                        turns.NewUserTextBlock(text),
+                        map[string]any{"agentmode_tag": "agentmode_user_prompt", "agentmode": mode.Name},
+                    )
+                    // Insert as second-to-last (before last assistant or tool block if present)
+                    before := len(t.Blocks)
+                    if before > 0 { before = before - 1 }
+                    // Use append slicing to control placement
+                    if before < 0 { before = 0 }
+                    if before >= len(t.Blocks) {
+                        turns.AppendBlock(t, usr)
+                    } else {
+                        t.Blocks = append(t.Blocks[:before], append([]turns.Block{usr}, t.Blocks[before:]...)...)
+                    }
+                    log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Int("insert_pos", before).Str("preview", prev).Msg("agentmode: inserted user prompt block")
 					// Log insertion
 					events.PublishEventToContext(ctx, events.NewLogEvent(
 						events.EventMetadata{RunID: t.RunID, TurnID: t.ID}, "info",
@@ -161,6 +175,7 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 					},
 				))
 			}
+			log.Debug().Str("run_id", res.RunID).Str("turn_id", res.ID).Msg("agentmode: middleware end")
 			return res, nil
 		}
 	}

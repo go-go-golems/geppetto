@@ -46,9 +46,8 @@ func (e *ClaudeEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-	// Convert Turn to conversation for existing request machinery
-	messages := turns.BuildConversationFromTurn(t)
-	log.Debug().Int("num_messages", len(messages)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
+    // Build request messages directly from Turn blocks (no conversation dependency)
+    log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := e.settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -76,7 +75,7 @@ func (e *ClaudeEngine) RunInference(
 
 	client := api.NewClient(apiKey, baseURL)
 
-	req, err := MakeMessageRequest(e.settings, messages)
+    req, err := MakeMessageRequestFromTurn(e.settings, t)
 	if err != nil {
 		return nil, err
 	}

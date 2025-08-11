@@ -170,7 +170,7 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
             case turns.BlockKindSystem:
                 turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
             default:
-                turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{turns.PayloadKeyText: chatMsg.Text}})
+                turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
             }
 		}
 	}
