@@ -55,7 +55,14 @@ These are the concrete Go types and commonly used fields you will receive after 
 See the source for full definitions: `geppetto/pkg/events/chat-events.go`.
 
 
-Events carry `EventMetadata` (IDs, engine info, token usage, stop reason) and `StepMetadata` (type, input/output types, and settings snapshot). They serialize to JSON for transport.
+Events carry `EventMetadata` only. `EventMetadata` includes:
+
+- `message_id` (stable per stream)
+- `run_id` and `turn_id` (correlation identifiers set by the caller/middleware)
+- engine information (model), token usage, optional stop reason
+- an `extra` map for provider-specific context (e.g., settings snapshot)
+
+Note: The legacy `StepMetadata` has been removed.
 
 ## Publishing Events
 
@@ -78,10 +85,10 @@ There are two complementary ways events are published:
   ctx = events.WithEventSinks(ctx, watermillSink)
 
   // Downstream code can publish
-  events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, stepMeta, toolResult))
+  events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
   ```
 
-Engines emit: start, partial, final, interrupt, error (+ tool-call where applicable). Tool helpers emit: tool-call and tool-result.
+Engines emit: start, partial, final, interrupt, error (+ tool-call where applicable). Tool helpers emit: tool-call and tool-result. Middleware and tools may also emit lightweight `log` and `info` events for user-visible status.
 
 ## Provider Implementations and Event Flow
 
