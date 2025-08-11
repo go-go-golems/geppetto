@@ -7,6 +7,8 @@ const (
     PayloadKeyName   = "name"
     PayloadKeyArgs   = "args"
     PayloadKeyResult = "result"
+    // PayloadKeyImages carries a slice of image specs attached to a chat block
+    PayloadKeyImages = "images"
 )
 
 // Recommended keys for Turn/Block/Run Metadata maps
@@ -18,6 +20,8 @@ const (
     MetaKeyUsage       = "usage"        // token usage summary
     MetaKeyStopReason  = "stop_reason"  // provider stop reason
     MetaKeyModel       = "model"        // model identifier
+    // MetaKeyClaudeOriginalContent stores provider-native content blocks for Claude
+    MetaKeyClaudeOriginalContent = "claude_original_content"
 )
 
 // Standard keys for Turn.Data map
