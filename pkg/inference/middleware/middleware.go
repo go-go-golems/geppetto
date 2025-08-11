@@ -51,16 +51,11 @@ func NewEngineWithMiddleware(e engine.Engine, middlewares ...Middleware) *Engine
 // RunInference executes the middleware chain followed by the underlying engine.
 // Returns the full updated conversation.
 func (e *EngineWithMiddleware) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	// TODO(middleware): Add EventSinks to context for middleware access
-	// ctx = events.WithSinks(ctx, e.config.EventSinks)
-
 	// Execute middleware chain on the provided turn
 	return e.handler(ctx, t)
 }
 
 // RunInferenceWithHistory returns the complete conversation including tool calls.
 func (e *EngineWithMiddleware) RunInferenceWithHistory(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	// TODO(middleware): Add EventSinks to context for middleware access
-	// ctx = events.WithSinks(ctx, e.config.EventSinks)
 	return e.handler(ctx, t)
 }
