@@ -96,10 +96,18 @@ func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
 					return updated, nil
 				}
 
-				// Filter tools if configured
-				if len(config.ToolFilter) > 0 {
-					toolCalls = filterToolCalls(toolCalls, config.ToolFilter)
-				}
+                // Filter tools: prefer per-Turn agent-mode allowed tools if present, else use static config
+                allowed := config.ToolFilter
+                if updated != nil && updated.Data != nil {
+                    if v, ok := updated.Data["agent_mode_allowed_tools"]; ok && v != nil {
+                        if s, ok := v.([]string); ok {
+                            allowed = s
+                        }
+                    }
+                }
+                if len(allowed) > 0 {
+                    toolCalls = filterToolCalls(toolCalls, allowed)
+                }
 				if len(toolCalls) == 0 {
 					return updated, nil
 				}
