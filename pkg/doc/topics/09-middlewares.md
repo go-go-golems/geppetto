@@ -114,6 +114,14 @@ e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
 - Log with context (correlation IDs in `Turn.Metadata`), but avoid leaking sensitive data
 - Ensure the middleware chain always calls `next` unless you intend to short-circuit
 
+### Lessons learned (agent-mode and tools)
+
+- Prefer per-Turn data hints over global state: attach small keys on `Turn.Data` (e.g. `agent_mode`, `agent_mode_allowed_tools`) to guide downstream middlewares without tight coupling.
+- Separate declarative advertisement from imperative execution: providers read a declarative registry (schemas) from `Turn.Data`, while execution happens via a runtime `Toolbox` (function pointers) in the tool middleware. This separation improves safety and testability.
+- Reuse shared parsers/utilities: use a central YAML fenced-block parser to reliably extract structured content from LLM output instead of ad-hoc regex.
+- Compose middlewares by concern: a mode middleware can set allowed tools; the tool middleware enforces the filter and handles execution; engines remain provider-focused.
+- Make instructions explicit: when asking models to emit structured control output (like mode switches), provide a clear fenced YAML template and ask for long analysis when needed.
+
 ---
 
 ## Troubleshooting
