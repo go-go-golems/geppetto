@@ -31,6 +31,30 @@ type ToolResult struct {
 	Error      error
 }
 
+// SnapshotHook can be attached to context to capture snapshots of the Turn at defined phases
+type SnapshotHook func(ctx context.Context, t *turns.Turn, phase string)
+
+type snapshotHookKey struct{}
+
+// WithTurnSnapshotHook attaches a snapshot hook to the context
+func WithTurnSnapshotHook(ctx context.Context, hook SnapshotHook) context.Context {
+    if hook == nil {
+        return ctx
+    }
+    return context.WithValue(ctx, snapshotHookKey{}, hook)
+}
+
+func getSnapshotHook(ctx context.Context) SnapshotHook {
+    v := ctx.Value(snapshotHookKey{})
+    if v == nil {
+        return nil
+    }
+    if h, ok := v.(SnapshotHook); ok {
+        return h
+    }
+    return nil
+}
+
 // ToolConfig holds configuration for tool calling workflow
 type ToolConfig struct {
 	MaxIterations     int
@@ -278,12 +302,18 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversat
 	for i := 0; i < config.MaxIterations; i++ {
 		log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: engine step")
 
-		// Run inference (provider may append llm_text and tool_call blocks)
+        // Run inference (provider may append llm_text and tool_call blocks)
+        if hook := getSnapshotHook(ctx); hook != nil {
+            hook(ctx, t, "pre_inference")
+        }
 		updated, err := eng.RunInference(ctx, t)
 		if err != nil {
 			log.Error().Err(err).Int("iteration", i+1).Msg("RunToolCallingLoop: engine inference failed")
 			return nil, err
 		}
+        if hook := getSnapshotHook(ctx); hook != nil {
+            hook(ctx, updated, "post_inference")
+        }
 
 		// Extract pending tool calls from blocks
 		calls_ := toolblocks.ExtractPendingToolCalls(updated)
@@ -317,7 +347,10 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversat
 				shared = append(shared, toolblocks.ToolResult{ID: r.ToolCallID, Content: content})
 			}
 		}
-		toolblocks.AppendToolResultsBlocks(updated, shared)
+        toolblocks.AppendToolResultsBlocks(updated, shared)
+        if hook := getSnapshotHook(ctx); hook != nil {
+            hook(ctx, updated, "post_tools")
+        }
 
 		// Continue next iteration with same turn
 		t = updated
