@@ -17,7 +17,7 @@ ShowPerDefault: true
 
 The Agent Mode middleware lets you define named “modes” for an agent, each with:
 
-- A system prompt snippet to inject
+- A prompt snippet to inject
 - A list of allowed tools to constrain execution
 - Optional persistence of mode transitions (per-run audit trail)
 
@@ -25,7 +25,7 @@ It also enables in-band mode switching using YAML. The assistant can output a fe
 
 ## Key capabilities
 
-- Inject mode-specific system prompts
+- Inject a single, mode-specific user prompt (no system blocks)
 - Enforce allowed tools per mode (passed as a hint to tool middleware)
 - Parse YAML fenced blocks to detect switches:
 
@@ -47,9 +47,10 @@ mode_switch:
 
 - Middleware flow:
   1. Resolve current mode from `Turn.Data["agent_mode"]` or `Service.GetCurrentMode`
-  2. Inject mode prompt and YAML instructions (encourages long analysis)
-  3. Expose allowed tools via `Turn.Data["agent_mode_allowed_tools"]`
-  4. After inference, parse YAML blocks from assistant messages; if a valid `mode_switch` is found, update Turn and `RecordModeChange`
+  2. Remove previously inserted AgentMode blocks by metadata tag to avoid duplicates
+  3. Inject a single user message that combines mode prompt and YAML instructions; tag block metadata (`agentmode_tag=agentmode_user_prompt`, `agentmode=<mode>`) and position it as second-to-last
+  4. Expose allowed tools via `Turn.Data["agent_mode_allowed_tools"]`
+  5. After inference, parse YAML blocks from assistant messages; if a valid `mode_switch` is found, update Turn and `RecordModeChange`, and emit an Info event
 
 ## Data keys
 
@@ -100,6 +101,7 @@ To initialize:
 
 - Unknown mode names are logged at warn level
 - Detected switches are logged at debug with from/to
+- On insertion/removal and on switch, the middleware emits streaming Log/Info events (see `geppetto/pkg/events/chat-events.go`), which can be consumed by UIs to render status.
 
 ## Writing good docs
 
