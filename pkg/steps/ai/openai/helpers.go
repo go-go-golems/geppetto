@@ -6,7 +6,6 @@ import (
     "fmt"
     "strings"
 
-    "github.com/go-go-golems/geppetto/pkg/conversation"
     "github.com/go-go-golems/geppetto/pkg/steps"
     "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
     ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -72,184 +71,7 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
-func MakeCompletionRequest(
-	settings *settings.StepSettings,
-	messages conversation.Conversation,
-) (*go_openai.ChatCompletionRequest, error) {
-	clientSettings := settings.Client
-	if clientSettings == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
-	openaiSettings := settings.OpenAI
-	if openaiSettings == nil {
-		return nil, errors.New("no openai settings")
-	}
-
-	engine := ""
-
-	chatSettings := settings.Chat
-	if chatSettings.Engine != nil {
-		engine = *chatSettings.Engine
-	} else {
-		return nil, errors.New("no engine specified")
-	}
-
-	msgs_ := []go_openai.ChatCompletionMessage{}
-
-	// Accumulate consecutive tool-use messages into a single assistant message with multiple tool_calls
-	pendingToolCalls := []go_openai.ToolCall{}
-	flushToolCalls := func() {
-		if len(pendingToolCalls) == 0 {
-			return
-		}
-		msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
-			Role:      string(conversation.RoleAssistant),
-			ToolCalls: pendingToolCalls,
-		})
-		pendingToolCalls = nil
-	}
-
-	for _, msg := range messages {
-		// Debug log type and metadata, but not full body
-		msgType := string(msg.Content.ContentType())
-		role := ""
-		switch c := msg.Content.(type) {
-        case *conversation.ChatMessageContent:
-            role = string(c.Role)
-            // Skip empty-text chat messages to avoid null content being sent to OpenAI
-            if strings.TrimSpace(c.Text) == "" && len(c.Images) == 0 {
-                log.Debug().Str("content_type", msgType).Str("role", role).Msg("OpenAI request: skipping empty chat message")
-                continue
-            }
-			// Regular chat message flushes pending tool calls first
-			flushToolCalls()
-		case *conversation.ToolUseContent:
-			// Log tool-use message id and name
-			argPreview := string(c.Input)
-			if len(argPreview) > 120 {
-				argPreview = argPreview[:120] + "…"
-			}
-			log.Debug().
-				Str("content_type", "tool-use").
-				Str("tool_id", c.ToolID).
-				Str("name", c.Name).
-				Str("input_preview", argPreview).
-				Msg("OpenAI request tool-use message")
-
-			// Accumulate into a single assistant message with multiple tool_calls
-			pendingToolCalls = append(pendingToolCalls, go_openai.ToolCall{
-				ID:   c.ToolID,
-				Type: go_openai.ToolTypeFunction,
-				Function: go_openai.FunctionCall{
-					Name:      c.Name,
-					Arguments: string(c.Input),
-				},
-			})
-			// Skip per-message conversion; continue to next message
-			// without appending an individual assistant message
-			metaKeys := []string{}
-			if msg.Metadata != nil {
-				for k := range msg.Metadata {
-					metaKeys = append(metaKeys, k)
-				}
-			}
-			log.Debug().
-				Str("content_type", msgType).
-				Str("role", role).
-				Strs("meta_keys", metaKeys).
-				Msg("OpenAI request message (batched tool-use)")
-			continue
-		case *conversation.ToolResultContent:
-			// Log tool-result tool id only (no body)
-			log.Debug().
-				Str("content_type", "tool-result").
-				Str("tool_id", c.ToolID).
-				Msg("OpenAI request tool-result message")
-
-			// Tool result messages must immediately follow the single assistant tool_calls message
-			flushToolCalls()
-		}
-		metaKeys := []string{}
-		if msg.Metadata != nil {
-			for k := range msg.Metadata {
-				metaKeys = append(metaKeys, k)
-			}
-		}
-		log.Debug().
-			Str("content_type", msgType).
-			Str("role", role).
-			Strs("meta_keys", metaKeys).
-			Msg("OpenAI request message")
-
-        msgs_ = append(msgs_, messageToOpenAIMessage(msg))
-	}
-
-	// Flush any remaining pending tool calls at the end
-	flushToolCalls()
-
-	temperature := 0.0
-	if chatSettings.Temperature != nil {
-		temperature = *chatSettings.Temperature
-	}
-	topP := 0.0
-	if chatSettings.TopP != nil {
-		topP = *chatSettings.TopP
-	}
-	maxTokens := 32
-	if chatSettings.MaxResponseTokens != nil {
-		maxTokens = *chatSettings.MaxResponseTokens
-	}
-
-	n := 1
-	if openaiSettings.N != nil {
-		n = *openaiSettings.N
-	}
-	stream := chatSettings.Stream
-	stop := chatSettings.Stop
-	presencePenalty := 0.0
-	if openaiSettings.PresencePenalty != nil {
-		presencePenalty = *openaiSettings.PresencePenalty
-	}
-	frequencyPenalty := 0.0
-	if openaiSettings.FrequencyPenalty != nil {
-		frequencyPenalty = *openaiSettings.FrequencyPenalty
-	}
-
-	log.Debug().
-		Str("model", engine).
-		Int("max_tokens", maxTokens).
-		Float64("temperature", temperature).
-		Float64("top_p", topP).
-		Int("n", n).
-		Bool("stream", stream).
-		Strs("stop", stop).
-		Float64("presence_penalty", presencePenalty).
-		Float64("frequency_penalty", frequencyPenalty).
-		Msg("Making request to openai")
-
-	var streamOptions *go_openai.StreamOptions
-	if stream && !strings.Contains(engine, "mistral") {
-		streamOptions = &go_openai.StreamOptions{IncludeUsage: true}
-	}
-
-	req := go_openai.ChatCompletionRequest{
-		Model:            engine,
-		Messages:         msgs_,
-		MaxTokens:        maxTokens,
-		Temperature:      float32(temperature),
-		TopP:             float32(topP),
-		N:                n,
-		Stream:           stream,
-		Stop:             stop,
-		StreamOptions:    streamOptions,
-		PresencePenalty:  float32(presencePenalty),
-		FrequencyPenalty: float32(frequencyPenalty),
-		// TODO(manuel, 2023-03-28) Properly load logit bias
-		// See https://github.com/go-go-golems/geppetto/issues/48
-		LogitBias: nil,
-	}
-	return &req, nil
-}
+// Removed obsolete MakeCompletionRequest (conversation-based)
 
 // MakeCompletionRequestFromTurn builds an OpenAI ChatCompletionRequest directly from a Turn's blocks,
 // avoiding any dependency on conversation.Conversation.
@@ -283,7 +105,7 @@ func MakeCompletionRequestFromTurn(
             return
         }
         msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
-            Role:      string(conversation.RoleAssistant),
+            Role:      "assistant",
             ToolCalls: pendingToolCalls,
         })
         toolPhaseActive = true
@@ -322,16 +144,49 @@ func MakeCompletionRequestFromTurn(
                     log.Debug().Str("role", b.Role).Msg("OpenAI request: skipping empty text block")
                     continue
                 }
-                role := string(conversation.RoleAssistant)
+                role := "assistant"
                 switch b.Kind {
                 case turns.BlockKindUser:
-                    role = string(conversation.RoleUser)
+                    role = "user"
                 case turns.BlockKindSystem:
-                    role = string(conversation.RoleSystem)
+                    role = "system"
                 default:
-                    role = string(conversation.RoleAssistant)
+                    role = "assistant"
                 }
-                msg := go_openai.ChatCompletionMessage{Role: role, Content: text}
+                // Check for images array in payload to construct MultiContent
+                var msg go_openai.ChatCompletionMessage
+                if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
+                    parts := []go_openai.ChatMessagePart{{Type: go_openai.ChatMessagePartTypeText, Text: text}}
+                    for _, img := range imgs {
+                        mediaType, _ := img["media_type"].(string)
+                        url, _ := img["url"].(string)
+                        // content can be []byte or base64 string
+                        var base64Content string
+                        if raw, ok := img["content"]; ok && raw != nil {
+                            switch rv := raw.(type) {
+                            case []byte:
+                                base64Content = base64.StdEncoding.EncodeToString(rv)
+                            case string:
+                                // assume already base64
+                                base64Content = rv
+                            }
+                        }
+                        imageURL := url
+                        if imageURL == "" && base64Content != "" {
+                            imageURL = fmt.Sprintf("data:%s;base64,%s", mediaType, base64Content)
+                        }
+                        parts = append(parts, go_openai.ChatMessagePart{
+                            Type: go_openai.ChatMessagePartTypeImageURL,
+                            ImageURL: &go_openai.ChatMessageImageURL{
+                                URL:    imageURL,
+                                Detail: go_openai.ImageURLDetailAuto,
+                            },
+                        })
+                    }
+                    msg = go_openai.ChatCompletionMessage{Role: role, MultiContent: parts}
+                } else {
+                    msg = go_openai.ChatCompletionMessage{Role: role, Content: text}
+                }
                 if len(pendingToolCalls) > 0 && !toolPhaseActive {
                     // Buffer until we can place after tool_use
                     delayedChats = append(delayedChats, msg)
@@ -400,7 +255,7 @@ func MakeCompletionRequestFromTurn(
                     }
                 }
                 msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
-                    Role:       string(conversation.RoleTool),
+                    Role:       "tool",
                     Content:    result,
                     ToolCallID: toolID,
                 })
@@ -411,7 +266,7 @@ func MakeCompletionRequestFromTurn(
                     text := ""
                     _ = assignString(&text, v)
                     if text != "" {
-                        msg := go_openai.ChatCompletionMessage{Role: string(conversation.RoleAssistant), Content: text}
+                        msg := go_openai.ChatCompletionMessage{Role: "assistant", Content: text}
                         if len(pendingToolCalls) > 0 || toolPhaseActive {
                             delayedChats = append(delayedChats, msg)
                         } else {
@@ -538,97 +393,4 @@ func MakeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*g
 
 // TODO(manuel, 2024-06-25) We actually need a processor like the content block merger here, where we merge tool use blocks with previous messages to properly create openai messages
 // So we would need to get a message block, then slurp up all the following tool use messages, and then finally emit the message block
-func messageToOpenAIMessage(msg *conversation.Message) go_openai.ChatCompletionMessage {
-	switch content := msg.Content.(type) {
-	case *conversation.ChatMessageContent:
-		res := go_openai.ChatCompletionMessage{
-			Role:    string(content.Role),
-			Content: content.Text,
-		}
-
-		if len(content.Images) > 0 {
-			res = go_openai.ChatCompletionMessage{
-				Role: string(content.Role),
-				MultiContent: []go_openai.ChatMessagePart{
-					{
-						Type: go_openai.ChatMessagePartTypeText,
-						Text: content.Text,
-					},
-				},
-			}
-
-			for _, img := range content.Images {
-				imagePart := go_openai.ChatMessagePart{
-					Type: go_openai.ChatMessagePartTypeImageURL,
-					ImageURL: &go_openai.ChatMessageImageURL{
-						URL:    img.ImageURL,
-						Detail: go_openai.ImageURLDetail(img.Detail),
-					},
-				}
-				if img.ImageURL == "" {
-					// base64 encoded Content
-					imagePart.ImageURL.URL =
-						fmt.Sprintf(
-							"data:%s;base64,%s",
-							img.MediaType,
-							base64.StdEncoding.EncodeToString(img.ImageContent),
-						)
-				}
-				res.MultiContent = append(res.MultiContent, imagePart)
-			}
-		}
-
-		// TODO(manuel, 2024-06-04) This should actually pass in a ToolUse content in the conversation
-		// This is how claude expects it, and I also added a comment to ContentType's definition in message.go
-		//
-		// NOTE(manuel, 2024-06-04) It seems that these metadata keys are never set anywhere anyway
-		metadata := msg.Metadata
-		if metadata != nil {
-			functionCall := metadata["function_call"]
-			if functionCall_, ok := functionCall.(*go_openai.FunctionCall); ok {
-				res.FunctionCall = functionCall_
-			}
-
-			toolCalls := metadata["tool_calls"]
-			if toolCalls_, ok := toolCalls.([]go_openai.ToolCall); ok {
-				res.ToolCalls = toolCalls_
-			}
-
-			toolCallID := metadata["tool_call_id"]
-			if toolCallID_, ok := toolCallID.(string); ok {
-				res.ToolCallID = toolCallID_
-			}
-		}
-		return res
-
-	case *conversation.ToolResultContent:
-		res := go_openai.ChatCompletionMessage{
-			Role:       string(conversation.RoleTool),
-			Content:    content.Result,
-			ToolCallID: content.ToolID,
-		}
-
-		return res
-
-	case *conversation.ToolUseContent:
-		// openai encodes tool use messages within the assistant completion message
-		// TODO(manuel, 2024-06-25) This should be aggregated into a multi call chat message content, instead of being serialized individually
-		res := go_openai.ChatCompletionMessage{
-			Role: string(conversation.RoleAssistant),
-			ToolCalls: []go_openai.ToolCall{
-				{
-					ID:   content.ToolID,
-					Type: "function",
-					Function: go_openai.FunctionCall{
-						Name:      content.Name,
-						Arguments: string(content.Input),
-					},
-				},
-			},
-		}
-
-		return res
-	}
-
-	return go_openai.ChatCompletionMessage{}
-}
+// Removed obsolete messageToOpenAIMessage (conversation-based)

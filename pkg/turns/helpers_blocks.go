@@ -21,6 +21,21 @@ func NewUserTextBlock(text string) Block {
     }
 }
 
+// NewUserMultimodalBlock creates a user block with text and optional images.
+// images is a slice of maps with keys: "media_type" (string), and either "url" (string) or "content" ([]byte/base64).
+func NewUserMultimodalBlock(text string, images []map[string]any) Block {
+    payload := map[string]any{PayloadKeyText: text}
+    if len(images) > 0 {
+        payload[PayloadKeyImages] = images
+    }
+    return Block{
+        ID:      uuid.NewString(),
+        Kind:    BlockKindUser,
+        Role:    RoleUser,
+        Payload: payload,
+    }
+}
+
 // NewAssistantTextBlock returns a Block representing assistant LLM text output.
 func NewAssistantTextBlock(text string) Block {
     return Block{
@@ -29,6 +44,11 @@ func NewAssistantTextBlock(text string) Block {
         Role:    RoleAssistant,
         Payload: map[string]any{PayloadKeyText: text},
     }
+}
+
+// WithClaudeOriginalContent attaches Claude-native content blocks to a block's metadata for lossless roundtrips.
+func WithClaudeOriginalContent(b Block, original any) Block {
+    return WithBlockMetadata(b, map[string]any{MetaKeyClaudeOriginalContent: original})
 }
 
 // NewSystemTextBlock returns a Block representing a system directive.

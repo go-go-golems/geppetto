@@ -13,112 +13,10 @@ import (
     "github.com/pkg/errors"
 )
 
-// messageToClaudeMessage converts a conversation message to a Claude API message
-func messageToClaudeMessage(msg *conversation.Message) api.Message {
-	switch content := msg.Content.(type) {
-	case *conversation.ChatMessageContent:
-		// If original Claude content was preserved in metadata, use it
-		if claudeContent, exists := msg.Metadata["claude_original_content"]; exists {
-			if originalContent, ok := claudeContent.([]api.Content); ok {
-				return api.Message{
-					Role:    string(content.Role),
-					Content: originalContent,
-				}
-			}
-		}
-
-		res := api.Message{
-			Role: string(content.Role),
-			Content: []api.Content{
-				api.NewTextContent(content.Text),
-			},
-		}
-		for _, img := range content.Images {
-			res.Content = append(res.Content, api.NewImageContent(img.MediaType, base64.StdEncoding.EncodeToString(img.ImageContent)))
-		}
-		return res
-
-	case *conversation.ToolUseContent:
-		// Claude expects tool_use in assistant role
-		return api.Message{
-			Role: string(conversation.RoleAssistant),
-			Content: []api.Content{
-				api.NewToolUseContent(content.ToolID, content.Name, string(content.Input)),
-			},
-		}
-
-	case *conversation.ToolResultContent:
-		// Claude expects tool results in user role
-		return api.Message{
-			Role: string(conversation.RoleUser),
-			Content: []api.Content{
-				api.NewToolResultContent(content.ToolID, content.Result),
-			},
-		}
-	}
-
-	return api.Message{}
-}
+// Removed obsolete messageToClaudeMessage (conversation-based)
 
 // MakeMessageRequest builds a Claude MessageRequest from settings and a conversation
-func MakeMessageRequest(
-	s *settings.StepSettings,
-	messages conversation.Conversation,
-) (*api.MessageRequest, error) {
-	if s.Client == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
-	if s.Claude == nil {
-		return nil, errors.New("no claude settings")
-	}
-
-	chatSettings := s.Chat
-	engine := ""
-	if chatSettings.Engine != nil {
-		engine = *chatSettings.Engine
-	} else {
-		return nil, errors.New("no engine specified")
-	}
-
-	msgs := []api.Message{}
-	systemPrompt := ""
-	for _, m := range messages {
-		if chatMsg, ok := m.Content.(*conversation.ChatMessageContent); ok && chatMsg.Role == conversation.RoleSystem {
-			systemPrompt = chatMsg.Text
-			continue
-		}
-		msgs = append(msgs, messageToClaudeMessage(m))
-	}
-
-	temperature := 0.0
-	if chatSettings.Temperature != nil {
-		temperature = *chatSettings.Temperature
-	}
-	topP := 0.0
-	if chatSettings.TopP != nil {
-		topP = *chatSettings.TopP
-	}
-	maxTokens := 1024
-	if chatSettings.MaxResponseTokens != nil && *chatSettings.MaxResponseTokens > 0 {
-		maxTokens = *chatSettings.MaxResponseTokens
-	}
-
-	req := &api.MessageRequest{
-		Model:         engine,
-		Messages:      msgs,
-		MaxTokens:     maxTokens,
-		Metadata:      nil,
-		StopSequences: chatSettings.Stop,
-		Stream:        chatSettings.Stream,
-		System:        systemPrompt,
-		Temperature:   cast.WrapAddr[float64](temperature),
-		Tools:         nil,
-		TopK:          nil,
-		TopP:          cast.WrapAddr[float64](topP),
-	}
-
-	return req, nil
-}
+// Removed obsolete MakeMessageRequest (conversation-based)
 
 // MakeMessageRequestFromTurn builds a Claude MessageRequest directly from a Turn's blocks,
 // avoiding any dependency on conversation.Conversation.
@@ -155,6 +53,13 @@ func MakeMessageRequestFromTurn(
                     }
                 }
             case turns.BlockKindUser:
+                // If preserved Claude content is present, pass through directly
+                if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
+                    if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
+                        msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: arr})
+                        break
+                    }
+                }
                 text := ""
                 if v, ok := b.Payload[turns.PayloadKeyText]; ok {
                     if s, ok2 := v.(string); ok2 {
@@ -163,10 +68,37 @@ func MakeMessageRequestFromTurn(
                         text = string(bb)
                     }
                 }
-                if text != "" {
-                    msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: []api.Content{api.NewTextContent(text)}})
+                parts := []api.Content{}
+                if text != "" { parts = append(parts, api.NewTextContent(text)) }
+                // optional images from payload
+                if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
+                    for _, img := range imgs {
+                        mediaType, _ := img["media_type"].(string)
+                        if raw, ok := img["content"]; ok && raw != nil {
+                            var base64Content string
+                            switch rv := raw.(type) {
+                            case []byte:
+                                base64Content = base64.StdEncoding.EncodeToString(rv)
+                            case string:
+                                base64Content = rv
+                            }
+                            if base64Content != "" {
+                                parts = append(parts, api.NewImageContent(mediaType, base64Content))
+                            }
+                        }
+                    }
+                }
+                if len(parts) > 0 {
+                    msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: parts})
                 }
             case turns.BlockKindLLMText:
+                // Allow preserved Claude content on assistant blocks too
+                if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
+                    if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
+                        msgs = append(msgs, api.Message{Role: string(conversation.RoleAssistant), Content: arr})
+                        break
+                    }
+                }
                 text := ""
                 if v, ok := b.Payload[turns.PayloadKeyText]; ok {
                     if s, ok2 := v.(string); ok2 {
