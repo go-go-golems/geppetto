@@ -1,0 +1,176 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+## Bank Transaction Categorization Agent — Implementation Plan
+
+Goal: Build an agent that learns/maintains regex-based category mappings for transactions and can manually assign categories for uncaught cases. Backed by SQLite, using REGEXP and controlled tool execution via middlewares and per-Turn tools.
+
+References
+- Inference engines: @geppetto/pkg/doc/topics/06-inference-engines.md
+- Middlewares: @geppetto/pkg/doc/topics/09-middlewares.md
+- SQLite tool middleware: @geppetto/pkg/inference/middleware/sqlitetool/middleware.go
+- Agent mode middleware: @geppetto/pkg/inference/middleware/agentmode/middleware.go
+- REGEXP support package: @go-sqlite-regexp
+
+### 1) Data sources and storage
+- Transactions DB: @anonymized-data.db
+- Add two utility tables for supervision:
+  - `category_patterns(pattern TEXT NOT NULL, category TEXT NOT NULL, notes TEXT, active INTEGER DEFAULT 1)`
+  - `transaction_overrides(txn_id TEXT NOT NULL, category TEXT NOT NULL, reason TEXT, PRIMARY KEY(txn_id))`
+
+SQL to create utility tables (run once against `anonymized-data.db`):
+
+```sql
+CREATE TABLE IF NOT EXISTS category_patterns (
+  pattern  TEXT NOT NULL,
+  category TEXT NOT NULL,
+  notes    TEXT,
+  active   INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS transaction_overrides (
+  txn_id   TEXT PRIMARY KEY,
+  category TEXT NOT NULL,
+  reason   TEXT
+);
+```
+
+Notes
+- We will not assume a specific `transactions` schema; the SQLite tool middleware will embed the discovered schema in the tool description automatically.
+
+### 2) Enable REGEXP in SQLite
+- Use @go-sqlite-regexp to register the `REGEXP` function on the DB connection used by the SQLite tool middleware.
+- Open the DB with REGEXP and pass it as `cfg.DB` to `sqlitetool.NewMiddleware` so all queries (including tool-executed queries) can use `REGEXP`.
+
+Pseudocode
+```go
+db, _ := sqlite_regexp.OpenWithRegexp("anonymized-data.db")
+sqlMw := sqlitetool.NewMiddleware(sqlitetool.Config{ DB: db, MaxRows: 500 })
+engine := middleware.NewEngineWithMiddleware(baseEngine, sqlMw)
+```
+
+### 3) Seed system prompts inside the DB
+- The SQLite tool middleware reads optional guidance from a `_prompts(prompt TEXT)` table and injects those lines into the tool description.
+- Provide a seed SQL file under `simple-chat-agent` to create `_prompts` and insert guidance for categorization.
+
+File to add
+- `pinocchio/cmd/agents/simple-chat-agent/prompts/transaction-categorizer.sql`:
+
+```sql
+-- Creates the prompts table expected by sqlitetool and inserts agent guidance
+CREATE TABLE IF NOT EXISTS _prompts (prompt TEXT NOT NULL);
+INSERT INTO _prompts(prompt) VALUES
+  ("You can query the database via the sql_query tool. Prefer precise, narrow SELECTs."),
+  ("To categorize, consider joins or WHERE clauses using REGEXP between transaction text fields and patterns in category_patterns."),
+  ("Propose new regex patterns that are specific and do not overmatch. Test them with COUNT(*) and sample previews before proposing writes."),
+  ("When a transaction cannot be captured by a pattern, propose a single override in transaction_overrides."),
+  ("Always explain your reasoning, and provide a SQL preview query to validate your proposal.");
+```
+
+How to apply
+- Run the file against `anonymized-data.db` once (for example with `sqlite3 anonymized-data.db < ...`), or execute its statements via `sql_query` if write-enabled in a controlled setup.
+
+### 4) Tools and execution model
+- RW query tool (from middleware): `sql_query`
+  - Provided by @sqlitetool/middleware.go
+  - Advertises schema and prompts automatically; uses DSN or `cfg.DB`
+  - Configure RW by using a DSN with `mode=rwc` (see wiring below). The model may perform INSERT/UPDATE via this tool. Do not use DELETE/DDL.
+
+Writes are performed directly through `sql_query` with explicit INSERT/UPDATE statements. No dedicated write tools are used.
+
+Execution flow
+- The provider advertises tools defined in the per-Turn registry. `sql_query` is registered by the SQLite middleware.
+- `sql_query` execution is handled directly by the SQLite middleware; generic tool middleware remains optional.
+
+### 5) Agent modes and guardrails
+- Use @agentmode/middleware.go to control allowed tools and inject per-mode guidance as a user block.
+
+Modes
+- `financial_analyst` (default start)
+  - Allowed tools: `["sql_query"]`
+  - Prompt: “Analyze transactions to identify spending patterns and potential categories. Use SQL to explore coverage, outliers, and candidates. Do not perform writes in this mode; propose changes and verification queries.”
+- `category_regexp_designer`
+  - Allowed tools: `["sql_query", "add_category_pattern", "set_transaction_category"]`
+  - Prompt: “Design precise regular expressions that categorize transactions. Propose minimal sets; verify with SQL previews and only then persist via tools.”
+- `category_regexp_reviewer`
+  - Allowed tools: `["sql_query"]`
+  - Prompt: “Review proposed patterns and overrides. Explain risks (overmatching/undermatching) and suggest improvements. Do not write.”
+
+Wiring snippet
+```go
+amCfg := agentmode.DefaultConfig()
+amCfg.DefaultMode = "financial_analyst"
+amCfg.InsertSystemPrompt = true
+amCfg.InsertSwitchInstructions = true
+engine = middleware.NewEngineWithMiddleware(engine, agentmode.NewMiddleware(svc, amCfg))
+// Pass allowed tools hint via Turn.Data (middleware handles DataKeyAgentModeAllowedTools)
+```
+
+### 6) Engine wiring and Turn lifecycle
+- Create engine via factory; attach middlewares in order: logging → agentmode → sqlite tool → tool middleware.
+- Provide per-Turn registry and DSN/DB via `Turn.Data`.
+
+Writes policy
+- SQLite tool middleware is RW (DSN `mode=rwc`). Allow writes via `sql_query` and/or the dedicated tools. Constrain writes to INSERT/UPDATE only (no DELETE/DDL) through prompts and review mode.
+
+Pseudocode (see @geppetto/pkg/doc/topics/06-inference-engines.md and @geppetto/pkg/doc/topics/09-middlewares.md)
+```go
+reg := tools.NewInMemoryToolRegistry()
+t := &turns.Turn{ Data: map[string]any{ turns.DataKeyToolRegistry: reg } }
+t.Data[sqlitetool.DataKeySQLiteDSN] = "file:anonymized-data.db?mode=rwc"
+
+// Compose middlewares
+logMw := func(next middleware.HandlerFunc) middleware.HandlerFunc { /* ... */ return next }
+sqlMw := sqlitetool.NewMiddleware(sqlitetool.Config{ DB: dbWithRegexp, MaxRows: 500 })
+toolMw := middleware.NewToolMiddleware(middleware.NewDefaultToolbox(reg), middleware.ToolConfig{ MaxIterations: 5 })
+
+eng := middleware.NewEngineWithMiddleware(baseEngine, logMw, agentModeMw, sqlMw, toolMw)
+updated, err := eng.RunInference(ctx, t)
+```
+
+### 7) Query patterns to use
+- Preview coverage of a candidate pattern
+```sql
+SELECT COUNT(*) AS hits
+FROM transactions
+WHERE description REGEXP :pattern;
+```
+
+- Preview mapping using all active patterns
+```sql
+SELECT t.*, p.category
+FROM transactions t
+LEFT JOIN category_patterns p
+  ON active = 1 AND (t.description REGEXP p.pattern);
+```
+
+- Apply overrides last
+```sql
+SELECT COALESCE(o.category, p.category) AS final_category, t.*
+FROM transactions t
+LEFT JOIN category_patterns p ON active = 1 AND (t.description REGEXP p.pattern)
+LEFT JOIN transaction_overrides o ON o.txn_id = t.id;
+```
+
+### 8) Testing and safety
+- Start in `financial_analyst` to validate queries without writes.
+- Switch to `category_regexp_designer` for controlled writes via explicit tools only.
+- Keep `MaxIterations` small; use event streaming to monitor tool activity.
+
+### 9) TODOs
+- [ ] Create utility tables in `anonymized-data.db` (category_patterns, transaction_overrides)
+- [ ] Seed `_prompts` via `pinocchio/cmd/agents/simple-chat-agent/prompts/transaction-categorizer.sql`
+- [ ] Open SQLite with REGEXP and pass `DB` to `sqlitetool.NewMiddleware`
+- [ ] Register write tools: `add_category_pattern`, `set_transaction_category` (ensure SQL restricted to INSERT/UPDATE only)
+- [ ] Configure agent modes and allowed tools; set default to designer or reviewer as needed
+- [ ] Wire middlewares (logging → agentmode → sqlite tool → tool middleware) and per-Turn registry
+- [ ] Validate with preview queries; iterate on prompts to reduce overmatching
+
+### 10) Nice-to-haves
+- Add a `deactivate_pattern(pattern)` tool to flip `active=0`.
+- Add reports: unmatched transactions by category candidate, top-N merchants, drift over time.
+- Views in SQLite to materialize final category selection for quicker analytics.
+

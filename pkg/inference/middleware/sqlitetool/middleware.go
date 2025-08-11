@@ -9,6 +9,7 @@ import (
 
     rootmw "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/events"
     "github.com/go-go-golems/geppetto/pkg/turns"
     "github.com/invopop/jsonschema"
     _ "github.com/mattn/go-sqlite3"
@@ -31,9 +32,12 @@ type Config struct {
     DB               DBLike        // optional pre-opened DB (won't be closed by middleware)
     MaxRows          int           // limit row returns
     ExecutionTimeout time.Duration // timeout for query execution
+    // Additional output safety limits (applied to the textual result rendering)
+    MaxOutputLines   int           // maximum number of output lines including header (default: 50)
+    MaxOutputBytes   int           // maximum number of output bytes (default: 1024)
 }
 
-func DefaultConfig() Config { return Config{MaxRows: 200, ExecutionTimeout: 20 * time.Second} }
+func DefaultConfig() Config { return Config{MaxRows: 200, ExecutionTimeout: 20 * time.Second, MaxOutputLines: 50, MaxOutputBytes: 1024} }
 
 // NewMiddleware loads schema/prompts from SQLite and advertises a sql_query tool. It also executes queries.
 func NewMiddleware(cfg Config) rootmw.Middleware {
@@ -155,9 +159,25 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
                 resStr := ""
                 q := strings.TrimSpace(c.SQL)
                 if q != "" {
-                    resStr = runQueryWithLimit(ctx, execDB, q, cfg.MaxRows, cfg.ExecutionTimeout)
+                    // Emit execution-start event
+                    events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+                        events.EventMetadata{RunID: updated.RunID, TurnID: updated.ID},
+                        events.ToolCall{ID: c.ID, Name: "sql_query", Input: fmt.Sprintf("{\"sql\":%q}", q)},
+                    ))
+
+                    // Ensure sensible defaults if zero
+                    maxLines := cfg.MaxOutputLines
+                    if maxLines <= 0 { maxLines = 50 }
+                    maxBytes := cfg.MaxOutputBytes
+                    if maxBytes <= 0 { maxBytes = 1024 }
+                    resStr = runQueryWithLimit(ctx, execDB, q, cfg.MaxRows, maxLines, maxBytes, cfg.ExecutionTimeout)
                 }
                 turns.AppendBlock(updated, turns.NewToolUseBlock(c.ID, resStr))
+                // Emit execution-result event
+                events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+                    events.EventMetadata{RunID: updated.RunID, TurnID: updated.ID},
+                    events.ToolResult{ID: c.ID, Result: resStr},
+                ))
             }
             return updated, nil
         }
@@ -219,7 +239,7 @@ func extractPendingSQLQueries(t *turns.Turn) []sqlCall {
     return ret
 }
 
-func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows int, timeout time.Duration) string {
+func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows int, maxLines int, maxBytes int, timeout time.Duration) string {
     cctx := ctx
     cancel := func(){}
     if timeout > 0 { cctx, cancel = context.WithTimeout(ctx, timeout) }
@@ -232,6 +252,7 @@ func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows in
     var out []string
     out = append(out, strings.Join(cols, " | "))
     count := 0
+    totalBytes := len(out[0])
     for rows.Next() {
         if maxRows > 0 && count >= maxRows { break }
         vals := make([]any, len(cols))
@@ -242,10 +263,25 @@ func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows in
         for _, v := range vals {
             parts = append(parts, fmt.Sprintf("%v", v))
         }
-        out = append(out, strings.Join(parts, " | "))
+        line := strings.Join(parts, " | ")
+        out = append(out, line)
+        totalBytes += len(line) + 1 // include newline
         count++
+        if maxLines > 0 && len(out) >= maxLines { break }
+        if maxBytes > 0 && totalBytes >= maxBytes { break }
     }
-    return strings.Join(out, "\n")
+    result := strings.Join(out, "\n")
+    truncated := false
+    if (maxLines > 0 && len(out) >= maxLines) || (maxBytes > 0 && len(result) >= maxBytes) {
+        truncated = true
+    }
+    if truncated {
+        // Compute approximate KB cutoff message
+        kb := (len(result) + 1023) / 1024
+        if kb == 0 { kb = 1 }
+        result = result + fmt.Sprintf("\n... additional data cutoff (%d kB)", kb)
+    }
+    return result
 }
 
 

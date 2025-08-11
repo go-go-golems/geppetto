@@ -13,9 +13,9 @@ This document also provides a concrete next-steps plan with checklists, example 
 
 ### High-level overview of changes
 
-- Event metadata was simplified around `EventMetadata`, adding a general-purpose `Extra` map for correlation and context instead of the now-removed `StepMetadata`.
-  - New constants for correlation keys: `run_id` and `turn_id`.
-  - All our components (engines, UI, SQLite logger) now use `EventMetadata.Extra` for RunID/TurnID.
+- Event metadata was simplified around `EventMetadata`, adding explicit `RunID` and `TurnID` fields, and a general-purpose `Extra` map for provider context. `StepMetadata` is removed.
+  - `EventMetadata` now includes: `message_id`, `run_id`, `turn_id`, engine info, usage, stop reason, and `extra`.
+  - All components (engines, UI, SQLite logger) read `run_id`/`turn_id` directly from `EventMetadata`.
 
 - Stable RunID/TurnID middleware was added in the simple agent to guarantee these identifiers are always set for every `RunInference` call.
 
@@ -147,13 +147,12 @@ SELECT * FROM v_tool_activity ORDER BY last_seen DESC;
      ```
 
 2) Ensure events always include run/turn
-   - Engines should set `metadata.Extra[run_id]` and `metadata.Extra[turn_id]` for every emitted event.
+- Engines should set `metadata.RunID` and `metadata.TurnID` for every emitted event.
    - Files: `geppetto/pkg/steps/ai/openai/engine_openai.go`, `geppetto/pkg/steps/ai/claude/engine_claude.go`.
    - Pseudocode:
      ```go
-     if metadata.Extra == nil { metadata.Extra = map[string]any{} }
-     metadata.Extra[events.MetaKeyRunID] = t.RunID
-     metadata.Extra[events.MetaKeyTurnID] = t.ID
+      metadata.RunID = t.RunID
+      metadata.TurnID = t.ID
      ```
 
 3) Prevent tool-call 400s (input during tool loop)
@@ -167,13 +166,12 @@ SELECT * FROM v_tool_activity ORDER BY last_seen DESC;
    - Files: `geppetto/pkg/inference/middleware/agentmode/service.go` (use `SQLiteService`).
 
 5) Improve snapshot timing
-   - Take the `pre` snapshot after agent-mode injection but before provider call (pre-provider truth).
-   - Optionally add a `post_tools` snapshot after tool execution.
-   - File: `pinocchio/cmd/agents/simple-chat-agent/main.go` (adjust middleware order or add a pre-provider hook).
+   - Capture five snapshots: `pre_middleware`, `pre_inference`, `post_inference`, `post_middleware`, and `post_tools` (after tool execution).
+   - File: `pinocchio/cmd/agents/simple-chat-agent/main.go` (middleware) and `geppetto/pkg/inference/toolhelpers/helpers.go` (hook phases).
 
 6) Expand SQL views for faster debugging
-   - New view `v_turns_with_modes` with `run_id`, `turn_id`, Turn.Data mode, injected mode, and last agent-mode Info event.
-   - New view `v_provider_messages` extracting user/assistant texts per turn from `block_payload_kv`.
+   - Added view `v_turns_with_modes` with `run_id`, `turn_id`, Turn.Data mode, injected mode, and last agent-mode Info event.
+   - Added view `v_provider_messages` extracting user/assistant texts per turn from `block_payload_kv`.
    - File: `pinocchio/cmd/agents/simple-chat-agent/pkg/store/views.sql`.
 
 ### Quick grep patterns for logs
