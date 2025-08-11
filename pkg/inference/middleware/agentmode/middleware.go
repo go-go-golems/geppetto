@@ -112,7 +112,7 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
                     turns.InsertBlockBeforeLast(t, usr)
                     // Log insertion
                     events.PublishEventToContext(ctx, events.NewLogEvent(
-                        events.EventMetadata{}, nil, "info",
+                        events.EventMetadata{RunID: t.RunID, TurnID: t.ID}, "info",
                         "agentmode: user prompt inserted",
                         map[string]any{"mode": mode.Name},
                     ))
@@ -142,7 +142,7 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
                 // Announce (append system message and emit Info event)
                 turns.AppendBlock(res, turns.NewSystemTextBlock(fmt.Sprintf("[agent-mode] switched to %s", newMode)))
                 events.PublishEventToContext(ctx, events.NewInfoEvent(
-                    events.EventMetadata{}, nil,
+                    events.EventMetadata{RunID: res.RunID, TurnID: res.ID},
                     "agentmode: mode switched",
                     map[string]any{
                         "from":     modeName,
@@ -152,7 +152,7 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
                 ))
                 // Also add a user-visible line to REPL via an Info event that UIs can append
                 events.PublishEventToContext(ctx, events.NewInfoEvent(
-                    events.EventMetadata{}, nil,
+                    events.EventMetadata{RunID: res.RunID, TurnID: res.ID},
                     "Mode changed",
                     map[string]any{
                         "from": modeName,
