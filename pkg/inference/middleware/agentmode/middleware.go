@@ -3,6 +3,7 @@ package agentmode
 import (
     "context"
     "fmt"
+    "sort"
     "strings"
     "time"
 
@@ -94,11 +95,13 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
                 // Build a single user block with mode prompt and (optionally) switch instructions
                 var bldr strings.Builder
                 if cfg.InsertSystemPrompt && strings.TrimSpace(mode.Prompt) != "" {
+                    bldr.WriteString("<currentMode>")
                     bldr.WriteString(strings.TrimSpace(mode.Prompt))
+                    bldr.WriteString("</currentMode>")
                 }
                 if cfg.InsertSwitchInstructions {
                     if bldr.Len() > 0 { bldr.WriteString("\n\n") }
-                    bldr.WriteString(BuildYamlModeSwitchInstructions(mode.Name))
+                    bldr.WriteString(BuildYamlModeSwitchInstructions(mode.Name, listModeNames(svc)))
                 }
                 if bldr.Len() > 0 {
                     usr := turns.WithBlockMetadata(
@@ -147,6 +150,15 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
                         "analysis": analysis,
                     },
                 ))
+                // Also add a user-visible line to REPL via an Info event that UIs can append
+                events.PublishEventToContext(ctx, events.NewInfoEvent(
+                    events.EventMetadata{}, nil,
+                    "Mode changed",
+                    map[string]any{
+                        "from": modeName,
+                        "to":   newMode,
+                    },
+                ))
             }
             return res, nil
         }
@@ -154,17 +166,31 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 }
 
 // BuildYamlModeSwitchInstructions returns instructions for the model to propose a mode switch using YAML.
-func BuildYamlModeSwitchInstructions(current string) string {
+func BuildYamlModeSwitchInstructions(current string, available []string) string {
     var b strings.Builder
-    b.WriteString("Please propose a mode switch by emitting the following YAML (no additional text around it):\n\n")
+    b.WriteString("<modeSwitchGuidelines>")
+    b.WriteString("Analyze the current conversation and determine if a mode switch would be beneficial. ")
+    b.WriteString("Consider the user's request, the context, and the available capabilities in different modes. ")
+    b.WriteString("If a mode switch would improve your ability to help the user, propose it using the following YAML format. ")
+    b.WriteString("If the current mode is appropriate, do not include the new_mode field.")
+    b.WriteString("</modeSwitchGuidelines>\n\n")
     b.WriteString("```yaml\n")
     b.WriteString("mode_switch:\n")
     b.WriteString("  analysis: |\n")
-    b.WriteString("    Provide a long, detailed reasoning for why switching mode helps. Use multiple sentences.\n")
-    b.WriteString("  new_mode: MODE_NAME\n")
+    b.WriteString("    Provide a detailed analysis of the current situation. Explain what the user is trying to accomplish,\n")
+    b.WriteString("    what capabilities are needed, and why the current mode may or may not be optimal.\n")
+    b.WriteString("    If proposing a switch, explain the specific benefits the new mode would provide.\n")
+    b.WriteString("    Use multiple sentences to thoroughly justify your reasoning.\n")
+    b.WriteString("  new_mode: MODE_NAME  # Only include this if you recommend switching modes\n")
     b.WriteString("```\n\n")
     b.WriteString("Current mode: ")
     b.WriteString(current)
+    if len(available) > 0 {
+        b.WriteString("\nAvailable modes: ")
+        b.WriteString(strings.Join(available, ", "))
+    }
+    b.WriteString("\n\nRemember: Only propose a mode switch if it would genuinely improve your ability to assist the user. ")
+    b.WriteString("Staying in the current mode is often the right choice.")
     return b.String()
 }
 
@@ -202,6 +228,36 @@ func DetectYamlModeSwitch(t *turns.Turn) (newMode string, analysis string) {
         }
     }
     return "", ""
+}
+
+// listModeNames extracts available mode names from the provided Service, if it is a known implementation.
+func listModeNames(svc Service) []string {
+    if svc == nil {
+        return nil
+    }
+    // Support StaticService and SQLiteService which both embed a modes map keyed by lower-case name
+    switch s := svc.(type) {
+    case *StaticService:
+        names := make([]string, 0, len(s.modes))
+        for _, m := range s.modes {
+            if m != nil && m.Name != "" {
+                names = append(names, m.Name)
+            }
+        }
+        sort.Strings(names)
+        return names
+    case *SQLiteService:
+        names := make([]string, 0, len(s.modes))
+        for _, m := range s.modes {
+            if m != nil && m.Name != "" {
+                names = append(names, m.Name)
+            }
+        }
+        sort.Strings(names)
+        return names
+    default:
+        return nil
+    }
 }
 
 
