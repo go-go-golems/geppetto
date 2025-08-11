@@ -122,15 +122,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 			if _, err := fmt.Fprintf(w, "\nMetadata:\n%s\n", metaBytes); err != nil {
 				return err
 			}
-			if e.StepMetadata() != nil {
-				stepMetaBytes, err := yaml.Marshal(e.StepMetadata())
-				if err != nil {
-					return err
-				}
-				if _, err := fmt.Fprintf(w, "\nStep Metadata:\n%s\n", stepMetaBytes); err != nil {
-					return err
-				}
-			}
+            // Step metadata removed
 		}
 		return nil
 	case *EventToolCall:
@@ -215,19 +207,19 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 	}
 
 	if options.Full {
-		output.Metadata = e.Metadata()
-		output.StepMetadata = e.StepMetadata()
+        output.Metadata = e.Metadata()
 	} else if options.IncludeMetadata {
-		output.Metadata = e.Metadata()
-		importantMeta := extractImportantMetadata(e)
+        output.Metadata = e.Metadata()
+        importantMeta := extractImportantMetadata(e.Metadata())
 		if importantMeta != nil {
-			if e.Type() == EventTypeStart {
+            if e.Type() == EventTypeStart {
 				output = structuredOutput{
 					Type:    e.Type(),
 					Content: importantMeta,
 				}
-			} else if e.Type() == EventTypeFinal {
-				output.StepMetadata = importantMeta
+            } else if e.Type() == EventTypeFinal {
+                // include on content side when final
+                output.Content = map[string]interface{}{"final": output.Content, "meta": importantMeta}
 			}
 		}
 	}
@@ -241,23 +233,13 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 	return err
 }
 
-func extractImportantMetadata(e Event) map[string]interface{} {
-	if e.StepMetadata() == nil {
-		return nil
-	}
-
-	metadata := e.Metadata()
-	stepMetadata := e.StepMetadata()
+func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 
 	//nolint:exhaustive
-	switch e.Type() {
-	case EventTypeStart:
+    // provide a compact subset for start-like content
+    {
 		result := map[string]interface{}{
-			"type": stepMetadata.Type,
-		}
-
-		if metadata.Engine != "" {
-			result["engine"] = metadata.Engine
+            "engine": metadata.Engine,
 		}
 		if metadata.Temperature != nil {
 			result["temp"] = metadata.Temperature
@@ -273,42 +255,5 @@ func extractImportantMetadata(e Event) map[string]interface{} {
 		}
 
 		return result
-
-	case EventTypeFinal:
-		result := map[string]interface{}{
-			"type": stepMetadata.Type,
-		}
-
-		if metadata.Usage != nil {
-			if metadata.Usage.InputTokens != 0 || metadata.Usage.OutputTokens != 0 {
-				result["tokens"] = map[string]interface{}{
-					"in":  metadata.Usage.InputTokens,
-					"out": metadata.Usage.OutputTokens,
-				}
-			}
-		} else {
-			result["tokens"] = map[string]interface{}{
-				"in":  0,
-				"out": 0,
-			}
-		}
-
-		if metadata.Engine != "" {
-			result["engine"] = metadata.Engine
-		}
-		if metadata.TopP != nil {
-			result["top_p"] = metadata.TopP
-		}
-		if metadata.StopReason != nil && *metadata.StopReason != "" {
-			result["stop_reason"] = metadata.StopReason
-		}
-		if metadata.Temperature != nil {
-			result["temp"] = metadata.Temperature
-		}
-
-		return result
-
-	default:
-	}
-	return nil
+    }
 }

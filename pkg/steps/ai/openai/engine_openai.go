@@ -137,17 +137,8 @@ func (e *OpenAIEngine) RunInference(
     }
 
     // Setup metadata and event publishing
-    // Determine parent message (last message in conversation) for better threading
-    var parentMessage *conversation.Message
-    parentID := conversation.NullNode
-    if len(messages) > 0 {
-        parentMessage = messages[len(messages)-1]
-        parentID = parentMessage.ID
-    }
-
     metadata := events.EventMetadata{
         ID:       conversation.NewNodeID(),
-        ParentID: parentID,
         LLMMessageMetadata: conversation.LLMMessageMetadata{
             Engine:      req.Model,
             Usage:       nil,
@@ -157,19 +148,18 @@ func (e *OpenAIEngine) RunInference(
             MaxTokens:   e.settings.Chat.MaxResponseTokens,
         },
     }
-	stepMetadata := &events.StepMetadata{
-		StepID:     conversation.NewNodeID(),
-		Type:       "openai-chat",
-		InputType:  "conversation.Conversation",
-		OutputType: "string",
-		Metadata: map[string]interface{}{
-			events.MetadataSettingsSlug: e.settings.GetMetadata(),
-		},
-	}
+    // Propagate Turn correlation identifiers when present
+    if t != nil {
+        metadata.RunID = t.RunID
+        metadata.TurnID = t.ID
+    }
+    // Step metadata removed; settings metadata moved to EventMetadata.Extra
+    if metadata.Extra == nil { metadata.Extra = map[string]interface{}{} }
+    metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 
 	// Publish start event
 	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
-	startEvent := events.NewStartEvent(metadata, stepMetadata)
+    startEvent := events.NewStartEvent(metadata)
 	e.publishEvent(ctx, startEvent)
 
 	// Always use streaming mode
@@ -177,7 +167,7 @@ func (e *OpenAIEngine) RunInference(
 	stream, err := client.CreateChatCompletionStream(ctx, *req)
 	if err != nil {
 		log.Error().Err(err).Msg("OpenAI streaming request failed")
-		e.publishEvent(ctx, events.NewErrorEvent(metadata, stepMetadata, err))
+        e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
 		return nil, err
 	}
 	defer func() {
@@ -199,7 +189,7 @@ func (e *OpenAIEngine) RunInference(
 		case <-ctx.Done():
 			log.Debug().Msg("OpenAI streaming cancelled by context")
 			// Publish interrupt event with current partial text
-			interruptEvent := events.NewInterruptEvent(metadata, stepMetadata, message)
+            interruptEvent := events.NewInterruptEvent(metadata, message)
 			e.publishEvent(ctx, interruptEvent)
 			return nil, ctx.Err()
 
@@ -211,7 +201,7 @@ func (e *OpenAIEngine) RunInference(
 			}
 			if err != nil {
 				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
-				errEvent := events.NewErrorEvent(metadata, stepMetadata, err)
+                errEvent := events.NewErrorEvent(metadata, err)
 				e.publishEvent(ctx, errEvent)
 				return nil, err
 			}
@@ -263,7 +253,6 @@ func (e *OpenAIEngine) RunInference(
                 log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
                 partialEvent := events.NewPartialCompletionEvent(
                     metadata,
-                    stepMetadata,
                     delta, message,
                 )
                 e.publishEvent(ctx, partialEvent)
@@ -288,11 +277,10 @@ streamingComplete:
 	if len(mergedToolCalls) > 0 {
 		for _, tc := range mergedToolCalls {
 			inputStr := tc.Function.Arguments
-			toolCallEvent := events.NewToolCallEvent(
-				metadata,
-				stepMetadata,
-				events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
-			)
+            toolCallEvent := events.NewToolCallEvent(
+                metadata,
+                events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
+            )
 			e.publishEvent(ctx, toolCallEvent)
 		}
 	}
@@ -314,7 +302,7 @@ streamingComplete:
 
 	// Publish final event for streaming
 	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
-	finalEvent := events.NewFinalEvent(metadata, stepMetadata, message)
+    finalEvent := events.NewFinalEvent(metadata, message)
 	e.publishEvent(ctx, finalEvent)
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")
