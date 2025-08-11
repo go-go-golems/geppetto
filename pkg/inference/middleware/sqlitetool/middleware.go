@@ -172,7 +172,8 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
                     if maxBytes <= 0 { maxBytes = 1024 }
                     resStr = runQueryWithLimit(ctx, execDB, q, cfg.MaxRows, maxLines, maxBytes, cfg.ExecutionTimeout)
                 }
-                turns.AppendBlock(updated, turns.NewToolUseBlock(c.ID, resStr))
+                b := turns.WithBlockMetadata(turns.NewToolUseBlock(c.ID, resStr), map[string]any{"middleware": "sqlitetool"})
+                turns.AppendBlock(updated, b)
                 // Emit execution-result event
                 events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
                     events.EventMetadata{RunID: updated.RunID, TurnID: updated.ID},
