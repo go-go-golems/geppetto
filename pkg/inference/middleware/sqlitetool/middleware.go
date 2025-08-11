@@ -9,7 +9,6 @@ import (
 
     rootmw "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
-    "github.com/go-go-golems/geppetto/pkg/events"
     "github.com/go-go-golems/geppetto/pkg/turns"
     "github.com/invopop/jsonschema"
     _ "github.com/mattn/go-sqlite3"
@@ -98,6 +97,7 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
             if t == nil {
                 return next(ctx, t)
             }
+            log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Msg("sqlitetool: middleware start")
             if t.Data == nil {
                 t.Data = map[string]any{}
             }
@@ -112,7 +112,7 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
                 return next(ctx, t)
             }
 
-            // Ensure registry has sql_query tool definition
+            // Ensure registry has sql_query tool definition and executor
             if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
                 if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
                     schemaObj := &jsonschema.Schema{Type: "object"}
@@ -120,13 +120,55 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
                     props.Set("sql", &jsonschema.Schema{Type: "string"})
                     schemaObj.Properties = props
                     schemaObj.Required = []string{"sql"}
-                    _ = reg.RegisterTool("sql_query", tools.ToolDefinition{
+                    def := tools.ToolDefinition{
                         Name:        "sql_query",
                         Description: toolDesc,
                         Parameters:  schemaObj,
                         Tags:        []string{"sqlite", "sql"},
                         Version:     "1.0",
-                    })
+                    }
+                    if err := reg.RegisterTool("sql_query", def); err != nil {
+                        log.Debug().Err(err).Msg("sqlitetool: RegisterTool failed")
+                    } else {
+                        log.Debug().Msg("sqlitetool: registered sql_query tool in registry")
+                    }
+                    // Attach execution function to tool definition
+                    // We provide a function that runs the SQL query against cfg.DB or DSN
+                    execFn := func(args struct{ SQL string `json:"sql"` }) (string, error) {
+                        // Resolve DB
+                        var execDB DBLike
+                        if cfg.DB != nil {
+                            execDB = cfg.DB
+                        } else {
+                            if dsn == "" {
+                                return "", fmt.Errorf("no sqlite DSN configured")
+                            }
+                            opened, err := sql.Open("sqlite3", dsn)
+                            if err != nil {
+                                return "", err
+                            }
+                            defer opened.Close()
+                            execDB = opened
+                        }
+                        // Limits
+                        maxLines := cfg.MaxOutputLines
+                        if maxLines <= 0 { maxLines = 50 }
+                        maxBytes := cfg.MaxOutputBytes
+                        if maxBytes <= 0 { maxBytes = 1024 }
+                        // Execute
+                        return runQueryWithLimit(context.Background(), execDB, args.SQL, cfg.MaxRows, maxLines, maxBytes, cfg.ExecutionTimeout), nil
+                    }
+                    if tdef, _ := reg.GetTool("sql_query"); tdef != nil {
+                        if toolDef, err := tools.NewToolFromFunc("sql_query", def.Description, execFn); err == nil {
+                            // Preserve metadata
+                            toolDef.Tags = def.Tags
+                            toolDef.Version = def.Version
+                            _ = reg.RegisterTool("sql_query", *toolDef)
+                            log.Debug().Msg("sqlitetool: registered sql_query executor function")
+                        } else {
+                            log.Debug().Err(err).Msg("sqlitetool: failed creating executor function")
+                        }
+                    }
                 }
             }
 
@@ -135,51 +177,8 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
             if err != nil {
                 return updated, err
             }
-
-            // Execute any pending sql_query calls directly (bypassing generic toolbox)
-            // This mirrors tool middleware but inlined for the single tool.
-            calls := extractPendingSQLQueries(updated)
-            if len(calls) == 0 {
-                return updated, nil
-            }
-            // Resolve DB for execution
-            var execDB DBLike
-            if cfg.DB != nil {
-                execDB = cfg.DB
-            } else {
-                opened, oerr := sql.Open("sqlite3", dsn)
-                if oerr != nil {
-                    log.Warn().Err(oerr).Msg("sqlitetool: failed to open sqlite for execution")
-                    return updated, nil
-                }
-                defer opened.Close()
-                execDB = opened
-            }
-            for _, c := range calls {
-                resStr := ""
-                q := strings.TrimSpace(c.SQL)
-                if q != "" {
-                    // Emit execution-start event
-                    events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
-                        events.EventMetadata{RunID: updated.RunID, TurnID: updated.ID},
-                        events.ToolCall{ID: c.ID, Name: "sql_query", Input: fmt.Sprintf("{\"sql\":%q}", q)},
-                    ))
-
-                    // Ensure sensible defaults if zero
-                    maxLines := cfg.MaxOutputLines
-                    if maxLines <= 0 { maxLines = 50 }
-                    maxBytes := cfg.MaxOutputBytes
-                    if maxBytes <= 0 { maxBytes = 1024 }
-                    resStr = runQueryWithLimit(ctx, execDB, q, cfg.MaxRows, maxLines, maxBytes, cfg.ExecutionTimeout)
-                }
-                b := turns.WithBlockMetadata(turns.NewToolUseBlock(c.ID, resStr), map[string]any{"middleware": "sqlitetool"})
-                turns.AppendBlock(updated, b)
-                // Emit execution-result event
-                events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
-                    events.EventMetadata{RunID: updated.RunID, TurnID: updated.ID},
-                    events.ToolResult{ID: c.ID, Result: resStr},
-                ))
-            }
+            // Do not execute tools here; rely on standard tool loop so a new inference is triggered after results
+            log.Debug().Str("run_id", updated.RunID).Str("turn_id", updated.ID).Msg("sqlitetool: middleware end (no inline exec)")
             return updated, nil
         }
     }

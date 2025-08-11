@@ -6,14 +6,13 @@ import (
 	"io"
 	"time"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 	// "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
@@ -397,18 +396,10 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 	log.Info().Msg("Created simplified tool helper configuration")
 
-	// 8. Build conversation
-	b := builder.NewManagerBuilder().
-		WithSystemPrompt("You are a helpful assistant with access to tools. Use get_weather for weather queries and calculator for math problems. Always use the appropriate tool when possible.").
-		WithPrompt(s.Prompt)
-
-	manager, err := b.Build()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to build conversation manager")
-		return err
-	}
-
-	conversation_ := manager.GetConversation()
+    // 8. Build initial Turn directly from settings
+    initialTurn := &turns.Turn{Data: map[string]any{}}
+    turns.AppendBlock(initialTurn, turns.NewSystemTextBlock("You are a helpful assistant with access to tools. Use get_weather for weather queries and calculator for math problems. Always use the appropriate tool when possible."))
+    turns.AppendBlock(initialTurn, turns.NewUserTextBlock(s.Prompt))
 
 	// 9. Start router and run inference in parallel
 	eg := errgroup.Group{}
@@ -424,21 +415,15 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		// Run inference with simplified tool calling helpers - works with any provider!
-		updatedConversation, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, conversation_, registry, helperConfig)
+        // Run inference with simplified tool calling helpers (Turn-based) - works with any provider!
+        updatedTurn, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, initialTurn, registry, helperConfig)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
 
-		// Extract new messages from the updated conversation
-		newMessages := updatedConversation[len(conversation_):]
-		for _, msg := range newMessages {
-			if err := manager.AppendMessages(msg); err != nil {
-				log.Error().Err(err).Msg("Failed to append message to conversation")
-				return fmt.Errorf("failed to append message: %w", err)
-			}
-		}
+        // Replace initialTurn with updatedTurn for printing after router exits
+        initialTurn = updatedTurn
 
 		return nil
 	})
@@ -448,23 +433,37 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		return err
 	}
 
-	messages := manager.GetConversation()
-
 	fmt.Fprintln(w, "\n=== Final Conversation ===")
-	for _, msg := range messages {
-		switch content := msg.Content.(type) {
-		case *conversation.ChatMessageContent:
-			fmt.Fprintf(w, "%s: %s\n", content.Role, content.Text)
-		case *conversation.ToolUseContent:
-			fmt.Fprintf(w, "Tool Call (%s): %s\n", content.Name, string(content.Input))
-		case *conversation.ToolResultContent:
-			fmt.Fprintf(w, "Tool Result (%s): %s\n", content.ToolID, content.Result)
-		default:
-			fmt.Fprintf(w, "%s: %s\n", msg.Content.ContentType(), msg.Content.String())
-		}
-	}
-
-	log.Info().Int("total_messages", len(messages)).Msg("Generic tool calling example completed successfully")
+    if initialTurn != nil {
+        for _, b := range initialTurn.Blocks {
+            switch b.Kind {
+            case turns.BlockKindSystem, turns.BlockKindUser, turns.BlockKindLLMText:
+                if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
+                    role := b.Role
+                    if role == "" {
+                        switch b.Kind {
+                        case turns.BlockKindSystem:
+                            role = "system"
+                        case turns.BlockKindUser:
+                            role = "user"
+                        default:
+                            role = "assistant"
+                        }
+                    }
+                    fmt.Fprintf(w, "%s: %s\n", role, txt)
+                }
+            case turns.BlockKindToolCall:
+                name, _ := b.Payload[turns.PayloadKeyName].(string)
+                args := b.Payload[turns.PayloadKeyArgs]
+                fmt.Fprintf(w, "Tool Call (%s): %v\n", name, args)
+            case turns.BlockKindToolUse:
+                id, _ := b.Payload[turns.PayloadKeyID].(string)
+                res := b.Payload[turns.PayloadKeyResult]
+                fmt.Fprintf(w, "Tool Result (%s): %v\n", id, res)
+            }
+        }
+        log.Info().Int("total_blocks", len(initialTurn.Blocks)).Msg("Generic tool calling example completed successfully")
+    }
 	return nil
 }
 

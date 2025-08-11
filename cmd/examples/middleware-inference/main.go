@@ -239,7 +239,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
                 turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
             default:
                 // Preserve Other/tool role as-is
-                turns.AppendBlock(initialTurn, turns.Block{Kind: kind, Role: string(chatMsg.Role), Payload: map[string]any{turns.PayloadKeyText: chatMsg.Text}})
+                turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
             }
 		}
 	}

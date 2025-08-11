@@ -4,6 +4,7 @@ import (
     "context"
 
     "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/rs/zerolog/log"
 )
 
 // NewSystemPromptMiddleware returns a middleware that ensures a fixed system prompt
@@ -18,6 +19,15 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
             }
 
             if prompt != "" {
+                prev := prompt
+                if len(prev) > 120 { prev = prev[:120] + "…" }
+                log.Debug().
+                    Str("run_id", t.RunID).
+                    Str("turn_id", t.ID).
+                    Int("block_count", len(t.Blocks)).
+                    Int("prompt_len", len(prompt)).
+                    Str("prompt_preview", prev).
+                    Msg("systemprompt: middleware start")
                 // Find first system block
                 firstSystemIdx := -1
                 for i, b := range t.Blocks {
@@ -39,17 +49,28 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
                     t.Blocks[firstSystemIdx].Metadata["middleware"] = "systemprompt"
                     if existingText == "" {
                         t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = prompt
+                        log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: set text on existing system block")
                     } else {
                         t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = existingText + "\n\n" + prompt
+                        log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: appended text to existing system block")
                     }
                 } else {
                     // Insert a new system block at the beginning
                     newBlock := turns.WithBlockMetadata(turns.NewSystemTextBlock(prompt), map[string]any{"middleware": "systemprompt"})
                     // Insert at index 0
                     t.Blocks = append([]turns.Block{newBlock}, t.Blocks...)
+                    // Log roles snapshot after insertion
+                    roles := make([]string, 0, len(t.Blocks))
+                    for _, bb := range t.Blocks { roles = append(roles, bb.Role) }
+                    log.Debug().
+                        Str("run_id", t.RunID).
+                        Str("turn_id", t.ID).
+                        Strs("roles_after", roles).
+                        Msg("systemprompt: inserted new system block at beginning")
                 }
             }
 
+            log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Int("block_count", len(t.Blocks)).Msg("systemprompt: middleware end")
             return next(ctx, t)
         }
     }

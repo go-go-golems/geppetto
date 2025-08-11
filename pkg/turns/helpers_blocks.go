@@ -1,5 +1,7 @@
 package turns
 
+import "github.com/google/uuid"
+
 // Convenience constructors for commonly used Block shapes.
 
 // Role string constants used for human roles in blocks.
@@ -12,6 +14,7 @@ const (
 // NewUserTextBlock returns a Block representing a user text message.
 func NewUserTextBlock(text string) Block {
     return Block{
+        ID:      uuid.NewString(),
         Kind:    BlockKindUser,
         Role:    RoleUser,
         Payload: map[string]any{PayloadKeyText: text},
@@ -21,6 +24,7 @@ func NewUserTextBlock(text string) Block {
 // NewAssistantTextBlock returns a Block representing assistant LLM text output.
 func NewAssistantTextBlock(text string) Block {
     return Block{
+        ID:      uuid.NewString(),
         Kind:    BlockKindLLMText,
         Role:    RoleAssistant,
         Payload: map[string]any{PayloadKeyText: text},
@@ -30,6 +34,7 @@ func NewAssistantTextBlock(text string) Block {
 // NewSystemTextBlock returns a Block representing a system directive.
 func NewSystemTextBlock(text string) Block {
     return Block{
+        ID:      uuid.NewString(),
         Kind:    BlockKindSystem,
         Role:    RoleSystem,
         Payload: map[string]any{PayloadKeyText: text},
@@ -41,6 +46,7 @@ func NewSystemTextBlock(text string) Block {
 // name is the tool/function name. args contains the structured input (any JSON-serializable value).
 func NewToolCallBlock(id string, name string, args any) Block {
     return Block{
+        ID:    id,
         Kind:   BlockKindToolCall,
         Payload: map[string]any{
             PayloadKeyID:   id,
@@ -55,6 +61,7 @@ func NewToolCallBlock(id string, name string, args any) Block {
 // result holds the execution output (any JSON-serializable value or string).
 func NewToolUseBlock(id string, result any) Block {
     return Block{
+        ID:    uuid.NewString(),
         Kind:   BlockKindToolUse,
         Payload: map[string]any{
             PayloadKeyID:     id,

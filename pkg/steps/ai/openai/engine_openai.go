@@ -49,9 +49,8 @@ func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-	// Convert Turn -> Conversation for current provider implementation
-	messages := turns.BuildConversationFromTurn(t)
-	log.Debug().Int("num_messages", len(messages)).Bool("stream", true).Msg("OpenAI RunInference started")
+    // Build request messages directly from Turn blocks (no conversation dependency)
+    log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
@@ -61,7 +60,7 @@ func (e *OpenAIEngine) RunInference(
 		return nil, err
 	}
 
-	req, err := MakeCompletionRequest(e.settings, messages)
+    req, err := MakeCompletionRequestFromTurn(e.settings, t)
 	if err != nil {
 		return nil, err
 	}

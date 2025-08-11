@@ -273,17 +273,17 @@ func AppendToolResults(conv conversation.Conversation, results []ToolResult) con
 	return updated
 }
 
-// RunToolCallingLoop runs a complete tool calling workflow with automatic iteration
-func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversation conversation.Conversation, registry tools.ToolRegistry, config ToolConfig) (conversation.Conversation, error) {
+// RunToolCallingLoop runs a complete tool calling workflow with automatic iteration.
+// This variant accepts and returns a Turn, avoiding the conversation manager.
+func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *turns.Turn, registry tools.ToolRegistry, config ToolConfig) (*turns.Turn, error) {
 	log.Debug().
 		Int("max_iterations", config.MaxIterations).
-		Int("initial_conversation_length", len(initialConversation)).
+        Int("initial_blocks", func() int { if initialTurn!=nil { return len(initialTurn.Blocks) }; return 0 }()).
 		Msg("RunToolCallingLoop: starting tool calling workflow (Turn-based)")
 
-    // Seed a Turn from the initial conversation
-    t := &turns.Turn{Data: map[string]any{}}
-	blocks := turns.BlocksFromConversationDelta(initialConversation, 0)
-	turns.AppendBlocks(t, blocks...)
+    // Use provided Turn or create a new one
+    t := initialTurn
+    if t == nil { t = &turns.Turn{Data: map[string]any{}} }
 
     // Attach registry and minimal engine tool config so providers can advertise tools
     if registry != nil {
@@ -324,7 +324,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversat
 		}
 		if len(calls) == 0 {
 			// Done; convert to conversation and return
-			return turns.BuildConversationFromTurn(updated), nil
+            return updated, nil
 		}
 
 		// Execute tools
@@ -357,7 +357,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialConversat
 	}
 
 	log.Warn().Int("max_iterations", config.MaxIterations).Msg("RunToolCallingLoop: maximum iterations reached")
-	return turns.BuildConversationFromTurn(t), fmt.Errorf("max iterations (%d) reached", config.MaxIterations)
+    return t, fmt.Errorf("max iterations (%d) reached", config.MaxIterations)
 }
 
 // extractPendingToolCallsTurn mirrors middleware logic locally to avoid import cycles
