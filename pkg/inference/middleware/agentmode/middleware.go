@@ -6,6 +6,7 @@ import (
     "strings"
     "time"
 
+    "github.com/go-go-golems/geppetto/pkg/events"
     rootmw "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/steps/parse"
     "github.com/go-go-golems/geppetto/pkg/turns"
@@ -83,12 +84,35 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
             if err != nil {
                 log.Warn().Str("requested_mode", modeName).Msg("agentmode: unknown mode; continuing without restrictions")
             } else {
+                // Remove previously inserted AgentMode-related blocks
+                _ = turns.RemoveBlocksByMetadata(t, "agentmode_tag",
+                    "agentmode_system_prompt",
+                    "agentmode_switch_instructions",
+                    "agentmode_user_prompt",
+                )
+
+                // Build a single user block with mode prompt and (optionally) switch instructions
+                var bldr strings.Builder
                 if cfg.InsertSystemPrompt && strings.TrimSpace(mode.Prompt) != "" {
-                    turns.AppendBlock(t, turns.NewSystemTextBlock(mode.Prompt))
+                    bldr.WriteString(strings.TrimSpace(mode.Prompt))
                 }
                 if cfg.InsertSwitchInstructions {
-                    instr := BuildYamlModeSwitchInstructions(mode.Name)
-                    turns.AppendBlock(t, turns.NewSystemTextBlock(instr))
+                    if bldr.Len() > 0 { bldr.WriteString("\n\n") }
+                    bldr.WriteString(BuildYamlModeSwitchInstructions(mode.Name))
+                }
+                if bldr.Len() > 0 {
+                    usr := turns.WithBlockMetadata(
+                        turns.NewUserTextBlock(bldr.String()),
+                        map[string]any{"agentmode_tag": "agentmode_user_prompt", "agentmode": mode.Name},
+                    )
+                    // Insert as second-to-last
+                    turns.InsertBlockBeforeLast(t, usr)
+                    // Log insertion
+                    events.PublishEventToContext(ctx, events.NewLogEvent(
+                        events.EventMetadata{}, nil, "info",
+                        "agentmode: user prompt inserted",
+                        map[string]any{"mode": mode.Name},
+                    ))
                 }
                 // Pass allowed tools hint to downstream tool middleware
                 if len(mode.AllowedTools) > 0 {
@@ -112,8 +136,17 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
                 if svc != nil {
                     _ = svc.RecordModeChange(ctx, ModeChange{RunID: res.RunID, TurnID: res.ID, FromMode: modeName, ToMode: newMode, Analysis: analysis, At: time.Now()})
                 }
-                // Announce
+                // Announce (append system message and emit Info event)
                 turns.AppendBlock(res, turns.NewSystemTextBlock(fmt.Sprintf("[agent-mode] switched to %s", newMode)))
+                events.PublishEventToContext(ctx, events.NewInfoEvent(
+                    events.EventMetadata{}, nil,
+                    "agentmode: mode switched",
+                    map[string]any{
+                        "from":     modeName,
+                        "to":       newMode,
+                        "analysis": analysis,
+                    },
+                ))
             }
             return res, nil
         }

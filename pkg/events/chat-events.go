@@ -29,6 +29,10 @@ const (
 	EventTypeToolCallExecutionResult EventType = "tool-call-execution-result"
 	EventTypeError                   EventType = "error"
 	EventTypeInterrupt               EventType = "interrupt"
+
+    // Informational/logging events (emitted by engines, middlewares or tools)
+    EventTypeLog  EventType = "log"
+    EventTypeInfo EventType = "info"
 )
 
 type Event interface {
@@ -418,6 +422,18 @@ func NewEventFromJson(b []byte) (Event, error) {
 		return ret, nil
 
 	case EventTypeStatus:
+    case EventTypeLog:
+        ret, ok := ToTypedEvent[EventLog](e)
+        if !ok {
+            return nil, fmt.Errorf("could not cast event to EventLog")
+        }
+        return ret, nil
+    case EventTypeInfo:
+        ret, ok := ToTypedEvent[EventInfo](e)
+        if !ok {
+            return nil, fmt.Errorf("could not cast event to EventInfo")
+        }
+        return ret, nil
 	}
 
 	return e, nil
@@ -502,4 +518,66 @@ func (e EventToolResult) MarshalZerologObject(ev *zerolog.Event) {
 func (e EventPartialCompletion) MarshalZerologObject(ev *zerolog.Event) {
 	e.EventImpl.MarshalZerologObject(ev)
 	ev.Str("delta", e.Delta).Str("completion", e.Completion)
+}
+
+// EventLog represents a generic log record emitted during inference (by engine, middleware or tools)
+type EventLog struct {
+    EventImpl
+    Level   string                 `json:"level"`
+    Message string                 `json:"message"`
+    Fields  map[string]interface{} `json:"fields,omitempty"`
+}
+
+func NewLogEvent(metadata EventMetadata, stepMetadata *StepMetadata, level string, message string, fields map[string]interface{}) *EventLog {
+    return &EventLog{
+        EventImpl: EventImpl{
+            Type_:     EventTypeLog,
+            Step_:     stepMetadata,
+            Metadata_: metadata,
+            payload:   nil,
+        },
+        Level:   level,
+        Message: message,
+        Fields:  fields,
+    }
+}
+
+var _ Event = &EventLog{}
+
+func (e EventLog) MarshalZerologObject(ev *zerolog.Event) {
+    e.EventImpl.MarshalZerologObject(ev)
+    ev.Str("level", e.Level).Str("message", e.Message)
+    if len(e.Fields) > 0 {
+        ev.Dict("fields", zerolog.Dict().Fields(e.Fields))
+    }
+}
+
+// EventInfo is a lightweight informational message for user-facing notifications
+type EventInfo struct {
+    EventImpl
+    Message string                 `json:"message"`
+    Data    map[string]interface{} `json:"data,omitempty"`
+}
+
+func NewInfoEvent(metadata EventMetadata, stepMetadata *StepMetadata, message string, data map[string]interface{}) *EventInfo {
+    return &EventInfo{
+        EventImpl: EventImpl{
+            Type_:     EventTypeInfo,
+            Step_:     stepMetadata,
+            Metadata_: metadata,
+            payload:   nil,
+        },
+        Message: message,
+        Data:    data,
+    }
+}
+
+var _ Event = &EventInfo{}
+
+func (e EventInfo) MarshalZerologObject(ev *zerolog.Event) {
+    e.EventImpl.MarshalZerologObject(ev)
+    ev.Str("message", e.Message)
+    if len(e.Data) > 0 {
+        ev.Dict("data", zerolog.Dict().Fields(e.Data))
+    }
 }

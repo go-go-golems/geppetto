@@ -80,5 +80,67 @@ func WithBlockMetadata(b Block, kvs map[string]interface{}) Block {
     return b
 }
 
+// HasBlockMetadata returns true if the block's Metadata contains key==value.
+func HasBlockMetadata(b Block, key string, value string) bool {
+    if b.Metadata == nil {
+        return false
+    }
+    v, ok := b.Metadata[key]
+    if !ok {
+        return false
+    }
+    if sv, ok := v.(string); ok {
+        return sv == value
+    }
+    return false
+}
+
+// RemoveBlocksByMetadata removes all blocks from the Turn where Metadata[key] equals any of the provided values.
+// It returns the number of removed blocks.
+func RemoveBlocksByMetadata(t *Turn, key string, values ...string) int {
+    if t == nil || len(t.Blocks) == 0 {
+        return 0
+    }
+    // Build quick lookup set
+    valSet := map[string]struct{}{}
+    for _, v := range values {
+        valSet[v] = struct{}{}
+    }
+
+    kept := make([]Block, 0, len(t.Blocks))
+    removed := 0
+    for _, b := range t.Blocks {
+        if b.Metadata != nil {
+            if v, ok := b.Metadata[key]; ok {
+                if sv, ok2 := v.(string); ok2 {
+                    if _, match := valSet[sv]; match {
+                        removed++
+                        continue
+                    }
+                }
+            }
+        }
+        kept = append(kept, b)
+    }
+    t.Blocks = kept
+    return removed
+}
+
+// InsertBlockBeforeLast inserts the given block as the second-to-last entry in the turn.
+// If the turn has fewer than 1 blocks, it appends the block normally.
+func InsertBlockBeforeLast(t *Turn, b Block) {
+    if t == nil {
+        return
+    }
+    if len(t.Blocks) >= 1 {
+        last := t.Blocks[len(t.Blocks)-1]
+        t.Blocks = t.Blocks[:len(t.Blocks)-1]
+        AppendBlock(t, b)
+        AppendBlock(t, last)
+        return
+    }
+    AppendBlock(t, b)
+}
+
 
 

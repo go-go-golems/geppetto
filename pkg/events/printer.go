@@ -147,6 +147,38 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 		}
 		_, err = fmt.Fprintf(w, "%s\n", toolResultBytes)
 		return err
+    case *EventLog:
+        level := p.Level
+        if level == "" {
+            level = "info"
+        }
+        if _, err := fmt.Fprintf(w, "\n[%s] %s\n", level, p.Message); err != nil {
+            return err
+        }
+        if len(p.Fields) > 0 {
+            fieldsBytes, err := yaml.Marshal(p.Fields)
+            if err != nil {
+                return err
+            }
+            if _, err := fmt.Fprintf(w, "%s\n", fieldsBytes); err != nil {
+                return err
+            }
+        }
+        return nil
+    case *EventInfo:
+        if _, err := fmt.Fprintf(w, "\n[i] %s\n", p.Message); err != nil {
+            return err
+        }
+        if len(p.Data) > 0 {
+            dataBytes, err := yaml.Marshal(p.Data)
+            if err != nil {
+                return err
+            }
+            if _, err := fmt.Fprintf(w, "%s\n", dataBytes); err != nil {
+                return err
+            }
+        }
+        return nil
 	}
 	return nil
 }
@@ -169,6 +201,17 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 		output.Content = p.ToolResult
 	case *EventError:
 		output.Content = p.Error_
+    case *EventLog:
+        output.Content = map[string]interface{}{
+            "level":   p.Level,
+            "message": p.Message,
+            "fields":  p.Fields,
+        }
+    case *EventInfo:
+        output.Content = map[string]interface{}{
+            "message": p.Message,
+            "data":    p.Data,
+        }
 	}
 
 	if options.Full {
