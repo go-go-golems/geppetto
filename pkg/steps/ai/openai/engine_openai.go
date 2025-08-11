@@ -136,17 +136,27 @@ func (e *OpenAIEngine) RunInference(
         }
     }
 
-	// Setup metadata and event publishing
-	metadata := events.EventMetadata{}
-	if e.settings.Chat.Temperature != nil {
-		metadata.Temperature = e.settings.Chat.Temperature
-	}
-	if e.settings.Chat.TopP != nil {
-		metadata.TopP = e.settings.Chat.TopP
-	}
-	if e.settings.Chat.MaxResponseTokens != nil {
-		metadata.MaxTokens = e.settings.Chat.MaxResponseTokens
-	}
+    // Setup metadata and event publishing
+    // Determine parent message (last message in conversation) for better threading
+    var parentMessage *conversation.Message
+    parentID := conversation.NullNode
+    if len(messages) > 0 {
+        parentMessage = messages[len(messages)-1]
+        parentID = parentMessage.ID
+    }
+
+    metadata := events.EventMetadata{
+        ID:       conversation.NewNodeID(),
+        ParentID: parentID,
+        LLMMessageMetadata: conversation.LLMMessageMetadata{
+            Engine:      req.Model,
+            Usage:       nil,
+            StopReason:  nil,
+            Temperature: e.settings.Chat.Temperature,
+            TopP:        e.settings.Chat.TopP,
+            MaxTokens:   e.settings.Chat.MaxResponseTokens,
+        },
+    }
 	stepMetadata := &events.StepMetadata{
 		StepID:     conversation.NewNodeID(),
 		Type:       "openai-chat",
@@ -211,9 +221,12 @@ func (e *OpenAIEngine) RunInference(
 			if len(response.Choices) > 0 {
 				choice := response.Choices[0]
 				// Text delta
-				delta = choice.Delta.Content
-				message += delta
-				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+            delta = choice.Delta.Content
+            // Only accumulate and publish when there is a non-empty text delta
+            if delta != "" {
+                message += delta
+                log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+            }
 
 				// Tool call deltas
 				if len(choice.Delta.ToolCalls) > 0 {
@@ -245,14 +258,16 @@ func (e *OpenAIEngine) RunInference(
 				}
 			}
 
-			// Publish intermediate streaming event
-			log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
-			partialEvent := events.NewPartialCompletionEvent(
-				metadata,
-				stepMetadata,
-				delta, message,
-			)
-			e.publishEvent(ctx, partialEvent)
+            // Publish intermediate streaming event only if we have a non-empty delta
+            if delta != "" {
+                log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
+                partialEvent := events.NewPartialCompletionEvent(
+                    metadata,
+                    stepMetadata,
+                    delta, message,
+                )
+                e.publishEvent(ctx, partialEvent)
+            }
 		}
 	}
 
