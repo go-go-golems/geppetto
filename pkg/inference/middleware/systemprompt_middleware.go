@@ -33,6 +33,10 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
                         t.Blocks[firstSystemIdx].Payload = map[string]any{}
                     }
                     existingText, _ := t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText].(string)
+                    if t.Blocks[firstSystemIdx].Metadata == nil {
+                        t.Blocks[firstSystemIdx].Metadata = map[string]any{}
+                    }
+                    t.Blocks[firstSystemIdx].Metadata["middleware"] = "systemprompt"
                     if existingText == "" {
                         t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = prompt
                     } else {
@@ -40,13 +44,9 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
                     }
                 } else {
                     // Insert a new system block at the beginning
-                    newBlock := turns.NewSystemTextBlock(prompt)
+                    newBlock := turns.WithBlockMetadata(turns.NewSystemTextBlock(prompt), map[string]any{"middleware": "systemprompt"})
                     // Insert at index 0
                     t.Blocks = append([]turns.Block{newBlock}, t.Blocks...)
-                    // Reassign order to maintain ascending order from 0
-                    for i := range t.Blocks {
-                        t.Blocks[i].Order = i
-                    }
                 }
             }
 

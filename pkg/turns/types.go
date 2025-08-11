@@ -1,8 +1,6 @@
 package turns
 
-import (
-	"sort"
-)
+import ()
 
 // BlockKind represents the kind of a block within a Turn.
 type BlockKind int
@@ -20,7 +18,6 @@ const (
 type Block struct {
 	ID       string
 	TurnID   string
-	Order    int
 	Kind     BlockKind
 	Role     string
 	Payload  map[string]any
@@ -50,10 +47,6 @@ type Run struct {
 
 // AppendBlock appends a Block to a Turn, assigning an order if missing.
 func AppendBlock(t *Turn, b Block) {
-	nextOrder := len(t.Blocks)
-	if b.Order <= 0 {
-		b.Order = nextOrder
-	}
 	t.Blocks = append(t.Blocks, b)
 }
 
@@ -76,7 +69,6 @@ func FindLastBlocksByKind(t Turn, kinds ...BlockKind) []Block {
 			ret = append(ret, b)
 		}
 	}
-	sort.Slice(ret, func(i, j int) bool { return ret[i].Order < ret[j].Order })
 	return ret
 }
 

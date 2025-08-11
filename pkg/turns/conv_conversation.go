@@ -62,7 +62,6 @@ func BlocksFromConversationDelta(updated conversation.Conversation, startIdx int
 		return nil
 	}
 	blocks := make([]Block, 0, len(updated)-startIdx)
-	order := 0
 	for i := startIdx; i < len(updated); i++ {
 		msg := updated[i]
 		switch c := msg.Content.(type) {
@@ -79,8 +78,7 @@ func BlocksFromConversationDelta(updated conversation.Conversation, startIdx int
 			case conversation.RoleTool:
 				kind = BlockKindOther
 			}
-			blocks = append(blocks, Block{Order: order, Kind: kind, Role: string(c.Role), Payload: payload})
-			order++
+            blocks = append(blocks, Block{Kind: kind, Role: string(c.Role), Payload: payload})
 		case *conversation.ToolUseContent:
 			// tool_call
 			var args any
@@ -88,12 +86,10 @@ func BlocksFromConversationDelta(updated conversation.Conversation, startIdx int
 				_ = json.Unmarshal(c.Input, &args)
 			}
             payload := map[string]any{PayloadKeyID: c.ToolID, PayloadKeyName: c.Name, PayloadKeyArgs: args}
-			blocks = append(blocks, Block{Order: order, Kind: BlockKindToolCall, Payload: payload})
-			order++
+            blocks = append(blocks, Block{Kind: BlockKindToolCall, Payload: payload})
 		case *conversation.ToolResultContent:
             payload := map[string]any{PayloadKeyID: c.ToolID, PayloadKeyResult: c.Result}
-			blocks = append(blocks, Block{Order: order, Kind: BlockKindToolUse, Payload: payload})
-			order++
+            blocks = append(blocks, Block{Kind: BlockKindToolUse, Payload: payload})
 		}
 	}
 	return blocks
