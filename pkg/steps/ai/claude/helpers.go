@@ -40,6 +40,15 @@ func MakeMessageRequestFromTurn(
     }
 
     msgs := []api.Message{}
+    // Buffer messages that must come after a tool_use → tool_result pair
+    delayedMsgs := []api.Message{}
+    toolPhaseActive := false
+    flushDelayed := func() {
+        if len(delayedMsgs) > 0 {
+            msgs = append(msgs, delayedMsgs...)
+            delayedMsgs = nil
+        }
+    }
     systemPrompt := ""
     if t != nil {
         for _, b := range t.Blocks {
@@ -56,7 +65,8 @@ func MakeMessageRequestFromTurn(
                 // If preserved Claude content is present, pass through directly
                 if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
                     if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
-                        msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: arr})
+                        msg := api.Message{Role: string(conversation.RoleUser), Content: arr}
+                        if toolPhaseActive { delayedMsgs = append(delayedMsgs, msg) } else { msgs = append(msgs, msg) }
                         break
                     }
                 }
@@ -89,13 +99,15 @@ func MakeMessageRequestFromTurn(
                     }
                 }
                 if len(parts) > 0 {
-                    msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: parts})
+                    msg := api.Message{Role: string(conversation.RoleUser), Content: parts}
+                    if toolPhaseActive { delayedMsgs = append(delayedMsgs, msg) } else { msgs = append(msgs, msg) }
                 }
             case turns.BlockKindLLMText:
                 // Allow preserved Claude content on assistant blocks too
                 if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
                     if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
-                        msgs = append(msgs, api.Message{Role: string(conversation.RoleAssistant), Content: arr})
+                        msg := api.Message{Role: string(conversation.RoleAssistant), Content: arr}
+                        if toolPhaseActive { delayedMsgs = append(delayedMsgs, msg) } else { msgs = append(msgs, msg) }
                         break
                     }
                 }
@@ -108,7 +120,8 @@ func MakeMessageRequestFromTurn(
                     }
                 }
                 if text != "" {
-                    msgs = append(msgs, api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewTextContent(text)}})
+                    msg := api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewTextContent(text)}}
+                    if toolPhaseActive { delayedMsgs = append(delayedMsgs, msg) } else { msgs = append(msgs, msg) }
                 }
             case turns.BlockKindToolCall:
                 name := ""
@@ -133,6 +146,7 @@ func MakeMessageRequestFromTurn(
                     }
                 }
                 msgs = append(msgs, api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewToolUseContent(toolID, name, argsStr)}})
+                toolPhaseActive = true
             case turns.BlockKindToolUse:
                 toolID := ""
                 _ = assignString(&toolID, b.Payload[turns.PayloadKeyID])
@@ -150,15 +164,22 @@ func MakeMessageRequestFromTurn(
                     }
                 }
                 msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: []api.Content{api.NewToolResultContent(toolID, result)}})
+                // After emitting tool_result, flush any delayed messages and end phase
+                flushDelayed()
+                toolPhaseActive = false
             case turns.BlockKindOther:
                 if v, ok := b.Payload[turns.PayloadKeyText]; ok {
                     if s, ok2 := v.(string); ok2 && s != "" {
-                        msgs = append(msgs, api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewTextContent(s)}})
+                        msg := api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewTextContent(s)}}
+                        if toolPhaseActive { delayedMsgs = append(delayedMsgs, msg) } else { msgs = append(msgs, msg) }
                     }
                 }
             }
         }
     }
+
+    // If we ended without a tool_result, append any delayed messages to avoid dropping content
+    flushDelayed()
 
     temperature := 0.0
     if chatSettings.Temperature != nil {
