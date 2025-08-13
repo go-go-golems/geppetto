@@ -108,7 +108,9 @@ func MakeCompletionRequestFromTurn(
             Role:      "assistant",
             ToolCalls: pendingToolCalls,
         })
+        // Enter tool phase and clear pending calls so we don't re-emit them later
         toolPhaseActive = true
+        pendingToolCalls = nil
     }
     endToolPhase := func() {
         if toolPhaseActive {
@@ -223,6 +225,12 @@ func MakeCompletionRequestFromTurn(
                         }
                     }
                 }
+                // Debug: record detected tool_call block
+                log.Debug().
+                    Str("tool_id", toolID).
+                    Str("name", name).
+                    Int("args_len", len(argsStr)).
+                    Msg("OpenAI request: encountered tool_call block")
                 // Start or continue accumulating tool calls; reset tool phase if starting a new group
                 if !toolPhaseActive && len(pendingToolCalls) == 0 {
                     delayedChats = nil
@@ -254,6 +262,11 @@ func MakeCompletionRequestFromTurn(
                         }
                     }
                 }
+                // Debug: record detected tool_use block
+                log.Debug().
+                    Str("tool_id", toolID).
+                    Int("result_len", len(result)).
+                    Msg("OpenAI request: encountered tool_use block")
                 msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
                     Role:       "tool",
                     Content:    result,
@@ -285,7 +298,7 @@ func MakeCompletionRequestFromTurn(
         }
     }
 
-    // Flush any remaining tool calls
+    // Flush any remaining tool calls (normally none, since we clear after flush)
     if len(pendingToolCalls) > 0 {
         flushToolCalls()
     }
@@ -331,6 +344,38 @@ func MakeCompletionRequestFromTurn(
         Float64("presence_penalty", presencePenalty).
         Float64("frequency_penalty", frequencyPenalty).
         Msg("Making request to openai from turn blocks")
+
+    // Debug: summarize the final message sequence for adjacency and content previews
+    for i, m := range msgs_ {
+        // tool_call ids within assistant message
+        var toolIDs []string
+        for _, tc := range m.ToolCalls {
+            if tc.ID != "" {
+                toolIDs = append(toolIDs, tc.ID)
+            }
+        }
+        content := m.Content
+        if content == "" && len(m.MultiContent) > 0 {
+            // If multi content, show text parts concatenated for preview
+            var parts []string
+            for _, p := range m.MultiContent {
+                if p.Type == go_openai.ChatMessagePartTypeText && p.Text != "" {
+                    parts = append(parts, p.Text)
+                }
+            }
+            content = strings.Join(parts, " ")
+        }
+        preview := content
+        if len(preview) > 160 { preview = preview[:160] + "…" }
+        log.Debug().
+            Int("idx", i).
+            Str("role", m.Role).
+            Int("tool_call_count", len(m.ToolCalls)).
+            Strs("tool_call_ids", toolIDs).
+            Str("tool_call_id", m.ToolCallID).
+            Str("content_preview", preview).
+            Msg("OpenAI request message")
+    }
 
     var streamOptions *go_openai.StreamOptions
     if stream && !strings.Contains(engine, "mistral") {
