@@ -15,22 +15,22 @@ func BuildConversationFromTurn(t *Turn) conversation.Conversation {
 	msgs := make(conversation.Conversation, 0, len(t.Blocks))
 	for _, b := range t.Blocks {
 		switch b.Kind {
-        case BlockKindUser:
-            text, _ := getString(b.Payload, PayloadKeyText)
+		case BlockKindUser:
+			text, _ := getString(b.Payload, PayloadKeyText)
 			msgs = append(msgs, conversation.NewChatMessage(conversation.RoleUser, text))
-        case BlockKindLLMText:
-            text, _ := getString(b.Payload, PayloadKeyText)
+		case BlockKindLLMText:
+			text, _ := getString(b.Payload, PayloadKeyText)
 			msgs = append(msgs, conversation.NewChatMessage(conversation.RoleAssistant, text))
-        case BlockKindSystem:
-            text, _ := getString(b.Payload, PayloadKeyText)
-            if text != "" {
-                msgs = append(msgs, conversation.NewChatMessage(conversation.RoleSystem, text))
-            }
+		case BlockKindSystem:
+			text, _ := getString(b.Payload, PayloadKeyText)
+			if text != "" {
+				msgs = append(msgs, conversation.NewChatMessage(conversation.RoleSystem, text))
+			}
 		case BlockKindToolCall:
 			// ToolUseContent represents a tool call request from the assistant
-            name, _ := getString(b.Payload, PayloadKeyName)
-            toolID, _ := getString(b.Payload, PayloadKeyID)
-            args := toJSONRawMessage(b.Payload[PayloadKeyArgs])
+			name, _ := getString(b.Payload, PayloadKeyName)
+			toolID, _ := getString(b.Payload, PayloadKeyID)
+			args := toJSONRawMessage(b.Payload[PayloadKeyArgs])
 			tuc := &conversation.ToolUseContent{
 				ToolID: toolID,
 				Name:   name,
@@ -40,8 +40,8 @@ func BuildConversationFromTurn(t *Turn) conversation.Conversation {
 			msgs = append(msgs, conversation.NewMessage(tuc))
 		case BlockKindToolUse:
 			// ToolResultContent captures tool execution results
-            toolID, _ := getString(b.Payload, PayloadKeyID)
-            resultStr := toJSONString(b.Payload[PayloadKeyResult])
+			toolID, _ := getString(b.Payload, PayloadKeyID)
+			resultStr := toJSONString(b.Payload[PayloadKeyResult])
 			trc := &conversation.ToolResultContent{
 				ToolID: toolID,
 				Result: resultStr,
@@ -49,7 +49,7 @@ func BuildConversationFromTurn(t *Turn) conversation.Conversation {
 			msgs = append(msgs, conversation.NewMessage(trc))
 		case BlockKindOther:
 			// ignore or map to assistant text if payload.text exists
-            if text, ok := getString(b.Payload, PayloadKeyText); ok {
+			if text, ok := getString(b.Payload, PayloadKeyText); ok {
 				msgs = append(msgs, conversation.NewChatMessage(conversation.RoleAssistant, text))
 			}
 		}
@@ -68,7 +68,7 @@ func BlocksFromConversationDelta(updated conversation.Conversation, startIdx int
 		msg := updated[i]
 		switch c := msg.Content.(type) {
 		case *conversation.ChatMessageContent:
-            payload := map[string]any{PayloadKeyText: c.Text}
+			payload := map[string]any{PayloadKeyText: c.Text}
 			kind := BlockKindLLMText
 			switch c.Role {
 			case conversation.RoleUser:
@@ -80,18 +80,18 @@ func BlocksFromConversationDelta(updated conversation.Conversation, startIdx int
 			case conversation.RoleTool:
 				kind = BlockKindOther
 			}
-            blocks = append(blocks, Block{ID: conversation.NewNodeID().String(), Kind: kind, Role: string(c.Role), Payload: payload})
+			blocks = append(blocks, Block{ID: conversation.NewNodeID().String(), Kind: kind, Role: string(c.Role), Payload: payload})
 		case *conversation.ToolUseContent:
 			// tool_call
 			var args any
 			if len(c.Input) > 0 {
 				_ = json.Unmarshal(c.Input, &args)
 			}
-            payload := map[string]any{PayloadKeyID: c.ToolID, PayloadKeyName: c.Name, PayloadKeyArgs: args}
-            blocks = append(blocks, Block{ID: c.ToolID, Kind: BlockKindToolCall, Payload: payload})
+			payload := map[string]any{PayloadKeyID: c.ToolID, PayloadKeyName: c.Name, PayloadKeyArgs: args}
+			blocks = append(blocks, Block{ID: c.ToolID, Kind: BlockKindToolCall, Payload: payload})
 		case *conversation.ToolResultContent:
-            payload := map[string]any{PayloadKeyID: c.ToolID, PayloadKeyResult: c.Result}
-            blocks = append(blocks, Block{ID: conversation.NewNodeID().String(), Kind: BlockKindToolUse, Payload: payload})
+			payload := map[string]any{PayloadKeyID: c.ToolID, PayloadKeyResult: c.Result}
+			blocks = append(blocks, Block{ID: conversation.NewNodeID().String(), Kind: BlockKindToolUse, Payload: payload})
 		}
 	}
 	return blocks

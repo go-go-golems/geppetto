@@ -26,15 +26,15 @@ func (m *MockEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Tu
 
 func TestEngineHandler(t *testing.T) {
 	// Create mock engine with LLM text response
-    mockResponse := turns.NewAssistantTextBlock("Hello, world!")
-    mockEngine := &MockEngine{response: &mockResponse}
+	mockResponse := turns.NewAssistantTextBlock("Hello, world!")
+	mockEngine := &MockEngine{response: &mockResponse}
 
 	// Create handler from engine
 	handler := engineHandlerFunc(mockEngine)
 
 	// Seed a Turn with a user message
-    seed := &turns.Turn{}
-    turns.AppendBlock(seed, turns.NewUserTextBlock("Hi there!"))
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("Hi there!"))
 
 	result, err := handler(context.Background(), seed)
 
@@ -51,25 +51,25 @@ func TestMiddlewareChain(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-            for i := range res.Blocks {
-                if res.Blocks[i].Kind == turns.BlockKindLLMText {
-                    if s, ok := res.Blocks[i].Payload[turns.PayloadKeyText].(string); ok {
-                        res.Blocks[i].Payload[turns.PayloadKeyText] = "(prefix) " + s
-                    }
-                }
-            }
+			for i := range res.Blocks {
+				if res.Blocks[i].Kind == turns.BlockKindLLMText {
+					if s, ok := res.Blocks[i].Payload[turns.PayloadKeyText].(string); ok {
+						res.Blocks[i].Payload[turns.PayloadKeyText] = "(prefix) " + s
+					}
+				}
+			}
 			return res, nil
 		}
 	}
 
-    mockResponse := turns.NewAssistantTextBlock("Hello")
-    mockEngine := &MockEngine{response: &mockResponse}
+	mockResponse := turns.NewAssistantTextBlock("Hello")
+	mockEngine := &MockEngine{response: &mockResponse}
 
 	handler := engineHandlerFunc(mockEngine)
 	chained := Chain(handler, uppercase)
 
-    seed := &turns.Turn{}
-    turns.AppendBlock(seed, turns.NewUserTextBlock("Hi"))
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("Hi"))
 
 	res, err := chained(context.Background(), seed)
 
@@ -87,13 +87,13 @@ func TestEngineWithMiddleware(t *testing.T) {
 		}
 	}
 
-    mockResponse := turns.NewAssistantTextBlock("Response")
-    mockEngine := &MockEngine{response: &mockResponse}
+	mockResponse := turns.NewAssistantTextBlock("Response")
+	mockEngine := &MockEngine{response: &mockResponse}
 
 	e := NewEngineWithMiddleware(mockEngine, loggingMw)
 
-    seed := &turns.Turn{}
-    turns.AppendBlock(seed, turns.NewUserTextBlock("Test"))
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("Test"))
 
 	res, err := e.RunInference(context.Background(), seed)
 	require.NoError(t, err)

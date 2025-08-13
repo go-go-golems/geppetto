@@ -96,18 +96,18 @@ func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
 					return updated, nil
 				}
 
-                // Filter tools: prefer per-Turn agent-mode allowed tools if present, else use static config
-                allowed := config.ToolFilter
-                if updated != nil && updated.Data != nil {
-                    if v, ok := updated.Data["agent_mode_allowed_tools"]; ok && v != nil {
-                        if s, ok := v.([]string); ok {
-                            allowed = s
-                        }
-                    }
-                }
-                if len(allowed) > 0 {
-                    toolCalls = filterToolCalls(toolCalls, allowed)
-                }
+				// Filter tools: prefer per-Turn agent-mode allowed tools if present, else use static config
+				allowed := config.ToolFilter
+				if updated != nil && updated.Data != nil {
+					if v, ok := updated.Data["agent_mode_allowed_tools"]; ok && v != nil {
+						if s, ok := v.([]string); ok {
+							allowed = s
+						}
+					}
+				}
+				if len(allowed) > 0 {
+					toolCalls = filterToolCalls(toolCalls, allowed)
+				}
 				if len(toolCalls) == 0 {
 					return updated, nil
 				}
@@ -146,10 +146,10 @@ func extractPendingToolCalls(t *turns.Turn) []ToolCall {
 	if t == nil {
 		return nil
 	}
-    used := make(map[string]bool)
+	used := make(map[string]bool)
 	for _, b := range t.Blocks {
-        if b.Kind == turns.BlockKindToolUse {
-            if id, ok := b.Payload[turns.PayloadKeyID].(string); ok && id != "" {
+		if b.Kind == turns.BlockKindToolUse {
+			if id, ok := b.Payload[turns.PayloadKeyID].(string); ok && id != "" {
 				used[id] = true
 			}
 		}
@@ -159,14 +159,14 @@ func extractPendingToolCalls(t *turns.Turn) []ToolCall {
 		if b.Kind != turns.BlockKindToolCall {
 			continue
 		}
-        id, _ := b.Payload[turns.PayloadKeyID].(string)
+		id, _ := b.Payload[turns.PayloadKeyID].(string)
 		if id == "" || used[id] {
 			continue
 		}
-        name, _ := b.Payload[turns.PayloadKeyName].(string)
+		name, _ := b.Payload[turns.PayloadKeyName].(string)
 		// args may be an object or json.RawMessage string
 		var args map[string]interface{}
-        if raw := b.Payload[turns.PayloadKeyArgs]; raw != nil {
+		if raw := b.Payload[turns.PayloadKeyArgs]; raw != nil {
 			switch v := raw.(type) {
 			case map[string]interface{}:
 				args = v
@@ -218,13 +218,13 @@ func executeToolCallsTurn(ctx context.Context, calls []ToolCall, toolbox Toolbox
 
 // appendToolResultsBlocks appends tool_use blocks from results
 func appendToolResultsBlocks(t *turns.Turn, results []ToolResult) {
-    for _, r := range results {
-        result := any(r.Content)
-        if r.Error != "" {
-            result = fmt.Sprintf("Error: %s", r.Error)
-        }
-        turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
-    }
+	for _, r := range results {
+		result := any(r.Content)
+		if r.Error != "" {
+			result = fmt.Sprintf("Error: %s", r.Error)
+		}
+		turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
+	}
 }
 
 // executeToolWorkflow handles the complete tool calling workflow

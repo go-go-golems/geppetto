@@ -24,10 +24,10 @@ func ExtractPendingToolCalls(t *turns.Turn) []ToolCall {
 	if t == nil {
 		return nil
 	}
-    used := make(map[string]bool)
+	used := make(map[string]bool)
 	for _, b := range t.Blocks {
-        if b.Kind == turns.BlockKindToolUse {
-            if id, ok := b.Payload[turns.PayloadKeyID].(string); ok && id != "" {
+		if b.Kind == turns.BlockKindToolUse {
+			if id, ok := b.Payload[turns.PayloadKeyID].(string); ok && id != "" {
 				used[id] = true
 			}
 		}
@@ -37,13 +37,13 @@ func ExtractPendingToolCalls(t *turns.Turn) []ToolCall {
 		if b.Kind != turns.BlockKindToolCall {
 			continue
 		}
-        id, _ := b.Payload[turns.PayloadKeyID].(string)
+		id, _ := b.Payload[turns.PayloadKeyID].(string)
 		if id == "" || used[id] {
 			continue
 		}
-        name, _ := b.Payload[turns.PayloadKeyName].(string)
+		name, _ := b.Payload[turns.PayloadKeyName].(string)
 		var args map[string]any
-        if raw := b.Payload[turns.PayloadKeyArgs]; raw != nil {
+		if raw := b.Payload[turns.PayloadKeyArgs]; raw != nil {
 			switch v := raw.(type) {
 			case map[string]any:
 				args = v
@@ -67,11 +67,11 @@ func ExtractPendingToolCalls(t *turns.Turn) []ToolCall {
 
 // AppendToolResultsBlocks appends tool_use blocks to the Turn from provided results.
 func AppendToolResultsBlocks(t *turns.Turn, results []ToolResult) {
-    for _, r := range results {
-        result := any(r.Content)
-        if r.Error != "" {
-            result = "Error: " + r.Error
-        }
-        turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
-    }
+	for _, r := range results {
+		result := any(r.Content)
+		if r.Error != "" {
+			result = "Error: " + r.Error
+		}
+		turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
+	}
 }

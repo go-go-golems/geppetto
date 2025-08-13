@@ -144,34 +144,40 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("MessageStartType event must have a message")
 		}
 		cbm.response = event.Message
-        if cbm.metadata.Extra == nil { cbm.metadata.Extra = map[string]interface{}{} }
-        cbm.metadata.Extra[ModelMetadataSlug] = event.Message.Model
-        cbm.metadata.Extra[MessageIdMetadataSlug] = event.Message.ID
-        cbm.metadata.Extra[RoleMetadataSlug] = event.Message.Role
+		if cbm.metadata.Extra == nil {
+			cbm.metadata.Extra = map[string]interface{}{}
+		}
+		cbm.metadata.Extra[ModelMetadataSlug] = event.Message.Model
+		cbm.metadata.Extra[MessageIdMetadataSlug] = event.Message.ID
+		cbm.metadata.Extra[RoleMetadataSlug] = event.Message.Role
 
 		// Update event metadata with common fields
 		cbm.metadata.Engine = event.Message.Model
 		cbm.updateUsage(event)
 
-        return []events.Event{events.NewStartEvent(cbm.metadata)}, nil
+		return []events.Event{events.NewStartEvent(cbm.metadata)}, nil
 
 	case api.MessageDeltaType:
 		if event.Delta == nil {
 			return nil, errors.New("MessageDeltaType event must have a delta")
 		}
 		if event.Delta.StopReason != "" {
-            if cbm.metadata.Extra == nil { cbm.metadata.Extra = map[string]interface{}{} }
-            cbm.metadata.Extra[StopReasonMetadataSlug] = event.Delta.StopReason
+			if cbm.metadata.Extra == nil {
+				cbm.metadata.Extra = map[string]interface{}{}
+			}
+			cbm.metadata.Extra[StopReasonMetadataSlug] = event.Delta.StopReason
 			cbm.metadata.StopReason = &event.Delta.StopReason
 		}
 		if event.Delta.StopSequence != "" {
-            if cbm.metadata.Extra == nil { cbm.metadata.Extra = map[string]interface{}{} }
-            cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Delta.StopSequence
+			if cbm.metadata.Extra == nil {
+				cbm.metadata.Extra = map[string]interface{}{}
+			}
+			cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Delta.StopSequence
 		}
 
 		cbm.updateUsage(event)
 
-        return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
+		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
 
 	case api.MessageStopType:
 		if cbm.response == nil {
@@ -180,13 +186,17 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 
 		if event.Message != nil {
 			if event.Message.StopReason != "" {
-            if cbm.metadata.Extra == nil { cbm.metadata.Extra = map[string]interface{}{} }
-            cbm.metadata.Extra[StopReasonMetadataSlug] = event.Message.StopReason
+				if cbm.metadata.Extra == nil {
+					cbm.metadata.Extra = map[string]interface{}{}
+				}
+				cbm.metadata.Extra[StopReasonMetadataSlug] = event.Message.StopReason
 				cbm.metadata.StopReason = &event.Message.StopReason
 			}
 			if event.Message.StopSequence != "" {
-            if cbm.metadata.Extra == nil { cbm.metadata.Extra = map[string]interface{}{} }
-            cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
+				if cbm.metadata.Extra == nil {
+					cbm.metadata.Extra = map[string]interface{}{}
+				}
+				cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
 			}
 		}
 
@@ -195,7 +205,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			Str("full_text", cbm.response.FullText()).
 			Msg("ContentBlockMerger received message_stop - message complete")
 
-        return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.response.FullText())}, nil
+		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
@@ -234,7 +244,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.TextDeltaType:
 			delta = event.Delta.Text
 			cb.Text += event.Delta.Text
-            return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.response.FullText()+cb.Text)}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.response.FullText()+cb.Text)}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
 			// Append to existing input string for tool use
@@ -260,7 +270,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.ContentTypeText:
 			cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
 			// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
-            return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
 
 		case api.ContentTypeToolUse:
 			// Convert Input to string for API compatibility
@@ -276,11 +286,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 				}
 			}
 			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, inputStr))
-            return []events.Event{events.NewToolCallEvent(cbm.metadata, events.ToolCall{
+			return []events.Event{events.NewToolCallEvent(cbm.metadata, events.ToolCall{
 				ID:    cb.ID,
 				Name:  cb.Name,
 				Input: inputStr,
-            })}, nil
+			})}, nil
 
 		case api.ContentTypeImage, api.ContentTypeToolResult:
 			return nil, errors.Errorf("Unsupported content block type: %s", cb.Type)
@@ -293,7 +303,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("ErrorType event must have an error")
 		}
 		cbm.error = event.Error
-        return []events.Event{events.NewErrorEvent(cbm.metadata, errors.New(event.Error.Message))}, nil
+		return []events.Event{events.NewErrorEvent(cbm.metadata, errors.New(event.Error.Message))}, nil
 
 	default:
 		return nil, errors.Errorf("Unknown event type: %s", event.Type)

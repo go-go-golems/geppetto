@@ -38,21 +38,21 @@ type snapshotHookKey struct{}
 
 // WithTurnSnapshotHook attaches a snapshot hook to the context
 func WithTurnSnapshotHook(ctx context.Context, hook SnapshotHook) context.Context {
-    if hook == nil {
-        return ctx
-    }
-    return context.WithValue(ctx, snapshotHookKey{}, hook)
+	if hook == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, snapshotHookKey{}, hook)
 }
 
 func getSnapshotHook(ctx context.Context) SnapshotHook {
-    v := ctx.Value(snapshotHookKey{})
-    if v == nil {
-        return nil
-    }
-    if h, ok := v.(SnapshotHook); ok {
-        return h
-    }
-    return nil
+	v := ctx.Value(snapshotHookKey{})
+	if v == nil {
+		return nil
+	}
+	if h, ok := v.(SnapshotHook); ok {
+		return h
+	}
+	return nil
 }
 
 // ToolConfig holds configuration for tool calling workflow
@@ -278,42 +278,49 @@ func AppendToolResults(conv conversation.Conversation, results []ToolResult) con
 func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *turns.Turn, registry tools.ToolRegistry, config ToolConfig) (*turns.Turn, error) {
 	log.Debug().
 		Int("max_iterations", config.MaxIterations).
-        Int("initial_blocks", func() int { if initialTurn!=nil { return len(initialTurn.Blocks) }; return 0 }()).
+		Int("initial_blocks", func() int {
+			if initialTurn != nil {
+				return len(initialTurn.Blocks)
+			}
+			return 0
+		}()).
 		Msg("RunToolCallingLoop: starting tool calling workflow (Turn-based)")
 
-    // Use provided Turn or create a new one
-    t := initialTurn
-    if t == nil { t = &turns.Turn{Data: map[string]any{}} }
+	// Use provided Turn or create a new one
+	t := initialTurn
+	if t == nil {
+		t = &turns.Turn{Data: map[string]any{}}
+	}
 
-    // Attach registry and minimal engine tool config so providers can advertise tools
-    if registry != nil {
-        t.Data[turns.DataKeyToolRegistry] = registry
-    }
-    t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
-        Enabled:           true,
-        ToolChoice:        engine.ToolChoice(config.ToolChoice),
-        MaxIterations:     config.MaxIterations,
-        ExecutionTimeout:  config.Timeout,
-        MaxParallelTools:  config.MaxParallelTools,
-        AllowedTools:      config.AllowedTools,
-        ToolErrorHandling: engine.ToolErrorHandling(config.ToolErrorHandling),
-    }
+	// Attach registry and minimal engine tool config so providers can advertise tools
+	if registry != nil {
+		t.Data[turns.DataKeyToolRegistry] = registry
+	}
+	t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+		Enabled:           true,
+		ToolChoice:        engine.ToolChoice(config.ToolChoice),
+		MaxIterations:     config.MaxIterations,
+		ExecutionTimeout:  config.Timeout,
+		MaxParallelTools:  config.MaxParallelTools,
+		AllowedTools:      config.AllowedTools,
+		ToolErrorHandling: engine.ToolErrorHandling(config.ToolErrorHandling),
+	}
 
 	for i := 0; i < config.MaxIterations; i++ {
 		log.Debug().Int("iteration", i+1).Msg("RunToolCallingLoop: engine step")
 
-        // Run inference (provider may append llm_text and tool_call blocks)
-        if hook := getSnapshotHook(ctx); hook != nil {
-            hook(ctx, t, "pre_inference")
-        }
+		// Run inference (provider may append llm_text and tool_call blocks)
+		if hook := getSnapshotHook(ctx); hook != nil {
+			hook(ctx, t, "pre_inference")
+		}
 		updated, err := eng.RunInference(ctx, t)
 		if err != nil {
 			log.Error().Err(err).Int("iteration", i+1).Msg("RunToolCallingLoop: engine inference failed")
 			return nil, err
 		}
-        if hook := getSnapshotHook(ctx); hook != nil {
-            hook(ctx, updated, "post_inference")
-        }
+		if hook := getSnapshotHook(ctx); hook != nil {
+			hook(ctx, updated, "post_inference")
+		}
 
 		// Extract pending tool calls from blocks
 		calls_ := toolblocks.ExtractPendingToolCalls(updated)
@@ -324,7 +331,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		}
 		if len(calls) == 0 {
 			// Done; convert to conversation and return
-            return updated, nil
+			return updated, nil
 		}
 
 		// Execute tools
@@ -347,17 +354,17 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 				shared = append(shared, toolblocks.ToolResult{ID: r.ToolCallID, Content: content})
 			}
 		}
-        toolblocks.AppendToolResultsBlocks(updated, shared)
-        if hook := getSnapshotHook(ctx); hook != nil {
-            hook(ctx, updated, "post_tools")
-        }
+		toolblocks.AppendToolResultsBlocks(updated, shared)
+		if hook := getSnapshotHook(ctx); hook != nil {
+			hook(ctx, updated, "post_tools")
+		}
 
 		// Continue next iteration with same turn
 		t = updated
 	}
 
 	log.Warn().Int("max_iterations", config.MaxIterations).Msg("RunToolCallingLoop: maximum iterations reached")
-    return t, fmt.Errorf("max iterations (%d) reached", config.MaxIterations)
+	return t, fmt.Errorf("max iterations (%d) reached", config.MaxIterations)
 }
 
 // extractPendingToolCallsTurn mirrors middleware logic locally to avoid import cycles
