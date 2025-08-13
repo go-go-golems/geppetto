@@ -140,13 +140,13 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		fmt.Fprintln(w, "Warning: Tool schema is nil")
 	}
 
-    // Attach registry and config to a Turn instead
-    reg := tools.NewInMemoryToolRegistry()
-    _ = reg.RegisterTool("get_weather", *weatherToolDef)
+	// Attach registry and config to a Turn instead
+	reg := tools.NewInMemoryToolRegistry()
+	_ = reg.RegisterTool("get_weather", *weatherToolDef)
 
 	// Build a Turn seeded with a user prompt
-    turn := &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: 1, ToolErrorHandling: engine.ToolErrorContinue}}}
-    turns.AppendBlock(turn, turns.NewUserTextBlock("Please use get_weather to check the weather in San Francisco, in celsius."))
+	turn := &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: 1, ToolErrorHandling: engine.ToolErrorContinue}}}
+	turns.AppendBlock(turn, turns.NewUserTextBlock("Please use get_weather to check the weather in San Francisco, in celsius."))
 
 	// Prepare a toolbox and register executable implementation
 	tb := middleware.NewMockToolbox()

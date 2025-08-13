@@ -30,9 +30,9 @@ const (
 	EventTypeError                   EventType = "error"
 	EventTypeInterrupt               EventType = "interrupt"
 
-    // Informational/logging events (emitted by engines, middlewares or tools)
-    EventTypeLog  EventType = "log"
-    EventTypeInfo EventType = "info"
+	// Informational/logging events (emitted by engines, middlewares or tools)
+	EventTypeLog  EventType = "log"
+	EventTypeInfo EventType = "info"
 )
 
 type Event interface {
@@ -60,7 +60,7 @@ func (e *EventImpl) MarshalZerologObject(ev *zerolog.Event) {
 		ev.Err(e.Error_)
 	}
 
-    ev.Object("meta", e.Metadata_)
+	ev.Object("meta", e.Metadata_)
 
 }
 
@@ -296,22 +296,22 @@ const MetadataToolCallsSlug = "tool-calls"
 // specific to chat steps.
 type EventMetadata struct {
 	conversation.LLMMessageMetadata
-	ID       conversation.NodeID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
-    // Correlation identifiers
-    RunID   string `json:"run_id,omitempty" yaml:"run_id,omitempty" mapstructure:"run_id"`
-    TurnID  string `json:"turn_id,omitempty" yaml:"turn_id,omitempty" mapstructure:"turn_id"`
-    // Extra carries provider-specific/context values
-    Extra    map[string]interface{} `json:"extra,omitempty" yaml:"extra,omitempty" mapstructure:"extra"`
+	ID conversation.NodeID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
+	// Correlation identifiers
+	RunID  string `json:"run_id,omitempty" yaml:"run_id,omitempty" mapstructure:"run_id"`
+	TurnID string `json:"turn_id,omitempty" yaml:"turn_id,omitempty" mapstructure:"turn_id"`
+	// Extra carries provider-specific/context values
+	Extra map[string]interface{} `json:"extra,omitempty" yaml:"extra,omitempty" mapstructure:"extra"`
 }
 
 func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("message_id", em.ID.String())
-    if em.RunID != "" {
-        e.Str("run_id", em.RunID)
-    }
-    if em.TurnID != "" {
-        e.Str("turn_id", em.TurnID)
-    }
+	if em.RunID != "" {
+		e.Str("run_id", em.RunID)
+	}
+	if em.TurnID != "" {
+		e.Str("turn_id", em.TurnID)
+	}
 	if em.Engine != "" {
 		e.Str("engine", em.Engine)
 	}
@@ -322,15 +322,15 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 		e.Int("input_tokens", em.Usage.InputTokens)
 		e.Int("output_tokens", em.Usage.OutputTokens)
 	}
-    if len(em.Extra) > 0 {
-        e.Dict("extra", zerolog.Dict().Fields(em.Extra))
-    }
+	if len(em.Extra) > 0 {
+		e.Dict("extra", zerolog.Dict().Fields(em.Extra))
+	}
 }
 
 // Extra metadata keys for correlation
 const (
-    MetaKeyRunID  = "run_id"
-    MetaKeyTurnID = "turn_id"
+	MetaKeyRunID  = "run_id"
+	MetaKeyTurnID = "turn_id"
 )
 
 func NewEventFromJson(b []byte) (Event, error) {
@@ -399,18 +399,18 @@ func NewEventFromJson(b []byte) (Event, error) {
 		return ret, nil
 
 	case EventTypeStatus:
-    case EventTypeLog:
-        ret, ok := ToTypedEvent[EventLog](e)
-        if !ok {
-            return nil, fmt.Errorf("could not cast event to EventLog")
-        }
-        return ret, nil
-    case EventTypeInfo:
-        ret, ok := ToTypedEvent[EventInfo](e)
-        if !ok {
-            return nil, fmt.Errorf("could not cast event to EventInfo")
-        }
-        return ret, nil
+	case EventTypeLog:
+		ret, ok := ToTypedEvent[EventLog](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventLog")
+		}
+		return ret, nil
+	case EventTypeInfo:
+		ret, ok := ToTypedEvent[EventInfo](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventInfo")
+		}
+		return ret, nil
 	}
 
 	return e, nil
@@ -499,60 +499,60 @@ func (e EventPartialCompletion) MarshalZerologObject(ev *zerolog.Event) {
 
 // EventLog represents a generic log record emitted during inference (by engine, middleware or tools)
 type EventLog struct {
-    EventImpl
-    Level   string                 `json:"level"`
-    Message string                 `json:"message"`
-    Fields  map[string]interface{} `json:"fields,omitempty"`
+	EventImpl
+	Level   string                 `json:"level"`
+	Message string                 `json:"message"`
+	Fields  map[string]interface{} `json:"fields,omitempty"`
 }
 
 func NewLogEvent(metadata EventMetadata, level string, message string, fields map[string]interface{}) *EventLog {
-    return &EventLog{
-        EventImpl: EventImpl{
-            Type_:     EventTypeLog,
-            Metadata_: metadata,
-            payload:   nil,
-        },
-        Level:   level,
-        Message: message,
-        Fields:  fields,
-    }
+	return &EventLog{
+		EventImpl: EventImpl{
+			Type_:     EventTypeLog,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		Level:   level,
+		Message: message,
+		Fields:  fields,
+	}
 }
 
 var _ Event = &EventLog{}
 
 func (e EventLog) MarshalZerologObject(ev *zerolog.Event) {
-    e.EventImpl.MarshalZerologObject(ev)
-    ev.Str("level", e.Level).Str("message", e.Message)
-    if len(e.Fields) > 0 {
-        ev.Dict("fields", zerolog.Dict().Fields(e.Fields))
-    }
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("level", e.Level).Str("message", e.Message)
+	if len(e.Fields) > 0 {
+		ev.Dict("fields", zerolog.Dict().Fields(e.Fields))
+	}
 }
 
 // EventInfo is a lightweight informational message for user-facing notifications
 type EventInfo struct {
-    EventImpl
-    Message string                 `json:"message"`
-    Data    map[string]interface{} `json:"data,omitempty"`
+	EventImpl
+	Message string                 `json:"message"`
+	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
 func NewInfoEvent(metadata EventMetadata, message string, data map[string]interface{}) *EventInfo {
-    return &EventInfo{
-        EventImpl: EventImpl{
-            Type_:     EventTypeInfo,
-            Metadata_: metadata,
-            payload:   nil,
-        },
-        Message: message,
-        Data:    data,
-    }
+	return &EventInfo{
+		EventImpl: EventImpl{
+			Type_:     EventTypeInfo,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		Message: message,
+		Data:    data,
+	}
 }
 
 var _ Event = &EventInfo{}
 
 func (e EventInfo) MarshalZerologObject(ev *zerolog.Event) {
-    e.EventImpl.MarshalZerologObject(ev)
-    ev.Str("message", e.Message)
-    if len(e.Data) > 0 {
-        ev.Dict("data", zerolog.Dict().Fields(e.Data))
-    }
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("message", e.Message)
+	if len(e.Data) > 0 {
+		ev.Dict("data", zerolog.Dict().Fields(e.Data))
+	}
 }

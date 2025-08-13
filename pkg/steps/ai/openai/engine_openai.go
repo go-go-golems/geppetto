@@ -23,9 +23,9 @@ import (
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
-	settings     *settings.StepSettings
-	config       *engine.Config
-    toolAdapter  *tools.OpenAIToolAdapter
+	settings    *settings.StepSettings
+	config      *engine.Config
+	toolAdapter *tools.OpenAIToolAdapter
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
@@ -36,9 +36,9 @@ func NewOpenAIEngine(settings *settings.StepSettings, options ...engine.Option) 
 	}
 
 	return &OpenAIEngine{
-		settings:     settings,
-		config:       config,
-		toolAdapter:  tools.NewOpenAIToolAdapter(),
+		settings:    settings,
+		config:      config,
+		toolAdapter: tools.NewOpenAIToolAdapter(),
 	}, nil
 }
 
@@ -49,8 +49,8 @@ func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-    // Build request messages directly from Turn blocks (no conversation dependency)
-    log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
+	// Build request messages directly from Turn blocks (no conversation dependency)
+	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
@@ -60,137 +60,147 @@ func (e *OpenAIEngine) RunInference(
 		return nil, err
 	}
 
-    req, err := MakeCompletionRequestFromTurn(e.settings, t)
+	req, err := MakeCompletionRequestFromTurn(e.settings, t)
 	if err != nil {
 		return nil, err
 	}
 
-    // Debug: confirm adjacency constraints before sending
-    if req != nil {
-        // Check that any assistant message with tool_calls is followed by tool messages
-        for i, m := range req.Messages {
-            if len(m.ToolCalls) > 0 {
-                missing := []string{}
-                // Collect tool_call ids in this assistant message
-                idset := map[string]bool{}
-                for _, tc := range m.ToolCalls {
-                    if tc.ID != "" { idset[tc.ID] = false }
-                }
-                // Look ahead until next non-tool message
-                for j := i + 1; j < len(req.Messages); j++ {
-                    nm := req.Messages[j]
-                    if nm.Role != "tool" { break }
-                    if nm.ToolCallID != "" {
-                        if _, ok := idset[nm.ToolCallID]; ok {
-                            idset[nm.ToolCallID] = true
-                        }
-                    }
-                }
-                for id, ok := range idset { if !ok { missing = append(missing, id) } }
-                if len(missing) > 0 {
-                    log.Warn().
-                        Int("assistant_idx", i).
-                        Strs("missing_tool_result_ids", missing).
-                        Msg("OpenAI request: assistant tool_calls missing immediate tool results in following messages")
-                }
-            }
-        }
-    }
-
-    // Add tools to the request if present on the Turn Data
-    if t != nil && t.Data != nil {
-        var engineTools []engine.ToolDefinition
-        if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-            if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-                for _, td := range reg.ListTools() {
-                    engineTools = append(engineTools, engine.ToolDefinition{
-                        Name:        td.Name,
-                        Description: td.Description,
-                        Parameters:  td.Parameters,
-                        Examples:    []engine.ToolExample{},
-                        Tags:        td.Tags,
-                        Version:     td.Version,
-                    })
-                }
-            }
-        }
-        var toolCfg engine.ToolConfig
-        if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
-            if cfg, ok := cfgAny.(engine.ToolConfig); ok {
-                toolCfg = cfg
-            }
-        }
-		if len(engineTools) > 0 {
-		log.Debug().Int("tool_count", len(engineTools)).Msg("Adding tools to OpenAI request")
-
-		// Convert our tools to go_openai.Tool format
-		var openaiTools []go_openai.Tool
-        for _, tool := range engineTools {
-			openaiTool := go_openai.Tool{
-				Type: go_openai.ToolTypeFunction,
-				Function: &go_openai.FunctionDefinition{
-					Name:        tool.Name,
-					Description: tool.Description,
-					Parameters:  tool.Parameters,
-				},
+	// Debug: confirm adjacency constraints before sending
+	if req != nil {
+		// Check that any assistant message with tool_calls is followed by tool messages
+		for i, m := range req.Messages {
+			if len(m.ToolCalls) > 0 {
+				missing := []string{}
+				// Collect tool_call ids in this assistant message
+				idset := map[string]bool{}
+				for _, tc := range m.ToolCalls {
+					if tc.ID != "" {
+						idset[tc.ID] = false
+					}
+				}
+				// Look ahead until next non-tool message
+				for j := i + 1; j < len(req.Messages); j++ {
+					nm := req.Messages[j]
+					if nm.Role != "tool" {
+						break
+					}
+					if nm.ToolCallID != "" {
+						if _, ok := idset[nm.ToolCallID]; ok {
+							idset[nm.ToolCallID] = true
+						}
+					}
+				}
+				for id, ok := range idset {
+					if !ok {
+						missing = append(missing, id)
+					}
+				}
+				if len(missing) > 0 {
+					log.Warn().
+						Int("assistant_idx", i).
+						Strs("missing_tool_result_ids", missing).
+						Msg("OpenAI request: assistant tool_calls missing immediate tool results in following messages")
+				}
 			}
-			openaiTools = append(openaiTools, openaiTool)
 		}
+	}
 
-		// Set tools in request
-		req.Tools = openaiTools
-
-		// Set tool choice if specified
-        switch toolCfg.ToolChoice {
-		case engine.ToolChoiceNone:
-			req.ToolChoice = "none"
-		case engine.ToolChoiceRequired:
-			req.ToolChoice = "required"
-		case engine.ToolChoiceAuto:
-			req.ToolChoice = "auto"
-		default:
-			req.ToolChoice = "auto"
+	// Add tools to the request if present on the Turn Data
+	if t != nil && t.Data != nil {
+		var engineTools []engine.ToolDefinition
+		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
+			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
+				for _, td := range reg.ListTools() {
+					engineTools = append(engineTools, engine.ToolDefinition{
+						Name:        td.Name,
+						Description: td.Description,
+						Parameters:  td.Parameters,
+						Examples:    []engine.ToolExample{},
+						Tags:        td.Tags,
+						Version:     td.Version,
+					})
+				}
+			}
 		}
+		var toolCfg engine.ToolConfig
+		if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
+			if cfg, ok := cfgAny.(engine.ToolConfig); ok {
+				toolCfg = cfg
+			}
+		}
+		if len(engineTools) > 0 {
+			log.Debug().Int("tool_count", len(engineTools)).Msg("Adding tools to OpenAI request")
 
-		// Set parallel tool calls preference
-        if toolCfg.MaxParallelTools > 1 {
-            req.ParallelToolCalls = true
-        } else if toolCfg.MaxParallelTools == 1 {
-            req.ParallelToolCalls = false
-        }
+			// Convert our tools to go_openai.Tool format
+			var openaiTools []go_openai.Tool
+			for _, tool := range engineTools {
+				openaiTool := go_openai.Tool{
+					Type: go_openai.ToolTypeFunction,
+					Function: &go_openai.FunctionDefinition{
+						Name:        tool.Name,
+						Description: tool.Description,
+						Parameters:  tool.Parameters,
+					},
+				}
+				openaiTools = append(openaiTools, openaiTool)
+			}
 
-        log.Debug().
-            Int("openai_tool_count", len(openaiTools)).
-            Interface("tool_choice", req.ToolChoice).
-            Interface("parallel_tool_calls", req.ParallelToolCalls).
-            Msg("Tools added to OpenAI request")
-        }
-    }
+			// Set tools in request
+			req.Tools = openaiTools
 
-    // Setup metadata and event publishing
-    metadata := events.EventMetadata{
-        ID:       conversation.NewNodeID(),
-        LLMMessageMetadata: conversation.LLMMessageMetadata{
-            Engine:      req.Model,
-            Usage:       nil,
-            StopReason:  nil,
-            Temperature: e.settings.Chat.Temperature,
-            TopP:        e.settings.Chat.TopP,
-            MaxTokens:   e.settings.Chat.MaxResponseTokens,
-        },
-    }
-    // Propagate Turn correlation identifiers when present
-    if t != nil {
-        metadata.RunID = t.RunID
-        metadata.TurnID = t.ID
-    }
-    // Step metadata removed; settings metadata moved to EventMetadata.Extra
-    if metadata.Extra == nil { metadata.Extra = map[string]interface{}{} }
-    metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+			// Set tool choice if specified
+			switch toolCfg.ToolChoice {
+			case engine.ToolChoiceNone:
+				req.ToolChoice = "none"
+			case engine.ToolChoiceRequired:
+				req.ToolChoice = "required"
+			case engine.ToolChoiceAuto:
+				req.ToolChoice = "auto"
+			default:
+				req.ToolChoice = "auto"
+			}
+
+			// Set parallel tool calls preference
+			if toolCfg.MaxParallelTools > 1 {
+				req.ParallelToolCalls = true
+			} else if toolCfg.MaxParallelTools == 1 {
+				req.ParallelToolCalls = false
+			}
+
+			log.Debug().
+				Int("openai_tool_count", len(openaiTools)).
+				Interface("tool_choice", req.ToolChoice).
+				Interface("parallel_tool_calls", req.ParallelToolCalls).
+				Msg("Tools added to OpenAI request")
+		}
+	}
+
+	// Setup metadata and event publishing
+	metadata := events.EventMetadata{
+		ID: conversation.NewNodeID(),
+		LLMMessageMetadata: conversation.LLMMessageMetadata{
+			Engine:      req.Model,
+			Usage:       nil,
+			StopReason:  nil,
+			Temperature: e.settings.Chat.Temperature,
+			TopP:        e.settings.Chat.TopP,
+			MaxTokens:   e.settings.Chat.MaxResponseTokens,
+		},
+	}
+	// Propagate Turn correlation identifiers when present
+	if t != nil {
+		metadata.RunID = t.RunID
+		metadata.TurnID = t.ID
+	}
+	// Step metadata removed; settings metadata moved to EventMetadata.Extra
+	if metadata.Extra == nil {
+		metadata.Extra = map[string]interface{}{}
+	}
+	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 
 	// Publish start event
 	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
-    startEvent := events.NewStartEvent(metadata)
+	startEvent := events.NewStartEvent(metadata)
 	e.publishEvent(ctx, startEvent)
 
 	// Always use streaming mode
@@ -198,7 +208,7 @@ func (e *OpenAIEngine) RunInference(
 	stream, err := client.CreateChatCompletionStream(ctx, *req)
 	if err != nil {
 		log.Error().Err(err).Msg("OpenAI streaming request failed")
-        e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
+		e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
 		return nil, err
 	}
 	defer func() {
@@ -220,7 +230,7 @@ func (e *OpenAIEngine) RunInference(
 		case <-ctx.Done():
 			log.Debug().Msg("OpenAI streaming cancelled by context")
 			// Publish interrupt event with current partial text
-            interruptEvent := events.NewInterruptEvent(metadata, message)
+			interruptEvent := events.NewInterruptEvent(metadata, message)
 			e.publishEvent(ctx, interruptEvent)
 			return nil, ctx.Err()
 
@@ -232,7 +242,7 @@ func (e *OpenAIEngine) RunInference(
 			}
 			if err != nil {
 				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
-                errEvent := events.NewErrorEvent(metadata, err)
+				errEvent := events.NewErrorEvent(metadata, err)
 				e.publishEvent(ctx, errEvent)
 				return nil, err
 			}
@@ -242,12 +252,12 @@ func (e *OpenAIEngine) RunInference(
 			if len(response.Choices) > 0 {
 				choice := response.Choices[0]
 				// Text delta
-            delta = choice.Delta.Content
-            // Only accumulate and publish when there is a non-empty text delta
-            if delta != "" {
-                message += delta
-                log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
-            }
+				delta = choice.Delta.Content
+				// Only accumulate and publish when there is a non-empty text delta
+				if delta != "" {
+					message += delta
+					log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+				}
 
 				// Tool call deltas
 				if len(choice.Delta.ToolCalls) > 0 {
@@ -279,15 +289,15 @@ func (e *OpenAIEngine) RunInference(
 				}
 			}
 
-            // Publish intermediate streaming event only if we have a non-empty delta
-            if delta != "" {
-                log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
-                partialEvent := events.NewPartialCompletionEvent(
-                    metadata,
-                    delta, message,
-                )
-                e.publishEvent(ctx, partialEvent)
-            }
+			// Publish intermediate streaming event only if we have a non-empty delta
+			if delta != "" {
+				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
+				partialEvent := events.NewPartialCompletionEvent(
+					metadata,
+					delta, message,
+				)
+				e.publishEvent(ctx, partialEvent)
+			}
 		}
 	}
 
@@ -308,10 +318,10 @@ streamingComplete:
 	if len(mergedToolCalls) > 0 {
 		for _, tc := range mergedToolCalls {
 			inputStr := tc.Function.Arguments
-            toolCallEvent := events.NewToolCallEvent(
-                metadata,
-                events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
-            )
+			toolCallEvent := events.NewToolCallEvent(
+				metadata,
+				events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
+			)
 			e.publishEvent(ctx, toolCallEvent)
 		}
 	}
@@ -325,15 +335,15 @@ streamingComplete:
 		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
 	}
 	// append tool calls
-    for _, tc := range mergedToolCalls {
-        var args any
-        _ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-        turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
-    }
+	for _, tc := range mergedToolCalls {
+		var args any
+		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+		turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
+	}
 
 	// Publish final event for streaming
 	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
-    finalEvent := events.NewFinalEvent(metadata, message)
+	finalEvent := events.NewFinalEvent(metadata, message)
 	e.publishEvent(ctx, finalEvent)
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")

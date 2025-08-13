@@ -16,13 +16,13 @@ const (
 
 // Block represents a single atomic unit within a Turn.
 type Block struct {
-	ID       string
-	TurnID   string
-	Kind     BlockKind
-	Role     string
-	Payload  map[string]any
-    // Metadata stores arbitrary metadata about the block
-    Metadata map[string]interface{}
+	ID      string
+	TurnID  string
+	Kind    BlockKind
+	Role    string
+	Payload map[string]any
+	// Metadata stores arbitrary metadata about the block
+	Metadata map[string]interface{}
 }
 
 // Turn contains an ordered list of Blocks and associated metadata.
@@ -38,19 +38,19 @@ type Turn struct {
 
 // PrependBlock inserts a block at the beginning of the Turn's block slice.
 func PrependBlock(t *Turn, b Block) {
-    if t == nil {
-        return
-    }
-    t.Blocks = append([]Block{b}, t.Blocks...)
+	if t == nil {
+		return
+	}
+	t.Blocks = append([]Block{b}, t.Blocks...)
 }
 
 // Run captures a multi-turn session.
 type Run struct {
-	ID       string
-	Name     string
-	Turns    []Turn
-    // Metadata stores arbitrary metadata about the run
-    Metadata map[string]interface{}
+	ID    string
+	Name  string
+	Turns []Turn
+	// Metadata stores arbitrary metadata about the run
+	Metadata map[string]interface{}
 }
 
 // AppendBlock appends a Block to a Turn, assigning an order if missing.
@@ -90,8 +90,8 @@ func SetTurnMetadata(t *Turn, key string, value interface{}) {
 
 // SetBlockMetadata inserts or updates a Block metadata entry by simple key.
 func SetBlockMetadata(b *Block, key string, value interface{}) {
-    if b.Metadata == nil {
-        b.Metadata = make(map[string]interface{})
-    }
-    b.Metadata[key] = value
+	if b.Metadata == nil {
+		b.Metadata = make(map[string]interface{})
+	}
+	b.Metadata[key] = value
 }

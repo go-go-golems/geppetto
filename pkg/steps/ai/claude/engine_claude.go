@@ -19,9 +19,9 @@ import (
 // ClaudeEngine implements the Engine interface for Claude (Anthropic) API calls.
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
-	settings     *settings.StepSettings
-	config       *engine.Config
-    toolAdapter  *tools.ClaudeToolAdapter
+	settings    *settings.StepSettings
+	config      *engine.Config
+	toolAdapter *tools.ClaudeToolAdapter
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
@@ -31,11 +31,11 @@ func NewClaudeEngine(settings *settings.StepSettings, options ...engine.Option) 
 		return nil, err
 	}
 
-    return &ClaudeEngine{
-        settings:     settings,
-        config:       config,
-        toolAdapter:  tools.NewClaudeToolAdapter(),
-    }, nil
+	return &ClaudeEngine{
+		settings:    settings,
+		config:      config,
+		toolAdapter: tools.NewClaudeToolAdapter(),
+	}, nil
 }
 
 // Tool configuration now read from Turn.Data; no ConfigureTools method
@@ -46,8 +46,8 @@ func (e *ClaudeEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-    // Build request messages directly from Turn blocks (no conversation dependency)
-    log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
+	// Build request messages directly from Turn blocks (no conversation dependency)
+	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := e.settings.Client
 	if clientSettings == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -75,36 +75,36 @@ func (e *ClaudeEngine) RunInference(
 
 	client := api.NewClient(apiKey, baseURL)
 
-    req, err := MakeMessageRequestFromTurn(e.settings, t)
+	req, err := MakeMessageRequestFromTurn(e.settings, t)
 	if err != nil {
 		return nil, err
 	}
 
-    // Add tools from Turn.Data if present
-    if t != nil && t.Data != nil {
-        if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-            if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-                var claudeTools []api.Tool
-                for _, tool := range reg.ListTools() {
-                    claudeTool := api.Tool{
-                        Name:        tool.Name,
-                        Description: tool.Description,
-                        InputSchema: tool.Parameters,
-                    }
-                    claudeTools = append(claudeTools, claudeTool)
-                    log.Trace().
-                        Str("tool_name", claudeTool.Name).
-                        Str("tool_description", claudeTool.Description).
-                        Interface("tool_input_schema", claudeTool.InputSchema).
-                        Msg("Converted tool to Claude format")
-                }
-                req.Tools = claudeTools
-                log.Debug().
-                    Int("claude_tool_count", len(claudeTools)).
-                    Msg("Tools added to Claude request from Turn.Data")
-            }
-        }
-    }
+	// Add tools from Turn.Data if present
+	if t != nil && t.Data != nil {
+		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
+			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
+				var claudeTools []api.Tool
+				for _, tool := range reg.ListTools() {
+					claudeTool := api.Tool{
+						Name:        tool.Name,
+						Description: tool.Description,
+						InputSchema: tool.Parameters,
+					}
+					claudeTools = append(claudeTools, claudeTool)
+					log.Trace().
+						Str("tool_name", claudeTool.Name).
+						Str("tool_description", claudeTool.Description).
+						Interface("tool_input_schema", claudeTool.InputSchema).
+						Msg("Converted tool to Claude format")
+				}
+				req.Tools = claudeTools
+				log.Debug().
+					Int("claude_tool_count", len(claudeTools)).
+					Msg("Tools added to Claude request from Turn.Data")
+			}
+		}
+	}
 	// Safely handle Temperature and TopP settings with default fallback
 	if req.Temperature == nil {
 		defaultTemp := float64(1.0)
@@ -116,8 +116,8 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	// Setup metadata and event publishing
-    metadata := events.EventMetadata{
-		ID:       conversation.NewNodeID(),
+	metadata := events.EventMetadata{
+		ID: conversation.NewNodeID(),
 		LLMMessageMetadata: conversation.LLMMessageMetadata{
 			Engine:      req.Model,
 			Usage:       nil,
@@ -127,12 +127,14 @@ func (e *ClaudeEngine) RunInference(
 			MaxTokens:   cast.WrapAddr[int](req.MaxTokens),
 		},
 	}
-    if t != nil {
-        metadata.RunID = t.RunID
-        metadata.TurnID = t.ID
-    }
-    if metadata.Extra == nil { metadata.Extra = map[string]interface{}{} }
-    metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+	if t != nil {
+		metadata.RunID = t.RunID
+		metadata.TurnID = t.ID
+	}
+	if metadata.Extra == nil {
+		metadata.Extra = map[string]interface{}{}
+	}
+	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 
 	// Non-streaming mode removed. We always use streaming.
 
@@ -141,12 +143,12 @@ func (e *ClaudeEngine) RunInference(
 	eventCh, err := client.StreamMessage(ctx, req)
 	if err != nil {
 		log.Error().Err(err).Msg("Claude streaming request failed")
-        e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
+		e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
 		return nil, err
 	}
 
 	log.Debug().Msg("Claude creating ContentBlockMerger")
-    completionMerger := NewContentBlockMerger(metadata)
+	completionMerger := NewContentBlockMerger(metadata)
 
 	log.Debug().Msg("Claude starting streaming event loop")
 	eventCount := 0
@@ -155,7 +157,7 @@ func (e *ClaudeEngine) RunInference(
 		case <-ctx.Done():
 			log.Debug().Msg("Claude streaming cancelled by context")
 			// Publish interrupt event with current partial text
-            e.publishEvent(ctx, events.NewInterruptEvent(metadata, completionMerger.Text()))
+			e.publishEvent(ctx, events.NewInterruptEvent(metadata, completionMerger.Text()))
 			return nil, ctx.Err()
 
 		case event, ok := <-eventCh:
@@ -170,7 +172,7 @@ func (e *ClaudeEngine) RunInference(
 			events_, err := completionMerger.Add(event)
 			if err != nil {
 				log.Error().Err(err).Int("event_count", eventCount).Msg("Claude ContentBlockMerger.Add failed")
-                e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
+				e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
 				return nil, err
 			}
 			// Publish intermediate events generated by the ContentBlockMerger
@@ -188,7 +190,7 @@ streamingComplete:
 	if response == nil {
 		err := errors.New("no response")
 		log.Error().Err(err).Msg("Claude ContentBlockMerger returned nil response")
-        e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
+		e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
 		return nil, err
 	}
 
@@ -205,14 +207,14 @@ streamingComplete:
 	// Create blocks from content blocks: text -> llm_text, tool_use -> tool_call
 	for _, c := range response.Content {
 		switch v := c.(type) {
-        case api.TextContent:
-            if s := v.Text; s != "" {
-                turns.AppendBlock(t, turns.NewAssistantTextBlock(s))
-            }
-        case api.ToolUseContent:
-            var args any
-            _ = json.Unmarshal(v.Input, &args)
-            turns.AppendBlock(t, turns.NewToolCallBlock(v.ID, v.Name, args))
+		case api.TextContent:
+			if s := v.Text; s != "" {
+				turns.AppendBlock(t, turns.NewAssistantTextBlock(s))
+			}
+		case api.ToolUseContent:
+			var args any
+			_ = json.Unmarshal(v.Input, &args)
+			turns.AppendBlock(t, turns.NewToolCallBlock(v.ID, v.Name, args))
 		}
 	}
 

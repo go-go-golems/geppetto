@@ -26,9 +26,9 @@ func TestContentBlockMerger(t *testing.T) {
 			events: []api.StreamingEvent{
 				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
 			},
-            expectedEvents: []events.Event{
-                events.NewStartEvent(events.EventMetadata{}),
-            },
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}),
+			},
 		},
 		{
 			name: "Test Add method with MessageStartType event",
@@ -43,9 +43,9 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-            expectedEvents: []events.Event{
-                events.NewStartEvent(events.EventMetadata{}),
-            },
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}),
+			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "claude-2", metadata[ModelMetadataSlug])
 				assert.Equal(t, "msg_123", metadata[MessageIdMetadataSlug])
@@ -66,10 +66,10 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-            expectedEvents: []events.Event{
-                events.NewStartEvent(events.EventMetadata{}),
-                events.NewFinalEvent(events.EventMetadata{}, ""),
-            },
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewFinalEvent(events.EventMetadata{}, ""),
+			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "end_turn", metadata[StopReasonMetadataSlug])
 			},
@@ -110,13 +110,13 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-            expectedEvents: []events.Event{
-                events.NewStartEvent(events.EventMetadata{}),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, "Hello, ", "Hello, "),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, "world!", "Hello, world!"),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Hello, world!"),
-                events.NewFinalEvent(events.EventMetadata{}, "Hello, world!"),
-            },
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "Hello, ", "Hello, "),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "world!", "Hello, world!"),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Hello, world!"),
+				events.NewFinalEvent(events.EventMetadata{}, "Hello, world!"),
+			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 1)
 				assert.Equal(t, api.ContentTypeText, response.Content[0].Type())
@@ -189,18 +189,18 @@ func TestContentBlockMerger(t *testing.T) {
 					},
 				},
 			},
-            expectedEvents: []events.Event{
-                events.NewStartEvent(events.EventMetadata{}),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, "Here's the result: ", "Here's the result: "),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Here's the result: "),
-                events.NewToolCallEvent(events.EventMetadata{}, events.ToolCall{
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "Here's the result: ", "Here's the result: "),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Here's the result: "),
+				events.NewToolCallEvent(events.EventMetadata{}, events.ToolCall{
 					ID:    "tool_1",
 					Name:  "calculator",
 					Input: toolCallResult,
 				}),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, " is the sum.", finalToolCallText),
-                events.NewPartialCompletionEvent(events.EventMetadata{}, "", finalToolCallText),
-                events.NewFinalEvent(events.EventMetadata{}, finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, " is the sum.", finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", finalToolCallText),
+				events.NewFinalEvent(events.EventMetadata{}, finalToolCallText),
 			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 3)
@@ -220,7 +220,7 @@ func TestContentBlockMerger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			metadata := events.EventMetadata{}
-            merger := NewContentBlockMerger(metadata)
+			merger := NewContentBlockMerger(metadata)
 
 			var events_ []events.Event
 			var err error
@@ -259,9 +259,9 @@ func TestContentBlockMerger(t *testing.T) {
 					}
 				}
 
-                if tt.checkMetadata != nil {
-                    // No StepMetadata anymore; expose via merger.metadata.Extra
-                    tt.checkMetadata(t, merger.metadata.Extra)
+				if tt.checkMetadata != nil {
+					// No StepMetadata anymore; expose via merger.metadata.Extra
+					tt.checkMetadata(t, merger.metadata.Extra)
 				}
 
 				if tt.checkResponse != nil {

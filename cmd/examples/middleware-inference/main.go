@@ -13,8 +13,8 @@ import (
 	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
-    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -170,10 +170,10 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 				// Uppercase any newly appended assistant LLMText blocks
 				for i := range result.Blocks {
 					b := &result.Blocks[i]
-                    if b.Kind == turns.BlockKindLLMText {
-                        if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
-                            b.Payload[turns.PayloadKeyText] = strings.ToUpper(txt)
-                        }
+					if b.Kind == turns.BlockKindLLMText {
+						if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
+							b.Payload[turns.PayloadKeyText] = strings.ToUpper(txt)
+						}
 					}
 				}
 				return result, nil
@@ -182,7 +182,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		middlewares = append(middlewares, uppercaseMiddleware)
 	}
 
-    if s.WithTools {
+	if s.WithTools {
 		// Minimal toolbox with a demo tool
 		tb := middleware.NewMockToolbox()
 		tb.RegisterTool("echo", "Echo back the input text", map[string]interface{}{
@@ -193,9 +193,9 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 			}
 			return "", nil
 		})
-        toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
+		toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
 		middlewares = append(middlewares, toolMw)
-        // Attach registry and minimal tool config to Turn at seeding time below
+		// Attach registry and minimal tool config to Turn at seeding time below
 	}
 
 	// Wrap engine with middleware if any are provided
@@ -216,7 +216,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	conversation_ := manager.GetConversation()
 	// Seed a Turn from the initial conversation
-    initialTurn := &turns.Turn{Data: map[string]any{}}
+	initialTurn := &turns.Turn{Data: map[string]any{}}
 	for _, msg := range conversation_ {
 		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
 			kind := turns.BlockKindOther
@@ -225,50 +225,50 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 				kind = turns.BlockKindSystem
 			case conversation.RoleUser:
 				kind = turns.BlockKindUser
-            case conversation.RoleAssistant:
+			case conversation.RoleAssistant:
 				kind = turns.BlockKindLLMText
 			case conversation.RoleTool:
 				kind = turns.BlockKindOther
-            }
-            switch kind {
-            case turns.BlockKindUser:
-                turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-            case turns.BlockKindLLMText:
-                turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
-            case turns.BlockKindSystem:
-                turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
-            default:
-                // Preserve Other/tool role as-is
-                turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-            }
+			}
+			switch kind {
+			case turns.BlockKindUser:
+				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
+			case turns.BlockKindLLMText:
+				turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
+			case turns.BlockKindSystem:
+				turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
+			default:
+				// Preserve Other/tool role as-is
+				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
+			}
 		}
 	}
 
-    // If tools enabled, pass registry and a minimal engine ToolConfig via Turn.Data
-    if s.WithTools {
-        echoSchema := &jsonschema.Schema{Type: "object"}
-        props := jsonschema.NewProperties()
-        props.Set("text", &jsonschema.Schema{Type: "string"})
-        echoSchema.Properties = props
-        echoSchema.Required = []string{"text"}
-        // Build a lightweight registry the engine can read
-        reg := tools.NewInMemoryToolRegistry()
-        _ = reg.RegisterTool("echo", tools.ToolDefinition{
-            Name:        "echo",
-            Description: "Echo back the input text",
-            Parameters:  echoSchema,
-            Tags:        []string{"demo"},
-            Version:     "1.0",
-        })
-        initialTurn.Data[turns.DataKeyToolRegistry] = reg
-        initialTurn.Data[turns.DataKeyToolConfig] = enginepkg.ToolConfig{
-            Enabled:          true,
-            ToolChoice:       enginepkg.ToolChoiceAuto,
-            MaxIterations:    5,
-            ExecutionTimeout: 30 * time.Second,
-            MaxParallelTools: 1,
-        }
-    }
+	// If tools enabled, pass registry and a minimal engine ToolConfig via Turn.Data
+	if s.WithTools {
+		echoSchema := &jsonschema.Schema{Type: "object"}
+		props := jsonschema.NewProperties()
+		props.Set("text", &jsonschema.Schema{Type: "string"})
+		echoSchema.Properties = props
+		echoSchema.Required = []string{"text"}
+		// Build a lightweight registry the engine can read
+		reg := tools.NewInMemoryToolRegistry()
+		_ = reg.RegisterTool("echo", tools.ToolDefinition{
+			Name:        "echo",
+			Description: "Echo back the input text",
+			Parameters:  echoSchema,
+			Tags:        []string{"demo"},
+			Version:     "1.0",
+		})
+		initialTurn.Data[turns.DataKeyToolRegistry] = reg
+		initialTurn.Data[turns.DataKeyToolConfig] = enginepkg.ToolConfig{
+			Enabled:          true,
+			ToolChoice:       enginepkg.ToolChoiceAuto,
+			MaxIterations:    5,
+			ExecutionTimeout: 30 * time.Second,
+			MaxParallelTools: 1,
+		}
+	}
 
 	// Run inference
 	updatedTurn, err := engine.RunInference(ctx, initialTurn)

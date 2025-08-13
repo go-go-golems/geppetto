@@ -17,7 +17,7 @@ func mockNextHandler() HandlerFunc {
 	return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 		hasToolCall := false
 		hasToolUse := false
-        for _, b := range t.Blocks {
+		for _, b := range t.Blocks {
 			if b.Kind == turns.BlockKindToolCall {
 				hasToolCall = true
 			}
@@ -26,14 +26,14 @@ func mockNextHandler() HandlerFunc {
 			}
 		}
 
-        if !hasToolCall {
-            turns.AppendBlock(t, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hello"}))
+		if !hasToolCall {
+			turns.AppendBlock(t, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hello"}))
 			return t, nil
 		}
 
-        if hasToolUse {
-            turns.AppendBlock(t, turns.NewAssistantTextBlock("done"))
-        }
+		if hasToolUse {
+			turns.AppendBlock(t, turns.NewAssistantTextBlock("done"))
+		}
 		return t, nil
 	}
 }
@@ -41,8 +41,8 @@ func mockNextHandler() HandlerFunc {
 func TestExtractPendingToolCalls_Turns(t *testing.T) {
 	turn := &turns.Turn{}
 	// tool_call id a, plus an unrelated tool_use id b
-    turns.AppendBlock(turn, turns.NewToolCallBlock("a", "x", map[string]any{"k": "v"}))
-    turns.AppendBlock(turn, turns.NewToolUseBlock("b", "ok"))
+	turns.AppendBlock(turn, turns.NewToolCallBlock("a", "x", map[string]any{"k": "v"}))
+	turns.AppendBlock(turn, turns.NewToolUseBlock("b", "ok"))
 
 	calls := extractPendingToolCalls(turn)
 	require.Len(t, calls, 1)
@@ -60,7 +60,7 @@ func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 
 	// Build a turn with a tool_call
 	turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hi"}))
+	turns.AppendBlock(turn, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hi"}))
 
 	calls := extractPendingToolCalls(turn)
 	require.Len(t, calls, 1)
@@ -75,10 +75,10 @@ func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 	appendToolResultsBlocks(turn, results)
 	// Expect a tool_use block appended
 	foundToolUse := false
-    for _, b := range turn.Blocks {
+	for _, b := range turn.Blocks {
 		if b.Kind == turns.BlockKindToolUse {
 			foundToolUse = true
-            assert.Equal(t, "call_1", b.Payload[turns.PayloadKeyID])
+			assert.Equal(t, "call_1", b.Payload[turns.PayloadKeyID])
 			break
 		}
 	}
@@ -97,7 +97,7 @@ func TestToolMiddleware_EndToEnd_Turns(t *testing.T) {
 
 	// Seed with a user block
 	turn := &turns.Turn{}
-    turns.AppendBlock(turn, turns.NewUserTextBlock("please echo hello"))
+	turns.AppendBlock(turn, turns.NewUserTextBlock("please echo hello"))
 
 	updated, err := handler(context.Background(), turn)
 	require.NoError(t, err)

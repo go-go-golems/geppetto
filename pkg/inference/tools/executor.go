@@ -64,10 +64,10 @@ func (e *DefaultToolExecutor) ExecuteToolCall(ctx context.Context, toolCall Tool
 			argStr = string(toolCall.Arguments)
 		}
 	}
-    events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
-        events.EventMetadata{},
-        events.ToolCall{ID: toolCall.ID, Name: toolCall.Name, Input: argStr},
-    ))
+	events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+		events.EventMetadata{},
+		events.ToolCall{ID: toolCall.ID, Name: toolCall.Name, Input: argStr},
+	))
 
 	// Execute with timeout and retries
 	result, err := e.executeWithRetry(ctx, toolCall, toolDef)
@@ -94,10 +94,10 @@ func (e *DefaultToolExecutor) ExecuteToolCall(ctx context.Context, toolCall Tool
 			resultStr = fmt.Sprintf("%s | Error: %s", resultStr, result.Error)
 		}
 	}
-    events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
-        events.EventMetadata{},
-        events.ToolResult{ID: toolCall.ID, Result: resultStr},
-    ))
+	events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+		events.EventMetadata{},
+		events.ToolResult{ID: toolCall.ID, Result: resultStr},
+	))
 
 	return result, err
 }

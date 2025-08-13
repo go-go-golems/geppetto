@@ -122,7 +122,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 			if _, err := fmt.Fprintf(w, "\nMetadata:\n%s\n", metaBytes); err != nil {
 				return err
 			}
-            // Step metadata removed
+			// Step metadata removed
 		}
 		return nil
 	case *EventToolCall:
@@ -139,38 +139,38 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 		}
 		_, err = fmt.Fprintf(w, "%s\n", toolResultBytes)
 		return err
-    case *EventLog:
-        level := p.Level
-        if level == "" {
-            level = "info"
-        }
-        if _, err := fmt.Fprintf(w, "\n[%s] %s\n", level, p.Message); err != nil {
-            return err
-        }
-        if len(p.Fields) > 0 {
-            fieldsBytes, err := yaml.Marshal(p.Fields)
-            if err != nil {
-                return err
-            }
-            if _, err := fmt.Fprintf(w, "%s\n", fieldsBytes); err != nil {
-                return err
-            }
-        }
-        return nil
-    case *EventInfo:
-        if _, err := fmt.Fprintf(w, "\n[i] %s\n", p.Message); err != nil {
-            return err
-        }
-        if len(p.Data) > 0 {
-            dataBytes, err := yaml.Marshal(p.Data)
-            if err != nil {
-                return err
-            }
-            if _, err := fmt.Fprintf(w, "%s\n", dataBytes); err != nil {
-                return err
-            }
-        }
-        return nil
+	case *EventLog:
+		level := p.Level
+		if level == "" {
+			level = "info"
+		}
+		if _, err := fmt.Fprintf(w, "\n[%s] %s\n", level, p.Message); err != nil {
+			return err
+		}
+		if len(p.Fields) > 0 {
+			fieldsBytes, err := yaml.Marshal(p.Fields)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "%s\n", fieldsBytes); err != nil {
+				return err
+			}
+		}
+		return nil
+	case *EventInfo:
+		if _, err := fmt.Fprintf(w, "\n[i] %s\n", p.Message); err != nil {
+			return err
+		}
+		if len(p.Data) > 0 {
+			dataBytes, err := yaml.Marshal(p.Data)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "%s\n", dataBytes); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return nil
 }
@@ -193,33 +193,33 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 		output.Content = p.ToolResult
 	case *EventError:
 		output.Content = p.Error_
-    case *EventLog:
-        output.Content = map[string]interface{}{
-            "level":   p.Level,
-            "message": p.Message,
-            "fields":  p.Fields,
-        }
-    case *EventInfo:
-        output.Content = map[string]interface{}{
-            "message": p.Message,
-            "data":    p.Data,
-        }
+	case *EventLog:
+		output.Content = map[string]interface{}{
+			"level":   p.Level,
+			"message": p.Message,
+			"fields":  p.Fields,
+		}
+	case *EventInfo:
+		output.Content = map[string]interface{}{
+			"message": p.Message,
+			"data":    p.Data,
+		}
 	}
 
 	if options.Full {
-        output.Metadata = e.Metadata()
+		output.Metadata = e.Metadata()
 	} else if options.IncludeMetadata {
-        output.Metadata = e.Metadata()
-        importantMeta := extractImportantMetadata(e.Metadata())
+		output.Metadata = e.Metadata()
+		importantMeta := extractImportantMetadata(e.Metadata())
 		if importantMeta != nil {
-            if e.Type() == EventTypeStart {
+			if e.Type() == EventTypeStart {
 				output = structuredOutput{
 					Type:    e.Type(),
 					Content: importantMeta,
 				}
-            } else if e.Type() == EventTypeFinal {
-                // include on content side when final
-                output.Content = map[string]interface{}{"final": output.Content, "meta": importantMeta}
+			} else if e.Type() == EventTypeFinal {
+				// include on content side when final
+				output.Content = map[string]interface{}{"final": output.Content, "meta": importantMeta}
 			}
 		}
 	}
@@ -236,10 +236,10 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 
 	//nolint:exhaustive
-    // provide a compact subset for start-like content
-    {
+	// provide a compact subset for start-like content
+	{
 		result := map[string]interface{}{
-            "engine": metadata.Engine,
+			"engine": metadata.Engine,
 		}
 		if metadata.Temperature != nil {
 			result["temp"] = metadata.Temperature
@@ -255,5 +255,5 @@ func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 		}
 
 		return result
-    }
+	}
 }
