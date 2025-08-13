@@ -65,6 +65,38 @@ func (e *OpenAIEngine) RunInference(
 		return nil, err
 	}
 
+    // Debug: confirm adjacency constraints before sending
+    if req != nil {
+        // Check that any assistant message with tool_calls is followed by tool messages
+        for i, m := range req.Messages {
+            if len(m.ToolCalls) > 0 {
+                missing := []string{}
+                // Collect tool_call ids in this assistant message
+                idset := map[string]bool{}
+                for _, tc := range m.ToolCalls {
+                    if tc.ID != "" { idset[tc.ID] = false }
+                }
+                // Look ahead until next non-tool message
+                for j := i + 1; j < len(req.Messages); j++ {
+                    nm := req.Messages[j]
+                    if nm.Role != "tool" { break }
+                    if nm.ToolCallID != "" {
+                        if _, ok := idset[nm.ToolCallID]; ok {
+                            idset[nm.ToolCallID] = true
+                        }
+                    }
+                }
+                for id, ok := range idset { if !ok { missing = append(missing, id) } }
+                if len(missing) > 0 {
+                    log.Warn().
+                        Int("assistant_idx", i).
+                        Strs("missing_tool_result_ids", missing).
+                        Msg("OpenAI request: assistant tool_calls missing immediate tool results in following messages")
+                }
+            }
+        }
+    }
+
     // Add tools to the request if present on the Turn Data
     if t != nil && t.Data != nil {
         var engineTools []engine.ToolDefinition
