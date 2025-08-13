@@ -92,7 +92,7 @@ func (e *ClaudeEngine) RunInference(
                         InputSchema: tool.Parameters,
                     }
                     claudeTools = append(claudeTools, claudeTool)
-                    log.Debug().
+                    log.Trace().
                         Str("tool_name", claudeTool.Name).
                         Str("tool_description", claudeTool.Description).
                         Interface("tool_input_schema", claudeTool.InputSchema).
@@ -101,7 +101,6 @@ func (e *ClaudeEngine) RunInference(
                 req.Tools = claudeTools
                 log.Debug().
                     Int("claude_tool_count", len(claudeTools)).
-                    Interface("claude_tools", claudeTools).
                     Msg("Tools added to Claude request from Turn.Data")
             }
         }
