@@ -17,6 +17,14 @@ SectionType: Tutorial
 
 The Turn data model provides a provider-agnostic representation of an interaction, decomposed into ordered `Block`s. Engines read and append blocks; middleware inspects blocks to implement behaviors like tool execution. With the latest refactor, a Turn can also carry a per-turn tool registry and tool configuration in `Turn.Data`, allowing dynamic tools at each step.
 
+### Packages
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/turns"
+)
+```
+
 ### Types
 
 - Run: `{ ID, Name, Metadata, Turns []Turn }`

@@ -18,6 +18,18 @@ SectionType: Tutorial
 
 Tools enable models to call functions with structured inputs. In the Turn-based architecture, provider engines emit `tool_call` blocks; middleware (or helpers) execute tools and append `tool_use` blocks. As of this refactor, tools are attached per Turn: the engine reads which tools are available for that Turn from `Turn.Data`. This allows dynamic tools per step without mutating the engine’s state. We follow the Glaze documentation guidelines for clarity and completeness [[memory:5699956]].
 
+### Packages
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+)
+```
+
 ### What you’ll learn
 
 - How to define tools and register them

@@ -38,6 +38,17 @@ SectionType: Tutorial
 
 This tutorial explains the Turn-based inference architecture in Geppetto. Engines operate on a `Turn` (ordered `Block`s plus metadata), handle provider I/O, and publish streaming events via sinks. Tool orchestration can be handled by middleware or helpers. The result is simpler, more testable, and provider-agnostic.
 
+### Packages
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+)
+```
+
 ## Core Architecture Principles
 
 The Geppetto inference architecture is built around a clean separation of concerns:
