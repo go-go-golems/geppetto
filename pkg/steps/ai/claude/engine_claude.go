@@ -119,7 +119,6 @@ func (e *ClaudeEngine) RunInference(
 	metadata := events.EventMetadata{
 		ID: uuid.New(),
 		LLMInferenceData: events.LLMInferenceData{
-			Engine:      req.Model,
 			Model:       req.Model,
 			Usage:       nil,
 			StopReason:  nil,
@@ -128,6 +127,13 @@ func (e *ClaudeEngine) RunInference(
 			MaxTokens:   cast.WrapAddr[int](req.MaxTokens),
 		},
 	}
+	log.Debug().
+		Str("event_id", metadata.ID.String()).
+		Str("model", metadata.Model).
+		Interface("temperature", metadata.Temperature).
+		Interface("top_p", metadata.TopP).
+		Interface("max_tokens", metadata.MaxTokens).
+		Msg("LLMInferenceData initialized (Claude)")
 	if t != nil {
 		metadata.RunID = t.RunID
 		metadata.TurnID = t.ID
@@ -204,6 +210,10 @@ streamingComplete:
 	if response.StopReason != "" {
 		metadata.StopReason = &response.StopReason
 	}
+	log.Debug().
+		Interface("usage", metadata.Usage).
+		Str("stop_reason", response.StopReason).
+		Msg("Claude metadata finalized")
 
 	// Create blocks from content blocks: text -> llm_text, tool_use -> tool_call
 	for _, c := range response.Content {
@@ -220,7 +230,6 @@ streamingComplete:
 	}
 
 	// NOTE: Final event is already published by ContentBlockMerger during event processing
-	// Do not publish duplicate final event here
 	log.Debug().Msg("Claude RunInference completed (streaming)")
 	return t, nil
 }

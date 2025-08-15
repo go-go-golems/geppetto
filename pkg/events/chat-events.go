@@ -312,8 +312,17 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	if em.TurnID != "" {
 		e.Str("turn_id", em.TurnID)
 	}
-	if em.Engine != "" {
-		e.Str("engine", em.Engine)
+	if em.Model != "" {
+		e.Str("model", em.Model)
+	}
+	if em.Temperature != nil {
+		e.Float64("temperature", *em.Temperature)
+	}
+	if em.TopP != nil {
+		e.Float64("top_p", *em.TopP)
+	}
+	if em.MaxTokens != nil {
+		e.Int("max_tokens", *em.MaxTokens)
 	}
 	if em.StopReason != nil && *em.StopReason != "" {
 		e.Str("stop_reason", *em.StopReason)

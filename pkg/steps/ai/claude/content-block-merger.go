@@ -3,6 +3,7 @@ package claude
 import (
 	"encoding/json"
 	"sort"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 
@@ -32,6 +33,7 @@ type ContentBlockMerger struct {
 	error         *api.Error
 	contentBlocks map[int]*api.ContentBlock
 	inputTokens   int // Track input tokens from start event
+	startTime     time.Time
 }
 
 func NewContentBlockMerger(metadata events.EventMetadata) *ContentBlockMerger {
@@ -39,6 +41,7 @@ func NewContentBlockMerger(metadata events.EventMetadata) *ContentBlockMerger {
 		metadata:      metadata,
 		contentBlocks: make(map[int]*api.ContentBlock),
 		inputTokens:   0,
+		startTime:     time.Now(),
 	}
 }
 
@@ -151,7 +154,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		cbm.metadata.Extra[RoleMetadataSlug] = event.Message.Role
 
 		// Update event metadata with common fields
-		cbm.metadata.Engine = event.Message.Model
+		// engine removed; model is sufficient
 		cbm.updateUsage(event)
 
 		return []events.Event{events.NewStartEvent(cbm.metadata)}, nil
@@ -204,6 +207,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			Str("full_text", cbm.response.FullText()).
 			Msg("ContentBlockMerger received message_stop - message complete")
 
+		// set duration on final
+		d := time.Since(cbm.startTime).Milliseconds()
+		dm := int64(d)
+		cbm.metadata.DurationMs = &dm
 		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
@@ -302,6 +309,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("ErrorType event must have an error")
 		}
 		cbm.error = event.Error
+		// set duration on error
+		d := time.Since(cbm.startTime).Milliseconds()
+		dm := int64(d)
+		cbm.metadata.DurationMs = &dm
 		return []events.Event{events.NewErrorEvent(cbm.metadata, errors.New(event.Error.Message))}, nil
 
 	default:

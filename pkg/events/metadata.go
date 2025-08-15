@@ -8,7 +8,6 @@ type Usage struct {
 
 // LLMInferenceData consolidates common LLM inference metadata for UI/storage/aggregation.
 type LLMInferenceData struct {
-	Engine      string   `json:"engine,omitempty" yaml:"engine,omitempty" mapstructure:"engine,omitempty"`
 	Model       string   `json:"model,omitempty" yaml:"model,omitempty" mapstructure:"model,omitempty"`
 	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" mapstructure:"temperature,omitempty"`
 	TopP        *float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" mapstructure:"top_p,omitempty"`

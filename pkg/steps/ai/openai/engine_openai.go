@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	stdlog "log"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -51,6 +52,7 @@ func (e *OpenAIEngine) RunInference(
 ) (*turns.Turn, error) {
 	// Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
+	startTime := time.Now()
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
@@ -179,7 +181,6 @@ func (e *OpenAIEngine) RunInference(
 	metadata := events.EventMetadata{
 		ID: uuid.New(),
 		LLMInferenceData: events.LLMInferenceData{
-			Engine:      req.Model,
 			Model:       req.Model,
 			Usage:       nil,
 			StopReason:  nil,
@@ -188,6 +189,13 @@ func (e *OpenAIEngine) RunInference(
 			MaxTokens:   e.settings.Chat.MaxResponseTokens,
 		},
 	}
+	log.Debug().
+		Str("event_id", metadata.ID.String()).
+		Str("model", metadata.Model).
+		Interface("temperature", metadata.Temperature).
+		Interface("top_p", metadata.TopP).
+		Interface("max_tokens", metadata.MaxTokens).
+		Msg("LLMInferenceData initialized")
 	// Propagate Turn correlation identifiers when present
 	if t != nil {
 		metadata.RunID = t.RunID
@@ -209,6 +217,10 @@ func (e *OpenAIEngine) RunInference(
 	stream, err := client.CreateChatCompletionStream(ctx, *req)
 	if err != nil {
 		log.Error().Err(err).Msg("OpenAI streaming request failed")
+		// set duration up to error
+		d := time.Since(startTime).Milliseconds()
+		dm := int64(d)
+		metadata.DurationMs = &dm
 		e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
 		return nil, err
 	}
@@ -231,6 +243,9 @@ func (e *OpenAIEngine) RunInference(
 		case <-ctx.Done():
 			log.Debug().Msg("OpenAI streaming cancelled by context")
 			// Publish interrupt event with current partial text
+			d := time.Since(startTime).Milliseconds()
+			dm := int64(d)
+			metadata.DurationMs = &dm
 			interruptEvent := events.NewInterruptEvent(metadata, message)
 			e.publishEvent(ctx, interruptEvent)
 			return nil, ctx.Err()
@@ -243,6 +258,9 @@ func (e *OpenAIEngine) RunInference(
 			}
 			if err != nil {
 				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
+				d := time.Since(startTime).Milliseconds()
+				dm := int64(d)
+				metadata.DurationMs = &dm
 				errEvent := events.NewErrorEvent(metadata, err)
 				e.publishEvent(ctx, errEvent)
 				return nil, err
@@ -284,9 +302,11 @@ func (e *OpenAIEngine) RunInference(
 				if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
 					usageInputTokens, _ = cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
 					usageOutputTokens, _ = cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
+					log.Debug().Int("input_tokens", usageInputTokens).Int("output_tokens", usageOutputTokens).Msg("OpenAI usage updated from chunk")
 				}
 				if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
 					stopReason = &finishReason
+					log.Debug().Str("stop_reason", finishReason).Msg("OpenAI stop reason observed")
 				}
 			}
 
@@ -309,8 +329,21 @@ streamingComplete:
 		metadata.Usage = &events.Usage{InputTokens: usageInputTokens, OutputTokens: usageOutputTokens}
 	}
 	metadata.StopReason = stopReason
+	// set duration for successful completion
+	d := time.Since(startTime).Milliseconds()
+	dm := int64(d)
+	metadata.DurationMs = &dm
 
-	// Provider metadata carried in events only for now
+	log.Debug().
+		Int("input_tokens", usageInputTokens).
+		Int("output_tokens", usageOutputTokens).
+		Str("stop_reason", func() string {
+			if stopReason != nil {
+				return *stopReason
+			}
+			return ""
+		}()).
+		Msg("OpenAI metadata finalized")
 
 	mergedToolCalls := toolCallMerger.GetToolCalls()
 	log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
@@ -328,14 +361,9 @@ streamingComplete:
 	}
 
 	// Append messages in order that keeps last message as tool-use when present
-	// Convert conversation delta back to Turn blocks and append
-	// First, reconstruct a temporary conversation with new messages based on streamed results
-	// Append assistant text and tool calls as blocks on the Turn
 	if len(message) > 0 {
-		// simple assistant message
 		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
 	}
-	// append tool calls
 	for _, tc := range mergedToolCalls {
 		var args any
 		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
@@ -343,7 +371,20 @@ streamingComplete:
 	}
 
 	// Publish final event for streaming
-	log.Debug().Str("event_id", metadata.ID.String()).Int("final_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI publishing final event (streaming)")
+	log.Debug().
+		Str("event_id", metadata.ID.String()).
+		Str("model", metadata.Model).
+		Interface("temperature", metadata.Temperature).
+		Interface("top_p", metadata.TopP).
+		Interface("max_tokens", metadata.MaxTokens).
+		Interface("usage", metadata.Usage).
+		Str("stop_reason", func() string {
+			if stopReason != nil {
+				return *stopReason
+			}
+			return ""
+		}()).
+		Msg("OpenAI publishing final event (streaming)")
 	finalEvent := events.NewFinalEvent(metadata, message)
 	e.publishEvent(ctx, finalEvent)
 
