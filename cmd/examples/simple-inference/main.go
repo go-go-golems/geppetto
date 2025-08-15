@@ -6,8 +6,6 @@ import (
 	"io"
 
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -136,44 +134,11 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		engine = middleware.NewEngineWithMiddleware(engine, loggingMiddleware)
 	}
 
-	b := builder.NewManagerBuilder().
+	// Seed initial Turn with Blocks (no conversation manager)
+	initialTurn := turns.NewTurnBuilder().
 		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner. ").
-		WithPrompt(s.Prompt)
-
-	manager, err := b.Build()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to build conversation manager")
-		return err
-	}
-
-	conversation_ := manager.GetConversation()
-	// Initialize a Turn from the initial conversation (system + user prompt)
-	initialTurn := &turns.Turn{}
-	for _, msg := range conversation_ {
-		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-			kind := turns.BlockKindOther
-			switch chatMsg.Role {
-			case conversation.RoleSystem:
-				kind = turns.BlockKindSystem
-			case conversation.RoleUser:
-				kind = turns.BlockKindUser
-			case conversation.RoleAssistant:
-				kind = turns.BlockKindLLMText
-			case conversation.RoleTool:
-				kind = turns.BlockKindOther
-			}
-			switch kind {
-			case turns.BlockKindUser:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindLLMText:
-				turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
-			case turns.BlockKindSystem:
-				turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
-			default:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			}
-		}
-	}
+		WithUserPrompt(s.Prompt).
+		Build()
 
 	updatedTurn, err := engine.RunInference(ctx, initialTurn)
 	if err != nil {
@@ -181,19 +146,12 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return fmt.Errorf("inference failed: %w", err)
 	}
 
-	// Convert updated Turn back to conversation for display
-	messages := turns.BuildConversationFromTurn(updatedTurn)
-
-	fmt.Fprintln(w, "\n=== Final Conversation ===")
-	for _, msg := range messages {
-		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-			fmt.Fprintf(w, "%s: %s\n", chatMsg.Role, chatMsg.Text)
-		} else {
-			fmt.Fprintf(w, "%s: %s\n", msg.Content.ContentType(), msg.Content.String())
-		}
+	fmt.Fprintln(w, "\n=== Final Turn ===")
+	if updatedTurn != nil {
+		turns.FprintTurn(w, updatedTurn)
 	}
 
-	log.Info().Int("total_messages", len(messages)).Msg("Simple inference command completed successfully")
+	log.Info().Int("total_blocks", len(updatedTurn.Blocks)).Msg("Simple inference command completed successfully")
 	return nil
 }
 
