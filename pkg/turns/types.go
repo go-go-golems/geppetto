@@ -1,7 +1,5 @@
 package turns
 
-import ()
-
 // BlockKind represents the kind of a block within a Turn.
 type BlockKind int
 

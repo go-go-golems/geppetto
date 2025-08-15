@@ -175,7 +175,7 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	}
 
 	// Render final conversation from Turn
-	msgs := turns.BuildConversationFromTurn(updatedTurn)
+	msgs := turns.BuildConversationFromTurn(updatedTurn) //nolint:staticcheck // deprecated function used for example compatibility
 	fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(msgs))
 	for i, msg := range msgs {
 		fmt.Fprintf(w, "Message %d: %s\n", i, msg.Content.String())
