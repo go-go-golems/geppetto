@@ -10,8 +10,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/google/uuid"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -177,8 +177,8 @@ func (e *OpenAIEngine) RunInference(
 
 	// Setup metadata and event publishing
 	metadata := events.EventMetadata{
-		ID: conversation.NewNodeID(),
-		LLMMessageMetadata: conversation.LLMMessageMetadata{
+		ID: uuid.New(),
+		LLMMessageMetadata: events.LLMMessageMetadata{
 			Engine:      req.Model,
 			Usage:       nil,
 			StopReason:  nil,
@@ -305,7 +305,7 @@ streamingComplete:
 
 	// Update event metadata with usage information
 	if usageInputTokens > 0 || usageOutputTokens > 0 {
-		metadata.Usage = &conversation.Usage{InputTokens: usageInputTokens, OutputTokens: usageOutputTokens}
+		metadata.Usage = &events.Usage{InputTokens: usageInputTokens, OutputTokens: usageOutputTokens}
 	}
 	metadata.StopReason = stopReason
 

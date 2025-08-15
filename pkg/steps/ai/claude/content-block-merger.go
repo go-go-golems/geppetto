@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -96,20 +95,20 @@ const RoleMetadataSlug = "claude_role"
 func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 	cbm.metadata.Usage = nil
 	if event.Usage != nil {
-		cbm.metadata.Usage = &conversation.Usage{
+		cbm.metadata.Usage = &events.Usage{
 			InputTokens:  event.Usage.InputTokens,
 			OutputTokens: event.Usage.OutputTokens,
 		}
 	}
 
 	if event.Message != nil {
-		cbm.metadata.Usage = &conversation.Usage{
+		cbm.metadata.Usage = &events.Usage{
 			InputTokens:  event.Message.Usage.InputTokens,
 			OutputTokens: event.Message.Usage.OutputTokens,
 		}
 	}
 	if event.Usage != nil {
-		cbm.metadata.Usage = &conversation.Usage{
+		cbm.metadata.Usage = &events.Usage{
 			InputTokens:  event.Usage.InputTokens,
 			OutputTokens: event.Usage.OutputTokens,
 		}
