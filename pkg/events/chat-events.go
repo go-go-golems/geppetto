@@ -295,7 +295,7 @@ const MetadataToolCallsSlug = "tool-calls"
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
-	LLMMessageMetadata
+	LLMInferenceData
 	ID uuid.UUID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
 	// Correlation identifiers
 	RunID  string `json:"run_id,omitempty" yaml:"run_id,omitempty" mapstructure:"run_id"`
@@ -321,6 +321,9 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	if em.Usage != nil {
 		e.Int("input_tokens", em.Usage.InputTokens)
 		e.Int("output_tokens", em.Usage.OutputTokens)
+	}
+	if em.DurationMs != nil {
+		e.Int64("duration_ms", *em.DurationMs)
 	}
 	if len(em.Extra) > 0 {
 		e.Dict("extra", zerolog.Dict().Fields(em.Extra))

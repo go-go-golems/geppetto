@@ -118,8 +118,9 @@ func (e *ClaudeEngine) RunInference(
 	// Setup metadata and event publishing
 	metadata := events.EventMetadata{
 		ID: uuid.New(),
-		LLMMessageMetadata: events.LLMMessageMetadata{
+		LLMInferenceData: events.LLMInferenceData{
 			Engine:      req.Model,
+			Model:       req.Model,
 			Usage:       nil,
 			StopReason:  nil,
 			Temperature: req.Temperature,

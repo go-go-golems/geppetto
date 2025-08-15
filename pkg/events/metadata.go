@@ -6,11 +6,14 @@ type Usage struct {
 	OutputTokens int `json:"output_tokens" yaml:"output_tokens" mapstructure:"output_tokens"`
 }
 
-type LLMMessageMetadata struct {
+// LLMInferenceData consolidates common LLM inference metadata for UI/storage/aggregation.
+type LLMInferenceData struct {
 	Engine      string   `json:"engine,omitempty" yaml:"engine,omitempty" mapstructure:"engine,omitempty"`
+	Model       string   `json:"model,omitempty" yaml:"model,omitempty" mapstructure:"model,omitempty"`
 	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" mapstructure:"temperature,omitempty"`
 	TopP        *float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" mapstructure:"top_p,omitempty"`
 	MaxTokens   *int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty" mapstructure:"max_tokens,omitempty"`
 	StopReason  *string  `json:"stop_reason,omitempty" yaml:"stop_reason,omitempty" mapstructure:"stop_reason,omitempty"`
 	Usage       *Usage   `json:"usage,omitempty" yaml:"usage,omitempty" mapstructure:"usage,omitempty"`
+	DurationMs  *int64   `json:"duration_ms,omitempty" yaml:"duration_ms,omitempty" mapstructure:"duration_ms,omitempty"`
 }
