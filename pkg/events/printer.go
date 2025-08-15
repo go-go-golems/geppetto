@@ -239,19 +239,17 @@ func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 	// provide a compact subset for start-like content
 	{
 		result := map[string]interface{}{
-			"engine": metadata.Engine,
+			"model": metadata.Model,
 		}
-		if metadata.Temperature != nil {
-			result["temp"] = metadata.Temperature
-		}
-		if metadata.MaxTokens != nil {
-			result["max_tokens"] = metadata.MaxTokens
-		}
-		if metadata.TopP != nil {
-			result["top_p"] = metadata.TopP
-		}
-		if metadata.Usage != nil && metadata.Usage.InputTokens != 0 {
+		if metadata.Usage != nil {
 			result["input_tokens"] = metadata.Usage.InputTokens
+			result["output_tokens"] = metadata.Usage.OutputTokens
+		}
+		if metadata.StopReason != nil {
+			result["stop_reason"] = *metadata.StopReason
+		}
+		if metadata.DurationMs != nil {
+			result["duration_ms"] = *metadata.DurationMs
 		}
 
 		return result
