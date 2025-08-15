@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -65,7 +64,7 @@ func MakeMessageRequestFromTurn(
 				// If preserved Claude content is present, pass through directly
 				if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
 					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
-						msg := api.Message{Role: string(conversation.RoleUser), Content: arr}
+						msg := api.Message{Role: RoleUser, Content: arr}
 						if toolPhaseActive {
 							delayedMsgs = append(delayedMsgs, msg)
 						} else {
@@ -105,7 +104,7 @@ func MakeMessageRequestFromTurn(
 					}
 				}
 				if len(parts) > 0 {
-					msg := api.Message{Role: string(conversation.RoleUser), Content: parts}
+					msg := api.Message{Role: RoleUser, Content: parts}
 					if toolPhaseActive {
 						delayedMsgs = append(delayedMsgs, msg)
 					} else {
@@ -116,7 +115,7 @@ func MakeMessageRequestFromTurn(
 				// Allow preserved Claude content on assistant blocks too
 				if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
 					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
-						msg := api.Message{Role: string(conversation.RoleAssistant), Content: arr}
+						msg := api.Message{Role: RoleAssistant, Content: arr}
 						if toolPhaseActive {
 							delayedMsgs = append(delayedMsgs, msg)
 						} else {
@@ -134,7 +133,7 @@ func MakeMessageRequestFromTurn(
 					}
 				}
 				if text != "" {
-					msg := api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewTextContent(text)}}
+					msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewTextContent(text)}}
 					if toolPhaseActive {
 						delayedMsgs = append(delayedMsgs, msg)
 					} else {
@@ -163,7 +162,7 @@ func MakeMessageRequestFromTurn(
 						}
 					}
 				}
-				msgs = append(msgs, api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewToolUseContent(toolID, name, argsStr)}})
+				msgs = append(msgs, api.Message{Role: RoleAssistant, Content: []api.Content{api.NewToolUseContent(toolID, name, argsStr)}})
 				toolPhaseActive = true
 			case turns.BlockKindToolUse:
 				toolID := ""
@@ -181,14 +180,14 @@ func MakeMessageRequestFromTurn(
 						}
 					}
 				}
-				msgs = append(msgs, api.Message{Role: string(conversation.RoleUser), Content: []api.Content{api.NewToolResultContent(toolID, result)}})
+				msgs = append(msgs, api.Message{Role: RoleUser, Content: []api.Content{api.NewToolResultContent(toolID, result)}})
 				// After emitting tool_result, flush any delayed messages and end phase
 				flushDelayed()
 				toolPhaseActive = false
 			case turns.BlockKindOther:
 				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
 					if s, ok2 := v.(string); ok2 && s != "" {
-						msg := api.Message{Role: string(conversation.RoleAssistant), Content: []api.Content{api.NewTextContent(s)}}
+						msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewTextContent(s)}}
 						if toolPhaseActive {
 							delayedMsgs = append(delayedMsgs, msg)
 						} else {
