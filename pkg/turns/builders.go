@@ -30,5 +30,3 @@ func (tb *TurnBuilder) Build() *Turn {
 	}
 	return t
 }
-
-

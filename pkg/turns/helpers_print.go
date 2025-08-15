@@ -36,10 +36,8 @@ func FprintTurn(w io.Writer, t *Turn) {
 			fmt.Fprintf(w, "tool_call: %s\n", name)
 		case BlockKindToolUse:
 			fmt.Fprintln(w, "tool_use")
-		default:
+		case BlockKindOther:
 			fmt.Fprintln(w, "other block kind")
 		}
 	}
 }
-
-

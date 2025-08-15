@@ -60,7 +60,11 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
 				return
 			}
 			db = opened
-			defer opened.Close()
+			defer func() {
+				if err := opened.Close(); err != nil {
+					log.Debug().Err(err).Msg("sqlitetool: failed to close DB")
+				}
+			}()
 		} else {
 			return
 		}
@@ -73,6 +77,7 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
 		prompts, err := LoadPrompts(ctx, db)
 		if err != nil {
 			// benign; no prompts table
+			_ = err // explicitly ignore error
 		}
 
 		var b strings.Builder
@@ -151,7 +156,11 @@ func NewMiddleware(cfg Config) rootmw.Middleware {
 							if err != nil {
 								return "", err
 							}
-							defer opened.Close()
+							defer func() {
+								if err := opened.Close(); err != nil {
+									log.Debug().Err(err).Msg("sqlitetool: failed to close DB")
+								}
+							}()
 							execDB = opened
 						}
 						// Limits
@@ -198,7 +207,11 @@ func DumpSchemaSQL(ctx context.Context, db DBLike) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Debug().Err(err).Msg("sqlitetool: failed to close rows")
+		}
+	}()
 	var parts []string
 	for rows.Next() {
 		var sqlStr string
@@ -222,7 +235,11 @@ func LoadPrompts(ctx context.Context, db DBLike) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Debug().Err(err).Msg("sqlitetool: failed to close rows")
+		}
+	}()
 	var prompts []string
 	for rows.Next() {
 		var p string
@@ -232,41 +249,6 @@ func LoadPrompts(ctx context.Context, db DBLike) ([]string, error) {
 		prompts = append(prompts, p)
 	}
 	return prompts, nil
-}
-
-type sqlCall struct{ ID, SQL string }
-
-func extractPendingSQLQueries(t *turns.Turn) []sqlCall {
-	used := map[string]bool{}
-	for _, b := range t.Blocks {
-		if b.Kind == turns.BlockKindToolUse {
-			if id, _ := b.Payload[turns.PayloadKeyID].(string); id != "" {
-				used[id] = true
-			}
-		}
-	}
-	var ret []sqlCall
-	for _, b := range t.Blocks {
-		if b.Kind != turns.BlockKindToolCall {
-			continue
-		}
-		id, _ := b.Payload[turns.PayloadKeyID].(string)
-		if id == "" || used[id] {
-			continue
-		}
-		name, _ := b.Payload[turns.PayloadKeyName].(string)
-		if name != "sql_query" {
-			continue
-		}
-		sqlStr := ""
-		if args, ok := b.Payload[turns.PayloadKeyArgs].(map[string]any); ok {
-			if s, ok := args["sql"].(string); ok {
-				sqlStr = s
-			}
-		}
-		ret = append(ret, sqlCall{ID: id, SQL: sqlStr})
-	}
-	return ret
 }
 
 func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows int, maxLines int, maxBytes int, timeout time.Duration) string {
@@ -280,7 +262,11 @@ func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows in
 	if err != nil {
 		return fmt.Sprintf("error: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Debug().Err(err).Msg("sqlitetool: failed to close rows")
+		}
+	}()
 	cols, err := rows.Columns()
 	if err != nil {
 		return fmt.Sprintf("error: %v", err)
@@ -317,10 +303,7 @@ func runQueryWithLimit(ctx context.Context, db DBLike, sqlStr string, maxRows in
 		}
 	}
 	result := strings.Join(out, "\n")
-	truncated := false
-	if (maxLines > 0 && len(out) >= maxLines) || (maxBytes > 0 && len(result) >= maxBytes) {
-		truncated = true
-	}
+	truncated := (maxLines > 0 && len(out) >= maxLines) || (maxBytes > 0 && len(result) >= maxBytes)
 	if truncated {
 		// Compute approximate KB cutoff message
 		kb := (len(result) + 1023) / 1024

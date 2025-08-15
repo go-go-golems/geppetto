@@ -237,7 +237,11 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 				turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
 			case turns.BlockKindSystem:
 				turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
-			default:
+			case turns.BlockKindToolCall:
+				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
+			case turns.BlockKindToolUse:
+				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
+			case turns.BlockKindOther:
 				// Preserve Other/tool role as-is
 				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
 			}
@@ -278,7 +282,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	}
 
 	// Build conversation from updated Turn for display
-	messages := turns.BuildConversationFromTurn(updatedTurn)
+	messages := turns.BuildConversationFromTurn(updatedTurn) //nolint:staticcheck // deprecated function used for example compatibility
 
 	fmt.Fprintln(w, "\n=== Final Conversation ===")
 	for _, msg := range messages {

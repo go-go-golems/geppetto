@@ -146,13 +146,19 @@ func MakeCompletionRequestFromTurn(
 					log.Debug().Str("role", b.Role).Msg("OpenAI request: skipping empty text block")
 					continue
 				}
-				role := "assistant"
+				var role string
 				switch b.Kind {
 				case turns.BlockKindUser:
 					role = "user"
 				case turns.BlockKindSystem:
 					role = "system"
-				default:
+				case turns.BlockKindLLMText:
+					role = "assistant"
+				case turns.BlockKindToolCall:
+					role = "assistant"
+				case turns.BlockKindToolUse:
+					role = "tool"
+				case turns.BlockKindOther:
 					role = "assistant"
 				}
 				// Check for images array in payload to construct MultiContent

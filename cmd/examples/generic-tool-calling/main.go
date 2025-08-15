@@ -437,18 +437,27 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	if initialTurn != nil {
 		for _, b := range initialTurn.Blocks {
 			switch b.Kind {
-			case turns.BlockKindSystem, turns.BlockKindUser, turns.BlockKindLLMText:
+			case turns.BlockKindSystem:
 				if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
 					role := b.Role
 					if role == "" {
-						switch b.Kind {
-						case turns.BlockKindSystem:
-							role = "system"
-						case turns.BlockKindUser:
-							role = "user"
-						default:
-							role = "assistant"
-						}
+						role = "system"
+					}
+					fmt.Fprintf(w, "%s: %s\n", role, txt)
+				}
+			case turns.BlockKindUser:
+				if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
+					role := b.Role
+					if role == "" {
+						role = "user"
+					}
+					fmt.Fprintf(w, "%s: %s\n", role, txt)
+				}
+			case turns.BlockKindLLMText:
+				if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok {
+					role := b.Role
+					if role == "" {
+						role = "assistant"
 					}
 					fmt.Fprintf(w, "%s: %s\n", role, txt)
 				}
@@ -460,6 +469,8 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 				id, _ := b.Payload[turns.PayloadKeyID].(string)
 				res := b.Payload[turns.PayloadKeyResult]
 				fmt.Fprintf(w, "Tool Result (%s): %v\n", id, res)
+			case turns.BlockKindOther:
+				// Handle other block kinds
 			}
 		}
 		log.Info().Int("total_blocks", len(initialTurn.Blocks)).Msg("Generic tool calling example completed successfully")

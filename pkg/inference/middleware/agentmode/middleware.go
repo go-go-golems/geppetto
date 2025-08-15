@@ -217,7 +217,7 @@ func BuildYamlModeSwitchInstructions(current string, available []string) string 
 }
 
 // DetectYamlModeSwitch scans assistant LLM text blocks for a YAML code fence containing mode_switch.
-func DetectYamlModeSwitch(t *turns.Turn) (newMode string, analysis string) {
+func DetectYamlModeSwitch(t *turns.Turn) (string, string) {
 	if t == nil {
 		return "", ""
 	}
