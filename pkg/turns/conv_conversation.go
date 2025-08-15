@@ -6,8 +6,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 )
 
-// BuildConversationFromTurn converts a Turn's blocks into a conversation.Conversation
-// according to the mapping rules in the design document.
+// Deprecated: Use Turn/Block APIs directly. This helper converts a Turn's blocks
+// into a conversation.Conversation and is kept only for transitional bridging.
+// Prefer operating on `turns.Turn` and `turns.Block` in new code.
 func BuildConversationFromTurn(t *Turn) conversation.Conversation {
 	if t == nil {
 		return nil
@@ -57,8 +58,9 @@ func BuildConversationFromTurn(t *Turn) conversation.Conversation {
 	return msgs
 }
 
-// BlocksFromConversationDelta converts the newly appended messages in updated
-// (starting at startIdx) into Blocks to be appended to the Turn.
+// Deprecated: Use Turn/Block APIs directly. This helper converts newly appended
+// conversation messages into `turns.Block`s for bridging only.
+// Prefer using provider engines to append blocks directly to a Turn.
 func BlocksFromConversationDelta(updated conversation.Conversation, startIdx int) []Block {
 	if updated == nil || startIdx >= len(updated) {
 		return nil

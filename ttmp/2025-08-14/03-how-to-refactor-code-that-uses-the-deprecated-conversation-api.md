@@ -32,7 +32,7 @@ metadata := events.EventMetadata{ ID: conversation.NewNodeID() }
 // after
 metadata := events.EventMetadata{ ID: uuid.New() }
 ```
-Files updated in this repo: `pkg/steps/ai/openai/engine_openai.go`, `pkg/steps/ai/claude/engine_claude.go`.
+Files updated in this repo: `pkg/steps/ai/openai/engine_openai.go`, `pkg/steps/ai/claude/engine_claude.go`, `pkg/steps/ai/openai/helpers.go`, `pkg/steps/ai/claude/helpers.go`, `pkg/steps/ai/claude/api/messages.go`.
 
 2) Stop constructing `conversation.Conversation` and seed a Turn instead
 - Use the builder in `pkg/turns`:
@@ -49,6 +49,9 @@ seed := turns.NewTurnBuilder().
 ```go
 // conversation := ...
 // engine.RunInference(context, conversation)
+```
+
+```result
 ```
 - New:
 ```go
@@ -134,6 +137,12 @@ turns.AppendBlock(t, turns.NewToolUseBlock(id, result))
 
 - “How do I print a result without a conversation?”
   - Use `turns.FprintTurn(w, turn)` for a chat-like view or structured event printers.
+
+- “Claude/OpenAI role strings without `conversation` types?”
+  - Use string literals: `"system"`, `"user"`, `"assistant"`, `"tool"`. For example, `claude/helpers.go` uses `"assistant"`/`"user"` directly.
+
+- “Leftover conversation utilities in provider API packages?”
+  - In `claude/api/messages.go`, the `ToMessage` helper (which returned a `conversation.Message`) is deprecated and the `conversation` import removed. Prefer Turn/Block events and builders.
 
 ### End-to-end example references
 
