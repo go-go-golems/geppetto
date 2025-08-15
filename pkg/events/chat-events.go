@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -295,8 +295,8 @@ const MetadataToolCallsSlug = "tool-calls"
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
-	conversation.LLMMessageMetadata
-	ID conversation.NodeID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
+	LLMMessageMetadata
+	ID uuid.UUID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
 	// Correlation identifiers
 	RunID  string `json:"run_id,omitempty" yaml:"run_id,omitempty" mapstructure:"run_id"`
 	TurnID string `json:"turn_id,omitempty" yaml:"turn_id,omitempty" mapstructure:"turn_id"`

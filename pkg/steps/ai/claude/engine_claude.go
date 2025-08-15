@@ -3,7 +3,6 @@ package claude
 import (
 	"context"
 	"encoding/json"
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -11,6 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/google/uuid"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -117,8 +117,8 @@ func (e *ClaudeEngine) RunInference(
 
 	// Setup metadata and event publishing
 	metadata := events.EventMetadata{
-		ID: conversation.NewNodeID(),
-		LLMMessageMetadata: conversation.LLMMessageMetadata{
+		ID: uuid.New(),
+		LLMMessageMetadata: events.LLMMessageMetadata{
 			Engine:      req.Model,
 			Usage:       nil,
 			StopReason:  nil,
@@ -196,7 +196,7 @@ streamingComplete:
 
 	log.Debug().Str("response_text", response.FullText()).Msg("Claude creating final message")
 	// Update metadata with final response data
-	metadata.Usage = &conversation.Usage{
+	metadata.Usage = &events.Usage{
 		InputTokens:  response.Usage.InputTokens,
 		OutputTokens: response.Usage.OutputTokens,
 	}

@@ -9,8 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"io"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
@@ -57,6 +55,8 @@ type SimpleStreamingInferenceSettings struct {
 	FullOutput       bool   `glazed.parameter:"full-output"`
 	Verbose          bool   `glazed.parameter:"verbose"`
 }
+
+// TurnBuilder moved to turns package
 
 func NewSimpleStreamingInferenceCommand() (*SimpleStreamingInferenceCommand, error) {
 	geppettoLayers, err := geppettolayers.CreateGeppettoLayers()
@@ -188,17 +188,11 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		engine = middleware.NewEngineWithMiddleware(engine, middleware.NewTurnLoggingMiddleware(log.Logger))
 	}
 
-	b := builder.NewManagerBuilder().
+	// Build initial Turn with Blocks (no conversation manager)
+	seed := turns.NewTurnBuilder().
 		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner. ").
-		WithPrompt(s.Prompt)
-
-	manager, err := b.Build()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to build conversation manager")
-		return err
-	}
-
-	conversation_ := manager.GetConversation()
+		WithUserPrompt(s.Prompt).
+		Build()
 
 	// 5. Start router and run inference in parallel
 	eg := errgroup.Group{}
@@ -210,29 +204,17 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		return router.Run(ctx)
 	})
 
+	var finalTurn *turns.Turn
 	eg.Go(func() error {
 		defer cancel()
 		<-router.Running()
 
-		// Seed a Turn from the conversation and run inference
-		seed := &turns.Turn{}
-		turns.AppendBlocks(seed, turns.BlocksFromConversationDelta(conversation_, 0)...)
 		updatedTurn, err := engine.RunInference(ctx, seed)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
 		}
-
-		// Convert back to conversation and append only new messages
-		updatedConversation := turns.BuildConversationFromTurn(updatedTurn)
-		newMessages := updatedConversation[len(conversation_):]
-		for _, msg := range newMessages {
-			if err := manager.AppendMessages(msg); err != nil {
-				log.Error().Err(err).Msg("Failed to append message to conversation")
-				return fmt.Errorf("failed to append message: %w", err)
-			}
-		}
-
+		finalTurn = updatedTurn
 		return nil
 	})
 
@@ -241,18 +223,12 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		return err
 	}
 
-	messages := manager.GetConversation()
-
-	fmt.Fprintln(w, "\n=== Final Conversation ===")
-	for _, msg := range messages {
-		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-			fmt.Fprintf(w, "%s: %s\n", chatMsg.Role, chatMsg.Text)
-		} else {
-			fmt.Fprintf(w, "%s: %s\n", msg.Content.ContentType(), msg.Content.String())
-		}
+	fmt.Fprintln(w, "\n=== Final Turn ===")
+	if finalTurn != nil {
+		turns.FprintTurn(w, finalTurn)
 	}
 
-	log.Info().Int("total_messages", len(messages)).Msg("Simple streaming inference command completed successfully")
+	log.Info().Msg("Simple streaming inference command completed successfully")
 	return nil
 }
 
