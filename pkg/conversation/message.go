@@ -3,7 +3,6 @@ package conversation
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/events"
 	"io"
 	"os"
 	"path/filepath"
@@ -284,9 +283,8 @@ type Message struct {
 	Time       time.Time `json:"time"`
 	LastUpdate time.Time `json:"lastUpdate"`
 
-	Content            MessageContent             `json:"content"`
-	Metadata           map[string]interface{}     `json:"metadata"` // Flexible metadata field
-	LLMMessageMetadata *events.LLMMessageMetadata `json:"llm_message_metadata,omitempty" yaml:"llm_message_metadata,omitempty" mapstructure:"llm_message_metadata,omitempty"`
+	Content  MessageContent         `json:"content"`
+	Metadata map[string]interface{} `json:"metadata"` // Flexible metadata field
 
 	// TODO(manuel, 2024-04-07) Add Parent and Sibling lists
 	// omit in json
@@ -298,12 +296,6 @@ type MessageOption func(*Message)
 func WithMetadata(metadata map[string]interface{}) MessageOption {
 	return func(message *Message) {
 		message.Metadata = metadata
-	}
-}
-
-func WithLLMMessageMetadata(metadata *events.LLMMessageMetadata) MessageOption {
-	return func(message *Message) {
-		message.LLMMessageMetadata = metadata
 	}
 }
 

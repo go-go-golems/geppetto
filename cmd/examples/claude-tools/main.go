@@ -174,12 +174,15 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return errors.Wrap(err, "inference with tools failed")
 	}
 
-	// Render final conversation from Turn
-	msgs := turns.BuildConversationFromTurn(updatedTurn) //nolint:staticcheck // deprecated function used for example compatibility
-	fmt.Fprintf(w, "\nWorkflow completed. Result has %d messages\n", len(msgs))
-	for i, msg := range msgs {
-		fmt.Fprintf(w, "Message %d: %s\n", i, msg.Content.String())
-	}
+	// Render final result with the PrettyPrinter
+	fmt.Fprintln(w, "\nWorkflow completed. Blocks:")
+	turns.FprintfTurn(w, updatedTurn,
+		turns.WithIDs(false),
+		turns.WithRoles(true),
+		turns.WithToolDetail(true),
+		turns.WithIndent(0),
+		turns.WithMaxTextLines(0),
+	)
 
 	return nil
 }

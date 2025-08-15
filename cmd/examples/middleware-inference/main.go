@@ -281,17 +281,15 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		return fmt.Errorf("inference failed: %w", err)
 	}
 
-	// Build conversation from updated Turn for display
-	messages := turns.BuildConversationFromTurn(updatedTurn) //nolint:staticcheck // deprecated function used for example compatibility
-
-	fmt.Fprintln(w, "\n=== Final Conversation ===")
-	for _, msg := range messages {
-		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-			fmt.Fprintf(w, "%s: %s\n", chatMsg.Role, chatMsg.Text)
-		} else {
-			fmt.Fprintf(w, "%s: %s\n", msg.Content.ContentType(), msg.Content.String())
-		}
-	}
+	// Display final result with the PrettyPrinter
+	fmt.Fprintln(w, "\n=== Final Blocks ===")
+	turns.FprintfTurn(w, updatedTurn,
+		turns.WithIDs(false),
+		turns.WithRoles(true),
+		turns.WithToolDetail(true),
+		turns.WithIndent(0),
+		turns.WithMaxTextLines(0),
+	)
 
 	middlewareList := []string{}
 	if s.WithLogging {
@@ -306,7 +304,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		fmt.Fprintln(w, "\nNo middleware applied")
 	}
 
-	log.Info().Int("total_messages", len(messages)).Msg("Middleware inference command completed successfully")
+	log.Info().Int("total_blocks", len(updatedTurn.Blocks)).Msg("Middleware inference command completed successfully")
 	return nil
 }
 
