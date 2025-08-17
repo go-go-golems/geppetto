@@ -100,6 +100,11 @@ func MakeCompletionRequestFromTurn(
 	pendingToolCalls := []go_openai.ToolCall{}
 	toolPhaseActive := false // true after flushing assistant tool_calls, until we exit tool result sequence
 	delayedChats := []go_openai.ChatCompletionMessage{}
+	// Track expected tool_call ids after a flush so we do not end the tool phase
+	// until all of them have corresponding tool messages. This prevents interleaving
+	// user/system messages between tool results when external middleware injects blocks.
+	expectedToolIDs := map[string]bool{}
+	remainingExpected := 0
 	flushToolCalls := func() {
 		if len(pendingToolCalls) == 0 {
 			return
@@ -108,7 +113,15 @@ func MakeCompletionRequestFromTurn(
 			Role:      "assistant",
 			ToolCalls: pendingToolCalls,
 		})
-		// Enter tool phase and clear pending calls so we don't re-emit them later
+		// Enter tool phase and prepare expected ids; clear pending calls so we don't re-emit them later
+		expectedToolIDs = map[string]bool{}
+		for _, tc := range pendingToolCalls {
+			if tc.ID != "" {
+				expectedToolIDs[tc.ID] = false
+			}
+		}
+		remainingExpected = len(pendingToolCalls)
+		log.Debug().Int("expected_tool_uses", remainingExpected).Msg("OpenAI request: flushed assistant tool_calls; starting tool phase")
 		toolPhaseActive = true
 		pendingToolCalls = nil
 	}
@@ -122,6 +135,8 @@ func MakeCompletionRequestFromTurn(
 		}
 		toolPhaseActive = false
 		pendingToolCalls = nil
+		expectedToolIDs = map[string]bool{}
+		remainingExpected = 0
 	}
 
 	if t != nil {
@@ -278,7 +293,21 @@ func MakeCompletionRequestFromTurn(
 					Content:    result,
 					ToolCallID: toolID,
 				})
-				// Do not end tool phase yet; allow multiple tool_use in sequence
+				// Mark this tool id as satisfied if it was expected
+				if toolPhaseActive {
+					if _, ok := expectedToolIDs[toolID]; ok && !expectedToolIDs[toolID] {
+						expectedToolIDs[toolID] = true
+						if remainingExpected > 0 {
+							remainingExpected--
+						}
+						log.Debug().Str("tool_id", toolID).Int("remaining_expected", remainingExpected).Msg("OpenAI request: recorded tool_use for expected id")
+					}
+					// If all expected tool results have arrived, end the tool phase now
+					if remainingExpected == 0 {
+						endToolPhase()
+					}
+				}
+				// Do not end tool phase due to control-flow here; we handle it via remainingExpected
 			case turns.BlockKindOther:
 				// Ignore unknown blocks unless they carry text
 				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
@@ -294,10 +323,9 @@ func MakeCompletionRequestFromTurn(
 					}
 				}
 			}
-			// If we just finished a tool phase and encounter a non-tool_use and no pending calls, close phase
+			// Only end the tool phase if there are no pending calls and no remaining expected tool ids
 			if toolPhaseActive {
-				// Lookahead is implicit: end phase when current block is not ToolUse and there are no pending calls
-				if b.Kind != turns.BlockKindToolUse && len(pendingToolCalls) == 0 {
+				if b.Kind != turns.BlockKindToolUse && len(pendingToolCalls) == 0 && remainingExpected == 0 {
 					endToolPhase()
 				}
 			}
