@@ -590,21 +590,21 @@ func (e EventInfo) MarshalZerologObject(ev *zerolog.Event) {
 // EventAgentModeSwitch: exported custom event with analysis and new mode
 // Message carries a short title; Data should include "from", "to", and optionally "analysis"
 type EventAgentModeSwitch struct {
-    EventImpl
-    Message string                 `json:"message"`
-    Data    map[string]interface{} `json:"data,omitempty"`
+	EventImpl
+	Message string                 `json:"message"`
+	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
 func NewAgentModeSwitchEvent(metadata EventMetadata, from string, to string, analysis string) *EventAgentModeSwitch {
-    data := map[string]interface{}{"from": from, "to": to}
-    if analysis != "" {
-        data["analysis"] = analysis
-    }
-    return &EventAgentModeSwitch{
-        EventImpl: EventImpl{Type_: EventTypeAgentModeSwitch, Metadata_: metadata},
-        Message:  "agentmode: mode switched",
-        Data:     data,
-    }
+	data := map[string]interface{}{"from": from, "to": to}
+	if analysis != "" {
+		data["analysis"] = analysis
+	}
+	return &EventAgentModeSwitch{
+		EventImpl: EventImpl{Type_: EventTypeAgentModeSwitch, Metadata_: metadata},
+		Message:   "agentmode: mode switched",
+		Data:      data,
+	}
 }
 
 var _ Event = &EventAgentModeSwitch{}
