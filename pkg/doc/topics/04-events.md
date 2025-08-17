@@ -59,10 +59,17 @@ Events carry `EventMetadata` only. `EventMetadata` includes:
 
 - `message_id` (stable per stream)
 - `run_id` and `turn_id` (correlation identifiers set by the caller/middleware)
-- engine information (model), token usage, optional stop reason
+- model information, optional stop reason, duration
+- typed `Usage` with unified fields across providers
 - an `extra` map for provider-specific context (e.g., settings snapshot)
 
-Note: The legacy `StepMetadata` has been removed.
+Typed `Usage` (no maps) is defined in `pkg/events/metadata.go` and is populated continuously during streaming by engines:
+
+- `InputTokens`, `OutputTokens`
+- `CachedTokens` (OpenAI prompt cache)
+- `CacheCreationInputTokens`, `CacheReadInputTokens` (Claude cache)
+
+Providers update `EventMetadata.Usage` as chunks arrive, so UIs can display evolving usage in real-time. Map-based metadata extractors were removed; engines now use provider SDK typed fields directly.
 
 ## Publishing Events
 

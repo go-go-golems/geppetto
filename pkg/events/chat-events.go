@@ -333,6 +333,15 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	if em.Usage != nil {
 		e.Int("input_tokens", em.Usage.InputTokens)
 		e.Int("output_tokens", em.Usage.OutputTokens)
+		if em.Usage.CachedTokens > 0 {
+			e.Int("cached_tokens", em.Usage.CachedTokens)
+		}
+		if em.Usage.CacheCreationInputTokens > 0 {
+			e.Int("cache_creation_input_tokens", em.Usage.CacheCreationInputTokens)
+		}
+		if em.Usage.CacheReadInputTokens > 0 {
+			e.Int("cache_read_input_tokens", em.Usage.CacheReadInputTokens)
+		}
 	}
 	if em.DurationMs != nil {
 		e.Int64("duration_ms", *em.DurationMs)
