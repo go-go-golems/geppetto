@@ -11,6 +11,7 @@ import (
 	rootmw "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/steps/parse"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
@@ -156,6 +157,10 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 
 			// Parse assistant response to detect YAML mode switch
 			newMode, analysis := DetectYamlModeSwitch(res)
+			// Emit analysis event even when not switching (allocate a message_id)
+			if strings.TrimSpace(analysis) != "" && newMode == "" {
+				publishAgentModeSwitchEvent(ctx, events.EventMetadata{ID: uuid.New(), RunID: res.RunID, TurnID: res.ID}, modeName, modeName, analysis)
+			}
 			if newMode != "" && newMode != modeName {
 				log.Debug().Str("from", modeName).Str("to", newMode).Msg("agentmode: detected mode switch via YAML")
 				// Apply to turn for next call
@@ -166,7 +171,7 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 				}
 				// Announce: append system message and emit custom agent-mode event with analysis
 				turns.AppendBlock(res, turns.NewSystemTextBlock(fmt.Sprintf("[agent-mode] switched to %s", newMode)))
-				publishAgentModeSwitchEvent(ctx, events.EventMetadata{RunID: res.RunID, TurnID: res.ID}, modeName, newMode, analysis)
+				publishAgentModeSwitchEvent(ctx, events.EventMetadata{ID: uuid.New(), RunID: res.RunID, TurnID: res.ID}, modeName, newMode, analysis)
 			}
 			log.Debug().Str("run_id", res.RunID).Str("turn_id", res.ID).Msg("agentmode: middleware end")
 			return res, nil
