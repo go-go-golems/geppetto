@@ -59,6 +59,10 @@ func DefaultConfig() Config {
 	}
 }
 
+func publishAgentModeSwitchEvent(ctx context.Context, meta events.EventMetadata, from string, to string, analysis string) {
+    events.PublishEventToContext(ctx, events.NewAgentModeSwitchEvent(meta, from, to, analysis))
+}
+
 // NewMiddleware returns a middleware.Middleware compatible handler.
 func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 	return func(next rootmw.HandlerFunc) rootmw.HandlerFunc {
@@ -160,26 +164,9 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 				if svc != nil {
 					_ = svc.RecordModeChange(ctx, ModeChange{RunID: res.RunID, TurnID: res.ID, FromMode: modeName, ToMode: newMode, Analysis: analysis, At: time.Now()})
 				}
-				// Announce (append system message and emit Info event)
+				// Announce: append system message and emit custom agent-mode event with analysis
 				turns.AppendBlock(res, turns.NewSystemTextBlock(fmt.Sprintf("[agent-mode] switched to %s", newMode)))
-				events.PublishEventToContext(ctx, events.NewInfoEvent(
-					events.EventMetadata{RunID: res.RunID, TurnID: res.ID},
-					"agentmode: mode switched",
-					map[string]any{
-						"from":     modeName,
-						"to":       newMode,
-						"analysis": analysis,
-					},
-				))
-				// Also add a user-visible line to REPL via an Info event that UIs can append
-				events.PublishEventToContext(ctx, events.NewInfoEvent(
-					events.EventMetadata{RunID: res.RunID, TurnID: res.ID},
-					"Mode changed",
-					map[string]any{
-						"from": modeName,
-						"to":   newMode,
-					},
-				))
+				publishAgentModeSwitchEvent(ctx, events.EventMetadata{RunID: res.RunID, TurnID: res.ID}, modeName, newMode, analysis)
 			}
 			log.Debug().Str("run_id", res.RunID).Str("turn_id", res.ID).Msg("agentmode: middleware end")
 			return res, nil
@@ -199,10 +186,10 @@ func BuildYamlModeSwitchInstructions(current string, available []string) string 
 	b.WriteString("```yaml\n")
 	b.WriteString("mode_switch:\n")
 	b.WriteString("  analysis: |\n")
-	b.WriteString("    Provide a detailed analysis of the current situation. Explain what the user is trying to accomplish,\n")
-	b.WriteString("    what capabilities are needed, and why the current mode may or may not be optimal.\n")
-	b.WriteString("    If proposing a switch, explain the specific benefits the new mode would provide.\n")
-	b.WriteString("    Use multiple sentences to thoroughly justify your reasoning.\n")
+	b.WriteString("    • What is the user trying to accomplish?\n")
+	b.WriteString("    • What capabilities are needed?\n")
+	b.WriteString("    • Is the current mode optimal for this task?\n")
+	b.WriteString("    • If switching, what specific benefits would the new mode provide?\n")
 	b.WriteString("  new_mode: MODE_NAME  # Only include this if you recommend switching modes\n")
 	b.WriteString("```\n\n")
 	b.WriteString("Current mode: ")
