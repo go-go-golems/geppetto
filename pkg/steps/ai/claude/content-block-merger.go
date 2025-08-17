@@ -99,21 +99,27 @@ func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 	cbm.metadata.Usage = nil
 	if event.Usage != nil {
 		cbm.metadata.Usage = &events.Usage{
-			InputTokens:  event.Usage.InputTokens,
-			OutputTokens: event.Usage.OutputTokens,
+			InputTokens:              event.Usage.InputTokens,
+			OutputTokens:             event.Usage.OutputTokens,
+			CacheCreationInputTokens: event.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     event.Usage.CacheReadInputTokens,
 		}
 	}
 
 	if event.Message != nil {
 		cbm.metadata.Usage = &events.Usage{
-			InputTokens:  event.Message.Usage.InputTokens,
-			OutputTokens: event.Message.Usage.OutputTokens,
+			InputTokens:              event.Message.Usage.InputTokens,
+			OutputTokens:             event.Message.Usage.OutputTokens,
+			CacheCreationInputTokens: event.Message.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     event.Message.Usage.CacheReadInputTokens,
 		}
 	}
 	if event.Usage != nil {
 		cbm.metadata.Usage = &events.Usage{
-			InputTokens:  event.Usage.InputTokens,
-			OutputTokens: event.Usage.OutputTokens,
+			InputTokens:              event.Usage.InputTokens,
+			OutputTokens:             event.Usage.OutputTokens,
+			CacheCreationInputTokens: event.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     event.Usage.CacheReadInputTokens,
 		}
 	}
 

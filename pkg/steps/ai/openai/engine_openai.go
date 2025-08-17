@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	go_openai "github.com/sashabaranov/go-openai"
@@ -297,16 +296,23 @@ func (e *OpenAIEngine) RunInference(
 				}
 			}
 
-			// Extract metadata from OpenAI chat response
-			if responseMetadata, err := ExtractChatCompletionMetadata(&response); err == nil && responseMetadata != nil {
-				if usageData, ok := responseMetadata["usage"].(map[string]interface{}); ok {
-					usageInputTokens, _ = cast.CastNumberInterfaceToInt[int](usageData["prompt_tokens"])
-					usageOutputTokens, _ = cast.CastNumberInterfaceToInt[int](usageData["completion_tokens"])
-					log.Debug().Int("input_tokens", usageInputTokens).Int("output_tokens", usageOutputTokens).Msg("OpenAI usage updated from chunk")
+			// Extract usage and finish reason from typed OpenAI response
+			if response.Usage != nil {
+				usageInputTokens = response.Usage.PromptTokens
+				usageOutputTokens = response.Usage.CompletionTokens
+				if response.Usage.PromptTokensDetails != nil {
+					if metadata.Usage == nil {
+						metadata.Usage = &events.Usage{}
+					}
+					metadata.Usage.CachedTokens = response.Usage.PromptTokensDetails.CachedTokens
 				}
-				if finishReason, ok := responseMetadata["finish_reason"].(string); ok {
-					stopReason = &finishReason
-					log.Debug().Str("stop_reason", finishReason).Msg("OpenAI stop reason observed")
+				log.Debug().Int("input_tokens", usageInputTokens).Int("output_tokens", usageOutputTokens).Msg("OpenAI usage updated from chunk")
+			}
+			if len(response.Choices) > 0 {
+				if fr := response.Choices[0].FinishReason; fr != "" {
+					frStr := string(fr)
+					stopReason = &frStr
+					log.Debug().Str("stop_reason", frStr).Msg("OpenAI stop reason observed")
 				}
 			}
 
@@ -325,8 +331,12 @@ func (e *OpenAIEngine) RunInference(
 streamingComplete:
 
 	// Update event metadata with usage information
-	if usageInputTokens > 0 || usageOutputTokens > 0 {
-		metadata.Usage = &events.Usage{InputTokens: usageInputTokens, OutputTokens: usageOutputTokens}
+	if usageInputTokens > 0 || usageOutputTokens > 0 || (metadata.Usage != nil && (metadata.Usage.CachedTokens > 0)) {
+		if metadata.Usage == nil {
+			metadata.Usage = &events.Usage{}
+		}
+		metadata.Usage.InputTokens = usageInputTokens
+		metadata.Usage.OutputTokens = usageOutputTokens
 	}
 	metadata.StopReason = stopReason
 	// set duration for successful completion
