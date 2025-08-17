@@ -33,6 +33,9 @@ const (
 	// Informational/logging events (emitted by engines, middlewares or tools)
 	EventTypeLog  EventType = "log"
 	EventTypeInfo EventType = "info"
+
+	// Agent-mode custom event (exported so UIs can act upon it)
+	EventTypeAgentModeSwitch EventType = "agent-mode-switch"
 )
 
 type Event interface {
@@ -423,6 +426,12 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventInfo")
 		}
 		return ret, nil
+	case EventTypeAgentModeSwitch:
+		ret, ok := ToTypedEvent[EventAgentModeSwitch](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventAgentModeSwitch")
+		}
+		return ret, nil
 	}
 
 	return e, nil
@@ -568,3 +577,25 @@ func (e EventInfo) MarshalZerologObject(ev *zerolog.Event) {
 		ev.Dict("data", zerolog.Dict().Fields(e.Data))
 	}
 }
+
+// EventAgentModeSwitch: exported custom event with analysis and new mode
+// Message carries a short title; Data should include "from", "to", and optionally "analysis"
+type EventAgentModeSwitch struct {
+    EventImpl
+    Message string                 `json:"message"`
+    Data    map[string]interface{} `json:"data,omitempty"`
+}
+
+func NewAgentModeSwitchEvent(metadata EventMetadata, from string, to string, analysis string) *EventAgentModeSwitch {
+    data := map[string]interface{}{"from": from, "to": to}
+    if analysis != "" {
+        data["analysis"] = analysis
+    }
+    return &EventAgentModeSwitch{
+        EventImpl: EventImpl{Type_: EventTypeAgentModeSwitch, Metadata_: metadata},
+        Message:  "agentmode: mode switched",
+        Data:     data,
+    }
+}
+
+var _ Event = &EventAgentModeSwitch{}
