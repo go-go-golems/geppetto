@@ -61,7 +61,7 @@ func DefaultConfig() Config {
 }
 
 func publishAgentModeSwitchEvent(ctx context.Context, meta events.EventMetadata, from string, to string, analysis string) {
-    events.PublishEventToContext(ctx, events.NewAgentModeSwitchEvent(meta, from, to, analysis))
+	events.PublishEventToContext(ctx, events.NewAgentModeSwitchEvent(meta, from, to, analysis))
 }
 
 // NewMiddleware returns a middleware.Middleware compatible handler.
@@ -150,13 +150,16 @@ func NewMiddleware(svc Service, cfg Config) rootmw.Middleware {
 			}
 
 			// Run next
+			baselineIDs := rootmw.SnapshotBlockIDs(t)
 			res, err := next(ctx, t)
 			if err != nil {
 				return res, err
 			}
 
-			// Parse assistant response to detect YAML mode switch
-			newMode, analysis := DetectYamlModeSwitch(res)
+			// Parse assistant response to detect YAML mode switch only in newly added blocks (by ID)
+			addedBlocks := rootmw.NewBlocksNotIn(res, baselineIDs)
+			newMode, analysis := DetectYamlModeSwitchInBlocks(addedBlocks)
+			log.Debug().Str("new_mode", newMode).Str("analysis", analysis).Msg("agentmode: detected mode switch via YAML")
 			// Emit analysis event even when not switching (allocate a message_id)
 			if strings.TrimSpace(analysis) != "" && newMode == "" {
 				publishAgentModeSwitchEvent(ctx, events.EventMetadata{ID: uuid.New(), RunID: res.RunID, TurnID: res.ID}, modeName, modeName, analysis)
@@ -230,18 +233,58 @@ func DetectYamlModeSwitch(t *turns.Turn) (string, string) {
 			var data struct {
 				ModeSwitch struct {
 					Analysis string `yaml:"analysis"`
-					NewMode  string `yaml:"new_mode"`
+					NewMode  string `yaml:"new_mode,omitempty"`
 				} `yaml:"mode_switch"`
 			}
 			if err := yaml.Unmarshal([]byte(body), &data); err != nil {
 				continue
 			}
-			if nm := strings.TrimSpace(data.ModeSwitch.NewMode); nm != "" {
-				return nm, strings.TrimSpace(data.ModeSwitch.Analysis)
+			analysis := strings.TrimSpace(data.ModeSwitch.Analysis)
+			if analysis == "" {
+				continue
 			}
+			nm := strings.TrimSpace(data.ModeSwitch.NewMode)
+			return nm, strings.TrimSpace(data.ModeSwitch.Analysis)
 		}
 	}
 	return "", ""
+}
+// DetectYamlModeSwitchInBlocks scans the provided blocks from the back and
+// returns the first detected (nearest to the end) YAML mode switch.
+func DetectYamlModeSwitchInBlocks(blocks []turns.Block) (string, string) {
+    for i := len(blocks) - 1; i >= 0; i-- {
+        b := blocks[i]
+        if b.Kind != turns.BlockKindLLMText {
+            continue
+        }
+        txt, _ := b.Payload[turns.PayloadKeyText].(string)
+        if strings.TrimSpace(txt) == "" {
+            continue
+        }
+        yblocks, err := parse.ExtractYAMLBlocks(txt)
+        if err != nil {
+            continue
+        }
+        for _, body := range yblocks {
+            body = strings.TrimSpace(body)
+            var data struct {
+                ModeSwitch struct {
+                    Analysis string `yaml:"analysis"`
+                    NewMode  string `yaml:"new_mode,omitempty"`
+                } `yaml:"mode_switch"`
+            }
+            if err := yaml.Unmarshal([]byte(body), &data); err != nil {
+                continue
+            }
+            analysis := strings.TrimSpace(data.ModeSwitch.Analysis)
+            if analysis == "" {
+                continue
+            }
+            nm := strings.TrimSpace(data.ModeSwitch.NewMode)
+            return nm, analysis
+        }
+    }
+    return "", ""
 }
 
 // listModeNames extracts available mode names from the provided Service, if it is a known implementation.
