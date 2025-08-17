@@ -9,7 +9,7 @@ import (
 	clay "github.com/go-go-golems/clay/pkg"
 	engpkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/middleware/agentmode"
+	"github.com/go-go-golems/pinocchio/pkg/middlewares/agentmode"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"

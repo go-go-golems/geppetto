@@ -51,7 +51,7 @@ The SQLite Tool middleware attaches a SQLite database to a Turn and advertises a
 import (
   engpkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
   "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-  "github.com/go-go-golems/geppetto/pkg/inference/middleware/sqlitetool"
+  "github.com/go-go-golems/pinocchio/pkg/middlewares/sqlitetool"
   "github.com/go-go-golems/geppetto/pkg/inference/tools"
   "github.com/go-go-golems/geppetto/pkg/turns"
 )
