@@ -69,6 +69,37 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return err
 			}
 
+		case *EventLog:
+			if p_.Level == "" {
+				p_.Level = "info"
+			}
+			if _, err := fmt.Fprintf(w, "\n[%s] %s\n", p_.Level, p_.Message); err != nil {
+				return err
+			}
+			if len(p_.Fields) > 0 {
+				v_, err := yaml.Marshal(p_.Fields)
+				if err != nil {
+					return err
+				}
+				if _, err := fmt.Fprintf(w, "%s\n", v_); err != nil {
+					return err
+				}
+			}
+
+		case *EventInfo:
+			if _, err := fmt.Fprintf(w, "\n[i] %s\n", p_.Message); err != nil {
+				return err
+			}
+			if len(p_.Data) > 0 {
+				v_, err := yaml.Marshal(p_.Data)
+				if err != nil {
+					return err
+				}
+				if _, err := fmt.Fprintf(w, "%s\n", v_); err != nil {
+					return err
+				}
+			}
+
 		case *EventPartialCompletionStart,
 			*EventInterrupt:
 

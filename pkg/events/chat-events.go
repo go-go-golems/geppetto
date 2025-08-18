@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -21,24 +20,37 @@ const (
 	EventTypeStatus EventType = "status"
 
 	// TODO(manuel, 2024-07-04) Should potentially have a EventTypeText for a block stop here
+	// Model requested a tool call (received from provider stream)
 	EventTypeToolCall   EventType = "tool-call"
 	EventTypeToolResult EventType = "tool-result"
-	EventTypeError      EventType = "error"
-	EventTypeInterrupt  EventType = "interrupt"
+
+	// Execution-phase events (we are actually executing tools locally)
+	EventTypeToolCallExecute         EventType = "tool-call-execute"
+	EventTypeToolCallExecutionResult EventType = "tool-call-execution-result"
+	EventTypeError                   EventType = "error"
+	EventTypeInterrupt               EventType = "interrupt"
+
+	// Informational/logging events (emitted by engines, middlewares or tools)
+	EventTypeLog  EventType = "log"
+	EventTypeInfo EventType = "info"
+
+	// Agent-mode custom event (exported so UIs can act upon it)
+	EventTypeAgentModeSwitch EventType = "agent-mode-switch"
 )
 
 type Event interface {
 	Type() EventType
 	Metadata() EventMetadata
-	StepMetadata() *steps.StepMetadata
 	Payload() []byte
 }
 
+// MetadataSettingsSlug retained for compatibility in EventMetadata.Extra
+const MetadataSettingsSlug = "settings"
+
 type EventImpl struct {
-	Type_     EventType           `json:"type"`
-	Error_    error               `json:"error,omitempty"`
-	Metadata_ EventMetadata       `json:"meta,omitempty"`
-	Step_     *steps.StepMetadata `json:"step,omitempty"`
+	Type_     EventType     `json:"type"`
+	Error_    error         `json:"error,omitempty"`
+	Metadata_ EventMetadata `json:"meta,omitempty"`
 
 	// store payload if the event was deserialized from JSON (see NewEventFromJson), not further used
 	payload []byte
@@ -51,13 +63,8 @@ func (e *EventImpl) MarshalZerologObject(ev *zerolog.Event) {
 		ev.Err(e.Error_)
 	}
 
-	if e.Metadata_ != (EventMetadata{}) {
-		ev.Object("meta", e.Metadata_)
-	}
+	ev.Object("meta", e.Metadata_)
 
-	if e.Step_ != nil {
-		ev.Object("step", e.Step_)
-	}
 }
 
 func (e *EventImpl) Type() EventType {
@@ -72,10 +79,6 @@ func (e *EventImpl) Metadata() EventMetadata {
 	return e.Metadata_
 }
 
-func (e *EventImpl) StepMetadata() *steps.StepMetadata {
-	return e.Step_
-}
-
 func (e *EventImpl) Payload() []byte {
 	return e.payload
 }
@@ -86,11 +89,10 @@ type EventPartialCompletionStart struct {
 	EventImpl
 }
 
-func NewStartEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata) *EventPartialCompletionStart {
+func NewStartEvent(metadata EventMetadata) *EventPartialCompletionStart {
 	return &EventPartialCompletionStart{
 		EventImpl: EventImpl{
 			Type_:     EventTypeStart,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -105,11 +107,10 @@ type EventInterrupt struct {
 	// TODO(manuel, 2024-07-04) Add all collected tool calls so far
 }
 
-func NewInterruptEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, text string) *EventInterrupt {
+func NewInterruptEvent(metadata EventMetadata, text string) *EventInterrupt {
 	return &EventInterrupt{
 		EventImpl: EventImpl{
 			Type_:     EventTypeInterrupt,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -125,11 +126,10 @@ type EventFinal struct {
 	// TODO(manuel, 2024-07-04) Add all collected tool calls so far
 }
 
-func NewFinalEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, text string) *EventFinal {
+func NewFinalEvent(metadata EventMetadata, text string) *EventFinal {
 	return &EventFinal{
 		EventImpl: EventImpl{
 			Type_:     EventTypeFinal,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -144,11 +144,10 @@ type EventError struct {
 	ErrorString string `json:"error_string"`
 }
 
-func NewErrorEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, err error) *EventError {
+func NewErrorEvent(metadata EventMetadata, err error) *EventError {
 	return &EventError{
 		EventImpl: EventImpl{
 			Type_:     EventTypeError,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -166,11 +165,10 @@ type EventText struct {
 	// This is currently stored in the metadata uder the MetadataToolCallsSlug (see chat-with-tools-step.go in openai)
 }
 
-func NewTextEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, text string) *EventText {
+func NewTextEvent(metadata EventMetadata, text string) *EventText {
 	return &EventText{
 		EventImpl: EventImpl{
 			Type_:     EventTypeStart,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -192,11 +190,10 @@ type EventToolCall struct {
 	ToolCall ToolCall `json:"tool_call"`
 }
 
-func NewToolCallEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, toolCall ToolCall) *EventToolCall {
+func NewToolCallEvent(metadata EventMetadata, toolCall ToolCall) *EventToolCall {
 	return &EventToolCall{
 		EventImpl: EventImpl{
 			Type_:     EventTypeToolCall,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -216,11 +213,10 @@ type EventToolResult struct {
 	ToolResult ToolResult `json:"tool_result"`
 }
 
-func NewToolResultEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, toolResult ToolResult) *EventToolResult {
+func NewToolResultEvent(metadata EventMetadata, toolResult ToolResult) *EventToolResult {
 	return &EventToolResult{
 		EventImpl: EventImpl{
 			Type_:     EventTypeToolResult,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -229,6 +225,44 @@ func NewToolResultEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata
 }
 
 var _ Event = &EventToolResult{}
+
+// EventToolCallExecute captures the intent to execute a tool locally
+type EventToolCallExecute struct {
+	EventImpl
+	ToolCall ToolCall `json:"tool_call"`
+}
+
+func NewToolCallExecuteEvent(metadata EventMetadata, toolCall ToolCall) *EventToolCallExecute {
+	return &EventToolCallExecute{
+		EventImpl: EventImpl{
+			Type_:     EventTypeToolCallExecute,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		ToolCall: toolCall,
+	}
+}
+
+var _ Event = &EventToolCallExecute{}
+
+// EventToolCallExecutionResult captures the result of executing a tool locally
+type EventToolCallExecutionResult struct {
+	EventImpl
+	ToolResult ToolResult `json:"tool_result"`
+}
+
+func NewToolCallExecutionResultEvent(metadata EventMetadata, toolResult ToolResult) *EventToolCallExecutionResult {
+	return &EventToolCallExecutionResult{
+		EventImpl: EventImpl{
+			Type_:     EventTypeToolCallExecutionResult,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		ToolResult: toolResult,
+	}
+}
+
+var _ Event = &EventToolCallExecutionResult{}
 
 // TODO(manuel, 2024-07-03) Then, we can add those to the openai step as well, and to the UI, and then we should have a good way to do auto tool calling
 
@@ -243,11 +277,10 @@ type EventPartialCompletion struct {
 	// this is less important than adding tool call information to the result above
 }
 
-func NewPartialCompletionEvent(metadata EventMetadata, stepMetadata *steps.StepMetadata, delta string, completion string) *EventPartialCompletion {
+func NewPartialCompletionEvent(metadata EventMetadata, delta string, completion string) *EventPartialCompletion {
 	return &EventPartialCompletion{
 		EventImpl: EventImpl{
 			Type_:     EventTypePartialCompletion,
-			Step_:     stepMetadata,
 			Metadata_: metadata,
 			payload:   nil,
 		},
@@ -265,16 +298,34 @@ const MetadataToolCallsSlug = "tool-calls"
 // EventMetadata contains all the information that is passed along with watermill message,
 // specific to chat steps.
 type EventMetadata struct {
-	conversation.LLMMessageMetadata
-	ID       conversation.NodeID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
-	ParentID conversation.NodeID `json:"parent_id" yaml:"parent_id" mapstructure:"parent_id"`
+	LLMInferenceData
+	ID uuid.UUID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
+	// Correlation identifiers
+	RunID  string `json:"run_id,omitempty" yaml:"run_id,omitempty" mapstructure:"run_id"`
+	TurnID string `json:"turn_id,omitempty" yaml:"turn_id,omitempty" mapstructure:"turn_id"`
+	// Extra carries provider-specific/context values
+	Extra map[string]interface{} `json:"extra,omitempty" yaml:"extra,omitempty" mapstructure:"extra"`
 }
 
 func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("message_id", em.ID.String())
-	e.Str("parent_id", em.ParentID.String())
-	if em.Engine != "" {
-		e.Str("engine", em.Engine)
+	if em.RunID != "" {
+		e.Str("run_id", em.RunID)
+	}
+	if em.TurnID != "" {
+		e.Str("turn_id", em.TurnID)
+	}
+	if em.Model != "" {
+		e.Str("model", em.Model)
+	}
+	if em.Temperature != nil {
+		e.Float64("temperature", *em.Temperature)
+	}
+	if em.TopP != nil {
+		e.Float64("top_p", *em.TopP)
+	}
+	if em.MaxTokens != nil {
+		e.Int("max_tokens", *em.MaxTokens)
 	}
 	if em.StopReason != nil && *em.StopReason != "" {
 		e.Str("stop_reason", *em.StopReason)
@@ -282,8 +333,29 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	if em.Usage != nil {
 		e.Int("input_tokens", em.Usage.InputTokens)
 		e.Int("output_tokens", em.Usage.OutputTokens)
+		if em.Usage.CachedTokens > 0 {
+			e.Int("cached_tokens", em.Usage.CachedTokens)
+		}
+		if em.Usage.CacheCreationInputTokens > 0 {
+			e.Int("cache_creation_input_tokens", em.Usage.CacheCreationInputTokens)
+		}
+		if em.Usage.CacheReadInputTokens > 0 {
+			e.Int("cache_read_input_tokens", em.Usage.CacheReadInputTokens)
+		}
+	}
+	if em.DurationMs != nil {
+		e.Int64("duration_ms", *em.DurationMs)
+	}
+	if len(em.Extra) > 0 {
+		e.Dict("extra", zerolog.Dict().Fields(em.Extra))
 	}
 }
+
+// Extra metadata keys for correlation
+const (
+	MetaKeyRunID  = "run_id"
+	MetaKeyTurnID = "turn_id"
+)
 
 func NewEventFromJson(b []byte) (Event, error) {
 	var e *EventImpl
@@ -319,6 +391,18 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventToolResult")
 		}
 		return ret, nil
+	case EventTypeToolCallExecute:
+		ret, ok := ToTypedEvent[EventToolCallExecute](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolCallExecute")
+		}
+		return ret, nil
+	case EventTypeToolCallExecutionResult:
+		ret, ok := ToTypedEvent[EventToolCallExecutionResult](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolCallExecutionResult")
+		}
+		return ret, nil
 	case EventTypeError:
 		ret, ok := ToTypedEvent[EventError](e)
 		if !ok {
@@ -339,6 +423,24 @@ func NewEventFromJson(b []byte) (Event, error) {
 		return ret, nil
 
 	case EventTypeStatus:
+	case EventTypeLog:
+		ret, ok := ToTypedEvent[EventLog](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventLog")
+		}
+		return ret, nil
+	case EventTypeInfo:
+		ret, ok := ToTypedEvent[EventInfo](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventInfo")
+		}
+		return ret, nil
+	case EventTypeAgentModeSwitch:
+		ret, ok := ToTypedEvent[EventAgentModeSwitch](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventAgentModeSwitch")
+		}
+		return ret, nil
 	}
 
 	return e, nil
@@ -424,3 +526,85 @@ func (e EventPartialCompletion) MarshalZerologObject(ev *zerolog.Event) {
 	e.EventImpl.MarshalZerologObject(ev)
 	ev.Str("delta", e.Delta).Str("completion", e.Completion)
 }
+
+// EventLog represents a generic log record emitted during inference (by engine, middleware or tools)
+type EventLog struct {
+	EventImpl
+	Level   string                 `json:"level"`
+	Message string                 `json:"message"`
+	Fields  map[string]interface{} `json:"fields,omitempty"`
+}
+
+func NewLogEvent(metadata EventMetadata, level string, message string, fields map[string]interface{}) *EventLog {
+	return &EventLog{
+		EventImpl: EventImpl{
+			Type_:     EventTypeLog,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		Level:   level,
+		Message: message,
+		Fields:  fields,
+	}
+}
+
+var _ Event = &EventLog{}
+
+func (e EventLog) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("level", e.Level).Str("message", e.Message)
+	if len(e.Fields) > 0 {
+		ev.Dict("fields", zerolog.Dict().Fields(e.Fields))
+	}
+}
+
+// EventInfo is a lightweight informational message for user-facing notifications
+type EventInfo struct {
+	EventImpl
+	Message string                 `json:"message"`
+	Data    map[string]interface{} `json:"data,omitempty"`
+}
+
+func NewInfoEvent(metadata EventMetadata, message string, data map[string]interface{}) *EventInfo {
+	return &EventInfo{
+		EventImpl: EventImpl{
+			Type_:     EventTypeInfo,
+			Metadata_: metadata,
+			payload:   nil,
+		},
+		Message: message,
+		Data:    data,
+	}
+}
+
+var _ Event = &EventInfo{}
+
+func (e EventInfo) MarshalZerologObject(ev *zerolog.Event) {
+	e.EventImpl.MarshalZerologObject(ev)
+	ev.Str("message", e.Message)
+	if len(e.Data) > 0 {
+		ev.Dict("data", zerolog.Dict().Fields(e.Data))
+	}
+}
+
+// EventAgentModeSwitch: exported custom event with analysis and new mode
+// Message carries a short title; Data should include "from", "to", and optionally "analysis"
+type EventAgentModeSwitch struct {
+	EventImpl
+	Message string                 `json:"message"`
+	Data    map[string]interface{} `json:"data,omitempty"`
+}
+
+func NewAgentModeSwitchEvent(metadata EventMetadata, from string, to string, analysis string) *EventAgentModeSwitch {
+	data := map[string]interface{}{"from": from, "to": to}
+	if analysis != "" {
+		data["analysis"] = analysis
+	}
+	return &EventAgentModeSwitch{
+		EventImpl: EventImpl{Type_: EventTypeAgentModeSwitch, Metadata_: metadata},
+		Message:   "agentmode: mode switched",
+		Data:      data,
+	}
+}
+
+var _ Event = &EventAgentModeSwitch{}

@@ -51,9 +51,9 @@ type ImageSource struct {
 
 type ToolUseContent struct {
 	BaseContent
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Input string `json:"input"`
+	ID    string          `json:"id"`
+	Name  string          `json:"name"`
+	Input json.RawMessage `json:"input"`
 }
 
 func (t ToolUseContent) Type() ContentType {
@@ -92,7 +92,7 @@ func NewToolUseContent(toolID, toolName string, toolInput string) Content {
 		BaseContent: BaseContent{Type_: ContentTypeToolUse},
 		ID:          toolID,
 		Name:        toolName,
-		Input:       toolInput,
+		Input:       json.RawMessage(toolInput),
 	}
 }
 
@@ -129,7 +129,7 @@ func (tuc ToolUseContent) MarshalZerologObject(e *zerolog.Event) {
 	e.Object("base", tuc.BaseContent)
 	e.Str("id", tuc.ID)
 	e.Str("name", tuc.Name)
-	e.Str("input", tuc.Input)
+	e.RawJSON("input", tuc.Input)
 }
 
 func (trc ToolResultContent) MarshalZerologObject(e *zerolog.Event) {

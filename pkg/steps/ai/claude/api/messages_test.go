@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const multipleContentTypesExpected = `{"role":"assistant","content":[{"type":"text","text":"Text"},{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"base64data"}},{"type":"tool_use","id":"tool1","name":"calculator","input":"{\"operation\":\"add\",\"numbers\":[1,2]}"}]}`
+const multipleContentTypesExpected = `{"role":"assistant","content":[{"type":"text","text":"Text"},{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"base64data"}},{"type":"tool_use","id":"tool1","name":"calculator","input":{"operation":"add","numbers":[1,2]}}]}`
 
 func TestMessageSerialization(t *testing.T) {
 	tests := []struct {
@@ -80,7 +80,7 @@ func TestMessageDeserialization(t *testing.T) {
 				Content: []Content{
 					TextContent{BaseContent: BaseContent{Type_: "text"}, Text: "Text"},
 					ImageContent{BaseContent: BaseContent{Type_: "image"}, Source: ImageSource{Type: "base64", MediaType: "image/jpeg", Data: "base64data"}},
-					ToolUseContent{BaseContent: BaseContent{Type_: "tool_use"}, ID: "tool1", Name: "calculator", Input: `{"operation":"add","numbers":[1,2]}`},
+					ToolUseContent{BaseContent: BaseContent{Type_: "tool_use"}, ID: "tool1", Name: "calculator", Input: json.RawMessage(`{"operation":"add","numbers":[1,2]}`)},
 				},
 			},
 		},

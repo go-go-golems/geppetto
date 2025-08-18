@@ -1,0 +1,5 @@
+- add tool registry to turn
+- [/] cleanup metadatKV in run/block
+- [x] add block helper methods
+- add proper interface for ConfigureTools
+- [x] cleanup the toolhelpers/toolmiddleware setup

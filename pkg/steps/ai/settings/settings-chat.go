@@ -2,10 +2,6 @@ package settings
 
 import (
 	_ "embed"
-	"fmt"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat/steps"
-
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/huandu/go-clone"
@@ -18,8 +14,8 @@ type ChatSettings struct {
 	TopP              *float64          `yaml:"top_p,omitempty" glazed.parameter:"ai-top-p"`
 	Temperature       *float64          `yaml:"temperature,omitempty" glazed.parameter:"ai-temperature"`
 	Stop              []string          `yaml:"stop,omitempty" glazed.parameter:"ai-stop"`
-	Stream            bool              `yaml:"stream,omitempty" glazed.parameter:"ai-stream"`
 	APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+	Stream            bool              `yaml:"stream,omitempty"`
 
 	// Caching settings
 	CacheType       string `yaml:"cache_type,omitempty" glazed.parameter:"ai-cache-type"`
@@ -36,8 +32,8 @@ func NewChatSettings() (*ChatSettings, error) {
 		TopP:              nil,
 		Temperature:       nil,
 		Stop:              []string{},
-		Stream:            false,
 		APIKeys:           map[string]string{},
+		Stream:            true, // Always enable streaming
 	}
 
 	p, err := NewChatParameterLayer()
@@ -76,24 +72,4 @@ func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParame
 	}, nil
 }
 
-// WrapWithCache wraps a chat step with caching if enabled
-func (s *ChatSettings) WrapWithCache(step chat.Step, options ...chat.StepOption) (chat.Step, error) {
-	switch s.CacheType {
-	case "none":
-		return step, nil
-	case "memory":
-		return steps.NewMemoryCachingStep(step,
-			steps.WithMemoryMaxSize(s.CacheMaxEntries),
-			steps.WithMemoryStepOptions(options...),
-		)
-	case "disk":
-		return steps.NewCachingStep(step,
-			steps.WithMaxSize(s.CacheMaxSize),
-			steps.WithMaxEntries(s.CacheMaxEntries),
-			steps.WithCacheDirectory(s.CacheDirectory),
-			steps.WithStepOptions(options...),
-		)
-	default:
-		return nil, fmt.Errorf("unsupported cache type for chat: %s", s.CacheType)
-	}
-}
+// WrapWithCache removed with steps API deprecation. Use engine-level caching/middleware instead.

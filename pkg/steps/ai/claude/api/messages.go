@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -95,19 +93,7 @@ func (s MessageResponse) MarshalZerologObject(e *zerolog.Event) {
 		Array("content", arr)
 }
 
-func (m MessageResponse) ToMessage() *conversation.Message {
-	messageContent := &conversation.ChatMessageContent{
-		Role:   conversation.Role(m.Role),
-		Text:   m.FullText(),
-		Images: nil,
-	}
-	return conversation.NewMessage(messageContent,
-		conversation.WithTime(time.Now()),
-		conversation.WithMetadata(map[string]interface{}{
-			"claude_message_id": m.ID,
-		}),
-	)
-}
+// Deprecated: ToMessage was part of the old conversation API. Use Turn/Block helpers instead.
 
 // FullText is a way to quickly get the entire text of the message response,
 // for our current streaming system which only deals with full strings.
@@ -204,6 +190,13 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		return nil, err
 	}
 	c.setHeaders(httpReq)
+
+	// Log the request body for debugging
+	truncatedBody := string(body)
+	if len(truncatedBody) > 1000 {
+		truncatedBody = truncatedBody[:500] + "..." + truncatedBody[len(truncatedBody)-500:]
+	}
+	log.Debug().Msgf("Sending streaming message request: %s", truncatedBody)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {

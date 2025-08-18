@@ -1,12 +1,12 @@
 package claude
 
 import (
+	"encoding/json"
 	"sort"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -29,19 +29,19 @@ import (
 // combination of content blocks in the final response.
 type ContentBlockMerger struct {
 	metadata      events.EventMetadata
-	stepMetadata  *steps.StepMetadata
 	response      *api.MessageResponse
 	error         *api.Error
 	contentBlocks map[int]*api.ContentBlock
 	inputTokens   int // Track input tokens from start event
+	startTime     time.Time
 }
 
-func NewContentBlockMerger(metadata events.EventMetadata, stepMetadata *steps.StepMetadata) *ContentBlockMerger {
+func NewContentBlockMerger(metadata events.EventMetadata) *ContentBlockMerger {
 	return &ContentBlockMerger{
 		metadata:      metadata,
-		stepMetadata:  stepMetadata,
 		contentBlocks: make(map[int]*api.ContentBlock),
 		inputTokens:   0,
+		startTime:     time.Now(),
 	}
 }
 
@@ -69,6 +69,15 @@ func (cbm *ContentBlockMerger) Text() string {
 }
 
 func (cbm *ContentBlockMerger) Response() *api.MessageResponse {
+	if cbm.response != nil {
+		log.Debug().
+			Str("stop_reason", cbm.response.StopReason).
+			Str("full_text", cbm.response.FullText()).
+			Int("content_blocks", len(cbm.response.Content)).
+			Msg("ContentBlockMerger returning final response")
+	} else {
+		log.Debug().Msg("ContentBlockMerger returning nil response")
+	}
 	return cbm.response
 }
 
@@ -89,22 +98,28 @@ const RoleMetadataSlug = "claude_role"
 func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 	cbm.metadata.Usage = nil
 	if event.Usage != nil {
-		cbm.metadata.Usage = &conversation.Usage{
-			InputTokens:  event.Usage.InputTokens,
-			OutputTokens: event.Usage.OutputTokens,
+		cbm.metadata.Usage = &events.Usage{
+			InputTokens:              event.Usage.InputTokens,
+			OutputTokens:             event.Usage.OutputTokens,
+			CacheCreationInputTokens: event.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     event.Usage.CacheReadInputTokens,
 		}
 	}
 
 	if event.Message != nil {
-		cbm.metadata.Usage = &conversation.Usage{
-			InputTokens:  event.Message.Usage.InputTokens,
-			OutputTokens: event.Message.Usage.OutputTokens,
+		cbm.metadata.Usage = &events.Usage{
+			InputTokens:              event.Message.Usage.InputTokens,
+			OutputTokens:             event.Message.Usage.OutputTokens,
+			CacheCreationInputTokens: event.Message.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     event.Message.Usage.CacheReadInputTokens,
 		}
 	}
 	if event.Usage != nil {
-		cbm.metadata.Usage = &conversation.Usage{
-			InputTokens:  event.Usage.InputTokens,
-			OutputTokens: event.Usage.OutputTokens,
+		cbm.metadata.Usage = &events.Usage{
+			InputTokens:              event.Usage.InputTokens,
+			OutputTokens:             event.Usage.OutputTokens,
+			CacheCreationInputTokens: event.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     event.Usage.CacheReadInputTokens,
 		}
 	}
 
@@ -123,7 +138,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
 
-	log.Trace().Object("event", event).Msg("ContentBlockMerger.Add")
+	log.Debug().
+		Str("event_type", string(event.Type)).
+		Interface("event", event).
+		Msg("ContentBlockMerger processing event")
 
 	switch event.Type {
 	case api.PingType:
@@ -134,31 +152,40 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("MessageStartType event must have a message")
 		}
 		cbm.response = event.Message
-		cbm.stepMetadata.Metadata[ModelMetadataSlug] = event.Message.Model
-		cbm.stepMetadata.Metadata[MessageIdMetadataSlug] = event.Message.ID
-		cbm.stepMetadata.Metadata[RoleMetadataSlug] = event.Message.Role
+		if cbm.metadata.Extra == nil {
+			cbm.metadata.Extra = map[string]interface{}{}
+		}
+		cbm.metadata.Extra[ModelMetadataSlug] = event.Message.Model
+		cbm.metadata.Extra[MessageIdMetadataSlug] = event.Message.ID
+		cbm.metadata.Extra[RoleMetadataSlug] = event.Message.Role
 
 		// Update event metadata with common fields
-		cbm.metadata.Engine = event.Message.Model
+		// engine removed; model is sufficient
 		cbm.updateUsage(event)
 
-		return []events.Event{events.NewStartEvent(cbm.metadata, cbm.stepMetadata)}, nil
+		return []events.Event{events.NewStartEvent(cbm.metadata)}, nil
 
 	case api.MessageDeltaType:
 		if event.Delta == nil {
 			return nil, errors.New("MessageDeltaType event must have a delta")
 		}
 		if event.Delta.StopReason != "" {
-			cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Delta.StopReason
+			if cbm.metadata.Extra == nil {
+				cbm.metadata.Extra = map[string]interface{}{}
+			}
+			cbm.metadata.Extra[StopReasonMetadataSlug] = event.Delta.StopReason
 			cbm.metadata.StopReason = &event.Delta.StopReason
 		}
 		if event.Delta.StopSequence != "" {
-			cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Delta.StopSequence
+			if cbm.metadata.Extra == nil {
+				cbm.metadata.Extra = map[string]interface{}{}
+			}
+			cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Delta.StopSequence
 		}
 
 		cbm.updateUsage(event)
 
-		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
+		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
 
 	case api.MessageStopType:
 		if cbm.response == nil {
@@ -167,15 +194,30 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 
 		if event.Message != nil {
 			if event.Message.StopReason != "" {
-				cbm.stepMetadata.Metadata[StopReasonMetadataSlug] = event.Message.StopReason
+				if cbm.metadata.Extra == nil {
+					cbm.metadata.Extra = map[string]interface{}{}
+				}
+				cbm.metadata.Extra[StopReasonMetadataSlug] = event.Message.StopReason
 				cbm.metadata.StopReason = &event.Message.StopReason
 			}
 			if event.Message.StopSequence != "" {
-				cbm.stepMetadata.Metadata[StopSequenceMetadataSlug] = event.Message.StopSequence
+				if cbm.metadata.Extra == nil {
+					cbm.metadata.Extra = map[string]interface{}{}
+				}
+				cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
 			}
 		}
 
-		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.stepMetadata, cbm.response.FullText())}, nil
+		log.Debug().
+			Str("stop_reason", cbm.response.StopReason).
+			Str("full_text", cbm.response.FullText()).
+			Msg("ContentBlockMerger received message_stop - message complete")
+
+		// set duration on final
+		d := time.Since(cbm.startTime).Milliseconds()
+		dm := int64(d)
+		cbm.metadata.DurationMs = &dm
+		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.response.FullText())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
@@ -214,10 +256,15 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.TextDeltaType:
 			delta = event.Delta.Text
 			cb.Text += event.Delta.Text
-			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, delta, cbm.response.FullText()+cb.Text)}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.response.FullText()+cb.Text)}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
-			cb.Input += event.Delta.PartialJSON
+			// Append to existing input string for tool use
+			if currentInput, ok := cb.Input.(string); ok {
+				cb.Input = currentInput + event.Delta.PartialJSON
+			} else {
+				cb.Input = event.Delta.PartialJSON
+			}
 			// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
 			_ = delta
 		}
@@ -235,14 +282,26 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.ContentTypeText:
 			cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
 			// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
-			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, cbm.stepMetadata, "", cbm.response.FullText())}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
 
 		case api.ContentTypeToolUse:
-			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, cb.Input))
-			return []events.Event{events.NewToolCallEvent(cbm.metadata, cbm.stepMetadata, events.ToolCall{
+			// Convert Input to string for API compatibility
+			inputStr := ""
+			if cb.Input != nil {
+				if str, ok := cb.Input.(string); ok {
+					inputStr = str
+				} else {
+					// For non-string inputs, marshal to JSON
+					if inputBytes, err := json.Marshal(cb.Input); err == nil {
+						inputStr = string(inputBytes)
+					}
+				}
+			}
+			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, inputStr))
+			return []events.Event{events.NewToolCallEvent(cbm.metadata, events.ToolCall{
 				ID:    cb.ID,
 				Name:  cb.Name,
-				Input: cb.Input,
+				Input: inputStr,
 			})}, nil
 
 		case api.ContentTypeImage, api.ContentTypeToolResult:
@@ -256,7 +315,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			return nil, errors.New("ErrorType event must have an error")
 		}
 		cbm.error = event.Error
-		return []events.Event{events.NewErrorEvent(cbm.metadata, cbm.stepMetadata, errors.New(event.Error.Message))}, nil
+		// set duration on error
+		d := time.Since(cbm.startTime).Milliseconds()
+		dm := int64(d)
+		cbm.metadata.DurationMs = &dm
+		return []events.Event{events.NewErrorEvent(cbm.metadata, errors.New(event.Error.Message))}, nil
 
 	default:
 		return nil, errors.Errorf("Unknown event type: %s", event.Type)

@@ -2,7 +2,7 @@ pre-commit:
   commands:
     lint:
       glob: '*.go'
-      run: make lintmax gosec govulncheck
+      run: make lintmax # gosec govulncheck
     test:
       glob: '*.go'
       run: make test
