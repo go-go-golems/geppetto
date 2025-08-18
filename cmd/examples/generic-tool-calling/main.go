@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+
 	// "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
@@ -25,6 +26,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -38,6 +40,15 @@ var rootCmd = &cobra.Command{
 		err := logging.InitLoggerFromViper()
 		if err != nil {
 			return err
+		}
+		// Honor --log-level if provided
+		if f := cmd.Flags(); f != nil {
+			lvl, _ := f.GetString("log-level")
+			if lvl != "" {
+				if l, err := zerolog.ParseLevel(lvl); err == nil {
+					zerolog.SetGlobalLevel(l)
+				}
+			}
 		}
 		return nil
 	},
@@ -231,6 +242,11 @@ func NewGenericToolCallingCommand() (*GenericToolCallingCommand, error) {
 				parameters.WithHelp("Verbose event router logging"),
 				parameters.WithDefault(false),
 			),
+			parameters.NewParameterDefinition("log-level",
+				parameters.ParameterTypeString,
+				parameters.WithHelp("Global log level (trace, debug, info, warn, error)"),
+				parameters.WithDefault(""),
+			),
 			// Tool configuration parameters
 			parameters.NewParameterDefinition("max-iterations",
 				parameters.ParameterTypeInteger,
@@ -337,7 +353,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	// Register weather tool
 	weatherToolDef, err := tools.NewToolFromFunc(
 		"get_weather",
-		"Get current weather information for a specific location",
+		"Get current weather information for a specific location, the location is a string and the units are celsius or fahrenheit",
 		weatherTool,
 	)
 	if err != nil {
@@ -352,7 +368,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	// Register calculator tool
 	calculatorToolDef, err := tools.NewToolFromFunc(
 		"calculator",
-		"Perform basic mathematical calculations",
+		"Perform basic mathematical calculations, the expression is a string such as '2+2' or '10*5' and the result is a number",
 		calculator,
 	)
 	if err != nil {

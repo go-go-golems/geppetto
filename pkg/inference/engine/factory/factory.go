@@ -1,10 +1,12 @@
 package factory
 
 import (
+	"strings"
+
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
-	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -68,8 +70,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 		return claude.NewClaudeEngine(settings, options...)
 
 	case string(types.ApiTypeGemini):
-		// TODO: Implement GeminiEngine when available
-		return nil, errors.Errorf("provider %s is not yet implemented", provider)
+		return gemini.NewGeminiEngine(settings, options...)
 
 	default:
 		supported := strings.Join(f.SupportedProviders(), ", ")
@@ -85,7 +86,7 @@ func (f *StandardEngineFactory) SupportedProviders() []string {
 		string(types.ApiTypeFireworks),
 		string(types.ApiTypeClaude),
 		"anthropic", // alias for claude
-		// string(types.ApiTypeGemini), // TODO: uncomment when implemented
+		string(types.ApiTypeGemini),
 	}
 }
 
@@ -177,11 +178,7 @@ func (f *StandardEngineFactory) validateGeminiSettings(settings *settings.StepSe
 		return errors.Errorf("missing API key %s", apiKeyName)
 	}
 
-	// Check for base URL
-	baseURLName := provider + "-base-url"
-	if _, ok := settings.API.BaseUrls[baseURLName]; !ok {
-		return errors.Errorf("missing base URL %s", baseURLName)
-	}
+	// Base URL optional for Gemini official client; use default endpoint when absent
 
 	// Check for Gemini-specific settings
 	if settings.Gemini == nil {
