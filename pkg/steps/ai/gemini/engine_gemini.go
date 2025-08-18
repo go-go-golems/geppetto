@@ -117,7 +117,11 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gemini client")
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Error().Err(err).Msg("failed to close gemini client")
+		}
+	}()
 
 	modelName := *e.settings.Chat.Engine
 	model := client.GenerativeModel(modelName)
@@ -331,12 +335,19 @@ func (e *GeminiEngine) buildPartsFromTurn(t *turns.Turn) []genai.Part {
 					parts = append(parts, genai.Text(string(sv)))
 				}
 			}
+
+		case turns.BlockKindToolCall:
+			parts = append(parts, genai.FunctionCall{
+				Name: b.Payload[turns.PayloadKeyName].(string),
+				Args: b.Payload[turns.PayloadKeyArgs].(map[string]any),
+			})
+
 		case turns.BlockKindToolUse:
 			// Add FunctionResponse for tool result
 			id, _ := b.Payload[turns.PayloadKeyID].(string)
 			res := b.Payload[turns.PayloadKeyResult]
 			name := idToName[id]
-			response := map[string]any{}
+			var response map[string]any
 			switch rv := res.(type) {
 			case string:
 				// Attempt to parse JSON string into object; if fail, wrap

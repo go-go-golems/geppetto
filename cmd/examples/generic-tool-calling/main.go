@@ -353,7 +353,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	// Register weather tool
 	weatherToolDef, err := tools.NewToolFromFunc(
 		"get_weather",
-		"Get current weather information for a specific location",
+		"Get current weather information for a specific location, the location is a string and the units are celsius or fahrenheit",
 		weatherTool,
 	)
 	if err != nil {
@@ -368,7 +368,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	// Register calculator tool
 	calculatorToolDef, err := tools.NewToolFromFunc(
 		"calculator",
-		"Perform basic mathematical calculations",
+		"Perform basic mathematical calculations, the expression is a string such as '2+2' or '10*5' and the result is a number",
 		calculator,
 	)
 	if err != nil {
