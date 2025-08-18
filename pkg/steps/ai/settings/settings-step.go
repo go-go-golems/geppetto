@@ -145,8 +145,6 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if len(ss.Chat.Stop) > 0 {
 			metadata["ai-stop"] = ss.Chat.Stop
 		}
-
-		metadata["ai-stream"] = ss.Chat.Stream
 	}
 
 	if ss.OpenAI != nil {
@@ -326,7 +324,6 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 			if len(ss.Chat.Stop) > 0 {
 				summary.WriteString(fmt.Sprintf("  - Stop Sequences: %v\n", ss.Chat.Stop))
 			}
-			summary.WriteString(fmt.Sprintf("  - Stream: %v\n", ss.Chat.Stream))
 		}
 	}
 

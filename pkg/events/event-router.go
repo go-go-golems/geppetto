@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/chat"
-
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
@@ -111,43 +109,12 @@ func (e *EventRouter) Close() error {
 // RegisterChatEventHandler sets up event publishing for a chat step and registers a handler
 // function that dispatches events to the provided ChatEventHandler.
 // This introduces a dependency from the events package to the chat package.
-func (e *EventRouter) RegisterChatEventHandler(
-	ctx context.Context, // Context for logging and potentially handler execution
-	step chat.Step,
-	id string, // Identifier for the chat session (e.g., client ID)
-	handler ChatEventHandler,
-) error {
-	topic := fmt.Sprintf("chat-%s", id)
-
-	// Log with additional context if possible (e.g., using watermill fields)
-	logFields := watermill.LogFields{"topic": topic, "handler_id": id}
-	log.Info().Interface("logFields", logFields).Msg("Setting up chat event handler")
-
-	// Configure step to publish events to this specific topic
-	if err := step.AddPublishedTopic(e.Publisher, topic); err != nil {
-		log.Error().Interface("logFields", logFields).Err(err).Msg("Failed to add published topic to step")
-		return fmt.Errorf("failed to setup event publishing for step %s: %w", id, err)
-	}
-
-	// Create the dispatch handler using the reusable function (now local)
-	dispatchHandler := createChatDispatchHandler(handler)
-
-	// Add the created handler to the router
-	// Use the id as the handler name for uniqueness and clarity
-	handlerName := fmt.Sprintf("chat-handler-%s", id)
-	e.AddHandler(
-		handlerName,
-		topic, // Topic to subscribe to
-		dispatchHandler,
-	)
-
-	log.Info().Interface("logFields", logFields).Msg("Chat event handler added successfully")
-	return nil
-}
+// RegisterChatEventHandler removed: use sinks with engines and manual AddHandler
 
 // createChatDispatchHandler creates a Watermill handler function that parses chat events
 // and dispatches them to the appropriate method of the provided ChatEventHandler.
 // Moved from pinocchio/cmd/experiments/web-ui/client/client.go
+// nolint:unused // kept for legacy compatibility
 func createChatDispatchHandler(handler ChatEventHandler) message.NoPublishHandlerFunc {
 	return func(msg *message.Message) error {
 		logFields := watermill.LogFields{"message_id": msg.UUID}
@@ -209,7 +176,9 @@ func (e *EventRouter) DumpRawEvents(msg *message.Message) error {
 	}
 	if !e.verbose {
 		s["id"] = s["meta"].(map[string]interface{})["message_id"]
-		s["step_type"] = s["step"].(map[string]interface{})["type"]
+		if step, ok := s["step"].(map[string]interface{}); ok {
+			s["step_type"] = step["type"]
+		}
 		delete(s, "meta")
 		delete(s, "step")
 	}

@@ -18,7 +18,7 @@ SectionType: Tutorial
 
 # Understanding and Using the Conversation Package
 
-This tutorial provides a comprehensive guide to using the `conversation` package in Geppetto, which is responsible for managing structured conversations between users and AI assistants. The package provides a rich set of types and functions for representing different kinds of message content, organizing messages into conversation trees, and handling metadata.
+This tutorial explains the `conversation` package in Geppetto. It provides types for chat content (text, tool calls/results, images, errors), a tree-backed `Manager` for organizing messages, and utilities to prepare linear conversations for engines.
 
 ## Core Concepts
 
@@ -34,10 +34,11 @@ The conversation package is built around several key types:
 
 The package supports several types of message content:
 
-- `ChatMessageContent`: Regular text messages with a role (user, assistant, system)
-- `ToolUseContent`: Tool call requests made by the assistant
-- `ToolResultContent`: Results returned from tool executions
-- `ImageContent`: Images included in messages
+- `ChatMessageContent`: Regular text messages with a role (user, assistant, system) and optional images
+- `ToolUseContent`: Assistant-originated tool call request (id, name, arguments)
+- `ToolResultContent`: Tool execution result (id, serialized result)
+- `ImageContent`: Images included by URL or binary content
+- `ErrorContent`: Rich error messages that can be added to the conversation
 
 ## Creating Messages
 
@@ -50,7 +51,7 @@ package main
 
 import (
     "fmt"
-    "github.com/your-org/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
 )
 
 func main() {
@@ -73,7 +74,7 @@ You can use option functions to customize messages:
 import (
     "time"
     "github.com/google/uuid"
-    "github.com/your-org/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
 )
 
 func createCustomMessage() *conversation.Message {
@@ -122,7 +123,7 @@ func createMessageWithImage() (*conversation.Message, error) {
 ```go
 import (
     "encoding/json"
-    "github.com/your-org/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
 )
 
 func createToolMessages() ([]*conversation.Message, error) {
@@ -140,7 +141,7 @@ func createToolMessages() ([]*conversation.Message, error) {
     toolUseContent := &conversation.ToolUseContent{
         ToolID: "web-search",
         Name:   "search",
-        Input:  toolInputJSON,
+        Input:  toolInputJSON, // json.RawMessage
         Type:   "function",
     }
     
@@ -201,9 +202,9 @@ You create a new conversation manager using the `NewManager` function. You can p
 package main
 
 import (
-	"fmt"
-	"github.com/google/uuid"
-	"github.com/your-org/geppetto/pkg/conversation"
+    "fmt"
+    "github.com/google/uuid"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
 )
 
 func main() {
@@ -377,7 +378,7 @@ import (
     "fmt"
     "time"
     
-    "github.com/your-org/geppetto/pkg/conversation"
+    "github.com/go-go-golems/geppetto/pkg/conversation"
 )
 
 func main() {

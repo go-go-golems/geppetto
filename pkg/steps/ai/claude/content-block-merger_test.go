@@ -1,10 +1,10 @@
 package claude
 
 import (
-	"github.com/go-go-golems/geppetto/pkg/events"
+	"encoding/json"
 	"testing"
 
-	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +27,7 @@ func TestContentBlockMerger(t *testing.T) {
 				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
 			},
 			expectedEvents: []events.Event{
-				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewStartEvent(events.EventMetadata{}),
 			},
 		},
 		{
@@ -44,7 +44,7 @@ func TestContentBlockMerger(t *testing.T) {
 				},
 			},
 			expectedEvents: []events.Event{
-				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
+				events.NewStartEvent(events.EventMetadata{}),
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "claude-2", metadata[ModelMetadataSlug])
@@ -67,8 +67,8 @@ func TestContentBlockMerger(t *testing.T) {
 				},
 			},
 			expectedEvents: []events.Event{
-				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
-				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, ""),
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewFinalEvent(events.EventMetadata{}, ""),
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "end_turn", metadata[StopReasonMetadataSlug])
@@ -111,11 +111,11 @@ func TestContentBlockMerger(t *testing.T) {
 				},
 			},
 			expectedEvents: []events.Event{
-				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "Hello, ", "Hello, "),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "world!", "Hello, world!"),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "", "Hello, world!"),
-				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, "Hello, world!"),
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "Hello, ", "Hello, "),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "world!", "Hello, world!"),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Hello, world!"),
+				events.NewFinalEvent(events.EventMetadata{}, "Hello, world!"),
 			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 1)
@@ -190,17 +190,17 @@ func TestContentBlockMerger(t *testing.T) {
 				},
 			},
 			expectedEvents: []events.Event{
-				events.NewStartEvent(events.EventMetadata{}, &steps.StepMetadata{}),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "Here's the result: ", "Here's the result: "),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "", "Here's the result: "),
-				events.NewToolCallEvent(events.EventMetadata{}, &steps.StepMetadata{}, events.ToolCall{
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "Here's the result: ", "Here's the result: "),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Here's the result: "),
+				events.NewToolCallEvent(events.EventMetadata{}, events.ToolCall{
 					ID:    "tool_1",
 					Name:  "calculator",
 					Input: toolCallResult,
 				}),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, " is the sum.", finalToolCallText),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, &steps.StepMetadata{}, "", finalToolCallText),
-				events.NewFinalEvent(events.EventMetadata{}, &steps.StepMetadata{}, finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, " is the sum.", finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", finalToolCallText),
+				events.NewFinalEvent(events.EventMetadata{}, finalToolCallText),
 			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 3)
@@ -210,7 +210,7 @@ func TestContentBlockMerger(t *testing.T) {
 				toolUseContent := response.Content[1].(api.ToolUseContent)
 				assert.Equal(t, "tool_1", toolUseContent.ID)
 				assert.Equal(t, "calculator", toolUseContent.Name)
-				assert.Equal(t, toolCallResult, toolUseContent.Input)
+				assert.Equal(t, json.RawMessage(toolCallResult), toolUseContent.Input)
 				assert.Equal(t, api.ContentTypeText, response.Content[2].Type())
 				assert.Equal(t, " is the sum.", response.Content[2].(api.TextContent).Text)
 			},
@@ -220,10 +220,7 @@ func TestContentBlockMerger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			metadata := events.EventMetadata{}
-			stepMetadata := &steps.StepMetadata{
-				Metadata: make(map[string]interface{}),
-			}
-			merger := NewContentBlockMerger(metadata, stepMetadata)
+			merger := NewContentBlockMerger(metadata)
 
 			var events_ []events.Event
 			var err error
@@ -263,7 +260,8 @@ func TestContentBlockMerger(t *testing.T) {
 				}
 
 				if tt.checkMetadata != nil {
-					tt.checkMetadata(t, stepMetadata.Metadata)
+					// No StepMetadata anymore; expose via merger.metadata.Extra
+					tt.checkMetadata(t, merger.metadata.Extra)
 				}
 
 				if tt.checkResponse != nil {

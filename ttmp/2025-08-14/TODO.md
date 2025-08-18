@@ -1,0 +1,2 @@
+- [ ] Move the LLMMessageData out of conversation
+- [ ] Consolidate toolblocks / toolhelpers

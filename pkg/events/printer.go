@@ -122,15 +122,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 			if _, err := fmt.Fprintf(w, "\nMetadata:\n%s\n", metaBytes); err != nil {
 				return err
 			}
-			if e.StepMetadata() != nil {
-				stepMetaBytes, err := yaml.Marshal(e.StepMetadata())
-				if err != nil {
-					return err
-				}
-				if _, err := fmt.Fprintf(w, "\nStep Metadata:\n%s\n", stepMetaBytes); err != nil {
-					return err
-				}
-			}
+			// Step metadata removed
 		}
 		return nil
 	case *EventToolCall:
@@ -147,6 +139,38 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 		}
 		_, err = fmt.Fprintf(w, "%s\n", toolResultBytes)
 		return err
+	case *EventLog:
+		level := p.Level
+		if level == "" {
+			level = "info"
+		}
+		if _, err := fmt.Fprintf(w, "\n[%s] %s\n", level, p.Message); err != nil {
+			return err
+		}
+		if len(p.Fields) > 0 {
+			fieldsBytes, err := yaml.Marshal(p.Fields)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "%s\n", fieldsBytes); err != nil {
+				return err
+			}
+		}
+		return nil
+	case *EventInfo:
+		if _, err := fmt.Fprintf(w, "\n[i] %s\n", p.Message); err != nil {
+			return err
+		}
+		if len(p.Data) > 0 {
+			dataBytes, err := yaml.Marshal(p.Data)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "%s\n", dataBytes); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return nil
 }
@@ -169,14 +193,24 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 		output.Content = p.ToolResult
 	case *EventError:
 		output.Content = p.Error_
+	case *EventLog:
+		output.Content = map[string]interface{}{
+			"level":   p.Level,
+			"message": p.Message,
+			"fields":  p.Fields,
+		}
+	case *EventInfo:
+		output.Content = map[string]interface{}{
+			"message": p.Message,
+			"data":    p.Data,
+		}
 	}
 
 	if options.Full {
 		output.Metadata = e.Metadata()
-		output.StepMetadata = e.StepMetadata()
 	} else if options.IncludeMetadata {
 		output.Metadata = e.Metadata()
-		importantMeta := extractImportantMetadata(e)
+		importantMeta := extractImportantMetadata(e.Metadata())
 		if importantMeta != nil {
 			if e.Type() == EventTypeStart {
 				output = structuredOutput{
@@ -184,7 +218,8 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 					Content: importantMeta,
 				}
 			} else if e.Type() == EventTypeFinal {
-				output.StepMetadata = importantMeta
+				// include on content side when final
+				output.Content = map[string]interface{}{"final": output.Content, "meta": importantMeta}
 			}
 		}
 	}
@@ -198,74 +233,25 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 	return err
 }
 
-func extractImportantMetadata(e Event) map[string]interface{} {
-	if e.StepMetadata() == nil {
-		return nil
-	}
-
-	metadata := e.Metadata()
-	stepMetadata := e.StepMetadata()
+func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 
 	//nolint:exhaustive
-	switch e.Type() {
-	case EventTypeStart:
+	// provide a compact subset for start-like content
+	{
 		result := map[string]interface{}{
-			"type": stepMetadata.Type,
+			"model": metadata.Model,
 		}
-
-		if metadata.Engine != "" {
-			result["engine"] = metadata.Engine
-		}
-		if metadata.Temperature != nil {
-			result["temp"] = metadata.Temperature
-		}
-		if metadata.MaxTokens != nil {
-			result["max_tokens"] = metadata.MaxTokens
-		}
-		if metadata.TopP != nil {
-			result["top_p"] = metadata.TopP
-		}
-		if metadata.Usage != nil && metadata.Usage.InputTokens != 0 {
-			result["input_tokens"] = metadata.Usage.InputTokens
-		}
-
-		return result
-
-	case EventTypeFinal:
-		result := map[string]interface{}{
-			"type": stepMetadata.Type,
-		}
-
 		if metadata.Usage != nil {
-			if metadata.Usage.InputTokens != 0 || metadata.Usage.OutputTokens != 0 {
-				result["tokens"] = map[string]interface{}{
-					"in":  metadata.Usage.InputTokens,
-					"out": metadata.Usage.OutputTokens,
-				}
-			}
-		} else {
-			result["tokens"] = map[string]interface{}{
-				"in":  0,
-				"out": 0,
-			}
+			result["input_tokens"] = metadata.Usage.InputTokens
+			result["output_tokens"] = metadata.Usage.OutputTokens
 		}
-
-		if metadata.Engine != "" {
-			result["engine"] = metadata.Engine
+		if metadata.StopReason != nil {
+			result["stop_reason"] = *metadata.StopReason
 		}
-		if metadata.TopP != nil {
-			result["top_p"] = metadata.TopP
-		}
-		if metadata.StopReason != nil && *metadata.StopReason != "" {
-			result["stop_reason"] = metadata.StopReason
-		}
-		if metadata.Temperature != nil {
-			result["temp"] = metadata.Temperature
+		if metadata.DurationMs != nil {
+			result["duration_ms"] = *metadata.DurationMs
 		}
 
 		return result
-
-	default:
 	}
-	return nil
 }
