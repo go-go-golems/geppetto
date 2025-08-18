@@ -9,7 +9,7 @@ gifs: $(TAPES)
 	for i in $(TAPES); do vhs < $$i; done
 
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.3.0 golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.0.2 golangci-lint run -v
 
 lint:
 	golangci-lint run -v
@@ -37,7 +37,7 @@ tag-patch:
 	git tag $(shell svu patch)
 
 release:
-	git push --tags
+	git push origin --tags
 	GOPROXY=proxy.golang.org go list -m github.com/go-go-golems/geppetto@$(shell svu current)
 
 bump-glazed:
