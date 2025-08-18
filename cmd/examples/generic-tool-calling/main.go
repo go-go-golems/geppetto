@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+
 	// "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
@@ -25,6 +26,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -38,6 +40,15 @@ var rootCmd = &cobra.Command{
 		err := logging.InitLoggerFromViper()
 		if err != nil {
 			return err
+		}
+		// Honor --log-level if provided
+		if f := cmd.Flags(); f != nil {
+			lvl, _ := f.GetString("log-level")
+			if lvl != "" {
+				if l, err := zerolog.ParseLevel(lvl); err == nil {
+					zerolog.SetGlobalLevel(l)
+				}
+			}
 		}
 		return nil
 	},
@@ -230,6 +241,11 @@ func NewGenericToolCallingCommand() (*GenericToolCallingCommand, error) {
 				parameters.ParameterTypeBool,
 				parameters.WithHelp("Verbose event router logging"),
 				parameters.WithDefault(false),
+			),
+			parameters.NewParameterDefinition("log-level",
+				parameters.ParameterTypeString,
+				parameters.WithHelp("Global log level (trace, debug, info, warn, error)"),
+				parameters.WithDefault(""),
 			),
 			// Tool configuration parameters
 			parameters.NewParameterDefinition("max-iterations",
