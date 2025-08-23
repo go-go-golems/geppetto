@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"math"
 	"reflect"
 	"strings"
 	"time"
@@ -138,7 +139,16 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 			cfg.TopP = &v
 		}
 		if e.settings.Chat.MaxResponseTokens != nil {
-			v := int32(*e.settings.Chat.MaxResponseTokens)
+			mt := *e.settings.Chat.MaxResponseTokens
+			if mt < 0 {
+				log.Warn().Int("requested_max_tokens", mt).Msg("Negative MaxResponseTokens provided; clamping to 0")
+				mt = 0
+			}
+			if mt > int(math.MaxInt32) {
+				log.Warn().Int("requested_max_tokens", mt).Int("clamped_to", int(math.MaxInt32)).Msg("MaxResponseTokens exceeds int32; clamping")
+				mt = int(math.MaxInt32)
+			}
+			v := int32(mt)
 			cfg.MaxOutputTokens = &v
 		}
 		model.GenerationConfig = cfg
