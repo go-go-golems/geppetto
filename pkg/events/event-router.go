@@ -68,11 +68,14 @@ func NewEventRouter(options ...EventRouterOption) (*EventRouter, error) {
 		o(ret)
 	}
 
-	goPubSub := gochannel.NewGoChannel(gochannel.Config{
-		BlockPublishUntilSubscriberAck: true,
-	}, ret.logger)
-	ret.Publisher = goPubSub
-	ret.Subscriber = goPubSub
+	// Only default to in-memory pub/sub if no external transports were provided
+	if ret.Publisher == nil || ret.Subscriber == nil {
+		goPubSub := gochannel.NewGoChannel(gochannel.Config{
+			BlockPublishUntilSubscriberAck: true,
+		}, ret.logger)
+		ret.Publisher = goPubSub
+		ret.Subscriber = goPubSub
+	}
 
 	router, err := message.NewRouter(message.RouterConfig{}, ret.logger)
 	if err != nil {
@@ -163,7 +166,36 @@ func createChatDispatchHandler(handler ChatEventHandler) message.NoPublishHandle
 }
 
 func (e *EventRouter) AddHandler(name string, topic string, f func(msg *message.Message) error) {
-	e.router.AddNoPublisherHandler(name, topic, e.Subscriber, f)
+	e.AddHandlerWithOptions(name, topic, f)
+}
+
+// Handler options to control per-handler subscriber (e.g., distinct consumer group)
+type handlerConfig struct {
+	subscriber message.Subscriber
+}
+
+type HandlerOption func(*handlerConfig)
+
+// WithHandlerSubscriber assigns a dedicated Subscriber for this handler.
+// Useful for Redis Streams where different consumer groups should receive all events independently.
+func WithHandlerSubscriber(sub message.Subscriber) HandlerOption {
+	return func(hc *handlerConfig) { hc.subscriber = sub }
+}
+
+// AddHandlerWithOptions registers a handler with optional per-handler settings.
+// If a dedicated subscriber is provided, it will be used instead of the router's default subscriber.
+func (e *EventRouter) AddHandlerWithOptions(name string, topic string, f func(msg *message.Message) error, opts ...HandlerOption) {
+	hc := &handlerConfig{}
+	for _, o := range opts {
+		o(hc)
+	}
+
+	sub := e.Subscriber
+	if hc.subscriber != nil {
+		sub = hc.subscriber
+	}
+
+	e.router.AddNoPublisherHandler(name, topic, sub, f)
 }
 
 func (e *EventRouter) DumpRawEvents(msg *message.Message) error {
