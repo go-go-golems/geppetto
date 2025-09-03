@@ -139,16 +139,20 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 			cfg.TopP = &v
 		}
 		if e.settings.Chat.MaxResponseTokens != nil {
+			// Clamp to [0, math.MaxInt32] and convert safely to int32
 			mt := *e.settings.Chat.MaxResponseTokens
+			var v int32
 			if mt < 0 {
 				log.Warn().Int("requested_max_tokens", mt).Msg("Negative MaxResponseTokens provided; clamping to 0")
-				mt = 0
-			}
-			if mt > int(math.MaxInt32) {
+				v = 0
+			} else if mt > int(math.MaxInt32) {
 				log.Warn().Int("requested_max_tokens", mt).Int("clamped_to", int(math.MaxInt32)).Msg("MaxResponseTokens exceeds int32; clamping")
-				mt = int(math.MaxInt32)
+				v = math.MaxInt32
+			} else {
+				// mt is within int32 range; convert via int64 to avoid int->int32 cast warning linters
+				mt64 := int64(mt)
+				v = int32(mt64)
 			}
-			v := int32(mt)
 			cfg.MaxOutputTokens = &v
 		}
 		model.GenerationConfig = cfg
