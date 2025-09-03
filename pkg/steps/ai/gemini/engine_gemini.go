@@ -151,7 +151,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 			} else {
 				// mt is within int32 range; convert via int64 to avoid int->int32 cast warning linters
 				mt64 := int64(mt)
-				v = int32(mt64)
+				v = int32(mt64) // #nosec G115
 			}
 			cfg.MaxOutputTokens = &v
 		}
