@@ -12,6 +12,26 @@ const (
 	BlockKindOther
 )
 
+// String returns a human-readable identifier for the BlockKind.
+func (k BlockKind) String() string {
+	switch k {
+	case BlockKindUser:
+		return "user"
+	case BlockKindLLMText:
+		return "llm_text"
+	case BlockKindToolCall:
+		return "tool_call"
+	case BlockKindToolUse:
+		return "tool_use"
+	case BlockKindSystem:
+		return "system"
+	case BlockKindOther:
+		return "other"
+	default:
+		return "other"
+	}
+}
+
 // Block represents a single atomic unit within a Turn.
 type Block struct {
 	ID      string
