@@ -49,15 +49,28 @@ func MakeMessageRequestFromTurn(
 		}
 	}
 	systemPrompt := ""
+	hasSystemPrompt := false
 	if t != nil {
 		for _, b := range t.Blocks {
 			switch b.Kind {
 			case turns.BlockKindSystem:
+				text := ""
 				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
 					if s, ok2 := v.(string); ok2 {
-						systemPrompt = s
+						text = s
 					} else if bb, err := json.Marshal(v); err == nil {
-						systemPrompt = string(bb)
+						text = string(bb)
+					}
+				}
+				if !hasSystemPrompt {
+					systemPrompt = text
+					hasSystemPrompt = true
+				} else if text != "" {
+					msg := api.Message{Role: RoleUser, Content: []api.Content{api.NewTextContent(text)}}
+					if toolPhaseActive {
+						delayedMsgs = append(delayedMsgs, msg)
+					} else {
+						msgs = append(msgs, msg)
 					}
 				}
 			case turns.BlockKindUser:
