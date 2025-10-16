@@ -87,6 +87,23 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 			}
 
 		case *EventInfo:
+			// Reasoning/output phase markers get a pretty prefix
+			if p_.Message == "thinking-started" {
+				if _, err := fmt.Fprintf(w, "\n--- Thinking started ---\n"); err != nil { return err }
+				break
+			}
+			if p_.Message == "thinking-ended" {
+				if _, err := fmt.Fprintf(w, "\n--- Thinking ended ---\n"); err != nil { return err }
+				break
+			}
+			if p_.Message == "output-started" {
+				if _, err := fmt.Fprintf(w, "\n--- Output started ---\n"); err != nil { return err }
+				break
+			}
+			if p_.Message == "output-ended" {
+				if _, err := fmt.Fprintf(w, "\n--- Output ended ---\n"); err != nil { return err }
+				break
+			}
 			if _, err := fmt.Fprintf(w, "\n[i] %s\n", p_.Message); err != nil {
 				return err
 			}

@@ -96,7 +96,29 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
 			if err := json.Unmarshal([]byte(raw), &m); err != nil {
 				return nil
 			}
-			switch eventName {
+            switch eventName {
+            case "response.output_item.added":
+                if it, ok := m["item"].(map[string]any); ok {
+                    if typ, ok := it["type"].(string); ok {
+                        switch typ {
+                        case "reasoning":
+                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+                        case "message":
+                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
+                        }
+                    }
+                }
+            case "response.output_item.done":
+                if it, ok := m["item"].(map[string]any); ok {
+                    if typ, ok := it["type"].(string); ok {
+                        switch typ {
+                        case "reasoning":
+                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
+                        case "message":
+                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+                        }
+                    }
+                }
 			case "response.output_text.delta":
 				if v, ok := m["delta"].(string); ok && v != "" {
 					message += v
