@@ -49,12 +49,22 @@ func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-	// Build request messages directly from Turn blocks (no conversation dependency)
+    // Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
 	startTime := time.Now()
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
+
+    // Route Responses API for reasoning-capable models (o3/o4/gpt-5)
+    if e.settings != nil && e.settings.Chat != nil && e.settings.Chat.Engine != nil {
+        model := *e.settings.Chat.Engine
+        // Either explicit api_type=openai-responses or heuristic by model family
+        explicitResponses := e.settings.Chat.ApiType != nil && string(*e.settings.Chat.ApiType) == "openai-responses"
+        if explicitResponses || requiresResponses(model) {
+            return e.runResponses(ctx, t)
+        }
+    }
 
 	client, err := MakeClient(e.settings.API, *e.settings.Chat.ApiType)
 	if err != nil {
@@ -177,24 +187,24 @@ func (e *OpenAIEngine) RunInference(
 	}
 
 	// Setup metadata and event publishing
-	metadata := events.EventMetadata{
-		ID: uuid.New(),
-		LLMInferenceData: events.LLMInferenceData{
-			Model:       req.Model,
-			Usage:       nil,
-			StopReason:  nil,
-			Temperature: e.settings.Chat.Temperature,
-			TopP:        e.settings.Chat.TopP,
-			MaxTokens:   e.settings.Chat.MaxResponseTokens,
-		},
-	}
-	log.Debug().
-		Str("event_id", metadata.ID.String()).
-		Str("model", metadata.Model).
-		Interface("temperature", metadata.Temperature).
-		Interface("top_p", metadata.TopP).
-		Interface("max_tokens", metadata.MaxTokens).
-		Msg("LLMInferenceData initialized")
+    metadata := events.EventMetadata{
+        ID: uuid.New(),
+        LLMInferenceData: events.LLMInferenceData{
+            Model:       req.Model,
+            Usage:       nil,
+            StopReason:  nil,
+            Temperature: e.settings.Chat.Temperature,
+            TopP:        e.settings.Chat.TopP,
+            MaxTokens:   e.settings.Chat.MaxResponseTokens,
+        },
+    }
+    log.Debug().
+        Str("event_id", metadata.ID.String()).
+        Str("model", metadata.Model).
+        Interface("temperature", metadata.Temperature).
+        Interface("top_p", metadata.TopP).
+        Interface("max_tokens", metadata.MaxTokens).
+        Msg("LLMInferenceData initialized")
 	// Propagate Turn correlation identifiers when present
 	if t != nil {
 		metadata.RunID = t.RunID

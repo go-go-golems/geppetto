@@ -4,6 +4,7 @@ type ApiType string
 
 const (
 	ApiTypeOpenAI    ApiType = "openai"
+    ApiTypeOpenAIResponses ApiType = "openai-responses"
 	ApiTypeAnyScale  ApiType = "anyscale"
 	ApiTypeFireworks ApiType = "fireworks"
 	ApiTypeClaude    ApiType = "claude"

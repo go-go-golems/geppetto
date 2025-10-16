@@ -29,4 +29,16 @@ flags:
     type: string
     help: API key
     default: ""
+  - name: openai-reasoning-effort
+    type: choice
+    choices:
+      - "low"
+      - "medium"
+      - "high"
+    help: Reasoning effort level for Responses API models
+    default: "medium"
+  - name: openai-parallel-tool-calls
+    type: bool
+    help: Hint for parallel tool execution when using Responses API
+    default: false
 

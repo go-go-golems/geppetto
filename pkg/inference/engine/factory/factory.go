@@ -62,8 +62,8 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 	}
 
 	// Create engine based on provider
-	switch provider {
-	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+    switch provider {
+    case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
 		return openai.NewOpenAIEngine(settings, options...)
 
 	case string(types.ApiTypeClaude), "anthropic":
@@ -82,6 +82,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 func (f *StandardEngineFactory) SupportedProviders() []string {
 	return []string{
 		string(types.ApiTypeOpenAI),
+        string(types.ApiTypeOpenAIResponses),
 		string(types.ApiTypeAnyScale),
 		string(types.ApiTypeFireworks),
 		string(types.ApiTypeClaude),

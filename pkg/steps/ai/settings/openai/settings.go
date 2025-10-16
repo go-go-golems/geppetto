@@ -17,6 +17,10 @@ type Settings struct {
 	// TODO(manuel, 2023-03-28) Properly load logit bias
 	// See https://github.com/go-go-golems/geppetto/issues/48
 	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
+    // ReasoningEffort for Responses API (low|medium|high)
+    ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed.parameter:"openai-reasoning-effort"`
+    // ParallelToolCalls is a hint for tool parallelization in Responses
+    ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed.parameter:"openai-parallel-tool-calls"`
 }
 
 func NewSettings() (*Settings, error) {
@@ -25,6 +29,8 @@ func NewSettings() (*Settings, error) {
 		PresencePenalty:  nil,
 		FrequencyPenalty: nil,
 		LogitBias:        map[string]string{},
+        ReasoningEffort:  nil,
+        ParallelToolCalls: nil,
 	}
 
 	p, err := NewParameterLayer()

@@ -71,6 +71,13 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
+// requiresResponses returns true when the model should be routed to the OpenAI Responses API
+// (o3/o4/gpt-5 reasoning-capable families).
+func requiresResponses(model string) bool {
+    m := strings.ToLower(model)
+    return strings.HasPrefix(m, "o3") || strings.HasPrefix(m, "o4") || strings.HasPrefix(m, "gpt-5")
+}
+
 // Removed obsolete MakeCompletionRequest (conversation-based)
 
 // MakeCompletionRequestFromTurn builds an OpenAI ChatCompletionRequest directly from a Turn's blocks,
