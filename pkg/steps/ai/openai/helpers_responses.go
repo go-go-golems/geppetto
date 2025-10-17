@@ -20,6 +20,9 @@ type responsesRequest struct {
     Reasoning       *reasoningParam    `json:"reasoning,omitempty"`
     Stream          bool               `json:"stream,omitempty"`
     Include         []string           `json:"include,omitempty"`
+    Tools           []any              `json:"tools,omitempty"`
+    ToolChoice      any                `json:"tool_choice,omitempty"`
+    ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
 }
 
 type reasoningParam struct {
@@ -136,11 +139,26 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 }
 
 // PrepareToolsForResponses placeholder for parity; tools omitted in first cut.
-func (e *OpenAIEngine) PrepareToolsForResponses(_ []engine.ToolDefinition, cfg engine.ToolConfig) (any, error) {
+func (e *OpenAIEngine) PrepareToolsForResponses(toolDefs []engine.ToolDefinition, cfg engine.ToolConfig) (any, error) {
     if !cfg.Enabled {
         return nil, nil
     }
-    return nil, nil
+    // Convert engine.ToolDefinition to OpenAI Responses tool format
+    // {"type":"function","function":{"name":...,"description":...,"parameters":{...}}}
+    tools := make([]any, 0, len(toolDefs))
+    for _, td := range toolDefs {
+        tool := map[string]any{
+            "type":        "function",
+            "name":        td.Name,
+            "description": td.Description,
+        }
+        if td.Parameters != nil {
+            // Responses API expects top-level parameters for function tools
+            tool["parameters"] = td.Parameters
+        }
+        tools = append(tools, tool)
+    }
+    return tools, nil
 }
 
 

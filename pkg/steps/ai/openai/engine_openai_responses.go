@@ -9,10 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 )
 
 func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -22,6 +26,76 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
 	if err != nil {
 		return nil, err
 	}
+
+	// Attach tools to Responses request when present
+	if t != nil && t.Data != nil {
+		var engineTools []engine.ToolDefinition
+		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
+			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
+				for _, td := range reg.ListTools() {
+					engineTools = append(engineTools, engine.ToolDefinition{
+						Name:        td.Name,
+						Description: td.Description,
+						Parameters:  td.Parameters,
+						Examples:    []engine.ToolExample{},
+						Tags:        td.Tags,
+						Version:     td.Version,
+					})
+				}
+			}
+		}
+		var toolCfg engine.ToolConfig
+		if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
+			if cfg, ok := cfgAny.(engine.ToolConfig); ok { toolCfg = cfg }
+		}
+		if len(engineTools) > 0 && toolCfg.Enabled {
+			converted, err := e.PrepareToolsForResponses(engineTools, toolCfg)
+			if err != nil { return nil, err }
+			if arr, ok := converted.([]any); ok && len(arr) > 0 {
+				reqBody.Tools = arr
+				// Responses API: omit tool_choice for function tools to allow model selection
+				reqBody.ToolChoice = nil
+				// parallel_tool_calls preference
+				if toolCfg.MaxParallelTools > 1 {
+					b := true; reqBody.ParallelToolCalls = &b
+				} else if toolCfg.MaxParallelTools == 1 {
+					b := false; reqBody.ParallelToolCalls = &b
+				}
+				log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
+			}
+		}
+	}
+	// Debug: succinct preview of input items and tool blocks present on Turn
+	if t != nil {
+		toolCalls := 0
+		toolUses := 0
+		for _, b := range t.Blocks {
+			if b.Kind == turns.BlockKindToolCall { toolCalls++ }
+			if b.Kind == turns.BlockKindToolUse { toolUses++ }
+		}
+		log.Debug().Int("tool_call_blocks", toolCalls).Int("tool_use_blocks", toolUses).Msg("Responses: Turn tool blocks present")
+	}
+	{
+		preview := make([]map[string]any, 0, len(reqBody.Input))
+		for _, it := range reqBody.Input {
+			pparts := make([]map[string]any, 0, len(it.Content))
+			for _, c := range it.Content {
+				seg := c.Text
+				if len(seg) > 80 { seg = seg[:80] + "…" }
+				pparts = append(pparts, map[string]any{"type": c.Type, "len": len(c.Text), "text": seg})
+			}
+			preview = append(preview, map[string]any{"role": it.Role, "parts": pparts})
+		}
+		log.Debug().Int("input_items", len(reqBody.Input)).Interface("input_preview", preview).Msg("Responses: request input summary")
+	}
+
+	// Trace-level: dump full YAML of request for debugging
+	if zerolog.GlobalLevel() <= zerolog.TraceLevel {
+		if yb, err := yaml.Marshal(reqBody); err == nil {
+			log.Trace().Msg("Responses: request YAML\n" + string(yb))
+		}
+	}
+
 	b, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
@@ -99,6 +173,10 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
         var thinkBuf strings.Builder
         var sayBuf strings.Builder
         var summaryBuf strings.Builder
+        // Accumulate function_call tool uses
+        type pendingCall struct{ callID, name, itemID string; args strings.Builder }
+        callsByItem := map[string]*pendingCall{}
+        finalCalls := []pendingCall{}
         log.Trace().Msg("Responses: starting SSE read loop")
 		flush := func() error {
 			if dataBuf.Len() == 0 {
@@ -177,10 +255,45 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
                         case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+                        case "function_call":
+                            // finalize function_call and publish ToolCall event
+                            name := ""
+                            if v, ok := it["name"].(string); ok { name = v }
+                            callID := ""
+                            if v, ok := it["call_id"].(string); ok { callID = v }
+                            itemID := ""
+                            if v, ok := it["id"].(string); ok { itemID = v }
+                            args := ""
+                            if v, ok := it["arguments"].(string); ok && v != "" { args = v }
+                            if args == "" {
+                                if pc := callsByItem[itemID]; pc != nil { args = pc.args.String() }
+                            }
+                            if callID != "" && name != "" {
+                                e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: callID, Name: name, Input: args}))
+                                var b strings.Builder; b.WriteString(args)
+                                finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, args: b})
+                            }
                         }
                     }
                 }
             case "response.output_text.delta":
+            case "response.function_call_arguments.delta":
+                // Accumulate function_call arguments by item_id
+                itemID := ""
+                if v, ok := m["item_id"].(string); ok { itemID = v }
+                if itemID != "" {
+                    pc := callsByItem[itemID]
+                    if pc == nil { pc = &pendingCall{itemID: itemID}; callsByItem[itemID] = pc }
+                    if d, ok := m["delta"].(string); ok && d != "" { pc.args.WriteString(d) }
+                }
+            case "response.function_call_arguments.done":
+                itemID := ""
+                if v, ok := m["item_id"].(string); ok { itemID = v }
+                if d, ok := m["arguments"].(string); ok && d != "" {
+                    if pc := callsByItem[itemID]; pc != nil {
+                        pc.args.Reset(); pc.args.WriteString(d)
+                    }
+                }
                 if v, ok := m["delta"].(string); ok && v != "" {
                     message += v
                     // Output deltas are not thinking tokens; always treat as output
@@ -275,9 +388,15 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
         }
 		if stopReason != nil { metadata.StopReason = stopReason }
 		d := time.Since(startTime).Milliseconds(); dm := int64(d); metadata.DurationMs = &dm
-		if strings.TrimSpace(message) != "" {
-			turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
-		}
+        if strings.TrimSpace(message) != "" {
+            turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+        }
+        // Append tool_call blocks captured via Responses API
+        for _, pc := range finalCalls {
+            var args any
+            if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil { args = map[string]any{} }
+            turns.AppendBlock(t, turns.NewToolCallBlock(pc.callID, pc.name, args))
+        }
 		e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 		return t, nil
 	}

@@ -107,9 +107,9 @@ func (f *StandardEngineFactory) validateSettings(settings *settings.StepSettings
 	}
 
 	// Validate provider-specific requirements
-	switch provider {
-	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return f.validateOpenAISettings(settings, provider)
+    switch provider {
+    case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+        return f.validateOpenAISettings(settings, provider)
 
 	case string(types.ApiTypeClaude), "anthropic":
 		return f.validateClaudeSettings(settings, provider)
@@ -127,12 +127,20 @@ func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.StepSe
 	// Check for API key
 	apiKeyName := provider + "-api-key"
 	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-		return errors.Errorf("missing API key %s", apiKeyName)
+		// Fallback: allow openai-responses to reuse openai-api-key
+		if provider == string(types.ApiTypeOpenAIResponses) {
+			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAI)+"-api-key"]; !ok2 {
+				return errors.Errorf("missing API key %s (or fallback openai-api-key)", apiKeyName)
+			}
+		} else {
+			return errors.Errorf("missing API key %s", apiKeyName)
+		}
 	}
 
 	// Base URL is optional for OpenAI (uses default), but required for others
 	baseURLName := provider + "-base-url"
-	if provider != string(types.ApiTypeOpenAI) {
+	// Base URL optional for openai and openai-responses; required for other OpenAI-compatible providers
+	if provider != string(types.ApiTypeOpenAI) && provider != string(types.ApiTypeOpenAIResponses) {
 		if _, ok := settings.API.BaseUrls[baseURLName]; !ok {
 			return errors.Errorf("missing base URL %s for provider %s", baseURLName, provider)
 		}
