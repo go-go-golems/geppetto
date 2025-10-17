@@ -60,7 +60,8 @@ This doc captures the work to integrate OpenAI’s Responses API into Geppetto�
 - Usage not populated early; now parsed on `response.completed` from nested fields.
 
 ### Open Questions / Caveats
-- Input currently includes only role=user text. We still need to add `assistant` function_call and `tool` tool_result content items back into `input` on subsequent rounds.
+- **Tool History Issue**: Attempted to include `function_call` and `tool_result` content types in `input`, but API rejected them. Supported content types are: `input_text`, `input_image`, `output_text`, `refusal`, `input_file`, `computer_screenshot`, `summary_text`. This suggests the Responses API uses a different state management model (conversation_id or previous_response_id) instead of explicit tool history. See `04-conversation-state-management-design-proposals.md` for design proposals.
+- **Current Limitation**: Tool calls repeat in a loop because the model doesn't see previous tool results. This will be fixed once conversation state management is implemented.
 - Parallel tool calls and `parallel_tool_calls` semantics need UX design and tests.
 - Encrypted reasoning: we include the flag, but no hydration mechanism is implemented yet.
 
@@ -96,8 +97,14 @@ Use an invalid key or provoke a 400/429 to see `[error]` lines emitted by the pr
 - Maintain Go guidelines from `config/llm/go-guidelines.md` (pure helpers, clear DTOs, early returns).
 
 ### Next Steps
-- Implement inclusion of `assistant:function_call` and `tool:tool_result` input items (see TODO doc) and add tests.
+- **Priority**: Implement conversation state management to fix tool loop issue (see `04-conversation-state-management-design-proposals.md`). Recommended approach is Proposal 6 (Hybrid: Turn.Data + Accessors).
 - Add integration tests with a mock SSE server to stabilize function-call parsing across versions.
-- Expand docs with a “Responses input schema” section and examples once tool blocks are included.
+- Expand docs with conversation state management examples once implemented.
+- Consider adding `ConversationManager` (Proposal 5) for high-level multi-turn workflows.
+
+### Related Documents
+- `01-things-todo-for-the-responses-api.md`: Detailed task list (partially completed)
+- `03-forward-plan-responses-api.md`: Forward plan with verification steps and next tasks
+- `04-conversation-state-management-design-proposals.md`: Six design proposals for managing conversation state (NEW)
 
 

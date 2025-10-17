@@ -43,13 +43,23 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 ```
 Expect: reasoning boundaries, function_call args streamed, ToolCall events, request YAML printed at trace, tool_result loop continues.
 
-### Post-extraction follow-ups (next)
-- Include tool_call and tool_result blocks in Responses `input` on subsequent turns
-  - Add to `buildInputItemsFromTurn` in `openai_responses/helpers.go`:
-    - `assistant` function_call item (name, call_id, arguments)
-    - `tool` tool_result item (tool_call_id, content)
-- Add unit tests and a minimal golden SSE test for stability
-- Update docs: engine selection, troubleshooting, example commands
+### Post-extraction follow-ups (completed/updated)
+- [x] Verification: Both Chat Completions and Responses engines work correctly after refactoring
+- [x] Documentation: Updated inference engines, events, and tools docs with Responses API details
+- [~] Include tool_call and tool_result blocks in Responses `input` on subsequent turns
+  - **Status**: Implemented but API rejected `function_call` and `tool_result` content types
+  - **Issue**: OpenAI Responses API doesn't support these types in `input.content[]`
+  - **Supported types**: `input_text`, `input_image`, `output_text`, `refusal`, `input_file`, `computer_screenshot`, `summary_text`
+  - **Next**: Need to investigate conversation state management (see `04-conversation-state-management-design-proposals.md`)
+  - **Likely solution**: Use conversation_id or previous_response_id instead of sending tool history
+- [x] Design proposals for conversation state management created in `04-conversation-state-management-design-proposals.md`
+- [x] Middleware coherence analysis created in `05-middleware-and-chained-responses-problem.md`
+  - **Key insight**: Need to track which blocks came from which response_id
+  - **Recommendation**: Solution 0 (Track Response Boundaries) using existing helpers
+  - Leverages `SnapshotBlockIDs` and `NewBlocksNotIn` from middleware package
+- [ ] Add unit tests and a minimal golden SSE test for stability
+- [ ] Implement conversation state management (Hybrid approach from Proposal 6 in doc 04)
+- [ ] Implement response boundary tracking (Solution 0 from doc 05)
 
 ### Code pointers
 - Chat engine: `pkg/steps/ai/openai/engine_openai.go`
