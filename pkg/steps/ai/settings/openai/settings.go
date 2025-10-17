@@ -21,6 +21,12 @@ type Settings struct {
     ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed.parameter:"openai-reasoning-effort"`
     // ParallelToolCalls is a hint for tool parallelization in Responses
     ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed.parameter:"openai-parallel-tool-calls"`
+    // ReasoningSummary requests a public reasoning summary ("auto" to enable)
+    ReasoningSummary *string `yaml:"reasoning_summary,omitempty" glazed.parameter:"openai-reasoning-summary"`
+    // IncludeReasoningEncrypted requests encrypted reasoning content for reuse across turns
+    IncludeReasoningEncrypted *bool `yaml:"include_reasoning_encrypted,omitempty" glazed.parameter:"openai-include-reasoning-encrypted"`
+    // StreamIncludeUsage requests usage in streaming events (when supported)
+    StreamIncludeUsage *bool `yaml:"stream-include-usage,omitempty" glazed.parameter:"openai-stream-include-usage"`
 }
 
 func NewSettings() (*Settings, error) {
@@ -31,6 +37,9 @@ func NewSettings() (*Settings, error) {
 		LogitBias:        map[string]string{},
         ReasoningEffort:  nil,
         ParallelToolCalls: nil,
+        ReasoningSummary: nil,
+        IncludeReasoningEncrypted: nil,
+        StreamIncludeUsage: nil,
 	}
 
 	p, err := NewParameterLayer()

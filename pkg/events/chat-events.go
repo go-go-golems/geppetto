@@ -15,6 +15,8 @@ const (
 	EventTypeStart             EventType = "start"
 	EventTypeFinal             EventType = "final"
 	EventTypePartialCompletion EventType = "partial"
+		// Separate partial stream for reasoning/summary thinking text
+		EventTypePartialThinking EventType = "partial-thinking"
 
 	// TODO(manuel, 2024-07-04) I'm not sure if this is needed
 	EventTypeStatus EventType = "status"
@@ -291,6 +293,23 @@ func NewPartialCompletionEvent(metadata EventMetadata, delta string, completion 
 
 var _ Event = &EventPartialCompletion{}
 
+// EventThinkingPartial mirrors EventPartialCompletion but is dedicated to reasoning/summary text
+type EventThinkingPartial struct {
+    EventImpl
+    Delta string `json:"delta"`
+    Completion string `json:"completion"`
+}
+
+func NewThinkingPartialEvent(metadata EventMetadata, delta string, completion string) *EventThinkingPartial {
+    return &EventThinkingPartial{
+        EventImpl: EventImpl{Type_: EventTypePartialThinking, Metadata_: metadata},
+        Delta:      delta,
+        Completion: completion,
+    }
+}
+
+var _ Event = &EventThinkingPartial{}
+
 // MetadataToolCallsSlug is the slug used to store ToolCall metadata as returned by the openai API
 // TODO(manuel, 2024-07-04) This needs to deleted once we have a good way to do tool calling
 const MetadataToolCallsSlug = "tool-calls"
@@ -377,6 +396,12 @@ func NewEventFromJson(b []byte) (Event, error) {
 		ret, ok := ToTypedEvent[EventPartialCompletion](e)
 		if !ok {
 			return nil, fmt.Errorf("could not cast event to EventPartialCompletion")
+		}
+		return ret, nil
+	case EventTypePartialThinking:
+		ret, ok := ToTypedEvent[EventThinkingPartial](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventThinkingPartial")
 		}
 		return ret, nil
 	case EventTypeToolCall:

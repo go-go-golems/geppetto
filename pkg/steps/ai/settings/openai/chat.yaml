@@ -41,4 +41,19 @@ flags:
     type: bool
     help: Hint for parallel tool execution when using Responses API
     default: false
+  - name: openai-reasoning-summary
+    type: choice
+    choices:
+      - ""
+      - "auto"
+    help: Request a public reasoning summary (auto to enable)
+    default: "auto"
+  - name: openai-include-reasoning-encrypted
+    type: bool
+    help: Include encrypted reasoning content for reuse across stateless turns
+    default: false
+  - name: openai-stream-include-usage
+    type: bool
+    help: Request usage in streaming events when supported
+    default: true
 

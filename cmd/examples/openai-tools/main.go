@@ -175,6 +175,33 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
             return nil
         }
         meta := ev.Metadata()
+        // Stream reasoning summary boundaries; thinking deltas come as EventPartialThinking
+        if string(ev.Type()) == string(events.EventTypeInfo) {
+            if ie, ok := events.ToTypedEvent[events.EventInfo](ev); ok && ie != nil {
+                switch ie.Message {
+                case "reasoning-summary-started":
+                    fmt.Fprintln(w, "\n--- Reasoning summary started ---")
+                case "reasoning-summary-ended":
+                    fmt.Fprintln(w, "\n--- Reasoning summary ended ---\n")
+                case "thinking-started":
+                    fmt.Fprintln(w, "\n--- Thinking started ---")
+                case "thinking-ended":
+                    fmt.Fprintln(w, "\n--- Thinking ended ---")
+                case "output-started":
+                    fmt.Fprintln(w, "\n--- Output started ---")
+                case "output-ended":
+                    fmt.Fprintln(w, "\n--- Output ended ---")
+                }
+            }
+        }
+        // Print thinking partials as raw text
+        if string(ev.Type()) == string(events.EventTypePartialThinking) {
+            if tp, ok := events.ToTypedEvent[events.EventThinkingPartial](ev); ok && tp != nil {
+                if tp.Delta != "" {
+                    fmt.Fprint(w, tp.Delta)
+                }
+            }
+        }
         if string(ev.Type()) == "final" {
             extra := meta.Extra
             var rt any

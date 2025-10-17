@@ -19,6 +19,10 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 
 		switch p_ := e.(type) {
 		case *EventError:
+			// Print error clearly for visibility
+			if _, e2 := fmt.Fprintf(w, "\n[error] %s\n", p_.ErrorString); e2 != nil {
+				return e2
+			}
 			return err
 		case *EventPartialCompletion:
 			if isFirst && name != "" {
@@ -28,6 +32,13 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 					return err
 				}
 			}
+			_, err = fmt.Fprintf(w, "%s", p_.Delta)
+			if err != nil {
+				return err
+			}
+
+		case *EventThinkingPartial:
+			// Print thinking deltas as normal text, no labels
 			_, err = fmt.Fprintf(w, "%s", p_.Delta)
 			if err != nil {
 				return err
@@ -104,6 +115,8 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				if _, err := fmt.Fprintf(w, "\n--- Output ended ---\n"); err != nil { return err }
 				break
 			}
+			// Suppress verbose printing for reasoning-summary-delta; handled via EventThinkingPartial
+			if p_.Message == "reasoning-summary-delta" { break }
 			if _, err := fmt.Fprintf(w, "\n[i] %s\n", p_.Message); err != nil {
 				return err
 			}

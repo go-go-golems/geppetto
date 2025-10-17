@@ -19,11 +19,12 @@ type responsesRequest struct {
     StopSequences   []string           `json:"stop_sequences,omitempty"`
     Reasoning       *reasoningParam    `json:"reasoning,omitempty"`
     Stream          bool               `json:"stream,omitempty"`
-    // Tools omitted in first cut
+    Include         []string           `json:"include,omitempty"`
 }
 
 type reasoningParam struct {
     Effort string `json:"effort,omitempty"`
+    Summary string `json:"summary,omitempty"`
 }
 
 type responsesInput struct {
@@ -62,9 +63,9 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
         if s.Chat.MaxResponseTokens != nil {
             req.MaxOutputTokens = s.Chat.MaxResponseTokens
         }
-        // Some reasoning models (o3*) do not accept temperature/top_p; omit for o3
+        // Some reasoning models (o3*/o4*) do not accept temperature/top_p; omit for those
         m := strings.ToLower(req.Model)
-        allowSampling := !strings.HasPrefix(m, "o3")
+        allowSampling := !strings.HasPrefix(m, "o3") && !strings.HasPrefix(m, "o4")
         if allowSampling && s.Chat.Temperature != nil {
             req.Temperature = s.Chat.Temperature
         }
@@ -77,8 +78,17 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
         req.Stream = s.Chat.Stream
     }
     if s != nil && s.OpenAI != nil && s.OpenAI.ReasoningEffort != nil {
-        req.Reasoning = &reasoningParam{Effort: mapEffortString(*s.OpenAI.ReasoningEffort)}
+        if req.Reasoning == nil { req.Reasoning = &reasoningParam{} }
+        req.Reasoning.Effort = mapEffortString(*s.OpenAI.ReasoningEffort)
     }
+    if s != nil && s.OpenAI != nil && s.OpenAI.ReasoningSummary != nil && *s.OpenAI.ReasoningSummary != "" {
+        if req.Reasoning == nil { req.Reasoning = &reasoningParam{} }
+        req.Reasoning.Summary = *s.OpenAI.ReasoningSummary
+    }
+    if s != nil && s.OpenAI != nil && s.OpenAI.IncludeReasoningEncrypted != nil && *s.OpenAI.IncludeReasoningEncrypted {
+        req.Include = append(req.Include, "reasoning.encrypted_content")
+    }
+    // NOTE: stream_options.include_usage is not supported broadly; ignore for now
     return req, nil
 }
 
