@@ -239,7 +239,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
         return items
     }
 
-    // 2) Latest reasoning item followed by its matching tool_call and tool_call_output items
+    // 2) Latest reasoning item followed by all contiguous tool_call/tool_use items from the same response
     if latestReasoningIdx >= 0 {
         rb := t.Blocks[latestReasoningIdx]
         enc, _ := rb.Payload[turns.PayloadKeyEncryptedContent].(string)
@@ -250,28 +250,15 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
             ri.EncryptedContent = enc
         }
         items = append(items, ri)
-        // Find the first tool_call after the reasoning item anywhere later in the turn
-        firstCallIdx := -1
         for j := latestReasoningIdx + 1; j < len(t.Blocks); j++ {
-            if t.Blocks[j].Kind == turns.BlockKindToolCall {
-                firstCallIdx = j
-                break
-            }
-        }
-        includedToolCallID := ""
-        if firstCallIdx >= 0 {
-            appendFunctionCall(t.Blocks[firstCallIdx])
-            if v, ok := t.Blocks[firstCallIdx].Payload[turns.PayloadKeyID].(string); ok { includedToolCallID = v }
-            // Find matching tool_use (function_call_output) with same id anywhere after the call
-            if includedToolCallID != "" {
-                for k := firstCallIdx + 1; k < len(t.Blocks); k++ {
-                    if t.Blocks[k].Kind == turns.BlockKindToolUse {
-                        if id, _ := t.Blocks[k].Payload[turns.PayloadKeyID].(string); id == includedToolCallID {
-                            appendFunctionCallOutput(t.Blocks[k])
-                            break
-                        }
-                    }
-                }
+            nb := t.Blocks[j]
+            switch nb.Kind {
+            case turns.BlockKindToolCall:
+                appendFunctionCall(nb)
+            case turns.BlockKindToolUse:
+                appendFunctionCallOutput(nb)
+            default:
+                j = len(t.Blocks) // stop grouping
             }
         }
     }
