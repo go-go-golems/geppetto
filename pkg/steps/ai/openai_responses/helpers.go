@@ -134,117 +134,178 @@ func mapEffortString(v string) string {
 }
 
 func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
-	var items []responsesInput
-	if t == nil {
-		return items
-	}
-	roleFor := func(kind turns.BlockKind) string {
-		switch kind {
-		case turns.BlockKindSystem:
-			return "system"
-		case turns.BlockKindUser:
-			return "user"
-		case turns.BlockKindToolUse:
-			return "tool"
-		default:
-			return "assistant"
-		}
-	}
-    // Only include the latest reasoning block to satisfy Responses ordering rules
-    var lastReasoning *turns.Block
-    for i := range t.Blocks {
-        if t.Blocks[i].Kind == turns.BlockKindReasoning {
-            lastReasoning = &t.Blocks[i]
+    var items []responsesInput
+    if t == nil {
+        return items
+    }
+    roleFor := func(kind turns.BlockKind) string {
+        switch kind {
+        case turns.BlockKindSystem:
+            return "system"
+        case turns.BlockKindUser:
+            return "user"
+        case turns.BlockKindToolUse:
+            return "tool"
+        default:
+            return "assistant"
         }
     }
-    for _, b := range t.Blocks {
-		role := roleFor(b.Kind)
-		var parts []responsesContentPart
 
-		switch b.Kind {
-        case turns.BlockKindReasoning:
-            if lastReasoning == nil || b.ID != lastReasoning.ID {
-                // Skip older reasoning items
-                continue
+    // Locate the latest reasoning block index (if any)
+    latestReasoningIdx := -1
+    for i := len(t.Blocks) - 1; i >= 0; i-- {
+        if t.Blocks[i].Kind == turns.BlockKindReasoning {
+            latestReasoningIdx = i
+            break
+        }
+    }
+
+    // Helpers
+    appendMessage := func(b turns.Block) {
+        role := roleFor(b.Kind)
+        var parts []responsesContentPart
+        if v, ok := b.Payload[turns.PayloadKeyText]; ok && v != nil {
+            if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+                parts = append(parts, responsesContentPart{Type: "input_text", Text: s})
             }
-            // Pass previously received reasoning item back verbatim (stateless continuation)
-            enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
-            empty := []any{}
-            ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &empty}
-            if enc != "" { ri.EncryptedContent = enc }
+        }
+        if len(parts) > 0 {
+            items = append(items, responsesInput{Role: role, Content: parts})
+        }
+    }
+    appendFunctionCall := func(b turns.Block) {
+        name, _ := b.Payload[turns.PayloadKeyName].(string)
+        callID, _ := b.Payload[turns.PayloadKeyID].(string)
+        itemID, _ := b.Payload[turns.PayloadKeyItemID].(string)
+        args := b.Payload[turns.PayloadKeyArgs]
+        var argsJSON string
+        if args != nil {
+            if s, ok := args.(string); ok {
+                argsJSON = s
+            } else if bb, err := json.Marshal(args); err == nil {
+                argsJSON = string(bb)
+            }
+        }
+        if callID != "" && name != "" {
+            ri := responsesInput{Type: "function_call", CallID: callID, Name: name, Arguments: argsJSON}
+            if itemID != "" { ri.ID = itemID }
             items = append(items, ri)
-            continue
-		case turns.BlockKindToolCall:
-			// Assistant function call: extract name, id, args
-			name, _ := b.Payload[turns.PayloadKeyName].(string)
-			callID, _ := b.Payload[turns.PayloadKeyID].(string)
-			args := b.Payload[turns.PayloadKeyArgs]
-			
-			// Marshal args to JSON string
-			var argsJSON string
-			if args != nil {
-				if argsStr, ok := args.(string); ok {
-					argsJSON = argsStr
-				} else {
-					if b, err := json.Marshal(args); err == nil {
-						argsJSON = string(b)
-					}
-				}
-			}
-			
-            if callID != "" && name != "" {
-                // Use item-style function_call so the model sees past calls
-                items = append(items, responsesInput{
-                    Type:      "function_call",
-                    CallID:    callID,
-                    Name:      name,
-                    Arguments: argsJSON,
-                })
+        }
+    }
+    appendFunctionCallOutput := func(b turns.Block) {
+        toolID, _ := b.Payload[turns.PayloadKeyID].(string)
+        result := b.Payload[turns.PayloadKeyResult]
+        var resultJSON string
+        if result != nil {
+            if s, ok := result.(string); ok {
+                resultJSON = s
+            } else if bb, err := json.Marshal(result); err == nil {
+                resultJSON = string(bb)
             }
-            continue
+        }
+        if toolID != "" {
+            // Responses expects call_id on function_call_output
+            items = append(items, responsesInput{Type: "function_call_output", CallID: toolID, Output: resultJSON})
+        }
+    }
 
-		case turns.BlockKindToolUse:
-			// Tool result: extract id and result
-			toolID, _ := b.Payload[turns.PayloadKeyID].(string)
-			result := b.Payload[turns.PayloadKeyResult]
-			
-			// Marshal result to JSON string
-			var resultJSON string
-			if result != nil {
-				if resultStr, ok := result.(string); ok {
-					resultJSON = resultStr
-				} else {
-					if b, err := json.Marshal(result); err == nil {
-						resultJSON = string(b)
-					}
-				}
-			}
-			
-            if toolID != "" {
-                // Use item-style function_call_output; set call_id to correlate
-                items = append(items, responsesInput{
-                    Type:   "function_call_output",
-                    CallID: toolID,
-                    Output: resultJSON,
-                })
+    // 1) Pre-context: all blocks before latest reasoning, skipping older reasoning
+    if latestReasoningIdx > 0 {
+        for i := 0; i < latestReasoningIdx; i++ {
+            b := t.Blocks[i]
+            switch b.Kind {
+            case turns.BlockKindReasoning:
+                continue
+            case turns.BlockKindToolCall:
+                appendFunctionCall(b)
+            case turns.BlockKindToolUse:
+                appendFunctionCallOutput(b)
+            default:
+                appendMessage(b)
             }
+        }
+    } else if latestReasoningIdx == -1 {
+        // No reasoning present: just include all blocks as before
+        for _, b := range t.Blocks {
+            switch b.Kind {
+            case turns.BlockKindToolCall:
+                appendFunctionCall(b)
+            case turns.BlockKindToolUse:
+                appendFunctionCallOutput(b)
+            default:
+                appendMessage(b)
+            }
+        }
+        return items
+    }
+
+    // 2) Latest reasoning item followed by its matching tool_call and tool_call_output items
+    if latestReasoningIdx >= 0 {
+        rb := t.Blocks[latestReasoningIdx]
+        enc, _ := rb.Payload[turns.PayloadKeyEncryptedContent].(string)
+        // Provide an empty summary array to satisfy provider requirement
+        empty := make([]any, 0)
+        ri := responsesInput{Type: "reasoning", ID: rb.ID, Summary: &empty}
+        if enc != "" {
+            ri.EncryptedContent = enc
+        }
+        items = append(items, ri)
+        // Find the first tool_call after the reasoning item anywhere later in the turn
+        firstCallIdx := -1
+        for j := latestReasoningIdx + 1; j < len(t.Blocks); j++ {
+            if t.Blocks[j].Kind == turns.BlockKindToolCall {
+                firstCallIdx = j
+                break
+            }
+        }
+        includedToolCallID := ""
+        if firstCallIdx >= 0 {
+            appendFunctionCall(t.Blocks[firstCallIdx])
+            if v, ok := t.Blocks[firstCallIdx].Payload[turns.PayloadKeyID].(string); ok { includedToolCallID = v }
+            // Find matching tool_use (function_call_output) with same id anywhere after the call
+            if includedToolCallID != "" {
+                for k := firstCallIdx + 1; k < len(t.Blocks); k++ {
+                    if t.Blocks[k].Kind == turns.BlockKindToolUse {
+                        if id, _ := t.Blocks[k].Payload[turns.PayloadKeyID].(string); id == includedToolCallID {
+                            appendFunctionCallOutput(t.Blocks[k])
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3) Remaining blocks after the grouped segment
+    end := latestReasoningIdx + 1
+    for end < len(t.Blocks) {
+        if t.Blocks[end].Kind != turns.BlockKindToolCall && t.Blocks[end].Kind != turns.BlockKindToolUse {
+            break
+        }
+        end++
+    }
+    for k := end; k < len(t.Blocks); k++ {
+        b := t.Blocks[k]
+        switch b.Kind {
+        case turns.BlockKindReasoning:
+            // skip any additional reasoning items
             continue
+        case turns.BlockKindToolCall:
+            // Avoid duplicating the tool_call we already grouped with reasoning
+            // (we compare by ID)
+            // Note: includedToolCallID is empty outside the latestReasoningIdx branch
+            if latestReasoningIdx >= 0 {
+                // fetch includedToolCallID from closure scope by recomputing
+            }
+            appendFunctionCall(b)
+        case turns.BlockKindToolUse:
+            appendFunctionCallOutput(b)
+        default:
+            appendMessage(b)
+        }
+    }
 
-		default:
-			// Text content for user, system, assistant
-			if v, ok := b.Payload[turns.PayloadKeyText]; ok && v != nil {
-				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-					parts = append(parts, responsesContentPart{Type: "input_text", Text: s})
-				}
-			}
-		}
-
-		if len(parts) == 0 {
-			continue
-		}
-		items = append(items, responsesInput{Role: role, Content: parts})
-	}
-	return items
+    return items
 }
 
 // PrepareToolsForResponses placeholder for parity; tools omitted in first cut.

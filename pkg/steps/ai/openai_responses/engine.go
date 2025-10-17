@@ -437,7 +437,11 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
         for _, pc := range finalCalls {
             var args any
             if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil { args = map[string]any{} }
-            turns.AppendBlock(t, turns.NewToolCallBlock(pc.callID, pc.name, args))
+            b := turns.NewToolCallBlock(pc.callID, pc.name, args)
+            // Preserve provider output item id so we can reference it later if needed
+            if b.Payload == nil { b.Payload = map[string]any{} }
+            if pc.itemID != "" { b.Payload[turns.PayloadKeyItemID] = pc.itemID }
+            turns.AppendBlock(t, b)
         }
         e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 		return t, nil

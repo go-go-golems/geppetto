@@ -108,3 +108,60 @@ Use an invalid key or provoke a 400/429 to see `[error]` lines emitted by the pr
 - `04-conversation-state-management-design-proposals.md`: Six design proposals for managing conversation state (NEW)
 
 
+### Stateless Encrypted Reasoning (NEW)
+
+- Always request encrypted reasoning: Requests now force `include: ["reasoning.encrypted_content"]` so the provider returns an opaque reasoning blob on each response.
+- New block kind: Added `BlockKindReasoning` in `pkg/turns/types.go` and `PayloadKeyEncryptedContent` in `pkg/turns/keys.go` to store `encrypted_content`.
+- Parsing: The Responses engine appends a `reasoning` block when `response.output_item.done` has `type: reasoning`, storing `encrypted_content` if present.
+- Input building: The helper converts the current `Turn` to Responses input by:
+  - Emitting prior `user/system/assistant` text as `input_text` parts.
+  - Emitting the latest `reasoning` block as an item: `{type: "reasoning", id, encrypted_content, summary: []}`.
+  - Echoing tool history as items: `{type: "function_call", call_id, name, arguments}` and `{type: "function_call_output", call_id, output}`.
+  - Only the most recent reasoning item is included to satisfy vendor ordering rules.
+- Function call output: For function results, we now set `call_id` (not `tool_call_id`) to match Responses expectations.
+
+### Example Runner Updates
+
+- No CLI flag needed: Stateless continuation is the default (encrypted reasoning is always requested). The `openai-tools` example remains unchanged at the interface.
+- Test invocations (same as before):
+  - Thinking: `--ai-api-type=openai-responses --ai-engine=o4-mini --mode=thinking` OK.
+  - Tools: `--ai-api-type=openai-responses --ai-engine=o4-mini --mode=tools` now streams a function_call, executes the tool via middleware, and sends back `function_call_output` together with the latest reasoning item.
+
+### Verified Behavior (from real runs)
+
+- Thinking mode: boundaries and token usage printed; reasoning tokens surfaced in final summary.
+- Tools round-trip (first cycle):
+  - Function call streamed (arguments deltas) → `output_item.done` fired → ToolCall event emitted.
+  - Middleware executed mock `get_weather` → tool result block appended.
+  - Next request included: user text, latest reasoning item (with blob), function_call, function_call_output.
+- Subsequent continuation: vendor returned 400 when a `reasoning` item wasn’t followed by the required companion item. This indicates Responses expects the `reasoning` item to be accompanied by the other items from the same originating response as a contiguous group.
+
+### Known Limitation (to address next)
+
+- Grouping requirement: When echoing back items, the `reasoning` item must be followed by its associated items from the same response (e.g., the `function_call`). We currently include only the latest reasoning item and echo tool history, but we don’t yet ensure contiguous grouping per response boundary.
+- Planned fix: Implement response-boundary grouping in input building so that we send:
+  1) prior conversation context,
+  2) the latest reasoning item,
+  3) immediately followed by the items from the same response (e.g., `function_call`, `function_call_output`).
+
+### File Diffs (high-level)
+
+- `pkg/turns/types.go`: add `BlockKindReasoning` and string mapping.
+- `pkg/turns/keys.go`: add `PayloadKeyEncryptedContent`.
+- `pkg/steps/ai/openai_responses/helpers.go`:
+  - Force `include: ["reasoning.encrypted_content"]`.
+  - Extend request/response DTOs.
+  - Build input with latest `reasoning` item, `function_call`, `function_call_output` (using `call_id`).
+- `pkg/steps/ai/openai_responses/engine.go`:
+  - Parse `reasoning` items from SSE and non-streaming.
+  - Append `BlockKindReasoning` with `encrypted_content`.
+  - Remove duplicate fallback reasoning append.
+- `cmd/examples/openai-tools/main.go`: no flag needed; unchanged behavior, runs fine with new defaults.
+
+### Testing Notes
+
+- Thinking: OK.
+- Tools (first round): OK.
+- Tools (second round): 400 “reasoning item provided without its required following item” observed; will be addressed by grouping contiguous items from the same response in the builder.
+
+

@@ -11,6 +11,8 @@ const (
 	PayloadKeyImages = "images"
     // PayloadKeyEncryptedContent stores provider encrypted reasoning content
     PayloadKeyEncryptedContent = "encrypted_content"
+    // PayloadKeyItemID stores provider-native output item identifier (e.g., fc_...)
+    PayloadKeyItemID = "item_id"
 )
 
 // Recommended keys for Turn/Block/Run Metadata maps
