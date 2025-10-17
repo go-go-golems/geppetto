@@ -56,15 +56,7 @@ func (e *OpenAIEngine) RunInference(
 		return nil, errors.New("no chat engine specified")
 	}
 
-    // Route Responses API for reasoning-capable models (o3/o4/gpt-5)
-    if e.settings != nil && e.settings.Chat != nil && e.settings.Chat.Engine != nil {
-        model := *e.settings.Chat.Engine
-        // Either explicit api_type=openai-responses or heuristic by model family
-        explicitResponses := e.settings.Chat.ApiType != nil && string(*e.settings.Chat.ApiType) == "openai-responses"
-        if explicitResponses || requiresResponses(model) {
-            return e.runResponses(ctx, t)
-        }
-    }
+    // Chat engine no longer routes to Responses; factory selects the correct engine
 
 	client, err := MakeClient(e.settings.API, *e.settings.Chat.ApiType)
 	if err != nil {

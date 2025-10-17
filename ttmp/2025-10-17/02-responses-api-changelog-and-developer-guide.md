@@ -4,15 +4,15 @@
 This doc captures the work to integrate OpenAI’s Responses API into Geppetto’s inference engine, with streaming, reasoning, and tool-calling support. It explains what changed, why, how to test it, and what to watch out for. It is written for a new developer to onboard and continue the work.
 
 ### What Changed (High-level)
-- Added a new provider type `openai-responses` and routing to Responses for reasoning-capable models (o3/o4/gpt-5) or when explicitly selected.
+- Added a new provider type `openai-responses` and a dedicated engine package `openai_responses` (factory selects it). Chat engine stays pure Chat Completions.
 - Implemented SSE streaming for Responses: output text deltas, reasoning summary deltas, function call arguments, and completion metadata.
 - Introduced thinking events: `thinking-started/ended`, per-delta `EventTypePartialThinking` for reasoning summary, and pretty printers.
 - Implemented tool support for Responses: request `tools` schema, function call detection from SSE, ToolCall event emission, and Turn tool_call blocks.
 - Improved observability: trace YAML dump of the exact request, concise input preview, detailed SSE logs, and surfaced provider errors.
 
 ### Key Files and Symbols
-- `pkg/steps/ai/openai/engine_openai_responses.go`: Responses engine (SSE, events, tools).
-- `pkg/steps/ai/openai/helpers_responses.go`: Build Responses request, input items, tools mapping.
+- `pkg/steps/ai/openai_responses/engine.go`: Responses engine (SSE, events, tools).
+- `pkg/steps/ai/openai_responses/helpers.go`: Build Responses request, input items, tools mapping.
 - `pkg/steps/ai/openai/engine_openai.go`: Router selecting Responses vs Chat.
 - `pkg/inference/engine/factory/factory.go`: Provider validation and fallback key for `openai-responses`.
 - `pkg/events/chat-events.go`: New `EventTypePartialThinking` + constructors.
@@ -20,8 +20,8 @@ This doc captures the work to integrate OpenAI’s Responses API into Geppetto�
 
 ### Detailed Changes
 1) Provider and Routing
-- Added `ApiTypeOpenAIResponses` and supported it in the engine factory (reuses OpenAI engine class; validation allows fallback to `openai-api-key`, and does not require a separate base URL).
-- In `RunInference`, route to `runResponses` when `ai-api-type=openai-responses` or model family is o3/o4 or gpt-5.
+- Added `ApiTypeOpenAIResponses` and supported it in the engine factory to instantiate `openai_responses.NewEngine`. Validation allows fallback to `openai-api-key`; no separate base URL required.
+- Chat engine no longer routes; provider selection is done in the factory.
 
 2) Request Building
 - `buildResponsesRequest` builds `model`, `input`, `max_output_tokens`, `stop_sequences`, and reasoning (`effort`, `summary`).

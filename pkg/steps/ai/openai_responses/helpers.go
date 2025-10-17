@@ -1,4 +1,4 @@
-package openai
+package openai_responses
 
 import (
     "strings"
@@ -139,7 +139,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 }
 
 // PrepareToolsForResponses placeholder for parity; tools omitted in first cut.
-func (e *OpenAIEngine) PrepareToolsForResponses(toolDefs []engine.ToolDefinition, cfg engine.ToolConfig) (any, error) {
+func (e *Engine) PrepareToolsForResponses(toolDefs []engine.ToolDefinition, cfg engine.ToolConfig) (any, error) {
     if !cfg.Enabled {
         return nil, nil
     }

@@ -1,4 +1,4 @@
-package openai
+package openai_responses
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -19,7 +20,31 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+// Engine implements the Engine interface for OpenAI Responses API calls.
+type Engine struct {
+    settings *settings.StepSettings
+    config   *engine.Config
+}
+
+func NewEngine(s *settings.StepSettings, options ...engine.Option) (*Engine, error) {
+    cfg := engine.NewConfig()
+    if err := engine.ApplyOptions(cfg, options...); err != nil {
+        return nil, err
+    }
+    return &Engine{settings: s, config: cfg}, nil
+}
+
+// publishEvent publishes events to configured sinks and context sinks.
+func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
+    for _, sink := range e.config.EventSinks {
+        if err := sink.PublishEvent(event); err != nil {
+            log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
+        }
+    }
+    events.PublishEventToContext(ctx, event)
+}
+
+func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	startTime := time.Now()
 	// Build HTTP request to /v1/responses
 	reqBody, err := buildResponsesRequest(e.settings, t)
@@ -61,7 +86,7 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
 				} else if toolCfg.MaxParallelTools == 1 {
 					b := false; reqBody.ParallelToolCalls = &b
 				}
-				log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
+                log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
 			}
 		}
 	}
@@ -135,7 +160,7 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
 		metadata.TurnID = t.ID
 	}
     log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
-	e.publishEvent(ctx, events.NewStartEvent(metadata))
+    e.publishEvent(ctx, events.NewStartEvent(metadata))
 
 	// Streaming when configured
 	if e.settings != nil && e.settings.Chat != nil && e.settings.Chat.Stream {
@@ -156,7 +181,7 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
 			return nil, err
 		}
 		defer resp.Body.Close()
-        log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
+            log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
         if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			var m map[string]any
 			_ = json.NewDecoder(resp.Body).Decode(&m)
@@ -196,7 +221,7 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
                     if typ, ok := it["type"].(string); ok {
                         switch typ {
                         case "reasoning":
-                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+                    e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
                         case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
                         }
@@ -397,7 +422,7 @@ func (e *OpenAIEngine) runResponses(ctx context.Context, t *turns.Turn) (*turns.
             if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil { args = map[string]any{} }
             turns.AppendBlock(t, turns.NewToolCallBlock(pc.callID, pc.name, args))
         }
-		e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+        e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 		return t, nil
 	}
 
