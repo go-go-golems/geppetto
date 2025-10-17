@@ -42,6 +42,14 @@ import (
 - Registry: `tools.ToolRegistry` holds callable tools
 - Per-Turn tools: `turns.DataKeyToolRegistry` and `turns.DataKeyToolConfig` on `Turn.Data`
 - Blocks: `llm_text`, `tool_call`, `tool_use`
+### OpenAI Responses specifics
+
+When using the OpenAI Responses engine (`ai-api-type=openai-responses`):
+
+- Tools are advertised via the `tools` array on the request. For function tools, schema is top-level: `{type: "function", name, description, parameters}`.
+- The engine streams function_call arguments via SSE and emits a `tool-call` event when the function_call completes.
+- Reasoning summary is streamed as `partial-thinking` events; UIs can render it between "Thinking started/ended" markers.
+- The next iteration (not yet implemented in docs) will include the `assistant:function_call` and `tool:tool_result` blocks in the next request’s `input` to continue tool-driven workflows.
 - Payload keys: use `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
 
 ---

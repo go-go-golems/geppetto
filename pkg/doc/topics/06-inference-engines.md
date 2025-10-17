@@ -494,7 +494,7 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
 
 The factory automatically selects the correct provider based on configuration:
 
-### OpenAI Engine
+### OpenAI Engine (Chat Completions)
 
 ```yaml
 # Configuration for OpenAI
@@ -503,6 +503,38 @@ api:
     api_key: "your-openai-key"
     model: "gpt-4"
     base_url: "https://api.openai.com/v1"
+```
+
+### OpenAI Responses Engine (Reasoning + Tools)
+
+The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `openai-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas.
+
+Key notes:
+- Use `--ai-api-type=openai-responses` and a reasoning-capable model (e.g., `o4-mini`).
+- The engine omits `temperature` and `top_p` for `o3/o4` families (these models reject sampling params).
+- For function tools, the engine omits `tool_choice` (vendor-only values like `file_search` are not applicable).
+- At trace log level, the engine prints a full YAML dump of the request payload to aid debugging.
+
+Example (tools):
+
+```bash
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=tools \
+  --prompt='Please use get_weather to check the weather in San Francisco, in celsius.' \
+  --log-level trace --verbose
+```
+
+Example (thinking only):
+
+```bash
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=thinking \
+  --prompt='Prove the sum of first n odd numbers equals n^2, stream reasoning summary.' \
+  --log-level info
 ```
 
 ### Claude Engine

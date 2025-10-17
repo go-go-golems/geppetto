@@ -27,6 +27,7 @@ Engines and helpers publish structured chat events defined in `pkg/events/chat-e
 
 - **start (`EventTypeStart`)**: Inference started for a request.
 - **partial (`EventTypePartialCompletion`)**: Streamed delta and accumulated completion.
+- **partial-thinking (`EventTypePartialThinking`)**: Streamed reasoning summary delta (Responses API only).
 - **tool-call (`EventTypeToolCall`)**: Model requested a tool/function call.
 - **tool-result (`EventTypeToolResult`)**: A tool returned its result.
 - **error (`EventTypeError`)**: Error during streaming or execution.
@@ -99,7 +100,13 @@ Engines emit: start, partial, final, interrupt, error (+ tool-call where applica
 
 ## Provider Implementations and Event Flow
 
-- **OpenAI**: The engine always uses streaming. It publishes `start`, then `partial` for each delta, and finally `final`. On context cancellation it publishes `interrupt`. Tool-call blocks are merged and published as `tool-call` events when complete.
+- **OpenAI (Chat Completions)**: Always streams. Publishes `start`, then `partial` for each delta, finally `final`. On context cancellation it publishes `interrupt`. Tool-call blocks are merged and published as `tool-call` events when complete.
+- **OpenAI (Responses)**: Streams multiple channels of information:
+  - Reasoning summary boundaries as `info` events ("thinking-started" / "thinking-ended").
+  - Reasoning summary deltas as `partial-thinking` events (one per token-like chunk).
+  - Output text deltas as `partial` events.
+  - Function call arguments as SSE deltas; publishes a `tool-call` when function_call completes.
+  - Final usage and reasoning token counts arrive on `response.completed` and are included in `final` metadata.
 - **Claude**: Streaming is merged via a content-block merger which emits `start`, `partial` on text deltas, `tool-call` when a tool_use block completes, and `final` on stop.
 
 Both engines publish to configured sinks and also call `events.PublishEventToContext(ctx, …)` so context-carried sinks receive the same events.

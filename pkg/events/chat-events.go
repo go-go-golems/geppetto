@@ -15,8 +15,8 @@ const (
 	EventTypeStart             EventType = "start"
 	EventTypeFinal             EventType = "final"
 	EventTypePartialCompletion EventType = "partial"
-		// Separate partial stream for reasoning/summary thinking text
-		EventTypePartialThinking EventType = "partial-thinking"
+	// Separate partial stream for reasoning/summary thinking text
+	EventTypePartialThinking EventType = "partial-thinking"
 
 	// TODO(manuel, 2024-07-04) I'm not sure if this is needed
 	EventTypeStatus EventType = "status"
@@ -295,17 +295,17 @@ var _ Event = &EventPartialCompletion{}
 
 // EventThinkingPartial mirrors EventPartialCompletion but is dedicated to reasoning/summary text
 type EventThinkingPartial struct {
-    EventImpl
-    Delta string `json:"delta"`
-    Completion string `json:"completion"`
+	EventImpl
+	Delta      string `json:"delta"`
+	Completion string `json:"completion"`
 }
 
 func NewThinkingPartialEvent(metadata EventMetadata, delta string, completion string) *EventThinkingPartial {
-    return &EventThinkingPartial{
-        EventImpl: EventImpl{Type_: EventTypePartialThinking, Metadata_: metadata},
-        Delta:      delta,
-        Completion: completion,
-    }
+	return &EventThinkingPartial{
+		EventImpl:  EventImpl{Type_: EventTypePartialThinking, Metadata_: metadata},
+		Delta:      delta,
+		Completion: completion,
+	}
 }
 
 var _ Event = &EventThinkingPartial{}
