@@ -89,6 +89,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                 log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
 			}
 		}
+		// Optionally include server-side tools (Responses built-ins) when provided on the Turn
+		if sv, ok := t.Data["responses_server_tools"]; ok && sv != nil {
+			if builtins, ok := sv.([]any); ok && len(builtins) > 0 {
+				// Append alongside function tools
+				reqBody.Tools = append(reqBody.Tools, builtins...)
+				log.Debug().Int("builtin_tool_count", len(builtins)).Msg("Responses: server-side tools attached to request")
+			}
+		}
 	}
 	// Debug: succinct preview of input items and tool blocks present on Turn
 	if t != nil {
@@ -319,6 +327,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                     }
                 }
             case "response.output_text.delta":
+                // Stream assistant text deltas
+                if d, ok := m["delta"].(string); ok && d != "" {
+                    message += d
+                    sayBuf.WriteString(d)
+                    log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
+                    e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
+                } else if tv, ok := m["text"].(map[string]any); ok {
+                    if d, ok := tv["delta"].(string); ok && d != "" {
+                        message += d
+                        sayBuf.WriteString(d)
+                        log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
+                        e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
+                    }
+                }
             case "response.function_call_arguments.delta":
                 // Accumulate function_call arguments by item_id
                 itemID := ""
@@ -336,20 +358,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                         pc.args.Reset(); pc.args.WriteString(d)
                     }
                 }
-                if v, ok := m["delta"].(string); ok && v != "" {
-                    message += v
-                    // Output deltas are not thinking tokens; always treat as output
-                    sayBuf.WriteString(v)
-                    log.Trace().Int("delta_len", len(v)).Int("message_len", len(message)).Msg("Responses: text delta")
-                    e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, v, message))
-                } else if tv, ok := m["text"].(map[string]any); ok {
-                    if d, ok := tv["delta"].(string); ok {
-                        message += d
-                        sayBuf.WriteString(d)
-                        log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
-                        e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
-                    }
-                }
+                // No assistant text in this event; only arguments aggregation
             case "response.completed":
                 // usage may be nested under response.usage
                 var usage map[string]any

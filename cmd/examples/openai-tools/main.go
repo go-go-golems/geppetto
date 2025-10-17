@@ -55,6 +55,31 @@ func weatherTool(req WeatherRequest) WeatherResponse {
 	}
 }
 
+// CalculatorRequest represents the input for a calculator tool
+type CalculatorRequest struct {
+    Expression string `json:"expression" jsonschema:"required,description=An arithmetic expression to evaluate,example=2*(3+4)-5"`
+}
+
+// calculatorTool evaluates a simple arithmetic expression (very basic)
+func calculatorTool(req CalculatorRequest) (float64, error) {
+    // Minimal, safe-ish parser: support + - * / and parentheses via Go's eval is not available; implement tiny stack-based or defer to strconv for numbers only
+    // For demo, handle a limited set: a+b, a-b, a*b, a/b with optional spaces
+    expr := req.Expression
+    // try space-separated: "A op B"
+    var a, b float64
+    var op string
+    n, _ := fmt.Sscanf(expr, "%f %s %f", &a, &op, &b)
+    if n == 3 {
+        switch op {
+        case "+": return a + b, nil
+        case "-": return a - b, nil
+        case "*", "x": return a * b, nil
+        case "/": if b != 0 { return a / b, nil }; return 0, fmt.Errorf("division by zero")
+        }
+    }
+    return 0, fmt.Errorf("unsupported expression: %s", expr)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "test-openai-tools",
 	Short: "Test OpenAI tools integration with debug logging",
@@ -116,8 +141,8 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
             ),
             parameters.NewParameterDefinition("mode",
                 parameters.ParameterTypeChoice,
-                parameters.WithChoices("tools", "thinking"),
-                parameters.WithHelp("Run in 'tools' (function calling) or 'thinking' (no tools, reasoning) mode"),
+                parameters.WithChoices("tools", "thinking", "parallel-tools", "server-tools"),
+                parameters.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls), server-tools (enable server-side tools)"),
                 parameters.WithDefault("tools"),
             ),
             parameters.NewParameterDefinition("prompt",
@@ -251,7 +276,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
         turn = &turns.Turn{Data: map[string]any{}}
         turns.AppendBlock(turn, turns.NewUserTextBlock(p))
     } else {
-        // Tools mode (default)
+		// Tools mode (default)
         weatherToolDef, err := tools.NewToolFromFunc(
             "get_weather",
             "Get current weather information for a specific location",
@@ -274,15 +299,44 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
         } else {
             fmt.Fprintln(w, "Warning: Tool schema is nil")
         }
-        // registry + config
+		// Add calculator tool
+		calcDef, err := tools.NewToolFromFunc(
+			"calculator",
+			"Evaluate a simple arithmetic expression (format: 'A op B')",
+			calculatorTool,
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to create calculator tool")
+		}
+
+		// registry + config
         reg := tools.NewInMemoryToolRegistry()
         _ = reg.RegisterTool("get_weather", *weatherToolDef)
-        turn = &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: 1, ToolErrorHandling: engine.ToolErrorContinue}}}
+		_ = reg.RegisterTool("calculator", *calcDef)
+		maxPar := 1
+		if s.Mode == "parallel-tools" { maxPar = 2 }
+		turn = &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: maxPar, ToolErrorHandling: engine.ToolErrorContinue}}}
         userPrompt := s.Prompt
         if userPrompt == "" {
-            userPrompt = "Please use get_weather to check the weather in San Francisco, in celsius."
+			if s.Mode == "parallel-tools" {
+				userPrompt = "Use both tools: 1) get_weather for San Francisco (celsius); 2) calculator to compute 12 * 7."
+			} else {
+				userPrompt = "Please use get_weather to check the weather in San Francisco, in celsius."
+			}
         }
         turns.AppendBlock(turn, turns.NewUserTextBlock(userPrompt))
+    }
+
+    // Enable server-side tools mode by attaching built-in tools to the Turn
+    if s.Mode == "server-tools" {
+        // Example: enable hypothetical server tool file_search
+        serverTools := []any{
+            map[string]any{"type": "file_search"},
+        }
+        if turn.Data == nil { turn.Data = map[string]any{} }
+        turn.Data["responses_server_tools"] = serverTools
+        // Encourage usage
+        turns.AppendBlock(turn, turns.NewSystemTextBlock("You may use the server-side file_search tool if it helps."))
     }
 
     // No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.
@@ -303,6 +357,20 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		}
 		resp := weatherTool(req)
 		return resp, nil
+	})
+
+	// Register calculator tool implementation
+	tb.RegisterTool("calculator", "Evaluate a simple arithmetic expression (format: 'A op B')", map[string]any{
+		"expression": map[string]any{"type": "string"},
+	}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		// Map args to CalculatorRequest
+		req := CalculatorRequest{}
+		if v, ok := args["expression"].(string); ok {
+			req.Expression = v
+		}
+		res, err := calculatorTool(req)
+		if err != nil { return nil, err }
+		return map[string]any{"result": res}, nil
 	})
 
 	// Wrap engine with tool middleware
