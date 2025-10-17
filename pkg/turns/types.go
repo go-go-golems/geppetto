@@ -9,6 +9,8 @@ const (
 	BlockKindToolCall
 	BlockKindToolUse
 	BlockKindSystem
+    // BlockKindReasoning represents provider reasoning items (e.g., OpenAI encrypted reasoning).
+    BlockKindReasoning
 	BlockKindOther
 )
 
@@ -25,6 +27,8 @@ func (k BlockKind) String() string {
 		return "tool_use"
 	case BlockKindSystem:
 		return "system"
+    case BlockKindReasoning:
+        return "reasoning"
 	case BlockKindOther:
 		return "other"
 	default:

@@ -285,6 +285,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
         turns.AppendBlock(turn, turns.NewUserTextBlock(userPrompt))
     }
 
+    // No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.
+
 	// Prepare a toolbox and register executable implementation
 	tb := middleware.NewMockToolbox()
 	tb.RegisterTool("get_weather", "Get current weather information for a specific location", map[string]any{

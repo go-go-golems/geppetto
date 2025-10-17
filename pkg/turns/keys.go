@@ -9,6 +9,8 @@ const (
 	PayloadKeyResult = "result"
 	// PayloadKeyImages carries a slice of image specs attached to a chat block
 	PayloadKeyImages = "images"
+    // PayloadKeyEncryptedContent stores provider encrypted reasoning content
+    PayloadKeyEncryptedContent = "encrypted_content"
 )
 
 // Recommended keys for Turn/Block/Run Metadata maps

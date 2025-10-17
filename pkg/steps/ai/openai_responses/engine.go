@@ -202,6 +202,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
         type pendingCall struct{ callID, name, itemID string; args strings.Builder }
         callsByItem := map[string]*pendingCall{}
         finalCalls := []pendingCall{}
+        // Track latest encrypted reasoning content observed during this response
+        var latestEncryptedContent string
         log.Trace().Msg("Responses: starting SSE read loop")
 		flush := func() error {
 			if dataBuf.Len() == 0 {
@@ -221,7 +223,11 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                     if typ, ok := it["type"].(string); ok {
                         switch typ {
                         case "reasoning":
-                    e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+                            // Capture encrypted reasoning content when present
+                            if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
+                                latestEncryptedContent = enc
+                            }
                         case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
                         }
@@ -278,6 +284,17 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                         switch typ {
                         case "reasoning":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
+                            // Append a reasoning block with encrypted content if present
+                            rb := turns.Block{Kind: turns.BlockKindReasoning}
+                            if id, ok := it["id"].(string); ok && id != "" { rb.ID = id }
+                            payload := map[string]any{}
+                            enc := latestEncryptedContent
+                            if v, ok := it["encrypted_content"].(string); ok && v != "" { enc = v }
+                            if enc != "" {
+                                payload[turns.PayloadKeyEncryptedContent] = enc
+                            }
+                            rb.Payload = payload
+                            turns.AppendBlock(t, rb)
                         case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
                         case "function_call":
@@ -446,6 +463,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	if err := json.NewDecoder(resp.Body).Decode(&rr); err != nil { return nil, err }
 	var message string
 	for _, oi := range rr.Output {
+		// Capture reasoning items (non-streaming)
+		if oi.Type == "reasoning" {
+			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
+			if oi.EncryptedContent != "" { b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent }
+			turns.AppendBlock(t, b)
+		}
 		for _, c := range oi.Content {
 			if c.Type == "output_text" || c.Type == "text" { message += c.Text }
 		}

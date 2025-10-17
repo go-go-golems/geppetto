@@ -1,11 +1,12 @@
 package openai_responses
 
 import (
-    "strings"
+	"encoding/json"
+	"strings"
 
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-    "github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 // HTTP JSON models for OpenAI Responses API (minimal subset: text + reasoning + sampling)
@@ -31,14 +32,35 @@ type reasoningParam struct {
 }
 
 type responsesInput struct {
-    Role    string                 `json:"role"`
-    Content []responsesContentPart `json:"content"`
+    // Message-style item
+    Role    string                 `json:"role,omitempty"`
+    Content []responsesContentPart `json:"content,omitempty"`
+    // Item-style entries (reasoning, function_call, function_call_output)
+    Type             string `json:"type,omitempty"`
+    ID               string `json:"id,omitempty"`
+    EncryptedContent string `json:"encrypted_content,omitempty"`
+    Summary          *[]any `json:"summary,omitempty"`
+    // function_call
+    CallID    string `json:"call_id,omitempty"`
+    Name      string `json:"name,omitempty"`
+    Arguments string `json:"arguments,omitempty"`
+    // function_call_output
+    // Some providers expect call_id for both function_call and function_call_output
+    ToolCallID string `json:"tool_call_id,omitempty"`
+    Output     string `json:"output,omitempty"`
 }
 
 type responsesContentPart struct {
-    Type string `json:"type"`
-    Text string `json:"text,omitempty"`
-    // image/audio not supported in first cut
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
+	// For function_call content type
+	CallID    string `json:"call_id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
+	// For tool_result content type
+	ToolCallID string `json:"tool_call_id,omitempty"`
+	Content    string `json:"content,omitempty"`
+	// image/audio not supported in first cut
 }
 
 type responsesResponse struct {
@@ -47,7 +69,13 @@ type responsesResponse struct {
 }
 
 type responsesOutputItem struct {
+    Type    string                   `json:"type,omitempty"`
+    ID      string                   `json:"id,omitempty"`
+    Name    string                   `json:"name,omitempty"`
+    CallID  string                   `json:"call_id,omitempty"`
+    Arguments string                 `json:"arguments,omitempty"`
     Content []responsesOutputContent `json:"content"`
+    EncryptedContent string          `json:"encrypted_content,omitempty"`
 }
 
 type responsesOutputContent struct {
@@ -88,9 +116,8 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
         if req.Reasoning == nil { req.Reasoning = &reasoningParam{} }
         req.Reasoning.Summary = *s.OpenAI.ReasoningSummary
     }
-    if s != nil && s.OpenAI != nil && s.OpenAI.IncludeReasoningEncrypted != nil && *s.OpenAI.IncludeReasoningEncrypted {
-        req.Include = append(req.Include, "reasoning.encrypted_content")
-    }
+    // Force include encrypted reasoning content on every request for stateless continuation.
+    req.Include = append(req.Include, "reasoning.encrypted_content")
     // NOTE: stream_options.include_usage is not supported broadly; ignore for now
     return req, nil
 }
@@ -107,35 +134,117 @@ func mapEffortString(v string) string {
 }
 
 func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
-    var items []responsesInput
-    if t == nil {
-        return items
-    }
-    roleFor := func(kind turns.BlockKind) string {
-        switch kind {
-        case turns.BlockKindSystem:
-            return "system"
-        case turns.BlockKindUser:
-            return "user"
-        default:
-            return "assistant"
+	var items []responsesInput
+	if t == nil {
+		return items
+	}
+	roleFor := func(kind turns.BlockKind) string {
+		switch kind {
+		case turns.BlockKindSystem:
+			return "system"
+		case turns.BlockKindUser:
+			return "user"
+		case turns.BlockKindToolUse:
+			return "tool"
+		default:
+			return "assistant"
+		}
+	}
+    // Only include the latest reasoning block to satisfy Responses ordering rules
+    var lastReasoning *turns.Block
+    for i := range t.Blocks {
+        if t.Blocks[i].Kind == turns.BlockKindReasoning {
+            lastReasoning = &t.Blocks[i]
         }
     }
     for _, b := range t.Blocks {
-        role := roleFor(b.Kind)
-        // Only include text parts for first cut
-        var parts []responsesContentPart
-        if v, ok := b.Payload[turns.PayloadKeyText]; ok && v != nil {
-            if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-                parts = append(parts, responsesContentPart{Type: "input_text", Text: s})
+		role := roleFor(b.Kind)
+		var parts []responsesContentPart
+
+		switch b.Kind {
+        case turns.BlockKindReasoning:
+            if lastReasoning == nil || b.ID != lastReasoning.ID {
+                // Skip older reasoning items
+                continue
             }
-        }
-        if len(parts) == 0 {
+            // Pass previously received reasoning item back verbatim (stateless continuation)
+            enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
+            empty := []any{}
+            ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &empty}
+            if enc != "" { ri.EncryptedContent = enc }
+            items = append(items, ri)
             continue
-        }
-        items = append(items, responsesInput{Role: role, Content: parts})
-    }
-    return items
+		case turns.BlockKindToolCall:
+			// Assistant function call: extract name, id, args
+			name, _ := b.Payload[turns.PayloadKeyName].(string)
+			callID, _ := b.Payload[turns.PayloadKeyID].(string)
+			args := b.Payload[turns.PayloadKeyArgs]
+			
+			// Marshal args to JSON string
+			var argsJSON string
+			if args != nil {
+				if argsStr, ok := args.(string); ok {
+					argsJSON = argsStr
+				} else {
+					if b, err := json.Marshal(args); err == nil {
+						argsJSON = string(b)
+					}
+				}
+			}
+			
+            if callID != "" && name != "" {
+                // Use item-style function_call so the model sees past calls
+                items = append(items, responsesInput{
+                    Type:      "function_call",
+                    CallID:    callID,
+                    Name:      name,
+                    Arguments: argsJSON,
+                })
+            }
+            continue
+
+		case turns.BlockKindToolUse:
+			// Tool result: extract id and result
+			toolID, _ := b.Payload[turns.PayloadKeyID].(string)
+			result := b.Payload[turns.PayloadKeyResult]
+			
+			// Marshal result to JSON string
+			var resultJSON string
+			if result != nil {
+				if resultStr, ok := result.(string); ok {
+					resultJSON = resultStr
+				} else {
+					if b, err := json.Marshal(result); err == nil {
+						resultJSON = string(b)
+					}
+				}
+			}
+			
+            if toolID != "" {
+                // Use item-style function_call_output; set call_id to correlate
+                items = append(items, responsesInput{
+                    Type:   "function_call_output",
+                    CallID: toolID,
+                    Output: resultJSON,
+                })
+            }
+            continue
+
+		default:
+			// Text content for user, system, assistant
+			if v, ok := b.Payload[turns.PayloadKeyText]; ok && v != nil {
+				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+					parts = append(parts, responsesContentPart{Type: "input_text", Text: s})
+				}
+			}
+		}
+
+		if len(parts) == 0 {
+			continue
+		}
+		items = append(items, responsesInput{Role: role, Content: parts})
+	}
+	return items
 }
 
 // PrepareToolsForResponses placeholder for parity; tools omitted in first cut.
