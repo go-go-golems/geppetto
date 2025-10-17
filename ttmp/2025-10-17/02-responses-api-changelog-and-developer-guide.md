@@ -1,5 +1,94 @@
 ## OpenAI Responses API: Changelog & Developer Guide
 
+### Updates (2025-10-17)
+
+- Encrypted reasoning is now requested by default for every Responses call, and parsed into a new `BlockKindReasoning` with `payload.encrypted_content`.
+- Implemented response-boundary grouping in request building:
+  - We include prior context in order, then the latest `reasoning` item, immediately followed by its matching `function_call` and `function_call_output` items.
+  - We preserve the vendor output `item_id` for function calls and set it as `id` on the echoed `function_call` input item. This fixes the 400 “reasoning item provided without its required following item”.
+- Streaming output deltas: the SSE handler now emits `EventTypePartialCompletion` on `response.output_text.delta`. The example printer shows deltas between “Output started/ended” markers.
+- Parallel tool calls: the engine sets `parallel_tool_calls` when `MaxParallelTools > 1`. The example exposes a `parallel-tools` mode; the model can and does emit multiple `function_call` items in a single response, which the middleware executes and returns together.
+- Server-side tools: you can attach built-in Responses tools (e.g., `file_search`) via `turn.Data["responses_server_tools"]`; these are appended to the request’s `tools` list.
+- Example CLI updates (`cmd/examples/openai-tools`):
+  - New calculator tool (`calculator`) and new modes: `parallel-tools`, `server-tools`.
+  - The printer now covers all chat event types and prints partial text deltas.
+
+#### Developer notes (code pointers)
+
+- Reasoning blocks and input building: `pkg/steps/ai/openai_responses/helpers.go`
+  - Always adds `include: ["reasoning.encrypted_content"]`.
+  - Builds input by mapping Turn blocks in order; groups the latest reasoning item with its tool items to satisfy vendor ordering.
+  - Uses `turns.PayloadKeyItemID` to carry provider `item_id` for `function_call` echoing.
+- SSE streaming and events: `pkg/steps/ai/openai_responses/engine.go`
+  - Publishes `EventTypePartialThinking` for reasoning summary and `EventTypePartialCompletion` for `output_text.delta`.
+  - Emits `EventTypeToolCall` when `function_call` completes (with `call_id`, `name`, `arguments`).
+- Events and printers:
+  - Events types in `pkg/events/chat-events.go`.
+  - Step printer covers partial thinking/partial completion, boundaries, tool events: `pkg/events/step-printer-func.go`.
+- Example runner and tools: `cmd/examples/openai-tools/main.go`.
+
+#### How to test
+
+- Thinking (streaming deltas):
+```
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=thinking \
+  --prompt='Explain why the sky is blue in 2 sentences.' \
+  --log-level trace --verbose
+```
+Expect “Output started/ended” with live partial text printed.
+
+- Tools (single):
+```
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=tools \
+  --prompt='Please use get_weather to check the weather in San Francisco, in celsius.' \
+  --log-level info --verbose
+```
+Expect one function_call with arguments deltas, tool_result, final assistant.
+
+- Parallel tools (multiple function calls in one turn):
+```
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=parallel-tools \
+  --prompt='Use both tools: get_weather for Tokyo (celsius) and calculator to compute 19 + 23' \
+  --log-level info --verbose
+```
+Expect two function_call items; both executed; results returned together.
+
+- Multiple parallel tasks:
+```
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=parallel-tools \
+  --prompt='Use tools to: (1) get_weather for San Francisco (celsius), (2) New York (fahrenheit), (3) Tokyo (celsius); also (4) 12 + 34 and (5) 19 + 23 via calculator.' \
+  --log-level info --verbose
+```
+Note: tool selection is model-driven; adjust prompt to “must call calculator” to force both calls.
+
+- Server-side tools:
+```
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=server-tools \
+  --prompt='Use file_search to find information about the Responses API reasoning items.' \
+  --log-level trace --verbose
+```
+
+#### Known caveats
+
+- The Responses API enforces grouping: a `reasoning` item must be followed by its associated items. The input builder ensures this; avoid reordering Turn blocks that would violate grouping.
+- Parallel tool calls are supported; execution in middleware is sequential per call by default. True concurrent execution can be added easily using goroutines and a limit by `MaxParallelTools`.
+- The minimal calculator tool supports simple binary operations in the form `A op B` (e.g., `12 + 34`).
+
 ### Purpose and Scope
 This doc captures the work to integrate OpenAI’s Responses API into Geppetto’s inference engine, with streaming, reasoning, and tool-calling support. It explains what changed, why, how to test it, and what to watch out for. It is written for a new developer to onboard and continue the work.
 

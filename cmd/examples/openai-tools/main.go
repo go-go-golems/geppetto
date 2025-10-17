@@ -329,14 +329,18 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
     // Enable server-side tools mode by attaching built-in tools to the Turn
     if s.Mode == "server-tools" {
-        // Example: enable hypothetical server tool file_search
+        // Use a built-in that does not require prior vector store setup
         serverTools := []any{
-            map[string]any{"type": "file_search"},
+            map[string]any{"type": "web_search"},
         }
         if turn.Data == nil { turn.Data = map[string]any{} }
         turn.Data["responses_server_tools"] = serverTools
-        // Encourage usage
-        turns.AppendBlock(turn, turns.NewSystemTextBlock("You may use the server-side file_search tool if it helps."))
+        // Encourage usage and specify available tool
+        turns.AppendBlock(turn, turns.NewSystemTextBlock("You have access to the server-side web_search tool. Use it where appropriate."))
+        // Provide a default prompt if none was supplied
+        if s.Prompt == "" {
+            turns.AppendBlock(turn, turns.NewUserTextBlock("Use web_search to find information about the OpenAI Responses API reasoning items and summarize briefly."))
+        }
     }
 
     // No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.

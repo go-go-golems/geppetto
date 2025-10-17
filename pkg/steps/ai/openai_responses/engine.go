@@ -124,8 +124,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 
 	// Trace-level: dump full YAML of request for debugging
 	if zerolog.GlobalLevel() <= zerolog.TraceLevel {
-		if yb, err := yaml.Marshal(reqBody); err == nil {
-			log.Trace().Msg("Responses: request YAML\n" + string(yb))
+		if yb, err := yaml.Marshal(reqBody.Input); err == nil {
+			log.Trace().Msg("Responses: request input YAML\n" + string(yb))
 		}
 	}
 
