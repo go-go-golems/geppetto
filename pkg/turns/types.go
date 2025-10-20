@@ -1,5 +1,10 @@
 package turns
 
+import (
+    "strings"
+    "gopkg.in/yaml.v3"
+)
+
 // BlockKind represents the kind of a block within a Turn.
 type BlockKind int
 
@@ -36,26 +41,62 @@ func (k BlockKind) String() string {
 	}
 }
 
+// YAML serialization for BlockKind using stable string names
+func (k BlockKind) MarshalYAML() (interface{}, error) {
+    return k.String(), nil
+}
+
+func (k *BlockKind) UnmarshalYAML(value *yaml.Node) error {
+    if value == nil {
+        *k = BlockKindOther
+        return nil
+    }
+    var s string
+    if err := value.Decode(&s); err != nil {
+        return err
+    }
+    switch strings.ToLower(strings.TrimSpace(s)) {
+    case "user":
+        *k = BlockKindUser
+    case "llm_text":
+        *k = BlockKindLLMText
+    case "tool_call":
+        *k = BlockKindToolCall
+    case "tool_use":
+        *k = BlockKindToolUse
+    case "system":
+        *k = BlockKindSystem
+    case "reasoning":
+        *k = BlockKindReasoning
+    case "other", "":
+        *k = BlockKindOther
+    default:
+        // Unknown kind – map to Other but keep original for visibility
+        *k = BlockKindOther
+    }
+    return nil
+}
+
 // Block represents a single atomic unit within a Turn.
 type Block struct {
-	ID      string
-	TurnID  string
-	Kind    BlockKind
-	Role    string
-	Payload map[string]any
-	// Metadata stores arbitrary metadata about the block
-	Metadata map[string]interface{}
+    ID      string                 `yaml:"id,omitempty"`
+    TurnID  string                 `yaml:"turn_id,omitempty"`
+    Kind    BlockKind              `yaml:"kind"`
+    Role    string                 `yaml:"role,omitempty"`
+    Payload map[string]any         `yaml:"payload,omitempty"`
+    // Metadata stores arbitrary metadata about the block
+    Metadata map[string]interface{} `yaml:"metadata,omitempty"`
 }
 
 // Turn contains an ordered list of Blocks and associated metadata.
 type Turn struct {
-	ID     string
-	RunID  string
-	Blocks []Block
-	// Metadata stores arbitrary metadata about the turn
-	Metadata map[string]interface{}
-	// Data stores the application data payload associated with this turn
-	Data map[string]interface{}
+    ID     string                 `yaml:"id,omitempty"`
+    RunID  string                 `yaml:"run_id,omitempty"`
+    Blocks []Block                `yaml:"blocks"`
+    // Metadata stores arbitrary metadata about the turn
+    Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+    // Data stores the application data payload associated with this turn
+    Data map[string]interface{} `yaml:"data,omitempty"`
 }
 
 // PrependBlock inserts a block at the beginning of the Turn's block slice.
