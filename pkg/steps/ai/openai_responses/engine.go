@@ -213,18 +213,57 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
         // Track latest encrypted reasoning content observed during this response
         var latestEncryptedContent string
         log.Trace().Msg("Responses: starting SSE read loop")
+        // Redact helper for sensitive fields when logging SSE payloads
+        redactString := func(s string) string {
+            if len(s) <= 12 {
+                return "****"
+            }
+            // keep small prefix/suffix, hide middle
+            pre := 6
+            suf := 6
+            if len(s) < pre+suf+1 {
+                pre = len(s) / 2
+                suf = len(s) - pre
+            }
+            return s[:pre] + "-****-" + s[len(s)-suf:]
+        }
+        var redact func(v any) any
+        redact = func(v any) any {
+            switch tv := v.(type) {
+            case map[string]any:
+                m2 := make(map[string]any, len(tv))
+                for k, val := range tv {
+                    if k == "encrypted_content" {
+                        if s, ok := val.(string); ok { m2[k] = redactString(s); continue }
+                    }
+                    m2[k] = redact(val)
+                }
+                return m2
+            case []any:
+                arr := make([]any, len(tv))
+                for i, el := range tv { arr[i] = redact(el) }
+                return arr
+            default:
+                return v
+            }
+        }
 		flush := func() error {
 			if dataBuf.Len() == 0 {
 				return nil
 			}
 			raw := dataBuf.String()
 			dataBuf.Reset()
-            log.Trace().Str("event", eventName).RawJSON("data", []byte(raw)).Msg("Responses: SSE event")
 			var m map[string]any
 			if err := json.Unmarshal([]byte(raw), &m); err != nil {
                 log.Debug().Err(err).Str("event", eventName).Int("raw_len", len(raw)).Msg("Responses: failed to unmarshal SSE data")
 				return nil
 			}
+            // Log redacted payload at trace level
+            if zerolog.GlobalLevel() <= zerolog.TraceLevel {
+                if rb, err := json.Marshal(redact(m)); err == nil {
+                    log.Trace().Str("event", eventName).RawJSON("data", rb).Msg("Responses: SSE event")
+                }
+            }
             switch eventName {
             case "response.output_item.added":
                 if it, ok := m["item"].(map[string]any); ok {
@@ -238,9 +277,31 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                             }
                         case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
+						case "web_search_call":
+							itemID := ""; if v, ok := it["id"].(string); ok { itemID = v }
+							if act, ok := it["action"].(map[string]any); ok {
+								if at, ok := act["type"].(string); ok && at == "search" {
+									q := ""; if v, ok := act["query"].(string); ok { q = v }
+									e.publishEvent(ctx, events.NewWebSearchStarted(metadata, itemID, q))
+								}
+								if at, ok := act["type"].(string); ok && at == "open_page" {
+									u := ""; if v, ok := act["url"].(string); ok { u = v }
+									e.publishEvent(ctx, events.NewWebSearchOpenPage(metadata, itemID, u))
+								}
+							}
                         }
                     }
                 }
+			case "response.web_search_call.in_progress":
+				itemID := ""; if v, ok := m["item_id"].(string); ok { itemID = v }
+				// Query will be available later in output_item.done, so emit without query for now
+				e.publishEvent(ctx, events.NewWebSearchStarted(metadata, itemID, ""))
+			case "response.web_search_call.searching":
+				itemID := ""; if v, ok := m["item_id"].(string); ok { itemID = v }
+				e.publishEvent(ctx, events.NewWebSearchSearching(metadata, itemID))
+			case "response.web_search_call.completed":
+				itemID := ""; if v, ok := m["item_id"].(string); ok { itemID = v }
+				e.publishEvent(ctx, events.NewWebSearchDone(metadata, itemID))
             case "error":
                 // Provider-level error event during streaming
                 if errObj, ok := m["error"].(map[string]any); ok {
@@ -323,6 +384,19 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                                 var b strings.Builder; b.WriteString(args)
                                 finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, args: b})
                             }
+                        case "web_search_call":
+                            // Extract search query from action if available
+                            query := ""
+                            if action, ok := it["action"].(map[string]any); ok {
+                                if q, ok := action["query"].(string); ok { query = q }
+                            }
+                            itemID := ""
+                            if v, ok := it["id"].(string); ok { itemID = v }
+                            // Log the final query info at debug level
+                            if query != "" {
+                                log.Debug().Str("query", query).Str("item_id", itemID).Msg("Responses: web_search completed with query")
+                            }
+                            // Note: Don't emit another Done event here, already emitted by response.web_search_call.completed
                         }
                     }
                 }
@@ -341,6 +415,18 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                         e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
                     }
                 }
+			case "response.output_text.annotation.added":
+				if ann, ok := m["annotation"].(map[string]any); ok {
+					title, _ := ann["title"].(string)
+					url, _ := ann["url"].(string)
+					var startPtr, endPtr, outPtr, contPtr, annPtr *int
+					if v, ok := ann["start_index"].(float64); ok { i := int(v); startPtr = &i }
+					if v, ok := ann["end_index"].(float64); ok { i := int(v); endPtr = &i }
+					if v, ok := m["output_index"].(float64); ok { i := int(v); outPtr = &i }
+					if v, ok := m["content_index"].(float64); ok { i := int(v); contPtr = &i }
+					if v, ok := m["annotation_index"].(float64); ok { i := int(v); annPtr = &i }
+					e.publishEvent(ctx, events.NewCitation(metadata, title, url, startPtr, endPtr, outPtr, contPtr, annPtr))
+				}
             case "response.function_call_arguments.delta":
                 // Accumulate function_call arguments by item_id
                 itemID := ""

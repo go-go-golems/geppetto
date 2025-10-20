@@ -8,6 +8,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/go-go-golems/geppetto/pkg/helpers"
@@ -55,7 +56,8 @@ func WithSubscriber(subscriber message.Subscriber) EventRouterOption {
 func WithVerbose(verbose bool) EventRouterOption {
 	return func(r *EventRouter) {
 		r.verbose = verbose
-		r.logger = helpers.NewWatermill(log.Logger)
+        // Force Watermill logger to INFO level regardless of parent global level
+        r.logger = helpers.NewWatermill(log.Logger.Level(zerolog.InfoLevel))
 	}
 }
 
