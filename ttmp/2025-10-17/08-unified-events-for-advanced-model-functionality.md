@@ -1,3 +1,192 @@
+Great list — I folded everything you surfaced into the unified model so it cleanly covers:
+
+Anthropic SSE (incl. thinking_delta, signature_delta, citations, and server tools/web search payloads), and
+
+OpenAI Responses (incl. refusals, reasoning, audio, image generation, MCP, “content part/output item” boundaries, and tool status events).
+
+Updated file: Download events.go
+
+What changed (at a glance)
+
+New enums and fields
+
+BlockType: added image, redacted_thinking, web_search_result, web_search_tool_result_error, web_search_result_location. These reflect Anthropic content blocks & search payload shapes. 
+Home
++1
+
+DeltaKind: added thinking_delta, signature_delta, annotation_added, refusal_delta, reasoning_delta, reasoning_summary_delta, reasoning_summary_text_delta, audio_delta, audio_transcript_delta. Matches the Responses event catalog and Anthropic deltas. 
+Microsoft Learn
++2
+Claude Docs
++2
+
+BuiltInTool: added image_generation. Covers response.image_generation_call.*. 
+Microsoft Learn
+
+StatusPhase: added queued, in_progress, interpreting, generating, incomplete. Maps to Responses lifecycle/status events. 
+Microsoft Learn
+
+ContentChannel (new): optional label for the “lane” a delta belongs to (e.g., refusal, reasoning, reasoning_summary, audio_transcript). Keeps the event family small while representing OpenAI’s side‑channels. 
+Microsoft Learn
+
+Message lifecycle: StreamMessageDelta now has Phase and optional Error, so response.created/queued/in_progress/completed/failed/incomplete can be surfaced uniformly. 
+Microsoft Learn
+
+Ping: added EventTypeStreamPing + StreamPing so Anthropic ping keep‑alives (and any provider heartbeats) are representable if you choose to forward them. (Adapters can also drop them.) 
+MDN Web Docs
+
+Richer payloads:
+
+ContentDelta: Annotation (for output_text.annotation.added), AudioBase64, and Signature (for signature_delta). 
+Microsoft Learn
++1
+
+ContentBlockHeader: MIMEType for image/audio parts; StreamIDs stays the place for item_id, output_index, etc.
+
+Tool streaming/results: StreamToolCallStatus now supports interpreting/generating phases and optional ImageBase64/ImageURI for image‑gen partials; StreamToolCallResult adds ImageBase64/ImageURI. 
+Microsoft Learn
+
+Kept intentionally small
+
+Still just five families of events: message, content block, tool call (start/input/result/stop), tool status, plus ping. Everything else is expressed via enums + fields (so routers/sinks remain stable).
+
+Precise mappings (cheat‑sheet)
+Anthropic → unified
+
+SSE events
+
+message_start → StreamMessageStart
+
+message_delta (e.g., usage/stop reason) → StreamMessageDelta{Usage, StopReason}
+
+message_stop → StreamMessageStop
+
+content_block_start → StreamContentBlockStart (block header carries type, id, name)
+
+content_block_delta.text_delta → StreamContentBlockDelta{Delta: {Kind: DeltaText, Text: ...}}
+
+content_block_delta.input_json_delta → StreamToolCallInputDelta{DeltaJSON: ...}
+
+content_block_delta.citations_delta → StreamContentBlockDelta{Delta: {Kind: DeltaCitations, Citation: ...}}
+
+content_block_delta.thinking_delta → StreamContentBlockDelta{Delta: {Kind: DeltaThinking, Channel: ChannelReasoning, Text: ...}}
+
+content_block_delta.signature_delta → StreamContentBlockDelta{Delta: {Kind: DeltaSignature, Signature: ...}}
+
+content_block_stop → StreamContentBlockStop
+
+ping → StreamPing.
+
+MDN Web Docs
++3
+Claude Docs
++3
+Claude Docs
++3
+
+Content block type values
+
+Core: text, image → BlockText, BlockImage. 
+Home
+
+Thinking: thinking, redacted_thinking → BlockThinking, BlockRedactedThinking. 
+Claude Docs
++1
+
+Client tools: tool_use, tool_result → BlockToolUse, BlockToolResult. 
+AWS Documentation
+
+Server tools:
+
+invoke: server_tool_use → StreamToolCallStart{Tool.Kind: ToolKindServer, Tool.Name: e.g. "web_search"}
+
+results: web_search_tool_result / web_search_result / web_search_tool_result_error / web_search_result_location mapped to BlockWebSearchToolResult, BlockWebSearchResult, BlockWebSearchToolResultError, BlockWebSearchResultLocation (and normalized SearchResult[] where convenient). 
+Claude Docs
++1
+
+References: Anthropic streaming/developer docs for citations and thinking; the official Web Search tool docs show the server‑tool blocks and streamed input_json_delta. 
+Claude Docs
++2
+Claude Docs
++2
+
+OpenAI Responses → unified
+
+Lifecycle
+
+response.created|queued|in_progress|completed|failed|incomplete → StreamMessageStart or StreamMessageDelta{Phase: ...} and finally StreamMessageStop. 
+Microsoft Learn
+
+Text & structure
+
+response.output_text.delta|done → StreamContentBlockDelta{Delta: {Kind: DeltaText, Channel: ChannelOutputText, Text: ...}} (and a final StreamContentBlockStop by adapter when the part closes). 
+Microsoft Learn
+
+response.output_text.annotation.added → StreamContentBlockDelta{Delta: {Kind: DeltaAnnotation, Annotation: {...}}}. 
+Microsoft Learn
+
+Refusals: response.refusal.delta|done → StreamContentBlockDelta{Delta: {Kind: DeltaRefusalText, Channel: ChannelRefusal, Text: ...}}. 
+Microsoft Learn
+
+Reasoning:
+
+response.reasoning.delta|done → ...{Kind: DeltaReasoningText, Channel: ChannelReasoning}
+
+response.reasoning_summary.delta|done + response.reasoning_summary_part.added|done + response.reasoning_summary_text.delta|done → ...{Kind: DeltaReasoningSummary|DeltaReasoningSummaryText, Channel: ChannelReasoningSummary|ChannelReasoningSummaryText}. 
+Microsoft Learn
+
+Audio: response.audio.delta|done and response.audio_transcript.delta|done → StreamContentBlockDelta{Delta: {Kind: DeltaAudio|DeltaAudioTranscript, AudioBase64|Text}}. 
+Microsoft Learn
+
+Function/custom/MCP calls
+
+response.function_call_arguments.delta|done → StreamToolCallInputDelta (append‑only JSON).
+
+response.mcp_call.* / response.mcp_list_tools.* → StreamToolCallStatus/StreamToolCallStop with Tool.Kind: ToolKindMCP. 
+Microsoft Learn
+
+Built‑in tool status
+
+File search: response.file_search_call.searching|in_progress|completed → StreamToolCallStatus{Tool: BuiltInFileSearch, Phase: ...}. 
+Microsoft Learn
+
+Web search: response.web_search_call.searching|in_progress|completed → StreamToolCallStatus{Tool: BuiltInWebSearch, Phase: ...} (note: Azure mirrors types but flags availability). 
+Microsoft Learn
+
+Code interpreter: response.code_interpreter_call.in_progress|interpreting|completed → StreamToolCallStatus{Tool: BuiltInCodeInterpreter, Phase: ...}; response.code_interpreter_call_code.delta|done can surface via StreamToolCallStatus{Action: {"code_delta": "..."} } or your adapter can accumulate into StreamToolCallResult. 
+Microsoft Learn
+
+Image generation: response.image_generation_call.generating|partial_image|completed → StreamToolCallStatus{Tool: BuiltInImageGeneration, Phase: ..., ImageBase64/ImageURI} and final StreamToolCallResult with image artifact. 
+Microsoft Learn
+
+Items/parts
+
+response.output_item.added|done, response.content_part.added|done → adapters start/stop a StreamContentBlock* and set IDs.ItemID/IDs.OutputIndex. The unified type remains StreamContentBlockStart/Stop—no extra event class needed. 
+Microsoft Learn
+
+Notes for adapter authors (quick, practical)
+
+IDs: Always populate IDs.ItemID/OutputIndex (OpenAI) and IDs.ContentIndex (Anthropic). For any tool call, set a stable IDs.ToolCallID (map from block_id or item_id).
+
+Arguments streaming: Use only StreamToolCallInputDelta for JSON argument chunks (Anthropic input_json_delta; OpenAI function/custom/MCP args delta). 
+Claude Docs
++1
+
+Citations: For Anthropic citations_delta, pass the single citation in ContentDelta.Citation (the API explicitly streams one citation per delta). 
+Claude Docs
+
+Web search (Anthropic): Map server_tool_use{name:"web_search"} to StreamToolCallStart{Tool.Kind: server}; the subsequent web_search_tool_result container and nested web_search_result items become StreamToolCallResult{SearchResults: ...} and/or content blocks with BlockWebSearchToolResult/BlockWebSearchResult. 
+Claude Docs
+
+Why this scales with new tools
+
+Most additions are enum‑only (new BuiltInTool, DeltaKind, BlockType, or StatusPhase)—downstream relays and sinks don’t need to change.
+
+Provider quirks (e.g., extra fields in Azure’s Responses events) stay lossless via Extensions/Raw. The central event families stay stable. 
+Microsoft Learn
+
+If you want, I can generate tiny adapter stubs next (Anthropic SSE → unified; OpenAI Responses iterator → unified) using these new enums and fields.
+
 ([Home][1])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([MDN Web Docs][3])([Microsoft Learn][2])([Microsoft Learn][2])([Claude Docs][4])([Home][1])([Claude Docs][5])([AWS Documentation][6])([Claude Docs][7])([Claude Docs][4])([Microsoft Learn][2])([Microsoft Learn][8])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Microsoft Learn][2])([Claude Docs][4])([Claude Docs][4])([Claude Docs][9])([Microsoft Learn][2])
 
 [1]: https://docs.spring.io/spring-ai/docs/current/api/org/springframework/ai/anthropic/api/AnthropicApi.ContentBlock.html?utm_source=chatgpt.com "Record Class AnthropicApi.ContentBlock"
