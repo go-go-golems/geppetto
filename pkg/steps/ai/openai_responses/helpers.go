@@ -166,7 +166,11 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
         var parts []responsesContentPart
         if v, ok := b.Payload[turns.PayloadKeyText]; ok && v != nil {
             if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-                parts = append(parts, responsesContentPart{Type: "input_text", Text: s})
+                ctype := "input_text"
+                if role == "assistant" {
+                    ctype = "output_text"
+                }
+                parts = append(parts, responsesContentPart{Type: ctype, Text: s})
             }
         }
         if len(parts) > 0 {

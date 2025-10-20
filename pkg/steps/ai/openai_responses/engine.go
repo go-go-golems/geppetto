@@ -123,11 +123,18 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 
 	// Trace-level: dump full YAML of request for debugging
-	if zerolog.GlobalLevel() <= zerolog.TraceLevel {
-		if yb, err := yaml.Marshal(reqBody.Input); err == nil {
-			log.Trace().Msg("Responses: request input YAML\n" + string(yb))
-		}
-	}
+    if zerolog.GlobalLevel() <= zerolog.TraceLevel {
+        // Redact encrypted_content fields before logging YAML
+        redacted := make([]responsesInput, 0, len(reqBody.Input))
+        for _, it := range reqBody.Input {
+            it2 := it
+            if it2.EncryptedContent != "" { it2.EncryptedContent = "<redacted>" }
+            redacted = append(redacted, it2)
+        }
+        if yb, err := yaml.Marshal(redacted); err == nil {
+            log.Trace().Msg("Responses: request input YAML\n" + string(yb))
+        }
+    }
 
 	b, err := json.Marshal(reqBody)
 	if err != nil {
