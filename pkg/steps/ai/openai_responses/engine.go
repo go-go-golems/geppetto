@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -317,7 +318,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                     codeStr := ""
                     if v, ok := errObj["code"].(string); ok { codeStr = v }
                     if msgStr == "" { msgStr = "responses stream error" }
-                    if codeStr != "" { streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr) } else { streamErr = fmt.Errorf(msgStr) }
+                    if codeStr != "" { streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr) } else { streamErr = errors.New(msgStr) }
                 } else {
                     streamErr = fmt.Errorf("responses stream error")
                 }
@@ -331,7 +332,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                         codeStr := ""
                         if v, ok := errObj["code"].(string); ok { codeStr = v }
                         if msgStr == "" { msgStr = "responses failed" }
-                        if codeStr != "" { streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr) } else { streamErr = fmt.Errorf(msgStr) }
+                        if codeStr != "" { streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr) } else { streamErr = errors.New(msgStr) }
                     } else {
                         streamErr = fmt.Errorf("responses failed")
                     }
