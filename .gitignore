@@ -26,3 +26,5 @@ thirdparty/
 
 # Crush directories
 .crush/
+ 
+out/
