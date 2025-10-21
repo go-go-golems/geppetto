@@ -28,16 +28,17 @@ import (
 
 // Glazed BareCommand: run
 type RunSettings struct {
-    In        string `glazed.parameter:"in"`
-    Out       string `glazed.parameter:"out"`
-    Cassette  string `glazed.parameter:"cassette"`
-    Record    bool   `glazed.parameter:"record"`
-    Model     string `glazed.parameter:"model"`
-    Stream    bool   `glazed.parameter:"stream"`
-    EchoEvents bool  `glazed.parameter:"echo-events"`
-    Second    bool   `glazed.parameter:"second"`
-    SecondUser string `glazed.parameter:"second-user"`
-    Raw       bool   `glazed.parameter:"raw"`
+    In          string `glazed.parameter:"in"`
+    Out         string `glazed.parameter:"out"`
+    Cassette    string `glazed.parameter:"cassette"`
+    Record      bool   `glazed.parameter:"record"`
+    Model       string `glazed.parameter:"model"`
+    Stream      bool   `glazed.parameter:"stream"`
+    EchoEvents  bool   `glazed.parameter:"echo-events"`
+    Second      bool   `glazed.parameter:"second"`
+    SecondUser  string `glazed.parameter:"second-user"`
+    Raw         bool   `glazed.parameter:"raw"`
+    CaptureLogs bool   `glazed.parameter:"capture-logs"`
 }
 
 type RunCommand struct{ *cmds.CommandDescription }
@@ -59,6 +60,7 @@ func NewRunCommand() (*RunCommand, error) {
             parameters.NewParameterDefinition("second", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Run a second inference on the resulting turn")),
             parameters.NewParameterDefinition("second-user", parameters.ParameterTypeString, parameters.WithDefault("Hello"), parameters.WithHelp("User message to append before second run")),
             parameters.NewParameterDefinition("raw", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Capture raw provider data under out/raw")),
+            parameters.NewParameterDefinition("capture-logs", parameters.ParameterTypeBool, parameters.WithDefault(true), parameters.WithHelp("Capture logs to out/logs.jsonl")),
         ),
     )
     return &RunCommand{CommandDescription: desc}, nil
@@ -93,7 +95,7 @@ func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error
         steps = append(steps, turns.NewUserTextBlock(msg))
     }
     _, err = fixtures.ExecuteFixture(ctx, turn, steps, st, fixtures.ExecuteOptions{
-        OutDir: s.Out, Cassette: s.Cassette, Record: s.Record, EchoEvents: s.EchoEvents, PrintTurns: true, RawCapture: s.Raw,
+        OutDir: s.Out, Cassette: s.Cassette, Record: s.Record, EchoEvents: s.EchoEvents, PrintTurns: true, RawCapture: s.Raw, CaptureLogs: s.CaptureLogs,
     })
     if err != nil { fmt.Fprintln(os.Stderr, "RunInference failed:", err); return err }
     return nil
@@ -140,7 +142,9 @@ func main() {
     runCobra, err := cli.BuildCobraCommand(runCmd); cobra.CheckErr(err)
     reportCmd, err := NewReportCommand(); cobra.CheckErr(err)
     reportCobra, err := cli.BuildCobraCommand(reportCmd); cobra.CheckErr(err)
-    rootCmd.AddCommand(runCobra, reportCobra)
+    serveCmd, err := NewServeCommand(); cobra.CheckErr(err)
+    serveCobra, err := cli.BuildCobraCommand(serveCmd); cobra.CheckErr(err)
+    rootCmd.AddCommand(runCobra, reportCobra, serveCobra)
 
     cobra.CheckErr(rootCmd.Execute())
 }

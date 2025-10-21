@@ -5,6 +5,7 @@ import (
     "context"
     "encoding/json"
     "fmt"
+    "io"
     "net/http"
     "os"
     "path/filepath"
@@ -18,6 +19,7 @@ import (
     "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
     "github.com/go-go-golems/geppetto/pkg/turns"
     "github.com/go-go-golems/geppetto/pkg/turns/serde"
+    "github.com/rs/zerolog"
     "github.com/rs/zerolog/log"
     "gopkg.in/yaml.v3"
 )
@@ -76,6 +78,8 @@ type ExecuteOptions struct {
     PrintTurns bool
     // When true, also capture raw provider data into out/raw
     RawCapture bool
+    // When true, capture logs to out/logs.jsonl
+    CaptureLogs bool
 }
 
 // ExecuteFixture runs the initial turn and all provided follow-up blocks, persisting artifacts.
@@ -90,6 +94,21 @@ type ExecuteOptions struct {
 func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Block, st *settings.StepSettings, opts ExecuteOptions) (*turns.Turn, error) {
     if opts.OutDir == "" { return nil, fmt.Errorf("out dir required") }
     if err := os.MkdirAll(opts.OutDir, 0755); err != nil { return nil, err }
+
+    // Setup log capture if requested
+    var logFile *os.File
+    var origLogger zerolog.Logger
+    if opts.CaptureLogs {
+        lf, err := os.Create(filepath.Join(opts.OutDir, "logs.jsonl"))
+        if err != nil { return nil, err }
+        logFile = lf
+        defer logFile.Close()
+        // Setup multi-writer to both console and file
+        origLogger = log.Logger
+        multi := io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}, logFile)
+        log.Logger = log.Logger.Output(multi)
+        defer func() { log.Logger = origLogger }()
+    }
 
     if err := serde.SaveTurnYAML(filepath.Join(opts.OutDir, "input_turn.yaml"), turn, serde.Options{}); err != nil { return nil, err }
 

@@ -40,6 +40,7 @@ llm-runner run \
 - `--echo-events`: Echo NDJSON events to stdout while recording
 - `--second`, `--second-user`: Append an extra user message follow-up
 - `--raw`: Capture raw provider data under `out/raw`
+- `--capture-logs`: Capture logs to `out/logs.jsonl` (default: true)
 
 ## Fixtures
 
@@ -71,6 +72,7 @@ followups:
 - `final_turn_N.yaml`: Before and after turns for follow-ups
 - `events.ndjson`, `events-2.ndjson`, ...: Event streams per run
 - `report.md`: Markdown summary of model, turns, and event timeline
+- `logs.jsonl`: Application logs in JSON Lines format (with `--capture-logs`)
 - `raw/` (with `--raw`):
   - `turn-N-http-request.json`, `turn-N-http-response.json`
   - `turn-N-sse.log`
@@ -83,6 +85,26 @@ Generate a report from an artifacts directory:
 ```bash
 llm-runner report --out ./cmd/llm-runner/out
 ```
+
+## Web UI
+
+Launch a web interface to browse and visualize artifacts:
+
+```bash
+llm-runner serve --out ./cmd/llm-runner/out --port 8080
+```
+
+Then open http://localhost:8080 in your browser.
+
+The web UI features:
+- Browse all artifact directories
+- View YAML, JSON, NDJSON, and log files with syntax highlighting
+- Interactive navigation with HTMX
+- Inspect turns, events, raw HTTP requests/responses, and logs
+
+### Serve Flags
+- `--out`: Artifacts directory to serve (default: `out`)
+- `--port`: HTTP port (default: 8080)
 
 ## Notes
 
