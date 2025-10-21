@@ -74,6 +74,8 @@ type ExecuteOptions struct {
     EchoEvents bool
     // When true, print each resulting turn to stdout
     PrintTurns bool
+    // When true, also capture raw provider data into out/raw
+    RawCapture bool
 }
 
 // ExecuteFixture runs the initial turn and all provided follow-up blocks, persisting artifacts.
@@ -111,10 +113,18 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
     defer ef.Close()
     sink := &fileSink{f: ef, echo: opts.EchoEvents}
 
-    eng, err := openai_responses.NewEngine(st, engine.WithSink(sink))
+    engOpts := []engine.Option{ engine.WithSink(sink) }
+    eng, err := openai_responses.NewEngine(st, engOpts...)
     if err != nil { return nil, err }
     runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
     defer cancel()
+    if opts.RawCapture {
+        turnID := ""
+        if turn != nil { turnID = turn.ID }
+        tap := NewDiskTap(opts.OutDir, 1, turnID)
+        defer tap.Close()
+        runCtx = engine.WithDebugTap(runCtx, tap)
+    }
     finalTurn, err := eng.RunInference(runCtx, turn)
     if err != nil { return nil, err }
     if opts.PrintTurns {
@@ -138,6 +148,13 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
             if err != nil { log.Error().Err(err).Msg("failed to create engine for follow-up"); return }
             runCtx2, cancel2 := context.WithTimeout(ctx, 60*time.Second)
             defer cancel2()
+            if opts.RawCapture {
+                turnID := ""
+                if finalTurn != nil { turnID = finalTurn.ID }
+                tap := NewDiskTap(opts.OutDir, stepIdx+1, turnID)
+                defer tap.Close()
+                runCtx2 = engine.WithDebugTap(runCtx2, tap)
+            }
             finalTurn2, err := eng2.RunInference(runCtx2, finalTurn)
             if err != nil { log.Error().Err(err).Msg("follow-up RunInference failed"); return }
             if opts.PrintTurns {

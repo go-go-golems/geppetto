@@ -18,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 )
 
 // Engine implements the Engine interface for OpenAI Responses API calls.
@@ -43,6 +42,7 @@ func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
         }
     }
     events.PublishEventToContext(ctx, event)
+    // Emit minimal pointers to raw info via EventMetadata.Extra when available
 }
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -123,21 +123,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		log.Debug().Int("input_items", len(reqBody.Input)).Interface("input_preview", preview).Msg("Responses: request input summary")
 	}
 
-	// Trace-level: dump full YAML of request for debugging
-    if zerolog.GlobalLevel() <= zerolog.TraceLevel {
-        // Redact encrypted_content fields before logging YAML
-        redacted := make([]responsesInput, 0, len(reqBody.Input))
-        for _, it := range reqBody.Input {
-            it2 := it
-            if it2.EncryptedContent != "" { it2.EncryptedContent = "<redacted>" }
-            redacted = append(redacted, it2)
-        }
-        if yb, err := yaml.Marshal(redacted); err == nil {
-            log.Trace().Msg("Responses: request input YAML\n" + string(yb))
-        }
-    }
-
-	b, err := json.Marshal(reqBody)
+    b, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +164,11 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
     log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
     e.publishEvent(ctx, events.NewStartEvent(metadata))
 
-	// Streaming when configured
+    // Attach DebugTap if present on context
+    var tap engine.DebugTap
+    if t2, ok := engine.DebugTapFrom(ctx); ok { tap = t2 }
+
+    // Streaming when configured
 	if e.settings != nil && e.settings.Chat != nil && e.settings.Chat.Stream {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(b)))
 		if err != nil {
@@ -191,17 +181,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 
         log.Trace().Msg("Responses: initiating HTTP request (streaming)")
-        resp, err := http.DefaultClient.Do(req)
+        if tap != nil { tap.OnHTTP(req, b) }
+    resp, err := http.DefaultClient.Do(req)
 		if err != nil {
             log.Debug().Err(err).Msg("Responses: HTTP request failed")
+        if tap != nil { tap.OnProviderObject("http.error", map[string]any{"error": err.Error()}) }
 			return nil, err
 		}
 		defer resp.Body.Close()
             log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
         if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			var m map[string]any
-			_ = json.NewDecoder(resp.Body).Decode(&m)
+            var m map[string]any
+            _ = json.NewDecoder(resp.Body).Decode(&m)
             log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error")
+            if tap != nil { tap.OnHTTPResponse(resp, mustMarshalJSON(m)) }
 			return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 		}
 		reader := bufio.NewReader(resp.Body)
@@ -326,6 +319,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                     streamErr = fmt.Errorf("responses stream error")
                 }
                 e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+                if tap != nil { tap.OnProviderObject("stream.error", m) }
             case "response.failed":
                 // Response failed; try to extract nested error
                 if respObj, ok := m["response"].(map[string]any); ok {
@@ -343,6 +337,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                     streamErr = fmt.Errorf("responses failed")
                 }
                 e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+                if tap != nil { tap.OnProviderObject("response.failed", m) }
             case "response.reasoning_summary_part.added":
                 // Start of a summary piece – forward as streaming info event
                 e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", nil))
@@ -375,8 +370,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                             }
                             rb.Payload = payload
                             turns.AppendBlock(t, rb)
+                            if tap != nil { tap.OnProviderObject("output.reasoning", it) }
                         case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+                            if tap != nil { tap.OnProviderObject("output.message", it) }
                         case "function_call":
                             // finalize function_call and publish ToolCall event
                             name := ""
@@ -426,18 +423,19 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                         e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
                     }
                 }
-			case "response.output_text.annotation.added":
-				if ann, ok := m["annotation"].(map[string]any); ok {
-					title, _ := ann["title"].(string)
-					url, _ := ann["url"].(string)
-					var startPtr, endPtr, outPtr, contPtr, annPtr *int
-					if v, ok := ann["start_index"].(float64); ok { i := int(v); startPtr = &i }
-					if v, ok := ann["end_index"].(float64); ok { i := int(v); endPtr = &i }
-					if v, ok := m["output_index"].(float64); ok { i := int(v); outPtr = &i }
-					if v, ok := m["content_index"].(float64); ok { i := int(v); contPtr = &i }
-					if v, ok := m["annotation_index"].(float64); ok { i := int(v); annPtr = &i }
-					e.publishEvent(ctx, events.NewCitation(metadata, title, url, startPtr, endPtr, outPtr, contPtr, annPtr))
-				}
+                if tap != nil { tap.OnSSE(eventName, []byte(raw)) }
+            case "response.output_text.annotation.added":
+                if ann, ok := m["annotation"].(map[string]any); ok {
+                    title, _ := ann["title"].(string)
+                    url, _ := ann["url"].(string)
+                    var startPtr, endPtr, outPtr, contPtr, annPtr *int
+                    if v, ok := ann["start_index"].(float64); ok { i := int(v); startPtr = &i }
+                    if v, ok := ann["end_index"].(float64); ok { i := int(v); endPtr = &i }
+                    if v, ok := m["output_index"].(float64); ok { i := int(v); outPtr = &i }
+                    if v, ok := m["content_index"].(float64); ok { i := int(v); contPtr = &i }
+                    if v, ok := m["annotation_index"].(float64); ok { i := int(v); annPtr = &i }
+                    e.publishEvent(ctx, events.NewCitation(metadata, title, url, startPtr, endPtr, outPtr, contPtr, annPtr))
+                }
             case "response.function_call_arguments.delta":
                 // Accumulate function_call arguments by item_id
                 itemID := ""
@@ -484,6 +482,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                     if sr, ok := respObj["stop_reason"].(string); ok && sr != "" { stopReason = &sr }
                 }
                 if stopReason != nil { log.Debug().Str("stop_reason", *stopReason).Msg("Responses: stop reason observed") }
+                if tap != nil { tap.OnProviderObject("response.completed", m) }
 			}
 			return nil
 		}
@@ -513,9 +512,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                 log.Trace().Str("event", eventName).Msg("Responses: SSE event name")
 				continue
 			}
-			if strings.HasPrefix(line, "data:") {
+            if strings.HasPrefix(line, "data:") {
 				if dataBuf.Len() > 0 { dataBuf.WriteByte('\n') }
 				dataBuf.WriteString(strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+                if tap != nil { tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:")))) }
 				continue
 			}
 		}
@@ -587,6 +587,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	d := time.Since(startTime).Milliseconds(); dm := int64(d); metadata.DurationMs = &dm
 	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 	return t, nil
+}
+
+func mustMarshalJSON(v any) []byte {
+    b, err := json.Marshal(v)
+    if err != nil { return []byte("{}") }
+    return b
 }
 
 

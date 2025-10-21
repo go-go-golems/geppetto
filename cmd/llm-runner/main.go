@@ -37,6 +37,7 @@ type RunSettings struct {
     EchoEvents bool  `glazed.parameter:"echo-events"`
     Second    bool   `glazed.parameter:"second"`
     SecondUser string `glazed.parameter:"second-user"`
+    Raw       bool   `glazed.parameter:"raw"`
 }
 
 type RunCommand struct{ *cmds.CommandDescription }
@@ -46,7 +47,7 @@ var _ cmds.BareCommand = (*RunCommand)(nil)
 func NewRunCommand() (*RunCommand, error) {
     desc := cmds.NewCommandDescription(
         "run",
-        cmds.WithShort("Run a turn against OpenAI Responses and record artifacts"),
+        cmds.WithShort("Run LLM turns (OpenAI Responses) and record artifacts"),
         cmds.WithFlags(
             parameters.NewParameterDefinition("in", parameters.ParameterTypeString, parameters.WithHelp("Input turn YAML path")),
             parameters.NewParameterDefinition("out", parameters.ParameterTypeString, parameters.WithDefault("out"), parameters.WithHelp("Output directory")),
@@ -57,6 +58,7 @@ func NewRunCommand() (*RunCommand, error) {
             parameters.NewParameterDefinition("echo-events", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Echo NDJSON events to stdout while recording")),
             parameters.NewParameterDefinition("second", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Run a second inference on the resulting turn")),
             parameters.NewParameterDefinition("second-user", parameters.ParameterTypeString, parameters.WithDefault("Hello"), parameters.WithHelp("User message to append before second run")),
+            parameters.NewParameterDefinition("raw", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Capture raw provider data under out/raw")),
         ),
     )
     return &RunCommand{CommandDescription: desc}, nil
@@ -91,7 +93,7 @@ func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error
         steps = append(steps, turns.NewUserTextBlock(msg))
     }
     _, err = fixtures.ExecuteFixture(ctx, turn, steps, st, fixtures.ExecuteOptions{
-        OutDir: s.Out, Cassette: s.Cassette, Record: s.Record, EchoEvents: s.EchoEvents, PrintTurns: true,
+        OutDir: s.Out, Cassette: s.Cassette, Record: s.Record, EchoEvents: s.EchoEvents, PrintTurns: true, RawCapture: s.Raw,
     })
     if err != nil { fmt.Fprintln(os.Stderr, "RunInference failed:", err); return err }
     return nil
@@ -127,7 +129,7 @@ func (c *ReportCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) er
 }
 
 func main() {
-    rootCmd := &cobra.Command{ Use: "responses-runner",
+    rootCmd := &cobra.Command{ Use: "llm-runner",
         PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return logging.InitLoggerFromViper() },
     }
     // Init Viper and help

@@ -1,12 +1,12 @@
 package openai_responses
 
 import (
-	"encoding/json"
-	"strings"
+    "encoding/json"
+    "strings"
 
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 // HTTP JSON models for OpenAI Responses API (minimal subset: text + reasoning + sampling)
