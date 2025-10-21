@@ -1,21 +1,14 @@
 package main
 
 import (
-    "bufio"
     "context"
-    "encoding/json"
     "fmt"
-    "net/http"
     "os"
     "path/filepath"
     "strings"
-    "time"
 
-    "github.com/dnaeon/go-vcr/recorder"
     clay "github.com/go-go-golems/clay/pkg"
-    "github.com/go-go-golems/geppetto/pkg/events"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
+    fixtures "github.com/go-go-golems/geppetto/pkg/inference/fixtures"
     "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
     openaisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
     "github.com/go-go-golems/geppetto/pkg/turns"
@@ -31,27 +24,7 @@ import (
     "github.com/spf13/cobra"
 )
 
-// fileSink writes events as NDJSON into a file; optionally echoes to stdout
-type fileSink struct{
-    f *os.File
-    echo bool
-}
-
-func (s *fileSink) PublishEvent(e events.Event) error {
-    t := string(e.Type())
-    b, err := json.Marshal(map[string]any{
-        "type": t,
-        "event": e,
-        "ts": time.Now().UnixMilli(),
-    })
-    if err != nil { return err }
-	line := append(b, '\n')
-	if _, err := s.f.Write(line); err != nil { return err }
-	if s.echo {
-		_, _ = os.Stdout.Write(line)
-	}
-    return nil
-}
+// fileSink moved into fixtures package
 
 // Glazed BareCommand: run
 type RunSettings struct {
@@ -62,6 +35,8 @@ type RunSettings struct {
     Model     string `glazed.parameter:"model"`
     Stream    bool   `glazed.parameter:"stream"`
     EchoEvents bool  `glazed.parameter:"echo-events"`
+    Second    bool   `glazed.parameter:"second"`
+    SecondUser string `glazed.parameter:"second-user"`
 }
 
 type RunCommand struct{ *cmds.CommandDescription }
@@ -80,6 +55,8 @@ func NewRunCommand() (*RunCommand, error) {
             parameters.NewParameterDefinition("model", parameters.ParameterTypeString, parameters.WithDefault("o4-mini"), parameters.WithHelp("Model id for Responses")),
             parameters.NewParameterDefinition("stream", parameters.ParameterTypeBool, parameters.WithDefault(true), parameters.WithHelp("Use streaming")),
             parameters.NewParameterDefinition("echo-events", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Echo NDJSON events to stdout while recording")),
+            parameters.NewParameterDefinition("second", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Run a second inference on the resulting turn")),
+            parameters.NewParameterDefinition("second-user", parameters.ParameterTypeString, parameters.WithDefault("Hello"), parameters.WithHelp("User message to append before second run")),
         ),
     )
     return &RunCommand{CommandDescription: desc}, nil
@@ -93,29 +70,10 @@ func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error
     if s.In == "" { return fmt.Errorf("--in is required") }
     if err := os.MkdirAll(s.Out, 0755); err != nil { return err }
 
-    // Load and persist input
-    turn, err := serde.LoadTurnYAML(s.In)
+    // Load fixture (wrapper) or raw turn YAML
+    turn, followups, err := fixtures.LoadFixtureOrTurn(s.In)
     if err != nil { return err }
     if err := serde.SaveTurnYAML(filepath.Join(s.Out, "input_turn.yaml"), turn, serde.Options{}); err != nil { return err }
-
-    // Optional VCR
-    var rec *recorder.Recorder
-    if s.Cassette != "" {
-        mode := recorder.ModeReplaying
-        if s.Record { mode = recorder.ModeRecording }
-        rec, err = recorder.NewAsMode(s.Cassette, mode, nil)
-        if err != nil { return err }
-        defer rec.Stop()
-        orig := http.DefaultTransport
-        http.DefaultTransport = rec
-        defer func(){ http.DefaultTransport = orig }()
-    }
-
-    // Event NDJSON
-    ef, err := os.Create(filepath.Join(s.Out, "events.ndjson"))
-    if err != nil { return err }
-    defer ef.Close()
-    sink := &fileSink{f: ef, echo: s.EchoEvents}
 
     // Engine settings
     apiKey := os.Getenv("OPENAI_API_KEY")
@@ -124,25 +82,22 @@ func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error
         Chat: &settings.ChatSettings{ Engine: &s.Model, Stream: s.Stream },
         OpenAI: &openaisettings.Settings{ ReasoningEffort: strPtr("medium"), ReasoningSummary: strPtr("detailed") },
     }
-    eng, err := openai_responses.NewEngine(st, engine.WithSink(sink))
-    if err != nil { return err }
-
-    runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
-    defer cancel()
-    finalTurn, err := eng.RunInference(runCtx, turn)
-    if err != nil {
-        // Surface provider error bodies (e.g., 429) explicitly
-        fmt.Fprintln(os.Stderr, "RunInference failed:", err)
-        return err
+    // Build follow-up steps: fixture-provided blocks, plus optional CLI-provided second user message
+    steps := make([]turns.Block, 0, len(followups)+1)
+    steps = append(steps, followups...)
+    if s.Second {
+        msg := s.SecondUser
+        if strings.TrimSpace(msg) == "" { msg = "Hello" }
+        steps = append(steps, turns.NewUserTextBlock(msg))
     }
-
-    // Print final turn
-    turns.FprintfTurn(os.Stdout, finalTurn, turns.WithRoles(true), turns.WithToolDetail(true))
-
-    // Save final turn
-    if err := serde.SaveTurnYAML(filepath.Join(s.Out, "final_turn.yaml"), finalTurn, serde.Options{}); err != nil { return err }
+    _, err = fixtures.ExecuteFixture(ctx, turn, steps, st, fixtures.ExecuteOptions{
+        OutDir: s.Out, Cassette: s.Cassette, Record: s.Record, EchoEvents: s.EchoEvents, PrintTurns: true,
+    })
+    if err != nil { fmt.Fprintln(os.Stderr, "RunInference failed:", err); return err }
     return nil
 }
+
+// fixture loading moved into fixtures package
 
 // Glazed BareCommand: report
 type ReportSettings struct { Out string `glazed.parameter:"out"` }
@@ -164,44 +119,8 @@ func (c *ReportCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) er
     if err := parsed.InitializeStruct(layers.DefaultSlug, s); err != nil { return err }
     outDir := s.Out
     reportPath := filepath.Join(outDir, "report.md")
-    var inputYAML, finalYAML string
-    if b, err := os.ReadFile(filepath.Join(outDir, "input_turn.yaml")); err == nil { inputYAML = string(b) }
-    if b, err := os.ReadFile(filepath.Join(outDir, "final_turn.yaml")); err == nil { finalYAML = string(b) }
-
-    // Read events
-    eventsPath := filepath.Join(outDir, "events.ndjson")
-    type recLine struct{ Type string `json:"type"`; Ts int64 `json:"ts"`; Event map[string]any `json:"event"` }
-    var lines []recLine
-    if f, err := os.Open(eventsPath); err == nil {
-        defer f.Close()
-        sc := bufio.NewScanner(f)
-        for sc.Scan() {
-            var rl recLine
-            if err := json.Unmarshal([]byte(sc.Text()), &rl); err == nil { lines = append(lines, rl) }
-        }
-    }
-    var model, finalText string
-    for _, l := range lines {
-        if em, ok := l.Event["meta"].(map[string]any); ok {
-            if mid, ok2 := em["model"].(string); ok2 && model == "" { model = mid }
-        }
-        if l.Type == string(events.EventTypeFinal) {
-            if txt, ok := l.Event["text"].(string); ok { finalText = txt }
-        }
-    }
-    var b strings.Builder
-    b.WriteString("# E2E Responses Report\n\n")
-    if model != "" { b.WriteString(fmt.Sprintf("- Model: %s\n", model)) }
-    b.WriteString(fmt.Sprintf("- Generated: %s\n\n", time.Now().Format(time.RFC3339)))
-    b.WriteString("## Input Turn (YAML)\n\n")
-    if inputYAML != "" { b.WriteString("```yaml\n" + inputYAML + "\n```\n\n") } else { b.WriteString("(missing)\n\n") }
-    b.WriteString("## Final Turn (YAML)\n\n")
-    if finalYAML != "" { b.WriteString("```yaml\n" + finalYAML + "\n```\n\n") } else { b.WriteString("(missing)\n\n") }
-    b.WriteString("## Final Assistant Text\n\n")
-    if finalText != "" { b.WriteString(finalText + "\n\n") } else { b.WriteString("(not found)\n\n") }
-    b.WriteString("## Event Timeline\n\n")
-    for _, l := range lines { b.WriteString(fmt.Sprintf("- %s @ %d\n", l.Type, l.Ts)) }
-    if err := os.WriteFile(reportPath, []byte(b.String()), 0644); err != nil { return err }
+    reportPath, err := fixtures.BuildReport(outDir)
+    if err != nil { return err }
     log.Info().Str("report", reportPath).Msg("report generated")
     fmt.Println("Report:", reportPath)
     return nil

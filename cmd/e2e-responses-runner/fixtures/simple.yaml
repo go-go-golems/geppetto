@@ -1,12 +1,18 @@
 version: 1
-id: turn_simple
-blocks:
-  - kind: system
-    role: system
-    payload:
-      text: You are a LLM.
+turn:
+  id: turn_simple
+  blocks:
+    - kind: system
+      role: system
+      payload:
+        text: You are a LLM.
+    - kind: user
+      role: user
+      payload:
+        text: Say hi.
+followups:
   - kind: user
     role: user
     payload:
-      text: Say hi.
+      text: Hello again
 

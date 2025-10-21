@@ -213,13 +213,25 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
         }
     }
 
-    // 1) Pre-context: all blocks before latest reasoning, skipping older reasoning
+    // 1) Pre-context: all blocks before latest reasoning, skipping older reasoning.
+    //    Additionally, ensure that for the LAST assistant text preceding latest reasoning we do NOT
+    //    emit it as a role-based message, because the provider will expect the assistant text to be
+    //    item-based and follow the reasoning item immediately. We will re-emit it later as an
+    //    item-based message paired with reasoning.
+    lastAssistantBeforeReasoning := -1
     if latestReasoningIdx > 0 {
         for i := 0; i < latestReasoningIdx; i++ {
             b := t.Blocks[i]
+            if b.Kind == turns.BlockKindLLMText {
+                lastAssistantBeforeReasoning = i
+            }
             switch b.Kind {
             case turns.BlockKindReasoning:
                 continue
+            case turns.BlockKindLLMText:
+                // Skip the last assistant text before reasoning; it will become the follower.
+                if i == lastAssistantBeforeReasoning { continue }
+                appendMessage(b)
             case turns.BlockKindToolCall:
                 appendFunctionCall(b)
             case turns.BlockKindToolUse:

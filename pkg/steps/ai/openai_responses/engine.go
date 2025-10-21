@@ -205,7 +205,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 		}
 		reader := bufio.NewReader(resp.Body)
-        var eventName string
+		var eventName string
         var message string
         var dataBuf strings.Builder
         var inputTokens, outputTokens, reasoningTokens int
@@ -214,6 +214,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
         var thinkBuf strings.Builder
         var sayBuf strings.Builder
         var summaryBuf strings.Builder
+        // Placeholder for potential future pairing of reasoning with assistant item id
+        // (keep declared logic out until needed to avoid unused var)
         // Accumulate function_call tool uses
         type pendingCall struct{ callID, name, itemID string; args strings.Builder }
         callsByItem := map[string]*pendingCall{}
@@ -283,8 +285,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
                             if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
                                 latestEncryptedContent = enc
                             }
-                        case "message":
+						case "message":
                             e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
+                            // capture message item id if needed in future
 						case "web_search_call":
 							itemID := ""; if v, ok := it["id"].(string); ok { itemID = v }
 							if act, ok := it["action"].(map[string]any); ok {
