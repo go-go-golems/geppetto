@@ -12,6 +12,8 @@ type DebugTap interface {
     OnHTTPResponse(resp *http.Response, body []byte)
     OnSSE(event string, data []byte)
     OnProviderObject(name string, v any)
+    // OnTurnBeforeConversion captures the turn state before it's converted to provider format
+    OnTurnBeforeConversion(turnYAML []byte)
 }
 
 type debugTapKey struct{}

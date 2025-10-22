@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/serde"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/pkg/errors"
 	"github.com/google/uuid"
@@ -47,6 +48,14 @@ func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	startTime := time.Now()
+	
+	// Capture turn state before conversion if DebugTap is present
+	if tap, ok := engine.DebugTapFrom(ctx); ok && t != nil {
+		if turnYAML, err := serde.ToYAML(t, serde.Options{}); err == nil {
+			tap.OnTurnBeforeConversion(turnYAML)
+		}
+	}
+	
 	// Build HTTP request to /v1/responses
 	reqBody, err := buildResponsesRequest(e.settings, t)
 	if err != nil {

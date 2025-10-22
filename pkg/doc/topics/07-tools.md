@@ -193,6 +193,42 @@ turns.DataKeyToolConfig   // engine.ToolConfig
 - Use timeouts and iteration limits to prevent loops
 - Prefer middleware for Turn-native use; use helpers for conversation-first flows
 
+### Emitting Custom Events from Tools
+
+Tools can emit custom progress or status events using the event registry. This is useful for long-running operations where you want to provide real-time feedback to users:
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/events"
+
+type ToolProgressEvent struct {
+    events.EventImpl
+    ToolName string  `json:"tool_name"`
+    Progress float64 `json:"progress"`
+    Message  string  `json:"message"`
+}
+
+func init() {
+    _ = events.RegisterEventFactory("tool-progress", func() events.Event {
+        return &ToolProgressEvent{EventImpl: events.EventImpl{Type_: "tool-progress"}}
+    })
+}
+
+func longRunningTool(ctx context.Context, req ToolRequest) (ToolResponse, error) {
+    // Emit progress events
+    progressEvent := &ToolProgressEvent{
+        EventImpl: events.EventImpl{Type_: "tool-progress", Metadata_: metadata},
+        ToolName:  "long_running_tool",
+        Progress:  0.5,
+        Message:   "Processing data...",
+    }
+    events.PublishEventToContext(ctx, progressEvent)
+    
+    // ... tool implementation
+}
+```
+
+For details on event extensibility, see: `glaze help geppetto-events-streaming-watermill`
+
 ## Troubleshooting and tips
 
 - If an engine doesn’t seem to advertise your tools, ensure `Turn.Data[turns.DataKeyToolRegistry]` is set and non-empty

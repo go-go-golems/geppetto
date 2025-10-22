@@ -19,7 +19,7 @@ SectionType: GeneralTopic
 
 # Events, Streaming, and Watermill in Geppetto
 
-Geppetto uses an engine-first architecture. Engines handle provider API calls and emit streaming events. Event delivery is decoupled via sinks (publishers) and an optional Watermill router. Tool orchestration lives in helpers that can also publish events. This page explains the event model, how events are published, and how to route them with Watermill.
+Geppetto uses an engine-first architecture. Engines handle provider API calls and emit streaming events. Event delivery is decoupled via sinks (publishers) and an optional Watermill router. Tool orchestration lives in helpers that can also publish events. This page explains the event model, how events are published, how to route them with Watermill, and how to extend the event system with custom event types.
 
 ## Event Model
 
@@ -239,11 +239,158 @@ router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
 With a networked publisher/subscriber, any client subscribed to the `chat` topic can consume events produced by engines running elsewhere.
 
+## Event Extensibility and Custom Events
+
+Geppetto provides an event registry that allows you to register custom event types beyond the built-in events. This enables libraries, tools, and application-specific code to emit domain-specific events that flow through the same event infrastructure.
+
+### The Event Registry
+
+The registry is a thread-safe, singleton store of decoders and encoders. When `events.NewEventFromJson` deserializes an event, it first checks the registry for a custom decoder matching the event's `type` field. If found, the custom decoder runs; otherwise, Geppetto's built-in event types are used.
+
+### Registration Methods
+
+The `pkg/events` package provides three registration functions:
+
+#### 1. RegisterEventCodec (full control)
+
+Register a decoder function with complete control over deserialization:
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/events"
+
+type CustomProgressEvent struct {
+    events.EventImpl
+    Progress float64 `json:"progress"`
+    Status   string  `json:"status"`
+}
+
+func init() {
+    decoder := func(b []byte) (events.Event, error) {
+        var ev CustomProgressEvent
+        if err := json.Unmarshal(b, &ev); err != nil {
+            return nil, err
+        }
+        ev.SetPayload(b)
+        return &ev, nil
+    }
+    
+    _ = events.RegisterEventCodec("custom-progress", decoder)
+}
+```
+
+#### 2. RegisterEventFactory (convenience)
+
+For standard JSON unmarshalling, use the factory helper:
+
+```go
+type CustomStatusEvent struct {
+    events.EventImpl
+    Phase string `json:"phase"`
+}
+
+func init() {
+    factory := func() events.Event {
+        return &CustomStatusEvent{
+            EventImpl: events.EventImpl{Type_: "custom-status"},
+        }
+    }
+    
+    _ = events.RegisterEventFactory("custom-status", factory)
+}
+```
+
+The factory approach handles unmarshalling and payload storage automatically.
+
+#### 3. RegisterEventEncoder (outbound serialization)
+
+Register an encoder for custom serialization logic:
+
+```go
+func init() {
+    encoder := func(ev events.Event) ([]byte, error) {
+        // Custom serialization logic
+        return json.Marshal(ev)
+    }
+    
+    _ = events.RegisterEventEncoder("custom-progress", encoder)
+}
+```
+
+### Publishing Custom Events
+
+Custom events are published the same way as built-in events:
+
+```go
+// Create custom event with metadata
+meta := events.EventMetadata{
+    ID:     uuid.New(),
+    RunID:  "run-123",
+    TurnID: "turn-456",
+}
+
+customEvent := &CustomProgressEvent{
+    EventImpl: events.EventImpl{
+        Type_:     "custom-progress",
+        Metadata_: meta,
+    },
+    Progress: 0.75,
+    Status:   "processing",
+}
+
+// Publish via context sinks
+events.PublishEventToContext(ctx, customEvent)
+
+// Or publish directly to a configured sink
+_ = sink.PublishEvent(customEvent)
+```
+
+### Consuming Custom Events
+
+Custom events flow through the same Watermill router and handlers:
+
+```go
+router.AddHandler("custom-collector", "chat", func(msg *message.Message) error {
+    defer msg.Ack()
+    
+    e, err := events.NewEventFromJson(msg.Payload)
+    if err != nil {
+        return err
+    }
+    
+    // Type-assert to your custom event
+    if progressEv, ok := e.(*CustomProgressEvent); ok {
+        fmt.Printf("Progress: %.0f%% - %s\n", 
+            progressEv.Progress*100, progressEv.Status)
+    }
+    
+    return nil
+})
+```
+
+### Best Practices for Custom Events
+
+- **Embed EventImpl**: All custom events should embed `events.EventImpl` to satisfy the `Event` interface and carry standard metadata.
+- **Register in init()**: Use `init()` functions to register codecs/factories at package initialization time.
+- **Unique type names**: Choose distinctive type strings to avoid collisions (e.g., `myapp-progress` rather than `progress`).
+- **Metadata consistency**: Always populate `EventMetadata` with `message_id`, and optionally `run_id`/`turn_id` for correlation.
+- **Handle registration errors**: Check the error return from registration functions; duplicate registrations will fail.
+
+### Use Cases
+
+Custom events are useful for:
+
+- **Tool-specific progress**: Tools can emit granular progress events (e.g., database query progress, file upload status)
+- **Domain events**: Application-specific events like "user-action", "workflow-step-completed"
+- **Integration events**: Events from external systems flowing through the same infrastructure
+- **Debugging events**: Instrumentation and profiling events during development
+
 ## Practical Tips
 
 - Always wait for `router.Running()` before invoking inference to avoid dropped events.
 - Attach the same sink to both the engine and the context so helpers/tools can publish.
 - Prefer `events.NewStructuredPrinter` for machine-readable output during tests.
+- Register custom event types in `init()` functions to ensure they're available before event processing begins.
+- Enable debug logging (`zerolog.DebugLevel`) to see when events are published to context sinks and when no sinks are available.
 - For related guidance, see: `glaze help geppetto-inference-engines`.
 
 ## Full Example: Router + Engine + Helpers

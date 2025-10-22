@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+    "github.com/rs/zerolog/log"
 )
 
 // ctxKey is an unexported type for keys defined in this package.
@@ -38,7 +39,13 @@ func GetEventSinks(ctx context.Context) []EventSink {
 // PublishEventToContext publishes the provided event to all EventSinks stored in the context.
 // If no sinks are present, this is a no-op.
 func PublishEventToContext(ctx context.Context, event Event) {
-	for _, sink := range GetEventSinks(ctx) {
+    sinks := GetEventSinks(ctx)
+    if len(sinks) == 0 {
+        log.Debug().Str("component", "events.context").Str("event_type", string(event.Type())).Msg("PublishEventToContext: no sinks in context")
+        return
+    }
+    log.Debug().Str("component", "events.context").Str("event_type", string(event.Type())).Int("sink_count", len(sinks)).Msg("PublishEventToContext: publishing to sinks")
+    for _, sink := range sinks {
 		// Best-effort: ignore individual sink errors to avoid disrupting the flow
 		_ = sink.PublishEvent(event)
 	}

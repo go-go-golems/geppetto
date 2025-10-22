@@ -96,6 +96,11 @@ func (d *diskTap) OnProviderObject(name string, v any) {
     writeJSON(p, wrapped)
 }
 
+func (d *diskTap) OnTurnBeforeConversion(turnYAML []byte) {
+    p := d.path(fmt.Sprintf("turn-%d-input.yaml", d.turnIndex))
+    _ = os.WriteFile(p, turnYAML, 0644)
+}
+
 func (d *diskTap) Close() {
     d.mu.Lock(); defer d.mu.Unlock()
     if d.sseFile != nil { _ = d.sseFile.Close(); d.sseFile = nil }

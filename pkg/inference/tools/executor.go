@@ -8,6 +8,7 @@ import (
 
 	"encoding/json"
 	"github.com/go-go-golems/geppetto/pkg/events"
+    "github.com/rs/zerolog/log"
 )
 
 // ToolExecutor handles the execution of tool calls
@@ -256,8 +257,11 @@ func (e *DefaultToolExecutor) executeTool(ctx context.Context, toolCall ToolCall
 	}
 
 	// Execute the tool function
-	result, err := toolDef.Function.Execute(toolCall.Arguments)
+    // Always prefer context path; it falls back internally when not supported
+    log.Debug().Str("tool_name", toolDef.Name).Str("tool_id", toolCall.ID).Msg("ToolExecutor: executing tool")
+    result, err := toolDef.Function.ExecuteWithContext(ctx, toolCall.Arguments)
 	if err != nil {
+        log.Warn().Str("tool_name", toolDef.Name).Str("tool_id", toolCall.ID).Err(err).Msg("Tool execution failed")
 		return &ToolResult{
 			Error: err.Error(),
 		}, nil
