@@ -19,7 +19,7 @@ SectionType: GeneralTopic
 
 # Events, Streaming, and Watermill in Geppetto
 
-Geppetto uses an engine-first architecture. Engines handle provider API calls and emit streaming events. Event delivery is decoupled via sinks (publishers) and an optional Watermill router. Tool orchestration lives in helpers that can also publish events. This page explains the event model, how events are published, and how to route them with Watermill.
+Geppetto uses an engine-first architecture. Engines handle provider API calls and emit streaming events. Event delivery is decoupled via sinks (publishers) and an optional Watermill router. Tool orchestration lives in helpers that can also publish events. This page explains the event model, how events are published, how to route them with Watermill, and how to extend the event system with custom event types.
 
 ## Event Model
 
@@ -27,6 +27,7 @@ Engines and helpers publish structured chat events defined in `pkg/events/chat-e
 
 - **start (`EventTypeStart`)**: Inference started for a request.
 - **partial (`EventTypePartialCompletion`)**: Streamed delta and accumulated completion.
+- **partial-thinking (`EventTypePartialThinking`)**: Streamed reasoning summary delta (Responses API only).
 - **tool-call (`EventTypeToolCall`)**: Model requested a tool/function call.
 - **tool-result (`EventTypeToolResult`)**: A tool returned its result.
 - **error (`EventTypeError`)**: Error during streaming or execution.
@@ -99,7 +100,13 @@ Engines emit: start, partial, final, interrupt, error (+ tool-call where applica
 
 ## Provider Implementations and Event Flow
 
-- **OpenAI**: The engine always uses streaming. It publishes `start`, then `partial` for each delta, and finally `final`. On context cancellation it publishes `interrupt`. Tool-call blocks are merged and published as `tool-call` events when complete.
+- **OpenAI (Chat Completions)**: Always streams. Publishes `start`, then `partial` for each delta, finally `final`. On context cancellation it publishes `interrupt`. Tool-call blocks are merged and published as `tool-call` events when complete.
+- **OpenAI (Responses)**: Streams multiple channels of information:
+  - Reasoning summary boundaries as `info` events ("thinking-started" / "thinking-ended").
+  - Reasoning summary deltas as `partial-thinking` events (one per token-like chunk).
+  - Output text deltas as `partial` events.
+  - Function call arguments as SSE deltas; publishes a `tool-call` when function_call completes.
+  - Final usage and reasoning token counts arrive on `response.completed` and are included in `final` metadata.
 - **Claude**: Streaming is merged via a content-block merger which emits `start`, `partial` on text deltas, `tool-call` when a tool_use block completes, and `final` on stop.
 
 Both engines publish to configured sinks and also call `events.PublishEventToContext(ctx, …)` so context-carried sinks receive the same events.
@@ -232,11 +239,158 @@ router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
 With a networked publisher/subscriber, any client subscribed to the `chat` topic can consume events produced by engines running elsewhere.
 
+## Event Extensibility and Custom Events
+
+Geppetto provides an event registry that allows you to register custom event types beyond the built-in events. This enables libraries, tools, and application-specific code to emit domain-specific events that flow through the same event infrastructure.
+
+### The Event Registry
+
+The registry is a thread-safe, singleton store of decoders and encoders. When `events.NewEventFromJson` deserializes an event, it first checks the registry for a custom decoder matching the event's `type` field. If found, the custom decoder runs; otherwise, Geppetto's built-in event types are used.
+
+### Registration Methods
+
+The `pkg/events` package provides three registration functions:
+
+#### 1. RegisterEventCodec (full control)
+
+Register a decoder function with complete control over deserialization:
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/events"
+
+type CustomProgressEvent struct {
+    events.EventImpl
+    Progress float64 `json:"progress"`
+    Status   string  `json:"status"`
+}
+
+func init() {
+    decoder := func(b []byte) (events.Event, error) {
+        var ev CustomProgressEvent
+        if err := json.Unmarshal(b, &ev); err != nil {
+            return nil, err
+        }
+        ev.SetPayload(b)
+        return &ev, nil
+    }
+    
+    _ = events.RegisterEventCodec("custom-progress", decoder)
+}
+```
+
+#### 2. RegisterEventFactory (convenience)
+
+For standard JSON unmarshalling, use the factory helper:
+
+```go
+type CustomStatusEvent struct {
+    events.EventImpl
+    Phase string `json:"phase"`
+}
+
+func init() {
+    factory := func() events.Event {
+        return &CustomStatusEvent{
+            EventImpl: events.EventImpl{Type_: "custom-status"},
+        }
+    }
+    
+    _ = events.RegisterEventFactory("custom-status", factory)
+}
+```
+
+The factory approach handles unmarshalling and payload storage automatically.
+
+#### 3. RegisterEventEncoder (outbound serialization)
+
+Register an encoder for custom serialization logic:
+
+```go
+func init() {
+    encoder := func(ev events.Event) ([]byte, error) {
+        // Custom serialization logic
+        return json.Marshal(ev)
+    }
+    
+    _ = events.RegisterEventEncoder("custom-progress", encoder)
+}
+```
+
+### Publishing Custom Events
+
+Custom events are published the same way as built-in events:
+
+```go
+// Create custom event with metadata
+meta := events.EventMetadata{
+    ID:     uuid.New(),
+    RunID:  "run-123",
+    TurnID: "turn-456",
+}
+
+customEvent := &CustomProgressEvent{
+    EventImpl: events.EventImpl{
+        Type_:     "custom-progress",
+        Metadata_: meta,
+    },
+    Progress: 0.75,
+    Status:   "processing",
+}
+
+// Publish via context sinks
+events.PublishEventToContext(ctx, customEvent)
+
+// Or publish directly to a configured sink
+_ = sink.PublishEvent(customEvent)
+```
+
+### Consuming Custom Events
+
+Custom events flow through the same Watermill router and handlers:
+
+```go
+router.AddHandler("custom-collector", "chat", func(msg *message.Message) error {
+    defer msg.Ack()
+    
+    e, err := events.NewEventFromJson(msg.Payload)
+    if err != nil {
+        return err
+    }
+    
+    // Type-assert to your custom event
+    if progressEv, ok := e.(*CustomProgressEvent); ok {
+        fmt.Printf("Progress: %.0f%% - %s\n", 
+            progressEv.Progress*100, progressEv.Status)
+    }
+    
+    return nil
+})
+```
+
+### Best Practices for Custom Events
+
+- **Embed EventImpl**: All custom events should embed `events.EventImpl` to satisfy the `Event` interface and carry standard metadata.
+- **Register in init()**: Use `init()` functions to register codecs/factories at package initialization time.
+- **Unique type names**: Choose distinctive type strings to avoid collisions (e.g., `myapp-progress` rather than `progress`).
+- **Metadata consistency**: Always populate `EventMetadata` with `message_id`, and optionally `run_id`/`turn_id` for correlation.
+- **Handle registration errors**: Check the error return from registration functions; duplicate registrations will fail.
+
+### Use Cases
+
+Custom events are useful for:
+
+- **Tool-specific progress**: Tools can emit granular progress events (e.g., database query progress, file upload status)
+- **Domain events**: Application-specific events like "user-action", "workflow-step-completed"
+- **Integration events**: Events from external systems flowing through the same infrastructure
+- **Debugging events**: Instrumentation and profiling events during development
+
 ## Practical Tips
 
 - Always wait for `router.Running()` before invoking inference to avoid dropped events.
 - Attach the same sink to both the engine and the context so helpers/tools can publish.
 - Prefer `events.NewStructuredPrinter` for machine-readable output during tests.
+- Register custom event types in `init()` functions to ensure they're available before event processing begins.
+- Enable debug logging (`zerolog.DebugLevel`) to see when events are published to context sinks and when no sinks are available.
 - For related guidance, see: `glaze help geppetto-inference-engines`.
 
 ## Full Example: Router + Engine + Helpers
@@ -328,7 +482,7 @@ if err := eg.Wait(); err != nil {
 The `events` package exposes a registry so you can add custom event types without editing the core switch inside `NewEventFromJson`. Register your codecs during init:
 
 - `events.RegisterEventCodec("custom-log", decoder)` installs JSON → event decoding.
-- `events.RegisterEventFactory` is a helper for “allocate zero struct and json.Unmarshal”.
+- `events.RegisterEventFactory` wraps the common “allocate zero struct and json.Unmarshal” flow.
 - `events.RegisterEventEncoder("custom-log", encoder)` keeps your custom type serializable when forwarding to other systems.
 
 ```go

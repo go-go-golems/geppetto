@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-
 	"github.com/rs/zerolog/log"
 )
 
@@ -42,19 +41,10 @@ func GetEventSinks(ctx context.Context) []EventSink {
 func PublishEventToContext(ctx context.Context, event Event) {
 	sinks := GetEventSinks(ctx)
 	if len(sinks) == 0 {
-		log.Trace().
-			Str("component", "events.context").
-			Str("event_type", string(event.Type())).
-			Msg("PublishEventToContext: no sinks in context")
+		log.Trace().Str("component", "events.context").Str("event_type", string(event.Type())).Msg("PublishEventToContext: no sinks in context")
 		return
 	}
-
-	log.Trace().
-		Str("component", "events.context").
-		Str("event_type", string(event.Type())).
-		Int("sink_count", len(sinks)).
-		Msg("PublishEventToContext: publishing to sinks")
-
+	log.Trace().Str("component", "events.context").Str("event_type", string(event.Type())).Int("sink_count", len(sinks)).Msg("PublishEventToContext: publishing to sinks")
 	for _, sink := range sinks {
 		// Best-effort: ignore individual sink errors to avoid disrupting the flow
 		_ = sink.PublishEvent(event)
