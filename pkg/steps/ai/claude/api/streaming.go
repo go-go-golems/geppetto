@@ -144,7 +144,7 @@ func streamEvents(ctx context.Context, resp *http.Response, events chan Streamin
 				log.Error().Err(err).Msg("Unexpected error reading streaming response")
 				panic("Not implemented")
 			}
-			log.Debug().Err(err).Int("total_events_processed", eventCount).Msg("Streaming reader finished")
+			log.Trace().Err(err).Int("total_events_processed", eventCount).Msg("Streaming reader finished")
 			break
 		}
 		if len(bytes.TrimSpace(line)) == 0 {
@@ -152,11 +152,11 @@ func streamEvents(ctx context.Context, resp *http.Response, events chan Streamin
 			var event StreamingEvent
 			if parseErr := parseSSEEvent(eventLines, &event); parseErr != nil {
 				// Handle the parse error if needed
-				log.Debug().Err(parseErr).Msg("Failed to parse SSE event")
+				log.Trace().Err(parseErr).Msg("Failed to parse SSE event")
 				continue
 			}
 			eventCount++
-			log.Debug().
+			log.Trace().
 				Str("event_type", string(event.Type)).
 				Int("event_number", eventCount).
 				Interface("event", event).
@@ -164,13 +164,13 @@ func streamEvents(ctx context.Context, resp *http.Response, events chan Streamin
 			select {
 			case events <- event:
 				// Event sent successfully
-				log.Debug().
+				log.Trace().
 					Str("event_type", string(event.Type)).
 					Int("event_number", eventCount).
 					Msg("Streaming event sent successfully")
 			case <-ctx.Done():
 				// Context cancelled, stop streaming
-				log.Debug().Msg("Context cancelled, stopping streaming")
+				log.Trace().Msg("Context cancelled, stopping streaming")
 				return
 			}
 			// Reset the event lines for the next event
