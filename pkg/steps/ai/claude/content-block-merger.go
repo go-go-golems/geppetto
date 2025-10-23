@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // ContentBlockMerger manages the streaming response from Claude AI API for chat completion.
@@ -69,15 +68,6 @@ func (cbm *ContentBlockMerger) Text() string {
 }
 
 func (cbm *ContentBlockMerger) Response() *api.MessageResponse {
-	if cbm.response != nil {
-		log.Debug().
-			Str("stop_reason", cbm.response.StopReason).
-			Str("full_text", cbm.response.FullText()).
-			Int("content_blocks", len(cbm.response.Content)).
-			Msg("ContentBlockMerger returning final response")
-	} else {
-		log.Debug().Msg("ContentBlockMerger returning nil response")
-	}
 	return cbm.response
 }
 
@@ -137,11 +127,6 @@ func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, error) {
 	// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
 	// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
-
-	log.Debug().
-		Str("event_type", string(event.Type)).
-		Interface("event", event).
-		Msg("ContentBlockMerger processing event")
 
 	switch event.Type {
 	case api.PingType:
@@ -207,11 +192,6 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 				cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
 			}
 		}
-
-		log.Debug().
-			Str("stop_reason", cbm.response.StopReason).
-			Str("full_text", cbm.response.FullText()).
-			Msg("ContentBlockMerger received message_stop - message complete")
 
 		// set duration on final
 		d := time.Since(cbm.startTime).Milliseconds()
