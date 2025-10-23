@@ -153,6 +153,9 @@ func MakeMessageRequestFromTurn(
 						msgs = append(msgs, msg)
 					}
 				}
+			case turns.BlockKindReasoning:
+				// Reasoning blocks are not part of Claude's message protocol yet; skip.
+				continue
 			case turns.BlockKindToolCall:
 				name := ""
 				if v, ok := b.Payload[turns.PayloadKeyName]; ok {

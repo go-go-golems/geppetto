@@ -142,6 +142,9 @@ func MakeCompletionRequestFromTurn(
 	if t != nil {
 		for _, b := range t.Blocks {
 			switch b.Kind {
+			case turns.BlockKindReasoning:
+				// Skip reasoning blocks in ChatCompletions requests; only Responses API understands them.
+				continue
 			case turns.BlockKindUser, turns.BlockKindLLMText, turns.BlockKindSystem:
 				// If we have pending tool calls but haven't emitted tool results yet,
 				// delay chat messages until after tool_use messages to satisfy provider ordering.
@@ -174,6 +177,8 @@ func MakeCompletionRequestFromTurn(
 				case turns.BlockKindToolUse:
 					role = "tool"
 				case turns.BlockKindOther:
+					role = "assistant"
+				case turns.BlockKindReasoning:
 					role = "assistant"
 				}
 				// Check for images array in payload to construct MultiContent

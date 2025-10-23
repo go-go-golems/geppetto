@@ -1,9 +1,8 @@
 package turns
 
 import (
-	"strings"
-
 	"gopkg.in/yaml.v3"
+	"strings"
 )
 
 // BlockKind represents the kind of a block within a Turn.
@@ -15,6 +14,8 @@ const (
 	BlockKindToolCall
 	BlockKindToolUse
 	BlockKindSystem
+	// BlockKindReasoning represents provider reasoning items (e.g., OpenAI encrypted reasoning).
+	BlockKindReasoning
 	BlockKindOther
 )
 
@@ -31,6 +32,8 @@ func (k BlockKind) String() string {
 		return "tool_use"
 	case BlockKindSystem:
 		return "system"
+	case BlockKindReasoning:
+		return "reasoning"
 	case BlockKindOther:
 		return "other"
 	default:
@@ -38,12 +41,11 @@ func (k BlockKind) String() string {
 	}
 }
 
-// MarshalYAML serialises the block kind as its canonical string.
+// YAML serialization for BlockKind using stable string names
 func (k BlockKind) MarshalYAML() (interface{}, error) {
 	return k.String(), nil
 }
 
-// UnmarshalYAML deserialises a block kind from a string value, defaulting to Other.
 func (k *BlockKind) UnmarshalYAML(value *yaml.Node) error {
 	if value == nil {
 		*k = BlockKindOther
@@ -64,9 +66,12 @@ func (k *BlockKind) UnmarshalYAML(value *yaml.Node) error {
 		*k = BlockKindToolUse
 	case "system":
 		*k = BlockKindSystem
+	case "reasoning":
+		*k = BlockKindReasoning
 	case "other", "":
 		*k = BlockKindOther
 	default:
+		// Unknown kind – map to Other but keep original for visibility
 		*k = BlockKindOther
 	}
 	return nil
