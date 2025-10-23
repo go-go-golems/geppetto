@@ -156,6 +156,71 @@ func run(ctx context.Context, e engine.Engine) error {
 
 ---
 
+## Context-aware tool functions
+
+`tools.NewToolFromFunc` now recognises optional `context.Context` parameters. Supported signatures include:
+
+- `func(Input) (Output, error)`
+- `func(context.Context, Input) (Output, error)`
+- `func(context.Context) (Output, error)` (no JSON payload)
+- `func() (Output, error)`
+
+At registration time Geppetto generates JSON Schema for the first non-context parameter and compiles both context-free and context-aware executors. That means providers that pass Go contexts can propagate deadlines, auth tokens, or tracing spans right into your tool implementation.
+
+```go
+func searchDocs(ctx context.Context, req SearchRequest) (SearchResponse, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("tool.searchDocs")
+	return index.Search(ctx, req.Query)
+}
+
+def, _ := tools.NewToolFromFunc("search_docs", "Search internal documentation", searchDocs)
+```
+
+If a tool has no JSON input (e.g., `func(context.Context) (Result, error)`), the generated schema is an empty object, which still satisfies provider requirements when advertising tools.
+
+---
+
+## Tool executors and lifecycle hooks
+
+Once a provider emits `tool_call` blocks, a `tools.ToolExecutor` turns those calls into actual function invocations. Geppetto now ships two composable executors:
+
+- `tools.DefaultToolExecutor` wraps the standard behavior (argument masking, event publishing, retries, and parallelism driven by `ToolConfig`).
+- `tools.BaseToolExecutor` provides the orchestration plus overridable lifecycle hooks so you can inject authorization, observability, or custom retry heuristics.
+
+If you need custom behavior, embed the base executor and override only the hooks you care about. Remember to point the base executor back to the outer type so the overrides run.
+
+```go
+type AuditedExecutor struct {
+	*tools.BaseToolExecutor
+	audit AuditSink
+}
+
+func NewAuditedExecutor(cfg tools.ToolConfig, audit AuditSink) *AuditedExecutor {
+	base := tools.NewBaseToolExecutor(cfg)
+	exec := &AuditedExecutor{BaseToolExecutor: base, audit: audit}
+	base.ToolExecutorExt = exec // enable hook overrides
+	return exec
+}
+
+func (e *AuditedExecutor) PublishResult(ctx context.Context, call tools.ToolCall, res *tools.ToolResult) {
+	e.audit.Record(call, res)
+	e.BaseToolExecutor.PublishResult(ctx, call, res)
+}
+```
+
+Available hooks on `BaseToolExecutor`:
+
+- `PreExecute` mutate or reject calls before lookup.
+- `IsAllowed` add authorization beyond `ToolConfig.AllowedTools`.
+- `MaskArguments`, `PublishStart`, `PublishResult` tune event payloads.
+- `ShouldRetry` implement bespoke retry policies.
+- `MaxParallel` override concurrency control per batch.
+
+Override whichever hooks you need; the base executor handles the rest (context cancellation, event emission, timings, and retries). Helper utilities such as `toolhelpers.RunToolCallingLoop` continue to use `tools.NewDefaultToolExecutor` under the hood.
+
+---
+
 ## Reference: payload and data keys
 
 When reading/writing block payloads, always use the constants:
