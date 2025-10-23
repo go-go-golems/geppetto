@@ -477,6 +477,16 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 					}
 					fmt.Fprintf(w, "%s: %s\n", role, txt)
 				}
+			case turns.BlockKindReasoning:
+				if txt, ok := b.Payload[turns.PayloadKeyText].(string); ok && txt != "" {
+					fmt.Fprintf(w, "reasoning: %s\n", txt)
+					break
+				}
+				if enc, ok := b.Payload[turns.PayloadKeyEncryptedContent].(string); ok && enc != "" {
+					fmt.Fprintln(w, "reasoning: <encrypted content>")
+				} else {
+					fmt.Fprintln(w, "reasoning: <no content>")
+				}
 			case turns.BlockKindToolCall:
 				name, _ := b.Payload[turns.PayloadKeyName].(string)
 				args := b.Payload[turns.PayloadKeyArgs]

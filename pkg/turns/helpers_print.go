@@ -31,6 +31,16 @@ func FprintTurn(w io.Writer, t *Turn) {
 			} else {
 				fmt.Fprintln(w, "assistant: <no text>")
 			}
+		case BlockKindReasoning:
+			if txt, ok := b.Payload[PayloadKeyText].(string); ok && txt != "" {
+				fmt.Fprintf(w, "reasoning: %s\n", txt)
+				break
+			}
+			if enc, ok := b.Payload[PayloadKeyEncryptedContent].(string); ok && enc != "" {
+				fmt.Fprintln(w, "reasoning: <encrypted content>")
+			} else {
+				fmt.Fprintln(w, "reasoning: <no content>")
+			}
 		case BlockKindToolCall:
 			name, _ := b.Payload[PayloadKeyName].(string)
 			fmt.Fprintf(w, "tool_call: %s\n", name)

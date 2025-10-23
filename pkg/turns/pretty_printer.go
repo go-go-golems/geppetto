@@ -84,6 +84,12 @@ func (p *PrettyPrinter) FprintTurn(w io.Writer, t *Turn) {
 				label = b.Role + ":"
 			}
 			p.fprintTextLine(w, prefix+label, b.Payload)
+		case BlockKindReasoning:
+			if enc, ok := b.Payload[PayloadKeyEncryptedContent].(string); ok && enc != "" {
+				fmt.Fprintf(w, "%sreasoning: <encrypted content>\n", prefix)
+			} else {
+				p.fprintTextLine(w, prefix+"reasoning:", b.Payload)
+			}
 		case BlockKindToolCall:
 			name, _ := b.Payload[PayloadKeyName].(string)
 			toolID, _ := b.Payload[PayloadKeyID].(string)

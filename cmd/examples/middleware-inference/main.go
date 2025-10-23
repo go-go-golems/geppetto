@@ -241,6 +241,8 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
 			case turns.BlockKindToolUse:
 				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
+			case turns.BlockKindReasoning:
+				// Current middleware example has no conversation representation for reasoning; skip.
 			case turns.BlockKindOther:
 				// Preserve Other/tool role as-is
 				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))

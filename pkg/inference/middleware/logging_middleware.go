@@ -34,7 +34,7 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 			}
 
 			// Count kinds for summary
-			var numUser, numLLM, numToolCall, numToolUse, numSystem, numOther int
+			var numUser, numLLM, numToolCall, numToolUse, numSystem, numReasoning, numOther int
 			for _, b := range result.Blocks {
 				switch b.Kind {
 				case turns.BlockKindUser:
@@ -47,6 +47,8 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 					numToolUse++
 				case turns.BlockKindSystem:
 					numSystem++
+				case turns.BlockKindReasoning:
+					numReasoning++
 				case turns.BlockKindOther:
 					numOther++
 				}
@@ -59,6 +61,7 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 				Int("tool_call_blocks", numToolCall).
 				Int("tool_use_blocks", numToolUse).
 				Int("system_blocks", numSystem).
+				Int("reasoning_blocks", numReasoning).
 				Int("other_blocks", numOther).
 				Logger()
 
