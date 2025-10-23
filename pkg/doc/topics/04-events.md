@@ -322,3 +322,26 @@ if err := eg.Wait(); err != nil {
     log.Info().Msg("Application finished successfully")
 }
 ```
+
+## Extending the Event System
+
+The `events` package exposes a registry so you can add custom event types without editing the core switch inside `NewEventFromJson`. Register your codecs during init:
+
+- `events.RegisterEventCodec("custom-log", decoder)` installs JSON → event decoding.
+- `events.RegisterEventFactory` is a helper for “allocate zero struct and json.Unmarshal”.
+- `events.RegisterEventEncoder("custom-log", encoder)` keeps your custom type serializable when forwarding to other systems.
+
+```go
+func init() {
+	_ = events.RegisterEventFactory("custom-log", func() events.Event {
+		return &CustomLog{EventImpl: events.EventImpl{Type_: "custom-log"}}
+	})
+}
+
+type CustomLog struct {
+	events.EventImpl
+	Message string `json:"message"`
+}
+```
+
+When a registered decoder runs, `EventImpl.SetPayload` preserves the raw JSON payload for downstream consumers. Publish custom events through any registered `EventSink` or via `events.PublishEventToContext`.
