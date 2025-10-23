@@ -71,13 +71,6 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
-// requiresResponses returns true when the model should be routed to the OpenAI Responses API
-// (o3/o4/gpt-5 reasoning-capable families).
-func requiresResponses(model string) bool {
-	m := strings.ToLower(model)
-	return strings.HasPrefix(m, "o3") || strings.HasPrefix(m, "o4") || strings.HasPrefix(m, "gpt-5")
-}
-
 // Removed obsolete MakeCompletionRequest (conversation-based)
 
 // MakeCompletionRequestFromTurn builds an OpenAI ChatCompletionRequest directly from a Turn's blocks,
@@ -149,6 +142,9 @@ func MakeCompletionRequestFromTurn(
 	if t != nil {
 		for _, b := range t.Blocks {
 			switch b.Kind {
+			case turns.BlockKindReasoning:
+				// Skip reasoning blocks in ChatCompletions requests; only Responses API understands them.
+				continue
 			case turns.BlockKindUser, turns.BlockKindLLMText, turns.BlockKindSystem:
 				// If we have pending tool calls but haven't emitted tool results yet,
 				// delay chat messages until after tool_use messages to satisfy provider ordering.
@@ -181,6 +177,8 @@ func MakeCompletionRequestFromTurn(
 				case turns.BlockKindToolUse:
 					role = "tool"
 				case turns.BlockKindOther:
+					role = "assistant"
+				case turns.BlockKindReasoning:
 					role = "assistant"
 				}
 				// Check for images array in payload to construct MultiContent

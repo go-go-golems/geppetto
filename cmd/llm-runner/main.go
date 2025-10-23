@@ -146,7 +146,6 @@ func (c *ReportCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) er
 		return err
 	}
 	outDir := s.Out
-	reportPath := filepath.Join(outDir, "report.md")
 	reportPath, err := fixtures.BuildReport(outDir)
 	if err != nil {
 		return err

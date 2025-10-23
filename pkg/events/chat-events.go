@@ -440,9 +440,8 @@ func NewEventFromJson(b []byte) (Event, error) {
 				// Ensure payload is available on embedded EventImpl if present
 				if impl, ok := ev.(*EventImpl); ok {
 					impl.SetPayload(b)
-				} else {
-					// For structs embedding EventImpl, attempt a second unmarshal to set payload via interface
-					// Best-effort: re-unmarshal into a temporary to access embedded pointer
+				} else if setter, ok := ev.(interface{ SetPayload([]byte) }); ok {
+					setter.SetPayload(b)
 				}
 				return ev, nil
 			}

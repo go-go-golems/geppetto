@@ -75,7 +75,7 @@ func (d *diskTap) OnSSE(event string, data []byte) {
 		}
 		d.sseFile = f
 		// header line to include turn context
-		_, _ = d.sseFile.WriteString(fmt.Sprintf("# turn_index=%d turn_id=%s\n\n", d.turnIndex, d.turnID))
+		_, _ = fmt.Fprintf(d.sseFile, "# turn_index=%d turn_id=%s\n\n", d.turnIndex, d.turnID)
 	}
 	// Write minimal framing: event name and data JSON/string
 	if event != "" {

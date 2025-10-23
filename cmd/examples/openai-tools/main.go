@@ -186,7 +186,11 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	if err != nil {
 		return errors.Wrap(err, "failed to create event router")
 	}
-	defer router.Close()
+	defer func() {
+		if closeErr := router.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Msg("failed to close event router")
+		}
+	}()
 	if s.OutputFormat == "" || s.OutputFormat == "text" {
 		router.AddHandler("chat-printer", "chat", events.StepPrinterFunc("", w))
 	} else {
@@ -214,7 +218,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 				case "reasoning-summary-started":
 					fmt.Fprintln(w, "\n--- Reasoning summary started ---")
 				case "reasoning-summary-ended":
-					fmt.Fprintln(w, "\n--- Reasoning summary ended ---\n")
+					fmt.Fprintln(w, "\n--- Reasoning summary ended ---")
 				case "thinking-started":
 					fmt.Fprintln(w, "\n--- Thinking started ---")
 				case "thinking-ended":
@@ -230,7 +234,9 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if string(ev.Type()) == string(events.EventTypePartialThinking) {
 			if tp, ok := events.ToTypedEvent[events.EventThinkingPartial](ev); ok && tp != nil {
 				if tp.Delta != "" {
-					fmt.Fprint(w, tp.Delta)
+					if _, writeErr := fmt.Fprint(w, tp.Delta); writeErr != nil {
+						log.Error().Err(writeErr).Msg("failed to write thinking delta")
+					}
 				}
 			}
 		}

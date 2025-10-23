@@ -150,9 +150,10 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 			return "user"
 		case turns.BlockKindToolUse:
 			return "tool"
-		default:
+		case turns.BlockKindLLMText, turns.BlockKindToolCall, turns.BlockKindReasoning, turns.BlockKindOther:
 			return "assistant"
 		}
+		return "assistant"
 	}
 
 	// Locate the latest reasoning block index (if any)
@@ -244,7 +245,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 				appendFunctionCall(b)
 			case turns.BlockKindToolUse:
 				appendFunctionCallOutput(b)
-			default:
+			case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindOther:
 				appendMessage(b)
 			}
 		}
@@ -256,7 +257,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 				appendFunctionCall(b)
 			case turns.BlockKindToolUse:
 				appendFunctionCallOutput(b)
-			default:
+			case turns.BlockKindUser, turns.BlockKindLLMText, turns.BlockKindSystem, turns.BlockKindReasoning, turns.BlockKindOther:
 				appendMessage(b)
 			}
 		}
@@ -326,7 +327,10 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 				}
 				includedReasoning = true
 				groupEndIdx = j
-			default:
+			case turns.BlockKindToolUse:
+				// No valid immediate follower when reasoning is followed directly by tool output.
+				// We intentionally fall through to omit reasoning.
+			case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindReasoning, turns.BlockKindOther:
 				// No valid immediate follower; omit reasoning to avoid 400s.
 			}
 		}
@@ -336,9 +340,6 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	startIdx := latestReasoningIdx + 1
 	if includedReasoning {
 		startIdx = groupEndIdx
-	} else {
-		// when reasoning was omitted, continue from the block after the reasoning
-		startIdx = latestReasoningIdx + 1
 	}
 	for k := startIdx; k < len(t.Blocks); k++ {
 		if k == consumedAssistantIdx {
@@ -350,16 +351,11 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 			// skip any additional reasoning items
 			continue
 		case turns.BlockKindToolCall:
-			// Avoid duplicating the tool_call we already grouped with reasoning
-			// (we compare by ID)
-			// Note: includedToolCallID is empty outside the latestReasoningIdx branch
-			if latestReasoningIdx >= 0 {
-				// fetch includedToolCallID from closure scope by recomputing
-			}
+			// Avoid duplicating the tool_call we already grouped with reasoning.
 			appendFunctionCall(b)
 		case turns.BlockKindToolUse:
 			appendFunctionCallOutput(b)
-		default:
+		case turns.BlockKindUser, turns.BlockKindLLMText, turns.BlockKindSystem, turns.BlockKindOther:
 			appendMessage(b)
 		}
 	}

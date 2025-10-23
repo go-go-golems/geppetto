@@ -119,7 +119,11 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 			return nil, err
 		}
 		logFile = lf
-		defer logFile.Close()
+		defer func() {
+			if closeErr := logFile.Close(); closeErr != nil {
+				log.Error().Err(closeErr).Msg("failed to close log capture file")
+			}
+		}()
 		// Setup multi-writer to both console and file
 		origLogger = log.Logger
 		multi := io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}, logFile)
@@ -143,7 +147,11 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 			return nil, err
 		}
 		rec = r
-		defer rec.Stop()
+		defer func() {
+			if stopErr := rec.Stop(); stopErr != nil {
+				log.Error().Err(stopErr).Msg("failed to stop recorder")
+			}
+		}()
 		orig := http.DefaultTransport
 		http.DefaultTransport = rec
 		defer func() { http.DefaultTransport = orig }()
@@ -154,7 +162,11 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 	if err != nil {
 		return nil, err
 	}
-	defer ef.Close()
+	defer func() {
+		if closeErr := ef.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Msg("failed to close events file")
+		}
+	}()
 	sink := &fileSink{f: ef, echo: opts.EchoEvents}
 
 	engOpts := []engine.Option{engine.WithSink(sink)}
@@ -198,7 +210,11 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 		}
 		// Close after this iteration
 		func() {
-			defer ef2.Close()
+			defer func() {
+				if closeErr := ef2.Close(); closeErr != nil {
+					log.Error().Err(closeErr).Msg("failed to close follow-up events file")
+				}
+			}()
 			sink2 := &fileSink{f: ef2, echo: opts.EchoEvents}
 			eng2, err := openai_responses.NewEngine(st, engine.WithSink(sink2))
 			if err != nil {
@@ -253,7 +269,11 @@ func BuildReport(outDir string) (string, error) {
 	}
 	var lines []recLine
 	if f, err := os.Open(eventsPath); err == nil {
-		defer f.Close()
+		defer func() {
+			if closeErr := f.Close(); closeErr != nil {
+				log.Error().Err(closeErr).Msg("failed to close events log in report generation")
+			}
+		}()
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
 			var rl recLine

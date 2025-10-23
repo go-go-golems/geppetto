@@ -114,7 +114,11 @@ func (h *ArtifactHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to scan artifacts", http.StatusInternalServerError)
 		return
 	}
-	templates.Index(groups, h.BaseDir).Render(r.Context(), w)
+	if err := templates.Index(groups, h.BaseDir).Render(r.Context(), w); err != nil {
+		log.Error().Err(err).Msg("failed to render index template")
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *ArtifactHandler) ArtifactsHandler(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +133,11 @@ func (h *ArtifactHandler) ArtifactsHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Failed to list files", http.StatusInternalServerError)
 		return
 	}
-	templates.FileList(files, dirPath).Render(r.Context(), w)
+	if err := templates.FileList(files, dirPath).Render(r.Context(), w); err != nil {
+		log.Error().Err(err).Msg("failed to render file list template")
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *ArtifactHandler) FileHandler(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +162,11 @@ func (h *ArtifactHandler) FileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templates.FileContent(string(content), filepath.Base(relPath)).Render(r.Context(), w)
+	if err := templates.FileContent(string(content), filepath.Base(relPath)).Render(r.Context(), w); err != nil {
+		log.Error().Err(err).Msg("failed to render file content template")
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *ArtifactHandler) scanArtifacts() ([]templates.ArtifactGroup, error) {

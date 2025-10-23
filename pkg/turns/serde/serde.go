@@ -44,7 +44,7 @@ func ToYAML(t *turns.Turn, opt Options) ([]byte, error) {
 		return []byte("{}"), nil
 	}
 	// Optionally omit Data
-	var snapshot turns.Turn = *t
+	snapshot := *t
 	if opt.OmitData {
 		snapshot.Data = nil
 	}

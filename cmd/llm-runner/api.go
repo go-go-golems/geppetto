@@ -123,7 +123,9 @@ func (h *APIHandler) GetRunsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(runs)
+	if err := json.NewEncoder(w).Encode(runs); err != nil {
+		log.Error().Err(err).Msg("failed to encode runs response")
+	}
 }
 
 func (h *APIHandler) GetRunHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +143,9 @@ func (h *APIHandler) GetRunHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(parsedRun)
+	if err := json.NewEncoder(w).Encode(parsedRun); err != nil {
+		log.Error().Err(err).Str("runID", runID).Msg("failed to encode parsed run response")
+	}
 }
 
 func (h *APIHandler) scanRuns() ([]ArtifactRun, error) {
@@ -354,7 +358,11 @@ func (h *APIHandler) parseEvents(path string) ([]Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Str("path", path).Msg("failed to close events file")
+		}
+	}()
 
 	var events []Event
 	scanner := bufio.NewScanner(f)
@@ -387,7 +395,11 @@ func (h *APIHandler) parseLogs(path string) ([]LogEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Str("path", path).Msg("failed to close logs file")
+		}
+	}()
 
 	var logs []LogEntry
 	scanner := bufio.NewScanner(f)
@@ -470,7 +482,10 @@ func (h *APIHandler) parseRawArtifacts(rawDir string) ([]RawArtifact, error) {
 				// Extract sequence and type from filename
 				var seq int
 				var typePart string
-				fmt.Sscanf(name, "turn-%d-provider-%d-%s", &turnIdx, &seq, &typePart)
+				if _, scanErr := fmt.Sscanf(name, "turn-%d-provider-%d-%s", &turnIdx, &seq, &typePart); scanErr != nil {
+					log.Warn().Err(scanErr).Str("name", name).Msg("failed to parse provider artifact name")
+					return nil
+				}
 				typePart = strings.TrimSuffix(typePart, ".json")
 
 				artifacts[turnIdx].ProviderObjects = append(artifacts[turnIdx].ProviderObjects, ProviderObject{
