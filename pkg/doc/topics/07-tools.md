@@ -234,6 +234,31 @@ Override whichever hooks you need; the base executor handles the rest (context c
 
 ---
 
+## Context-aware tool functions
+
+`tools.NewToolFromFunc` recognises optional `context.Context` parameters. Supported signatures include:
+
+- `func(Input) (Output, error)`
+- `func(context.Context, Input) (Output, error)`
+- `func(context.Context) (Output, error)` (no JSON payload)
+- `func() (Output, error)`
+
+When you register a tool, Geppetto generates JSON Schema for the first non-context parameter and compiles both context-free and context-aware executors. That means providers that pass Go contexts can propagate deadlines, auth tokens, or tracing spans straight into your tool implementation.
+
+```go
+func searchDocs(ctx context.Context, req SearchRequest) (SearchResponse, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("tool.searchDocs")
+	return index.Search(ctx, req.Query)
+}
+
+def, _ := tools.NewToolFromFunc("search_docs", "Search internal documentation", searchDocs)
+```
+
+If a tool has no JSON input (for example `func(context.Context) (Result, error)`), the generated schema becomes an empty object so the provider can still advertise the tool.
+
+---
+
 ## Reference: payload and data keys
 
 When reading/writing block payloads, always use the constants:
