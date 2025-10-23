@@ -83,6 +83,12 @@ func (e *EventImpl) Payload() []byte {
 	return e.payload
 }
 
+// SetPayload stores the raw JSON payload on the event implementation.
+// This is used by NewEventFromJson and external decoders.
+func (e *EventImpl) SetPayload(b []byte) {
+	e.payload = b
+}
+
 var _ Event = &EventImpl{}
 
 type EventPartialCompletionStart struct {
@@ -358,6 +364,25 @@ const (
 )
 
 func NewEventFromJson(b []byte) (Event, error) {
+	// First, read minimal header to get type.
+	var hdr struct {
+		Type EventType `json:"type"`
+	}
+	_ = json.Unmarshal(b, &hdr)
+
+	// If an external decoder is registered, try it first.
+	if hdr.Type != "" {
+		if dec := lookupDecoder(string(hdr.Type)); dec != nil {
+			if ev, err := dec(b); err == nil && ev != nil {
+				// Ensure payload is available on embedded EventImpl if present.
+				if impl, ok := ev.(*EventImpl); ok {
+					impl.SetPayload(b)
+				}
+				return ev, nil
+			}
+		}
+	}
+
 	var e *EventImpl
 	err := json.Unmarshal(b, &e)
 	if err != nil {
