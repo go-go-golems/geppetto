@@ -6,7 +6,9 @@ toolchain go1.24.5
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.0
+	github.com/a-h/templ v0.3.898
 	github.com/cespare/xxhash/v2 v2.3.0
+	github.com/dnaeon/go-vcr v1.2.0
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.1.47

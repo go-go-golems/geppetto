@@ -1,0 +1,62 @@
+---
+version: 1
+interactions:
+- request:
+    body: '{"model":"o4-mini","input":[{"role":"system","content":[{"type":"input_text","text":"You
+      are a LLM."}]},{"role":"user","content":[{"type":"input_text","text":"Say hi."}]}],"reasoning":{"effort":"medium","summary":"detailed"},"stream":true,"include":["reasoning.encrypted_content"]}'
+    form: {}
+    headers:
+      Accept:
+      - text/event-stream
+      Content-Type:
+      - application/json
+    url: https://api.openai.com/v1/responses
+    method: POST
+  response:
+    body: |-
+      {
+        "error": {
+          "message": "Missing bearer or basic authentication in header",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": null
+        }
+      }
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=86400
+      Cf-Cache-Status:
+      - DYNAMIC
+      Cf-Ray:
+      - 992341ee783430f5-EWR
+      Content-Length:
+      - "160"
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 21 Oct 2025 19:45:49 GMT
+      Openai-Processing-Ms:
+      - "1"
+      Openai-Version:
+      - "2020-10-01"
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=Wnj6.L2CLzGS7KAKCzJV6xyFfA5yxtHDwn_6Zs_qwRA-1761075949-1.0.1.1-7cXKnxirQaBTsrQX1ZNc07HhM3GRaUZ.i5_Mqj3gjXS7.ebObSVMRnwWDAxR4hzr5E8vtrPfpr5dxipuzrpP8UzAB9bvW0IuQzbfazL4fP8;
+        path=/; expires=Tue, 21-Oct-25 20:15:49 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=YkgOymwN9wOxUKp5WZHv_3l3KgsBFWRL1IO_HKaIqX4-1761075949914-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Www-Authenticate:
+      - Bearer realm="OpenAI API"
+      X-Content-Type-Options:
+      - nosniff
+      X-Envoy-Upstream-Service-Time:
+      - "4"
+      X-Request-Id:
+      - req_5e292eb4c2f662c5ba8bd33f49567530
+    status: 401 Unauthorized
+    code: 401
+    duration: ""

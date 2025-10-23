@@ -1,0 +1,57 @@
+/* Syntax highlighting for code blocks */
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #8b949e;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #ff7b72;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #a5d6ff;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #d2a8ff;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #79c0ff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
