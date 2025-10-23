@@ -164,6 +164,76 @@ func run(ctx context.Context, e engine.Engine) error {
 
 ---
 
+## Tool executors and lifecycle hooks
+
+Once a provider emits `tool_call` blocks, a `tools.ToolExecutor` turns those calls into actual function invocations. Geppetto now ships two composable executors:
+
+- `tools.DefaultToolExecutor` wraps the standard behavior (argument masking, event publishing, retries, and parallelism driven by `ToolConfig`)
+- `tools.BaseToolExecutor` provides the orchestration plus overridable lifecycle hooks so you can inject authorization, observability, or custom retry heuristics
+
+The `ToolConfig` you attach to the Turn still governs concurrency (`MaxParallelTools`), error handling (`ToolErrorAbort` vs `ToolErrorRetry`), and retry backoff. `DefaultToolExecutor` simply wires those settings into the base implementation.
+
+If you need custom behavior, embed the base executor and override only the hooks you care about. Remember to point the base executor back to the outer type so the overrides run.
+
+```go
+import (
+    "context"
+    "encoding/json"
+
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+)
+
+type Session interface {
+    Bearer() string
+}
+
+type AuthorizedExecutor struct {
+    *tools.BaseToolExecutor
+    sess Session
+}
+
+func NewAuthorizedExecutor(cfg tools.ToolConfig, sess Session) *AuthorizedExecutor {
+    base := tools.NewBaseToolExecutor(cfg)
+    exec := &AuthorizedExecutor{BaseToolExecutor: base, sess: sess}
+    base.ToolExecutorExt = exec // enable hook overrides
+    return exec
+}
+
+func (a *AuthorizedExecutor) PreExecute(ctx context.Context, call tools.ToolCall, _ tools.ToolRegistry) (tools.ToolCall, error) {
+    // Inject auth into the argument payload before execution
+    var args map[string]any
+    _ = json.Unmarshal(call.Arguments, &args)
+    if args == nil {
+        args = map[string]any{}
+    }
+    args["auth"] = map[string]string{"bearer_token": a.sess.Bearer()}
+    call.Arguments, _ = json.Marshal(args)
+    return call, nil
+}
+
+func (a *AuthorizedExecutor) MaskArguments(ctx context.Context, call tools.ToolCall) string {
+    // Redact secrets when events are published
+    var args map[string]any
+    _ = json.Unmarshal(call.Arguments, &args)
+    if auth, ok := args["auth"].(map[string]any); ok {
+        auth["bearer_token"] = "***"
+    }
+    masked, _ := json.Marshal(args)
+    return string(masked)
+}
+```
+
+Available hooks on `BaseToolExecutor`:
+- `PreExecute` mutate or reject calls before lookup
+- `IsAllowed` add authorization beyond `ToolConfig.AllowedTools`
+- `MaskArguments`, `PublishStart`, `PublishResult` tune event payloads
+- `ShouldRetry` implement bespoke retry policies
+- `MaxParallel` override concurrency control per batch
+
+Override whichever hooks you need; the base executor handles the rest (context cancellation, event emission, timings, and retries). For most projects, `tools.NewDefaultToolExecutor` remains sufficient, and helper utilities such as `toolhelpers.RunToolCallingLoop` continue to use it under the hood.
+
+---
+
 ## Reference: payload and data keys
 
 When reading/writing block payloads, always use the constants:
