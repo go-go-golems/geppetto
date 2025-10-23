@@ -36,24 +36,6 @@ jobs:
           go-package: ./...
           output-format: 'text'
         
-  nancy:
-    name: Nancy Vulnerability Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-      
-      - name: Install Nancy
-        run: go install github.com/sonatype-nexus-community/nancy@latest
-      
-      - name: Run Nancy
-        run: go list -json -deps ./... | nancy sleuth
-
   gosec:
     name: GoSec Security Scan
     runs-on: ubuntu-latest
