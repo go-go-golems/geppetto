@@ -340,7 +340,7 @@ func (e *GeminiEngine) buildPartsFromTurn(t *turns.Turn) []genai.Part {
 	var parts []genai.Part
 	for _, b := range t.Blocks {
 		switch b.Kind {
-		case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindLLMText, turns.BlockKindOther:
+		case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindLLMText, turns.BlockKindOther, turns.BlockKindReasoning:
 			if txt, ok := b.Payload[turns.PayloadKeyText]; ok && txt != nil {
 				switch sv := txt.(type) {
 				case string:

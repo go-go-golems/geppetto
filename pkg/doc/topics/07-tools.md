@@ -42,6 +42,14 @@ import (
 - Registry: `tools.ToolRegistry` holds callable tools
 - Per-Turn tools: `turns.DataKeyToolRegistry` and `turns.DataKeyToolConfig` on `Turn.Data`
 - Blocks: `llm_text`, `tool_call`, `tool_use`
+### OpenAI Responses specifics
+
+When using the OpenAI Responses engine (`ai-api-type=openai-responses`):
+
+- Tools are advertised via the `tools` array on the request. For function tools, schema is top-level: `{type: "function", name, description, parameters}`.
+- The engine streams function_call arguments via SSE and emits a `tool-call` event when the function_call completes.
+- Reasoning summary is streamed as `partial-thinking` events; UIs can render it between "Thinking started/ended" markers.
+- The next iteration (not yet implemented in docs) will include the `assistant:function_call` and `tool:tool_result` blocks in the next request’s `input` to continue tool-driven workflows.
 - Payload keys: use `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
 
 ---
@@ -156,16 +164,86 @@ func run(ctx context.Context, e engine.Engine) error {
 
 ---
 
+## Tool executors and lifecycle hooks
+
+Once a provider emits `tool_call` blocks, a `tools.ToolExecutor` turns those calls into actual function invocations. Geppetto now ships two composable executors:
+
+- `tools.DefaultToolExecutor` wraps the standard behavior (argument masking, event publishing, retries, and parallelism driven by `ToolConfig`)
+- `tools.BaseToolExecutor` provides the orchestration plus overridable lifecycle hooks so you can inject authorization, observability, or custom retry heuristics
+
+The `ToolConfig` you attach to the Turn still governs concurrency (`MaxParallelTools`), error handling (`ToolErrorAbort` vs `ToolErrorRetry`), and retry backoff. `DefaultToolExecutor` simply wires those settings into the base implementation.
+
+If you need custom behavior, embed the base executor and override only the hooks you care about. Remember to point the base executor back to the outer type so the overrides run.
+
+```go
+import (
+    "context"
+    "encoding/json"
+
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+)
+
+type Session interface {
+    Bearer() string
+}
+
+type AuthorizedExecutor struct {
+    *tools.BaseToolExecutor
+    sess Session
+}
+
+func NewAuthorizedExecutor(cfg tools.ToolConfig, sess Session) *AuthorizedExecutor {
+    base := tools.NewBaseToolExecutor(cfg)
+    exec := &AuthorizedExecutor{BaseToolExecutor: base, sess: sess}
+    base.ToolExecutorExt = exec // enable hook overrides
+    return exec
+}
+
+func (a *AuthorizedExecutor) PreExecute(ctx context.Context, call tools.ToolCall, _ tools.ToolRegistry) (tools.ToolCall, error) {
+    // Inject auth into the argument payload before execution
+    var args map[string]any
+    _ = json.Unmarshal(call.Arguments, &args)
+    if args == nil {
+        args = map[string]any{}
+    }
+    args["auth"] = map[string]string{"bearer_token": a.sess.Bearer()}
+    call.Arguments, _ = json.Marshal(args)
+    return call, nil
+}
+
+func (a *AuthorizedExecutor) MaskArguments(ctx context.Context, call tools.ToolCall) string {
+    // Redact secrets when events are published
+    var args map[string]any
+    _ = json.Unmarshal(call.Arguments, &args)
+    if auth, ok := args["auth"].(map[string]any); ok {
+        auth["bearer_token"] = "***"
+    }
+    masked, _ := json.Marshal(args)
+    return string(masked)
+}
+```
+
+Available hooks on `BaseToolExecutor`:
+- `PreExecute` mutate or reject calls before lookup
+- `IsAllowed` add authorization beyond `ToolConfig.AllowedTools`
+- `MaskArguments`, `PublishStart`, `PublishResult` tune event payloads
+- `ShouldRetry` implement bespoke retry policies
+- `MaxParallel` override concurrency control per batch
+
+Override whichever hooks you need; the base executor handles the rest (context cancellation, event emission, timings, and retries). For most projects, `tools.NewDefaultToolExecutor` remains sufficient, and helper utilities such as `toolhelpers.RunToolCallingLoop` continue to use it under the hood.
+
+---
+
 ## Context-aware tool functions
 
-`tools.NewToolFromFunc` now recognises optional `context.Context` parameters. Supported signatures include:
+`tools.NewToolFromFunc` recognises optional `context.Context` parameters. Supported signatures include:
 
 - `func(Input) (Output, error)`
 - `func(context.Context, Input) (Output, error)`
 - `func(context.Context) (Output, error)` (no JSON payload)
 - `func() (Output, error)`
 
-At registration time Geppetto generates JSON Schema for the first non-context parameter and compiles both context-free and context-aware executors. That means providers that pass Go contexts can propagate deadlines, auth tokens, or tracing spans right into your tool implementation.
+When you register a tool, Geppetto generates JSON Schema for the first non-context parameter and compiles both context-free and context-aware executors. That means providers that pass Go contexts can propagate deadlines, auth tokens, or tracing spans straight into your tool implementation.
 
 ```go
 func searchDocs(ctx context.Context, req SearchRequest) (SearchResponse, error) {
@@ -177,47 +255,7 @@ func searchDocs(ctx context.Context, req SearchRequest) (SearchResponse, error) 
 def, _ := tools.NewToolFromFunc("search_docs", "Search internal documentation", searchDocs)
 ```
 
-If a tool has no JSON input (e.g., `func(context.Context) (Result, error)`), the generated schema is an empty object, which still satisfies provider requirements when advertising tools.
-
----
-
-## Tool executors and lifecycle hooks
-
-Once a provider emits `tool_call` blocks, a `tools.ToolExecutor` turns those calls into actual function invocations. Geppetto now ships two composable executors:
-
-- `tools.DefaultToolExecutor` wraps the standard behavior (argument masking, event publishing, retries, and parallelism driven by `ToolConfig`).
-- `tools.BaseToolExecutor` provides the orchestration plus overridable lifecycle hooks so you can inject authorization, observability, or custom retry heuristics.
-
-If you need custom behavior, embed the base executor and override only the hooks you care about. Remember to point the base executor back to the outer type so the overrides run.
-
-```go
-type AuditedExecutor struct {
-	*tools.BaseToolExecutor
-	audit AuditSink
-}
-
-func NewAuditedExecutor(cfg tools.ToolConfig, audit AuditSink) *AuditedExecutor {
-	base := tools.NewBaseToolExecutor(cfg)
-	exec := &AuditedExecutor{BaseToolExecutor: base, audit: audit}
-	base.ToolExecutorExt = exec // enable hook overrides
-	return exec
-}
-
-func (e *AuditedExecutor) PublishResult(ctx context.Context, call tools.ToolCall, res *tools.ToolResult) {
-	e.audit.Record(call, res)
-	e.BaseToolExecutor.PublishResult(ctx, call, res)
-}
-```
-
-Available hooks on `BaseToolExecutor`:
-
-- `PreExecute` mutate or reject calls before lookup.
-- `IsAllowed` add authorization beyond `ToolConfig.AllowedTools`.
-- `MaskArguments`, `PublishStart`, `PublishResult` tune event payloads.
-- `ShouldRetry` implement bespoke retry policies.
-- `MaxParallel` override concurrency control per batch.
-
-Override whichever hooks you need; the base executor handles the rest (context cancellation, event emission, timings, and retries). Helper utilities such as `toolhelpers.RunToolCallingLoop` continue to use `tools.NewDefaultToolExecutor` under the hood.
+If a tool has no JSON input (for example `func(context.Context) (Result, error)`), the generated schema becomes an empty object so the provider can still advertise the tool.
 
 ---
 
@@ -249,6 +287,42 @@ turns.DataKeyToolConfig   // engine.ToolConfig
 - Log tool execution steps and responses
 - Use timeouts and iteration limits to prevent loops
 - Prefer middleware for Turn-native use; use helpers for conversation-first flows
+
+### Emitting Custom Events from Tools
+
+Tools can emit custom progress or status events using the event registry. This is useful for long-running operations where you want to provide real-time feedback to users:
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/events"
+
+type ToolProgressEvent struct {
+    events.EventImpl
+    ToolName string  `json:"tool_name"`
+    Progress float64 `json:"progress"`
+    Message  string  `json:"message"`
+}
+
+func init() {
+    _ = events.RegisterEventFactory("tool-progress", func() events.Event {
+        return &ToolProgressEvent{EventImpl: events.EventImpl{Type_: "tool-progress"}}
+    })
+}
+
+func longRunningTool(ctx context.Context, req ToolRequest) (ToolResponse, error) {
+    // Emit progress events
+    progressEvent := &ToolProgressEvent{
+        EventImpl: events.EventImpl{Type_: "tool-progress", Metadata_: metadata},
+        ToolName:  "long_running_tool",
+        Progress:  0.5,
+        Message:   "Processing data...",
+    }
+    events.PublishEventToContext(ctx, progressEvent)
+    
+    // ... tool implementation
+}
+```
+
+For details on event extensibility, see: `glaze help geppetto-events-streaming-watermill`
 
 ## Troubleshooting and tips
 

@@ -114,7 +114,7 @@ func TestToolMiddleware_EndToEnd_Turns(t *testing.T) {
 			hasUse = true
 		case turns.BlockKindLLMText:
 			hasText = true
-		case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindOther:
+		case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindReasoning, turns.BlockKindOther:
 			// ignore
 		}
 	}

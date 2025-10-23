@@ -19,6 +19,10 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 
 		switch p_ := e.(type) {
 		case *EventError:
+			// Print error clearly for visibility
+			if _, e2 := fmt.Fprintf(w, "\n[error] %s\n", p_.ErrorString); e2 != nil {
+				return e2
+			}
 			return err
 		case *EventPartialCompletion:
 			if isFirst && name != "" {
@@ -28,6 +32,13 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 					return err
 				}
 			}
+			_, err = fmt.Fprintf(w, "%s", p_.Delta)
+			if err != nil {
+				return err
+			}
+
+		case *EventThinkingPartial:
+			// Print thinking deltas as normal text, no labels
 			_, err = fmt.Fprintf(w, "%s", p_.Delta)
 			if err != nil {
 				return err
@@ -87,15 +98,69 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 			}
 
 		case *EventInfo:
+			// Reasoning/output phase markers get a pretty prefix
+			if p_.Message == "thinking-started" {
+				if _, err := fmt.Fprintf(w, "\n--- Thinking started ---\n"); err != nil {
+					return err
+				}
+				break
+			}
+			if p_.Message == "thinking-ended" {
+				if _, err := fmt.Fprintf(w, "\n--- Thinking ended ---\n"); err != nil {
+					return err
+				}
+				break
+			}
+			if p_.Message == "output-started" {
+				if _, err := fmt.Fprintf(w, "\n--- Output started ---\n"); err != nil {
+					return err
+				}
+				break
+			}
+			if p_.Message == "output-ended" {
+				if _, err := fmt.Fprintf(w, "\n--- Output ended ---\n"); err != nil {
+					return err
+				}
+				break
+			}
+			// Keep generic info handling below for other messages
+			// Suppress verbose printing for reasoning-summary-delta; handled via EventThinkingPartial
+			if p_.Message == "reasoning-summary-delta" {
+				break
+			}
 			if _, err := fmt.Fprintf(w, "\n[i] %s\n", p_.Message); err != nil {
 				return err
 			}
-			if len(p_.Data) > 0 {
-				v_, err := yaml.Marshal(p_.Data)
-				if err != nil {
+		// New custom events
+		case *EventWebSearchStarted:
+			q := p_.Query
+			if q != "" {
+				_, err = fmt.Fprintf(w, "\n🔎 Searching: %s\n", q)
+			} else {
+				_, err = fmt.Fprintf(w, "\n🔎 Searching...\n")
+			}
+			if err != nil {
+				return err
+			}
+		case *EventWebSearchSearching:
+			if _, err := fmt.Fprintf(w, "… searching\n"); err != nil {
+				return err
+			}
+		case *EventWebSearchOpenPage:
+			if p_.URL != "" {
+				if _, err := fmt.Fprintf(w, "🌐 Open: %s\n", p_.URL); err != nil {
 					return err
 				}
-				if _, err := fmt.Fprintf(w, "%s\n", v_); err != nil {
+			}
+		case *EventWebSearchDone:
+			if _, err := fmt.Fprintf(w, "✅ Search done\n"); err != nil {
+				return err
+			}
+		case *EventCitation:
+			title := p_.Title
+			url := p_.URL
+			if title != "" || url != "" {
+				if _, err := fmt.Fprintf(w, "📎 %s - %s\n", title, url); err != nil {
 					return err
 				}
 			}
