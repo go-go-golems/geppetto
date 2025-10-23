@@ -1,0 +1,45 @@
+package templates
+
+templ Layout(title string) {
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>{ title } - LLM Runner</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" rel="stylesheet"/>
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                hljs.highlightAll();
+            });
+            document.body.addEventListener('htmx:afterSwap', () => {
+                hljs.highlightAll();
+            });
+        </script>
+        <style>
+            .artifact-list { max-height: 80vh; overflow-y: auto; }
+            .file-content { max-height: 70vh; overflow-y: auto; background: #0d1117; border-radius: 6px; }
+            pre { margin: 0; }
+            .nav-pills .nav-link { color: #6c757d; }
+            .nav-pills .nav-link.active { background-color: #0d6efd; color: white; }
+        </style>
+    </head>
+    <body class="bg-light">
+        <nav class="navbar navbar-dark bg-dark mb-4">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">LLM Runner Artifacts</a>
+            </div>
+        </nav>
+        <div class="container-fluid">
+            { children... }
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+    </html>
+}
+
