@@ -84,8 +84,12 @@ func (c *ServeCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) err
     }
     
     if distDir != "" {
-        fs := http.FileServer(http.Dir(distDir))
-        mux.Handle("/", fs)
+        // SPA handler: serve index.html for all non-API, non-legacy routes
+        spaHandler := &SPAHandler{
+            StaticPath: distDir,
+            IndexPath:  filepath.Join(distDir, "index.html"),
+        }
+        mux.Handle("/", spaHandler)
         log.Info().Str("dist", distDir).Msg("Serving React frontend")
     } else {
         // Fallback to legacy UI
@@ -222,5 +226,34 @@ func (h *ArtifactHandler) listFiles(dirPath string) ([]string, error) {
     
     sort.Strings(files)
     return files, nil
+}
+
+// SPAHandler serves a Single Page Application
+// It serves static files normally but returns index.html for routes that don't exist
+type SPAHandler struct {
+    StaticPath string
+    IndexPath  string
+}
+
+func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    // Get the absolute path to prevent directory traversal
+    path := filepath.Join(h.StaticPath, r.URL.Path)
+    
+    // Check if file exists
+    info, err := os.Stat(path)
+    if os.IsNotExist(err) || info.IsDir() {
+        // File doesn't exist or is a directory, serve index.html
+        http.ServeFile(w, r, h.IndexPath)
+        return
+    }
+    
+    if err != nil {
+        // Some other error occurred
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    // Serve the file
+    http.FileServer(http.Dir(h.StaticPath)).ServeHTTP(w, r)
 }
 

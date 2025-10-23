@@ -70,6 +70,8 @@ type LogEntry struct {
 
 type RawArtifact struct {
 	TurnIndex       int              `json:"turnIndex"`
+	InputTurnIndex  int              `json:"inputTurnIndex"` // Which turn was used as input for this request
+	InputTurnYAML   string           `json:"inputTurnYaml,omitempty"` // The actual turn YAML before conversion
 	HTTPRequest     *HTTPRequest     `json:"httpRequest,omitempty"`
 	HTTPResponse    *HTTPResponse    `json:"httpResponse,omitempty"`
 	SSELog          string           `json:"sseLog,omitempty"`
@@ -284,7 +286,9 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 			path = filepath.Join(runPath, fmt.Sprintf("final_turn_%d.yaml", i))
 			if i%2 == 1 {
 				label = fmt.Sprintf("After Follow-up #%d (before run)", (i+1)/2)
-				rawRequestIndex = nil // No API call for this - just appending a block
+				// "before run" turns should show the NEXT API call that will be made
+				rawReqIdx := apiCallIndex
+				rawRequestIndex = &rawReqIdx
 			} else {
 				label = fmt.Sprintf("After Follow-up #%d Run", i/2)
 				rawReqIdx := apiCallIndex
@@ -458,6 +462,8 @@ func (h *APIHandler) parseRawArtifacts(rawDir string) ([]RawArtifact, error) {
 			}
 		case strings.Contains(name, "sse.log"):
 			artifacts[turnIdx].SSELog = string(data)
+		case strings.Contains(name, "input.yaml"):
+			artifacts[turnIdx].InputTurnYAML = string(data)
 		case strings.Contains(name, "provider-"):
 			var obj map[string]interface{}
 			if err := json.Unmarshal(data, &obj); err == nil {
@@ -496,6 +502,13 @@ func (h *APIHandler) parseRawArtifacts(rawDir string) ([]RawArtifact, error) {
 		sort.Slice(art.ProviderObjects, func(i, j int) bool {
 			return art.ProviderObjects[i].Sequence < art.ProviderObjects[j].Sequence
 		})
+		
+		// Calculate which turn execution index was used as input for this request
+		// Raw artifacts are 1-indexed (turn-1, turn-2...), execution indices are 0-indexed
+		// turn-1 uses execution index 0 (After Initial Run)
+		// turn-2 uses execution index 1 (After Follow-up #1 before run)
+		art.InputTurnIndex = idx - 1
+		
 		result = append(result, *art)
 	}
 

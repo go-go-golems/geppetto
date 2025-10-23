@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import type { ParsedRun } from '../types';
 import { format } from 'date-fns';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Copy, Maximize2, Minimize2 } from 'lucide-react';
 import YamlView from './YamlView';
 import type { TabType } from './RunView';
+import yaml from 'js-yaml';
 
 interface Props {
   run: ParsedRun;
@@ -14,6 +15,8 @@ export default function EventStream({ run }: Props) {
   const [selectedRun, setSelectedRun] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [eventTypeFilter, setEventTypeFilter] = useState<Set<string>>(new Set());
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(false);
 
   const allEventTypes = useMemo(() => {
     const types = new Set<string>();
@@ -50,6 +53,25 @@ export default function EventStream({ run }: Props) {
       return true;
     });
   }, [run.events, selectedRun, eventTypeFilter, searchTerm]);
+
+  const copyAllEvents = () => {
+    const yamlString = yaml.dump(filteredEvents.map(e => e.data), { indent: 2 });
+    navigator.clipboard.writeText(yamlString);
+  };
+
+  const copyEventData = (eventData: any) => {
+    const yamlString = yaml.dump(eventData, { indent: 2 });
+    navigator.clipboard.writeText(yamlString);
+  };
+
+  const toggleAllEvents = () => {
+    if (allExpanded) {
+      setExpandedEvents(new Set());
+    } else {
+      setExpandedEvents(new Set(filteredEvents.map((_, idx) => idx)));
+    }
+    setAllExpanded(!allExpanded);
+  };
 
   const getEventColor = (type: string) => {
     switch (type) {
@@ -136,8 +158,28 @@ export default function EventStream({ run }: Props) {
           </div>
         </div>
 
-        <div className="text-xs text-gray-400">
-          Showing {filteredEvents.length} of {run.events[selectedRun]?.length || 0} events
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-gray-400">
+            Showing {filteredEvents.length} of {run.events[selectedRun]?.length || 0} events
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleAllEvents}
+              className="px-2 py-1 text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 rounded flex items-center gap-1"
+              title={allExpanded ? "Collapse all events" : "Expand all events"}
+            >
+              {allExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </button>
+            <button
+              onClick={copyAllEvents}
+              className="px-2 py-1 text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 rounded flex items-center gap-1"
+              title="Copy all filtered events as YAML"
+            >
+              <Copy size={12} />
+              Copy All
+            </button>
+          </div>
         </div>
       </div>
 
@@ -159,9 +201,18 @@ export default function EventStream({ run }: Props) {
                   </span>
                 )}
               </div>
-              <span className="text-xs text-gray-400">
-                {format(event.timestamp, 'HH:mm:ss.SSS')}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => copyEventData(event.data)}
+                  className="p-1 text-gray-400 hover:text-white hover:bg-black/30 rounded"
+                  title="Copy event data as YAML"
+                >
+                  <Copy size={12} />
+                </button>
+                <span className="text-xs text-gray-400">
+                  {format(event.timestamp, 'HH:mm:ss.SSS')}
+                </span>
+              </div>
             </div>
 
             {event.meta && (
@@ -179,7 +230,19 @@ export default function EventStream({ run }: Props) {
               </div>
             )}
 
-            <details className="text-xs">
+            <details 
+              className="text-xs"
+              open={expandedEvents.has(index)}
+              onToggle={(e) => {
+                const newSet = new Set(expandedEvents);
+                if ((e.target as HTMLDetailsElement).open) {
+                  newSet.add(index);
+                } else {
+                  newSet.delete(index);
+                }
+                setExpandedEvents(newSet);
+              }}
+            >
               <summary className="cursor-pointer text-gray-300 hover:text-white">
                 Event Data
               </summary>

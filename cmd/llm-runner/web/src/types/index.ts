@@ -50,6 +50,8 @@ export interface LogEntry {
 
 export interface RawArtifact {
   turnIndex: number;
+  inputTurnIndex: number;
+  inputTurnYaml?: string;
   httpRequest?: HttpRequest;
   httpResponse?: HttpResponse;
   sseLog?: string;
