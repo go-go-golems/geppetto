@@ -3,12 +3,12 @@ package types
 type ApiType string
 
 const (
-	ApiTypeOpenAI    ApiType = "openai"
-    ApiTypeOpenAIResponses ApiType = "openai-responses"
-	ApiTypeAnyScale  ApiType = "anyscale"
-	ApiTypeFireworks ApiType = "fireworks"
-	ApiTypeClaude    ApiType = "claude"
-	ApiTypeGemini    ApiType = "gemini"
+	ApiTypeOpenAI          ApiType = "openai"
+	ApiTypeOpenAIResponses ApiType = "openai-responses"
+	ApiTypeAnyScale        ApiType = "anyscale"
+	ApiTypeFireworks       ApiType = "fireworks"
+	ApiTypeClaude          ApiType = "claude"
+	ApiTypeGemini          ApiType = "gemini"
 	// not implemented from here on down
 	ApiTypeOllama     ApiType = "ollama"
 	ApiTypeMistral    ApiType = "mistral"

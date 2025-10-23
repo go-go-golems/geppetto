@@ -17,29 +17,29 @@ type Settings struct {
 	// TODO(manuel, 2023-03-28) Properly load logit bias
 	// See https://github.com/go-go-golems/geppetto/issues/48
 	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
-    // ReasoningEffort for Responses API (low|medium|high)
-    ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed.parameter:"openai-reasoning-effort"`
-    // ParallelToolCalls is a hint for tool parallelization in Responses
-    ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed.parameter:"openai-parallel-tool-calls"`
-    // ReasoningSummary requests a public reasoning summary ("auto" to enable)
-    ReasoningSummary *string `yaml:"reasoning_summary,omitempty" glazed.parameter:"openai-reasoning-summary"`
-    // IncludeReasoningEncrypted requests encrypted reasoning content for reuse across turns
-    IncludeReasoningEncrypted *bool `yaml:"include_reasoning_encrypted,omitempty" glazed.parameter:"openai-include-reasoning-encrypted"`
-    // StreamIncludeUsage requests usage in streaming events (when supported)
-    StreamIncludeUsage *bool `yaml:"stream-include-usage,omitempty" glazed.parameter:"openai-stream-include-usage"`
+	// ReasoningEffort for Responses API (low|medium|high)
+	ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed.parameter:"openai-reasoning-effort"`
+	// ParallelToolCalls is a hint for tool parallelization in Responses
+	ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed.parameter:"openai-parallel-tool-calls"`
+	// ReasoningSummary requests a public reasoning summary ("auto" to enable)
+	ReasoningSummary *string `yaml:"reasoning_summary,omitempty" glazed.parameter:"openai-reasoning-summary"`
+	// IncludeReasoningEncrypted requests encrypted reasoning content for reuse across turns
+	IncludeReasoningEncrypted *bool `yaml:"include_reasoning_encrypted,omitempty" glazed.parameter:"openai-include-reasoning-encrypted"`
+	// StreamIncludeUsage requests usage in streaming events (when supported)
+	StreamIncludeUsage *bool `yaml:"stream-include-usage,omitempty" glazed.parameter:"openai-stream-include-usage"`
 }
 
 func NewSettings() (*Settings, error) {
 	s := &Settings{
-		N:                nil,
-		PresencePenalty:  nil,
-		FrequencyPenalty: nil,
-		LogitBias:        map[string]string{},
-        ReasoningEffort:  nil,
-        ParallelToolCalls: nil,
-        ReasoningSummary: nil,
-        IncludeReasoningEncrypted: nil,
-        StreamIncludeUsage: nil,
+		N:                         nil,
+		PresencePenalty:           nil,
+		FrequencyPenalty:          nil,
+		LogitBias:                 map[string]string{},
+		ReasoningEffort:           nil,
+		ParallelToolCalls:         nil,
+		ReasoningSummary:          nil,
+		IncludeReasoningEncrypted: nil,
+		StreamIncludeUsage:        nil,
 	}
 
 	p, err := NewParameterLayer()

@@ -49,14 +49,14 @@ func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-    // Build request messages directly from Turn blocks (no conversation dependency)
+	// Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
 	startTime := time.Now()
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
 
-    // Chat engine no longer routes to Responses; factory selects the correct engine
+	// Chat engine no longer routes to Responses; factory selects the correct engine
 
 	client, err := MakeClient(e.settings.API, *e.settings.Chat.ApiType)
 	if err != nil {
@@ -179,24 +179,24 @@ func (e *OpenAIEngine) RunInference(
 	}
 
 	// Setup metadata and event publishing
-    metadata := events.EventMetadata{
-        ID: uuid.New(),
-        LLMInferenceData: events.LLMInferenceData{
-            Model:       req.Model,
-            Usage:       nil,
-            StopReason:  nil,
-            Temperature: e.settings.Chat.Temperature,
-            TopP:        e.settings.Chat.TopP,
-            MaxTokens:   e.settings.Chat.MaxResponseTokens,
-        },
-    }
-    log.Debug().
-        Str("event_id", metadata.ID.String()).
-        Str("model", metadata.Model).
-        Interface("temperature", metadata.Temperature).
-        Interface("top_p", metadata.TopP).
-        Interface("max_tokens", metadata.MaxTokens).
-        Msg("LLMInferenceData initialized")
+	metadata := events.EventMetadata{
+		ID: uuid.New(),
+		LLMInferenceData: events.LLMInferenceData{
+			Model:       req.Model,
+			Usage:       nil,
+			StopReason:  nil,
+			Temperature: e.settings.Chat.Temperature,
+			TopP:        e.settings.Chat.TopP,
+			MaxTokens:   e.settings.Chat.MaxResponseTokens,
+		},
+	}
+	log.Debug().
+		Str("event_id", metadata.ID.String()).
+		Str("model", metadata.Model).
+		Interface("temperature", metadata.Temperature).
+		Interface("top_p", metadata.TopP).
+		Interface("max_tokens", metadata.MaxTokens).
+		Msg("LLMInferenceData initialized")
 	// Propagate Turn correlation identifiers when present
 	if t != nil {
 		metadata.RunID = t.RunID

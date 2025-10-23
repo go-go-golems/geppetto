@@ -1,8 +1,8 @@
 package turns
 
 import (
-    "strings"
-    "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
+	"strings"
 )
 
 // BlockKind represents the kind of a block within a Turn.
@@ -14,8 +14,8 @@ const (
 	BlockKindToolCall
 	BlockKindToolUse
 	BlockKindSystem
-    // BlockKindReasoning represents provider reasoning items (e.g., OpenAI encrypted reasoning).
-    BlockKindReasoning
+	// BlockKindReasoning represents provider reasoning items (e.g., OpenAI encrypted reasoning).
+	BlockKindReasoning
 	BlockKindOther
 )
 
@@ -32,8 +32,8 @@ func (k BlockKind) String() string {
 		return "tool_use"
 	case BlockKindSystem:
 		return "system"
-    case BlockKindReasoning:
-        return "reasoning"
+	case BlockKindReasoning:
+		return "reasoning"
 	case BlockKindOther:
 		return "other"
 	default:
@@ -43,60 +43,60 @@ func (k BlockKind) String() string {
 
 // YAML serialization for BlockKind using stable string names
 func (k BlockKind) MarshalYAML() (interface{}, error) {
-    return k.String(), nil
+	return k.String(), nil
 }
 
 func (k *BlockKind) UnmarshalYAML(value *yaml.Node) error {
-    if value == nil {
-        *k = BlockKindOther
-        return nil
-    }
-    var s string
-    if err := value.Decode(&s); err != nil {
-        return err
-    }
-    switch strings.ToLower(strings.TrimSpace(s)) {
-    case "user":
-        *k = BlockKindUser
-    case "llm_text":
-        *k = BlockKindLLMText
-    case "tool_call":
-        *k = BlockKindToolCall
-    case "tool_use":
-        *k = BlockKindToolUse
-    case "system":
-        *k = BlockKindSystem
-    case "reasoning":
-        *k = BlockKindReasoning
-    case "other", "":
-        *k = BlockKindOther
-    default:
-        // Unknown kind – map to Other but keep original for visibility
-        *k = BlockKindOther
-    }
-    return nil
+	if value == nil {
+		*k = BlockKindOther
+		return nil
+	}
+	var s string
+	if err := value.Decode(&s); err != nil {
+		return err
+	}
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "user":
+		*k = BlockKindUser
+	case "llm_text":
+		*k = BlockKindLLMText
+	case "tool_call":
+		*k = BlockKindToolCall
+	case "tool_use":
+		*k = BlockKindToolUse
+	case "system":
+		*k = BlockKindSystem
+	case "reasoning":
+		*k = BlockKindReasoning
+	case "other", "":
+		*k = BlockKindOther
+	default:
+		// Unknown kind – map to Other but keep original for visibility
+		*k = BlockKindOther
+	}
+	return nil
 }
 
 // Block represents a single atomic unit within a Turn.
 type Block struct {
-    ID      string                 `yaml:"id,omitempty"`
-    TurnID  string                 `yaml:"turn_id,omitempty"`
-    Kind    BlockKind              `yaml:"kind"`
-    Role    string                 `yaml:"role,omitempty"`
-    Payload map[string]any         `yaml:"payload,omitempty"`
-    // Metadata stores arbitrary metadata about the block
-    Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+	ID      string         `yaml:"id,omitempty"`
+	TurnID  string         `yaml:"turn_id,omitempty"`
+	Kind    BlockKind      `yaml:"kind"`
+	Role    string         `yaml:"role,omitempty"`
+	Payload map[string]any `yaml:"payload,omitempty"`
+	// Metadata stores arbitrary metadata about the block
+	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
 }
 
 // Turn contains an ordered list of Blocks and associated metadata.
 type Turn struct {
-    ID     string                 `yaml:"id,omitempty"`
-    RunID  string                 `yaml:"run_id,omitempty"`
-    Blocks []Block                `yaml:"blocks"`
-    // Metadata stores arbitrary metadata about the turn
-    Metadata map[string]interface{} `yaml:"metadata,omitempty"`
-    // Data stores the application data payload associated with this turn
-    Data map[string]interface{} `yaml:"data,omitempty"`
+	ID     string  `yaml:"id,omitempty"`
+	RunID  string  `yaml:"run_id,omitempty"`
+	Blocks []Block `yaml:"blocks"`
+	// Metadata stores arbitrary metadata about the turn
+	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+	// Data stores the application data payload associated with this turn
+	Data map[string]interface{} `yaml:"data,omitempty"`
 }
 
 // PrependBlock inserts a block at the beginning of the Turn's block slice.

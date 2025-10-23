@@ -54,31 +54,31 @@ const (
 	EventTypeFileSearchDone      EventType = "file-search-done"
 
 	// Code interpreter events
-	EventTypeCodeInterpreterStarted   EventType = "code-interpreter-started"
+	EventTypeCodeInterpreterStarted      EventType = "code-interpreter-started"
 	EventTypeCodeInterpreterInterpreting EventType = "code-interpreter-interpreting"
-	EventTypeCodeInterpreterDone      EventType = "code-interpreter-done"
-	EventTypeCodeInterpreterCodeDelta EventType = "code-interpreter-code-delta"
-	EventTypeCodeInterpreterCodeDone  EventType = "code-interpreter-code-done"
+	EventTypeCodeInterpreterDone         EventType = "code-interpreter-done"
+	EventTypeCodeInterpreterCodeDelta    EventType = "code-interpreter-code-delta"
+	EventTypeCodeInterpreterCodeDone     EventType = "code-interpreter-code-done"
 
 	// Reasoning text (not summary)
 	EventTypeReasoningTextDelta EventType = "reasoning-text-delta"
 	EventTypeReasoningTextDone  EventType = "reasoning-text-done"
 
 	// MCP tools
-	EventTypeMCPArgsDelta     EventType = "mcp-args-delta"
-	EventTypeMCPArgsDone      EventType = "mcp-args-done"
-	EventTypeMCPInProgress    EventType = "mcp-in-progress"
-	EventTypeMCPCompleted     EventType = "mcp-completed"
-	EventTypeMCPFailed        EventType = "mcp-failed"
+	EventTypeMCPArgsDelta      EventType = "mcp-args-delta"
+	EventTypeMCPArgsDone       EventType = "mcp-args-done"
+	EventTypeMCPInProgress     EventType = "mcp-in-progress"
+	EventTypeMCPCompleted      EventType = "mcp-completed"
+	EventTypeMCPFailed         EventType = "mcp-failed"
 	EventTypeMCPListInProgress EventType = "mcp-list-tools-in-progress"
 	EventTypeMCPListCompleted  EventType = "mcp-list-tools-completed"
 	EventTypeMCPListFailed     EventType = "mcp-list-tools-failed"
 
 	// Image generation built-in
-	EventTypeImageGenInProgress  EventType = "image-generation-in-progress"
-	EventTypeImageGenGenerating  EventType = "image-generation-generating"
+	EventTypeImageGenInProgress   EventType = "image-generation-in-progress"
+	EventTypeImageGenGenerating   EventType = "image-generation-generating"
 	EventTypeImageGenPartialImage EventType = "image-generation-partial-image"
-	EventTypeImageGenCompleted   EventType = "image-generation-completed"
+	EventTypeImageGenCompleted    EventType = "image-generation-completed"
 
 	// Normalized tool results
 	EventTypeToolSearchResults EventType = "tool-search-results"
@@ -132,7 +132,7 @@ func (e *EventImpl) Payload() []byte {
 // SetPayload stores the raw JSON payload on the event implementation.
 // This is used by NewEventFromJson and external decoders.
 func (e *EventImpl) SetPayload(b []byte) {
-    e.payload = b
+	e.payload = b
 }
 
 var _ Event = &EventImpl{}
@@ -427,33 +427,35 @@ const (
 )
 
 func NewEventFromJson(b []byte) (Event, error) {
-    // First, read minimal header to get type.
-    var hdr struct{ Type EventType `json:"type"` }
-    _ = json.Unmarshal(b, &hdr)
+	// First, read minimal header to get type.
+	var hdr struct {
+		Type EventType `json:"type"`
+	}
+	_ = json.Unmarshal(b, &hdr)
 
-    // If an external decoder is registered, try it first.
-    if hdr.Type != "" {
-        if dec := lookupDecoder(string(hdr.Type)); dec != nil {
-            if ev, err := dec(b); err == nil && ev != nil {
-                // Ensure payload is available on embedded EventImpl if present
-                if impl, ok := ev.(*EventImpl); ok {
-                    impl.SetPayload(b)
-                } else {
-                    // For structs embedding EventImpl, attempt a second unmarshal to set payload via interface
-                    // Best-effort: re-unmarshal into a temporary to access embedded pointer
-                }
-                return ev, nil
-            }
-        }
-    }
+	// If an external decoder is registered, try it first.
+	if hdr.Type != "" {
+		if dec := lookupDecoder(string(hdr.Type)); dec != nil {
+			if ev, err := dec(b); err == nil && ev != nil {
+				// Ensure payload is available on embedded EventImpl if present
+				if impl, ok := ev.(*EventImpl); ok {
+					impl.SetPayload(b)
+				} else {
+					// For structs embedding EventImpl, attempt a second unmarshal to set payload via interface
+					// Best-effort: re-unmarshal into a temporary to access embedded pointer
+				}
+				return ev, nil
+			}
+		}
+	}
 
-    var e *EventImpl
-    err := json.Unmarshal(b, &e)
-    if err != nil {
-        return nil, err
-    }
+	var e *EventImpl
+	err := json.Unmarshal(b, &e)
+	if err != nil {
+		return nil, err
+	}
 
-    e.payload = b
+	e.payload = b
 
 	switch e.Type_ {
 	case EventTypeStart:
@@ -538,115 +540,171 @@ func NewEventFromJson(b []byte) (Event, error) {
 		return ret, nil
 	case EventTypeWebSearchStarted:
 		ret, ok := ToTypedEvent[EventWebSearchStarted](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventWebSearchStarted") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventWebSearchStarted")
+		}
 		return ret, nil
 	case EventTypeWebSearchSearching:
 		ret, ok := ToTypedEvent[EventWebSearchSearching](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventWebSearchSearching") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventWebSearchSearching")
+		}
 		return ret, nil
 	case EventTypeWebSearchOpenPage:
 		ret, ok := ToTypedEvent[EventWebSearchOpenPage](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventWebSearchOpenPage") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventWebSearchOpenPage")
+		}
 		return ret, nil
 	case EventTypeWebSearchDone:
 		ret, ok := ToTypedEvent[EventWebSearchDone](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventWebSearchDone") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventWebSearchDone")
+		}
 		return ret, nil
 	case EventTypeCitation:
 		ret, ok := ToTypedEvent[EventCitation](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventCitation") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventCitation")
+		}
 		return ret, nil
 	case EventTypeFileSearchStarted:
 		ret, ok := ToTypedEvent[EventFileSearchStarted](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventFileSearchStarted") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventFileSearchStarted")
+		}
 		return ret, nil
 	case EventTypeFileSearchSearching:
 		ret, ok := ToTypedEvent[EventFileSearchSearching](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventFileSearchSearching") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventFileSearchSearching")
+		}
 		return ret, nil
 	case EventTypeFileSearchDone:
 		ret, ok := ToTypedEvent[EventFileSearchDone](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventFileSearchDone") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventFileSearchDone")
+		}
 		return ret, nil
 	case EventTypeCodeInterpreterStarted:
 		ret, ok := ToTypedEvent[EventCodeInterpreterStarted](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventCodeInterpreterStarted") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventCodeInterpreterStarted")
+		}
 		return ret, nil
 	case EventTypeCodeInterpreterInterpreting:
 		ret, ok := ToTypedEvent[EventCodeInterpreterInterpreting](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventCodeInterpreterInterpreting") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventCodeInterpreterInterpreting")
+		}
 		return ret, nil
 	case EventTypeCodeInterpreterDone:
 		ret, ok := ToTypedEvent[EventCodeInterpreterDone](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventCodeInterpreterDone") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventCodeInterpreterDone")
+		}
 		return ret, nil
 	case EventTypeCodeInterpreterCodeDelta:
 		ret, ok := ToTypedEvent[EventCodeInterpreterCodeDelta](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventCodeInterpreterCodeDelta") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventCodeInterpreterCodeDelta")
+		}
 		return ret, nil
 	case EventTypeCodeInterpreterCodeDone:
 		ret, ok := ToTypedEvent[EventCodeInterpreterCodeDone](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventCodeInterpreterCodeDone") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventCodeInterpreterCodeDone")
+		}
 		return ret, nil
 	case EventTypeReasoningTextDelta:
 		ret, ok := ToTypedEvent[EventReasoningTextDelta](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventReasoningTextDelta") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventReasoningTextDelta")
+		}
 		return ret, nil
 	case EventTypeReasoningTextDone:
 		ret, ok := ToTypedEvent[EventReasoningTextDone](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventReasoningTextDone") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventReasoningTextDone")
+		}
 		return ret, nil
 	case EventTypeMCPArgsDelta:
 		ret, ok := ToTypedEvent[EventMCPArgsDelta](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPArgsDelta") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPArgsDelta")
+		}
 		return ret, nil
 	case EventTypeMCPArgsDone:
 		ret, ok := ToTypedEvent[EventMCPArgsDone](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPArgsDone") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPArgsDone")
+		}
 		return ret, nil
 	case EventTypeMCPInProgress:
 		ret, ok := ToTypedEvent[EventMCPInProgress](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPInProgress") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPInProgress")
+		}
 		return ret, nil
 	case EventTypeMCPCompleted:
 		ret, ok := ToTypedEvent[EventMCPCompleted](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPCompleted") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPCompleted")
+		}
 		return ret, nil
 	case EventTypeMCPFailed:
 		ret, ok := ToTypedEvent[EventMCPFailed](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPFailed") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPFailed")
+		}
 		return ret, nil
 	case EventTypeMCPListInProgress:
 		ret, ok := ToTypedEvent[EventMCPListInProgress](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPListInProgress") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPListInProgress")
+		}
 		return ret, nil
 	case EventTypeMCPListCompleted:
 		ret, ok := ToTypedEvent[EventMCPListCompleted](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPListCompleted") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPListCompleted")
+		}
 		return ret, nil
 	case EventTypeMCPListFailed:
 		ret, ok := ToTypedEvent[EventMCPListFailed](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventMCPListFailed") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventMCPListFailed")
+		}
 		return ret, nil
 	case EventTypeImageGenInProgress:
 		ret, ok := ToTypedEvent[EventImageGenInProgress](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventImageGenInProgress") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventImageGenInProgress")
+		}
 		return ret, nil
 	case EventTypeImageGenGenerating:
 		ret, ok := ToTypedEvent[EventImageGenGenerating](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventImageGenGenerating") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventImageGenGenerating")
+		}
 		return ret, nil
 	case EventTypeImageGenPartialImage:
 		ret, ok := ToTypedEvent[EventImageGenPartialImage](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventImageGenPartialImage") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventImageGenPartialImage")
+		}
 		return ret, nil
 	case EventTypeImageGenCompleted:
 		ret, ok := ToTypedEvent[EventImageGenCompleted](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventImageGenCompleted") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventImageGenCompleted")
+		}
 		return ret, nil
 	case EventTypeToolSearchResults:
 		ret, ok := ToTypedEvent[EventToolSearchResults](e)
-		if !ok { return nil, fmt.Errorf("could not cast event to EventToolSearchResults") }
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventToolSearchResults")
+		}
 		return ret, nil
 	}
 
@@ -819,183 +877,281 @@ var _ Event = &EventAgentModeSwitch{}
 // --- Web search custom events ---
 
 type EventWebSearchStarted struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
-    Query  string `json:"query,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+	Query  string `json:"query,omitempty"`
 }
 
 func NewWebSearchStarted(metadata EventMetadata, itemID, query string) *EventWebSearchStarted {
-    return &EventWebSearchStarted{EventImpl: EventImpl{Type_: EventTypeWebSearchStarted, Metadata_: metadata}, ItemID: itemID, Query: query}
+	return &EventWebSearchStarted{EventImpl: EventImpl{Type_: EventTypeWebSearchStarted, Metadata_: metadata}, ItemID: itemID, Query: query}
 }
 
 type EventWebSearchSearching struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewWebSearchSearching(metadata EventMetadata, itemID string) *EventWebSearchSearching {
-    return &EventWebSearchSearching{EventImpl: EventImpl{Type_: EventTypeWebSearchSearching, Metadata_: metadata}, ItemID: itemID}
+	return &EventWebSearchSearching{EventImpl: EventImpl{Type_: EventTypeWebSearchSearching, Metadata_: metadata}, ItemID: itemID}
 }
 
 type EventWebSearchOpenPage struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
-    URL    string `json:"url,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+	URL    string `json:"url,omitempty"`
 }
 
 func NewWebSearchOpenPage(metadata EventMetadata, itemID, url string) *EventWebSearchOpenPage {
-    return &EventWebSearchOpenPage{EventImpl: EventImpl{Type_: EventTypeWebSearchOpenPage, Metadata_: metadata}, ItemID: itemID, URL: url}
+	return &EventWebSearchOpenPage{EventImpl: EventImpl{Type_: EventTypeWebSearchOpenPage, Metadata_: metadata}, ItemID: itemID, URL: url}
 }
 
 type EventWebSearchDone struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewWebSearchDone(metadata EventMetadata, itemID string) *EventWebSearchDone {
-    return &EventWebSearchDone{EventImpl: EventImpl{Type_: EventTypeWebSearchDone, Metadata_: metadata}, ItemID: itemID}
+	return &EventWebSearchDone{EventImpl: EventImpl{Type_: EventTypeWebSearchDone, Metadata_: metadata}, ItemID: itemID}
 }
 
 // Citation event attached to streamed output text
 type EventCitation struct {
-    EventImpl
-    Title        string `json:"title,omitempty"`
-    URL          string `json:"url,omitempty"`
-    StartIndex   *int   `json:"start_index,omitempty"`
-    EndIndex     *int   `json:"end_index,omitempty"`
-    OutputIndex  *int   `json:"output_index,omitempty"`
-    ContentIndex *int   `json:"content_index,omitempty"`
-    AnnotationIndex *int `json:"annotation_index,omitempty"`
+	EventImpl
+	Title           string `json:"title,omitempty"`
+	URL             string `json:"url,omitempty"`
+	StartIndex      *int   `json:"start_index,omitempty"`
+	EndIndex        *int   `json:"end_index,omitempty"`
+	OutputIndex     *int   `json:"output_index,omitempty"`
+	ContentIndex    *int   `json:"content_index,omitempty"`
+	AnnotationIndex *int   `json:"annotation_index,omitempty"`
 }
 
 func NewCitation(metadata EventMetadata, title, url string, start, end, outputIdx, contentIdx, annIdx *int) *EventCitation {
-    return &EventCitation{EventImpl: EventImpl{Type_: EventTypeCitation, Metadata_: metadata}, Title: title, URL: url, StartIndex: start, EndIndex: end, OutputIndex: outputIdx, ContentIndex: contentIdx, AnnotationIndex: annIdx}
+	return &EventCitation{EventImpl: EventImpl{Type_: EventTypeCitation, Metadata_: metadata}, Title: title, URL: url, StartIndex: start, EndIndex: end, OutputIndex: outputIdx, ContentIndex: contentIdx, AnnotationIndex: annIdx}
 }
 
 // File search custom events
 type EventFileSearchStarted struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewFileSearchStarted(metadata EventMetadata, itemID string) *EventFileSearchStarted {
-    return &EventFileSearchStarted{EventImpl: EventImpl{Type_: EventTypeFileSearchStarted, Metadata_: metadata}, ItemID: itemID}
+	return &EventFileSearchStarted{EventImpl: EventImpl{Type_: EventTypeFileSearchStarted, Metadata_: metadata}, ItemID: itemID}
 }
 
 type EventFileSearchSearching struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewFileSearchSearching(metadata EventMetadata, itemID string) *EventFileSearchSearching {
-    return &EventFileSearchSearching{EventImpl: EventImpl{Type_: EventTypeFileSearchSearching, Metadata_: metadata}, ItemID: itemID}
+	return &EventFileSearchSearching{EventImpl: EventImpl{Type_: EventTypeFileSearchSearching, Metadata_: metadata}, ItemID: itemID}
 }
 
 type EventFileSearchDone struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewFileSearchDone(metadata EventMetadata, itemID string) *EventFileSearchDone {
-    return &EventFileSearchDone{EventImpl: EventImpl{Type_: EventTypeFileSearchDone, Metadata_: metadata}, ItemID: itemID}
+	return &EventFileSearchDone{EventImpl: EventImpl{Type_: EventTypeFileSearchDone, Metadata_: metadata}, ItemID: itemID}
 }
 
 // Code interpreter custom events
 type EventCodeInterpreterStarted struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewCodeInterpreterStarted(metadata EventMetadata, itemID string) *EventCodeInterpreterStarted {
-    return &EventCodeInterpreterStarted{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterStarted, Metadata_: metadata}, ItemID: itemID}
+	return &EventCodeInterpreterStarted{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterStarted, Metadata_: metadata}, ItemID: itemID}
 }
 
 type EventCodeInterpreterInterpreting struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewCodeInterpreterInterpreting(metadata EventMetadata, itemID string) *EventCodeInterpreterInterpreting {
-    return &EventCodeInterpreterInterpreting{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterInterpreting, Metadata_: metadata}, ItemID: itemID}
+	return &EventCodeInterpreterInterpreting{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterInterpreting, Metadata_: metadata}, ItemID: itemID}
 }
 
 type EventCodeInterpreterDone struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
 }
 
 func NewCodeInterpreterDone(metadata EventMetadata, itemID string) *EventCodeInterpreterDone {
-    return &EventCodeInterpreterDone{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterDone, Metadata_: metadata}, ItemID: itemID}
+	return &EventCodeInterpreterDone{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterDone, Metadata_: metadata}, ItemID: itemID}
 }
 
 type EventCodeInterpreterCodeDelta struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
-    Delta  string `json:"delta"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+	Delta  string `json:"delta"`
 }
 
 func NewCodeInterpreterCodeDelta(metadata EventMetadata, itemID, delta string) *EventCodeInterpreterCodeDelta {
-    return &EventCodeInterpreterCodeDelta{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterCodeDelta, Metadata_: metadata}, ItemID: itemID, Delta: delta}
+	return &EventCodeInterpreterCodeDelta{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterCodeDelta, Metadata_: metadata}, ItemID: itemID, Delta: delta}
 }
 
 type EventCodeInterpreterCodeDone struct {
-    EventImpl
-    ItemID string `json:"item_id,omitempty"`
-    Code   string `json:"code"`
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+	Code   string `json:"code"`
 }
 
 func NewCodeInterpreterCodeDone(metadata EventMetadata, itemID, code string) *EventCodeInterpreterCodeDone {
-    return &EventCodeInterpreterCodeDone{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterCodeDone, Metadata_: metadata}, ItemID: itemID, Code: code}
+	return &EventCodeInterpreterCodeDone{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterCodeDone, Metadata_: metadata}, ItemID: itemID, Code: code}
 }
 
 // Reasoning text
 type EventReasoningTextDelta struct {
-    EventImpl
-    Delta string `json:"delta"`
+	EventImpl
+	Delta string `json:"delta"`
 }
 
 func NewReasoningTextDelta(metadata EventMetadata, delta string) *EventReasoningTextDelta {
-    return &EventReasoningTextDelta{EventImpl: EventImpl{Type_: EventTypeReasoningTextDelta, Metadata_: metadata}, Delta: delta}
+	return &EventReasoningTextDelta{EventImpl: EventImpl{Type_: EventTypeReasoningTextDelta, Metadata_: metadata}, Delta: delta}
 }
 
 type EventReasoningTextDone struct {
-    EventImpl
-    Text string `json:"text"`
+	EventImpl
+	Text string `json:"text"`
 }
 
 func NewReasoningTextDone(metadata EventMetadata, text string) *EventReasoningTextDone {
-    return &EventReasoningTextDone{EventImpl: EventImpl{Type_: EventTypeReasoningTextDone, Metadata_: metadata}, Text: text}
+	return &EventReasoningTextDone{EventImpl: EventImpl{Type_: EventTypeReasoningTextDone, Metadata_: metadata}, Text: text}
 }
 
 // MCP
-type EventMCPArgsDelta struct { EventImpl; ItemID string `json:"item_id,omitempty"`; Delta string `json:"delta"` }
-func NewMCPArgsDelta(metadata EventMetadata, itemID, delta string) *EventMCPArgsDelta { return &EventMCPArgsDelta{EventImpl: EventImpl{Type_: EventTypeMCPArgsDelta, Metadata_: metadata}, ItemID: itemID, Delta: delta} }
-type EventMCPArgsDone struct { EventImpl; ItemID string `json:"item_id,omitempty"`; Arguments string `json:"arguments"` }
-func NewMCPArgsDone(metadata EventMetadata, itemID, args string) *EventMCPArgsDone { return &EventMCPArgsDone{EventImpl: EventImpl{Type_: EventTypeMCPArgsDone, Metadata_: metadata}, ItemID: itemID, Arguments: args} }
-type EventMCPInProgress struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewMCPInProgress(metadata EventMetadata, itemID string) *EventMCPInProgress { return &EventMCPInProgress{EventImpl: EventImpl{Type_: EventTypeMCPInProgress, Metadata_: metadata}, ItemID: itemID} }
-type EventMCPCompleted struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewMCPCompleted(metadata EventMetadata, itemID string) *EventMCPCompleted { return &EventMCPCompleted{EventImpl: EventImpl{Type_: EventTypeMCPCompleted, Metadata_: metadata}, ItemID: itemID} }
-type EventMCPFailed struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewMCPFailed(metadata EventMetadata, itemID string) *EventMCPFailed { return &EventMCPFailed{EventImpl: EventImpl{Type_: EventTypeMCPFailed, Metadata_: metadata}, ItemID: itemID} }
-type EventMCPListInProgress struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewMCPListInProgress(metadata EventMetadata, itemID string) *EventMCPListInProgress { return &EventMCPListInProgress{EventImpl: EventImpl{Type_: EventTypeMCPListInProgress, Metadata_: metadata}, ItemID: itemID} }
-type EventMCPListCompleted struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewMCPListCompleted(metadata EventMetadata, itemID string) *EventMCPListCompleted { return &EventMCPListCompleted{EventImpl: EventImpl{Type_: EventTypeMCPListCompleted, Metadata_: metadata}, ItemID: itemID} }
-type EventMCPListFailed struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewMCPListFailed(metadata EventMetadata, itemID string) *EventMCPListFailed { return &EventMCPListFailed{EventImpl: EventImpl{Type_: EventTypeMCPListFailed, Metadata_: metadata}, ItemID: itemID} }
+type EventMCPArgsDelta struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+	Delta  string `json:"delta"`
+}
+
+func NewMCPArgsDelta(metadata EventMetadata, itemID, delta string) *EventMCPArgsDelta {
+	return &EventMCPArgsDelta{EventImpl: EventImpl{Type_: EventTypeMCPArgsDelta, Metadata_: metadata}, ItemID: itemID, Delta: delta}
+}
+
+type EventMCPArgsDone struct {
+	EventImpl
+	ItemID    string `json:"item_id,omitempty"`
+	Arguments string `json:"arguments"`
+}
+
+func NewMCPArgsDone(metadata EventMetadata, itemID, args string) *EventMCPArgsDone {
+	return &EventMCPArgsDone{EventImpl: EventImpl{Type_: EventTypeMCPArgsDone, Metadata_: metadata}, ItemID: itemID, Arguments: args}
+}
+
+type EventMCPInProgress struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewMCPInProgress(metadata EventMetadata, itemID string) *EventMCPInProgress {
+	return &EventMCPInProgress{EventImpl: EventImpl{Type_: EventTypeMCPInProgress, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventMCPCompleted struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewMCPCompleted(metadata EventMetadata, itemID string) *EventMCPCompleted {
+	return &EventMCPCompleted{EventImpl: EventImpl{Type_: EventTypeMCPCompleted, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventMCPFailed struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewMCPFailed(metadata EventMetadata, itemID string) *EventMCPFailed {
+	return &EventMCPFailed{EventImpl: EventImpl{Type_: EventTypeMCPFailed, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventMCPListInProgress struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewMCPListInProgress(metadata EventMetadata, itemID string) *EventMCPListInProgress {
+	return &EventMCPListInProgress{EventImpl: EventImpl{Type_: EventTypeMCPListInProgress, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventMCPListCompleted struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewMCPListCompleted(metadata EventMetadata, itemID string) *EventMCPListCompleted {
+	return &EventMCPListCompleted{EventImpl: EventImpl{Type_: EventTypeMCPListCompleted, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventMCPListFailed struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewMCPListFailed(metadata EventMetadata, itemID string) *EventMCPListFailed {
+	return &EventMCPListFailed{EventImpl: EventImpl{Type_: EventTypeMCPListFailed, Metadata_: metadata}, ItemID: itemID}
+}
 
 // Image generation
-type EventImageGenInProgress struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewImageGenInProgress(metadata EventMetadata, itemID string) *EventImageGenInProgress { return &EventImageGenInProgress{EventImpl: EventImpl{Type_: EventTypeImageGenInProgress, Metadata_: metadata}, ItemID: itemID} }
-type EventImageGenGenerating struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewImageGenGenerating(metadata EventMetadata, itemID string) *EventImageGenGenerating { return &EventImageGenGenerating{EventImpl: EventImpl{Type_: EventTypeImageGenGenerating, Metadata_: metadata}, ItemID: itemID} }
-type EventImageGenPartialImage struct { EventImpl; ItemID string `json:"item_id,omitempty"`; PartialImageBase64 string `json:"partial_image_base64,omitempty"` }
-func NewImageGenPartialImage(metadata EventMetadata, itemID, b64 string) *EventImageGenPartialImage { return &EventImageGenPartialImage{EventImpl: EventImpl{Type_: EventTypeImageGenPartialImage, Metadata_: metadata}, ItemID: itemID, PartialImageBase64: b64} }
-type EventImageGenCompleted struct { EventImpl; ItemID string `json:"item_id,omitempty"` }
-func NewImageGenCompleted(metadata EventMetadata, itemID string) *EventImageGenCompleted { return &EventImageGenCompleted{EventImpl: EventImpl{Type_: EventTypeImageGenCompleted, Metadata_: metadata}, ItemID: itemID} }
+type EventImageGenInProgress struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewImageGenInProgress(metadata EventMetadata, itemID string) *EventImageGenInProgress {
+	return &EventImageGenInProgress{EventImpl: EventImpl{Type_: EventTypeImageGenInProgress, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventImageGenGenerating struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewImageGenGenerating(metadata EventMetadata, itemID string) *EventImageGenGenerating {
+	return &EventImageGenGenerating{EventImpl: EventImpl{Type_: EventTypeImageGenGenerating, Metadata_: metadata}, ItemID: itemID}
+}
+
+type EventImageGenPartialImage struct {
+	EventImpl
+	ItemID             string `json:"item_id,omitempty"`
+	PartialImageBase64 string `json:"partial_image_base64,omitempty"`
+}
+
+func NewImageGenPartialImage(metadata EventMetadata, itemID, b64 string) *EventImageGenPartialImage {
+	return &EventImageGenPartialImage{EventImpl: EventImpl{Type_: EventTypeImageGenPartialImage, Metadata_: metadata}, ItemID: itemID, PartialImageBase64: b64}
+}
+
+type EventImageGenCompleted struct {
+	EventImpl
+	ItemID string `json:"item_id,omitempty"`
+}
+
+func NewImageGenCompleted(metadata EventMetadata, itemID string) *EventImageGenCompleted {
+	return &EventImageGenCompleted{EventImpl: EventImpl{Type_: EventTypeImageGenCompleted, Metadata_: metadata}, ItemID: itemID}
+}
 
 // Normalized results
-type SearchResult struct { URL string `json:"url,omitempty"`; Title string `json:"title,omitempty"`; Snippet string `json:"snippet,omitempty"`; Extensions map[string]any `json:"ext,omitempty"` }
-type EventToolSearchResults struct { EventImpl; Tool string `json:"tool"`; ItemID string `json:"item_id,omitempty"`; Results []SearchResult `json:"results"` }
-func NewToolSearchResults(metadata EventMetadata, tool, itemID string, res []SearchResult) *EventToolSearchResults { return &EventToolSearchResults{EventImpl: EventImpl{Type_: EventTypeToolSearchResults, Metadata_: metadata}, Tool: tool, ItemID: itemID, Results: res} }
+type SearchResult struct {
+	URL        string         `json:"url,omitempty"`
+	Title      string         `json:"title,omitempty"`
+	Snippet    string         `json:"snippet,omitempty"`
+	Extensions map[string]any `json:"ext,omitempty"`
+}
+type EventToolSearchResults struct {
+	EventImpl
+	Tool    string         `json:"tool"`
+	ItemID  string         `json:"item_id,omitempty"`
+	Results []SearchResult `json:"results"`
+}
+
+func NewToolSearchResults(metadata EventMetadata, tool, itemID string, res []SearchResult) *EventToolSearchResults {
+	return &EventToolSearchResults{EventImpl: EventImpl{Type_: EventTypeToolSearchResults, Metadata_: metadata}, Tool: tool, ItemID: itemID, Results: res}
+}

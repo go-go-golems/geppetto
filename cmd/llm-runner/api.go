@@ -17,23 +17,23 @@ import (
 )
 
 type ArtifactRun struct {
-	ID         string `json:"id"`
-	Path       string `json:"path"`
-	Timestamp  int64  `json:"timestamp"`
-	HasTurns   bool   `json:"hasTurns"`
-	HasEvents  bool   `json:"hasEvents"`
-	HasLogs    bool   `json:"hasLogs"`
-	HasRaw     bool   `json:"hasRaw"`
-	TurnCount  int    `json:"turnCount"`
+	ID        string `json:"id"`
+	Path      string `json:"path"`
+	Timestamp int64  `json:"timestamp"`
+	HasTurns  bool   `json:"hasTurns"`
+	HasEvents bool   `json:"hasEvents"`
+	HasLogs   bool   `json:"hasLogs"`
+	HasRaw    bool   `json:"hasRaw"`
+	TurnCount int    `json:"turnCount"`
 }
 
 type TurnDTO struct {
-	ID             string     `json:"id"`
-	Blocks         []BlockDTO `json:"blocks"`
-	ExecutionIndex int        `json:"executionIndex"`
-	Label          string     `json:"label"`
-	RawYAML        string     `json:"rawYaml,omitempty"`
-	RawRequestIndex *int      `json:"rawRequestIndex,omitempty"` // Index into raw artifacts array
+	ID              string     `json:"id"`
+	Blocks          []BlockDTO `json:"blocks"`
+	ExecutionIndex  int        `json:"executionIndex"`
+	Label           string     `json:"label"`
+	RawYAML         string     `json:"rawYaml,omitempty"`
+	RawRequestIndex *int       `json:"rawRequestIndex,omitempty"` // Index into raw artifacts array
 }
 
 type BlockDTO struct {
@@ -43,14 +43,14 @@ type BlockDTO struct {
 }
 
 type ParsedRun struct {
-	ID        string          `json:"id"`
-	Path      string          `json:"path"`
-	InputTurn *TurnDTO        `json:"inputTurn,omitempty"`
-	Turns     []TurnDTO       `json:"turns"`
-	Events    [][]Event       `json:"events"`
-	Logs      []LogEntry      `json:"logs"`
-	Raw       []RawArtifact   `json:"raw"`
-	Errors    []ErrorContext  `json:"errors"`
+	ID        string         `json:"id"`
+	Path      string         `json:"path"`
+	InputTurn *TurnDTO       `json:"inputTurn,omitempty"`
+	Turns     []TurnDTO      `json:"turns"`
+	Events    [][]Event      `json:"events"`
+	Logs      []LogEntry     `json:"logs"`
+	Raw       []RawArtifact  `json:"raw"`
+	Errors    []ErrorContext `json:"errors"`
 }
 
 type Event struct {
@@ -70,7 +70,7 @@ type LogEntry struct {
 
 type RawArtifact struct {
 	TurnIndex       int              `json:"turnIndex"`
-	InputTurnIndex  int              `json:"inputTurnIndex"` // Which turn was used as input for this request
+	InputTurnIndex  int              `json:"inputTurnIndex"`          // Which turn was used as input for this request
 	InputTurnYAML   string           `json:"inputTurnYaml,omitempty"` // The actual turn YAML before conversion
 	HTTPRequest     *HTTPRequest     `json:"httpRequest,omitempty"`
 	HTTPResponse    *HTTPResponse    `json:"httpResponse,omitempty"`
@@ -88,11 +88,11 @@ type HTTPRequest struct {
 }
 
 type HTTPResponse struct {
-	TurnIndex int                    `json:"turn_index"`
-	TurnID    string                 `json:"turn_id"`
-	Status    int                    `json:"status"`
-	Headers   map[string][]string    `json:"headers"`
-	Body      interface{}            `json:"body"`
+	TurnIndex int                 `json:"turn_index"`
+	TurnID    string              `json:"turn_id"`
+	Status    int                 `json:"status"`
+	Headers   map[string][]string `json:"headers"`
+	Body      interface{}         `json:"body"`
 }
 
 type ProviderObject struct {
@@ -102,12 +102,12 @@ type ProviderObject struct {
 }
 
 type ErrorContext struct {
-	TurnIndex      int           `json:"turnIndex"`
-	Error          string        `json:"error"`
-	RelatedLogs    []LogEntry    `json:"relatedLogs"`
-	RelatedEvents  []Event       `json:"relatedEvents"`
-	HTTPRequest    *HTTPRequest  `json:"httpRequest,omitempty"`
-	HTTPResponse   *HTTPResponse `json:"httpResponse,omitempty"`
+	TurnIndex     int           `json:"turnIndex"`
+	Error         string        `json:"error"`
+	RelatedLogs   []LogEntry    `json:"relatedLogs"`
+	RelatedEvents []Event       `json:"relatedEvents"`
+	HTTPRequest   *HTTPRequest  `json:"httpRequest,omitempty"`
+	HTTPResponse  *HTTPResponse `json:"httpResponse,omitempty"`
 }
 
 type APIHandler struct {
@@ -230,22 +230,22 @@ func toTurnDTO(turn *turns.Turn, index int, label string, rawYaml []byte, rawReq
 		RawYAML:         string(rawYaml),
 		RawRequestIndex: rawRequestIndex,
 	}
-	
+
 	for _, block := range turn.Blocks {
 		blockDTO := BlockDTO{
 			Kind:    block.Kind.String(),
 			Role:    string(block.Role),
 			Payload: block.Payload,
 		}
-		
+
 		// Ensure payload is not nil
 		if blockDTO.Payload == nil {
 			blockDTO.Payload = make(map[string]interface{})
 		}
-		
+
 		dto.Blocks = append(dto.Blocks, blockDTO)
 	}
-	
+
 	return dto
 }
 
@@ -275,7 +275,7 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 		var path string
 		var label string
 		var rawRequestIndex *int
-		
+
 		if i == 0 {
 			path = filepath.Join(runPath, "final_turn.yaml")
 			label = "After Initial Run"
@@ -365,9 +365,9 @@ func (h *APIHandler) parseEvents(path string) ([]Event, error) {
 		}
 
 		event := Event{
-			Type: getString(raw, "type"),
+			Type:      getString(raw, "type"),
 			Timestamp: int64(getFloat(raw, "ts")),
-			Data: getMap(raw, "event"),
+			Data:      getMap(raw, "event"),
 		}
 
 		if eventData, ok := raw["event"].(map[string]interface{}); ok {
@@ -502,13 +502,13 @@ func (h *APIHandler) parseRawArtifacts(rawDir string) ([]RawArtifact, error) {
 		sort.Slice(art.ProviderObjects, func(i, j int) bool {
 			return art.ProviderObjects[i].Sequence < art.ProviderObjects[j].Sequence
 		})
-		
+
 		// Calculate which turn execution index was used as input for this request
 		// Raw artifacts are 1-indexed (turn-1, turn-2...), execution indices are 0-indexed
 		// turn-1 uses execution index 0 (After Initial Run)
 		// turn-2 uses execution index 1 (After Follow-up #1 before run)
 		art.InputTurnIndex = idx - 1
-		
+
 		result = append(result, *art)
 	}
 
@@ -579,4 +579,3 @@ func getMap(m map[string]interface{}, key string) map[string]interface{} {
 	}
 	return make(map[string]interface{})
 }
-

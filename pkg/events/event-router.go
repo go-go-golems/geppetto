@@ -56,8 +56,8 @@ func WithSubscriber(subscriber message.Subscriber) EventRouterOption {
 func WithVerbose(verbose bool) EventRouterOption {
 	return func(r *EventRouter) {
 		r.verbose = verbose
-        // Force Watermill logger to INFO level regardless of parent global level
-        r.logger = helpers.NewWatermill(log.Logger.Level(zerolog.InfoLevel))
+		// Force Watermill logger to INFO level regardless of parent global level
+		r.logger = helpers.NewWatermill(log.Logger.Level(zerolog.InfoLevel))
 	}
 }
 

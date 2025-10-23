@@ -1,61 +1,61 @@
 package openai_responses
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"bufio"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
-	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/pkg/errors"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 // Engine implements the Engine interface for OpenAI Responses API calls.
 type Engine struct {
-    settings *settings.StepSettings
-    config   *engine.Config
+	settings *settings.StepSettings
+	config   *engine.Config
 }
 
 func NewEngine(s *settings.StepSettings, options ...engine.Option) (*Engine, error) {
-    cfg := engine.NewConfig()
-    if err := engine.ApplyOptions(cfg, options...); err != nil {
-        return nil, err
-    }
-    return &Engine{settings: s, config: cfg}, nil
+	cfg := engine.NewConfig()
+	if err := engine.ApplyOptions(cfg, options...); err != nil {
+		return nil, err
+	}
+	return &Engine{settings: s, config: cfg}, nil
 }
 
 // publishEvent publishes events to configured sinks and context sinks.
 func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
-    for _, sink := range e.config.EventSinks {
-        if err := sink.PublishEvent(event); err != nil {
-            log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-        }
-    }
-    events.PublishEventToContext(ctx, event)
-    // Emit minimal pointers to raw info via EventMetadata.Extra when available
+	for _, sink := range e.config.EventSinks {
+		if err := sink.PublishEvent(event); err != nil {
+			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
+		}
+	}
+	events.PublishEventToContext(ctx, event)
+	// Emit minimal pointers to raw info via EventMetadata.Extra when available
 }
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	startTime := time.Now()
-	
+
 	// Capture turn state before conversion if DebugTap is present
 	if tap, ok := engine.DebugTapFrom(ctx); ok && t != nil {
 		if turnYAML, err := serde.ToYAML(t, serde.Options{}); err == nil {
 			tap.OnTurnBeforeConversion(turnYAML)
 		}
 	}
-	
+
 	// Build HTTP request to /v1/responses
 	reqBody, err := buildResponsesRequest(e.settings, t)
 	if err != nil {
@@ -81,22 +81,28 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		var toolCfg engine.ToolConfig
 		if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
-			if cfg, ok := cfgAny.(engine.ToolConfig); ok { toolCfg = cfg }
+			if cfg, ok := cfgAny.(engine.ToolConfig); ok {
+				toolCfg = cfg
+			}
 		}
 		if len(engineTools) > 0 && toolCfg.Enabled {
 			converted, err := e.PrepareToolsForResponses(engineTools, toolCfg)
-			if err != nil { return nil, err }
+			if err != nil {
+				return nil, err
+			}
 			if arr, ok := converted.([]any); ok && len(arr) > 0 {
 				reqBody.Tools = arr
 				// Responses API: omit tool_choice for function tools to allow model selection
 				reqBody.ToolChoice = nil
 				// parallel_tool_calls preference
 				if toolCfg.MaxParallelTools > 1 {
-					b := true; reqBody.ParallelToolCalls = &b
+					b := true
+					reqBody.ParallelToolCalls = &b
 				} else if toolCfg.MaxParallelTools == 1 {
-					b := false; reqBody.ParallelToolCalls = &b
+					b := false
+					reqBody.ParallelToolCalls = &b
 				}
-                log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
+				log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
 			}
 		}
 		// Optionally include server-side tools (Responses built-ins) when provided on the Turn
@@ -113,8 +119,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		toolCalls := 0
 		toolUses := 0
 		for _, b := range t.Blocks {
-			if b.Kind == turns.BlockKindToolCall { toolCalls++ }
-			if b.Kind == turns.BlockKindToolUse { toolUses++ }
+			if b.Kind == turns.BlockKindToolCall {
+				toolCalls++
+			}
+			if b.Kind == turns.BlockKindToolUse {
+				toolUses++
+			}
 		}
 		log.Debug().Int("tool_call_blocks", toolCalls).Int("tool_use_blocks", toolUses).Msg("Responses: Turn tool blocks present")
 	}
@@ -124,7 +134,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			pparts := make([]map[string]any, 0, len(it.Content))
 			for _, c := range it.Content {
 				seg := c.Text
-				if len(seg) > 80 { seg = seg[:80] + "…" }
+				if len(seg) > 80 {
+					seg = seg[:80] + "…"
+				}
 				pparts = append(pparts, map[string]any{"type": c.Type, "len": len(c.Text), "text": seg})
 			}
 			preview = append(preview, map[string]any{"role": it.Role, "parts": pparts})
@@ -132,17 +144,17 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		log.Debug().Int("input_items", len(reqBody.Input)).Interface("input_preview", preview).Msg("Responses: request input summary")
 	}
 
-    b, err := json.Marshal(reqBody)
+	b, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
-    // Debug: summarize request
-    log.Debug().
-        Str("model", reqBody.Model).
-        Bool("stream", reqBody.Stream).
-        Int("input_items", len(reqBody.Input)).
-        Int("include_len", len(reqBody.Include)).
-        Msg("Responses: built request")
+	// Debug: summarize request
+	log.Debug().
+		Str("model", reqBody.Model).
+		Bool("stream", reqBody.Stream).
+		Int("input_items", len(reqBody.Input)).
+		Int("include_len", len(reqBody.Include)).
+		Msg("Responses: built request")
 
 	baseURL := "https://api.openai.com/v1"
 	apiKey := ""
@@ -160,7 +172,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	metadata := events.EventMetadata{
 		ID: uuid.New(),
 		LLMInferenceData: events.LLMInferenceData{
-			Model: func() string { if reqBody.Model != "" { return reqBody.Model }; return "" }(),
+			Model: func() string {
+				if reqBody.Model != "" {
+					return reqBody.Model
+				}
+				return ""
+			}(),
 			Temperature: nil,
 			TopP:        nil,
 			MaxTokens:   reqBody.MaxOutputTokens,
@@ -170,14 +187,16 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		metadata.RunID = t.RunID
 		metadata.TurnID = t.ID
 	}
-    log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
-    e.publishEvent(ctx, events.NewStartEvent(metadata))
+	log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
+	e.publishEvent(ctx, events.NewStartEvent(metadata))
 
-    // Attach DebugTap if present on context
-    var tap engine.DebugTap
-    if t2, ok := engine.DebugTapFrom(ctx); ok { tap = t2 }
+	// Attach DebugTap if present on context
+	var tap engine.DebugTap
+	if t2, ok := engine.DebugTapFrom(ctx); ok {
+		tap = t2
+	}
 
-    // Streaming when configured
+	// Streaming when configured
 	if e.settings != nil && e.settings.Chat != nil && e.settings.Chat.Stream {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(b)))
 		if err != nil {
@@ -189,76 +208,90 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 
-        log.Trace().Msg("Responses: initiating HTTP request (streaming)")
-        if tap != nil { tap.OnHTTP(req, b) }
-    resp, err := http.DefaultClient.Do(req)
+		log.Trace().Msg("Responses: initiating HTTP request (streaming)")
+		if tap != nil {
+			tap.OnHTTP(req, b)
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-            log.Debug().Err(err).Msg("Responses: HTTP request failed")
-        if tap != nil { tap.OnProviderObject("http.error", map[string]any{"error": err.Error()}) }
+			log.Debug().Err(err).Msg("Responses: HTTP request failed")
+			if tap != nil {
+				tap.OnProviderObject("http.error", map[string]any{"error": err.Error()})
+			}
 			return nil, err
 		}
 		defer resp.Body.Close()
-            log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
-        if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-            var m map[string]any
-            _ = json.NewDecoder(resp.Body).Decode(&m)
-            log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error")
-            if tap != nil { tap.OnHTTPResponse(resp, mustMarshalJSON(m)) }
+		log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			var m map[string]any
+			_ = json.NewDecoder(resp.Body).Decode(&m)
+			log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error")
+			if tap != nil {
+				tap.OnHTTPResponse(resp, mustMarshalJSON(m))
+			}
 			return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 		}
 		reader := bufio.NewReader(resp.Body)
 		var eventName string
-        var message string
-        var dataBuf strings.Builder
-        var inputTokens, outputTokens, reasoningTokens int
-        var stopReason *string
-        var streamErr error
-        var thinkBuf strings.Builder
-        var sayBuf strings.Builder
-        var summaryBuf strings.Builder
-        // Placeholder for potential future pairing of reasoning with assistant item id
-        // (keep declared logic out until needed to avoid unused var)
-        // Accumulate function_call tool uses
-        type pendingCall struct{ callID, name, itemID string; args strings.Builder }
-        callsByItem := map[string]*pendingCall{}
-        finalCalls := []pendingCall{}
-        // Track latest encrypted reasoning content observed during this response
-        var latestEncryptedContent string
-        log.Trace().Msg("Responses: starting SSE read loop")
-        // Redact helper for sensitive fields when logging SSE payloads
-        redactString := func(s string) string {
-            if len(s) <= 12 {
-                return "****"
-            }
-            // keep small prefix/suffix, hide middle
-            pre := 6
-            suf := 6
-            if len(s) < pre+suf+1 {
-                pre = len(s) / 2
-                suf = len(s) - pre
-            }
-            return s[:pre] + "-****-" + s[len(s)-suf:]
-        }
-        var redact func(v any) any
-        redact = func(v any) any {
-            switch tv := v.(type) {
-            case map[string]any:
-                m2 := make(map[string]any, len(tv))
-                for k, val := range tv {
-                    if k == "encrypted_content" {
-                        if s, ok := val.(string); ok { m2[k] = redactString(s); continue }
-                    }
-                    m2[k] = redact(val)
-                }
-                return m2
-            case []any:
-                arr := make([]any, len(tv))
-                for i, el := range tv { arr[i] = redact(el) }
-                return arr
-            default:
-                return v
-            }
-        }
+		var message string
+		var dataBuf strings.Builder
+		var inputTokens, outputTokens, reasoningTokens int
+		var stopReason *string
+		var streamErr error
+		var thinkBuf strings.Builder
+		var sayBuf strings.Builder
+		var summaryBuf strings.Builder
+		// Placeholder for potential future pairing of reasoning with assistant item id
+		// (keep declared logic out until needed to avoid unused var)
+		// Accumulate function_call tool uses
+		type pendingCall struct {
+			callID, name, itemID string
+			args                 strings.Builder
+		}
+		callsByItem := map[string]*pendingCall{}
+		finalCalls := []pendingCall{}
+		// Track latest encrypted reasoning content observed during this response
+		var latestEncryptedContent string
+		log.Trace().Msg("Responses: starting SSE read loop")
+		// Redact helper for sensitive fields when logging SSE payloads
+		redactString := func(s string) string {
+			if len(s) <= 12 {
+				return "****"
+			}
+			// keep small prefix/suffix, hide middle
+			pre := 6
+			suf := 6
+			if len(s) < pre+suf+1 {
+				pre = len(s) / 2
+				suf = len(s) - pre
+			}
+			return s[:pre] + "-****-" + s[len(s)-suf:]
+		}
+		var redact func(v any) any
+		redact = func(v any) any {
+			switch tv := v.(type) {
+			case map[string]any:
+				m2 := make(map[string]any, len(tv))
+				for k, val := range tv {
+					if k == "encrypted_content" {
+						if s, ok := val.(string); ok {
+							m2[k] = redactString(s)
+							continue
+						}
+					}
+					m2[k] = redact(val)
+				}
+				return m2
+			case []any:
+				arr := make([]any, len(tv))
+				for i, el := range tv {
+					arr[i] = redact(el)
+				}
+				return arr
+			default:
+				return v
+			}
+		}
 		flush := func() error {
 			if dataBuf.Len() == 0 {
 				return nil
@@ -267,250 +300,356 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			dataBuf.Reset()
 			var m map[string]any
 			if err := json.Unmarshal([]byte(raw), &m); err != nil {
-                log.Debug().Err(err).Str("event", eventName).Int("raw_len", len(raw)).Msg("Responses: failed to unmarshal SSE data")
+				log.Debug().Err(err).Str("event", eventName).Int("raw_len", len(raw)).Msg("Responses: failed to unmarshal SSE data")
 				return nil
 			}
-            // Log redacted payload at trace level
-            if zerolog.GlobalLevel() <= zerolog.TraceLevel {
-                if rb, err := json.Marshal(redact(m)); err == nil {
-                    log.Trace().Str("event", eventName).RawJSON("data", rb).Msg("Responses: SSE event")
-                }
-            }
-            switch eventName {
-            case "response.output_item.added":
-                if it, ok := m["item"].(map[string]any); ok {
-                    if typ, ok := it["type"].(string); ok {
-                        switch typ {
-                        case "reasoning":
-                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
-                            // Capture encrypted reasoning content when present
-                            if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
-                                latestEncryptedContent = enc
-                            }
+			// Log redacted payload at trace level
+			if zerolog.GlobalLevel() <= zerolog.TraceLevel {
+				if rb, err := json.Marshal(redact(m)); err == nil {
+					log.Trace().Str("event", eventName).RawJSON("data", rb).Msg("Responses: SSE event")
+				}
+			}
+			switch eventName {
+			case "response.output_item.added":
+				if it, ok := m["item"].(map[string]any); ok {
+					if typ, ok := it["type"].(string); ok {
+						switch typ {
+						case "reasoning":
+							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+							// Capture encrypted reasoning content when present
+							if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
+								latestEncryptedContent = enc
+							}
 						case "message":
-                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
-                            // capture message item id if needed in future
+							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
+							// capture message item id if needed in future
 						case "web_search_call":
-							itemID := ""; if v, ok := it["id"].(string); ok { itemID = v }
+							itemID := ""
+							if v, ok := it["id"].(string); ok {
+								itemID = v
+							}
 							if act, ok := it["action"].(map[string]any); ok {
 								if at, ok := act["type"].(string); ok && at == "search" {
-									q := ""; if v, ok := act["query"].(string); ok { q = v }
+									q := ""
+									if v, ok := act["query"].(string); ok {
+										q = v
+									}
 									e.publishEvent(ctx, events.NewWebSearchStarted(metadata, itemID, q))
 								}
 								if at, ok := act["type"].(string); ok && at == "open_page" {
-									u := ""; if v, ok := act["url"].(string); ok { u = v }
+									u := ""
+									if v, ok := act["url"].(string); ok {
+										u = v
+									}
 									e.publishEvent(ctx, events.NewWebSearchOpenPage(metadata, itemID, u))
 								}
 							}
-                        }
-                    }
-                }
+						}
+					}
+				}
 			case "response.web_search_call.in_progress":
-				itemID := ""; if v, ok := m["item_id"].(string); ok { itemID = v }
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok {
+					itemID = v
+				}
 				// Query will be available later in output_item.done, so emit without query for now
 				e.publishEvent(ctx, events.NewWebSearchStarted(metadata, itemID, ""))
 			case "response.web_search_call.searching":
-				itemID := ""; if v, ok := m["item_id"].(string); ok { itemID = v }
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok {
+					itemID = v
+				}
 				e.publishEvent(ctx, events.NewWebSearchSearching(metadata, itemID))
 			case "response.web_search_call.completed":
-				itemID := ""; if v, ok := m["item_id"].(string); ok { itemID = v }
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok {
+					itemID = v
+				}
 				e.publishEvent(ctx, events.NewWebSearchDone(metadata, itemID))
-            case "error":
-                // Provider-level error event during streaming
-                if errObj, ok := m["error"].(map[string]any); ok {
-                    msgStr := ""
-                    if v, ok := errObj["message"].(string); ok { msgStr = v }
-                    codeStr := ""
-                    if v, ok := errObj["code"].(string); ok { codeStr = v }
-                    if msgStr == "" { msgStr = "responses stream error" }
-                    if codeStr != "" { streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr) } else { streamErr = errors.New(msgStr) }
-                } else {
-                    streamErr = fmt.Errorf("responses stream error")
-                }
-                e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
-                if tap != nil { tap.OnProviderObject("stream.error", m) }
-            case "response.failed":
-                // Response failed; try to extract nested error
-                if respObj, ok := m["response"].(map[string]any); ok {
-                    if errObj, ok2 := respObj["error"].(map[string]any); ok2 {
-                        msgStr := ""
-                        if v, ok := errObj["message"].(string); ok { msgStr = v }
-                        codeStr := ""
-                        if v, ok := errObj["code"].(string); ok { codeStr = v }
-                        if msgStr == "" { msgStr = "responses failed" }
-                        if codeStr != "" { streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr) } else { streamErr = errors.New(msgStr) }
-                    } else {
-                        streamErr = fmt.Errorf("responses failed")
-                    }
-                } else {
-                    streamErr = fmt.Errorf("responses failed")
-                }
-                e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
-                if tap != nil { tap.OnProviderObject("response.failed", m) }
-            case "response.reasoning_summary_part.added":
-                // Start of a summary piece – forward as streaming info event
-                e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", nil))
-            case "response.reasoning_summary_text.delta":
-                if v, ok := m["delta"].(string); ok && v != "" {
-                    summaryBuf.WriteString(v)
-                    // Emit thinking partials for live reasoning summary text
-                    e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, v, summaryBuf.String()))
-                } else if s, ok := m["text"].(string); ok && s != "" {
-                    summaryBuf.WriteString(s)
-                    e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, summaryBuf.String()))
-                }
-            case "response.reasoning_summary_part.done":
-                // End of a summary piece – forward as streaming info event
-                e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", nil))
-            case "response.output_item.done":
-                if it, ok := m["item"].(map[string]any); ok {
-                    if typ, ok := it["type"].(string); ok {
-                        switch typ {
-                        case "reasoning":
-                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
-                            // Append a reasoning block with encrypted content if present
-                            rb := turns.Block{Kind: turns.BlockKindReasoning}
-                            if id, ok := it["id"].(string); ok && id != "" { rb.ID = id }
-                            payload := map[string]any{}
-                            enc := latestEncryptedContent
-                            if v, ok := it["encrypted_content"].(string); ok && v != "" { enc = v }
-                            if enc != "" {
-                                payload[turns.PayloadKeyEncryptedContent] = enc
-                            }
-                            rb.Payload = payload
-                            turns.AppendBlock(t, rb)
-                            if tap != nil { tap.OnProviderObject("output.reasoning", it) }
-                        case "message":
-                            e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
-                            if tap != nil { tap.OnProviderObject("output.message", it) }
-                        case "function_call":
-                            // finalize function_call and publish ToolCall event
-                            name := ""
-                            if v, ok := it["name"].(string); ok { name = v }
-                            callID := ""
-                            if v, ok := it["call_id"].(string); ok { callID = v }
-                            itemID := ""
-                            if v, ok := it["id"].(string); ok { itemID = v }
-                            args := ""
-                            if v, ok := it["arguments"].(string); ok && v != "" { args = v }
-                            if args == "" {
-                                if pc := callsByItem[itemID]; pc != nil { args = pc.args.String() }
-                            }
-                            if callID != "" && name != "" {
-                                e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: callID, Name: name, Input: args}))
-                                var b strings.Builder; b.WriteString(args)
-                                finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, args: b})
-                            }
-                        case "web_search_call":
-                            // Extract search query from action if available
-                            query := ""
-                            if action, ok := it["action"].(map[string]any); ok {
-                                if q, ok := action["query"].(string); ok { query = q }
-                            }
-                            itemID := ""
-                            if v, ok := it["id"].(string); ok { itemID = v }
-                            // Log the final query info at debug level
-                            if query != "" {
-                                log.Debug().Str("query", query).Str("item_id", itemID).Msg("Responses: web_search completed with query")
-                            }
-                            // Note: Don't emit another Done event here, already emitted by response.web_search_call.completed
-                        }
-                    }
-                }
-            case "response.output_text.delta":
-                // Stream assistant text deltas
-                if d, ok := m["delta"].(string); ok && d != "" {
-                    message += d
-                    sayBuf.WriteString(d)
-                    log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
-                    e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
-                } else if tv, ok := m["text"].(map[string]any); ok {
-                    if d, ok := tv["delta"].(string); ok && d != "" {
-                        message += d
-                        sayBuf.WriteString(d)
-                        log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
-                        e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
-                    }
-                }
-                if tap != nil { tap.OnSSE(eventName, []byte(raw)) }
-            case "response.output_text.annotation.added":
-                if ann, ok := m["annotation"].(map[string]any); ok {
-                    title, _ := ann["title"].(string)
-                    url, _ := ann["url"].(string)
-                    var startPtr, endPtr, outPtr, contPtr, annPtr *int
-                    if v, ok := ann["start_index"].(float64); ok { i := int(v); startPtr = &i }
-                    if v, ok := ann["end_index"].(float64); ok { i := int(v); endPtr = &i }
-                    if v, ok := m["output_index"].(float64); ok { i := int(v); outPtr = &i }
-                    if v, ok := m["content_index"].(float64); ok { i := int(v); contPtr = &i }
-                    if v, ok := m["annotation_index"].(float64); ok { i := int(v); annPtr = &i }
-                    e.publishEvent(ctx, events.NewCitation(metadata, title, url, startPtr, endPtr, outPtr, contPtr, annPtr))
-                }
-            case "response.function_call_arguments.delta":
-                // Accumulate function_call arguments by item_id
-                itemID := ""
-                if v, ok := m["item_id"].(string); ok { itemID = v }
-                if itemID != "" {
-                    pc := callsByItem[itemID]
-                    if pc == nil { pc = &pendingCall{itemID: itemID}; callsByItem[itemID] = pc }
-                    if d, ok := m["delta"].(string); ok && d != "" { pc.args.WriteString(d) }
-                }
-            case "response.function_call_arguments.done":
-                itemID := ""
-                if v, ok := m["item_id"].(string); ok { itemID = v }
-                if d, ok := m["arguments"].(string); ok && d != "" {
-                    if pc := callsByItem[itemID]; pc != nil {
-                        pc.args.Reset(); pc.args.WriteString(d)
-                    }
-                }
-                // No assistant text in this event; only arguments aggregation
-            case "response.completed":
-                // usage may be nested under response.usage
-                var usage map[string]any
-                if u, ok := m["usage"].(map[string]any); ok {
-                    usage = u
-                } else if respObj, ok := m["response"].(map[string]any); ok {
-                    if u2, ok2 := respObj["usage"].(map[string]any); ok2 {
-                        usage = u2
-                    }
-                }
-                if usage != nil {
-                    if v, ok := usage["input_tokens"].(float64); ok { inputTokens = int(v) }
-                    if v, ok := usage["output_tokens"].(float64); ok { outputTokens = int(v) }
-                    // reasoning tokens may be nested under output_tokens_details
-                    if od, ok := usage["output_tokens_details"].(map[string]any); ok {
-                        if v, ok := od["reasoning_tokens"].(float64); ok { reasoningTokens = int(v) }
-                    } else if v, ok := usage["reasoning_tokens"].(float64); ok {
-                        reasoningTokens = int(v)
-                    }
-                    log.Debug().Int("input_tokens", inputTokens).Int("output_tokens", outputTokens).Int("reasoning_tokens", reasoningTokens).Msg("Responses: usage parsed")
-                }
-                // optional stop reason, sometimes nested
-                if sr, ok := m["stop_reason"].(string); ok && sr != "" {
-                    stopReason = &sr
-                } else if respObj, ok := m["response"].(map[string]any); ok {
-                    if sr, ok := respObj["stop_reason"].(string); ok && sr != "" { stopReason = &sr }
-                }
-                if stopReason != nil { log.Debug().Str("stop_reason", *stopReason).Msg("Responses: stop reason observed") }
-                if tap != nil { tap.OnProviderObject("response.completed", m) }
+			case "error":
+				// Provider-level error event during streaming
+				if errObj, ok := m["error"].(map[string]any); ok {
+					msgStr := ""
+					if v, ok := errObj["message"].(string); ok {
+						msgStr = v
+					}
+					codeStr := ""
+					if v, ok := errObj["code"].(string); ok {
+						codeStr = v
+					}
+					if msgStr == "" {
+						msgStr = "responses stream error"
+					}
+					if codeStr != "" {
+						streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr)
+					} else {
+						streamErr = errors.New(msgStr)
+					}
+				} else {
+					streamErr = fmt.Errorf("responses stream error")
+				}
+				e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+				if tap != nil {
+					tap.OnProviderObject("stream.error", m)
+				}
+			case "response.failed":
+				// Response failed; try to extract nested error
+				if respObj, ok := m["response"].(map[string]any); ok {
+					if errObj, ok2 := respObj["error"].(map[string]any); ok2 {
+						msgStr := ""
+						if v, ok := errObj["message"].(string); ok {
+							msgStr = v
+						}
+						codeStr := ""
+						if v, ok := errObj["code"].(string); ok {
+							codeStr = v
+						}
+						if msgStr == "" {
+							msgStr = "responses failed"
+						}
+						if codeStr != "" {
+							streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr)
+						} else {
+							streamErr = errors.New(msgStr)
+						}
+					} else {
+						streamErr = fmt.Errorf("responses failed")
+					}
+				} else {
+					streamErr = fmt.Errorf("responses failed")
+				}
+				e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+				if tap != nil {
+					tap.OnProviderObject("response.failed", m)
+				}
+			case "response.reasoning_summary_part.added":
+				// Start of a summary piece – forward as streaming info event
+				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", nil))
+			case "response.reasoning_summary_text.delta":
+				if v, ok := m["delta"].(string); ok && v != "" {
+					summaryBuf.WriteString(v)
+					// Emit thinking partials for live reasoning summary text
+					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, v, summaryBuf.String()))
+				} else if s, ok := m["text"].(string); ok && s != "" {
+					summaryBuf.WriteString(s)
+					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, summaryBuf.String()))
+				}
+			case "response.reasoning_summary_part.done":
+				// End of a summary piece – forward as streaming info event
+				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", nil))
+			case "response.output_item.done":
+				if it, ok := m["item"].(map[string]any); ok {
+					if typ, ok := it["type"].(string); ok {
+						switch typ {
+						case "reasoning":
+							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
+							// Append a reasoning block with encrypted content if present
+							rb := turns.Block{Kind: turns.BlockKindReasoning}
+							if id, ok := it["id"].(string); ok && id != "" {
+								rb.ID = id
+							}
+							payload := map[string]any{}
+							enc := latestEncryptedContent
+							if v, ok := it["encrypted_content"].(string); ok && v != "" {
+								enc = v
+							}
+							if enc != "" {
+								payload[turns.PayloadKeyEncryptedContent] = enc
+							}
+							rb.Payload = payload
+							turns.AppendBlock(t, rb)
+							if tap != nil {
+								tap.OnProviderObject("output.reasoning", it)
+							}
+						case "message":
+							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+							if tap != nil {
+								tap.OnProviderObject("output.message", it)
+							}
+						case "function_call":
+							// finalize function_call and publish ToolCall event
+							name := ""
+							if v, ok := it["name"].(string); ok {
+								name = v
+							}
+							callID := ""
+							if v, ok := it["call_id"].(string); ok {
+								callID = v
+							}
+							itemID := ""
+							if v, ok := it["id"].(string); ok {
+								itemID = v
+							}
+							args := ""
+							if v, ok := it["arguments"].(string); ok && v != "" {
+								args = v
+							}
+							if args == "" {
+								if pc := callsByItem[itemID]; pc != nil {
+									args = pc.args.String()
+								}
+							}
+							if callID != "" && name != "" {
+								e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: callID, Name: name, Input: args}))
+								var b strings.Builder
+								b.WriteString(args)
+								finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, args: b})
+							}
+						case "web_search_call":
+							// Extract search query from action if available
+							query := ""
+							if action, ok := it["action"].(map[string]any); ok {
+								if q, ok := action["query"].(string); ok {
+									query = q
+								}
+							}
+							itemID := ""
+							if v, ok := it["id"].(string); ok {
+								itemID = v
+							}
+							// Log the final query info at debug level
+							if query != "" {
+								log.Debug().Str("query", query).Str("item_id", itemID).Msg("Responses: web_search completed with query")
+							}
+							// Note: Don't emit another Done event here, already emitted by response.web_search_call.completed
+						}
+					}
+				}
+			case "response.output_text.delta":
+				// Stream assistant text deltas
+				if d, ok := m["delta"].(string); ok && d != "" {
+					message += d
+					sayBuf.WriteString(d)
+					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
+					e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
+				} else if tv, ok := m["text"].(map[string]any); ok {
+					if d, ok := tv["delta"].(string); ok && d != "" {
+						message += d
+						sayBuf.WriteString(d)
+						log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
+						e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
+					}
+				}
+				if tap != nil {
+					tap.OnSSE(eventName, []byte(raw))
+				}
+			case "response.output_text.annotation.added":
+				if ann, ok := m["annotation"].(map[string]any); ok {
+					title, _ := ann["title"].(string)
+					url, _ := ann["url"].(string)
+					var startPtr, endPtr, outPtr, contPtr, annPtr *int
+					if v, ok := ann["start_index"].(float64); ok {
+						i := int(v)
+						startPtr = &i
+					}
+					if v, ok := ann["end_index"].(float64); ok {
+						i := int(v)
+						endPtr = &i
+					}
+					if v, ok := m["output_index"].(float64); ok {
+						i := int(v)
+						outPtr = &i
+					}
+					if v, ok := m["content_index"].(float64); ok {
+						i := int(v)
+						contPtr = &i
+					}
+					if v, ok := m["annotation_index"].(float64); ok {
+						i := int(v)
+						annPtr = &i
+					}
+					e.publishEvent(ctx, events.NewCitation(metadata, title, url, startPtr, endPtr, outPtr, contPtr, annPtr))
+				}
+			case "response.function_call_arguments.delta":
+				// Accumulate function_call arguments by item_id
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok {
+					itemID = v
+				}
+				if itemID != "" {
+					pc := callsByItem[itemID]
+					if pc == nil {
+						pc = &pendingCall{itemID: itemID}
+						callsByItem[itemID] = pc
+					}
+					if d, ok := m["delta"].(string); ok && d != "" {
+						pc.args.WriteString(d)
+					}
+				}
+			case "response.function_call_arguments.done":
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok {
+					itemID = v
+				}
+				if d, ok := m["arguments"].(string); ok && d != "" {
+					if pc := callsByItem[itemID]; pc != nil {
+						pc.args.Reset()
+						pc.args.WriteString(d)
+					}
+				}
+				// No assistant text in this event; only arguments aggregation
+			case "response.completed":
+				// usage may be nested under response.usage
+				var usage map[string]any
+				if u, ok := m["usage"].(map[string]any); ok {
+					usage = u
+				} else if respObj, ok := m["response"].(map[string]any); ok {
+					if u2, ok2 := respObj["usage"].(map[string]any); ok2 {
+						usage = u2
+					}
+				}
+				if usage != nil {
+					if v, ok := usage["input_tokens"].(float64); ok {
+						inputTokens = int(v)
+					}
+					if v, ok := usage["output_tokens"].(float64); ok {
+						outputTokens = int(v)
+					}
+					// reasoning tokens may be nested under output_tokens_details
+					if od, ok := usage["output_tokens_details"].(map[string]any); ok {
+						if v, ok := od["reasoning_tokens"].(float64); ok {
+							reasoningTokens = int(v)
+						}
+					} else if v, ok := usage["reasoning_tokens"].(float64); ok {
+						reasoningTokens = int(v)
+					}
+					log.Debug().Int("input_tokens", inputTokens).Int("output_tokens", outputTokens).Int("reasoning_tokens", reasoningTokens).Msg("Responses: usage parsed")
+				}
+				// optional stop reason, sometimes nested
+				if sr, ok := m["stop_reason"].(string); ok && sr != "" {
+					stopReason = &sr
+				} else if respObj, ok := m["response"].(map[string]any); ok {
+					if sr, ok := respObj["stop_reason"].(string); ok && sr != "" {
+						stopReason = &sr
+					}
+				}
+				if stopReason != nil {
+					log.Debug().Str("stop_reason", *stopReason).Msg("Responses: stop reason observed")
+				}
+				if tap != nil {
+					tap.OnProviderObject("response.completed", m)
+				}
 			}
 			return nil
 		}
 		for {
-            line, err := reader.ReadString('\n')
+			line, err := reader.ReadString('\n')
 			if err != nil {
-                if err.Error() != "EOF" {
-                    log.Debug().Err(err).Msg("Responses: error reading SSE line")
-                } else {
-                    log.Trace().Msg("Responses: EOF while reading SSE")
-                }
+				if err.Error() != "EOF" {
+					log.Debug().Err(err).Msg("Responses: error reading SSE line")
+				} else {
+					log.Trace().Msg("Responses: EOF while reading SSE")
+				}
 				break
 			}
 			line = strings.TrimRight(line, "\r\n")
-            if line != "" {
-                preview := line
-                if len(preview) > 200 { preview = preview[:200] + "…" }
-                log.Trace().Str("line", preview).Msg("Responses: SSE line")
-            }
+			if line != "" {
+				preview := line
+				if len(preview) > 200 {
+					preview = preview[:200] + "…"
+				}
+				log.Trace().Str("line", preview).Msg("Responses: SSE line")
+			}
 			if line == "" {
 				_ = flush()
 				eventName = ""
@@ -518,90 +657,126 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 			if strings.HasPrefix(line, "event:") {
 				eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-                log.Trace().Str("event", eventName).Msg("Responses: SSE event name")
+				log.Trace().Str("event", eventName).Msg("Responses: SSE event name")
 				continue
 			}
-            if strings.HasPrefix(line, "data:") {
-				if dataBuf.Len() > 0 { dataBuf.WriteByte('\n') }
+			if strings.HasPrefix(line, "data:") {
+				if dataBuf.Len() > 0 {
+					dataBuf.WriteByte('\n')
+				}
 				dataBuf.WriteString(strings.TrimSpace(strings.TrimPrefix(line, "data:")))
-                if tap != nil { tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:")))) }
+				if tap != nil {
+					tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))))
+				}
 				continue
 			}
 		}
-        log.Debug().Msg("Responses: SSE loop ended")
+		log.Debug().Msg("Responses: SSE loop ended")
 		if inputTokens > 0 || outputTokens > 0 {
-			if metadata.Usage == nil { metadata.Usage = &events.Usage{} }
+			if metadata.Usage == nil {
+				metadata.Usage = &events.Usage{}
+			}
 			metadata.Usage.InputTokens = inputTokens
 			metadata.Usage.OutputTokens = outputTokens
 		}
-        if metadata.Extra == nil { metadata.Extra = map[string]any{} }
-        if reasoningTokens > 0 { metadata.Extra["reasoning_tokens"] = reasoningTokens }
-        metadata.Extra["thinking_text"] = thinkBuf.String()
-        metadata.Extra["saying_text"] = sayBuf.String()
-        if summaryBuf.Len() > 0 {
-            metadata.Extra["reasoning_summary_text"] = summaryBuf.String()
-            // Publish a friendly info event with the complete summary
-            e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary", map[string]any{"text": summaryBuf.String()}))
-        }
-		if stopReason != nil { metadata.StopReason = stopReason }
-		d := time.Since(startTime).Milliseconds(); dm := int64(d); metadata.DurationMs = &dm
-        if strings.TrimSpace(message) != "" {
-            turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
-        }
-        // Append tool_call blocks captured via Responses API
-        for _, pc := range finalCalls {
-            var args any
-            if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil { args = map[string]any{} }
-            b := turns.NewToolCallBlock(pc.callID, pc.name, args)
-            // Preserve provider output item id so we can reference it later if needed
-            if b.Payload == nil { b.Payload = map[string]any{} }
-            if pc.itemID != "" { b.Payload[turns.PayloadKeyItemID] = pc.itemID }
-            turns.AppendBlock(t, b)
-        }
-        e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+		if metadata.Extra == nil {
+			metadata.Extra = map[string]any{}
+		}
+		if reasoningTokens > 0 {
+			metadata.Extra["reasoning_tokens"] = reasoningTokens
+		}
+		metadata.Extra["thinking_text"] = thinkBuf.String()
+		metadata.Extra["saying_text"] = sayBuf.String()
+		if summaryBuf.Len() > 0 {
+			metadata.Extra["reasoning_summary_text"] = summaryBuf.String()
+			// Publish a friendly info event with the complete summary
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary", map[string]any{"text": summaryBuf.String()}))
+		}
+		if stopReason != nil {
+			metadata.StopReason = stopReason
+		}
+		d := time.Since(startTime).Milliseconds()
+		dm := int64(d)
+		metadata.DurationMs = &dm
+		if strings.TrimSpace(message) != "" {
+			turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+		}
+		// Append tool_call blocks captured via Responses API
+		for _, pc := range finalCalls {
+			var args any
+			if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil {
+				args = map[string]any{}
+			}
+			b := turns.NewToolCallBlock(pc.callID, pc.name, args)
+			// Preserve provider output item id so we can reference it later if needed
+			if b.Payload == nil {
+				b.Payload = map[string]any{}
+			}
+			if pc.itemID != "" {
+				b.Payload[turns.PayloadKeyItemID] = pc.itemID
+			}
+			turns.AppendBlock(t, b)
+		}
+		e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 		return t, nil
 	}
 
 	// Non-streaming
-    req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(b)))
-	if err != nil { return nil, err }
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(b)))
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	if apiKey != "" { req.Header.Set("Authorization", "Bearer "+apiKey) }
-    log.Trace().Msg("Responses: initiating HTTP request (non-streaming)")
-    resp, err := http.DefaultClient.Do(req)
-	if err != nil { return nil, err }
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	log.Trace().Msg("Responses: initiating HTTP request (non-streaming)")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
-    log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received (non-streaming)")
-    if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received (non-streaming)")
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var m map[string]any
 		_ = json.NewDecoder(resp.Body).Decode(&m)
-        log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error (non-streaming)")
+		log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error (non-streaming)")
 		return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 	}
 	var rr responsesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&rr); err != nil { return nil, err }
+	if err := json.NewDecoder(resp.Body).Decode(&rr); err != nil {
+		return nil, err
+	}
 	var message string
 	for _, oi := range rr.Output {
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
 			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
-			if oi.EncryptedContent != "" { b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent }
+			if oi.EncryptedContent != "" {
+				b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent
+			}
 			turns.AppendBlock(t, b)
 		}
 		for _, c := range oi.Content {
-			if c.Type == "output_text" || c.Type == "text" { message += c.Text }
+			if c.Type == "output_text" || c.Type == "text" {
+				message += c.Text
+			}
 		}
 	}
-	if strings.TrimSpace(message) != "" { turns.AppendBlock(t, turns.NewAssistantTextBlock(message)) }
-	d := time.Since(startTime).Milliseconds(); dm := int64(d); metadata.DurationMs = &dm
+	if strings.TrimSpace(message) != "" {
+		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+	}
+	d := time.Since(startTime).Milliseconds()
+	dm := int64(d)
+	metadata.DurationMs = &dm
 	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 	return t, nil
 }
 
 func mustMarshalJSON(v any) []byte {
-    b, err := json.Marshal(v)
-    if err != nil { return []byte("{}") }
-    return b
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte("{}")
+	}
+	return b
 }
-
-

@@ -239,7 +239,7 @@ func (b *BaseToolExecutor) executeParallel(ctx context.Context, calls []ToolCall
 		}(i, c)
 	}
 	wg.Wait()
-    for i, err := range errs {
+	for i, err := range errs {
 		if err != nil {
 			return results, err
 		}
@@ -264,5 +264,3 @@ func pow(base float64, exp float64) float64 {
 	}
 	return result
 }
-
-

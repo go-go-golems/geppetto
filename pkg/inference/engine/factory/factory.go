@@ -7,7 +7,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
-    openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
+	openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -63,12 +63,12 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 	}
 
 	// Create engine based on provider
-    switch provider {
-    case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-        return openai.NewOpenAIEngine(settings, options...)
+	switch provider {
+	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+		return openai.NewOpenAIEngine(settings, options...)
 
-    case string(types.ApiTypeOpenAIResponses):
-        return openai_responses.NewEngine(settings, options...)
+	case string(types.ApiTypeOpenAIResponses):
+		return openai_responses.NewEngine(settings, options...)
 
 	case string(types.ApiTypeClaude), "anthropic":
 		return claude.NewClaudeEngine(settings, options...)
@@ -86,7 +86,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 func (f *StandardEngineFactory) SupportedProviders() []string {
 	return []string{
 		string(types.ApiTypeOpenAI),
-        string(types.ApiTypeOpenAIResponses),
+		string(types.ApiTypeOpenAIResponses),
 		string(types.ApiTypeAnyScale),
 		string(types.ApiTypeFireworks),
 		string(types.ApiTypeClaude),
@@ -111,9 +111,9 @@ func (f *StandardEngineFactory) validateSettings(settings *settings.StepSettings
 	}
 
 	// Validate provider-specific requirements
-    switch provider {
-    case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-        return f.validateOpenAISettings(settings, provider)
+	switch provider {
+	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+		return f.validateOpenAISettings(settings, provider)
 
 	case string(types.ApiTypeClaude), "anthropic":
 		return f.validateClaudeSettings(settings, provider)
