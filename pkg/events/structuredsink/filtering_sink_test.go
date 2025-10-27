@@ -150,6 +150,11 @@ type CitationItem struct {
     Authors []string
 }
 
+type EventCitationStarted struct {
+    events.EventImpl
+    ItemID string `json:"item_id"`
+}
+
 type EventCitationDelta struct {
     events.EventImpl
     ItemID string `json:"item_id"`
@@ -163,6 +168,14 @@ type EventCitationUpdate struct {
     Error   string         `json:"error,omitempty"`
 }
 
+type EventCitationCompleted struct {
+    events.EventImpl
+    ItemID  string         `json:"item_id"`
+    Entries []CitationItem `json:"entries,omitempty"`
+    Success bool           `json:"success"`
+    Error   string         `json:"error,omitempty"`
+}
+
 type citationsExtractor struct{ name, dtype string }
 
 func (ce *citationsExtractor) Name() string     { return ce.name }
@@ -172,12 +185,14 @@ func (ce *citationsExtractor) NewSession(ctx context.Context, meta events.EventM
 }
 
 type citationsSession struct {
-    ctx    context.Context
-    itemID string
+    ctx         context.Context
+    itemID      string
+    lastValid   []CitationItem
+    lastValidOK bool
 }
 
 func (cs *citationsSession) OnStart(ctx context.Context) []events.Event {
-    return nil
+    return []events.Event{&EventCitationStarted{EventImpl: events.EventImpl{Type_: "citations-started"}, ItemID: cs.itemID}}
 }
 
 func (cs *citationsSession) OnDelta(ctx context.Context, raw string) []events.Event {
