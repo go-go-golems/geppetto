@@ -59,10 +59,7 @@ func (c *YAMLController[T]) FeedBytes(chunk []byte) (*T, error) {
 	c.buf.Write(chunk)
 	c.sinceLastAttempt += len(chunk)
 
-	shouldAttempt := false
-	if c.cfg.SnapshotOnNewline && bytes.Contains(chunk, []byte{'\n'}) {
-		shouldAttempt = true
-	}
+	shouldAttempt := c.cfg.SnapshotOnNewline && bytes.Contains(chunk, []byte{'\n'})
 	if !shouldAttempt && c.cfg.SnapshotEveryBytes > 0 && c.sinceLastAttempt >= c.cfg.SnapshotEveryBytes {
 		shouldAttempt = true
 	}

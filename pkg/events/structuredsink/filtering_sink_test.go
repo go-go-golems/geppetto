@@ -183,10 +183,8 @@ func (ce *citationsExtractor) NewSession(ctx context.Context, meta events.EventM
 }
 
 type citationsSession struct {
-	ctx         context.Context
-	itemID      string
-	lastValid   []CitationItem
-	lastValidOK bool
+	ctx    context.Context
+	itemID string
 }
 
 func (cs *citationsSession) OnStart(ctx context.Context) []events.Event {
@@ -229,16 +227,6 @@ func stripCodeFenceBytes(b []byte) (string, []byte) {
 		body = body[:end]
 	}
 	return strings.ToLower(header), []byte(body)
-}
-
-func collectCitationUpdates(list []events.Event) []*EventCitationUpdate {
-	var ups []*EventCitationUpdate
-	for _, ev := range list {
-		if u, ok := ev.(*EventCitationUpdate); ok {
-			ups = append(ups, u)
-		}
-	}
-	return ups
 }
 
 func collectCitationDeltas(list []events.Event) []*EventCitationDelta {
@@ -308,18 +296,6 @@ func TestFilteringSink_Citations_Incremental(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected citation deltas to include YAML content")
-}
-
-func updatesForItem(list []events.Event, itemID string) []*EventCitationUpdate {
-	var ret []*EventCitationUpdate
-	for _, ev := range list {
-		if u, ok := ev.(*EventCitationUpdate); ok {
-			if u.ItemID == itemID {
-				ret = append(ret, u)
-			}
-		}
-	}
-	return ret
 }
 
 func TestFilteringSink_Citations_Final_ValidateEntries(t *testing.T) {
