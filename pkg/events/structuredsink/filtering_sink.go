@@ -1,15 +1,15 @@
 package structuredsink
 
 import (
-	"context"
-	"regexp"
-	"strings"
-	"sync"
+    "context"
+    "regexp"
+    "strings"
+    "sync"
 
-	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+    "github.com/go-go-golems/geppetto/pkg/events"
+    "github.com/google/uuid"
+    "github.com/pkg/errors"
+    "github.com/rs/zerolog/log"
 )
 
 // Options control the filtering sink behavior.
@@ -20,23 +20,23 @@ type Options struct {
 }
 
 func (o *Options) withDefaults() Options {
-	ret := *o
-	if ret.OnMalformed == "" {
-		ret.OnMalformed = "error-events"
-	}
-	return ret
+    ret := *o
+    if ret.OnMalformed == "" {
+        ret.OnMalformed = "error-events"
+    }
+    return ret
 }
 
 // Extractor defines a typed extractor registered for a specific <$name:$dataType> pair.
 type Extractor interface {
-	Name() string
-	DataType() string
-	NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession
+    Name() string
+    DataType() string
+    NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession
 }
 
 // ExtractorSession receives streaming callbacks and returns typed events to publish.
 type ExtractorSession interface {
-	OnStart(ctx context.Context) []events.Event
+    OnStart(ctx context.Context) []events.Event
 	OnRaw(ctx context.Context, chunk []byte) []events.Event
 	OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event
 }
@@ -45,49 +45,49 @@ type ExtractorSession interface {
 // marked with <$name:$dtype> ```yaml ... ``` </$name:$dtype> from text streams,
 // while emitting per-extractor typed events via the same downstream sink.
 type FilteringSink struct {
-	next       events.EventSink
-	opts       Options
-	exByKey    map[string]Extractor // key: name+"\x00"+dtype
-	mu         sync.Mutex
-	byStreamID map[uuid.UUID]*streamState
-	baseCtx    context.Context
+    next       events.EventSink
+    opts       Options
+    exByKey    map[string]Extractor // key: name+"\x00"+dtype
+    mu         sync.Mutex
+    byStreamID map[uuid.UUID]*streamState
+    baseCtx    context.Context
 }
 
 func NewFilteringSink(next events.EventSink, opts Options, extractors ...Extractor) *FilteringSink {
-	o := opts.withDefaults()
-	ex := make(map[string]Extractor)
-	for _, e := range extractors {
-		key := extractorKey(e.Name(), e.DataType())
-		ex[key] = e
-	}
-	return &FilteringSink{
-		next:       next,
-		opts:       o,
-		exByKey:    ex,
-		byStreamID: make(map[uuid.UUID]*streamState),
-		baseCtx:    context.Background(),
-	}
+    o := opts.withDefaults()
+    ex := make(map[string]Extractor)
+    for _, e := range extractors {
+        key := extractorKey(e.Name(), e.DataType())
+        ex[key] = e
+    }
+    return &FilteringSink{
+        next:       next,
+        opts:       o,
+        exByKey:    ex,
+        byStreamID: make(map[uuid.UUID]*streamState),
+        baseCtx:    context.Background(),
+    }
 }
 
 // NewFilteringSinkWithContext is like NewFilteringSink but allows specifying a base context
 // used to derive per-stream and per-item contexts that get cancelled on completion.
 func NewFilteringSinkWithContext(ctx context.Context, next events.EventSink, opts Options, extractors ...Extractor) *FilteringSink {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	o := opts.withDefaults()
-	ex := make(map[string]Extractor)
-	for _, e := range extractors {
-		key := extractorKey(e.Name(), e.DataType())
-		ex[key] = e
-	}
-	return &FilteringSink{
-		next:       next,
-		opts:       o,
-		exByKey:    ex,
-		byStreamID: make(map[uuid.UUID]*streamState),
-		baseCtx:    ctx,
-	}
+    if ctx == nil {
+        ctx = context.Background()
+    }
+    o := opts.withDefaults()
+    ex := make(map[string]Extractor)
+    for _, e := range extractors {
+        key := extractorKey(e.Name(), e.DataType())
+        ex[key] = e
+    }
+    return &FilteringSink{
+        next:       next,
+        opts:       o,
+        exByKey:    ex,
+        byStreamID: make(map[uuid.UUID]*streamState),
+        baseCtx:    ctx,
+    }
 }
 
 var _ events.EventSink = (*FilteringSink)(nil)
@@ -97,19 +97,19 @@ func extractorKey(name, dtype string) string { return name + "\x00" + dtype }
 // Parser state per message stream
 type streamState struct {
 	id uuid.UUID
-	// contexts: stream-scoped and current item-scoped
+    // contexts: stream-scoped and current item-scoped
 	ctx        context.Context
 	cancel     context.CancelFunc
 	itemCtx    context.Context
-	itemCancel context.CancelFunc
-	// track full raw text seen so far (to avoid double-appending on final)
+    itemCancel context.CancelFunc
+    // track full raw text seen so far (to avoid double-appending on final)
 	rawSeen strings.Builder
-	// output buffer state for completion consistency
-	filteredCompletion strings.Builder
-	// small carry for boundary detection across partials
-	carry string
+    // output buffer state for completion consistency
+    filteredCompletion strings.Builder
+    // small carry for boundary detection across partials
+    carry string
 
-	// capture state
+    // capture state
 	capturing  bool
 	name       string
 	dtype      string
@@ -117,7 +117,7 @@ type streamState struct {
 	session    ExtractorSession
 	payloadBuf strings.Builder
 
-	// sub-state buffers for partial pattern matches
+    // sub-state buffers for partial pattern matches
 	openTagBuf  strings.Builder
 	closeTagBuf strings.Builder
 }
@@ -125,33 +125,33 @@ type streamState struct {
 // PublishEvent implements events.EventSink. It intercepts partial/final text events
 // and forwards filtered variants while publishing extractor-defined typed events.
 func (f *FilteringSink) PublishEvent(ev events.Event) error {
-	switch ev.Type() {
-	case events.EventTypePartialCompletion:
-		return f.handlePartial(ev)
-	case events.EventTypeFinal:
-		return f.handleFinal(ev)
-	default:
-		// pass-through
-		return f.next.PublishEvent(ev)
-	}
+    switch ev.Type() {
+    case events.EventTypePartialCompletion:
+        return f.handlePartial(ev)
+    case events.EventTypeFinal:
+        return f.handleFinal(ev)
+    default:
+        // pass-through
+        return f.next.PublishEvent(ev)
+    }
 }
 
 func (f *FilteringSink) getState(meta events.EventMetadata) *streamState {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	st, ok := f.byStreamID[meta.ID]
-	if !ok {
-		st = &streamState{id: meta.ID}
-		st.ctx, st.cancel = context.WithCancel(f.baseCtx)
-		f.byStreamID[meta.ID] = st
-	}
-	return st
+    f.mu.Lock()
+    defer f.mu.Unlock()
+    st, ok := f.byStreamID[meta.ID]
+    if !ok {
+        st = &streamState{id: meta.ID}
+        st.ctx, st.cancel = context.WithCancel(f.baseCtx)
+        f.byStreamID[meta.ID] = st
+    }
+    return st
 }
 
 func (f *FilteringSink) deleteState(meta events.EventMetadata) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if st, ok := f.byStreamID[meta.ID]; ok {
+    f.mu.Lock()
+    defer f.mu.Unlock()
+    if st, ok := f.byStreamID[meta.ID]; ok {
 		if st.itemCancel != nil {
 			st.itemCancel()
 			st.itemCancel = nil
@@ -159,105 +159,105 @@ func (f *FilteringSink) deleteState(meta events.EventMetadata) {
 		if st.cancel != nil {
 			st.cancel()
 		}
-		delete(f.byStreamID, meta.ID)
-	}
+        delete(f.byStreamID, meta.ID)
+    }
 }
 
 func (f *FilteringSink) publishAll(ctx context.Context, meta events.EventMetadata, list []events.Event) error {
-	for _, e := range list {
+    for _, e := range list {
 		if e == nil {
 			continue
 		}
-		// Ensure metadata is set if missing
-		impl, ok := e.(*events.EventImpl)
-		if ok {
-			// keep Type_ and payload; only set meta if zero UUID
-			if impl.Metadata_.ID == uuid.Nil {
-				impl.Metadata_.ID = meta.ID
-			}
+        // Ensure metadata is set if missing
+        impl, ok := e.(*events.EventImpl)
+        if ok {
+            // keep Type_ and payload; only set meta if zero UUID
+            if impl.Metadata_.ID == uuid.Nil {
+                impl.Metadata_.ID = meta.ID
+            }
 			if impl.Metadata_.RunID == "" {
 				impl.Metadata_.RunID = meta.RunID
 			}
 			if impl.Metadata_.TurnID == "" {
 				impl.Metadata_.TurnID = meta.TurnID
 			}
-		}
-		if err := f.next.PublishEvent(e); err != nil {
-			return err
-		}
-	}
-	return nil
+        }
+        if err := f.next.PublishEvent(e); err != nil {
+            return err
+        }
+    }
+    return nil
 }
 
 // --- streaming handlers ---
 
 func (f *FilteringSink) handlePartial(ev events.Event) error {
-	var (
-		delta string
-		meta  events.EventMetadata
-		ok    bool
-	)
-	// Prefer typed partials
-	if pcTyped, isTyped := ev.(*events.EventPartialCompletion); isTyped {
-		delta = pcTyped.Delta
-		meta = pcTyped.Metadata()
-		ok = true
-	} else if impl, isImpl := ev.(*events.EventImpl); isImpl {
-		// Try decode payload-based
-		pc, decOK := impl.ToPartialCompletion()
-		if decOK {
-			delta = pc.Delta
-			meta = pc.Metadata()
-			ok = true
-		}
-	}
-	if !ok {
-		// pass-through on unknown
-		return f.next.PublishEvent(ev)
-	}
+    var (
+        delta string
+        meta  events.EventMetadata
+        ok    bool
+    )
+    // Prefer typed partials
+    if pcTyped, isTyped := ev.(*events.EventPartialCompletion); isTyped {
+        delta = pcTyped.Delta
+        meta = pcTyped.Metadata()
+        ok = true
+    } else if impl, isImpl := ev.(*events.EventImpl); isImpl {
+        // Try decode payload-based
+        pc, decOK := impl.ToPartialCompletion()
+        if decOK {
+            delta = pc.Delta
+            meta = pc.Metadata()
+            ok = true
+        }
+    }
+    if !ok {
+        // pass-through on unknown
+        return f.next.PublishEvent(ev)
+    }
 
-	st := f.getState(meta)
+    st := f.getState(meta)
 	if f.opts.Debug {
 		log.Debug().Str("stream", meta.ID.String()).Str("event", "partial").Str("delta", delta).Msg("incoming")
 	}
-	st.rawSeen.WriteString(delta)
+    st.rawSeen.WriteString(delta)
 
-	filteredDelta, typedEvents := f.scanAndFilter(meta, st, delta)
+    filteredDelta, typedEvents := f.scanAndFilter(meta, st, delta)
 
-	// Maintain filtered completion consistency
-	st.filteredCompletion.WriteString(filteredDelta)
+    // Maintain filtered completion consistency
+    st.filteredCompletion.WriteString(filteredDelta)
 
-	// Forward filtered partial only if there is any delta (including empty is okay to preserve timing)
-	fwd := &events.EventPartialCompletion{
+    // Forward filtered partial only if there is any delta (including empty is okay to preserve timing)
+    fwd := &events.EventPartialCompletion{
 		EventImpl:  events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta},
 		Delta:      filteredDelta,
-		Completion: st.filteredCompletion.String(),
-	}
-	if err := f.next.PublishEvent(fwd); err != nil {
-		return err
-	}
-	// Publish extractor-typed events
-	return f.publishAll(st.ctx, meta, typedEvents)
+        Completion: st.filteredCompletion.String(),
+    }
+    if err := f.next.PublishEvent(fwd); err != nil {
+        return err
+    }
+    // Publish extractor-typed events
+    return f.publishAll(st.ctx, meta, typedEvents)
 }
 
 func (f *FilteringSink) handleFinal(ev events.Event) error {
-	// Handle typed EventFinal directly first
-	if fe, ok := ev.(*events.EventFinal); ok {
-		meta := fe.Metadata()
-		st := f.getState(meta)
-		// Process only the raw tail we haven't seen via partials
-		full := fe.Text
-		prefix := st.rawSeen.String()
-		delta := full
-		if strings.HasPrefix(full, prefix) {
-			delta = full[len(prefix):]
-		}
+    // Handle typed EventFinal directly first
+    if fe, ok := ev.(*events.EventFinal); ok {
+        meta := fe.Metadata()
+        st := f.getState(meta)
+        // Process only the raw tail we haven't seen via partials
+        full := fe.Text
+        prefix := st.rawSeen.String()
+        delta := full
+        if strings.HasPrefix(full, prefix) {
+            delta = full[len(prefix):]
+        }
 		if f.opts.Debug {
 			log.Debug().Str("stream", meta.ID.String()).Str("event", "final").Int("raw_seen_len", len(prefix)).Int("full_len", len(full)).Int("tail_len", len(delta)).Msg("incoming")
 		}
-		filtered, typed := f.scanAndFilter(meta, st, delta)
-		st.filteredCompletion.WriteString(filtered)
-		_ = f.publishAll(st.ctx, meta, typed)
+        filtered, typed := f.scanAndFilter(meta, st, delta)
+        st.filteredCompletion.WriteString(filtered)
+        _ = f.publishAll(st.ctx, meta, typed)
 		// Handle unfinished capture at final
 		if st.capturing {
 			var malformedOut strings.Builder
@@ -265,99 +265,99 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 			st.filteredCompletion.WriteString(malformedOut.String())
 			_ = f.publishAll(st.ctx, meta, typed)
 		}
-		out := events.NewFinalEvent(meta, st.filteredCompletion.String())
-		f.deleteState(meta)
-		return f.next.PublishEvent(out)
-	}
+        out := events.NewFinalEvent(meta, st.filteredCompletion.String())
+        f.deleteState(meta)
+        return f.next.PublishEvent(out)
+    }
 
-	// If we have a raw EventImpl, try legacy EventText extraction
-	if fin, ok := ev.(*events.EventImpl); ok {
-		meta := fin.Metadata()
-		st := f.getState(meta)
-		tf, isText := fin.ToText()
-		if isText {
-			full := tf.Text
-			prefix := st.rawSeen.String()
-			delta := full
-			if strings.HasPrefix(full, prefix) {
-				delta = full[len(prefix):]
-			}
+    // If we have a raw EventImpl, try legacy EventText extraction
+    if fin, ok := ev.(*events.EventImpl); ok {
+        meta := fin.Metadata()
+        st := f.getState(meta)
+        tf, isText := fin.ToText()
+        if isText {
+            full := tf.Text
+            prefix := st.rawSeen.String()
+            delta := full
+            if strings.HasPrefix(full, prefix) {
+                delta = full[len(prefix):]
+            }
 			if f.opts.Debug {
 				log.Debug().Str("stream", meta.ID.String()).Str("event", "final-text").Int("raw_seen_len", len(prefix)).Int("full_len", len(full)).Int("tail_len", len(delta)).Msg("incoming")
 			}
-			filtered, typed := f.scanAndFilter(meta, st, delta)
-			st.filteredCompletion.WriteString(filtered)
-			_ = f.publishAll(st.ctx, meta, typed)
+            filtered, typed := f.scanAndFilter(meta, st, delta)
+            st.filteredCompletion.WriteString(filtered)
+            _ = f.publishAll(st.ctx, meta, typed)
 			if st.capturing {
 				var malformedOut strings.Builder
 				flushMalformed(f, meta, st, &malformedOut, &typed)
 				st.filteredCompletion.WriteString(malformedOut.String())
 				_ = f.publishAll(st.ctx, meta, typed)
 			}
-			out := events.NewFinalEvent(meta, st.filteredCompletion.String())
-			f.deleteState(meta)
-			return f.next.PublishEvent(out)
-		}
-	}
+            out := events.NewFinalEvent(meta, st.filteredCompletion.String())
+            f.deleteState(meta)
+            return f.next.PublishEvent(out)
+        }
+    }
 
-	// Unknown final—pass-through
-	return f.next.PublishEvent(ev)
+    // Unknown final—pass-through
+    return f.next.PublishEvent(ev)
 }
 
 // scanAndFilter processes incoming delta, updating state and returning
 // - filteredDelta to forward to UI
 // - typed events to publish based on extractor sessions
 func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState, delta string) (string, []events.Event) {
-	// We'll stream-process characters while maintaining small pattern buffers.
-	var out strings.Builder
-	var typed []events.Event
+    // We'll stream-process characters while maintaining small pattern buffers.
+    var out strings.Builder
+    var typed []events.Event
 	var capDelta strings.Builder
 
-	for i := 0; i < len(delta); i++ {
-		ch := delta[i]
+    for i := 0; i < len(delta); i++ {
+        ch := delta[i]
 
-		if !st.capturing {
-			// Accumulate potential open tag if a '<' appeared previously or now
-			if st.openTagBuf.Len() > 0 || ch == '<' {
-				st.openTagBuf.WriteByte(ch)
-				// Decide if we have a full valid tag
-				if tryParseOpenTag(st, st.openTagBuf.String()) {
-					// fully parsed and valid; enter capture state
-					st.capturing = true
-					st.seq++
+        if !st.capturing {
+            // Accumulate potential open tag if a '<' appeared previously or now
+            if st.openTagBuf.Len() > 0 || ch == '<' {
+                st.openTagBuf.WriteByte(ch)
+                // Decide if we have a full valid tag
+                if tryParseOpenTag(st, st.openTagBuf.String()) {
+                    // fully parsed and valid; enter capture state
+                    st.capturing = true
+                    st.seq++
 					st.payloadBuf.Reset()
-					st.closeTagBuf.Reset()
+                    st.closeTagBuf.Reset()
 
-					// Emit OnStart
-					if ex := f.exByKey[extractorKey(st.name, st.dtype)]; ex != nil {
-						// derive per-item context from the stream context
+                    // Emit OnStart
+                    if ex := f.exByKey[extractorKey(st.name, st.dtype)]; ex != nil {
+                        // derive per-item context from the stream context
 						if st.itemCancel != nil {
 							st.itemCancel()
 							st.itemCancel = nil
 						}
-						st.itemCtx, st.itemCancel = context.WithCancel(st.ctx)
-						st.session = ex.NewSession(st.itemCtx, meta, itemID(meta.ID, st.seq))
-						typed = append(typed, st.session.OnStart(st.itemCtx)...)
-					} else {
-						// Unknown extractor: treat as not capturing (flush buffer)
-						out.WriteString(st.openTagBuf.String())
-						st.openTagBuf.Reset()
-						st.capturing = false
-					}
-					continue
-				}
-				// If it becomes clear this is not a tag, flush buffered text
-				if st.openTagBuf.Len() >= 2 && !strings.HasPrefix(st.openTagBuf.String(), "<$") {
-					out.WriteString(st.openTagBuf.String())
-					st.openTagBuf.Reset()
-				}
-				continue
-			}
+                        st.itemCtx, st.itemCancel = context.WithCancel(st.ctx)
+                        st.session = ex.NewSession(st.itemCtx, meta, itemID(meta.ID, st.seq))
+                        typed = append(typed, st.session.OnStart(st.itemCtx)...)
+                    } else {
+                        // Unknown extractor: treat as not capturing (flush buffer)
+                        out.WriteString(st.openTagBuf.String())
+                        st.openTagBuf.Reset()
+                        st.capturing = false
+                    }
+                    continue
+                }
+                // If it becomes clear this is not a tag, flush buffered text
+                if st.openTagBuf.Len() >= 2 && !strings.HasPrefix(st.openTagBuf.String(), "<$") {
+                    out.WriteString(st.openTagBuf.String())
+                    st.openTagBuf.Reset()
+                }
+                continue
+            }
 
-			// Normal text (no tag buffering in progress)
-			out.WriteByte(ch)
-			continue
-		}
+            // Normal text (no tag buffering in progress)
+            out.WriteByte(ch)
+            continue
+        }
 
 		// Capturing branch: collect payload and detect close tag
 		st.payloadBuf.WriteByte(ch)
@@ -402,68 +402,68 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 			}
 			// Finalize item
 			finalRaw := []byte(st.payloadBuf.String())
-			if st.session != nil {
+                if st.session != nil {
 				typed = append(typed, st.session.OnCompleted(st.itemCtx, finalRaw, true, nil)...)
-			}
-			// reset state to idle
-			st.capturing = false
-			st.name, st.dtype = "", ""
-			st.session = nil
+                }
+                // reset state to idle
+                st.capturing = false
+                st.name, st.dtype = "", ""
+                st.session = nil
 			if st.itemCancel != nil {
 				st.itemCancel()
 				st.itemCancel = nil
 			}
 			st.payloadBuf.Reset()
-			st.openTagBuf.Reset()
-			st.closeTagBuf.Reset()
-			continue
-		}
-	}
+                st.openTagBuf.Reset()
+                st.closeTagBuf.Reset()
+            continue
+        }
+    }
 
 	// End of delta: if capturing, flush the accumulated per-delta payload to extractor
 	if st.capturing && st.session != nil && capDelta.Len() > 0 {
 		typed = append(typed, st.session.OnRaw(st.itemCtx, []byte(capDelta.String()))...)
 	}
 
-	// At the end of delta, flush any non-capturing buffers
-	if !st.capturing && st.openTagBuf.Len() > 0 {
-		out.WriteString(st.openTagBuf.String())
-		st.openTagBuf.Reset()
-	}
+    // At the end of delta, flush any non-capturing buffers
+    if !st.capturing && st.openTagBuf.Len() > 0 {
+        out.WriteString(st.openTagBuf.String())
+        st.openTagBuf.Reset()
+    }
 
-	return out.String(), coalesce(typed)
+    return out.String(), coalesce(typed)
 }
 
 func flushMalformed(f *FilteringSink, meta events.EventMetadata, st *streamState, out *strings.Builder, typed *[]events.Event) {
-	switch f.opts.OnMalformed {
-	case "ignore":
-		// drop everything captured so far
-	case "forward-raw":
+    switch f.opts.OnMalformed {
+    case "ignore":
+        // drop everything captured so far
+    case "forward-raw":
 		// reconstruct a best-effort raw block
 		out.WriteString("<$" + st.name + ":" + st.dtype + ">")
 		out.WriteString(st.payloadBuf.String())
-		out.WriteString(st.closeTagBuf.String())
-	case "error-events":
+        out.WriteString(st.closeTagBuf.String())
+    case "error-events":
 		// fall through to emit error event below
 	}
-	if st.session != nil {
+        if st.session != nil {
 		*typed = append(*typed, st.session.OnCompleted(st.itemCtx, []byte(st.payloadBuf.String()), false, errors.New("malformed structured block"))...)
-	}
-	// reset state
-	st.capturing = false
-	st.name, st.dtype = "", ""
-	st.session = nil
+    }
+    // reset state
+    st.capturing = false
+    st.name, st.dtype = "", ""
+    st.session = nil
 	if st.itemCancel != nil {
 		st.itemCancel()
 		st.itemCancel = nil
 	}
 	st.payloadBuf.Reset()
-	st.openTagBuf.Reset()
-	st.closeTagBuf.Reset()
+    st.openTagBuf.Reset()
+    st.closeTagBuf.Reset()
 }
 
 func itemID(id uuid.UUID, seq int) string {
-	return id.String() + ":" + itoa(seq)
+    return id.String() + ":" + itoa(seq)
 }
 
 // itoa converts int to string via local strconv without importing fmt. Keep simple.
@@ -474,60 +474,60 @@ func strconv(i int) string {
 	if i == 0 {
 		return "0"
 	}
-	neg := false
+    neg := false
 	if i < 0 {
 		neg = true
 		i = -i
 	}
-	var b [20]byte
-	pos := len(b)
-	for i > 0 {
-		pos--
-		b[pos] = byte('0' + i%10)
-		i /= 10
-	}
+    var b [20]byte
+    pos := len(b)
+    for i > 0 {
+        pos--
+        b[pos] = byte('0' + i%10)
+        i /= 10
+    }
 	if neg {
 		pos--
 		b[pos] = '-'
 	}
-	return string(b[pos:])
+    return string(b[pos:])
 }
 
 var (
-	reOpen = regexp.MustCompile(`^<\$([a-zA-Z0-9_-]+):([a-zA-Z0-9._-]+)>$`)
+    reOpen = regexp.MustCompile(`^<\$([a-zA-Z0-9_-]+):([a-zA-Z0-9._-]+)>$`)
 )
 
 func tryParseOpenTag(st *streamState, s string) bool {
-	if !strings.HasPrefix(s, "<$") {
-		return false
-	}
-	if strings.HasSuffix(s, ">") {
-		m := reOpen.FindStringSubmatch(s)
-		if len(m) == 3 {
-			st.name = m[1]
-			st.dtype = m[2]
-			st.openTagBuf.Reset()
-			return true
-		}
-		// invalid tag
-		return false
-	}
-	return false
+    if !strings.HasPrefix(s, "<$") {
+        return false
+    }
+    if strings.HasSuffix(s, ">") {
+        m := reOpen.FindStringSubmatch(s)
+        if len(m) == 3 {
+            st.name = m[1]
+            st.dtype = m[2]
+            st.openTagBuf.Reset()
+            return true
+        }
+        // invalid tag
+        return false
+    }
+    return false
 }
 
 // no fence detection in v2 (handled by extractor)
 
 func tryParseCloseTag(st *streamState, s string) bool {
-	// expecting </$name:dtype>
+    // expecting </$name:dtype>
 	if !strings.HasSuffix(s, ">") {
 		return false
 	}
-	exp := "</$" + st.name + ":" + st.dtype + ">"
-	if strings.HasSuffix(s, exp) {
-		st.closeTagBuf.Reset()
-		return true
-	}
-	return false
+    exp := "</$" + st.name + ":" + st.dtype + ">"
+    if strings.HasSuffix(s, exp) {
+        st.closeTagBuf.Reset()
+        return true
+    }
+    return false
 }
 
 // no sink-side parsing in v2 (handled by extractor)
@@ -536,5 +536,5 @@ func coalesce(list []events.Event) []events.Event {
 	if len(list) == 0 {
 		return nil
 	}
-	return list
+    return list
 }
