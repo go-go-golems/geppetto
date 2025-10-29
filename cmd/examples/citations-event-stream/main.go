@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -158,6 +159,7 @@ type model struct {
 	activeCitations int
 	spinnerIdx      int
 	segments        []userSeg
+	spinner         spinner.Model
 	// Viewports for scrollable content
 	userViewport           viewport.Model
 	rawTextViewport        viewport.Model
@@ -240,6 +242,10 @@ func initialModel() model {
 		Debug: false,
 	}, ex)
 
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
+
 	return model{
 		parts:      parts,
 		currentIdx: 0,
@@ -250,6 +256,7 @@ func initialModel() model {
 		sink:       sink,
 		collector:  collector,
 		completion: "",
+		spinner:    s,
 		// Initialize viewports with default sizes (will be resized on first render)
 		userViewport:           viewport.New(100, 10),
 		rawTextViewport:        viewport.New(30, 5),
@@ -262,10 +269,13 @@ func initialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -284,7 +294,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "r":
 			// Reset
-			return initialModel(), nil
+			return initialModel(), initialModel().Init()
 		case "+":
 			// Speed up
 			if m.speed > 50*time.Millisecond {
@@ -299,7 +309,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.autoPlay && m.currentIdx < len(m.parts) {
 			m = m.step()
 			if m.currentIdx < len(m.parts) {
-				return m, tick(m.speed)
+				cmds = append(cmds, tick(m.speed))
 			}
 		}
 		// advance spinner regardless (it only shows when active)
@@ -310,7 +320,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 	}
 
-	return m, nil
+	// Update spinner
+	m.spinner, cmd = m.spinner.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) step() model {
@@ -615,10 +629,6 @@ func (m model) View() string {
 
 	// --- User View (chat-like) at the top ---
 	userSection := sectionStyle.Render("User View")
-	// Fun spinner frames
-	spinnerFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	spinner := spinnerFrames[m.spinnerIdx%len(spinnerFrames)]
-	spinnerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("63")).Bold(true)
 	// nested widget style for citations blocks
 	citationWidgetStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("63")).Padding(0, 1).Margin(0, 0, 1, 0)
@@ -632,7 +642,7 @@ func (m model) View() string {
 			var segBuf strings.Builder
 			if len(seg.entries) == 0 {
 				if seg.active {
-					segBuf.WriteString(spinnerStyle.Render(spinner) + " streaming citations...\n")
+					segBuf.WriteString(m.spinner.View() + " streaming citations...\n")
 				} else {
 					segBuf.WriteString("(no citations)\n")
 				}
@@ -644,7 +654,7 @@ func (m model) View() string {
 					}
 				}
 				if seg.active {
-					segBuf.WriteString("\n" + spinnerStyle.Render(spinner) + " streaming citations...\n")
+					segBuf.WriteString("\n" + m.spinner.View() + " streaming citations...\n")
 				}
 			}
 			userContent.WriteString("\n")
