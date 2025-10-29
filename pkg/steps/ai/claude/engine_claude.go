@@ -105,15 +105,7 @@ func (e *ClaudeEngine) RunInference(
 			}
 		}
 	}
-	// Safely handle Temperature and TopP settings with default fallback
-	if req.Temperature == nil {
-		defaultTemp := float64(1.0)
-		req.Temperature = &defaultTemp
-	}
-	if req.TopP == nil {
-		defaultTopP := float64(1.0)
-		req.TopP = &defaultTopP
-	}
+	// Do not force defaults for Temperature/TopP; omit when at API defaults (1.0)
 
 	// Setup metadata and event publishing
 	metadata := events.EventMetadata{

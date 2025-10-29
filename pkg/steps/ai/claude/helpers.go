@@ -3,12 +3,12 @@ package claude
 import (
 	"encoding/base64"
 	"encoding/json"
+	"math"
 
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/pkg/errors"
 )
 
@@ -218,13 +218,30 @@ func MakeMessageRequestFromTurn(
 	// If we ended without a tool_result, append any delayed messages to avoid dropping content
 	flushDelayed()
 
-	temperature := 0.0
+	// Determine effective sampling settings while respecting Claude constraint:
+	// temperature and top_p cannot both be specified for some models.
+	// Default for both is 1.0 — when set to default, we omit the fields.
+	const defaultSampling = 1.0
+	const eps = 1e-9
+
+	var temperaturePtr *float64
 	if chatSettings.Temperature != nil {
-		temperature = *chatSettings.Temperature
+		if math.Abs(*chatSettings.Temperature-defaultSampling) > eps {
+			v := *chatSettings.Temperature
+			temperaturePtr = &v
+		}
 	}
-	topP := 0.0
+
+	var topPPtr *float64
 	if chatSettings.TopP != nil {
-		topP = *chatSettings.TopP
+		if math.Abs(*chatSettings.TopP-defaultSampling) > eps {
+			v := *chatSettings.TopP
+			topPPtr = &v
+		}
+	}
+
+	if temperaturePtr != nil && topPPtr != nil {
+		return nil, errors.New("both temperature and top_p are set to non-default values; Claude models require only one to be specified")
 	}
 	maxTokens := 1024
 	if chatSettings.MaxResponseTokens != nil && *chatSettings.MaxResponseTokens > 0 {
@@ -239,10 +256,10 @@ func MakeMessageRequestFromTurn(
 		StopSequences: chatSettings.Stop,
 		Stream:        chatSettings.Stream,
 		System:        systemPrompt,
-		Temperature:   cast.WrapAddr[float64](temperature),
+		Temperature:   temperaturePtr,
 		Tools:         nil,
 		TopK:          nil,
-		TopP:          cast.WrapAddr[float64](topP),
+		TopP:          topPPtr,
 	}
 	return req, nil
 }
