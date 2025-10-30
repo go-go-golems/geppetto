@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -185,7 +186,8 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/messages", bytes.NewBuffer(body))
+	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -196,10 +198,11 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	if len(truncatedBody) > 1000 {
 		truncatedBody = truncatedBody[:500] + "..." + truncatedBody[len(truncatedBody)-500:]
 	}
-	log.Debug().Msgf("Sending streaming message request: %s", truncatedBody)
+	log.Debug().Str("url", url).Str("body", truncatedBody).Msg("Sending streaming message request")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
+		log.Error().Err(err).Interface("resp", resp).Msg("Error sending streaming message request")
 		return nil, err
 	}
 
@@ -207,9 +210,19 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		defer func(Body io.ReadCloser) {
 			_ = Body.Close()
 		}(resp.Body)
+		log.Error().Err(err).Int("statusCode", resp.StatusCode).Interface("resp", resp.Header).Msg("Error sending streaming message request")
 		var errorResp ErrorResponse
 		respBody, _ := io.ReadAll(resp.Body)
+
+		// Truncate response body for logging
+		truncatedRespBody := string(respBody)
+		if len(truncatedRespBody) > 1000 {
+			truncatedRespBody = truncatedRespBody[:500] + "..." + truncatedRespBody[len(truncatedRespBody)-500:]
+		}
+
+		log.Error().Err(err).Str("respBody", truncatedRespBody).Msg("Error reading response body")
 		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
+			log.Error().Err(unmarshalErr).Str("respBody", truncatedRespBody).Msg("Error unmarshalling error response")
 			return nil, unmarshalErr
 		}
 		return nil, fmt.Errorf("claude API error: %s", errorResp.Error.Message)

@@ -13,7 +13,7 @@ flags:
   - name: claude-base-url
     type: string
     help: base URL
-    default: "https://api.anthropic.com/"
+    default: "https://api.anthropic.com"
   - name: claude-api-key
     type: string
     help: API key
