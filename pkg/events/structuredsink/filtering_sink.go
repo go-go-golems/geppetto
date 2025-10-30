@@ -325,6 +325,10 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 					st.payloadBuf.Reset()
 					st.closeTagBuf.Reset()
 
+					if f.opts.Debug {
+						log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: open tag detected")
+					}
+
 					// Emit OnStart
 					if ex := f.exByKey[extractorKey(st.name, st.dtype)]; ex != nil {
 						// derive per-item context from the stream context
@@ -334,8 +338,14 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 						}
 						st.itemCtx, st.itemCancel = context.WithCancel(st.ctx)
 						st.session = ex.NewSession(st.itemCtx, meta, itemID(meta.ID, st.seq))
+						if f.opts.Debug {
+							log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: extractor session started")
+						}
 						typed = append(typed, st.session.OnStart(st.itemCtx)...)
 					} else {
+						if f.opts.Debug {
+							log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: no extractor found for tag; flushing as text")
+						}
 						// Unknown extractor: treat as not capturing (flush buffer)
 						out.WriteString(st.openTagBuf.String())
 						st.openTagBuf.Reset()
@@ -400,6 +410,9 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 			// Finalize item
 			finalRaw := []byte(st.payloadBuf.String())
 			if st.session != nil {
+				if f.opts.Debug {
+					log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Int("final_len", len(finalRaw)).Msg("filtering-sink: close tag detected; completing session")
+				}
 				typed = append(typed, st.session.OnCompleted(st.itemCtx, finalRaw, true, nil)...)
 			}
 			// reset state to idle
@@ -422,10 +435,14 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 		typed = append(typed, st.session.OnRaw(st.itemCtx, []byte(capDelta.String()))...)
 	}
 
-	// At the end of delta, flush any non-capturing buffers
+	// If not capturing, decide whether to flush any openTagBuf remnants.
+	// Preserve potential structured tag prefixes like '<$' across deltas to allow split tags.
 	if !st.capturing && st.openTagBuf.Len() > 0 {
-		out.WriteString(st.openTagBuf.String())
-		st.openTagBuf.Reset()
+		s := st.openTagBuf.String()
+		if !strings.HasPrefix(s, "<$") {
+			out.WriteString(s)
+			st.openTagBuf.Reset()
+		}
 	}
 
 	return out.String(), coalesce(typed)
