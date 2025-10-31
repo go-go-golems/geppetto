@@ -22,14 +22,15 @@ func (c *eventCollector) PublishEvent(ev events.Event) error {
 
 // testExtractor captures session lifecycle and chunks for assertions
 type testExtractor struct {
-	name, dtype string
-	last        *testSession
-	sessions    []*testSession
-	mu          sync.Mutex
+	pkg, typ, ver string
+	last          *testSession
+	sessions      []*testSession
+	mu            sync.Mutex
 }
 
-func (e *testExtractor) Name() string     { return e.name }
-func (e *testExtractor) DataType() string { return e.dtype }
+func (e *testExtractor) TagPackage() string { return e.pkg }
+func (e *testExtractor) TagType() string    { return e.typ }
+func (e *testExtractor) TagVersion() string { return e.ver }
 func (e *testExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
 	s := &testSession{ctx: ctx, itemID: itemID}
 	e.mu.Lock()
@@ -106,11 +107,11 @@ func feedParts(t *testing.T, sink *FilteringSink, meta events.EventMetadata, par
 
 func TestFilteringSink_CloseTagSinglePartial(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	full := "Hello <$x:v1>abc</$x:v1> world"
+	full := "Hello <core:x:v1>abc</core:x:v1> world"
 
 	// send as a single partial and then final
 	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
@@ -129,19 +130,19 @@ func TestFilteringSink_CloseTagSinglePartial(t *testing.T) {
 	require.NotEmpty(t, partials)
 	assert.Contains(t, final, "Hello ")
 	assert.Contains(t, final, " world")
-	assert.NotContains(t, final, "<$x:v1>")
-	assert.NotContains(t, final, "</$x:v1>")
+	assert.NotContains(t, final, "<core:x:v1>")
+	assert.NotContains(t, final, "</core:x:v1>")
 	assert.NotContains(t, final, "abc")
 }
 
 func TestFilteringSink_CloseTagSplitAcrossPartials(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	p1 := "A<$x:v1>abc</"
-	p2 := "$x:v1> Z"
+	p1 := "A<core:x:v1>abc</"
+	p2 := "core:x:v1> Z"
 	full := p1 + p2
 
 	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
@@ -168,11 +169,11 @@ func TestFilteringSink_CloseTagSplitAcrossPartials(t *testing.T) {
 
 func TestFilteringSink_CloseTagBoundaryBeforeGt(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	p1 := "prefix <$x:v1>abc</$x:v1"
+	p1 := "prefix <core:x:v1>abc</core:x:v1"
 	p2 := "> suffix"
 	full := p1 + p2
 
@@ -191,11 +192,11 @@ func TestFilteringSink_CloseTagBoundaryBeforeGt(t *testing.T) {
 
 func TestFilteringSink_MalformedAtFinal_DefaultErrorEvents(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	p1 := "M <$x:v1>abc"
+	p1 := "M <core:x:v1>abc"
 
 	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
 	_ = sink.PublishEvent(events.NewFinalEvent(meta, p1))
@@ -214,11 +215,11 @@ func TestFilteringSink_MalformedAtFinal_DefaultErrorEvents(t *testing.T) {
 func TestFilteringSink_UnknownExtractor_FlushesAsText(t *testing.T) {
 	col := &eventCollector{}
 	// register extractor for a different tag so this one is unknown
-	ex := &testExtractor{name: "y", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "y", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	full := "X <$unknown:v1>abc</$unknown:v1> Y"
+	full := "X <core:unknown:v1>abc</core:unknown:v1> Y"
 
 	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
 	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
@@ -234,11 +235,11 @@ func TestFilteringSink_UnknownExtractor_FlushesAsText(t *testing.T) {
 // Test 1: Open-tag split matrix - complete set of boundaries
 func TestFilteringSink_OpenTagSplit_BeforeDollar(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <", "$x:v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <", "core:x:v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last, "OnStart should fire exactly once once tag completes")
 	assert.True(t, ex.last.started)
@@ -247,17 +248,17 @@ func TestFilteringSink_OpenTagSplit_BeforeDollar(t *testing.T) {
 	assert.Equal(t, "abc", ex.last.finalRaw)
 
 	_, final := collectTextParts(col.list)
-	assert.NotContains(t, final, "<$x:v1>", "No open-tag bytes should appear in forwarded text")
+	assert.NotContains(t, final, "<core:x:v1>", "No open-tag bytes should appear in forwarded text")
 	assert.Equal(t, "prefix  suffix", final, "Filtered final should equal outside text only")
 }
 
 func TestFilteringSink_OpenTagSplit_AfterDollar(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$", "x:v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:", "x:v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -270,11 +271,11 @@ func TestFilteringSink_OpenTagSplit_AfterDollar(t *testing.T) {
 
 func TestFilteringSink_OpenTagSplit_AfterName(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x", ":v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x", ":v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -287,11 +288,11 @@ func TestFilteringSink_OpenTagSplit_AfterName(t *testing.T) {
 
 func TestFilteringSink_OpenTagSplit_AfterColon(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:", "v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:", "v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -304,11 +305,11 @@ func TestFilteringSink_OpenTagSplit_AfterColon(t *testing.T) {
 
 func TestFilteringSink_OpenTagSplit_AfterDtype(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1", ">abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1", ">abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -321,11 +322,11 @@ func TestFilteringSink_OpenTagSplit_AfterDtype(t *testing.T) {
 
 func TestFilteringSink_OpenTagSplit_MultipleFragments(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <", "$", "x", ":", "v1", ">abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <", "core", ":", "x", ":", "v1", ">abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last, "OnStart should fire exactly once once tag completes")
 	assert.True(t, ex.last.started)
@@ -333,23 +334,23 @@ func TestFilteringSink_OpenTagSplit_MultipleFragments(t *testing.T) {
 	assert.Equal(t, "abc", ex.last.finalRaw)
 
 	_, final := collectTextParts(col.list)
-	assert.NotContains(t, final, "<$x:v1>", "No open-tag bytes should appear in forwarded text")
+	assert.NotContains(t, final, "<core:x:v1>", "No open-tag bytes should appear in forwarded text")
 	assert.Equal(t, "prefix  suffix", final)
 }
 
 // Test 2: Close-tag near-misses
 func TestFilteringSink_CloseTagNearMiss_ExtraChar(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1!>middle</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1>abc</core:x:v1!>middle</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
 	assert.True(t, ex.last.completed)
-	assert.Equal(t, "abc</$x:v1!>middle", ex.last.finalRaw)
+	assert.Equal(t, "abc</core:x:v1!>middle", ex.last.finalRaw)
 
 	_, final := collectTextParts(col.list)
 	assert.Equal(t, "prefix  suffix", final)
@@ -357,11 +358,11 @@ func TestFilteringSink_CloseTagNearMiss_ExtraChar(t *testing.T) {
 
 func TestFilteringSink_CloseTagNearMiss_ExtraGt(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1>>middle</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1>abc</core:x:v1>>middle</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -372,21 +373,21 @@ func TestFilteringSink_CloseTagNearMiss_ExtraGt(t *testing.T) {
 
 	_, final := collectTextParts(col.list)
 	// The extra '>' and the following text are outside the structured block
-	assert.Equal(t, "prefix >middle</$x:v1> suffix", final)
+	assert.Equal(t, "prefix >middle</core:x:v1> suffix", final)
 }
 
 func TestFilteringSink_CloseTagNearMiss_SimilarPrefix(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1test></$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1>abc</core:x:v1test></core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
 	assert.True(t, ex.last.completed)
-	assert.Equal(t, "abc</$x:v1test>", ex.last.finalRaw)
+	assert.Equal(t, "abc</core:x:v1test>", ex.last.finalRaw)
 
 	_, final := collectTextParts(col.list)
 	assert.Equal(t, "prefix  suffix", final)
@@ -395,11 +396,11 @@ func TestFilteringSink_CloseTagNearMiss_SimilarPrefix(t *testing.T) {
 // Test 3: Case sensitivity mismatch
 func TestFilteringSink_CaseSensitivityMismatch(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "X", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "X", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$X:v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:X:v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -415,11 +416,11 @@ func TestFilteringSink_CaseSensitivityMismatch(t *testing.T) {
 // Test 4: Empty payload
 func TestFilteringSink_EmptyPayload(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1></$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1></core:x:v1> suffix"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -429,17 +430,17 @@ func TestFilteringSink_EmptyPayload(t *testing.T) {
 
 	_, final := collectTextParts(col.list)
 	assert.Equal(t, "prefix  suffix", final)
-	assert.NotContains(t, final, "<$x:v1>")
+	assert.NotContains(t, final, "<core:x:v1>")
 }
 
 // Test 5: Back-to-back blocks without spacing
 func TestFilteringSink_BackToBackBlocks(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"<$x:v1>a</$x:v1><$x:v1>b</$x:v1>"})
+	feedParts(t, sink, meta, []string{"<core:x:v1>a</core:x:v1><core:x:v1>b</core:x:v1>"})
 
 	require.Len(t, ex.sessions, 2)
 	assert.True(t, ex.sessions[0].started)
@@ -459,12 +460,12 @@ func TestFilteringSink_BackToBackBlocks(t *testing.T) {
 // Test 6: Interleaved blocks for different extractors
 func TestFilteringSink_InterleavedDifferentExtractors(t *testing.T) {
 	col := &eventCollector{}
-	exA := &testExtractor{name: "a", dtype: "v1"}
-	exB := &testExtractor{name: "b", dtype: "v1"}
+	exA := &testExtractor{pkg: "core", typ: "a", ver: "v1"}
+	exB := &testExtractor{pkg: "core", typ: "b", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, exA, exB)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"before <$a:v1>payloadA</$a:v1> mid <$b:v1>payloadB</$b:v1> after"})
+	feedParts(t, sink, meta, []string{"before <core:a:v1>payloadA</core:a:v1> mid <core:b:v1>payloadB</core:b:v1> after"})
 
 	require.NotNil(t, exA.last)
 	assert.True(t, exA.last.started)
@@ -487,40 +488,40 @@ func TestFilteringSink_InterleavedDifferentExtractors(t *testing.T) {
 // Test 7: Unknown extractor - split tag variant
 func TestFilteringSink_UnknownExtractor_SplitTag(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "y", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "y", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"X <", "$unknown:v1>abc</$unknown:v1> Y"})
+	feedParts(t, sink, meta, []string{"X <", "core:unknown:v1>abc</core:unknown:v1> Y"})
 
 	assert.Nil(t, ex.last)
 
 	_, final := collectTextParts(col.list)
-	assert.Equal(t, "X <$unknown:v1>abc</$unknown:v1> Y", final)
+	assert.Equal(t, "X <core:unknown:v1>abc</core:unknown:v1> Y", final)
 }
 
 func TestFilteringSink_UnknownExtractor_SplitCloseTag(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "y", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "y", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"X <$unknown:v1>abc</", "$unknown:v1> Y"})
+	feedParts(t, sink, meta, []string{"X <core:unknown:v1>abc</", "core:unknown:v1> Y"})
 
 	assert.Nil(t, ex.last)
 
 	_, final := collectTextParts(col.list)
-	assert.Equal(t, "X <$unknown:v1>abc</$unknown:v1> Y", final)
+	assert.Equal(t, "X <core:unknown:v1>abc</core:unknown:v1> Y", final)
 }
 
 // Test 8: Malformed policies
 func TestFilteringSink_MalformedPolicy_ErrorEvents(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{Malformed: MalformedErrorEvents}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"before <$x:v1>payload"})
+	feedParts(t, sink, meta, []string{"before <core:x:v1>payload"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -533,11 +534,11 @@ func TestFilteringSink_MalformedPolicy_ErrorEvents(t *testing.T) {
 
 func TestFilteringSink_MalformedPolicy_ForwardRaw(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{Malformed: MalformedReconstructText}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"before <$x:v1>payload"})
+	feedParts(t, sink, meta, []string{"before <core:x:v1>payload"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -545,17 +546,17 @@ func TestFilteringSink_MalformedPolicy_ForwardRaw(t *testing.T) {
 
 	_, final := collectTextParts(col.list)
 	assert.Contains(t, final, "before")
-	assert.Contains(t, final, "<$x:v1>")
+	assert.Contains(t, final, "<core:x:v1>")
 	assert.Contains(t, final, "payload")
 }
 
 func TestFilteringSink_MalformedPolicy_Ignore(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{Malformed: MalformedIgnore}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"before <$x:v1>payload"})
+	feedParts(t, sink, meta, []string{"before <core:x:v1>payload"})
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -569,11 +570,11 @@ func TestFilteringSink_MalformedPolicy_Ignore(t *testing.T) {
 // Test 9: Final-only inputs
 func TestFilteringSink_FinalOnly_ValidBlock(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	full := "before <$x:v1>abc</$x:v1> after"
+	full := "before <core:x:v1>abc</core:x:v1> after"
 	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
 
 	require.NotNil(t, ex.last)
@@ -588,11 +589,11 @@ func TestFilteringSink_FinalOnly_ValidBlock(t *testing.T) {
 
 func TestFilteringSink_FinalOnly_Malformed(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	full := "before <$x:v1>abc"
+	full := "before <core:x:v1>abc"
 	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
 
 	require.NotNil(t, ex.last)
@@ -605,11 +606,11 @@ func TestFilteringSink_FinalOnly_Malformed(t *testing.T) {
 
 func TestFilteringSink_FinalOnly_UnknownExtractor(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "y", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "y", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	full := "before <$unknown:v1>abc</$unknown:v1> after"
+	full := "before <core:unknown:v1>abc</core:unknown:v1> after"
 	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
 
 	assert.Nil(t, ex.last)
@@ -621,11 +622,11 @@ func TestFilteringSink_FinalOnly_UnknownExtractor(t *testing.T) {
 // Test 10: Metadata propagation for typed events
 func TestFilteringSink_MetadataPropagation(t *testing.T) {
 	col := &eventCollector{}
-	metaExtractor := &metadataTestExtractor{name: "x", dtype: "v1"}
+	metaExtractor := &metadataTestExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, metaExtractor)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, metaExtractor.lastSession)
 	assert.Len(t, metaExtractor.lastSession.emittedEvents, 1)
@@ -639,12 +640,13 @@ func TestFilteringSink_MetadataPropagation(t *testing.T) {
 }
 
 type metadataTestExtractor struct {
-	name, dtype string
-	lastSession *metadataTestSession
+	pkg, typ, ver string
+	lastSession   *metadataTestSession
 }
 
-func (e *metadataTestExtractor) Name() string     { return e.name }
-func (e *metadataTestExtractor) DataType() string { return e.dtype }
+func (e *metadataTestExtractor) TagPackage() string { return e.pkg }
+func (e *metadataTestExtractor) TagType() string    { return e.typ }
+func (e *metadataTestExtractor) TagVersion() string { return e.ver }
 func (e *metadataTestExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
 	s := &metadataTestSession{ctx: ctx, itemID: itemID}
 	e.lastSession = s
@@ -678,11 +680,11 @@ func (s *metadataTestSession) OnCompleted(ctx context.Context, raw []byte, succe
 // Test 11: Item context lifecycle (cancellation)
 func TestFilteringSink_ItemContextCancellation(t *testing.T) {
 	col := &eventCollector{}
-	ctxExtractor := &contextTestExtractor{name: "x", dtype: "v1"}
+	ctxExtractor := &contextTestExtractor{name: "core", dtype: "x"}
 	sink := NewFilteringSinkWithContext(context.Background(), col, Options{}, ctxExtractor)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1> suffix"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1>abc</core:x:v1> suffix"})
 
 	require.NotNil(t, ctxExtractor.lastSession)
 	assert.NotNil(t, ctxExtractor.lastSession.ctx)
@@ -698,11 +700,11 @@ func TestFilteringSink_ItemContextCancellation(t *testing.T) {
 
 func TestFilteringSink_ItemContextCancellation_Malformed(t *testing.T) {
 	col := &eventCollector{}
-	ctxExtractor := &contextTestExtractor{name: "x", dtype: "v1"}
+	ctxExtractor := &contextTestExtractor{name: "core", dtype: "x"}
 	sink := NewFilteringSinkWithContext(context.Background(), col, Options{}, ctxExtractor)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc"})
+	feedParts(t, sink, meta, []string{"prefix <core:x:v1>abc"})
 
 	require.NotNil(t, ctxExtractor.lastSession)
 	assert.NotNil(t, ctxExtractor.lastSession.ctx)
@@ -721,8 +723,9 @@ type contextTestExtractor struct {
 	lastSession *contextTestSession
 }
 
-func (e *contextTestExtractor) Name() string     { return e.name }
-func (e *contextTestExtractor) DataType() string { return e.dtype }
+func (e *contextTestExtractor) TagPackage() string { return e.name }
+func (e *contextTestExtractor) TagType() string    { return e.dtype }
+func (e *contextTestExtractor) TagVersion() string { return "v1" }
 func (e *contextTestExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
 	s := &contextTestSession{ctx: ctx, itemID: itemID}
 	e.lastSession = s
@@ -749,20 +752,20 @@ func (s *contextTestSession) OnCompleted(ctx context.Context, raw []byte, succes
 // Test 12: Multiple streams interleaved
 func TestFilteringSink_MultipleStreamsInterleaved(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	metaA := newMeta()
 	metaB := newMeta()
 
 	// Alternate partials between streams
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "A1 <$x:v1>", "A1 <$x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "B1 <$x:v1>", "B1 <$x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "payloadA</$x:v1> A2", "A1 <$x:v1>payloadA</$x:v1> A2")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "payloadB</$x:v1> B2", "B1 <$x:v1>payloadB</$x:v1> B2")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "A1 <core:x:v1>", "A1 <core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "B1 <core:x:v1>", "B1 <core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "payloadA</core:x:v1> A2", "A1 <core:x:v1>payloadA</core:x:v1> A2")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "payloadB</core:x:v1> B2", "B1 <core:x:v1>payloadB</core:x:v1> B2")))
 
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaA, "A1 <$x:v1>payloadA</$x:v1> A2")))
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaB, "B1 <$x:v1>payloadB</$x:v1> B2")))
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaA, "A1 <core:x:v1>payloadA</core:x:v1> A2")))
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaB, "B1 <core:x:v1>payloadB</core:x:v1> B2")))
 
 	// Should have two sessions (one per stream)
 	require.Len(t, ex.sessions, 2)
@@ -786,16 +789,16 @@ func TestFilteringSink_MultipleStreamsInterleaved(t *testing.T) {
 // Test 13: Zero-length deltas stability
 func TestFilteringSink_ZeroLengthDeltas_Outside(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
 	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "")))
 	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "prefix ", "prefix ")))
 	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix ")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<$x:v1>abc</$x:v1>", "prefix <$x:v1>abc</$x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix <$x:v1>abc</$x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "prefix <$x:v1>abc</$x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<core:x:v1>abc</core:x:v1>", "prefix <core:x:v1>abc</core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix <core:x:v1>abc</core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "prefix <core:x:v1>abc</core:x:v1>")))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -807,19 +810,19 @@ func TestFilteringSink_ZeroLengthDeltas_Outside(t *testing.T) {
 
 func TestFilteringSink_ZeroLengthDeltas_InsideCapture(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
 	completion := ""
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<$x:v1>", "<$x:v1>")))
-	completion = "<$x:v1>"
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<core:x:v1>", "<core:x:v1>")))
+	completion = "<core:x:v1>"
 	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
 	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "abc", completion+"abc")))
 	completion = completion + "abc"
 	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "</$x:v1>", completion+"</$x:v1>")))
-	completion = completion + "</$x:v1>"
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "</core:x:v1>", completion+"</core:x:v1>")))
+	completion = completion + "</core:x:v1>"
 	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
 
 	require.NotNil(t, ex.last)
@@ -833,11 +836,11 @@ func TestFilteringSink_ZeroLengthDeltas_InsideCapture(t *testing.T) {
 // Test 14: MaxCaptureBytes (future-ready - skipped if not implemented)
 func TestFilteringSink_MaxCaptureBytes_SkipIfNotImplemented(t *testing.T) {
 	col := &eventCollector{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
+	ex := &testExtractor{pkg: "core", typ: "x", ver: "v1"}
 	sink := NewFilteringSink(col, Options{MaxCaptureBytes: 5}, ex)
 
 	meta := newMeta()
-	feedParts(t, sink, meta, []string{"<$x:v1>123456789</$x:v1>"})
+	feedParts(t, sink, meta, []string{"<core:x:v1>123456789</core:x:v1>"})
 
 	require.NotNil(t, ex.last)
 	// Currently MaxCaptureBytes is not enforced, so this should succeed

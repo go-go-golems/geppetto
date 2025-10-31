@@ -45,10 +45,11 @@ func (o Options) resolveMalformedPolicy() MalformedPolicy {
 	}
 }
 
-// Extractor defines a typed extractor registered for a specific <$name:$dataType> pair.
+// Extractor defines a typed extractor registered for a specific <package:type:version> triple.
 type Extractor interface {
-	Name() string
-	DataType() string
+	TagPackage() string
+	TagType() string
+	TagVersion() string
 	NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession
 }
 
@@ -65,7 +66,7 @@ type ExtractorSession interface {
 type FilteringSink struct {
 	next       events.EventSink
 	opts       Options
-	exByKey    map[string]Extractor // key: name+"\x00"+dtype
+	exByKey    map[string]Extractor // key: package+"\x00"+type+"\x00"+version
 	mu         sync.Mutex
 	byStreamID map[uuid.UUID]*streamState
 	baseCtx    context.Context
@@ -75,7 +76,7 @@ func NewFilteringSink(next events.EventSink, opts Options, extractors ...Extract
 	o := opts.withDefaults()
 	ex := make(map[string]Extractor)
 	for _, e := range extractors {
-		key := extractorKey(e.Name(), e.DataType())
+		key := extractorKey(e.TagPackage(), e.TagType(), e.TagVersion())
 		ex[key] = e
 	}
 	return &FilteringSink{
@@ -96,7 +97,7 @@ func NewFilteringSinkWithContext(ctx context.Context, next events.EventSink, opt
 	o := opts.withDefaults()
 	ex := make(map[string]Extractor)
 	for _, e := range extractors {
-		key := extractorKey(e.Name(), e.DataType())
+		key := extractorKey(e.TagPackage(), e.TagType(), e.TagVersion())
 		ex[key] = e
 	}
 	return &FilteringSink{
@@ -110,7 +111,7 @@ func NewFilteringSinkWithContext(ctx context.Context, next events.EventSink, opt
 
 var _ events.EventSink = (*FilteringSink)(nil)
 
-func extractorKey(name, dtype string) string { return name + "\x00" + dtype }
+func extractorKey(pkg, typ, ver string) string { return pkg + "\x00" + typ + "\x00" + ver }
 
 // Parser state per message stream
 type streamState struct {
@@ -127,8 +128,9 @@ type streamState struct {
 
 	// capture state
 	state         parserState
-	name          string
-	dtype         string
+	tagPackage    string
+	tagType       string
+	tagVersion    string
 	seq           int
 	session       ExtractorSession
 	payloadBuf    strings.Builder
@@ -327,15 +329,15 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 					st.state = stateCapturing
 					st.seq++
 					st.payloadBuf.Reset()
-					st.expectedClose = "</$" + st.name + ":" + st.dtype + ">"
+					st.expectedClose = "</" + st.tagPackage + ":" + st.tagType + ":" + st.tagVersion + ">"
 					st.lagBuf.reset(len(st.expectedClose) - 1)
 
 					if f.opts.Debug {
-						log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: open tag detected")
+						log.Debug().Str("stream", meta.ID.String()).Str("package", st.tagPackage).Str("type", st.tagType).Str("version", st.tagVersion).Msg("filtering-sink: open tag detected")
 					}
 
 					// Emit OnStart
-					if ex := f.exByKey[extractorKey(st.name, st.dtype)]; ex != nil {
+					if ex := f.exByKey[extractorKey(st.tagPackage, st.tagType, st.tagVersion)]; ex != nil {
 						// derive per-item context from the stream context
 						if st.itemCancel != nil {
 							st.itemCancel()
@@ -344,12 +346,12 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 						st.itemCtx, st.itemCancel = context.WithCancel(st.ctx)
 						st.session = ex.NewSession(st.itemCtx, meta, itemID(meta.ID, st.seq))
 						if f.opts.Debug {
-							log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: extractor session started")
+							log.Debug().Str("stream", meta.ID.String()).Str("package", st.tagPackage).Str("type", st.tagType).Str("version", st.tagVersion).Msg("filtering-sink: extractor session started")
 						}
 						typed = append(typed, st.session.OnStart(st.itemCtx)...)
 					} else {
 						if f.opts.Debug {
-							log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: no extractor found for tag; flushing as text")
+							log.Debug().Str("stream", meta.ID.String()).Str("package", st.tagPackage).Str("type", st.tagType).Str("version", st.tagVersion).Msg("filtering-sink: no extractor found for tag; flushing as text")
 						}
 						// Unknown extractor: treat as not capturing (flush buffer)
 						out.WriteString(tagText)
@@ -359,7 +361,7 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 					continue
 				}
 				// If it becomes clear this is not a tag, flush buffered text
-				if st.openTagBuf.Len() >= 2 && !strings.HasPrefix(st.openTagBuf.String(), "<$") {
+				if st.openTagBuf.Len() >= 2 && !isPotentialOpenTagPrefix(st.openTagBuf.String()) {
 					out.WriteString(st.openTagBuf.String())
 					st.openTagBuf.Reset()
 				}
@@ -386,13 +388,13 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 				finalRaw := []byte(st.payloadBuf.String())
 				if st.session != nil {
 					if f.opts.Debug {
-						log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Int("final_len", len(finalRaw)).Msg("filtering-sink: close tag detected; completing session")
+						log.Debug().Str("stream", meta.ID.String()).Str("package", st.tagPackage).Str("type", st.tagType).Str("version", st.tagVersion).Int("final_len", len(finalRaw)).Msg("filtering-sink: close tag detected; completing session")
 					}
 					typed = append(typed, st.session.OnCompleted(st.itemCtx, finalRaw, true, nil)...)
 				}
 				// reset state to idle
 				st.state = stateIdle
-				st.name, st.dtype = "", ""
+				st.tagPackage, st.tagType, st.tagVersion = "", "", ""
 				st.session = nil
 				if st.itemCancel != nil {
 					st.itemCancel()
@@ -422,11 +424,11 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 	}
 
 	// If not capturing, decide whether to flush any openTagBuf remnants.
-	// Preserve potential structured tag prefixes like '<$' across deltas to allow split tags.
+	// Preserve potential structured tag prefixes like '<package' across deltas to allow split tags.
 	// Additionally preserve a lone '<' so that an open tag split exactly at '<' continues across partials.
 	if st.state != stateCapturing && st.openTagBuf.Len() > 0 {
 		s := st.openTagBuf.String()
-		if !strings.HasPrefix(s, "<$") && s != "<" {
+		if !isPotentialOpenTagPrefix(s) && s != "<" {
 			out.WriteString(s)
 			st.openTagBuf.Reset()
 		}
@@ -442,7 +444,7 @@ func flushMalformed(f *FilteringSink, meta events.EventMetadata, st *streamState
 		// drop everything captured so far
 	case MalformedReconstructText:
 		// reconstruct a best-effort raw block (not byte-identical)
-		out.WriteString("<$" + st.name + ":" + st.dtype + ">")
+		out.WriteString("<" + st.tagPackage + ":" + st.tagType + ":" + st.tagVersion + ">")
 		out.WriteString(st.payloadBuf.String())
 		if len(st.lagBuf.buf) > 0 {
 			out.WriteString(string(st.lagBuf.buf))
@@ -457,7 +459,7 @@ func flushMalformed(f *FilteringSink, meta events.EventMetadata, st *streamState
 	}
 	// reset state
 	st.state = stateIdle
-	st.name, st.dtype = "", ""
+	st.tagPackage, st.tagType, st.tagVersion = "", "", ""
 	st.session = nil
 	if st.itemCancel != nil {
 		st.itemCancel()
@@ -474,45 +476,31 @@ func itemID(id uuid.UUID, seq int) string {
 }
 
 func tryParseOpenTag(st *streamState, s string) bool {
-	if !strings.HasPrefix(s, "<$") {
+	if !strings.HasPrefix(s, "<") {
 		return false
 	}
 	if !strings.HasSuffix(s, ">") {
 		return false
 	}
 	// strip prefix/suffix
-	body := s[2 : len(s)-1]
-	// split on first ':'
-	idx := strings.IndexByte(body, ':')
-	if idx <= 0 || idx >= len(body)-1 {
+	body := s[1 : len(s)-1]
+	// split into exactly 3 parts: package:type:version
+	parts := strings.Split(body, ":")
+	if len(parts) != 3 {
 		return false
 	}
-	name := body[:idx]
-	dtype := body[idx+1:]
-	if !isValidName(name) || !isValidDType(dtype) {
+	pkg, typ, ver := parts[0], parts[1], parts[2]
+	if !isValidTagPart(pkg) || !isValidTagPart(typ) || !isValidTagPart(ver) {
 		return false
 	}
-	st.name = name
-	st.dtype = dtype
+	st.tagPackage = pkg
+	st.tagType = typ
+	st.tagVersion = ver
 	st.openTagBuf.Reset()
 	return true
 }
 
-func isValidName(s string) bool {
-	if s == "" {
-		return false
-	}
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func isValidDType(s string) bool {
+func isValidTagPart(s string) bool {
 	if s == "" {
 		return false
 	}
@@ -525,6 +513,32 @@ func isValidDType(s string) bool {
 	}
 	return true
 }
+
+func isPotentialOpenTagPrefix(s string) bool {
+	if s == "" {
+		return false
+	}
+	if s[0] != '<' {
+		return false
+	}
+	// allow only valid tag chars and ':'; no '>'
+	for i := 1; i < len(s); i++ {
+		c := s[i]
+		if c == '>' {
+			return false
+		}
+		if c == ':' {
+			continue
+		}
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// removed isValidName/isValidDType in favor of isValidTagPart
 
 // no fence detection in v2 (handled by extractor)
 

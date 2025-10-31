@@ -20,12 +20,13 @@ func (c *fuzzCollector) PublishEvent(ev events.Event) error {
 
 // minimal extractor that captures final raw payload
 type fuzzExtractor struct {
-	name, dtype string
-	last        *fuzzSession
+	pkg, typ, ver string
+	last          *fuzzSession
 }
 
-func (e *fuzzExtractor) Name() string     { return e.name }
-func (e *fuzzExtractor) DataType() string { return e.dtype }
+func (e *fuzzExtractor) TagPackage() string { return e.pkg }
+func (e *fuzzExtractor) TagType() string    { return e.typ }
+func (e *fuzzExtractor) TagVersion() string { return e.ver }
 func (e *fuzzExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
 	s := &fuzzSession{}
 	e.last = s
@@ -111,11 +112,11 @@ func TestFilteringSink_RandomSegmentations_Known(t *testing.T) {
 	const prefix = "P "
 	const payload = "PAY"
 	const suffix = " S"
-	full := prefix + "<$x:v1>" + payload + "</$x:v1>" + suffix
+	full := prefix + "<core:x:v1>" + payload + "</core:x:v1>" + suffix
 
 	for seed := int64(0); seed < 200; seed++ {
 		col := &fuzzCollector{}
-		ex := &fuzzExtractor{name: "x", dtype: "v1"}
+		ex := &fuzzExtractor{pkg: "core", typ: "x", ver: "v1"}
 		sink := NewFilteringSink(col, Options{}, ex)
 		meta := newMetaFuzz()
 		parts := splitIntoParts(full, seed, 10)
@@ -133,10 +134,10 @@ func TestFilteringSink_RandomSegmentations_Known(t *testing.T) {
 
 // Property: Unknown extractors must forward text verbatim across arbitrary segmentations.
 func TestFilteringSink_RandomSegmentations_Unknown(t *testing.T) {
-	const full = "X <$unknown:v1>ABC</$unknown:v1> Y"
+	const full = "X <core:unknown:v1>ABC</core:unknown:v1> Y"
 	for seed := int64(0); seed < 200; seed++ {
 		col := &fuzzCollector{}
-		ex := &fuzzExtractor{name: "x", dtype: "v1"} // register different tag
+		ex := &fuzzExtractor{pkg: "core", typ: "x", ver: "v1"} // register different tag
 		sink := NewFilteringSink(col, Options{}, ex)
 		meta := newMetaFuzz()
 		parts := splitIntoParts(full, seed, 10)
@@ -154,13 +155,13 @@ func FuzzFilteringSink_TagSplit_Known(f *testing.F) {
 	const prefix = "P "
 	const payload = "PAY"
 	const suffix = " S"
-	full := prefix + "<$x:v1>" + payload + "</$x:v1>" + suffix
+	full := prefix + "<core:x:v1>" + payload + "</core:x:v1>" + suffix
 	f.Add(int64(1))
 	f.Add(int64(42))
 	f.Add(int64(99999))
 	f.Fuzz(func(t *testing.T, seed int64) {
 		col := &fuzzCollector{}
-		ex := &fuzzExtractor{name: "x", dtype: "v1"}
+		ex := &fuzzExtractor{pkg: "core", typ: "x", ver: "v1"}
 		sink := NewFilteringSink(col, Options{}, ex)
 		meta := newMetaFuzz()
 		parts := splitIntoParts(full, seed, 10)

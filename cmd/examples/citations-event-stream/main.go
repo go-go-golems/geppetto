@@ -53,10 +53,11 @@ type EventCitationCompleted struct {
 	Error   string         `json:"error,omitempty"`
 }
 
-type citationsExtractor struct{ name, dtype string }
+type citationsExtractor struct{ pkg, typ, ver string }
 
-func (ce *citationsExtractor) Name() string     { return ce.name }
-func (ce *citationsExtractor) DataType() string { return ce.dtype }
+func (ce *citationsExtractor) TagPackage() string { return ce.pkg }
+func (ce *citationsExtractor) TagType() string    { return ce.typ }
+func (ce *citationsExtractor) TagVersion() string { return ce.ver }
 func (ce *citationsExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) structuredsink.ExtractorSession {
 	return &citationsSession{ctx: ctx, itemID: itemID}
 }
@@ -198,7 +199,7 @@ func initialModel() model {
 	parts := []string{
 		"Intro: In this demo we will stream multiple fenced blocks interlaced with text.\n\n",
 		// Block 1
-		"<$citations:v1>",
+		"<geppetto:citations:v1>",
 		"```yaml\n",
 		"citations:\n",
 		"  - title: AlphaGo\n",
@@ -208,10 +209,10 @@ func initialModel() model {
 		"    authors:\n",
 		"      - OpenAI\n",
 		"```\n",
-		"</$citations:v1>",
+		"</geppetto:citations:v1>",
 		"\nBetween blocks, normal prose appears here.\n\n",
 		// Block 2
-		"<$citations:v1>",
+		"<geppetto:citations:v1>",
 		"```yaml\n",
 		"citations:\n",
 		"  - title: Sequence to Sequence Learning\n",
@@ -221,23 +222,23 @@ func initialModel() model {
 		"    authors:\n",
 		"      - Dai\n",
 		"```\n",
-		"</$citations:v1>",
+		"</geppetto:citations:v1>",
 		"\nSome additional commentary between blocks.\n\n",
 		// Block 3 (slightly more compact emission)
-		"<$citations:v1>",
+		"<geppetto:citations:v1>",
 		"```yaml\ncitations:\n",
 		"  - title: T5\n",
 		"    authors:\n",
 		"      - Raffel\n",
 		"```\n",
-		"</$citations:v1>",
+		"</geppetto:citations:v1>",
 		"\nDone.",
 	}
 
 	streamID := uuid.New()
 	meta := events.EventMetadata{ID: streamID}
 	collector := &eventCollector{}
-	ex := &citationsExtractor{name: "citations", dtype: "v1"}
+	ex := &citationsExtractor{pkg: "geppetto", typ: "citations", ver: "v1"}
 	sink := structuredsink.NewFilteringSink(collector, structuredsink.Options{
 		Debug: false,
 	}, ex)
