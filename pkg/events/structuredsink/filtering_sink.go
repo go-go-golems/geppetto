@@ -2,7 +2,7 @@ package structuredsink
 
 import (
 	"context"
-	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -15,16 +15,34 @@ import (
 // Options control the filtering sink behavior.
 type Options struct {
 	MaxCaptureBytes int
-	OnMalformed     string // "ignore" | "forward-raw" | "error-events"
-	Debug           bool   // if true, emit zerolog debug traces
+	Malformed       MalformedPolicy
+	Debug           bool // if true, emit zerolog debug traces
 }
 
 func (o *Options) withDefaults() Options {
 	ret := *o
-	if ret.OnMalformed == "" {
-		ret.OnMalformed = "error-events"
+	if ret.Malformed == 0 {
+		ret.Malformed = MalformedErrorEvents
 	}
 	return ret
+}
+
+// MalformedPolicy clarifies behavior on unclosed/malformed structured blocks.
+type MalformedPolicy int
+
+const (
+	MalformedErrorEvents     MalformedPolicy = iota // call OnCompleted(false), do not reinsert text
+	MalformedReconstructText                        // reinsert reconstructed block into filtered text and call OnCompleted(false)
+	MalformedIgnore                                 // drop captured payload and call OnCompleted(false)
+)
+
+func (o Options) resolveMalformedPolicy() MalformedPolicy {
+	switch o.Malformed {
+	case MalformedIgnore, MalformedReconstructText, MalformedErrorEvents:
+		return o.Malformed
+	default:
+		return MalformedErrorEvents
+	}
 }
 
 // Extractor defines a typed extractor registered for a specific <$name:$dataType> pair.
@@ -108,16 +126,40 @@ type streamState struct {
 	filteredCompletion strings.Builder
 
 	// capture state
-	capturing  bool
-	name       string
-	dtype      string
-	seq        int
-	session    ExtractorSession
-	payloadBuf strings.Builder
+	state         parserState
+	name          string
+	dtype         string
+	seq           int
+	session       ExtractorSession
+	payloadBuf    strings.Builder
+	expectedClose string
+	lagBuf        tagLagBuffer
 
 	// sub-state buffers for partial pattern matches
-	openTagBuf  strings.Builder
-	closeTagBuf strings.Builder
+	openTagBuf strings.Builder
+}
+
+type parserState int
+
+const (
+	stateIdle parserState = iota
+	stateCapturing
+)
+
+// tagLagBuffer holds the last N bytes (N = closeTagLen-1) to reliably detect close tag
+// without leaking partial close-tag bytes to payload.
+type tagLagBuffer struct {
+	buf      []byte
+	capacity int
+}
+
+func (b *tagLagBuffer) reset(capacity int) {
+	if cap(b.buf) < capacity {
+		b.buf = make([]byte, 0, capacity)
+	} else {
+		b.buf = b.buf[:0]
+	}
+	b.capacity = capacity
 }
 
 // PublishEvent implements events.EventSink. It intercepts partial/final text events
@@ -194,19 +236,11 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 		meta  events.EventMetadata
 		ok    bool
 	)
-	// Prefer typed partials
+	// Typed partials only
 	if pcTyped, isTyped := ev.(*events.EventPartialCompletion); isTyped {
 		delta = pcTyped.Delta
 		meta = pcTyped.Metadata()
 		ok = true
-	} else if impl, isImpl := ev.(*events.EventImpl); isImpl {
-		// Try decode payload-based
-		pc, decOK := impl.ToPartialCompletion()
-		if decOK {
-			delta = pc.Delta
-			meta = pc.Metadata()
-			ok = true
-		}
 	}
 	if !ok {
 		// pass-through on unknown
@@ -256,7 +290,7 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 		st.filteredCompletion.WriteString(filtered)
 		_ = f.publishAll(st.ctx, meta, typed)
 		// Handle unfinished capture at final
-		if st.capturing {
+		if st.state == stateCapturing {
 			var malformedOut strings.Builder
 			flushMalformed(f, meta, st, &malformedOut, &typed)
 			st.filteredCompletion.WriteString(malformedOut.String())
@@ -267,36 +301,6 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 		return f.next.PublishEvent(out)
 	}
 
-	// If we have a raw EventImpl, try legacy EventText extraction
-	if fin, ok := ev.(*events.EventImpl); ok {
-		meta := fin.Metadata()
-		st := f.getState(meta)
-		tf, isText := fin.ToText()
-		if isText {
-			full := tf.Text
-			prefix := st.rawSeen.String()
-			delta := full
-			if strings.HasPrefix(full, prefix) {
-				delta = full[len(prefix):]
-			}
-			if f.opts.Debug {
-				log.Debug().Str("stream", meta.ID.String()).Str("event", "final-text").Int("raw_seen_len", len(prefix)).Int("full_len", len(full)).Int("tail_len", len(delta)).Msg("incoming")
-			}
-			filtered, typed := f.scanAndFilter(meta, st, delta)
-			st.filteredCompletion.WriteString(filtered)
-			_ = f.publishAll(st.ctx, meta, typed)
-			if st.capturing {
-				var malformedOut strings.Builder
-				flushMalformed(f, meta, st, &malformedOut, &typed)
-				st.filteredCompletion.WriteString(malformedOut.String())
-				_ = f.publishAll(st.ctx, meta, typed)
-			}
-			out := events.NewFinalEvent(meta, st.filteredCompletion.String())
-			f.deleteState(meta)
-			return f.next.PublishEvent(out)
-		}
-	}
-
 	// Unknown final—pass-through
 	return f.next.PublishEvent(ev)
 }
@@ -305,7 +309,6 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 // - filteredDelta to forward to UI
 // - typed events to publish based on extractor sessions
 func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState, delta string) (string, []events.Event) {
-	// We'll stream-process characters while maintaining small pattern buffers.
 	var out strings.Builder
 	var typed []events.Event
 	var capDelta strings.Builder
@@ -313,17 +316,19 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 	for i := 0; i < len(delta); i++ {
 		ch := delta[i]
 
-		if !st.capturing {
+		if st.state != stateCapturing {
 			// Accumulate potential open tag if a '<' appeared previously or now
 			if st.openTagBuf.Len() > 0 || ch == '<' {
 				st.openTagBuf.WriteByte(ch)
 				// Decide if we have a full valid tag
-				if tryParseOpenTag(st, st.openTagBuf.String()) {
+				tagText := st.openTagBuf.String()
+				if tryParseOpenTag(st, tagText) {
 					// fully parsed and valid; enter capture state
-					st.capturing = true
+					st.state = stateCapturing
 					st.seq++
 					st.payloadBuf.Reset()
-					st.closeTagBuf.Reset()
+					st.expectedClose = "</$" + st.name + ":" + st.dtype + ">"
+					st.lagBuf.reset(len(st.expectedClose) - 1)
 
 					if f.opts.Debug {
 						log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: open tag detected")
@@ -347,9 +352,9 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 							log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Msg("filtering-sink: no extractor found for tag; flushing as text")
 						}
 						// Unknown extractor: treat as not capturing (flush buffer)
-						out.WriteString(st.openTagBuf.String())
+						out.WriteString(tagText)
 						st.openTagBuf.Reset()
-						st.capturing = false
+						st.state = stateIdle
 					}
 					continue
 				}
@@ -366,80 +371,62 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 			continue
 		}
 
-		// Capturing branch: collect payload and detect close tag
-		st.payloadBuf.WriteByte(ch)
-		capDelta.WriteByte(ch)
-
-		// Maintain a sliding window for close tag detection (keep last N chars)
-		expectedClose := "</$" + st.name + ":" + st.dtype + ">"
-		st.closeTagBuf.WriteByte(ch)
-		if st.closeTagBuf.Len() > len(expectedClose) {
-			s := st.closeTagBuf.String()
-			// keep only the last expectedClose length
-			if len(s) > len(expectedClose) {
-				s = s[len(s)-len(expectedClose):]
-			}
-			st.closeTagBuf.Reset()
-			st.closeTagBuf.WriteString(s)
-		}
-		if st.closeTagBuf.Len() == len(expectedClose) && st.closeTagBuf.String() == expectedClose {
-			// Trim the close tag from payload and current delta accumulator
-			// Trim payload
-			p := st.payloadBuf.String()
-			if len(p) >= len(expectedClose) {
-				p = p[:len(p)-len(expectedClose)]
-				st.payloadBuf.Reset()
-				st.payloadBuf.WriteString(p)
-			}
-			// Trim in-delta accumulator
-			acc := capDelta.String()
-			trim := len(expectedClose)
-			if trim > len(acc) {
-				trim = len(acc)
-			}
-			if trim > 0 {
-				acc = acc[:len(acc)-trim]
-				capDelta.Reset()
-				capDelta.WriteString(acc)
-			}
-			// Flush any remaining delta content to extractor
-			if st.session != nil && capDelta.Len() > 0 {
-				typed = append(typed, st.session.OnRaw(st.itemCtx, []byte(capDelta.String()))...)
-				capDelta.Reset()
-			}
-			// Finalize item
-			finalRaw := []byte(st.payloadBuf.String())
-			if st.session != nil {
-				if f.opts.Debug {
-					log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Int("final_len", len(finalRaw)).Msg("filtering-sink: close tag detected; completing session")
+		// Capturing branch with lag buffer to detect close tag without leakage
+		closeLen := len(st.expectedClose)
+		// If we have exactly closeLen-1 bytes in lag and new ch would complete close tag, detect and finalize
+		if len(st.lagBuf.buf)+1 == closeLen {
+			// compare lag bytes with prefix and ch with last char
+			if strings.HasPrefix(st.expectedClose, string(st.lagBuf.buf)) && st.expectedClose[closeLen-1] == ch {
+				// flush remaining in-delta emitted bytes first
+				if st.session != nil && capDelta.Len() > 0 {
+					typed = append(typed, st.session.OnRaw(st.itemCtx, []byte(capDelta.String()))...)
+					capDelta.Reset()
 				}
-				typed = append(typed, st.session.OnCompleted(st.itemCtx, finalRaw, true, nil)...)
+				// finalize item with payload only; lagBuf holds the close-tag prefix, drop it
+				finalRaw := []byte(st.payloadBuf.String())
+				if st.session != nil {
+					if f.opts.Debug {
+						log.Debug().Str("stream", meta.ID.String()).Str("name", st.name).Str("dtype", st.dtype).Int("final_len", len(finalRaw)).Msg("filtering-sink: close tag detected; completing session")
+					}
+					typed = append(typed, st.session.OnCompleted(st.itemCtx, finalRaw, true, nil)...)
+				}
+				// reset state to idle
+				st.state = stateIdle
+				st.name, st.dtype = "", ""
+				st.session = nil
+				if st.itemCancel != nil {
+					st.itemCancel()
+					st.itemCancel = nil
+				}
+				st.payloadBuf.Reset()
+				st.openTagBuf.Reset()
+				st.lagBuf.reset(0)
+				st.expectedClose = ""
+				continue
 			}
-			// reset state to idle
-			st.capturing = false
-			st.name, st.dtype = "", ""
-			st.session = nil
-			if st.itemCancel != nil {
-				st.itemCancel()
-				st.itemCancel = nil
-			}
-			st.payloadBuf.Reset()
-			st.openTagBuf.Reset()
-			st.closeTagBuf.Reset()
-			continue
 		}
+
+		// Not closing yet: emit oldest byte if lag is full, then push ch
+		if len(st.lagBuf.buf) == st.lagBuf.capacity && st.lagBuf.capacity > 0 {
+			b := st.lagBuf.buf[0]
+			st.lagBuf.buf = st.lagBuf.buf[1:]
+			capDelta.WriteByte(b)
+			st.payloadBuf.WriteByte(b)
+		}
+		st.lagBuf.buf = append(st.lagBuf.buf, ch)
 	}
 
 	// End of delta: if capturing, flush the accumulated per-delta payload to extractor
-	if st.capturing && st.session != nil && capDelta.Len() > 0 {
+	if st.state == stateCapturing && st.session != nil && capDelta.Len() > 0 {
 		typed = append(typed, st.session.OnRaw(st.itemCtx, []byte(capDelta.String()))...)
 	}
 
 	// If not capturing, decide whether to flush any openTagBuf remnants.
 	// Preserve potential structured tag prefixes like '<$' across deltas to allow split tags.
-	if !st.capturing && st.openTagBuf.Len() > 0 {
+	// Additionally preserve a lone '<' so that an open tag split exactly at '<' continues across partials.
+	if st.state != stateCapturing && st.openTagBuf.Len() > 0 {
 		s := st.openTagBuf.String()
-		if !strings.HasPrefix(s, "<$") {
+		if !strings.HasPrefix(s, "<$") && s != "<" {
 			out.WriteString(s)
 			st.openTagBuf.Reset()
 		}
@@ -449,22 +436,27 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 }
 
 func flushMalformed(f *FilteringSink, meta events.EventMetadata, st *streamState, out *strings.Builder, typed *[]events.Event) {
-	switch f.opts.OnMalformed {
-	case "ignore":
+	policy := f.opts.resolveMalformedPolicy()
+	switch policy {
+	case MalformedIgnore:
 		// drop everything captured so far
-	case "forward-raw":
-		// reconstruct a best-effort raw block
+	case MalformedReconstructText:
+		// reconstruct a best-effort raw block (not byte-identical)
 		out.WriteString("<$" + st.name + ":" + st.dtype + ">")
 		out.WriteString(st.payloadBuf.String())
-		out.WriteString(st.closeTagBuf.String())
-	case "error-events":
+		if len(st.lagBuf.buf) > 0 {
+			out.WriteString(string(st.lagBuf.buf))
+		}
+	case MalformedErrorEvents:
 		// fall through to emit error event below
 	}
 	if st.session != nil {
-		*typed = append(*typed, st.session.OnCompleted(st.itemCtx, []byte(st.payloadBuf.String()), false, errors.New("malformed structured block"))...)
+		// include lagBuf bytes that were held back from payload
+		finalRaw := append([]byte(st.payloadBuf.String()), st.lagBuf.buf...)
+		*typed = append(*typed, st.session.OnCompleted(st.itemCtx, finalRaw, false, errors.New("malformed structured block"))...)
 	}
 	// reset state
-	st.capturing = false
+	st.state = stateIdle
 	st.name, st.dtype = "", ""
 	st.session = nil
 	if st.itemCancel != nil {
@@ -473,60 +465,65 @@ func flushMalformed(f *FilteringSink, meta events.EventMetadata, st *streamState
 	}
 	st.payloadBuf.Reset()
 	st.openTagBuf.Reset()
-	st.closeTagBuf.Reset()
+	st.lagBuf.reset(0)
+	st.expectedClose = ""
 }
 
 func itemID(id uuid.UUID, seq int) string {
-	return id.String() + ":" + itoa(seq)
+	return id.String() + ":" + strconv.Itoa(seq)
 }
-
-// itoa converts int to string via local strconv without importing fmt. Keep simple.
-func itoa(i int) string { return strconv(i) }
-
-// simple int to string (without importing fmt), deterministic
-func strconv(i int) string {
-	if i == 0 {
-		return "0"
-	}
-	neg := false
-	if i < 0 {
-		neg = true
-		i = -i
-	}
-	var b [20]byte
-	pos := len(b)
-	for i > 0 {
-		pos--
-		b[pos] = byte('0' + i%10)
-		i /= 10
-	}
-	if neg {
-		pos--
-		b[pos] = '-'
-	}
-	return string(b[pos:])
-}
-
-var (
-	reOpen = regexp.MustCompile(`^<\$([a-zA-Z0-9_-]+):([a-zA-Z0-9._-]+)>$`)
-)
 
 func tryParseOpenTag(st *streamState, s string) bool {
 	if !strings.HasPrefix(s, "<$") {
 		return false
 	}
-	if strings.HasSuffix(s, ">") {
-		m := reOpen.FindStringSubmatch(s)
-		if len(m) == 3 {
-			st.name = m[1]
-			st.dtype = m[2]
-			st.openTagBuf.Reset()
-			return true
-		}
-		// invalid tag
+	if !strings.HasSuffix(s, ">") {
 		return false
 	}
-	return false
+	// strip prefix/suffix
+	body := s[2 : len(s)-1]
+	// split on first ':'
+	idx := strings.IndexByte(body, ':')
+	if idx <= 0 || idx >= len(body)-1 {
+		return false
+	}
+	name := body[:idx]
+	dtype := body[idx+1:]
+	if !isValidName(name) || !isValidDType(dtype) {
+		return false
+	}
+	st.name = name
+	st.dtype = dtype
+	st.openTagBuf.Reset()
+	return true
+}
+
+func isValidName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isValidDType(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // no fence detection in v2 (handled by extractor)

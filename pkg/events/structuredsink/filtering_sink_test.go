@@ -2,8 +2,7 @@ package structuredsink
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,516 +10,838 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
-type recordingSink struct {
-	list []events.Event
-}
+// eventCollector is a simple sink that records all events forwarded downstream
+type eventCollector struct{ list []events.Event }
 
-func (r *recordingSink) PublishEvent(ev events.Event) error {
-	r.list = append(r.list, ev)
+func (c *eventCollector) PublishEvent(ev events.Event) error {
+	c.list = append(c.list, ev)
 	return nil
 }
 
-func TestFilteringSink_PassThrough_NoStructured(t *testing.T) {
-	rec := &recordingSink{}
-	sink := NewFilteringSink(rec, Options{})
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id, RunID: "run-1", TurnID: "turn-1"}
-
-	// Two partials and a final without any structured tags
-	in := []events.Event{
-		events.NewPartialCompletionEvent(meta, "Hello, ", "Hello, "),
-		events.NewPartialCompletionEvent(meta, "world!", "Hello, world!"),
-		events.NewFinalEvent(meta, "Hello, world!"),
-	}
-
-	for _, ev := range in {
-		require.NoError(t, sink.PublishEvent(ev))
-	}
-
-	// Expect same number of forwarded events
-	require.Equal(t, len(in), len(rec.list))
-
-	// Check partials preserved
-	p1, ok := rec.list[0].(*events.EventPartialCompletion)
-	require.True(t, ok)
-	assert.Equal(t, "Hello, ", p1.Delta)
-	assert.Equal(t, "Hello, ", p1.Completion)
-
-	p2, ok := rec.list[1].(*events.EventPartialCompletion)
-	require.True(t, ok)
-	assert.Equal(t, "world!", p2.Delta)
-	assert.Equal(t, "Hello, world!", p2.Completion)
-
-	f, ok := rec.list[2].(*events.EventFinal)
-	require.True(t, ok)
-	assert.Equal(t, "Hello, world!", f.Text)
+// testExtractor captures session lifecycle and chunks for assertions
+type testExtractor struct {
+	name, dtype string
+	last        *testSession
+	sessions    []*testSession
+	mu          sync.Mutex
 }
 
-func TestFilteringSink_ContextLifecycle(t *testing.T) {
-	rec := &recordingSink{}
-	baseCtx, baseCancel := context.WithCancel(context.Background())
-	defer baseCancel()
-	sink := NewFilteringSinkWithContext(baseCtx, rec, Options{})
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
-
-	// First partial creates stream state and stream context
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "x", "x")))
-
-	// Access internal state for this stream
-	st := sink.getState(meta)
-	require.NotNil(t, st)
-	require.NotNil(t, st.ctx)
-
-	// Context should not be cancelled yet
-	select {
-	case <-st.ctx.Done():
-		t.Fatal("stream context cancelled too early")
-	default:
-	}
-
-	// Final should cancel and remove state
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "x")))
-
-	// st.ctx must be cancelled shortly
-	select {
-	case <-st.ctx.Done():
-		// ok
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("expected stream context to be cancelled after final")
-	}
-
-	// State removed from map
-	sink.mu.Lock()
-	_, ok := sink.byStreamID[id]
-	sink.mu.Unlock()
-	require.False(t, ok, "stream state should be deleted after final")
-}
-
-// --- test extractor emitting typed events via EventLog messages ---
-
-type testExtractor struct{ name, dtype string }
-
-func (te *testExtractor) Name() string     { return te.name }
-func (te *testExtractor) DataType() string { return te.dtype }
-func (te *testExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
-	return &testSession{ctx: ctx, itemID: itemID}
+func (e *testExtractor) Name() string     { return e.name }
+func (e *testExtractor) DataType() string { return e.dtype }
+func (e *testExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
+	s := &testSession{ctx: ctx, itemID: itemID}
+	e.mu.Lock()
+	e.last = s
+	e.sessions = append(e.sessions, s)
+	e.mu.Unlock()
+	return s
 }
 
 type testSession struct {
-	ctx    context.Context
-	itemID string
+	ctx       context.Context
+	itemID    string
+	started   bool
+	rawChunks []string
+	completed bool
+	finalRaw  string
+	success   bool
 }
 
-func (ts *testSession) OnStart(ctx context.Context) []events.Event {
-	return []events.Event{events.NewLogEvent(events.EventMetadata{}, "info", "start:"+ts.itemID, nil)}
-}
-func (ts *testSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
-	return []events.Event{events.NewLogEvent(events.EventMetadata{}, "info", "delta:"+string(chunk), nil)}
-}
-func (ts *testSession) OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event {
-	status := "success"
-	if !success || err != nil {
-		status = "fail"
-	}
-	return []events.Event{events.NewLogEvent(events.EventMetadata{}, "info", "completed:"+status, nil)}
+func (s *testSession) OnStart(ctx context.Context) []events.Event {
+	s.started = true
+	return nil
 }
 
-func collectLogMessages(list []events.Event) []string {
-	msgs := make([]string, 0)
+func (s *testSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
+	s.rawChunks = append(s.rawChunks, string(chunk))
+	return nil
+}
+
+func (s *testSession) OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event {
+	s.completed = true
+	s.finalRaw = string(raw)
+	s.success = success
+	return nil
+}
+
+func newMeta() events.EventMetadata {
+	return events.EventMetadata{ID: uuid.New(), RunID: "run", TurnID: "turn"}
+}
+
+func collectTextParts(list []events.Event) ([]string, string) {
+	var partials []string
+	var final string
 	for _, ev := range list {
-		if lg, ok := ev.(*events.EventLog); ok {
-			msgs = append(msgs, lg.Message)
+		switch v := ev.(type) {
+		case *events.EventPartialCompletion:
+			partials = append(partials, v.Delta)
+		case *events.EventFinal:
+			final = v.Text
+		case *events.EventImpl:
+			if pc, ok := v.ToPartialCompletion(); ok {
+				partials = append(partials, pc.Delta)
+				continue
+			}
+			if tf, ok := v.ToText(); ok {
+				final = tf.Text
+				continue
+			}
 		}
 	}
-	return msgs
+	return partials, final
 }
 
-// ---- citations test extractor and typed events ----
-
-type CitationItem struct {
-	Title   string
-	Authors []string
-}
-
-type EventCitationStarted struct {
-	events.EventImpl
-	ItemID string `json:"item_id"`
-}
-
-type EventCitationDelta struct {
-	events.EventImpl
-	ItemID string `json:"item_id"`
-	Delta  string `json:"delta"`
-}
-
-type EventCitationUpdate struct {
-	events.EventImpl
-	ItemID  string         `json:"item_id"`
-	Entries []CitationItem `json:"entries,omitempty"`
-	Error   string         `json:"error,omitempty"`
-}
-
-type EventCitationCompleted struct {
-	events.EventImpl
-	ItemID  string         `json:"item_id"`
-	Entries []CitationItem `json:"entries,omitempty"`
-	Success bool           `json:"success"`
-	Error   string         `json:"error,omitempty"`
-}
-
-type citationsExtractor struct{ name, dtype string }
-
-func (ce *citationsExtractor) Name() string     { return ce.name }
-func (ce *citationsExtractor) DataType() string { return ce.dtype }
-func (ce *citationsExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
-	return &citationsSession{ctx: ctx, itemID: itemID}
-}
-
-type citationsSession struct {
-	ctx    context.Context
-	itemID string
-}
-
-func (cs *citationsSession) OnStart(ctx context.Context) []events.Event {
-	return []events.Event{&EventCitationStarted{EventImpl: events.EventImpl{Type_: "citations-started"}, ItemID: cs.itemID}}
-}
-
-func (cs *citationsSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
-	return []events.Event{&EventCitationDelta{EventImpl: events.EventImpl{Type_: "citations-delta"}, ItemID: cs.itemID, Delta: string(chunk)}}
-}
-
-func (cs *citationsSession) OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event {
-	var entries []CitationItem
-	if err == nil && raw != nil {
-		_, body := stripCodeFenceBytes(raw)
-		var payload struct {
-			Citations []CitationItem `yaml:"citations"`
-		}
-		if perr := yaml.Unmarshal(body, &payload); perr == nil {
-			entries = payload.Citations
-		}
-	}
-	return []events.Event{&EventCitationCompleted{EventImpl: events.EventImpl{Type_: "citations-completed"}, ItemID: cs.itemID, Entries: entries, Success: err == nil && success, Error: ""}}
-}
-
-func stripCodeFenceBytes(b []byte) (string, []byte) {
-	s := string(b)
-	idx := strings.Index(s, "```")
-	if idx < 0 {
-		return "", b
-	}
-	rest := s[idx+3:]
-	nl := strings.IndexByte(rest, '\n')
-	if nl < 0 {
-		return "", b
-	}
-	header := strings.TrimSpace(rest[:nl])
-	body := rest[nl+1:]
-	end := strings.LastIndex(body, "```")
-	if end >= 0 {
-		body = body[:end]
-	}
-	return strings.ToLower(header), []byte(body)
-}
-
-func collectCitationDeltas(list []events.Event) []*EventCitationDelta {
-	var ds []*EventCitationDelta
-	for _, ev := range list {
-		if d, ok := ev.(*EventCitationDelta); ok {
-			ds = append(ds, d)
-		}
-	}
-	return ds
-}
-
-func TestFilteringSink_Citations_Incremental(t *testing.T) {
-	rec := &recordingSink{}
-	ex := &citationsExtractor{name: "citations", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{Debug: false}, ex)
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
-
-	parts := []string{
-		"prefix ",
-		"<$citations:v1>",
-		"```yaml\n",
-		"citations:\n",
-		"  - title: The Book\n",
-		"    authors:\n",
-		"      - Alice\n",
-		"  - title: Another\n",
-		"    authors:\n",
-		"      - Bob\n",
-		"```\n",
-		"</$citations:v1>",
-		" suffix",
-	}
+// feedParts is a helper to assemble streams from parts
+func feedParts(t *testing.T, sink *FilteringSink, meta events.EventMetadata, parts []string) string {
 	completion := ""
 	for _, p := range parts {
 		completion += p
 		require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, p, completion)))
 	}
 	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
-
-	// Final text should have filtered block
-	last := rec.list[len(rec.list)-1]
-	fe, ok := last.(*events.EventFinal)
-	require.True(t, ok)
-	assert.Equal(t, "prefix  suffix", fe.Text)
-
-	// Expect a completed event with at least 2 entries
-	var completed *EventCitationCompleted
-	for _, ev := range rec.list {
-		if c, ok := ev.(*EventCitationCompleted); ok {
-			completed = c
-			break
-		}
-	}
-	require.NotNil(t, completed)
-	assert.GreaterOrEqual(t, len(completed.Entries), 2)
-
-	// Ensure at least one delta contains 'citations:' and a title
-	ds := collectCitationDeltas(rec.list)
-	found := false
-	for _, d := range ds {
-		if strings.Contains(d.Delta, "citations:") || strings.Contains(d.Delta, "title:") {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "expected citation deltas to include YAML content")
+	return completion
 }
 
-func TestFilteringSink_Citations_Final_ValidateEntries(t *testing.T) {
-	rec := &recordingSink{}
-	ex := &citationsExtractor{name: "citations", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{}, ex)
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
-
-	yaml := "citations:\n  - title: Paper A\n    authors:\n      - Alice\n      - Bob\n  - title: Paper B\n    authors:\n      - Carol\n"
-	final := fmt.Sprintf("X <$%s:%s>```yaml\n%s```\n</$%s:%s> Y", ex.name, ex.dtype, yaml, ex.name, ex.dtype)
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, final)))
-
-	var completed2 *EventCitationCompleted
-	for _, ev := range rec.list {
-		if c, ok := ev.(*EventCitationCompleted); ok && strings.HasSuffix(c.ItemID, ":1") {
-			completed2 = c
-			break
-		}
-	}
-	require.NotNil(t, completed2)
-	require.Len(t, completed2.Entries, 2)
-	assert.Equal(t, "Paper A", completed2.Entries[0].Title)
-	assert.Equal(t, []string{"Alice", "Bob"}, completed2.Entries[0].Authors)
-	assert.Equal(t, "Paper B", completed2.Entries[1].Title)
-	assert.Equal(t, []string{"Carol"}, completed2.Entries[1].Authors)
-	assert.Equal(t, "", completed2.Error)
-}
-
-func TestFilteringSink_Citations_Final_ParseOnCompleted(t *testing.T) {
-	rec := &recordingSink{}
-	ex := &citationsExtractor{name: "citations", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{}, ex)
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
-
-	yaml := "citations:\n  - title: Good One\n    authors:\n      - Alice\n  - title: Another One\n    authors:\n      - Bob\n"
-	text := fmt.Sprintf("pre <$%s:%s>```yaml\n%s```\n</$%s:%s> post", ex.name, ex.dtype, yaml, ex.name, ex.dtype)
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, text)))
-
-	var completed3 *EventCitationCompleted
-	for _, ev := range rec.list {
-		if c, ok := ev.(*EventCitationCompleted); ok {
-			completed3 = c
-			break
-		}
-	}
-	require.NotNil(t, completed3)
-	require.Len(t, completed3.Entries, 2)
-	assert.Equal(t, "Good One", completed3.Entries[0].Title)
-	assert.Equal(t, []string{"Alice"}, completed3.Entries[0].Authors)
-}
-
-func TestFilteringSink_Structured_Final_Basic(t *testing.T) {
-	rec := &recordingSink{}
+func TestFilteringSink_CloseTagSinglePartial(t *testing.T) {
+	col := &eventCollector{}
 	ex := &testExtractor{name: "x", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{}, ex)
+	sink := NewFilteringSink(col, Options{}, ex)
 
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
+	meta := newMeta()
+	full := "Hello <$x:v1>abc</$x:v1> world"
 
-	// Send a preamble partial first
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "Intro ", "Intro ")))
+	// send as a single partial and then final
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
+	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
 
-	yaml := "a: 1\nb: 2\n"
-	finalText := fmt.Sprintf("Intro <$%s:%s>```yaml\n%s```\n</$%s:%s> outro", ex.name, ex.dtype, yaml, ex.name, ex.dtype)
+	// assert extractor saw correct lifecycle
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	// With single partial, our lag buffer may keep all until close seen, so rawChunks may be empty; we rely on finalRaw
+	assert.True(t, ex.last.completed)
+	assert.True(t, ex.last.success)
+	assert.Equal(t, "abc", ex.last.finalRaw)
 
-	// Publish final containing structured block
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, finalText)))
-
-	// Expect: partial (Intro ), typed events (start, delta, update, completed), final with filtered text
-	require.GreaterOrEqual(t, len(rec.list), 2)
-
-	// Last must be final with filtered completion
-	last := rec.list[len(rec.list)-1]
-	fe, ok := last.(*events.EventFinal)
-	require.True(t, ok)
-	assert.Equal(t, "Intro  outro", fe.Text)
-
-	// Gather log messages
-	msgs := collectLogMessages(rec.list)
-	// Ensure our extractor emitted its lifecycle messages
-	assert.Contains(t, msgs, "start:"+id.String()+":1")
-	// no sink-driven updates in v2
-	assert.Contains(t, msgs, "completed:success")
-	// Delta contains yaml
-	foundDelta := false
-	for _, m := range msgs {
-		if strings.HasPrefix(m, "delta:") && strings.Contains(m, "a: 1") {
-			foundDelta = true
-			break
-		}
-	}
-	assert.True(t, foundDelta, "expected a delta with YAML content")
+	// assert filtered text
+	partials, final := collectTextParts(col.list)
+	require.NotEmpty(t, partials)
+	assert.Contains(t, final, "Hello ")
+	assert.Contains(t, final, " world")
+	assert.NotContains(t, final, "<$x:v1>")
+	assert.NotContains(t, final, "</$x:v1>")
+	assert.NotContains(t, final, "abc")
 }
 
-func TestFilteringSink_Structured_PartialStream_Fragmented(t *testing.T) {
-	rec := &recordingSink{}
+func TestFilteringSink_CloseTagSplitAcrossPartials(t *testing.T) {
+	col := &eventCollector{}
 	ex := &testExtractor{name: "x", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{}, ex)
+	sink := NewFilteringSink(col, Options{}, ex)
 
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
+	meta := newMeta()
+	p1 := "A<$x:v1>abc</"
+	p2 := "$x:v1> Z"
+	full := p1 + p2
 
-	// Stream fragmented parts across partials
-	parts := []string{
-		"Hello ",
-		"<$x:v1>",
-		"```yaml\n",
-		"a: 1\n",
-		"```\n",
-		"</$x:v1>",
-		" world",
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p2})
+	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.True(t, ex.last.success)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+	// ensure no leakage of close tag bytes into chunks
+	for _, c := range ex.last.rawChunks {
+		assert.NotContains(t, c, "</$x:v1>")
+		assert.NotContains(t, c, "</")
+		assert.NotContains(t, c, "$x:v1>")
 	}
+
+	partials, final := collectTextParts(col.list)
+	// expected filtered text contains only outside content
+	assert.Equal(t, []string{"A", " Z"}, partials)
+	assert.Equal(t, "A Z", final)
+}
+
+func TestFilteringSink_CloseTagBoundaryBeforeGt(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	p1 := "prefix <$x:v1>abc</$x:v1"
+	p2 := "> suffix"
+	full := p1 + p2
+
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p2})
+	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.True(t, ex.last.success)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+func TestFilteringSink_MalformedAtFinal_DefaultErrorEvents(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	p1 := "M <$x:v1>abc"
+
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
+	_ = sink.PublishEvent(events.NewFinalEvent(meta, p1))
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.False(t, ex.last.success)
+	// final raw should include all captured bytes (payload + any withheld lag bytes)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	// default policy should not reinsert malformed block text
+	assert.Equal(t, "M ", final)
+}
+
+func TestFilteringSink_UnknownExtractor_FlushesAsText(t *testing.T) {
+	col := &eventCollector{}
+	// register extractor for a different tag so this one is unknown
+	ex := &testExtractor{name: "y", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	full := "X <$unknown:v1>abc</$unknown:v1> Y"
+
+	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
+	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+
+	// No extractor session should be created
+	assert.Nil(t, ex.last)
+
+	// All text should be forwarded untouched
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, full, final)
+}
+
+// Test 1: Open-tag split matrix - complete set of boundaries
+func TestFilteringSink_OpenTagSplit_BeforeDollar(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <", "$x:v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last, "OnStart should fire exactly once once tag completes")
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.True(t, ex.last.success)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.NotContains(t, final, "<$x:v1>", "No open-tag bytes should appear in forwarded text")
+	assert.Equal(t, "prefix  suffix", final, "Filtered final should equal outside text only")
+}
+
+func TestFilteringSink_OpenTagSplit_AfterDollar(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$", "x:v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+func TestFilteringSink_OpenTagSplit_AfterName(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x", ":v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+func TestFilteringSink_OpenTagSplit_AfterColon(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:", "v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+func TestFilteringSink_OpenTagSplit_AfterDtype(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1", ">abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+func TestFilteringSink_OpenTagSplit_MultipleFragments(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <", "$", "x", ":", "v1", ">abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last, "OnStart should fire exactly once once tag completes")
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.NotContains(t, final, "<$x:v1>", "No open-tag bytes should appear in forwarded text")
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+// Test 2: Close-tag near-misses
+func TestFilteringSink_CloseTagNearMiss_ExtraChar(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1!>middle</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc</$x:v1!>middle", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+func TestFilteringSink_CloseTagNearMiss_ExtraGt(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1>>middle</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	// Close occurs on the first '>' completing the exact close tag; payload is just "abc"
+	assert.Equal(t, "abc", ex.last.finalRaw)
+	assert.True(t, ex.last.success)
+
+	_, final := collectTextParts(col.list)
+	// The extra '>' and the following text are outside the structured block
+	assert.Equal(t, "prefix >middle</$x:v1> suffix", final)
+}
+
+func TestFilteringSink_CloseTagNearMiss_SimilarPrefix(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1test></$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc</$x:v1test>", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+}
+
+// Test 3: Case sensitivity mismatch
+func TestFilteringSink_CaseSensitivityMismatch(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "X", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$X:v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	// No close on mismatch; at final, OnCompleted(success=false, err) is called per policy
+	assert.False(t, ex.last.success, "Should fail due to case mismatch")
+
+	_, final := collectTextParts(col.list)
+	// Default policy drops the captured region up to end-of-stream
+	assert.Equal(t, "prefix ", final)
+}
+
+// Test 4: Empty payload
+func TestFilteringSink_EmptyPayload(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1></$x:v1> suffix"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.True(t, ex.last.success)
+	assert.Equal(t, "", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix  suffix", final)
+	assert.NotContains(t, final, "<$x:v1>")
+}
+
+// Test 5: Back-to-back blocks without spacing
+func TestFilteringSink_BackToBackBlocks(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"<$x:v1>a</$x:v1><$x:v1>b</$x:v1>"})
+
+	require.Len(t, ex.sessions, 2)
+	assert.True(t, ex.sessions[0].started)
+	assert.True(t, ex.sessions[0].completed)
+	assert.Equal(t, "a", ex.sessions[0].finalRaw)
+	assert.Equal(t, meta.ID.String()+":1", ex.sessions[0].itemID)
+
+	assert.True(t, ex.sessions[1].started)
+	assert.True(t, ex.sessions[1].completed)
+	assert.Equal(t, "b", ex.sessions[1].finalRaw)
+	assert.Equal(t, meta.ID.String()+":2", ex.sessions[1].itemID)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "", final)
+}
+
+// Test 6: Interleaved blocks for different extractors
+func TestFilteringSink_InterleavedDifferentExtractors(t *testing.T) {
+	col := &eventCollector{}
+	exA := &testExtractor{name: "a", dtype: "v1"}
+	exB := &testExtractor{name: "b", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, exA, exB)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"before <$a:v1>payloadA</$a:v1> mid <$b:v1>payloadB</$b:v1> after"})
+
+	require.NotNil(t, exA.last)
+	assert.True(t, exA.last.started)
+	assert.True(t, exA.last.completed)
+	assert.Equal(t, "payloadA", exA.last.finalRaw)
+
+	require.NotNil(t, exB.last)
+	assert.True(t, exB.last.started)
+	assert.True(t, exB.last.completed)
+	assert.Equal(t, "payloadB", exB.last.finalRaw)
+
+	// Verify no cross-talk
+	assert.NotContains(t, exA.last.finalRaw, "payloadB")
+	assert.NotContains(t, exB.last.finalRaw, "payloadA")
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "before  mid  after", final)
+}
+
+// Test 7: Unknown extractor - split tag variant
+func TestFilteringSink_UnknownExtractor_SplitTag(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "y", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"X <", "$unknown:v1>abc</$unknown:v1> Y"})
+
+	assert.Nil(t, ex.last)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "X <$unknown:v1>abc</$unknown:v1> Y", final)
+}
+
+func TestFilteringSink_UnknownExtractor_SplitCloseTag(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "y", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"X <$unknown:v1>abc</", "$unknown:v1> Y"})
+
+	assert.Nil(t, ex.last)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "X <$unknown:v1>abc</$unknown:v1> Y", final)
+}
+
+// Test 8: Malformed policies
+func TestFilteringSink_MalformedPolicy_ErrorEvents(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{Malformed: MalformedErrorEvents}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"before <$x:v1>payload"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.False(t, ex.last.success)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "before ", final)
+	assert.NotContains(t, final, "payload")
+}
+
+func TestFilteringSink_MalformedPolicy_ForwardRaw(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{Malformed: MalformedReconstructText}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"before <$x:v1>payload"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.False(t, ex.last.success)
+
+	_, final := collectTextParts(col.list)
+	assert.Contains(t, final, "before")
+	assert.Contains(t, final, "<$x:v1>")
+	assert.Contains(t, final, "payload")
+}
+
+func TestFilteringSink_MalformedPolicy_Ignore(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{Malformed: MalformedIgnore}, ex)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"before <$x:v1>payload"})
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.False(t, ex.last.success)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "before ", final)
+	assert.NotContains(t, final, "payload")
+}
+
+// Test 9: Final-only inputs
+func TestFilteringSink_FinalOnly_ValidBlock(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	full := "before <$x:v1>abc</$x:v1> after"
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.started)
+	assert.True(t, ex.last.completed)
+	assert.True(t, ex.last.success)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "before  after", final)
+}
+
+func TestFilteringSink_FinalOnly_Malformed(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	full := "before <$x:v1>abc"
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.False(t, ex.last.success)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "before ", final)
+}
+
+func TestFilteringSink_FinalOnly_UnknownExtractor(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "y", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	full := "before <$unknown:v1>abc</$unknown:v1> after"
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+
+	assert.Nil(t, ex.last)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, full, final)
+}
+
+// Test 10: Metadata propagation for typed events
+func TestFilteringSink_MetadataPropagation(t *testing.T) {
+	col := &eventCollector{}
+	metaExtractor := &metadataTestExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, metaExtractor)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, metaExtractor.lastSession)
+	assert.Len(t, metaExtractor.lastSession.emittedEvents, 1)
+
+	ev := metaExtractor.lastSession.emittedEvents[0]
+	impl, ok := ev.(*events.EventImpl)
+	require.True(t, ok)
+	assert.Equal(t, meta.ID, impl.Metadata_.ID)
+	assert.Equal(t, meta.RunID, impl.Metadata_.RunID)
+	assert.Equal(t, meta.TurnID, impl.Metadata_.TurnID)
+}
+
+type metadataTestExtractor struct {
+	name, dtype string
+	lastSession *metadataTestSession
+}
+
+func (e *metadataTestExtractor) Name() string     { return e.name }
+func (e *metadataTestExtractor) DataType() string { return e.dtype }
+func (e *metadataTestExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
+	s := &metadataTestSession{ctx: ctx, itemID: itemID}
+	e.lastSession = s
+	return s
+}
+
+type metadataTestSession struct {
+	ctx           context.Context
+	itemID        string
+	emittedEvents []events.Event
+}
+
+func (s *metadataTestSession) OnStart(ctx context.Context) []events.Event {
+	// Return event with zero metadata
+	ev := &events.EventImpl{
+		Type_:     events.EventTypeLog,
+		Metadata_: events.EventMetadata{}, // zero metadata
+	}
+	s.emittedEvents = append(s.emittedEvents, ev)
+	return []events.Event{ev}
+}
+
+func (s *metadataTestSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
+	return nil
+}
+
+func (s *metadataTestSession) OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event {
+	return nil
+}
+
+// Test 11: Item context lifecycle (cancellation)
+func TestFilteringSink_ItemContextCancellation(t *testing.T) {
+	col := &eventCollector{}
+	ctxExtractor := &contextTestExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSinkWithContext(context.Background(), col, Options{}, ctxExtractor)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc</$x:v1> suffix"})
+
+	require.NotNil(t, ctxExtractor.lastSession)
+	assert.NotNil(t, ctxExtractor.lastSession.ctx)
+
+	// Context should be canceled after completion
+	select {
+	case <-ctxExtractor.lastSession.ctx.Done():
+		// Expected - context should be canceled
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Context should have been canceled within 100ms")
+	}
+}
+
+func TestFilteringSink_ItemContextCancellation_Malformed(t *testing.T) {
+	col := &eventCollector{}
+	ctxExtractor := &contextTestExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSinkWithContext(context.Background(), col, Options{}, ctxExtractor)
+
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"prefix <$x:v1>abc"})
+
+	require.NotNil(t, ctxExtractor.lastSession)
+	assert.NotNil(t, ctxExtractor.lastSession.ctx)
+
+	// Context should be canceled after malformed handling
+	select {
+	case <-ctxExtractor.lastSession.ctx.Done():
+		// Expected - context should be canceled
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Context should have been canceled within 100ms")
+	}
+}
+
+type contextTestExtractor struct {
+	name, dtype string
+	lastSession *contextTestSession
+}
+
+func (e *contextTestExtractor) Name() string     { return e.name }
+func (e *contextTestExtractor) DataType() string { return e.dtype }
+func (e *contextTestExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession {
+	s := &contextTestSession{ctx: ctx, itemID: itemID}
+	e.lastSession = s
+	return s
+}
+
+type contextTestSession struct {
+	ctx    context.Context
+	itemID string
+}
+
+func (s *contextTestSession) OnStart(ctx context.Context) []events.Event {
+	return nil
+}
+
+func (s *contextTestSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
+	return nil
+}
+
+func (s *contextTestSession) OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event {
+	return nil
+}
+
+// Test 12: Multiple streams interleaved
+func TestFilteringSink_MultipleStreamsInterleaved(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	metaA := newMeta()
+	metaB := newMeta()
+
+	// Alternate partials between streams
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "A1 <$x:v1>", "A1 <$x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "B1 <$x:v1>", "B1 <$x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "payloadA</$x:v1> A2", "A1 <$x:v1>payloadA</$x:v1> A2")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "payloadB</$x:v1> B2", "B1 <$x:v1>payloadB</$x:v1> B2")))
+
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaA, "A1 <$x:v1>payloadA</$x:v1> A2")))
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaB, "B1 <$x:v1>payloadB</$x:v1> B2")))
+
+	// Should have two sessions (one per stream)
+	require.Len(t, ex.sessions, 2)
+
+	// Verify stream A
+	assert.Equal(t, metaA.ID.String()+":1", ex.sessions[0].itemID)
+	assert.Equal(t, "payloadA", ex.sessions[0].finalRaw)
+
+	// Verify stream B
+	assert.Equal(t, metaB.ID.String()+":1", ex.sessions[1].itemID)
+	assert.Equal(t, "payloadB", ex.sessions[1].finalRaw)
+
+	// Verify filtered outputs are separate
+	partials, _ := collectTextParts(col.list)
+	assert.Contains(t, partials, "A1 ")
+	assert.Contains(t, partials, " A2")
+	assert.Contains(t, partials, "B1 ")
+	assert.Contains(t, partials, " B2")
+}
+
+// Test 13: Zero-length deltas stability
+func TestFilteringSink_ZeroLengthDeltas_Outside(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "prefix ", "prefix ")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix ")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<$x:v1>abc</$x:v1>", "prefix <$x:v1>abc</$x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix <$x:v1>abc</$x:v1>")))
+	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "prefix <$x:v1>abc</$x:v1>")))
+
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
+
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "prefix ", final)
+}
+
+func TestFilteringSink_ZeroLengthDeltas_InsideCapture(t *testing.T) {
+	col := &eventCollector{}
+	ex := &testExtractor{name: "x", dtype: "v1"}
+	sink := NewFilteringSink(col, Options{}, ex)
+
+	meta := newMeta()
 	completion := ""
-	for _, p := range parts {
-		completion += p
-		require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, p, completion)))
-	}
-	// Finish
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<$x:v1>", "<$x:v1>")))
+	completion = "<$x:v1>"
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "abc", completion+"abc")))
+	completion = completion + "abc"
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
+	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "</$x:v1>", completion+"</$x:v1>")))
+	completion = completion + "</$x:v1>"
 	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
 
-	// Collect forwarded partials and final
-	var deltas []string
-	for _, ev := range rec.list {
-		if pc, ok := ev.(*events.EventPartialCompletion); ok {
-			deltas = append(deltas, pc.Delta)
-		}
-	}
-	// The visible text should be "Hello  world" (structured removed)
-	// We expect initial "Hello " delta, then empty during structured, then trailing " world"
-	require.GreaterOrEqual(t, len(deltas), 2)
-	assert.Equal(t, "Hello ", deltas[0])
-	assert.Equal(t, " world", deltas[len(deltas)-1])
+	require.NotNil(t, ex.last)
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "abc", ex.last.finalRaw)
 
-	last := rec.list[len(rec.list)-1]
-	fe, ok := last.(*events.EventFinal)
-	require.True(t, ok)
-	assert.Equal(t, "Hello  world", fe.Text)
-
-	// Ensure extractor emitted lifecycle
-	msgs := collectLogMessages(rec.list)
-	assert.Contains(t, msgs, "start:"+id.String()+":1")
-	assert.Contains(t, msgs, "completed:success")
+	_, final := collectTextParts(col.list)
+	assert.Equal(t, "", final)
 }
 
-func TestFilteringSink_Structured_TwoBlocks_Final(t *testing.T) {
-	rec := &recordingSink{}
+// Test 14: MaxCaptureBytes (future-ready - skipped if not implemented)
+func TestFilteringSink_MaxCaptureBytes_SkipIfNotImplemented(t *testing.T) {
+	col := &eventCollector{}
 	ex := &testExtractor{name: "x", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{}, ex)
+	sink := NewFilteringSink(col, Options{MaxCaptureBytes: 5}, ex)
 
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
+	meta := newMeta()
+	feedParts(t, sink, meta, []string{"<$x:v1>123456789</$x:v1>"})
 
-	block := func(kv string) string {
-		return "<$x:v1>```yaml\n" + kv + "\n```\n</$x:v1>"
-	}
-	finalText := "pre " + block("a: 1") + " mid " + block("b: 2") + " post"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, finalText)))
-
-	// Final should filter both blocks
-	last := rec.list[len(rec.list)-1]
-	fe, ok := last.(*events.EventFinal)
-	require.True(t, ok)
-	assert.Equal(t, "pre  mid  post", fe.Text)
-
-	// Extract start messages and assert seq endings :1 and :2
-	msgs := collectLogMessages(rec.list)
-	starts := make([]string, 0)
-	for _, m := range msgs {
-		if strings.HasPrefix(m, "start:") {
-			starts = append(starts, m)
-		}
-	}
-	require.Len(t, starts, 2)
-	assert.Equal(t, "start:"+id.String()+":1", starts[0])
-	assert.Equal(t, "start:"+id.String()+":2", starts[1])
-}
-
-func TestFilteringSink_Malformed_ForwardRaw(t *testing.T) {
-	rec := &recordingSink{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{OnMalformed: "forward-raw"}, ex)
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
-
-	finalText := "before <$x:v1> no-fence content then text </$x:v1> after"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, finalText)))
-
-	last := rec.list[len(rec.list)-1]
-	fe, ok := last.(*events.EventFinal)
-	require.True(t, ok)
-	// Tag-only sink treats this as a valid block; content is filtered out
-	assert.Equal(t, "before  after", fe.Text)
-
-	// No completed:fail expected
-	msgs := collectLogMessages(rec.list)
-	for _, m := range msgs {
-		if m == "completed:fail" {
-			t.Fatalf("unexpected fail completion event")
-		}
-	}
-}
-
-func TestFilteringSink_Malformed_ErrorEvents(t *testing.T) {
-	rec := &recordingSink{}
-	ex := &testExtractor{name: "x", dtype: "v1"}
-	sink := NewFilteringSink(rec, Options{OnMalformed: "error-events"}, ex)
-
-	id := uuid.New()
-	meta := events.EventMetadata{ID: id}
-
-	// Malformed: missing close tag at final
-	finalText := "before <$x:v1> no-fence content then text after"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, finalText)))
-
-	last := rec.list[len(rec.list)-1]
-	fe, ok := last.(*events.EventFinal)
-	require.True(t, ok)
-	// Captured region is dropped entirely from visible text
-	assert.Equal(t, "before ", fe.Text)
-
-	msgs := collectLogMessages(rec.list)
-	assert.Contains(t, msgs, "completed:fail")
+	require.NotNil(t, ex.last)
+	// Currently MaxCaptureBytes is not enforced, so this should succeed
+	// Once implemented, update this test to verify failure behavior
+	assert.True(t, ex.last.completed)
+	assert.Equal(t, "123456789", ex.last.finalRaw)
 }

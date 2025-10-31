@@ -16,8 +16,8 @@ The audience is a developer new to this part of the codebase. We explain the con
 
 ## Context: What the FilteringSink does today
 
-- The sink intercepts streaming events (partials and final) and detects XML-like structured blocks. We are standardizing on `<middlewareName:dataType:version>` … `</middlewareName:dataType:version>` (moving from legacy `<$name:dtype>` / `<name:dtype>` forms).
-- When such a block is detected, the raw payload between tags is routed to a registered extractor session for `(middlewareName, dataType, version)` (with fallback to legacy `(name, dtype)` during migration).
+- The sink intercepts streaming events (partials and final) and detects XML-like structured blocks delimited by `<$name:dtype>` … `</$name:dtype>`.
+- When such a block is detected, the raw payload between tags is routed to a registered extractor session for `(name, dtype)`.
 - The sink removes the structured block text from the forwarded “filtered” text stream (UI text) and publishes any typed events emitted by extractors in parallel.
 
 References:
@@ -28,9 +28,9 @@ References:
 ## Current Implementation: High-level shape
 
 - Tag detection is done in a character-by-character loop inside `scanAndFilter` with several string builders on the `streamState`:
-  - `openTagBuf` accumulates possible `<...>` for the open tag.
+  - `openTagBuf` accumulates possible `<$...>` for the open tag.
   - `payloadBuf` gathers raw bytes for the active capture.
-  - `closeTagBuf` holds a sliding window to detect the computed close tag.
+  - `closeTagBuf` holds a sliding window to detect `</$name:dtype>`.
   - `filteredCompletion` accumulates the filtered output forwarded to UI.
   - `rawSeen` tracks full text seen to compute final-delta.
 - Open tag uses a regex (`reOpen`) via `tryParseOpenTag`; close tag uses a manual sliding window string compare.
@@ -41,7 +41,7 @@ References:
 
 1. Close-tag leakage across partials
    - Symptom: `</$...>` bytes sometimes appear in the forwarded filtered text or make it into extractor `OnRaw` chunks.
-   - Root cause: detection trims current-delta buffers, but cannot retract bytes already forwarded in previous partials. Close tag split across partials (e.g., `</` then the remainder of the tag) is particularly error-prone.
+   - Root cause: detection trims current-delta buffers, but cannot retract bytes already forwarded in previous partials. Close tag split across partials (`</` then `$name:dtype>`) is particularly error-prone.
 
 2. Asymmetric parsing strategies increase complexity
    - Open tag is regex-parsed on a fully buffered candidate; close tag is string-compared via a sliding window. Mixed approaches increase branching and edge cases.
@@ -79,16 +79,6 @@ References:
 - Supporting nested structured blocks (still out of scope).
 
 
-## Spec update: normalize tag format to <middlewareName:dataType:version>
-
-- We are standardizing the tag syntax to `<middlewareName:dataType:version>` (removing the `$` and introducing an explicit version segment).
-- Rationale: `$` was an accidental typo in early iterations; moving to a normal XML-style tag improves readability and reduces confusion.
-- Backwards compatibility: during a transition period, the sink may accept legacy two-part tags (`<name:dtype>`) and the new three-part tags. We will default to the new form once confidence is high and deprecate the old form in a subsequent release.
-- Parser changes: open-tag detection confirms a `<` prefix and parses three colon-separated segments (`middlewareName`, `dataType`, `version`). The computed close tag becomes `"</" + middlewareName + ":" + dataType + ":" + version + ">"`.
-- Documentation: update `11-structured-data-event-sinks.md` and examples to use `<middlewareName:dataType:version>`.
-- Testing: add cases for both two-part and three-part forms during the migration window; remove two-part tests after deprecation.
-
-
 ## Proposed Design
 
 ### 1) Explicit FSM with unified transitions
@@ -96,7 +86,7 @@ References:
 Introduce an explicit state enum on `streamState`:
 
 - `Idle`
-- `ScanningOpenTag` (building `<middlewareName:dataType:version>`) 
+- `ScanningOpenTag` (building `<$name:dtype>`) 
 - `Capturing` (streaming payload)
 - `ScanningCloseTag` (implemented as a lookbehind ring while still in Capturing; see below)
 
@@ -107,13 +97,12 @@ Notes:
 ### 2) Unified open/close tag parsing without regex
 
 Replace regex open-tag parsing with a small hand-rolled scanner that:
-- Confirms the `<` prefix.
-- Reads `middlewareName` until first `:`; charset `[A-Za-z0-9_-]`.
-- Reads `dataType` until next `:`; charset `[A-Za-z0-9._-]`.
-- Reads `version` until `>`; charset `[A-Za-z0-9._-]` (commonly `v1`, `1.0`, etc.).
-- Emits `(middlewareName, dataType, version)` or returns “need more bytes” / “invalid”.
+- Confirms the `<$` prefix.
+- Reads `name` until `:`; validates allowed charset `[A-Za-z0-9_-]`.
+- Reads `dtype` until `>`; validates `[A-Za-z0-9._-]`.
+- Emits `(name, dtype)` or returns “need more bytes” / “invalid”.
 
-For close tag, compute the exact expected string once: `"</" + middlewareName + ":" + dataType + ":" + version + ">"`.
+For close tag, compute the exact expected string once: `"</$" + name + ":" + dtype + ">"`.
 
 
 ### 3) Lookbehind lag buffer during capture (fixes close-tag leakage)
@@ -189,7 +178,7 @@ for each byte b in delta:
       parse openTagBuf with small scanner
         - need more: continue
         - invalid: flush openTagBuf to filteredCompletion; state=Idle
-        - valid(middlewareName,dataType,version):
+        - valid(name,dtype):
             if extractor exists: start itemCtx, session; clear openTagBuf; init payloadBuf, lagBuf; state=Capturing
             else: flush openTagBuf to filteredCompletion; clear; state=Idle
 
@@ -219,9 +208,6 @@ for each byte b in delta:
 
 ## Backwards compatibility and migration
 
-- Tag syntax:
-  - Accept `<middlewareName:dataType:version>` as the canonical form.
-  - During migration, also accept legacy two-part `<name:dtype>`; the sink will interpret it as `(middlewareName=name, dataType=dtype, version="")` and attempt extractor lookup first by full triple, then by legacy pair `(name, dtype)`.
 - Constructors remain, but `Options` changes:
   - `OnMalformed string` -> `MalformedPolicy` (with migration shim that maps old string values to enum).
   - `MaxCaptureBytes` enforced if set; previously a no-op.
@@ -233,7 +219,7 @@ for each byte b in delta:
 1. Unit tests for `scanAndFilter` (or new scanner) covering:
    - Open/close tags in one delta
    - Close tag split across multiple partials at every boundary position
-  - Non-matching text that resembles tags (e.g., `<<mw:dt:v1>`, `<mw:dt:v1>>`)
+   - Non-matching text that resembles tags (e.g., `<<$name:dtype>`, `<$name:dtype>>`)
    - Unknown extractor case (open tag text flushed as normal)
    - Malformed block at stream end for each policy variant
    - `MaxCaptureBytes` limit behavior
