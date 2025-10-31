@@ -24,7 +24,7 @@ This document explains the architecture, APIs, and helper utilities, and shows h
 
 ## Core Concepts
 
-- **Tag-only sink**: The sink detects blocks delimited by `<$name:dtype>` … `</$name:dtype>` and forwards the raw, unmodified payload to an extractor that registered for `(name, dtype)`.
+- **Tag-only sink**: The sink detects blocks delimited by `<package:type:version>` … `</package:type:version>` and forwards the raw, unmodified payload to an extractor that registered for `(package, type, version)`.
 - **Extractor-owned parsing**: Extractors decide how to parse. YAML is common, but JSON or any custom format works.
 - **Streaming lifecycle**: For each block, the sink calls `OnStart`, streams chunks via `OnRaw`, and finalizes with `OnCompleted` (with the full raw payload and success status).
 - **Typed events**: Extractors return domain-specific events (e.g., `citations-update`) that the sink publishes alongside filtered text.
@@ -38,13 +38,13 @@ This document explains the architecture, APIs, and helper utilities, and shows h
 Blocks are marked in the stream using XML-like tags (the `\`` is to avoid rendering issues in nested markdown).
 
 ```text
-<$citations:v1>
+<geppetto:citations:v1>
 `\``yaml
 citations:
   - title: GPT-4 Technical Report
     authors: [OpenAI]
 `\``
-</$citations:v1>
+</geppetto:citations:v1>
 ```
 
 Within a stream, tags can be interleaved with normal text. The sink removes the structured blocks from the forwarded “filtered text,” and sends the raw payload inside the tags to the registered extractor session.
@@ -65,9 +65,9 @@ Within a stream, tags can be interleaved with normal text. The sink removes the 
 
 If the stream finishes with an unclosed block, the sink applies the configured policy:
 
-- `error-events` (default): call `OnCompleted(..., success=false, err)` so the extractor can emit an error event.
-- `forward-raw`: reinsert a best-effort raw reconstruction into the filtered text.
-- `ignore`: drop captured payload.
+- `MalformedErrorEvents` (default): call `OnCompleted(..., success=false, err)` so the extractor can emit an error event.
+- `MalformedReconstructText`: reinsert a best-effort raw reconstruction into the filtered text.
+- `MalformedIgnore`: drop captured payload.
 
 ## Public API and Types
 
@@ -75,20 +75,21 @@ If the stream finishes with an unclosed block, the sink applies the configured p
 
 ```go
 type Options struct {
-    MaxCaptureBytes int      // (reserved for future; currently not enforced in v2)
-    OnMalformed     string   // "ignore" | "forward-raw" | "error-events" (default)
-    Debug           bool     // emit debug traces via zerolog
+    MaxCaptureBytes int              // (reserved for future; currently not enforced in v2)
+    Malformed       MalformedPolicy  // MalformedErrorEvents (default) | MalformedReconstructText | MalformedIgnore
+    Debug           bool             // emit debug traces via zerolog
 }
 ```
 
 ### Extractors
 
-Extractors register for a `(name, dtype)` pair and produce per-block sessions.
+Extractors register for a `(package, type, version)` triple and produce per-block sessions.
 
 ```go
 type Extractor interface {
-    Name() string
-    DataType() string
+    TagPackage() string
+    TagType() string
+    TagVersion() string
     NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession
 }
 
@@ -104,10 +105,10 @@ type ExtractorSession interface {
 ```go
 next := /* your downstream events.EventSink (collector, bus, etc.) */
 sink := structuredsink.NewFilteringSink(next, structuredsink.Options{
-    Debug:       false,
-    OnMalformed: "error-events",
+    Debug:     false,
+    Malformed: structuredsink.MalformedErrorEvents,
 },
-    &myExtractor{name: "citations", dtype: "v1"},
+    &myExtractor{pkg: "geppetto", typ: "citations", ver: "v1"},
 )
 ```
 
@@ -163,9 +164,10 @@ type EventCitationDelta   struct { events.EventImpl; ItemID,  Delta string }
 type EventCitationUpdate  struct { events.EventImpl; ItemID string; Entries []CitationItem; Error string }
 type EventCitationCompleted struct { events.EventImpl; ItemID string; Entries []CitationItem; Success bool; Error string }
 
-type citationsExtractor struct{ name, dtype string }
-func (ce *citationsExtractor) Name() string     { return ce.name }
-func (ce *citationsExtractor) DataType() string { return ce.dtype }
+type citationsExtractor struct{ pkg, typ, ver string }
+func (ce *citationsExtractor) TagPackage() string { return ce.pkg }
+func (ce *citationsExtractor) TagType() string    { return ce.typ }
+func (ce *citationsExtractor) TagVersion() string { return ce.ver }
 func (ce *citationsExtractor) NewSession(ctx context.Context, meta events.EventMetadata, itemID string) structuredsink.ExtractorSession {
     return &citationsSession{ctx: ctx, itemID: itemID}
 }
@@ -234,15 +236,15 @@ Here is a compact end-to-end setup illustrating the sink and the citations extra
 
 ```go
 collector := &eventCollector{} // implements events.EventSink
-ex := &citationsExtractor{name: "citations", dtype: "v1"}
+ex := &citationsExtractor{pkg: "geppetto", typ: "citations", ver: "v1"}
 
 sink := structuredsink.NewFilteringSink(collector, structuredsink.Options{
-    Debug:       false,
-    OnMalformed: "error-events",
+    Debug:     false,
+    Malformed: structuredsink.MalformedErrorEvents,
 }, ex)
 
 // As text streams in, forward partials/final to the sink:
-_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: delta})
+_ = sink.PublishEvent(events.NewPartialCompletionEvent(meta, delta, cumulative))
 // ... later ...
 _ = sink.PublishEvent(events.NewFinalEvent(meta, finalText))
 ```
