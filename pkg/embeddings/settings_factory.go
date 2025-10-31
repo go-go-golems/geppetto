@@ -147,6 +147,33 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 
 		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions)
 
+	case "cohere":
+		apiKey := options.apiKey
+		if apiKey == "" && f.config.APIKeys != nil {
+			if key, ok := f.config.APIKeys["cohere-api-key"]; ok {
+				apiKey = key
+			}
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("no API key provided for Cohere")
+		}
+
+		baseURL := "https://api.cohere.com/v2/embed"
+		if options.baseURL != "" {
+			baseURL = options.baseURL
+		} else if f.config.BaseURLs != nil {
+			if url, ok := f.config.BaseURLs["cohere-base-url"]; ok {
+				baseURL = url
+			}
+		}
+
+		providerOpts := []func(*CohereProvider){}
+		if baseURL != "" {
+			providerOpts = append(providerOpts, WithCohereBaseURL(baseURL))
+		}
+
+		provider = NewCohereProvider(apiKey, options.engine, options.dimensions, providerOpts...)
+
 	default:
 		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", options.providerType)
 	}
