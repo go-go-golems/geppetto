@@ -9,9 +9,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	cmdlayers "github.com/go-go-golems/glazed/pkg/cmds/layers"
+	glazedConfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/go-go-golems/glazed/pkg/cmds/middlewares"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
-	appconfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -108,30 +108,123 @@ func GetCobraCommandGeppettoMiddlewares(
 		return nil, err
 	}
 
-	// if we want profile support here, we would have to check for a --profile and --profile-file flag,
-	// then load the file (or the default file), check for the profile values, then apply them before load-parameters-from-file
-
+	// Build middleware chain in reverse precedence order (last applied has highest precedence)
 	middlewares_ := []middlewares.Middleware{
+		// Highest precedence: command-line flags
 		middlewares.ParseFromCobraCommand(cmd,
 			parameters.WithParseStepSource("cobra"),
 		),
+		// Positional arguments
 		middlewares.GatherArguments(args,
 			parameters.WithParseStepSource("arguments"),
 		),
 	}
 
-	if commandSettings.LoadParametersFromFile != "" {
-		middlewares_ = append(middlewares_,
-			middlewares.LoadParametersFromFile(commandSettings.LoadParametersFromFile))
+	// Environment variables (PINOCCHIO_*)
+	// Whitelist the same layers that were previously whitelisted for Viper parsing
+	middlewares_ = append(middlewares_,
+		middlewares.WrapWithWhitelistedLayers(
+			[]string{
+				settings.AiChatSlug,
+				settings.AiClientSlug,
+				openai.OpenAiChatSlug,
+				claude.ClaudeChatSlug,
+				gemini.GeminiChatSlug,
+				embeddingsconfig.EmbeddingsSlug,
+				cli.ProfileSettingsSlug,
+			},
+			middlewares.UpdateFromEnv("PINOCCHIO",
+				parameters.WithParseStepSource("env"),
+			),
+		),
+	)
+
+	// Config files (low -> high precedence)
+	// Note: We use parsedCommandLayers (captured from function parameter) instead of parsed
+	// (from middleware) because flags haven't been parsed into parsedLayers yet when the
+	// resolver runs. parsedCommandLayers already has command settings parsed from
+	// ParseCommandSettingsLayer which runs before the middleware chain.
+	configFilesResolver := func(_ *cmdlayers.ParsedLayers, _ *cobra.Command, _ []string) ([]string, error) {
+		var files []string
+		
+		// Resolve app config path (XDG, ~/.pinocchio, /etc/pinocchio)
+		// Load default config first (low precedence)
+		configPath, err := glazedConfig.ResolveAppConfigPath("pinocchio", "")
+		if err == nil && configPath != "" {
+			files = append(files, configPath)
+		}
+		
+		// Check for explicit config file from command settings (already parsed in parsedCommandLayers)
+		// Use the commandSettings we read earlier from parsedCommandLayers
+		// Explicit config is loaded last (high precedence)
+		if commandSettings.ConfigFile != "" {
+			files = append(files, commandSettings.ConfigFile)
+		}
+		
+		// Also check LoadParametersFromFile for backward compatibility
+		if commandSettings.LoadParametersFromFile != "" {
+			files = append(files, commandSettings.LoadParametersFromFile)
+		}
+		
+		return files, nil
 	}
+	
+	// Mapper to filter out non-layer keys like "repositories" which are handled separately
+	configMapper := func(rawConfig interface{}) (map[string]map[string]interface{}, error) {
+		configMap, ok := rawConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("expected map[string]interface{}, got %T", rawConfig)
+		}
+		
+		result := make(map[string]map[string]interface{})
+		
+		// Keys to exclude from layer parsing (handled separately)
+		excludedKeys := map[string]bool{
+			"repositories": true,
+		}
+		
+		for key, value := range configMap {
+			if excludedKeys[key] {
+				continue // Skip excluded keys
+			}
+			
+			// If the value is a map, treat the key as a layer slug
+			if layerParams, ok := value.(map[string]interface{}); ok {
+				result[key] = layerParams
+			}
+		}
+		
+		return result, nil
+	}
+	
+	// Load config files with mapper to exclude repositories
+	middlewares_ = append(middlewares_,
+		func(next middlewares.HandlerFunc) middlewares.HandlerFunc {
+			return func(layers_ *cmdlayers.ParameterLayers, parsedLayers *cmdlayers.ParsedLayers) error {
+				if err := next(layers_, parsedLayers); err != nil {
+					return err
+				}
+				files, err := configFilesResolver(parsedLayers, cmd, args)
+				if err != nil {
+					return err
+				}
+				return middlewares.LoadParametersFromFiles(files,
+					middlewares.WithConfigFileMapper(configMapper),
+					middlewares.WithParseOptions(
+						parameters.WithParseStepSource("config"),
+					),
+				)(func(_ *cmdlayers.ParameterLayers, _ *cmdlayers.ParsedLayers) error { return nil })(layers_, parsedLayers)
+			}
+		},
+	)
 
 	xdgConfigPath, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(manuel, 2024-03-20) I wonder if we should just use a custom layer for the profiles, as we want to load
-	// the profile from the environment as well. So the sequence would be defaults -> viper -> command line
+	// Profile loading (NOTE: profile name is still read from defaults at construction time;
+	// this will be fixed in plan point 3 to read after env/config are applied)
 	defaultProfileFile := fmt.Sprintf("%s/pinocchio/profiles.yaml", xdgConfigPath)
 	if profileSettings.ProfileFile == "" {
 		profileSettings.ProfileFile = defaultProfileFile
@@ -152,40 +245,8 @@ func GetCobraCommandGeppettoMiddlewares(
 		),
 	)
 
-	// Discover config file using ResolveAppConfigPath
-	configPath, err := appconfig.ResolveAppConfigPath("pinocchio", "")
-	if err != nil {
-		return nil, err
-	}
-
-	// Build config file and env middlewares wrapped with whitelisted layers
-	configMiddlewares := []middlewares.Middleware{}
-	if configPath != "" {
-		configMiddlewares = append(configMiddlewares,
-			middlewares.LoadParametersFromFile(configPath,
-				middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
-			),
-		)
-	}
-	configMiddlewares = append(configMiddlewares,
-		middlewares.UpdateFromEnv("PINOCCHIO",
-			parameters.WithParseStepSource("env"),
-		),
-	)
-
+	// Lowest precedence: defaults
 	middlewares_ = append(middlewares_,
-		middlewares.WrapWithWhitelistedLayers(
-			[]string{
-				settings.AiChatSlug,
-				settings.AiClientSlug,
-				openai.OpenAiChatSlug,
-				claude.ClaudeChatSlug,
-				gemini.GeminiChatSlug,
-				embeddingsconfig.EmbeddingsSlug,
-				cli.ProfileSettingsSlug,
-			},
-			middlewares.Chain(configMiddlewares...),
-		),
 		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
 	)
 
