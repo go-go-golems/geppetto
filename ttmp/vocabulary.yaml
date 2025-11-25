@@ -1,0 +1,51 @@
+topics:
+    - slug: backend
+      description: Backend services
+    - slug: frontend
+      description: Frontend app
+    - slug: infrastructure
+      description: Infra, devops, tooling
+    - slug: websocket
+      description: WebSocket and realtime
+    - slug: inference
+      description: LLM inference and engines
+    - slug: conversation
+      description: Conversation management
+    - slug: tools
+      description: Tool calling and function calling
+    - slug: events
+      description: Event system and streaming
+    - slug: embeddings
+      description: Embeddings and vector search
+    - slug: middleware
+      description: Middleware and processing layers
+    - slug: hydration
+      description: Hydration (server snapshots + client resume)
+    - slug: persistence
+      description: Snapshot persistence and data stores
+    - slug: bug
+      description: Bugs and investigations
+docTypes:
+    - slug: index
+      description: Ticket index
+    - slug: design-doc
+      description: Design document
+    - slug: reference
+      description: API/reference
+    - slug: playbook
+      description: Operational playbook
+    - slug: til
+      description: Today I Learned
+    - slug: analysis
+      description: Analysis / synthesis
+    - slug: misc
+      description: Miscellaneous
+    - slug: code-review
+      description: Code review summary
+    - slug: planning
+      description: Planning / detailed analysis documents
+intent:
+    - slug: long-term
+      description: Persistent documentation
+    - slug: short-term
+      description: Ephemeral notes
