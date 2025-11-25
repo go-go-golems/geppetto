@@ -1,0 +1,8 @@
+# Default ignores for docmgr
+.git/
+_templates/
+_guidelines/
+2025-*
+2024-*
+2023-*
+9999-*

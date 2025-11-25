@@ -257,10 +257,22 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 
 	filteredDelta, typedEvents := f.scanAndFilter(meta, st, delta)
 
-	// Maintain filtered completion consistency
+	// Forward extractor-typed events even if we drop the text delta.
+	if err := f.publishAll(st.ctx, meta, typedEvents); err != nil {
+		return err
+	}
+
+	if len(filteredDelta) == 0 {
+		if f.opts.Debug {
+			log.Debug().Str("stream", meta.ID.String()).Str("event", "partial").Msg("filtered delta empty; skipping forward")
+		}
+		return nil
+	}
+
+	// Maintain filtered completion consistency once we know there is content to forward.
 	st.filteredCompletion.WriteString(filteredDelta)
 
-	// Forward filtered partial only if there is any delta (including empty is okay to preserve timing)
+	// Forward filtered partial only when there is delta content to deliver downstream.
 	fwd := &events.EventPartialCompletion{
 		EventImpl:  events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta},
 		Delta:      filteredDelta,
@@ -269,8 +281,7 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 	if err := f.next.PublishEvent(fwd); err != nil {
 		return err
 	}
-	// Publish extractor-typed events
-	return f.publishAll(st.ctx, meta, typedEvents)
+	return nil
 }
 
 func (f *FilteringSink) handleFinal(ev events.Event) error {
