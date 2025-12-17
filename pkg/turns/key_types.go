@@ -31,5 +31,3 @@ func (k BlockMetadataKey) String() string {
 func (k RunMetadataKey) String() string {
 	return string(k)
 }
-
-

@@ -27,7 +27,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 				ID:   "block-1",
 				Kind: turns.BlockKindSystem,
 				Metadata: map[turns.BlockMetadataKey]interface{}{
-					turns.BlockMetaKeyMiddleware:             "test-middleware",
+					turns.BlockMetaKeyMiddleware:            "test-middleware",
 					turns.BlockMetaKeyClaudeOriginalContent: []interface{}{"test-content"},
 				},
 				Payload: map[string]interface{}{
@@ -71,9 +71,9 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 func TestYAMLRoundTripEmptyMaps(t *testing.T) {
 	// Test with empty maps
 	turn := &turns.Turn{
-		ID:      "test-turn-id",
-		RunID:   "test-run-id",
-		Data:    map[turns.TurnDataKey]interface{}{},
+		ID:       "test-turn-id",
+		RunID:    "test-run-id",
+		Data:     map[turns.TurnDataKey]interface{}{},
 		Metadata: map[turns.TurnMetadataKey]interface{}{},
 		Blocks: []turns.Block{
 			{
@@ -98,4 +98,3 @@ func TestYAMLRoundTripEmptyMaps(t *testing.T) {
 	require.Len(t, roundTripTurn.Blocks, 1, "Should have one block")
 	assert.NotNil(t, roundTripTurn.Blocks[0].Metadata, "Block Metadata map should be initialized")
 }
-

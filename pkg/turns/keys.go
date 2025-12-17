@@ -30,13 +30,18 @@ const (
 	// BlockMetaKeyClaudeOriginalContent stores provider-native content blocks for Claude
 	BlockMetaKeyClaudeOriginalContent BlockMetadataKey = "claude_original_content"
 	BlockMetaKeyToolCalls             BlockMetadataKey = "tool_calls"
-	BlockMetaKeyMiddleware             BlockMetadataKey = "middleware"
+	BlockMetaKeyMiddleware            BlockMetadataKey = "middleware"
+	// BlockMetaKeyAgentModeTag marks blocks inserted by agentmode middleware
+	BlockMetaKeyAgentModeTag BlockMetadataKey = "agentmode_tag"
+	// BlockMetaKeyAgentMode stores the agent mode name in block metadata
+	BlockMetaKeyAgentMode BlockMetadataKey = "agentmode"
 )
 
 // Standard keys for Turn.Data map
 const (
-	DataKeyToolRegistry            TurnDataKey = "tool_registry"
-	DataKeyToolConfig              TurnDataKey = "tool_config"
-	DataKeyAgentModeAllowedTools   TurnDataKey = "agent_mode_allowed_tools"
-	DataKeyAgentMode               TurnDataKey = "agent_mode"
+	DataKeyToolRegistry          TurnDataKey = "tool_registry"
+	DataKeyToolConfig            TurnDataKey = "tool_config"
+	DataKeyAgentModeAllowedTools TurnDataKey = "agent_mode_allowed_tools"
+	DataKeyAgentMode             TurnDataKey = "agent_mode"
+	DataKeyResponsesServerTools  TurnDataKey = "responses_server_tools"
 )
