@@ -1,4 +1,4 @@
-.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint
 
 all: test build
 
@@ -7,11 +7,13 @@ VERSION=v0.1.14
 docker-lint:
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.0.2 golangci-lint run -v
 
-lint:
+lint: turnsdatalint-build
 	golangci-lint run -v
+	go vet -vettool=$(TURNSDATALINT_BIN) ./...
 
-lintmax:
+lintmax: turnsdatalint-build
 	golangci-lint run -v --max-same-issues=100
+	go vet -vettool=$(TURNSDATALINT_BIN) ./...
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 
