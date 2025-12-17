@@ -10,5 +10,3 @@ const (
 	DataKeyToolRegistry TurnDataKey = "tool_registry"
 	DataKeyAgentMode    TurnDataKey = "agent_mode"
 )
-
-

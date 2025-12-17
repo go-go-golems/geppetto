@@ -1,4 +1,4 @@
-.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool
 
 all: test build
 
@@ -7,13 +7,22 @@ VERSION=v0.1.14
 docker-lint:
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.0.2 golangci-lint run -v
 
-lint: build turnsdatalint-build
-	golangci-lint run -v
-	go vet -vettool=$(TURNSDATALINT_BIN) ./...
+LINTTOOL_BIN ?= /tmp/geppetto-lint
 
-lintmax: build turnsdatalint-build
+linttool-build:
+	go build -o $(LINTTOOL_BIN) ./cmd/geppetto-lint
+
+linttool:
+	$(MAKE) linttool-build
+	go vet -vettool=$(LINTTOOL_BIN) ./...
+
+lint: build linttool-build
+	golangci-lint run -v
+	go vet -vettool=$(LINTTOOL_BIN) ./...
+
+lintmax: build linttool-build
 	golangci-lint run -v --max-same-issues=100
-	go vet -vettool=$(TURNSDATALINT_BIN) ./...
+	go vet -vettool=$(LINTTOOL_BIN) ./...
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 

@@ -15,7 +15,7 @@ import (
 //
 //	cd geppetto
 //	make turnsdatalint-build
-//	go vet -vettool=/tmp/turnsdatalint internal/turnsdatalint/testdata/reference/turnsdatalint-demo/main.go
+//	go vet -vettool=/tmp/turnsdatalint pkg/analysis/turnsdatalint/testdata/reference/turnsdatalint-demo/main.go
 //
 // Expected output (3 violations):
 //   - variable key (badKey)

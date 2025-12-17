@@ -20,5 +20,3 @@ func badVar(t *turns.Turn) {
 	k := turns.DataKeyToolRegistry
 	_ = t.Data[k] // want `Turn\.Data key must be a const of type`
 }
-
-

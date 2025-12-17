@@ -10,7 +10,10 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-const defaultKeyType = "github.com/go-go-golems/geppetto/pkg/turns.TurnDataKey"
+// DefaultKeyType is the fully-qualified named type used by Geppetto for Turn.Data keys.
+//
+// It is used as the default value of the -turnsdatalint.keytype flag.
+const DefaultKeyType = "github.com/go-go-golems/geppetto/pkg/turns.TurnDataKey"
 
 var keyTypeFlag string
 
@@ -18,9 +21,12 @@ var keyTypeFlag string
 //
 // This prevents ad-hoc conversions like turns.TurnDataKey("raw") or variables, encouraging use
 // of canonical, typed constants (e.g., turns.DataKeyToolRegistry).
+//
+// Note: raw string literals like turn.Data["foo"] can compile in Go because untyped string
+// constants may be implicitly converted to a defined string type; this analyzer flags them too.
 var Analyzer = &analysis.Analyzer{
 	Name:     "turnsdatalint",
-	Doc:      "require Turn.Data[...] indexes to use a const of the configured key type (not a conversion or variable)",
+	Doc:      "require Turn.Data[...] indexes to use a const of the configured key type (not a conversion, variable, or raw string literal)",
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
 }
@@ -29,7 +35,7 @@ func init() {
 	Analyzer.Flags.StringVar(
 		&keyTypeFlag,
 		"keytype",
-		defaultKeyType,
+		DefaultKeyType,
 		`fully-qualified named type like "github.com/go-go-golems/geppetto/pkg/turns.TurnDataKey"`,
 	)
 }
