@@ -413,7 +413,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	log.Info().Msg("Created simplified tool helper configuration")
 
 	// 8. Build initial Turn directly from settings
-	initialTurn := &turns.Turn{Data: map[string]any{}}
+	initialTurn := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
 	turns.AppendBlock(initialTurn, turns.NewSystemTextBlock("You are a helpful assistant with access to tools. Use get_weather for weather queries and calculator for math problems. Always use the appropriate tool when possible."))
 	turns.AppendBlock(initialTurn, turns.NewUserTextBlock(s.Prompt))
 

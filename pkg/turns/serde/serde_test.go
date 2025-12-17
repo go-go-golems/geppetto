@@ -27,7 +27,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 				ID:   "block-1",
 				Kind: turns.BlockKindSystem,
 				Metadata: map[turns.BlockMetadataKey]interface{}{
-					turns.BlockMetaKeyMiddleware: "test-middleware",
+					turns.BlockMetaKeyMiddleware:             "test-middleware",
 					turns.BlockMetaKeyClaudeOriginalContent: []interface{}{"test-content"},
 				},
 				Payload: map[string]interface{}{

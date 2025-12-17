@@ -216,7 +216,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	conversation_ := manager.GetConversation()
 	// Seed a Turn from the initial conversation
-	initialTurn := &turns.Turn{Data: map[string]any{}}
+	initialTurn := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
 	for _, msg := range conversation_ {
 		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
 			kind := turns.BlockKindOther

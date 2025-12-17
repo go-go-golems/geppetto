@@ -289,7 +289,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 	// Use provided Turn or create a new one
 	t := initialTurn
 	if t == nil {
-		t = &turns.Turn{Data: map[string]any{}}
+		t = &turns.Turn{Data: map[turns.TurnDataKey]any{}}
 	}
 	// Ensure Data map exists to avoid nil map assignments
 	if t.Data == nil {
