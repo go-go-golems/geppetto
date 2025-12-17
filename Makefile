@@ -33,6 +33,15 @@ turnsdatalint:
 	$(MAKE) turnsdatalint-build
 	go vet -vettool=$(TURNSDATALINT_BIN) ./...
 
+TURNSDATALINT_BIN ?= /tmp/turnsdatalint
+
+turnsdatalint-build:
+	go build -o $(TURNSDATALINT_BIN) ./cmd/turnsdatalint
+
+turnsdatalint:
+	$(MAKE) turnsdatalint-build
+	go vet -vettool=$(TURNSDATALINT_BIN) ./...
+
 test:
 	go test ./...
 
