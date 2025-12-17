@@ -13,6 +13,15 @@ lint:
 lintmax:
 	golangci-lint run -v --max-same-issues=100
 
+TURNSDATALINT_BIN ?= /tmp/turnsdatalint
+
+turnsdatalint-build:
+	go build -o $(TURNSDATALINT_BIN) ./cmd/turnsdatalint
+
+turnsdatalint:
+	$(MAKE) turnsdatalint-build
+	go vet -vettool=$(TURNSDATALINT_BIN) ./...
+
 test:
 	go test ./...
 
