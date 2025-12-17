@@ -75,7 +75,7 @@ func MakeMessageRequestFromTurn(
 				}
 			case turns.BlockKindUser:
 				// If preserved Claude content is present, pass through directly
-				if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
+				if orig, ok := b.Metadata[turns.BlockMetaKeyClaudeOriginalContent]; ok && orig != nil {
 					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
 						msg := api.Message{Role: RoleUser, Content: arr}
 						if toolPhaseActive {
@@ -126,7 +126,7 @@ func MakeMessageRequestFromTurn(
 				}
 			case turns.BlockKindLLMText:
 				// Allow preserved Claude content on assistant blocks too
-				if orig, ok := b.Metadata[turns.MetaKeyClaudeOriginalContent]; ok && orig != nil {
+				if orig, ok := b.Metadata[turns.BlockMetaKeyClaudeOriginalContent]; ok && orig != nil {
 					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
 						msg := api.Message{Role: RoleAssistant, Content: arr}
 						if toolPhaseActive {

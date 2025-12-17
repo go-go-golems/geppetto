@@ -85,7 +85,7 @@ type Block struct {
 	Role    string         `yaml:"role,omitempty"`
 	Payload map[string]any `yaml:"payload,omitempty"`
 	// Metadata stores arbitrary metadata about the block
-	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+	Metadata map[BlockMetadataKey]interface{} `yaml:"metadata,omitempty"`
 }
 
 // Turn contains an ordered list of Blocks and associated metadata.
@@ -94,9 +94,9 @@ type Turn struct {
 	RunID  string  `yaml:"run_id,omitempty"`
 	Blocks []Block `yaml:"blocks"`
 	// Metadata stores arbitrary metadata about the turn
-	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+	Metadata map[TurnMetadataKey]interface{} `yaml:"metadata,omitempty"`
 	// Data stores the application data payload associated with this turn
-	Data map[string]interface{} `yaml:"data,omitempty"`
+	Data map[TurnDataKey]interface{} `yaml:"data,omitempty"`
 }
 
 // PrependBlock inserts a block at the beginning of the Turn's block slice.
@@ -113,7 +113,7 @@ type Run struct {
 	Name  string
 	Turns []Turn
 	// Metadata stores arbitrary metadata about the run
-	Metadata map[string]interface{}
+	Metadata map[RunMetadataKey]interface{}
 }
 
 // AppendBlock appends a Block to a Turn, assigning an order if missing.
@@ -143,18 +143,18 @@ func FindLastBlocksByKind(t Turn, kinds ...BlockKind) []Block {
 	return ret
 }
 
-// SetTurnMetadata inserts or updates a Turn metadata entry keyed by simple key.
-func SetTurnMetadata(t *Turn, key string, value interface{}) {
+// SetTurnMetadata inserts or updates a Turn metadata entry keyed by typed key.
+func SetTurnMetadata(t *Turn, key TurnMetadataKey, value interface{}) {
 	if t.Metadata == nil {
-		t.Metadata = make(map[string]interface{})
+		t.Metadata = make(map[TurnMetadataKey]interface{})
 	}
 	t.Metadata[key] = value
 }
 
-// SetBlockMetadata inserts or updates a Block metadata entry by simple key.
-func SetBlockMetadata(b *Block, key string, value interface{}) {
+// SetBlockMetadata inserts or updates a Block metadata entry by typed key.
+func SetBlockMetadata(b *Block, key BlockMetadataKey, value interface{}) {
 	if b.Metadata == nil {
-		b.Metadata = make(map[string]interface{})
+		b.Metadata = make(map[BlockMetadataKey]interface{})
 	}
 	b.Metadata[key] = value
 }

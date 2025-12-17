@@ -293,7 +293,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 	}
 	// Ensure Data map exists to avoid nil map assignments
 	if t.Data == nil {
-		t.Data = map[string]any{}
+		t.Data = map[turns.TurnDataKey]any{}
 	}
 
 	// Attach registry and minimal engine tool config so providers can advertise tools

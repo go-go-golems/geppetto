@@ -27,7 +27,7 @@ func NormalizeTurn(t *turns.Turn) {
 			b.Payload = map[string]any{}
 		}
 		if b.Metadata == nil {
-			b.Metadata = map[string]any{}
+			b.Metadata = map[BlockMetadataKey]any{}
 		}
 		// Synthesize assistant role for llm_text if missing
 		if b.Kind == turns.BlockKindLLMText {

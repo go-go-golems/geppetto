@@ -15,21 +15,28 @@ const (
 	PayloadKeyItemID = "item_id"
 )
 
-// Recommended keys for Turn/Block/Run Metadata maps
-// Note: These are conventions; callers may use additional keys as needed.
+// Turn metadata keys for Turn.Metadata map
 const (
-	MetaKeyProvider   = "provider"    // e.g., provider name or payload snippets
-	MetaKeyRuntime    = "runtime"     // runtime annotations
-	MetaKeyTraceID    = "trace_id"    // tracing id for correlation
-	MetaKeyUsage      = "usage"       // token usage summary
-	MetaKeyStopReason = "stop_reason" // provider stop reason
-	MetaKeyModel      = "model"       // model identifier
-	// MetaKeyClaudeOriginalContent stores provider-native content blocks for Claude
-	MetaKeyClaudeOriginalContent = "claude_original_content"
+	TurnMetaKeyProvider   TurnMetadataKey = "provider"    // e.g., provider name or payload snippets
+	TurnMetaKeyRuntime    TurnMetadataKey = "runtime"     // runtime annotations
+	TurnMetaKeyTraceID    TurnMetadataKey = "trace_id"    // tracing id for correlation
+	TurnMetaKeyUsage      TurnMetadataKey = "usage"       // token usage summary
+	TurnMetaKeyStopReason TurnMetadataKey = "stop_reason" // provider stop reason
+	TurnMetaKeyModel      TurnMetadataKey = "model"       // model identifier
+)
+
+// Block metadata keys for Block.Metadata map
+const (
+	// BlockMetaKeyClaudeOriginalContent stores provider-native content blocks for Claude
+	BlockMetaKeyClaudeOriginalContent BlockMetadataKey = "claude_original_content"
+	BlockMetaKeyToolCalls             BlockMetadataKey = "tool_calls"
+	BlockMetaKeyMiddleware             BlockMetadataKey = "middleware"
 )
 
 // Standard keys for Turn.Data map
 const (
-	DataKeyToolRegistry = "tool_registry"
-	DataKeyToolConfig   = "tool_config"
+	DataKeyToolRegistry            TurnDataKey = "tool_registry"
+	DataKeyToolConfig              TurnDataKey = "tool_config"
+	DataKeyAgentModeAllowedTools   TurnDataKey = "agent_mode_allowed_tools"
+	DataKeyAgentMode               TurnDataKey = "agent_mode"
 )

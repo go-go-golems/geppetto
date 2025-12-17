@@ -99,7 +99,7 @@ func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
 				// Filter tools: prefer per-Turn agent-mode allowed tools if present, else use static config
 				allowed := config.ToolFilter
 				if updated != nil && updated.Data != nil {
-					if v, ok := updated.Data["agent_mode_allowed_tools"]; ok && v != nil {
+					if v, ok := updated.Data[turns.DataKeyAgentModeAllowedTools]; ok && v != nil {
 						if s, ok := v.([]string); ok {
 							allowed = s
 						}
