@@ -81,7 +81,7 @@ _ = reg.RegisterTool("get_weather", *def)
 2) Attach the registry (and optional tool config) to a Turn
 
 ```go
-seed := &turns.Turn{ Data: map[string]any{} }
+seed := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
 seed.Data[turns.DataKeyToolRegistry] = reg
 seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
     Enabled:          true,
@@ -141,7 +141,7 @@ func run(ctx context.Context, e engine.Engine) error {
     _ = reg.RegisterTool("add", *def)
 
     // 2) Seed a Turn with registry and minimal tool config
-    t := &turns.Turn{ Data: map[string]any{} }
+    t := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
     t.Data[turns.DataKeyToolRegistry] = reg
     t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true }
     turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
