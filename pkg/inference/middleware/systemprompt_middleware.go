@@ -46,9 +46,9 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 					}
 					existingText, _ := t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText].(string)
 					if t.Blocks[firstSystemIdx].Metadata == nil {
-						t.Blocks[firstSystemIdx].Metadata = map[string]any{}
+						t.Blocks[firstSystemIdx].Metadata = map[turns.BlockMetadataKey]any{}
 					}
-					t.Blocks[firstSystemIdx].Metadata["middleware"] = "systemprompt"
+					t.Blocks[firstSystemIdx].Metadata[turns.BlockMetaKeyMiddleware] = "systemprompt"
 					if existingText == "" {
 						t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = prompt
 						log.Debug().Str("run_id", t.RunID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: set text on existing system block")
@@ -58,7 +58,7 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 					}
 				} else {
 					// Insert a new system block at the beginning
-					newBlock := turns.WithBlockMetadata(turns.NewSystemTextBlock(prompt), map[string]any{"middleware": "systemprompt"})
+					newBlock := turns.WithBlockMetadata(turns.NewSystemTextBlock(prompt), map[turns.BlockMetadataKey]any{turns.BlockMetaKeyMiddleware: "systemprompt"})
 					// Insert at index 0
 					t.Blocks = append([]turns.Block{newBlock}, t.Blocks...)
 					// Log roles snapshot after insertion

@@ -286,7 +286,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if p == "" {
 			p = "Think step-by-step and answer concisely: What is 23*17 + 55?"
 		}
-		turn = &turns.Turn{Data: map[string]any{}}
+		turn = &turns.Turn{Data: map[turns.TurnDataKey]any{}}
 		turns.AppendBlock(turn, turns.NewUserTextBlock(p))
 	} else {
 		// Tools mode (default)
@@ -330,7 +330,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if s.Mode == "parallel-tools" {
 			maxPar = 2
 		}
-		turn = &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: maxPar, ToolErrorHandling: engine.ToolErrorContinue}}}
+		turn = &turns.Turn{Data: map[turns.TurnDataKey]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: maxPar, ToolErrorHandling: engine.ToolErrorContinue}}}
 		userPrompt := s.Prompt
 		if userPrompt == "" {
 			if s.Mode == "parallel-tools" {

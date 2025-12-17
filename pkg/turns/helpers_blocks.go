@@ -48,7 +48,7 @@ func NewAssistantTextBlock(text string) Block {
 
 // WithClaudeOriginalContent attaches Claude-native content blocks to a block's metadata for lossless roundtrips.
 func WithClaudeOriginalContent(b Block, original any) Block {
-	return WithBlockMetadata(b, map[string]any{MetaKeyClaudeOriginalContent: original})
+	return WithBlockMetadata(b, map[BlockMetadataKey]any{BlockMetaKeyClaudeOriginalContent: original})
 }
 
 // NewSystemTextBlock returns a Block representing a system directive.
@@ -91,12 +91,12 @@ func NewToolUseBlock(id string, result any) Block {
 }
 
 // WithBlockMetadata sets key/value pairs on a copy of the block's Metadata and returns it.
-func WithBlockMetadata(b Block, kvs map[string]interface{}) Block {
+func WithBlockMetadata(b Block, kvs map[BlockMetadataKey]interface{}) Block {
 	if len(kvs) == 0 {
 		return b
 	}
 	// Clone existing metadata map to avoid aliasing
-	cloned := make(map[string]interface{}, len(b.Metadata)+len(kvs))
+	cloned := make(map[BlockMetadataKey]interface{}, len(b.Metadata)+len(kvs))
 	for k, v := range b.Metadata {
 		cloned[k] = v
 	}
@@ -108,7 +108,7 @@ func WithBlockMetadata(b Block, kvs map[string]interface{}) Block {
 }
 
 // HasBlockMetadata returns true if the block's Metadata contains key==value.
-func HasBlockMetadata(b Block, key string, value string) bool {
+func HasBlockMetadata(b Block, key BlockMetadataKey, value string) bool {
 	if b.Metadata == nil {
 		return false
 	}
@@ -124,7 +124,7 @@ func HasBlockMetadata(b Block, key string, value string) bool {
 
 // RemoveBlocksByMetadata removes all blocks from the Turn where Metadata[key] equals any of the provided values.
 // It returns the number of removed blocks.
-func RemoveBlocksByMetadata(t *Turn, key string, values ...string) int {
+func RemoveBlocksByMetadata(t *Turn, key BlockMetadataKey, values ...string) int {
 	if t == nil || len(t.Blocks) == 0 {
 		return 0
 	}
