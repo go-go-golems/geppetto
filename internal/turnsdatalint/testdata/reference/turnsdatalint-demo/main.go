@@ -6,15 +6,21 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-// This demo intentionally violates turnsdatalint rules to show the analyzer in action.
+// Reference-only demo for turnsdatalint.
 //
-// Run `make lint` or `make turnsdatalint` to see the violations reported.
+// This file intentionally violates turnsdatalint rules to show the analyzer in action.
+// It lives under a `testdata/` directory so `go list ./...` / `make lint` do not pick it up.
+//
+// To run the linter on this file explicitly:
+//
+//	cd geppetto
+//	make turnsdatalint-build
+//	go vet -vettool=/tmp/turnsdatalint internal/turnsdatalint/testdata/reference/turnsdatalint-demo/main.go
 //
 // Expected output (3 violations):
-//   Line 31: variable key (badKey)
-//   Line 34: inline conversion TurnDataKey("another_bad")
-//   Line 39: raw string literal "raw_string_literal"
-
+//   - variable key (badKey)
+//   - inline conversion TurnDataKey("another_bad")
+//   - raw string literal "raw_string_literal" (compiles, but flagged)
 func main() {
 	turn := &turns.Turn{
 		ID: "demo-turn",
@@ -26,7 +32,7 @@ func main() {
 	}
 	fmt.Printf("Good pattern: %v\n", turn.Data[turns.DataKeyToolRegistry])
 
-	// BAD: Ad-hoc conversion (should be flagged by turnsdatalint)
+	// BAD: Variable key (should be flagged)
 	badKey := turns.TurnDataKey("dynamic_key")
 	turn.Data[badKey] = "bad value"
 
@@ -41,5 +47,5 @@ func main() {
 	// GOOD: Using another defined const
 	turn.Data[turns.DataKeyAgentMode] = "test-mode"
 
-	fmt.Println("Demo complete - run 'make lint' to see violations")
+	fmt.Println("Demo complete - run turnsdatalint on this file explicitly to see violations")
 }

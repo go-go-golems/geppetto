@@ -7,11 +7,11 @@ VERSION=v0.1.14
 docker-lint:
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.0.2 golangci-lint run -v
 
-lint: turnsdatalint-build
+lint: build turnsdatalint-build
 	golangci-lint run -v
 	go vet -vettool=$(TURNSDATALINT_BIN) ./...
 
-lintmax: turnsdatalint-build
+lintmax: build turnsdatalint-build
 	golangci-lint run -v --max-same-issues=100
 	go vet -vettool=$(TURNSDATALINT_BIN) ./...
 
