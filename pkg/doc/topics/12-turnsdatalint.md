@@ -58,15 +58,26 @@ To add a new analyzer that scales with the bundling approach:
 
 ### What it enforces
 
-The core rule is: **`Turn.Data[<expr>]` must use a const of type `turns.TurnDataKey`**.
+`turnsdatalint` enforces **const-only keys** for the most important “map-as-structure” fields in Turns/Blocks:
 
-- **Allowed**:
-  - `t.Data[turns.DataKeyToolRegistry]`
-  - `const K turns.TurnDataKey = "my_key"; t.Data[K]`
-- **Flagged**:
-  - `t.Data[turns.TurnDataKey("raw")]` (ad-hoc conversion)
-  - `k := turns.DataKeyToolRegistry; t.Data[k]` (variable key)
-  - `t.Data["raw"]` (raw string literal)
+- **Turn.Data** (`map[turns.TurnDataKey]any`): key must be a `const turns.TurnDataKey`
+- **Turn.Metadata** (`map[turns.TurnMetadataKey]any`): key must be a `const turns.TurnMetadataKey`
+- **Block.Metadata** (`map[turns.BlockMetadataKey]any`): key must be a `const turns.BlockMetadataKey`
+- **Run.Metadata** (`map[turns.RunMetadataKey]any`): key must be a `const turns.RunMetadataKey`
+- **Block.Payload** (`map[string]any`): key must be a **const string** (no `"literal"` and no variables)
+
+**Allowed examples (high-level):**
+- `t.Data[turns.DataKeyToolRegistry]`
+- `t.Metadata[turns.TurnMetaKeyModel]`
+- `b.Metadata[turns.BlockMetaKeyMiddleware]`
+- `b.Payload[turns.PayloadKeyText]`
+
+**Flagged examples (high-level):**
+- `t.Data[turns.TurnDataKey("raw")]` (ad-hoc conversion)
+- `t.Metadata["model"]` (raw string literal)
+- `b.Metadata["middleware"]` (raw string literal)
+- `b.Payload["text"]` (raw string literal)
+- `k := turns.PayloadKeyText; b.Payload[k]` (variable key)
 
 **Note:** `t.Data["raw"]` can compile in Go because untyped string constants may be implicitly converted to a defined string type. The linter exists specifically to prevent these from creeping in.
 
