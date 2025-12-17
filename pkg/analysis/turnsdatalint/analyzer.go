@@ -184,24 +184,6 @@ func objIsAllowedConst(obj types.Object, wantPkgPath, wantName string) bool {
 	return true
 }
 
-func namedTypeMatches(t types.Type, wantPkgPath, wantName string) bool {
-	named, ok := t.(*types.Named)
-	if !ok {
-		return false
-	}
-
-	if wantName != "" && named.Obj().Name() != wantName {
-		return false
-	}
-
-	if wantPkgPath == "" {
-		return true
-	}
-
-	p := named.Obj().Pkg()
-	return p != nil && p.Path() == wantPkgPath
-}
-
 func unwrapParens(e ast.Expr) ast.Expr {
 	for {
 		p, ok := e.(*ast.ParenExpr)
