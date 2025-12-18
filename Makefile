@@ -5,7 +5,7 @@ all: test build
 VERSION=v0.1.14
 
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.0.2 golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.1.0 golangci-lint run -v
 
 LINTTOOL_BIN ?= /tmp/geppetto-lint
 
