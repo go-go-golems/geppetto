@@ -45,7 +45,7 @@ This step set up the Geppetto-side workspace for the change and captured the rat
 
 This step updates `turnsdatalint` so typed expressions (vars/params/conversions) are accepted for typed-key maps, while still rejecting raw string literals and untyped string constants. It also updates analysistest fixtures and the topic documentation.
 
-**Commit (code):** N/A — implemented, commit pending
+**Commit (code):** f3b75d3ca24e806ba242b1e57b39eee7a625cf24 — "turnsdatalint: relax const-only to typed-key enforcement"
 
 ### What I’m changing
 - `geppetto/pkg/analysis/turnsdatalint/analyzer.go`: switch from const-identity to type-based key checks; remove helper allowlist
