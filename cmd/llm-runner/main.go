@@ -160,7 +160,7 @@ func main() {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return logging.InitLoggerFromViper() },
 	}
 	// Init Viper and help
-	if err := clay.InitViper("geppetto", rootCmd); err != nil {
+	if err := clay.InitGlazed("geppetto", rootCmd); err != nil {
 		cobra.CheckErr(err)
 	}
 	helpSystem := help.NewHelpSystem()

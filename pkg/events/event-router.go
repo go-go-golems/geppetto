@@ -146,7 +146,7 @@ func (e *EventRouter) AddHandlerWithOptions(name string, topic string, f func(ms
 		sub = hc.subscriber
 	}
 
-	e.router.AddNoPublisherHandler(name, topic, sub, f)
+	e.router.AddConsumerHandler(name, topic, sub, f)
 }
 
 func (e *EventRouter) DumpRawEvents(msg *message.Message) error {

@@ -37,7 +37,7 @@ var rootCmd = &cobra.Command{
 	Use:   "generic-tool-calling",
 	Short: "Generic tool calling example that works with any AI provider",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := logging.InitLoggerFromViper()
+		err := logging.InitLoggerFromCobra(cmd)
 		if err != nil {
 			return err
 		}
@@ -505,7 +505,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 }
 
 func main() {
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()
