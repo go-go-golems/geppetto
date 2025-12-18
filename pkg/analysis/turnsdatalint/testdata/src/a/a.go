@@ -12,13 +12,26 @@ func okConst(t *turns.Turn) {
 	_ = t.Data[Indirect]
 }
 
-func badConversion(t *turns.Turn) {
-	_ = t.Data[turns.TurnDataKey("raw")] // want `Data key must be a const of type`
+func okConversion(t *turns.Turn) {
+	_ = t.Data[turns.TurnDataKey("raw")]
 }
 
-func badVar(t *turns.Turn) {
+func okVar(t *turns.Turn) {
 	k := turns.DataKeyToolRegistry
-	_ = t.Data[k] // want `Data key must be a const of type`
+	_ = t.Data[k]
+}
+
+func okParam(t *turns.Turn, k turns.TurnDataKey) {
+	_ = t.Data[k]
+}
+
+func badStringLiteral(t *turns.Turn) {
+	_ = t.Data["raw"] // want `Data key must be of type`
+}
+
+func badUntypedConstIdent(t *turns.Turn) {
+	const k = "raw"
+	_ = t.Data[k] // want `Data key must be of type`
 }
 
 func okTurnMetadataConst(t *turns.Turn) {
@@ -29,12 +42,12 @@ func okTurnMetadataConst(t *turns.Turn) {
 }
 
 func badTurnMetadataString(t *turns.Turn) {
-	_ = t.Metadata["model"] // want `Metadata key must be a const of type`
+	_ = t.Metadata["model"] // want `Metadata key must be of type`
 }
 
-func badTurnMetadataVar(t *turns.Turn) {
+func okTurnMetadataVar(t *turns.Turn) {
 	k := turns.TurnMetaKeyModel
-	_ = t.Metadata[k] // want `Metadata key must be a const of type`
+	_ = t.Metadata[k]
 }
 
 func okBlockMetadataConst(b *turns.Block) {
@@ -45,12 +58,12 @@ func okBlockMetadataConst(b *turns.Block) {
 }
 
 func badBlockMetadataString(b *turns.Block) {
-	_ = b.Metadata["middleware"] // want `Metadata key must be a const of type`
+	_ = b.Metadata["middleware"] // want `Metadata key must be of type`
 }
 
-func badBlockMetadataVar(b *turns.Block) {
+func okBlockMetadataVar(b *turns.Block) {
 	k := turns.BlockMetaKeyMiddleware
-	_ = b.Metadata[k] // want `Metadata key must be a const of type`
+	_ = b.Metadata[k]
 }
 
 func okRunMetadataConst(r *turns.Run) {
@@ -61,7 +74,7 @@ func okRunMetadataConst(r *turns.Run) {
 }
 
 func badRunMetadataString(r *turns.Run) {
-	_ = r.Metadata["trace_id"] // want `Metadata key must be a const of type`
+	_ = r.Metadata["trace_id"] // want `Metadata key must be of type`
 }
 
 func okPayloadConst(b *turns.Block) {

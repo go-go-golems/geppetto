@@ -54,26 +54,30 @@ To add a new analyzer that scales with the bundling approach:
 
 ## turnsdatalint (Turn.Data key linting)
 
-`turnsdatalint` is a fast `go/analysis`-based linter that enforces a project convention: **access `turns.Turn.Data[...]` using typed `const` keys** (for example `turns.DataKeyToolRegistry`) instead of ad-hoc keys. This prevents subtle drift where different packages use different string keys for the same concept, and it makes key discovery (via `turns/keys.go`) reliable.
+`turnsdatalint` is a fast `go/analysis`-based linter that enforces a project convention: **access typed-key Turn/Run/Block maps using typed key expressions** (for example `turns.DataKeyToolRegistry`) and **never** use raw string literals. This prevents subtle drift where different packages use different string keys for the same concept, and it makes key discovery (via `turns/keys.go`) reliable.
 
 ### What it enforces
 
-`turnsdatalint` enforces **const-only keys** for the most important “map-as-structure” fields in Turns/Blocks:
+`turnsdatalint` enforces **typed-key expressions** for the most important “map-as-structure” fields in Turns/Blocks:
 
-- **Turn.Data** (`map[turns.TurnDataKey]any`): key must be a `const turns.TurnDataKey`
-- **Turn.Metadata** (`map[turns.TurnMetadataKey]any`): key must be a `const turns.TurnMetadataKey`
-- **Block.Metadata** (`map[turns.BlockMetadataKey]any`): key must be a `const turns.BlockMetadataKey`
-- **Run.Metadata** (`map[turns.RunMetadataKey]any`): key must be a `const turns.RunMetadataKey`
+- **Turn.Data** (`map[turns.TurnDataKey]any`): key expression must have type `turns.TurnDataKey` (no raw string literals; no untyped string const identifiers)
+- **Turn.Metadata** (`map[turns.TurnMetadataKey]any`): key expression must have type `turns.TurnMetadataKey` (same restrictions)
+- **Block.Metadata** (`map[turns.BlockMetadataKey]any`): key expression must have type `turns.BlockMetadataKey` (same restrictions)
+- **Run.Metadata** (`map[turns.RunMetadataKey]any`): key expression must have type `turns.RunMetadataKey` (same restrictions)
 - **Block.Payload** (`map[string]any`): key must be a **const string** (no `"literal"` and no variables)
 
 **Allowed examples (high-level):**
 - `t.Data[turns.DataKeyToolRegistry]`
+- `t.Data[turns.TurnDataKey("custom_key")]` (typed conversion)
+- `k := turns.DataKeyToolRegistry; _ = t.Data[k]` (typed variable)
+- `func set(k turns.TurnDataKey) { _ = t.Data[k] }` (typed parameter)
 - `t.Metadata[turns.TurnMetaKeyModel]`
 - `b.Metadata[turns.BlockMetaKeyMiddleware]`
 - `b.Payload[turns.PayloadKeyText]`
 
 **Flagged examples (high-level):**
-- `t.Data[turns.TurnDataKey("raw")]` (ad-hoc conversion)
+- `t.Data["raw"]` (raw string literal)
+- `const k = "raw"; _ = t.Data[k]` (untyped string const identifier)
 - `t.Metadata["model"]` (raw string literal)
 - `b.Metadata["middleware"]` (raw string literal)
 - `b.Payload["text"]` (raw string literal)
@@ -88,7 +92,9 @@ To add a new analyzer that scales with the bundling approach:
 - **Finds** AST `IndexExpr` nodes that look like `<something>.Data[<key>]`
 - **Verifies** the selector is a **field** named `Data` and the field type is a `map[...]...`
 - **Scopes** the rule to `Data` maps whose **key type** is the configured named type (defaults to Geppetto’s `turns.TurnDataKey`)
-- **Allows** only keys that are `types.Const` of that named type (identifiers like `Foo` or selectors like `turns.Foo`)
+- **Allows** any key expression whose type is the configured named key type (variables, parameters, conversions)
+- **Rejects** raw string literals (even if the Go type checker could implicitly convert them)
+- **Rejects** untyped string const identifiers/selectors used as keys (e.g. `const k = "foo"`)
 - **Reports** a diagnostic for everything else
 
 Pseudocode:
@@ -97,16 +103,20 @@ Pseudocode:
 for each IndexExpr idx:
   if idx.X is not SelectorExpr ".Data": continue
   if selected field is not map[TurnDataKey]...: continue
-  if idx.Index is (Ident or Selector) AND resolves to const TurnDataKey: ok
+  if idx.Index has type TurnDataKey AND is not a raw literal and not an untyped-string const ident: ok
   else: report diagnostic at '['
 ```
 
 ### Configuration
 
-`turnsdatalint` supports a flag for the key type:
+`turnsdatalint` supports flags for the named key types (fully-qualified):
 
-- **Flag**: `-turnsdatalint.keytype`
-- **Default**: `github.com/go-go-golems/geppetto/pkg/turns.TurnDataKey`
+- **Flags**:
+  - `-turnsdatalint.data-keytype`
+  - `-turnsdatalint.turn-metadata-keytype`
+  - `-turnsdatalint.block-metadata-keytype`
+  - `-turnsdatalint.run-metadata-keytype`
+- **Defaults**: the corresponding `github.com/go-go-golems/geppetto/pkg/turns.<...>` named types
 
 This is mainly useful if you reuse the analyzer logic for a different struct/map key type in another project.
 

@@ -2,6 +2,7 @@ package turnsdatalint
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 	"strings"
 
@@ -28,16 +29,17 @@ var (
 	runMetadataKeyTypeFlag   string
 )
 
-// Analyzer enforces that Turn.Data[...] map access uses a const of the configured key type.
+// Analyzer enforces that Turn/Run/Block typed-key map access uses a typed key expression,
+// and that Block.Payload (map[string]any) uses const string keys.
 //
-// This prevents ad-hoc conversions like turns.TurnDataKey("raw") or variables, encouraging use
-// of canonical, typed constants (e.g., turns.DataKeyToolRegistry).
+// For typed-key maps, this prevents raw string drift (e.g. t.Data["foo"]) while still allowing
+// normal Go patterns like typed conversions, variables, and parameters.
 //
 // Note: raw string literals like turn.Data["foo"] can compile in Go because untyped string
 // constants may be implicitly converted to a defined string type; this analyzer flags them too.
 var Analyzer = &analysis.Analyzer{
 	Name:     "turnsdatalint",
-	Doc:      "require Turn.{Data,Metadata}[...] and Block.{Payload,Metadata}[...] indexes to use const keys (no raw strings, conversions, or variables)",
+	Doc:      "require typed-key map indexes to use typed key expressions (no raw string literals or untyped string constants); require Block.Payload indexes to use const strings",
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
 }
@@ -83,13 +85,6 @@ func run(pass *analysis.Pass) (any, error) {
 	insp.Preorder(nodeFilter, func(n ast.Node) {
 		idx := n.(*ast.IndexExpr)
 
-		// NOTE: Some helpers in the codebase legitimately accept dynamic (non-const) keys
-		// as parameters and then operate on Turn/Block maps. We allowlist those helpers
-		// to avoid forcing call sites to reimplement common operations.
-		if isInsideAllowedHelperFunction(pass, idx) {
-			return
-		}
-
 		// Match <something>.{Data,Metadata,Payload}[...]
 		sel, ok := idx.X.(*ast.SelectorExpr)
 		if !ok || sel.Sel == nil {
@@ -125,8 +120,8 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 
 		// For typed-key maps (Turn.Data, Turn.Metadata, Block.Metadata, Run.Metadata), require const of the map key type.
-		keyNamed, ok := m.Key().(*types.Named)
-		if !ok {
+		keyNamed := asNamedType(m.Key())
+		if keyNamed == nil {
 			return
 		}
 		keyTypeStr := namedTypeToQualifiedString(keyNamed)
@@ -139,13 +134,13 @@ func run(pass *analysis.Pass) (any, error) {
 			return
 		}
 
-		if isAllowedConstKey(pass, idx.Index, wantPkgPath, wantName) {
+		if isAllowedTypedKeyExpr(pass, idx.Index, wantPkgPath, wantName) {
 			return
 		}
 
 		pass.Reportf(
 			idx.Lbrack,
-			`%s key must be a const of type %q (not a raw string literal, conversion, or variable)`,
+			`%s key must be of type %q (not a raw string literal or untyped string constant)`,
 			sel.Sel.Name,
 			keyTypeStr,
 		)
@@ -154,29 +149,26 @@ func run(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func isAllowedConstKey(pass *analysis.Pass, e ast.Expr, wantPkgPath, wantName string) bool {
+func isAllowedTypedKeyExpr(pass *analysis.Pass, e ast.Expr, wantPkgPath, wantName string) bool {
 	e = unwrapParens(e)
 
-	// allow unqualified const (Foo) or qualified const (pkg.Foo)
-	switch t := e.(type) {
-	case *ast.Ident:
-		return objIsAllowedConst(pass.TypesInfo.ObjectOf(t), wantPkgPath, wantName)
-	case *ast.SelectorExpr:
-		// for pkg.Foo, the object is on Sel
-		return objIsAllowedConst(pass.TypesInfo.ObjectOf(t.Sel), wantPkgPath, wantName)
-	default:
-		return false
-	}
-}
-
-func objIsAllowedConst(obj types.Object, wantPkgPath, wantName string) bool {
-	c, ok := obj.(*types.Const)
-	if !ok {
+	// Disallow raw string literals even if the type checker can implicitly convert them.
+	if lit, ok := e.(*ast.BasicLit); ok && lit.Kind == token.STRING {
 		return false
 	}
 
-	named, ok := c.Type().(*types.Named)
-	if !ok {
+	// Disallow untyped string const identifiers/selectors (e.g. const k = "foo"; t.Data[k]).
+	if isUntypedStringConstExpr(pass, e) {
+		return false
+	}
+
+	tv, ok := pass.TypesInfo.Types[e]
+	if !ok || tv.Type == nil {
+		return false
+	}
+
+	named := asNamedType(tv.Type)
+	if named == nil || named.Obj() == nil {
 		return false
 	}
 
@@ -235,6 +227,17 @@ func namedTypeToQualifiedString(n *types.Named) string {
 	return n.Obj().Pkg().Path() + "." + n.Obj().Name()
 }
 
+func asNamedType(t types.Type) *types.Named {
+	switch tt := t.(type) {
+	case *types.Named:
+		return tt
+	case *types.Alias:
+		return asNamedType(tt.Rhs())
+	default:
+		return nil
+	}
+}
+
 func isStringKeyMap(m *types.Map) bool {
 	if m == nil {
 		return false
@@ -271,43 +274,29 @@ func objIsConstString(obj types.Object) bool {
 	return b.Info()&types.IsString != 0
 }
 
-// isInsideAllowedHelperFunction returns true if the IndexExpr lives inside one of a small set
-// of helper functions that accept variable keys (e.g. keys passed as parameters).
-func isInsideAllowedHelperFunction(pass *analysis.Pass, idx *ast.IndexExpr) bool {
-	allowedFunctions := map[string]bool{
-		"HasBlockMetadata":       true,
-		"RemoveBlocksByMetadata": true,
-		"SetTurnMetadata":        true,
-		"SetBlockMetadata":       true,
-	}
+func isUntypedStringConstExpr(pass *analysis.Pass, e ast.Expr) bool {
+	e = unwrapParens(e)
 
-	for _, file := range pass.Files {
-		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || fn.Name == nil || fn.Body == nil {
-				continue
-			}
-			if !allowedFunctions[fn.Name.Name] {
-				continue
-			}
-			if containsNode(fn.Body, idx) {
-				return true
-			}
-		}
+	switch t := e.(type) {
+	case *ast.Ident:
+		return objIsUntypedStringConst(pass.TypesInfo.ObjectOf(t))
+	case *ast.SelectorExpr:
+		return objIsUntypedStringConst(pass.TypesInfo.ObjectOf(t.Sel))
+	default:
+		return false
 	}
-
-	return false
 }
 
-// containsNode checks if a node is contained within another node's subtree.
-func containsNode(parent ast.Node, child ast.Node) bool {
-	var found bool
-	ast.Inspect(parent, func(n ast.Node) bool {
-		if n == child {
-			found = true
-			return false
-		}
-		return !found
-	})
-	return found
+func objIsUntypedStringConst(obj types.Object) bool {
+	c, ok := obj.(*types.Const)
+	if !ok {
+		return false
+	}
+
+	b, ok := c.Type().Underlying().(*types.Basic)
+	if !ok {
+		return false
+	}
+
+	return b.Kind() == types.UntypedString
 }
