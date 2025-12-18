@@ -164,6 +164,7 @@ func main() {
 
 	command, err := cli.BuildCobraCommand(simpleCmd,
 		cli.WithCobraMiddlewaresFunc(geppettolayers.GetCobraCommandGeppettoMiddlewares),
+		cli.WithProfileSettingsLayer(),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

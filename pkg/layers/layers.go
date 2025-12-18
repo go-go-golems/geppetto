@@ -9,9 +9,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	cmdlayers "github.com/go-go-golems/glazed/pkg/cmds/layers"
-	glazedConfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/go-go-golems/glazed/pkg/cmds/middlewares"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	glazedConfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -96,16 +96,119 @@ func GetCobraCommandGeppettoMiddlewares(
 	cmd *cobra.Command,
 	args []string,
 ) ([]middlewares.Middleware, error) {
+	// Mapper to filter out non-layer keys like "repositories" which are handled separately.
+	// We keep it here so it can be reused both for bootstrap parsing (profile selection)
+	// and for the main config middleware.
+	configMapper := func(rawConfig interface{}) (map[string]map[string]interface{}, error) {
+		configMap, ok := rawConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("expected map[string]interface{}, got %T", rawConfig)
+		}
+
+		result := make(map[string]map[string]interface{})
+
+		// Keys to exclude from layer parsing (handled separately)
+		excludedKeys := map[string]bool{
+			"repositories": true,
+		}
+
+		for key, value := range configMap {
+			if excludedKeys[key] {
+				continue // Skip excluded keys
+			}
+
+			// If the value is a map, treat the key as a layer slug
+			if layerParams, ok := value.(map[string]interface{}); ok {
+				result[key] = layerParams
+			}
+		}
+
+		return result, nil
+	}
+
+	// ---------------------------------------------------------------------
+	// Option A bootstrap parse:
+	//
+	// We must resolve profile selection (profile-settings.profile + profile-settings.profile-file)
+	// from defaults + config + env + flags BEFORE instantiating the profiles middleware.
+	//
+	// NOTE: parsedCommandLayers (from cli.ParseCommandSettingsLayer) is Cobra-only. We keep it
+	// around as a fallback source of command settings, but we do our own bootstrap parse so that
+	// PINOCCHIO_PROFILE and config can influence selection.
+	// ---------------------------------------------------------------------
+
+	// 1) Bootstrap command settings from Cobra + env + defaults (no config).
 	commandSettings := &cli.CommandSettings{}
-	err := parsedCommandLayers.InitializeStruct(cli.CommandSettingsSlug, commandSettings)
+	commandSettingsLayer, err := cli.NewCommandSettingsLayer()
 	if err != nil {
 		return nil, err
 	}
-
-	profileSettings := &cli.ProfileSettings{}
-	err = parsedCommandLayers.InitializeStruct(cli.ProfileSettingsSlug, profileSettings)
+	bootstrapCommandLayers := cmdlayers.NewParameterLayers(
+		cmdlayers.WithLayers(commandSettingsLayer),
+	)
+	bootstrapCommandParsed := cmdlayers.NewParsedLayers()
+	err = middlewares.ExecuteMiddlewares(
+		bootstrapCommandLayers,
+		bootstrapCommandParsed,
+		middlewares.ParseFromCobraCommand(cmd, parameters.WithParseStepSource("cobra")),
+		middlewares.UpdateFromEnv("PINOCCHIO", parameters.WithParseStepSource("env")),
+		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
+	)
 	if err != nil {
 		return nil, err
+	}
+	if err := bootstrapCommandParsed.InitializeStruct(cli.CommandSettingsSlug, commandSettings); err != nil {
+		return nil, err
+	}
+	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsedCommandLayers.
+	if commandSettings.ConfigFile == "" && commandSettings.LoadParametersFromFile == "" && parsedCommandLayers != nil {
+		_ = parsedCommandLayers.InitializeStruct(cli.CommandSettingsSlug, commandSettings)
+	}
+
+	// 2) Resolve config files once (low -> high precedence) so bootstrap + main chain are consistent.
+	var configFiles []string
+	configPath, err := glazedConfig.ResolveAppConfigPath("pinocchio", "")
+	if err == nil && configPath != "" {
+		configFiles = append(configFiles, configPath)
+	}
+	if commandSettings.ConfigFile != "" {
+		configFiles = append(configFiles, commandSettings.ConfigFile)
+	}
+	if commandSettings.LoadParametersFromFile != "" {
+		configFiles = append(configFiles, commandSettings.LoadParametersFromFile)
+	}
+
+	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
+	profileSettings := &cli.ProfileSettings{}
+	profileSettingsLayer, err := cli.NewProfileSettingsLayer()
+	if err != nil {
+		return nil, err
+	}
+	bootstrapProfileLayers := cmdlayers.NewParameterLayers(
+		cmdlayers.WithLayers(profileSettingsLayer),
+	)
+	bootstrapProfileParsed := cmdlayers.NewParsedLayers()
+	err = middlewares.ExecuteMiddlewares(
+		bootstrapProfileLayers,
+		bootstrapProfileParsed,
+		middlewares.ParseFromCobraCommand(cmd, parameters.WithParseStepSource("cobra")),
+		middlewares.UpdateFromEnv("PINOCCHIO", parameters.WithParseStepSource("env")),
+		middlewares.LoadParametersFromFiles(
+			configFiles,
+			middlewares.WithConfigFileMapper(configMapper),
+			middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
+		),
+		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := bootstrapProfileParsed.InitializeStruct(cli.ProfileSettingsSlug, profileSettings); err != nil {
+		return nil, err
+	}
+	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsedCommandLayers.
+	if profileSettings.Profile == "" && profileSettings.ProfileFile == "" && parsedCommandLayers != nil {
+		_ = parsedCommandLayers.InitializeStruct(cli.ProfileSettingsSlug, profileSettings)
 	}
 
 	// Build middleware chain in reverse precedence order (last applied has highest precedence)
@@ -139,83 +242,13 @@ func GetCobraCommandGeppettoMiddlewares(
 		),
 	)
 
-	// Config files (low -> high precedence)
-	// Note: We use parsedCommandLayers (captured from function parameter) instead of parsed
-	// (from middleware) because flags haven't been parsed into parsedLayers yet when the
-	// resolver runs. parsedCommandLayers already has command settings parsed from
-	// ParseCommandSettingsLayer which runs before the middleware chain.
-	configFilesResolver := func(_ *cmdlayers.ParsedLayers, _ *cobra.Command, _ []string) ([]string, error) {
-		var files []string
-		
-		// Resolve app config path (XDG, ~/.pinocchio, /etc/pinocchio)
-		// Load default config first (low precedence)
-		configPath, err := glazedConfig.ResolveAppConfigPath("pinocchio", "")
-		if err == nil && configPath != "" {
-			files = append(files, configPath)
-		}
-		
-		// Check for explicit config file from command settings (already parsed in parsedCommandLayers)
-		// Use the commandSettings we read earlier from parsedCommandLayers
-		// Explicit config is loaded last (high precedence)
-		if commandSettings.ConfigFile != "" {
-			files = append(files, commandSettings.ConfigFile)
-		}
-		
-		// Also check LoadParametersFromFile for backward compatibility
-		if commandSettings.LoadParametersFromFile != "" {
-			files = append(files, commandSettings.LoadParametersFromFile)
-		}
-		
-		return files, nil
-	}
-	
-	// Mapper to filter out non-layer keys like "repositories" which are handled separately
-	configMapper := func(rawConfig interface{}) (map[string]map[string]interface{}, error) {
-		configMap, ok := rawConfig.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("expected map[string]interface{}, got %T", rawConfig)
-		}
-		
-		result := make(map[string]map[string]interface{})
-		
-		// Keys to exclude from layer parsing (handled separately)
-		excludedKeys := map[string]bool{
-			"repositories": true,
-		}
-		
-		for key, value := range configMap {
-			if excludedKeys[key] {
-				continue // Skip excluded keys
-			}
-			
-			// If the value is a map, treat the key as a layer slug
-			if layerParams, ok := value.(map[string]interface{}); ok {
-				result[key] = layerParams
-			}
-		}
-		
-		return result, nil
-	}
-	
-	// Load config files with mapper to exclude repositories
+	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
 	middlewares_ = append(middlewares_,
-		func(next middlewares.HandlerFunc) middlewares.HandlerFunc {
-			return func(layers_ *cmdlayers.ParameterLayers, parsedLayers *cmdlayers.ParsedLayers) error {
-				if err := next(layers_, parsedLayers); err != nil {
-					return err
-				}
-				files, err := configFilesResolver(parsedLayers, cmd, args)
-				if err != nil {
-					return err
-				}
-				return middlewares.LoadParametersFromFiles(files,
-					middlewares.WithConfigFileMapper(configMapper),
-					middlewares.WithParseOptions(
-						parameters.WithParseStepSource("config"),
-					),
-				)(func(_ *cmdlayers.ParameterLayers, _ *cmdlayers.ParsedLayers) error { return nil })(layers_, parsedLayers)
-			}
-		},
+		middlewares.LoadParametersFromFiles(
+			configFiles,
+			middlewares.WithConfigFileMapper(configMapper),
+			middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
+		),
 	)
 
 	xdgConfigPath, err := os.UserConfigDir()
@@ -223,8 +256,9 @@ func GetCobraCommandGeppettoMiddlewares(
 		return nil, err
 	}
 
-	// Profile loading (NOTE: profile name is still read from defaults at construction time;
-	// this will be fixed in plan point 3 to read after env/config are applied)
+	// Profile loading:
+	// - profile-settings are resolved via a bootstrap parse above (defaults + config + env + flags)
+	// - profile values are then loaded at the correct precedence level (above defaults, below config/env/flags)
 	defaultProfileFile := fmt.Sprintf("%s/pinocchio/profiles.yaml", xdgConfigPath)
 	if profileSettings.ProfileFile == "" {
 		profileSettings.ProfileFile = defaultProfileFile
