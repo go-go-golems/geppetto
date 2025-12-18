@@ -83,6 +83,13 @@ func run(pass *analysis.Pass) (any, error) {
 	insp.Preorder(nodeFilter, func(n ast.Node) {
 		idx := n.(*ast.IndexExpr)
 
+		// NOTE: Some helpers in the codebase legitimately accept dynamic (non-const) keys
+		// as parameters and then operate on Turn/Block maps. We allowlist those helpers
+		// to avoid forcing call sites to reimplement common operations.
+		if isInsideAllowedHelperFunction(pass, idx) {
+			return
+		}
+
 		// Match <something>.{Data,Metadata,Payload}[...]
 		sel, ok := idx.X.(*ast.SelectorExpr)
 		if !ok || sel.Sel == nil {
@@ -262,4 +269,45 @@ func objIsConstString(obj types.Object) bool {
 		return false
 	}
 	return b.Info()&types.IsString != 0
+}
+
+// isInsideAllowedHelperFunction returns true if the IndexExpr lives inside one of a small set
+// of helper functions that accept variable keys (e.g. keys passed as parameters).
+func isInsideAllowedHelperFunction(pass *analysis.Pass, idx *ast.IndexExpr) bool {
+	allowedFunctions := map[string]bool{
+		"HasBlockMetadata":       true,
+		"RemoveBlocksByMetadata": true,
+		"SetTurnMetadata":        true,
+		"SetBlockMetadata":       true,
+	}
+
+	for _, file := range pass.Files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Name == nil || fn.Body == nil {
+				continue
+			}
+			if !allowedFunctions[fn.Name.Name] {
+				continue
+			}
+			if containsNode(fn.Body, idx) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// containsNode checks if a node is contained within another node's subtree.
+func containsNode(parent ast.Node, child ast.Node) bool {
+	var found bool
+	ast.Inspect(parent, func(n ast.Node) bool {
+		if n == child {
+			found = true
+			return false
+		}
+		return !found
+	})
+	return found
 }
