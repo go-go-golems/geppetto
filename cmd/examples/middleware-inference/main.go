@@ -35,11 +35,7 @@ var rootCmd = &cobra.Command{
 	Short: "A demo command that shows how to use middleware with inference engines",
 	Long:  "This command demonstrates how to use logging and uppercase text transformation middleware with inference engines.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := logging.InitLoggerFromViper()
-		if err != nil {
-			return err
-		}
-		return nil
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -311,7 +307,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 }
 
 func main() {
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

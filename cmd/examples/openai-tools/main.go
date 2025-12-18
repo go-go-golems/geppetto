@@ -91,7 +91,7 @@ var rootCmd = &cobra.Command{
 	Use:   "test-openai-tools",
 	Short: "Test OpenAI tools integration with debug logging",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return logging.InitLoggerFromViper()
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -405,7 +405,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 func main() {
 	// Initialize zerolog with pretty console output
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

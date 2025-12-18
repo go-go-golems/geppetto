@@ -33,6 +33,8 @@ This document explains the data model, the YAML shape, recommended conventions, 
   - `id` (string), `turn_id` (string)
   - `kind` (enum), `role` (string), `payload` (map), `metadata` (map)
 
+**Note:** In Go, `metadata` and `data` maps use typed keys (`TurnMetadataKey`, `TurnDataKey`, `BlockMetadataKey`, `RunMetadataKey`) for compile-time safety. When serialized to YAML, these keys appear as strings. The serializer handles the conversion automatically.
+
 ## Block kinds (string enums)
 
 Kinds are serialized as lowercase strings. Unknown kinds are accepted and treated as `other`.

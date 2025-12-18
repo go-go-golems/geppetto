@@ -5,7 +5,7 @@ go 1.24.2
 toolchain go1.24.5
 
 require (
-	github.com/ThreeDotsLabs/watermill v1.5.0
+	github.com/ThreeDotsLabs/watermill v1.5.1
 	github.com/a-h/templ v0.3.898
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/charmbracelet/bubbles v0.21.0
@@ -15,7 +15,7 @@ require (
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.2.0
-	github.com/go-go-golems/glazed v0.7.0
+	github.com/go-go-golems/glazed v0.7.3
 	github.com/go-go-golems/go-emrichen v0.0.5
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
@@ -27,7 +27,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/sync v0.19.0
-	google.golang.org/api v0.257.0
+	golang.org/x/tools v0.38.0
+	google.golang.org/api v0.239.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -90,6 +91,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect

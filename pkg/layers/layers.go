@@ -11,6 +11,7 @@ import (
 	cmdlayers "github.com/go-go-golems/glazed/pkg/cmds/layers"
 	"github.com/go-go-golems/glazed/pkg/cmds/middlewares"
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	appconfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -151,6 +152,27 @@ func GetCobraCommandGeppettoMiddlewares(
 		),
 	)
 
+	// Discover config file using ResolveAppConfigPath
+	configPath, err := appconfig.ResolveAppConfigPath("pinocchio", "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Build config file and env middlewares wrapped with whitelisted layers
+	configMiddlewares := []middlewares.Middleware{}
+	if configPath != "" {
+		configMiddlewares = append(configMiddlewares,
+			middlewares.LoadParametersFromFile(configPath,
+				middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
+			),
+		)
+	}
+	configMiddlewares = append(configMiddlewares,
+		middlewares.UpdateFromEnv("PINOCCHIO",
+			parameters.WithParseStepSource("env"),
+		),
+	)
+
 	middlewares_ = append(middlewares_,
 		middlewares.WrapWithWhitelistedLayers(
 			[]string{
@@ -162,7 +184,7 @@ func GetCobraCommandGeppettoMiddlewares(
 				embeddingsconfig.EmbeddingsSlug,
 				cli.ProfileSettingsSlug,
 			},
-			middlewares.GatherFlagsFromViper(parameters.WithParseStepSource("viper")),
+			middlewares.Chain(configMiddlewares...),
 		),
 		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
 	)

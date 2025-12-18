@@ -27,16 +27,22 @@ import (
 
 ### Types
 
-- Run: `{ ID, Name, Metadata, Turns []Turn }`
-- Turn: `{ ID, RunID, Metadata map[string]any, Data map[string]any, Blocks []Block }`
-- Block: `{ Order, Kind, Role, Payload map[string]any, Metadata []MetadataKV }`
+- Run: `{ ID, Name, Metadata map[RunMetadataKey]any, Turns []Turn }`
+- Turn: `{ ID, RunID, Metadata map[TurnMetadataKey]any, Data map[TurnDataKey]any, Blocks []Block }`
+- Block: `{ ID, TurnID, Kind, Role, Payload map[string]any, Metadata map[BlockMetadataKey]any }`
 - BlockKind: `User`, `LLMText`, `ToolCall`, `ToolUse`, `System`, `Other`
+
+**Note:** Map keys (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`, `RunMetadataKey`) are typed in Go for compile-time safety, but serialize as strings in YAML. Use typed constants (e.g., `turns.DataKeyToolRegistry`) rather than string literals.
 
 ### Helpers
 
 - `turns.AppendBlock`, `turns.AppendBlocks`
 - `turns.FindLastBlocksByKind`
-- `turns.SetTurnMetadata`, `turns.SetBlockMetadata`
+- `turns.SetTurnMetadata(t *Turn, key TurnMetadataKey, value any)` - Set turn-level metadata with typed key
+- `turns.SetBlockMetadata(b *Block, key BlockMetadataKey, value any)` - Set block-level metadata with typed key
+- `turns.WithBlockMetadata(b Block, kvs map[BlockMetadataKey]any) Block` - Return block with metadata added
+- `turns.HasBlockMetadata(b Block, key BlockMetadataKey, value string) bool` - Check if block has metadata key/value
+- `turns.RemoveBlocksByMetadata(t *Turn, key BlockMetadataKey, values ...string) int` - Remove blocks by metadata
 - Payload keys: `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
 - Data keys: `turns.DataKeyToolRegistry`, `turns.DataKeyToolConfig`
 - Conversion:
@@ -93,7 +99,7 @@ Attach a tool registry to a Turn (for engines to advertise tools):
 ```go
 reg := tools.NewInMemoryToolRegistry()
 // register tools ...
-t := &turns.Turn{ Data: map[string]any{} }
+t := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
 t.Data[turns.DataKeyToolRegistry] = reg
 t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true, ToolChoice: engine.ToolChoiceAuto }
 ```
