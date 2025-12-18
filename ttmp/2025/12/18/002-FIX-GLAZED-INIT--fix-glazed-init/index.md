@@ -1,7 +1,7 @@
 ---
 Title: Fix Glazed Init
 Ticket: 002-FIX-GLAZED-INIT
-Status: active
+Status: completed
 Topics:
     - config
     - glaze
@@ -11,8 +11,9 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2025-12-18T12:48:32.185368578-05:00
+LastUpdated: 2025-12-18T13:41:46.467560899-05:00
 ---
+
 
 # Fix Glazed Init
 
