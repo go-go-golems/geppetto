@@ -127,3 +127,36 @@ This step implemented the “no backwards compatibility” cutover in the `geppe
   - `go test ./... -count=1`
   - `LEFTHOOK=0 git commit -m \"Tools: pass ToolRegistry via context (no Turn.Data registry)\"`
 
+## Step 3: Update Moments webchat to use context registry
+
+This step switched Moments’ webchat execution path to carry the runtime tool registry through `context.Context` instead of storing it in `Turn.Data`. This aligns Moments with the hard “no Turn.Data registry” rule now enforced in `geppetto`.
+
+**Commit (code):** b9c7dc8e0f32ea58fc26a2025a685d8703c37141 — "Webchat: carry ToolRegistry via context"
+
+### What I did
+- Updated `moments/backend/pkg/webchat/router.go` to attach the registry to the run loop context and stop writing any registry into `Turn.Data`.
+- Updated `moments/backend/pkg/webchat/loops.go` to require the registry from context (and fail fast if missing).
+- Updated `moments/backend/pkg/webchat/langfuse_middleware.go` to list tools via the context registry.
+
+### Why
+- Keeps `Turn.Data` serializable (no runtime objects).
+- Ensures engines/middleware/tool execution all share the same runtime registry via `ctx`.
+
+### What worked
+- `(cd moments/backend && go test ./... -count=1)` passed after the change.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The cleanest cutover is “attach registry to the *actual* run loop context” (not the incoming request ctx), so downstream engine calls see it reliably.
+
+### What was tricky to build
+- Ensuring we don’t accidentally stage unrelated whitespace diffs elsewhere in `moments/` while committing only the relevant webchat files.
+
+### What warrants a second pair of eyes
+- Confirm the fail-fast behavior in `ToolCallingLoop` is acceptable UX (error surfaced in logs/UI as expected).
+
+### What should be done in the future
+- Update any other Moments subsystems that might still construct registries for engines (outside webchat) if they exist.
+
