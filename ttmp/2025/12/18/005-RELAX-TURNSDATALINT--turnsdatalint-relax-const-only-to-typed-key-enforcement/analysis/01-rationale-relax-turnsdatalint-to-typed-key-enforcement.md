@@ -10,18 +10,11 @@ DocType: analysis
 Intent: long-term
 Owners:
     - manuel
-RelatedFiles:
-    - Path: geppetto/pkg/analysis/turnsdatalint/analyzer.go
-      Note: Analyzer implementation to relax from const-identity to typed-key enforcement
-    - Path: geppetto/pkg/analysis/turnsdatalint/testdata/src/a/a.go
-      Note: Analysistest cases covering allowed and flagged key patterns
-    - Path: geppetto/pkg/doc/topics/12-turnsdatalint.md
-      Note: Documentation that must match the analyzer's actual rule
+RelatedFiles: []
 ExternalSources: []
-Summary: turnsdatalint currently enforces const-identity for Turn/Block map keys; relax it to accept any expression typed as the key type while still rejecting raw string literals and untyped string constants.
+Summary: "turnsdatalint currently enforces const-identity for Turn/Block map keys; relax it to accept any expression typed as the key type while still rejecting raw string literals and untyped string constants."
 LastUpdated: 2025-12-18T18:11:25.694650523-05:00
 ---
-
 
 ## Executive summary
 
