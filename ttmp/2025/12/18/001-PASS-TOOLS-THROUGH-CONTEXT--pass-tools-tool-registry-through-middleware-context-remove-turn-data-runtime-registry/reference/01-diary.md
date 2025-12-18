@@ -160,3 +160,30 @@ This step switched Moments’ webchat execution path to carry the runtime tool r
 ### What should be done in the future
 - Update any other Moments subsystems that might still construct registries for engines (outside webchat) if they exist.
 
+## Step 4: Update Pinocchio sqlite tool middleware to use context registry
+
+This step updated Pinocchio’s sqlite tool middleware to mutate the tool registry obtained from `context.Context` rather than reading a registry object from `Turn.Data`. It also removed the persistence special-casing that tried to serialize a registry from `Turn.Data`.
+
+**Commit (code):** 0aa4fce5ac2edb3dcb35cb88909535ff53cd4513 — "SqliteTool: use context ToolRegistry"
+
+### What I did
+- Updated `pinocchio/pkg/middlewares/sqlitetool/middleware.go`:
+  - read the registry via `toolcontext.RegistryFrom(ctx)`
+  - skip sqlite tool registration if no registry is present in context
+- Updated `pinocchio/cmd/agents/simple-chat-agent/pkg/store/sqlstore.go`:
+  - removed the special-case that looked for a registry in `Turn.Data` and serialized it
+  - removed the “skip registry key” branch during `Turn.Data` iteration
+
+### Why
+- Registry objects are runtime-only and should not live in serializable turn state.
+- Keeping persistence code free of special-cases reduces drift and enforces the invariant structurally.
+
+### What worked
+- `(cd pinocchio && go test ./... -count=1)` passed.
+
+### What didn't work
+- N/A
+
+### What warrants a second pair of eyes
+- The “no registry in context → skip registration” behavior: confirm this matches desired semantics for sqlite tool availability (and doesn’t hide misconfiguration).
+
