@@ -14,8 +14,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 		ID:    "test-turn-id",
 		RunID: "test-run-id",
 		Data: map[turns.TurnDataKey]interface{}{
-			turns.DataKeyToolRegistry: "test-registry",
-			turns.DataKeyAgentMode:    "test-mode",
+			turns.DataKeyAgentMode: "test-mode",
 		},
 		Metadata: map[turns.TurnMetadataKey]interface{}{
 			turns.TurnMetaKeyModel:      "test-model",
@@ -52,7 +51,6 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	assert.Equal(t, turn.RunID, roundTripTurn.RunID, "Run ID should match")
 
 	// Verify Data map contents
-	assert.Equal(t, turn.Data[turns.DataKeyToolRegistry], roundTripTurn.Data[turns.DataKeyToolRegistry], "ToolRegistry should match")
 	assert.Equal(t, turn.Data[turns.DataKeyAgentMode], roundTripTurn.Data[turns.DataKeyAgentMode], "AgentMode should match")
 
 	// Verify Metadata map contents

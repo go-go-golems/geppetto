@@ -44,7 +44,6 @@ const (
 
 // Standard keys for Turn.Data map
 const (
-	DataKeyToolRegistry          TurnDataKey = "tool_registry"
 	DataKeyToolConfig            TurnDataKey = "tool_config"
 	DataKeyAgentModeAllowedTools TurnDataKey = "agent_mode_allowed_tools"
 	DataKeyAgentMode             TurnDataKey = "agent_mode"

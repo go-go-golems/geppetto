@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -330,7 +331,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if s.Mode == "parallel-tools" {
 			maxPar = 2
 		}
-		turn = &turns.Turn{Data: map[turns.TurnDataKey]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: maxPar, ToolErrorHandling: engine.ToolErrorContinue}}}
+		turn = &turns.Turn{Data: map[turns.TurnDataKey]any{turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: maxPar, ToolErrorHandling: engine.ToolErrorContinue}}}
+		runCtx = toolcontext.WithRegistry(runCtx, reg)
 		userPrompt := s.Prompt
 		if userPrompt == "" {
 			if s.Mode == "parallel-tools" {

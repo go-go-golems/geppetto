@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -106,23 +107,22 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}
 
-	// Add tools to the request if present on the Turn Data
-	if t != nil && t.Data != nil {
-		var engineTools []engine.ToolDefinition
-		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-				for _, td := range reg.ListTools() {
-					engineTools = append(engineTools, engine.ToolDefinition{
-						Name:        td.Name,
-						Description: td.Description,
-						Parameters:  td.Parameters,
-						Examples:    []engine.ToolExample{},
-						Tags:        td.Tags,
-						Version:     td.Version,
-					})
-				}
-			}
+	// Add tools to the request if present in context (no Turn.Data registry).
+	var engineTools []engine.ToolDefinition
+	if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+		for _, td := range reg.ListTools() {
+			engineTools = append(engineTools, engine.ToolDefinition{
+				Name:        td.Name,
+				Description: td.Description,
+				Parameters:  td.Parameters,
+				Examples:    []engine.ToolExample{},
+				Tags:        td.Tags,
+				Version:     td.Version,
+			})
 		}
+	}
+
+	if t != nil && t.Data != nil {
 		var toolCfg engine.ToolConfig
 		if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
 			if cfg, ok := cfgAny.(engine.ToolConfig); ok {
