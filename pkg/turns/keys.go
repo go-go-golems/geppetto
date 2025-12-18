@@ -25,6 +25,11 @@ const (
 	TurnMetaKeyModel      TurnMetadataKey = "model"       // model identifier
 )
 
+// Run metadata keys for Run.Metadata map
+const (
+	RunMetaKeyTraceID RunMetadataKey = "trace_id" // tracing id for correlation
+)
+
 // Block metadata keys for Block.Metadata map
 const (
 	// BlockMetaKeyClaudeOriginalContent stores provider-native content blocks for Claude
