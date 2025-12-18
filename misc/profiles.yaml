@@ -5,3 +5,15 @@ test:
 test2:
   ai-chat:
     ai-engine: gpt-4-turbo-preview-yolo2
+
+gemini-2.5-pro:
+  ai-chat:
+    ai-engine: gemini-2.5-pro
+
+gemini-2.5-flash:
+  ai-chat:
+    ai-engine: gemini-2.5-flash
+
+sonnet-4-5:
+  ai-chat:
+    ai-engine: sonnet-4-5

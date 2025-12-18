@@ -59,13 +59,21 @@ zephir:
 
 ## Selecting a Profile
 
-To select a profile for use, you can set the `PINOCCHIO_PROFILE` environment variable, use the `--profile` flag on the
-command line, or set the profile value in `~/.pinocchio/config.yaml`.
+To select a profile for use, you can:
+
+- set environment variables
+- pass flags (`--profile`, `--profile-file`)
+- set the values in the Pinocchio config file (`config.yaml`)
+
+Pinocchio’s precedence (highest → lowest) is:
+
+**flags > env > config > profiles > defaults**
 
 ### Using the Environment Variable
 
 ```bash
 export PINOCCHIO_PROFILE=mistral
+export PINOCCHIO_PROFILE_FILE=~/.config/pinocchio/profiles.yaml  # optional override
 pinocchio [command]
 ```
 
@@ -77,11 +85,23 @@ pinocchio --profile mistral [command]
 
 ### Setting in `config.yaml`
 
-Add the following to your `~/.pinocchio/config.yaml`:
+Pinocchio loads config files from the first existing path in this search order:
+
+1. `$XDG_CONFIG_HOME/pinocchio/config.yaml` (via `os.UserConfigDir()`, commonly `~/.config/pinocchio/config.yaml`)
+2. `~/.pinocchio/config.yaml`
+3. `/etc/pinocchio/config.yaml`
+
+To set profile selection via config, you must set values under the `profile-settings` layer:
 
 ```yaml
-profile: mistral
+profile-settings:
+  profile: mistral
+  # profile-file: /etc/pinocchio/profiles.yaml  # optional override
 ```
 
 After setting the desired profile, Pinocchio will use the parameters defined within that profile for all operations.
+
+## Debugging (recommended)
+
+Use `--print-parsed-parameters` to see exactly where each parameter value came from (defaults vs profiles vs config vs env vs flags).
 
