@@ -187,3 +187,35 @@ This step updated Pinocchio’s sqlite tool middleware to mutate the tool regist
 ### What warrants a second pair of eyes
 - The “no registry in context → skip registration” behavior: confirm this matches desired semantics for sqlite tool availability (and doesn’t hide misconfiguration).
 
+## Step 5: Update Geppetto docs to reflect context-carried tool registry
+
+This step audited `geppetto/pkg/doc/` and updated the documentation to match the new runtime contract: **provider engines learn about tools from the registry attached to `context.Context` (via `toolcontext.WithRegistry`)**, while `Turn.Data` only holds serializable config (e.g. `turns.DataKeyToolConfig`). This prevents docs from encouraging patterns that no longer compile (we deleted `turns.DataKeyToolRegistry`) and keeps examples aligned with the engine behavior.
+
+**Commit (code):** N/A (docs-only change; commit will be recorded after docmgr updates)
+
+### What I did
+- Updated topic docs that referenced the old `Turn.Data` registry pattern:
+  - `geppetto/pkg/doc/topics/07-tools.md`
+  - `geppetto/pkg/doc/topics/08-turns.md`
+  - `geppetto/pkg/doc/topics/09-middlewares.md`
+  - `geppetto/pkg/doc/topics/12-turnsdatalint.md`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md` (fixed a lingering conceptual sentence)
+- Updated the tutorial:
+  - `geppetto/pkg/doc/tutorials/01-streaming-inference-with-tools.md` to attach the registry to the same context used for inference (`runCtx = toolcontext.WithRegistry(runCtx, registry)`).
+
+### Why
+- The docs must not recommend storing runtime registries in `Turn.Data` now that the key constant is removed and engines read from context.
+- Examples that don’t attach the registry to the actual inference context will “look right” but won’t advertise tools.
+
+### What worked
+- Repo-wide grep confirmed `DataKeyToolRegistry` no longer appears in `geppetto/pkg/doc/`.
+
+### What was tricky to build
+- Ensuring the tutorial attaches the registry to the **same** derived context (`runCtx`) passed into `RunInference`, not an unrelated parent context.
+
+### What warrants a second pair of eyes
+- Confirm the docs still tell the right story for “conversation-based tool loop”: helper APIs still accept a `registry` argument, but engines require the registry in context for advertisement.
+
+### What should be done in the future
+- N/A
+

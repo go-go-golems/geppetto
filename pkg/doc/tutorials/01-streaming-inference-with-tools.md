@@ -25,6 +25,8 @@ For foundational background, see:
 - `glaze help geppetto-inference-engines`
 - `glaze help geppetto-events-streaming-watermill`
 
+Note: In current Geppetto, provider engines learn about available tools from the tool registry attached to `context.Context` (see `toolcontext.WithRegistry`). This tutorial shows that wiring explicitly in Step 6.
+
 ## What You’ll Build
 
 - A CLI command that:
@@ -66,6 +68,7 @@ For foundational background, see:
 - Tools
   - `tools.NewInMemoryToolRegistry()`
   - `tools.NewToolFromFunc(name, description, func)`
+  - `toolcontext.WithRegistry(ctx, registry)` (attach runtime registry to `context.Context`)
   - Optional: `ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)` when supported by the provider engine
 - Conversation and helpers
   - `builder.NewManagerBuilder().WithSystemPrompt(...).WithPrompt(...).Build()`
@@ -177,6 +180,8 @@ eg.Go(func() error { return router.Run(groupCtx) })
 eg.Go(func() error {
     <-router.Running()
     runCtx := events.WithEventSinks(groupCtx, sink)
+    // Engines read the tool registry from context (no Turn.Data registry).
+    runCtx = toolcontext.WithRegistry(runCtx, registry)
     updated, err := toolhelpers.RunToolCallingLoop(
         runCtx, eng, conv, registry, toolhelpers.NewToolConfig().WithMaxIterations(5),
     )

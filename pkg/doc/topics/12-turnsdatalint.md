@@ -67,7 +67,7 @@ To add a new analyzer that scales with the bundling approach:
 - **Block.Payload** (`map[string]any`): key must be a **const string** (no `"literal"` and no variables)
 
 **Allowed examples (high-level):**
-- `t.Data[turns.DataKeyToolRegistry]`
+- `t.Data[turns.DataKeyToolConfig]`
 - `t.Data[turns.TurnDataKey("custom_key")]` (typed conversion)
 - `k := turns.DataKeyToolRegistry; _ = t.Data[k]` (typed variable)
 - `func set(k turns.TurnDataKey) { _ = t.Data[k] }` (typed parameter)

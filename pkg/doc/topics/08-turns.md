@@ -15,13 +15,16 @@ SectionType: Tutorial
 
 ## Turns and Blocks in Geppetto
 
-The Turn data model provides a provider-agnostic representation of an interaction, decomposed into ordered `Block`s. Engines read and append blocks; middleware inspects blocks to implement behaviors like tool execution. With the latest refactor, a Turn can also carry a per-turn tool registry and tool configuration in `Turn.Data`, allowing dynamic tools at each step.
+The Turn data model provides a provider-agnostic representation of an interaction, decomposed into ordered `Block`s. Engines read and append blocks; middleware inspects blocks to implement behaviors like tool execution.
+
+**Important:** The runtime tool registry is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `turns.DataKeyToolConfig`).
 
 ### Packages
 
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 )
 ```
 
@@ -32,7 +35,8 @@ import (
 - Block: `{ ID, TurnID, Kind, Role, Payload map[string]any, Metadata map[BlockMetadataKey]any }`
 - BlockKind: `User`, `LLMText`, `ToolCall`, `ToolUse`, `System`, `Other`
 
-**Note:** Map keys (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`, `RunMetadataKey`) are typed in Go for compile-time safety, but serialize as strings in YAML. Use typed constants (e.g., `turns.DataKeyToolRegistry`) rather than string literals.
+**Note:** Map keys (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`, `RunMetadataKey`) are typed in Go for compile-time safety, but serialize as strings in YAML. Use typed constants (e.g., `turns.DataKeyToolConfig`) rather than string literals.
+
 
 ### Helpers
 
@@ -44,7 +48,7 @@ import (
 - `turns.HasBlockMetadata(b Block, key BlockMetadataKey, value string) bool` - Check if block has metadata key/value
 - `turns.RemoveBlocksByMetadata(t *Turn, key BlockMetadataKey, values ...string) int` - Remove blocks by metadata
 - Payload keys: `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
-- Data keys: `turns.DataKeyToolRegistry`, `turns.DataKeyToolConfig`
+- Data keys: `turns.DataKeyToolConfig`
 - Conversion:
   - `turns.BuildConversationFromTurn(t)`
   - `turns.BlocksFromConversationDelta(conv, startIdx)`
@@ -55,7 +59,7 @@ import (
 - On completion, engines append:
   - `llm_text` for assistant text
   - `tool_call` for structured tool invocation requests
- - Engines read tools from `Turn.Data` to include provider tool definitions for that Turn
+- Engines read tools from `context.Context` (tool registry) to include provider tool definitions for that Turn
 
 ### Tool workflow with Turns
 
@@ -63,7 +67,7 @@ import (
 2. Middleware extracts pending tool calls (no matching `tool_use` by id)
 3. Middleware executes tools and appends `tool_use` blocks
 4. Engine is invoked again with the updated Turn to continue
-5. Tools advertised for a step are provided via `Turn.Data` (registry/config), enabling dynamic tools per Turn
+5. Tools advertised for a step are provided via `context.Context` (registry) plus `Turn.Data` (config), enabling dynamic tools per Turn
 
 ### Metadata
 
@@ -94,14 +98,15 @@ for i := range seed.Blocks {
 }
 ```
 
-Attach a tool registry to a Turn (for engines to advertise tools):
+Attach a tool registry to context (for engines to advertise tools) and tool config to the Turn:
 
 ```go
 reg := tools.NewInMemoryToolRegistry()
 // register tools ...
 t := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
-t.Data[turns.DataKeyToolRegistry] = reg
 t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true, ToolChoice: engine.ToolChoiceAuto }
+
+ctx = toolcontext.WithRegistry(ctx, reg)
 ```
 
 ### Why Turns

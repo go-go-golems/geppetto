@@ -1,7 +1,7 @@
 ---
 Title: Tools in Geppetto (Turn-based)
 Slug: geppetto-tools
-Short: A complete guide to defining, attaching, and executing tools with Turns. Tools are discoverable per Turn via `Turn.Data`.
+Short: A complete guide to defining, attaching, and executing tools with Turns. Tool registries are carried via `context.Context` (Turn state stays serializable).
 Topics:
 - geppetto
 - tools
@@ -16,7 +16,9 @@ SectionType: Tutorial
 
 ## Tools in Geppetto (Turn-based)
 
-Tools enable models to call functions with structured inputs. In the Turn-based architecture, provider engines emit `tool_call` blocks; middleware (or helpers) execute tools and append `tool_use` blocks. As of this refactor, tools are attached per Turn: the engine reads which tools are available for that Turn from `Turn.Data`. This allows dynamic tools per step without mutating the engine’s state. We follow the Glaze documentation guidelines for clarity and completeness [[memory:5699956]].
+Tools enable models to call functions with structured inputs. In the Turn-based architecture, provider engines emit `tool_call` blocks; middleware (or helpers) execute tools and append `tool_use` blocks.
+
+**Important:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `turns.DataKeyToolConfig`). This allows dynamic tools per step without mutating the engine’s state while keeping Turn state persistable.
 
 ### Packages
 
@@ -24,6 +26,7 @@ Tools enable models to call functions with structured inputs. In the Turn-based 
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
     "github.com/go-go-golems/geppetto/pkg/turns"
@@ -40,7 +43,9 @@ import (
 ### Key concepts (at a glance)
 
 - Registry: `tools.ToolRegistry` holds callable tools
-- Per-Turn tools: `turns.DataKeyToolRegistry` and `turns.DataKeyToolConfig` on `Turn.Data`
+- Per-Turn tools:
+  - Runtime registry: carried via `context.Context` using `toolcontext.WithRegistry(ctx, reg)`
+  - Serializable config: stored on `Turn.Data` via `turns.DataKeyToolConfig`
 - Blocks: `llm_text`, `tool_call`, `tool_use`
 ### OpenAI Responses specifics
 
@@ -78,16 +83,17 @@ def, _ := tools.NewToolFromFunc("get_weather", "Get weather", weatherTool)
 _ = reg.RegisterTool("get_weather", *def)
 ```
 
-2) Attach the registry (and optional tool config) to a Turn
+2) Attach the registry to context (and optional tool config to the Turn)
 
 ```go
 seed := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
-seed.Data[turns.DataKeyToolRegistry] = reg
 seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
     Enabled:          true,
     ToolChoice:       engine.ToolChoiceAuto,
     MaxParallelTools: 1,
 }
+
+ctx = toolcontext.WithRegistry(ctx, reg)
 ```
 
 3) Run the engine and execute tools with middleware or helpers
@@ -140,13 +146,15 @@ func run(ctx context.Context, e engine.Engine) error {
     def, _ := tools.NewToolFromFunc("add", "Add two numbers", addTool)
     _ = reg.RegisterTool("add", *def)
 
-    // 2) Seed a Turn with registry and minimal tool config
+    // 2) Seed a Turn with minimal tool config (registry is in context)
     t := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
-    t.Data[turns.DataKeyToolRegistry] = reg
     t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true }
     turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
 
-    // 3) Attach tool middleware to execute tool_use blocks
+    // 3) Attach registry to context (no Turn.Data registry)
+    ctx = toolcontext.WithRegistry(ctx, reg)
+
+    // 4) Attach tool middleware to execute tool_use blocks
     tb := middleware.NewMockToolbox()
     tb.RegisterTool("add", "Add two numbers", map[string]any{
         "a": {"type": "number"},
@@ -156,7 +164,7 @@ func run(ctx context.Context, e engine.Engine) error {
     })
     e = middleware.NewEngineWithMiddleware(e, middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3}))
 
-    // 4) Run inference (engine may emit tool_call; middleware executes and appends tool_use)
+    // 5) Run inference (engine may emit tool_call; middleware executes and appends tool_use)
     _, err := e.RunInference(ctx, t)
     return err
 }
@@ -274,7 +282,6 @@ turns.PayloadKeyResult
 Engine discovery keys in `Turn.Data`:
 
 ```go
-turns.DataKeyToolRegistry // tools.ToolRegistry
 turns.DataKeyToolConfig   // engine.ToolConfig
 ```
 
@@ -326,6 +333,7 @@ For details on event extensibility, see: `glaze help geppetto-events-streaming-w
 
 ## Troubleshooting and tips
 
-- If an engine doesn’t seem to advertise your tools, ensure `Turn.Data[turns.DataKeyToolRegistry]` is set and non-empty
+- If an engine doesn’t seem to advertise your tools, ensure you attached the registry to context:
+  - `ctx = toolcontext.WithRegistry(ctx, reg)`
 - When reading payloads, always use the payload key constants to avoid typos
-- To change tools at runtime, modify the Turn’s registry or config before calling `RunInference`
+- To change tools at runtime, modify the registry (in context) or config (in `Turn.Data`) before calling `RunInference`
