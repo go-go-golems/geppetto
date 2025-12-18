@@ -45,7 +45,7 @@ This step set up the Geppetto-side workspace for the change and captured the rat
 
 This step updates `turnsdatalint` so typed expressions (vars/params/conversions) are accepted for typed-key maps, while still rejecting raw string literals and untyped string constants. It also updates analysistest fixtures and the topic documentation.
 
-**Commit (code):** N/A — in progress
+**Commit (code):** N/A — implemented, commit pending
 
 ### What I’m changing
 - `geppetto/pkg/analysis/turnsdatalint/analyzer.go`: switch from const-identity to type-based key checks; remove helper allowlist
@@ -54,4 +54,20 @@ This step updates `turnsdatalint` so typed expressions (vars/params/conversions)
 
 ### Code review instructions
 - Start with `pkg/analysis/turnsdatalint/analyzer.go` (core semantic change), then review the testdata diff to confirm the new behavior is enforced.
+
+### What I did
+- Implemented type-based key checking and explicit rejection of:
+  - raw string literals (`t.Data["raw"]`)
+  - untyped string const identifiers (`const k = "raw"; t.Data[k]`)
+- Updated analysistest fixture expectations in `testdata/src/a/a.go`
+- Updated the topic documentation in `pkg/doc/topics/12-turnsdatalint.md`
+- Ran:
+  - `gofmt -w pkg/analysis/turnsdatalint/analyzer.go pkg/analysis/turnsdatalint/testdata/src/a/a.go`
+  - `go test ./pkg/analysis/turnsdatalint -count=1`
+  - `make build`
+  - `go test ./... -count=1`
+  - `make linttool`
+
+### What worked
+- All tests passed and `make linttool` succeeded.
 
