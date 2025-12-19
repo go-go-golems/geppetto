@@ -13,6 +13,7 @@
     "amp.commands.allowlist": [
         "npm",
         "go build",
-        "make test ./pkg/embeddings"
+        "make test ./pkg/embeddings",
+        "cd pkg/embeddings"
     ]
 }
