@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -158,47 +159,42 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		model.GenerationConfig = cfg
 	}
 
-	// Attach tools from Turn.Data if present (tools + minimal parameters when safe)
-	var registry tools.ToolRegistry
-	if t != nil && t.Data != nil {
-		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-				registry = reg
-				var toolDecls []*genai.FunctionDeclaration
-				for _, td := range reg.ListTools() {
-					fd := &genai.FunctionDeclaration{
-						Name: td.Name,
-					}
-					// Enrich description with parameter names to guide the model
-					desc := td.Description
-					var paramNames []string
-					if td.Parameters != nil && td.Parameters.Properties != nil {
-						propsVal := reflect.ValueOf(td.Parameters.Properties)
-						keysMethod := propsVal.MethodByName("Keys")
-						if keysMethod.IsValid() {
-							keys := keysMethod.Call(nil)
-							if len(keys) == 1 {
-								if ks, ok := keys[0].Interface().([]string); ok {
-									paramNames = ks
-								}
-							}
+	// Attach tools from context if present (tools + minimal parameters when safe).
+	registry, _ := toolcontext.RegistryFrom(ctx)
+	if registry != nil {
+		var toolDecls []*genai.FunctionDeclaration
+		for _, td := range registry.ListTools() {
+			fd := &genai.FunctionDeclaration{
+				Name: td.Name,
+			}
+			// Enrich description with parameter names to guide the model
+			desc := td.Description
+			var paramNames []string
+			if td.Parameters != nil && td.Parameters.Properties != nil {
+				propsVal := reflect.ValueOf(td.Parameters.Properties)
+				keysMethod := propsVal.MethodByName("Keys")
+				if keysMethod.IsValid() {
+					keys := keysMethod.Call(nil)
+					if len(keys) == 1 {
+						if ks, ok := keys[0].Interface().([]string); ok {
+							paramNames = ks
 						}
 					}
-					if len(paramNames) > 0 {
-						desc = strings.TrimSpace(desc + " Parameters: " + strings.Join(paramNames, ", "))
-					}
-					fd.Description = desc
-					// Minimal parameters to avoid 400s
-					if ps := convertJSONSchemaToGenAI(td.Parameters); ps != nil {
-						fd.Parameters = ps
-					}
-					toolDecls = append(toolDecls, fd)
-				}
-				if len(toolDecls) > 0 {
-					model.Tools = []*genai.Tool{{FunctionDeclarations: toolDecls}}
-					log.Debug().Int("gemini_tool_count", len(toolDecls)).Msg("Added tools to Gemini model")
 				}
 			}
+			if len(paramNames) > 0 {
+				desc = strings.TrimSpace(desc + " Parameters: " + strings.Join(paramNames, ", "))
+			}
+			fd.Description = desc
+			// Minimal parameters to avoid 400s
+			if ps := convertJSONSchemaToGenAI(td.Parameters); ps != nil {
+				fd.Parameters = ps
+			}
+			toolDecls = append(toolDecls, fd)
+		}
+		if len(toolDecls) > 0 {
+			model.Tools = []*genai.Tool{{FunctionDeclarations: toolDecls}}
+			log.Debug().Int("gemini_tool_count", len(toolDecls)).Msg("Added tools to Gemini model")
 		}
 	}
 	// Configure function calling mode if tools are present

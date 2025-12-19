@@ -28,9 +28,9 @@ func main() {
 
 	// GOOD: Using a const TurnDataKey (should NOT be flagged)
 	turn.Data = map[turns.TurnDataKey]interface{}{
-		turns.DataKeyToolRegistry: "my-registry",
+		turns.DataKeyAgentMode: "test-mode",
 	}
-	fmt.Printf("Good pattern: %v\n", turn.Data[turns.DataKeyToolRegistry])
+	fmt.Printf("Good pattern: %v\n", turn.Data[turns.DataKeyAgentMode])
 
 	// BAD: Variable key (should be flagged)
 	badKey := turns.TurnDataKey("dynamic_key")
@@ -45,7 +45,7 @@ func main() {
 	turn.Data["raw_string_literal"] = "this compiles but is flagged"
 
 	// GOOD: Using another defined const
-	turn.Data[turns.DataKeyAgentMode] = "test-mode"
+	turn.Data[turns.DataKeyToolConfig] = "test-config"
 
 	fmt.Println("Demo complete - run turnsdatalint on this file explicitly to see violations")
 }

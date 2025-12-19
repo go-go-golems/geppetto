@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -296,10 +297,10 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		t.Data = map[turns.TurnDataKey]any{}
 	}
 
-	// Attach registry and minimal engine tool config so providers can advertise tools
-	if registry != nil {
-		t.Data[turns.DataKeyToolRegistry] = registry
-	}
+	// Attach runtime registry to context so engines/middleware/executors can access it.
+	// No Turn.Data registry (runtime-only) is stored.
+	ctx = toolcontext.WithRegistry(ctx, registry)
+
 	t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
 		Enabled:           true,
 		ToolChoice:        engine.ToolChoice(config.ToolChoice),
@@ -339,7 +340,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		}
 
 		// Execute tools
-		results := ExecuteToolCallsTurn(ctx, calls, registry)
+		results := ExecuteToolCallsTurn(ctx, calls)
 
 		// Append tool_use blocks
 		// map to shared ToolResult and append
@@ -375,10 +376,18 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 // extractPendingToolCallsTurn replaced by toolblocks.ExtractPendingToolCalls
 
 // ExecuteToolCallsTurn executes ToolCalls using the default executor and returns simplified results
-func ExecuteToolCallsTurn(ctx context.Context, toolCalls []ToolCall, registry tools.ToolRegistry) []ToolResult {
+func ExecuteToolCallsTurn(ctx context.Context, toolCalls []ToolCall) []ToolResult {
 	log.Debug().Int("tool_call_count", len(toolCalls)).Msg("ExecuteToolCallsTurn: starting tool execution")
 	if len(toolCalls) == 0 {
 		return nil
+	}
+	registry, ok := toolcontext.RegistryFrom(ctx)
+	if !ok || registry == nil {
+		results := make([]ToolResult, len(toolCalls))
+		for i, c := range toolCalls {
+			results[i] = ToolResult{ToolCallID: c.ID, Result: nil, Error: fmt.Errorf("no tool registry in context")}
+		}
+		return results
 	}
 	executor := tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
 	// Convert calls

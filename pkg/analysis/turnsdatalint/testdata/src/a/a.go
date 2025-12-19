@@ -3,7 +3,7 @@ package a
 import "github.com/go-go-golems/geppetto/pkg/turns"
 
 func okConst(t *turns.Turn) {
-	_ = t.Data[turns.DataKeyToolRegistry]
+	_ = t.Data[turns.DataKeyAgentMode]
 
 	const Local turns.TurnDataKey = "local"
 	_ = t.Data[Local]
@@ -17,7 +17,7 @@ func okConversion(t *turns.Turn) {
 }
 
 func okVar(t *turns.Turn) {
-	k := turns.DataKeyToolRegistry
+	k := turns.DataKeyAgentMode
 	_ = t.Data[k]
 }
 

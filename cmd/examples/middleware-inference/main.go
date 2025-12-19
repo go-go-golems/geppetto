@@ -13,6 +13,7 @@ import (
 	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -246,7 +247,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		}
 	}
 
-	// If tools enabled, pass registry and a minimal engine ToolConfig via Turn.Data
+	// If tools enabled, attach registry to context and a minimal engine ToolConfig via Turn.Data
 	if s.WithTools {
 		echoSchema := &jsonschema.Schema{Type: "object"}
 		props := jsonschema.NewProperties()
@@ -262,7 +263,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 			Tags:        []string{"demo"},
 			Version:     "1.0",
 		})
-		initialTurn.Data[turns.DataKeyToolRegistry] = reg
+		ctx = toolcontext.WithRegistry(ctx, reg)
 		initialTurn.Data[turns.DataKeyToolConfig] = enginepkg.ToolConfig{
 			Enabled:          true,
 			ToolChoice:       enginepkg.ToolChoiceAuto,
