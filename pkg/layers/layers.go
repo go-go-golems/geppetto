@@ -242,15 +242,6 @@ func GetCobraCommandGeppettoMiddlewares(
 		),
 	)
 
-	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
-	middlewares_ = append(middlewares_,
-		middlewares.LoadParametersFromFiles(
-			configFiles,
-			middlewares.WithConfigFileMapper(configMapper),
-			middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
-		),
-	)
-
 	xdgConfigPath, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err
@@ -276,6 +267,20 @@ func GetCobraCommandGeppettoMiddlewares(
 				"profileFile": profileSettings.ProfileFile,
 				"profile":     profileSettings.Profile,
 			}),
+		),
+	)
+
+	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
+	//
+	// NOTE: This is intentionally placed AFTER the profiles middleware in the slice ordering.
+	// Most Glazed "value-setting" middlewares call next(...) first and then update parsedLayers,
+	// so later middlewares in the slice apply earlier. By placing config after profiles here,
+	// config is applied BEFORE profiles, ensuring profiles override config (while env/flags still override both).
+	middlewares_ = append(middlewares_,
+		middlewares.LoadParametersFromFiles(
+			configFiles,
+			middlewares.WithConfigFileMapper(configMapper),
+			middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
 		),
 	)
 
