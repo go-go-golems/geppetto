@@ -25,6 +25,8 @@ Explore how to evolve `turns.Turn.Data` (currently `map[turns.TurnDataKey]any`) 
 ## Key Links
 
 - [Analysis: Opaque Turn.Data: typed Get[T] accessors](./analysis/01-opaque-turn-data-typed-get-t-accessors.md)
+- [Reference: Debate candidates (typed Turn.Data/Metadata)](./reference/01-debate-candidates-typed-turn-data-metadata.md)
+- [Reference: Debate questions (typed Turn.Data/Metadata)](./reference/02-debate-questions-typed-turn-data-metadata.md)
 - **Related Files**: See frontmatter RelatedFiles field
 - **External Sources**: See frontmatter ExternalSources field
 

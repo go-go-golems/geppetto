@@ -10,22 +10,37 @@ Topics:
 DocType: analysis
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: geppetto/pkg/analysis/turnsdatalint/analyzer.go
+      Note: Lint rules that shape the key story today
+    - Path: geppetto/pkg/inference/toolcontext/toolcontext.go
+      Note: Runtime tool registry lives in context (not Turn.Data)
+    - Path: geppetto/pkg/turns/keys.go
+      Note: Current canonical TurnDataKey/MetadataKey const keys
+    - Path: geppetto/pkg/turns/serde/serde.go
+      Note: Serde normalization of nil maps and YAML round-trip
+    - Path: geppetto/pkg/turns/types.go
+      Note: Current Turn/Block map shapes (Data/Metadata/Payload)
 ExternalSources: []
-Summary: "Analyze making Turn/Block Data+Metadata opaque with typed access, structured keys {vs,slug,version}, and a hard constraint that stored values are serializable; recommends typed-key wrappers for inference plus JSON-bytes storage with YAML-friendly rendering."
-LastUpdated: 2025-12-17T17:35:01.6790158-05:00
+Summary: Reality-check + analysis for evolving Turn.Data and Turn/Block Metadata toward typed/opaque access and structured key identity ({vs,slug,version}), with a serializable-values constraint. Block.Payload is explicitly out-of-scope.
+LastUpdated: 2025-12-20T00:27:00-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 ## Context
 
 `geppetto/pkg/turns.Turn.Data` is currently a plain map:
 
-- Keys are **typed** (`type TurnDataKey string`) and the repo encourages **canonical `const` keys** like `turns.DataKeyToolRegistry`.
+- Keys are **typed** (`type TurnDataKey string`) and the repo encourages **canonical `const` keys** like `turns.DataKeyToolConfig`.
 - Values are **`any`** (`interface{}`), which makes reads/writes flexible but pushes correctness checks into each call site.
 
 This ticket asks: can we keep the “hashmap of arbitrary per-turn attachments” idea, but make access **opaque + typed** with an idiomatic Go `Get[T]` accessor?
 
-Also relevant: `turns.Turn.Metadata`, `turns.Block.Metadata`, and `turns.Block.Payload` are the other “bags of attributes” in this model. Your requirement applies to **all** of these.
+Also relevant: `turns.Turn.Metadata` and `turns.Block.Metadata` are the other “bags of attributes” in this model.
+
+**Explicit scope note (updated):** we are **not** changing `turns.Block.Payload` in this ticket. `Block.Payload` remains a flexible `map[string]any` used for block content (text, tool args/results, etc.).
 
 ## Current state (what hurts)
 
@@ -33,9 +48,8 @@ Also relevant: `turns.Turn.Metadata`, `turns.Block.Metadata`, and `turns.Block.P
 
 Call sites need explicit nil checks and type assertions, e.g.:
 
-- Tool helpers set runtime attachments and config (registry is an interface; config is a struct value)
-- Middleware reads tool registry with `any` + `.(ToolRegistry)` and logs if assertion fails
-- Persistence sometimes iterates over `t.Data` but must special-case non-serializable objects (registry) to avoid dumping raw interface values into storage
+- Engines/middleware read `Turn.Data` entries via `any` + type assertions (example: `engine.ToolConfig` under `turns.DataKeyToolConfig`)
+- Similar patterns exist for `Turn.Metadata` and `Block.Metadata` where values are attached as `any`
 
 The result is repetitive boilerplate and scattered conventions about “what type is stored under key X?”
 
@@ -71,7 +85,6 @@ You also require that the **types stored** in:
 
 - `Turn.Data`
 - `Turn.Metadata`
-- `Block.Payload` (this is what I assume you mean by “Blocks.Data”)
 - `Block.Metadata`
 
 are **serializable**.
@@ -81,7 +94,7 @@ For this ticket, “serializable” should mean:
 - **Round-trippable** through Geppetto’s primary interchange formats (YAML today, and usually JSON for persistence/transport).
 - No runtime-only objects (channels, funcs, open files, DB handles, tool registries as interface objects, etc.) living inside these bags.
 
-This requirement is in direct tension with at least one current usage: storing a `tools.ToolRegistry` interface value under `turns.DataKeyToolRegistry`. Under the new rule, that becomes invalid and needs a different representation.
+**Updated to match current codebase:** Geppetto already removed the “runtime tool registry in `Turn.Data`” pattern. Provider engines learn about tools from a registry carried via `context.Context` (`toolcontext.WithRegistry` / `RegistryFrom`). `Turn.Data` holds serializable per-turn config/hints (e.g. `turns.DataKeyToolConfig`).
 
 Non-goals (for this ticket):
 
@@ -116,7 +129,7 @@ This ticket’s new requirement forces (2) to change.
 
 #### Key model A (status quo): `type TurnDataKey string`
 
-- **Pros**: can use `const` keys; YAML round-trip is simple; existing linter (`turnsdatalint`) enforces canonical const keys.
+- **Pros**: can use `const` keys; YAML round-trip is simple; existing linter (`turnsdatalint`) enforces *typed-key expressions* (no raw string literals and no untyped string const identifiers) for typed-key maps.
 - **Cons**: cannot guarantee presence of `vs/slug/version` in the type system; you can only enforce it by convention or linting of the string format.
 
 #### Key model B (recommended): a structured comparable key id + text encoding
@@ -139,7 +152,7 @@ Then store `Turn.Data` as `map[TurnDataKeyID]any` (or behind an opaque wrapper).
 
 This satisfies the “must include all parts” requirement by construction + validation.
 
-**Key tradeoff:** Go `const` cannot be used for struct values, so “canonical keys” become `var` (or `func` returning a key). That means `turnsdatalint` would need to evolve from “const-only keys” to “canonical var keys only” (or better: “canonical typed `Key[T]` only”).
+**Key tradeoff:** Go `const` cannot be used for struct values, so “canonical keys” become `var` (or `func` returning a key). That would require evolving the linting story from “typed-key expressions” toward “only canonical key declarations / typed `Key[T]` values”, plus forbidding ad-hoc constructors outside the canonical keys file(s).
 
 ### Value modeling choices (serializability axis)
 
@@ -220,8 +233,8 @@ type Key[T any] struct{ id TurnDataKeyID }
 func K[T any](id TurnDataKeyID) Key[T] { return Key[T]{id: id} }
 
 // canonical typed keys (vars are fine; TurnDataKeyID cannot be const)
-var KeyToolRegistry = K[tools.ToolRegistry](MustDataKeyID("geppetto", "tool_registry", 1))
-var KeyToolConfig   = K[engine.ToolConfig](MustDataKeyID("geppetto", "tool_config", 1))
+var KeyToolConfig = K[engine.ToolConfig](MustDataKeyID("geppetto", "tool_config", 1))
+var KeyAgentMode  = K[string](MustDataKeyID("geppetto", "agent_mode", 1))
 ```
 
 Now define:
@@ -233,8 +246,8 @@ func (d Data) Get[T any](k Key[T]) (T, bool)
 Call sites become:
 
 ```go
-reg, ok := t.Data.Get(turns.KeyToolRegistry) // T inferred from key
-cfg, ok := t.Data.Get(turns.KeyToolConfig)
+cfg, ok := t.Data.Get(turns.KeyToolConfig) // T inferred from key
+mode, ok := t.Data.Get(turns.KeyAgentMode)
 ```
 
 This hits a sweet spot:
@@ -251,7 +264,7 @@ To satisfy **serializable values**, we should refine the opaque design:
 - `Get[T]` becomes “decode into T” and should surface decode errors.
 - `Set[T]` becomes “encode T” and should surface encode errors.
 
-This makes it impossible to stash non-serializable runtime objects in `Turn.Data` (same for metadata/payload if we adopt the same pattern).
+This makes it impossible to stash non-serializable runtime objects in `Turn.Data` (same for metadata if we adopt the same pattern). `Block.Payload` remains out-of-scope for this ticket.
 
 ### Option 3: “schema registry” for keys (optional strictness)
 
@@ -280,7 +293,7 @@ This keeps `turns/serde` stable and avoids breaking existing YAML documents.
 
 ### JSON / persistence
 
-Some persistence code iterates over `Turn.Data` and serializes values; it currently needs to special-case runtime-only objects like the tool registry (serialize a derived tool list instead). With an opaque wrapper:
+Some persistence code iterates over `Turn.Data` and serializes values. Historically this required special-casing runtime-only objects (notably the tool registry when it lived in `Turn.Data`); current Geppetto code carries the tool registry in `context.Context` instead, which is the direction we want to preserve. With an opaque wrapper:
 
 - Provide `Range`/`Keys`/`Len` so persistence can still enumerate entries.
 - Consider adding a deliberate escape hatch like `AsMapCopy()` so storage boundaries can snapshot values without sharing the mutable internal map.
@@ -297,9 +310,8 @@ Implement **Option 2b**:
 - Make each attribute bag an **opaque wrapper** with the same shape:
   - `Turn.Data`
   - `Turn.Metadata`
-  - `Block.Payload`
   - `Block.Metadata`
-- Use **structured key IDs** `{vs, slug, version}` where keys are typed (for Turn/Block metadata and Turn data; payload is often string-keyed, but can be moved to typed keys if desired).
+- Use **structured key IDs** `{vs, slug, version}` where keys are typed (for Turn/Block metadata and Turn data).
 - Enforce **serializable values** by storing a canonical serialized form (`json.RawMessage`) internally.
 - Provide typed `Get/Set` with inference using `Key[T]`.
 - Preserve YAML readability by rendering raw JSON values back into YAML-friendly values during marshal.
@@ -397,7 +409,6 @@ Note: the YAML marshal/unmarshal above is only a sketch. To keep YAML human-read
 Canonical typed keys would live next to `keys.go`:
 
 ```go
-var KeyToolRegistry = K[tools.ToolRegistry](MustDataKeyID("geppetto", "tool_registry", 1))
 var KeyToolConfig   = K[engine.ToolConfig](MustDataKeyID("geppetto", "tool_config", 1))
 ```
 
@@ -428,6 +439,6 @@ Given your new requirement, (1) is the strictest and simplest: keep one bag, but
   - `vAny, ok := t.Data[oldKey]` → `v, ok := t.Data.Get(turns.KeyX)`
   - `for k, v := range t.Data { ... }` → `t.Data.Range(func(k, v) bool { ...; return true })`
 - Update linting approach:
-  - Existing `turnsdatalint` is tailored to “const keys of type TurnDataKey”.
+  - Existing `turnsdatalint` is tailored to “typed-key expressions for typed-key maps” (and separately enforces const keys for `Block.Payload`).
   - With structured keys (non-const), prefer linting “only use canonical `turns.Key...` typed keys” and/or “ban `MustDataKeyID(...)` outside `turns/keys.go`”.
 
