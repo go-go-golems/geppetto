@@ -44,6 +44,8 @@ We are replacing the current `map[TurnDataKey]any` access pattern with an **opaq
 
 **Breaking change:** All direct map access (`t.Data[key] = value`) must migrate to wrapper API (`t.Data.Set(key, value)`).
 
+**Removed helpers:** `SetTurnMetadata`, `SetBlockMetadata`, `HasBlockMetadata`, `RemoveBlocksByMetadata`, `WithBlockMetadata` are removed. All access must use the wrapper API directly. No deprecation period or backward compatibility.
+
 ---
 
 ## Design Decisions
@@ -102,6 +104,8 @@ var KeyToolConfig = K[engine.ToolConfig](GeppettoNamespaceKey, ToolConfigValueKe
 - Consistent behavior across `Turn.Data`, `Turn.Metadata`, `Block.Metadata`
 
 **Trade-off:** Breaking change, but provides strongest guarantees.
+
+**Removed helpers:** Existing helper functions (`SetTurnMetadata`, `SetBlockMetadata`, `HasBlockMetadata`, `RemoveBlocksByMetadata`, `WithBlockMetadata`) are removed. All code must use the wrapper API directly (`t.Metadata.Set(key, value)`, `b.Metadata.Get(key)`, etc.). No deprecation period — these functions are deleted immediately.
 
 ### Decision 4: Error Handling — Always Check Errors
 
@@ -397,6 +401,66 @@ if !ok || mode == "" {
         return nil, fmt.Errorf("set thinking mode: %w", err)
     }
 }
+```
+
+### Removed Helper Functions
+
+The following helper functions are **removed** (no deprecation period):
+
+**Before (removed):**
+```go
+// REMOVED - use wrapper API directly
+turns.SetTurnMetadata(t, key, value)
+turns.SetBlockMetadata(b, key, value)
+turns.HasBlockMetadata(b, key, value)
+turns.RemoveBlocksByMetadata(t, key, values...)
+turns.WithBlockMetadata(b, kvs)
+```
+
+**After (use wrapper API):**
+```go
+// SetTurnMetadata replacement
+if err := t.Metadata.Set(key, value); err != nil {
+    return fmt.Errorf("set metadata: %w", err)
+}
+
+// SetBlockMetadata replacement
+if err := b.Metadata.Set(key, value); err != nil {
+    return fmt.Errorf("set block metadata: %w", err)
+}
+
+// HasBlockMetadata replacement
+value, ok, err := b.Metadata.Get(key)
+if err != nil {
+    return false, fmt.Errorf("get block metadata: %w", err)
+}
+if ok && value == expectedValue {
+    // match found
+}
+
+// RemoveBlocksByMetadata replacement
+for i := len(t.Blocks) - 1; i >= 0; i-- {
+    b := &t.Blocks[i]
+    value, ok, err := b.Metadata.Get(key)
+    if err != nil {
+        continue // skip on error
+    }
+    if ok {
+        for _, v := range values {
+            if value == v {
+                t.Blocks = append(t.Blocks[:i], t.Blocks[i+1:]...)
+                break
+            }
+        }
+    }
+}
+
+// WithBlockMetadata replacement
+cloned := b
+if err := cloned.Metadata.Set(key, value); err != nil {
+    return b, fmt.Errorf("set metadata: %w", err)
+}
+return cloned
 ```
 
 ### Compression Middleware (Refactored)
