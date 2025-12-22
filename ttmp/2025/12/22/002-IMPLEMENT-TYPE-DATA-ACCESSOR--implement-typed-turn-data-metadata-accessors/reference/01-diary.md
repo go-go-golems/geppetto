@@ -605,3 +605,37 @@ We created the foundational checkpoint commits (even though the overall workspac
 - `moments/`: 520ad4ee327c408a3f7a0b065b6320d7f309aea2 — "turnkeys: migrate moments keys to typed Key[T]"
 
 Next: commit documentation updates (diary + design-doc corrections), then proceed with moments call-site migration in small, frequent commits.
+
+---
+
+## Step 9: Checkpoint documentation + reconcile design-doc with Go’s generics constraints
+
+This step turned the “confusion point” (generic methods) into explicit documentation and aligned the final design doc with what the Go compiler actually allows. It also recorded the newly-created checkpoint commit hashes back into the diary so future readers can jump from narrative → code reliably.
+
+**Commit (docs):** 62f677a4330515c2a658b2429014346bd8358e13 — "docs: fix generic-method mismatch; add notes + diary commit hashes" (`geppetto/`)
+
+### What I did
+
+- Updated the final design doc (`001`) to reflect:
+  - Go compiler restriction: **methods must have no type parameters**
+  - Typed API shape: **generic functions** (`DataGet/DataSet`, etc.) rather than `d.Get[T]`/`d.Set[T]` methods
+  - Import-cycle reality: `engine.KeyToolConfig` is owned by `engine`, not `turns`
+- Added a focused research note: `sources/go-generic-methods.md`
+- Backfilled commit hashes into Steps 3–8
+
+### Why
+
+- Reviewers (and future-us) need the design doc to match the actually-implementable API.
+- The “generic methods” confusion is common; capturing it once saves repeated re-derivation.
+
+### What worked
+
+- The design doc now matches the compiler/tested reality and the code we implemented.
+
+### What warrants a second pair of eyes
+
+- Confirm the updated design doc examples still reflect the intended long-term public API (especially the `ToolConfig` key ownership and the `KeyResponsesServerTools` type).
+
+### What should be done in the future
+
+- Keep adding short “why this constraint exists” notes whenever a design doc depends on language/tooling details.
