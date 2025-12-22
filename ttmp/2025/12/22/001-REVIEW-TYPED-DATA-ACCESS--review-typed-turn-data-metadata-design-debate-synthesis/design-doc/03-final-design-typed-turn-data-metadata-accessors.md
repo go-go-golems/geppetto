@@ -11,22 +11,29 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/turns/types.go
-      Note: Current Turn.Data structure to be replaced
-    - Path: geppetto/pkg/turns/keys.go
-      Note: Current canonical key definitions
     - Path: geppetto/pkg/analysis/turnsdatalint/analyzer.go
       Note: Linter to be enhanced
+    - Path: geppetto/pkg/turns/keys.go
+      Note: Current canonical key definitions
+    - Path: geppetto/pkg/turns/types.go
+      Note: Current Turn.Data structure to be replaced
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/analysis/01-codebase-analysis-turn-data-metadata-access-locations.md
+      Note: Inventory of migration sites for this design
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/01-diary.md
+      Note: Implementation diary (steps + commit hashes) for this design
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/sources/go-generic-methods.md
+      Note: Generic-method limitation note (why DataGet/DataSet functions)
+    - Path: moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
+      Note: Compression middleware that needs refactoring to work with typed API
     - Path: moments/backend/pkg/inference/middleware/current_user_middleware.go
       Note: Example middleware that will migrate to new API
-      - Path: moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
-      Note: Compression middleware that needs refactoring to work with typed API
 ExternalSources: []
-Summary: "Final design for typed Turn.Data/Metadata accessors: opaque wrapper with typed keys, encoded string key identity, any storage with validation, and comprehensive linting."
+Summary: 'Final design for typed Turn.Data/Metadata accessors: opaque wrapper with typed keys, encoded string key identity, any storage with validation, and comprehensive linting.'
 LastUpdated: 2025-12-22T16:00:00-05:00
-WhatFor: "Implementation guide: concrete API, type definitions, migration patterns, and linting rules."
-WhenToUse: "Use when implementing typed Turn.Data/Metadata accessors or migrating existing code."
+WhatFor: 'Implementation guide: concrete API, type definitions, migration patterns, and linting rules.'
+WhenToUse: Use when implementing typed Turn.Data/Metadata accessors or migrating existing code.
 ---
+
 
 # Final Design: Typed Turn.Data/Metadata Accessors
 
