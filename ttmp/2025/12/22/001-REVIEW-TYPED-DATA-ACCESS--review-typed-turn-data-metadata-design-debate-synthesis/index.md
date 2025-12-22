@@ -18,6 +18,8 @@ RelatedFiles:
       Note: Current Turn.Data structure analyzed in review
     - Path: geppetto/ttmp/2025/12/17/001-TYPED-ACCESSOR-TURN-DATA--typed-accessor-for-turn-data-opaque-wrapper/design-doc/01-debate-synthesis-typed-turn-data-metadata-design.md
       Note: Primary document under review; this ticket builds the reviewer packet around it.
+    - Path: geppetto/ttmp/2025/12/22/001-REVIEW-TYPED-DATA-ACCESS--review-typed-turn-data-metadata-design-debate-synthesis/design-doc/01-debate-synthesis-v2-concise-rewrite.md
+      Note: New concise synthesis v2 (fresh rewrite)
     - Path: moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
       Note: Compression middleware transformation pattern
     - Path: moments/backend/pkg/inference/middleware/current_user_middleware.go
@@ -28,6 +30,7 @@ LastUpdated: 2025-12-22T13:50:36.042741745-05:00
 WhatFor: Run a structured review of the typed Turn.Data/Metadata design space, ending in explicit decisions for a big-bang implementation.
 WhenToUse: Use before starting implementation or RFC work for typed Turn.Data/Metadata/Block.Metadata changes, and during subsequent PR/RFC reviews.
 ---
+
 
 
 # Review typed Turn.Data/Metadata design (debate synthesis)

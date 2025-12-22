@@ -14,11 +14,17 @@ RelatedFiles:
     - Path: pkg/analysis/turnsdatalint/analyzer.go
       Note: Current linter implementation
     - Path: pkg/inference/toolcontext/toolcontext.go
-      Note: Runtime tool registry pattern (context-carried)
+      Note: Runtime tool registry pattern (context-carried); illustrates what should stay out of Turn.Data.
     - Path: pkg/turns/keys.go
       Note: Current canonical key definitions
     - Path: pkg/turns/types.go
       Note: Current Turn/Block map structures
+    - Path: moments/backend/pkg/inference/middleware/current_user_middleware.go
+      Note: Concrete Turn.Data usage in middleware (real call-site pattern).
+    - Path: moments/backend/pkg/inference/middleware/thinkingmode/middleware.go
+      Note: Concrete Turn.Data read+default+write pattern in middleware.
+    - Path: moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
+      Note: Concrete Turn.Data transformation pattern (string-keyed compression step).
     - Path: ttmp/2025/12/17/001-TYPED-ACCESSOR-TURN-DATA--typed-accessor-for-turn-data-opaque-wrapper/reference/08-debate-round-1-q1-3-typed-accessors.md
       Note: Debate Round 1 source (invariants)
     - Path: ttmp/2025/12/17/001-TYPED-ACCESSOR-TURN-DATA--typed-accessor-for-turn-data-opaque-wrapper/reference/09-debate-round-2-q4-6-key-identity.md
@@ -31,7 +37,7 @@ RelatedFiles:
       Note: Debate Round 5 source (linter+schema)
 ExternalSources: []
 Summary: Comprehensive synthesis of 5 debate rounds exploring typed accessors, key identity, API surface, serializability, and tooling for Turn.Data/Metadata/Block.Metadata—surfacing tensions, trade-offs, and actionable design recommendations.
-LastUpdated: 2025-12-20T03:00:00-05:00
+LastUpdated: 2025-12-22T00:00:00-05:00
 WhatFor: "A readable, decision-maker-friendly report of what the debate surfaced: the design space, tensions, and concrete options for evolving Turn.Data/Metadata/Block.Metadata."
 WhenToUse: "Use after reading the debate rounds to decide direction (key identity, value storage, API surface, and tooling), or when onboarding a new contributor to this ticket."
 ---
@@ -62,12 +68,25 @@ The core question is: **can we keep the flexibility of “attach arbitrary per-t
 
 What the debates produced is a map of the design space: **7 major design axes** (mostly orthogonal) and a concrete backlog of ideas (lint rules, typed keys, helper APIs, wrappers, and migration sequencing).
 
+### TL;DR (Decisions you must make)
+
+If you only read one thing, make these choices explicit (everything downstream becomes mechanical refactoring):
+
+1. **Key identity**: structured (`TurnDataKeyID{vs, slug, version}`) vs encoded string (e.g. `"namespace.slug@v1"`).
+2. **Value storage / serializability**: store `any` (optionally validate on `Set`) vs store `json.RawMessage` (structurally serializable; decode on `Get`).
+3. **API boundary**: public maps + helpers (incremental, lint-driven) vs opaque wrapper (central invariants; harder to bypass).
+
+Where to go next:
+- For the crisp decision list: see **Decision Framework** (now placed early, below Definitions).
+- For option details: see **Major Design Axes**.
+- For an exhaustive, grep-friendly backlog: see **Appendix: All Ideas Surfaced**.
+
 ### How to read this document
 
 This synthesis is written for multiple audiences:
 
-- **If you’re deciding direction**: start at **Decision Framework** and **Recommended Path Forward**.
-- **If you’re implementing**: skim **Major Design Axes**, then read **Recommended Path Forward** (phased migration).
+- **If you’re deciding direction**: start at **Decision Framework**.
+- **If you’re implementing**: skim **Major Design Axes**, then jump to **Proposed API Reference (Options)** and **Implementation Approaches**.
 - **If you’re reviewing changes**: focus on **Key Tensions** and the **Open Questions**.
 - **If you want the raw debate**: jump straight to the linked debate rounds in **Related Documents**.
 
@@ -81,6 +100,101 @@ We use these terms consistently below:
 - **encoded key**: key identity stored in a string format (e.g. `namespace.slug@v1`).
 - **structured key**: key identity stored as fields (e.g. `{vs, slug, version}`).
 - **serializable-only**: values can be persisted and round-tripped without special casing (YAML today; often JSON elsewhere).
+
+---
+
+## Decision Framework (What to Decide)
+
+This section is intentionally practical: it translates the debate into the small set of choices that actually determine the shape of the implementation. If you make these decisions explicitly, the rest of the work becomes a series of mechanical refactors instead of endless bikeshedding.
+
+### Critical Decisions (Must Decide First)
+
+**Decision 1: Structured keys vs encoded strings?**
+- **If structured:** Commit to `TurnDataKeyID{vs, slug, version}`, `var` keys, `MarshalText`
+- **If encoded:** Keep `TurnDataKey string`, add namespace/version to format, lint enforcement
+- **Hybrid option:** Start encoded, migrate to structured later
+
+**Implication:** This choice sets how we talk about keys everywhere—how keys are authored, how they’re reviewed, and how we prevent collisions. It also determines whether “canonical keys” can be `const` (encoded) or must be `var` (structured).
+
+**Decision 2: Store `any` or `json.RawMessage`?**
+- **If `any`:** Optionally validate on `Set`, fast reads, but not structurally guaranteed
+- **If `json.RawMessage`:** Structurally guaranteed, unmarshal on `Get`, consider caching (or caller-side caching)
+
+**Implication:** This is really a decision about *where* serializability is enforced (boundary validation vs structural storage) and *when* decode errors appear (rarely at persistence edges vs potentially at read sites).
+
+**Decision 3: Opaque wrapper or public map?**
+- **If opaque:** Breaking change, centralized invariants, clear API
+- **If public map:** Incremental helpers, no breaking change, enforcement relies on linting + convention
+
+**Implication:** This choice sets the enforcement mechanism. Opaque wrappers make “the right thing” hard to bypass. Public maps keep Go ergonomics but require tooling to prevent drift.
+
+### Secondary Decisions (Depend on Above)
+
+**Decision 4: Error handling for `Set`**
+- One API (return error or panic)?
+- Two APIs (`Set` + `TrySet` or `MustSet` + `Set`)?
+
+**Decision 5: Versioning policy**
+- Required from day one?
+- Optional (defaults to v1 if omitted)?
+
+**Decision 6: Linter enhancements**
+- Ban ad-hoc keys?
+- Enforce naming conventions?
+- Warn on deprecated keys?
+- Configurable strictness?
+
+**Decision 7: Schema registry**
+- None (typed keys are enough)?
+- Build-time (generated file)?
+- Linter report mode (on-demand)?
+
+---
+
+## Linting Strategy (Summary)
+
+Today `turnsdatalint` prevents raw string drift (`t.Data["foo"]`) but it does **not** enforce canonical key ownership, naming/versioning conventions, or value-shape expectations.
+
+If we keep **public maps**, linting becomes a key guardrail. The debate’s most practical lint rules were:
+
+- **Ban ad-hoc key construction**: forbid `TurnDataKey("oops")` outside canonical keys packages.
+- **Enforce key naming conventions**: e.g. `^[a-z]+\.[a-z_]+(@v\d+)?$` (namespace + slug + optional version).
+- **Deprecation warnings**: parse `// Deprecated:` comments and warn at usage sites.
+- **Configurable strictness**: strict in CI; permissive locally if needed.
+- **Test key policy**: decide whether tests may use `test.*` keys, or require canonical test keys.
+
+---
+
+## Proposed API Reference (Options)
+
+This is intentionally not a decision—just a compact reference for what each choice implies at call sites.
+
+### Option A: Public map + helpers (incremental; lint-driven)
+
+```go
+// Turn.Data stays: map[TurnDataKey]any
+func GetData[T any](t *Turn, key Key[T]) (T, bool, error)
+func SetData[T any](t *Turn, key Key[T], value T) error
+func MustGetData[T any](t *Turn, key Key[T]) T
+func MustSetData[T any](t *Turn, key Key[T], value T)
+```
+
+### Option B: Opaque wrapper (central invariants; no bypass)
+
+```go
+type Turn struct {
+    Data Data `yaml:"data,omitempty"`
+}
+
+type Data struct { /* private storage */ }
+
+func (d Data) Get[T any](key Key[T]) (T, bool, error)
+func (d Data) MustGet[T any](key Key[T]) T
+func (d *Data) Set[T any](key Key[T], value T) error
+func (d *Data) MustSet[T any](key Key[T], value T)
+func (d Data) Len() int
+func (d Data) Range(fn func(/* key identity */, /* raw representation */) bool)
+```
 
 ---
 
@@ -116,6 +230,43 @@ The pain points below are not theoretical—they’re the patterns that repeated
 6. **Serializability is not enforced**
    - Nothing prevents storing `make(chan int)` in `Turn.Data`
    - Fails late (at serialization time) with `yaml: unsupported type`
+
+---
+
+## Code Examples (Real-world call-site patterns)
+
+These examples are meant to make the abstract trade-offs concrete. They are *not* prescriptive; they illustrate the patterns the design is trying to improve.
+
+### Middleware pattern: read + default + write (nil map init)
+
+```go
+// Example shape (from moments thinking_mode middleware):
+if t.Data == nil {
+    t.Data = make(map[turns.TurnDataKey]any)
+}
+modeName, _ := t.Data[turnkeys.ThinkingMode].(string)
+if strings.TrimSpace(modeName) == "" {
+    modeName = ModeExploring
+    t.Data[turnkeys.ThinkingMode] = modeName
+}
+```
+
+### Middleware pattern: transform values (string-focused compression)
+
+```go
+// Example shape (from moments turn_data_compressor):
+func (tdc *TurnDataCompressor) Compress(ctx context.Context, data map[string]any) TurnDataCompressionOutcome {
+    // ... drop fields ...
+    for key := range data {
+        switch v := data[key].(type) {
+        case string:
+            // summarize / truncate
+            data[key] = strings.TrimSpace(v)
+        }
+    }
+    return out
+}
+```
 
 ---
 
@@ -541,7 +692,7 @@ If the design axes are “what knobs exist”, these tensions are “what knobs 
 
 ---
 
-## All Ideas Surfaced (Organized by Category)
+## Appendix: All Ideas Surfaced (Organized by Category)
 
 Treat this section as an indexable backlog. It’s intentionally exhaustive: you can skim headings to find a theme (typed access, serializability, key identity, tooling), then jump to the detailed debate round(s) if you want the original rationale.
 
@@ -701,58 +852,19 @@ Treat this section as an indexable backlog. It’s intentionally exhaustive: you
 ---
 
 ## Decision Framework (What to Decide)
-
-This section is intentionally practical: it translates the debate into the small set of choices that actually determine the shape of the implementation. If you make these decisions explicitly, the rest of the work becomes a series of mechanical refactors instead of endless bikeshedding.
-
-### Critical Decisions (Must Decide First)
-
-**Decision 1: Structured keys vs encoded strings?**
-- **If structured:** Commit to `TurnDataKeyID{vs, slug, version}`, `var` keys, `MarshalText`
-- **If encoded:** Keep `TurnDataKey string`, add namespace/version to format, lint enforcement
-- **Hybrid option:** Start encoded (short-term), migrate to structured (long-term)
-
-**Implication:** This choice sets how we talk about keys everywhere—how keys are authored, how they’re reviewed, and how we prevent collisions. It also determines whether “canonical keys” can be `const` (encoded) or must be `var` (structured).
-
-**Decision 2: Store `any` or `json.RawMessage`?**
-- **If `any`:** Validate on `Set`, fast reads, but not structurally guaranteed
-- **If `json.RawMessage`:** Structurally guaranteed, unmarshal on `Get`, consider caching
-
-**Implication:** This is really a decision about *where* serializability is enforced (boundary validation vs structural storage) and *when* decode errors appear (rarely at persistence edges vs potentially at read sites).
-
-**Decision 3: Opaque wrapper or public map?**
-- **If opaque:** Breaking change, centralized enforcement, clear API
-- **If public map:** Incremental helpers, no breaking change, less enforcement
-
-**Implication:** This choice sets the enforcement mechanism. Opaque wrappers make “the right thing” hard to bypass. Public maps keep Go ergonomics but require linting + conventions to prevent drift.
-
-### Secondary Decisions (Depend on Above)
-
-**Decision 4: Error handling for `Set`**
-- One API (return error or panic)?
-- Two APIs (`Set` + `TrySet` or `MustSet` + `Set`)?
-
-**Decision 5: Versioning policy**
-- Required from day one?
-- Optional (defaults to v1 if omitted)?
-
-**Decision 6: Linter enhancements**
-- Ban ad-hoc keys?
-- Enforce naming conventions?
-- Warn on deprecated keys?
-- Configurable strictness?
-
-**Decision 7: Schema registry**
-- None (typed keys are enough)?
-- Build-time (generated file)?
-- Linter report mode (on-demand)?
+Moved to the top of this document (after the Executive Summary) to reduce redundancy and make the “what to decide” section easier to find.
 
 ---
 
-## Recommended Path Forward (Synthesis)
+## Implementation Approaches (Phased vs Big-bang)
 
-The debates leaned toward a pragmatic sequencing: get value early (typed access + better discoverability), then decide whether to “harden” the model (structured keys, opaque wrapper, structural serializability). A phased plan is also easier to evaluate: we can stop after Phase 1 if it already addresses 80% of the pain.
+The debates surfaced a pragmatic sequencing: get value early (typed access + better discoverability), then decide whether to “harden” the model (structured keys, opaque wrapper, structural serializability).
 
-Based on that, here’s a **phased approach** that keeps the work reversible until we’ve validated the ergonomics in real call sites:
+Two implementation styles are compatible with the same end-state:
+- **Phased**: do the work in stages to de-risk adoption.
+- **Big-bang**: apply the same checklist in one change-set (higher coordination cost; faster convergence).
+
+Below is the phased checklist (useful even if you choose big-bang—treat it as an ordered checklist).
 
 ### Phase 1: Foundation (Minimal Breaking Change)
 
@@ -858,99 +970,59 @@ Based on that, here’s a **phased approach** that keeps the work reversible unt
 
 ### High Priority
 
-1. **Should we do phased migration or big-bang refactor?**
-   - Phased: Less risk, incremental value, but longer timeline
-   - Big-bang: Clean break, full benefits immediately, but high risk
-
-2. **Error handling: `Set` vs `TrySet` or `MustSet` vs `Set`?**
+1. **Error handling: `Set` vs `TrySet` or `MustSet` vs `Set`?**
    - Which should be the "default" API?
    - What should the naming convention be?
 
-3. **Caching strategy for `json.RawMessage` storage?**
+2. **Caching strategy for `json.RawMessage` storage?**
    - No caching (unmarshal on every `Get`)?
    - Internal cache (when to invalidate)?
    - Encourage explicit local caching (caller responsibility)?
 
-4. **YAML vs JSON canonical format?**
+3. **YAML vs JSON canonical format?**
    - Store JSON bytes, render as YAML?
    - Or store YAML nodes, derive JSON at edges?
    - Can we assume JSON ⊆ YAML for our use cases?
 
 ### Medium Priority
 
-5. **Should `Metadata` have same invariants as `Data`?**
+4. **Should `Metadata` have same invariants as `Data`?**
    - Same API surface?
    - Same serializability enforcement?
    - Or more permissive (for provider annotations)?
 
-6. **Deprecation policy enforcement?**
+5. **Deprecation policy enforcement?**
    - Linter warns?
    - Linter blocks?
    - Documentation only?
 
-7. **Test key handling?**
+6. **Test key handling?**
    - Allow `"test.*"` keys in test files only?
    - Or trust developers (no special rules)?
 
-8. **Namespace registry approach?**
+7. **Namespace registry approach?**
    - Linter-based (package declares namespace)?
    - Convention-based (infer from path)?
    - Code-based (central file)?
 
 ### Low Priority
 
-9. **Should we support legacy keys long-term?**
+8. **Should we support legacy keys long-term?**
    - Keep `PersonIDLegacy` pattern?
    - Or force migration with deprecation timeline?
 
-10. **Build-time key registry?**
+9. **Build-time key registry?**
     - Generated file?
     - Linter report mode?
     - Neither?
 
 ---
 
-## Implementation Recommendations
+## Implementation Notes (Non-prescriptive)
 
-### Recommended Approach: Phased Migration
+This synthesis is intentionally about the **design space** and decision points, not a mandated execution plan. If you do implement changes, treat the **Implementation Approaches** section as an ordered checklist and tailor it to your constraints.
 
-**Why phased:**
-- Lower risk (each phase is independently valuable)
-- Faster time-to-value (get typed access benefits without waiting for full refactor)
-- Easier testing (validate each phase separately)
-- Allows learning (adjust course based on real-world usage)
-
-**Why not big-bang:**
-- High risk (many files to touch, easy to introduce bugs)
-- Long timeline (blocks other work until complete)
-- Hard to roll back (all-or-nothing)
-
-### Concrete Next Steps
-
-1. **Prototype Phase 1** (1-2 weeks)
-   - Implement `Key[T]` wrappers using existing `TurnDataKey`
-   - Add helper functions (`GetData`, `SetData`, `MustGetData`, `MustSetData`)
-   - Convert 2-3 canonical keys to typed (e.g., `KeyToolConfig`, `KeyAgentMode`)
-   - Test ergonomics in real call sites
-
-2. **RFC based on prototype** (1 week)
-   - Document findings from prototype
-   - Propose phased migration plan
-   - Get team buy-in on approach
-
-3. **Implement Phase 1** (2-3 weeks)
-   - Convert all canonical keys to typed
-   - Enhance linter (ban ad-hoc keys)
-   - Update documentation
-
-4. **Evaluate before Phase 2** (checkpoint)
-   - Are typed keys working well?
-   - Do we want structured `TurnDataKeyID` or stick with encoded strings?
-   - Is serializability enforcement worth the complexity?
-
-5. **Continue or pivot** based on evaluation
-
-### Success Criteria
+### Success Criteria (if you implement any of the proposals)
 
 - **Fewer type assertion bugs** (measure: grep for `.(T)` patterns in Turn.Data access)
 - **Fewer nil map panics** (measure: crash reports, test failures)

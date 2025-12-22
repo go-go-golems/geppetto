@@ -165,3 +165,12 @@ Refined debate synthesis writing style: added reader map + definitions, added na
 
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/ttmp/2025/12/17/001-TYPED-ACCESSOR-TURN-DATA--typed-accessor-for-turn-data-opaque-wrapper/design-doc/01-debate-synthesis-typed-turn-data-metadata-design.md — Improved narrative/clarity per technical writing guidelines
 
+
+## 2025-12-22
+
+Edited synthesis doc for clarity/conciseness: added TL;DR + early Decision Framework, added linting summary + API reference + real-world code patterns, de-duplicated later Decision Framework section, and neutralized implementation section language.
+
+### Related Files
+
+- geppetto/ttmp/2025/12/17/001-TYPED-ACCESSOR-TURN-DATA--typed-accessor-for-turn-data-opaque-wrapper/design-doc/01-debate-synthesis-typed-turn-data-metadata-design.md — Restructure and clarity edits
+
