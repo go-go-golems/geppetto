@@ -1,8 +1,12 @@
 package turns
 
 import (
+	"encoding/json"
+	"fmt"
 	"gopkg.in/yaml.v3"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // BlockKind represents the kind of a block within a Turn.
@@ -85,7 +89,7 @@ type Block struct {
 	Role    string         `yaml:"role,omitempty"`
 	Payload map[string]any `yaml:"payload,omitempty"`
 	// Metadata stores arbitrary metadata about the block
-	Metadata map[BlockMetadataKey]interface{} `yaml:"metadata,omitempty"`
+	Metadata BlockMetadata `yaml:"metadata,omitempty"`
 }
 
 // Turn contains an ordered list of Blocks and associated metadata.
@@ -94,9 +98,314 @@ type Turn struct {
 	RunID  string  `yaml:"run_id,omitempty"`
 	Blocks []Block `yaml:"blocks"`
 	// Metadata stores arbitrary metadata about the turn
-	Metadata map[TurnMetadataKey]interface{} `yaml:"metadata,omitempty"`
+	Metadata Metadata `yaml:"metadata,omitempty"`
 	// Data stores the application data payload associated with this turn
-	Data map[TurnDataKey]interface{} `yaml:"data,omitempty"`
+	Data Data `yaml:"data,omitempty"`
+}
+
+// Key is a typed key used to access Turn.Data, Turn.Metadata, and Block.Metadata.
+// The underlying ID is an encoded string key of form: "namespace.value@vN".
+//
+// Note: We intentionally keep this wrapper opaque: callers get a typed Key[T] and can only read/write via wrapper APIs.
+type Key[T any] struct {
+	id TurnDataKey
+}
+
+// NewTurnDataKey constructs a canonical key identity string in the form "namespace.value@vN".
+//
+// This panics on invalid input (per design doc): empty namespace/value or version < 1.
+func NewTurnDataKey(namespace, value string, version uint16) TurnDataKey {
+	if namespace == "" || value == "" || version < 1 {
+		panic(fmt.Errorf("invalid key: namespace=%q value=%q version=%d", namespace, value, version))
+	}
+	return TurnDataKey(fmt.Sprintf("%s.%s@v%d", namespace, value, version))
+}
+
+// K creates a typed key from namespace/value consts and an explicit version.
+func K[T any](namespace, value string, version uint16) Key[T] {
+	return Key[T]{id: NewTurnDataKey(namespace, value, version)}
+}
+
+func (k Key[T]) String() string {
+	return k.id.String()
+}
+
+// Data is an opaque wrapper for Turn.Data.
+type Data struct {
+	m map[TurnDataKey]any
+}
+
+// DataSet stores value for key after validating JSON serializability.
+func DataSet[T any](d *Data, key Key[T], value T) error {
+	if d.m == nil {
+		d.m = make(map[TurnDataKey]any)
+	}
+	if _, err := json.Marshal(value); err != nil {
+		return pkgerrors.Wrapf(err, "Turn.Data[%q]: value not serializable", key.id.String())
+	}
+	d.m[key.id] = value
+	return nil
+}
+
+// DataGet returns (value, ok, error). Missing keys are (zero, false, nil). Type mismatches are (zero, true, error).
+func DataGet[T any](d Data, key Key[T]) (T, bool, error) {
+	var zero T
+	if d.m == nil {
+		return zero, false, nil
+	}
+	value, ok := d.m[key.id]
+	if !ok {
+		return zero, false, nil
+	}
+	typed, ok := value.(T)
+	if !ok {
+		return zero, true, pkgerrors.Errorf("Turn.Data[%q]: expected %T, got %T", key.id.String(), zero, value)
+	}
+	return typed, true, nil
+}
+
+func (d Data) Len() int {
+	if d.m == nil {
+		return 0
+	}
+	return len(d.m)
+}
+
+func (d Data) Range(fn func(TurnDataKey, any) bool) {
+	if d.m == nil {
+		return
+	}
+	for k, v := range d.m {
+		if !fn(k, v) {
+			return
+		}
+	}
+}
+
+func (d *Data) Delete(key TurnDataKey) {
+	if d.m == nil {
+		return
+	}
+	delete(d.m, key)
+	if len(d.m) == 0 {
+		d.m = nil
+	}
+}
+
+func (d Data) MarshalYAML() (interface{}, error) {
+	if len(d.m) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]any, len(d.m))
+	for k, v := range d.m {
+		out[k.String()] = v
+	}
+	return out, nil
+}
+
+func (d *Data) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil {
+		d.m = nil
+		return nil
+	}
+	var raw map[string]any
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		d.m = nil
+		return nil
+	}
+	d.m = make(map[TurnDataKey]any, len(raw))
+	for kStr, v := range raw {
+		// Accept key strings as-is; canonical/format enforcement is handled by turnsdatalint.
+		d.m[TurnDataKey(kStr)] = v
+	}
+	return nil
+}
+
+// Metadata is an opaque wrapper for Turn.Metadata.
+type Metadata struct {
+	m map[TurnMetadataKey]any
+}
+
+func MetadataSet[T any](m *Metadata, key Key[T], value T) error {
+	if m.m == nil {
+		m.m = make(map[TurnMetadataKey]any)
+	}
+	if _, err := json.Marshal(value); err != nil {
+		return pkgerrors.Wrapf(err, "Turn.Metadata[%q]: value not serializable", key.id.String())
+	}
+	m.m[TurnMetadataKey(key.id)] = value
+	return nil
+}
+
+func MetadataGet[T any](m Metadata, key Key[T]) (T, bool, error) {
+	var zero T
+	if m.m == nil {
+		return zero, false, nil
+	}
+	value, ok := m.m[TurnMetadataKey(key.id)]
+	if !ok {
+		return zero, false, nil
+	}
+	typed, ok := value.(T)
+	if !ok {
+		return zero, true, pkgerrors.Errorf("Turn.Metadata[%q]: expected %T, got %T", key.id.String(), zero, value)
+	}
+	return typed, true, nil
+}
+
+func (m Metadata) Len() int {
+	if m.m == nil {
+		return 0
+	}
+	return len(m.m)
+}
+
+func (m Metadata) Range(fn func(TurnMetadataKey, any) bool) {
+	if m.m == nil {
+		return
+	}
+	for k, v := range m.m {
+		if !fn(k, v) {
+			return
+		}
+	}
+}
+
+func (m *Metadata) Delete(key TurnMetadataKey) {
+	if m.m == nil {
+		return
+	}
+	delete(m.m, key)
+	if len(m.m) == 0 {
+		m.m = nil
+	}
+}
+
+func (m Metadata) MarshalYAML() (interface{}, error) {
+	if len(m.m) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]any, len(m.m))
+	for k, v := range m.m {
+		out[k.String()] = v
+	}
+	return out, nil
+}
+
+func (m *Metadata) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil {
+		m.m = nil
+		return nil
+	}
+	var raw map[string]any
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		m.m = nil
+		return nil
+	}
+	m.m = make(map[TurnMetadataKey]any, len(raw))
+	for kStr, v := range raw {
+		// Accept key strings as-is; canonical/format enforcement is handled by turnsdatalint.
+		m.m[TurnMetadataKey(kStr)] = v
+	}
+	return nil
+}
+
+// BlockMetadata is an opaque wrapper for Block.Metadata.
+type BlockMetadata struct {
+	m map[BlockMetadataKey]any
+}
+
+func BlockMetadataSet[T any](bm *BlockMetadata, key Key[T], value T) error {
+	if bm.m == nil {
+		bm.m = make(map[BlockMetadataKey]any)
+	}
+	if _, err := json.Marshal(value); err != nil {
+		return pkgerrors.Wrapf(err, "Block.Metadata[%q]: value not serializable", key.id.String())
+	}
+	bm.m[BlockMetadataKey(key.id)] = value
+	return nil
+}
+
+func BlockMetadataGet[T any](bm BlockMetadata, key Key[T]) (T, bool, error) {
+	var zero T
+	if bm.m == nil {
+		return zero, false, nil
+	}
+	value, ok := bm.m[BlockMetadataKey(key.id)]
+	if !ok {
+		return zero, false, nil
+	}
+	typed, ok := value.(T)
+	if !ok {
+		return zero, true, pkgerrors.Errorf("Block.Metadata[%q]: expected %T, got %T", key.id.String(), zero, value)
+	}
+	return typed, true, nil
+}
+
+func (bm BlockMetadata) Len() int {
+	if bm.m == nil {
+		return 0
+	}
+	return len(bm.m)
+}
+
+func (bm BlockMetadata) Range(fn func(BlockMetadataKey, any) bool) {
+	if bm.m == nil {
+		return
+	}
+	for k, v := range bm.m {
+		if !fn(k, v) {
+			return
+		}
+	}
+}
+
+func (bm *BlockMetadata) Delete(key BlockMetadataKey) {
+	if bm.m == nil {
+		return
+	}
+	delete(bm.m, key)
+	if len(bm.m) == 0 {
+		bm.m = nil
+	}
+}
+
+func (bm BlockMetadata) MarshalYAML() (interface{}, error) {
+	if len(bm.m) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]any, len(bm.m))
+	for k, v := range bm.m {
+		out[k.String()] = v
+	}
+	return out, nil
+}
+
+func (bm *BlockMetadata) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil {
+		bm.m = nil
+		return nil
+	}
+	var raw map[string]any
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		bm.m = nil
+		return nil
+	}
+	bm.m = make(map[BlockMetadataKey]any, len(raw))
+	for kStr, v := range raw {
+		// Accept key strings as-is; canonical/format enforcement is handled by turnsdatalint.
+		bm.m[BlockMetadataKey(kStr)] = v
+	}
+	return nil
 }
 
 // PrependBlock inserts a block at the beginning of the Turn's block slice.
@@ -141,20 +450,4 @@ func FindLastBlocksByKind(t Turn, kinds ...BlockKind) []Block {
 		}
 	}
 	return ret
-}
-
-// SetTurnMetadata inserts or updates a Turn metadata entry keyed by typed key.
-func SetTurnMetadata(t *Turn, key TurnMetadataKey, value interface{}) {
-	if t.Metadata == nil {
-		t.Metadata = make(map[TurnMetadataKey]interface{})
-	}
-	t.Metadata[key] = value
-}
-
-// SetBlockMetadata inserts or updates a Block metadata entry by typed key.
-func SetBlockMetadata(b *Block, key BlockMetadataKey, value interface{}) {
-	if b.Metadata == nil {
-		b.Metadata = make(map[BlockMetadataKey]interface{})
-	}
-	b.Metadata[key] = value
 }

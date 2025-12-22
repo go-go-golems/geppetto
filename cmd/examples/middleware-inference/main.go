@@ -213,7 +213,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	conversation_ := manager.GetConversation()
 	// Seed a Turn from the initial conversation
-	initialTurn := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
+	initialTurn := &turns.Turn{}
 	for _, msg := range conversation_ {
 		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
 			kind := turns.BlockKindOther
@@ -264,12 +264,14 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 			Version:     "1.0",
 		})
 		ctx = toolcontext.WithRegistry(ctx, reg)
-		initialTurn.Data[turns.DataKeyToolConfig] = enginepkg.ToolConfig{
+		if err := turns.DataSet(&initialTurn.Data, enginepkg.KeyToolConfig, enginepkg.ToolConfig{
 			Enabled:          true,
 			ToolChoice:       enginepkg.ToolChoiceAuto,
 			MaxIterations:    5,
 			ExecutionTimeout: 30 * time.Second,
 			MaxParallelTools: 1,
+		}); err != nil {
+			return fmt.Errorf("set tool config: %w", err)
 		}
 	}
 

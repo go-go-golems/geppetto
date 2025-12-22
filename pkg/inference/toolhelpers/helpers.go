@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -290,18 +291,14 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 	// Use provided Turn or create a new one
 	t := initialTurn
 	if t == nil {
-		t = &turns.Turn{Data: map[turns.TurnDataKey]any{}}
-	}
-	// Ensure Data map exists to avoid nil map assignments
-	if t.Data == nil {
-		t.Data = map[turns.TurnDataKey]any{}
+		t = &turns.Turn{}
 	}
 
 	// Attach runtime registry to context so engines/middleware/executors can access it.
 	// No Turn.Data registry (runtime-only) is stored.
 	ctx = toolcontext.WithRegistry(ctx, registry)
 
-	t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+	if err := turns.DataSet(&t.Data, engine.KeyToolConfig, engine.ToolConfig{
 		Enabled:           true,
 		ToolChoice:        engine.ToolChoice(config.ToolChoice),
 		MaxIterations:     config.MaxIterations,
@@ -309,6 +306,8 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		MaxParallelTools:  config.MaxParallelTools,
 		AllowedTools:      config.AllowedTools,
 		ToolErrorHandling: engine.ToolErrorHandling(config.ToolErrorHandling),
+	}); err != nil {
+		return nil, errors.Wrap(err, "set tool config")
 	}
 
 	for i := 0; i < config.MaxIterations; i++ {

@@ -143,7 +143,16 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Build a Turn seeded with a user prompt that asks to use the tool.
 	// Registry is carried in context (no Turn.Data registry).
-	turn := &turns.Turn{Data: map[turns.TurnDataKey]any{turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: 1, ToolErrorHandling: engine.ToolErrorContinue}}}
+	turn := &turns.Turn{}
+	if err := turns.DataSet(&turn.Data, engine.KeyToolConfig, engine.ToolConfig{
+		Enabled:           true,
+		ToolChoice:        engine.ToolChoiceAuto,
+		MaxIterations:     3,
+		MaxParallelTools:  1,
+		ToolErrorHandling: engine.ToolErrorContinue,
+	}); err != nil {
+		return errors.Wrap(err, "set tool config")
+	}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
 
 	// Prepare a toolbox and register executable implementation
