@@ -3,75 +3,75 @@
 ## 1. Core API Implementation
 
 ### 1.1 Type Definitions
-- [ ] Define `Key[T]` struct in `geppetto/pkg/turns/types.go`
+- [x] Define `Key[T]` struct in `geppetto/pkg/turns/types.go`
   - Field: `id TurnDataKey` (or `TurnMetadataKey`/`BlockMetadataKey` as appropriate)
-- [ ] Define `Data` struct (opaque wrapper for `Turn.Data`)
+- [x] Define `Data` struct (opaque wrapper for `Turn.Data`)
   - Private field: `m map[TurnDataKey]any`
-- [ ] Define `Metadata` struct (opaque wrapper for `Turn.Metadata`)
+- [x] Define `Metadata` struct (opaque wrapper for `Turn.Metadata`)
   - Private field: `m map[TurnMetadataKey]any`
-- [ ] Define `BlockMetadata` struct (opaque wrapper for `Block.Metadata`)
+- [x] Define `BlockMetadata` struct (opaque wrapper for `Block.Metadata`)
   - Private field: `m map[BlockMetadataKey]any`
-- [ ] Update `Turn` struct to use `Data` and `Metadata` wrappers
-- [ ] Update `Block` struct to use `BlockMetadata` wrapper
+- [x] Update `Turn` struct to use `Data` and `Metadata` wrappers
+- [x] Update `Block` struct to use `BlockMetadata` wrapper
 
 ### 1.2 Key Constructor Functions
-- [ ] Implement `NewTurnDataKey(namespace, value string, version uint16) TurnDataKey`
+- [x] Implement `NewTurnDataKey(namespace, value string, version uint16) TurnDataKey`
   - Validates inputs (non-empty namespace/value, version >= 1)
   - Returns `"namespace.slug@vN"` format
   - Panics on invalid input (as per design doc)
-- [ ] Implement `K[T any](namespace, value string, version uint16) Key[T]`
+- [x] Implement `K[T any](namespace, value string, version uint16) Key[T]`
   - Helper to create typed keys from namespace/value consts
   - Calls `NewTurnDataKey` internally
-- [ ] Add `String()` method to `Key[T]` for debugging/logging
+- [x] Add `String()` method to `Key[T]` for debugging/logging
 
 ### 1.3 Data API Methods
-- [ ] Implement `(d *Data) Set[T any](key Key[T], value T) error`
+- [x] Implement `DataSet[T any](d *Data, key Key[T], value T) error`
   - Initialize map if nil
   - Validate serializability via `json.Marshal(value)`
   - Store value in map
   - Return error on validation failure
-- [ ] Implement `(d Data) Get[T any](key Key[T]) (T, bool, error)`
+- [x] Implement `DataGet[T any](d Data, key Key[T]) (T, bool, error)`
   - Return zero value, false, nil if map is nil
   - Return zero value, false, nil if key not found
   - Type assert value to T
   - Return error if type assertion fails
-- [ ] Implement `(d Data) Len() int`
-- [ ] Implement `(d Data) Range(fn func(TurnDataKey, any) bool)`
-- [ ] Implement `(d *Data) Delete(key TurnDataKey)`
+- [x] Implement `(d Data) Len() int`
+- [x] Implement `(d Data) Range(fn func(TurnDataKey, any) bool)`
+- [x] Implement `(d *Data) Delete(key TurnDataKey)`
 
 ### 1.4 Metadata API Methods
-- [ ] Implement `(m *Metadata) Set[T any](key Key[T], value T) error` (same pattern as Data)
-- [ ] Implement `(m Metadata) Get[T any](key Key[T]) (T, bool, error)` (same pattern as Data)
-- [ ] Implement `(m Metadata) Len() int`
-- [ ] Implement `(m Metadata) Range(fn func(TurnMetadataKey, any) bool)`
-- [ ] Implement `(m *Metadata) Delete(key TurnMetadataKey)`
+- [x] Implement `MetadataSet[T any](m *Metadata, key Key[T], value T) error` (same pattern as Data)
+- [x] Implement `MetadataGet[T any](m Metadata, key Key[T]) (T, bool, error)` (same pattern as Data)
+- [x] Implement `(m Metadata) Len() int`
+- [x] Implement `(m Metadata) Range(fn func(TurnMetadataKey, any) bool)`
+- [x] Implement `(m *Metadata) Delete(key TurnMetadataKey)`
 
 ### 1.5 BlockMetadata API Methods
-- [ ] Implement `(bm *BlockMetadata) Set[T any](key Key[T], value T) error` (same pattern as Data)
-- [ ] Implement `(bm BlockMetadata) Get[T any](key Key[T]) (T, bool, error)` (same pattern as Data)
-- [ ] Implement `(bm BlockMetadata) Len() int`
-- [ ] Implement `(bm BlockMetadata) Range(fn func(BlockMetadataKey, any) bool)`
-- [ ] Implement `(bm *BlockMetadata) Delete(key BlockMetadataKey)`
+- [x] Implement `BlockMetadataSet[T any](bm *BlockMetadata, key Key[T], value T) error` (same pattern as Data)
+- [x] Implement `BlockMetadataGet[T any](bm BlockMetadata, key Key[T]) (T, bool, error)` (same pattern as Data)
+- [x] Implement `(bm BlockMetadata) Len() int`
+- [x] Implement `(bm BlockMetadata) Range(fn func(BlockMetadataKey, any) bool)`
+- [x] Implement `(bm *BlockMetadata) Delete(key BlockMetadataKey)`
 
 ### 1.6 YAML Serialization
-- [ ] Implement `(d Data) MarshalYAML() (interface{}, error)`
+- [x] Implement `(d Data) MarshalYAML() (interface{}, error)`
   - Return `nil` if map is empty
   - Convert `map[TurnDataKey]any` to `map[string]any` for YAML
-- [ ] Implement `(d *Data) UnmarshalYAML(value *yaml.Node) error`
+- [x] Implement `(d *Data) UnmarshalYAML(value *yaml.Node) error`
   - Parse `map[string]any` from YAML
   - Convert string keys to `TurnDataKey`
   - Validate key format `"namespace.slug@vN"` (accept as-is, linter enforces canonical keys)
-- [ ] Implement `(m Metadata) MarshalYAML() (interface{}, error)` (same pattern)
-- [ ] Implement `(m *Metadata) UnmarshalYAML(value *yaml.Node) error` (same pattern)
-- [ ] Implement `(bm BlockMetadata) MarshalYAML() (interface{}, error)` (same pattern)
-- [ ] Implement `(bm *BlockMetadata) UnmarshalYAML(value *yaml.Node) error` (same pattern)
+- [x] Implement `(m Metadata) MarshalYAML() (interface{}, error)` (same pattern)
+- [x] Implement `(m *Metadata) UnmarshalYAML(value *yaml.Node) error` (same pattern)
+- [x] Implement `(bm BlockMetadata) MarshalYAML() (interface{}, error)` (same pattern)
+- [x] Implement `(bm *BlockMetadata) UnmarshalYAML(value *yaml.Node) error` (same pattern)
 
 ### 1.7 Remove Helper Functions
-- [ ] Delete `SetTurnMetadata` function from `geppetto/pkg/turns/types.go`
-- [ ] Delete `SetBlockMetadata` function from `geppetto/pkg/turns/types.go`
-- [ ] Delete `HasBlockMetadata` function from `geppetto/pkg/turns/helpers_blocks.go`
-- [ ] Delete `RemoveBlocksByMetadata` function from `geppetto/pkg/turns/helpers_blocks.go`
-- [ ] Delete `WithBlockMetadata` function from `geppetto/pkg/turns/helpers_blocks.go`
+- [x] Delete `SetTurnMetadata` function from `geppetto/pkg/turns/types.go`
+- [x] Delete `SetBlockMetadata` function from `geppetto/pkg/turns/types.go`
+- [x] Delete `HasBlockMetadata` function from `geppetto/pkg/turns/helpers_blocks.go`
+- [x] Delete `RemoveBlocksByMetadata` function from `geppetto/pkg/turns/helpers_blocks.go`
+- [x] Delete `WithBlockMetadata` function from `geppetto/pkg/turns/helpers_blocks.go`
 
 ### 1.8 Tests
 - [ ] Unit tests for `Set` with valid values
@@ -149,43 +149,43 @@
 ## 3. Clean Up Geppetto
 
 ### 3.1 Migrate Core Types
-- [ ] Update `geppetto/pkg/turns/types.go` to use wrapper types
-- [ ] Remove all direct map access in `geppetto/pkg/turns/types.go`
-- [ ] Update `geppetto/pkg/turns/helpers_blocks.go` to use wrapper API
-- [ ] Remove helper functions: `SetTurnMetadata`, `SetBlockMetadata`, `HasBlockMetadata`, `RemoveBlocksByMetadata`, `WithBlockMetadata`
+- [x] Update `geppetto/pkg/turns/types.go` to use wrapper types
+- [x] Remove all direct map access in `geppetto/pkg/turns/types.go`
+- [x] Update `geppetto/pkg/turns/helpers_blocks.go` to use wrapper API
+- [x] Remove helper functions: `SetTurnMetadata`, `SetBlockMetadata`, `HasBlockMetadata`, `RemoveBlocksByMetadata`, `WithBlockMetadata`
 
 ### 3.2 Migrate Key Definitions
-- [ ] Update `geppetto/pkg/turns/keys.go` to use `K[T]` constructor
-- [ ] Convert all `const` keys to typed `var` keys with namespace/version
-- [ ] Add namespace consts: `GeppettoNamespaceKey = "geppetto"`
-- [ ] Add value key consts for each key (e.g., `ToolConfigValueKey = "tool_config"`)
-- [ ] Create typed keys: `KeyToolConfig = K[engine.ToolConfig](GeppettoNamespaceKey, ToolConfigValueKey, 1)`
+- [x] Update `geppetto/pkg/turns/keys.go` to use `K[T]` constructor
+- [x] Convert all `const` keys to typed `var` keys with namespace/version
+- [x] Add namespace consts: `GeppettoNamespaceKey = "geppetto"`
+- [x] Add value key consts for each key (e.g., `ToolConfigValueKey = "tool_config"`)
+- [x] Create typed keys: `KeyToolConfig = K[engine.ToolConfig](GeppettoNamespaceKey, ToolConfigValueKey, 1)`
 - [ ] Update all key references to use typed keys
 
 ### 3.3 Migrate Serialization
-- [ ] Update `geppetto/pkg/turns/serde/serde.go` to work with wrapper types
-- [ ] Remove nil map initialization from `NormalizeTurn` (wrapper handles this)
+- [x] Update `geppetto/pkg/turns/serde/serde.go` to work with wrapper types
+- [x] Remove nil map initialization from `NormalizeTurn` (wrapper handles this)
 - [ ] Verify YAML round-trip tests still pass
 
 ### 3.4 Migrate Tool Helpers
-- [ ] Update `geppetto/pkg/inference/toolhelpers/helpers.go` to use wrapper API
-- [ ] Replace `t.Data = map[...]any{}` with wrapper initialization (may be automatic)
-- [ ] Replace `t.Data[key] = value` with `t.Data.Set(key, value)`
-- [ ] Add error handling for `Set` calls
+- [x] Update `geppetto/pkg/inference/toolhelpers/helpers.go` to use wrapper API
+- [x] Replace `t.Data = map[...]any{}` with wrapper initialization (may be automatic)
+- [x] Replace `t.Data[key] = value` with `t.Data.Set(key, value)`
+- [x] Add error handling for `Set` calls
 
 ### 3.5 Migrate Middleware
-- [ ] Update `geppetto/pkg/inference/middleware/systemprompt_middleware.go`
+- [x] Update `geppetto/pkg/inference/middleware/systemprompt_middleware.go`
   - Replace `t.Blocks[i].Metadata[key] = value` with `b.Metadata.Set(key, value)`
 - [ ] Update `geppetto/pkg/inference/middleware/tool_middleware.go`
   - Replace `message.Metadata["tool_calls"]` with wrapper API (fix raw string literal)
 - [ ] Update any other geppetto middleware files
 
 ### 3.6 Migrate Step Helpers
-- [ ] Update `geppetto/pkg/steps/ai/claude/helpers.go`
+- [x] Update `geppetto/pkg/steps/ai/claude/helpers.go`
   - Replace `b.Metadata[turns.BlockMetaKeyClaudeOriginalContent]` with `b.Metadata.Get(key)`
 
 ### 3.7 Update Tests
-- [ ] Update `geppetto/pkg/turns/serde/serde_test.go` to use wrapper API
+- [x] Update `geppetto/pkg/turns/serde/serde_test.go` to use wrapper API
 - [ ] Update all geppetto tests that access `Turn.Data` or `Turn.Metadata` or `Block.Metadata`
 - [ ] Verify all tests pass with new API
 
@@ -202,3 +202,8 @@
 - **Breaking changes:** Helper functions are removed immediately (no deprecation)
 - **Test coverage:** Each component must have comprehensive tests before moving to next phase
 - **Review checkpoints:** Review after Core API, after Linting, and after Geppetto cleanup
+- [x] Migrate moments current_user middleware to typed Turn.Data + typed block metadata markers
+- [x] Migrate moments thinkingmode middleware to typed Turn.Data + canonical middleware block tagging
+- [x] Migrate moments promptutil to typed Turn.Data reads/writes (and update tests)
+- [x] Migrate moments memory_extraction middleware to typed BlockMetadata markers
+- [x] Migrate moments memory_context middleware to typed Turn.Data + typed BlockMetadata markers
