@@ -741,3 +741,26 @@ This step migrated the prompt resolution helper (`promptutil`) which is widely u
 ### What should be done in the future
 
 - Continue migrating middleware call sites that still directly access Turn.Data for prompt-related keys (router, ordering middleware, artifact metadata extraction).
+
+---
+
+## Step 13: Migrate moments memory_extraction middleware to typed BlockMetadata markers
+
+This step migrated the memory extraction middleware, which was still using removed helper functions for block metadata (`HasBlockMetadata` and `WithBlockMetadata`). The semantics are idempotent: remove prior instruction blocks (tagged) and prepend one fresh instruction block.
+
+**Commit (code):** a44dc0f28c2291672d830ac1966a94d8fca4b4d7 — "memory: migrate memory_extraction block tags to typed BlockMetadata" (`moments/`)
+
+### What I did
+
+- Updated `moments/backend/pkg/memory/middleware.go`:
+  - prior-block detection uses `turns.BlockMetadataGet(b.Metadata, turnkeys.BlockMetaMemoryExtraction)`
+  - new-block tagging uses `turns.BlockMetadataSet(&sysBlock.Metadata, turnkeys.BlockMetaMemoryExtraction, "true")`
+- Updated `moments/backend/pkg/memory/middleware_test.go` to assert the tag via `turns.BlockMetadataGet`
+
+### Why
+
+- This middleware is one of the most common “tag + filter” patterns in moments. Migrating it early reduces the number of remaining compile breaks due to removed helper functions.
+
+### What warrants a second pair of eyes
+
+- Confirm we preserved the exact idempotency condition (only remove *system* blocks with the tag set to `"true"`).
