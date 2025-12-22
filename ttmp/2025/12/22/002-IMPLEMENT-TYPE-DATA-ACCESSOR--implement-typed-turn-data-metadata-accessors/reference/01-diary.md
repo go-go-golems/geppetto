@@ -224,7 +224,7 @@ This step turned the high-level checklist into an actionable, checkable work pla
 
 This step implemented the core “opaque wrapper” move: `Turn.Data`, `Turn.Metadata`, and `Block.Metadata` are no longer public maps. Instead, they became wrapper fields that own the underlying map and enforce access via a typed-key API. This is the structural guardrail the design doc relies on: callers can’t bypass invariants by writing directly into maps.
 
-**Commit (code):** N/A (not committed yet — see “Git state” below)
+**Commit (code):** b86cb63ab746c3049cbdf9bd6d8804356026ec5a — "turns: typed wrappers + namespaced keys; migrate geppetto" (`geppetto/`)
 
 ### What I did
 
@@ -303,7 +303,7 @@ This step implemented the core “opaque wrapper” move: `Turn.Data`, `Turn.Met
 
 This step kept the design semantics (typed keys + typed read/write) while adapting to a Go language constraint (enforced by the compiler): methods can’t declare their own type parameters. The fix was to switch from methods to package-level generic functions with explicit receiver arguments.
 
-**Commit (code):** N/A (not committed yet — see “Git state” below)
+**Commit (code):** b86cb63ab746c3049cbdf9bd6d8804356026ec5a — "turns: typed wrappers + namespaced keys; migrate geppetto" (`geppetto/`)
 
 ### What I did
 
@@ -356,7 +356,7 @@ This step kept the design semantics (typed keys + typed read/write) while adapti
 
 This step migrated geppetto’s canonical keys to the new namespace/value/version scheme and introduced typed `Key[T]` values for the common primitives. A key detail: `engine` already imports `turns` (Engine interface uses `*turns.Turn`), so `turns` cannot import `engine` for `ToolConfig` without a cycle. The solution was to place the `ToolConfig` typed key in `engine` instead.
 
-**Commit (code):** N/A (not committed yet — see “Git state” below)
+**Commit (code):** b86cb63ab746c3049cbdf9bd6d8804356026ec5a — "turns: typed wrappers + namespaced keys; migrate geppetto" (`geppetto/`)
 
 ### What I did
 
@@ -412,7 +412,7 @@ This step migrated geppetto’s canonical keys to the new namespace/value/versio
 
 This step migrated all geppetto call sites we touched away from direct map access and removed now-banned helper functions (`WithBlockMetadata`, `HasBlockMetadata`, `RemoveBlocksByMetadata`, plus the `Set*Metadata` setters in `types.go`). The goal was to keep geppetto compiling once the wrappers and keys changed.
 
-**Commit (code):** N/A (not committed yet — see “Git state” below)
+**Commit (code):** b86cb63ab746c3049cbdf9bd6d8804356026ec5a — "turns: typed wrappers + namespaced keys; migrate geppetto" (`geppetto/`)
 
 ### What I did
 
@@ -485,7 +485,7 @@ This step migrated all geppetto call sites we touched away from direct map acces
 
 This step brought pinocchio back into alignment with the new API by removing direct map usage and migrating middleware patterns that relied on removed helper functions. The biggest change here was agentmode, which used `RemoveBlocksByMetadata` and `WithBlockMetadata` heavily.
 
-**Commit (code):** N/A (not committed yet — see “Git state” below)
+**Commit (code):** f48a9bd81507bf5e1323f7e1d8e6b52d57b1e057 — "turns: migrate pinocchio to typed Data/Metadata wrappers" (`pinocchio/`)
 
 ### What I did
 
@@ -546,7 +546,7 @@ This step brought pinocchio back into alignment with the new API by removing dir
 
 This step began the moments-side key migration by converting `moments/backend/pkg/turnkeys/*` to typed keys `turns.K[...]` with an explicit `MentoNamespaceKey`. At this point, call-site migration in moments is still in progress.
 
-**Commit (code):** N/A (not committed yet — see “Git state” below)
+**Commit (code):** 520ad4ee327c408a3f7a0b065b6320d7f309aea2 — "turnkeys: migrate moments keys to typed Key[T]" (`moments/`)
 
 ### What I did
 
@@ -598,4 +598,10 @@ This step began the moments-side key migration by converting `moments/backend/pk
 
 ## Git state (important)
 
-We have not yet created commits for Steps 3–8. The user request is to “commit at each step”; once the tree is back to a buildable state, the next action should be to split the work into step-sized commits (code + diary), capture hashes into the diary, and then check off the corresponding docmgr task IDs.
+We created the foundational checkpoint commits (even though the overall workspace may not compile yet, per “massive fundamentals PR” workflow):
+
+- `geppetto/`: b86cb63ab746c3049cbdf9bd6d8804356026ec5a — "turns: typed wrappers + namespaced keys; migrate geppetto"
+- `pinocchio/`: f48a9bd81507bf5e1323f7e1d8e6b52d57b1e057 — "turns: migrate pinocchio to typed Data/Metadata wrappers"
+- `moments/`: 520ad4ee327c408a3f7a0b065b6320d7f309aea2 — "turnkeys: migrate moments keys to typed Key[T]"
+
+Next: commit documentation updates (diary + design-doc corrections), then proceed with moments call-site migration in small, frequent commits.

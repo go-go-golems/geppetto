@@ -146,6 +146,8 @@ package turns
 
 // Key identity: constructed from namespace + value + version
 type TurnDataKey string
+type TurnMetadataKey string
+type BlockMetadataKey string
 
 // Constructor: builds "namespace.slug@vN" format
 func NewTurnDataKey(namespace, value string, version uint16) TurnDataKey {
@@ -184,11 +186,17 @@ type BlockMetadata struct {
 ### Data API
 
 ```go
+// IMPORTANT: Go does NOT allow methods to declare their own type parameters.
+// The compiler rejects this with: "syntax error: method must have no type parameters".
+//
+// Therefore the typed API is implemented as generic *functions* taking the wrapper
+// as an explicit argument.
+
 // Write operations
-func (d *Data) Set[T any](key Key[T], value T) error
+func DataSet[T any](d *Data, key Key[T], value T) error
 
 // Read operations
-func (d Data) Get[T any](key Key[T]) (T, bool, error)
+func DataGet[T any](d Data, key Key[T]) (T, bool, error)
 
 // Utility operations
 func (d Data) Len() int
@@ -249,16 +257,16 @@ func (d *Data) UnmarshalYAML(value *yaml.Node) error {
 ### Set Implementation
 
 ```go
-func (d *Data) Set[T any](key Key[T], value T) error {
+func DataSet[T any](d *Data, key Key[T], value T) error {
     if d.m == nil {
         d.m = make(map[TurnDataKey]any)
     }
-    
+
     // Validate serializability
     if _, err := json.Marshal(value); err != nil {
         return fmt.Errorf("Turn.Data[%q]: value not serializable: %w", key.id, err)
     }
-    
+
     d.m[key.id] = value
     return nil
 }
@@ -267,7 +275,7 @@ func (d *Data) Set[T any](key Key[T], value T) error {
 ### Get Implementation
 
 ```go
-func (d Data) Get[T any](key Key[T]) (T, bool, error) {
+func DataGet[T any](d Data, key Key[T]) (T, bool, error) {
     var zero T
     
     if d.m == nil {
@@ -299,8 +307,6 @@ func (d Data) Get[T any](key Key[T]) (T, bool, error) {
 ```go
 package turns
 
-import "github.com/go-go-golems/geppetto/pkg/inference/engine"
-
 // Namespace key (defined once)
 const GeppettoNamespaceKey = "geppetto"
 
@@ -314,11 +320,22 @@ const (
 
 // Typed keys for Turn.Data
 var (
-    KeyToolConfig = K[engine.ToolConfig](GeppettoNamespaceKey, ToolConfigValueKey, 1)
     KeyAgentMode = K[string](GeppettoNamespaceKey, AgentModeValueKey, 1)
     KeyAgentModeAllowedTools = K[[]string](GeppettoNamespaceKey, AgentModeAllowedToolsValueKey, 1)
-    KeyResponsesServerTools = K[bool](GeppettoNamespaceKey, ResponsesServerToolsValueKey, 1)
+    KeyResponsesServerTools = K[[]any](GeppettoNamespaceKey, ResponsesServerToolsValueKey, 1)
 )
+```
+
+### Engine-owned keys (`geppetto/pkg/inference/engine/turnkeys.go`)
+
+`ToolConfig` is defined in the `engine` package, and `engine` already depends on `turns` (the Engine interface uses `*turns.Turn`), so `turns` must NOT import `engine` (import cycle). Therefore the typed key for `ToolConfig` is owned by `engine`:
+
+```go
+package engine
+
+import "github.com/go-go-golems/geppetto/pkg/turns"
+
+var KeyToolConfig = turns.K[ToolConfig](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
 ```
 
 ### Moments Keys (`moments/backend/pkg/turnkeys/keys.go`)
@@ -391,13 +408,13 @@ if modeName == "" {
 
 ```go
 // Middleware pattern - always check error
-mode, ok, err := t.Data.Get(turnkeys.KeyThinkingMode)
+mode, ok, err := turns.DataGet(t.Data, turnkeys.ThinkingMode)
 if err != nil {
     return nil, fmt.Errorf("decode error: %w", err)
 }
 if !ok || mode == "" {
     mode = ModeExploring
-    if err := t.Data.Set(turnkeys.KeyThinkingMode, mode); err != nil {
+    if err := turns.DataSet(&t.Data, turnkeys.ThinkingMode, mode); err != nil {
         return nil, fmt.Errorf("set thinking mode: %w", err)
     }
 }
@@ -420,17 +437,17 @@ turns.WithBlockMetadata(b, kvs)
 **After (use wrapper API):**
 ```go
 // SetTurnMetadata replacement
-if err := t.Metadata.Set(key, value); err != nil {
+if err := turns.MetadataSet(&t.Metadata, key, value); err != nil {
     return fmt.Errorf("set metadata: %w", err)
 }
 
 // SetBlockMetadata replacement
-if err := b.Metadata.Set(key, value); err != nil {
+if err := turns.BlockMetadataSet(&b.Metadata, key, value); err != nil {
     return fmt.Errorf("set block metadata: %w", err)
 }
 
 // HasBlockMetadata replacement
-value, ok, err := b.Metadata.Get(key)
+value, ok, err := turns.BlockMetadataGet(b.Metadata, key)
 if err != nil {
     return false, fmt.Errorf("get block metadata: %w", err)
 }
@@ -441,7 +458,7 @@ if ok && value == expectedValue {
 // RemoveBlocksByMetadata replacement
 for i := len(t.Blocks) - 1; i >= 0; i-- {
     b := &t.Blocks[i]
-    value, ok, err := b.Metadata.Get(key)
+    value, ok, err := turns.BlockMetadataGet(b.Metadata, key)
     if err != nil {
         continue // skip on error
     }
@@ -457,7 +474,7 @@ for i := len(t.Blocks) - 1; i >= 0; i-- {
 
 // WithBlockMetadata replacement
 cloned := b
-if err := cloned.Metadata.Set(key, value); err != nil {
+if err := turns.BlockMetadataSet(&cloned.Metadata, key, value); err != nil {
     return b, fmt.Errorf("set metadata: %w", err)
 }
 return cloned
