@@ -710,3 +710,34 @@ This step migrated the thinking-mode middleware, which was still using direct ma
 ### What should be done in the future
 
 - Ensure any other code paths that set/override thinking mode are migrated to `turns.DataSet` so they can’t store non-serializable/wrong-typed values.
+
+---
+
+## Step 12: Migrate moments promptutil prompt resolution to typed Turn.Data access
+
+This step migrated the prompt resolution helper (`promptutil`) which is widely used by middleware prompt injection. It previously read Turn.Data directly and assumed the underlying map representation existed; we updated it to use typed accessors and to propagate type mismatch errors rather than silently defaulting.
+
+**Commit (code):** 67bf994de673188c946bc041fed1294cc98dd0e3 — "promptutil: migrate Turn.Data reads to typed DataGet/DataSet" (`moments/`)
+
+### What I did
+
+- Updated `moments/backend/pkg/promptutil/resolve.go`:
+  - `promptResolutionDataFromTurn` now uses `turns.DataGet` for `PersonID`, `OrgID`, `PromptSlugPrefix`, `DraftBundleID`
+  - it now returns `(promptResolutionData, error)` so type mismatch errors can be handled
+- Updated tests:
+  - `moments/backend/pkg/promptutil/resolve_test.go`
+  - `moments/backend/pkg/promptutil/resolve_draft_test.go`
+  - Replaced map literals with `turns.DataSet` seeding and `turns.DataGet` assertions
+
+### Why
+
+- Prompt resolution is a central dependency for many middlewares; migrating it early reduces the blast radius of later middleware migrations.
+
+### What warrants a second pair of eyes
+
+- Error propagation semantics:
+  - we now fail resolution on type mismatch in Turn.Data instead of silently defaulting; confirm this is desirable for production workflows given the “breaking refactor” context.
+
+### What should be done in the future
+
+- Continue migrating middleware call sites that still directly access Turn.Data for prompt-related keys (router, ordering middleware, artifact metadata extraction).
