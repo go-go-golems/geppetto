@@ -794,3 +794,28 @@ This step migrated the memory context injection middleware, which previously rel
 ### What warrants a second pair of eyes
 
 - The decision to fail fast on typed API mismatches in this middleware (as opposed to “skip on error”).
+
+---
+
+## Step 15: docmgr task bookkeeping (check off completed core + moments migration tasks)
+
+This step keeps the ticket state trustworthy: after landing multiple foundational commits across `geppetto/`, `pinocchio/`, and `moments/`, we updated the ticket’s task list to reflect Go’s generic-method constraint (use `DataGet/DataSet` functions) and checked off everything already completed.
+
+**Commit (docs):** 7bfdefe099da20b263c355deae9252f64decacb7 — "docmgr: check off core + moments migration tasks" (`geppetto/`)
+
+### What I did
+
+- Updated `tasks.md` wording to match the implemented API shape (generic functions instead of generic methods)
+- Checked off the completed task IDs for:
+  - core wrappers + YAML (1–30)
+  - helper removal (31–35)
+  - major geppetto cleanup chunks (87–108 subset)
+- Added explicit “moments migration” tasks and immediately checked them off (114–118) since they are already complete
+
+### Why
+
+- When doing a large breaking refactor, the task list is the best shared “truth” about what’s done vs what still needs migration.
+
+### What should be done in the future
+
+- Continue checking tasks in small increments as we migrate remaining moments/pinocchio sites and implement linter + remaining tests.
