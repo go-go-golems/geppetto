@@ -1,5 +1,5 @@
 ---
-Title: "Go generics: why methods can't have type parameters (report + study guide, sonnet-4.5)"
+Title: 'Go generics: why methods can''t have type parameters (report + study guide, sonnet-4.5)'
 Ticket: 002-IMPLEMENT-TYPE-DATA-ACCESSOR
 Status: active
 Topics:
@@ -11,20 +11,23 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../01-diary.md
-      Note: "Implementation diary; Step 3/4 describe hitting this limitation"
-    - Path: ../../../../../../geppetto/pkg/turns/types.go
-      Note: "Final implementation using generic functions (DataSet/DataGet/MetadataSet/etc) instead of generic methods"
+    - Path: geppetto/geppetto/pkg/turns/types.go
+      Note: Final implementation using generic functions (DataSet/DataGet/MetadataSet/etc) instead of generic methods
+    - Path: geppetto/ttmp/2025/12/22/001-REVIEW-TYPED-DATA-ACCESS--review-typed-turn-data-metadata-design-debate-synthesis/design-doc/03-final-design-typed-turn-data-metadata-accessors.md
+      Note: Design doc updated to match compiler restriction
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/01-diary.md
+      Note: Implementation diary; Step 3/4 describe hitting this limitation
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/sources/go-generic-methods.md
+      Note: Shorter/high-signal generics note
 ExternalSources:
-    - URL: https://go.dev/ref/spec#Type_parameter_declarations
-      Note: "Go spec: Type parameter declarations"
-    - URL: https://go.dev/ref/spec#Method_sets
-      Note: "Go spec: Method sets"
-Summary: "Detailed report explaining why Go methods cannot declare their own type parameters, the exact compiler error triggered, what's actually allowed vs disallowed, and a self-study guide with exercises to understand the design constraints."
+    - https://go.dev/ref/spec#Type_parameter_declarations
+    - https://go.dev/ref/spec#Method_sets
+Summary: Detailed report explaining why Go methods cannot declare their own type parameters, the exact compiler error triggered, what's actually allowed vs disallowed, and a self-study guide with exercises to understand the design constraints.
 LastUpdated: 2025-12-22T17:00:00-05:00
-WhatFor: "Understanding why we use generic functions (DataSet/DataGet) instead of generic methods (d.Set/d.Get) in the typed Turn.Data wrapper API"
-WhenToUse: "Reference when confused about 'method must have no type parameters' error or why API uses package-level functions instead of methods"
+WhatFor: Understanding why we use generic functions (DataSet/DataGet) instead of generic methods (d.Set/d.Get) in the typed Turn.Data wrapper API
+WhenToUse: Reference when confused about 'method must have no type parameters' error or why API uses package-level functions instead of methods
 ---
+
 
 # Go Generics: Why Methods Can't Have Type Parameters
 

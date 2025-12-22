@@ -24,8 +24,12 @@ RelatedFiles:
         Final implementation using generic functions (DataSet/DataGet/etc) instead of generic methods
     - Path: geppetto/ttmp/2025/12/22/001-REVIEW-TYPED-DATA-ACCESS--review-typed-turn-data-metadata-design-debate-synthesis/design-doc/03-final-design-typed-turn-data-metadata-accessors.md
       Note: Design doc specifying the typed wrapper API to implement
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/analysis/01-codebase-analysis-turn-data-metadata-access-locations.md
+      Note: Full inventory of migration sites
     - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/01-diary.md
       Note: Step 3/4 where the generic methods issue was encountered and resolved
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/sources/go-generic-methods.md
+      Note: Generics constraint note referenced by Step 3/4
     - Path: moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
       Note: Compression middleware that needs refactoring for typed API
     - Path: moments/backend/pkg/inference/middleware/current_user_middleware.go
@@ -38,6 +42,7 @@ LastUpdated: 2025-12-22T14:40:40.855310715-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 

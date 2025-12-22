@@ -11,40 +11,49 @@ DocType: analysis
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../../../../../../../moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
-      Note: Compression middleware that needs refactoring for typed API
-    - Path: ../../../../../../../moments/backend/pkg/inference/middleware/current_user_middleware.go
-      Note: Example middleware with Turn.Data access patterns
-    - Path: ../../../../../../../moments/backend/pkg/turnkeys/block_meta_keys.go
-      Note: Moments-specific Block.Metadata keys (to migrate)
-    - Path: ../../../../../../../moments/backend/pkg/turnkeys/data_keys.go
+    - Path: geppetto/pkg/analysis/turnsdatalint/analyzer.go
       Note: |-
-        Moments-specific Turn.Data keys (to migrate)
-        Moments keys cataloged
-    - Path: ../../../../../../../moments/backend/pkg/turnkeys/turn_meta_keys.go
-      Note: Moments-specific Turn.Metadata keys (to migrate)
-    - Path: ../../../../../../../pinocchio/pkg/middlewares/agentmode/middleware.go
-      Note: Pinocchio middleware with Turn.Data access patterns
-    - Path: pkg/analysis/turnsdatalint/analyzer.go
-      Note: Linter that will need enhancement for new API
-    - Path: pkg/inference/toolhelpers/helpers.go
+        Linter that will need enhancement for new API
+        Linter to evolve alongside the migration
+    - Path: geppetto/pkg/inference/toolhelpers/helpers.go
       Note: Tool helpers that initialize and write to Turn.Data
-    - Path: pkg/turns/keys.go
+    - Path: geppetto/pkg/turns/keys.go
       Note: |-
         Current canonical key definitions (to be migrated to typed Key[T] pattern)
         Key definitions cataloged
-    - Path: pkg/turns/serde/serde.go
+    - Path: geppetto/pkg/turns/serde/serde.go
       Note: Serialization normalization that initializes nil maps
-    - Path: pkg/turns/types.go
+    - Path: geppetto/pkg/turns/types.go
       Note: |-
         Core Turn/Block type definitions with current map-based Data/Metadata fields
         Core type definitions analyzed
+    - Path: geppetto/ttmp/2025/12/22/001-REVIEW-TYPED-DATA-ACCESS--review-typed-turn-data-metadata-design-debate-synthesis/design-doc/03-final-design-typed-turn-data-metadata-accessors.md
+      Note: Spec the analysis is mapping against
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/01-diary.md
+      Note: Step-by-step record of which migrations were actually landed
+    - Path: moments/backend/pkg/inference/middleware/compression/turn_data_compressor.go
+      Note: |-
+        Compression middleware that needs refactoring for typed API
+        Special-case migration called out by this analysis
+    - Path: moments/backend/pkg/inference/middleware/current_user_middleware.go
+      Note: Example middleware with Turn.Data access patterns
+    - Path: moments/backend/pkg/turnkeys/block_meta_keys.go
+      Note: Moments-specific Block.Metadata keys (to migrate)
+    - Path: moments/backend/pkg/turnkeys/data_keys.go
+      Note: |-
+        Moments-specific Turn.Data keys (to migrate)
+        Moments keys cataloged
+    - Path: moments/backend/pkg/turnkeys/turn_meta_keys.go
+      Note: Moments-specific Turn.Metadata keys (to migrate)
+    - Path: pinocchio/pkg/middlewares/agentmode/middleware.go
+      Note: Pinocchio middleware with Turn.Data access patterns
 ExternalSources: []
 Summary: Comprehensive mapping of all Turn.Data, Turn.Metadata, and Block.Metadata access locations across geppetto, moments, pinocchio, and bobatea codebases. Identifies migration targets, helper functions, serialization points, and linter integration needs.
 LastUpdated: 2025-12-22T16:00:00-05:00
 WhatFor: 'Implementation planning: identify all code locations that must migrate from map access to typed wrapper API.'
 WhenToUse: Reference when planning migration phases, estimating effort, and validating completeness.
 ---
+
 
 
 # Codebase Analysis: Turn.Data/Metadata Access Locations

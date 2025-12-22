@@ -10,13 +10,33 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: geppetto/pkg/inference/engine/turnkeys.go
+      Note: Engine-owned KeyToolConfig avoids import cycles
+    - Path: geppetto/pkg/turns/keys.go
+      Note: Geppetto canonical typed keys + namespace/value/version
+    - Path: geppetto/pkg/turns/types.go
+      Note: Implements wrappers
+    - Path: geppetto/ttmp/2025/12/22/001-REVIEW-TYPED-DATA-ACCESS--review-typed-turn-data-metadata-design-debate-synthesis/design-doc/03-final-design-typed-turn-data-metadata-accessors.md
+      Note: Canonical design reference
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/analysis/01-codebase-analysis-turn-data-metadata-access-locations.md
+      Note: Inventory of migration sites referenced by the diary
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/sources/go-generic-methods.md
+      Note: Explains why the API uses generic functions instead of generic methods
+    - Path: moments/backend/pkg/inference/middleware/current_user_middleware.go
+      Note: Representative moments migration to typed Turn.Data/BlockMetadata
+    - Path: moments/backend/pkg/turnkeys/data_keys.go
+      Note: Moments typed Turn.Data keys
+    - Path: pinocchio/pkg/middlewares/agentmode/middleware.go
+      Note: Representative pinocchio migration away from removed helpers
 ExternalSources: []
-Summary: "Step-by-step implementation diary for typed Turn.Data/Metadata accessors migration"
+Summary: Step-by-step implementation diary for typed Turn.Data/Metadata accessors migration
 LastUpdated: 2025-12-22T16:00:00-05:00
-WhatFor: "Track implementation progress, document decisions, failures, and learnings"
-WhenToUse: "Reference during implementation to understand context and avoid repeating mistakes"
+WhatFor: Track implementation progress, document decisions, failures, and learnings
+WhenToUse: Reference during implementation to understand context and avoid repeating mistakes
 ---
+
+
 
 # Diary
 

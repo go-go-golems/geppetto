@@ -10,13 +10,18 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/01-diary.md
+      Note: Where the implementation hit the compiler error
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/sources/go-generic-methods.md
+      Note: Deeper references and examples
 ExternalSources: []
-Summary: "Clarifies Go's generics limitation around methods with type parameters, shows the exact compiler error, and provides a self-study guide for understanding generics vs method sets/interfaces."
+Summary: Clarifies Go's generics limitation around methods with type parameters, shows the exact compiler error, and provides a self-study guide for understanding generics vs method sets/interfaces.
 LastUpdated: 2025-12-22T15:49:19.224799529-05:00
-WhatFor: "Unblock understanding of the Step 3/4 migration and provide a durable reference for generics-related design decisions in this repo."
-WhenToUse: "Use when you see `method must have no type parameters`, when designing typed-access APIs, or when reviewing generic constraints and method/interface interactions."
+WhatFor: Unblock understanding of the Step 3/4 migration and provide a durable reference for generics-related design decisions in this repo.
+WhenToUse: Use when you see `method must have no type parameters`, when designing typed-access APIs, or when reviewing generic constraints and method/interface interactions.
 ---
+
 
 # Go generics: why methods can't have type parameters (report + study guide)
 

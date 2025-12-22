@@ -1,3 +1,34 @@
+---
+Title: 'Go generics: why methods can’t have type parameters (report + study guide)'
+Ticket: 002-IMPLEMENT-TYPE-DATA-ACCESSOR
+Status: active
+Topics:
+    - geppetto
+    - turns
+    - go
+    - architecture
+DocType: reference
+Intent: long-term
+Owners: []
+RelatedFiles:
+    - Path: geppetto/pkg/turns/types.go
+      Note: Where the generic-method limitation affected API shape (DataGet/DataSet)
+    - Path: geppetto/ttmp/2025/12/22/001-REVIEW-TYPED-DATA-ACCESS--review-typed-turn-data-metadata-design-debate-synthesis/design-doc/03-final-design-typed-turn-data-metadata-accessors.md
+      Note: Design doc updated to match compiler restriction and key ownership
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/01-diary.md
+      Note: Diary Steps 3–5 cover the failure + workaround
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/02-go-generics-why-methods-can-t-have-type-parameters-report-study-guide.md
+      Note: Shorter report version
+    - Path: geppetto/ttmp/2025/12/22/002-IMPLEMENT-TYPE-DATA-ACCESSOR--implement-typed-turn-data-metadata-accessors/reference/03-composer-1-go-generics-why-methods-can-t-have-type-parameters-report-and-study-guide.md
+      Note: Longer report version
+ExternalSources: []
+Summary: Research note explaining the Go compiler restriction against method type parameters, with practical patterns (DataGet/DataSet) and study pointers.
+LastUpdated: 2025-12-22T00:00:00-05:00
+WhatFor: Unblock understanding/review of the typed Turn.Data accessor design and the generic-method limitation.
+WhenToUse: Use when reasoning about why typed accessors are implemented as generic functions instead of methods.
+---
+
+
 # Go generics and the “method must have no type parameters” wall
 
 You already captured the key empirical fact: **the compiler rejects methods that declare their own type parameter list** with:
