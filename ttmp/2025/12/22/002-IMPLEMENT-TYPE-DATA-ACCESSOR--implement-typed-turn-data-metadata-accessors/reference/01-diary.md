@@ -639,3 +639,40 @@ This step turned the “confusion point” (generic methods) into explicit docum
 ### What should be done in the future
 
 - Keep adding short “why this constraint exists” notes whenever a design doc depends on language/tooling details.
+
+---
+
+## Step 10: Migrate moments current_user middleware to typed Turn.Data and typed block metadata markers
+
+This step is the first “real” moments call-site migration. We updated `current_user_middleware` to stop using raw map access and removed helper calls that no longer exist (`HasBlockMetadata`, `WithBlockMetadata`). To preserve idempotency semantics, we introduced canonical typed keys for the webchat “section” and “id” block metadata markers in `turnkeys`.
+
+**Commit (code):** 25c1bb5b12c7d72ea45ba0baf58b6ab20e69a168 — "current_user: migrate to typed Turn.Data + webchat block metadata keys" (`moments/`)
+
+### What I did
+
+- Added typed Block.Metadata keys in `moments/backend/pkg/turnkeys/block_meta_keys.go`:
+  - `turnkeys.BlockMetaWebchatSection`
+  - `turnkeys.BlockMetaWebchatID`
+- Migrated `moments/backend/pkg/inference/middleware/current_user_middleware.go`:
+  - `t.Data[...] = ...` → `turns.DataSet(&t.Data, turnkeys.<Key>, value)`
+  - marker detection and insertion via `turns.BlockMetadataGet/Set` + `turnkeys.BlockMetaWebchatSection/ID`
+  - removed `if t.Data == nil { ... }` (wrapper handles nil map internally)
+
+### Why
+
+- This middleware is a high-traffic example of Turn.Data writes + block marker metadata. Fixing it early validates the new patterns and surfaces missing key definitions.
+
+### What worked
+
+- The migration kept the exact control-flow intent:
+  - only inserts the user context system block when the marker is absent
+  - continues to emit the same debug/log events
+
+### What warrants a second pair of eyes
+
+- Key naming choices for the new block metadata markers:
+  - ensure the `@v1` key identities we picked won’t conflict with other moments metadata conventions as we migrate more middlewares.
+
+### What should be done in the future
+
+- Migrate the other moments middlewares that depend on the marker keys (`ordering_middleware`, etc.) so everything uses the same canonical typed keys.
