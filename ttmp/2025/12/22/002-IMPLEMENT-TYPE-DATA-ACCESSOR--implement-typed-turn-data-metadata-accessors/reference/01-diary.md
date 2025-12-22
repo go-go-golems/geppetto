@@ -676,3 +676,37 @@ This step is the first “real” moments call-site migration. We updated `curre
 ### What should be done in the future
 
 - Migrate the other moments middlewares that depend on the marker keys (`ordering_middleware`, etc.) so everything uses the same canonical typed keys.
+
+---
+
+## Step 11: Migrate moments thinkingmode middleware to typed Turn.Data and canonical middleware block tagging
+
+This step migrated the thinking-mode middleware, which was still using direct map access for Turn.Data and the removed helper functions for block metadata tagging. We also tightened the API by having `GetModeFromTurn` return an error on type mismatches (instead of silently defaulting), since type mismatches are now first-class error cases in the typed API.
+
+**Commit (code):** cc32feaa5bd5cac2062a3c744880338dea0ebd12 — "thinkingmode: migrate to typed Turn.Data and geppetto middleware block tag" (`moments/`)
+
+### What I did
+
+- Updated `moments/backend/pkg/inference/middleware/thinkingmode/registry.go`:
+  - `GetModeFromTurn` now uses `turns.DataGet(t.Data, turnkeys.ThinkingMode)` and returns `(string, bool, error)`
+  - `SetModeOnTurn` now uses `turns.DataSet(&t.Data, turnkeys.ThinkingMode, ...)` and returns error
+- Updated `moments/backend/pkg/inference/middleware/thinkingmode/middleware.go`:
+  - removed `t.Data == nil` initialization and raw map writes
+  - removed helper usage (`HasBlockMetadata`, `WithBlockMetadata`)
+  - used geppetto’s canonical middleware tag key: `turns.KeyBlockMetaMiddleware` with value `"thinking_mode_instructions"`
+
+### Why
+
+- This middleware is a compact example of the common patterns:
+  - read optional string from Turn.Data with defaulting
+  - write back default values to Turn.Data
+  - idempotent “remove old inserted blocks then insert one new block” behavior
+
+### What warrants a second pair of eyes
+
+- Error behavior choice:
+  - we now treat a wrong-type value under `turnkeys.ThinkingMode` as an error (and fail the middleware) rather than silently defaulting to exploring.
+
+### What should be done in the future
+
+- Ensure any other code paths that set/override thinking mode are migrated to `turns.DataSet` so they can’t store non-serializable/wrong-typed values.
