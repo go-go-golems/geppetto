@@ -764,3 +764,33 @@ This step migrated the memory extraction middleware, which was still using remov
 ### What warrants a second pair of eyes
 
 - Confirm we preserved the exact idempotency condition (only remove *system* blocks with the tag set to `"true"`).
+
+---
+
+## Step 14: Migrate moments memory_context to typed Turn.Data and typed BlockMetadata markers (and remove legacy keys)
+
+This step migrated the memory context injection middleware, which previously relied on legacy person-id key variants and the removed helper functions for block metadata. Since the overall refactor is explicitly breaking, we removed the legacy key read paths and require the canonical typed key (`turnkeys.PersonID`) to be present.
+
+**Commit (code):** f78a0cb78b1744f610e21c357c5c2b5adab95e15 — "memory: migrate memory_context to typed Turn.Data/BlockMetadata" (`moments/`)
+
+### What I did
+
+- Updated `moments/backend/pkg/memory/context_middleware.go`:
+  - replaced `t.Data[...]` reads with `turns.DataGet(t.Data, turnkeys.PersonID)` / `turnkeys.ScopeType` / `turnkeys.ScopeID`
+  - removed legacy key variants (`PersonIDLegacy`, `PersonIDCamelCase`) that no longer exist
+  - replaced `HasBlockMetadata` + `WithBlockMetadata` with `turns.BlockMetadataGet/Set` + `turnkeys.BlockMetaMemoryContext`
+  - promoted type mismatch errors to real errors (fail fast), while keeping “no memories” / “provider error” best-effort behavior
+- Updated `moments/backend/pkg/memory/context_middleware_test.go` accordingly:
+  - seeded Turn.Data via `turns.DataSet`
+  - detected marker via `turns.BlockMetadataGet`
+
+### Why
+
+- This middleware combines the three main migration patterns:
+  - typed Turn.Data read + parse (uuid)
+  - idempotent “remove old inserted block”
+  - typed Block.Metadata marking for injected blocks
+
+### What warrants a second pair of eyes
+
+- The decision to fail fast on typed API mismatches in this middleware (as opposed to “skip on error”).
