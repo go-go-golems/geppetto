@@ -135,6 +135,12 @@ type Data struct {
 	m map[TurnDataKey]any
 }
 
+// IsZero allows YAML omitempty to work with an opaque wrapper that has no exported fields.
+// gopkg.in/yaml.v3 treats structs with no exported fields as empty unless IsZero is provided.
+func (d Data) IsZero() bool {
+	return len(d.m) == 0
+}
+
 // DataSet stores value for key after validating JSON serializability.
 func DataSet[T any](d *Data, key Key[T], value T) error {
 	if d.m == nil {
@@ -229,6 +235,11 @@ type Metadata struct {
 	m map[TurnMetadataKey]any
 }
 
+// IsZero allows YAML omitempty to work with an opaque wrapper that has no exported fields.
+func (m Metadata) IsZero() bool {
+	return len(m.m) == 0
+}
+
 func MetadataSet[T any](m *Metadata, key Key[T], value T) error {
 	if m.m == nil {
 		m.m = make(map[TurnMetadataKey]any)
@@ -319,6 +330,11 @@ func (m *Metadata) UnmarshalYAML(value *yaml.Node) error {
 // BlockMetadata is an opaque wrapper for Block.Metadata.
 type BlockMetadata struct {
 	m map[BlockMetadataKey]any
+}
+
+// IsZero allows YAML omitempty to work with an opaque wrapper that has no exported fields.
+func (bm BlockMetadata) IsZero() bool {
+	return len(bm.m) == 0
 }
 
 func BlockMetadataSet[T any](bm *BlockMetadata, key Key[T], value T) error {
