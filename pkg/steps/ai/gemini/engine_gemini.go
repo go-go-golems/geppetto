@@ -443,7 +443,12 @@ func extractIntField(v reflect.Value, name string) int64 {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return f.Int()
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return int64(f.Uint())
+		uval := f.Uint()
+		// Check for overflow when converting uint64 to int64
+		if uval > math.MaxInt64 {
+			return math.MaxInt64
+		}
+		return int64(uval)
 	default:
 		return 0
 	}
