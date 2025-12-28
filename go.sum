@@ -102,10 +102,10 @@ github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHk
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
-github.com/go-go-golems/clay v0.2.0 h1:zZGcxKekqQQ11epp3q0T/0SlFAeuSc33xEHfkqNe204=
-github.com/go-go-golems/clay v0.2.0/go.mod h1:9ghOVjHLA4XEtvCxw7aAXQytn8jTcBpzC3rarh//gBQ=
-github.com/go-go-golems/glazed v0.7.4 h1:fHl5rMAwYmE1R9xq0jtFyFBxWqWHTGP8W5NHXMYeoJk=
-github.com/go-go-golems/glazed v0.7.4/go.mod h1:M2xgtRFGBqDIl8VrTY2QDNJ9l2AHVRQ7rDr5Uqch1VQ=
+github.com/go-go-golems/clay v0.2.1 h1:++xf+ivuWlYQ3TVOWSKub5AcElX5GVAX4e7TkTI4PnQ=
+github.com/go-go-golems/clay v0.2.1/go.mod h1:j6g1lWbsr5Fh7ArmX+iojEa1RojHpuUBa/QNb6yLqg0=
+github.com/go-go-golems/glazed v0.7.6 h1:AtUG0TJqfveqKh4G7/zYUqj4VS9fOBbQpfLQduW2Jkg=
+github.com/go-go-golems/glazed v0.7.6/go.mod h1:M2xgtRFGBqDIl8VrTY2QDNJ9l2AHVRQ7rDr5Uqch1VQ=
 github.com/go-go-golems/go-emrichen v0.0.5 h1:zCmwTjvj7vtNWKj9JC1OYOgLiQ2OYZSHLZR1XoZv534=
 github.com/go-go-golems/go-emrichen v0.0.5/go.mod h1:SKKb5juUGwK7rTWFXYFrjFdM9GxfXdRCY9Lhc2MHx8U=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
