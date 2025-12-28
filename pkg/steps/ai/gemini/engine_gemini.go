@@ -282,12 +282,14 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		delta := ""
 		if resp != nil && len(resp.Candidates) > 0 {
 			for _, cand := range resp.Candidates {
-				if cand.Content == nil {
-					continue
-				}
 				// Capture finish reason from any candidate that has it (keep the last seen).
+				// Extract this BEFORE checking Content, as candidates can have FinishReason
+				// even when Content is nil (e.g., safety blocked or empty responses).
 				if fr, ok := extractGeminiFinishReason(cand); ok {
 					finalStopReason = fr
+				}
+				if cand.Content == nil {
+					continue
 				}
 				for _, p := range cand.Content.Parts {
 					switch v := p.(type) {
