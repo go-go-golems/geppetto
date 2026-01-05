@@ -1,0 +1,35 @@
+# Changelog
+
+## 2026-01-05
+
+- Initial workspace created
+
+
+## 2026-01-05
+
+Bootstrap: create ticket workspace, add analysis+diary docs, relate key files, and seed task list.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/ttmp/2026/01/05/001-GENERIC-TURN-TYPES--generic-turn-types-store-specific-key-families-key-methods/analysis/01-analysis-implement-store-specific-key-families-key-methods.md — Defines target API and migration plan
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/ttmp/2026/01/05/001-GENERIC-TURN-TYPES--generic-turn-types-store-specific-key-families-key-methods/reference/01-diary.md — Records ongoing investigation and decisions
+
+
+## 2026-01-05
+
+Plan: replace Key[T]+function API with store-specific key families + key methods; no backwards compatibility; add detailed task breakdown.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/ttmp/2026/01/05/001-GENERIC-TURN-TYPES--generic-turn-types-store-specific-key-families-key-methods/tasks.md — Defines no-BC implementation/migration steps
+
+
+## 2026-01-05
+
+Implement DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set methods (tasks 2-3) (commit 583343b)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/key_families.go — New production key families + methods
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/poc_split_key_types_test.go — Use production key families; keep behavior contract tests
+
