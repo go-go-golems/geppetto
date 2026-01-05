@@ -39,7 +39,13 @@ WhenToUse: Use when implementing typed Turn.Data/Metadata accessors or migrating
 
 ## Executive Summary
 
-We are replacing the current `map[TurnDataKey]any` access pattern with an **opaque wrapper** that provides type-safe access via **typed keys** `Key[T]`. This design:
+We are replacing the current `map[TurnDataKey]any` access pattern with an **opaque wrapper** that provides type-safe access via **typed keys** split by store:
+
+- `DataKey[T]` for `Turn.Data`
+- `TurnMetaKey[T]` for `Turn.Metadata`
+- `BlockMetaKey[T]` for `Block.Metadata`
+
+This design:
 
 - **Eliminates type assertion boilerplate** via typed keys with type inference
 - **Centralizes nil-map initialization** in the wrapper
@@ -49,7 +55,7 @@ We are replacing the current `map[TurnDataKey]any` access pattern with an **opaq
 
 **Scope:** `Turn.Data`, `Turn.Metadata`, `Block.Metadata`. `Block.Payload` is unchanged.
 
-**Breaking change:** All direct map access (`t.Data[key] = value`) must migrate to wrapper API (`t.Data.Set(key, value)`).
+**Breaking change:** All direct map access (`t.Data[key] = value`) must migrate to wrapper API (`turnkeys.SomeKey.Set(&t.Data, value)`).
 
 **Removed helpers:** `SetTurnMetadata`, `SetBlockMetadata`, `HasBlockMetadata`, `RemoveBlocksByMetadata`, `WithBlockMetadata` are removed. All access must use the wrapper API directly. No deprecation period or backward compatibility.
 
@@ -83,9 +89,11 @@ const ToolConfigValueKey = "tool_config"
 
 **Example canonical keys:**
 ```go
-var KeyUserDisplayName = K[string](MentoNamespaceKey, UserDisplayNameValueKey, 1)
-var KeyPersonID = K[string](MentoNamespaceKey, PersonIDValueKey, 1)
-var KeyToolConfig = K[engine.ToolConfig](GeppettoNamespaceKey, ToolConfigValueKey, 1)
+var KeyUserDisplayName = DataK[string](MentoNamespaceKey, UserDisplayNameValueKey, 1)
+var KeyPersonID = DataK[string](MentoNamespaceKey, PersonIDValueKey, 1)
+
+// ToolConfig typed key is owned by `engine` (import-cycle avoidance), but it is still a Turn.Data key.
+var KeyToolConfig = DataK[engine.ToolConfig](GeppettoNamespaceKey, ToolConfigValueKey, 1)
 ```
 
 ### Decision 2: Value Storage — `any` with Validation
@@ -156,22 +164,43 @@ type TurnDataKey string
 type TurnMetadataKey string
 type BlockMetadataKey string
 
-// Constructor: builds "namespace.slug@vN" format
-func NewTurnDataKey(namespace, value string, version uint16) TurnDataKey {
+// Constructor: builds "namespace.slug@vN" format (shared across Data/Metadata/BlockMetadata).
+func NewKeyString(namespace, value string, version uint16) string {
     if namespace == "" || value == "" || version < 1 {
         panic(fmt.Errorf("invalid key: namespace=%q value=%q version=%d", namespace, value, version))
     }
-    return TurnDataKey(fmt.Sprintf("%s.%s@v%d", namespace, value, version))
+    return fmt.Sprintf("%s.%s@v%d", namespace, value, version)
 }
 
-// Typed key wrapper (enables type inference)
-type Key[T any] struct {
-    id TurnDataKey
+// Typed key wrappers (enable type inference) — split by store to prevent accidental mixing:
+// - a Data key cannot be used against Turn.Metadata, etc.
+type DataKey[T any] struct{ id TurnDataKey }
+type TurnMetaKey[T any] struct{ id TurnMetadataKey }
+type BlockMetaKey[T any] struct{ id BlockMetadataKey }
+
+func (k DataKey[T]) String() string { return string(k.id) }
+func (k TurnMetaKey[T]) String() string { return string(k.id) }
+func (k BlockMetaKey[T]) String() string { return string(k.id) }
+
+func NewTurnDataKey(namespace, value string, version uint16) TurnDataKey {
+    return TurnDataKey(NewKeyString(namespace, value, version))
+}
+func NewTurnMetaKey(namespace, value string, version uint16) TurnMetadataKey {
+    return TurnMetadataKey(NewKeyString(namespace, value, version))
+}
+func NewBlockMetaKey(namespace, value string, version uint16) BlockMetadataKey {
+    return BlockMetadataKey(NewKeyString(namespace, value, version))
 }
 
-// Helper to create typed keys from namespace/value consts
-func K[T any](namespace, value string, version uint16) Key[T] {
-    return Key[T]{id: NewTurnDataKey(namespace, value, version)}
+// Helpers to create typed keys from namespace/value consts
+func DataK[T any](namespace, value string, version uint16) DataKey[T] {
+    return DataKey[T]{id: NewTurnDataKey(namespace, value, version)}
+}
+func TurnMetaK[T any](namespace, value string, version uint16) TurnMetaKey[T] {
+    return TurnMetaKey[T]{id: NewTurnMetaKey(namespace, value, version)}
+}
+func BlockMetaK[T any](namespace, value string, version uint16) BlockMetaKey[T] {
+    return BlockMetaKey[T]{id: NewBlockMetaKey(namespace, value, version)}
 }
 
 // Opaque wrapper for Turn.Data
@@ -190,20 +219,26 @@ type BlockMetadata struct {
 }
 ```
 
-### Data API
+### Typed Key API (Get/Set methods)
 
 ```go
-// IMPORTANT: Go does NOT allow methods to declare their own type parameters.
-// The compiler rejects this with: "syntax error: method must have no type parameters".
+// IMPORTANT: Go does NOT allow methods to declare their own type parameters
+// (so `func (d *Data) Get[T any](...)` is illegal).
 //
-// Therefore the typed API is implemented as generic *functions* taking the wrapper
-// as an explicit argument.
+// However, methods on generic receiver types ARE allowed. We use that to attach
+// Get/Set to the typed keys themselves.
 
-// Write operations
-func DataSet[T any](d *Data, key Key[T], value T) error
+// Turn.Data access
+func (k DataKey[T]) Get(d Data) (T, bool, error)
+func (k DataKey[T]) Set(d *Data, value T) error
 
-// Read operations
-func DataGet[T any](d Data, key Key[T]) (T, bool, error)
+// Turn.Metadata access
+func (k TurnMetaKey[T]) Get(m Metadata) (T, bool, error)
+func (k TurnMetaKey[T]) Set(m *Metadata, value T) error
+
+// Block.Metadata access
+func (k BlockMetaKey[T]) Get(bm BlockMetadata) (T, bool, error)
+func (k BlockMetaKey[T]) Set(bm *BlockMetadata, value T) error
 
 // Utility operations
 func (d Data) Len() int
@@ -264,17 +299,17 @@ func (d *Data) UnmarshalYAML(value *yaml.Node) error {
 ### Set Implementation
 
 ```go
-func DataSet[T any](d *Data, key Key[T], value T) error {
+func (k DataKey[T]) Set(d *Data, value T) error {
     if d.m == nil {
         d.m = make(map[TurnDataKey]any)
     }
 
     // Validate serializability
     if _, err := json.Marshal(value); err != nil {
-        return fmt.Errorf("Turn.Data[%q]: value not serializable: %w", key.id, err)
+        return fmt.Errorf("Turn.Data[%q]: value not serializable: %w", k.id, err)
     }
 
-    d.m[key.id] = value
+    d.m[k.id] = value
     return nil
 }
 ```
@@ -282,14 +317,14 @@ func DataSet[T any](d *Data, key Key[T], value T) error {
 ### Get Implementation
 
 ```go
-func DataGet[T any](d Data, key Key[T]) (T, bool, error) {
+func (k DataKey[T]) Get(d Data) (T, bool, error) {
     var zero T
     
     if d.m == nil {
         return zero, false, nil
     }
     
-    value, ok := d.m[key.id]
+    value, ok := d.m[k.id]
     if !ok {
         return zero, false, nil
     }
@@ -297,7 +332,7 @@ func DataGet[T any](d Data, key Key[T]) (T, bool, error) {
     // Type assertion with error
     typed, ok := value.(T)
     if !ok {
-        return zero, true, fmt.Errorf("Turn.Data[%q]: expected %T, got %T", key.id, zero, value)
+        return zero, true, fmt.Errorf("Turn.Data[%q]: expected %T, got %T", k.id, zero, value)
     }
     
     return typed, true, nil
@@ -327,9 +362,9 @@ const (
 
 // Typed keys for Turn.Data
 var (
-    KeyAgentMode = K[string](GeppettoNamespaceKey, AgentModeValueKey, 1)
-    KeyAgentModeAllowedTools = K[[]string](GeppettoNamespaceKey, AgentModeAllowedToolsValueKey, 1)
-    KeyResponsesServerTools = K[[]any](GeppettoNamespaceKey, ResponsesServerToolsValueKey, 1)
+    KeyAgentMode = DataK[string](GeppettoNamespaceKey, AgentModeValueKey, 1)
+    KeyAgentModeAllowedTools = DataK[[]string](GeppettoNamespaceKey, AgentModeAllowedToolsValueKey, 1)
+    KeyResponsesServerTools = DataK[[]any](GeppettoNamespaceKey, ResponsesServerToolsValueKey, 1)
 )
 ```
 
@@ -342,7 +377,7 @@ package engine
 
 import "github.com/go-go-golems/geppetto/pkg/turns"
 
-var KeyToolConfig = turns.K[ToolConfig](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
+var KeyToolConfig = turns.DataK[ToolConfig](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
 ```
 
 ### Moments Keys (`moments/backend/pkg/turnkeys/keys.go`)
@@ -366,10 +401,10 @@ const (
 
 // Typed keys for Turn.Data
 var (
-    PersonID = turns.K[string](MentoNamespaceKey, PersonIDValueKey, 1)
-    UserPrimaryEmail = turns.K[string](MentoNamespaceKey, UserPrimaryEmailValueKey, 1)
-    UserDisplayName = turns.K[string](MentoNamespaceKey, UserDisplayNameValueKey, 1)
-    ThinkingMode = turns.K[string](MentoNamespaceKey, ThinkingModeValueKey, 1)
+    PersonID = turns.DataK[string](MentoNamespaceKey, PersonIDValueKey, 1)
+    UserPrimaryEmail = turns.DataK[string](MentoNamespaceKey, UserPrimaryEmailValueKey, 1)
+    UserDisplayName = turns.DataK[string](MentoNamespaceKey, UserDisplayNameValueKey, 1)
+    ThinkingMode = turns.DataK[string](MentoNamespaceKey, ThinkingModeValueKey, 1)
     // ... more keys
 )
 ```
@@ -380,8 +415,8 @@ var (
 
 ### Enhanced `turnsdatalint` Rules
 
-1. **Ban ad-hoc key construction**: `NewTurnDataKey(...)` or `TurnDataKey("...")` only allowed in `*/keys.go` or `*/turnkeys/*.go`
-2. **Enforce canonical keys**: Key expressions must use `K[T](namespaceConst, valueConst, version)` with const namespace/value keys
+1. **Ban ad-hoc key construction**: `NewTurnDataKey(...)`, `NewTurnMetaKey(...)`, `NewBlockMetaKey(...)` (or `TurnDataKey("...")` / `TurnMetadataKey("...")` / `BlockMetadataKey("...")`) only allowed in `*/keys.go` or `*/turnkeys/*.go`
+2. **Enforce canonical keys**: Key expressions must use `DataK[T]` / `TurnMetaK[T]` / `BlockMetaK[T]` with const namespace/value keys
 3. **Enforce namespace/value consts**: Namespace and value must be string consts (not variables or literals)
 4. **Enforce key format**: Resulting key must match `^[a-z]+\.[a-z_]+@v\d+$` format
 5. **Deprecation warnings**: Parse `// Deprecated:` comments, warn at usage sites
@@ -415,13 +450,13 @@ if modeName == "" {
 
 ```go
 // Middleware pattern - always check error
-mode, ok, err := turns.DataGet(t.Data, turnkeys.ThinkingMode)
+mode, ok, err := turnkeys.ThinkingMode.Get(t.Data)
 if err != nil {
     return nil, fmt.Errorf("decode error: %w", err)
 }
 if !ok || mode == "" {
     mode = ModeExploring
-    if err := turns.DataSet(&t.Data, turnkeys.ThinkingMode, mode); err != nil {
+    if err := turnkeys.ThinkingMode.Set(&t.Data, mode); err != nil {
         return nil, fmt.Errorf("set thinking mode: %w", err)
     }
 }
@@ -444,17 +479,17 @@ turns.WithBlockMetadata(b, kvs)
 **After (use wrapper API):**
 ```go
 // SetTurnMetadata replacement
-if err := turns.MetadataSet(&t.Metadata, key, value); err != nil {
+if err := key.Set(&t.Metadata, value); err != nil {
     return fmt.Errorf("set metadata: %w", err)
 }
 
 // SetBlockMetadata replacement
-if err := turns.BlockMetadataSet(&b.Metadata, key, value); err != nil {
+if err := key.Set(&b.Metadata, value); err != nil {
     return fmt.Errorf("set block metadata: %w", err)
 }
 
 // HasBlockMetadata replacement
-value, ok, err := turns.BlockMetadataGet(b.Metadata, key)
+value, ok, err := key.Get(b.Metadata)
 if err != nil {
     return false, fmt.Errorf("get block metadata: %w", err)
 }
@@ -465,7 +500,7 @@ if ok && value == expectedValue {
 // RemoveBlocksByMetadata replacement
 for i := len(t.Blocks) - 1; i >= 0; i-- {
     b := &t.Blocks[i]
-    value, ok, err := turns.BlockMetadataGet(b.Metadata, key)
+    value, ok, err := key.Get(b.Metadata)
     if err != nil {
         continue // skip on error
     }
@@ -481,7 +516,7 @@ for i := len(t.Blocks) - 1; i >= 0; i-- {
 
 // WithBlockMetadata replacement
 cloned := b
-if err := turns.BlockMetadataSet(&cloned.Metadata, key, value); err != nil {
+if err := key.Set(&cloned.Metadata, value); err != nil {
     return b, fmt.Errorf("set metadata: %w", err)
 }
 return cloned
@@ -512,19 +547,19 @@ func (tdc *TurnDataCompressor) Compress(ctx context.Context, turn *turns.Turn) e
 }
 
 // Better approach: compression works with known typed keys
-func (tdc *TurnDataCompressor) CompressKnownKeys(ctx context.Context, turn *turns.Turn, keys []turns.Key[any]) error {
+func (tdc *TurnDataCompressor) CompressKnownKeys(ctx context.Context, turn *turns.Turn, keys []turns.DataKey[any]) error {
     for _, key := range keys {
-        value, ok, err := turn.Data.Get(key)
+        value, ok, err := key.Get(turn.Data)
         if err != nil {
-            return fmt.Errorf("get %q: %w", key.id.String(), err)
+            return fmt.Errorf("get %q: %w", key.String(), err)
         }
         if !ok {
             continue
         }
         // Compress based on type
         if compressed := tdc.compressValue(value); compressed != value {
-            if err := turn.Data.Set(key, compressed); err != nil {
-                return fmt.Errorf("set %q: %w", key.id.String(), err)
+            if err := key.Set(&turn.Data, compressed); err != nil {
+                return fmt.Errorf("set %q: %w", key.String(), err)
             }
         }
     }
@@ -544,7 +579,49 @@ func (tdc *TurnDataCompressor) CompressKnownKeys(ctx context.Context, turn *turn
 
 ### `json.RawMessage` Storage
 
-**Not chosen:** Unmarshal cost on every `Get` would hurt middleware performance.
+**Variant:** Store values as `json.RawMessage` (encoded bytes) rather than storing `any` directly.
+
+This alternative is worth spelling out because it directly addresses one pain point we’ve now hit in practice: **typed round-trips** after YAML/JSON decode for structured values (e.g., `engine.ToolConfig`) where the decoded in-memory representation becomes `map[string]any` instead of the original struct.
+
+#### What would change
+
+- **Storage**:
+  - `Data.m map[TurnDataKey]any` becomes `Data.m map[TurnDataKey]json.RawMessage` (and similarly for `Metadata` / `BlockMetadata`).
+  - `Set` becomes “marshal then store bytes”.
+  - `Get[T]` becomes “unmarshal bytes into T”.
+
+#### Pros
+
+- **Typed round-trips become reliable**:
+  - After persistence and reload, `Get[T]` reconstructs `T` from the stored bytes (no type-assertion mismatch).
+  - No per-key registry needed for common struct cases.
+- **Stronger serialization invariant**:
+  - The stored representation is always JSON, making “serializable” a structural guarantee rather than a checked precondition.
+
+#### Cons / trade-offs
+
+- **Read-path performance cost**:
+  - `Get[T]` must `json.Unmarshal` on every read (allocations + reflection), which is expensive in middleware hot paths.
+  - Without caching, repeated reads of the same key repeatedly decode.
+- **YAML human-readability risk**:
+  - Naively marshaling `json.RawMessage` to YAML often results in YAML `!!binary` (base64) blobs, which destroys the “human friendly YAML snapshot” goal.
+  - To keep YAML readable, YAML marshal would need to decode RawMessage back into `any` (via `json.Unmarshal`) for presentation, and YAML unmarshal would need to re-marshal to JSON bytes.
+  - That effectively moves the decode cost from `Get` into (un)marshal and can still be expensive.
+- **Debuggability**:
+  - When inspecting a Turn in memory, values are opaque bytes rather than Go values.
+
+#### Hybrid option (not chosen here)
+
+Maintain both:
+
+- `raw map[TurnDataKey]json.RawMessage` for persistence correctness
+- `cache map[TurnDataKey]any` for hot-path reads
+
+But this adds complexity (cache invalidation, mutation rules, concurrency story), and is out of scope for the “small, strong API” goal.
+
+#### Why the baseline design did not choose this
+
+Middleware performance is a primary goal, and most reads happen during a single process lifetime where values are already in their concrete Go form. The baseline chooses `any` storage with validation to keep reads fast, and relies on explicit mechanisms (tests, linting, and—if needed—a codec registry) to handle persistence/round-trip edge cases.
 
 **Why `any` with validation:** Fast reads, fail-fast validation is sufficient guardrail.
 

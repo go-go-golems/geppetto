@@ -839,3 +839,73 @@ This step keeps the ticket state trustworthy: after landing multiple foundationa
 ### What should be done in the future
 
 - Continue checking tasks in small increments as we migrate remaining moments/pinocchio sites and implement linter + remaining tests.
+
+---
+
+## Step 16: Explore `Key[T].Get/Set` methods as an ergonomic alternative to `DataGet/DataSet` (test-only experiment)
+
+This step validated a potential API ergonomics improvement: using **methods on `Key[T]`** (the generic key type) as a thin wrapper over `DataGet/DataSet`. The goal was to confirm that this approach is **legal in Go** and behaves identically to the existing function-based API, without committing to a production API change yet.
+
+The experiment was implemented **only in a `_test.go` file** so it affects test builds only. This gives us a safe playground to evaluate call-site readability and constraints (notably: Go does not support method overloading, so a single `Key[T].Get(...)` cannot simultaneously target `Data`, `Metadata`, and `BlockMetadata` without either different names or distinct key types).
+
+**Commit (code):** N/A — exploration only (not committed by this step)
+
+### What I did
+
+- Added `geppetto/pkg/turns/key_methods_experiment_test.go`:
+  - Defined `func (k Key[T]) Get(d Data) (T, bool, error)` delegating to `DataGet(d, k)`
+  - Defined `func (k Key[T]) Set(d *Data, v T) error` delegating to `DataSet(d, k, v)`
+  - Added tests covering:
+    - missing key → `(zero, false, nil)`
+    - set + get round-trip
+    - type mismatch → `(zero, true, error)`
+    - non-serializable value rejection on Set (via `json.Marshal` failure)
+- Ran:
+  - `cd geppetto && go test ./pkg/turns -count=1`
+
+### Why
+
+- We cannot implement `(*Data).Get[T](...)` / `(*Data).Set[T](...)` because Go rejects methods that declare their own type parameters (`method must have no type parameters`).
+- A method on the *generic receiver* `Key[T]` is a different construct and is allowed by the compiler, and it may make call sites read more naturally:
+  - `mode, ok, err := turnkeys.ThinkingMode.Get(t.Data)` (vs `turns.DataGet(t.Data, turnkeys.ThinkingMode)`)
+  - `err := turnkeys.ThinkingMode.Set(&t.Data, mode)`
+
+### What worked
+
+- `go test ./pkg/turns -count=1` succeeded, confirming:
+  - Methods on `Key[T]` compile and can call `DataGet/DataSet` with full type inference.
+  - Behavior matches the function API (including the “ok=true + error on type mismatch” contract).
+
+### What didn't work
+
+- You cannot also add `Key[T].Get(m Metadata)` and `Key[T].Get(bm BlockMetadata)` because Go does **not** support method overloading by parameter type; method names must be unique within the receiver type.
+
+### What I learned
+
+- `Key[T]` receiver methods are a viable way to offer a more fluent API **without** running into the “generic methods” limitation, because the type parameter `T` is bound at the receiver type level.
+- If we want this ergonomic style across Data/Metadata/BlockMetadata, we likely need either:
+  - different method names (`GetFromData`, `GetFromMetadata`, ...), or
+  - distinct key types (`DataKey[T]`, `MetadataKey[T]`, `BlockMetadataKey[T]`) so each can have a clean `.Get/.Set`.
+
+### What was tricky to build
+
+- Keeping the experiment *purely exploratory*: methods defined in `_test.go` prove the language capability, but they don’t change the public API or affect non-test builds.
+
+### What warrants a second pair of eyes
+
+- API consistency decision:
+  - Do we want to introduce `Key[T].Get/Set` **only for Data** (as a convenience), or
+  - do we want a coherent story across Data/Metadata/BlockMetadata (which likely implies renaming methods or splitting key types)?
+
+### What should be done in the future
+
+- If we like the ergonomics, decide one of:
+  - Keep `DataGet/DataSet` as the canonical API and optionally add key methods as thin wrappers (non-breaking)
+  - Introduce split key types so each store gets `.Get/.Set` without awkward method names
+- If we adopt key methods, update the design doc examples to include the recommended “preferred style” (to prevent style drift).
+
+### Code review instructions
+
+- Start in `geppetto/pkg/turns/key_methods_experiment_test.go`.
+- Validate with:
+  - `cd geppetto && go test ./pkg/turns -count=1`
