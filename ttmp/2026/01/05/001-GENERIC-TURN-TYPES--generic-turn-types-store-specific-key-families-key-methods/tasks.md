@@ -44,6 +44,6 @@
 
 ### Validation gates (must pass before declaring “done”)
 
-- [ ] `cd geppetto && go test ./... -count=1`
+- [x] `cd geppetto && go test ./... -count=1`
 - [x] `cd moments/backend && go test ./... -count=1`
 - [x] `cd pinocchio && go test ./... -count=1`

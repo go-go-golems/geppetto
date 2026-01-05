@@ -56,3 +56,12 @@ Moments: migrate to turns wrapper stores + key methods; run turnsrefactor; go te
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/webchat/moments_global_prompt_middleware.go — Replace Has/WithBlockMetadata; use BlockMetaWebchatID/Section
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/webchat/router.go — Remove map-style Turn.Data usage; use turnkeys + wrapper stores
 
+
+## 2026-01-05
+
+Validation: geppetto go test ./... -count=1 (task 22)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Turns API changes validated by full test run
+
