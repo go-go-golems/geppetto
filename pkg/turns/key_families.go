@@ -45,6 +45,30 @@ func BlockMetaK[T any](namespace, value string, version uint16) BlockMetaKey[T] 
 	return BlockMetaKey[T]{id: BlockMetadataKey(NewTurnDataKey(namespace, value, version))}
 }
 
+// DataKeyFromID constructs a typed key for Turn.Data from an already-encoded id string.
+//
+// This is intended for advanced/internal use cases where the key id is already known
+// (e.g. cloning/transforms over untyped values, YAML/JSON-derived keys).
+func DataKeyFromID[T any](id TurnDataKey) DataKey[T] {
+	return DataKey[T]{id: id}
+}
+
+// TurnMetaKeyFromID constructs a typed key for Turn.Metadata from an already-encoded id string.
+//
+// This is intended for advanced/internal use cases where the key id is already known
+// (e.g. cloning/transforms over untyped values, YAML/JSON-derived keys).
+func TurnMetaKeyFromID[T any](id TurnMetadataKey) TurnMetaKey[T] {
+	return TurnMetaKey[T]{id: id}
+}
+
+// BlockMetaKeyFromID constructs a typed key for Block.Metadata from an already-encoded id string.
+//
+// This is intended for advanced/internal use cases where the key id is already known
+// (e.g. cloning/transforms over untyped values, YAML/JSON-derived keys).
+func BlockMetaKeyFromID[T any](id BlockMetadataKey) BlockMetaKey[T] {
+	return BlockMetaKey[T]{id: id}
+}
+
 func (k DataKey[T]) String() string     { return k.id.String() }
 func (k TurnMetaKey[T]) String() string { return k.id.String() }
 func (k BlockMetaKey[T]) String() string {
