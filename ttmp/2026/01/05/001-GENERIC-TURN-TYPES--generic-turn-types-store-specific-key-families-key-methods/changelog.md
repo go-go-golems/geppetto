@@ -33,3 +33,15 @@ Implement DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set methods (tasks 2-3)
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/key_families.go — New production key families + methods
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/poc_split_key_types_test.go — Use production key families; keep behavior contract tests
 
+
+## 2026-01-05
+
+Migrate canonical keys to DataK/TurnMetaK/BlockMetaK and rewrite geppetto call sites to key methods (commit c07a9f1)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/inference/engine/turnkeys.go — Engine escape-hatch key now uses turns.DataK
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/inference/middleware/systemprompt_middleware.go — Example call site migrated to key.Set/key.Get
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/keys.go — Canonical keys now use store-specific key families
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Legacy function API now takes store-specific key families
+

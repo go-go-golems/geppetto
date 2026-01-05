@@ -15,22 +15,29 @@ RelatedFiles:
       Note: Lint enforcement must evolve alongside API; diary records rule updates
     - Path: geppetto/pkg/analysis/turnsrefactor/refactor.go
       Note: Migration tool; diary records runs and failures
+    - Path: geppetto/pkg/inference/engine/turnkeys.go
+      Note: KeyToolConfig now uses turns.DataK
     - Path: geppetto/pkg/turns/key_families.go
       Note: Production DataKey/TurnMetaKey/BlockMetaKey + DataK/TurnMetaK/BlockMetaK + Get/Set
     - Path: geppetto/pkg/turns/keys.go
-      Note: Canonical keys migration checkpoint; diary tracks key family assignments
+      Note: |-
+        Canonical keys migration checkpoint; diary tracks key family assignments
+        Switched canonical geppetto keys from turns.K to DataK/TurnMetaK/BlockMetaK
     - Path: geppetto/pkg/turns/poc_split_key_types_test.go
       Note: |-
         POC confirms key-method API shape; diary uses it as implementation guide
         Behavior-contract tests for new key families
     - Path: geppetto/pkg/turns/types.go
-      Note: Main target of API change; diary records decisions and migration steps
+      Note: |-
+        Main target of API change; diary records decisions and migration steps
+        Legacy turns.{Data
 ExternalSources: []
 Summary: Implementation diary for migrating turns to store-specific key families + key receiver methods, and removing the legacy function-based API.
 LastUpdated: 2026-01-05T17:15:28.961015601-05:00
 WhatFor: Record each decision and change (including failures) while implementing DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set, migrating canonical keys, running turnsrefactor, and deleting the old API.
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 
@@ -269,6 +276,76 @@ The implementation intentionally preserves the existing behavior contracts (JSON
 - New API surface:
   - `turns.DataK/TurnMetaK/BlockMetaK`
   - `DataKey[T].Get/Set`, `TurnMetaKey[T].Get/Set`, `BlockMetaKey[T].Get/Set`
+
+---
+
+## Step 5: Switch canonical keys to the new families and migrate geppetto call sites
+
+This step moved geppetto over to the new key families end-to-end: canonical key definitions now use `DataK/TurnMetaK/BlockMetaK`, the engine escape-hatch key (`engine.KeyToolConfig`) is a `DataKey`, and geppetto call sites are rewritten to the method style (`key.Get/key.Set`). With this, geppetto no longer depends on `turns.K` at call sites and is positioned for the eventual deletion of the legacy `Key[T]` API.
+
+To make this migration tool-friendly (and keep `go test ./...` green at every commit boundary), I also changed the legacy function API (`turns.DataGet/DataSet/...`) to accept the new key-family types. That removed the temporary type-checking deadlock where key definitions had been migrated but the refactor tool couldn’t even load packages.
+
+**Commit (code):** c07a9f1 — "turns: migrate keys and rewrite call sites to key methods"
+
+### What I did
+- Migrated canonical keys:
+  - `geppetto/pkg/turns/keys.go`: `turns.K[...]` → `turns.DataK/TurnMetaK/BlockMetaK`
+  - `geppetto/pkg/inference/engine/turnkeys.go`: `KeyToolConfig` → `turns.DataK`
+- Updated the legacy function API to accept the new key families:
+  - `geppetto/pkg/turns/types.go`: `DataGet/DataSet` now take `DataKey[T]`, `MetadataGet/Set` take `TurnMetaKey[T]`, and `BlockMetadataGet/Set` take `BlockMetaKey[T]`
+- Ran refactor tooling:
+  - `cd geppetto && go run ./cmd/turnsrefactor -packages ./...` (dry-run)
+  - `cd geppetto && go run ./cmd/turnsrefactor -packages ./... -w`
+- Manually migrated the remaining `_test.go` call sites (the refactor tool does not load tests by default):
+  - `geppetto/pkg/turns/serde/serde_test.go`
+- Validated:
+  - `cd geppetto && go test ./... -count=1`
+
+### Why
+- Canonical key definitions must pick the correct family type so “wrong store” usage becomes a compile-time error.
+- Method-style call sites (`key.Get/key.Set`) are the target production ergonomics and a prerequisite for deleting the old function API later.
+
+### What worked
+- `turnsrefactor` successfully migrated geppetto non-test packages once package loading was unblocked:
+  - `turnsrefactor: files changed=8` (then `-w` wrote changes)
+- `cd geppetto && go test ./... -count=1` passed after rewrites.
+
+### What didn't work
+- After switching canonical keys to the new families, `turnsrefactor` initially failed to load packages due to type errors from the legacy function API still taking `Key[T]`:
+  - Command: `cd geppetto && go run ./cmd/turnsrefactor -packages ./...`
+  - Error (excerpt):
+    - `pkg/steps/ai/openai/engine_openai.go:127:44: in call to turns.DataGet, type turns.DataKey[engine.ToolConfig] of engine.KeyToolConfig does not match inferred type turns.Key[engine.ToolConfig] for turns.Key[T]`
+    - `pkg/inference/middleware/systemprompt_middleware.go:49:75: in call to turns.BlockMetadataSet, type turns.BlockMetaKey[string] of turns.KeyBlockMetaMiddleware does not match inferred type turns.Key[string] for turns.Key[T]`
+
+### What I learned
+- For a staged migration, it’s worth temporarily aligning legacy function signatures with the new key families so go/packages-based tooling can load and apply mechanical rewrites without hitting type-check dead ends.
+
+### What was tricky to build
+- Keeping the refactor in “compile-green slices” required sequencing:
+  - change key definitions,
+  - unblock package load by updating legacy function signatures,
+  - run tooling rewrite,
+  - then clean up any test-only leftovers.
+
+### What warrants a second pair of eyes
+- Confirm we’re comfortable with the interim state where `turns.Key[T]`/`turns.K` still exist but the legacy `turns.*Get/*Set` functions now take the new key families (to be deleted later once downstream repos are migrated).
+
+### What should be done in the future
+- Next: run `turnsrefactor` across `moments/backend` and `pinocchio`, then migrate their canonical key definitions to store-specific constructors.
+
+### Code review instructions
+- Start with:
+  - `geppetto/pkg/turns/key_families.go`
+  - `geppetto/pkg/turns/types.go`
+  - `geppetto/pkg/turns/keys.go`
+  - `geppetto/pkg/inference/engine/turnkeys.go`
+- Validate with:
+  - `cd geppetto && go test ./... -count=1`
+
+### Technical details
+- Commands used:
+  - `cd geppetto && go run ./cmd/turnsrefactor -packages ./...`
+  - `cd geppetto && go run ./cmd/turnsrefactor -packages ./... -w`
 
 ## Usage Examples
 

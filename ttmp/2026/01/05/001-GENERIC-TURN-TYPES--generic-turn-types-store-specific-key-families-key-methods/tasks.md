@@ -8,19 +8,19 @@
 
 - [x] Implement production key families: `DataKey[T]`, `TurnMetaKey[T]`, `BlockMetaKey[T]` (store-specific ids)
 - [x] Implement key receiver methods: `Get(store)` / `Set(&store, value)` for all three key families
-- [ ] Add store-specific constructors: `DataK/TurnMetaK/BlockMetaK` (replace `turns.K`)
+- [x] Add store-specific constructors: `DataK/TurnMetaK/BlockMetaK` (replace `turns.K`)
 - [ ] Decide and implement shared key-id constructor shape (`NewKeyString` vs keep `NewTurnDataKey` + casts) and update callers
 
 ### Canonical key definitions (must type-check downstream)
 
-- [ ] Migrate geppetto canonical keys in `geppetto/pkg/turns/keys.go` to `DataK/TurnMetaK/BlockMetaK`
-- [ ] Migrate engine escape-hatch key: `geppetto/pkg/inference/engine/turnkeys.go` `KeyToolConfig` → `turns.DataK`
-- [ ] Migrate any tests/examples still using `turns.K[...]` (e.g. `geppetto/pkg/turns/serde/serde_test.go`)
+- [x] Migrate geppetto canonical keys in `geppetto/pkg/turns/keys.go` to `DataK/TurnMetaK/BlockMetaK`
+- [x] Migrate engine escape-hatch key: `geppetto/pkg/inference/engine/turnkeys.go` `KeyToolConfig` → `turns.DataK`
+- [x] Migrate any tests/examples still using `turns.K[...]` (e.g. `geppetto/pkg/turns/serde/serde_test.go`)
 
 ### Call-site migration (mechanical rewrite, then fix compile)
 
-- [ ] Run `turnsrefactor` (dry-run) on `geppetto` and review diff size/safety
-- [ ] Run `turnsrefactor` (write) on `geppetto` and fix any compile errors
+- [x] Run `turnsrefactor` (dry-run) on `geppetto` and review diff size/safety
+- [x] Run `turnsrefactor` (write) on `geppetto` and fix any compile errors
 - [ ] Run `turnsrefactor` (write) on `moments/backend` and fix any compile errors
 - [ ] Run `turnsrefactor` (write) on `pinocchio` and fix any compile errors
 
