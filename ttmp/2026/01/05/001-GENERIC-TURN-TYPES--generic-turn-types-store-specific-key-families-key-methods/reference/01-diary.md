@@ -26,7 +26,9 @@ RelatedFiles:
     - Path: pkg/inference/engine/turnkeys.go
       Note: KeyToolConfig now uses turns.DataK
     - Path: pkg/turns/key_families.go
-      Note: Production DataKey/TurnMetaKey/BlockMetaKey + DataK/TurnMetaK/BlockMetaK + Get/Set
+      Note: |-
+        Production DataKey/TurnMetaKey/BlockMetaKey + DataK/TurnMetaK/BlockMetaK + Get/Set
+        TurnMetaK/BlockMetaK now use typed constructors
     - Path: pkg/turns/keys.go
       Note: |-
         Canonical keys migration checkpoint; diary tracks key family assignments
@@ -39,12 +41,14 @@ RelatedFiles:
       Note: |-
         Main target of API change; diary records decisions and migration steps
         Legacy turns.{Data
+        NewKeyString and typed key-id constructors (task 5)
 ExternalSources: []
 Summary: Implementation diary for migrating turns to store-specific key families + key receiver methods, and removing the legacy function-based API.
 LastUpdated: 2026-01-05T17:15:28.961015601-05:00
 WhatFor: Record each decision and change (including failures) while implementing DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set, migrating canonical keys, running turnsrefactor, and deleting the old API.
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 
@@ -431,6 +435,125 @@ The end state is that `moments/backend` builds cleanly against the new turns API
 ### Technical details
 - Refactor tool run:
   - `cd moments/backend && go run ../../geppetto/cmd/turnsrefactor -packages ./... -w`
+
+---
+
+## Step 7: Introduce `NewKeyString` and store-typed key constructors (task 5)
+
+This step implemented the “Option B” constructor shape: a store-neutral key-id string constructor (`NewKeyString`) plus store-specific typed constructors (`NewTurnDataKey`, `NewTurnMetadataKey`, `NewBlockMetadataKey`). This removes the last conceptual oddity where metadata key constructors were built by calling `NewTurnDataKey(...)` and casting across store id types.
+
+With this in place, `DataK/TurnMetaK/BlockMetaK` can stay semantically honest while still guaranteeing that every store uses the same canonical encoding (`namespace.value@vN`) and validation rules (panic on invalid input, per design).
+
+**Commit (code):** N/A (staged locally) — `NewKeyString` + typed wrappers
+
+### What I did
+- Implemented the new constructor shape:
+  - `geppetto/pkg/turns/types.go`: added `NewKeyString`, `NewTurnMetadataKey`, `NewBlockMetadataKey`; rewired `NewTurnDataKey` to call `NewKeyString`
+  - `geppetto/pkg/turns/key_families.go`: switched `TurnMetaK/BlockMetaK` to use the store-typed constructors
+- Checked off task bookkeeping:
+  - `docmgr task check --ticket 001-GENERIC-TURN-TYPES --id 5`
+- Validated:
+  - `cd geppetto && go test ./... -count=1`
+- Assessed constructor refactor tooling need (task 15 input):
+  - `rg -n --glob '*.go' 'turns\\.K(\\[|\\()' geppetto pinocchio moments` → `0` occurrences
+
+### Why
+- `NewKeyString` makes the shared key encoding rule explicit and avoids cross-store casting patterns in constructors.
+- Making `TurnMetaK/BlockMetaK` call typed constructors is a small but meaningful readability/correctness improvement, and reduces the risk of accidental “wrong store id type” copy/paste in future constructor code.
+
+### What worked
+- Full test suite still passes after the constructor change:
+  - `cd geppetto && go test ./... -count=1`
+- There are currently no `turns.K[...]` constructor call sites in Go code across the three repos, so we can likely skip extending `turnsrefactor` for constructors unless new usage appears.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The remaining “hard cut” work (task 16) is now mostly about deleting legacy API surface and tightening lint/doc/tooling—constructor migration is already effectively complete in practice.
+
+### What was tricky to build
+- Keeping the canonical validation behavior unchanged (panic semantics) while changing which helper owns the formatting (`NewKeyString` vs `NewTurnDataKey`).
+
+### What warrants a second pair of eyes
+- Whether we want to keep `NewTurnDataKey` as a public helper at all once task 16 deletes `Key[T]/K`; it may remain useful for “raw key id” situations, but the public surface area should be intentional.
+
+### What should be done in the future
+- Decide/close task 15 explicitly (“skip tool update; no occurrences”) or implement the constructor rewrite if we expect it to reappear in future changes.
+
+### Code review instructions
+- Start with:
+  - `geppetto/pkg/turns/types.go`
+  - `geppetto/pkg/turns/key_families.go`
+- Validate with:
+  - `cd geppetto && go test ./... -count=1`
+
+### Technical details
+- Search command used:
+  - `rg -n --glob '*.go' 'turns\\.K(\\[|\\()' geppetto pinocchio moments`
+
+---
+
+## Step 8: Delete the legacy turns API (task 16)
+
+This step removed the remaining legacy turns surface area: the old `Key[T]` + `K[T]` constructor and the function-based accessors (`turns.DataGet/DataSet`, `turns.MetadataGet/Set`, `turns.BlockMetadataGet/Set`). With downstream production code already migrated to key methods, the remaining work was mostly cleaning up test-only callers and verifying that all repos still build.
+
+The immediate effect is that any future usage of the old API fails fast at compile time, forcing new code to use store-specific key families and key receiver methods consistently.
+
+**Commit (code):** N/A (staged locally) — delete legacy API + adjust moments tests
+
+### What I did
+- Deleted legacy turns API in geppetto:
+  - `geppetto/pkg/turns/types.go`: removed `Key[T]`, `K[T]`, and `DataGet/DataSet/MetadataGet/Set/BlockMetadataGet/Set`
+- Updated downstream test call sites that still used the legacy function API:
+  - `moments/backend/pkg/promptutil/resolve_test.go`
+  - `moments/backend/pkg/promptutil/resolve_draft_test.go`
+  - `moments/backend/pkg/memory/context_middleware_test.go`
+  - `moments/backend/pkg/memory/middleware_test.go`
+- Validated:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+  - `cd moments/backend && make lint`
+- Ticket bookkeeping:
+  - `docmgr task check --ticket 001-GENERIC-TURN-TYPES --id 16`
+
+### Why
+- The old API undermines the “store-specific key families” goal by allowing cross-store misuse and encouraging function-call access patterns that we’ve now replaced with `key.Get/key.Set`.
+- Removing it reduces maintenance burden (fewer APIs, fewer lint exceptions) and makes turnsrefactor/lint policy easier to reason about.
+
+### What worked
+- After deleting the old API and updating the remaining test call sites, all validation gates still pass.
+- `rg` confirms there are no remaining Go call sites of the deleted symbols in the three repos:
+  - `rg -n --glob '*.go' 'turns\\.(Data(Get|Set)|Metadata(Get|Set)|BlockMetadata(Get|Set)|K\\[|K\\(|Key\\[)' geppetto pinocchio moments`
+
+### What didn't work
+- N/A
+
+### What I learned
+- The remaining open tasks are now “policy + tooling + docs” oriented (turnsdatalint and turnsrefactor verification mode), rather than large-scale code migration.
+
+### What was tricky to build
+- Ensuring no test-only stragglers remained: `turnsrefactor` does not rewrite `_test.go`, so tests required manual updates.
+
+### What warrants a second pair of eyes
+- Confirm we want to keep `NewTurnDataKey/NewTurnMetadataKey/NewBlockMetadataKey` as public helpers (for “raw id” scenarios) even after deleting `Key[T]/K[T]`.
+
+### What should be done in the future
+- Proceed with task 17: remove/adjust any remaining *docs/tooling* references to the deleted API symbols.
+- Update/retire turnsrefactor verification mode (task 18) now that the old symbols are gone.
+
+### Code review instructions
+- Start with:
+  - `geppetto/pkg/turns/types.go`
+  - `moments/backend/pkg/promptutil/resolve_draft_test.go`
+- Validate with:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+  - `cd moments/backend && make lint`
+
+### Technical details
+- Search commands:
+  - `rg -n --glob '*.go' 'turns\\.(Data(Get|Set)|Metadata(Get|Set)|BlockMetadata(Get|Set)|K\\[|K\\(|Key\\[)' geppetto pinocchio moments`
 
 ## Usage Examples
 

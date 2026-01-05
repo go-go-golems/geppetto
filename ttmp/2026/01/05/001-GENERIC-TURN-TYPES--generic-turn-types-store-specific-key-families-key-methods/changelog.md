@@ -65,3 +65,23 @@ Validation: geppetto go test ./... -count=1 (task 22)
 
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Turns API changes validated by full test run
 
+
+## 2026-01-05
+
+Turns: add NewKeyString + store-typed key constructors; check off task 5; confirm no turns.K call sites remain
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/key_families.go — TurnMetaK/BlockMetaK now use typed constructors
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — NewKeyString + typed key-id constructors
+
+
+## 2026-01-05
+
+Turns: delete legacy Key/K and turns.*Get/*Set APIs (task 16); update moments tests; keep go test green
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Remove legacy Key/K and DataGet/DataSet/etc
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/promptutil/resolve_draft_test.go — Replace turns.DataSet/DataGet with key methods
+

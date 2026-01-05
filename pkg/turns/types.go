@@ -100,31 +100,26 @@ type Turn struct {
 	Data Data `yaml:"data,omitempty"`
 }
 
-// Key is the legacy typed key previously used to access Turn.Data, Turn.Metadata, and Block.Metadata.
-// The underlying ID is an encoded string key of form: "namespace.value@vN".
-//
-// Note: We intentionally keep this wrapper opaque: callers get a typed Key[T] and can only read/write via wrapper APIs.
-type Key[T any] struct {
-	id TurnDataKey
-}
-
-// NewTurnDataKey constructs a canonical key identity string in the form "namespace.value@vN".
+// NewKeyString constructs a canonical key identity string in the form "namespace.value@vN".
 //
 // This panics on invalid input (per design doc): empty namespace/value or version < 1.
-func NewTurnDataKey(namespace, value string, version uint16) TurnDataKey {
+func NewKeyString(namespace, value string, version uint16) string {
 	if namespace == "" || value == "" || version < 1 {
 		panic(fmt.Errorf("invalid key: namespace=%q value=%q version=%d", namespace, value, version))
 	}
-	return TurnDataKey(fmt.Sprintf("%s.%s@v%d", namespace, value, version))
+	return fmt.Sprintf("%s.%s@v%d", namespace, value, version)
 }
 
-// K creates a typed key from namespace/value consts and an explicit version.
-func K[T any](namespace, value string, version uint16) Key[T] {
-	return Key[T]{id: NewTurnDataKey(namespace, value, version)}
+func NewTurnDataKey(namespace, value string, version uint16) TurnDataKey {
+	return TurnDataKey(NewKeyString(namespace, value, version))
 }
 
-func (k Key[T]) String() string {
-	return k.id.String()
+func NewTurnMetadataKey(namespace, value string, version uint16) TurnMetadataKey {
+	return TurnMetadataKey(NewKeyString(namespace, value, version))
+}
+
+func NewBlockMetadataKey(namespace, value string, version uint16) BlockMetadataKey {
+	return BlockMetadataKey(NewKeyString(namespace, value, version))
 }
 
 // Data is an opaque wrapper for Turn.Data.
@@ -136,16 +131,6 @@ type Data struct {
 // gopkg.in/yaml.v3 treats structs with no exported fields as empty unless IsZero is provided.
 func (d Data) IsZero() bool {
 	return len(d.m) == 0
-}
-
-// DataSet is the legacy function API for Turn.Data; prefer DataKey.Set.
-func DataSet[T any](d *Data, key DataKey[T], value T) error {
-	return key.Set(d, value)
-}
-
-// DataGet is the legacy function API for Turn.Data; prefer DataKey.Get.
-func DataGet[T any](d Data, key DataKey[T]) (T, bool, error) {
-	return key.Get(d)
 }
 
 func (d Data) Len() int {
@@ -231,16 +216,6 @@ func (m Metadata) IsZero() bool {
 	return len(m.m) == 0
 }
 
-// MetadataSet is the legacy function API for Turn.Metadata; prefer TurnMetaKey.Set.
-func MetadataSet[T any](m *Metadata, key TurnMetaKey[T], value T) error {
-	return key.Set(m, value)
-}
-
-// MetadataGet is the legacy function API for Turn.Metadata; prefer TurnMetaKey.Get.
-func MetadataGet[T any](m Metadata, key TurnMetaKey[T]) (T, bool, error) {
-	return key.Get(m)
-}
-
 func (m Metadata) Len() int {
 	if m.m == nil {
 		return 0
@@ -322,16 +297,6 @@ type BlockMetadata struct {
 // IsZero allows YAML omitempty to work with an opaque wrapper that has no exported fields.
 func (bm BlockMetadata) IsZero() bool {
 	return len(bm.m) == 0
-}
-
-// BlockMetadataSet is the legacy function API for Block.Metadata; prefer BlockMetaKey.Set.
-func BlockMetadataSet[T any](bm *BlockMetadata, key BlockMetaKey[T], value T) error {
-	return key.Set(bm, value)
-}
-
-// BlockMetadataGet is the legacy function API for Block.Metadata; prefer BlockMetaKey.Get.
-func BlockMetadataGet[T any](bm BlockMetadata, key BlockMetaKey[T]) (T, bool, error) {
-	return key.Get(bm)
 }
 
 func (bm BlockMetadata) Len() int {

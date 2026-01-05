@@ -9,7 +9,7 @@
 - [x] Implement production key families: `DataKey[T]`, `TurnMetaKey[T]`, `BlockMetaKey[T]` (store-specific ids)
 - [x] Implement key receiver methods: `Get(store)` / `Set(&store, value)` for all three key families
 - [x] Add store-specific constructors: `DataK/TurnMetaK/BlockMetaK` (replace `turns.K`)
-- [ ] Decide and implement shared key-id constructor shape (`NewKeyString` vs keep `NewTurnDataKey` + casts) and update callers
+- [x] Decide and implement shared key-id constructor shape (`NewKeyString` vs keep `NewTurnDataKey` + casts) and update callers
 
 ### Canonical key definitions (must type-check downstream)
 
@@ -28,11 +28,11 @@
 
 - [x] Migrate constructors in `moments/backend/pkg/turnkeys/*` (`turns.K` → correct store-specific constructor)
 - [x] Migrate constructors in pinocchio key files (`turns.K` → correct store-specific constructor)
-- [ ] Decide whether to extend `turnsrefactor` to rewrite constructors (`turns.K` → `turns.{Data,TurnMeta,BlockMeta}K`) and implement if worthwhile
+- [x] Decide whether to extend `turnsrefactor` to rewrite constructors (`turns.K` → `turns.{Data,TurnMeta,BlockMeta}K`) and implement if worthwhile
 
 ### Delete old API (hard cut)
 
-- [ ] Delete legacy turns API: `Key[T]`, `K[T]`, and `DataGet/DataSet/MetadataGet/MetadataSet/BlockMetadataGet/BlockMetadataSet`
+- [x] Delete legacy turns API: `Key[T]`, `K[T]`, and `DataGet/DataSet/MetadataGet/MetadataSet/BlockMetadataGet/BlockMetadataSet`
 - [ ] Remove/adjust any remaining references in code + docs (no shims)
 - [ ] Update/retire `turnsrefactor` verification mode once old API is removed (it currently verifies no `*.DataGet/...` remain)
 

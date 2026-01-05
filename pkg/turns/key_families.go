@@ -37,12 +37,12 @@ func DataK[T any](namespace, value string, version uint16) DataKey[T] {
 
 // TurnMetaK constructs a typed key for Turn.Metadata.
 func TurnMetaK[T any](namespace, value string, version uint16) TurnMetaKey[T] {
-	return TurnMetaKey[T]{id: TurnMetadataKey(NewTurnDataKey(namespace, value, version))}
+	return TurnMetaKey[T]{id: NewTurnMetadataKey(namespace, value, version)}
 }
 
 // BlockMetaK constructs a typed key for Block.Metadata.
 func BlockMetaK[T any](namespace, value string, version uint16) BlockMetaKey[T] {
-	return BlockMetaKey[T]{id: BlockMetadataKey(NewTurnDataKey(namespace, value, version))}
+	return BlockMetaKey[T]{id: NewBlockMetadataKey(namespace, value, version)}
 }
 
 // DataKeyFromID constructs a typed key for Turn.Data from an already-encoded id string.
