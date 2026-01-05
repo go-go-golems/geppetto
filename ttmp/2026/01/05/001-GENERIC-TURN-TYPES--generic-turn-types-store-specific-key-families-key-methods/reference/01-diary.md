@@ -11,23 +11,31 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/analysis/turnsdatalint/analyzer.go
+    - Path: ../../../../../../../moments/backend/pkg/turnkeys/data_keys.go
+      Note: Moments data keys migrated to turns.DataK constructors
+    - Path: ../../../../../../../moments/backend/pkg/webchat/moments_global_prompt_middleware.go
+      Note: Replace Has/WithBlockMetadata with typed block meta keys
+    - Path: ../../../../../../../moments/backend/pkg/webchat/router.go
+      Note: Fix Turn.Data wrapper usage (commits af80d5f
+    - Path: ../../../../../../../moments/backend/pkg/webchat/system_prompt_middleware.go
+      Note: Idempotent system prompt now uses BlockMetaWebchatID
+    - Path: pkg/analysis/turnsdatalint/analyzer.go
       Note: Lint enforcement must evolve alongside API; diary records rule updates
-    - Path: geppetto/pkg/analysis/turnsrefactor/refactor.go
+    - Path: pkg/analysis/turnsrefactor/refactor.go
       Note: Migration tool; diary records runs and failures
-    - Path: geppetto/pkg/inference/engine/turnkeys.go
+    - Path: pkg/inference/engine/turnkeys.go
       Note: KeyToolConfig now uses turns.DataK
-    - Path: geppetto/pkg/turns/key_families.go
+    - Path: pkg/turns/key_families.go
       Note: Production DataKey/TurnMetaKey/BlockMetaKey + DataK/TurnMetaK/BlockMetaK + Get/Set
-    - Path: geppetto/pkg/turns/keys.go
+    - Path: pkg/turns/keys.go
       Note: |-
         Canonical keys migration checkpoint; diary tracks key family assignments
         Switched canonical geppetto keys from turns.K to DataK/TurnMetaK/BlockMetaK
-    - Path: geppetto/pkg/turns/poc_split_key_types_test.go
+    - Path: pkg/turns/poc_split_key_types_test.go
       Note: |-
         POC confirms key-method API shape; diary uses it as implementation guide
         Behavior-contract tests for new key families
-    - Path: geppetto/pkg/turns/types.go
+    - Path: pkg/turns/types.go
       Note: |-
         Main target of API change; diary records decisions and migration steps
         Legacy turns.{Data
@@ -37,6 +45,7 @@ LastUpdated: 2026-01-05T17:15:28.961015601-05:00
 WhatFor: Record each decision and change (including failures) while implementing DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set, migrating canonical keys, running turnsrefactor, and deleting the old API.
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 
@@ -346,6 +355,82 @@ To make this migration tool-friendly (and keep `go test ./...` green at every co
 - Commands used:
   - `cd geppetto && go run ./cmd/turnsrefactor -packages ./...`
   - `cd geppetto && go run ./cmd/turnsrefactor -packages ./... -w`
+
+---
+
+## Step 6: Migrate `moments/backend` to wrapper stores + key methods
+
+This step finished the downstream migration for `moments/backend` by removing the last “maps-as-stores” assumptions (`t.Data == nil`, `b.Metadata != nil`, direct indexing) and replacing them with the production wrapper-store patterns (`Len/Range`, `key.Get/key.Set`). I also eliminated remaining production call sites of the legacy `turns.*Get/*Set` API by running `turnsrefactor` against moments and committing the mechanical rewrites.
+
+The end state is that `moments/backend` builds cleanly against the new turns API, and it now passes both unit tests and the repo’s lint gate. This unblocks the later “hard cut” task where we delete the legacy turns API from `geppetto` without leaving shims.
+
+**Commit (code):** af80d5f — "moments: migrate turns access to key methods"; 08707ed — "moments: rewrite remaining turns get/set calls"
+
+### What I did
+- Reproduced compilation failures:
+  - `cd moments/backend && go test ./... -count=1`
+- Fixed webchat wrappers + idempotent metadata handling:
+  - Replaced `b.Metadata != nil` checks with `b.Metadata.Len() > 0`.
+  - Replaced `turns.HasBlockMetadata/turns.WithBlockMetadata` with `turnkeys.BlockMetaWebchatID` + `turnkeys.BlockMetaWebchatSection`.
+  - Replaced direct `t.Data[...]` indexing with typed `turnkeys.*.Get/Set` calls.
+  - Updated `EnsureProfileSystemPromptBlock` to return an error and use `turnkeys.BlockMetaWebchatID` for idempotency.
+- Fixed sinks that assumed `Turn.Data` is a map (doc suggestions + team suggestions).
+- Ran turnsrefactor on production code to remove remaining legacy calls:
+  - `cd moments/backend && go run ../../geppetto/cmd/turnsrefactor -packages ./...`
+  - `cd moments/backend && go run ../../geppetto/cmd/turnsrefactor -packages ./... -w`
+- Validated:
+  - `cd moments/backend && go test ./... -count=1`
+  - `cd moments/backend && make lint`
+
+### Why
+- `turns.Data`, `turns.Metadata`, and `turns.BlockMetadata` are now opaque wrappers (structs), so map-idioms (`nil` checks, indexing, map literals) must be removed from downstream repos.
+- The legacy `turns.*Get/*Set` function API is scheduled for deletion; eliminating production call sites early reduces risk at the “hard cut” step.
+
+### What worked
+- After the webchat/router fixes and the refactor pass, `moments/backend` builds and tests cleanly:
+  - `cd moments/backend && go test ./... -count=1`
+- The repo lint gate is green:
+  - `cd moments/backend && make lint`
+
+### What didn't work
+- Initial build failures in `moments/backend` were dominated by wrapper-store vs map assumptions and removed helpers:
+  - `pkg/webchat/log_blocks_middleware.go:123:46: invalid operation: b.Metadata != nil (mismatched types turns.BlockMetadata and untyped nil)`
+  - `pkg/webchat/moments_global_prompt_middleware.go:50:14: undefined: turns.HasBlockMetadata`
+  - `pkg/webchat/router.go:283:54: cannot use map[turns.TurnDataKey]any{} ... as turns.Data`
+  - `pkg/inference/middleware/team_suggestions_middleware.go:142:1: syntax error: non-declaration statement outside function body`
+
+### What I learned
+- “Wrapper stores” force a clean separation between:
+  - key definition (`turnkeys.*` in a small number of files), and
+  - data access everywhere else (`key.Get/key.Set`, `Len/Range`).
+
+### What was tricky to build
+- Updating middleware/sink idempotency logic without `HasBlockMetadata/WithBlockMetadata` required rewriting both:
+  - metadata writes (always via `key.Set(&blk.Metadata, ...)`), and
+  - metadata reads for filtering/replacement (via `key.Get(b.Metadata)`).
+- Webchat router code had multiple scattered “ensure map exists” patterns; every one had to become either “do nothing” (read-only) or a typed `Set` (write).
+
+### What warrants a second pair of eyes
+- The webchat metadata keys in moments now come from `turnkeys.BlockMetaWebchatID`/`BlockMetaWebchatSection` (namespaced + versioned); confirm that downstream consumers aren’t expecting the old raw keys (`webchat.metadata.id` / `webchat.metadata.section`).
+
+### What should be done in the future
+- Rewrite remaining test-only call sites of `turns.DataSet/BlockMetadataSet/...` in `moments/backend` (the tool doesn’t rewrite `_test.go` by default).
+- Proceed with the “hard cut” tasks: delete the legacy turns API in `geppetto`, then fix any stragglers.
+
+### Code review instructions
+- Start with:
+  - `moments/backend/pkg/webchat/router.go`
+  - `moments/backend/pkg/webchat/moments_global_prompt_middleware.go`
+  - `moments/backend/pkg/webchat/system_prompt_middleware.go`
+  - `moments/backend/pkg/turnkeys/data_keys.go`
+  - `moments/backend/pkg/turnkeys/block_meta_keys.go`
+- Validate with:
+  - `cd moments/backend && go test ./... -count=1`
+  - `cd moments/backend && make lint`
+
+### Technical details
+- Refactor tool run:
+  - `cd moments/backend && go run ../../geppetto/cmd/turnsrefactor -packages ./... -w`
 
 ## Usage Examples
 

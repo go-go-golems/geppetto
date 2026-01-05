@@ -45,3 +45,14 @@ Migrate canonical keys to DataK/TurnMetaK/BlockMetaK and rewrite geppetto call s
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/keys.go — Canonical keys now use store-specific key families
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Legacy function API now takes store-specific key families
 
+
+## 2026-01-05
+
+Moments: migrate to turns wrapper stores + key methods; run turnsrefactor; go test + make lint (commits af80d5f, 08707ed)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/memory/middleware.go — Refactor legacy turns.*Get/*Set calls to key methods
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/webchat/moments_global_prompt_middleware.go — Replace Has/WithBlockMetadata; use BlockMetaWebchatID/Section
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/webchat/router.go — Remove map-style Turn.Data usage; use turnkeys + wrapper stores
+

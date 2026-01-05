@@ -21,13 +21,13 @@
 
 - [x] Run `turnsrefactor` (dry-run) on `geppetto` and review diff size/safety
 - [x] Run `turnsrefactor` (write) on `geppetto` and fix any compile errors
-- [ ] Run `turnsrefactor` (write) on `moments/backend` and fix any compile errors
-- [ ] Run `turnsrefactor` (write) on `pinocchio` and fix any compile errors
+- [x] Run `turnsrefactor` (write) on `moments/backend` and fix any compile errors
+- [x] Run `turnsrefactor` (write) on `pinocchio` and fix any compile errors
 
 ### Key constructor migration (mechanical rewrite)
 
-- [ ] Migrate constructors in `moments/backend/pkg/turnkeys/*` (`turns.K` → correct store-specific constructor)
-- [ ] Migrate constructors in pinocchio key files (`turns.K` → correct store-specific constructor)
+- [x] Migrate constructors in `moments/backend/pkg/turnkeys/*` (`turns.K` → correct store-specific constructor)
+- [x] Migrate constructors in pinocchio key files (`turns.K` → correct store-specific constructor)
 - [ ] Decide whether to extend `turnsrefactor` to rewrite constructors (`turns.K` → `turns.{Data,TurnMeta,BlockMeta}K`) and implement if worthwhile
 
 ### Delete old API (hard cut)
@@ -45,5 +45,5 @@
 ### Validation gates (must pass before declaring “done”)
 
 - [ ] `cd geppetto && go test ./... -count=1`
-- [ ] `cd moments/backend && go test ./... -count=1`
-- [ ] `cd pinocchio && go test ./... -count=1`
+- [x] `cd moments/backend && go test ./... -count=1`
+- [x] `cd pinocchio && go test ./... -count=1`
