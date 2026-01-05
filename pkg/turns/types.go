@@ -1,12 +1,9 @@
 package turns
 
 import (
-	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"strings"
-
-	pkgerrors "github.com/pkg/errors"
 )
 
 // BlockKind represents the kind of a block within a Turn.
@@ -103,7 +100,7 @@ type Turn struct {
 	Data Data `yaml:"data,omitempty"`
 }
 
-// Key is a typed key used to access Turn.Data, Turn.Metadata, and Block.Metadata.
+// Key is the legacy typed key previously used to access Turn.Data, Turn.Metadata, and Block.Metadata.
 // The underlying ID is an encoded string key of form: "namespace.value@vN".
 //
 // Note: We intentionally keep this wrapper opaque: callers get a typed Key[T] and can only read/write via wrapper APIs.
@@ -141,33 +138,14 @@ func (d Data) IsZero() bool {
 	return len(d.m) == 0
 }
 
-// DataSet stores value for key after validating JSON serializability.
-func DataSet[T any](d *Data, key Key[T], value T) error {
-	if d.m == nil {
-		d.m = make(map[TurnDataKey]any)
-	}
-	if _, err := json.Marshal(value); err != nil {
-		return pkgerrors.Wrapf(err, "Turn.Data[%q]: value not serializable", key.id.String())
-	}
-	d.m[key.id] = value
-	return nil
+// DataSet is the legacy function API for Turn.Data; prefer DataKey.Set.
+func DataSet[T any](d *Data, key DataKey[T], value T) error {
+	return key.Set(d, value)
 }
 
-// DataGet returns (value, ok, error). Missing keys are (zero, false, nil). Type mismatches are (zero, true, error).
-func DataGet[T any](d Data, key Key[T]) (T, bool, error) {
-	var zero T
-	if d.m == nil {
-		return zero, false, nil
-	}
-	value, ok := d.m[key.id]
-	if !ok {
-		return zero, false, nil
-	}
-	typed, ok := value.(T)
-	if !ok {
-		return zero, true, pkgerrors.Errorf("Turn.Data[%q]: expected %T, got %T", key.id.String(), zero, value)
-	}
-	return typed, true, nil
+// DataGet is the legacy function API for Turn.Data; prefer DataKey.Get.
+func DataGet[T any](d Data, key DataKey[T]) (T, bool, error) {
+	return key.Get(d)
 }
 
 func (d Data) Len() int {
@@ -240,31 +218,14 @@ func (m Metadata) IsZero() bool {
 	return len(m.m) == 0
 }
 
-func MetadataSet[T any](m *Metadata, key Key[T], value T) error {
-	if m.m == nil {
-		m.m = make(map[TurnMetadataKey]any)
-	}
-	if _, err := json.Marshal(value); err != nil {
-		return pkgerrors.Wrapf(err, "Turn.Metadata[%q]: value not serializable", key.id.String())
-	}
-	m.m[TurnMetadataKey(key.id)] = value
-	return nil
+// MetadataSet is the legacy function API for Turn.Metadata; prefer TurnMetaKey.Set.
+func MetadataSet[T any](m *Metadata, key TurnMetaKey[T], value T) error {
+	return key.Set(m, value)
 }
 
-func MetadataGet[T any](m Metadata, key Key[T]) (T, bool, error) {
-	var zero T
-	if m.m == nil {
-		return zero, false, nil
-	}
-	value, ok := m.m[TurnMetadataKey(key.id)]
-	if !ok {
-		return zero, false, nil
-	}
-	typed, ok := value.(T)
-	if !ok {
-		return zero, true, pkgerrors.Errorf("Turn.Metadata[%q]: expected %T, got %T", key.id.String(), zero, value)
-	}
-	return typed, true, nil
+// MetadataGet is the legacy function API for Turn.Metadata; prefer TurnMetaKey.Get.
+func MetadataGet[T any](m Metadata, key TurnMetaKey[T]) (T, bool, error) {
+	return key.Get(m)
 }
 
 func (m Metadata) Len() int {
@@ -337,31 +298,14 @@ func (bm BlockMetadata) IsZero() bool {
 	return len(bm.m) == 0
 }
 
-func BlockMetadataSet[T any](bm *BlockMetadata, key Key[T], value T) error {
-	if bm.m == nil {
-		bm.m = make(map[BlockMetadataKey]any)
-	}
-	if _, err := json.Marshal(value); err != nil {
-		return pkgerrors.Wrapf(err, "Block.Metadata[%q]: value not serializable", key.id.String())
-	}
-	bm.m[BlockMetadataKey(key.id)] = value
-	return nil
+// BlockMetadataSet is the legacy function API for Block.Metadata; prefer BlockMetaKey.Set.
+func BlockMetadataSet[T any](bm *BlockMetadata, key BlockMetaKey[T], value T) error {
+	return key.Set(bm, value)
 }
 
-func BlockMetadataGet[T any](bm BlockMetadata, key Key[T]) (T, bool, error) {
-	var zero T
-	if bm.m == nil {
-		return zero, false, nil
-	}
-	value, ok := bm.m[BlockMetadataKey(key.id)]
-	if !ok {
-		return zero, false, nil
-	}
-	typed, ok := value.(T)
-	if !ok {
-		return zero, true, pkgerrors.Errorf("Block.Metadata[%q]: expected %T, got %T", key.id.String(), zero, value)
-	}
-	return typed, true, nil
+// BlockMetadataGet is the legacy function API for Block.Metadata; prefer BlockMetaKey.Get.
+func BlockMetadataGet[T any](bm BlockMetadata, key BlockMetaKey[T]) (T, bool, error) {
+	return key.Get(bm)
 }
 
 func (bm BlockMetadata) Len() int {

@@ -264,7 +264,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 			Version:     "1.0",
 		})
 		ctx = toolcontext.WithRegistry(ctx, reg)
-		if err := turns.DataSet(&initialTurn.Data, enginepkg.KeyToolConfig, enginepkg.ToolConfig{
+		if err := enginepkg.KeyToolConfig.Set(&initialTurn.Data, enginepkg.ToolConfig{
 			Enabled:          true,
 			ToolChoice:       enginepkg.ToolChoiceAuto,
 			MaxIterations:    5,

@@ -298,7 +298,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 	// No Turn.Data registry (runtime-only) is stored.
 	ctx = toolcontext.WithRegistry(ctx, registry)
 
-	if err := turns.DataSet(&t.Data, engine.KeyToolConfig, engine.ToolConfig{
+	if err := engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{
 		Enabled:           true,
 		ToolChoice:        engine.ToolChoice(config.ToolChoice),
 		MaxIterations:     config.MaxIterations,

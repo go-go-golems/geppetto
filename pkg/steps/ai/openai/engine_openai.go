@@ -124,7 +124,7 @@ func (e *OpenAIEngine) RunInference(
 
 	var toolCfg engine.ToolConfig
 	if t != nil {
-		if cfg, ok, err := turns.DataGet(t.Data, engine.KeyToolConfig); err != nil {
+		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {
 			return nil, errors.Wrap(err, "get tool config")
 		} else if ok {
 			toolCfg = cfg

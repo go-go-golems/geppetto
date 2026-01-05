@@ -24,16 +24,16 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, turns.DataSet(&turn.Data, turns.KeyAgentMode, "test-mode"))
-	require.NoError(t, turns.MetadataSet(&turn.Metadata, turns.KeyTurnMetaModel, "test-model"))
-	require.NoError(t, turns.MetadataSet(&turn.Metadata, turns.KeyTurnMetaProvider, "test-provider"))
-	require.NoError(t, turns.MetadataSet(&turn.Metadata, turns.KeyTurnMetaStopReason, "stop"))
+	require.NoError(t, turns.KeyAgentMode.Set(&turn.Data, "test-mode"))
+	require.NoError(t, turns.KeyTurnMetaModel.Set(&turn.Metadata, "test-model"))
+	require.NoError(t, turns.KeyTurnMetaProvider.Set(&turn.Metadata, "test-provider"))
+	require.NoError(t, turns.KeyTurnMetaStopReason.Set(&turn.Metadata, "stop"))
 	// also exercise engine-owned typed key (ToolConfig)
-	require.NoError(t, turns.DataSet(&turn.Data, engine.KeyToolConfig, engine.ToolConfig{Enabled: true}))
+	require.NoError(t, engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true}))
 
-	require.NoError(t, turns.BlockMetadataSet(&turn.Blocks[0].Metadata, turns.KeyBlockMetaMiddleware, "test-middleware"))
-	// Help Go inference pick T=any (key is Key[any]) rather than T=[]any (from the literal).
-	require.NoError(t, turns.BlockMetadataSet(&turn.Blocks[0].Metadata, turns.KeyBlockMetaClaudeOriginalContent, any([]any{"test-content"})))
+	require.NoError(t, turns.KeyBlockMetaMiddleware.Set(&turn.Blocks[0].Metadata, "test-middleware"))
+	// Help Go inference pick T=any (key is BlockMetaKey[any]) rather than T=[]any (from the literal).
+	require.NoError(t, turns.KeyBlockMetaClaudeOriginalContent.Set(&turn.Blocks[0].Metadata, any([]any{"test-content"})))
 
 	t.Logf("seeded: turn.Data.Len=%d, turn.Metadata.Len=%d, block0.Metadata.Len=%d", turn.Data.Len(), turn.Metadata.Len(), turn.Blocks[0].Metadata.Len())
 
@@ -54,19 +54,19 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	assert.Equal(t, turn.RunID, roundTripTurn.RunID, "Run ID should match")
 
 	// Verify Data contents
-	gotMode, ok, err := turns.DataGet(roundTripTurn.Data, turns.KeyAgentMode)
+	gotMode, ok, err := turns.KeyAgentMode.Get(roundTripTurn.Data)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "test-mode", gotMode, "AgentMode should match")
 
 	// NOTE: YAML round-trip decodes structs as map[string]any, so strict typed reads for struct values
 	// (like engine.ToolConfig) will fail unless we add an explicit type/codec registry or switch storage strategy.
-	_, ok, err = turns.DataGet(roundTripTurn.Data, engine.KeyToolConfig)
+	_, ok, err = engine.KeyToolConfig.Get(roundTripTurn.Data)
 	require.True(t, ok)
 	require.Error(t, err)
 	// Assert the decoded map form is present and has the expected fields.
-	rawToolCfgKey := turns.K[any](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
-	rawCfg, ok, err := turns.DataGet(roundTripTurn.Data, rawToolCfgKey)
+	rawToolCfgKey := turns.DataK[any](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
+	rawCfg, ok, err := rawToolCfgKey.Get(roundTripTurn.Data)
 	require.NoError(t, err)
 	require.True(t, ok)
 	cfgMap, ok := rawCfg.(map[string]any)
@@ -74,17 +74,17 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	assert.Equal(t, true, cfgMap["enabled"], "ToolConfig.enabled should match")
 
 	// Verify Metadata contents
-	gotModel, ok, err := turns.MetadataGet(roundTripTurn.Metadata, turns.KeyTurnMetaModel)
+	gotModel, ok, err := turns.KeyTurnMetaModel.Get(roundTripTurn.Metadata)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "test-model", gotModel, "Model should match")
 
-	gotProvider, ok, err := turns.MetadataGet(roundTripTurn.Metadata, turns.KeyTurnMetaProvider)
+	gotProvider, ok, err := turns.KeyTurnMetaProvider.Get(roundTripTurn.Metadata)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "test-provider", gotProvider, "Provider should match")
 
-	gotStop, ok, err := turns.MetadataGet(roundTripTurn.Metadata, turns.KeyTurnMetaStopReason)
+	gotStop, ok, err := turns.KeyTurnMetaStopReason.Get(roundTripTurn.Metadata)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "stop", gotStop, "StopReason should match")
@@ -94,7 +94,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	block := roundTripTurn.Blocks[0]
 	assert.Equal(t, turn.Blocks[0].ID, block.ID, "Block ID should match")
 	assert.Equal(t, turn.Blocks[0].Kind, block.Kind, "Block Kind should match")
-	gotMW, ok, err := turns.BlockMetadataGet(block.Metadata, turns.KeyBlockMetaMiddleware)
+	gotMW, ok, err := turns.KeyBlockMetaMiddleware.Get(block.Metadata)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, "test-middleware", gotMW, "Middleware metadata should match")

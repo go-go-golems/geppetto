@@ -332,7 +332,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 			maxPar = 2
 		}
 		turn = &turns.Turn{}
-		if err := turns.DataSet(&turn.Data, engine.KeyToolConfig, engine.ToolConfig{
+		if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
 			Enabled:           true,
 			ToolChoice:        engine.ToolChoiceAuto,
 			MaxIterations:     3,

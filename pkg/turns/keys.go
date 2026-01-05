@@ -52,26 +52,26 @@ const (
 // Note: KeyToolConfig lives in `geppetto/pkg/inference/engine` to avoid the import cycle:
 // turns -> engine (ToolConfig type) -> turns (Engine interface uses *turns.Turn)
 var (
-	KeyAgentModeAllowedTools = K[[]string](GeppettoNamespaceKey, AgentModeAllowedToolsValueKey, 1)
-	KeyAgentMode             = K[string](GeppettoNamespaceKey, AgentModeValueKey, 1)
-	KeyResponsesServerTools  = K[[]any](GeppettoNamespaceKey, ResponsesServerToolsValueKey, 1)
+	KeyAgentModeAllowedTools = DataK[[]string](GeppettoNamespaceKey, AgentModeAllowedToolsValueKey, 1)
+	KeyAgentMode             = DataK[string](GeppettoNamespaceKey, AgentModeValueKey, 1)
+	KeyResponsesServerTools  = DataK[[]any](GeppettoNamespaceKey, ResponsesServerToolsValueKey, 1)
 )
 
 // Typed keys for Turn.Metadata (geppetto-owned).
 var (
-	KeyTurnMetaProvider   = K[string](GeppettoNamespaceKey, TurnMetaProviderValueKey, 1)
-	KeyTurnMetaRuntime    = K[any](GeppettoNamespaceKey, TurnMetaRuntimeValueKey, 1)
-	KeyTurnMetaTraceID    = K[string](GeppettoNamespaceKey, TurnMetaTraceIDValueKey, 1)
-	KeyTurnMetaUsage      = K[any](GeppettoNamespaceKey, TurnMetaUsageValueKey, 1)
-	KeyTurnMetaStopReason = K[string](GeppettoNamespaceKey, TurnMetaStopReasonValueKey, 1)
-	KeyTurnMetaModel      = K[string](GeppettoNamespaceKey, TurnMetaModelValueKey, 1)
+	KeyTurnMetaProvider   = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaProviderValueKey, 1)
+	KeyTurnMetaRuntime    = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaRuntimeValueKey, 1)
+	KeyTurnMetaTraceID    = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaTraceIDValueKey, 1)
+	KeyTurnMetaUsage      = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaUsageValueKey, 1)
+	KeyTurnMetaStopReason = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaStopReasonValueKey, 1)
+	KeyTurnMetaModel      = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaModelValueKey, 1)
 )
 
 // Typed keys for Block.Metadata (geppetto-owned).
 var (
-	KeyBlockMetaClaudeOriginalContent = K[any](GeppettoNamespaceKey, BlockMetaClaudeOriginalContentValueKey, 1)
-	KeyBlockMetaToolCalls             = K[any](GeppettoNamespaceKey, BlockMetaToolCallsValueKey, 1)
-	KeyBlockMetaMiddleware            = K[string](GeppettoNamespaceKey, BlockMetaMiddlewareValueKey, 1)
-	KeyBlockMetaAgentModeTag          = K[string](GeppettoNamespaceKey, BlockMetaAgentModeTagValueKey, 1)
-	KeyBlockMetaAgentMode             = K[string](GeppettoNamespaceKey, BlockMetaAgentModeValueKey, 1)
+	KeyBlockMetaClaudeOriginalContent = BlockMetaK[any](GeppettoNamespaceKey, BlockMetaClaudeOriginalContentValueKey, 1)
+	KeyBlockMetaToolCalls             = BlockMetaK[any](GeppettoNamespaceKey, BlockMetaToolCallsValueKey, 1)
+	KeyBlockMetaMiddleware            = BlockMetaK[string](GeppettoNamespaceKey, BlockMetaMiddlewareValueKey, 1)
+	KeyBlockMetaAgentModeTag          = BlockMetaK[string](GeppettoNamespaceKey, BlockMetaAgentModeTagValueKey, 1)
+	KeyBlockMetaAgentMode             = BlockMetaK[string](GeppettoNamespaceKey, BlockMetaAgentModeValueKey, 1)
 )

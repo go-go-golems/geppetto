@@ -144,7 +144,7 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	// Build a Turn seeded with a user prompt that asks to use the tool.
 	// Registry is carried in context (no Turn.Data registry).
 	turn := &turns.Turn{}
-	if err := turns.DataSet(&turn.Data, engine.KeyToolConfig, engine.ToolConfig{
+	if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
 		Enabled:           true,
 		ToolChoice:        engine.ToolChoiceAuto,
 		MaxIterations:     3,
