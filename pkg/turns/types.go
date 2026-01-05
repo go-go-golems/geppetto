@@ -166,6 +166,19 @@ func (d Data) Range(fn func(TurnDataKey, any) bool) {
 	}
 }
 
+// Clone returns a shallow copy of the underlying map (keys and values are copied,
+// but any reference-typed values inside remain shared).
+func (d Data) Clone() Data {
+	if len(d.m) == 0 {
+		return Data{}
+	}
+	out := make(map[TurnDataKey]any, len(d.m))
+	for k, v := range d.m {
+		out[k] = v
+	}
+	return Data{m: out}
+}
+
 func (d *Data) Delete(key TurnDataKey) {
 	if d.m == nil {
 		return
@@ -246,6 +259,19 @@ func (m Metadata) Range(fn func(TurnMetadataKey, any) bool) {
 	}
 }
 
+// Clone returns a shallow copy of the underlying map (keys and values are copied,
+// but any reference-typed values inside remain shared).
+func (m Metadata) Clone() Metadata {
+	if len(m.m) == 0 {
+		return Metadata{}
+	}
+	out := make(map[TurnMetadataKey]any, len(m.m))
+	for k, v := range m.m {
+		out[k] = v
+	}
+	return Metadata{m: out}
+}
+
 func (m *Metadata) Delete(key TurnMetadataKey) {
 	if m.m == nil {
 		return
@@ -324,6 +350,19 @@ func (bm BlockMetadata) Range(fn func(BlockMetadataKey, any) bool) {
 			return
 		}
 	}
+}
+
+// Clone returns a shallow copy of the underlying map (keys and values are copied,
+// but any reference-typed values inside remain shared).
+func (bm BlockMetadata) Clone() BlockMetadata {
+	if len(bm.m) == 0 {
+		return BlockMetadata{}
+	}
+	out := make(map[BlockMetadataKey]any, len(bm.m))
+	for k, v := range bm.m {
+		out[k] = v
+	}
+	return BlockMetadata{m: out}
 }
 
 func (bm *BlockMetadata) Delete(key BlockMetadataKey) {
