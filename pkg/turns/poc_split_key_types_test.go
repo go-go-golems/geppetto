@@ -10,49 +10,9 @@ import (
 // - TurnMetaKey[T] for Turn.Metadata
 // - BlockMetaKey[T] for Block.Metadata
 //
-// This file intentionally only proves the language/API shape is viable against
-// the current implementation (which today uses Key[T] + DataGet/DataSet functions).
-
-type DataKey[T any] struct{ id TurnDataKey }
-type TurnMetaKey[T any] struct{ id TurnMetadataKey }
-type BlockMetaKey[T any] struct{ id BlockMetadataKey }
-
-func DataK[T any](namespace, value string, version uint16) DataKey[T] {
-	return DataKey[T]{id: NewTurnDataKey(namespace, value, version)}
-}
-func TurnMetaK[T any](namespace, value string, version uint16) TurnMetaKey[T] {
-	return TurnMetaKey[T]{id: TurnMetadataKey(NewTurnDataKey(namespace, value, version))}
-}
-func BlockMetaK[T any](namespace, value string, version uint16) BlockMetaKey[T] {
-	return BlockMetaKey[T]{id: BlockMetadataKey(NewTurnDataKey(namespace, value, version))}
-}
-
-func (k DataKey[T]) String() string     { return k.id.String() }
-func (k TurnMetaKey[T]) String() string { return k.id.String() }
-func (k BlockMetaKey[T]) String() string {
-	return k.id.String()
-}
-
-func (k DataKey[T]) Get(d Data) (T, bool, error) {
-	return DataGet(d, Key[T](k))
-}
-func (k DataKey[T]) Set(d *Data, v T) error {
-	return DataSet(d, Key[T](k), v)
-}
-
-func (k TurnMetaKey[T]) Get(m Metadata) (T, bool, error) {
-	return MetadataGet(m, Key[T]{id: TurnDataKey(k.id)})
-}
-func (k TurnMetaKey[T]) Set(m *Metadata, v T) error {
-	return MetadataSet(m, Key[T]{id: TurnDataKey(k.id)}, v)
-}
-
-func (k BlockMetaKey[T]) Get(bm BlockMetadata) (T, bool, error) {
-	return BlockMetadataGet(bm, Key[T]{id: TurnDataKey(k.id)})
-}
-func (k BlockMetaKey[T]) Set(bm *BlockMetadata, v T) error {
-	return BlockMetadataSet(bm, Key[T]{id: TurnDataKey(k.id)}, v)
-}
+// This file originally defined local types to validate the intended API shape.
+// Those types now exist in production code; these tests ensure the behavior
+// contracts remain correct.
 
 func TestPOC_SplitKeyTypes_Data(t *testing.T) {
 	key := DataK[string]("testns", "foo", 1)
