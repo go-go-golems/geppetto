@@ -26,3 +26,8 @@ Step 5: Updated Geppetto docs (topics + tutorial) to reflect context-carried too
 - /home/manuel/workspaces/2025-12-01/integrate-moments-persistence/geppetto/pkg/doc/topics/08-turns.md — Docs updated
 - /home/manuel/workspaces/2025-12-01/integrate-moments-persistence/geppetto/pkg/doc/tutorials/01-streaming-inference-with-tools.md — Docs updated
 
+
+## 2026-01-05
+
+Ticket closed
+
