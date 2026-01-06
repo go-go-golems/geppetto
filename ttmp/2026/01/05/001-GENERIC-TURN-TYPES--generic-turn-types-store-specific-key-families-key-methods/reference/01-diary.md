@@ -11,47 +11,56 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../../../../../../../moments/backend/pkg/turnkeys/data_keys.go
-      Note: Moments data keys migrated to turns.DataK constructors
-    - Path: ../../../../../../../moments/backend/pkg/webchat/moments_global_prompt_middleware.go
-      Note: Replace Has/WithBlockMetadata with typed block meta keys
-    - Path: ../../../../../../../moments/backend/pkg/webchat/router.go
-      Note: Fix Turn.Data wrapper usage (commits af80d5f
-    - Path: ../../../../../../../moments/backend/pkg/webchat/system_prompt_middleware.go
-      Note: Idempotent system prompt now uses BlockMetaWebchatID
-    - Path: pkg/analysis/turnsdatalint/analyzer.go
+    - Path: geppetto/.golangci.yml
+      Note: Skip testdata dirs for golangci-lint (commit 92d077c)
+    - Path: geppetto/Makefile
+      Note: Exclude testdata from gosec target (commit 92d077c)
+    - Path: geppetto/pkg/analysis/turnsdatalint/analyzer.go
       Note: Lint enforcement must evolve alongside API; diary records rule updates
-    - Path: pkg/analysis/turnsdatalint/testdata/src/a/a.go
+    - Path: geppetto/pkg/analysis/turnsdatalint/testdata/src/a/a.go
       Note: Analysistest coverage for constructor policy
-    - Path: pkg/analysis/turnsrefactor/refactor.go
+    - Path: geppetto/pkg/analysis/turnsrefactor/refactor.go
       Note: Migration tool; diary records runs and failures
-    - Path: pkg/doc/topics/08-turns.md
+    - Path: geppetto/pkg/doc/topics/08-turns.md
       Note: Main docs updated to match wrapper stores + key families
-    - Path: pkg/inference/engine/turnkeys.go
+    - Path: geppetto/pkg/inference/engine/turnkeys.go
       Note: KeyToolConfig now uses turns.DataK
-    - Path: pkg/turns/key_families.go
+    - Path: geppetto/pkg/turns/key_families.go
       Note: |-
         Production DataKey/TurnMetaKey/BlockMetaKey + DataK/TurnMetaK/BlockMetaK + Get/Set
         TurnMetaK/BlockMetaK now use typed constructors
-    - Path: pkg/turns/keys.go
+    - Path: geppetto/pkg/turns/keys.go
       Note: |-
         Canonical keys migration checkpoint; diary tracks key family assignments
         Switched canonical geppetto keys from turns.K to DataK/TurnMetaK/BlockMetaK
-    - Path: pkg/turns/poc_split_key_types_test.go
+    - Path: geppetto/pkg/turns/poc_split_key_types_test.go
       Note: |-
         POC confirms key-method API shape; diary uses it as implementation guide
         Behavior-contract tests for new key families
-    - Path: pkg/turns/types.go
+    - Path: geppetto/pkg/turns/types.go
       Note: |-
         Main target of API change; diary records decisions and migration steps
         Legacy turns.{Data
         NewKeyString and typed key-id constructors (task 5)
+    - Path: moments/backend/pkg/turnkeys/data_keys.go
+      Note: Moments data keys migrated to turns.DataK constructors
+    - Path: moments/backend/pkg/webchat/moments_global_prompt_middleware.go
+      Note: Replace Has/WithBlockMetadata with typed block meta keys
+    - Path: moments/backend/pkg/webchat/router.go
+      Note: Fix Turn.Data wrapper usage (commits af80d5f
+    - Path: moments/backend/pkg/webchat/system_prompt_middleware.go
+      Note: Idempotent system prompt now uses BlockMetaWebchatID
+    - Path: pinocchio/.golangci.yml
+      Note: Skip testdata dirs for golangci-lint (commit baad607)
+    - Path: pinocchio/Makefile
+      Note: Exclude testdata from gosec target (commit baad607)
 ExternalSources: []
 Summary: Implementation diary for migrating turns to store-specific key families + key receiver methods, and removing the legacy function-based API.
 LastUpdated: 2026-01-05T17:15:28.961015601-05:00
 WhatFor: Record each decision and change (including failures) while implementing DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set, migrating canonical keys, running turnsrefactor, and deleting the old API.
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 
@@ -617,6 +626,51 @@ Because `turns.K` constructor usage is already at zero in Go code across the rep
   - `geppetto/pkg/doc/topics/08-turns.md`
 - Validate with:
   - `cd geppetto && go test ./... -count=1`
+
+## Step 10: Exclude `testdata/` from golangci-lint + gosec
+
+This step makes the “ignore fixtures” behavior explicit: while `go test ./...` and most package-based tooling already skip `testdata/`, it’s easy to accidentally lint/security-scan those directories when running tools on explicit paths or when a wrapper script walks the filesystem. We added an explicit `testdata/` exclusion for both golangci-lint and gosec to avoid churn from intentionally odd fixture code.
+
+This keeps the analyzers’ `analysistest` fixtures intact (they’re still compiled by tests), but prevents them from leaking into repo-wide lint/security checks.
+
+**Commit (code):** 92d077c — "lint: skip testdata for golangci-lint and gosec"
+
+### What I did
+- Updated `geppetto/.golangci.yml` to skip any directory path segment named `testdata`.
+- Updated `geppetto/Makefile` `gosec` target to add `-exclude-dir=testdata`.
+- Mirrored the same exclusions in pinocchio (commit `baad607`) for consistency.
+- Verified golangci-lint still runs cleanly:
+  - `cd geppetto && golangci-lint run -v`
+  - `cd pinocchio && golangci-lint run -v`
+
+### Why
+- Fixture code under `testdata/` is often intentionally “wrong” (type errors, unsafe patterns, contrived examples) and shouldn’t fail lint/security checks meant for production code.
+
+### What worked
+- `golangci-lint run -v` accepts the config and reports 0 issues in geppetto/pinocchio.
+
+### What didn't work
+- N/A
+
+### What I learned
+- `golangci-lint` v2 config supports `run.skip-dirs` for explicit fixture exclusions even though the Go toolchain already ignores `testdata/` in package patterns.
+
+### What was tricky to build
+- Choosing a regex that matches `testdata` as a path segment without accidentally skipping unrelated directories.
+
+### What warrants a second pair of eyes
+- Confirm that explicitly skipping `testdata/` is acceptable for your preferred “security posture” (i.e., we intentionally do not scan analyzer fixtures with gosec).
+
+### What should be done in the future
+- If more fixture directories show up (e.g. `ttmp/` or `examples/`), decide whether they should also be excluded, and document the policy in the repo’s lint playbook.
+
+### Code review instructions
+- Review:
+  - `geppetto/.golangci.yml`
+  - `geppetto/Makefile`
+- Validate:
+  - `cd geppetto && golangci-lint run -v`
+  - `cd geppetto && make gosec` (optional; requires downloading/installing gosec)
 
 ## Usage Examples
 
