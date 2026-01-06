@@ -111,7 +111,9 @@ func Run(cfg Config) error {
 	}
 
 	if len(changedFiles) == 0 && !cfg.AllowNoop {
-		return pkgerrors.Errorf("no rewrites applied (use --allow-noop to ignore)")
+		if !cfg.Verify {
+			return pkgerrors.Errorf("no rewrites applied (use --allow-noop to ignore)")
+		}
 	}
 
 	// Apply imports.Process + optionally write.
@@ -145,11 +147,32 @@ func Run(cfg Config) error {
 	}
 
 	if cfg.Verify {
-		// Quick verification: ensure no targeted calls remain in modified files.
-		// (Full go test is intentionally separate.)
-		for filename, src := range changedFiles {
-			if err := verifyNoTargetCalls(filename, src); err != nil {
-				return err
+		// Verification: ensure no targeted calls remain anywhere in the scanned packages.
+		// This is intentionally a cheap textual check so it still works in a post-migration
+		// world where the legacy API may no longer exist.
+		seen := map[string]struct{}{}
+		for _, pkg := range pkgs {
+			for i := range pkg.CompiledGoFiles {
+				filename := pkg.CompiledGoFiles[i]
+				if _, ok := seen[filename]; ok {
+					continue
+				}
+				seen[filename] = struct{}{}
+
+				if src, ok := changedFiles[filename]; ok {
+					if err := verifyNoTargetCalls(filename, src); err != nil {
+						return err
+					}
+					continue
+				}
+
+				src, err := os.ReadFile(filename)
+				if err != nil {
+					return pkgerrors.Wrapf(err, "verify read %s", filename)
+				}
+				if err := verifyNoTargetCalls(filename, src); err != nil {
+					return err
+				}
 			}
 		}
 	}
