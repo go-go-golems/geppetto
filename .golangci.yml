@@ -6,6 +6,12 @@
 # The only possible value is "2".
 version: "2"
 
+# Go tooling already ignores `testdata/` for package patterns like `./...`,
+# but we also exclude it explicitly to avoid accidental direct-file linting.
+run:
+  skip-dirs:
+    - '(^|/)testdata($|/)'
+
 # Linters configuration
 linters:
   # Default set of linters.
