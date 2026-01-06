@@ -21,8 +21,12 @@ RelatedFiles:
       Note: Idempotent system prompt now uses BlockMetaWebchatID
     - Path: pkg/analysis/turnsdatalint/analyzer.go
       Note: Lint enforcement must evolve alongside API; diary records rule updates
+    - Path: pkg/analysis/turnsdatalint/testdata/src/a/a.go
+      Note: Analysistest coverage for constructor policy
     - Path: pkg/analysis/turnsrefactor/refactor.go
       Note: Migration tool; diary records runs and failures
+    - Path: pkg/doc/topics/08-turns.md
+      Note: Main docs updated to match wrapper stores + key families
     - Path: pkg/inference/engine/turnkeys.go
       Note: KeyToolConfig now uses turns.DataK
     - Path: pkg/turns/key_families.go
@@ -48,6 +52,7 @@ LastUpdated: 2026-01-05T17:15:28.961015601-05:00
 WhatFor: Record each decision and change (including failures) while implementing DataKey/TurnMetaKey/BlockMetaKey + key.Get/key.Set, migrating canonical keys, running turnsrefactor, and deleting the old API.
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 
