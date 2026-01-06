@@ -34,3 +34,14 @@ ToolConfig: custom UnmarshalJSON parses duration strings (execution_timeout/back
 
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/inference/engine/types.go — ToolConfig/RetryConfig UnmarshalJSON
 
+
+## 2026-01-05
+
+Step 5: unblock Moments lint/push + fix Gemini metadata (geppetto 6bc67dd, moments c479ee0)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/steps/ai/gemini/engine_gemini.go — Switch provider/model Turn.Metadata writes to typed keys
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/block_compressor.go — Use helper key instead of calling turns.BlockMetaK directly
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/compression_keys.go — Define runtime-configurable BlockMetaKey helper in *_keys.go
+

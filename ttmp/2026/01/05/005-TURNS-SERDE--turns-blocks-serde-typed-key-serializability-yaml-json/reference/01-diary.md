@@ -12,24 +12,31 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: pkg/inference/engine/types.go
+    - Path: geppetto/pkg/inference/engine/types.go
       Note: Custom UnmarshalJSON to parse duration strings in ToolConfig/RetryConfig
-    - Path: pkg/steps/ai/openai/engine_openai.go
+    - Path: geppetto/pkg/steps/ai/gemini/engine_gemini.go
+      Note: Gemini engine now uses typed Turn.Metadata keys
+    - Path: geppetto/pkg/steps/ai/openai/engine_openai.go
       Note: Diary records tool_config mismatch regression
-    - Path: pkg/turns/key_families.go
+    - Path: geppetto/pkg/turns/key_families.go
       Note: Diary records typed key mismatch behavior
-    - Path: pkg/turns/serde/key_decode_regression_test.go
+    - Path: geppetto/pkg/turns/serde/key_decode_regression_test.go
       Note: Regression coverage for duration strings in YAML fixtures
-    - Path: pkg/turns/serde/serde.go
+    - Path: geppetto/pkg/turns/serde/serde.go
       Note: Diary tracks serde behavior changes and verification
-    - Path: pkg/turns/types.go
+    - Path: geppetto/pkg/turns/types.go
       Note: Diary records wrapper UnmarshalYAML behavior
+    - Path: moments/backend/pkg/inference/middleware/compression/block_compressor.go
+      Note: Uses wrapper for block metadata key
+    - Path: moments/backend/pkg/inference/middleware/compression/compression_keys.go
+      Note: Key-definition wrapper to satisfy turnsdatalint
 ExternalSources: []
 Summary: Implementation diary for investigating and fixing typed-key serializability for Turn/Block data+metadata (YAML/JSON).
 LastUpdated: 2026-01-05T19:40:34.295785454-05:00
 WhatFor: Record each decision and experiment while making Turn/Block serde compatible with typed keys (including failures and exact commands).
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 
@@ -165,7 +172,7 @@ This step implemented the “wide reach” prototype we discussed: when a typed 
 
 The result is that YAML fixtures can once again specify structured key values (e.g. `geppetto.tool_config@v1` as a YAML map) and typed reads can succeed without needing a separate codec registry in the short term.
 
-**Commit (code):** N/A — not committed yet in this step
+**Commit (code):** f3b84a7 — "turns: best-effort decode typed values via JSON"
 
 ### What I did
 - Implemented `Decode(raw any) (T, error)` for all key families and used it in `Get`:
@@ -222,7 +229,7 @@ This step adds `UnmarshalJSON` implementations for `engine.ToolConfig` and `engi
 - string durations (`"2s"`, `"100ms"`) via `time.ParseDuration`
 - numeric durations (treated as `time.Duration` nanoseconds, preserving the default JSON behavior)
 
-**Commit (code):** N/A — not committed yet in this step
+**Commit (code):** f18ae79 — "engine: parse duration strings in ToolConfig JSON"
 
 ### What I did
 - Added custom JSON unmarshalling:
@@ -263,4 +270,63 @@ This step adds `UnmarshalJSON` implementations for `engine.ToolConfig` and `engi
   - `geppetto/pkg/inference/engine/types.go`
   - `geppetto/pkg/turns/serde/key_decode_regression_test.go`
 - Validate:
+  - `cd geppetto && go test ./... -count=1`
+
+## Step 5: Unblock downstream repos (Moments) + restore provider metadata in Gemini
+
+This step was prompted by two “integration reality” failures: Moments’ pre-push lint started failing after the typed-key refactor, and Geppetto no longer compiled because the Gemini engine still referenced removed legacy metadata helpers. The core theme was consistency: key constructors must live in `*_keys.go` files per `turnsdatalint`, and all code must use typed-key `Get/Set` instead of the deleted `turns.*Get/*Set` helpers.
+
+We also had to reconcile diverged branch history in Geppetto: `git push` was rejected due to a non-fast-forward update, so the fix was cherry-picked onto the remote branch tip, conflicts were resolved, and the resulting commit was pushed cleanly.
+
+**Commit (code):** 6bc67dd — "fix: gemini metadata keys and glazed pin"
+
+### What I did
+- Fixed Moments’ `turnsdatalint` pre-push failure by moving the dynamic `turns.BlockMetaK` call into a `*_keys.go` helper:
+  - `/home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/compression_keys.go`
+  - `/home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/block_compressor.go`
+  - Commit: `c479ee0` — "fix: satisfy turnsdatalint in compression middleware"
+- Fixed Geppetto build errors in the Gemini engine by setting provider/model metadata via typed keys:
+  - `/home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Resolved a non-fast-forward push rejection in Geppetto by resetting to the remote branch and cherry-picking the fix commit, resolving conflicts in:
+  - `go.mod`, `go.sum`, `pkg/steps/ai/gemini/engine_gemini.go`
+
+### Why
+- Moments’ hooks enforce `turnsdatalint` rules (no ad-hoc key constructors outside `*_keys.go`), so `git push` had to be unblocked with a compliant key-definition wrapper.
+- Geppetto’s `turns.SetTurnMetadata` / `turns.TurnMetaKey*` legacy API was removed, so the Gemini engine needed to migrate to `turns.KeyTurnMeta*.Set`.
+
+### What worked
+- `cd moments/backend && make lint` passed after moving `turns.BlockMetaK` behind `compression_keys.go`.
+- `cd geppetto && go test ./...` passed after migrating Gemini metadata writes to typed keys.
+- Both repos pushed successfully to `task/use-strong-turn-data-access`.
+
+### What didn't work
+- Initial Moments lint failure (before the fix):
+  - `moments/backend/pkg/inference/middleware/compression/block_compressor.go:295:41: do not call turns.BlockMetaK outside key-definition files ...`
+- Initial Geppetto compilation failure (before the fix):
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go:133:9: undefined: turns.SetTurnMetadata`
+- Initial Geppetto push failure (before the fix):
+  - `! [rejected] ... (non-fast-forward)`
+
+### What I learned
+- `turnsdatalint` is strict enough that even “configuration-driven” key ids should be wrapped by a helper in a `*_keys.go` file.
+- When Go workspace roots differ, branch history can easily diverge; cherry-picking onto the remote tip is often faster than trying to replay a large rebase.
+
+### What was tricky to build
+- Keeping the Moments fix flexible: the block-metadata key id is configured (`ConversationCompressionOptions.BlockMetadataKey`), so we needed a helper that still accepts a runtime string while keeping the constructor call in an allowed file.
+- Resolving the Geppetto cherry-pick conflict required dropping the dependency pin changes while retaining the Gemini metadata fix (otherwise compilation broke due to differing code paths/variables).
+
+### What warrants a second pair of eyes
+- Whether the Gemini streaming path should also attempt to extract and persist stop reason / usage (currently only provider/model are set in this step, because the necessary variables were not available in the streaming implementation).
+
+### What should be done in the future
+- Consider adding a small helper in the Gemini engine to compute best-effort stop reason/usage for streaming completion if the GenAI SDK makes it available.
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/compression_keys.go`
+  - `/home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/block_compressor.go`
+  - `/home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Validate:
+  - `cd moments/backend && make lint`
+  - `cd moments/backend && go test ./... -count=1`
   - `cd geppetto && go test ./... -count=1`
