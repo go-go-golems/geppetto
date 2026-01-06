@@ -106,3 +106,8 @@ Exclude testdata/ from golangci-lint + gosec (geppetto 92d077c; pinocchio baad60
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/.golangci.yml — Skip testdata dirs for golangci-lint
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/Makefile — Exclude testdata from gosec
 
+
+## 2026-01-05
+
+Ticket closed
+

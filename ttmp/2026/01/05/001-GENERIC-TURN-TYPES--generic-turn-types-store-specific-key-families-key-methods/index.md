@@ -1,7 +1,7 @@
 ---
 Title: 'Generic turn types: store-specific key families + key methods'
 Ticket: 001-GENERIC-TURN-TYPES
-Status: active
+Status: complete
 Topics:
     - architecture
     - geppetto
@@ -12,11 +12,12 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Migrate turns to store-specific key families + key methods (Get/Set), then remove legacy Key[T] + DataGet/DataSet API."
-LastUpdated: 2026-01-05T17:15:18.264870597-05:00
+Summary: Migrate turns to store-specific key families + key methods (Get/Set), then remove legacy Key[T] + DataGet/DataSet API.
+LastUpdated: 2026-01-05T19:25:12.675547432-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Generic turn types: store-specific key families + key methods
 
