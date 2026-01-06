@@ -339,21 +339,21 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	metadata.DurationMs = &dm
 
 	// Populate turn metadata + event metadata (best-effort).
-	if t != nil {
-		if strings.TrimSpace(finalStopReason) != "" {
+	if strings.TrimSpace(finalStopReason) != "" {
+		if t != nil {
 			if err := turns.KeyTurnMetaStopReason.Set(&t.Metadata, finalStopReason); err != nil {
 				log.Warn().Err(err).Msg("failed to set turn stop reason metadata")
-			} else {
-				metadata.StopReason = &finalStopReason
 			}
 		}
-		if finalUsage != nil {
+		metadata.StopReason = &finalStopReason
+	}
+	if finalUsage != nil {
+		if t != nil {
 			if err := turns.KeyTurnMetaUsage.Set(&t.Metadata, finalUsage); err != nil {
 				log.Warn().Err(err).Msg("failed to set turn usage metadata")
-			} else {
-				metadata.Usage = finalUsage
 			}
 		}
+		metadata.Usage = finalUsage
 	}
 
 	if strings.TrimSpace(finalStopReason) != "" || finalUsage != nil {
