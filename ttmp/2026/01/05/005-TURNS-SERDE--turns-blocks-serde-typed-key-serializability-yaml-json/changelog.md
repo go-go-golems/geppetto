@@ -25,3 +25,12 @@ Prototype: typed key Decode via JSON re-marshal; YAML fixtures can set tool_conf
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/key_families.go — Decode() and Get() behavior
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/serde/key_decode_regression_test.go — Fixture-style YAML regression tests
 
+
+## 2026-01-05
+
+ToolConfig: custom UnmarshalJSON parses duration strings (execution_timeout/backoff_base) so YAML fixtures decode cleanly
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/inference/engine/types.go — ToolConfig/RetryConfig UnmarshalJSON
+

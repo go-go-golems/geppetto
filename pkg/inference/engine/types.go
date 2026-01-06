@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -37,11 +38,101 @@ type ToolConfig struct {
 	RetryConfig       RetryConfig       `json:"retry_config"`
 }
 
+func unmarshalJSONDuration(raw json.RawMessage) (time.Duration, error) {
+	if len(raw) == 0 {
+		return 0, nil
+	}
+	if string(raw) == "null" {
+		return 0, nil
+	}
+
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, err
+		}
+		return d, nil
+	}
+
+	var i int64
+	if err := json.Unmarshal(raw, &i); err == nil {
+		return time.Duration(i), nil
+	}
+
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return time.Duration(f), nil
+	}
+
+	return 0, fmt.Errorf("unsupported duration JSON: %s", string(raw))
+}
+
+func (c *ToolConfig) UnmarshalJSON(b []byte) error {
+	type toolConfigJSON struct {
+		Enabled           bool              `json:"enabled"`
+		ToolChoice        ToolChoice        `json:"tool_choice"`
+		MaxIterations     int               `json:"max_iterations"`
+		ExecutionTimeout  json.RawMessage   `json:"execution_timeout"`
+		MaxParallelTools  int               `json:"max_parallel_tools"`
+		AllowedTools      []string          `json:"allowed_tools"`
+		ToolErrorHandling ToolErrorHandling `json:"tool_error_handling"`
+		RetryConfig       RetryConfig       `json:"retry_config"`
+	}
+
+	var tmp toolConfigJSON
+	if err := json.Unmarshal(b, &tmp); err != nil {
+		return err
+	}
+
+	*c = ToolConfig{
+		Enabled:           tmp.Enabled,
+		ToolChoice:        tmp.ToolChoice,
+		MaxIterations:     tmp.MaxIterations,
+		MaxParallelTools:  tmp.MaxParallelTools,
+		AllowedTools:      tmp.AllowedTools,
+		ToolErrorHandling: tmp.ToolErrorHandling,
+		RetryConfig:       tmp.RetryConfig,
+	}
+
+	d, err := unmarshalJSONDuration(tmp.ExecutionTimeout)
+	if err != nil {
+		return fmt.Errorf("execution_timeout: %w", err)
+	}
+	c.ExecutionTimeout = d
+	return nil
+}
+
 // RetryConfig defines retry behavior for tool execution
 type RetryConfig struct {
 	MaxRetries    int           `json:"max_retries"`
 	BackoffBase   time.Duration `json:"backoff_base"`
 	BackoffFactor float64       `json:"backoff_factor"`
+}
+
+func (c *RetryConfig) UnmarshalJSON(b []byte) error {
+	type retryConfigJSON struct {
+		MaxRetries    int             `json:"max_retries"`
+		BackoffBase   json.RawMessage `json:"backoff_base"`
+		BackoffFactor float64         `json:"backoff_factor"`
+	}
+
+	var tmp retryConfigJSON
+	if err := json.Unmarshal(b, &tmp); err != nil {
+		return err
+	}
+
+	*c = RetryConfig{
+		MaxRetries:    tmp.MaxRetries,
+		BackoffFactor: tmp.BackoffFactor,
+	}
+
+	d, err := unmarshalJSONDuration(tmp.BackoffBase)
+	if err != nil {
+		return fmt.Errorf("backoff_base: %w", err)
+	}
+	c.BackoffBase = d
+	return nil
 }
 
 // ToolChoice defines how the model should choose tools

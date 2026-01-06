@@ -12,13 +12,17 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/steps/ai/openai/engine_openai.go
+    - Path: pkg/inference/engine/types.go
+      Note: Custom UnmarshalJSON to parse duration strings in ToolConfig/RetryConfig
+    - Path: pkg/steps/ai/openai/engine_openai.go
       Note: Diary records tool_config mismatch regression
-    - Path: geppetto/pkg/turns/key_families.go
+    - Path: pkg/turns/key_families.go
       Note: Diary records typed key mismatch behavior
-    - Path: geppetto/pkg/turns/serde/serde.go
+    - Path: pkg/turns/serde/key_decode_regression_test.go
+      Note: Regression coverage for duration strings in YAML fixtures
+    - Path: pkg/turns/serde/serde.go
       Note: Diary tracks serde behavior changes and verification
-    - Path: geppetto/pkg/turns/types.go
+    - Path: pkg/turns/types.go
       Note: Diary records wrapper UnmarshalYAML behavior
 ExternalSources: []
 Summary: Implementation diary for investigating and fixing typed-key serializability for Turn/Block data+metadata (YAML/JSON).
@@ -26,6 +30,7 @@ LastUpdated: 2026-01-05T19:40:34.295785454-05:00
 WhatFor: Record each decision and experiment while making Turn/Block serde compatible with typed keys (including failures and exact commands).
 WhenToUse: Update on every meaningful investigation or change; use during review and when continuing work after a pause.
 ---
+
 
 
 # Diary
@@ -205,5 +210,57 @@ The result is that YAML fixtures can once again specify structured key values (e
   - `geppetto/pkg/turns/serde/key_decode_regression_test.go`
   - `geppetto/pkg/turns/serde/serde_test.go`
   - `geppetto/ttmp/2026/01/05/005-TURNS-SERDE--turns-blocks-serde-typed-key-serializability-yaml-json/analysis/02-report-prototype-typed-key-decode-via-json-re-marshal.md`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+
+## Step 4: Add custom JSON unmarshalling for duration fields in `engine.ToolConfig`
+
+After landing the JSON re-marshal prototype, the next obvious sharp edge is durations: YAML fixtures naturally express durations as strings (e.g. `execution_timeout: 2s`), but `encoding/json` cannot unmarshal JSON strings into `time.Duration` (it expects a number of nanoseconds). That means the prototype would still fail for `engine.ToolConfig.ExecutionTimeout` and `engine.RetryConfig.BackoffBase` when fixtures use human-friendly duration strings.
+
+This step adds `UnmarshalJSON` implementations for `engine.ToolConfig` and `engine.RetryConfig` that accept either:
+
+- string durations (`"2s"`, `"100ms"`) via `time.ParseDuration`
+- numeric durations (treated as `time.Duration` nanoseconds, preserving the default JSON behavior)
+
+**Commit (code):** N/A — not committed yet in this step
+
+### What I did
+- Added custom JSON unmarshalling:
+  - `geppetto/pkg/inference/engine/types.go`
+    - `ToolConfig.UnmarshalJSON`
+    - `RetryConfig.UnmarshalJSON`
+    - shared helper `unmarshalJSONDuration`
+- Extended YAML regression coverage to include duration strings:
+  - `geppetto/pkg/turns/serde/key_decode_regression_test.go`
+- Validated:
+  - `cd geppetto && go test ./... -count=1`
+
+### Why
+- This makes YAML fixtures with human-readable durations compatible with the typed-key `Decode` path without requiring mapstructure or per-key codec registries yet.
+
+### What worked
+- `engine.KeyToolConfig.Get(turn.Data)` now successfully reads YAML-sourced `execution_timeout: 2s` and `retry_config.backoff_base: 100ms`.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Custom `UnmarshalJSON` on the struct is a clean way to “teach” the JSON re-marshal prototype about YAML-friendly representations without changing the typed key layer.
+
+### What was tricky to build
+- Keeping compatibility with both representations:
+  - YAML fixtures want string durations.
+  - Existing JSON encoding of `time.Duration` uses numbers (nanoseconds).
+
+### What warrants a second pair of eyes
+- Confirm we’re happy treating numeric values as nanoseconds (matching `time.Duration`), and that accepting float64 inputs is not too permissive.
+
+### What should be done in the future
+- Consider adding explicit YAML tags or a mapstructure-based decoder if we want YAML output (ToYAML) to use snake_case fields rather than the current default-lowercased field names for structs.
+
+### Code review instructions
+- Start with:
+  - `geppetto/pkg/inference/engine/types.go`
+  - `geppetto/pkg/turns/serde/key_decode_regression_test.go`
 - Validate:
   - `cd geppetto && go test ./... -count=1`
