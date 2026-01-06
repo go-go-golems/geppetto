@@ -48,6 +48,12 @@ Geppetto uses three store-specific key families:
 
 Define keys in key-definition files (for geppetto: `geppetto/pkg/turns/keys.go` and `geppetto/pkg/inference/engine/turnkeys.go`) and reuse the canonical variables everywhere else.
 
+### Serde and typed keys
+
+When you load Turns from YAML (`turns/serde.FromYAML`), `data`/`metadata` values decode into generic Go shapes (`map[string]any`, `[]any`, scalars). Typed keys (`key.Get`) will best-effort decode these into their target type `T` via JSON re-marshal/unmarshal.
+
+If a struct type needs special decoding (e.g. `time.Duration` from `"2s"` strings), implement `UnmarshalJSON` on that struct (or a wrapper type). `engine.ToolConfig` does this so YAML fixtures can use `execution_timeout: 2s` and `retry_config.backoff_base: 100ms`.
+
 ### Helpers
 
 - `turns.AppendBlock`, `turns.AppendBlocks`

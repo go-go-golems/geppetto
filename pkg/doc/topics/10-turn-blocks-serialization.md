@@ -33,7 +33,7 @@ This document explains the data model, the YAML shape, recommended conventions, 
   - `id` (string), `turn_id` (string)
   - `kind` (enum), `role` (string), `payload` (map), `metadata` (map)
 
-**Note:** In Go, `metadata` and `data` maps use typed keys (`TurnMetadataKey`, `TurnDataKey`, `BlockMetadataKey`, `RunMetadataKey`) for compile-time safety. When serialized to YAML, these keys appear as strings. The serializer handles the conversion automatically.
+**Note:** In Go, `Turn.Data`, `Turn.Metadata`, and `Block.Metadata` are opaque wrapper stores keyed by typed key ids (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`). In YAML they appear as normal maps with string keys; the serializer converts keys automatically.
 
 ## Block kinds (string enums)
 
@@ -164,6 +164,28 @@ tt, _ := serde.FromYAML(yb)
 serde.NormalizeTurn(tt)
 ```
 
+## Typed keys, YAML values, and decoding
+
+When you load a Turn from YAML, `data`/`metadata` values decode into generic Go values (`map[string]any`, `[]any`, scalars). Typed keys (`turns.DataKey[T]`, `turns.TurnMetaKey[T]`, `turns.BlockMetaKey[T]`) will best-effort decode those shapes into `T` via JSON re-marshal/unmarshal.
+
+This makes fixture authoring practical for common structured values (maps, lists). For types that need custom decoding (notably `time.Duration` from `"2s"` strings), add `UnmarshalJSON` to the owning type; `engine.ToolConfig` does this so fixtures can use human-readable duration strings.
+
+Example: tool config in `Turn.Data`:
+
+```yaml
+id: t
+blocks: []
+data:
+  geppetto.tool_config@v1:
+    enabled: true
+    tool_choice: required
+    execution_timeout: 2s
+    retry_config:
+      max_retries: 2
+      backoff_base: 100ms
+      backoff_factor: 2.0
+```
+
 ## Test fixtures and runners
 
 Store curated input turns as YAML under a `testdata/` directory or a dedicated `fixtures/` directory. For E2E recordings, pair each turn YAML with a VCR cassette and capture emitted events for analysis. This produces reproducible, debuggable artifacts without coupling to provider uptime.
@@ -179,5 +201,4 @@ Store curated input turns as YAML under a `testdata/` directory or a dedicated `
 - `glaze help how-to-write-good-documentation-pages`
 - `geppetto/pkg/turns/serde`
 - Unified streaming events and Responses integration docs
-
 

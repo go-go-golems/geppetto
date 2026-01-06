@@ -187,7 +187,7 @@ func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, pro
 
 The `toolhelpers` package provides utilities for tool calling workflows. Engines focus on API calls while helpers handle orchestration.
 
-Providers learn about available tools from the **runtime registry attached to `context.Context`** (see `toolcontext.WithRegistry`) plus any **serializable tool config** stored on `Turn.Data` (e.g., `turns.DataKeyToolConfig`).
+Providers learn about available tools from the **runtime registry attached to `context.Context`** (see `toolcontext.WithRegistry`) plus any **serializable tool config** stored on `Turn.Data` (e.g., `engine.KeyToolConfig`).
 
 ### Tool Helper Functions
 
