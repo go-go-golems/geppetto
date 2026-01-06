@@ -85,3 +85,14 @@ Turns: delete legacy Key/K and turns.*Get/*Set APIs (task 16); update moments te
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Remove legacy Key/K and DataGet/DataSet/etc
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/promptutil/resolve_draft_test.go — Replace turns.DataSet/DataGet with key methods
 
+
+## 2026-01-05
+
+Post-cut cleanup: check off tasks 17-21 (docs/tooling/lint). Update turnsrefactor verify (82b1913), extend turnsdatalint constructor policy + tests (c275286), refresh turns docs (1dc3760).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/analysis/turnsdatalint/analyzer.go — Ban turns.DataK/TurnMetaK/BlockMetaK outside key files
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/analysis/turnsrefactor/refactor.go — Verify scans all compiled files post-cut
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/doc/topics/08-turns.md — Docs updated for wrapper stores + key families
+

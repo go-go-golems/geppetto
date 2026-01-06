@@ -33,14 +33,14 @@
 ### Delete old API (hard cut)
 
 - [x] Delete legacy turns API: `Key[T]`, `K[T]`, and `DataGet/DataSet/MetadataGet/MetadataSet/BlockMetadataGet/BlockMetadataSet`
-- [ ] Remove/adjust any remaining references in code + docs (no shims)
-- [ ] Update/retire `turnsrefactor` verification mode once old API is removed (it currently verifies no `*.DataGet/...` remain)
+- [x] Remove/adjust any remaining references in code + docs (no shims)
+- [x] Update/retire `turnsrefactor` verification mode once old API is removed (it currently verifies no `*.DataGet/...` remain)
 
 ### Lint + docs (keep policy aligned)
 
-- [ ] Update `turnsdatalint` to enforce canonical constructor usage (ban ad-hoc `DataK/TurnMetaK/BlockMetaK` outside key-definition files)
-- [ ] Add/extend `turnsdatalint` tests for constructor policy + key-family map indexing
-- [ ] Update `geppetto/pkg/doc/topics/08-turns.md` to reflect the new production API and remove references to deleted helpers/APIs
+- [x] Update `turnsdatalint` to enforce canonical constructor usage (ban ad-hoc `DataK/TurnMetaK/BlockMetaK` outside key-definition files)
+- [x] Add/extend `turnsdatalint` tests for constructor policy + key-family map indexing
+- [x] Update `geppetto/pkg/doc/topics/08-turns.md` to reflect the new production API and remove references to deleted helpers/APIs
 
 ### Validation gates (must pass before declaring “done”)
 

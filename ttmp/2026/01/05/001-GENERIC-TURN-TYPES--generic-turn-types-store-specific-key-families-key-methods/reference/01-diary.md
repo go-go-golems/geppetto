@@ -444,7 +444,7 @@ This step implemented the “Option B” constructor shape: a store-neutral key-
 
 With this in place, `DataK/TurnMetaK/BlockMetaK` can stay semantically honest while still guaranteeing that every store uses the same canonical encoding (`namespace.value@vN`) and validation rules (panic on invalid input, per design).
 
-**Commit (code):** N/A (staged locally) — `NewKeyString` + typed wrappers
+**Commit (code):** e478278 — "turns: add NewKeyString and delete legacy API"
 
 ### What I did
 - Implemented the new constructor shape:
@@ -500,7 +500,7 @@ This step removed the remaining legacy turns surface area: the old `Key[T]` + `K
 
 The immediate effect is that any future usage of the old API fails fast at compile time, forcing new code to use store-specific key families and key receiver methods consistently.
 
-**Commit (code):** N/A (staged locally) — delete legacy API + adjust moments tests
+**Commit (code):** e478278 — "turns: add NewKeyString and delete legacy API"; 85ebfe3 — "moments: drop legacy turns.*Get/*Set in tests"
 
 ### What I did
 - Deleted legacy turns API in geppetto:
@@ -554,6 +554,64 @@ The immediate effect is that any future usage of the old API fails fast at compi
 ### Technical details
 - Search commands:
   - `rg -n --glob '*.go' 'turns\\.(Data(Get|Set)|Metadata(Get|Set)|BlockMetadata(Get|Set)|K\\[|K\\(|Key\\[)' geppetto pinocchio moments`
+
+---
+
+## Step 9: Post-cut cleanup: tooling + lint + docs (tasks 15, 17-21)
+
+This step finished the “after the hard cut” work: retire/adjust tooling that referenced the removed API, update lint policy to keep key usage canonical, and refresh the main turns documentation so it doesn’t teach deleted helpers. The key outcome is that both automated enforcement (turnsdatalint) and human-facing docs now align with the production API we actually ship.
+
+Because `turns.K` constructor usage is already at zero in Go code across the repos, we explicitly closed the “extend turnsrefactor for constructors” task as “not worth it right now”, and focused instead on preventing regressions by tightening lint rules.
+
+**Commit (code):** 82b1913 — "turnsrefactor: verify across all files"; c275286 — "turnsdatalint: ban ad-hoc key constructors"; 1dc3760 — "docs: update turns API usage"
+
+### What I did
+- Closed the constructor-refactor tool question:
+  - `docmgr task check --ticket 001-GENERIC-TURN-TYPES --id 15`
+  - `rg -n --glob '*.go' 'turns\\.K(\\[|\\()' geppetto pinocchio moments` → `0`
+- Updated turnsrefactor verification to scan all compiled files (and allow verify-only runs even when no rewrites apply):
+  - `geppetto/pkg/analysis/turnsrefactor/refactor.go`
+- Updated turnsdatalint to prevent “ad-hoc key creation” outside key-definition files:
+  - `geppetto/pkg/analysis/turnsdatalint/analyzer.go`
+  - Added/updated analysistest fixtures under `geppetto/pkg/analysis/turnsdatalint/testdata/`
+- Updated the main turns topic doc to reflect wrapper stores + key families:
+  - `geppetto/pkg/doc/topics/08-turns.md`
+- Checked off remaining tasks:
+  - `docmgr task check --ticket 001-GENERIC-TURN-TYPES --id 17,18,19,20,21`
+
+### Why
+- The “hard cut” is only complete when:
+  - tooling doesn’t assume the old API exists,
+  - lint prevents regressions back to constructor sprawl, and
+  - docs teach the new API rather than deleted helpers.
+
+### What worked
+- geppetto pre-commit test/lint hooks stayed green during these changes.
+- turnsrefactor now verifies the whole package set, not just files it rewrote.
+- turnsdatalint now enforces a simple policy: define keys in `*_keys.go` and reuse the canonical variables elsewhere.
+
+### What didn't work
+- N/A
+
+### What I learned
+- After deleting the old API, migration “tools” are mostly useful as *verification* rather than as active rewrite machinery, since stale call sites typically won’t type-check.
+
+### What was tricky to build
+- Generic function instantiations (e.g. `turns.DataK[string](...)`) appear in the AST as `IndexExpr` / `IndexListExpr` wrapping a selector, which required extra handling to reliably lint.
+
+### What warrants a second pair of eyes
+- The turnsdatalint constructor allowlist (`*_keys.go` and `_test.go`) is intentionally pragmatic; confirm this is strict enough for geppetto’s desired ergonomics.
+
+### What should be done in the future
+- Consider closing the ticket formally now that all tasks are checked.
+
+### Code review instructions
+- Start with:
+  - `geppetto/pkg/analysis/turnsdatalint/analyzer.go`
+  - `geppetto/pkg/analysis/turnsrefactor/refactor.go`
+  - `geppetto/pkg/doc/topics/08-turns.md`
+- Validate with:
+  - `cd geppetto && go test ./... -count=1`
 
 ## Usage Examples
 
