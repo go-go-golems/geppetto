@@ -6,11 +6,11 @@ It lives under `pkg/analysis/turnsdatalint/testdata/` so `make lint` (which runs
 
 ## What it demonstrates
 
-- **Good**: using canonical `const` keys like `turns.DataKeyToolRegistry`
+- **Good**: using wrapper stores + canonical typed keys (e.g. `turns.KeyAgentMode.Set(&t.Data, ...)`)
 - **Bad (flagged)**:
-  - variable keys of type `TurnDataKey`
-  - ad-hoc conversions like `turns.TurnDataKey("...")`
-  - raw string literals like `"..."` (these compile due to implicit conversion, but are still flagged)
+  - calling `turns.DataK/TurnMetaK/BlockMetaK` outside key-definition files (`*_keys.go`)
+  - indexing a typed-key map field with a raw string / untyped const (these can compile due to implicit conversion)
+  - indexing `Block.Payload` with a raw string or variable (must use const strings like `turns.PayloadKeyText`)
 
 ## Run the linter on this demo explicitly
 
@@ -22,5 +22,4 @@ cd geppetto && make turnsdatalint-build && go vet -vettool=/tmp/turnsdatalint pk
 
 - Analyzer implementation: `pkg/analysis/turnsdatalint/analyzer.go`
 - Ticket docs (moments): `moments/ttmp/2025/12/17/002-ADD-TURN-DATA-LINTING--add-turn-data-key-linting/`
-
 

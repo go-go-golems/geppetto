@@ -52,50 +52,43 @@ To add a new analyzer that scales with the bundling approach:
 
 ---
 
-## turnsdatalint (Turn.Data key linting)
+## turnsdatalint (key + payload linting)
 
-`turnsdatalint` is a fast `go/analysis`-based linter that enforces a project convention: **access typed-key Turn/Run/Block maps using typed key expressions** (for example `turns.DataKeyToolRegistry`) and **never** use raw string literals. This prevents subtle drift where different packages use different string keys for the same concept, and it makes key discovery (via `turns/keys.go`) reliable.
+`turnsdatalint` is a fast `go/analysis`-based linter that enforces two conventions:
+
+- **Block payload keys** must be const strings (use `turns.PayloadKeyText`, etc; no raw literals and no variables).
+- **Typed key constructors** (`turns.DataK`, `turns.TurnMetaK`, `turns.BlockMetaK`) must only be called in key-definition files so the rest of the codebase reuses canonical key variables.
+
+In current Geppetto, `Turn.Data`, `Turn.Metadata`, and `Block.Metadata` are wrapper stores (not `map[...]...` fields), so direct indexing is not possible; typed-key access is done via `key.Get/key.Set`. The linter still applies typed-key index rules to any remaining map fields (notably `Run.Metadata`).
 
 ### What it enforces
 
-`turnsdatalint` enforces **typed-key expressions** for the most important “map-as-structure” fields in Turns/Blocks:
+`turnsdatalint` enforces:
 
-- **Turn.Data** (`map[turns.TurnDataKey]any`): key expression must have type `turns.TurnDataKey` (no raw string literals; no untyped string const identifiers)
-- **Turn.Metadata** (`map[turns.TurnMetadataKey]any`): key expression must have type `turns.TurnMetadataKey` (same restrictions)
-- **Block.Metadata** (`map[turns.BlockMetadataKey]any`): key expression must have type `turns.BlockMetadataKey` (same restrictions)
-- **Run.Metadata** (`map[turns.RunMetadataKey]any`): key expression must have type `turns.RunMetadataKey` (same restrictions)
-- **Block.Payload** (`map[string]any`): key must be a **const string** (no `"literal"` and no variables)
+- **Run.Metadata** (`map[turns.RunMetadataKey]any`): key expression must have type `turns.RunMetadataKey` (no raw string literals; no untyped string const identifiers)
+- **Block.Payload** (`map[string]any`): key must be a **const string** (no raw literals; no variables)
+- **Key constructor locality**: `turns.DataK/TurnMetaK/BlockMetaK` calls are only allowed in `*_keys.go`, `geppetto/pkg/turns/keys.go`, `geppetto/pkg/inference/engine/turnkeys.go`, and tests.
 
 **Allowed examples (high-level):**
-- `t.Data[turns.DataKeyToolConfig]`
-- `t.Data[turns.TurnDataKey("custom_key")]` (typed conversion)
-- `k := turns.DataKeyToolRegistry; _ = t.Data[k]` (typed variable)
-- `func set(k turns.TurnDataKey) { _ = t.Data[k] }` (typed parameter)
-- `t.Metadata[turns.TurnMetaKeyModel]`
-- `b.Metadata[turns.BlockMetaKeyMiddleware]`
 - `b.Payload[turns.PayloadKeyText]`
+- `run.Metadata[turns.RunMetaKeyTraceID]`
+- `turns.KeyTurnMetaProvider.Get(t.Metadata)` (wrapper store access via typed key)
+- `engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{Enabled: true})` (wrapper store access via typed key)
 
 **Flagged examples (high-level):**
-- `t.Data["raw"]` (raw string literal)
-- `const k = "raw"; _ = t.Data[k]` (untyped string const identifier)
-- `t.Metadata["model"]` (raw string literal)
-- `b.Metadata["middleware"]` (raw string literal)
 - `b.Payload["text"]` (raw string literal)
 - `k := turns.PayloadKeyText; b.Payload[k]` (variable key)
+- `turns.DataK[string]("app", "some_key", 1)` in a non-`*_keys.go` file
 
-**Note:** `t.Data["raw"]` can compile in Go because untyped string constants may be implicitly converted to a defined string type. The linter exists specifically to prevent these from creeping in.
+**Note:** `b.Payload["text"]` can compile because payload keys are strings; the linter exists specifically to force canonical const keys for stability and searchability.
 
 ### How it works (internals, high level)
 
 `turnsdatalint` is implemented with `golang.org/x/tools/go/analysis`. It:
 
-- **Finds** AST `IndexExpr` nodes that look like `<something>.Data[<key>]`
-- **Verifies** the selector is a **field** named `Data` and the field type is a `map[...]...`
-- **Scopes** the rule to `Data` maps whose **key type** is the configured named type (defaults to Geppetto’s `turns.TurnDataKey`)
-- **Allows** any key expression whose type is the configured named key type (variables, parameters, conversions)
-- **Rejects** raw string literals (even if the Go type checker could implicitly convert them)
-- **Rejects** untyped string const identifiers/selectors used as keys (e.g. `const k = "foo"`)
-- **Reports** a diagnostic for everything else
+- **Finds** AST `IndexExpr` nodes that look like `<something>.Payload[<key>]` and enforces const string keys.
+- **Finds** calls to `turns.DataK/TurnMetaK/BlockMetaK` and enforces they only appear in key-definition files.
+- **Optionally** enforces typed key expressions when indexing map fields whose key type matches configured named key types (notably `Run.Metadata` in Geppetto).
 
 Pseudocode:
 
@@ -141,5 +134,4 @@ If you want to bundle Geppetto’s analyzers plus your own analyzers, create you
   - `multichecker.Main(turnsdatalint.Analyzer, yourlint.Analyzer, ...)`
 - **Import**:
   - `github.com/go-go-golems/geppetto/pkg/analysis/turnsdatalint`
-
 

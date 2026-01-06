@@ -20,21 +20,11 @@ func NormalizeTurn(t *turns.Turn) {
 	if t == nil {
 		return
 	}
-	// Ensure Data and Metadata maps are non-nil for stability
-	if t.Data == nil {
-		t.Data = map[turns.TurnDataKey]any{}
-	}
-	if t.Metadata == nil {
-		t.Metadata = map[turns.TurnMetadataKey]any{}
-	}
 	for i := range t.Blocks {
 		b := &t.Blocks[i]
 		// Ensure payload and metadata are non-nil for stability
 		if b.Payload == nil {
 			b.Payload = map[string]any{}
-		}
-		if b.Metadata == nil {
-			b.Metadata = map[turns.BlockMetadataKey]any{}
 		}
 		// Synthesize assistant role for llm_text if missing
 		if b.Kind == turns.BlockKindLLMText {
@@ -53,7 +43,7 @@ func ToYAML(t *turns.Turn, opt Options) ([]byte, error) {
 	// Optionally omit Data
 	snapshot := *t
 	if opt.OmitData {
-		snapshot.Data = nil
+		snapshot.Data = turns.Data{}
 	}
 	NormalizeTurn(&snapshot)
 	return yaml.Marshal(snapshot)

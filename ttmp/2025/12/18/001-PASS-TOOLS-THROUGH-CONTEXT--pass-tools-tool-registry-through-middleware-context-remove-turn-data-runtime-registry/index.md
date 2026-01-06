@@ -1,7 +1,7 @@
 ---
 Title: Pass tools/tool registry through middleware context (remove Turn.Data runtime registry)
 Ticket: 001-PASS-TOOLS-THROUGH-CONTEXT
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -28,8 +28,11 @@ RelatedFiles:
       Note: Context helpers for carrying ToolRegistry
 ExternalSources: []
 Summary: Move runtime ToolRegistry out of Turn.Data by passing it through middleware context; store only serializable tool definitions on the Turn.
-LastUpdated: 2025-12-18T12:07:46.969549561-05:00
+LastUpdated: 2026-01-05T18:00:34.151654647-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 
 # Pass tools/tool registry through middleware context (remove Turn.Data runtime registry)

@@ -1,7 +1,7 @@
 ---
 Title: Fix Version Number Detection
 Ticket: 004-FIX-VERSION-NUMBER
-Status: active
+Status: complete
 Topics:
     - versioning
     - git
@@ -20,8 +20,11 @@ RelatedFiles:
       Note: Uses svu current in release target
 ExternalSources: []
 Summary: ""
-LastUpdated: 2025-12-18T14:31:17.048255314-05:00
+LastUpdated: 2026-01-05T18:01:01.831743709-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 
 

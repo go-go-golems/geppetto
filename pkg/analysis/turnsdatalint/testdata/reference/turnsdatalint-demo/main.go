@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -17,35 +18,43 @@ import (
 //	make turnsdatalint-build
 //	go vet -vettool=/tmp/turnsdatalint pkg/analysis/turnsdatalint/testdata/reference/turnsdatalint-demo/main.go
 //
-// Expected output (3 violations):
-//   - variable key (badKey)
-//   - inline conversion TurnDataKey("another_bad")
-//   - raw string literal "raw_string_literal" (compiles, but flagged)
+// Expected output (violations):
+//   - calling turns.DataK outside key-definition files
+//   - indexing a typed-key map using raw string / untyped const
+//   - indexing Block.Payload using raw string / variable
+type legacyTurn struct {
+	Data map[turns.TurnDataKey]any
+}
+
 func main() {
 	turn := &turns.Turn{
 		ID: "demo-turn",
 	}
 
-	// GOOD: Using a const TurnDataKey (should NOT be flagged)
-	turn.Data = map[turns.TurnDataKey]interface{}{
-		turns.DataKeyAgentMode: "test-mode",
-	}
-	fmt.Printf("Good pattern: %v\n", turn.Data[turns.DataKeyAgentMode])
+	// GOOD: wrapper stores + key methods
+	_ = turns.KeyAgentMode.Set(&turn.Data, "test-mode")
+	mode, _, _ := turns.KeyAgentMode.Get(turn.Data)
+	fmt.Printf("Good pattern: agent mode=%q\n", mode)
+	_ = engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true})
 
-	// BAD: Variable key (should be flagged)
-	badKey := turns.TurnDataKey("dynamic_key")
-	turn.Data[badKey] = "bad value"
+	// BAD: ad-hoc key constructor call (should be flagged)
+	_ = turns.DataK[string]("demo", "ad_hoc", 1)
 
-	// BAD: Inline conversion (should be flagged)
-	turn.Data[turns.TurnDataKey("another_bad")] = "also bad"
+	// BAD: typed-key map index with raw string (this compiles due to implicit conversion, but is flagged)
+	lt := legacyTurn{Data: map[turns.TurnDataKey]any{}}
+	lt.Data["raw_string_literal"] = "this compiles but is flagged"
 
-	// BAD: Raw string literal (compiles but flagged by linter!)
-	// Go allows implicit conversion of untyped string constants to TurnDataKey,
-	// so this compiles, but turnsdatalint catches it:
-	turn.Data["raw_string_literal"] = "this compiles but is flagged"
+	// BAD: untyped string const identifier used as key (also flagged)
+	const k = "raw_untyped_const"
+	lt.Data[k] = "also flagged"
 
-	// GOOD: Using another defined const
-	turn.Data[turns.DataKeyToolConfig] = "test-config"
+	// Payload rule demo (Block.Payload is map[string]any)
+	b := &turns.Block{Payload: map[string]any{}}
+	_ = b.Payload[turns.PayloadKeyText] // GOOD: const string key
+
+	_ = b.Payload["text"] // BAD: raw string literal (flagged)
+	payloadKey := turns.PayloadKeyText
+	_ = b.Payload[payloadKey] // BAD: variable (flagged)
 
 	fmt.Println("Demo complete - run turnsdatalint on this file explicitly to see violations")
 }

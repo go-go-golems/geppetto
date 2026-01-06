@@ -46,11 +46,6 @@ func NewAssistantTextBlock(text string) Block {
 	}
 }
 
-// WithClaudeOriginalContent attaches Claude-native content blocks to a block's metadata for lossless roundtrips.
-func WithClaudeOriginalContent(b Block, original any) Block {
-	return WithBlockMetadata(b, map[BlockMetadataKey]any{BlockMetaKeyClaudeOriginalContent: original})
-}
-
 // NewSystemTextBlock returns a Block representing a system directive.
 func NewSystemTextBlock(text string) Block {
 	return Block{
@@ -88,69 +83,6 @@ func NewToolUseBlock(id string, result any) Block {
 			PayloadKeyResult: result,
 		},
 	}
-}
-
-// WithBlockMetadata sets key/value pairs on a copy of the block's Metadata and returns it.
-func WithBlockMetadata(b Block, kvs map[BlockMetadataKey]interface{}) Block {
-	if len(kvs) == 0 {
-		return b
-	}
-	// Clone existing metadata map to avoid aliasing
-	cloned := make(map[BlockMetadataKey]interface{}, len(b.Metadata)+len(kvs))
-	for k, v := range b.Metadata {
-		cloned[k] = v
-	}
-	for k, v := range kvs {
-		cloned[k] = v
-	}
-	b.Metadata = cloned
-	return b
-}
-
-// HasBlockMetadata returns true if the block's Metadata contains key==value.
-func HasBlockMetadata(b Block, key BlockMetadataKey, value string) bool {
-	if b.Metadata == nil {
-		return false
-	}
-	v, ok := b.Metadata[key]
-	if !ok {
-		return false
-	}
-	if sv, ok := v.(string); ok {
-		return sv == value
-	}
-	return false
-}
-
-// RemoveBlocksByMetadata removes all blocks from the Turn where Metadata[key] equals any of the provided values.
-// It returns the number of removed blocks.
-func RemoveBlocksByMetadata(t *Turn, key BlockMetadataKey, values ...string) int {
-	if t == nil || len(t.Blocks) == 0 {
-		return 0
-	}
-	// Build quick lookup set
-	valSet := map[string]struct{}{}
-	for _, v := range values {
-		valSet[v] = struct{}{}
-	}
-
-	kept := make([]Block, 0, len(t.Blocks))
-	removed := 0
-	for _, b := range t.Blocks {
-		if b.Metadata != nil {
-			if v, ok := b.Metadata[key]; ok {
-				if sv, ok2 := v.(string); ok2 {
-					if _, match := valSet[sv]; match {
-						removed++
-						continue
-					}
-				}
-			}
-		}
-		kept = append(kept, b)
-	}
-	t.Blocks = kept
-	return removed
 }
 
 // InsertBlockBeforeLast inserts the given block as the second-to-last entry in the turn.

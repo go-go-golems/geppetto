@@ -17,13 +17,14 @@ SectionType: Tutorial
 
 The Turn data model provides a provider-agnostic representation of an interaction, decomposed into ordered `Block`s. Engines read and append blocks; middleware inspects blocks to implement behaviors like tool execution.
 
-**Important:** The runtime tool registry is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `turns.DataKeyToolConfig`).
+**Important:** The runtime tool registry is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `engine.KeyToolConfig`).
 
 ### Packages
 
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 )
 ```
@@ -31,27 +32,37 @@ import (
 ### Types
 
 - Run: `{ ID, Name, Metadata map[RunMetadataKey]any, Turns []Turn }`
-- Turn: `{ ID, RunID, Metadata map[TurnMetadataKey]any, Data map[TurnDataKey]any, Blocks []Block }`
-- Block: `{ ID, TurnID, Kind, Role, Payload map[string]any, Metadata map[BlockMetadataKey]any }`
+- Turn: `{ ID, RunID, Metadata turns.Metadata, Data turns.Data, Blocks []Block }`
+- Block: `{ ID, TurnID, Kind, Role, Payload map[string]any, Metadata turns.BlockMetadata }`
 - BlockKind: `User`, `LLMText`, `ToolCall`, `ToolUse`, `System`, `Other`
 
-**Note:** Map keys (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`, `RunMetadataKey`) are typed in Go for compile-time safety, but serialize as strings in YAML. Use typed constants (e.g., `turns.DataKeyToolConfig`) rather than string literals.
+**Note:** Store keys (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`, `RunMetadataKey`) are typed in Go for compile-time safety, but serialize as strings in YAML. Turn stores (`turns.Data`, `turns.Metadata`, `turns.BlockMetadata`) are opaque wrappers; access them via typed keys and key methods (`key.Get/key.Set`), not map indexing.
 
+### Typed keys
+
+Geppetto uses three store-specific key families:
+
+- `turns.DataKey[T]` for `Turn.Data`
+- `turns.TurnMetaKey[T]` for `Turn.Metadata`
+- `turns.BlockMetaKey[T]` for `Block.Metadata`
+
+Define keys in key-definition files (for geppetto: `geppetto/pkg/turns/keys.go` and `geppetto/pkg/inference/engine/turnkeys.go`) and reuse the canonical variables everywhere else.
+
+### Serde and typed keys
+
+When you load Turns from YAML (`turns/serde.FromYAML`), `data`/`metadata` values decode into generic Go shapes (`map[string]any`, `[]any`, scalars). Typed keys (`key.Get`) will best-effort decode these into their target type `T` via JSON re-marshal/unmarshal.
+
+If a struct type needs special decoding (e.g. `time.Duration` from `"2s"` strings), implement `UnmarshalJSON` on that struct (or a wrapper type). `engine.ToolConfig` does this so YAML fixtures can use `execution_timeout: 2s` and `retry_config.backoff_base: 100ms`.
 
 ### Helpers
 
 - `turns.AppendBlock`, `turns.AppendBlocks`
 - `turns.FindLastBlocksByKind`
-- `turns.SetTurnMetadata(t *Turn, key TurnMetadataKey, value any)` - Set turn-level metadata with typed key
-- `turns.SetBlockMetadata(b *Block, key BlockMetadataKey, value any)` - Set block-level metadata with typed key
-- `turns.WithBlockMetadata(b Block, kvs map[BlockMetadataKey]any) Block` - Return block with metadata added
-- `turns.HasBlockMetadata(b Block, key BlockMetadataKey, value string) bool` - Check if block has metadata key/value
-- `turns.RemoveBlocksByMetadata(t *Turn, key BlockMetadataKey, values ...string) int` - Remove blocks by metadata
 - Payload keys: `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
-- Data keys: `turns.DataKeyToolConfig`
-- Conversion:
-  - `turns.BuildConversationFromTurn(t)`
-  - `turns.BlocksFromConversationDelta(conv, startIdx)`
+- Wrapper-store helpers:
+  - `turns.Data.Len`, `turns.Data.Range`, `turns.Data.Clone`
+  - `turns.Metadata.Len`, `turns.Metadata.Range`, `turns.Metadata.Clone`
+  - `turns.BlockMetadata.Len`, `turns.BlockMetadata.Range`, `turns.BlockMetadata.Clone`
 
 ### Engine mapping
 
@@ -103,8 +114,8 @@ Attach a tool registry to context (for engines to advertise tools) and tool conf
 ```go
 reg := tools.NewInMemoryToolRegistry()
 // register tools ...
-t := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
-t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true, ToolChoice: engine.ToolChoiceAuto }
+t := &turns.Turn{}
+_ = engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto})
 
 ctx = toolcontext.WithRegistry(ctx, reg)
 ```
@@ -114,5 +125,3 @@ ctx = toolcontext.WithRegistry(ctx, reg)
 - Normalizes provider differences into a common structure
 - Enables powerful middleware without parsing opaque text
 - Clean separation between provider I/O (engines) and orchestration (middleware)
-
-
