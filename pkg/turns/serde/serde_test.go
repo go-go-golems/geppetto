@@ -59,11 +59,12 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "test-mode", gotMode, "AgentMode should match")
 
-	// NOTE: YAML round-trip decodes structs as map[string]any, so strict typed reads for struct values
-	// (like engine.ToolConfig) will fail unless we add an explicit type/codec registry or switch storage strategy.
-	_, ok, err = engine.KeyToolConfig.Get(roundTripTurn.Data)
+	// YAML round-trip decodes structs as map[string]any, but typed keys now best-effort decode
+	// structured values via JSON re-marshal/unmarshal.
+	toolCfg, ok, err := engine.KeyToolConfig.Get(roundTripTurn.Data)
+	require.NoError(t, err)
 	require.True(t, ok)
-	require.Error(t, err)
+	assert.True(t, toolCfg.Enabled, "ToolConfig.enabled should match")
 	// Assert the decoded map form is present and has the expected fields.
 	rawToolCfgKey := turns.DataK[any](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
 	rawCfg, ok, err := rawToolCfgKey.Get(roundTripTurn.Data)

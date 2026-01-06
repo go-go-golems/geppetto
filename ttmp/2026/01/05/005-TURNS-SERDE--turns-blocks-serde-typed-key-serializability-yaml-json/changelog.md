@@ -15,3 +15,13 @@ Initial analysis: YAML turns decode data/metadata values as any, breaking typed-
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/key_families.go — Typed key Get fails with type mismatch
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/types.go — Data/Metadata UnmarshalYAML decodes into map[string]any
 
+
+## 2026-01-05
+
+Prototype: typed key Decode via JSON re-marshal; YAML fixtures can set tool_config and []string values without hard failure
+
+### Related Files
+
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/key_families.go — Decode() and Get() behavior
+- /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/pkg/turns/serde/key_decode_regression_test.go — Fixture-style YAML regression tests
+

@@ -6,6 +6,22 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
+func decodeViaJSON[T any](raw any) (T, error) {
+	var out T
+	if raw == nil {
+		return out, pkgerrors.Errorf("cannot decode <nil> into %T", out)
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return out, pkgerrors.Wrapf(err, "json marshal %T", raw)
+	}
+	ptr := new(T)
+	if err := json.Unmarshal(b, ptr); err != nil {
+		return out, pkgerrors.Wrapf(err, "json unmarshal into %T", out)
+	}
+	return *ptr, nil
+}
+
 // DataKey is a typed key used to access Turn.Data.
 //
 // The underlying id string is a canonical key identity of the form:
@@ -75,6 +91,45 @@ func (k BlockMetaKey[T]) String() string {
 	return k.id.String()
 }
 
+func (k DataKey[T]) Decode(raw any) (T, error) {
+	typed, ok := raw.(T)
+	if ok {
+		return typed, nil
+	}
+	ret, err := decodeViaJSON[T](raw)
+	if err != nil {
+		var zero T
+		return zero, pkgerrors.Wrapf(err, "Turn.Data[%q]: decode %T into %T", k.id.String(), raw, zero)
+	}
+	return ret, nil
+}
+
+func (k TurnMetaKey[T]) Decode(raw any) (T, error) {
+	typed, ok := raw.(T)
+	if ok {
+		return typed, nil
+	}
+	ret, err := decodeViaJSON[T](raw)
+	if err != nil {
+		var zero T
+		return zero, pkgerrors.Wrapf(err, "Turn.Metadata[%q]: decode %T into %T", k.id.String(), raw, zero)
+	}
+	return ret, nil
+}
+
+func (k BlockMetaKey[T]) Decode(raw any) (T, error) {
+	typed, ok := raw.(T)
+	if ok {
+		return typed, nil
+	}
+	ret, err := decodeViaJSON[T](raw)
+	if err != nil {
+		var zero T
+		return zero, pkgerrors.Wrapf(err, "Block.Metadata[%q]: decode %T into %T", k.id.String(), raw, zero)
+	}
+	return ret, nil
+}
+
 // Get returns (value, ok, error). Missing keys are (zero, false, nil).
 // Type mismatches are (zero, true, error).
 func (k DataKey[T]) Get(d Data) (T, bool, error) {
@@ -86,9 +141,9 @@ func (k DataKey[T]) Get(d Data) (T, bool, error) {
 	if !ok {
 		return zero, false, nil
 	}
-	typed, ok := value.(T)
-	if !ok {
-		return zero, true, pkgerrors.Errorf("Turn.Data[%q]: expected %T, got %T", k.id.String(), zero, value)
+	typed, err := k.Decode(value)
+	if err != nil {
+		return zero, true, err
 	}
 	return typed, true, nil
 }
@@ -116,9 +171,9 @@ func (k TurnMetaKey[T]) Get(m Metadata) (T, bool, error) {
 	if !ok {
 		return zero, false, nil
 	}
-	typed, ok := value.(T)
-	if !ok {
-		return zero, true, pkgerrors.Errorf("Turn.Metadata[%q]: expected %T, got %T", k.id.String(), zero, value)
+	typed, err := k.Decode(value)
+	if err != nil {
+		return zero, true, err
 	}
 	return typed, true, nil
 }
@@ -146,9 +201,9 @@ func (k BlockMetaKey[T]) Get(bm BlockMetadata) (T, bool, error) {
 	if !ok {
 		return zero, false, nil
 	}
-	typed, ok := value.(T)
-	if !ok {
-		return zero, true, pkgerrors.Errorf("Block.Metadata[%q]: expected %T, got %T", k.id.String(), zero, value)
+	typed, err := k.Decode(value)
+	if err != nil {
+		return zero, true, err
 	}
 	return typed, true, nil
 }
