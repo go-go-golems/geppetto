@@ -21,54 +21,78 @@ SectionType: Tutorial
 
 # Understanding and Using the Embeddings Package
 
-This tutorial provides a comprehensive guide to using the `embeddings` package in Geppetto, which enables applications to generate and work with vector embeddings for text. The package provides a robust set of interfaces, implementations, and utilities for working with different embedding providers, caching strategies, and application integration.
+## What Are Embeddings?
+
+Embeddings are numerical vector representations of text that capture semantic meaning. Two texts with similar meanings will have vectors that are "close" in the embedding space, even if they use different words.
+
+**Use cases:**
+- **Semantic search** — find documents by meaning, not just keywords
+- **Clustering** — group similar texts together
+- **Classification** — categorize text based on content
+- **Recommendations** — find similar items
+
+Example: "The cat sat on the mat" and "A feline rested on the rug" would have similar embedding vectors because they mean similar things.
+
+## Quick Start
+
+```go
+import (
+    "context"
+    "os"
+    "github.com/go-go-golems/geppetto/pkg/embeddings"
+)
+
+// Create provider
+provider := embeddings.NewOpenAIProvider(
+    os.Getenv("OPENAI_API_KEY"),
+    "text-embedding-3-small",
+    1536,
+)
+
+// Generate embedding
+ctx := context.Background()
+vector, err := provider.GenerateEmbedding(ctx, "Hello, world!")
+if err != nil { panic(err) }
+
+fmt.Printf("Generated %d-dimensional vector\n", len(vector))
+```
 
 ## Core Concepts
 
-The embeddings package is built around several key types:
-
-- `Provider`: Interface for generating embeddings from text
-- `EmbeddingModel`: Contains metadata about the embedding model being used
-- `CachedProvider`: In-memory LRU cache wrapper for embedding providers
-- `DiskCacheProvider`: Persistent file-based cache for embedding providers
-- `SettingsFactory`: Creates embedding providers based on configuration
-
-Embeddings are numerical vector representations of text that capture semantic meaning, enabling operations like similarity comparison. These vectors typically contain hundreds or thousands of floating-point values.
-
 ### Provider Interface
 
-The core interface that all embedding providers implement:
+All embedding providers implement:
 
 ```go
 type Provider interface {
-    // GenerateEmbedding creates an embedding vector for the given text
+    // Single text → single vector
     GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
 
-    // GenerateBatchEmbeddings creates embedding vectors for multiple texts at once
-    // This is typically more efficient than calling GenerateEmbedding repeatedly
+    // Multiple texts → multiple vectors (more efficient)
     GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error)
     
-    // GetModel returns information about the embedding model being used
+    // Model metadata
     GetModel() EmbeddingModel
 }
-```
 
-### Embedding Model
-
-The metadata structure for embedding models:
-
-```go
 type EmbeddingModel struct {
-    Name       string  // The name of the model
-    Dimensions int     // The number of dimensions in the embedding vector
+    Name       string // e.g., "text-embedding-3-small"
+    Dimensions int    // e.g., 1536
 }
 ```
+
+### Choosing a Provider
+
+| Provider | Model | Dimensions | Use Case |
+|----------|-------|------------|----------|
+| **OpenAI** | `text-embedding-3-small` | 1536 | Best quality, requires API key |
+| **OpenAI** | `text-embedding-3-large` | 3072 | Higher quality, higher cost |
+| **Ollama** | `all-minilm` | 384 | Local, no API key needed |
+| **Ollama** | `nomic-embed-text` | 768 | Local, higher quality |
 
 ## Working with Embedding Providers
 
-### Creating a Basic Provider
-
-The package includes implementations for popular embedding providers:
+### Creating an OpenAI Provider
 
 ```go
 package main
@@ -107,8 +131,6 @@ func main() {
 
 ### Using Ollama for Local Embeddings
 
-For local or self-hosted scenarios, you can use Ollama:
-
 ```go
 // Create an Ollama embedding provider
 ollamaProvider := embeddings.NewOllamaProvider(
@@ -125,13 +147,19 @@ if err != nil {
 }
 ```
 
-## Implementing Caching Strategies
+## Caching Strategies
 
-API calls to embedding providers can be expensive and slow. The embeddings package provides caching mechanisms to improve performance.
+Embedding API calls are **expensive** (cost money) and **slow** (network latency). Caching dramatically improves both.
+
+| Cache Type | Best For | Persists? | Trade-offs |
+|------------|----------|-----------|------------|
+| **None** | Always-fresh embeddings | — | Most expensive, slowest |
+| **Memory** | Scripts, tests, short-lived processes | No | Fast, lost on restart |
+| **File** | CLI tools, long-running apps | Yes | Persists, uses disk space |
 
 ### In-Memory Caching
 
-For short-lived applications, in-memory caching is efficient:
+For short-lived processes where same texts are embedded multiple times:
 
 ```go
 package main
@@ -174,7 +202,7 @@ func main() {
 
 ### Persistent File Caching
 
-For long-running applications or CLI tools, file caching persists embeddings across runs. By default, the cache directory is `~/.geppetto/cache/embeddings/<model>` and can be overridden via settings or options.
+For CLI tools or applications that restart frequently:
 
 ```go
 package main
@@ -214,9 +242,11 @@ func main() {
 }
 ```
 
-## Batch embeddings
+Default cache location: `~/.geppetto/cache/embeddings/<model>/`
 
-Use batch calls when you need multiple embeddings at once. Providers expose `GenerateBatchEmbeddings`, and the package ships helpers to parallelize if the provider does not support native batching.
+## Batch Embeddings
+
+For multiple texts, batch calls are more efficient:
 
 ```go
 package main
@@ -247,139 +277,47 @@ If you only have `GenerateEmbedding`, use the helper:
 vectors, err := embeddings.ParallelGenerateBatchEmbeddings(ctx, provider, texts, 4)
 ```
 
-## Caching via settings
+## Configuration via Settings
 
-When using `EmbeddingsConfig`, the cache type is configured with `CacheType` and must be one of: `none`, `memory`, or `file`. The file cache uses the same on-disk store as `NewDiskCacheProvider` and defaults to `~/.geppetto/cache/embeddings/<model>` unless overridden.
-
-Common CLI flags mirror these settings:
-
-- `--embeddings-cache-type=none|memory|file`
-- `--embeddings-cache-max-size=<bytes>`
-- `--embeddings-cache-max-entries=<count>`
-- `--embeddings-cache-directory=/path/to/cache`
-
-## Using `!Embeddings` in Emrichen templates
-
-Emrichen templates can generate embeddings inline with the `!Embeddings` tag. The tag requires `text` and accepts an optional `config` mapping that mirrors provider options.
-
-### Basic usage
-
-```yaml
-embedding: !Embeddings
-  text: "Text to embed"
-```
-
-This uses the configured defaults from your `EmbeddingsConfig` (typically OpenAI with `text-embedding-3-small`).
-
-### Configuration overrides
-
-```yaml
-embedding: !Embeddings
-  text: "Text to embed"
-  config:
-    type: openai
-    engine: text-embedding-3-small
-    dimensions: 1536
-```
-
-Supported `config` keys:
-
-- `type`: `openai` or `ollama`
-- `engine`: model name
-- `dimensions`: required for Ollama providers
-- `base_url`: override provider base URL
-- `api_key`: override provider API key for this call
-
-### Examples
-
-OpenAI with a custom base URL:
-
-```yaml
-embedding: !Embeddings
-  text: "Text to embed"
-  config:
-    type: openai
-    engine: text-embedding-3-small
-    base_url: "https://api.mycompany.com/v1"
-```
-
-Ollama (local embeddings):
-
-```yaml
-embedding: !Embeddings
-  text: "Local embeddings"
-  config:
-    type: ollama
-    engine: all-minilm
-    dimensions: 384
-    base_url: "http://localhost:11434"
-```
-
-### API keys
-
-For OpenAI, set `OPENAI_API_KEY` in the environment or pass `api_key` in the tag config. Ollama typically does not require an API key unless your deployment enforces one.
-
-## Working with Settings and Configuration
-
-The embeddings package integrates with Geppetto's configuration system for easy setup.
-
-### Using the Settings Factory
-
-The `SettingsFactory` creates providers based on application configuration:
+### Using EmbeddingsConfig
 
 ```go
-package main
+import "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 
-import (
-    "context"
-    "fmt"
-    
-    "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/go-go-golems/geppetto/pkg/embeddings/config"
-)
-
-func main() {
-    // Create a configuration
-    embeddingsConfig := &config.EmbeddingsConfig{
-        Type:          "openai",
-        Engine:        "text-embedding-3-small",
-        Dimensions:    1536,
-        CacheType:     "memory",
-        CacheMaxEntries: 1000,
-        APIKeys: map[string]string{
-            "openai-api-key": "your-api-key",
-        },
-    }
-    
-    // Create a factory
-    factory := embeddings.NewSettingsFactory(embeddingsConfig)
-    
-    // Create a provider using the factory
-    provider, err := factory.NewProvider()
-    if err != nil {
-        fmt.Printf("Error creating provider: %v\n", err)
-        return
-    }
-    
-    // Use the provider
-    ctx := context.Background()
-    embedding, _ := provider.GenerateEmbedding(ctx, "Hello, world!")
-    
-    // Override settings for a specific use case
-    customProvider, _ := factory.NewProvider(
-        embeddings.WithType("ollama"),
-        embeddings.WithEngine("all-minilm"),
-        embeddings.WithDimensions(384),
-        embeddings.WithBaseURL("http://localhost:11434"),
-    )
-    
-    // Use the custom provider
-    customEmbedding, _ := customProvider.GenerateEmbedding(ctx, "Hello, world!")
-    
-    fmt.Printf("Original dimensions: %d, Custom dimensions: %d\n", 
-        len(embedding), len(customEmbedding))
+embeddingsConfig := &config.EmbeddingsConfig{
+    Type:            "openai",
+    Engine:          "text-embedding-3-small",
+    Dimensions:      1536,
+    CacheType:       "file",  // "none", "memory", or "file"
+    CacheMaxEntries: 10000,
+    APIKeys: map[string]string{
+        "openai-api-key": os.Getenv("OPENAI_API_KEY"),
+    },
 }
+
+factory := embeddings.NewSettingsFactory(embeddingsConfig)
+provider, err := factory.NewProvider()
 ```
+
+### CLI Flags
+
+When using Glazed-based CLIs:
+
+```bash
+mycommand --embeddings-type=openai \
+          --embeddings-engine=text-embedding-3-small \
+          --embeddings-cache-type=file \
+          --embeddings-cache-max-entries=10000
+```
+
+Available flags:
+- `--embeddings-type` — `openai` or `ollama`
+- `--embeddings-engine` — model name
+- `--embeddings-dimensions` — vector size (required for Ollama)
+- `--embeddings-cache-type` — `none`, `memory`, or `file`
+- `--embeddings-cache-max-size` — max bytes for file cache
+- `--embeddings-cache-max-entries` — max entries
+- `--embeddings-cache-directory` — custom cache path
 
 ### Loading Settings from Parsed Layers
 
@@ -416,7 +354,7 @@ func createProviderFromLayers(parsedLayers *layers.ParsedLayers) (embeddings.Pro
 
 ### Creating Provider from StepSettings
 
-If you already have a populated `settings.StepSettings` object (perhaps loaded via layers or other means), you can also create an embeddings provider directly from it. This is useful when integrating embedding functionality into components that primarily deal with AI step configurations.
+If you already have a populated `settings.StepSettings` object:
 
 ```go
 package main
@@ -440,6 +378,53 @@ func createProviderFromStepSettings(stepSettings *settings.StepSettings) (embedd
 	
 	return provider, nil
 }
+```
+
+## Using `!Embeddings` in Emrichen Templates
+
+[Emrichen](https://github.com/con2/emrichen) is a YAML templating language. Geppetto adds an `!Embeddings` tag for generating embeddings inline.
+
+### Basic Usage
+
+```yaml
+# Uses default provider from EmbeddingsConfig
+embedding: !Embeddings
+  text: "Text to embed"
+```
+
+### With Configuration Overrides
+
+```yaml
+embedding: !Embeddings
+  text: "Text to embed"
+  config:
+    type: openai
+    engine: text-embedding-3-small
+    dimensions: 1536
+```
+
+### Ollama Example
+
+```yaml
+embedding: !Embeddings
+  text: "Local embeddings"
+  config:
+    type: ollama
+    engine: all-minilm
+    dimensions: 384
+    base_url: "http://localhost:11434"
+```
+
+### OpenAI with Custom URL
+
+```yaml
+embedding: !Embeddings
+  text: "Text to embed"
+  config:
+    type: openai
+    engine: text-embedding-3-small
+    base_url: "https://api.mycompany.com/v1"
+    api_key: "${CUSTOM_API_KEY}"
 ```
 
 ## Practical Applications
@@ -871,8 +856,37 @@ func main() {
 
 When working with the embeddings package, keep these best practices in mind:
 
-- **Vector Dimensions**: Be aware of the embedding dimensions for your chosen model:
-  - OpenAI text-embedding-3-small: 1536 dimensions
-  - Ollama all-minilm: 384 dimensions
-- **Configuration**: Use the parameter system to allow flexible configuration of embedding providers.
-- **Storage**: For large-scale applications, consider using vector databases instead of in-memory storage.
+| Practice | Why |
+|----------|-----|
+| **Cache aggressively** | Embedding API calls are expensive |
+| **Use batch endpoints** | More efficient than individual calls |
+| **Store embeddings** | Don't regenerate for static content |
+| **Match dimensions** | All vectors in a collection must have same dimensions |
+| **Normalize for comparison** | Use cosine similarity, not Euclidean distance |
+| **Use parameter layers** | Allow flexible configuration via CLI flags |
+| **Consider vector databases** | For large-scale applications, use specialized storage |
+
+## Common Dimensions
+
+| Provider | Model | Dimensions |
+|----------|-------|------------|
+| OpenAI | text-embedding-3-small | 1536 |
+| OpenAI | text-embedding-3-large | 3072 |
+| OpenAI | text-embedding-ada-002 | 1536 |
+| Ollama | all-minilm | 384 |
+| Ollama | nomic-embed-text | 768 |
+| Ollama | mxbai-embed-large | 1024 |
+
+## Packages
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/embeddings"        // Core providers, cache
+    "github.com/go-go-golems/geppetto/pkg/embeddings/config" // Settings, parameter layers
+)
+```
+
+## See Also
+
+- [Inference Engines](06-inference-engines.md) — Using embeddings with inference
+- Example: `geppetto/cmd/examples/` (check for embedding examples)
