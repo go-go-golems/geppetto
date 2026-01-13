@@ -10,6 +10,7 @@ flags:
     type: choice
     choices:
       - "openai"
+      - "openai-responses"
       - "claude"
       - "gemini"
     help: The provider type to use for chat

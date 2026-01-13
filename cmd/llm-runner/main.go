@@ -91,12 +91,12 @@ func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error
 		return err
 	}
 
-	// Engine settings (chat completions for now; Responses wiring follows in PR07)
+	// Engine settings
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	st := &settings.StepSettings{
 		API:    &settings.APISettings{APIKeys: map[string]string{"openai-api-key": apiKey}, BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"}},
 		Chat:   &settings.ChatSettings{Engine: &s.Model, Stream: s.Stream},
-		OpenAI: &openaisettings.Settings{},
+		OpenAI: &openaisettings.Settings{ReasoningEffort: strPtr("medium"), ReasoningSummary: strPtr("detailed")},
 	}
 	// Build follow-up steps: fixture-provided blocks, plus optional CLI-provided second user message
 	steps := make([]turns.Block, 0, len(followups)+1)
@@ -182,3 +182,5 @@ func main() {
 
 	cobra.CheckErr(rootCmd.Execute())
 }
+
+func strPtr(s string) *string { return &s }

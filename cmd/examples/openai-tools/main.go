@@ -149,8 +149,8 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 			),
 			parameters.NewParameterDefinition("mode",
 				parameters.ParameterTypeChoice,
-				parameters.WithChoices("tools", "thinking", "parallel-tools"),
-				parameters.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls)"),
+				parameters.WithChoices("tools", "thinking", "parallel-tools", "server-tools"),
+				parameters.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls), server-tools (enable server-side tools)"),
 				parameters.WithDefault("tools"),
 			),
 			parameters.NewParameterDefinition("prompt",
@@ -351,6 +351,23 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 			}
 		}
 		turns.AppendBlock(turn, turns.NewUserTextBlock(userPrompt))
+	}
+
+	// Enable server-side tools mode by attaching built-in tools to the Turn
+	if s.Mode == "server-tools" {
+		// Use a built-in that does not require prior vector store setup
+		serverTools := []any{
+			map[string]any{"type": "web_search"},
+		}
+		if err := turns.KeyResponsesServerTools.Set(&turn.Data, serverTools); err != nil {
+			return errors.Wrap(err, "set responses server tools")
+		}
+		// Encourage usage and specify available tool
+		turns.AppendBlock(turn, turns.NewSystemTextBlock("You have access to the server-side web_search tool. Use it where appropriate."))
+		// Provide a default prompt if none was supplied
+		if s.Prompt == "" {
+			turns.AppendBlock(turn, turns.NewUserTextBlock("Use web_search to find information about the OpenAI Responses API reasoning items and summarize briefly."))
+		}
 	}
 
 	// No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.

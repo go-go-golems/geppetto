@@ -65,7 +65,7 @@ func SaveTurnYAML(path string, t *turns.Turn, opt Options) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0644)
 }
 
 // LoadTurnYAML reads a Turn from a YAML file.
