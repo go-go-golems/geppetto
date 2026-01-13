@@ -71,6 +71,14 @@ func IsOpenAiEngine(engine string) bool {
 	return false
 }
 
+func isReasoningModel(engine string) bool {
+	m := strings.ToLower(strings.TrimSpace(engine))
+	return strings.HasPrefix(m, "o1") ||
+		strings.HasPrefix(m, "o3") ||
+		strings.HasPrefix(m, "o4") ||
+		strings.HasPrefix(m, "gpt-5")
+}
+
 // Removed obsolete MakeCompletionRequest (conversation-based)
 
 // MakeCompletionRequestFromTurn builds an OpenAI ChatCompletionRequest directly from a Turn's blocks,
@@ -357,6 +365,7 @@ func MakeCompletionRequestFromTurn(
 	if chatSettings.MaxResponseTokens != nil {
 		maxTokens = *chatSettings.MaxResponseTokens
 	}
+	maxCompletionTokens := 0
 	n := 1
 	if settings.OpenAI.N != nil {
 		n = *settings.OpenAI.N
@@ -372,9 +381,20 @@ func MakeCompletionRequestFromTurn(
 		frequencyPenalty = *settings.OpenAI.FrequencyPenalty
 	}
 
+	if isReasoningModel(engine) {
+		maxCompletionTokens = maxTokens
+		maxTokens = 0
+		temperature = 0
+		topP = 0
+		n = 1
+		presencePenalty = 0
+		frequencyPenalty = 0
+	}
+
 	log.Debug().
 		Str("model", engine).
 		Int("max_tokens", maxTokens).
+		Int("max_completion_tokens", maxCompletionTokens).
 		Float64("temperature", temperature).
 		Float64("top_p", topP).
 		Int("n", n).
@@ -424,18 +444,19 @@ func MakeCompletionRequestFromTurn(
 	}
 
 	req := go_openai.ChatCompletionRequest{
-		Model:            engine,
-		Messages:         msgs_,
-		MaxTokens:        maxTokens,
-		Temperature:      float32(temperature),
-		TopP:             float32(topP),
-		N:                n,
-		Stream:           stream,
-		Stop:             stop,
-		StreamOptions:    streamOptions,
-		PresencePenalty:  float32(presencePenalty),
-		FrequencyPenalty: float32(frequencyPenalty),
-		LogitBias:        nil,
+		Model:               engine,
+		Messages:            msgs_,
+		MaxTokens:           maxTokens,
+		MaxCompletionTokens: maxCompletionTokens,
+		Temperature:         float32(temperature),
+		TopP:                float32(topP),
+		N:                   n,
+		Stream:              stream,
+		Stop:                stop,
+		StreamOptions:       streamOptions,
+		PresencePenalty:     float32(presencePenalty),
+		FrequencyPenalty:    float32(frequencyPenalty),
+		LogitBias:           nil,
 	}
 	return &req, nil
 }

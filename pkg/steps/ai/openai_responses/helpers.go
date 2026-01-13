@@ -94,9 +94,12 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 		if s.Chat.MaxResponseTokens != nil {
 			req.MaxOutputTokens = s.Chat.MaxResponseTokens
 		}
-		// Some reasoning models (o3*/o4*) do not accept temperature/top_p; omit for those
+		// Some reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p; omit for those
 		m := strings.ToLower(req.Model)
-		allowSampling := !strings.HasPrefix(m, "o3") && !strings.HasPrefix(m, "o4")
+		allowSampling := !strings.HasPrefix(m, "o1") &&
+			!strings.HasPrefix(m, "o3") &&
+			!strings.HasPrefix(m, "o4") &&
+			!strings.HasPrefix(m, "gpt-5")
 		if allowSampling && s.Chat.Temperature != nil {
 			req.Temperature = s.Chat.Temperature
 		}
