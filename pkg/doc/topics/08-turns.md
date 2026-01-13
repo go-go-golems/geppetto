@@ -28,6 +28,8 @@ Every AI conversation is a sequence of messages — user prompts, assistant resp
 - **Serialize conversations** — save/load to YAML for testing, debugging, and persistence
 - **Enable dynamic tools** — attach different tools to each inference call
 
+> **Key Pattern:** The runtime tool registry is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `engine.KeyToolConfig`).
+
 ## Core Concepts
 
 ### The Data Model
@@ -46,6 +48,39 @@ Run (session)
 | **Turn** | One inference cycle | User asks → Assistant responds |
 | **Block** | One atomic piece | "Hello, how can I help?" |
 
+### Type Definitions
+
+```go
+// Block represents a single atomic unit within a Turn.
+type Block struct {
+    ID       string                  // Optional unique identifier
+    TurnID   string                  // Parent turn reference
+    Kind     BlockKind               // user, llm_text, tool_call, etc.
+    Role     string                  // Optional: "user", "assistant", "system"
+    Payload  map[string]any          // Kind-specific content
+    Metadata turns.BlockMetadata     // Annotations, provider hints (opaque store)
+}
+
+// Turn contains an ordered list of Blocks and associated metadata.
+type Turn struct {
+    ID       string            // Optional unique identifier
+    RunID    string            // Parent run reference
+    Blocks   []Block           // Ordered blocks
+    Metadata turns.Metadata    // Request params, usage, trace IDs (opaque store)
+    Data     turns.Data        // Tool config, app-specific data (opaque store)
+}
+
+// Run captures a multi-turn session.
+type Run struct {
+    ID       string
+    Name     string
+    Turns    []Turn
+    Metadata map[RunMetadataKey]any
+}
+```
+
+**Note:** `turns.Data`, `turns.Metadata`, and `turns.BlockMetadata` are opaque wrapper stores. Access them via typed keys and key methods (`key.Get`/`key.Set`), not map indexing.
+
 ### Block Kinds
 
 Each block has a `Kind` that describes what it contains:
@@ -60,36 +95,25 @@ Each block has a `Kind` that describes what it contains:
 | `Reasoning` | Engine (o1, Claude) | Model's reasoning trace | `encrypted_content`, `item_id` |
 | `Other` | Various | Catch-all for unknown types | varies |
 
-### Type Definitions
+### Typed Keys
+
+Geppetto uses typed keys for all store access to prevent drift and typos. Three key families exist for the three store types:
+
+- `turns.DataKey[T]` for `Turn.Data`
+- `turns.TurnMetaKey[T]` for `Turn.Metadata`
+- `turns.BlockMetaKey[T]` for `Block.Metadata`
+
+Keys are defined in key-definition files (e.g., `geppetto/pkg/turns/keys.go` and `geppetto/pkg/inference/engine/turnkeys.go`) and accessed via methods:
 
 ```go
-// Block represents a single atomic unit within a Turn.
-type Block struct {
-    ID       string                         // Optional unique identifier
-    TurnID   string                         // Parent turn reference
-    Kind     BlockKind                      // user, llm_text, tool_call, etc.
-    Role     string                         // Optional: "user", "assistant", "system"
-    Payload  map[string]any                 // Kind-specific content
-    Metadata map[BlockMetadataKey]any       // Annotations, provider hints
-}
+// Setting a value
+err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true})
 
-// Turn contains an ordered list of Blocks and associated metadata.
-type Turn struct {
-    ID       string                         // Optional unique identifier
-    RunID    string                         // Parent run reference
-    Blocks   []Block                        // Ordered blocks
-    Metadata map[TurnMetadataKey]any        // Request params, usage, trace IDs
-    Data     map[TurnDataKey]any            // Tool config, app-specific data
-}
-
-// Run captures a multi-turn session.
-type Run struct {
-    ID       string
-    Name     string
-    Turns    []Turn
-    Metadata map[RunMetadataKey]any
-}
+// Getting a value
+config, ok := engine.KeyToolConfig.Get(turn.Data)
 ```
+
+**Why typed keys?** Direct map access like `turn.Data["config"]` compiles but creates key drift. The `turnsdatalint` analyzer catches these. Always use typed key variables.
 
 ## Working with Turns
 
@@ -98,7 +122,11 @@ type Run struct {
 Use the builder functions for common block types:
 
 ```go
-import "github.com/go-go-golems/geppetto/pkg/turns"
+import (
+    "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
+)
 
 // Create a seed turn for inference
 seed := &turns.Turn{}
@@ -160,24 +188,11 @@ turns.PrependBlock(t, block)
 llmBlocks := turns.FindLastBlocksByKind(turn, turns.BlockKindLLMText)
 toolCalls := turns.FindLastBlocksByKind(turn, turns.BlockKindToolCall)
 
-// Metadata helpers
-turns.SetTurnMetadata(t, turns.TurnMetaKeyModel, "gpt-4")
-turns.SetBlockMetadata(&block, turns.BlockMetaKeyMiddleware, "agent")
+// Store helpers (for opaque wrappers)
+turn.Data.Len()
+turn.Data.Range(func(k, v any) bool { ... })
+turn.Data.Clone()
 ```
-
-## Typed Map Keys
-
-Geppetto uses typed keys for all map access to prevent drift and typos:
-
-| Map | Key Type | Example Constants |
-|-----|----------|-------------------|
-| `Turn.Data` | `TurnDataKey` | `DataKeyToolConfig`, `DataKeyAgentMode` |
-| `Turn.Metadata` | `TurnMetadataKey` | `TurnMetaKeyModel`, `TurnMetaKeyUsage` |
-| `Block.Metadata` | `BlockMetadataKey` | `BlockMetaKeyMiddleware`, `BlockMetaKeyAgentMode` |
-| `Run.Metadata` | `RunMetadataKey` | `RunMetaKeyTraceID` |
-| `Block.Payload` | `string` (const) | `PayloadKeyText`, `PayloadKeyArgs` |
-
-**Why typed keys?** Go allows implicit conversion from untyped strings to these types, so `turn.Data["raw"]` compiles but creates key drift. The `turnsdatalint` analyzer catches these. Always use the typed constants.
 
 ## Tool Configuration
 
@@ -200,13 +215,13 @@ registry := tools.NewInMemoryToolRegistry()
 // 2. Attach registry to context (engines read this)
 ctx = toolcontext.WithRegistry(ctx, registry)
 
-// 3. Configure tool behavior on Turn.Data
-turn := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
-turn.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+// 3. Configure tool behavior on Turn.Data using typed key
+turn := &turns.Turn{}
+err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
     Enabled:          true,
     ToolChoice:       engine.ToolChoiceAuto,
     MaxParallelTools: 3,
-}
+})
 ```
 
 This separation keeps Turn state serializable while allowing dynamic tool changes per inference call.
@@ -258,6 +273,12 @@ metadata: {}
 data: {}
 ```
 
+### Serde and Typed Keys
+
+When you load Turns from YAML (`turns/serde.FromYAML`), `data`/`metadata` values decode into generic Go shapes (`map[string]any`, `[]any`, scalars). Typed keys (`key.Get`) will best-effort decode these into their target type `T` via JSON re-marshal/unmarshal.
+
+If a struct type needs special decoding (e.g. `time.Duration` from `"2s"` strings), implement `UnmarshalJSON` on that struct. `engine.ToolConfig` does this so YAML fixtures can use `execution_timeout: 2s`.
+
 ### Serde Helpers
 
 ```go
@@ -291,23 +312,22 @@ Engines handle this mapping internally — your code just works with Turns.
 ### Turn-Level Metadata
 
 ```go
-// Set after inference
-turns.SetTurnMetadata(turn, turns.TurnMetaKeyModel, "gpt-4-turbo")
-turns.SetTurnMetadata(turn, turns.TurnMetaKeyUsage, usageStats)
-turns.SetTurnMetadata(turn, turns.TurnMetaKeyTraceID, traceID)
+// Using typed keys (new API)
+err := turns.KeyTurnMetaModel.Set(&turn.Metadata, "gpt-4-turbo")
+model, ok := turns.KeyTurnMetaModel.Get(turn.Metadata)
 ```
 
-Common keys: `TurnMetaKeyProvider`, `TurnMetaKeyRuntime`, `TurnMetaKeyTraceID`, `TurnMetaKeyUsage`, `TurnMetaKeyStopReason`, `TurnMetaKeyModel`
+Common keys: `KeyTurnMetaProvider`, `KeyTurnMetaRuntime`, `KeyTurnMetaTraceID`, `KeyTurnMetaUsage`, `KeyTurnMetaStopReason`, `KeyTurnMetaModel`
 
 ### Block-Level Metadata
 
 ```go
-// Mark blocks for filtering
-turns.SetBlockMetadata(&block, turns.BlockMetaKeyMiddleware, "agentmode")
-turns.SetBlockMetadata(&block, turns.BlockMetaKeyAgentMode, "research")
+// Using typed keys
+err := turns.KeyBlockMetaMiddleware.Set(&block.Metadata, "agentmode")
+middleware, ok := turns.KeyBlockMetaMiddleware.Get(block.Metadata)
 ```
 
-Common keys: `BlockMetaKeyMiddleware`, `BlockMetaKeyAgentModeTag`, `BlockMetaKeyAgentMode`, `BlockMetaKeyToolCalls`
+Common keys: `KeyBlockMetaMiddleware`, `KeyBlockMetaAgentModeTag`, `KeyBlockMetaAgentMode`, `KeyBlockMetaToolCalls`
 
 ## Packages
 
@@ -315,6 +335,7 @@ Common keys: `BlockMetaKeyMiddleware`, `BlockMetaKeyAgentModeTag`, `BlockMetaKey
 import (
     "github.com/go-go-golems/geppetto/pkg/turns"           // Core types, builders, helpers
     "github.com/go-go-golems/geppetto/pkg/turns/serde"     // YAML serialization
+    "github.com/go-go-golems/geppetto/pkg/inference/engine" // KeyToolConfig
     "github.com/go-go-golems/geppetto/pkg/inference/toolcontext" // Context-based registry
 )
 ```

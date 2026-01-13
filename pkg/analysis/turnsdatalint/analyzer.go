@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -35,14 +36,22 @@ var (
 // For typed-key maps, this prevents raw string drift (e.g. t.Data["foo"]) while still allowing
 // normal Go patterns like typed conversions, variables, and parameters.
 //
+// Additionally, it enforces that new typed turns keys are constructed only in key-definition files
+// (e.g. `*turnkeys/*_keys.go` or `pkg/turns/keys.go`) so the rest of the codebase consistently
+// reuses canonical key variables.
+//
 // Note: raw string literals like turn.Data["foo"] can compile in Go because untyped string
 // constants may be implicitly converted to a defined string type; this analyzer flags them too.
 var Analyzer = &analysis.Analyzer{
 	Name:     "turnsdatalint",
-	Doc:      "require typed-key map indexes to use typed key expressions (no raw string literals or untyped string constants); require Block.Payload indexes to use const strings",
+	Doc:      "require typed-key map indexes to use typed key expressions (no raw string literals or untyped string constants); require Block.Payload indexes to use const strings; restrict turns key constructors to key-definition files",
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
 }
+
+const (
+	targetTurnsPkg = "github.com/go-go-golems/geppetto/pkg/turns"
+)
 
 func init() {
 	Analyzer.Flags.StringVar(
@@ -80,9 +89,19 @@ func run(pass *analysis.Pass) (any, error) {
 	)
 
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	nodeFilter := []ast.Node{(*ast.IndexExpr)(nil)}
+	nodeFilter := []ast.Node{(*ast.IndexExpr)(nil), (*ast.CallExpr)(nil)}
 
 	insp.Preorder(nodeFilter, func(n ast.Node) {
+		switch node := n.(type) {
+		case *ast.CallExpr:
+			checkKeyConstructorCall(pass, node)
+			return
+		case *ast.IndexExpr:
+			// fallthrough
+		default:
+			return
+		}
+
 		idx := n.(*ast.IndexExpr)
 
 		// Match <something>.{Data,Metadata,Payload}[...]
@@ -147,6 +166,74 @@ func run(pass *analysis.Pass) (any, error) {
 	})
 
 	return nil, nil
+}
+
+func checkKeyConstructorCall(pass *analysis.Pass, call *ast.CallExpr) {
+	fun := call.Fun
+	switch t := fun.(type) {
+	case *ast.IndexExpr:
+		fun = t.X
+	case *ast.IndexListExpr:
+		fun = t.X
+	}
+
+	sel, ok := fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel == nil {
+		return
+	}
+	obj := pass.TypesInfo.Uses[sel.Sel]
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return
+	}
+	pkg := fn.Pkg()
+	if pkg == nil || pkg.Path() != targetTurnsPkg {
+		return
+	}
+
+	switch fn.Name() {
+	case "DataK", "TurnMetaK", "BlockMetaK":
+		// ok
+	default:
+		return
+	}
+
+	pos := pass.Fset.Position(call.Pos())
+	filename := filepath.ToSlash(pos.Filename)
+	if filename == "" || isAllowedKeyConstructorFile(filename) {
+		return
+	}
+
+	pass.Reportf(
+		call.Lparen,
+		`do not call turns.%s outside key-definition files (define canonical keys in *turnkeys/*_keys.go or geppetto/pkg/turns/keys.go)`,
+		fn.Name(),
+	)
+}
+
+func isAllowedKeyConstructorFile(filename string) bool {
+	// Canonical geppetto key-definition files.
+	if strings.HasSuffix(filename, "/geppetto/pkg/turns/keys.go") {
+		return true
+	}
+	if strings.HasSuffix(filename, "/geppetto/pkg/inference/engine/turnkeys.go") {
+		return true
+	}
+
+	// Tests may need to construct raw keys for round-trip and serde scenarios.
+	if strings.HasSuffix(filename, "_test.go") {
+		return true
+	}
+
+	// Conventional app-level key-definition files (e.g. `*_keys.go`).
+	//
+	// This keeps the policy ergonomic for downstream repos that typically define keys in
+	// files like `data_keys.go`, `turn_meta_keys.go`, and `block_meta_keys.go`.
+	if strings.HasSuffix(filename, "_keys.go") {
+		return true
+	}
+
+	return false
 }
 
 func isAllowedTypedKeyExpr(pass *analysis.Pass, e ast.Expr, wantPkgPath, wantName string) bool {

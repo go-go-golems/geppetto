@@ -40,7 +40,7 @@ In the Turn-based architecture:
 - **Middleware or helpers** execute tools and append `tool_use` blocks
 - **Engines re-run** with the updated Turn to let the model continue
 
-> **Key Pattern:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `turns.DataKeyToolConfig`). This keeps Turn state persistable while allowing dynamic tools per inference call.
+> **Key Pattern:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `engine.KeyToolConfig`). This keeps Turn state persistable while allowing dynamic tools per inference call.
 
 ### Packages
 
@@ -67,7 +67,7 @@ import (
 - Registry: `tools.ToolRegistry` holds callable tools
 - Per-Turn tools:
   - Runtime registry: carried via `context.Context` using `toolcontext.WithRegistry(ctx, reg)`
-  - Serializable config: stored on `Turn.Data` via `turns.DataKeyToolConfig`
+  - Serializable config: stored on `Turn.Data` via `engine.KeyToolConfig`
 - Blocks: `llm_text`, `tool_call`, `tool_use`
 ### OpenAI Responses specifics
 
@@ -108,11 +108,13 @@ _ = reg.RegisterTool("get_weather", *def)
 2) Attach the registry to context (and optional tool config to the Turn)
 
 ```go
-seed := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
-seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+seed := &turns.Turn{}
+if err := engine.KeyToolConfig.Set(&seed.Data, engine.ToolConfig{
     Enabled:          true,
     ToolChoice:       engine.ToolChoiceAuto,
     MaxParallelTools: 1,
+}); err != nil {
+    return err
 }
 
 ctx = toolcontext.WithRegistry(ctx, reg)
@@ -169,8 +171,10 @@ func run(ctx context.Context, e engine.Engine) error {
     _ = reg.RegisterTool("add", *def)
 
     // 2) Seed a Turn with minimal tool config (registry is in context)
-    t := &turns.Turn{ Data: map[turns.TurnDataKey]any{} }
-    t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{ Enabled: true }
+    t := &turns.Turn{}
+    if err := engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{Enabled: true}); err != nil {
+        return err
+    }
     turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
 
     // 3) Attach registry to context (no Turn.Data registry)
@@ -304,7 +308,7 @@ turns.PayloadKeyResult
 Engine discovery keys in `Turn.Data`:
 
 ```go
-turns.DataKeyToolConfig   // engine.ToolConfig
+engine.KeyToolConfig      // engine.ToolConfig stored in Turn.Data
 ```
 
 ---

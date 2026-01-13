@@ -100,7 +100,7 @@ toolMw := middleware.NewToolMiddleware(tb, cfg)
 e := middleware.NewEngineWithMiddleware(baseEngine, toolMw)
 ```
 
-Note: Providers learn about tools to advertise from `context.Context` (tool registry) plus `Turn.Data` (tool config, e.g. `turns.DataKeyToolConfig`). The middleware executes tools independent of provider.
+Note: Providers learn about tools to advertise from `context.Context` (tool registry) plus `Turn.Data` (tool config, e.g. `engine.KeyToolConfig`). The middleware executes tools independent of provider.
 
 ---
 
@@ -145,7 +145,7 @@ General principle: **Middlewares that reject/filter go first; middlewares that m
 
 ### Lessons learned (agent-mode and tools)
 
-- Prefer per-Turn data hints over global state: attach small keys on `Turn.Data` using typed constants (e.g., `turns.DataKeyAgentMode`, `turns.DataKeyAgentModeAllowedTools` from `geppetto/pkg/turns`, or application-specific constants from `moments/backend/pkg/turnkeys`) to guide downstream middlewares without tight coupling. Use typed `TurnDataKey` constants rather than string literals.
+- Prefer per-Turn data hints over global state: attach small hints on `Turn.Data` using typed keys (e.g., `turns.KeyAgentMode`, `turns.KeyAgentModeAllowedTools` from `geppetto/pkg/turns`, or application-specific keys from `moments/backend/pkg/turnkeys`) to guide downstream middlewares without tight coupling. Define keys in `*_keys.go` and reuse the canonical variables everywhere else.
 - Separate declarative advertisement from imperative execution: providers read a declarative registry (schemas) from `context.Context`, while execution happens via a runtime `Toolbox` (function pointers) in the tool middleware. This separation improves safety and testability.
 - Reuse shared parsers/utilities: use a central YAML fenced-block parser to reliably extract structured content from LLM output instead of ad-hoc regex.
 - Compose middlewares by concern: a mode middleware can set allowed tools; the tool middleware enforces the filter and handles execution; engines remain provider-focused.
@@ -195,4 +195,3 @@ import (
 - [Turns and Blocks](08-turns.md) — The Turn data model
 - [Events](04-events.md) — Event publishing from middlewares
 - Real-world examples: `geppetto/pkg/inference/middleware/agentmode/`, `geppetto/pkg/inference/middleware/sqlitetool/`
-

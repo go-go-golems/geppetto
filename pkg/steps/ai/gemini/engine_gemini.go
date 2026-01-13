@@ -130,8 +130,12 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	model := client.GenerativeModel(modelName)
 	// Make sure Turn metadata has the basic provider/model identity for downstream debugging.
 	if t != nil {
-		turns.SetTurnMetadata(t, turns.TurnMetaKeyProvider, "gemini")
-		turns.SetTurnMetadata(t, turns.TurnMetaKeyModel, modelName)
+		if err := turns.KeyTurnMetaProvider.Set(&t.Metadata, "gemini"); err != nil {
+			log.Warn().Err(err).Msg("failed to set turn provider metadata")
+		}
+		if err := turns.KeyTurnMetaModel.Set(&t.Metadata, modelName); err != nil {
+			log.Warn().Err(err).Msg("failed to set turn model metadata")
+		}
 	}
 
 	// Configure generation if present
@@ -336,11 +340,19 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 
 	// Populate turn metadata + event metadata (best-effort).
 	if strings.TrimSpace(finalStopReason) != "" {
-		turns.SetTurnMetadata(t, turns.TurnMetaKeyStopReason, finalStopReason)
+		if t != nil {
+			if err := turns.KeyTurnMetaStopReason.Set(&t.Metadata, finalStopReason); err != nil {
+				log.Warn().Err(err).Msg("failed to set turn stop reason metadata")
+			}
+		}
 		metadata.StopReason = &finalStopReason
 	}
 	if finalUsage != nil {
-		turns.SetTurnMetadata(t, turns.TurnMetaKeyUsage, finalUsage)
+		if t != nil {
+			if err := turns.KeyTurnMetaUsage.Set(&t.Metadata, finalUsage); err != nil {
+				log.Warn().Err(err).Msg("failed to set turn usage metadata")
+			}
+		}
 		metadata.Usage = finalUsage
 	}
 

@@ -25,6 +25,18 @@ topics:
       description: Snapshot persistence and data stores
     - slug: bug
       description: Bugs and investigations
+    - slug: architecture
+      description: Architecture and design
+    - slug: geppetto
+      description: Geppetto project
+    - slug: go
+      description: Go code
+    - slug: turns
+      description: Turns and blocks data model
+    - slug: serde
+      description: Serialization/deserialization (serde)
+    - slug: yaml
+      description: YAML serialization
 docTypes:
     - slug: index
       description: Ticket index
@@ -49,3 +61,8 @@ intent:
       description: Persistent documentation
     - slug: short-term
       description: Ephemeral notes
+status:
+    - slug: active
+      description: In progress
+    - slug: complete
+      description: Done / closed
