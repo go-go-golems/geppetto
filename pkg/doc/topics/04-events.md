@@ -19,101 +19,161 @@ SectionType: GeneralTopic
 
 # Events, Streaming, and Watermill in Geppetto
 
-Geppetto uses an engine-first architecture. Engines handle provider API calls and emit streaming events. Event delivery is decoupled via sinks (publishers) and an optional Watermill router. Tool orchestration lives in helpers that can also publish events. This page explains the event model, how events are published, how to route them with Watermill, and how to extend the event system with custom event types.
+## Why Events?
 
-## Event Model
+When you run AI inference, you want to see results as they stream in — not wait for the entire response. This enables:
 
-Engines and helpers publish structured chat events defined in `pkg/events/chat-events.go`:
+- **Responsive UIs** — show tokens as they arrive, not after 10 seconds of silence
+- **Progress feedback** — show "Thinking..." or tool execution status
+- **Debugging** — trace exactly what the model is doing and when
+- **Real-time metrics** — display token counts as they accumulate
 
-- **start (`EventTypeStart`)**: Inference started for a request.
-- **partial (`EventTypePartialCompletion`)**: Streamed delta and accumulated completion.
-- **partial-thinking (`EventTypePartialThinking`)**: Streamed reasoning summary delta (Responses API only).
-- **tool-call (`EventTypeToolCall`)**: Model requested a tool/function call.
-- **tool-result (`EventTypeToolResult`)**: A tool returned its result.
-- **error (`EventTypeError`)**: Error during streaming or execution.
-- **interrupt (`EventTypeInterrupt`)**: Context cancelled; may include partial text.
-- **final (`EventTypeFinal`)**: Inference finished; includes final text.
-- status/text exist for legacy/debug use and may be phased out.
+Geppetto's event system publishes structured events as inference progresses. Every token, tool call, and error becomes an event that flows through a unified pipeline.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Your Application                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌──────────┐     ┌──────────────┐     ┌───────────────────┐  │
+│   │  Engine  │────▶│  Event Sink  │────▶│  Watermill Router │  │
+│   └──────────┘     └──────────────┘     └─────────┬─────────┘  │
+│        │                                          │             │
+│        ▼                                          ▼             │
+│   ┌──────────┐                            ┌─────────────┐       │
+│   │ Helpers/ │─────────────────────────▶ │  Handlers   │       │
+│   │  Tools   │   (via context sinks)      │ (printers,  │       │
+│   └──────────┘                            │  custom)    │       │
+│                                           └─────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key components:**
+
+| Component | Role |
+|-----------|------|
+| **Engine** | Makes provider API calls, emits lifecycle events (start, partial, final) |
+| **Event Sink** | Receives events and publishes to a topic |
+| **Watermill Router** | Routes events to registered handlers |
+| **Handlers** | Process events (print to console, aggregate, forward) |
+| **Context Sinks** | Let helpers/tools emit events without explicit plumbing |
+
+## Event Types
+
+### Core Lifecycle Events
+
+| Event | Type Constant | When Emitted | Key Fields |
+|-------|---------------|--------------|------------|
+| **start** | `EventTypeStart` | Inference begins | `Metadata` |
+| **partial** | `EventTypePartialCompletion` | Each streamed chunk | `Delta`, `Completion` |
+| **partial-thinking** | `EventTypePartialThinking` | Reasoning summary delta (Responses API) | `Delta` |
+| **final** | `EventTypeFinal` | Inference completes | `Text`, `Metadata.Usage` |
+| **interrupt** | `EventTypeInterrupt` | Context cancelled | `Text` (partial) |
+| **error** | `EventTypeError` | Error occurs | `ErrorString` |
+
+### Tool Events
+
+| Event | Type Constant | When Emitted | Key Fields |
+|-------|---------------|--------------|------------|
+| **tool-call** | `EventTypeToolCall` | Model requests tool | `ToolCall.Name`, `ToolCall.Input`, `ToolCall.ID` |
+| **tool-result** | `EventTypeToolResult` | Tool returns result | `ToolResult.ID`, `ToolResult.Result` |
+| **tool-call-execute** | `EventTypeToolCallExecute` | Execution starts | `ToolCall` |
+| **tool-call-execution-result** | `EventTypeToolCallExecutionResult` | Execution finishes | `ToolResult` |
+
+### Extended Events
+
+| Category | Events | Purpose |
+|----------|--------|---------|
+| **Reasoning** | `partial-thinking`, `reasoning-text-delta`, `reasoning-text-done` | o1/Claude thinking traces |
+| **Web Search** | `web-search-started`, `web-search-searching`, `web-search-done` | Built-in web search progress |
+| **File Search** | `file-search-started`, `file-search-done` | Built-in file search progress |
+| **Code Interpreter** | `code-interpreter-*` | Code execution progress |
+| **MCP** | `mcp-*`, `mcp-list-tools-*` | MCP tool progress |
+| **Image Gen** | `image-generation-*` | Image generation progress |
+| **Status** | `log`, `info`, `status`, `agent-mode-switch` | UI/debug status |
+
 ### Event Type Cheat Sheet
 
-These are the concrete Go types and commonly used fields you will receive after parsing with `events.NewEventFromJson`:
+Common concrete Go types when parsing with `events.NewEventFromJson`:
 
-- `*events.EventPartialCompletionStart`
-  - Marks start of an inference stream
-- `*events.EventPartialCompletion`
-  - Fields: `Delta` (string), `Completion` (string)
-- `*events.EventFinal`
-  - Fields: `Text` (string)
-- `*events.EventToolCall`
-  - Fields: `ToolCall` (struct) with `Name` (string), `Input` (string), `ID` (string)
-- `*events.EventToolResult`
-  - Fields: `ToolResult` (struct) with `ID` (string), `Result` (string)
-- `*events.EventError`
-  - Fields: `ErrorString` (string)
-- `*events.EventInterrupt`
-  - Fields: `Text` (string)
+- `*events.EventPartialCompletionStart` → stream start
+- `*events.EventPartialCompletion` → `Delta`, `Completion`
+- `*events.EventFinal` → `Text`
+- `*events.EventToolCall` → `ToolCall` with `Name`, `Input`, `ID`
+- `*events.EventToolResult` → `ToolResult` with `ID`, `Result`
+- `*events.EventError` → `ErrorString`
+- `*events.EventInterrupt` → `Text`
 
-See the source for full definitions: `geppetto/pkg/events/chat-events.go`.
+See full catalog: `geppetto/pkg/events/chat-events.go`
 
+## Event Metadata
 
-Events carry `EventMetadata` only. `EventMetadata` includes:
+Every event carries `EventMetadata`:
 
-- `message_id` (stable per stream)
-- `run_id` and `turn_id` (correlation identifiers set by the caller/middleware)
-- model information, optional stop reason, duration
-- typed `Usage` with unified fields across providers
-- an `extra` map for provider-specific context (e.g., settings snapshot)
+```go
+type EventMetadata struct {
+    ID       uuid.UUID // Stable per stream
+    RunID    string    // Correlation ID for the run
+    TurnID   string    // Correlation ID for the turn
+    Model    string    // Model identifier (e.g., "gpt-4")
+    Duration time.Duration
+    
+    Usage    Usage     // Token counts (updated continuously)
+    Extra    map[string]any // Provider-specific context
+}
 
-Typed `Usage` (no maps) is defined in `pkg/events/metadata.go` and is populated continuously during streaming by engines:
+type Usage struct {
+    InputTokens              int
+    OutputTokens             int
+    CachedTokens             int // OpenAI prompt cache
+    CacheCreationInputTokens int // Claude cache
+    CacheReadInputTokens     int // Claude cache
+}
+```
 
-- `InputTokens`, `OutputTokens`
-- `CachedTokens` (OpenAI prompt cache)
-- `CacheCreationInputTokens`, `CacheReadInputTokens` (Claude cache)
-
-Providers update `EventMetadata.Usage` as chunks arrive, so UIs can display evolving usage in real-time. Map-based metadata extractors were removed; engines now use provider SDK typed fields directly.
+**Note**: `Usage` is updated as chunks arrive, so UIs can display evolving token counts in real-time.
 
 ## Publishing Events
 
-There are two complementary ways events are published:
+Events flow through two complementary channels:
 
-- **Engine-configured sinks**: Pass sinks when creating engines. Engines publish all lifecycle events to these sinks.
+### 1. Engine-Configured Sinks
 
-```go
-  // Create Watermill sink that publishes to topic "chat"
-  watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-
-  // Attach sink to engine via options
-  eng, _ := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(watermillSink))
-  ```
-
-- **Context-carried sinks**: Attach sinks to `context.Context` so downstream code (helpers, tools) can publish without plumbing.
+Pass sinks when creating the engine:
 
 ```go
-  // At call site, attach sinks to context
-  ctx = events.WithEventSinks(ctx, watermillSink)
+watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
+eng, _ := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(watermillSink))
+```
 
-  // Downstream code can publish
-  events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
-  ```
+### 2. Context-Carried Sinks
 
-Engines emit: start, partial, final, interrupt, error (+ tool-call where applicable). Tool helpers emit: tool-call and tool-result. Middleware and tools may also emit lightweight `log` and `info` events for user-visible status.
+Attach sinks to `context.Context` for downstream code:
 
-## Provider Implementations and Event Flow
+```go
+ctx = events.WithEventSinks(ctx, watermillSink)
 
-- **OpenAI (Chat Completions)**: Always streams. Publishes `start`, then `partial` for each delta, finally `final`. On context cancellation it publishes `interrupt`. Tool-call blocks are merged and published as `tool-call` events when complete.
-- **OpenAI (Responses)**: Streams multiple channels of information:
-  - Reasoning summary boundaries as `info` events ("thinking-started" / "thinking-ended").
-  - Reasoning summary deltas as `partial-thinking` events (one per token-like chunk).
-  - Output text deltas as `partial` events.
-  - Function call arguments as SSE deltas; publishes a `tool-call` when function_call completes.
-  - Final usage and reasoning token counts arrive on `response.completed` and are included in `final` metadata.
-- **Claude**: Streaming is merged via a content-block merger which emits `start`, `partial` on text deltas, `tool-call` when a tool_use block completes, and `final` on stop.
+// Anywhere downstream can publish
+events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
+```
 
-Both engines publish to configured sinks and also call `events.PublishEventToContext(ctx, …)` so context-carried sinks receive the same events.
+**Best practice**: Attach the same sink to both engine and context so all components publish to the same router.
+
+## Provider Event Flow
+
+| Provider | Streaming Behavior |
+|----------|-------------------|
+| **OpenAI (Chat)** | `start` → multiple `partial` → `final`. Tool calls merged and emitted as `tool-call` when complete. |
+| **OpenAI (Responses)** | Adds `info` events for reasoning boundaries, `partial-thinking` for summary deltas. Function args streamed via SSE. |
+| **Claude** | Content-block merger emits `start` → `partial` → `tool-call` (when complete) → `final`. |
+
+All providers publish to both configured sinks and context sinks.
 
 ## Running the Event Router
 
-Use a Watermill-backed `EventRouter` to route events to handlers. Run it in a goroutine and wait for it to be ready before invoking inference.
+Use a Watermill-backed `EventRouter` to route events to handlers:
 
 ```go
 router, _ := events.NewEventRouter()
@@ -131,57 +191,36 @@ eg, groupCtx := errgroup.WithContext(ctx)
 eg.Go(func() error { return router.Run(groupCtx) })
 eg.Go(func() error {
     <-router.Running()
-    // Attach same sink to context so helpers/tools can publish
     runCtx := events.WithEventSinks(groupCtx, sink)
-    _, err := eng.RunInference(runCtx, messages)
+    turn := &turns.Turn{}
+    turns.AppendBlock(turn, turns.NewUserTextBlock("Say hello."))
+    _, err := eng.RunInference(runCtx, turn)
     return err
 })
 
 _ = eg.Wait()
 ```
 
-## Watermill’s Role
-
-[Watermill](https://github.com/ThreeDotsLabs/watermill) provides the message router, publisher, and subscriber. Geppetto’s `EventRouter` wraps Watermill to simplify adding handlers:
-
-```go
-// Handler signature is func(*message.Message) error
-router.AddHandler("chat", "chat", events.StepPrinterFunc("", w))
-// Or structured output (text/json/yaml):
-printer := events.NewStructuredPrinter(w, events.PrinterOptions{Format: events.FormatText})
-router.AddHandler("chat", "chat", printer)
-```
-
-Use `middleware.NewWatermillSink(publisher, topic)` to publish engine events into the router.
-
-Note: A legacy `PublisherManager` exists for lower-level control but is not required for engine-first workflows.
-
 ## Client-side Consumption Patterns
 
-Clients consume events by adding handlers to the `EventRouter`. The router parses Watermill messages and your handler can print, aggregate, or transform events.
-
-### 1) Console streaming printer (simple)
+### 1) Console Streaming Printer
 
 ```go
 // Text streaming (writes deltas and final newline)
 router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
-// Or a structured printer (text/json/yaml), optionally with metadata
+// Or structured output (text/json/yaml)
 printer := events.NewStructuredPrinter(os.Stdout, events.PrinterOptions{
-    Format:          events.FormatText, // or events.FormatJSON / events.FormatYAML
+    Format:          events.FormatText, // or FormatJSON / FormatYAML
     IncludeMetadata: false,
     Full:            false,
 })
 router.AddHandler("chat", "chat", printer)
 ```
 
-This is the same pattern used in the example client (see `geppetto/cmd/examples/simple-streaming-inference/main.go`).
-
-### 2) Custom handler (aggregate deltas, handle errors)
+### 2) Custom Handler
 
 ```go
-// import "github.com/ThreeDotsLabs/watermill/message"
-
 router.AddHandler("collector", "chat", func(msg *message.Message) error {
     defer msg.Ack()
     e, err := events.NewEventFromJson(msg.Payload)
@@ -207,7 +246,7 @@ router.AddHandler("collector", "chat", func(msg *message.Message) error {
 
 #### Pretty-printing tool payloads (JSON-aware)
 
-`ToolCall.Input` and `ToolResult.Result` are strings. If they contain JSON, pretty-print them for readability:
+`ToolCall.Input` and `ToolResult.Result` are strings. If they contain JSON, pretty-print them:
 
 ```go
 func prettyJSONIfPossible(s string) string {
@@ -224,9 +263,9 @@ func prettyJSONIfPossible(s string) string {
 }
 ```
 
-### 3) Cross-process consumption
+### 3) Cross-process Consumption
 
-`EventRouter` defaults to an in-process GoChannel pub/sub. For cross-process setups, initialize with a different Watermill transport and pass it via options:
+For distributed systems, swap the in-process transport for NATS, Kafka, etc.:
 
 ```go
 pub := /* e.g., NATS/Kafka publisher */
@@ -237,23 +276,13 @@ router, _ := events.NewEventRouter(events.WithPublisher(pub), events.WithSubscri
 router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 ```
 
-With a networked publisher/subscriber, any client subscribed to the `chat` topic can consume events produced by engines running elsewhere.
+## Custom Event Types
 
-## Event Extensibility and Custom Events
-
-Geppetto provides an event registry that allows you to register custom event types beyond the built-in events. This enables libraries, tools, and application-specific code to emit domain-specific events that flow through the same event infrastructure.
-
-### The Event Registry
-
-The registry is a thread-safe, singleton store of decoders and encoders. When `events.NewEventFromJson` deserializes an event, it first checks the registry for a custom decoder matching the event's `type` field. If found, the custom decoder runs; otherwise, Geppetto's built-in event types are used.
+Geppetto provides an event registry for custom event types that flow through the same infrastructure.
 
 ### Registration Methods
 
-The `pkg/events` package provides three registration functions:
-
 #### 1. RegisterEventCodec (full control)
-
-Register a decoder function with complete control over deserialization:
 
 ```go
 import "github.com/go-go-golems/geppetto/pkg/events"
@@ -280,8 +309,6 @@ func init() {
 
 #### 2. RegisterEventFactory (convenience)
 
-For standard JSON unmarshalling, use the factory helper:
-
 ```go
 type CustomStatusEvent struct {
     events.EventImpl
@@ -299,16 +326,11 @@ func init() {
 }
 ```
 
-The factory approach handles unmarshalling and payload storage automatically.
-
 #### 3. RegisterEventEncoder (outbound serialization)
-
-Register an encoder for custom serialization logic:
 
 ```go
 func init() {
     encoder := func(ev events.Event) ([]byte, error) {
-        // Custom serialization logic
         return json.Marshal(ev)
     }
     
@@ -318,10 +340,7 @@ func init() {
 
 ### Publishing Custom Events
 
-Custom events are published the same way as built-in events:
-
 ```go
-// Create custom event with metadata
 meta := events.EventMetadata{
     ID:     uuid.New(),
     RunID:  "run-123",
@@ -346,18 +365,13 @@ _ = sink.PublishEvent(customEvent)
 
 ### Consuming Custom Events
 
-Custom events flow through the same Watermill router and handlers:
-
 ```go
 router.AddHandler("custom-collector", "chat", func(msg *message.Message) error {
     defer msg.Ack()
     
     e, err := events.NewEventFromJson(msg.Payload)
-    if err != nil {
-        return err
-    }
+    if err != nil { return err }
     
-    // Type-assert to your custom event
     if progressEv, ok := e.(*CustomProgressEvent); ok {
         fmt.Printf("Progress: %.0f%% - %s\n", 
             progressEv.Progress*100, progressEv.Status)
@@ -369,96 +383,58 @@ router.AddHandler("custom-collector", "chat", func(msg *message.Message) error {
 
 ### Best Practices for Custom Events
 
-- **Embed EventImpl**: All custom events should embed `events.EventImpl` to satisfy the `Event` interface and carry standard metadata.
-- **Register in init()**: Use `init()` functions to register codecs/factories at package initialization time.
-- **Unique type names**: Choose distinctive type strings to avoid collisions (e.g., `myapp-progress` rather than `progress`).
-- **Metadata consistency**: Always populate `EventMetadata` with `message_id`, and optionally `run_id`/`turn_id` for correlation.
-- **Handle registration errors**: Check the error return from registration functions; duplicate registrations will fail.
+- **Embed EventImpl**: All custom events should embed `events.EventImpl` to satisfy the `Event` interface.
+- **Register in init()**: Use `init()` functions to register at package initialization.
+- **Unique type names**: Choose distinctive strings (e.g., `myapp-progress` not `progress`).
+- **Metadata consistency**: Always populate `EventMetadata` with `ID`, optionally `RunID`/`TurnID`.
+- **Handle registration errors**: Duplicate registrations will fail.
 
-### Use Cases
+### Use Cases for Custom Events
 
-Custom events are useful for:
-
-- **Tool-specific progress**: Tools can emit granular progress events (e.g., database query progress, file upload status)
-- **Domain events**: Application-specific events like "user-action", "workflow-step-completed"
-- **Integration events**: Events from external systems flowing through the same infrastructure
-- **Debugging events**: Instrumentation and profiling events during development
-
-## Practical Tips
-
-- Always wait for `router.Running()` before invoking inference to avoid dropped events.
-- Attach the same sink to both the engine and the context so helpers/tools can publish.
-- Prefer `events.NewStructuredPrinter` for machine-readable output during tests.
-- Register custom event types in `init()` functions to ensure they're available before event processing begins.
-- Enable debug logging (`zerolog.DebugLevel`) to see when events are published to context sinks and when no sinks are available.
-- For related guidance, see: `glaze help geppetto-inference-engines`.
+- **Tool-specific progress**: Database query progress, file upload status
+- **Domain events**: "user-action", "workflow-step-completed"
+- **Integration events**: Events from external systems
+- **Debugging events**: Instrumentation during development
 
 ## Full Example: Router + Engine + Helpers
 
-While the sections above detail the internal mechanisms, a common practical pattern is needed when *using* the `EventRouter` in an application.
-
-The `router.Run(ctx)` method is blocking and listens for events until its context is canceled. Therefore, it must typically be run in a background goroutine.
-
-Simultaneously, the application logic that triggers event publishing (e.g., calling `step.Start` or a higher-level function like `llm.Generate` which uses steps internally) needs to execute. This logic often depends on the router being active to receive published events.
-
-To coordinate these concurrent operations and ensure clean startup, shutdown, and avoid race conditions, it's recommended to use `golang.org/x/sync/errgroup`:
-
-1.  Create a parent `context.Context` with cancellation (`context.WithCancel`).
-2.  Create an `errgroup.Group` associated with this cancellable context (`eg, groupCtx := errgroup.WithContext(ctx)`). Using `errgroup.WithContext` automatically handles cancellation propagation if any goroutine in the group returns an error.
-3.  Launch `router.Run(groupCtx)` in one goroutine managed by the `errgroup` (`eg.Go`).
-    *   **Crucially**, use `defer router.Close()` inside this goroutine to ensure the router's resources are released when it stops.
-    *   It's also good practice to include `defer cancel()` here, although `errgroup.WithContext` handles cancellation on error, this ensures cancellation if the goroutine exits cleanly.
-4.  Launch the main event-producing task (e.g., `llm.Generate(groupCtx, ...)` or `step.Start(groupCtx, ...)` ) in another goroutine managed by the `errgroup`.
-    *   **Wait for the router**: Before the task starts publishing events, wait for the router to be ready by reading from its `Running()` channel: `<-router.Running()`.
-    *   Use `defer cancel()` in this goroutine as well to signal the router goroutine to stop if this task finishes or fails.
-5.  Call `eg.Wait()` in the main thread. This blocks until all goroutines launched via `eg.Go` have finished (either successfully or due to an error/cancellation).
-
-This pattern ensures that:
-- The router is confirmed to be running before the main task starts publishing.
-- The router stays alive as long as the main task is running.
-- If the main task finishes or fails, the router is signalled to shut down via context cancellation.
-- If the router fails unexpectedly, the main task is signalled to stop via context cancellation.
-- The router's `Close()` method is called reliably upon shutdown.
-- The application waits for both components to terminate cleanly before exiting.
-
-Example structure:
+The `router.Run(ctx)` method blocks until cancelled. Use `errgroup` to coordinate:
 
 ```go
 ctx, cancel := context.WithCancel(context.Background())
 // NOTE: No defer cancel() here, errgroup handles it via groupCtx
 
 eg, groupCtx := errgroup.WithContext(ctx)
-router, _ := events.NewEventRouter() // Assume router creation
+router, _ := events.NewEventRouter()
 
 // Goroutine for the router
 eg.Go(func() error {
     defer func() {
         log.Info().Msg("Closing event router")
-        _ = router.Close() // Ensure router is closed
+        _ = router.Close()
         log.Info().Msg("Event router closed")
-        // cancel() // Optional: Signal cancellation if router exits cleanly
     }()
 
     log.Info().Msg("Starting event router")
-    runErr := router.Run(groupCtx) // Use group's context
+    runErr := router.Run(groupCtx)
     log.Info().Err(runErr).Msg("Event router stopped")
-    // Don't return context.Canceled as a fatal error from the group
+    // Don't return context.Canceled as a fatal error
     if runErr != nil && !errors.Is(runErr, context.Canceled) {
-        return runErr // Return other errors
+        return runErr
     }
     return nil
 })
 
-// Goroutine for the main task (e.g., LLM call)
+// Goroutine for the main task
 eg.Go(func() error {
-    defer cancel() // Signal router to stop when this task is done
+    defer cancel() // Signal router to stop when done
 
-    // Wait for router to be ready
     <-router.Running()
     log.Info().Msg("Event router is running, proceeding with main task")
 
-    // Run inference (helpers will also publish via context sinks)
-    _, err := eng.RunInference(events.WithEventSinks(groupCtx, watermillSink), conversation)
+    turn := &turns.Turn{}
+    turns.AppendBlock(turn, turns.NewUserTextBlock("Say hello."))
+    _, err := eng.RunInference(events.WithEventSinks(groupCtx, watermillSink), turn)
     if err != nil {
         return err
     }
@@ -467,35 +443,111 @@ eg.Go(func() error {
     return nil 
 })
 
-// Wait for both goroutines to complete
 log.Info().Msg("Waiting for goroutines to finish")
 if err := eg.Wait(); err != nil {
     log.Error().Err(err).Msg("Application finished with error")
-    // Handle error (errgroup returns the first non-nil error)
 } else {
     log.Info().Msg("Application finished successfully")
 }
 ```
 
-## Extending the Event System
+**Why this pattern?**
+- Router is confirmed running before publishing starts
+- Router stays alive while the task runs
+- If task finishes/fails, router shuts down via context cancellation
+- If router fails, task stops via context cancellation
+- `router.Close()` is called reliably
 
-The `events` package exposes a registry so you can add custom event types without editing the core switch inside `NewEventFromJson`. Register your codecs during init:
+## Structured Data Extraction with Filtering Sinks
 
-- `events.RegisterEventCodec("custom-log", decoder)` installs JSON → event decoding.
-- `events.RegisterEventFactory` wraps the common “allocate zero struct and json.Unmarshal” flow.
-- `events.RegisterEventEncoder("custom-log", encoder)` keeps your custom type serializable when forwarding to other systems.
+Geppetto ships a filtering sink that extracts structured payloads from streaming text and emits typed events.
+
+### Tag Format
+
+Blocks are delimited with XML-like tags:
+
+~~~text
+<geppetto:citations:v1>
+```yaml
+citations:
+  - title: GPT-4 Technical Report
+    authors: [OpenAI]
+```
+</geppetto:citations:v1>
+~~~
+
+### Extractor Interface
+
+Each extractor declares the `(package, type, version)` tuple it handles:
 
 ```go
-func init() {
-	_ = events.RegisterEventFactory("custom-log", func() events.Event {
-		return &CustomLog{EventImpl: events.EventImpl{Type_: "custom-log"}}
-	})
+type Extractor interface {
+    TagPackage() string
+    TagType() string
+    TagVersion() string
+    NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession
 }
 
-type CustomLog struct {
-	events.EventImpl
-	Message string `json:"message"`
+type ExtractorSession interface {
+    OnStart(ctx context.Context) []events.Event
+    OnRaw(ctx context.Context, chunk []byte) []events.Event
+    OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event
 }
 ```
 
-When a registered decoder runs, `EventImpl.SetPayload` preserves the raw JSON payload for downstream consumers. Publish custom events through any registered `EventSink` or via `events.PublishEventToContext`.
+### Sink Setup
+
+```go
+next := /* your downstream events.EventSink */
+sink := structuredsink.NewFilteringSink(next, structuredsink.Options{
+    Malformed: structuredsink.MalformedErrorEvents,
+}, &citationsExtractor{})
+```
+
+### Parsing Helpers
+
+The `parsehelpers` package includes a debounced YAML parser for progressive updates:
+
+```go
+ctrl := parsehelpers.NewDebouncedYAML[citationsPayload](parsehelpers.DebounceConfig{
+    SnapshotEveryBytes: 512,
+    SnapshotOnNewline:  true,
+    MaxBytes:           64 << 10,
+})
+```
+
+Use `OnRaw` to feed bytes and emit "best-so-far" events, then `OnCompleted` to parse the final payload. If a block is malformed, the sink applies the configured policy (`MalformedErrorEvents`, `MalformedReconstructText`, or `MalformedIgnore`).
+
+## Practical Tips
+
+- Always wait for `router.Running()` before invoking inference to avoid dropped events.
+- Attach the same sink to both the engine and the context so helpers/tools can publish.
+- Prefer `events.NewStructuredPrinter` for machine-readable output during tests.
+- Register custom event types in `init()` functions.
+- Enable debug logging (`zerolog.DebugLevel`) to see event publishing.
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| No events received | Router not running | Call `<-router.Running()` before inference |
+| Missing tool events | Sink not on context | Use `events.WithEventSinks(ctx, sink)` |
+| Dropped events | Wrong topic | Match topic in `NewWatermillSink` and `AddHandler` |
+| Events stop mid-stream | Context cancelled | Check for deadline or explicit cancellation |
+
+## Packages
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/events"               // Core events, router, printers
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware" // WatermillSink
+    "github.com/go-go-golems/geppetto/pkg/events/structuredsink" // Filtering + extraction
+)
+```
+
+## See Also
+
+- [Inference Engines](06-inference-engines.md) — How engines emit events
+- [Tools](07-tools.md) — Tool events and execution
+- [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete example
+- Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`
