@@ -31,14 +31,20 @@ RelatedFiles:
       Note: Detailed turn/block ordering analysis.
     - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md
       Note: Cross-system turn mutation analysis.
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/04-moments-follow-up-plan.md
+      Note: Deferred Moments migration plan.
     - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md
       Note: Unified conversation handling design.
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md
+      Note: Task checklist for MO-002 execution.
 ExternalSources: []
 Summary: Track fixes for thinking-model parameter handling in chat vs responses engines.
 LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Capture investigation and code changes for GPT-5/o-series parameter gating.
 WhenToUse: Use when validating reasoning model support and engine request building.
 ---
+
+
 
 
 
@@ -538,3 +544,45 @@ I then amended the design doc to include these insights and to extend the migrat
 
 ### Technical details
 - Reference: `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/go-go-mento/go/pkg/docs/05-webchat-middleware-ordering.md`
+
+## Step 13: Add task plan and Moments follow-up document
+
+I added a dedicated Moments follow-up plan doc and populated it with a phased migration outline, risks, and validation notes. This captures the deferred work we should do once the geppetto/pinocchio migration stabilizes.
+
+I also created a concrete task list for MO-002 covering the conversation package implementation, tests, and the pinocchio migrations. This gives us a clear execution checklist while keeping Moments explicitly deferred.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Created `analysis/04-moments-follow-up-plan.md` with the deferred Moments migration plan.
+- Added MO-002 tasks for conversation package work, tests, and pinocchio migrations.
+
+### Why
+- We need a persistent plan for Moments work without starting the migration yet.
+- The ticket needed actionable tasks to drive the next steps.
+
+### What worked
+- The follow-up doc provides an explicit roadmap and risks for the Moments migration.
+- The task list now reflects the near-term implementation sequence.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Keeping the Moments plan separate makes it easier to update once the shared conversation package exists.
+
+### What was tricky to build
+- Keeping the task list tight while preserving a separate track for deferred Moments work.
+
+### What warrants a second pair of eyes
+- Review the task ordering to ensure it matches dependencies between conversation package work and pinocchio migrations.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/04-moments-follow-up-plan.md`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md`.
+
+### Technical details
+- N/A
