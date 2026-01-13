@@ -59,6 +59,9 @@ After that, explore based on what you need:
 | Tutorial | What You'll Build |
 |----------|-------------------|
 | [Streaming Inference with Tools](../tutorials/01-streaming-inference-with-tools.md) | A Cobra command that streams output and supports tool calling. |
+| [Event Routing and Structured Logging](../tutorials/02-event-routing-and-structured-logging.md) | Multiple event handlers with JSON logging and metrics. |
+| [Embeddings Workflows](../tutorials/03-embeddings-workflows.md) | Semantic search with caching and batch processing. |
+| [Structured Data Extraction](../tutorials/04-structured-data-extraction.md) | Extract structured data from streaming output in real-time. |
 
 ## Playbooks
 
