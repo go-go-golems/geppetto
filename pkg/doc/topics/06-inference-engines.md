@@ -21,7 +21,31 @@ SectionType: Tutorial
 # Understanding and Using the Geppetto Inference Engine Architecture
 
 > **Audience**: Developers familiar with Go who want to embed AI capabilities into their applications using Geppetto.<br/>
-> **Outcome**: You will understand the architecture’s core concepts and learn how to instantiate engines, orchestrate tool calls, and apply best practices in production.
+> **Outcome**: You will understand the architecture's core concepts and learn how to instantiate engines, orchestrate tool calls, and apply best practices in production.
+
+## 30-Second Overview
+
+```go
+// 1. Create an engine from configuration
+engine, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+
+// 2. Build a Turn with your prompt
+turn := &turns.Turn{}
+turns.AppendBlock(turn, turns.NewSystemTextBlock("You are a helpful assistant."))
+turns.AppendBlock(turn, turns.NewUserTextBlock("Hello!"))
+
+// 3. Run inference
+result, _ := engine.RunInference(ctx, turn)
+
+// 4. Read the response
+for _, block := range result.Blocks {
+    if block.Kind == turns.BlockKindLLMText {
+        fmt.Println(block.Payload[turns.PayloadKeyText])
+    }
+}
+```
+
+That's it. The engine handles provider-specific API calls, streaming, and response parsing. You work with Turns and Blocks.
 
 ## Table of Contents
 1. [Core Architecture Principles](#core-architecture-principles)
@@ -644,3 +668,12 @@ The Geppetto inference engine architecture provides a clean, testable, and provi
 - **Composability**: Mix and match components as needed
 
 The combination of engines, helpers, factories, and middleware provides all the tools needed to build sophisticated AI applications while maintaining clean separation of concerns.
+
+## See Also
+
+- [Turns and Blocks](08-turns.md) — The Turn data model that engines operate on
+- [Tools](07-tools.md) — Defining and executing tools
+- [Events](04-events.md) — How engines publish streaming events
+- [Middlewares](09-middlewares.md) — Adding cross-cutting behavior
+- [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete working example
+- Examples: `geppetto/cmd/examples/simple-streaming-inference/`, `geppetto/cmd/examples/generic-tool-calling/`
