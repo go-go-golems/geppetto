@@ -14,11 +14,27 @@ ShowPerDefault: true
 SectionType: Tutorial
 ---
 
-## Middlewares in Geppetto (Turn-based)
+# Middlewares in Geppetto (Turn-based)
 
-Middlewares wrap an engine to add cross-cutting behavior around `RunInference(ctx, *turns.Turn)`. Common uses include logging, tracing, safety filters, and tool execution. Middlewares are composable and provider-agnostic.
+## Why Middlewares?
 
-### What you’ll learn
+Middlewares let you add behavior **around** inference calls without modifying the engine itself. They're the standard pattern for:
+
+- **Logging** — Record every inference call with timing and block counts
+- **Tool execution** — Detect `tool_call` blocks, run tools, append results
+- **Safety filters** — Block harmful requests before they reach the provider
+- **Tracing** — Add correlation IDs for distributed tracing
+- **Rate limiting** — Throttle requests per user or globally
+
+Middlewares compose cleanly: wrap an engine once, and all calls to `RunInference` pass through the chain.
+
+```
+Request → [Logging] → [Tool Execution] → [Engine] → Response
+                                              ↓
+                     [Logging] ← [Tool Execution] ←
+```
+
+## What you'll learn
 
 - The middleware interface and how it composes
 - How to write a simple logging middleware
@@ -88,9 +104,9 @@ Note: Providers learn about tools to advertise from `context.Context` (tool regi
 
 ---
 
-## Composing multiple middlewares
+## Composing Multiple Middlewares
 
-Middlewares run in the order they’re provided:
+Middlewares run in the order they're provided:
 
 ```go
 e := baseEngine
@@ -104,6 +120,19 @@ For convenience, pass them as a slice once:
 ```go
 e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
 ```
+
+### Recommended Ordering
+
+| Order | Middleware | Why |
+|-------|-----------|-----|
+| 1 | Logging | Capture all requests, including rejected ones |
+| 2 | Rate limiting | Block before expensive operations |
+| 3 | Safety filters | Block before reaching provider |
+| 4 | Mode switching | Set context (e.g., agent mode) before tools |
+| 5 | Tool execution | Execute tools, may re-invoke engine |
+| 6 | (Engine) | The actual provider call |
+
+General principle: **Middlewares that reject/filter go first; middlewares that modify/augment go last.**
 
 ---
 
@@ -149,4 +178,21 @@ func buildEngineWithMiddlewares(base engine.Engine, tb middleware.Toolbox) engin
 }
 ```
 
+## Packages
+
+```go
+import (
+    "github.com/go-go-golems/geppetto/pkg/inference/middleware" // Core middleware
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"     // Engine interface
+    "github.com/go-go-golems/geppetto/pkg/turns"                // Turn/Block types
+)
+```
+
+## See Also
+
+- [Inference Engines](06-inference-engines.md) — The engines that middlewares wrap
+- [Tools](07-tools.md) — Tool definitions and execution
+- [Turns and Blocks](08-turns.md) — The Turn data model
+- [Events](04-events.md) — Event publishing from middlewares
+- Real-world examples: `geppetto/pkg/inference/middleware/agentmode/`, `geppetto/pkg/inference/middleware/sqlitetool/`
 
