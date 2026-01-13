@@ -18,11 +18,11 @@ RelatedFiles:
     - Path: pinocchio/cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go
       Note: Example handler that renders thinking events.
     - Path: pinocchio/pkg/ui/backend.go
-      Note: Default chat UI handler ignores thinking/info events.
+      Note: Default chat UI handler renders thinking streams.
     - Path: pinocchio/pkg/ui/runtime/builder.go
       Note: Default handler selection for chat UI.
     - Path: pinocchio/pkg/webchat/forwarder.go
-      Note: Web chat event mapping drops thinking events.
+      Note: Web chat event mapping emits thinking semantic events.
 ExternalSources: []
 Summary: Map the Responses API event flow and why pinocchio chat UI drops thinking streams.
 LastUpdated: 2026-01-13T00:00:00Z
@@ -49,7 +49,8 @@ go run ./cmd/pinocchio code professional "hello" \
 
 Observed behavior:
 - UI responded successfully with a GPT-5 reply.
-- Debug log recorded a dense burst of reasoning summary deltas and info events, but the UI rendered only the assistant text stream.
+- Debug log recorded a dense burst of reasoning summary deltas and info events.
+- Before the UI fixes, only the assistant text stream rendered; after the fixes, thinking streams render as a separate timeline entry.
 - No errors were written to the log file; the earlier fast-scrolling error in the terminal is likely a UI or stderr message outside the file or a prior request error.
 
 ## High-level event path
@@ -76,13 +77,13 @@ Key code locations:
 2) Router and UI handler (pinocchio chat)
 - `runChat` wires the router and attaches a UI sink. The engine publishes to topic `ui`.
 - `runtime.NewChatBuilder().BuildProgram()` defaults to `ui.StepChatForwardFunc` as the handler.
-- `StepChatForwardFunc` processes:
+- `StepChatForwardFunc` now processes:
   - `EventPartialCompletionStart`, `EventPartialCompletion`, `EventFinal`, `EventInterrupt`, `EventError`.
-  - It ignores `EventInfo` and `EventThinkingPartial` entirely.
+  - `EventInfo` thinking-started/ended and `EventThinkingPartial` for reasoning summary deltas.
 
 3) Resulting UX impact
-- The UI only renders the assistant message stream and ignores the thinking/reasoning summary stream.
-- The engine emits a high volume of `EventThinkingPartial` deltas before the assistant output starts; these are logged but not rendered.
+- Prior to the fix, the UI only rendered the assistant message stream and ignored the thinking/reasoning summary stream.
+- The engine emits a high volume of `EventThinkingPartial` deltas before the assistant output starts; these are now rendered as a thinking entry.
 - If terminal UI prints a transient error, it is not coming from `StepChatForwardFunc` (no error is returned for unknown events). It is more likely an unrelated stderr message or earlier request error.
 
 ## Log evidence (debug file)
@@ -95,21 +96,20 @@ Extracted from `/tmp/pinocchio-gpt5-debug.log`:
   - many `EventThinkingPartial` events (reasoning summary deltas)
   - later `EventPartialCompletionStart` and `EventPartialCompletion` for assistant output
 
-The log shows the handler receiving the thinking events, but there are no UI entity updates for them because the forwarder ignores them.
+The log shows the handler receiving the thinking events; prior to the fix the forwarder ignored them, while the updated handler now renders them.
 
 ## Why the Responses API confuses the pinocchio chat frontend
 
 Primary causes:
-- The Responses engine emits reasoning summary events that the pinocchio chat UI does not render.
-- The default chat UI event forwarder only knows about partial completion events and treats everything else as a no-op.
-- The reasoning summary stream can be large and early in the timeline, so the UI appears idle while the log scrolls rapidly.
+- Before the fix, the Responses engine emitted reasoning summary events that the pinocchio chat UI did not render.
+- The reasoning summary stream can be large and early in the timeline, so the UI appeared idle while the log scrolled rapidly.
 
 Contrast: agent tool loop UI
 - `pinocchio/cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go` explicitly renders `EventInfo` (thinking-started/ended) and `EventThinkingPartial` into a separate timeline entity with role `thinking`.
-- This is the UX behavior the core pinocchio chat path lacks.
+- This is the UX behavior that the core pinocchio chat path now matches.
 
 Web chat path
-- `pinocchio/pkg/webchat/forwarder.go` maps only LLM output and tool calls to SEM events and drops `EventInfo`/`EventThinkingPartial` entirely.
+- `pinocchio/pkg/webchat/forwarder.go` now emits `llm.thinking.*` semantic frames for thinking events.
 
 ## Hypotheses about the fast-scrolling error
 
@@ -118,12 +118,17 @@ No error lines appear in the debug log, so the likely explanations are:
 - A previous run hit the known request errors (max tokens / temperature), and the user is still seeing that transient output.
 - The huge volume of `partial-thinking` log lines (debug level) makes it appear as an error scroll, even though it is not.
 
-## What to change (if we choose to fix)
+## Validation with stderr capture
 
-Potential improvements (not implemented yet):
-- Extend `pinocchio/pkg/ui/backend.go` to handle `EventInfo` and `EventThinkingPartial` similarly to the agent tool loop backend.
-- Decide on a UX: render a "thinking" timeline entity or surface summary text inline with assistant output.
-- For web chat, add semantic mappings for `partial-thinking` and `info` events (even if they are hidden by default).
+Latest run (tmux + stderr capture):
+- First attempt failed with `stat .../cmd/pinocchio: directory not found` (wrong working directory).
+- Second attempt succeeded; stderr contained only the log-file initialization message and no errors.
+- The UI displayed the thinking stream (see captured tmux output).
+
+## Changes implemented
+
+- `pinocchio/pkg/ui/backend.go` now renders thinking streams in the default chat UI.
+- `pinocchio/pkg/webchat/forwarder.go` now emits semantic thinking frames for web chat clients.
 
 ## Open questions
 

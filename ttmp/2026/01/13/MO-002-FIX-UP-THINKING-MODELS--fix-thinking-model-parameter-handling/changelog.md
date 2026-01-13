@@ -58,3 +58,12 @@ Step 6: Add thinking semantic mappings in web chat forwarder (commit df87f75).
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/forwarder.go — Emit llm.thinking semantic frames.
 
+
+## 2026-01-13
+
+Step 7: Re-run GPT-5 chat with stderr capture; no error reproduced (docs updated).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md — Updated with stderr capture results.
+
