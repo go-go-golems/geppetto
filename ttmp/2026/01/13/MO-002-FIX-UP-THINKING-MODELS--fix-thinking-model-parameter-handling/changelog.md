@@ -121,3 +121,12 @@ Step 13: add task plan and Moments follow-up doc
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/04-moments-follow-up-plan.md — Documented deferred Moments migration plan and risks.
 
+
+## 2026-01-13
+
+Step 2: add ConversationState scaffolding and validation (commit 7bcb7be)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/conversation/state.go — ConversationState snapshot config
+
