@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -108,74 +109,74 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}
 
-	// Add tools to the request if present on the Turn Data
-	if t != nil && t.Data != nil {
-		var engineTools []engine.ToolDefinition
-		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-				for _, td := range reg.ListTools() {
-					engineTools = append(engineTools, engine.ToolDefinition{
-						Name:        td.Name,
-						Description: td.Description,
-						Parameters:  td.Parameters,
-						Examples:    []engine.ToolExample{},
-						Tags:        td.Tags,
-						Version:     td.Version,
-					})
-				}
-			}
+	// Add tools to the request if present in context (no Turn.Data registry).
+	var engineTools []engine.ToolDefinition
+	if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+		for _, td := range reg.ListTools() {
+			engineTools = append(engineTools, engine.ToolDefinition{
+				Name:        td.Name,
+				Description: td.Description,
+				Parameters:  td.Parameters,
+				Examples:    []engine.ToolExample{},
+				Tags:        td.Tags,
+				Version:     td.Version,
+			})
 		}
-		var toolCfg engine.ToolConfig
-		if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
-			if cfg, ok := cfgAny.(engine.ToolConfig); ok {
-				toolCfg = cfg
-			}
+	}
+
+	var toolCfg engine.ToolConfig
+	if t != nil {
+		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {
+			return nil, errors.Wrap(err, "get tool config")
+		} else if ok {
+			toolCfg = cfg
 		}
-		if len(engineTools) > 0 {
-			log.Debug().Int("tool_count", len(engineTools)).Msg("Adding tools to OpenAI request")
+	}
 
-			// Convert our tools to go_openai.Tool format
-			var openaiTools []go_openai.Tool
-			for _, tool := range engineTools {
-				openaiTool := go_openai.Tool{
-					Type: go_openai.ToolTypeFunction,
-					Function: &go_openai.FunctionDefinition{
-						Name:        tool.Name,
-						Description: tool.Description,
-						Parameters:  tool.Parameters,
-					},
-				}
-				openaiTools = append(openaiTools, openaiTool)
+	if len(engineTools) > 0 {
+		log.Debug().Int("tool_count", len(engineTools)).Msg("Adding tools to OpenAI request")
+
+		// Convert our tools to go_openai.Tool format
+		var openaiTools []go_openai.Tool
+		for _, tool := range engineTools {
+			openaiTool := go_openai.Tool{
+				Type: go_openai.ToolTypeFunction,
+				Function: &go_openai.FunctionDefinition{
+					Name:        tool.Name,
+					Description: tool.Description,
+					Parameters:  tool.Parameters,
+				},
 			}
-
-			// Set tools in request
-			req.Tools = openaiTools
-
-			// Set tool choice if specified
-			switch toolCfg.ToolChoice {
-			case engine.ToolChoiceNone:
-				req.ToolChoice = "none"
-			case engine.ToolChoiceRequired:
-				req.ToolChoice = "required"
-			case engine.ToolChoiceAuto:
-				req.ToolChoice = "auto"
-			default:
-				req.ToolChoice = "auto"
-			}
-
-			// Set parallel tool calls preference
-			if toolCfg.MaxParallelTools > 1 {
-				req.ParallelToolCalls = true
-			} else if toolCfg.MaxParallelTools == 1 {
-				req.ParallelToolCalls = false
-			}
-
-			log.Debug().
-				Int("openai_tool_count", len(openaiTools)).
-				Interface("tool_choice", req.ToolChoice).
-				Interface("parallel_tool_calls", req.ParallelToolCalls).
-				Msg("Tools added to OpenAI request")
+			openaiTools = append(openaiTools, openaiTool)
 		}
+
+		// Set tools in request
+		req.Tools = openaiTools
+
+		// Set tool choice if specified
+		switch toolCfg.ToolChoice {
+		case engine.ToolChoiceNone:
+			req.ToolChoice = "none"
+		case engine.ToolChoiceRequired:
+			req.ToolChoice = "required"
+		case engine.ToolChoiceAuto:
+			req.ToolChoice = "auto"
+		default:
+			req.ToolChoice = "auto"
+		}
+
+		// Set parallel tool calls preference
+		if toolCfg.MaxParallelTools > 1 {
+			req.ParallelToolCalls = true
+		} else if toolCfg.MaxParallelTools == 1 {
+			req.ParallelToolCalls = false
+		}
+
+		log.Debug().
+			Int("openai_tool_count", len(openaiTools)).
+			Interface("tool_choice", req.ToolChoice).
+			Interface("parallel_tool_calls", req.ParallelToolCalls).
+			Msg("Tools added to OpenAI request")
 	}
 
 	// Setup metadata and event publishing

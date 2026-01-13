@@ -116,57 +116,6 @@ func (e *EventRouter) Close() error {
 // This introduces a dependency from the events package to the chat package.
 // RegisterChatEventHandler removed: use sinks with engines and manual AddHandler
 
-// createChatDispatchHandler creates a Watermill handler function that parses chat events
-// and dispatches them to the appropriate method of the provided ChatEventHandler.
-// Moved from pinocchio/cmd/experiments/web-ui/client/client.go
-// nolint:unused // kept for legacy compatibility
-func createChatDispatchHandler(handler ChatEventHandler) message.NoPublishHandlerFunc {
-	return func(msg *message.Message) error {
-		logFields := watermill.LogFields{"message_id": msg.UUID}
-		log.Debug().Interface("logFields", logFields).Msg("Received message for chat handler")
-
-		// Parse the generic chat event
-		e, err := NewEventFromJson(msg.Payload)
-		if err != nil {
-			logFields["payload"] = string(msg.Payload) // Add payload for context
-			log.Error().Interface("logFields", logFields).Err(err).Msg("Failed to parse chat event from message payload")
-			// Don't kill the handler for one bad message, just log and continue
-			return nil // Or return err depending on desired resilience
-		}
-
-		logFields["event_type"] = string(e.Type())
-		log.Debug().Interface("logFields", logFields).Msg("Parsed chat event")
-
-		// Dispatch to the specific handler method based on event type
-		// Pass the message context down to the handler
-		msgCtx := msg.Context()
-		var handlerErr error
-		switch ev := e.(type) {
-		case *EventPartialCompletion:
-			handlerErr = handler.HandlePartialCompletion(msgCtx, ev)
-		case *EventText:
-			handlerErr = handler.HandleText(msgCtx, ev)
-		case *EventFinal:
-			handlerErr = handler.HandleFinal(msgCtx, ev)
-		case *EventError:
-			handlerErr = handler.HandleError(msgCtx, ev)
-		case *EventInterrupt:
-			handlerErr = handler.HandleInterrupt(msgCtx, ev)
-		default:
-			log.Warn().Interface("logFields", logFields).Msg("Unhandled chat event type")
-			// Decide if unknown types should be an error or ignored
-		}
-
-		if handlerErr != nil {
-			log.Error().Interface("logFields", logFields).Err(handlerErr).Msg("Error processing chat event")
-			// Return the error to potentially signal Watermill handler failure
-			return handlerErr
-		}
-
-		return nil
-	}
-}
-
 func (e *EventRouter) AddHandler(name string, topic string, f func(msg *message.Message) error) {
 	e.AddHandlerWithOptions(name, topic, f)
 }
@@ -197,7 +146,7 @@ func (e *EventRouter) AddHandlerWithOptions(name string, topic string, f func(ms
 		sub = hc.subscriber
 	}
 
-	e.router.AddNoPublisherHandler(name, topic, sub, f)
+	e.router.AddConsumerHandler(name, topic, sub, f)
 }
 
 func (e *EventRouter) DumpRawEvents(msg *message.Message) error {

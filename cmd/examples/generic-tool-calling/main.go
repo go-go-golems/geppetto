@@ -37,7 +37,7 @@ var rootCmd = &cobra.Command{
 	Use:   "generic-tool-calling",
 	Short: "Generic tool calling example that works with any AI provider",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := logging.InitLoggerFromViper()
+		err := logging.InitLoggerFromCobra(cmd)
 		if err != nil {
 			return err
 		}
@@ -413,7 +413,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	log.Info().Msg("Created simplified tool helper configuration")
 
 	// 8. Build initial Turn directly from settings
-	initialTurn := &turns.Turn{Data: map[string]any{}}
+	initialTurn := &turns.Turn{}
 	turns.AppendBlock(initialTurn, turns.NewSystemTextBlock("You are a helpful assistant with access to tools. Use get_weather for weather queries and calculator for math problems. Always use the appropriate tool when possible."))
 	turns.AppendBlock(initialTurn, turns.NewUserTextBlock(s.Prompt))
 
@@ -505,7 +505,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 }
 
 func main() {
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

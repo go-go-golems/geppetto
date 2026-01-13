@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 	Use:   "simple-streaming-inference",
 	Short: "Simple streaming inference example with Engine-first architecture",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := logging.InitLoggerFromViper()
+		err := logging.InitLoggerFromCobra(cmd)
 		if err != nil {
 			return err
 		}
@@ -249,7 +249,7 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 }
 
 func main() {
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

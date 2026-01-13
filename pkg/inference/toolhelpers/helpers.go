@@ -9,9 +9,11 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -289,18 +291,14 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 	// Use provided Turn or create a new one
 	t := initialTurn
 	if t == nil {
-		t = &turns.Turn{Data: map[string]any{}}
-	}
-	// Ensure Data map exists to avoid nil map assignments
-	if t.Data == nil {
-		t.Data = map[string]any{}
+		t = &turns.Turn{}
 	}
 
-	// Attach registry and minimal engine tool config so providers can advertise tools
-	if registry != nil {
-		t.Data[turns.DataKeyToolRegistry] = registry
-	}
-	t.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+	// Attach runtime registry to context so engines/middleware/executors can access it.
+	// No Turn.Data registry (runtime-only) is stored.
+	ctx = toolcontext.WithRegistry(ctx, registry)
+
+	if err := engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{
 		Enabled:           true,
 		ToolChoice:        engine.ToolChoice(config.ToolChoice),
 		MaxIterations:     config.MaxIterations,
@@ -308,6 +306,8 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		MaxParallelTools:  config.MaxParallelTools,
 		AllowedTools:      config.AllowedTools,
 		ToolErrorHandling: engine.ToolErrorHandling(config.ToolErrorHandling),
+	}); err != nil {
+		return nil, errors.Wrap(err, "set tool config")
 	}
 
 	for i := 0; i < config.MaxIterations; i++ {
@@ -339,7 +339,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		}
 
 		// Execute tools
-		results := ExecuteToolCallsTurn(ctx, calls, registry)
+		results := ExecuteToolCallsTurn(ctx, calls)
 
 		// Append tool_use blocks
 		// map to shared ToolResult and append
@@ -375,10 +375,18 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 // extractPendingToolCallsTurn replaced by toolblocks.ExtractPendingToolCalls
 
 // ExecuteToolCallsTurn executes ToolCalls using the default executor and returns simplified results
-func ExecuteToolCallsTurn(ctx context.Context, toolCalls []ToolCall, registry tools.ToolRegistry) []ToolResult {
+func ExecuteToolCallsTurn(ctx context.Context, toolCalls []ToolCall) []ToolResult {
 	log.Debug().Int("tool_call_count", len(toolCalls)).Msg("ExecuteToolCallsTurn: starting tool execution")
 	if len(toolCalls) == 0 {
 		return nil
+	}
+	registry, ok := toolcontext.RegistryFrom(ctx)
+	if !ok || registry == nil {
+		results := make([]ToolResult, len(toolCalls))
+		for i, c := range toolCalls {
+			results[i] = ToolResult{ToolCallID: c.ID, Result: nil, Error: fmt.Errorf("no tool registry in context")}
+		}
+		return results
 	}
 	executor := tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
 	// Convert calls

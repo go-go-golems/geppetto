@@ -26,9 +26,6 @@ func NormalizeTurn(t *turns.Turn) {
 		if b.Payload == nil {
 			b.Payload = map[string]any{}
 		}
-		if b.Metadata == nil {
-			b.Metadata = map[string]any{}
-		}
 		// Synthesize assistant role for llm_text if missing
 		if b.Kind == turns.BlockKindLLMText {
 			if strings.TrimSpace(b.Role) == "" {
@@ -46,7 +43,7 @@ func ToYAML(t *turns.Turn, opt Options) ([]byte, error) {
 	// Optionally omit Data
 	snapshot := *t
 	if opt.OmitData {
-		snapshot.Data = nil
+		snapshot.Data = turns.Data{}
 	}
 	NormalizeTurn(&snapshot)
 	return yaml.Marshal(snapshot)

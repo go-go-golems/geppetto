@@ -16,7 +16,7 @@ type ClientSettings struct {
 	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed.parameter:"timeout"`
 	Organization   *string        `yaml:"organization,omitempty" glazed.parameter:"organization"`
 	UserAgent      *string        `yaml:"user_agent,omitempty" glazed.parameter:"user-agent"`
-	HTTPClient     *http.Client   `yaml:"omitempty"`
+	HTTPClient     *http.Client   `yaml:"-" json:"-"`
 }
 
 //go:embed "flags/client.yaml"

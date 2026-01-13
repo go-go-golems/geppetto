@@ -84,7 +84,7 @@ toolMw := middleware.NewToolMiddleware(tb, cfg)
 e := middleware.NewEngineWithMiddleware(baseEngine, toolMw)
 ```
 
-Note: Providers learn about tools to advertise from `Turn.Data` (`turns.DataKeyToolRegistry`, `turns.DataKeyToolConfig`). The middleware executes tools independent of provider.
+Note: Providers learn about tools to advertise from `context.Context` (tool registry) plus `Turn.Data` (tool config, e.g. `engine.KeyToolConfig`). The middleware executes tools independent of provider.
 
 ---
 
@@ -116,8 +116,8 @@ e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
 
 ### Lessons learned (agent-mode and tools)
 
-- Prefer per-Turn data hints over global state: attach small keys on `Turn.Data` (e.g. `agent_mode`, `agent_mode_allowed_tools`) to guide downstream middlewares without tight coupling.
-- Separate declarative advertisement from imperative execution: providers read a declarative registry (schemas) from `Turn.Data`, while execution happens via a runtime `Toolbox` (function pointers) in the tool middleware. This separation improves safety and testability.
+- Prefer per-Turn data hints over global state: attach small hints on `Turn.Data` using typed keys (e.g., `turns.KeyAgentMode`, `turns.KeyAgentModeAllowedTools` from `geppetto/pkg/turns`, or application-specific keys from `moments/backend/pkg/turnkeys`) to guide downstream middlewares without tight coupling. Define keys in `*_keys.go` and reuse the canonical variables everywhere else.
+- Separate declarative advertisement from imperative execution: providers read a declarative registry (schemas) from `context.Context`, while execution happens via a runtime `Toolbox` (function pointers) in the tool middleware. This separation improves safety and testability.
 - Reuse shared parsers/utilities: use a central YAML fenced-block parser to reliably extract structured content from LLM output instead of ad-hoc regex.
 - Compose middlewares by concern: a mode middleware can set allowed tools; the tool middleware enforces the filter and handles execution; engines remain provider-focused.
 - Make instructions explicit: when asking models to emit structured control output (like mode switches), provide a clear fenced YAML template and ask for long analysis when needed.
@@ -126,7 +126,7 @@ e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
 
 ## Troubleshooting
 
-- Tool calls not executing: Ensure `turns.DataKeyToolRegistry` is set on the Turn, and that the engine/provider emits `tool_call` blocks
+- Tool calls not executing: Ensure you attached the registry to context (e.g., `ctx = toolcontext.WithRegistry(ctx, reg)`) and that the engine/provider emits `tool_call` blocks
 - Infinite loops: Set `MaxIterations` and verify that new `tool_call` blocks eventually stop
 - Missing results: Confirm `tool_use` blocks carry the same `id` as the originating `tool_call`
 
@@ -148,5 +148,4 @@ func buildEngineWithMiddlewares(base engine.Engine, tb middleware.Toolbox) engin
     return middleware.NewEngineWithMiddleware(base, logMw, toolMw)
 }
 ```
-
 

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/go-go-golems/geppetto/cmd/llm-runner/templates"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -100,7 +101,14 @@ func (c *ServeCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) err
 	addr := fmt.Sprintf(":%d", s.Port)
 	log.Info().Str("addr", addr).Str("base", s.Out).Msg("Starting web server")
 	fmt.Printf("Server running at http://localhost%s\n", addr)
-	return http.ListenAndServe(addr, mux)
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	return server.ListenAndServe()
 }
 
 type ArtifactHandler struct {

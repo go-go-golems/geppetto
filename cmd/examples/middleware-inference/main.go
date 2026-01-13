@@ -13,6 +13,7 @@ import (
 	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -35,11 +36,7 @@ var rootCmd = &cobra.Command{
 	Short: "A demo command that shows how to use middleware with inference engines",
 	Long:  "This command demonstrates how to use logging and uppercase text transformation middleware with inference engines.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := logging.InitLoggerFromViper()
-		if err != nil {
-			return err
-		}
-		return nil
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -216,7 +213,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	conversation_ := manager.GetConversation()
 	// Seed a Turn from the initial conversation
-	initialTurn := &turns.Turn{Data: map[string]any{}}
+	initialTurn := &turns.Turn{}
 	for _, msg := range conversation_ {
 		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
 			kind := turns.BlockKindOther
@@ -250,7 +247,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		}
 	}
 
-	// If tools enabled, pass registry and a minimal engine ToolConfig via Turn.Data
+	// If tools enabled, attach registry to context and a minimal engine ToolConfig via Turn.Data
 	if s.WithTools {
 		echoSchema := &jsonschema.Schema{Type: "object"}
 		props := jsonschema.NewProperties()
@@ -266,13 +263,15 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 			Tags:        []string{"demo"},
 			Version:     "1.0",
 		})
-		initialTurn.Data[turns.DataKeyToolRegistry] = reg
-		initialTurn.Data[turns.DataKeyToolConfig] = enginepkg.ToolConfig{
+		ctx = toolcontext.WithRegistry(ctx, reg)
+		if err := enginepkg.KeyToolConfig.Set(&initialTurn.Data, enginepkg.ToolConfig{
 			Enabled:          true,
 			ToolChoice:       enginepkg.ToolChoiceAuto,
 			MaxIterations:    5,
 			ExecutionTimeout: 30 * time.Second,
 			MaxParallelTools: 1,
+		}); err != nil {
+			return fmt.Errorf("set tool config: %w", err)
 		}
 	}
 
@@ -311,7 +310,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 }
 
 func main() {
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

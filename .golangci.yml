@@ -27,6 +27,19 @@ linters:
   # Exclusions configuration
   exclusions:
     rules:
+      # `testdata/` contains fixture packages for analysistest and other examples;
+      # they should not fail repo-wide lint checks.
+      - linters:
+          - errcheck
+          - exhaustive
+          - gofmt
+          - govet
+          - ineffassign
+          - nonamedreturns
+          - predeclared
+          - staticcheck
+          - unused
+        path: '(^|/)testdata($|/)'
       - linters:
           - staticcheck
         text: 'SA1019: cli.CreateProcessorLegacy'

@@ -1,21 +1,37 @@
-.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool
 
 all: test build
 
 VERSION=v0.1.14
 
-TAPES=$(shell ls doc/vhs/*tape)
-gifs: $(TAPES)
-	for i in $(TAPES); do vhs < $$i; done
-
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.0.2 golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.1.0 golangci-lint run -v
 
-lint:
+LINTTOOL_BIN ?= /tmp/geppetto-lint
+
+linttool-build:
+	go build -o $(LINTTOOL_BIN) ./cmd/geppetto-lint
+
+linttool:
+	$(MAKE) linttool-build
+	go vet -vettool=$(LINTTOOL_BIN) ./...
+
+lint: build linttool-build
 	golangci-lint run -v
+	go vet -vettool=$(LINTTOOL_BIN) ./...
 
-lintmax:
+lintmax: build linttool-build
 	golangci-lint run -v --max-same-issues=100
+	go vet -vettool=$(LINTTOOL_BIN) ./...
+
+TURNSDATALINT_BIN ?= /tmp/turnsdatalint
+
+turnsdatalint-build:
+	go build -o $(TURNSDATALINT_BIN) ./cmd/turnsdatalint
+
+turnsdatalint:
+	$(MAKE) turnsdatalint-build
+	go vet -vettool=$(TURNSDATALINT_BIN) ./...
 
 test:
 	go test ./...
@@ -47,7 +63,7 @@ bump-glazed:
 
 gosec:
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history ./...
+	gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=testdata ./...
 
 govulncheck:
 	go install golang.org/x/vuln/cmd/govulncheck@latest

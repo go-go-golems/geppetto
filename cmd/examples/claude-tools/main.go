@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -56,11 +57,7 @@ var rootCmd = &cobra.Command{
 	Use:   "test-claude-tools",
 	Short: "Test Claude tools integration with debug logging",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := logging.InitLoggerFromViper()
-		if err != nil {
-			return err
-		}
-		return nil
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -144,8 +141,18 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	reg := tools.NewInMemoryToolRegistry()
 	_ = reg.RegisterTool("get_weather", *weatherToolDef)
 
-	// Build a Turn seeded with a user prompt that asks to use the tool
-	turn := &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: 1, ToolErrorHandling: engine.ToolErrorContinue}}}
+	// Build a Turn seeded with a user prompt that asks to use the tool.
+	// Registry is carried in context (no Turn.Data registry).
+	turn := &turns.Turn{}
+	if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
+		Enabled:           true,
+		ToolChoice:        engine.ToolChoiceAuto,
+		MaxIterations:     3,
+		MaxParallelTools:  1,
+		ToolErrorHandling: engine.ToolErrorContinue,
+	}); err != nil {
+		return errors.Wrap(err, "set tool config")
+	}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
 
 	// Prepare a toolbox and register executable implementation
@@ -169,6 +176,7 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
 
 	// Run inference with middleware-managed tool execution
+	ctx = toolcontext.WithRegistry(ctx, reg)
 	updatedTurn, err := wrapped.RunInference(ctx, turn)
 	if err != nil {
 		return errors.Wrap(err, "inference with tools failed")
@@ -189,7 +197,7 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 func main() {
 	// Initialize zerolog with pretty console output
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

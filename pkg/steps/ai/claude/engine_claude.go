@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
@@ -80,30 +81,26 @@ func (e *ClaudeEngine) RunInference(
 		return nil, err
 	}
 
-	// Add tools from Turn.Data if present
-	if t != nil && t.Data != nil {
-		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-				var claudeTools []api.Tool
-				for _, tool := range reg.ListTools() {
-					claudeTool := api.Tool{
-						Name:        tool.Name,
-						Description: tool.Description,
-						InputSchema: tool.Parameters,
-					}
-					claudeTools = append(claudeTools, claudeTool)
-					log.Trace().
-						Str("tool_name", claudeTool.Name).
-						Str("tool_description", claudeTool.Description).
-						Interface("tool_input_schema", claudeTool.InputSchema).
-						Msg("Converted tool to Claude format")
-				}
-				req.Tools = claudeTools
-				log.Debug().
-					Int("claude_tool_count", len(claudeTools)).
-					Msg("Tools added to Claude request from Turn.Data")
+	// Add tools from context if present (no Turn.Data registry).
+	if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+		var claudeTools []api.Tool
+		for _, tool := range reg.ListTools() {
+			claudeTool := api.Tool{
+				Name:        tool.Name,
+				Description: tool.Description,
+				InputSchema: tool.Parameters,
 			}
+			claudeTools = append(claudeTools, claudeTool)
+			log.Trace().
+				Str("tool_name", claudeTool.Name).
+				Str("tool_description", claudeTool.Description).
+				Interface("tool_input_schema", claudeTool.InputSchema).
+				Msg("Converted tool to Claude format")
 		}
+		req.Tools = claudeTools
+		log.Debug().
+			Int("claude_tool_count", len(claudeTools)).
+			Msg("Tools added to Claude request from context")
 	}
 	// Do not force defaults for Temperature/TopP; omit when at API defaults (1.0)
 

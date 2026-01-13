@@ -3,6 +3,7 @@ package gemini
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -126,6 +128,15 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 
 	modelName := *e.settings.Chat.Engine
 	model := client.GenerativeModel(modelName)
+	// Make sure Turn metadata has the basic provider/model identity for downstream debugging.
+	if t != nil {
+		if err := turns.KeyTurnMetaProvider.Set(&t.Metadata, "gemini"); err != nil {
+			log.Warn().Err(err).Msg("failed to set turn provider metadata")
+		}
+		if err := turns.KeyTurnMetaModel.Set(&t.Metadata, modelName); err != nil {
+			log.Warn().Err(err).Msg("failed to set turn model metadata")
+		}
+	}
 
 	// Configure generation if present
 	if e.settings.Chat.Temperature != nil || e.settings.Chat.TopP != nil || e.settings.Chat.MaxResponseTokens != nil {
@@ -158,47 +169,42 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		model.GenerationConfig = cfg
 	}
 
-	// Attach tools from Turn.Data if present (tools + minimal parameters when safe)
-	var registry tools.ToolRegistry
-	if t != nil && t.Data != nil {
-		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-				registry = reg
-				var toolDecls []*genai.FunctionDeclaration
-				for _, td := range reg.ListTools() {
-					fd := &genai.FunctionDeclaration{
-						Name: td.Name,
-					}
-					// Enrich description with parameter names to guide the model
-					desc := td.Description
-					var paramNames []string
-					if td.Parameters != nil && td.Parameters.Properties != nil {
-						propsVal := reflect.ValueOf(td.Parameters.Properties)
-						keysMethod := propsVal.MethodByName("Keys")
-						if keysMethod.IsValid() {
-							keys := keysMethod.Call(nil)
-							if len(keys) == 1 {
-								if ks, ok := keys[0].Interface().([]string); ok {
-									paramNames = ks
-								}
-							}
+	// Attach tools from context if present (tools + minimal parameters when safe).
+	registry, _ := toolcontext.RegistryFrom(ctx)
+	if registry != nil {
+		var toolDecls []*genai.FunctionDeclaration
+		for _, td := range registry.ListTools() {
+			fd := &genai.FunctionDeclaration{
+				Name: td.Name,
+			}
+			// Enrich description with parameter names to guide the model
+			desc := td.Description
+			var paramNames []string
+			if td.Parameters != nil && td.Parameters.Properties != nil {
+				propsVal := reflect.ValueOf(td.Parameters.Properties)
+				keysMethod := propsVal.MethodByName("Keys")
+				if keysMethod.IsValid() {
+					keys := keysMethod.Call(nil)
+					if len(keys) == 1 {
+						if ks, ok := keys[0].Interface().([]string); ok {
+							paramNames = ks
 						}
 					}
-					if len(paramNames) > 0 {
-						desc = strings.TrimSpace(desc + " Parameters: " + strings.Join(paramNames, ", "))
-					}
-					fd.Description = desc
-					// Minimal parameters to avoid 400s
-					if ps := convertJSONSchemaToGenAI(td.Parameters); ps != nil {
-						fd.Parameters = ps
-					}
-					toolDecls = append(toolDecls, fd)
-				}
-				if len(toolDecls) > 0 {
-					model.Tools = []*genai.Tool{{FunctionDeclarations: toolDecls}}
-					log.Debug().Int("gemini_tool_count", len(toolDecls)).Msg("Added tools to Gemini model")
 				}
 			}
+			if len(paramNames) > 0 {
+				desc = strings.TrimSpace(desc + " Parameters: " + strings.Join(paramNames, ", "))
+			}
+			fd.Description = desc
+			// Minimal parameters to avoid 400s
+			if ps := convertJSONSchemaToGenAI(td.Parameters); ps != nil {
+				fd.Parameters = ps
+			}
+			toolDecls = append(toolDecls, fd)
+		}
+		if len(toolDecls) > 0 {
+			model.Tools = []*genai.Tool{{FunctionDeclarations: toolDecls}}
+			log.Debug().Int("gemini_tool_count", len(toolDecls)).Msg("Added tools to Gemini model")
 		}
 	}
 	// Configure function calling mode if tools are present
@@ -246,6 +252,8 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 
 	message := ""
 	chunkCount := 0
+	finalStopReason := ""
+	var finalUsage *events.Usage
 	var pendingCalls []struct {
 		id, name string
 		args     map[string]any
@@ -265,10 +273,25 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 			return nil, err
 		}
 		chunkCount++
+		// Best-effort: capture provider usage metadata + finish reason so callers can
+		// diagnose truncation (max tokens), refusals/safety, etc.
+		//
+		// We use reflection to avoid tight coupling to a specific generative-ai-go version.
+		if resp != nil {
+			if u, ok := extractGeminiUsage(resp); ok {
+				finalUsage = u
+			}
+		}
 		// Extract text and function calls
 		delta := ""
 		if resp != nil && len(resp.Candidates) > 0 {
 			for _, cand := range resp.Candidates {
+				// Capture finish reason from any candidate that has it (keep the last seen).
+				// Extract this BEFORE checking Content, as candidates can have FinishReason
+				// even when Content is nil (e.g., safety blocked or empty responses).
+				if fr, ok := extractGeminiFinishReason(cand); ok {
+					finalStopReason = fr
+				}
 				if cand.Content == nil {
 					continue
 				}
@@ -314,10 +337,135 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	d := time.Since(startTime).Milliseconds()
 	dm := int64(d)
 	metadata.DurationMs = &dm
+
+	// Populate turn metadata + event metadata (best-effort).
+	if strings.TrimSpace(finalStopReason) != "" {
+		if t != nil {
+			if err := turns.KeyTurnMetaStopReason.Set(&t.Metadata, finalStopReason); err != nil {
+				log.Warn().Err(err).Msg("failed to set turn stop reason metadata")
+			}
+		}
+		metadata.StopReason = &finalStopReason
+	}
+	if finalUsage != nil {
+		if t != nil {
+			if err := turns.KeyTurnMetaUsage.Set(&t.Metadata, finalUsage); err != nil {
+				log.Warn().Err(err).Msg("failed to set turn usage metadata")
+			}
+		}
+		metadata.Usage = finalUsage
+	}
+
+	if strings.TrimSpace(finalStopReason) != "" || finalUsage != nil {
+		e := log.Debug().
+			Str("stop_reason", finalStopReason).
+			Int("final_text_len", len(message)).
+			Int("chunks_received", chunkCount).
+			Int("tool_call_count", len(pendingCalls))
+		if finalUsage != nil {
+			e = e.Int("input_tokens", finalUsage.InputTokens).Int("output_tokens", finalUsage.OutputTokens)
+		}
+		e.Msg("Gemini RunInference completion metadata")
+	}
+
 	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 
 	log.Debug().Int("final_text_len", len(message)).Int("tool_call_count", len(pendingCalls)).Msg("Gemini RunInference completed (streaming)")
 	return t, nil
+}
+
+func extractGeminiFinishReason(c *genai.Candidate) (string, bool) {
+	if c == nil {
+		return "", false
+	}
+	v := reflect.ValueOf(c)
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return "", false
+		}
+		v = v.Elem()
+	}
+	f := v.FieldByName("FinishReason")
+	if !f.IsValid() {
+		return "", false
+	}
+	// Some SDK versions use 0 as "unspecified"; keep empty in that case.
+	if (f.Kind() == reflect.Int || f.Kind() == reflect.Int32 || f.Kind() == reflect.Int64) && f.Int() == 0 {
+		return "", false
+	}
+	if (f.Kind() == reflect.Uint || f.Kind() == reflect.Uint32 || f.Kind() == reflect.Uint64) && f.Uint() == 0 {
+		return "", false
+	}
+	s := strings.TrimSpace(fmt.Sprintf("%v", f.Interface()))
+	if s == "" {
+		return "", false
+	}
+	return s, true
+}
+
+func extractGeminiUsage(resp *genai.GenerateContentResponse) (*events.Usage, bool) {
+	if resp == nil {
+		return nil, false
+	}
+	v := reflect.ValueOf(resp)
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil, false
+		}
+		v = v.Elem()
+	}
+	um := v.FieldByName("UsageMetadata")
+	if !um.IsValid() {
+		return nil, false
+	}
+	if um.Kind() == reflect.Ptr {
+		if um.IsNil() {
+			return nil, false
+		}
+		um = um.Elem()
+	}
+	if !um.IsValid() {
+		return nil, false
+	}
+
+	prompt := int(extractIntField(um, "PromptTokenCount"))
+	candidates := int(extractIntField(um, "CandidatesTokenCount"))
+	total := int(extractIntField(um, "TotalTokenCount"))
+
+	// We map prompt->input and candidates->output. If candidates is missing but total exists,
+	// keep output at 0 rather than guessing.
+	if prompt == 0 && candidates == 0 && total == 0 {
+		return nil, false
+	}
+	return &events.Usage{
+		InputTokens:  prompt,
+		OutputTokens: candidates,
+	}, true
+}
+
+func extractIntField(v reflect.Value, name string) int64 {
+	if !v.IsValid() {
+		return 0
+	}
+	f := v.FieldByName(name)
+	if !f.IsValid() {
+		return 0
+	}
+	// NOTE: reflect.Kind is an enum; we intentionally only handle numeric kinds here.
+	//nolint:exhaustive
+	switch f.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return f.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		uval := f.Uint()
+		// Check for overflow when converting uint64 to int64
+		if uval > math.MaxInt64 {
+			return math.MaxInt64
+		}
+		return int64(uval)
+	default:
+		return 0
+	}
 }
 
 // buildPartsFromTurn converts Turn blocks into a flat slice of genai.Part, including tool results.

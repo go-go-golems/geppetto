@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -91,7 +92,7 @@ var rootCmd = &cobra.Command{
 	Use:   "test-openai-tools",
 	Short: "Test OpenAI tools integration with debug logging",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return logging.InitLoggerFromViper()
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -286,7 +287,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if p == "" {
 			p = "Think step-by-step and answer concisely: What is 23*17 + 55?"
 		}
-		turn = &turns.Turn{Data: map[string]any{}}
+		turn = &turns.Turn{}
 		turns.AppendBlock(turn, turns.NewUserTextBlock(p))
 	} else {
 		// Tools mode (default)
@@ -330,7 +331,17 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if s.Mode == "parallel-tools" {
 			maxPar = 2
 		}
-		turn = &turns.Turn{Data: map[string]any{turns.DataKeyToolRegistry: reg, turns.DataKeyToolConfig: engine.ToolConfig{Enabled: true, ToolChoice: engine.ToolChoiceAuto, MaxIterations: 3, MaxParallelTools: maxPar, ToolErrorHandling: engine.ToolErrorContinue}}}
+		turn = &turns.Turn{}
+		if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
+			Enabled:           true,
+			ToolChoice:        engine.ToolChoiceAuto,
+			MaxIterations:     3,
+			MaxParallelTools:  maxPar,
+			ToolErrorHandling: engine.ToolErrorContinue,
+		}); err != nil {
+			return errors.Wrap(err, "set tool config")
+		}
+		runCtx = toolcontext.WithRegistry(runCtx, reg)
 		userPrompt := s.Prompt
 		if userPrompt == "" {
 			if s.Mode == "parallel-tools" {
@@ -423,7 +434,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 func main() {
 	// Initialize zerolog with pretty console output
-	err := clay.InitViper("pinocchio", rootCmd)
+	err := clay.InitGlazed("pinocchio", rootCmd)
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()
