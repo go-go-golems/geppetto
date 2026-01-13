@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
@@ -63,28 +63,28 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 
 	// Attach tools to Responses request when present
-	if t != nil && t.Data != nil {
+	if t != nil {
 		var engineTools []engine.ToolDefinition
-		if regAny, ok := t.Data[turns.DataKeyToolRegistry]; ok && regAny != nil {
-			if reg, ok := regAny.(tools.ToolRegistry); ok && reg != nil {
-				for _, td := range reg.ListTools() {
-					engineTools = append(engineTools, engine.ToolDefinition{
-						Name:        td.Name,
-						Description: td.Description,
-						Parameters:  td.Parameters,
-						Examples:    []engine.ToolExample{},
-						Tags:        td.Tags,
-						Version:     td.Version,
-					})
-				}
+		if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+			for _, td := range reg.ListTools() {
+				engineTools = append(engineTools, engine.ToolDefinition{
+					Name:        td.Name,
+					Description: td.Description,
+					Parameters:  td.Parameters,
+					Examples:    []engine.ToolExample{},
+					Tags:        td.Tags,
+					Version:     td.Version,
+				})
 			}
 		}
+
 		var toolCfg engine.ToolConfig
-		if cfgAny, ok := t.Data[turns.DataKeyToolConfig]; ok && cfgAny != nil {
-			if cfg, ok := cfgAny.(engine.ToolConfig); ok {
-				toolCfg = cfg
-			}
+		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {
+			return nil, errors.Wrap(err, "get tool config")
+		} else if ok {
+			toolCfg = cfg
 		}
+
 		if len(engineTools) > 0 && toolCfg.Enabled {
 			converted, err := e.PrepareToolsForResponses(engineTools, toolCfg)
 			if err != nil {
@@ -106,12 +106,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 		}
 		// Optionally include server-side tools (Responses built-ins) when provided on the Turn
-		if sv, ok := t.Data["responses_server_tools"]; ok && sv != nil {
-			if builtins, ok := sv.([]any); ok && len(builtins) > 0 {
-				// Append alongside function tools
-				reqBody.Tools = append(reqBody.Tools, builtins...)
-				log.Debug().Int("builtin_tool_count", len(builtins)).Msg("Responses: server-side tools attached to request")
-			}
+		if builtins, ok, err := turns.KeyResponsesServerTools.Get(t.Data); err != nil {
+			return nil, errors.Wrap(err, "get responses server tools")
+		} else if ok && len(builtins) > 0 {
+			// Append alongside function tools
+			reqBody.Tools = append(reqBody.Tools, builtins...)
+			log.Debug().Int("builtin_tool_count", len(builtins)).Msg("Responses: server-side tools attached to request")
 		}
 	}
 	// Debug: succinct preview of input items and tool blocks present on Turn

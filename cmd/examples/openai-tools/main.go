@@ -359,10 +359,9 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		serverTools := []any{
 			map[string]any{"type": "web_search"},
 		}
-		if turn.Data == nil {
-			turn.Data = map[string]any{}
+		if err := turns.KeyResponsesServerTools.Set(&turn.Data, serverTools); err != nil {
+			return errors.Wrap(err, "set responses server tools")
 		}
-		turn.Data["responses_server_tools"] = serverTools
 		// Encourage usage and specify available tool
 		turns.AppendBlock(turn, turns.NewSystemTextBlock("You have access to the server-side web_search tool. Use it where appropriate."))
 		// Provide a default prompt if none was supplied
