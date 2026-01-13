@@ -23,6 +23,8 @@ RelatedFiles:
       Note: Responses request parameter gating (sampling params).
     - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md
       Note: Detailed analysis of Responses thinking stream event flow.
+    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md
+      Note: Detailed turn/block ordering analysis.
     - Path: pinocchio/pkg/ui/backend.go
       Note: Default chat UI handler drops thinking events.
 ExternalSources: []
@@ -31,6 +33,7 @@ LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Capture investigation and code changes for GPT-5/o-series parameter gating.
 WhenToUse: Use when validating reasoning model support and engine request building.
 ---
+
 
 
 
@@ -332,3 +335,81 @@ I updated the analysis doc to record the stderr capture outcome and to reflect t
 - Debug log: `/tmp/pinocchio-gpt5-debug-3.log`
 - Stderr log: `/tmp/pinocchio-gpt5-stderr-3.log`
 - tmux session: `pinocchio-gpt5-debug`
+
+## Step 8: Document turn construction and Responses ordering
+
+I wrote a deep-dive analysis on how pinocchio chat and webchat construct `turns.Turn` blocks and how those blocks become Responses API input items. The doc maps out the CLI chat seed/flatten flow, the webchat `conv.Turn` flow, and the reasoning ordering rules enforced by `buildInputItemsFromTurn`, then ties those to the observed 400 error and the hanging "Generating" UI state.
+
+The analysis is written as a reference guide with diagrams, pseudocode, and explicit file/symbol references so we can reason about block order and where to add fixes.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Added a detailed analysis doc at `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md`.
+- Related key files covering turn construction, chat seeding, webchat flow, and Responses input conversion.
+
+### Why
+- The Responses API validates reasoning ordering strictly; we need a clear map of how our Turns and Blocks are built to fix the error path.
+
+### What worked
+- The document captures the full pipeline and highlights ordering constraints and history duplication risks.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The CLI chat backend flattens all prior Turns, which can duplicate blocks and complicate reasoning adjacency rules.
+- The Responses engine returns HTTP 400 without emitting `EventError`, leaving the UI in a streaming state.
+
+### What was tricky to build
+- Reconciling the CLI chat history flattening with the Responses input ordering expectations.
+
+### What warrants a second pair of eyes
+- Validate the reasoning adjacency assumptions against real request logs and debug taps.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start in `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md`.
+
+### Technical details
+- N/A
+
+## Step 9: Upload turn-ordering analysis to reMarkable
+
+I uploaded the new turn/block ordering analysis to the reMarkable device using the ticket-aware upload workflow. The first upload attempt timed out in the CLI harness, but rerunning with a longer timeout succeeded and confirmed the PDF was placed under the mirrored ticket directory on-device.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Ran a dry-run to confirm the destination path and PDF name.
+- Uploaded `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md` to reMarkable.
+
+### Why
+- The user requested the analysis document be delivered to the tablet.
+
+### What worked
+- Upload succeeded on the second attempt and reported the final remote path.
+
+### What didn't work
+- Initial upload attempt timed out in the tool harness:
+  - `python3 /home/manuel/.local/bin/remarkable_upload.py --ticket-dir ... --mirror-ticket-structure ...`
+
+### What I learned
+- The upload can exceed the default command timeout; rerun with a longer timeout when needed.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- N/A (upload only)
+
+### Technical details
+- Remote path: `ai/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.pdf`

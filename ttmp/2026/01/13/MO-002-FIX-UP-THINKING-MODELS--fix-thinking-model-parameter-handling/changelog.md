@@ -67,3 +67,21 @@ Step 7: Re-run GPT-5 chat with stderr capture; no error reproduced (docs updated
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md — Updated with stderr capture results.
 
+
+## 2026-01-13
+
+Step 8: Add turn/block ordering analysis for pinocchio chat + webchat.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md — New analysis doc.
+
+
+## 2026-01-13
+
+Step 9: Upload turn-ordering analysis to reMarkable (initial timeout, retry succeeded).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md — Uploaded to device.
+
