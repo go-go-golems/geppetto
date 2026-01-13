@@ -11,6 +11,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/pkg/ui/backend.go
+      Note: ConversationState migration replacing reduceHistory.
     - Path: pkg/conversation/mutations.go
       Note: ConversationState mutations and system prompt enforcement.
     - Path: pkg/conversation/state.go
@@ -25,6 +27,7 @@ LastUpdated: 2026-01-13T17:47:06.972001399-05:00
 WhatFor: Track the implementation steps for the shared conversation-state package and migrations.
 WhenToUse: Use during active implementation work on MO-002 tasks.
 ---
+
 
 
 
@@ -70,6 +73,82 @@ I created a new implementation diary and began scoping the ConversationState pac
 
 ### Code review instructions
 - N/A
+
+### Technical details
+- N/A
+
+## Step 4: Migrate pinocchio CLI chat to ConversationState
+
+I replaced the pinocchio CLI chat history flattening with ConversationState snapshots. The backend now builds inference turns from a cloned ConversationState, updates the canonical state from inference results, and drops the `reduceHistory` path entirely.
+
+This keeps the CLI chat flow from duplicating blocks across turns, which was the root cause of Responses ordering errors and hanging UI states.
+
+**Commit (code):** ccf9c61 — "Replace reduceHistory with ConversationState"
+
+### What I did
+- Reworked `pinocchio/pkg/ui/backend.go` to use ConversationState for snapshots and updates.
+- Removed `reduceHistory` and replaced it with `snapshotForPrompt` + `updateStateFromTurn`.
+- Ran `go test ./...` and pinocchio’s pre-commit lint/test hooks.
+
+### Why
+- The legacy history flattening duplicated blocks and violated Responses ordering constraints on multi-turn runs.
+
+### What worked
+- Pinocchio builds and tests succeeded with the new ConversationState flow.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Copying state into a temporary ConversationState keeps user prompts out of canonical history until inference succeeds.
+
+### What was tricky to build
+- Ensuring state snapshots don't mutate canonical history when an inference fails.
+
+### What warrants a second pair of eyes
+- Validate that state cloning preserves Turn.Data and Turn.Metadata expectations for downstream middlewares.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/backend.go`.
+
+### Technical details
+- Tests: `go test ./...` (pinocchio)
+
+## Step 5: Update task status after CLI migration
+
+I marked the pinocchio CLI migration task complete in the MO-002 task list now that the ConversationState integration is merged. This keeps the remaining tasks focused on the webchat migration and regression coverage.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Checked off task 4 in the ticket task list.
+
+### Why
+- The CLI migration is now complete and validated.
+
+### What worked
+- Task tracking reflects the current migration status.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md`.
 
 ### Technical details
 - N/A

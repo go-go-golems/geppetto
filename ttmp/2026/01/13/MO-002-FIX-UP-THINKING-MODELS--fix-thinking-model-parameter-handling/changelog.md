@@ -139,3 +139,21 @@ Step 3: mark ConversationState tasks complete
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md — Checked tasks 2 and 3.
 
+
+## 2026-01-13
+
+Step 4: migrate pinocchio CLI chat to ConversationState (commit ccf9c61)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/backend.go — Replace reduceHistory with ConversationState snapshots.
+
+
+## 2026-01-13
+
+Step 5: mark pinocchio CLI migration task complete
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md — Checked task 4.
+
