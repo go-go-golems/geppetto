@@ -25,6 +25,8 @@ RelatedFiles:
       Note: Detailed analysis of Responses thinking stream event flow.
     - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md
       Note: Detailed turn/block ordering analysis.
+    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md
+      Note: Cross-system turn mutation analysis.
     - Path: pinocchio/pkg/ui/backend.go
       Note: Default chat UI handler drops thinking events.
 ExternalSources: []
@@ -33,6 +35,7 @@ LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Capture investigation and code changes for GPT-5/o-series parameter gating.
 WhenToUse: Use when validating reasoning model support and engine request building.
 ---
+
 
 
 
@@ -413,3 +416,43 @@ I uploaded the new turn/block ordering analysis to the reMarkable device using t
 
 ### Technical details
 - Remote path: `ai/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.pdf`
+
+## Step 10: Map turn mutation across pinocchio and moments webchat
+
+I produced a new analysis document that explains how Turns are mutated across inference runs in pinocchio CLI chat, pinocchio webchat, and moments backend webchat. The doc calls out the `reduceHistory` origin and usage, shows where user blocks and system prompts are appended, and highlights ordering and compression middlewares that can reorder or drop blocks.
+
+This provides the basis for diagnosing block adjacency problems under the Responses API, especially when duplicated system/reasoning blocks or reordered sections create invalid sequences.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Wrote the analysis document at `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md`.
+- Linked the key pinocchio and moments backend sources that mutate Turns across runs.
+
+### Why
+- We need a precise, cross-system map of how Turns evolve to fix strict Responses ordering errors on later prompts.
+
+### What worked
+- The doc captures the mutation paths and identifies where duplication, reordering, and compression occur.
+
+### What didn't work
+- N/A
+
+### What I learned
+- `reduceHistory` is local to pinocchio’s chat backend and only used by `EngineBackend.Start`.
+- Moments webchat applies both idempotent system prompts and ordering/compression middlewares that can reorder or drop blocks.
+
+### What was tricky to build
+- Reconciling how the different webchat stacks mutate `Turn.Data` and reorder blocks before inference.
+
+### What warrants a second pair of eyes
+- Validate the ordering middleware’s section boundaries against Responses reasoning adjacency requirements.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start in `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md`.
+
+### Technical details
+- N/A
