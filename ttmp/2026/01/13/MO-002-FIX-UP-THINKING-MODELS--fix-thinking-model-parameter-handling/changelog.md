@@ -130,3 +130,12 @@ Step 2: add ConversationState scaffolding and validation (commit 7bcb7be)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/conversation/state.go — ConversationState snapshot config
 
+
+## 2026-01-13
+
+Step 3: mark ConversationState tasks complete
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md — Checked tasks 2 and 3.
+

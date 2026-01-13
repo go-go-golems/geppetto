@@ -17,12 +17,15 @@ RelatedFiles:
       Note: ConversationState snapshot and validation implementation.
     - Path: pkg/conversation/state_test.go
       Note: Validation tests for reasoning adjacency and tool pairing.
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md
+      Note: Task status tracking for ConversationState work.
 ExternalSources: []
 Summary: Implementation diary for ConversationState work in MO-002.
 LastUpdated: 2026-01-13T17:47:06.972001399-05:00
 WhatFor: Track the implementation steps for the shared conversation-state package and migrations.
 WhenToUse: Use during active implementation work on MO-002 tasks.
 ---
+
 
 
 
@@ -111,3 +114,39 @@ This establishes the base for the upcoming pinocchio migrations and ensures we h
 
 ### Technical details
 - Pre-commit ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run -v --max-same-issues=100`, `go vet -vettool=/tmp/geppetto-lint ./...`
+
+## Step 3: Mark ConversationState tasks complete
+
+I checked off the ConversationState implementation and validation tasks in the ticket task list now that the scaffolding and tests are in place. This keeps the remaining work focused on pinocchio migrations and the future Moments follow-up.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Marked tasks 2 and 3 complete in the MO-002 task list.
+
+### Why
+- The ConversationState package and initial validation tests are implemented and committed.
+
+### What worked
+- Task tracking now reflects the current state of implementation.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Keeping task status in sync with commits makes the remaining migration work clearer.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md`.
+
+### Technical details
+- N/A
