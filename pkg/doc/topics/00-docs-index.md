@@ -60,6 +60,16 @@ After that, explore based on what you need:
 |----------|-------------------|
 | [Streaming Inference with Tools](../tutorials/01-streaming-inference-with-tools.md) | A Cobra command that streams output and supports tool calling. |
 
+## Playbooks
+
+Operational step-by-step guides for common tasks:
+
+| Playbook | What You'll Do |
+|----------|----------------|
+| [Add a New Tool](../playbooks/01-add-a-new-tool.md) | Register a tool, attach to context, configure on Turn, run tool loop. |
+| [Add a New Event Handler](../playbooks/02-add-a-new-event-handler.md) | Implement handler, subscribe to router, parse events. |
+| [Progressive Structured Data](../playbooks/03-progressive-structured-data.md) | Extract structured payloads from streaming output with filtering sinks. |
+
 ## Example Programs
 
 These working examples are the source of truth for patterns. Run them to see Geppetto in action:
