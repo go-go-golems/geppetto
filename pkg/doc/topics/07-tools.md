@@ -14,11 +14,33 @@ ShowPerDefault: true
 SectionType: Tutorial
 ---
 
-## Tools in Geppetto (Turn-based)
+# Tools in Geppetto (Turn-based)
 
-Tools enable models to call functions with structured inputs. In the Turn-based architecture, provider engines emit `tool_call` blocks; middleware (or helpers) execute tools and append `tool_use` blocks.
+## Why Tools?
 
-**Important:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `turns.DataKeyToolConfig`). This allows dynamic tools per step without mutating the engine’s state while keeping Turn state persistable.
+Large language models can generate text, but they can't access databases, call APIs, or perform calculations directly. **Tools** bridge this gap by letting models request specific function calls with structured inputs.
+
+When a model needs information it doesn't have (like today's weather) or wants to perform an action (like sending an email), it emits a **tool call** with the function name and arguments. Your code executes the function and returns the result, allowing the model to continue with fresh information.
+
+**Example flow:**
+```
+User: "What's the weather in Paris?"
+  ↓
+Model: tool_call {name: "get_weather", args: {location: "Paris"}}
+  ↓
+Your code: executes get_weather("Paris") → {temp: 18, conditions: "Cloudy"}
+  ↓
+Model: "The weather in Paris is 18°C and cloudy."
+```
+
+## Architecture Overview
+
+In the Turn-based architecture:
+- **Provider engines** emit `tool_call` blocks when models request tools
+- **Middleware or helpers** execute tools and append `tool_use` blocks
+- **Engines re-run** with the updated Turn to let the model continue
+
+> **Key Pattern:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `turns.DataKeyToolConfig`). This keeps Turn state persistable while allowing dynamic tools per inference call.
 
 ### Packages
 
@@ -331,9 +353,19 @@ func longRunningTool(ctx context.Context, req ToolRequest) (ToolResponse, error)
 
 For details on event extensibility, see: `glaze help geppetto-events-streaming-watermill`
 
-## Troubleshooting and tips
+## Troubleshooting and Tips
 
-- If an engine doesn’t seem to advertise your tools, ensure you attached the registry to context:
-  - `ctx = toolcontext.WithRegistry(ctx, reg)`
-- When reading payloads, always use the payload key constants to avoid typos
-- To change tools at runtime, modify the registry (in context) or config (in `Turn.Data`) before calling `RunInference`
+| Problem | Solution |
+|---------|----------|
+| Tools not advertised | Ensure `ctx = toolcontext.WithRegistry(ctx, reg)` before `RunInference` |
+| Tool call not executed | Check middleware is attached or use `toolhelpers.RunToolCallingLoop` |
+| Payload key errors | Use constants like `turns.PayloadKeyArgs`, never string literals |
+| Dynamic tools not working | Modify registry before calling `RunInference`; Turn.Data for config only |
+
+## See Also
+
+- [Turns and Blocks](08-turns.md) — The Turn data model and block kinds
+- [Inference Engines](06-inference-engines.md) — How engines emit tool_call blocks
+- [Events](04-events.md) — Tool events and custom event emission
+- [Middlewares](09-middlewares.md) — Tool middleware for automatic execution
+- [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete working example
