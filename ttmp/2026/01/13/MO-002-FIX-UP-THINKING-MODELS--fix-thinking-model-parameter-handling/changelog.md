@@ -103,3 +103,12 @@ Step 11: Draft unified conversation handling design doc.
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md — Design proposal.
 
+
+## 2026-01-13
+
+Step 12: incorporate go-go-mento webchat patterns into unified design
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md — Added go-go-mento insights and updated migration plan.
+

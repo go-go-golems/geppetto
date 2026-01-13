@@ -11,6 +11,18 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: go-go-mento/go/pkg/docs/05-webchat-middleware-ordering.md
+      Note: Standardized block sections and ordering rationale.
+    - Path: go-go-mento/go/pkg/webchat/conversation_manager.go
+      Note: Centralized conversation lifecycle, engine recomposition, and eviction.
+    - Path: go-go-mento/go/pkg/webchat/engine_builder.go
+      Note: Deterministic engine config/signature and composition pipeline.
+    - Path: go-go-mento/go/pkg/webchat/inference_state.go
+      Note: Inference run state (running/cancel) and Turn ownership.
+    - Path: go-go-mento/go/pkg/webchat/loops.go
+      Note: Tool loop with turn snapshot hook and persistence.
+    - Path: go-go-mento/go/pkg/webchat/turns_loader.go
+      Note: Persistence-backed turn reconstruction for resuming conversations.
     - Path: geppetto/pkg/turns/types.go
       Note: Turn/Block semantics used by conversation state.
     - Path: moments/backend/pkg/inference/middleware/conversation_compression_middleware.go
@@ -238,6 +250,135 @@ Blocks (canonical)
 
 - Add `geppetto/pkg/conversation` with `ConversationState`, mutations, and snapshot logic.
 - Add unit tests for reasoning adjacency and tool call pairing.
+
+## Insights from go-go-mento webchat (cleaned reference)
+
+The `go-go-mento/go/pkg/webchat` implementation provides several patterns that inform the unified design.
+
+### 1) Conversation lifecycle is centralized
+
+Source: `go-go-mento/go/pkg/webchat/conversation_manager.go`
+
+Key ideas:
+
+- **ConversationManager** owns conversation creation, reuse, and eviction.
+- A conversation’s **engine/sink are rebuilt** only when the profile or overrides signature changes.
+- The manager controls **connection pools**, **stream coordinators**, and **idle eviction**, keeping routing code lean.
+
+Design implication:
+
+- The unified `ConversationState` should be owned by a single manager that is responsible for lifecycle, including run coordination and eviction. This removes ad-hoc state management in router handlers.
+
+### 2) EngineBuilder + EngineConfig signature
+
+Source: `go-go-mento/go/pkg/webchat/engine_builder.go`
+
+Key ideas:
+
+- Engine construction is split into `BuildConfig` and `BuildFromConfig`.
+- `EngineConfig.Signature()` determines when to recompute the engine/sink.
+- Router logic stays stable even as middlewares/tools/prompt overrides change.
+
+Design implication:
+
+- A shared conversation layer should separate **conversation state** from **engine config**. The unified design should adopt a signature-based recomposition strategy to keep conversation state intact while enabling engine changes.
+
+### 3) InferenceState holds the canonical Turn + run control
+
+Source: `go-go-mento/go/pkg/webchat/inference_state.go`
+
+Key ideas:
+
+- `InferenceState` wraps `Turn`, `RunID`, engine, and run control.
+- `StartRun` / `FinishRun` / `CancelRun` enforce the run lifecycle and prevent overlapping runs.
+
+Design implication:
+
+- The unified conversation API should expose a **run guard** and allow consumers to cancel or prevent concurrent runs without routing-level duplication.
+
+### 4) Turn persistence and snapshot hooks
+
+Sources:
+
+- `go-go-mento/go/pkg/webchat/turns_loader.go`
+- `go-go-mento/go/pkg/webchat/loops.go`
+
+Key ideas:
+
+- Turns are **persisted** and can be **reloaded** at resume time.
+- The tool loop wires a **turn snapshot hook** (`toolhelpers.WithTurnSnapshotHook`) to capture intermediate states.
+- A `turnAccumulator` collects snapshots and persists the final turn.
+
+Design implication:
+
+- A unified `ConversationState` should include a **snapshot hook** mechanism so turn persistence is consistent and does not require each caller to maintain its own accumulator logic.
+
+### 5) Ordering middleware documented as a first-class system
+
+Source: `go-go-mento/go/pkg/docs/05-webchat-middleware-ordering.md`
+
+Key ideas:
+
+- Blocks are grouped by standardized **sections**: `system`, `user_context`, `team_context`, `conversation`, `post_conversation`.
+- Ordering is **decoupled** from middleware execution order; insertion order within a section is preserved.
+- `section` + `id` metadata are used for idempotency and stable placement.
+
+Design implication:
+
+- The proposed `ConversationState` should adopt the same **section-first ordering contract** and treat ordering as a deterministic mutation step, not a side-effect of middleware order.
+
+### 6) Idempotent system prompt insertion
+
+Source: `go-go-mento/go/pkg/webchat/system_prompt_middleware.go`
+
+Key ideas:
+
+- Idempotent middleware removes its prior block and inserts the system prompt at the top.
+- Uses metadata keys to detect prior inserts.
+
+Design implication:
+
+- System prompt insertion in the unified design should be **idempotent** and driven by metadata, not by raw block comparison or repeated append.
+
+## Updates to the Proposed Solution (after go-go-mento review)
+
+### Add a ConversationManager layer
+
+Introduce a `ConversationManager` (in geppetto or shared package) that owns:
+
+- creation and lifecycle of `ConversationState`
+- engine config signature + recomposition
+- run guard and cancellation
+- persistence hooks and snapshotting
+
+### Align ordering semantics with section-based rules
+
+Adopt the standardized section ordering system used in go-go-mento:
+
+- enforce `section`/`id` metadata on non-system blocks
+- preserve insertion order within each section
+- keep ordering independent of middleware execution order
+
+### Snapshot hooks for persistence and tooling
+
+Expose a public snapshot hook API in `ConversationState` for:
+
+- persistence (DB-backed turns)
+- debugging (tool snapshot logs)
+- external observers (telemetry, audits)
+
+## Updated Migration Plan (amended)
+
+1) **ConversationManager abstraction**
+   - Add a manager that owns `ConversationState` and engine configuration signatures.
+2) **Section-based ordering contract**
+   - Add ordering mutation based on `section` + `id` metadata.
+3) **Snapshot hook support**
+   - Add `WithTurnSnapshotHook` parity in the conversation package.
+4) **Repo migrations**
+   - Pinocchio CLI: replace `reduceHistory` with ConversationState + manager.
+   - Pinocchio webchat: adopt manager and section ordering.
+   - Moments webchat: align middlewares to section-based ordering and snapshot hooks.
 
 ### Phase 2: Pinocchio CLI chat
 

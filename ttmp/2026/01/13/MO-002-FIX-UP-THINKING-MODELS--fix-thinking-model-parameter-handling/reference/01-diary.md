@@ -13,30 +13,33 @@ Owners: []
 RelatedFiles:
     - Path: ../../../../../../../../../../go/pkg/mod/github.com/sashabaranov/go-openai@v1.41.1/reasoning_validator.go
       Note: Upstream reasoning model constraints (max tokens + sampling).
-    - Path: geppetto/cmd/examples/openai-tools/main.go
-      Note: Repro steps for GPT-5 runs.
-    - Path: geppetto/pkg/steps/ai/openai/helpers.go
-      Note: Chat-mode request parameter gating for reasoning models.
-    - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
-      Note: Source of Responses SSE event emission.
-    - Path: geppetto/pkg/steps/ai/openai_responses/helpers.go
-      Note: Responses request parameter gating (sampling params).
-    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md
-      Note: Detailed analysis of Responses thinking stream event flow.
-    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md
-      Note: Detailed turn/block ordering analysis.
-    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md
-      Note: Cross-system turn mutation analysis.
-    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md
-      Note: Unified conversation handling design.
-    - Path: pinocchio/pkg/ui/backend.go
+    - Path: ../../../../../../../go-go-mento/go/pkg/docs/05-webchat-middleware-ordering.md
+      Note: Section-based ordering reference for unified design.
+    - Path: ../../../../../../../pinocchio/pkg/ui/backend.go
       Note: Default chat UI handler drops thinking events.
+    - Path: cmd/examples/openai-tools/main.go
+      Note: Repro steps for GPT-5 runs.
+    - Path: pkg/steps/ai/openai/helpers.go
+      Note: Chat-mode request parameter gating for reasoning models.
+    - Path: pkg/steps/ai/openai_responses/engine.go
+      Note: Source of Responses SSE event emission.
+    - Path: pkg/steps/ai/openai_responses/helpers.go
+      Note: Responses request parameter gating (sampling params).
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md
+      Note: Detailed analysis of Responses thinking stream event flow.
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/02-pinocchio-turns-and-responses-ordering.md
+      Note: Detailed turn/block ordering analysis.
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md
+      Note: Cross-system turn mutation analysis.
+    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md
+      Note: Unified conversation handling design.
 ExternalSources: []
 Summary: Track fixes for thinking-model parameter handling in chat vs responses engines.
 LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Capture investigation and code changes for GPT-5/o-series parameter gating.
 WhenToUse: Use when validating reasoning model support and engine request building.
 ---
+
 
 
 
@@ -496,3 +499,42 @@ I drafted a design document that unifies conversation handling across geppetto, 
 
 ### Technical details
 - N/A
+
+## Step 12: Incorporate go-go-mento webchat patterns into the unified design
+
+I reviewed the cleaned up `go-go-mento` webchat stack to extract patterns that inform the unified conversation design. The update focuses on lifecycle ownership, engine config signatures, run guards, snapshot hooks, and section-based ordering as first-class concepts.
+
+I then amended the design doc to include these insights and to extend the migration plan with a ConversationManager layer and ordering semantics aligned to the go-go-mento section model.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Reviewed `go-go-mento` webchat files and the ordering/middleware doc.
+- Updated the unified conversation handling design doc with new insights and an amended migration plan.
+
+### Why
+- The go-go-mento webchat implementation is a cleaner reference that already solved many lifecycle and ordering problems we need to standardize.
+
+### What worked
+- The design doc now includes concrete patterns (manager lifecycle, signature-based recomposition, ordering sections, snapshot hooks) drawn from a working system.
+
+### What didn't work
+- N/A
+
+### What I learned
+- go-go-mento treats ordering as a deterministic section-based transformation rather than a side effect of middleware order, which is a better fit for Responses strictness.
+
+### What was tricky to build
+- Mapping go-go-mento concepts onto the proposed shared ConversationState without expanding scope beyond the unified design goals.
+
+### What warrants a second pair of eyes
+- Validate that the section-based ordering contract aligns with all existing pinocchio and moments block metadata expectations.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md` for the go-go-mento additions.
+
+### Technical details
+- Reference: `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/go-go-mento/go/pkg/docs/05-webchat-middleware-ordering.md`
