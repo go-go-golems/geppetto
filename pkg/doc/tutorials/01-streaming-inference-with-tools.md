@@ -22,8 +22,8 @@ SectionType: Tutorial
 This tutorial explains how to build a Cobra command that performs streaming inference and supports tool calling using Geppetto. We follow the engine-first architecture: engines handle provider I/O and emit events, while helpers orchestrate tools. The focus is on concepts, small runnable snippets, and the key APIs you will use, not a single large code dump. See the style guide for expectations around examples and structure: `glaze help how-to-write-good-documentation-pages`.
 
 For foundational background, see:
-- `glaze help geppetto-inference-engines`
-- `glaze help geppetto-events-streaming-watermill`
+- [Inference Engines](../topics/06-inference-engines.md)
+- [Events and Streaming](../topics/04-events.md)
 
 Note: In current Geppetto, provider engines learn about available tools from the tool registry attached to `context.Context` (see `toolcontext.WithRegistry`). This tutorial shows that wiring explicitly in Step 6.
 
@@ -164,27 +164,53 @@ turns.AppendBlock(seed, turns.NewUserTextBlock(s.Prompt))
 
 ## Step 6 — Run the Router and Tool-Calling Loop
 
-Run the router and the helper loop concurrently. Attach the sink to the context so helpers and tools can publish events.
+Run the router and the helper loop concurrently using `errgroup`. This pattern ensures proper coordination:
 
 ```go
 eg, groupCtx := errgroup.WithContext(ctx)
 
+// Goroutine 1: Run the event router
+// The router blocks until its context is cancelled
 eg.Go(func() error { return router.Run(groupCtx) })
+
+// Goroutine 2: Run inference after router is ready
 eg.Go(func() error {
+    // CRITICAL: Wait for router to be ready before publishing events
     <-router.Running()
+    
+    // Attach the sink to context so helpers and tools can publish events
     runCtx := events.WithEventSinks(groupCtx, sink)
-    // Engines read the tool registry from context (no Turn.Data registry).
+    
+    // Attach the tool registry to context so engines know what tools are available
+    // (Engines read from context, not from Turn.Data)
     runCtx = toolcontext.WithRegistry(runCtx, registry)
+    
+    // Run the tool-calling loop:
+    // 1. Calls RunInference with the Turn
+    // 2. If model emits tool_call blocks, executes tools
+    // 3. Appends tool_use blocks with results
+    // 4. Re-invokes inference until no more tool calls (or max iterations)
     updated, err := toolhelpers.RunToolCallingLoop(
-        runCtx, eng, seed, registry, toolhelpers.NewToolConfig().WithMaxIterations(5),
+        runCtx, eng, seed, registry, 
+        toolhelpers.NewToolConfig().WithMaxIterations(5),
     )
     if err != nil { return err }
-    _ = updated // updated Turn now includes tool_use + llm_text blocks
+    
+    // 'updated' now contains the full conversation:
+    // [system] → [user] → [llm_text] → [tool_call] → [tool_use] → [llm_text (final)]
+    _ = updated
     return nil
 })
 
+// Wait for both goroutines to complete
+// If either fails, the other is cancelled via groupCtx
 if err := eg.Wait(); err != nil { return err }
 ```
+
+**Why errgroup?**
+- `errgroup.WithContext` creates a derived context that cancels when any goroutine fails
+- If the inference fails, the router stops; if the router fails, inference stops
+- `eg.Wait()` returns the first error from any goroutine
 
 ### Sample Text Output
 
@@ -210,12 +236,16 @@ assistant: It’s about 22°C in Paris right now.
 
 ## See Also
 
-- Engines and providers: `glaze help geppetto-inference-engines`
-- Streaming and printers: `glaze help geppetto-events-streaming-watermill`
-- Working example programs:
-  - `geppetto/cmd/examples/simple-streaming-inference/main.go`
-  - `geppetto/cmd/examples/openai-tools/main.go`
-  - `geppetto/cmd/examples/claude-tools/main.go`
-  - `geppetto/cmd/examples/generic-tool-calling/main.go`
+- [Inference Engines](../topics/06-inference-engines.md) — Engine architecture and factory patterns
+- [Events and Streaming](../topics/04-events.md) — Event types, routing, and printers
+- [Tools](../topics/07-tools.md) — Tool definitions and registry patterns
+- [Turns and Blocks](../topics/08-turns.md) — The Turn data model
+- [Middlewares](../topics/09-middlewares.md) — Alternative to helper-based tool execution
+
+**Working example programs:**
+- `geppetto/cmd/examples/simple-streaming-inference/main.go`
+- `geppetto/cmd/examples/openai-tools/main.go`
+- `geppetto/cmd/examples/claude-tools/main.go`
+- `geppetto/cmd/examples/generic-tool-calling/main.go`
 
 If you need a full, copy-paste command, use the example apps above as a reference implementation and adapt the snippets here to your project structure.
