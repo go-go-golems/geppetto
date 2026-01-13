@@ -109,9 +109,9 @@ wrapped := middleware.NewEngineWithMiddleware(e, mw)
 turns.AppendBlock(seed, turns.NewUserTextBlock("Use echo with 'hello'"))
 updated, _ := wrapped.RunInference(ctx, seed)
 
-// Helper route (conversation-first)
+// Helper route (Turn-based loop)
 cfg := toolhelpers.NewToolConfig().WithMaxIterations(5)
-finalConv, _ := toolhelpers.RunToolCallingLoop(ctx, e, initialConversation, reg, cfg)
+updated, _ := toolhelpers.RunToolCallingLoop(ctx, e, seed, reg, cfg)
 ```
 
 ---
@@ -293,7 +293,7 @@ turns.DataKeyToolConfig   // engine.ToolConfig
 - Keep tool inputs small (provider payload limits apply)
 - Log tool execution steps and responses
 - Use timeouts and iteration limits to prevent loops
-- Prefer middleware for Turn-native use; use helpers for conversation-first flows
+- Prefer middleware for Turn-native automation; use helpers when you want explicit control over the loop
 
 ### Emitting Custom Events from Tools
 

@@ -154,7 +154,6 @@ For simple text generation without tool calling:
 import (
     "context"
     "fmt"
-    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -163,21 +162,20 @@ func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, pro
     e, err := factory.NewEngineFromParsedLayers(parsedLayers)
     if err != nil { return fmt.Errorf("failed to create engine: %w", err) }
 
-    mgr, err := builder.NewManagerBuilder().
-        WithSystemPrompt("You are a helpful assistant.").
-        WithPrompt(prompt).Build()
-    if err != nil { return fmt.Errorf("failed to build conversation: %w", err) }
-
-    // Seed a Turn from the initial conversation
     seed := &turns.Turn{}
-    turns.AppendBlocks(seed, turns.BlocksFromConversationDelta(mgr.GetConversation(), 0)...)
+    turns.AppendBlock(seed, turns.NewSystemTextBlock("You are a helpful assistant."))
+    turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
 
     updated, err := e.RunInference(ctx, seed)
     if err != nil { return fmt.Errorf("inference failed: %w", err) }
 
-    // Convert back to conversation for display
-    for _, m := range turns.BuildConversationFromTurn(updated) {
-        fmt.Println(m.Content.String())
+    for _, block := range updated.Blocks {
+        if block.Kind != turns.BlockKindLLMText {
+            continue
+        }
+        if text, ok := block.Payload[turns.PayloadKeyText].(string); ok {
+            fmt.Println(text)
+        }
     }
     return nil
 }
@@ -193,22 +191,10 @@ Providers learn about available tools from the **runtime registry attached to `c
 
 The main helper functions are:
 
-- `ExtractToolCalls`: Parse tool calls from AI responses
-- `ExecuteToolCalls`: Execute tools and return results
-- `AppendToolResults`: Add tool results to conversations
-- `RunToolCallingLoop`: Complete automated workflow
-
-### Appending user messages
-
-To append a user message to a conversation managed by `conversation.Manager`:
-
-```go
-import "github.com/go-go-golems/geppetto/pkg/conversation"
-
-if err := manager.AppendMessages(conversation.NewChatMessage(conversation.RoleUser, "Hello")); err != nil {
-    // handle error
-}
-```
+- `toolblocks.ExtractPendingToolCalls`: find tool calls without matching tool_use blocks
+- `tools.NewDefaultToolExecutor`: execute tool calls against a registry
+- `toolblocks.AppendToolResultsBlocks`: append `tool_use` blocks from results
+- `toolhelpers.RunToolCallingLoop`: complete automated Turn-based workflow
 
 ### Setting Up Tools
 
@@ -275,38 +261,63 @@ func setupTools() (tools.ToolRegistry, error) {
 
 ### Manual Tool Calling
 
-For fine-grained control, use individual helper functions:
+For fine-grained control, use the Turn helpers directly:
 
 ```go
 import (
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "context"
+    "encoding/json"
+
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func manualToolCalling(ctx context.Context, engine engine.Engine, registry tools.ToolRegistry) error {
-    // Initial conversation
-    conversation := getInitialConversation()
-
+func manualToolCalling(ctx context.Context, eng engine.Engine, registry tools.ToolRegistry, seed *turns.Turn) (*turns.Turn, error) {
     // Run inference
-    response, err := engine.RunInference(ctx, conversation)
+    updated, err := eng.RunInference(ctx, seed)
     if err != nil {
-        return err
+        return nil, err
     }
 
-    // Extract tool calls
-    toolCalls := toolhelpers.ExtractToolCalls(response)
-    if len(toolCalls) == 0 {
-        // No tools called, we're done
-        return nil
+    calls := toolblocks.ExtractPendingToolCalls(updated)
+    if len(calls) == 0 {
+        return updated, nil
     }
 
-    // Execute tools
-    toolResults := toolhelpers.ExecuteToolCalls(ctx, toolCalls, registry)
+    exec := tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
+    var execCalls []tools.ToolCall
+    for _, call := range calls {
+        args, _ := json.Marshal(call.Arguments)
+        execCalls = append(execCalls, tools.ToolCall{
+            ID: call.ID, Name: call.Name, Arguments: args,
+        })
+    }
 
-    // Append results to conversation
-    updatedConversation := toolhelpers.AppendToolResults(response, toolResults)
+    results, err := exec.ExecuteToolCalls(ctx, execCalls, registry)
+    if err != nil {
+        return nil, err
+    }
 
-    // Continue with next iteration if needed...
-    return nil
+    var shared []toolblocks.ToolResult
+    for _, res := range results {
+        if res == nil {
+            continue
+        }
+        content := ""
+        if res.Result != nil {
+            if b, err := json.Marshal(res.Result); err == nil {
+                content = string(b)
+            }
+        }
+        shared = append(shared, toolblocks.ToolResult{
+            ID: res.ID, Content: content, Error: res.Error,
+        })
+    }
+
+    toolblocks.AppendToolResultsBlocks(updated, shared)
+    return updated, nil
 }
 ```
 
@@ -316,11 +327,16 @@ For most use cases, use the automated loop:
 
 ```go
 import (
+    "context"
     "time"
+
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func automatedToolCalling(ctx context.Context, engine engine.Engine, registry tools.ToolRegistry, conversation conversation.Conversation) (conversation.Conversation, error) {
+func automatedToolCalling(ctx context.Context, engine engine.Engine, registry tools.ToolRegistry, seed *turns.Turn) (*turns.Turn, error) {
     // Configure tool calling behavior
     config := toolhelpers.NewToolConfig().
         WithMaxIterations(5).
@@ -330,7 +346,7 @@ func automatedToolCalling(ctx context.Context, engine engine.Engine, registry to
         WithToolErrorHandling(tools.ToolErrorContinue)
 
     // Run complete workflow
-    return toolhelpers.RunToolCallingLoop(ctx, engine, conversation, registry, config)
+    return toolhelpers.RunToolCallingLoop(ctx, engine, seed, registry, config)
 }
 ```
 
@@ -347,13 +363,14 @@ import (
     "io"
     "time"
 
-    "github.com/go-go-golems/geppetto/pkg/conversation/builder"
     "github.com/go-go-golems/geppetto/pkg/events"
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
     "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/turns"
     "golang.org/x/sync/errgroup"
 )
 
@@ -403,34 +420,7 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         return fmt.Errorf("failed to register weather tool: %w", err)
     }
 
-    // 6. Configure engine for tool calling (if supported)
-    if configurableEngine, ok := baseEngine.(interface {
-        engine.ToolsConfigurable
-    }); ok {
-        // Convert registry tools to engine format
-        var engineTools []engine.ToolDefinition
-        for _, tool := range registry.ListTools() {
-            engineTool := engine.ToolDefinition{
-                Name:        tool.Name,
-                Description: tool.Description,
-                Parameters:  tool.Parameters,
-            }
-            engineTools = append(engineTools, engineTool)
-        }
-
-        // Configure tools on engine
-        engineConfig := engine.ToolConfig{
-            Enabled:           true,
-            ToolChoice:        engine.ToolChoiceAuto,
-            MaxIterations:     1,
-            ExecutionTimeout:  30 * time.Second,
-            MaxParallelTools:  3,
-            ToolErrorHandling: engine.ToolErrorContinue,
-        }
-        configurableEngine.ConfigureTools(engineTools, engineConfig)
-    }
-
-    // 7. Create tool helper configuration
+    // 6. Create tool helper configuration
     helperConfig := toolhelpers.NewToolConfig().
         WithMaxIterations(5).
         WithTimeout(30 * time.Second).
@@ -438,19 +428,19 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         WithToolChoice(tools.ToolChoiceAuto).
         WithToolErrorHandling(tools.ToolErrorContinue)
 
-    // 8. Build conversation
-    conversationBuilder := builder.NewManagerBuilder().
-        WithSystemPrompt("You are a helpful assistant with access to weather information. Use the get_weather tool when users ask about weather.").
-        WithPrompt(prompt)
-
-    manager, err := conversationBuilder.Build()
-    if err != nil {
-        return fmt.Errorf("failed to build conversation: %w", err)
+    // 7. Build seed Turn with tool config
+    seed := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
+    seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+        Enabled:          true,
+        ToolChoice:       engine.ToolChoiceAuto,
+        MaxParallelTools: 3,
     }
+    turns.AppendBlock(seed, turns.NewSystemTextBlock(
+        "You are a helpful assistant with access to weather information. Use the get_weather tool when users ask about weather.",
+    ))
+    turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
 
-    conversation := manager.GetConversation()
-
-    // 9. Run inference with streaming in parallel
+    // 8. Run inference with streaming in parallel
     eg := errgroup.Group{}
     ctx, cancel := context.WithCancel(ctx)
     defer cancel()
@@ -466,22 +456,24 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         defer cancel()
         <-router.Running() // Wait for router to be ready
 
-        // Attach engine sink to context so helpers/tools can publish too
+        // Attach engine sink and tool registry to context so helpers/tools can publish too
         runCtx := events.WithEventSinks(ctx, watermillSink)
+        runCtx = toolcontext.WithRegistry(runCtx, registry)
 
         // Run complete tool calling workflow
-        updatedConversation, err := toolhelpers.RunToolCallingLoop(
-            runCtx, baseEngine, conversation, registry, helperConfig,
+        updatedTurn, err := toolhelpers.RunToolCallingLoop(
+            runCtx, baseEngine, seed, registry, helperConfig,
         )
         if err != nil {
             return fmt.Errorf("tool calling failed: %w", err)
         }
 
         // Process final results
-        newMessages := updatedConversation[len(conversation):]
-        for _, msg := range newMessages {
-            if err := manager.AppendMessages(msg); err != nil {
-                return fmt.Errorf("failed to append message: %w", err)
+        for _, block := range updatedTurn.Blocks {
+            if block.Kind == turns.BlockKindLLMText {
+                if text, ok := block.Payload[turns.PayloadKeyText].(string); ok {
+                    fmt.Fprintln(w, text)
+                }
             }
         }
 
@@ -535,19 +527,20 @@ Add middleware for logging, metrics, and other cross-cutting concerns:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 func addMiddleware(baseEngine engine.Engine) engine.Engine {
     // Add logging middleware
     loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-        return func(ctx context.Context, messages conversation.Conversation) (conversation.Conversation, error) {
-            log.Info().Int("message_count", len(messages)).Msg("Starting inference")
+        return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+            log.Info().Int("block_count", len(t.Blocks)).Msg("Starting inference")
 
-            result, err := next(ctx, messages)
+            result, err := next(ctx, t)
             if err != nil {
                 log.Error().Err(err).Msg("Inference failed")
             } else {
-                log.Info().Int("result_count", len(result)).Msg("Inference completed")
+                log.Info().Int("result_count", len(result.Blocks)).Msg("Inference completed")
             }
 
             return result, err

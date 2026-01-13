@@ -40,7 +40,7 @@ Note: In current Geppetto, provider engines learn about available tools from the
 
 - Understand the streaming event flow and why the sink matters
 - Learn how to register tools and enable tool calls with streaming
-- See how conversations are built and updated
+- See how Turns are built and updated
 - Know which APIs to use when composing your own command
 
 ## Prerequisites
@@ -55,7 +55,7 @@ Note: In current Geppetto, provider engines learn about available tools from the
 - Event router: transports events (Watermill) and drives printers
 - Event sink: connects the engine and helpers to the router
 - Tool registry: in-memory store of callable tools
-- Tool helpers: manage the tool-calling loop and conversation updates
+- Tool helpers: manage the tool-calling loop and Turn updates
 
 ## Key APIs You’ll Use
 
@@ -69,10 +69,9 @@ Note: In current Geppetto, provider engines learn about available tools from the
   - `tools.NewInMemoryToolRegistry()`
   - `tools.NewToolFromFunc(name, description, func)`
   - `toolcontext.WithRegistry(ctx, registry)` (attach runtime registry to `context.Context`)
-  - Optional: `ConfigureTools([]engine.ToolDefinition, engine.ToolConfig)` when supported by the provider engine
-- Conversation and helpers
-  - `builder.NewManagerBuilder().WithSystemPrompt(...).WithPrompt(...).Build()`
-  - `toolhelpers.RunToolCallingLoop(ctx, eng, conv, registry, toolConfig)`
+- Turns and helpers
+  - `turns.NewSystemTextBlock(...)` / `turns.NewUserTextBlock(...)`
+  - `toolhelpers.RunToolCallingLoop(ctx, eng, turn, registry, toolConfig)`
 
 ## Step 1 — Define the CLI Command
 
@@ -144,29 +143,23 @@ getWeather, _ := tools.NewToolFromFunc(
     },
 )
 _ = registry.RegisterTool("get_weather", *getWeather)
-
-// Optionally, pass tool schemas to the engine (provider-dependent)
-if cfg, ok := eng.(engine.ToolsConfigurable); ok {
-    var defs []engine.ToolDefinition
-    for _, t := range registry.ListTools() {
-        defs = append(defs, engine.ToolDefinition{
-            Name: t.Name, Description: t.Description, Parameters: t.Parameters,
-        })
-    }
-    cfg.ConfigureTools(defs, engine.ToolConfig{Enabled: true})
-}
 ```
 
-## Step 5 — Build the Conversation
+## Step 5 — Build the Turn
 
-Create a conversation with a system prompt and the user’s prompt.
+Create a Turn with a system block, a user block, and tool config stored in `Turn.Data`.
 
 ```go
-mb := builder.NewManagerBuilder().
-    WithSystemPrompt("You are a helpful assistant with access to tools.").
-    WithPrompt(s.Prompt)
-manager, _ := mb.Build()
-conv := manager.GetConversation()
+seed := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
+seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
+    Enabled:          true,
+    ToolChoice:       engine.ToolChoiceAuto,
+    MaxParallelTools: 1,
+}
+turns.AppendBlock(seed, turns.NewSystemTextBlock(
+    "You are a helpful assistant with access to tools.",
+))
+turns.AppendBlock(seed, turns.NewUserTextBlock(s.Prompt))
 ```
 
 ## Step 6 — Run the Router and Tool-Calling Loop
@@ -183,12 +176,10 @@ eg.Go(func() error {
     // Engines read the tool registry from context (no Turn.Data registry).
     runCtx = toolcontext.WithRegistry(runCtx, registry)
     updated, err := toolhelpers.RunToolCallingLoop(
-        runCtx, eng, conv, registry, toolhelpers.NewToolConfig().WithMaxIterations(5),
+        runCtx, eng, seed, registry, toolhelpers.NewToolConfig().WithMaxIterations(5),
     )
     if err != nil { return err }
-    for _, m := range updated[len(conv):] {
-        if err := manager.AppendMessages(m); err != nil { return err }
-    }
+    _ = updated // updated Turn now includes tool_use + llm_text blocks
     return nil
 })
 
@@ -207,7 +198,7 @@ assistant: It’s about 22°C in Paris right now.
 
 ## Minimal Variants
 
-- Without tools: call `eng.RunInference(ctx, conv)` and skip the helper loop.
+- Without tools: call `eng.RunInference(ctx, seed)` and skip the helper loop.
 - Structured streaming: use `events.NewStructuredPrinter` with `json` or `yaml` for machine-readable logs.
 
 ## Troubleshooting and Tips

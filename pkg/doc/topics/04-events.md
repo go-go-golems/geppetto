@@ -23,37 +23,47 @@ Geppetto uses an engine-first architecture. Engines handle provider API calls an
 
 ## Event Model
 
-Engines and helpers publish structured chat events defined in `pkg/events/chat-events.go`:
+Engines and helpers publish structured chat events defined in `pkg/events/chat-events.go`. There is no UI vs internal split; every event is a chat event and flows through the same sinks/routers.
 
-- **start (`EventTypeStart`)**: Inference started for a request.
-- **partial (`EventTypePartialCompletion`)**: Streamed delta and accumulated completion.
-- **partial-thinking (`EventTypePartialThinking`)**: Streamed reasoning summary delta (Responses API only).
-- **tool-call (`EventTypeToolCall`)**: Model requested a tool/function call.
-- **tool-result (`EventTypeToolResult`)**: A tool returned its result.
-- **error (`EventTypeError`)**: Error during streaming or execution.
-- **interrupt (`EventTypeInterrupt`)**: Context cancelled; may include partial text.
-- **final (`EventTypeFinal`)**: Inference finished; includes final text.
-- status/text exist for legacy/debug use and may be phased out.
+### Core lifecycle events
+
+- **start (`EventTypeStart`)**: inference started for a request
+- **partial (`EventTypePartialCompletion`)**: streamed delta + accumulated completion
+- **partial-thinking (`EventTypePartialThinking`)**: streamed reasoning summary delta (Responses API only)
+- **final (`EventTypeFinal`)**: inference finished; includes final text
+- **interrupt (`EventTypeInterrupt`)**: context cancelled; may include partial text
+- **error (`EventTypeError`)**: error during streaming or execution
+
+### Tool execution events
+
+- **tool-call (`EventTypeToolCall`)**: model requested a tool/function call
+- **tool-result (`EventTypeToolResult`)**: a tool returned its result
+- **tool-call-execute (`EventTypeToolCallExecute`)**: tool execution started
+- **tool-call-execution-result (`EventTypeToolCallExecutionResult`)**: tool execution finished
+
+### Extended domain events (still chat events)
+
+- `log` / `info` / `status`: lightweight UI/debug status
+- `agent-mode-switch`: agent mode transitions
+- `web-search-*` / `file-search-*` / `code-interpreter-*`: multi-step tool progress
+- `reasoning-text-delta` / `reasoning-text-done`: provider reasoning stream
+- `mcp-*` / `mcp-list-tools-*` / `mcp-args-*`: MCP progress and arguments stream
+- `image-generation-*`: image generation progress
+- `tool-search-results` / `citation`: tool discovery + citation metadata
+
 ### Event Type Cheat Sheet
 
-These are the concrete Go types and commonly used fields you will receive after parsing with `events.NewEventFromJson`:
+Common concrete Go types and fields when parsing with `events.NewEventFromJson`:
 
-- `*events.EventPartialCompletionStart`
-  - Marks start of an inference stream
-- `*events.EventPartialCompletion`
-  - Fields: `Delta` (string), `Completion` (string)
-- `*events.EventFinal`
-  - Fields: `Text` (string)
-- `*events.EventToolCall`
-  - Fields: `ToolCall` (struct) with `Name` (string), `Input` (string), `ID` (string)
-- `*events.EventToolResult`
-  - Fields: `ToolResult` (struct) with `ID` (string), `Result` (string)
-- `*events.EventError`
-  - Fields: `ErrorString` (string)
-- `*events.EventInterrupt`
-  - Fields: `Text` (string)
+- `*events.EventPartialCompletionStart` → stream start
+- `*events.EventPartialCompletion` → `Delta`, `Completion`
+- `*events.EventFinal` → `Text`
+- `*events.EventToolCall` → `ToolCall` with `Name`, `Input`, `ID`
+- `*events.EventToolResult` → `ToolResult` with `ID`, `Result`
+- `*events.EventError` → `ErrorString`
+- `*events.EventInterrupt` → `Text`
 
-See the source for full definitions: `geppetto/pkg/events/chat-events.go`.
+See the source for the full catalog and payload fields: `geppetto/pkg/events/chat-events.go`.
 
 
 Events carry `EventMetadata` only. `EventMetadata` includes:
@@ -133,7 +143,9 @@ eg.Go(func() error {
     <-router.Running()
     // Attach same sink to context so helpers/tools can publish
     runCtx := events.WithEventSinks(groupCtx, sink)
-    _, err := eng.RunInference(runCtx, messages)
+    turn := &turns.Turn{}
+    turns.AppendBlock(turn, turns.NewUserTextBlock("Say hello."))
+    _, err := eng.RunInference(runCtx, turn)
     return err
 })
 
@@ -458,7 +470,9 @@ eg.Go(func() error {
     log.Info().Msg("Event router is running, proceeding with main task")
 
     // Run inference (helpers will also publish via context sinks)
-    _, err := eng.RunInference(events.WithEventSinks(groupCtx, watermillSink), conversation)
+    turn := &turns.Turn{}
+    turns.AppendBlock(turn, turns.NewUserTextBlock("Say hello."))
+    _, err := eng.RunInference(events.WithEventSinks(groupCtx, watermillSink), turn)
     if err != nil {
         return err
     }
@@ -476,6 +490,66 @@ if err := eg.Wait(); err != nil {
     log.Info().Msg("Application finished successfully")
 }
 ```
+
+## Structured data extraction with filtering sinks
+
+Geppetto ships a filtering sink that extracts structured payloads from the streaming text and emits typed events as the payload grows. The sink removes structured blocks from the forwarded text stream and routes raw payload bytes to extractor sessions.
+
+### Tag format
+
+Blocks are delimited in the stream with XML-like tags:
+
+~~~text
+<geppetto:citations:v1>
+```yaml
+citations:
+  - title: GPT-4 Technical Report
+    authors: [OpenAI]
+```
+</geppetto:citations:v1>
+~~~
+
+### Extractor interface
+
+Each extractor declares the `(package, type, version)` tuple it handles and returns a session per block:
+
+```go
+type Extractor interface {
+    TagPackage() string
+    TagType() string
+    TagVersion() string
+    NewSession(ctx context.Context, meta events.EventMetadata, itemID string) ExtractorSession
+}
+
+type ExtractorSession interface {
+    OnStart(ctx context.Context) []events.Event
+    OnRaw(ctx context.Context, chunk []byte) []events.Event
+    OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event
+}
+```
+
+### Sink setup
+
+```go
+next := /* your downstream events.EventSink */
+sink := structuredsink.NewFilteringSink(next, structuredsink.Options{
+    Malformed: structuredsink.MalformedErrorEvents,
+}, &citationsExtractor{})
+```
+
+### Parsing helpers
+
+The `parsehelpers` package includes a debounced YAML parser for progressive updates:
+
+```go
+ctrl := parsehelpers.NewDebouncedYAML[citationsPayload](parsehelpers.DebounceConfig{
+    SnapshotEveryBytes: 512,
+    SnapshotOnNewline:  true,
+    MaxBytes:           64 << 10,
+})
+```
+
+Use `OnRaw` to feed bytes and emit “best-so-far” events, then `OnCompleted` to parse the final payload and publish completion events. If a block is malformed, the sink applies the configured policy (`MalformedErrorEvents`, `MalformedReconstructText`, or `MalformedIgnore`) and still calls `OnCompleted` so extractors can surface errors.
 
 ## Extending the Event System
 

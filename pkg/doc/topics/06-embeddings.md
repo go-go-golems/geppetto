@@ -9,6 +9,8 @@ Topics:
 - ai
 - tutorial
 - semantic search
+- emrichen
+- templates
 Commands: []
 Flags: []
 IsTopLevel: true
@@ -28,7 +30,7 @@ The embeddings package is built around several key types:
 - `Provider`: Interface for generating embeddings from text
 - `EmbeddingModel`: Contains metadata about the embedding model being used
 - `CachedProvider`: In-memory LRU cache wrapper for embedding providers
-- `DiskCacheProvider`: Persistent disk-based cache for embedding providers
+- `DiskCacheProvider`: Persistent file-based cache for embedding providers
 - `SettingsFactory`: Creates embedding providers based on configuration
 
 Embeddings are numerical vector representations of text that capture semantic meaning, enabling operations like similarity comparison. These vectors typically contain hundreds or thousands of floating-point values.
@@ -41,6 +43,10 @@ The core interface that all embedding providers implement:
 type Provider interface {
     // GenerateEmbedding creates an embedding vector for the given text
     GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
+
+    // GenerateBatchEmbeddings creates embedding vectors for multiple texts at once
+    // This is typically more efficient than calling GenerateEmbedding repeatedly
+    GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error)
     
     // GetModel returns information about the embedding model being used
     GetModel() EmbeddingModel
@@ -166,9 +172,9 @@ func main() {
 }
 ```
 
-### Persistent Disk Caching
+### Persistent File Caching
 
-For long-running applications or CLI tools, disk caching can persist embeddings across runs:
+For long-running applications or CLI tools, file caching persists embeddings across runs. By default, the cache directory is `~/.geppetto/cache/embeddings/<model>` and can be overridden via settings or options.
 
 ```go
 package main
@@ -184,7 +190,7 @@ func main() {
     // Create a base provider
     provider := createBaseProvider() // Implementation omitted for brevity
     
-    // Create a disk cache provider with options
+    // Create a file-backed cache provider with options
     diskProvider, err := embeddings.NewDiskCacheProvider(
         provider,
         embeddings.WithDirectory("./cache/embeddings"),  // Custom directory
@@ -207,6 +213,111 @@ func main() {
     _ = diskProvider.ClearCache()
 }
 ```
+
+## Batch embeddings
+
+Use batch calls when you need multiple embeddings at once. Providers expose `GenerateBatchEmbeddings`, and the package ships helpers to parallelize if the provider does not support native batching.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/go-go-golems/geppetto/pkg/embeddings"
+)
+
+func main() {
+    provider := createProvider() // Implementation omitted for brevity
+
+    texts := []string{"one", "two", "three"}
+    vectors, err := provider.GenerateBatchEmbeddings(context.Background(), texts)
+    if err != nil {
+        fmt.Printf("batch embeddings error: %v\n", err)
+        return
+    }
+    fmt.Printf("generated %d vectors\n", len(vectors))
+}
+```
+
+If you only have `GenerateEmbedding`, use the helper:
+
+```go
+vectors, err := embeddings.ParallelGenerateBatchEmbeddings(ctx, provider, texts, 4)
+```
+
+## Caching via settings
+
+When using `EmbeddingsConfig`, the cache type is configured with `CacheType` and must be one of: `none`, `memory`, or `file`. The file cache uses the same on-disk store as `NewDiskCacheProvider` and defaults to `~/.geppetto/cache/embeddings/<model>` unless overridden.
+
+Common CLI flags mirror these settings:
+
+- `--embeddings-cache-type=none|memory|file`
+- `--embeddings-cache-max-size=<bytes>`
+- `--embeddings-cache-max-entries=<count>`
+- `--embeddings-cache-directory=/path/to/cache`
+
+## Using `!Embeddings` in Emrichen templates
+
+Emrichen templates can generate embeddings inline with the `!Embeddings` tag. The tag requires `text` and accepts an optional `config` mapping that mirrors provider options.
+
+### Basic usage
+
+```yaml
+embedding: !Embeddings
+  text: "Text to embed"
+```
+
+This uses the configured defaults from your `EmbeddingsConfig` (typically OpenAI with `text-embedding-3-small`).
+
+### Configuration overrides
+
+```yaml
+embedding: !Embeddings
+  text: "Text to embed"
+  config:
+    type: openai
+    engine: text-embedding-3-small
+    dimensions: 1536
+```
+
+Supported `config` keys:
+
+- `type`: `openai` or `ollama`
+- `engine`: model name
+- `dimensions`: required for Ollama providers
+- `base_url`: override provider base URL
+- `api_key`: override provider API key for this call
+
+### Examples
+
+OpenAI with a custom base URL:
+
+```yaml
+embedding: !Embeddings
+  text: "Text to embed"
+  config:
+    type: openai
+    engine: text-embedding-3-small
+    base_url: "https://api.mycompany.com/v1"
+```
+
+Ollama (local embeddings):
+
+```yaml
+embedding: !Embeddings
+  text: "Local embeddings"
+  config:
+    type: ollama
+    engine: all-minilm
+    dimensions: 384
+    base_url: "http://localhost:11434"
+```
+
+### API keys
+
+For OpenAI, set `OPENAI_API_KEY` in the environment or pass `api_key` in the tag config. Ollama typically does not require an API key unless your deployment enforces one.
 
 ## Working with Settings and Configuration
 
@@ -753,67 +864,6 @@ func main() {
         fmt.Println(err)
         os.Exit(1)
     }
-}
-```
-
-## Using Embeddings with LLM Agents
-
-The embeddings package integrates with Geppetto's LLM agents:
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    
-    "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/go-go-golems/geppetto/pkg/llm"
-)
-
-// LLMWithEmbeddings implements both LLM and embedding functionality
-type LLMWithEmbeddings struct {
-    llmProvider      llm.LLM
-    embeddingProvider embeddings.Provider
-}
-
-// Ensure it implements both interfaces
-var _ llm.LLM = &LLMWithEmbeddings{}
-var _ embeddings.Provider = &LLMWithEmbeddings{}
-
-// Generate delegates to the LLM provider
-func (l *LLMWithEmbeddings) Generate(ctx context.Context, messages []*conversation.Message) (string, error) {
-    return l.llmProvider.Generate(ctx, messages)
-}
-
-// GenerateWithStream delegates to the LLM provider
-func (l *LLMWithEmbeddings) GenerateWithStream(ctx context.Context, messages []*conversation.Message) (<-chan string, error) {
-    return l.llmProvider.GenerateWithStream(ctx, messages)
-}
-
-// GenerateEmbedding delegates to the embedding provider
-func (l *LLMWithEmbeddings) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
-    return l.embeddingProvider.GenerateEmbedding(ctx, text)
-}
-
-// GetModel returns the embedding model information
-func (l *LLMWithEmbeddings) GetModel() embeddings.EmbeddingModel {
-    return l.embeddingProvider.GetModel()
-}
-
-func main() {
-    // Create providers
-    llmProvider := createLLMProvider()
-    embeddingProvider := createEmbeddingProvider()
-    
-    // Create combined provider
-    combined := &LLMWithEmbeddings{
-        llmProvider:      llmProvider,
-        embeddingProvider: embeddingProvider,
-    }
-    
-    // Now you can use the combined provider with agents that need both capabilities
-    useWithAgent(combined)
 }
 ```
 

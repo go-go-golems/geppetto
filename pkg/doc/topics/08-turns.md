@@ -7,6 +7,8 @@ Topics:
 - turns
 - blocks
 - architecture
+- serialization
+- yaml
 IsTemplate: false
 IsTopLevel: true
 ShowPerDefault: true
@@ -33,7 +35,7 @@ import (
 - Run: `{ ID, Name, Metadata map[RunMetadataKey]any, Turns []Turn }`
 - Turn: `{ ID, RunID, Metadata map[TurnMetadataKey]any, Data map[TurnDataKey]any, Blocks []Block }`
 - Block: `{ ID, TurnID, Kind, Role, Payload map[string]any, Metadata map[BlockMetadataKey]any }`
-- BlockKind: `User`, `LLMText`, `ToolCall`, `ToolUse`, `System`, `Other`
+- BlockKind: `User`, `LLMText`, `ToolCall`, `ToolUse`, `System`, `Reasoning`, `Other`
 
 **Note:** Map keys (`TurnDataKey`, `TurnMetadataKey`, `BlockMetadataKey`, `RunMetadataKey`) are typed in Go for compile-time safety, but serialize as strings in YAML. Use typed constants (e.g., `turns.DataKeyToolConfig`) rather than string literals.
 
@@ -47,11 +49,94 @@ import (
 - `turns.WithBlockMetadata(b Block, kvs map[BlockMetadataKey]any) Block` - Return block with metadata added
 - `turns.HasBlockMetadata(b Block, key BlockMetadataKey, value string) bool` - Check if block has metadata key/value
 - `turns.RemoveBlocksByMetadata(t *Turn, key BlockMetadataKey, values ...string) int` - Remove blocks by metadata
-- Payload keys: `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`
+- Payload keys: `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`, `turns.PayloadKeyImages`, `turns.PayloadKeyEncryptedContent`, `turns.PayloadKeyItemID`
 - Data keys: `turns.DataKeyToolConfig`
-- Conversion:
-  - `turns.BuildConversationFromTurn(t)`
-  - `turns.BlocksFromConversationDelta(conv, startIdx)`
+
+### Serialization (YAML)
+
+Turns and blocks can be serialized to a stable, human-readable YAML format via `geppetto/pkg/turns/serde`. The serializer uses snake_case field names and string block kinds, making fixtures easy to read and diff.
+
+#### Data model
+
+- Turn fields: `id`, `run_id`, `blocks`, `metadata`, `data`
+- Block fields: `id`, `turn_id`, `kind`, `role`, `payload`, `metadata`
+
+Block kinds serialize as lowercase strings:
+
+- `user`, `llm_text`, `tool_call`, `tool_use`, `system`, `reasoning`, `other`
+
+Common payload keys:
+
+- Text blocks: `text`
+- Tool call: `id`, `name`, `args`
+- Tool use: `id`, `result`
+- Reasoning: `encrypted_content`, `item_id` (optional)
+
+#### Examples
+
+Plain chat:
+
+```yaml
+version: 1
+id: turn_001
+run_id: run_abc
+blocks:
+  - kind: system
+    role: system
+    payload: { text: "You are a LLM." }
+  - kind: user
+    role: user
+    payload: { text: "Say hi." }
+metadata: {}
+data: {}
+```
+
+Reasoning + assistant output:
+
+```yaml
+version: 1
+id: turn_reasoning
+blocks:
+  - kind: reasoning
+    id: rs_123
+    payload:
+      encrypted_content: gAAAAA...
+  - kind: llm_text
+    role: assistant
+    payload:
+      text: "Hello!"
+```
+
+Tool call and result:
+
+```yaml
+version: 1
+id: turn_tools
+blocks:
+  - kind: tool_call
+    payload:
+      id: fc_1
+      name: search
+      args: { q: "golang" }
+  - kind: tool_use
+    payload:
+      id: fc_1
+      result: { hits: 10 }
+```
+
+#### Serde helpers
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/turns/serde"
+
+if err := serde.SaveTurnYAML("turn.yaml", t, serde.Options{OmitData: false}); err != nil {
+    panic(err)
+}
+loaded, err := serde.LoadTurnYAML("turn.yaml")
+if err != nil { panic(err) }
+```
+
+The serde package normalizes defaults (for example, `llm_text` blocks default to `assistant` role) and preserves unknown kinds as `other`. Use YAML fixtures in `testdata/` or `fixtures/` folders for regression tests and offline analysis.
 
 ### Engine mapping
 
@@ -114,5 +199,3 @@ ctx = toolcontext.WithRegistry(ctx, reg)
 - Normalizes provider differences into a common structure
 - Enables powerful middleware without parsing opaque text
 - Clean separation between provider I/O (engines) and orchestration (middleware)
-
-
