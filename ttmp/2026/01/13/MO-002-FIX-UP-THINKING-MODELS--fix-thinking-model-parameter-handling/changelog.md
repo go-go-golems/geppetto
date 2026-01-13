@@ -49,3 +49,12 @@ Step 5: Render thinking events in pinocchio chat UI (commit 7b38883).
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/backend.go — Handle thinking-started/ended and reasoning summary deltas.
 
+
+## 2026-01-13
+
+Step 6: Add thinking semantic mappings in web chat forwarder (commit df87f75).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/forwarder.go — Emit llm.thinking semantic frames.
+

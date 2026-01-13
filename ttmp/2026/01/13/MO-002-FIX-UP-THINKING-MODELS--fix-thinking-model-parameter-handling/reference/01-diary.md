@@ -250,3 +250,42 @@ The changes are limited to the UI event handler: thinking-started/ended info eve
 
 ### Technical details
 - Commit: `7b38883`
+
+## Step 6: Add web chat semantic mappings for thinking events
+
+I extended the web chat semantic forwarder to emit dedicated thinking start/delta/final frames. This mirrors the new chat UI behavior and ensures the browser UI can observe reasoning summary streams coming from the Responses API.
+
+The mapping uses a separate `:thinking` entity id suffix and treats the `reasoning-summary` info event as a delta update with cumulative text, so UIs can render the final summary even if they do not process the raw SSE events.
+
+**Commit (code):** df87f75 — "Map thinking events for web chat"
+
+### What I did
+- Updated `pinocchio/pkg/webchat/forwarder.go` to map `EventThinkingPartial` and `EventInfo` thinking events into SEM frames.
+- Committed the web chat forwarder change.
+
+### Why
+- Web chat UIs currently drop Responses reasoning summary events and never expose the thinking stream.
+
+### What worked
+- The forwarder now emits `llm.thinking.*` frames suitable for UI consumption.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The web chat forwarder only had LLM text and tool events; it needed explicit thinking events to surface reasoning summary streams.
+
+### What was tricky to build
+- Choosing event naming that stays consistent with existing `llm.*` semantics while avoiding ID collisions with assistant output.
+
+### What warrants a second pair of eyes
+- Confirm the client UI can safely ignore or consume `llm.thinking.*` events without breaking existing flows.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `pinocchio/pkg/webchat/forwarder.go` for the new `EventInfo` and `EventThinkingPartial` cases.
+
+### Technical details
+- Commit: `df87f75`
