@@ -17,14 +17,21 @@ RelatedFiles:
       Note: Repro steps for GPT-5 runs.
     - Path: geppetto/pkg/steps/ai/openai/helpers.go
       Note: Chat-mode request parameter gating for reasoning models.
+    - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
+      Note: Source of Responses SSE event emission.
     - Path: geppetto/pkg/steps/ai/openai_responses/helpers.go
       Note: Responses request parameter gating (sampling params).
+    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md
+      Note: Detailed analysis of Responses thinking stream event flow.
+    - Path: pinocchio/pkg/ui/backend.go
+      Note: Default chat UI handler drops thinking events.
 ExternalSources: []
 Summary: Track fixes for thinking-model parameter handling in chat vs responses engines.
 LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Capture investigation and code changes for GPT-5/o-series parameter gating.
 WhenToUse: Use when validating reasoning model support and engine request building.
 ---
+
 
 
 # Diary
@@ -159,3 +166,87 @@ This step focused on runtime behavior rather than code changes, confirming that 
 
 ### Technical details
 - tmux session: `gpt5-resp` (captured output shows completion).
+
+## Step 4: Trace Responses thinking events through pinocchio chat UI
+
+I reproduced the pinocchio chat flow with GPT-5-mini and Responses API while logging at DEBUG to a file. The logs showed the Responses engine emitting many thinking-summary deltas and info events before the assistant message stream, but the default pinocchio chat UI handler ignores those event types, so they never render in the timeline.
+
+I then wrote a dedicated analysis doc that maps the event path from Responses SSE to the Bubble Tea UI, contrasts it with the agent tool-loop UI (which does render thinking events), and calls out the web chat forwarder dropping those events entirely. This explains why the frontend appears idle or "confused" when thinking streams are present.
+
+**Commit (code):** N/A (docs and analysis only)
+
+### What I did
+- Ran `go run ./cmd/pinocchio code professional "hello" --ai-engine gpt-5-mini --chat --ai-api-type openai-responses --log-level DEBUG --log-file /tmp/pinocchio-gpt5-debug.log --with-caller` in tmux.
+- Scanned `/tmp/pinocchio-gpt5-debug.log` for thinking and reasoning events.
+- Read UI forwarders and response engine code to map the event flow.
+- Wrote the analysis doc at `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md`.
+
+### Why
+- We needed to explain the mismatch between Responses thinking streams and what the pinocchio chat UI renders.
+
+### What worked
+- Logs confirmed the engine emits `EventInfo` and `EventThinkingPartial` events that reach the UI handler.
+- The analysis doc captures where the events are dropped and why the UI appears idle.
+
+### What didn't work
+- I could not reproduce a user-visible error message in the log file; the debug log contained no error lines.
+
+### What I learned
+- The default pinocchio chat UI handler only renders partial completion events and ignores thinking/info events.
+- The agent tool-loop UI already has the logic to render thinking streams, so it is a good reference for the fix.
+
+### What was tricky to build
+- Tracing handler selection in `runtime.NewChatBuilder()` to confirm the default event forwarder in chat mode.
+
+### What warrants a second pair of eyes
+- Validate the hypothesis that the reported transient error lives outside the `--log-file` output and confirm any additional event types that should be surfaced in the UI.
+
+### What should be done in the future
+- If we decide to fix the UX, add thinking/info handling to the default chat UI forwarder and web chat mapping (with a visibility toggle if needed).
+
+### Code review instructions
+- Start with `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md` for the event path map.
+- Spot-check `pinocchio/pkg/ui/backend.go` and `geppetto/pkg/steps/ai/openai_responses/engine.go` to see where thinking events are emitted and dropped.
+
+### Technical details
+- Debug log: `/tmp/pinocchio-gpt5-debug.log`
+- tmux session: `pinocchio-gpt5`
+
+## Step 5: Render thinking events in the default pinocchio chat UI
+
+I extended the default pinocchio chat UI event forwarder to surface Responses "thinking" streams as a separate timeline entity. This mirrors the behavior already present in the agent tool-loop UI and makes the GPT-5 reasoning summary deltas visible during chat runs.
+
+The changes are limited to the UI event handler: thinking-started/ended info events now open/close a "thinking" entity, and EventThinkingPartial updates its text. This should prevent the UI from appearing idle while the Responses engine streams reasoning summary deltas.
+
+**Commit (code):** 7b38883 — "Handle thinking events in chat UI"
+
+### What I did
+- Updated `pinocchio/pkg/ui/backend.go` to handle `EventInfo` thinking-started/ended and `EventThinkingPartial`.
+- Committed the pinocchio UI change.
+
+### Why
+- The default chat UI was ignoring Responses reasoning summary events, making the UI look idle even though events were streaming.
+
+### What worked
+- The forwarder now creates and updates a dedicated thinking timeline entity during Responses runs.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The default chat UI path lacked the same thinking-stream handling that the agent tool-loop UI already had.
+
+### What was tricky to build
+- Keeping the handling minimal without introducing duplicate entity creation across event types.
+
+### What warrants a second pair of eyes
+- Confirm the event ordering guarantees (thinking-started before partial deltas) across providers.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `pinocchio/pkg/ui/backend.go` for the new thinking event cases.
+
+### Technical details
+- Commit: `7b38883`

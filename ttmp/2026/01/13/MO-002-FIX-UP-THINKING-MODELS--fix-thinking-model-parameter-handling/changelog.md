@@ -31,3 +31,21 @@ Step 3: Run GPT-5 Responses example in tmux; completed successfully (no code cha
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/openai-tools/main.go — Validated GPT-5 responses run using server-tools mode.
 
+
+## 2026-01-13
+
+Step 4: Document Responses thinking stream event flow and pinocchio UI gap (no code changes).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/01-responses-thinking-stream-event-flow.md — Analysis of event path and UI mismatch.
+
+
+## 2026-01-13
+
+Step 5: Render thinking events in pinocchio chat UI (commit 7b38883).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/backend.go — Handle thinking-started/ended and reasoning summary deltas.
+
