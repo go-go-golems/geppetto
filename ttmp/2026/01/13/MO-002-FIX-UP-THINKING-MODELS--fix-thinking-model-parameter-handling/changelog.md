@@ -94,3 +94,12 @@ Step 10: Add turn mutation analysis across pinocchio and moments webchat.
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md — New analysis doc.
 
+
+## 2026-01-13
+
+Step 11: Draft unified conversation handling design doc.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md — Design proposal.
+

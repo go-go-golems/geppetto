@@ -27,6 +27,8 @@ RelatedFiles:
       Note: Detailed turn/block ordering analysis.
     - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md
       Note: Cross-system turn mutation analysis.
+    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md
+      Note: Unified conversation handling design.
     - Path: pinocchio/pkg/ui/backend.go
       Note: Default chat UI handler drops thinking events.
 ExternalSources: []
@@ -35,6 +37,7 @@ LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Capture investigation and code changes for GPT-5/o-series parameter gating.
 WhenToUse: Use when validating reasoning model support and engine request building.
 ---
+
 
 
 
@@ -453,6 +456,43 @@ This provides the basis for diagnosing block adjacency problems under the Respon
 
 ### Code review instructions
 - Start in `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/03-turn-mutation-across-pinocchio-and-moments.md`.
+
+### Technical details
+- N/A
+
+## Step 11: Draft unified conversation handling design
+
+I drafted a design document that unifies conversation handling across geppetto, pinocchio, and moments. It explains why `reduceHistory` is a bug, proposes a shared `ConversationState` API in geppetto, and outlines migration steps for CLI chat, pinocchio webchat, and moments webchat. The doc includes diagrams, pseudocode, and explicit file references.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Wrote the design doc at `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md`.
+- Related the primary pinocchio and moments source files that drive turn mutation and ordering.
+
+### Why
+- We need a single, consistent conversation model to avoid Responses ordering failures and duplicated blocks.
+
+### What worked
+- The design articulates a shared ConversationState and a staged migration plan for each repo.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The current divergence across repos is mostly a lack of shared state semantics, not engine behavior.
+
+### What was tricky to build
+- Balancing a unified abstraction with repo-specific middleware behavior (ordering, compression, prompt injection).
+
+### What warrants a second pair of eyes
+- Validate the proposed snapshot rules against non-Responses providers to ensure no regressions.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start in `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/design-doc/01-unified-conversation-handling-across-repos.md`.
 
 ### Technical details
 - N/A
