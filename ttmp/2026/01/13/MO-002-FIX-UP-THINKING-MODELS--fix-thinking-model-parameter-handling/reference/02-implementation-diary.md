@@ -467,7 +467,7 @@ Based on the DebugTap evidence, I updated the Responses engine to store the outp
 
 This confirms the missing message item ID was the root cause of the “reasoning without required following item” error.
 
-**Commit (code):** N/A (pending)
+**Commit (code):** c7a9569 — "Add webchat reasoning bug report"
 
 ### What I did
 - Captured output message item IDs from Responses SSE (`response.output_item.added` and `response.output_item.done`).

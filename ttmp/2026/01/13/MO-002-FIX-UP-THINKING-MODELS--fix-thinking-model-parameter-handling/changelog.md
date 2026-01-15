@@ -216,7 +216,7 @@ Step 11: preserve Responses message item IDs for reasoning follow-ups (commit 81
 
 ## 2026-01-14
 
-Step 12: write full bug report for webchat reasoning follower failure (pending commit)
+Step 12: write full bug report for webchat reasoning follower failure (commit c7a9569)
 
 ### Related Files
 
