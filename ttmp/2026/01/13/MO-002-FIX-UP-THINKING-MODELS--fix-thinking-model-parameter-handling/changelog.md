@@ -175,3 +175,12 @@ Step 7: commit webchat migration and mark task complete (commit 068df4f)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — ConversationState snapshot/run loop migration.
 
+
+## 2026-01-14
+
+Step 8: add multi-turn Responses reasoning test (commit f69b970)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers_test.go — Multi-turn reasoning regression test.
+

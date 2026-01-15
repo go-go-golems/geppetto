@@ -23,6 +23,8 @@ RelatedFiles:
       Note: ConversationState snapshot and validation implementation.
     - Path: pkg/conversation/state_test.go
       Note: Validation tests for reasoning adjacency and tool pairing.
+    - Path: pkg/steps/ai/openai_responses/helpers_test.go
+      Note: Responses multi-turn reasoning regression test.
     - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md
       Note: Task status tracking for ConversationState work.
 ExternalSources: []
@@ -31,6 +33,7 @@ LastUpdated: 2026-01-13T17:47:06.972001399-05:00
 WhatFor: Track the implementation steps for the shared conversation-state package and migrations.
 WhenToUse: Use during active implementation work on MO-002 tasks.
 ---
+
 
 
 
@@ -161,6 +164,46 @@ I was able to stage and commit the pinocchio webchat ConversationState migration
 ### Code review instructions
 - Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go`.
 - Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md`.
+
+### Technical details
+- Pre-commit ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run -v --max-same-issues=100`, `go vet -vettool=/tmp/geppetto-lint ./...`
+
+## Step 8: Add multi-turn Responses reasoning regression test
+
+I added a regression test that covers multi-turn reasoning ordering in the Responses input builder. The test ensures a reasoning+assistant pair from a prior turn remains valid when followed by a new user message, matching the multi-turn sequence that triggered Responses API validation errors earlier.
+
+I also marked the regression-test task complete in the ticket task list.
+
+**Commit (code):** f69b970 — "Add Responses multi-turn reasoning test"
+
+### What I did
+- Added `TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser` in `helpers_test.go`.
+- Marked task 6 complete in the MO-002 task list.
+
+### Why
+- We need a guardrail test to prevent regressions in Responses ordering for multi-turn conversations.
+
+### What worked
+- The new test passes and pre-commit succeeded.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The Responses builder correctly emits reasoning + assistant message followed by subsequent user messages.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Confirm the test captures the exact ordering sequence we saw in the Responses 400 error.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers_test.go`.
 - Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md`.
 
 ### Technical details
