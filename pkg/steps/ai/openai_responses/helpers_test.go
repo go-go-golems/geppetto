@@ -75,3 +75,36 @@ func TestBuildInputItemsFromTurn_ReasoningWithAssistantFollower(t *testing.T) {
 		t.Fatalf("assistant item content must be output_text")
 	}
 }
+
+func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_1", Payload: map[string]any{
+		turns.PayloadKeyEncryptedContent: "gAAAAA...",
+	}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Question"),
+		rs,
+		turns.NewAssistantTextBlock("Answer"),
+		turns.NewUserTextBlock("Follow-up"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 5 {
+		t.Fatalf("expected 5 items, got %d", len(got))
+	}
+	if got[0].Role != "system" || got[0].Type != "" {
+		t.Fatalf("first item must be system role message")
+	}
+	if got[1].Role != "user" || got[1].Type != "" {
+		t.Fatalf("second item must be user role message")
+	}
+	if got[2].Type != "reasoning" {
+		t.Fatalf("third item must be reasoning")
+	}
+	if got[3].Type != "message" || got[3].Role != "assistant" {
+		t.Fatalf("fourth item must be assistant item-based message")
+	}
+	if got[4].Role != "user" || got[4].Type != "" {
+		t.Fatalf("fifth item must be follow-up user role message")
+	}
+}
