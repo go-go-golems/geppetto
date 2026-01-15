@@ -13,6 +13,10 @@ Owners: []
 RelatedFiles:
     - Path: ../../../../../../../pinocchio/pkg/ui/backend.go
       Note: ConversationState migration replacing reduceHistory.
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
+      Note: ConversationState migration for webchat state storage.
+    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
+      Note: Webchat snapshot/run loop update to use ConversationState.
     - Path: pkg/conversation/mutations.go
       Note: ConversationState mutations and system prompt enforcement.
     - Path: pkg/conversation/state.go
@@ -27,6 +31,8 @@ LastUpdated: 2026-01-13T17:47:06.972001399-05:00
 WhatFor: Track the implementation steps for the shared conversation-state package and migrations.
 WhenToUse: Use during active implementation work on MO-002 tasks.
 ---
+
+
 
 
 
@@ -76,6 +82,89 @@ I created a new implementation diary and began scoping the ConversationState pac
 
 ### Technical details
 - N/A
+
+## Step 6: Migrate pinocchio webchat to ConversationState (pending commit)
+
+I switched the pinocchio webchat flow from mutating `conv.Turn` to snapshotting and updating a ConversationState. The router now builds a snapshot with the user prompt, and the conversation state is updated from the tool loop result while filtering out system prompt middleware blocks to avoid prompt duplication across turns.
+
+The code changes are complete and tests pass when using a writable `GOCACHE`, but I could not stage or commit because the pinocchio worktree’s git directory is not writable in this environment. I will need permission or a fix to the worktree git dir before committing.
+
+**Commit (code):** N/A (blocked by git permission)
+
+### What I did
+- Updated `pinocchio/pkg/webchat/conversation.go` to store ConversationState and added snapshot/update helpers.
+- Updated `pinocchio/pkg/webchat/router.go` to run the tool loop on snapshot turns and update state from results.
+- Filtered system prompt middleware blocks when persisting state to avoid prompt duplication.
+
+### Why
+- Webchat must stop mutating cumulative Turns and avoid Responses ordering errors from duplicated blocks.
+
+### What worked
+- `go test ./...` succeeded with `GOCACHE=/tmp/go-build-pinocchio`.
+
+### What didn't work
+- Initial `go test ./...` failed with:
+  - `open /home/manuel/.cache/go-build/...: permission denied`
+- Attempting to stage changes failed:
+  - `fatal: Unable to create '/home/manuel/code/wesen/corporate-headquarters/.git/modules/pinocchio/worktrees/pinocchio22/index.lock': Permission denied`
+
+### What I learned
+- The pinocchio worktree git dir is not writable from this environment; we need to fix permissions before committing.
+
+### What was tricky to build
+- Preserving canonical state while avoiding system prompt duplication from middleware.
+
+### What warrants a second pair of eyes
+- Confirm filtering only `middleware=systemprompt` blocks is safe for all webchat profiles.
+
+### What should be done in the future
+- Resolve the pinocchio worktree git permissions and commit the webchat migration.
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go`.
+
+### Technical details
+- Test: `GOCACHE=/tmp/go-build-pinocchio go test ./...`
+
+## Step 7: Commit webchat migration and update tasks
+
+I was able to stage and commit the pinocchio webchat ConversationState migration once git permissions were restored. I then marked the webchat migration task complete in the ticket task list.
+
+**Commit (code):** 068df4f — "Migrate webchat to ConversationState"
+
+### What I did
+- Committed the webchat ConversationState migration in pinocchio.
+- Marked task 5 complete in the MO-002 task list.
+
+### Why
+- The webchat migration is now complete and validated, so the task list should reflect it.
+
+### What worked
+- Pinocchio pre-commit succeeded after the commit.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Review the system prompt block filtering logic to ensure it does not suppress non-middleware system blocks.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md`.
+
+### Technical details
+- Pre-commit ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run -v --max-same-issues=100`, `go vet -vettool=/tmp/geppetto-lint ./...`
 
 ## Step 4: Migrate pinocchio CLI chat to ConversationState
 

@@ -157,3 +157,21 @@ Step 5: mark pinocchio CLI migration task complete
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md — Checked task 4.
 
+
+## 2026-01-14
+
+Step 6: migrate pinocchio webchat to ConversationState (commit blocked)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Snapshot prompt + update state from tool loop (pending commit).
+
+
+## 2026-01-14
+
+Step 7: commit webchat migration and mark task complete (commit 068df4f)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — ConversationState snapshot/run loop migration.
+
