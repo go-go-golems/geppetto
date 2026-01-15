@@ -252,6 +252,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		finalCalls := []pendingCall{}
 		// Track latest encrypted reasoning content observed during this response
 		var latestEncryptedContent string
+		var latestMessageItemID string
 		log.Trace().Msg("Responses: starting SSE read loop")
 		// Redact helper for sensitive fields when logging SSE payloads
 		redactString := func(s string) string {
@@ -322,7 +323,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							}
 						case "message":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
-							// capture message item id if needed in future
+							if v, ok := it["id"].(string); ok && v != "" {
+								latestMessageItemID = v
+							}
 						case "web_search_call":
 							itemID := ""
 							if v, ok := it["id"].(string); ok {
@@ -463,6 +466,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							}
 						case "message":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+							if v, ok := it["id"].(string); ok && v != "" {
+								latestMessageItemID = v
+							}
 							if tap != nil {
 								tap.OnProviderObject("output.message", it)
 							}
@@ -699,7 +705,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		dm := int64(d)
 		metadata.DurationMs = &dm
 		if strings.TrimSpace(message) != "" {
-			turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+			ab := turns.NewAssistantTextBlock(message)
+			if latestMessageItemID != "" {
+				if ab.Payload == nil {
+					ab.Payload = map[string]any{}
+				}
+				ab.Payload[turns.PayloadKeyItemID] = latestMessageItemID
+			}
+			turns.AppendBlock(t, ab)
 		}
 		// Append tool_call blocks captured via Responses API
 		for _, pc := range finalCalls {
@@ -748,6 +761,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		return nil, err
 	}
 	var message string
+	latestMessageItemID := ""
 	for _, oi := range rr.Output {
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
@@ -757,6 +771,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 			turns.AppendBlock(t, b)
 		}
+		if oi.Type == "message" && oi.ID != "" {
+			latestMessageItemID = oi.ID
+		}
 		for _, c := range oi.Content {
 			if c.Type == "output_text" || c.Type == "text" {
 				message += c.Text
@@ -764,7 +781,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 	}
 	if strings.TrimSpace(message) != "" {
-		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+		ab := turns.NewAssistantTextBlock(message)
+		if latestMessageItemID != "" {
+			if ab.Payload == nil {
+				ab.Payload = map[string]any{}
+			}
+			ab.Payload[turns.PayloadKeyItemID] = latestMessageItemID
+		}
+		turns.AppendBlock(t, ab)
 	}
 	d := time.Since(startTime).Milliseconds()
 	dm := int64(d)

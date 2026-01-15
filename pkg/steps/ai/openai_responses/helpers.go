@@ -292,10 +292,12 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 				// Build item-based assistant message
 				if v, ok := next.Payload[turns.PayloadKeyText]; ok && v != nil {
 					if s, ok2 := v.(string); ok2 && strings.TrimSpace(s) != "" {
+						msgID, _ := next.Payload[turns.PayloadKeyItemID].(string)
 						items = append(items, ri)
 						items = append(items, responsesInput{
 							Type:    "message",
 							Role:    "assistant",
+							ID:      msgID,
 							Content: []responsesContentPart{{Type: "output_text", Text: s}},
 						})
 						includedReasoning = true
