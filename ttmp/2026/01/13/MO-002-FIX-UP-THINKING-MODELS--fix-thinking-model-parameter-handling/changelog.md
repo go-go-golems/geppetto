@@ -184,3 +184,31 @@ Step 8: add multi-turn Responses reasoning test (commit f69b970)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers_test.go — Multi-turn reasoning regression test.
 
+
+## 2026-01-14
+
+Step 9: add webchat snapshot hook and reasoning ordering analysis (commit 076040a)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Snapshot hook for debugging reasoning ordering.
+
+
+## 2026-01-14
+
+Step 10: add DebugTap wiring for webchat /chat route (commit f9c0413)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Attach DebugTap and run sequence in base /chat handler.
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go — Track per-conversation run sequence.
+
+
+## 2026-01-14
+
+Step 11: preserve Responses message item IDs for reasoning follow-ups (commit 81c8a8f)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine.go — Capture and persist message output item IDs.
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers.go — Emit message item IDs when pairing reasoning with assistant output.

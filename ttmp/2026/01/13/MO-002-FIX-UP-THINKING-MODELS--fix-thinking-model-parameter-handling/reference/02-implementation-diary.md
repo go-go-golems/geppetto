@@ -16,7 +16,9 @@ RelatedFiles:
     - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
       Note: ConversationState migration for webchat state storage.
     - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
-      Note: Webchat snapshot/run loop update to use ConversationState.
+      Note: |-
+        Webchat snapshot/run loop update to use ConversationState.
+        Webchat snapshot hook for turn ordering debug.
     - Path: pkg/conversation/mutations.go
       Note: ConversationState mutations and system prompt enforcement.
     - Path: pkg/conversation/state.go
@@ -33,6 +35,7 @@ LastUpdated: 2026-01-13T17:47:06.972001399-05:00
 WhatFor: Track the implementation steps for the shared conversation-state package and migrations.
 WhenToUse: Use during active implementation work on MO-002 tasks.
 ---
+
 
 
 
@@ -169,6 +172,46 @@ I was able to stage and commit the pinocchio webchat ConversationState migration
 ### Technical details
 - Pre-commit ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run -v --max-same-issues=100`, `go vet -vettool=/tmp/geppetto-lint ./...`
 
+## Step 9: Add webchat turn snapshot hooks and start ordering analysis
+
+I added snapshot hook wiring to pinocchio webchat so we can capture Turn ordering across inference phases and diagnose the Responses reasoning adjacency failure on the second prompt. I also started a detailed analysis doc that outlines the ordering contract, suspected failure points, and the concrete debug plan.
+
+This gives us the tooling to capture the exact block ordering that triggered the 400 error and should make it clear whether the issue is in Turn construction or in the Responses input builder.
+
+**Commit (code):** 076040a — "Add webchat turn snapshot hook"
+
+### What I did
+- Added a snapshot hook in the webchat run loop, gated by `PINOCCHIO_WEBCHAT_TURN_SNAPSHOTS_DIR`.
+- Wrote a new analysis doc covering reasoning ordering hypotheses and the snapshot-based debug plan.
+
+### Why
+- We need concrete evidence of block ordering before inference to pinpoint why Responses sees a reasoning item without a valid follower.
+
+### What worked
+- The instrumentation is in place to dump YAML snapshots per phase.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The error can only be resolved by inspecting the exact Turn ordering that the Responses builder sees.
+
+### What was tricky to build
+- Keeping the snapshot hook non-invasive and disabled by default.
+
+### What warrants a second pair of eyes
+- Validate that the snapshot hook captures enough metadata to diagnose reasoning adjacency.
+
+### What should be done in the future
+- Capture snapshots for a failing run and update the analysis with concrete block ordering.
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/05-webchat-reasoning-ordering-debug.md`.
+
+### Technical details
+- Env var: `PINOCCHIO_WEBCHAT_TURN_SNAPSHOTS_DIR=/tmp/pinocchio-webchat-snapshots`
+
 ## Step 8: Add multi-turn Responses reasoning regression test
 
 I added a regression test that covers multi-turn reasoning ordering in the Responses input builder. The test ensures a reasoning+assistant pair from a prior turn remains valid when followed by a new user message, matching the multi-turn sequence that triggered Responses API validation errors earlier.
@@ -284,6 +327,183 @@ I marked the pinocchio CLI migration task complete in the MO-002 task list now t
 
 ### Technical details
 - N/A
+
+## Step 10: Reproduce the webchat reasoning ordering 400 and capture snapshots
+
+I reproduced the second-prompt failure in the pinocchio webchat flow using a local server, DEBUG logging, and snapshot hooks. The logs and snapshots show that a reasoning block from the prior turn is present in the next request, and the Responses API rejects it with a “reasoning item without required following item” error even though an assistant text block appears adjacent in the Turn snapshot.
+
+This gives us concrete artifacts (log lines, pre-inference snapshots, and request previews) that we can analyze to determine whether the conversion to Responses input is emitting an item-based follower correctly.
+
+**Commit (code):** N/A (debug run only)
+
+### What I did
+- Started `cmd/web-chat` with debug logging, file output, and snapshot hooks.
+- Sent two `/chat` requests for a fixed `conv_id` to reproduce the second-turn failure.
+- Inspected the snapshot YAML and debug logs to confirm block ordering and request previews.
+
+### Why
+- We need evidence of the exact Turn ordering and the resulting Responses input to resolve the 400 error.
+
+### What worked
+- Snapshot files were written under `/tmp/pinocchio-turns/...` for pre/post inference.
+- The 400 error reproduced reliably on the second prompt.
+
+### What didn't work
+- Initial attempt to run the server failed with `Error: unknown flag: --addr` because the `web-chat` subcommand was missing in the `go run` invocation.
+
+### What I learned
+- The pre-inference snapshot for the second prompt includes a reasoning block directly after the first user message, followed by the assistant text and the new user message.
+- The Responses request preview logs include an “empty role” item (the reasoning input item) followed by the assistant text, yet the provider still reports the reasoning item missing a required follower.
+
+### What was tricky to build
+- Capturing a faithful, deterministic reproduction required forcing a stable `conv_id` and running with log file output to avoid losing the error message in streaming output.
+
+### What warrants a second pair of eyes
+- Verify the Responses input builder emits a `type:"message"` follower for reasoning, not a role-only message, for the webchat flow.
+
+### What should be done in the future
+- Add provider request capture (DebugTap or equivalent) in webchat to confirm the exact JSON sent to the Responses API.
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go` for snapshot hook wiring.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers.go` for reasoning follower construction.
+
+### Technical details
+- Server: `PINOCCHIO_WEBCHAT_TURN_SNAPSHOTS_DIR=/tmp/pinocchio-turns go run ./cmd/web-chat --log-level debug --with-caller --log-file /tmp/pinocchio-webchat.log web-chat --addr :8090 --ai-api-type openai-responses --ai-engine gpt-5-mini --ai-max-response-tokens 512`
+- First request: `curl -s -X POST http://localhost:8090/chat -H 'Content-Type: application/json' -d '{"prompt":"hello","conv_id":"conv-debug","overrides":{}}'`
+- Second request: `curl -s -X POST http://localhost:8090/chat -H 'Content-Type: application/json' -d '{"prompt":"What is going on here?","conv_id":"conv-debug","overrides":{}}'`
+- Error: `responses api error: status=400 body=map[error:map[code:<nil> message:Item 'rs_0d9e28e2601088af0069685aea1dc481939e2349982e2299d5' of type 'reasoning' was provided without its required following item. param:input type:invalid_request_error]]`
+
+## Step 11: Add DebugTap capture to webchat and retry reproduction
+
+I added a DebugTap hook to the webchat run loop to capture the exact JSON request payload sent to the Responses API, including the item-based reasoning entries that are not visible in the existing input preview logs. I then restarted the webchat server with the new debug tap directory configured and reproduced the 400 on the second prompt.
+
+This was intended to produce a raw request dump so we can verify whether the reasoning item is followed by a proper `type:"message"` item, but the debug tap directory did not appear yet, so we still need to confirm why the tap is not emitting files.
+
+**Commit (code):** f9c0413 — "Add webchat debug tap wiring for /chat"
+
+### What I did
+- Added `PINOCCHIO_WEBCHAT_DEBUG_TAP_DIR` handling in the webchat run loop to attach a DebugTap.
+- Restarted the server and reproduced the second-prompt 400 with a new `conv_id`.
+- Checked `/tmp/pinocchio-debugtap` for raw request outputs.
+
+### Why
+- The Responses input preview logs omit item-based entries, so we need the full JSON body to verify the reasoning follower ordering.
+
+### What worked
+- The 400 error is reproducible with the updated code and a stable `conv_id`.
+- Snapshot capture continues to work as expected.
+
+### What didn't work
+- No debug tap output appeared under `/tmp/pinocchio-debugtap`, so we still lack the raw request body.
+
+### What I learned
+- The bug persists even when reasoning blocks are adjacent to assistant text in the Turn snapshots, suggesting a mismatch between Turn structure and Responses input encoding.
+
+### What was tricky to build
+- Coordinating the debug tap with the run loop context while keeping the hook opt-in.
+
+### What warrants a second pair of eyes
+- Verify the DebugTap is correctly attached to the engine context and that the OpenAI Responses engine calls the tap during request construction.
+
+### What should be done in the future
+- Add a lightweight log line in the DebugTap hook to confirm it is installed and emitting files.
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go`.
+
+### Technical details
+- Server: `PINOCCHIO_WEBCHAT_TURN_SNAPSHOTS_DIR=/tmp/pinocchio-turns PINOCCHIO_WEBCHAT_DEBUG_TAP_DIR=/tmp/pinocchio-debugtap go run ./cmd/web-chat --log-level debug --with-caller --log-file /tmp/pinocchio-webchat.log web-chat --addr :8090 --ai-api-type openai-responses --ai-engine gpt-5-mini --ai-max-response-tokens 512`
+- Requests: `conv_id=conv-debug-2`, prompts `hello` then `What is going on here?`
+- Error: `responses api error: status=400 ... Item 'rs_08f2683047872dd80069685df0e2248193a0ec7e66f1a60419' of type 'reasoning' was provided without its required following item.`
+
+## Step 12: DebugTap works after wiring the base /chat handler
+
+I realized the DebugTap code was only wired into the `/chat/{profile}` handler, while the UI (and my curl tests) were hitting the base `/chat` route. I mirrored the DebugTap wiring and run sequence increment there, restarted the server in tmux, and confirmed the tap was enabled via debug logs.
+
+With the tap output available, I captured the raw HTTP request body and confirmed that the reasoning item is followed by a message item, but the message item has no `id`. That missing ID appears to be the actual reason the provider rejects the reasoning item.
+
+**Commit (code):** 81c8a8f — "Preserve Responses message item IDs"
+
+### What I did
+- Added DebugTap wiring and run sequence tracking to the base `/chat` handler.
+- Restarted `cmd/web-chat` in tmux and reproduced the second-turn failure with a new `conv_id`.
+- Collected raw request JSON from `/tmp/pinocchio-debugtap/.../run-2/raw/turn-1-http-request.json`.
+
+### Why
+- The initial DebugTap attempt failed because the instrumentation wasn’t in the code path used by `/chat`.
+
+### What worked
+- DebugTap logs now appear in `/tmp/pinocchio-webchat.log`.
+- Raw request capture is now available per run under `/tmp/pinocchio-debugtap`.
+
+### What didn't work
+- The provider error persisted after enabling DebugTap, so the missing data was still unresolved.
+
+### What I learned
+- The raw request includes the reasoning item followed by a `type:"message"` item, but the message item is missing its `id`.
+- The prior response provides a message item `id` (`msg_...`), but we never persist it into the Turn.
+
+### What was tricky to build
+- Ensuring the debug tap wiring mirrored across both `/chat` handlers to avoid missing the active route.
+
+### What warrants a second pair of eyes
+- Validate that persisting and re-emitting message item IDs is acceptable for all Responses-backed models, not just gpt-5 variants.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go` for the base `/chat` handler changes.
+
+### Technical details
+- DebugTap evidence (run 2 input summary, truncated): reasoning item followed by a `message` item **without** `id`.
+- Raw file: `/tmp/pinocchio-debugtap/conv-debug-5/2cf1b63b-a561-4f6b-b0eb-941a53c4646b/run-2/raw/turn-1-http-request.json`
+
+## Step 13: Preserve assistant message item IDs and re-emit them
+
+Based on the DebugTap evidence, I updated the Responses engine to store the output message item ID on assistant text blocks, and updated the input builder to include that ID when emitting an item-based follower after a reasoning block. After restarting the server and re-running the second prompt, the 400 error disappeared and the Responses stream completed normally.
+
+This confirms the missing message item ID was the root cause of the “reasoning without required following item” error.
+
+**Commit (code):** N/A (pending)
+
+### What I did
+- Captured output message item IDs from Responses SSE (`response.output_item.added` and `response.output_item.done`).
+- Stored the message item ID in the assistant text block payload.
+- Emitted that `id` when creating the item-based `type:"message"` follower for reasoning.
+- Re-ran the two-turn webchat flow and verified the second prompt completed without 400 errors.
+
+### Why
+- The Responses API appears to require the reasoning item to be followed by the **same** output item ID from the previous response.
+
+### What worked
+- The second turn now completes successfully; the Responses stream ends cleanly and emits a final event.
+- The raw request for run 2 now includes a `message` item with `id: "msg_..."` immediately after the reasoning item.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Including the assistant message output item ID is required to satisfy the Responses API’s reasoning-following-item validation.
+
+### What was tricky to build
+- Ensuring the message item ID is preserved across streaming and non-streaming paths without leaking into unrelated blocks.
+
+### What warrants a second pair of eyes
+- Verify that adding `PayloadKeyItemID` to assistant text blocks does not break downstream consumers or serialization assumptions.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine.go`.
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers.go`.
+
+### Technical details
+- Raw request (post-fix) shows reasoning item followed by message with ID:
+  - `/tmp/pinocchio-debugtap/conv-debug-6/fc4b4f7d-df0d-4372-800e-b23e719b5898/run-2/raw/turn-1-http-request.json`
 
 ## Step 2: Add ConversationState scaffolding and validation
 
