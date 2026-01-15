@@ -505,6 +505,45 @@ This confirms the missing message item ID was the root cause of the “reasoning
 - Raw request (post-fix) shows reasoning item followed by message with ID:
   - `/tmp/pinocchio-debugtap/conv-debug-6/fc4b4f7d-df0d-4372-800e-b23e719b5898/run-2/raw/turn-1-http-request.json`
 
+## Step 14: Write full bug report and fix summary
+
+I wrote a full bug report documenting the reproduction steps, root cause, and fix for the Responses reasoning follower validation failure. The report captures the raw DebugTap evidence and the changes needed to persist and re-emit the message item ID.
+
+This provides a standalone artifact for future regression triage and a clear reference for why the change was necessary.
+
+**Commit (code):** N/A (pending)
+
+### What I did
+- Wrote a full bug report doc for the reasoning follower error.
+- Included reproduction steps, raw request evidence, root cause, and fix summary.
+
+### Why
+- We need a durable record of the failure mode and fix for future validation and incident response.
+
+### What worked
+- The report captures the exact API validation requirement and the fix path.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The reasoning follower requirement effectively ties the reasoning item to a specific output message ID.
+
+### What was tricky to build
+- Distilling the raw DebugTap evidence into a concise but complete reproduction narrative.
+
+### What warrants a second pair of eyes
+- Confirm the report language and severity classification match our incident tracking norms.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/06-webchat-reasoning-bug-report.md`.
+
+### Technical details
+- N/A
+
 ## Step 2: Add ConversationState scaffolding and validation
 
 I implemented the initial ConversationState API in geppetto, including snapshot configuration, validation hooks, and mutation helpers for appending blocks and enforcing idempotent system prompts. I also added unit tests for Responses reasoning adjacency and tool-use pairing, which we need to keep strict when we start building snapshots.

@@ -212,3 +212,12 @@ Step 11: preserve Responses message item IDs for reasoning follow-ups (commit 81
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine.go — Capture and persist message output item IDs.
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers.go — Emit message item IDs when pairing reasoning with assistant output.
+
+
+## 2026-01-14
+
+Step 12: write full bug report for webchat reasoning follower failure (pending commit)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/06-webchat-reasoning-bug-report.md — Full reproduction, root cause, and fix summary.
