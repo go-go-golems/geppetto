@@ -11,6 +11,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/pkg/inference/middleware/systemprompt_middleware.go
+      Note: Idempotent system prompt insertion (Step 5)
     - Path: moments/backend/pkg/webchat/conversation_debugtap.go
       Note: Moments DebugTap for pre-inference snapshots (Step 2)
     - Path: moments/backend/pkg/webchat/router.go
@@ -29,6 +31,7 @@ LastUpdated: 2026-01-16T15:22:40-05:00
 WhatFor: Track implementation steps for unifying inference between pinocchio TUI and webchat.
 WhenToUse: Update after each implementation step or significant discovery.
 ---
+
 
 
 
@@ -254,4 +257,43 @@ This step aligns the webchat flow with the TUI path introduced in Step 3 and mak
 
 ### Technical details
 - Commit: `0fdcb56`
+- Hooks ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run`, `go vet`.
+
+## Step 5: Make system prompt middleware idempotent
+
+I updated the geppetto system prompt middleware to detect a previously-inserted system prompt block and skip reinsertion. This eliminates the need to strip systemprompt blocks when persisting conversation state and makes the middleware safe to run on snapshots that already contain a system prompt.
+
+**Commit (code):** 4594a4b — "Make system prompt middleware idempotent"
+
+### What I did
+- Added a metadata check for `middleware=systemprompt` in the system prompt middleware.
+- Skipped reinsertion when a prior systemprompt block is already present.
+
+### Why
+- Persisting system prompt blocks should not cause prompt duplication across turns.
+- Idempotency lets us remove the `FilterBlocks` workaround in pinocchio webchat.
+
+### What worked
+- Tests and lint passed in the geppetto pre-commit hooks.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The middleware already tags inserted blocks with `middleware=systemprompt`, making this check straightforward.
+
+### What was tricky to build
+- Ensuring the skip path preserves middleware ordering by returning `next(ctx, t)` immediately.
+
+### What warrants a second pair of eyes
+- Verify no downstream code depends on the previous append behavior when a system block exists.
+
+### What should be done in the future
+- Remove `FilterBlocks` usage in pinocchio webchat runner options (next step).
+
+### Code review instructions
+- Review `geppetto/pkg/inference/middleware/systemprompt_middleware.go`.
+
+### Technical details
+- Commit: `4594a4b`
 - Hooks ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run`, `go vet`.

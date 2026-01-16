@@ -22,3 +22,12 @@ Step 2: migrate pinocchio webchat to shared runner (commit 0fdcb56)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Runner-based webchat loop
 
+
+## 2026-01-16
+
+Step 5: make system prompt middleware idempotent (commit 4594a4b)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/middleware/systemprompt_middleware.go — Skip reinsertion when systemprompt metadata present
+
