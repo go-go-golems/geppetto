@@ -11,30 +11,33 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../../../../../../../pinocchio/pkg/ui/backend.go
+    - Path: geppetto/pkg/conversation/mutations.go
+      Note: ConversationState mutations and system prompt enforcement.
+    - Path: geppetto/pkg/conversation/state.go
+      Note: ConversationState snapshot and validation implementation.
+    - Path: geppetto/pkg/conversation/state_test.go
+      Note: Validation tests for reasoning adjacency and tool pairing.
+    - Path: geppetto/pkg/steps/ai/openai_responses/helpers_test.go
+      Note: Responses multi-turn reasoning regression test.
+    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/08-prompt-resolver-analysis-and-middleware-replacement.md
+      Note: Prompt resolver analysis added in Step 10
+    - Path: geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md
+      Note: Task status tracking for ConversationState work.
+    - Path: pinocchio/pkg/ui/backend.go
       Note: ConversationState migration replacing reduceHistory.
-    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
+    - Path: pinocchio/pkg/webchat/conversation.go
       Note: ConversationState migration for webchat state storage.
-    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
+    - Path: pinocchio/pkg/webchat/router.go
       Note: |-
         Webchat snapshot/run loop update to use ConversationState.
         Webchat snapshot hook for turn ordering debug.
-    - Path: pkg/conversation/mutations.go
-      Note: ConversationState mutations and system prompt enforcement.
-    - Path: pkg/conversation/state.go
-      Note: ConversationState snapshot and validation implementation.
-    - Path: pkg/conversation/state_test.go
-      Note: Validation tests for reasoning adjacency and tool pairing.
-    - Path: pkg/steps/ai/openai_responses/helpers_test.go
-      Note: Responses multi-turn reasoning regression test.
-    - Path: ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/tasks.md
-      Note: Task status tracking for ConversationState work.
 ExternalSources: []
 Summary: Implementation diary for ConversationState work in MO-002.
 LastUpdated: 2026-01-13T17:47:06.972001399-05:00
 WhatFor: Track the implementation steps for the shared conversation-state package and migrations.
 WhenToUse: Use during active implementation work on MO-002 tasks.
 ---
+
 
 
 
@@ -620,3 +623,44 @@ I checked off the ConversationState implementation and validation tasks in the t
 
 ### Technical details
 - N/A
+
+## Step 10: Analyze Moments prompt resolution and propose tag-based middleware
+
+I documented how Moments resolves prompts today, covering both profile base prompts in the webchat router and per-middleware prompt resolution through promptutil. I also drafted a tag-based middleware alternative to centralize prompt resolution and remove duplicated logic across middlewares.
+
+This step is documentation-only, but it captures the specific prompt slugs resolved in Moments and the codepaths responsible, which we need to unify prompt handling across TUI and webchat.
+
+**Commit (code):** N/A (docs only)
+
+### What I did
+- Audited prompt resolver usage in Moments (router, promptutil, middlewares).
+- Wrote a detailed analysis doc describing the current resolution flow and a tag-based replacement design.
+
+### Why
+- We need a clear map of where prompt resolution happens before we can unify or refactor it.
+- A centralized prompt-resolution middleware is the most direct way to remove repeated slug logic and make ordering deterministic.
+
+### What worked
+- I captured the prompt resolution flow and prompt slug inventory in a single analysis doc.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Profile base prompts are resolved outside middleware order, which complicates idempotency.
+- Promptutil uses profile prefixes via Turn.Data, but thinking_mode bypasses that with an explicit prefix override.
+
+### What was tricky to build
+- Translating the existing slug + prefix + fallback behavior into a generic, middleware-driven design without losing draft bundle support.
+
+### What warrants a second pair of eyes
+- Verify that the proposed tag-based approach correctly handles templated prompts and draft bundle ownership checks.
+
+### What should be done in the future
+- Convert one middleware to the tag-based approach as a proof of concept.
+
+### Code review instructions
+- Review `geppetto/ttmp/2026/01/13/MO-002-FIX-UP-THINKING-MODELS--fix-thinking-model-parameter-handling/analysis/08-prompt-resolver-analysis-and-middleware-replacement.md`.
+
+### Technical details
+- Files audited include: `moments/backend/pkg/promptutil/resolve.go`, `moments/backend/pkg/webchat/router.go`, `moments/backend/pkg/inference/middleware/thinkingmode/middleware.go`.

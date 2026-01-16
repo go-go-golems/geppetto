@@ -22,10 +22,12 @@ RelatedFiles:
       Note: Emit message item IDs when pairing reasoning with assistant output.
 ExternalSources: []
 Summary: Bug report and resolution for Responses reasoning follower validation failure on second webchat prompt.
-LastUpdated: 2026-01-14T22:37:00.000000000-05:00
+LastUpdated: 2026-01-14T22:37:00-05:00
 WhatFor: Record the reproduction, root cause, and fix for the Responses reasoning follower validation error.
 WhenToUse: Use when validating multi-turn Responses behavior or debugging similar 400s.
 ---
+
+
 
 # Bug Report: Responses reasoning follower validation failure in webchat
 

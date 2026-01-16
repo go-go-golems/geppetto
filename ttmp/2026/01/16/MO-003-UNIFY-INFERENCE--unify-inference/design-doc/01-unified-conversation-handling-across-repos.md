@@ -1,6 +1,6 @@
 ---
 Title: Unified Conversation Handling Across Repos
-Ticket: MO-002-FIX-UP-THINKING-MODELS
+Ticket: MO-003-UNIFY-INFERENCE
 Status: active
 Topics:
     - bug
@@ -49,6 +49,7 @@ LastUpdated: 2026-01-13T00:00:00Z
 WhatFor: Standardize multi-turn handling and prevent Responses ordering errors across repos.
 WhenToUse: Use when implementing or refactoring chat flows or tool loops.
 ---
+
 
 
 # Unified Conversation Handling Across Repos

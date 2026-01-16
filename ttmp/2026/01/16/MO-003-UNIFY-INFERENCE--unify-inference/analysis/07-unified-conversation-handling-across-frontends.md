@@ -1,6 +1,6 @@
 ---
 Title: Unified Conversation Handling Across Frontends
-Ticket: MO-002-FIX-UP-THINKING-MODELS
+Ticket: MO-003-UNIFY-INFERENCE
 Status: active
 Topics:
     - bug
@@ -51,6 +51,7 @@ LastUpdated: 2026-01-16T10:10:00-05:00
 WhatFor: Guide a refactor that centralizes inference orchestration and makes UI transports downstream consumers.
 WhenToUse: Use when designing a shared conversation runner or refactoring webchat/TUI pipelines.
 ---
+
 
 
 # Unified Conversation Handling Across Frontends

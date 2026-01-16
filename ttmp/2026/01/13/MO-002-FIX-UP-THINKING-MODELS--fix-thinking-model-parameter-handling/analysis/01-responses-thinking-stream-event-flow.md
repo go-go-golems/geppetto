@@ -31,6 +31,8 @@ WhenToUse: Use when debugging GPT-5/o-series reasoning summary streams in pinocc
 ---
 
 
+
+
 # Responses Thinking Stream Event Flow
 
 ## Context and repro

@@ -25,10 +25,12 @@ RelatedFiles:
       Note: buildInputItemsFromTurn reasoning adjacency and item-based follower logic.
 ExternalSources: []
 Summary: Deep-dive on the webchat Responses reasoning ordering failure in multi-turn flows.
-LastUpdated: 2026-01-14T22:35:58.000000000-05:00
+LastUpdated: 2026-01-14T22:35:58-05:00
 WhatFor: Explain why Responses rejects reasoning items on the second webchat prompt and define a concrete debug plan.
 WhenToUse: Use when diagnosing 400s about reasoning adjacency in pinocchio webchat.
 ---
+
+
 
 
 # Webchat Reasoning Ordering Debug
