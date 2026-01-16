@@ -20,6 +20,18 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 			}
 
 			if prompt != "" {
+				for _, b := range t.Blocks {
+					if b.Kind != turns.BlockKindSystem {
+						continue
+					}
+					if val, ok, err := turns.KeyBlockMetaMiddleware.Get(b.Metadata); err == nil && ok && val == "systemprompt" {
+						log.Debug().
+							Str("run_id", t.RunID).
+							Str("turn_id", t.ID).
+							Msg("systemprompt: existing systemprompt block found; skipping reinsert")
+						return next(ctx, t)
+					}
+				}
 				prev := prompt
 				if len(prev) > 120 {
 					prev = prev[:120] + "…"
