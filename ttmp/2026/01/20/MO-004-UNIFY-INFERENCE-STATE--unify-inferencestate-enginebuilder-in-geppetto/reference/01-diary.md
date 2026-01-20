@@ -11,6 +11,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/cmd/examples/internal/examplebuilder/builder.go
+      Note: Example EngineBuilder used by cmd/examples
     - Path: geppetto/pkg/inference/builder/builder.go
       Note: New shared EngineBuilder interface
     - Path: geppetto/pkg/inference/core/session.go
@@ -19,12 +21,21 @@ RelatedFiles:
       Note: New shared InferenceState
     - Path: geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/design-doc/03-inferencestate-enginebuilder-core-architecture.md
       Note: Primary design doc being implemented in MO-004
+    - Path: pinocchio/cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go
+      Note: Tool loop via core.Session + InferenceState
+    - Path: pinocchio/pkg/inference/enginebuilder/parsed_layers.go
+      Note: Pinocchio EngineBuilder impl for ParsedLayers
+    - Path: pinocchio/pkg/ui/backend.go
+      Note: TUI backend migrated to InferenceState + Session
+    - Path: pinocchio/pkg/webchat/router.go
+      Note: Webchat seed construction and Session tool-loop
 ExternalSources: []
 Summary: Implementation diary for moving InferenceState/EngineBuilder into geppetto and unifying callers.
 LastUpdated: 2026-01-20T00:00:00Z
 WhatFor: Track the step-by-step work for MO-004.
 WhenToUse: Update after each meaningful implementation/debug step and each commit.
 ---
+
 
 
 
@@ -589,3 +600,43 @@ This step updates the MO-004 task list to reflect that the “examples” migrat
 ### Technical details
 - Updated file:
   - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md`
+
+## Step 13: Ticket bookkeeping — update changelog and relate new core files
+
+This step updates the MO-004 changelog and the diary’s RelatedFiles list so future readers can quickly jump from the ticket docs to the implementation hotspots. With multiple repos involved (geppetto + pinocchio), these cross-links are important for review and for continuing the migration into moments later.
+
+**Commit (code):** N/A
+
+### What I did
+- Updated MO-004 changelog entries for Steps 4, 9, 10, 11, 12 (including commit hashes and file notes).
+- Related the key geppetto and pinocchio files to the MO-004 diary for faster navigation.
+
+### Why
+- Keeps ticket docs in sync with the actual code state and reduces “where did we change X?” lookup time.
+
+### What worked
+- `docmgr changelog update --ticket MO-004-UNIFY-INFERENCE-STATE ...`
+- `docmgr doc relate --doc .../reference/01-diary.md --file-note ...`
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review:
+  - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/changelog.md`
+  - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/01-diary.md`
+
+### Technical details
+- Changelog entries include absolute file notes pointing at the core migration touch points.
