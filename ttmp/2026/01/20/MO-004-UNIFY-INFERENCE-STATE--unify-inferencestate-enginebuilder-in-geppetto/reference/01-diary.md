@@ -161,3 +161,54 @@ I captured the current flow (WS join builds engine/sink, prompt resolver inserts
 - Primary current files:
   - `moments/backend/pkg/webchat/router.go`
   - `moments/backend/pkg/webchat/conversation.go`
+
+## Step 4: Unify event sink publishing via context (engines attach config sinks to ctx)
+
+This step addressed a practical blocker for a unified runner: tool loops and middleware publish events via `events.PublishEventToContext`, while provider engines also publish events via both engine-config sinks and context sinks. That double-path makes it hard to safely attach sinks in a shared Session without either missing tool-loop events or double-publishing inference events.
+
+I changed the provider engines to attach their configured sinks into the run context at the start of `RunInference`, and then publish events only through `events.PublishEventToContext`. This preserves the “engine has configured sinks” UX (e.g., pinocchio builds engines with `engine.WithSink(...)`) while ensuring that *all* context-published events (including tool-loop events) are delivered to the same sinks.
+
+**Commit (code):** N/A
+
+### What I did
+- Updated provider engines to:
+  - call `ctx = events.WithEventSinks(ctx, e.config.EventSinks...)` at the start of `RunInference`
+  - remove direct loops over `e.config.EventSinks` in `publishEvent`
+- Applied this to:
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - `geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - `geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+
+### Why
+- A shared runner/session needs a single event publishing mechanism.
+- Tool loops publish via context; engines had a separate “config sinks” path.
+- Attaching config sinks to context makes tool-loop events and engine events flow through the same sinks without requiring callers to add context sinks manually.
+
+### What worked
+- `go test ./...` passes in geppetto after the changes.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The provider engines already publish to context; the missing piece was ensuring the engine-config sinks were available through the same context path.
+
+### What was tricky to build
+- Avoiding double-publish when both config sinks and context sinks are used: this change makes it easier to standardize on “configure sinks on the engine” and let the engine attach them to context.
+
+### What warrants a second pair of eyes
+- Verify that any callers that *also* attach the same sink to context do not end up with duplicates (we should standardize on one mechanism per app).
+
+### What should be done in the future
+- Update docs/design to recommend a single sink wiring strategy per app (engine config sinks OR explicit context sinks, but not both).
+
+### Code review instructions
+- Review:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+
+### Technical details
+- Engines now publish via context only; config sinks are attached to context at the start of `RunInference`.

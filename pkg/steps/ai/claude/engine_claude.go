@@ -47,6 +47,12 @@ func (e *ClaudeEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
+	// Make any engine-configured sinks available to all downstream publishers,
+	// including tool loops and middleware that publish via context.
+	if len(e.config.EventSinks) > 0 {
+		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
+	}
+
 	// Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := e.settings.Client
@@ -219,12 +225,6 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *ClaudeEngine) publishEvent(ctx context.Context, event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
-	// Best-effort publish to context sinks
 	events.PublishEventToContext(ctx, event)
 }
 

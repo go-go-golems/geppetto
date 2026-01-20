@@ -94,6 +94,12 @@ func convertJSONSchemaToGenAI(s *jsonschema.Schema) *genai.Schema {
 
 // RunInference processes a Turn using the Gemini API and appends result blocks.
 func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	// Make any engine-configured sinks available to all downstream publishers,
+	// including tool loops and middleware that publish via context.
+	if len(e.config.EventSinks) > 0 {
+		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
+	}
+
 	if e.settings == nil || e.settings.Chat == nil || e.settings.Chat.Engine == nil {
 		return nil, errors.New("no engine specified")
 	}
@@ -586,11 +592,6 @@ func buildToolSignatureHint(reg tools.ToolRegistry) string {
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *GeminiEngine) publishEvent(ctx context.Context, event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
 	events.PublishEventToContext(ctx, event)
 }
 

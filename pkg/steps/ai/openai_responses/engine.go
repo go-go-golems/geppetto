@@ -37,16 +37,16 @@ func NewEngine(s *settings.StepSettings, options ...engine.Option) (*Engine, err
 
 // publishEvent publishes events to configured sinks and context sinks.
 func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
 	events.PublishEventToContext(ctx, event)
-	// Emit minimal pointers to raw info via EventMetadata.Extra when available
 }
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	// Make any engine-configured sinks available to all downstream publishers,
+	// including tool loops and middleware that publish via context.
+	if len(e.config.EventSinks) > 0 {
+		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
+	}
+
 	startTime := time.Now()
 
 	// Capture turn state before conversion if DebugTap is present
