@@ -13,6 +13,6 @@
 - [ ] Add a reference persister implementation(s): no-op persister, filesystem persister for debugging
 - [ ] Add targeted tests for Session.RunInference single-pass and tool-loop paths (mock engine/tool registry)
 - [ ] Document migration notes and any breaking API changes in MO-004 design/docs
-- [ ] Migrate geppetto cmd/examples to use geppetto/pkg/inference/state + core.Session + builder.EngineBuilder
-- [ ] Migrate pinocchio examples/commands that run agent/tool loops to use geppetto inference core (InferenceState + Session + EngineBuilder)
-- [ ] Validate examples run paths (go run) and ensure tool-loop + event sinks still work
+- [x] Migrate geppetto cmd/examples to use geppetto/pkg/inference/state + core.Session + builder.EngineBuilder
+- [x] Migrate pinocchio examples/commands that run agent/tool loops to use geppetto inference core (InferenceState + Session + EngineBuilder)
+- [x] Validate examples run paths (go run) and ensure tool-loop + event sinks still work

@@ -549,3 +549,43 @@ This is the core functional migration that should prevent the OpenAI Responses A
 
 ### Technical details
 - Webchat seed construction is now local and explicit (`seedForPrompt`), instead of indirect via `ConversationState.Snapshot(...)`.
+
+## Step 12: Ticket bookkeeping — check off example migration tasks
+
+This step updates the MO-004 task list to reflect that the “examples” migrations (geppetto + pinocchio) are now complete and validated. This keeps the ticket state aligned with the actual code state and makes it clearer what remains (moments migration + remaining pinocchio cleanup).
+
+**Commit (code):** N/A
+
+### What I did
+- Marked tasks complete in MO-004:
+  - “Migrate geppetto cmd/examples …”
+  - “Migrate pinocchio examples …”
+  - “Validate examples run paths …”
+
+### Why
+- The examples are now on the new core and serve as the reference implementation for future migrations.
+
+### What worked
+- `docmgr task check --ticket MO-004-UNIFY-INFERENCE-STATE --id 11,12,13`
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `tasks.md` for MO-004 to confirm task state matches reality.
+
+### Technical details
+- Updated file:
+  - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md`
