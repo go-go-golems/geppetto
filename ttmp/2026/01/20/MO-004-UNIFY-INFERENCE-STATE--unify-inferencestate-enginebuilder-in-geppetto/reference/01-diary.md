@@ -678,3 +678,44 @@ This step removes `pinocchio/pkg/inference/runner`, which is now unused after mi
 
 ### Technical details
 - Removal is safe because `rg -n "pinocchio/pkg/inference/runner|runner\\.Run\\(|SnapshotForPrompt\\(" pinocchio -S` returned only the file itself before deletion.
+
+## Step 15: Ticket bookkeeping — check off core migration tasks
+
+This step updates MO-004 task bookkeeping now that the core extraction (InferenceState + EngineBuilder + Session) and the pinocchio consumer migration are complete. This makes it clearer that the remaining work is primarily follow-up items (persister/test coverage) and the deferred go-go-mento/moments migrations.
+
+**Commit (code):** N/A
+
+### What I did
+- Marked tasks complete in MO-004:
+  - Extract InferenceState into geppetto
+  - Define geppetto EngineBuilder contract
+  - Define Runner/Session interface
+  - Update pinocchio TUI/webchat to use shared core
+
+### Why
+- Keeps the ticket task list aligned with what’s actually merged in code.
+
+### What worked
+- `docmgr task check --ticket MO-004-UNIFY-INFERENCE-STATE --id 2,3,5,7`
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `tasks.md` for MO-004 to confirm task state matches the repo state.
+
+### Technical details
+- Updated file:
+  - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md`
