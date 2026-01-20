@@ -640,3 +640,41 @@ This step updates the MO-004 changelog and the diary’s RelatedFiles list so fu
 
 ### Technical details
 - Changelog entries include absolute file notes pointing at the core migration touch points.
+
+## Step 14: Pinocchio cleanup — remove unused local runner package
+
+This step removes `pinocchio/pkg/inference/runner`, which is now unused after migrating the TUI, webchat router, and agent example to the shared geppetto `InferenceState` + `core.Session` runner. Keeping the old runner around would invite accidental re-use and divergence.
+
+**Commit (code):** 1a835e5 — "Remove obsolete inference runner"
+
+### What I did
+- Deleted `pinocchio/pkg/inference/runner/runner.go`.
+- Verified `go test ./...` still passes in pinocchio.
+
+### Why
+- Avoid duplicate “runner” abstractions drifting out of sync.
+- Enforce that all call sites use the shared geppetto inference core.
+
+### What worked
+- `go test ./... -count=1`
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Confirm there are no remaining external references to the deleted package (should be none; `rg` showed only the file itself).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `pinocchio/pkg/inference/runner/runner.go` deletion and ensure there are no lingering references.
+
+### Technical details
+- Removal is safe because `rg -n "pinocchio/pkg/inference/runner|runner\\.Run\\(|SnapshotForPrompt\\(" pinocchio -S` returned only the file itself before deletion.
