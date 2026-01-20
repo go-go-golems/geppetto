@@ -913,6 +913,7 @@ This step answers the follow-up architectural questions that came up after the r
 The goal is to make future changes (like removing engine-config sinks or collapsing the two run entrypoints) less risky by explicitly documenting which layers currently own lifecycle and cancellation responsibilities.
 
 **Commit (code):** N/A
+**Commit (docs):** 5f1d895 — "Docs: explain sinks and Session lifecycle"
 
 ### What I did
 - Read and cross-referenced the relevant implementation files:
