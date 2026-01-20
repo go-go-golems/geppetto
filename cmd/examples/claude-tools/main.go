@@ -6,9 +6,11 @@ import (
 	"io"
 
 	clay "github.com/go-go-golems/clay/pkg"
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
+	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/state"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -106,8 +108,8 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return errors.Wrap(err, "failed to initialize settings")
 	}
 
-	// Create engine using factory with ParsedLayers
-	engineInstance, err := factory.NewEngineFromParsedLayers(parsedLayers)
+	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, nil)
+	engineInstance, _, _, err := engBuilder.Build("", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
@@ -177,7 +179,9 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Run inference with middleware-managed tool execution
 	ctx = toolcontext.WithRegistry(ctx, reg)
-	updatedTurn, err := wrapped.RunInference(ctx, turn)
+	inf := state.NewInferenceState("", turn, wrapped)
+	sess := &core.Session{State: inf}
+	updatedTurn, err := sess.RunInference(ctx, turn)
 	if err != nil {
 		return errors.Wrap(err, "inference with tools failed")
 	}

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/state"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -188,12 +189,8 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		router.AddHandler("chat", "chat", printer)
 	}
 
-	// 4. Create engine with sink
-	engineOptions := []engine.Option{
-		engine.WithSink(watermillSink),
-	}
-
-	engine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
+	engine, sink, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
@@ -225,7 +222,10 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		defer cancel()
 		<-router.Running()
 
-		updatedTurn, err := engine.RunInference(ctx, seed)
+		inf := state.NewInferenceState("", seed, engine)
+		sess := &core.Session{State: inf, EventSinks: []events.EventSink{sink}}
+
+		updatedTurn, err := sess.RunInference(ctx, seed)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)

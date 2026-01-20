@@ -48,6 +48,25 @@ type Session struct {
 // RunInference executes one inference run. It is safe to call from a goroutine;
 // cancellation is exposed via s.State.CancelRun().
 func (s *Session) RunInference(ctx context.Context, seed *turns.Turn) (*turns.Turn, error) {
+	if err := s.State.StartRun(); err != nil {
+		return nil, err
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	s.State.SetCancel(cancel)
+	defer func() {
+		cancel()
+		s.State.FinishRun()
+	}()
+	return s.RunInferenceStarted(runCtx, seed)
+}
+
+// RunInferenceStarted executes inference assuming the caller has already called s.State.StartRun().
+//
+// This is useful for UIs that need to mark a run as started before deferring the actual inference
+// (e.g. Bubble Tea commands) to avoid a "double Start" race.
+//
+// Callers should ensure s.State.FinishRun() is called when the run completes.
+func (s *Session) RunInferenceStarted(ctx context.Context, seed *turns.Turn) (*turns.Turn, error) {
 	if s == nil || s.State == nil {
 		return nil, errors.New("session/state is nil")
 	}
@@ -58,15 +77,17 @@ func (s *Session) RunInference(ctx context.Context, seed *turns.Turn) (*turns.Tu
 		ctx = context.Background()
 	}
 
-	if err := s.State.StartRun(); err != nil {
-		return nil, err
+	runCtx := ctx
+	createdCancel := false
+	var cancel context.CancelFunc
+	if !s.State.HasCancel() {
+		runCtx, cancel = context.WithCancel(runCtx)
+		s.State.SetCancel(cancel)
+		createdCancel = true
 	}
-	runCtx, cancel := context.WithCancel(ctx)
-	s.State.SetCancel(cancel)
-	defer func() {
-		cancel()
-		s.State.FinishRun()
-	}()
+	if createdCancel {
+		defer cancel()
+	}
 
 	if len(s.EventSinks) > 0 {
 		runCtx = events.WithEventSinks(runCtx, s.EventSinks...)

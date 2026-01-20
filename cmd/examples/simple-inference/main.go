@@ -6,8 +6,10 @@ import (
 	"io"
 
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
+	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/state"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -106,7 +108,8 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return nil
 	}
 
-	engine, err := factory.NewEngineFromParsedLayers(parsedLayers)
+	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, nil)
+	engine, _, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
@@ -136,7 +139,10 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		WithUserPrompt(s.Prompt).
 		Build()
 
-	updatedTurn, err := engine.RunInference(ctx, initialTurn)
+	inf := state.NewInferenceState("", initialTurn, engine)
+	sess := &core.Session{State: inf}
+
+	updatedTurn, err := sess.RunInference(ctx, initialTurn)
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)

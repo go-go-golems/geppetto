@@ -85,6 +85,16 @@ func (is *InferenceState) SetCancel(cancel context.CancelFunc) {
 	is.mu.Unlock()
 }
 
+// HasCancel reports whether a cancel function is currently stored.
+func (is *InferenceState) HasCancel() bool {
+	if is == nil {
+		return false
+	}
+	is.mu.Lock()
+	defer is.mu.Unlock()
+	return is.cancel != nil
+}
+
 // CancelRun triggers the stored cancel function if a run is active.
 func (is *InferenceState) CancelRun() error {
 	if is == nil {

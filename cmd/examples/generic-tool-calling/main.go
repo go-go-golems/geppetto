@@ -6,10 +6,11 @@ import (
 	"io"
 	"time"
 
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/state"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -332,11 +333,8 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	}
 
 	// 4. Create base engine with sink - provider agnostic!
-	engineOptions := []engine.Option{
-		engine.WithSink(watermillSink),
-	}
-
-	baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
+	baseEngine, sink, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
@@ -431,8 +429,16 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		// Run inference with simplified tool calling helpers (Turn-based) - works with any provider!
-		updatedTurn, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, initialTurn, registry, helperConfig)
+		cfg := helperConfig
+		inf := state.NewInferenceState("", initialTurn, baseEngine)
+		sess := &core.Session{
+			State:      inf,
+			Registry:   registry,
+			ToolConfig: &cfg,
+			EventSinks: []events.EventSink{sink},
+		}
+
+		updatedTurn, err := sess.RunInference(ctx, initialTurn)
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)
