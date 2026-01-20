@@ -119,3 +119,45 @@ The Session captures stable dependencies (tool registry/config, event sinks, sna
 ### Technical details
 - Session single-pass: `state.Eng.RunInference(ctx, seed)`
 - Session tool-loop: `toolhelpers.RunToolCallingLoop(ctx, state.Eng, seed, registry, cfg)`
+
+## Step 3: Analyze moments webchat router migration to shared InferenceState
+
+This step mapped the current moments webchat state and inference loop wiring (router + conversation structs) to the new geppetto-owned inference core. The key finding is that moments currently conflates lifecycle/transport and inference state inside `Conversation`; migrating cleanly means replacing the `RunID/Turn/Eng/running/cancel` fields with a single `*state.InferenceState` and driving inference via a `core.Session` runner.
+
+I captured the current flow (WS join builds engine/sink, prompt resolver inserts system prompt, chat handler mutates Turn then runs inference) and then provided a concrete migration plan that keeps ConvManager and websocket streaming unchanged while moving just the inference-session core to geppetto.
+
+**Commit (code):** N/A
+
+### What I did
+- Read moments webchat router and conversation implementation.
+- Wrote a detailed analysis doc explaining current structure and a step-by-step migration plan to `geppetto/pkg/inference/state` + `geppetto/pkg/inference/core`.
+
+### Why
+- We need to migrate moments in a controlled way after we have a shared inference core in geppetto.
+
+### What worked
+- The mapping is straightforward because moments already stores the minimal triple (RunID, Turn, Eng), which matches InferenceState.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Moments does profile prompt resolution at websocket join time and inserts a system block directly into the Turn; keeping that behavior is fine as long as system prompt insertion remains idempotent.
+
+### What was tricky to build
+- Identifying which parts are lifecycle-only (connections/readers) vs inference-core (run/cancel, turn/engine storage).
+
+### What warrants a second pair of eyes
+- Confirm whether moments tool-loop behavior differs materially from geppetto toolhelpers (step mode, tool auth), so we don’t force unification too early.
+
+### What should be done in the future
+- After migrating state, revisit whether moments should use `core.Session` tool-loop path or keep a custom loop with an injected executor.
+
+### Code review instructions
+- Review the analysis doc:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/01-moments-webchat-router-migration-to-geppetto-inferencestate-session.md`
+
+### Technical details
+- Primary current files:
+  - `moments/backend/pkg/webchat/router.go`
+  - `moments/backend/pkg/webchat/conversation.go`
