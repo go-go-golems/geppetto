@@ -860,3 +860,48 @@ The key “worked/failed” signal here is whether `core.Session` can actually d
   - Inspect logs: `tail -n 200 /tmp/simple-chat-agent.log`
 - Non-TUI example validation:
   - `go run ./cmd/examples/openai-tools test-openai-tools --ai-api-type openai-responses --ai-engine gpt-5-mini --mode thinking --prompt "What is 2+2?"`
+
+## Step 19: Write testing playbook and upload to reMarkable
+
+This step created a copy/paste playbook for validating inference after refactors by running the various `geppetto/cmd/examples/*` and `pinocchio/cmd/*` example programs (including real-world tmux-driven TUI tests). The purpose is to make “does inference still work?” checks fast and repeatable for reviewers and future work (especially before migrating moments).
+
+The playbook also answers the practical architecture question: which examples actually benefit from `InferenceState` (multi-turn, cancellation, tool-loop, strict provider validation) vs. which examples are transport-only or not inference runners at all.
+
+**Commit (code):** N/A
+
+### What I did
+- Wrote a new reference document:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/02-playbook-testing-inference-via-geppetto-pinocchio-examples.md`
+- Related key example entry points to the playbook doc using `docmgr doc relate`.
+- Uploaded to reMarkable (forced overwrite) to:
+  - `/ai/2026/01/20/MO-004-UNIFY-INFERENCE-STATE/reference`
+
+### Why
+- We repeatedly rely on “real runs” to catch regressions that unit tests don’t surface (event streaming, strict provider validation, multi-turn state).
+- A written playbook reduces time-to-validate after changes and makes reviews reproducible.
+
+### What worked
+- `remarquee upload md --force ...` succeeded and created the PDF in the ticket folder on the device.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- Keeping the playbook both “comprehensive” and “copy/paste” while avoiding leaking any credentials into commands or logs.
+
+### What warrants a second pair of eyes
+- Confirm the chosen “submit key” guidance for TUIs is correct across the different Bubble Tea apps (some use Tab, some Enter).
+
+### What should be done in the future
+- Consider adding a single “smoke-test” command that runs all the non-interactive examples in one sweep (or emits a checklist), for CI-like validation.
+
+### Code review instructions
+- Review the playbook content:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/02-playbook-testing-inference-via-geppetto-pinocchio-examples.md`
+
+### Technical details
+- Upload command:
+  - `remarquee upload md --force --remote-dir "/ai/2026/01/20/MO-004-UNIFY-INFERENCE-STATE/reference" <doc>`

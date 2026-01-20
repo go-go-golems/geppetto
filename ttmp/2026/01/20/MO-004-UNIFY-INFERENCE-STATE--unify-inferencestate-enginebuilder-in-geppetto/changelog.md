@@ -109,3 +109,12 @@ Step 17: write postmortem doc and upload to reMarkable
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/02-postmortem-inferencestate-session-enginebuilder-unification.md — Postmortem document
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/scripts/upload-analysis-02-postmortem.sh — reMarkable upload script (force)
 
+
+## 2026-01-20
+
+Step 19: add inference testing playbook and upload to reMarkable
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/02-playbook-testing-inference-via-geppetto-pinocchio-examples.md — Copy/paste test commands for examples
+
