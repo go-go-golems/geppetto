@@ -13,6 +13,14 @@ Owners: []
 RelatedFiles:
     - Path: geppetto/pkg/inference/middleware/systemprompt_middleware.go
       Note: Idempotent system prompt insertion (Step 5)
+    - Path: geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/analysis/11-go-go-mento-webchat-conversation-manager-and-run-alignment.md
+      Note: Analysis doc produced in Step 7
+    - Path: geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/design-doc/03-inferencestate-enginebuilder-core-architecture.md
+      Note: |-
+        Design doc produced in Step 8
+        Updated in Step 9 to introduce Session API
+    - Path: go-go-mento/go/pkg/webchat/conversation_manager.go
+      Note: Primary lifecycle manager analyzed in Step 7
     - Path: moments/backend/pkg/webchat/conversation_debugtap.go
       Note: Moments DebugTap for pre-inference snapshots (Step 2)
     - Path: moments/backend/pkg/webchat/router.go
@@ -31,6 +39,9 @@ LastUpdated: 2026-01-16T15:22:40-05:00
 WhatFor: Track implementation steps for unifying inference between pinocchio TUI and webchat.
 WhenToUse: Update after each implementation step or significant discovery.
 ---
+
+
+
 
 
 
@@ -297,3 +308,236 @@ I updated the geppetto system prompt middleware to detect a previously-inserted 
 ### Technical details
 - Commit: `4594a4b`
 - Hooks ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run`, `go vet`.
+
+## Step 6: Decouple runner from prompt and remove systemprompt filtering
+
+I refactored the shared runner to accept a pre-built Turn snapshot instead of a raw prompt string, then updated the TUI and webchat call sites to build the snapshot explicitly. This moves prompt-to-block construction out of `Run`, per the new contract, and makes the runner a pure execution + update routine.
+
+With the system prompt middleware now idempotent, I removed the systemprompt filtering logic from webchat persistence. The webchat run loop now persists the full updated Turn without stripping systemprompt blocks.
+
+**Commit (code):** f0f8ad3 — "Decouple runner from prompt and drop systemprompt filtering"
+
+### What I did
+- Updated `runner.Run` to accept a `seed *turns.Turn` and require callers to build snapshots.
+- Updated TUI backend to call `runner.SnapshotForPrompt` and pass the seed into `Run`.
+- Updated webchat run loops to build a snapshot first, then call `Run`.
+- Removed the `filterSystemPromptBlocks` helper from webchat conversation state handling.
+
+### Why
+- The runner should not implicitly convert user prompts into blocks; that belongs to the caller.
+- Idempotent system prompt middleware makes state filtering unnecessary.
+
+### What worked
+- Tests and lint passed after refactor.
+- Webchat snapshot/error handling now happens before the run loop executes.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The shared runner works best as a pure orchestrator once snapshot creation is externalized.
+
+### What was tricky to build
+- Ensuring error handling in webchat restores `conv.running`/`conv.cancel` when snapshot building fails.
+
+### What warrants a second pair of eyes
+- Confirm that removing systemprompt filtering does not reintroduce prompt duplication (should be safe now that middleware is idempotent).
+
+### What should be done in the future
+- Centralize snapshot creation + registry wiring in a shared helper (next unification step).
+
+### Code review instructions
+- Review `pinocchio/pkg/inference/runner/runner.go` for the new Run signature.
+- Review `pinocchio/pkg/ui/backend.go` and `pinocchio/pkg/webchat/router.go` for updated call sites.
+- Review `pinocchio/pkg/webchat/conversation.go` for removal of filtering helpers.
+
+### Technical details
+- Commit: `f0f8ad3`
+- Hooks ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run`, `go vet`.
+
+## Step 7: Analyze go-go-mento webchat conversation manager vs Run-centric model
+
+This step focused on understanding the go-go-mento webchat architecture in detail so we can anchor unification work to an existing, clean design. I traced the conversation lifecycle, the inference loop, streaming, and persistence paths, then mapped them to our current Run‑centric proposal to see where we are aligned and where we are still diverging.
+
+The result is a new analysis document that explains the webchat architecture in textbook detail, with diagrams and pseudocode, and explicitly answers how `ConversationManager` and `InferenceState` already behave like a “run + current turn” model. This should clarify why the Run-centric approach is not a new direction, but rather a formalization of how go-go-mento already works.
+
+**Commit (code):** N/A
+
+### What I did
+- Read core webchat files to map responsibilities and the inference lifecycle:
+  - `go-go-mento/go/pkg/webchat/conversation_manager.go`
+  - `go-go-mento/go/pkg/webchat/conversation.go`
+  - `go-go-mento/go/pkg/webchat/inference_state.go`
+  - `go-go-mento/go/pkg/webchat/loops.go`
+  - `go-go-mento/go/pkg/webchat/turns_loader.go`
+  - `go-go-mento/go/pkg/webchat/turns_persistence.go`
+  - `go-go-mento/go/pkg/webchat/engine_builder.go`
+  - `go-go-mento/go/pkg/webchat/stream_coordinator.go`
+- Wrote a new analysis doc that explains the architecture and alignment with Run‑centric conversation state.
+- Captured the full flow from Router → ConversationManager → InferenceState → ToolCallingLoop → persistence → streaming.
+
+### Why
+- The team wants to unify around the go-go-mento webchat structure; we needed a precise map of how it manages state and turns.
+- Comparing it against the Run‑centric proposal highlights that go-go-mento already stores the “current turn” and keeps history in persistence.
+
+### What worked
+- The code structure in go-go-mento cleanly exposes lifecycle, loop, and streaming responsibilities, making the analysis straightforward.
+- The analysis doc makes the “Run vs current turn” alignment explicit.
+
+### What didn't work
+- N/A
+
+### What I learned
+- go-go-mento is already Turn-centric: `InferenceState.Turn` is the single canonical snapshot in memory.
+- A “Run” concept exists implicitly via `RunID` and persisted turns, even without an explicit `turns.Run` container.
+
+### What was tricky to build
+- Keeping the analysis exhaustive while separating lifecycle concerns (conversation manager) from streaming (event translator/stream coordinator) and persistence.
+
+### What warrants a second pair of eyes
+- Validate that the analysis accurately reflects how persisted turns are reconstructed and how RunID is threaded through events.
+
+### What should be done in the future
+- Decide whether to replace `InferenceState.Turn` with `turns.Run` or keep the current “last turn + DB history” model and formalize it with helper APIs.
+
+### Code review instructions
+- Start with the new analysis doc:
+  - `geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/analysis/11-go-go-mento-webchat-conversation-manager-and-run-alignment.md`
+- Cross-check against the webchat files listed in “What I did.”
+
+### Technical details
+- Primary entry point: `go-go-mento/go/pkg/webchat/router.go` (run loop + ToolCallingLoop).
+- State container: `go-go-mento/go/pkg/webchat/inference_state.go`.
+- Lifecycle coordinator: `go-go-mento/go/pkg/webchat/conversation_manager.go`.
+
+## Step 8: Draft InferenceState + EngineBuilder core design
+
+This step distilled the unification strategy down to the two most stable primitives in the existing codebase: `InferenceState` and `EngineBuilder`. I wrote a design document that treats these as the shared core for all UIs, preserves the existing ToolCallingLoop, and explicitly removes ConversationManager from the inference path.
+
+The proposal makes persistence a caller‑supplied hook rather than a baked‑in side effect. This keeps the inference loop reusable for TUI, console, and webchat without hidden DB coupling while still allowing webchat to persist turns when needed.
+
+**Commit (code):** N/A
+
+### What I did
+- Wrote a design doc specifying the shared inference core, centered on `InferenceState` + `EngineBuilder`.
+- Defined a persistence hook interface so webchat can persist turns without the inference core depending on DB logic.
+- Kept the existing ToolCallingLoop as the canonical execution path.
+
+### Why
+- We need a single inference core usable across TUI, console, and webchat.
+- Conversation lifecycle (connections, eviction, stream coordinator) should remain downstream of inference.
+- Persistence should be optional and provided by the caller.
+
+### What worked
+- The design cleanly separates inference from lifecycle and persistence.
+- The proposal reuses existing types instead of introducing new ones.
+
+### What didn't work
+- N/A
+
+### What I learned
+- go-go-mento’s `InferenceState` already captures the minimal state we need: RunID, current Turn, engine.
+- ToolCallingLoop can remain the standard execution path if we expose a persistence hook.
+
+### What was tricky to build
+- Making the persistence hook minimal while still supporting webchat’s turn persistence requirements.
+
+### What warrants a second pair of eyes
+- Confirm the proposed RunInference signature is sufficient for all existing call sites.
+- Verify that removing ConversationManager injection doesn’t break any middleware or sink composition assumptions.
+
+### What should be done in the future
+- Decide where to place the shared inference core package (geppetto vs new shared module).
+
+### Code review instructions
+- Review the design doc:
+  - `geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/design-doc/03-inferencestate-enginebuilder-core-architecture.md`
+
+### Technical details
+- The design explicitly retains `ToolCallingLoop` from `go-go-mento/go/pkg/webchat/loops.go`.
+
+## Step 9: Refine Inference core API to a Session method
+
+This step tightened the proposed inference-core interface after realizing the earlier `RunInference(ctx, state, seed, registry, loopOpts, persister)` function was too argument-heavy and didn’t match how real callers are structured. In practice, the callers (webchat router goroutine, TUI backend, CLI command handler) already have long-lived objects for state and configuration, so we should capture those once and expose a simple per-call method.
+
+I updated the design doc to introduce a `Session` struct that holds `InferenceState`, tool registry, loop settings, and optional persistence hooks. The key outcome is that the per-call interface becomes the straightforward `session.RunInference(ctx, seed) -> (turn, error)` and matches the mental model of “run inference on this turn snapshot”.
+
+**Commit (code):** N/A
+
+### What I did
+- Updated the `InferenceState + EngineBuilder core` design doc to add an explicit “who calls this?” section.
+- Replaced the free function signature with a `Session` struct + method `RunInference(ctx, seed)`.
+- Documented how persistence hooks fit, including options for intermediate snapshot handling.
+
+### Why
+- The original signature pushed too many stable dependencies (registry, loop opts, persister) into a per-call function.
+- Real call sites naturally want to hold those dependencies at a higher level (per conversation, per TUI tab, per CLI invocation).
+
+### What worked
+- The `Session` API reduces surface complexity without losing configurability.
+- The design now maps directly to go-go-mento’s existing structure (InferenceState + ToolCallingLoop).
+
+### What didn't work
+- N/A
+
+### What I learned
+- “RunInference(ctx, turn) -> turn” only works cleanly once a session/runner object exists to capture the non-turn arguments.
+
+### What was tricky to build
+- Keeping persistence pluggable without leaking conversation lifecycle concepts (ConversationManager, websocket pools) into the inference core.
+
+### What warrants a second pair of eyes
+- Ensure the single-pass (no tools) path and the tool-loop path are both correctly represented in the design.
+- Validate the proposed snapshot-hook options (context-based vs explicit hook struct) against current `ToolCallingLoop` behavior.
+
+### What should be done in the future
+- Decide whether to generalize `ToolCallingLoop` hooks via explicit structs (Option B) and update call sites accordingly.
+
+### Code review instructions
+- Review the updated design doc:
+  - `geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/design-doc/03-inferencestate-enginebuilder-core-architecture.md`
+
+## Step 10: Tighten Session API (Runner interface, persister runID, geppetto ownership)
+
+This step continued refining the inference-core API to match how we actually want to consume it across UIs. After removing the unnecessary TurnIndex hook, I updated the design to make the per-call surface an explicit interface (`Runner`) and to ensure persistence gets the one identifier it truly needs: the `runID`.
+
+I also locked in the ownership decision: `InferenceState` and `EngineBuilder` belong in geppetto (the shared inference foundation), not in app repos. That keeps the “core” truly shared and prevents future drift.
+
+**Commit (code):** N/A
+
+### What I did
+- Updated the design doc to:
+  - Make `RunInference(ctx, seed) (*turns.Turn, error)` an explicit `Runner` interface.
+  - Change `TurnPersister` to receive `runID` explicitly and derive `turnID` from `t.ID`.
+  - Remove the snapshot-vs-final persister split discussion (single persister interface only).
+  - Specify that `InferenceState` and `EngineBuilder` live in geppetto.
+- Updated the upload script for the doc to use `remarquee upload md --force` for safe overwrites.
+
+### Why
+- UIs want to depend on a minimal runner interface, not a concrete Session type.
+- Persistence needs stable correlation IDs. Passing `runID` is sufficient, and persisters can also consult `t.RunID`/`t.ID`.
+- We do not want separate persistence interfaces for snapshots vs finals; that complexity belongs in the caller/implementation.
+
+### What worked
+- The design doc now has a crisp API boundary: `Runner` + `Session` implements it.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Passing `runID` into persistence is the right level of explicitness; `turnID` is already part of the turn snapshot.
+
+### What was tricky to build
+- Keeping the interface minimal while still covering webchat needs without reintroducing lifecycle coupling.
+
+### What warrants a second pair of eyes
+- Confirm the persister signature is sufficient for the existing DB persistence code paths (which currently use a turn index) and decide where that indexing should live.
+
+### What should be done in the future
+- If turn-indexing remains required by a DB schema, make it an internal detail of the DB persister implementation.
+
+### Code review instructions
+- Review the updated design doc:
+  - `geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/design-doc/03-inferencestate-enginebuilder-core-architecture.md`
+- Review the force-upload helper:
+  - `geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/scripts/upload-doc-03-inferencestate-enginebuilder-core-architecture.sh`
