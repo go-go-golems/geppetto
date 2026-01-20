@@ -758,3 +758,51 @@ This step updates the MO-004 changelog so the latest cleanup and bookkeeping act
 ### Technical details
 - Updated file:
   - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/changelog.md`
+
+## Step 17: Write postmortem and upload to reMarkable
+
+This step produced a comprehensive postmortem document for the MO-004 implementation work. The goal is to capture the concrete changes (what was introduced/modified), the key issues we hit during migration (events, cancellation, formatting hooks), the compromises we accepted (notably `RunInferenceStarted`), and a clear “what remains / what to review” checklist to guide follow-up work (especially moments migration).
+
+The postmortem is stored as a ticket analysis doc and uploaded to reMarkable (forced overwrite) so it can be read/reviewed away from the workstation.
+
+**Commit (code):** N/A
+
+### What I did
+- Created and wrote:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/02-postmortem-inferencestate-session-enginebuilder-unification.md`
+- Added an upload script:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/scripts/upload-analysis-02-postmortem.sh`
+- Uploaded to reMarkable with:
+  - `remarquee upload md --force --remote-dir "/ai/2026/01/20/MO-004-UNIFY-INFERENCE-STATE/analysis" <doc>`
+
+### Why
+- This ticket spans multiple repos and touches core abstractions. A postmortem reduces review and future-migration risk by documenting “what changed and why” in one place.
+
+### What worked
+- `remarquee status` returned `ok`.
+- Upload succeeded and created a PDF at:
+  - `/ai/2026/01/20/MO-004-UNIFY-INFERENCE-STATE/analysis`
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- Keeping the postmortem “commit-first” while still being exhaustive and readable (it’s easy to miss cross-repo touch points otherwise).
+
+### What warrants a second pair of eyes
+- Review the “compromises” section (especially `RunInferenceStarted`) to confirm we’re comfortable with the runner API surface long-term.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/02-postmortem-inferencestate-session-enginebuilder-unification.md`
+- Validate upload script:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/scripts/upload-analysis-02-postmortem.sh`
+
+### Technical details
+- The reMarkable upload was explicitly forced (`--force`) per request.

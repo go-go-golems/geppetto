@@ -99,3 +99,13 @@ Step 15: check off core migration tasks (commit cade166)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md — Checked off tasks 2
 
+
+## 2026-01-20
+
+Step 17: write postmortem doc and upload to reMarkable
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/02-postmortem-inferencestate-session-enginebuilder-unification.md — Postmortem document
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/scripts/upload-analysis-02-postmortem.sh — reMarkable upload script (force)
+
