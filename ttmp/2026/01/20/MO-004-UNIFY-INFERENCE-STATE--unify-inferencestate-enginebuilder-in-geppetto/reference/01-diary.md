@@ -448,3 +448,104 @@ I also had to align the Session API with Bubble Tea needs by adding a “run alr
 - Session usage:
   - `sess := &core.Session{State: inf, EventSinks: []events.EventSink{sink}, Registry: reg, ToolConfig: &cfg}`
   - `updated, err := sess.RunInference(ctx, seed)`
+
+## Step 10: Pinocchio agent example: adopt EngineBuilder + Session
+
+This step updated pinocchio’s `simple-chat-agent` example so it matches the new unified “core” architecture: use a local EngineBuilder implementation (wrapping `factory.NewEngineFromParsedLayers`), run tool loops through `core.Session`, and store the accumulated conversation snapshot in `InferenceState`.
+
+The goal here is to make the example code a concrete reference for what the downstream app repos should look like after MO-004, before we touch the more complex webchat router flows.
+
+**Commit (code):** 03a3043 — "Agent: use EngineBuilder + Session runner"
+
+### What I did
+- Added `pinocchio/pkg/inference/enginebuilder/parsed_layers.go` implementing `builder.EngineBuilder` for pinocchio.
+- Updated `pinocchio/cmd/agents/simple-chat-agent/main.go` to build its base engine via the new EngineBuilder.
+- Refactored `pinocchio/cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go` to:
+  - hold a `*state.InferenceState`
+  - run tool-calling via `core.Session` (tool-loop mode)
+  - rely on `InferenceState` for running/cancel lifecycle instead of ad-hoc fields/atomics
+
+### Why
+- We want “agent/tool loop” examples to use the same runner as production UIs.
+- This removes duplicate tool-loop wiring patterns from pinocchio.
+
+### What worked
+- `go test ./...` and the repo pre-commit hook passed.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The Session “started run” path is also useful outside Bubble Tea (HTTP handlers can mark started before launching goroutines).
+
+### What was tricky to build
+- Keeping the example’s “server tools flag” wiring correct while moving where the Turn is stored (now `backend.Inf.Turn`).
+
+### What warrants a second pair of eyes
+- Confirm the new EngineBuilder location/name in pinocchio doesn’t conflict with the upcoming “real” pinocchio webchat EngineBuilder implementation (profiles/overrides).
+
+### What should be done in the future
+- Use the same EngineBuilder interface to unify pinocchio webchat engine composition (profile + overrides + middleware list).
+
+### Code review instructions
+- Review:
+  - `pinocchio/pkg/inference/enginebuilder/parsed_layers.go`
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go`
+  - `pinocchio/cmd/agents/simple-chat-agent/main.go`
+
+### Technical details
+- Agent tool loop now uses:
+  - `sess := &core.Session{State: inf, Registry: reg, ToolConfig: &cfg, EventSinks: []events.EventSink{sink}, SnapshotHook: hook}`
+  - `sess.RunInferenceStarted(runCtx, seed)`
+
+## Step 11: Pinocchio webchat + TUI: adopt geppetto InferenceState + Session
+
+This step migrated the pinocchio TUI backend and the webchat router away from pinocchio’s local `runner`/`ConversationState` patterns and toward the shared geppetto primitives (`InferenceState` + `core.Session`). The webchat handler now builds the seed turn as “existing snapshot + appended user prompt” and runs inference via a Session, while the conversation object stores its long-lived inference state in `conv.Inf`.
+
+This is the core functional migration that should prevent the OpenAI Responses API “reasoning item must be followed” error from reappearing due to missing/filtered blocks when reconstructing requests.
+
+**Commit (code):** 550b073 — "Webchat/TUI: use geppetto InferenceState + Session"
+
+### What I did
+- Updated `pinocchio/pkg/ui/backend.go` to:
+  - store inference lifecycle in `*state.InferenceState`
+  - run inference via `core.Session.RunInferenceStarted(...)`
+  - build the seed as “stored snapshot + appended user text”
+  - use `InferenceState.CancelRun()` for Interrupt/Kill
+- Updated `pinocchio/pkg/webchat/conversation.go` to store `Inf *state.InferenceState` instead of `ConversationState`.
+- Updated `pinocchio/pkg/webchat/router.go` to:
+  - remove pinocchio runner usage
+  - call `conv.Inf.StartRun()` before launching the goroutine (conflict detection)
+  - run inference via `core.Session` (tool-loop mode) with `EventSinks` and `SnapshotHook`
+  - seed by cloning `conv.Inf.Turn` + appending the prompt
+
+### Why
+- pinocchio TUI and pinocchio webchat should share the same inference “core” types, not drift independently.
+- Storing the canonical turn snapshot avoids provider input validation failures caused by history filtering or reconstruction mistakes.
+
+### What worked
+- `go test ./...` and pinocchio pre-commit hook passed.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Using `StartRun` before launching a goroutine is the cleanest way to prevent double-run races in both Bubble Tea and HTTP handlers.
+
+### What was tricky to build
+- Getting the cancellation ownership right: `StartRun` happens in the handler, but `FinishRun` must happen in the goroutine.
+
+### What warrants a second pair of eyes
+- Ensure webchat still emits all tool-loop events to the websocket clients (we now rely on Session-attached sinks for tool-loop events).
+
+### What should be done in the future
+- Delete `pinocchio/pkg/inference/runner` once all call sites are migrated.
+
+### Code review instructions
+- Review:
+  - `pinocchio/pkg/ui/backend.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/conversation.go`
+
+### Technical details
+- Webchat seed construction is now local and explicit (`seedForPrompt`), instead of indirect via `ConversationState.Snapshot(...)`.
