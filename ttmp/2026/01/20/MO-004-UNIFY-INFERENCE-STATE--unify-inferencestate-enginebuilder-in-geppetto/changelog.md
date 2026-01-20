@@ -81,3 +81,21 @@ Step 12: check off example migration tasks (commit 7730444)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md — Checked off tasks 11-13
 
+
+## 2026-01-20
+
+Step 14: remove unused pinocchio runner package (commit 1a835e5)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/inference/runner/runner.go — Deleted; all call sites use geppetto core.Session now
+
+
+## 2026-01-20
+
+Step 15: check off core migration tasks (commit cade166)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md — Checked off tasks 2
+

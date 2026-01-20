@@ -719,3 +719,42 @@ This step updates MO-004 task bookkeeping now that the core extraction (Inferenc
 ### Technical details
 - Updated file:
   - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/tasks.md`
+
+## Step 16: Ticket bookkeeping — update changelog for Steps 14–15
+
+This step updates the MO-004 changelog so the latest cleanup and bookkeeping actions (runner removal + task check-off) are visible at a glance, with the corresponding commit hashes.
+
+**Commit (code):** N/A
+
+### What I did
+- Added changelog entries for:
+  - Step 14 (pinocchio runner deletion)
+  - Step 15 (task check-off)
+
+### Why
+- Keeps the changelog current and reviewable without reading the entire diary.
+
+### What worked
+- `docmgr changelog update --ticket MO-004-UNIFY-INFERENCE-STATE ...`
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review the new entries in `changelog.md` under MO-004.
+
+### Technical details
+- Updated file:
+  - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/changelog.md`
