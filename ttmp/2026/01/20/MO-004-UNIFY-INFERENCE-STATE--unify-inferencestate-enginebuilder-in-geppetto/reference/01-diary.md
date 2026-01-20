@@ -806,3 +806,57 @@ The postmortem is stored as a ticket analysis doc and uploaded to reMarkable (fo
 
 ### Technical details
 - The reMarkable upload was explicitly forced (`--force`) per request.
+
+## Step 18: Validate agent examples after refactor (tmux for TUI)
+
+This step validated that the refactor didn’t just compile: I ran the interactive (Bubble Tea) agent example in a real terminal environment (tmux) and verified that inference executed, streamed events (including GPT-5-style thinking deltas), and cleanly terminated. I also ran a non-TUI example path to ensure the shared runner changes didn’t break basic inference.
+
+The key “worked/failed” signal here is whether `core.Session` can actually drive a full run, with events flowing through sinks and cancellation/quit behaving as expected.
+
+**Commit (code):** N/A
+
+### What I did
+- Ran the TUI agent example in tmux and injected keys programmatically:
+  - First attempt used `Enter` to submit and didn’t trigger inference (only focused input).
+  - Second attempt used `Tab` to submit, which triggered inference and streamed events.
+- Ran a non-TUI example (`geppetto/cmd/examples/openai-tools`) against `openai-responses` to confirm end-to-end execution.
+
+### Why
+- `go test` only validates compilation and unit tests; the regressions we’ve hit historically are in event wiring + run lifecycle + strict provider validation, which need real runs.
+
+### What worked
+- `pinocchio` TUI agent example produced streaming events including:
+  - `EventPartialCompletionStart`
+  - `EventThinkingPartial`
+  - `EventFinal`
+  (visible in `/tmp/simple-chat-agent.log`)
+- `geppetto/cmd/examples/openai-tools` completed successfully in `openai-responses` mode.
+
+### What didn't work
+- Initial TUI submission attempt used the wrong key (`Enter` vs `Tab`) and only focused input without submitting a message.
+
+### What I learned
+- The “submit key” behavior matters for automated tmux validation. For this agent UI, `Tab` is the submit key, not `Enter`.
+
+### What was tricky to build
+- Validating Bubble Tea apps non-interactively requires tmux + `tmux send-keys` and a log file; otherwise the alternate screen output is hard to inspect.
+
+### What warrants a second pair of eyes
+- Confirm that the event stream visible in the UI matches expectations (text output, tool call panels) beyond what logs show.
+
+### What should be done in the future
+- Add a small “headless” smoke test command that runs a single prompt through the same Session runner as the TUI, for CI-style validation.
+
+### Code review instructions
+- Review the Session changes and the agent backend wiring:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/core/session.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go`
+
+### Technical details
+- TUI agent run (tmux):
+  - `tmux new-session -d -s mo4-agenttest "go run ./cmd/agents/simple-chat-agent simple-chat-agent --ai-api-type openai-responses --ai-engine gpt-5-mini --ai-max-response-tokens 256 --openai-reasoning-summary auto --log-level debug --log-file /tmp/simple-chat-agent.log --with-caller"`
+  - Submit prompt: `tmux send-keys -t mo4-agenttest 'hello' Tab`
+  - Quit: `tmux send-keys -t mo4-agenttest M-q`
+  - Inspect logs: `tail -n 200 /tmp/simple-chat-agent.log`
+- Non-TUI example validation:
+  - `go run ./cmd/examples/openai-tools test-openai-tools --ai-api-type openai-responses --ai-engine gpt-5-mini --mode thinking --prompt "What is 2+2?"`
