@@ -905,3 +905,50 @@ The playbook also answers the practical architecture question: which examples ac
 ### Technical details
 - Upload command:
   - `remarquee upload md --force --remote-dir "/ai/2026/01/20/MO-004-UNIFY-INFERENCE-STATE/reference" <doc>`
+
+## Step 20: Write analysis doc on sinks + PinocchioCommand runner + Session lifecycle (HasCancel/StartRun/FinishRun)
+
+This step answers the follow-up architectural questions that came up after the refactor: what “engine-config sinks” are, how they relate to context sinks, what the PinocchioCommand runner does and where it’s used, and why `core.Session` has both `RunInference` and `RunInferenceStarted` (including the role of `HasCancel`).
+
+The goal is to make future changes (like removing engine-config sinks or collapsing the two run entrypoints) less risky by explicitly documenting which layers currently own lifecycle and cancellation responsibilities.
+
+**Commit (code):** N/A
+
+### What I did
+- Read and cross-referenced the relevant implementation files:
+  - `geppetto/pkg/events/context.go`, `geppetto/pkg/events/sink.go`
+  - `geppetto/pkg/inference/engine/options.go`
+  - `geppetto/pkg/inference/core/session.go`, `geppetto/pkg/inference/state/state.go`
+  - `pinocchio/pkg/cmds/cmd.go`, `pinocchio/pkg/ui/backend.go`, `pinocchio/pkg/webchat/router.go`
+- Wrote a new “textbook style” analysis doc:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/03-analysis-engine-sinks-vs-context-sinks-pinocchiocommand-runner-session-run-lifecycle-startrun-finishrun-hascancel.md`
+
+### Why
+- The system currently supports two sink injection points (engine-config vs context) and two Session run entrypoints; without documentation it’s easy to reintroduce duplication bugs or break cancellation semantics.
+
+### What worked
+- The analysis maps the two lifecycle patterns directly onto real call sites (Pinocchio TUI + webchat + CLI blocking).
+
+### What didn't work
+- N/A
+
+### What I learned
+- The “engines attach their config sinks into ctx at RunInference start” approach is a practical compatibility bridge, but it requires discipline to avoid attaching the same sink twice (engine + session + caller).
+
+### What was tricky to build
+- Explaining `HasCancel` precisely: it exists to avoid clobbering a UI-provided cancel func while still guaranteeing cancellation exists for non-UI callers of `RunInferenceStarted`.
+
+### What warrants a second pair of eyes
+- Confirm whether we want to keep both sink injection points long-term, or plan a breaking simplification to ctx-only sinks.
+
+### What should be done in the future
+- If we want to unify `RunInference` and `RunInferenceStarted`, consider moving cancel creation into `StartRun` (so `StartRun` returns a structured `runCtx` + `finish()`), removing the need for `HasCancel`.
+
+### Code review instructions
+- Review the analysis doc:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/03-analysis-engine-sinks-vs-context-sinks-pinocchiocommand-runner-session-run-lifecycle-startrun-finishrun-hascancel.md`
+
+### Technical details
+- Grep used while writing:
+  - `rg -n "RunInferenceStarted" -S geppetto/pkg/inference/core/session.go pinocchio/pkg/ui/backend.go pinocchio/pkg/webchat/router.go`
+  - `rg -n "HasCancel\\(" -S geppetto/pkg/inference`

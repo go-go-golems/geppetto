@@ -118,3 +118,12 @@ Step 19: add inference testing playbook and upload to reMarkable
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/02-playbook-testing-inference-via-geppetto-pinocchio-examples.md — Copy/paste test commands for examples
 
+
+## 2026-01-20
+
+Wrote analysis doc clarifying event sink injection points (engine-config vs ctx) and Session lifecycle (RunInferenceStarted/HasCancel).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/03-analysis-engine-sinks-vs-context-sinks-pinocchiocommand-runner-session-run-lifecycle-startrun-finishrun-hascancel.md — New analysis doc
+
