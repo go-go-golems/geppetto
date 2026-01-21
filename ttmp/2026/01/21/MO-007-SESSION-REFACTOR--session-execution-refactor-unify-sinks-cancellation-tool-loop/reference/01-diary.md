@@ -226,6 +226,55 @@ As part of this, the TUI runtime builder stops constructing the provider engine 
   - `pinocchio/pkg/ui/runtime/builder.go`
 - Validate with `go test ./... -count=1` in `pinocchio/`.
 
+## Step 4: Migrate pinocchio webchat router off InferenceState/core.Session
+
+This step migrates pinocchio’s webchat conversation state and run loop wiring to the new session model. It removes `InferenceState.StartRun/FinishRun/SetCancel` usage and replaces the ad-hoc “wait for router running then RunInferenceStarted” goroutine with an explicit `session.Session` per conversation and a standard `ToolLoopEngineBuilder` per inference.
+
+The key behavioral change is that the HTTP handler now:
+1) checks `Session.IsRunning()` for conflict,
+2) appends the “prompt turn” into the session history,
+3) calls `Session.StartInference(...)` (async),
+4) spawns a goroutine to `Wait()` only for logging purposes.
+
+**Commit (code):** pinocchio d3c0684 — "Webchat: replace InferenceState/core.Session with session.Session"
+
+### What I did
+- Updated `pinocchio/pkg/webchat/conversation.go`:
+  - replaced `Inf *state.InferenceState` with `Sess *session.Session`
+  - initialize session with a base `ToolLoopEngineBuilder` that sets `Base` and `EventSinks`
+- Updated `pinocchio/pkg/webchat/router.go`:
+  - replaced `core.Session` usage with `session.ToolLoopEngineBuilder` + `Session.StartInference`
+  - replaced “run in progress” gating from `StartRun()` to `Sess.IsRunning()`
+  - updated `seedForPrompt` to clone from `Sess.Latest()` instead of `Inf.Turn`
+
+### Why
+- Webchat was one of the main reasons `RunInferenceStarted` existed; MO-007’s goal is to delete that complexity entirely.
+- The tool loop orchestration belongs in a standard builder/runner, not scattered across routers.
+
+### What worked
+- `go test ./... -count=1` passes in `pinocchio/` after migration.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Even for HTTP-triggered inference, starting the async inference immediately and returning a `run_id` is simpler than managing a separate “run started” flag.
+
+### What was tricky to build
+- Preserving the “don’t start before router handlers are running” intent without reintroducing a separate `StartRun` API: this step uses a small best-effort wait on `r.router.Running()` (2s) before starting inference.
+
+### What warrants a second pair of eyes
+- Whether `conv.Sess.Builder = ...` should be set under a conversation/session lock to avoid any possible concurrent reads (in practice, there is only one active inference per session).
+
+### What should be done in the future
+- Remove remaining `engine.WithSink` call sites outside the TUI/webchat runtime (e.g., CLI paths and redis examples) once the new session plumbing is used everywhere.
+
+### Code review instructions
+- Start at:
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/conversation.go`
+- Validate with `go test ./... -count=1` in `pinocchio/`.
+
 ## Related
 
 <!-- Link to related documents or resources -->

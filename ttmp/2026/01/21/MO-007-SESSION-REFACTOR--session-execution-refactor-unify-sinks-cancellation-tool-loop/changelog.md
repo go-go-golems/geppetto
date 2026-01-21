@@ -44,3 +44,13 @@ Step 3: migrate pinocchio TUI off InferenceState/core.Session to geppetto sessio
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/backend.go — TUI backend now drives inference via session.Session
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/runtime/builder.go — No engine.WithSink; pass sink to backend
 
+
+## 2026-01-21
+
+Step 4: migrate pinocchio webchat off InferenceState/core.Session to session.Session + ToolLoopEngineBuilder (pinocchio d3c0684)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go — Conversation state now stores *session.Session
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — /chat now drives Session.StartInference + Wait logging
+
