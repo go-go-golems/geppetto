@@ -133,3 +133,44 @@ The key conceptual correction is that *a conversation is not something you cance
 ### Technical details
 - Search command used:
   - `rg -n "StartRun\\(|FinishRun\\(|CancelRun\\(|HasCancel\\(" -S geppetto pinocchio moments go-go-mento --glob '!**/ttmp/**' --glob '!**/pkg/doc/**'`
+
+## Step 3: Write a consolidated “compendium” doc of the Q&A (Norvig style) and link to tickets
+
+This step consolidated the many smaller Q&A threads (sinks vs context sinks, Session vs State separation, cancellation lifecycle, naming, engine signature, tool-loop signature, and per-repo runner patterns) into a single document that can be used as a stable onboarding and review reference.
+
+The goal is not to introduce new design decisions, but to reduce cognitive overhead: one place to look up how the system works today, where the tricky edge cases are (duplicate sinks, missing terminal events on cancel, strict provider validation), and what vocabulary we should use to discuss the next refactors.
+
+**Commit (code):** N/A
+
+### What I did
+- Wrote a new compendium doc under MO-006:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-006-CLEANUP-CANCELLATION-LIFECYCLE--clarify-and-cleanup-cancellation-run-lifecycle-semantics/analysis/02-compendium-sinks-sessions-conversation-state-lifecycle-engines-tool-loops-q-a-diagrams.md`
+- Added file relationships to the compendium doc via `docmgr doc relate`.
+
+### Why
+- The same concepts (Run/Conversation/Inference, sinks, tool loops, cancellation) recur across tickets; keeping them scattered makes it easy to reintroduce the same bugs.
+
+### What worked
+- The compendium reuses concrete file-level references and consistent definitions, making it easier to align future API changes with the correct abstraction boundaries.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Writing the compendium made it clear that “turn” is currently being used as a conversation history container (blocks appended), which is a major vocabulary mismatch for readers expecting `[]Turn`.
+
+### What was tricky to build
+- Balancing completeness with readability; the doc is intentionally long, so diagrams and sectioning matter.
+
+### What warrants a second pair of eyes
+- Confirm the definitions section is accurate and that the proposed vocabulary aligns with how we want to evolve the code (especially if we move to `[]Turn` snapshots).
+
+### What should be done in the future
+- If we adopt `[]Turn` snapshots, update the compendium to describe that new representation and remove “one growing Turn” assumptions.
+
+### Code review instructions
+- Review the compendium doc:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-006-CLEANUP-CANCELLATION-LIFECYCLE--clarify-and-cleanup-cancellation-run-lifecycle-semantics/analysis/02-compendium-sinks-sessions-conversation-state-lifecycle-engines-tool-loops-q-a-diagrams.md`
+
+### Technical details
+- Upload planned via `remarquee upload md --force ...`
