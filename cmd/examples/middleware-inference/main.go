@@ -11,10 +11,9 @@ import (
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
-	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/state"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -26,6 +25,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -279,9 +279,19 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	}
 
 	// Run inference
-	inf := state.NewInferenceState("", initialTurn, engine)
-	sess := &core.Session{State: inf}
-	updatedTurn, err := sess.RunInference(ctx, initialTurn)
+	runID := uuid.NewString()
+	initialTurn.RunID = runID
+	sess := &session.Session{
+		SessionID: runID,
+		Builder:   &session.ToolLoopEngineBuilder{Base: engine},
+		Turns:     []*turns.Turn{initialTurn},
+	}
+	handle, err := sess.StartInference(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to start inference")
+		return fmt.Errorf("failed to start inference: %w", err)
+	}
+	updatedTurn, err := handle.Wait()
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)

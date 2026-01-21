@@ -8,9 +8,8 @@ import (
 
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/state"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -26,6 +25,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -429,16 +429,25 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		cfg := helperConfig
-		inf := state.NewInferenceState("", initialTurn, baseEngine)
-		sess := &core.Session{
-			State:      inf,
-			Registry:   registry,
-			ToolConfig: &cfg,
-			EventSinks: []events.EventSink{sink},
-		}
+		runID := uuid.NewString()
+		initialTurn.RunID = runID
 
-		updatedTurn, err := sess.RunInference(ctx, initialTurn)
+		cfg := helperConfig
+		sess := &session.Session{
+			SessionID: runID,
+			Builder: &session.ToolLoopEngineBuilder{
+				Base:       baseEngine,
+				Registry:   registry,
+				ToolConfig: &cfg,
+				EventSinks: []events.EventSink{sink},
+			},
+			Turns: []*turns.Turn{initialTurn},
+		}
+		handle, err := sess.StartInference(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start inference: %w", err)
+		}
+		updatedTurn, err := handle.Wait()
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)

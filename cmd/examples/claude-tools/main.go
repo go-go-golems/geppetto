@@ -7,10 +7,9 @@ import (
 
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
-	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/state"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -22,6 +21,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -179,9 +179,18 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Run inference with middleware-managed tool execution
 	ctx = toolcontext.WithRegistry(ctx, reg)
-	inf := state.NewInferenceState("", turn, wrapped)
-	sess := &core.Session{State: inf}
-	updatedTurn, err := sess.RunInference(ctx, turn)
+	runID := uuid.NewString()
+	turn.RunID = runID
+	sess := &session.Session{
+		SessionID: runID,
+		Builder:   &session.ToolLoopEngineBuilder{Base: wrapped},
+		Turns:     []*turns.Turn{turn},
+	}
+	handle, err := sess.StartInference(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to start inference")
+	}
+	updatedTurn, err := handle.Wait()
 	if err != nil {
 		return errors.Wrap(err, "inference with tools failed")
 	}

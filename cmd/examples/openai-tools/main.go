@@ -9,10 +9,9 @@ import (
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/core"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/state"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -24,6 +23,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -414,9 +414,18 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
 
 	// Run inference with middleware-managed tool execution
-	inf := state.NewInferenceState("", turn, wrapped)
-	sess := &core.Session{State: inf, EventSinks: []events.EventSink{sink}}
-	updatedTurn, err := sess.RunInference(runCtx, turn)
+	runID := uuid.NewString()
+	turn.RunID = runID
+	sess := &session.Session{
+		SessionID: runID,
+		Builder:   &session.ToolLoopEngineBuilder{Base: wrapped, EventSinks: []events.EventSink{sink}},
+		Turns:     []*turns.Turn{turn},
+	}
+	handle, err := sess.StartInference(runCtx)
+	if err != nil {
+		return errors.Wrap(err, "failed to start inference")
+	}
+	updatedTurn, err := handle.Wait()
 	if err != nil {
 		return errors.Wrap(err, "inference with tools failed")
 	}
