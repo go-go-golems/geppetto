@@ -174,3 +174,52 @@ The goal is not to introduce new design decisions, but to reduce cognitive overh
 
 ### Technical details
 - Upload planned via `remarquee upload md --force ...`
+
+## Step 4: Add minimal unit tests for Session + tool loop, and link to the existing inference testing playbook
+
+This step starts turning the “how do we know this works?” discussion into concrete checks that are fast and deterministic. The goal is to validate the core mechanics without hitting real providers: (1) `core.Session` correctly injects event sinks into the run context and supports cancellation, and (2) the canonical tool-calling loop can execute a trivial tool and converge to a final Turn.
+
+In parallel, I linked the previously-written playbook from MO-004 so we have a complete spectrum of testing: unit tests for mechanics + real-world runs (OpenAI Responses streaming, tmux-driven TUIs, etc.).
+
+**Commit (code):** bdcfdae — "Test: add Session and tool loop unit tests"
+
+### What I did
+- Added a `core.Session` unit test file:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/core/session_test.go`
+- Added a minimal tool loop unit test:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers_test.go`
+- Updated the compendium to link to the MO-004 inference testing playbook:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-006-CLEANUP-CANCELLATION-LIFECYCLE--clarify-and-cleanup-cancellation-run-lifecycle-semantics/analysis/02-compendium-sinks-sessions-conversation-state-lifecycle-engines-tool-loops-q-a-diagrams.md`
+
+### Why
+- We want confidence that sink injection and cancellation work even without networked providers.
+- The simplest tool loop test catches regressions in tool call extraction, tool registry wiring, and tool result block appending.
+
+### What worked
+- The tests are fully local and use a fake engine + a trivial “echo” tool.
+
+### What didn't work
+- N/A
+
+### What I learned
+- `RunToolCallingLoop` relies on `toolcontext.WithRegistry(ctx, registry)` and the default executor. A minimal “echo tool” + a fake engine that emits a single tool_call is enough to validate the loop end-to-end.
+
+### What was tricky to build
+- Making the fake engine produce tool_call blocks with the right payload keys so `toolblocks.ExtractPendingToolCalls` and `AppendToolResultsBlocks` behave as expected.
+
+### What warrants a second pair of eyes
+- Confirm the assertions in the Session tests match the intended invariants (especially around cancellation timing).
+
+### What should be done in the future
+- Add a “cancel during tool loop” test (ensure the loop exits promptly and a terminal interrupt signal is emitted for UIs).
+
+### Code review instructions
+- Review tests first:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/core/session_test.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers_test.go`
+- Then review the playbook for real-world exercise:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/02-playbook-testing-inference-via-geppetto-pinocchio-examples.md`
+
+### Technical details
+- Unit tests:
+  - `go test ./... -count=1`

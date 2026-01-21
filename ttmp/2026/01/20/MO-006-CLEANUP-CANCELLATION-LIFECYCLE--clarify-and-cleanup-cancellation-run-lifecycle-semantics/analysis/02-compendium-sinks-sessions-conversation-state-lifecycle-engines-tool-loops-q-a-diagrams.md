@@ -505,6 +505,9 @@ This is why:
 - MO-004 analysis: sinks vs context sinks; PinocchioCommand runner; Session lifecycle
   - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/03-analysis-engine-sinks-vs-context-sinks-pinocchiocommand-runner-session-run-lifecycle-startrun-finishrun-hascancel.md`
 
+- MO-004 reference: testing playbook (copy/paste commands to exercise sinks + streaming + tool loop + tmux TUIs)
+  - `geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/reference/02-playbook-testing-inference-via-geppetto-pinocchio-examples.md`
+
 - MO-005 analysis: remove engine.WithSink; use Session/context sinks
   - `geppetto/ttmp/2026/01/20/MO-005-CLEANUP-SINKS--cleanup-engine-withsink-usage-move-sink-wiring-to-context-session/analysis/01-sink-cleanup-removing-engine-withsink-and-standardizing-on-context-session-sinks.md`
 
