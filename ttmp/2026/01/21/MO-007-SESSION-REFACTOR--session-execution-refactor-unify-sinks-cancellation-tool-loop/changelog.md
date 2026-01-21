@@ -72,3 +72,12 @@ Step 6: run real-world inference (geppetto examples + pinocchio TUI tmux) and fi
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/cmds/cmd.go — Disable bobatea autoStartBackend
 
+
+## 2026-01-21
+
+Postmortem: document MO-007 implementation steps, tricky parts, and WithAutoStartBackend footgun
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/21/MO-007-SESSION-REFACTOR--session-execution-refactor-unify-sinks-cancellation-tool-loop/analysis/01-postmortem-session-refactor-mo-007.md — Postmortem
+
