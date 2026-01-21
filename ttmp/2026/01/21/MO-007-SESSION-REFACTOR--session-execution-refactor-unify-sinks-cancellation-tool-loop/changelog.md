@@ -33,3 +33,14 @@ Step 2: migrate geppetto cmd/examples off core.Session/InferenceState to session
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/simple-inference/main.go — Uses Session.StartInference().Wait()
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/simple-streaming-inference/main.go — Streaming example uses ToolLoopEngineBuilder.EventSinks
 
+
+## 2026-01-21
+
+Step 3: migrate pinocchio TUI off InferenceState/core.Session to geppetto session.Session + ExecutionHandle; stop using engine.WithSink for TUI engine creation (geppetto 388e976, pinocchio 0c6041a)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/session/session.go — Add IsRunning() for UIs
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/backend.go — TUI backend now drives inference via session.Session
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/ui/runtime/builder.go — No engine.WithSink; pass sink to backend
+

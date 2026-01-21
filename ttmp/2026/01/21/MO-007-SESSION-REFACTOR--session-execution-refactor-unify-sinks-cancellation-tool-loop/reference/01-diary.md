@@ -174,6 +174,58 @@ The examples now create a `runID`, seed a `turns.Turn`, instantiate a `session.S
   - `geppetto/cmd/examples/simple-streaming-inference/main.go`
 - Validate with `go test ./... -count=1` in `geppetto/`.
 
+## Step 3: Migrate pinocchio TUI backend to Session/ExecutionHandle (and drop engine.WithSink there)
+
+This step migrates the pinocchio Bubble Tea chat backend off `InferenceState` and `core.Session.RunInferenceStarted(...)`. The new behavior starts inference immediately (so “already running” checks happen synchronously) and returns a Bubble Tea `Cmd` that simply blocks on the `ExecutionHandle.Wait()` result.
+
+As part of this, the TUI runtime builder stops constructing the provider engine with `engine.WithSink(uiSink)`. Instead, it passes `uiSink` into `ui.NewEngineBackend(...)`, which wires it into `session.ToolLoopEngineBuilder.EventSinks`, so provider engines publish streaming events via context sinks only.
+
+**Commit (code):**
+- geppetto: 388e976 — "Session: add IsRunning helper"
+- pinocchio: 0c6041a — "TUI: use geppetto session.Session and context sinks"
+
+### What I did
+- Added `Session.IsRunning()` to `geppetto/pkg/inference/session/session.go` so UIs can check running state without reaching into internals.
+- Updated `pinocchio/pkg/ui/backend.go`:
+  - replaced `*state.InferenceState` + `core.Session` with `*session.Session`
+  - rewired `Start()` to:
+    1) build a seed turn (clone latest + append user prompt),
+    2) append it to the session,
+    3) call `Session.StartInference(ctx)` immediately,
+    4) return a `tea.Cmd` that waits on `ExecutionHandle.Wait()`
+  - rewired `Interrupt()/Kill()/IsFinished()` to use `Session.CancelActive()` / `Session.IsRunning()`
+- Updated `pinocchio/pkg/ui/runtime/builder.go`:
+  - removed `engine.WithSink(uiSink)` when constructing the provider engine
+  - passed `uiSink` into `ui.NewEngineBackend(eng, uiSink)` so events flow via context sinks.
+
+### Why
+- The “pre-start lifecycle split” (`StartRun` + `RunInferenceStarted`) is exactly the complexity MO-007 is trying to eliminate.
+- TUI should become a downstream consumer that depends only on Session semantics and context sinks.
+
+### What worked
+- `go test ./... -count=1` passes in `pinocchio/` after migration.
+
+### What didn't work
+- N/A (note: pinocchio’s pre-commit hook runs `npm audit` during lint and reports vulnerabilities, but this step did not address them).
+
+### What I learned
+- Starting inference immediately in `Backend.Start()` (instead of inside the returned `tea.Cmd`) is the simplest way to keep “already running” checks correct without needing a secondary `RunInferenceStarted` API.
+
+### What was tricky to build
+- Preserving turn continuity: we must append the “prompt turn” to the session before calling `StartInference`, since the session runner uses the latest turn as input.
+
+### What warrants a second pair of eyes
+- Whether appending the “prompt turn” before `StartInference` is acceptable in the presence of races (it is safe in the TUI because Start is serialized by Bubble Tea, but webchat may need stronger guarantees).
+
+### What should be done in the future
+- Apply the same pattern to pinocchio webchat router and any remaining tool-loop backends.
+
+### Code review instructions
+- Start at:
+  - `pinocchio/pkg/ui/backend.go`
+  - `pinocchio/pkg/ui/runtime/builder.go`
+- Validate with `go test ./... -count=1` in `pinocchio/`.
+
 ## Related
 
 <!-- Link to related documents or resources -->
