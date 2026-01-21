@@ -271,7 +271,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	// Create engine using factory with an event sink to publish streaming events
 	watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
 	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
-	engineInstance, sink, _, err := engBuilder.Build("", "", nil)
+	engineInstance, sink, err := engBuilder.Build("", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}

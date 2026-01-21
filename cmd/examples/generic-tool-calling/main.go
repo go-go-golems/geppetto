@@ -334,7 +334,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 	// 4. Create base engine with sink - provider agnostic!
 	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
-	baseEngine, sink, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
+	baseEngine, sink, err := engBuilder.Build("", s.PinocchioProfile, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")

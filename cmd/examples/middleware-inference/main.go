@@ -131,7 +131,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	// Create base engine
 	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, nil)
-	engine, _, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
+	engine, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")

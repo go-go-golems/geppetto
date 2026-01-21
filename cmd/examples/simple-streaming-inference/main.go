@@ -190,7 +190,7 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	}
 
 	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
-	engine, sink, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
+	engine, sink, err := engBuilder.Build("", s.PinocchioProfile, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")

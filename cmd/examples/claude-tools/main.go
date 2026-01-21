@@ -109,7 +109,7 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	}
 
 	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, nil)
-	engineInstance, _, _, err := engBuilder.Build("", "", nil)
+	engineInstance, _, err := engBuilder.Build("", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
