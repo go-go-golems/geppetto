@@ -117,12 +117,10 @@ sink := middleware.NewWatermillSink(router.Publisher, "chat")
 
 ### Step 5: Wire the Engine with the Sink
 
-Pass the sink when creating the engine:
+Create the engine normally (no sink/options are passed at engine construction time):
 
 ```go
-import "github.com/go-go-golems/geppetto/pkg/inference/engine"
-
-eng, err := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(sink))
+eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
 if err != nil {
     return err
 }
@@ -146,7 +144,7 @@ eg.Go(func() error {
 eg.Go(func() error {
     <-router.Running() // Wait for router to be ready
     
-    // Attach sink to context for helpers/tools to publish
+    // Attach sink to context so provider engines and helpers publish to the router
     runCtx := events.WithEventSinks(groupCtx, sink)
     
     // Run your inference
@@ -201,7 +199,7 @@ func main() {
     
     // 4. Create sink and engine
     sink := middleware.NewWatermillSink(router.Publisher, "chat")
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(sink))
+    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
     
     // 5. Build Turn
     turn := &turns.Turn{}
@@ -300,4 +298,3 @@ router.AddHandler("debug", "chat", router.DumpRawEvents)
 - [Events](../topics/04-events.md) — Full events reference
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete streaming example
 - Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`
-

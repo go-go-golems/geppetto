@@ -137,29 +137,20 @@ type Usage struct {
 
 ## Publishing Events
 
-Events flow through two complementary channels:
+Geppetto uses **context-carried sinks**:
 
-### 1. Engine-Configured Sinks
+- Provider engines publish via `events.PublishEventToContext(ctx, ...)`.
+- Helper layers (tool loops, middleware) also publish via context.
 
-Pass sinks when creating the engine:
+Attach sinks to `context.Context` at runtime:
 
 ```go
 watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-eng, _ := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(watermillSink))
-```
-
-### 2. Context-Carried Sinks
-
-Attach sinks to `context.Context` for downstream code:
-
-```go
-ctx = events.WithEventSinks(ctx, watermillSink)
+runCtx := events.WithEventSinks(ctx, watermillSink)
 
 // Anywhere downstream can publish
-events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
+events.PublishEventToContext(runCtx, events.NewToolResultEvent(meta, toolResult))
 ```
-
-**Best practice**: Attach the same sink to both engine and context so all components publish to the same router.
 
 ## Provider Event Flow
 
@@ -169,7 +160,7 @@ events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
 | **OpenAI (Responses)** | Adds `info` events for reasoning boundaries, `partial-thinking` for summary deltas. Function args streamed via SSE. |
 | **Claude** | Content-block merger emits `start` → `partial` → `tool-call` (when complete) → `final`. |
 
-All providers publish to both configured sinks and context sinks.
+All providers publish via context sinks.
 
 ## Running the Event Router
 
@@ -184,7 +175,7 @@ router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
 // Create sink and engine
 sink := middleware.NewWatermillSink(router.Publisher, "chat")
-eng, _ := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))
+eng, _ := factory.NewEngineFromParsedLayers(parsed)
 
 eg, groupCtx := errgroup.WithContext(ctx)
 

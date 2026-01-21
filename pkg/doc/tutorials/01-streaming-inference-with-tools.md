@@ -60,8 +60,9 @@ Note: In current Geppetto, provider engines learn about available tools from the
 ## Key APIs You’ll Use
 
 - Engine and sink
-  - `factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))`
+  - `factory.NewEngineFromParsedLayers(parsed)`
   - `middleware.NewWatermillSink(publisher, topic)`
+  - `events.WithEventSinks(ctx, sink)` (attach sinks at runtime)
 - Events and printers
   - `events.NewEventRouter()`
   - `events.StepPrinterFunc(prefix, w)` or `events.NewStructuredPrinter(w, options)`
@@ -122,10 +123,10 @@ Why this matters: the sink ties your engine and helpers to the router so that to
 
 ## Step 3 — Create the Engine (Streaming Enabled)
 
-Pass the sink to the engine so it can emit streaming events.
+Create the engine normally. Streaming events are emitted to the sinks attached to the runtime context.
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))
+eng, err := factory.NewEngineFromParsedLayers(parsed)
 if err != nil { return err }
 ```
 
@@ -229,7 +230,7 @@ assistant: It’s about 22°C in Paris right now.
 
 ## Troubleshooting and Tips
 
-- No output streaming? Ensure the engine is constructed with `engine.WithSink(sink)` and that the sink is also placed on the context via `events.WithEventSinks(...)`.
+- No output streaming? Ensure the sink is placed on the context via `events.WithEventSinks(...)` *in the goroutine that runs inference*.
 - Blank console? Confirm a handler is registered for the same topic you used when creating the sink (here: `"chat"`).
 - Tool schemas not applied? Some providers don’t accept external tool definitions; fall back to the generic helper loop which inspects model output and invokes tools from the registry.
 - Infinite loops: cap iterations with `toolhelpers.NewToolConfig().WithMaxIterations(n)`.

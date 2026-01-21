@@ -219,8 +219,8 @@ Build a handler that collects statistics:
     // Create sink that publishes to the "chat" topic
     sink := middleware.NewWatermillSink(router.Publisher, "chat")
 
-    // Create engine with the sink attached
-    eng, err := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(sink))
+    // Create engine (sinks are attached at runtime via context)
+    eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
     if err != nil {
         return fmt.Errorf("failed to create engine: %w", err)
     }
@@ -324,7 +324,7 @@ func main() {
 
     // 5. Create sink and engine
     sink := middleware.NewWatermillSink(router.Publisher, "chat")
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(sink))
+    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
 
     // 6. Build Turn
     turn := &turns.Turn{}
@@ -410,4 +410,3 @@ Now events flow through Redis and can be consumed by any connected service.
 - [Streaming Tutorial](01-streaming-inference-with-tools.md) — Basic streaming
 - [Add Event Handler Playbook](../playbooks/02-add-a-new-event-handler.md) — Step-by-step guide
 - Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`
-

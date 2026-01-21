@@ -149,24 +149,17 @@ func createEngine(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
 
 ### Engine Options
 
-You can customize engine creation with options:
+Provider engines are created without options. Event sinks are attached to the runtime
+`context.Context`:
 
 ```go
-import (
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-)
+func createEngine(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
+    return factory.NewEngineFromParsedLayers(parsedLayers)
+}
 
-func createEngineWithOptions(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
-    // Create event sink for streaming
-    watermillSink := middleware.NewWatermillSink(publisher, "chat")
-
-    // Engine options for customization
-    engineOptions := []engine.Option{
-        engine.WithSink(watermillSink),
-    }
-
-    return factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+func runWithSinks(ctx context.Context, eng engine.Engine, sink events.EventSink, seed *turns.Turn) (*turns.Turn, error) {
+    runCtx := events.WithEventSinks(ctx, sink)
+    return eng.RunInference(runCtx, seed)
 }
 ```
 
@@ -388,7 +381,6 @@ import (
     "time"
 
     "github.com/go-go-golems/geppetto/pkg/events"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
@@ -416,12 +408,8 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
     // 3. Create watermill sink for publishing events
     watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
 
-    // 4. Create engine with streaming
-    engineOptions := []engine.Option{
-        engine.WithSink(watermillSink),
-    }
-
-    baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+    // 4. Create engine (sinks are attached at runtime via context)
+    baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers)
     if err != nil {
         return fmt.Errorf("failed to create engine: %w", err)
     }
