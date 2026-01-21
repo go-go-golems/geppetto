@@ -21,20 +21,13 @@ import (
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
 	settings    *settings.StepSettings
-	config      *engine.Config
 	toolAdapter *tools.ClaudeToolAdapter
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.StepSettings, options ...engine.Option) (*ClaudeEngine, error) {
-	config := engine.NewConfig()
-	if err := engine.ApplyOptions(config, options...); err != nil {
-		return nil, err
-	}
-
+func NewClaudeEngine(settings *settings.StepSettings) (*ClaudeEngine, error) {
 	return &ClaudeEngine{
 		settings:    settings,
-		config:      config,
 		toolAdapter: tools.NewClaudeToolAdapter(),
 	}, nil
 }
@@ -47,12 +40,6 @@ func (e *ClaudeEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-	// Make any engine-configured sinks available to all downstream publishers,
-	// including tool loops and middleware that publish via context.
-	if len(e.config.EventSinks) > 0 {
-		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
-	}
-
 	// Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
 	clientSettings := e.settings.Client

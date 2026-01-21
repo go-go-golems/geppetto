@@ -169,13 +169,13 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 	}()
 	sink := &fileSink{f: ef, echo: opts.EchoEvents}
 
-	engOpts := []engine.Option{engine.WithSink(sink)}
-	eng, err := openai_responses.NewEngine(st, engOpts...)
+	eng, err := openai_responses.NewEngine(st)
 	if err != nil {
 		return nil, err
 	}
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
+	runCtx = events.WithEventSinks(runCtx, sink)
 	if opts.RawCapture {
 		turnID := ""
 		if turn != nil {
@@ -216,13 +216,14 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 				}
 			}()
 			sink2 := &fileSink{f: ef2, echo: opts.EchoEvents}
-			eng2, err := openai_responses.NewEngine(st, engine.WithSink(sink2))
+			eng2, err := openai_responses.NewEngine(st)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to create engine for follow-up")
 				return
 			}
 			runCtx2, cancel2 := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel2()
+			runCtx2 = events.WithEventSinks(runCtx2, sink2)
 			if opts.RawCapture {
 				turnID := ""
 				if finalTurn != nil {

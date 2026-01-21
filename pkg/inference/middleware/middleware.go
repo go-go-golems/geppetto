@@ -34,7 +34,6 @@ func engineHandlerFunc(engine engine.Engine) HandlerFunc {
 // EngineWithMiddleware wraps an Engine with a middleware chain.
 type EngineWithMiddleware struct {
 	handler HandlerFunc
-	config  *engine.Config
 }
 
 // NewEngineWithMiddleware creates a new engine with middleware support.
@@ -44,7 +43,6 @@ func NewEngineWithMiddleware(e engine.Engine, middlewares ...Middleware) *Engine
 
 	return &EngineWithMiddleware{
 		handler: chainedHandler,
-		config:  engine.NewConfig(),
 	}
 }
 

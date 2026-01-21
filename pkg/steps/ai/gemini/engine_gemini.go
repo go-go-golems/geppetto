@@ -28,16 +28,11 @@ import (
 // GeminiEngine implements the Engine interface for Google's Gemini API
 type GeminiEngine struct {
 	settings *settings.StepSettings
-	config   *engine.Config
 }
 
-// NewGeminiEngine creates a new Gemini inference engine with the given settings and options.
-func NewGeminiEngine(settings *settings.StepSettings, options ...engine.Option) (*GeminiEngine, error) {
-	cfg := engine.NewConfig()
-	if err := engine.ApplyOptions(cfg, options...); err != nil {
-		return nil, err
-	}
-	return &GeminiEngine{settings: settings, config: cfg}, nil
+// NewGeminiEngine creates a new Gemini inference engine with the given settings.
+func NewGeminiEngine(settings *settings.StepSettings) (*GeminiEngine, error) {
+	return &GeminiEngine{settings: settings}, nil
 }
 
 // convertJSONSchemaToGenAI converts an invopop jsonschema.Schema to a Gemini Schema (best-effort for common types).
@@ -94,12 +89,6 @@ func convertJSONSchemaToGenAI(s *jsonschema.Schema) *genai.Schema {
 
 // RunInference processes a Turn using the Gemini API and appends result blocks.
 func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	// Make any engine-configured sinks available to all downstream publishers,
-	// including tool loops and middleware that publish via context.
-	if len(e.config.EventSinks) > 0 {
-		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
-	}
-
 	if e.settings == nil || e.settings.Chat == nil || e.settings.Chat.Engine == nil {
 		return nil, errors.New("no engine specified")
 	}

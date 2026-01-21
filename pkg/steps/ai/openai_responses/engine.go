@@ -24,15 +24,10 @@ import (
 // Engine implements the Engine interface for OpenAI Responses API calls.
 type Engine struct {
 	settings *settings.StepSettings
-	config   *engine.Config
 }
 
-func NewEngine(s *settings.StepSettings, options ...engine.Option) (*Engine, error) {
-	cfg := engine.NewConfig()
-	if err := engine.ApplyOptions(cfg, options...); err != nil {
-		return nil, err
-	}
-	return &Engine{settings: s, config: cfg}, nil
+func NewEngine(s *settings.StepSettings) (*Engine, error) {
+	return &Engine{settings: s}, nil
 }
 
 // publishEvent publishes events to configured sinks and context sinks.
@@ -41,12 +36,6 @@ func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
 }
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	// Make any engine-configured sinks available to all downstream publishers,
-	// including tool loops and middleware that publish via context.
-	if len(e.config.EventSinks) > 0 {
-		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
-	}
-
 	startTime := time.Now()
 
 	// Capture turn state before conversion if DebugTap is present

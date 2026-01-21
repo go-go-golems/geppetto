@@ -22,21 +22,19 @@ func (c simpleEngineConfig) Signature() string { return c.sig }
 // It intentionally ignores overrides and mostly treats profileSlug as advisory;
 // examples already embed provider selection in ParsedLayers.
 type ParsedLayersEngineBuilder struct {
-	parsed     *layers.ParsedLayers
-	sink       events.EventSink
-	engineOpts []engine.Option
+	parsed *layers.ParsedLayers
+	sink   events.EventSink
 }
 
-func NewParsedLayersEngineBuilder(parsed *layers.ParsedLayers, sink events.EventSink, engineOpts ...engine.Option) *ParsedLayersEngineBuilder {
+func NewParsedLayersEngineBuilder(parsed *layers.ParsedLayers, sink events.EventSink) *ParsedLayersEngineBuilder {
 	return &ParsedLayersEngineBuilder{
-		parsed:     parsed,
-		sink:       sink,
-		engineOpts: append([]engine.Option(nil), engineOpts...),
+		parsed: parsed,
+		sink:   sink,
 	}
 }
 
 func (b *ParsedLayersEngineBuilder) Build(convID, profileSlug string, overrides map[string]any) (engine.Engine, events.EventSink, gebuilder.EngineConfig, error) {
-	eng, err := factory.NewEngineFromParsedLayers(b.parsed, b.engineOpts...)
+	eng, err := factory.NewEngineFromParsedLayers(b.parsed)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -60,7 +58,7 @@ func (b *ParsedLayersEngineBuilder) BuildConfig(profileSlug string, overrides ma
 }
 
 func (b *ParsedLayersEngineBuilder) BuildFromConfig(convID string, config gebuilder.EngineConfig) (engine.Engine, events.EventSink, error) {
-	eng, err := factory.NewEngineFromParsedLayers(b.parsed, b.engineOpts...)
+	eng, err := factory.NewEngineFromParsedLayers(b.parsed)
 	if err != nil {
 		return nil, nil, err
 	}

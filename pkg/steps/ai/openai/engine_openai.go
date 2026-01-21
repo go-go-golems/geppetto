@@ -25,20 +25,13 @@ import (
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
 	settings    *settings.StepSettings
-	config      *engine.Config
 	toolAdapter *tools.OpenAIToolAdapter
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
-func NewOpenAIEngine(settings *settings.StepSettings, options ...engine.Option) (*OpenAIEngine, error) {
-	config := engine.NewConfig()
-	if err := engine.ApplyOptions(config, options...); err != nil {
-		return nil, err
-	}
-
+func NewOpenAIEngine(settings *settings.StepSettings) (*OpenAIEngine, error) {
 	return &OpenAIEngine{
 		settings:    settings,
-		config:      config,
 		toolAdapter: tools.NewOpenAIToolAdapter(),
 	}, nil
 }
@@ -50,12 +43,6 @@ func (e *OpenAIEngine) RunInference(
 	ctx context.Context,
 	t *turns.Turn,
 ) (*turns.Turn, error) {
-	// Make any engine-configured sinks available to all downstream publishers,
-	// including tool loops and middleware that publish via context.
-	if len(e.config.EventSinks) > 0 {
-		ctx = events.WithEventSinks(ctx, e.config.EventSinks...)
-	}
-
 	// Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
 	startTime := time.Now()

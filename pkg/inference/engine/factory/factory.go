@@ -21,7 +21,7 @@ type EngineFactory interface {
 	// CreateEngine creates an Engine instance based on the provided settings.
 	// The actual provider is determined from settings.Chat.ApiType.
 	// Returns an error if the provider is unsupported or configuration is invalid.
-	CreateEngine(settings *settings.StepSettings, options ...engine.Option) (engine.Engine, error)
+	CreateEngine(settings *settings.StepSettings) (engine.Engine, error)
 
 	// SupportedProviders returns a list of provider names this factory supports.
 	// Provider names match the ApiType constants (e.g., "openai", "claude", "gemini").
@@ -46,7 +46,7 @@ func NewStandardEngineFactory() *StandardEngineFactory {
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
 // If no ApiType is specified, defaults to OpenAI.
 // Supported providers: openai, anyscale, fireworks, claude, anthropic, gemini.
-func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, options ...engine.Option) (engine.Engine, error) {
+func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (engine.Engine, error) {
 	if settings == nil {
 		return nil, errors.New("settings cannot be nil")
 	}
@@ -65,16 +65,16 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return openai.NewOpenAIEngine(settings, options...)
+		return openai.NewOpenAIEngine(settings)
 
 	case string(types.ApiTypeOpenAIResponses):
-		return openai_responses.NewEngine(settings, options...)
+		return openai_responses.NewEngine(settings)
 
 	case string(types.ApiTypeClaude), "anthropic":
-		return claude.NewClaudeEngine(settings, options...)
+		return claude.NewClaudeEngine(settings)
 
 	case string(types.ApiTypeGemini):
-		return gemini.NewGeminiEngine(settings, options...)
+		return gemini.NewGeminiEngine(settings)
 
 	default:
 		supported := strings.Join(f.SupportedProviders(), ", ")
