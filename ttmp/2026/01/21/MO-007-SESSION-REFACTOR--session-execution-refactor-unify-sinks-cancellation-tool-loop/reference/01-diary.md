@@ -12,6 +12,10 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/cmd/examples/generic-tool-calling/main.go
+      Note: Streaming + tool loop example migrated (commit 5cd95af)
+    - Path: geppetto/cmd/examples/simple-inference/main.go
+      Note: Example migrated to session.Session + ToolLoopEngineBuilder (commit 5cd95af)
     - Path: geppetto/pkg/inference/session/builder.go
       Note: EngineBuilder/InferenceRunner interfaces (commit 158e4be)
     - Path: geppetto/pkg/inference/session/execution.go
@@ -28,6 +32,7 @@ LastUpdated: 2026-01-21T13:51:22.625347026-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -119,6 +124,55 @@ I also added a small unit test suite to lock down the new semantics (append-on-s
 - Start at `geppetto/pkg/inference/session/tool_loop_builder.go` (runner wiring: middleware + sinks + snapshots + tool loop).
 - Then review `geppetto/pkg/inference/session/session.go` (async lifecycle + concurrency invariants).
 - Validate with `go test ./geppetto/... -count=1`.
+
+## Step 2: Migrate geppetto examples off core.Session/InferenceState
+
+This step moves the public “small examples” in `geppetto/cmd/examples/*` to the new MO-007 primitives (`session.Session` + `session.ToolLoopEngineBuilder`). The goal is to keep the examples as the first always-green consumer surface that validates the new lifecycle, before tackling pinocchio’s TUI/webchat and finally deleting the legacy packages.
+
+The examples now create a `runID`, seed a `turns.Turn`, instantiate a `session.Session` with a `ToolLoopEngineBuilder` (including event sinks for streaming examples), and then execute inference via `StartInference(...).Wait()`.
+
+**Commit (code):** 5cd95af — "Examples: switch to session.Session and ToolLoopEngineBuilder"
+
+### What I did
+- Updated these programs to use `geppetto/pkg/inference/session`:
+  - `geppetto/cmd/examples/simple-inference/main.go`
+  - `geppetto/cmd/examples/simple-streaming-inference/main.go`
+  - `geppetto/cmd/examples/middleware-inference/main.go`
+  - `geppetto/cmd/examples/openai-tools/main.go`
+  - `geppetto/cmd/examples/claude-tools/main.go`
+  - `geppetto/cmd/examples/generic-tool-calling/main.go`
+- Removed usage of:
+  - `geppetto/pkg/inference/state.NewInferenceState`
+  - `geppetto/pkg/inference/core.Session`
+- Ran `go test ./... -count=1` (within `geppetto/`) via pre-commit.
+
+### Why
+- This keeps a clear “known good” reference for how to wire a chat-style run using MO-007 primitives.
+- It reduces the blast radius of later deletions: once examples are migrated, we can remove legacy packages more confidently.
+
+### What worked
+- All examples compile; pre-commit `test` and `lint` pass on commit.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The examples previously already relied on context sinks (not engine-config sinks), so the migration to `ToolLoopEngineBuilder` is mostly mechanical.
+
+### What was tricky to build
+- Avoiding accidental “double orchestration” in examples that already use middleware-managed tools (keep `ToolLoopEngineBuilder.Registry == nil` there).
+
+### What warrants a second pair of eyes
+- Whether examples should standardize on `builder.Build(...).RunInference(...)` instead of `Session.StartInference(...).Wait()` to avoid nested goroutines in apps that already use an errgroup (not a correctness issue, but worth deciding for consistency).
+
+### What should be done in the future
+- Update pinocchio examples and pinocchio UI (TUI/webchat) to stop using `core.Session`/`InferenceState`.
+
+### Code review instructions
+- Review one non-streaming and one streaming example for the new wiring:
+  - `geppetto/cmd/examples/simple-inference/main.go`
+  - `geppetto/cmd/examples/simple-streaming-inference/main.go`
+- Validate with `go test ./... -count=1` in `geppetto/`.
 
 ## Related
 

@@ -23,3 +23,13 @@ Step 1: introduce pkg/inference/session (Session + ExecutionHandle) and ToolLoop
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/session/session.go — Async StartInference + single-active invariant
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/session/tool_loop_builder.go — Orchestration moved to builder/runner
 
+
+## 2026-01-21
+
+Step 2: migrate geppetto cmd/examples off core.Session/InferenceState to session.Session + ToolLoopEngineBuilder (commit 5cd95af)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/simple-inference/main.go — Uses Session.StartInference().Wait()
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/simple-streaming-inference/main.go — Streaming example uses ToolLoopEngineBuilder.EventSinks
+
