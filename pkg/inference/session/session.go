@@ -13,7 +13,6 @@ var (
 	ErrSessionNil           = errors.New("session is nil")
 	ErrSessionBuilderNil    = errors.New("session builder is nil")
 	ErrSessionAlreadyActive = errors.New("session already has an active inference")
-	ErrSessionNoTurns       = errors.New("session has no turns to run inference on")
 	ErrSessionNoActive      = errors.New("session has no active inference")
 )
 
