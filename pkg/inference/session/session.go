@@ -33,6 +33,16 @@ type Session struct {
 	active *ExecutionHandle
 }
 
+// IsRunning reports whether the session currently has an active inference.
+func (s *Session) IsRunning() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.active != nil && s.active.IsRunning()
+}
+
 func (s *Session) Latest() *turns.Turn {
 	if s == nil {
 		return nil
