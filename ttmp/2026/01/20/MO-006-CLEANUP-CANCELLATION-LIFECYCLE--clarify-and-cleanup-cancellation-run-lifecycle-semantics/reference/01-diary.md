@@ -182,6 +182,7 @@ This step starts turning the “how do we know this works?” discussion into co
 In parallel, I linked the previously-written playbook from MO-004 so we have a complete spectrum of testing: unit tests for mechanics + real-world runs (OpenAI Responses streaming, tmux-driven TUIs, etc.).
 
 **Commit (code):** bdcfdae — "Test: add Session and tool loop unit tests"
+**Commit (docs):** 5803e29 — "Docs: MO-006 add tests + playbook link"
 
 ### What I did
 - Added a `core.Session` unit test file:
