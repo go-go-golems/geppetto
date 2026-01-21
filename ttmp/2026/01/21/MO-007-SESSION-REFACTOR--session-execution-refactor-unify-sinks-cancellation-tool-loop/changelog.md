@@ -81,3 +81,12 @@ Postmortem: document MO-007 implementation steps, tricky parts, and WithAutoStar
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/21/MO-007-SESSION-REFACTOR--session-execution-refactor-unify-sinks-cancellation-tool-loop/analysis/01-postmortem-session-refactor-mo-007.md — Postmortem
 
+
+## 2026-01-21
+
+Analysis: document bobatea StartBackendMsg no-op and pinocchio TUI integration path with Session API
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/21/MO-007-SESSION-REFACTOR--session-execution-refactor-unify-sinks-cancellation-tool-loop/analysis/02-pinocchio-tui-bobatea-integrating-session-api-and-fixing-autostart.md — Analysis
+
