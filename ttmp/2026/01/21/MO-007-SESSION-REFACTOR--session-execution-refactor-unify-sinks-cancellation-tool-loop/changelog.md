@@ -63,3 +63,12 @@ Step 5: delete engine.WithSink / engine.Option plumbing; update provider constru
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/engine/factory/factory.go — Signature change; no engine options
 
+
+## 2026-01-21
+
+Step 6: run real-world inference (geppetto examples + pinocchio TUI tmux) and fix pinocchio chat autostart hang (commit da5f276)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/cmds/cmd.go — Disable bobatea autoStartBackend
+

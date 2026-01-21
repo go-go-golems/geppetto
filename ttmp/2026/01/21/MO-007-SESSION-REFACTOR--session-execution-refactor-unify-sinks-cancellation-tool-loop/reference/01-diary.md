@@ -12,10 +12,12 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../../../../../../../pinocchio/pkg/inference/enginebuilder/parsed_layers.go
+    - Path: ../../../../../../../pinocchio/pkg/cmds/cmd.go
       Note: |-
-        Updated ParsedLayersEngineBuilder to match engine factory signature change (commit 6ce03ff)
-        Updated to match engine factory signature change (commit 6ce03ff)
+        Fix chat start: stop using bobatea autoStartBackend; rely on submit() to start inference (commit da5f276)
+        Disable bobatea autoStartBackend; submit() starts inference (commit da5f276)
+    - Path: ../../../../../../../pinocchio/pkg/inference/enginebuilder/parsed_layers.go
+      Note: Updated ParsedLayersEngineBuilder to match engine factory signature change (commit 6ce03ff)
     - Path: cmd/examples/generic-tool-calling/main.go
       Note: Streaming + tool loop example migrated (commit 5cd95af)
     - Path: cmd/examples/simple-inference/main.go
@@ -40,6 +42,7 @@ LastUpdated: 2026-01-21T13:51:22.625347026-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -247,6 +250,43 @@ The key behavioral change is that the HTTP handler now:
 
 **Commit (code):** pinocchio d3c0684 — "Webchat: replace InferenceState/core.Session with session.Session"
 
+### What I did
+- Updated `pinocchio/pkg/webchat/conversation.go`:
+  - replaced `Inf *state.InferenceState` with `Sess *session.Session`
+  - initialize session with a base `ToolLoopEngineBuilder` that sets `Base` and `EventSinks`
+- Updated `pinocchio/pkg/webchat/router.go`:
+  - replaced `core.Session` usage with `session.ToolLoopEngineBuilder` + `Session.StartInference`
+  - replaced “run in progress” gating from `StartRun()` to `Sess.IsRunning()`
+  - updated `seedForPrompt` to clone from `Sess.Latest()` instead of `Inf.Turn`
+
+### Why
+- Webchat was one of the main reasons `RunInferenceStarted` existed; MO-007’s goal is to delete that complexity entirely.
+- The tool loop orchestration belongs in a standard builder/runner, not scattered across routers.
+
+### What worked
+- `go test ./... -count=1` passes in `pinocchio/` after migration.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Even for HTTP-triggered inference, starting the async inference immediately and returning a `run_id` is simpler than managing a separate “run started” flag.
+
+### What was tricky to build
+- Preserving the “don’t start before router handlers are running” intent without reintroducing a separate `StartRun` API: this step uses a small best-effort wait on `r.router.Running()` (2s) before starting inference.
+
+### What warrants a second pair of eyes
+- Whether `conv.Sess.Builder = ...` should be set under a conversation/session lock to avoid any possible concurrent reads (in practice, there is only one active inference per session).
+
+### What should be done in the future
+- Remove remaining `engine.WithSink` call sites outside the TUI/webchat runtime (e.g., CLI paths and redis examples) once the new session plumbing is used everywhere.
+
+### Code review instructions
+- Start at:
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/conversation.go`
+- Validate with `go test ./... -count=1` in `pinocchio/`.
+
 ## Step 5: Delete engine option/config sink plumbing (engine.WithSink) across geppetto/pinocchio
 
 This step removes the last remnants of “engine-configured sinks” from the provider engine stack. Previously, some provider constructors accepted `options ...engine.Option` and would “bridge” any configured sinks into the context at the start of `RunInference` so that downstream publishers (middleware, tool loops) could see them. That bridge became both redundant (we standardized on context sinks) and a frequent source of confusion about which path is authoritative.
@@ -303,42 +343,57 @@ The change makes the model explicit and strict: provider engines publish via con
 - Validate with:
   - `go test ./... -count=1` in `geppetto/` and `pinocchio/`
 
+## Step 6: Real-world smoke tests (geppetto examples + pinocchio TUI) and fix chat auto-start hang
+
+This step closes the loop on MO-007 by exercising real provider calls (OpenAI Chat Completions + OpenAI Responses) and the multi-turn pinocchio TUI. The core goal was to validate that the Session/ExecutionHandle changes didn’t just compile, but actually drive streaming events through the router and render correctly in Bubble Tea.
+
+During the first tmux run, pinocchio chat appeared to “freeze” immediately without ever starting inference. Debug logs showed that the chat model was dispatching `StartBackendMsg` at init (via `WithAutoStartBackend(true)`), but `startBackend()` is now explicitly a no-op in the new prompt flow. That meant the UI transitioned into the streaming state without ever calling `backend.Start(...)`, so subsequent submits were blocked. The fix was to stop using `WithAutoStartBackend` from pinocchio and rely exclusively on the submit path (`SubmitMessageMsg` → `submit()` → `backend.Start(...)`).
+
+**Commit (code):** pinocchio da5f276 — "Fix chat start: disable model autoStartBackend"
+
 ### What I did
-- Updated `pinocchio/pkg/webchat/conversation.go`:
-  - replaced `Inf *state.InferenceState` with `Sess *session.Session`
-  - initialize session with a base `ToolLoopEngineBuilder` that sets `Base` and `EventSinks`
-- Updated `pinocchio/pkg/webchat/router.go`:
-  - replaced `core.Session` usage with `session.ToolLoopEngineBuilder` + `Session.StartInference`
-  - replaced “run in progress” gating from `StartRun()` to `Sess.IsRunning()`
-  - updated `seedForPrompt` to clone from `Sess.Latest()` instead of `Inf.Turn`
+- Ran real provider calls via geppetto examples:
+  - `cd geppetto && go run ./cmd/examples/simple-inference simple-inference "Say hello." --pinocchio-profile 4o-mini --ai-engine gpt-4o-mini --ai-api-type openai`
+  - `cd geppetto && go run ./cmd/examples/simple-streaming-inference simple-streaming-inference "Write one sentence about penguins." --pinocchio-profile 4o-mini --ai-engine gpt-4o-mini --ai-api-type openai --verbose`
+  - `cd geppetto && go run ./cmd/examples/generic-tool-calling generic-tool-calling "What's the weather in Paris and what is 2+2?" --pinocchio-profile 4o-mini --ai-engine gpt-4o-mini --ai-api-type openai --tools-enabled --max-iterations 3`
+  - `cd geppetto && go run ./cmd/examples/openai-tools test-openai-tools --ai-api-type openai-responses --ai-engine gpt-5-mini --mode thinking --prompt "What is 23*17 + 55?"`
+- Reproduced pinocchio chat “no inference starts” in tmux, then fixed it:
+  - `pinocchio/pkg/cmds/cmd.go` now always passes `bobatea_chat.WithAutoStartBackend(false)`.
+- Re-ran pinocchio chat in tmux with OpenAI Responses + gpt-5-mini; verified:
+  - streaming thinking events (`EventThinkingPartial`)
+  - multiple submits (two follow-up questions)
+  - final completion event delivered and UI entity marked completed
 
 ### Why
-- Webchat was one of the main reasons `RunInferenceStarted` existed; MO-007’s goal is to delete that complexity entirely.
-- The tool loop orchestration belongs in a standard builder/runner, not scattered across routers.
+- `go test ./...` is not sufficient for inference lifecycle work; we need to validate actual event routing and multi-turn UI runs.
 
 ### What worked
-- `go test ./... -count=1` passes in `pinocchio/` after migration.
+- geppetto examples produced correct output (single-pass, streaming, tools).
+- OpenAI Responses thinking mode works with `--ai-engine gpt-5-mini`.
+- pinocchio TUI successfully ran multi-turn in tmux once `WithAutoStartBackend` was disabled.
 
 ### What didn't work
-- N/A
+- Initial pinocchio TUI run “froze” due to `WithAutoStartBackend(true)` triggering `StartBackendMsg` while `startBackend()` no longer starts backend.
 
 ### What I learned
-- Even for HTTP-triggered inference, starting the async inference immediately and returning a `run_id` is simpler than managing a separate “run started” flag.
+- Any caller still using `WithAutoStartBackend(true)` is now “footgun”-level risky unless `startBackend()` is re-wired to call backend.Start (or removed entirely).
 
 ### What was tricky to build
-- Preserving the “don’t start before router handlers are running” intent without reintroducing a separate `StartRun` API: this step uses a small best-effort wait on `r.router.Running()` (2s) before starting inference.
+- Distinguishing two separate “auto-start” concepts:
+  - model init auto-start (`WithAutoStartBackend` → `StartBackendMsg`), and
+  - auto-submit a rendered prompt (`ReplaceInputTextMsg` + `SubmitMessageMsg`).
 
 ### What warrants a second pair of eyes
-- Whether `conv.Sess.Builder = ...` should be set under a conversation/session lock to avoid any possible concurrent reads (in practice, there is only one active inference per session).
+- Confirm that no other pinocchio paths still pass `WithAutoStartBackend(true)` (or depend on it), since the behavior is now inconsistent with the new prompt flow.
 
 ### What should be done in the future
-- Remove remaining `engine.WithSink` call sites outside the TUI/webchat runtime (e.g., CLI paths and redis examples) once the new session plumbing is used everywhere.
+- Consider deleting `StartBackendMsg`/`startBackend()` from bobatea entirely (or re-introducing backend.Start there), now that submit() is the canonical start path.
 
 ### Code review instructions
 - Start at:
-  - `pinocchio/pkg/webchat/router.go`
-  - `pinocchio/pkg/webchat/conversation.go`
-- Validate with `go test ./... -count=1` in `pinocchio/`.
+  - `pinocchio/pkg/cmds/cmd.go`
+  - `bobatea/pkg/chat/model.go` (`Init()` autoStartBackend and `startBackend()` behavior)
+- Validate by rerunning the geppetto commands above and the pinocchio tmux smoke in the MO-004 playbook.
 
 ## Related
 
