@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,19 +39,6 @@ func mockNextHandler() HandlerFunc {
 	}
 }
 
-func TestExtractPendingToolCalls_Turns(t *testing.T) {
-	turn := &turns.Turn{}
-	// tool_call id a, plus an unrelated tool_use id b
-	turns.AppendBlock(turn, turns.NewToolCallBlock("a", "x", map[string]any{"k": "v"}))
-	turns.AppendBlock(turn, turns.NewToolUseBlock("b", "ok"))
-
-	calls := extractPendingToolCalls(turn)
-	require.Len(t, calls, 1)
-	assert.Equal(t, "a", calls[0].ID)
-	assert.Equal(t, "x", calls[0].Name)
-	assert.Equal(t, "v", calls[0].Arguments["k"])
-}
-
 func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 	// Prepare toolbox with echo
 	tb := NewMockToolbox()
@@ -62,8 +50,9 @@ func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 	turn := &turns.Turn{}
 	turns.AppendBlock(turn, turns.NewToolCallBlock("call_1", "echo", map[string]any{"text": "hi"}))
 
-	calls := extractPendingToolCalls(turn)
-	require.Len(t, calls, 1)
+	pending := toolblocks.ExtractPendingToolCalls(turn)
+	require.Len(t, pending, 1)
+	calls := []ToolCall{{ID: pending[0].ID, Name: pending[0].Name, Arguments: pending[0].Arguments}}
 
 	results, err := executeToolCallsTurn(context.Background(), calls, tb, 2*time.Second)
 	require.NoError(t, err)
@@ -72,7 +61,11 @@ func TestExecuteAndAppendToolResults_Turns(t *testing.T) {
 	assert.Empty(t, results[0].Error)
 	assert.Contains(t, results[0].Content, "hi")
 
-	appendToolResultsBlocks(turn, results)
+	var shared []toolblocks.ToolResult
+	for _, r := range results {
+		shared = append(shared, toolblocks.ToolResult{ID: r.ID, Content: r.Content, Error: r.Error})
+	}
+	toolblocks.AppendToolResultsBlocks(turn, shared)
 	// Expect a tool_use block appended
 	foundToolUse := false
 	for _, b := range turn.Blocks {

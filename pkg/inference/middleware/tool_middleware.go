@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -55,19 +54,6 @@ type ToolResult struct {
 	ID      string `json:"id"`
 	Content string `json:"content,omitempty"`
 	Error   string `json:"error,omitempty"`
-}
-
-// ToMessage converts a ToolResult to a conversation Message
-func (tr ToolResult) ToMessage() *conversation.Message {
-	content := &conversation.ToolResultContent{
-		ToolID: tr.ID,
-		Result: tr.Content,
-	}
-	if tr.Error != "" {
-		content.Result = fmt.Sprintf("Error: %s", tr.Error)
-	}
-
-	return conversation.NewMessage(content)
 }
 
 // NewToolMiddleware creates middleware that handles function calling workflows for OpenAI/Claude.
@@ -141,54 +127,6 @@ func NewToolMiddleware(toolbox Toolbox, config ToolConfig) Middleware {
 // Full block-level tool execution will be implemented following the design.
 // Deprecated: conversation-based tool workflow helper removed in Turn-based path
 
-// extractPendingToolCalls finds tool_call blocks without a corresponding tool_use block with same id
-func extractPendingToolCalls(t *turns.Turn) []ToolCall {
-	if t == nil {
-		return nil
-	}
-	used := make(map[string]bool)
-	for _, b := range t.Blocks {
-		if b.Kind == turns.BlockKindToolUse {
-			if id, ok := b.Payload[turns.PayloadKeyID].(string); ok && id != "" {
-				used[id] = true
-			}
-		}
-	}
-	var calls []ToolCall
-	for _, b := range t.Blocks {
-		if b.Kind != turns.BlockKindToolCall {
-			continue
-		}
-		id, _ := b.Payload[turns.PayloadKeyID].(string)
-		if id == "" || used[id] {
-			continue
-		}
-		name, _ := b.Payload[turns.PayloadKeyName].(string)
-		// args may be an object or json.RawMessage string
-		var args map[string]interface{}
-		if raw := b.Payload[turns.PayloadKeyArgs]; raw != nil {
-			switch v := raw.(type) {
-			case map[string]interface{}:
-				args = v
-			case string:
-				_ = json.Unmarshal([]byte(v), &args)
-			case json.RawMessage:
-				_ = json.Unmarshal(v, &args)
-			default:
-				// attempt generic marshal/unmarshal
-				if bts, err := json.Marshal(v); err == nil {
-					_ = json.Unmarshal(bts, &args)
-				}
-			}
-		}
-		if args == nil {
-			args = map[string]interface{}{}
-		}
-		calls = append(calls, ToolCall{ID: id, Name: name, Arguments: args})
-	}
-	return calls
-}
-
 // executeToolCallsTurn executes the tool calls with per-call timeout
 func executeToolCallsTurn(ctx context.Context, calls []ToolCall, toolbox Toolbox, timeout time.Duration) ([]ToolResult, error) {
 	results := make([]ToolResult, len(calls))
@@ -214,78 +152,6 @@ func executeToolCallsTurn(ctx context.Context, calls []ToolCall, toolbox Toolbox
 		results[i] = ToolResult{ID: call.ID, Content: content}
 	}
 	return results, nil
-}
-
-// appendToolResultsBlocks appends tool_use blocks from results
-func appendToolResultsBlocks(t *turns.Turn, results []ToolResult) {
-	for _, r := range results {
-		result := any(r.Content)
-		if r.Error != "" {
-			result = fmt.Sprintf("Error: %s", r.Error)
-		}
-		turns.AppendBlock(t, turns.NewToolUseBlock(r.ID, result))
-	}
-}
-
-// executeToolWorkflow handles the complete tool calling workflow
-// Deprecated conversation-based workflow kept for reference but not compiled in Turn mode
-
-// addToolContext adds tool descriptions to the conversation if not already present
-// addToolContext kept for backward-compat in comments; no longer used in Turn mode
-
-// extractToolCalls extracts tool calls from an AI response message
-func extractToolCalls(message *conversation.Message) []ToolCall {
-	var toolCalls []ToolCall
-
-	switch content := message.Content.(type) {
-	case *conversation.ToolUseContent:
-		// Single tool use content
-		var args map[string]interface{}
-		if err := json.Unmarshal(content.Input, &args); err != nil {
-			// If we can't parse arguments, create empty map
-			args = make(map[string]interface{})
-		}
-
-		toolCalls = append(toolCalls, ToolCall{
-			ID:        content.ToolID,
-			Name:      content.Name,
-			Arguments: args,
-		})
-
-	case *conversation.ChatMessageContent:
-		// Check metadata for tool calls (OpenAI style)
-		if message.Metadata != nil {
-			if toolCallsData, exists := message.Metadata["tool_calls"]; exists {
-				// Try to extract tool calls from metadata
-				if toolCallsJson, err := json.Marshal(toolCallsData); err == nil {
-					var openaiToolCalls []struct {
-						ID       string `json:"id"`
-						Type     string `json:"type"`
-						Function struct {
-							Name      string `json:"name"`
-							Arguments string `json:"arguments"`
-						} `json:"function"`
-					}
-					if err := json.Unmarshal(toolCallsJson, &openaiToolCalls); err == nil {
-						for _, openaiCall := range openaiToolCalls {
-							var args map[string]interface{}
-							if err := json.Unmarshal([]byte(openaiCall.Function.Arguments), &args); err != nil {
-								args = make(map[string]interface{})
-							}
-
-							toolCalls = append(toolCalls, ToolCall{
-								ID:        openaiCall.ID,
-								Name:      openaiCall.Function.Name,
-								Arguments: args,
-							})
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return toolCalls
 }
 
 // filterToolCalls filters tool calls based on the allowed tool filter

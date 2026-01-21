@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-go-golems/geppetto/pkg/conversation"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,44 +36,6 @@ func (me *MultiResponseMockEngine) RunInference(ctx context.Context, t *turns.Tu
 
 func (me *MultiResponseMockEngine) Reset()            { me.callCount = 0 }
 func (me *MultiResponseMockEngine) GetCallCount() int { return me.callCount }
-
-// Helper function to create a tool call in message metadata (OpenAI style)
-func createMessageWithToolCall(toolID, toolName string, arguments map[string]interface{}) *conversation.Message {
-	argsJson, _ := json.Marshal(arguments)
-
-	toolCall := map[string]interface{}{
-		"id":   toolID,
-		"type": "function",
-		"function": map[string]interface{}{
-			"name":      toolName,
-			"arguments": string(argsJson),
-		},
-	}
-
-	metadata := map[string]interface{}{
-		"tool_calls": []interface{}{toolCall},
-	}
-
-	return conversation.NewChatMessage(
-		conversation.RoleAssistant,
-		fmt.Sprintf("I'll use the %s tool", toolName),
-		conversation.WithMetadata(metadata),
-	)
-}
-
-// Helper function to create a ToolUseContent message (Claude style)
-func createToolUseMessage(toolID, toolName string, arguments map[string]interface{}) *conversation.Message {
-	argsJson, _ := json.Marshal(arguments)
-
-	content := &conversation.ToolUseContent{
-		ToolID: toolID,
-		Name:   toolName,
-		Input:  argsJson,
-		Type:   "function",
-	}
-
-	return conversation.NewMessage(content)
-}
 
 func TestToolMiddleware_NoToolCalls(t *testing.T) {
 	// Create mock engine that returns a simple text response
@@ -424,49 +385,6 @@ func TestToolMiddleware_TimeoutHandling(t *testing.T) {
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use slow tool"))
 	_, err := handler(context.Background(), turn)
 	require.NoError(t, err)
-}
-
-func TestExtractToolCalls_OpenAIStyle(t *testing.T) {
-	// Test OpenAI style tool calls in metadata
-	toolCall := createMessageWithToolCall("test_id", "test_tool", map[string]interface{}{
-		"param1": "value1",
-		"param2": 42,
-	})
-
-	extracted := extractToolCalls(toolCall)
-
-	require.Len(t, extracted, 1)
-	assert.Equal(t, "test_id", extracted[0].ID)
-	assert.Equal(t, "test_tool", extracted[0].Name)
-	assert.Equal(t, "value1", extracted[0].Arguments["param1"])
-	assert.Equal(t, float64(42), extracted[0].Arguments["param2"]) // JSON unmarshaling converts to float64
-}
-
-func TestExtractToolCalls_ClaudeStyle(t *testing.T) {
-	// Test Claude style tool use content
-	toolUse := createToolUseMessage("claude_id", "claude_tool", map[string]interface{}{
-		"location": "Paris",
-		"units":    "metric",
-	})
-
-	extracted := extractToolCalls(toolUse)
-
-	require.Len(t, extracted, 1)
-	assert.Equal(t, "claude_id", extracted[0].ID)
-	assert.Equal(t, "claude_tool", extracted[0].Name)
-	assert.Equal(t, "Paris", extracted[0].Arguments["location"])
-	assert.Equal(t, "metric", extracted[0].Arguments["units"])
-}
-
-func TestExtractToolCalls_NoToolCalls(t *testing.T) {
-	// Test regular chat message with no tool calls
-	regularMessage := conversation.NewChatMessage(
-		conversation.RoleAssistant,
-		"This is a regular response with no tool calls",
-	)
-
-	extracted := extractToolCalls(regularMessage)
-	assert.Len(t, extracted, 0)
 }
 
 func TestFilterToolCalls(t *testing.T) {
