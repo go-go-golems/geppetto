@@ -54,3 +54,12 @@ Step 4: migrate pinocchio webchat off InferenceState/core.Session to session.Ses
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go — Conversation state now stores *session.Session
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — /chat now drives Session.StartInference + Wait logging
 
+
+## 2026-01-21
+
+Step 5: delete engine.WithSink / engine.Option plumbing; update provider constructors + engine factory to use context sinks only (commits d6a0f54, 6ce03ff)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/engine/factory/factory.go — Signature change; no engine options
+

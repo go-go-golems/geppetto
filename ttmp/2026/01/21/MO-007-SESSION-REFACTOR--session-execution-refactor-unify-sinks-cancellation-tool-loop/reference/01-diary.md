@@ -12,26 +12,35 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/cmd/examples/generic-tool-calling/main.go
+    - Path: ../../../../../../../pinocchio/pkg/inference/enginebuilder/parsed_layers.go
+      Note: |-
+        Updated ParsedLayersEngineBuilder to match engine factory signature change (commit 6ce03ff)
+        Updated to match engine factory signature change (commit 6ce03ff)
+    - Path: cmd/examples/generic-tool-calling/main.go
       Note: Streaming + tool loop example migrated (commit 5cd95af)
-    - Path: geppetto/cmd/examples/simple-inference/main.go
+    - Path: cmd/examples/simple-inference/main.go
       Note: Example migrated to session.Session + ToolLoopEngineBuilder (commit 5cd95af)
-    - Path: geppetto/pkg/inference/session/builder.go
+    - Path: pkg/inference/engine/factory/factory.go
+      Note: Removed engine option plumbing; provider constructors no longer accept sinks/options (commit d6a0f54)
+    - Path: pkg/inference/session/builder.go
       Note: EngineBuilder/InferenceRunner interfaces (commit 158e4be)
-    - Path: geppetto/pkg/inference/session/execution.go
+    - Path: pkg/inference/session/execution.go
       Note: ExecutionHandle cancel/wait contract (commit 158e4be)
-    - Path: geppetto/pkg/inference/session/session.go
+    - Path: pkg/inference/session/session.go
       Note: Async Session lifecycle + StartInference invariants (commit 158e4be)
-    - Path: geppetto/pkg/inference/session/session_test.go
+    - Path: pkg/inference/session/session_test.go
       Note: Unit tests for session lifecycle + ToolLoopEngineBuilder (commit 158e4be)
-    - Path: geppetto/pkg/inference/session/tool_loop_builder.go
+    - Path: pkg/inference/session/tool_loop_builder.go
       Note: Standard ToolLoopEngineBuilder wiring (middleware+sinks+snapshots+tool loop) (commit 158e4be)
+    - Path: pkg/steps/ai/gemini/engine_gemini.go
+      Note: Removed engine-config sink bridge; Gemini uses context sinks only (commit d6a0f54)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-01-21T13:51:22.625347026-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -237,6 +246,62 @@ The key behavioral change is that the HTTP handler now:
 4) spawns a goroutine to `Wait()` only for logging purposes.
 
 **Commit (code):** pinocchio d3c0684 — "Webchat: replace InferenceState/core.Session with session.Session"
+
+## Step 5: Delete engine option/config sink plumbing (engine.WithSink) across geppetto/pinocchio
+
+This step removes the last remnants of “engine-configured sinks” from the provider engine stack. Previously, some provider constructors accepted `options ...engine.Option` and would “bridge” any configured sinks into the context at the start of `RunInference` so that downstream publishers (middleware, tool loops) could see them. That bridge became both redundant (we standardized on context sinks) and a frequent source of confusion about which path is authoritative.
+
+The change makes the model explicit and strict: provider engines publish via context (`events.PublishEventToContext`), and the app layer is responsible for attaching sinks to `ctx` (typically via `session.ToolLoopEngineBuilder.EventSinks` or directly via `events.WithEventSinks`). This eliminates the risk of duplicate delivery and removes an entire class of “why did my sink not receive events?” plumbing issues.
+
+**Commit (code):**
+- geppetto d6a0f54 — "Remove engine option/config sink plumbing"
+- pinocchio 6ce03ff — "Update ParsedLayersEngineBuilder for new engine factory API"
+
+### What I did
+- Updated provider constructors to stop accepting `options ...engine.Option`:
+  - `geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - `geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Deleted `geppetto/pkg/inference/engine/options.go` and removed the `engine.Option`/`engine.Config` types.
+- Updated `geppetto/pkg/inference/engine/factory` and helpers to stop threading options:
+  - `CreateEngine(settings)` now has no variadic options
+  - `factory.NewEngineFromParsedLayers(parsedLayers)` no longer takes options
+- Updated `geppetto/cmd/examples/internal/examplebuilder/builder.go` and `pinocchio/pkg/inference/enginebuilder/parsed_layers.go` to match the new factory API.
+- Ran:
+  - `go test ./... -count=1` in `geppetto/`
+  - `go test ./... -count=1` in `pinocchio/`
+
+### Why
+- The new MO-007 world standardizes on context sinks only (`events.WithEventSinks`), with sink selection controlled by the app/session layer.
+- `engine.WithSink` was a legacy convenience that required subtle bridging behavior inside provider engines and complicated reasoning about “who publishes where”.
+
+### What worked
+- `go test ./... -count=1` passes in both repos after removing options/sinks.
+- Pinocchio still receives streaming events correctly (via `session.ToolLoopEngineBuilder.EventSinks` and context sinks).
+
+### What didn't work
+- N/A (pinocchio pre-commit lint still reports `npm audit` vulnerabilities, but that’s unrelated to this refactor and was not addressed).
+
+### What I learned
+- Keeping provider engines “pure” (no config sink fields) reduces coupling: the provider engines can focus solely on request/streaming/protocol correctness.
+
+### What was tricky to build
+- Finding and updating the last compiled call sites that threaded `engine.Option` through builders (`examplebuilder` and pinocchio’s `enginebuilder`).
+
+### What warrants a second pair of eyes
+- Review the provider constructors’ new signatures and ensure no external module relies on `engine.Option` (we fixed all in-workspace call sites, but downstream consumers outside the workspace may need a coordinated update).
+
+### What should be done in the future
+- Update `.md` docs that still mention `engine.WithSink` to instead recommend `Session.EventSinks` or explicit `events.WithEventSinks` usage.
+
+### Code review instructions
+- Start at:
+  - `geppetto/pkg/inference/engine/factory/factory.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Validate with:
+  - `go test ./... -count=1` in `geppetto/` and `pinocchio/`
 
 ### What I did
 - Updated `pinocchio/pkg/webchat/conversation.go`:

@@ -12,26 +12,33 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/events/context.go
-      Note: Context sink plumbing (post-WithSink world)
-    - Path: geppetto/pkg/inference/core/session.go
-      Note: Old Session runner to be removed
-    - Path: geppetto/pkg/inference/engine/options.go
-      Note: engine.WithSink to be deleted
-    - Path: geppetto/pkg/inference/state/state.go
-      Note: Old InferenceState to be replaced
-    - Path: geppetto/pkg/inference/toolhelpers/helpers.go
-      Note: Canonical RunToolCallingLoop used by standard builder
-    - Path: pinocchio/pkg/ui/backend.go
+    - Path: ../../../../../../../pinocchio/pkg/ui/backend.go
       Note: TUI migration target
-    - Path: pinocchio/pkg/webchat/router.go
+    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
       Note: Webchat migration target
+    - Path: pkg/events/context.go
+      Note: Context sink plumbing (post-WithSink world)
+    - Path: pkg/inference/engine/factory/factory.go
+      Note: |-
+        Provider engine selection without option/config sink plumbing (merged in)
+        Provider engine selection without engine.WithSink/Option plumbing (commit d6a0f54)
+    - Path: pkg/inference/session/session.go
+      Note: |-
+        Session + ExecutionHandle lifecycle (merged in)
+        Final Session/ExecutionHandle lifecycle used by pinocchio TUI+webchat
+    - Path: pkg/inference/session/tool_loop_builder.go
+      Note: |-
+        Standard ToolLoopEngineBuilder composition point (merged in)
+        Standard ToolLoopEngineBuilder composes engine+middleware and runs tool loop
+    - Path: pkg/inference/toolhelpers/helpers.go
+      Note: Canonical RunToolCallingLoop used by standard builder
 ExternalSources: []
 Summary: 'Replace InferenceState/core.Session/engine.WithSink with a single Session+ExecutionHandle model: SessionID multi-turn state + EngineBuilder that runs a tool-loop inference runner.'
 LastUpdated: 2026-01-21T19:15:00-05:00
 WhatFor: Supersede MO-005 (sink cleanup) and MO-006 (cancellation lifecycle) with a single coherent Session/Execution abstraction.
 WhenToUse: Before implementing MO-007 or refactoring callers (pinocchio TUI/webchat, examples, moments) to the new session model.
 ---
+
 
 
 # Session refactor: SessionID + EngineBuilder + ExecutionHandle
@@ -42,7 +49,7 @@ We want one clean abstraction that supersedes:
 
 - `InferenceState` (which mixes conversation state with in-flight inference lifecycle),
 - `core.Session` (runner/config bag that is not a “session” in the product sense),
-- `engine.WithSink` (engine-config sinks) and the provider-engine “bridge sinks into ctx” glue,
+- legacy engine option/config sink plumbing (`engine.WithSink`) and the provider-engine “bridge sinks into ctx” glue,
 - the confusing “StartRun/FinishRun/HasCancel” lifecycle split (`RunInference` vs `RunInferenceStarted`).
 
 This design proposes:
@@ -71,13 +78,15 @@ Today we have overlapping, confusing concepts and multiple ways to “start infe
 - “Session” (`geppetto/pkg/inference/core.Session`) is a runner/config bag, not a multi-turn session abstraction.
 - “InferenceState” stores both long-lived state (engine + turn) and short-lived lifecycle state (running + cancel).
 - Cancellation uses a mix of `StartRun/FinishRun/SetCancel/HasCancel`, with two runner entrypoints (`RunInference` vs `RunInferenceStarted`).
-- Event sinks exist in both engine config (`engine.WithSink`) and context (`events.WithEventSinks`), with bridging code to avoid missing events and a persistent risk of duplicate delivery.
+- Event sinks historically existed in both engine config (`engine.WithSink`) and context (`events.WithEventSinks`), with bridging code to avoid missing events and a persistent risk of duplicate delivery.
 
 These problems show up as real bugs and friction:
 
 - Web/TUI can hang in “generating” if cancellation doesn’t produce an explicit terminal signal.
 - Developers misunderstand “RunID” vs “Conversation” vs “Inference”, because the naming is overloaded.
 - Call sites have to choose between multiple plumbing strategies, leading to drift and duplication.
+
+**Status note:** As of commit `d6a0f54` (geppetto) and `6ce03ff` (pinocchio), `engine.WithSink` / engine options have been deleted and provider engines rely exclusively on context sinks (`events.WithEventSinks`).
 
 ## Proposed Solution
 
