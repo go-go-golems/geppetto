@@ -49,7 +49,7 @@ This design proposes:
 
 1) A **Session** (with `SessionID`) representing a long-lived multi-turn interaction.
 2) A **Session.EngineBuilder** that returns an object which can perform inference via:
-   - `StartInference(ctx, turn) -> (turn, error)`
+   - `RunInference(ctx, turn) -> (turn, error)` (blocking)
 3) A **Session.StartInference(ctx) -> (ExecutionHandle, error)** that:
    - instantiates an engine via the builder,
    - starts inference on the session’s current input turn,
@@ -60,7 +60,7 @@ This design proposes:
    - snapshot hook,
    - turn persister,
    - event sinks,
-   and whose `StartInference` triggers the canonical tool-calling loop.
+   and whose `RunInference` triggers the canonical tool-calling loop.
 
 We explicitly do **not** keep backwards compatibility; the migration is “change it all at once”.
 
@@ -126,7 +126,8 @@ type EngineBuilder interface {
 }
 
 type InferenceRunner interface {
-    StartInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
+    // Blocking: advances a Turn to a new Turn.
+    RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
 }
 ```
 
@@ -170,7 +171,7 @@ Behavior:
 2) Determine input turn: `input := s.Latest()` (typically the latest Turn already includes the new user prompt block).
 3) Build runner: `runner := s.Builder.Build(ctx, s.SessionID)`.
 4) Create `runCtx, cancel := context.WithCancel(ctx)`.
-5) Spawn goroutine that calls `runner.StartInference(runCtx, input)` and stores result.
+5) Spawn goroutine that calls `runner.RunInference(runCtx, input)` and stores result.
 6) On success, append the returned turn to `s.Turns`.
 7) Close `done`.
 
@@ -186,6 +187,29 @@ func (s *Session) CancelActive() error
 
 We provide a standard EngineBuilder implementation that runs the tool-calling loop.
 
+#### How to create a “base engine” today (and reuse it)
+
+We already have multiple ways to construct a provider engine that implements `engine.Engine`:
+
+1) **Standard engine factory (preferred when you already have StepSettings)**  
+   `geppetto/pkg/inference/engine/factory/factory.go`:
+   - `factory.NewStandardEngineFactory().CreateEngine(stepSettings, options...)`
+   - selects provider via `settings.Chat.ApiType` (OpenAI, OpenAI Responses, Claude, Gemini, etc).
+
+2) **Convenience helpers**  
+   `geppetto/pkg/inference/engine/factory/helpers.go`:
+   - `factory.NewEngineFromStepSettings(stepSettings, options...)`
+   - `factory.NewEngineFromParsedLayers(parsedLayers, options...)` (builds StepSettings from layers)
+
+3) **Direct provider constructors (when you want explicit control)**  
+   `geppetto/pkg/steps/ai/*`:
+   - `openai_responses.NewEngine(stepSettings, ...)`
+   - `openai.NewOpenAIEngine(stepSettings, ...)`
+   - `claude.NewClaudeEngine(stepSettings, ...)`
+   - `gemini.NewGeminiEngine(stepSettings, ...)`
+
+For MO-007 we can reuse all of these *as-is* as “base engine creation”, and shift orchestration concerns (sinks, tool loop, snapshots, persistence) into the ToolLoopEngineBuilder / InferenceRunner, rather than into engine config options.
+
 Inputs (by requirement):
 
 - registry
@@ -199,8 +223,12 @@ Design sketch:
 
 ```go
 type ToolLoopEngineBuilder struct {
-    // builds a provider engine with middleware chain already applied
-    EngineFactory EngineFactoryLike
+    // Base provider engine instance. Construct it upstream using existing factories
+    // (e.g. StandardEngineFactory) or direct provider constructors.
+    Base engine.Engine
+
+    // Middlewares to wrap around Base. The builder applies these on Build().
+    Middlewares []middleware.Middleware
 
     Registry     tools.ToolRegistry
     ToolConfig   toolhelpers.ToolConfig
@@ -211,7 +239,7 @@ type ToolLoopEngineBuilder struct {
 }
 ```
 
-Build returns an `InferenceRunner` whose `StartInference`:
+Build returns an `InferenceRunner` whose `RunInference`:
 
 1) attaches sinks and snapshot hook to ctx (context sinks only; no engine.WithSink),
 2) runs the tool loop (`toolhelpers.RunToolCallingLoop`) with registry + tool config,
@@ -221,7 +249,7 @@ Build returns an `InferenceRunner` whose `StartInference`:
 Pseudo:
 
 ```go
-func (r *ToolLoopRunner) StartInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+func (r *ToolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
     runCtx := ctx
     runCtx = events.WithEventSinks(runCtx, r.EventSinks...)
     if r.SnapshotHook != nil {
