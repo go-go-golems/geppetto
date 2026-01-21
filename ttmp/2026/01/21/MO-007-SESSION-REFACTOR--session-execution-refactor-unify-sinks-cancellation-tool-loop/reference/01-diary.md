@@ -454,3 +454,248 @@ I removed those APIs from bobatea entirely and deleted pinocchio’s last remain
   - `pinocchio/pkg/cmds/cmd.go`
 - Validate:
   - `go test ./... -count=1` in `bobatea/` and `pinocchio/`
+
+## Step 8: Update geppetto docs for Session API and context-only sinks
+
+After the Session/ExecutionHandle cutover, a bunch of geppetto docs still described the old “engine-config sinks” approach and/or the legacy inference lifecycle packages. I updated the docs to consistently teach the new model: build provider engines without sink/options, and attach sinks at runtime via context (`events.WithEventSinks`), or via `session.ToolLoopEngineBuilder.EventSinks` for chat-style apps.
+
+This step also added a dedicated migration playbook that explicitly maps old concepts (InferenceState/core.Session/engine.WithSink) to the new APIs, but avoids relying on deleted symbols in code snippets.
+
+**Commit (docs):** geppetto f9d61c4 — "doc: migrate to Session API playbook"
+
+### What I did
+- Added: `geppetto/pkg/doc/playbooks/04-migrate-to-session-api.md`
+- Updated multiple docs/snippets to remove `engine.WithSink` / `engine.Option` and switch to runtime sinks:
+  - `geppetto/pkg/doc/topics/04-events.md`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md`
+  - `geppetto/pkg/doc/tutorials/01-streaming-inference-with-tools.md`
+  - `geppetto/pkg/doc/tutorials/02-event-routing-and-structured-logging.md`
+  - `geppetto/pkg/doc/tutorials/04-structured-data-extraction.md`
+- Verified legacy references in `geppetto/pkg/doc` via:
+  - `rg -n "engine\\.WithSink\\b|engine\\.Option\\b|RunInferenceStarted\\b|\\bInferenceState\\b|StartRun\\b|FinishRun\\b|geppetto/pkg/inference/state\\b|geppetto/pkg/inference/core\\b" geppetto/pkg/doc -S`
+
+### Why
+- Documentation was still teaching patterns that the codebase no longer supports (and that break stricter providers like OpenAI Responses).
+- We wanted a crisp, “new developer starts here” story for `session.Session` + `ToolLoopEngineBuilder`.
+
+### What worked
+- `go test ./... -count=1` still passed in geppetto and pinocchio after doc updates.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The main doc failure mode after a refactor is leaving “example snippets” behind that compile in isolation but teach obsolete architecture.
+
+### What was tricky to build
+- Keeping the migration doc useful without copy/pasting removed identifiers into fenced code blocks.
+
+### What warrants a second pair of eyes
+- The remaining doc references to legacy names in the migration playbook are intentional (as “search terms”), but we should confirm they don’t confuse readers.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at: `geppetto/pkg/doc/playbooks/04-migrate-to-session-api.md`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+
+## Step 9: Remove EngineConfig (legacy builder fingerprint) and unused ConversationState snapshot/mutation layer
+
+We had an `EngineConfig` abstraction (`geppetto/pkg/inference/builder`) that only existed to support “signature-based recomposition” in the older webchat-style engine builder split (`BuildConfig` / `BuildFromConfig`). After the Session/ToolLoopEngineBuilder cutover, this was both unused and confusing. Similarly, there was a “ConversationState + SnapshotConfig + Mutation” layer living under `geppetto/pkg/conversation` that was no longer used by the Session-based flow, and it kept pulling us back toward provider-specific ordering validation in the wrong place.
+
+I removed both, updated the example engine builders to return only `(engine.Engine, events.EventSink, error)`, and updated call sites accordingly.
+
+**Commit (code):**
+- geppetto e4518d7 — "cleanup: drop EngineConfig and unused ConversationState"
+- pinocchio 554d947 — "cleanup: simplify ParsedLayersEngineBuilder"
+
+### What I did
+- Deleted `geppetto/pkg/inference/builder/builder.go` (the `EngineConfig` interface) and removed the now-empty `geppetto/pkg/inference/builder/` dir.
+- Simplified parsed-layers builders:
+  - `geppetto/cmd/examples/internal/examplebuilder/builder.go`
+  - `pinocchio/pkg/inference/enginebuilder/parsed_layers.go`
+  - `pinocchio/cmd/agents/simple-chat-agent/main.go`
+- Updated geppetto examples that still expected `Build(...)->(engine,sink,config,err)`:
+  - `geppetto/cmd/examples/*/main.go`
+- Deleted the unused `ConversationState` snapshot/mutation files:
+  - `geppetto/pkg/conversation/state.go`
+  - `geppetto/pkg/conversation/mutations.go`
+  - `geppetto/pkg/conversation/state_test.go`
+- Validated:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+
+### Why
+- “EngineConfig signatures” are an engine-cache optimization; they were not part of the desired new core.
+- The ConversationState snapshot/validation layer was an attractive nuisance: it encouraged validation at the wrong abstraction level and duplicated logic the provider engines should own.
+
+### What worked
+- All callers compiled after adjusting the example builder signature.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The fastest way to reduce “design drift” is to delete old abstraction layers once a new one becomes canonical.
+
+### What was tricky to build
+- Updating multiple example commands that were still destructuring the old `Build(...)` return tuple.
+
+### What warrants a second pair of eyes
+- Whether any non-example code paths still needed EngineConfig semantics (I only found usage in examples and pinocchio’s parsed-layers builder).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review:
+  - `geppetto/cmd/examples/internal/examplebuilder/builder.go`
+  - `pinocchio/pkg/inference/enginebuilder/parsed_layers.go`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+
+## Step 10: Use oak-git-db (multi-repo) + workspace typecheck to drive PR review and cleanup candidates
+
+To tighten the PR review loop and avoid “guessing” about what the compiler actually uses, I used the `oak-git-db` toolchain to produce SQLite databases that combine:
+1) git PR facts (merge-base vs HEAD),
+2) oak spans/snippets for base+head snapshots,
+3) typed Go symbols + call edges (`go_symbol`, `go_ref(kind='call')`) for the head snapshot.
+
+I first built per-repo DBs (`/tmp/geppetto-pr.db`, `/tmp/pinocchio-pr.db`), then rebuilt a combined multi-repo DB (`/tmp/multi-pr.db`) using oak-git-db schema v2 so geppetto+pinocchio PRs can be queried from the same SQLite file (one `pr` row per repo).
+
+### What I did
+- Built a geppetto-only PR DB:
+  - `cd oak-git-db && GOCACHE=/tmp/go-build-cache go run ./cmd/oakgitdb build --repo ../geppetto --base origin/main --head HEAD --out /tmp/geppetto-pr.db --oak-sources cmd,pkg,misc --oak-glob '*.go' --packages ./...`
+- Sanity-checked:
+  - `sqlite3 -readonly /tmp/geppetto-pr.db ".tables"`
+  - `sqlite3 -readonly /tmp/geppetto-pr.db "select id,name,ref,substr(sha,1,7) from snapshot;"`
+  - `sqlite3 -readonly /tmp/geppetto-pr.db "select change_type,count(*) from pr_file group by change_type order by change_type;"`
+  - `sqlite3 -readonly /tmp/geppetto-pr.db "select count(*) from oak_match;"`
+  - `sqlite3 -readonly /tmp/geppetto-pr.db "select count(*) from go_symbol;"`
+  - `sqlite3 -readonly /tmp/geppetto-pr.db "select count(*) from go_ref where kind='call';"`
+- Built a pinocchio-only PR DB:
+  - `cd oak-git-db && GOCACHE=/tmp/go-build-cache go run ./cmd/oakgitdb build --repo ../pinocchio --base origin/main --head HEAD --out /tmp/pinocchio-pr.db --oak-sources cmd,pkg,misc --oak-glob '*.go' --packages ./...`
+- Built a combined multi-repo DB (schema v2):
+  - `rm -f /tmp/multi-pr.db`
+  - `cd oak-git-db && GOCACHE=/tmp/go-build-cache go run ./cmd/oakgitdb build --repo ../geppetto --repo ../pinocchio --base origin/main --head HEAD --out /tmp/multi-pr.db --oak-sources cmd,pkg,misc --oak-glob '*.go' --packages ./...`
+- Picked repo-specific `pr_id` via:
+  - `sqlite3 -readonly /tmp/multi-pr.db "SELECT pr.id AS pr_id, r.name AS repo, r.root_path, substr(pr.merge_base_sha,1,7) AS merge_base7 FROM pr JOIN repo r ON r.id=pr.repo_id ORDER BY pr.id;"`
+- Queried changed files per repo (example for geppetto PR=1):
+  - `sqlite3 -readonly /tmp/multi-pr.db "SELECT p.path, pf.change_type, old.path AS old_path FROM pr_file pf JOIN path p ON p.id=pf.path_id LEFT JOIN path old ON old.id=pf.old_path_id WHERE pf.pr_id=1 AND p.path LIKE '%.go' AND p.path NOT LIKE 'ttmp/%' ORDER BY pf.change_type,p.path;"`
+- Used typed call edges to identify “who uses” a symbol (example: Session.StartInference in geppetto head snapshot):
+  - `WITH head AS (SELECT head_snapshot_id sid FROM pr WHERE id=1) SELECT caller.symbol_key AS caller, p.path, r.line, r.col FROM go_ref r JOIN go_symbol caller ON caller.id=r.from_symbol_id LEFT JOIN path p ON p.id=r.path_id WHERE r.snapshot_id=(SELECT sid FROM head) AND r.kind='call' AND r.to_symbol_id=1192 ORDER BY caller.symbol_key,p.path,r.line;`
+- Ran the combined workspace “compile-only” typecheck (to confirm go/packages is using workspace modules):
+  - `cd oak-git-db && VET=off GOCACHE=/tmp/go-build-cache bash scripts/typecheck-geppetto-pinocchio.sh`
+    - (script runs from the pinocchio module root): `go test -run='^$' -vet=off ./... ../geppetto/...`
+    - confirmed: `go env GOWORK=/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/go.work`
+
+### Why
+- This provides high-signal “review navigation”:
+  - list what changed,
+  - inspect symbol definitions in base vs head (oak),
+  - find callers (typed edges) without grepping.
+- The combined workspace typecheck prevents “it compiles locally but you’re indexing the released geppetto module” confusion.
+
+### What worked
+- Multi-repo DB build worked (schema_version=2).
+- Workspace typecheck passed, confirming the workspace module wiring is sane.
+
+### What didn't work
+- A first draft PR listing query referenced a non-existent column `pr.head_sha` (schema stores head sha in `snapshot.sha` via `pr.head_snapshot_id`).
+
+### What I learned
+- The typed analysis tables are very useful for “callers”, but can’t prove runtime reachability (reflection, plugin loading, config-driven dispatch).
+
+### What was tricky to build
+- Remembering that multi-repo mode means:
+  - you filter changes by `pr_id`,
+  - and you filter typed tables by `snapshot_id=(SELECT head_snapshot_id FROM pr WHERE id=<pr_id>)`.
+
+### What warrants a second pair of eyes
+- Which DB-derived “unused” candidates are safe to delete vs used dynamically (see next step).
+
+### What should be done in the future
+- Add cross-repo typed edges (pinocchio → geppetto) if we want to answer “who calls geppetto symbol X from pinocchio?” directly from SQLite.
+
+### Code review instructions
+- Use `/tmp/multi-pr.db` and list `pr_id`s, then apply the standard `go_ref(kind='call')` caller queries per repo.
+
+## Step 11: Use origin/main diff + oakgitdb call edges to delete dead helper sections
+
+Using the origin/main diff (PR shape) as a guide, I targeted “whole sections” that were either:
+1) legacy glue for conversation-manager-based tool calling, or
+2) code that existed only for tests of APIs we no longer ship.
+
+The key principle here was: even if a section is still *referenced* in a test or a doc, if it is not used in the canonical flow (Session + Turn + ToolLoopEngineBuilder), it is likely a good cleanup candidate.
+
+**Commit (code):** geppetto e1cfea2 — "cleanup: drop legacy conversation tool helpers"
+
+### What I did
+- Identified unused “conversation-based tool extraction” that was still living in Turn-based helpers:
+  - DB clue (no call sites): `toolhelpers.ExtractToolCalls` was only defined, never referenced.
+    - `rg -n "toolhelpers\\.ExtractToolCalls\\b|ExtractToolCalls\\(" -S geppetto/pkg geppetto/cmd pinocchio/pkg pinocchio/cmd`
+  - Removed from `geppetto/pkg/inference/toolhelpers/helpers.go`:
+    - `ExtractToolCalls(...)`
+    - `ExecuteToolCalls(...)`
+    - `AppendToolResults(...)`
+  - Simplified `ExecuteToolCallsTurn` to accept `[]toolblocks.ToolCall` to avoid unnecessary conversions.
+- Removed legacy conversation parsing helpers from the Turn middleware:
+  - Removed `ToolResult.ToMessage()` and `extractToolCalls(*conversation.Message)` from `geppetto/pkg/inference/middleware/tool_middleware.go`.
+  - Removed unused local helpers `extractPendingToolCalls` and `appendToolResultsBlocks`.
+  - Updated tests to use shared `toolblocks.ExtractPendingToolCalls` / `toolblocks.AppendToolResultsBlocks`.
+  - Deleted conversation-centric tests (`TestExtractToolCalls_*`) because the underlying function was removed.
+- Validated:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd oak-git-db && VET=off GOCACHE=/tmp/go-build-cache bash scripts/typecheck-geppetto-pinocchio.sh`
+
+### SQL queries I used (oakgitdb)
+- “Find unexported funcs/methods with 0 incoming call edges” (geppetto PR=1, head snapshot):
+  - Note: this only covers `go_ref(kind='call')`, not type/field usage.
+```sql
+WITH head AS (SELECT head_snapshot_id sid FROM pr WHERE id=1)
+SELECT
+  gs.id, gs.kind, gs.name, gs.symbol_key, p.path, gs.start_line,
+  COUNT(r.to_symbol_id) AS call_incoming
+FROM go_symbol gs
+JOIN head h ON gs.snapshot_id=h.sid
+LEFT JOIN path p ON p.id=gs.path_id
+LEFT JOIN go_ref r ON r.snapshot_id=h.sid AND r.kind='call' AND r.to_symbol_id=gs.id
+WHERE p.path LIKE 'pkg/%'
+  AND p.path NOT LIKE '%_test.go'
+  AND gs.kind IN ('func','method')
+  AND gs.name GLOB '[a-z]*'
+GROUP BY gs.id, gs.kind, gs.name, gs.symbol_key, p.path, gs.start_line
+HAVING call_incoming = 0
+ORDER BY p.path, gs.start_line
+LIMIT 200;
+```
+
+### What worked
+- The removal was “surgical”: it cut a lot of dead code without affecting the canonical tool loop (`toolhelpers.RunToolCallingLoop`).
+
+### What didn't work
+- N/A
+
+### What I learned
+- Using “PR diff → DB call edges → delete” is a productive flow, but we must still manually check for dynamic usage patterns (reflection/config hooks).
+
+### What was tricky to build
+- Keeping tool middleware tests meaningful after deleting the old conversation-centric helper functions.
+
+### What warrants a second pair of eyes
+- Whether `middleware.NewToolMiddleware` should itself be deleted in favor of always using `ToolLoopEngineBuilder` + `RunToolCallingLoop` (right now examples still use it).
+
+### What should be done in the future
+- Decide whether the “conversation.Manager” API is still a supported surface in geppetto; if not, there is likely a larger cleanup possible in `geppetto/pkg/conversation` and `geppetto/pkg/js`.
+
+### Code review instructions
+- Review the diff in:
+  - `geppetto/pkg/inference/toolhelpers/helpers.go`
+  - `geppetto/pkg/inference/middleware/tool_middleware.go`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd oak-git-db && VET=off GOCACHE=/tmp/go-build-cache bash scripts/typecheck-geppetto-pinocchio.sh`
