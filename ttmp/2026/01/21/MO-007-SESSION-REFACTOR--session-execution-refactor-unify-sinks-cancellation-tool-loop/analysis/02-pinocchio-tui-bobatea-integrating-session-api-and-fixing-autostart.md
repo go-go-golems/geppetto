@@ -47,6 +47,16 @@ Explain:
 
 This document intentionally focuses on pinocchio TUI (Bubble Tea) and the bobatea chat widget; webchat is out of scope except where shared primitives matter.
 
+## Status (as implemented)
+
+As of bobatea commit `c2a08dc` and pinocchio commit `930b461`, bobatea no longer has:
+
+- `WithAutoStartBackend`
+- `StartBackendMsg`
+- `model.startBackend()`
+
+Pinocchio “start in chat mode” now exclusively uses the submit pipeline (`ReplaceInputTextMsg` + `SubmitMessageMsg`) to start the first inference.
+
 ## Key context: bobatea’s `Backend` contract
 
 The chat widget’s backend contract is explicit:

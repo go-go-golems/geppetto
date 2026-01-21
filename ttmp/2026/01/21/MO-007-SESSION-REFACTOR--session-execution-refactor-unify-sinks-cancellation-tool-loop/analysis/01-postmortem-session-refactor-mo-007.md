@@ -248,6 +248,8 @@ Either:
 
 Right now it’s a footgun: it changes state but doesn’t do the work.
 
+**Status (as implemented):** bobatea commit `c2a08dc` removed `StartBackendMsg` / `startBackend()` / `WithAutoStartBackend`, and pinocchio commit `930b461` removed the last call site.
+
 ## What needs careful review (and what I was unhappy with / what was tricky)
 
 ### 1) Concurrency / invariants in `session.Session`

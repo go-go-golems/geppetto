@@ -12,10 +12,17 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../bobatea/pkg/chat/model.go
+      Note: Removed WithAutoStartBackend/StartBackendMsg/startBackend; inference only starts via submit()
+    - Path: ../../../../../../../bobatea/pkg/chat/user_messages.go
+      Note: Removed StartBackendMsg
+    - Path: ../../../../../../../bobatea/pkg/eventbus/eventbus.go
+      Note: Switch to AddConsumerHandler to satisfy Watermill deprecation lint
     - Path: ../../../../../../../pinocchio/pkg/cmds/cmd.go
       Note: |-
         Fix chat start: stop using bobatea autoStartBackend; rely on submit() to start inference (commit da5f276)
         Disable bobatea autoStartBackend; submit() starts inference (commit da5f276)
+        Removed last WithAutoStartBackend call site
     - Path: ../../../../../../../pinocchio/pkg/inference/enginebuilder/parsed_layers.go
       Note: Updated ParsedLayersEngineBuilder to match engine factory signature change (commit 6ce03ff)
     - Path: cmd/examples/generic-tool-calling/main.go
@@ -42,6 +49,7 @@ LastUpdated: 2026-01-21T13:51:22.625347026-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -398,3 +406,51 @@ During the first tmux run, pinocchio chat appeared to “freeze” immediately w
 ## Related
 
 <!-- Link to related documents or resources -->
+
+## Step 7: Remove bobatea AutoStartBackend/StartBackendMsg (cutover cleanup)
+
+This step finishes the cleanup that the prior analysis proposed: `WithAutoStartBackend`/`StartBackendMsg`/`startBackend()` were misleading and actively dangerous after the “new prompt flow” refactor, because they flipped the UI into streaming state without actually calling `Backend.Start(...)`. Now that pinocchio can reliably auto-submit a first prompt by sending `ReplaceInputTextMsg` + `SubmitMessageMsg`, the “autostart backend” concept is unnecessary.
+
+I removed those APIs from bobatea entirely and deleted pinocchio’s last remaining call site. This makes the model contract crisp: **only `SubmitMessageMsg` triggers inference**, and any “automatic first inference” is implemented by auto-submitting a prompt.
+
+**Commit (code):**
+- bobatea c2a08dc — "Remove chat AutoStartBackend/StartBackendMsg"
+- pinocchio 930b461 — "Stop using removed bobatea AutoStartBackend"
+
+### What I did
+- Deleted `StartBackendMsg` from `bobatea/pkg/chat/user_messages.go`.
+- Deleted `WithAutoStartBackend`, the `autoStartBackend` field, the `StartBackendMsg` init hook, and `startBackend()` from `bobatea/pkg/chat/model.go`.
+- Updated pinocchio to stop referencing `WithAutoStartBackend` in `pinocchio/pkg/cmds/cmd.go`.
+- Ran:
+  - `go test ./... -count=1` in `bobatea/`
+  - `go test ./... -count=1` in `pinocchio/`
+
+### Why
+- The StartBackend path had no prompt to pass to `Backend.Start(ctx, prompt string)`, so it could not be correct.
+- Removing it reduces lifecycle ambiguity and eliminates a class of “UI stuck generating” hangs.
+
+### What worked
+- Both repos build/tests pass.
+
+### What didn't work
+- Bobatea’s pre-commit lint initially blocked the commit due to an unrelated Watermill deprecation warning; fixed by switching to `AddConsumerHandler`.
+
+### What I learned
+- A UI state transition named “start backend” is too easy to misuse unless it is *guaranteed* to start inference.
+
+### What was tricky to build
+- Coordinating cutover across repos because pinocchio imports bobatea directly (no compatibility layer allowed).
+
+### What warrants a second pair of eyes
+- Whether any non-workspace consumers depend on `WithAutoStartBackend` (we removed it with no compatibility).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review:
+  - `bobatea/pkg/chat/model.go`
+  - `bobatea/pkg/chat/user_messages.go`
+  - `pinocchio/pkg/cmds/cmd.go`
+- Validate:
+  - `go test ./... -count=1` in `bobatea/` and `pinocchio/`
