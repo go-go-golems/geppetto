@@ -11,13 +11,24 @@ Topics:
 DocType: analysis
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: ../../../../../../../moments/backend/pkg/autosummary/summary_client.go
+      Note: Parse session_id from chat response; avoid RunID naming
+    - Path: ../../../../../../../moments/backend/pkg/sem/handlers/tool_handlers.go
+      Note: Switch runToTurn cache to sessionToTurn keyed by SessionID
+    - Path: ../../../../../../../moments/backend/pkg/webchat/conversation.go
+      Note: Rename Conversation.RunID->SessionID and ConvManager lookup
+    - Path: ../../../../../../../moments/backend/pkg/webchat/loops.go
+      Note: Replace EventMetadata.RunID usage; ensure InferenceID propagation
+    - Path: ../../../../../../../moments/backend/pkg/webchat/router.go
+      Note: Return session_id and use conv.SessionID
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-01-22T15:50:41.875609067-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Moments backend: rename RunID to SessionID
 

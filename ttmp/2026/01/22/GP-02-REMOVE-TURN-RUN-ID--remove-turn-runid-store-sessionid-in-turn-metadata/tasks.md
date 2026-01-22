@@ -21,7 +21,7 @@
 - [x] Update docs: `geppetto/pkg/doc/topics/08-turns.md` YAML example (remove `run_id:`, show metadata key)
 - [x] Run tests: `GOCACHE=/tmp/go-build-cache go test ./... -count=1` (from `geppetto/`)
 - [ ] (Optional follow-up) Update any remaining docs mentioning `Turn.RunID` to describe `KeyTurnMetaSessionID` instead
-- [ ] moments/backend: rename Conversation.RunID -> SessionID and update webchat/router/loops
-- [ ] moments/backend: rename FindConversationByRunID -> FindConversationBySessionID across sinks/adapters
-- [ ] moments/backend: replace EventMetadata.RunID usage with SessionID (+ add InferenceID wiring)
-- [ ] moments/backend: update SEM handler caches from RunID to SessionID and fix tests
+- [x] moments/backend: rename Conversation.RunID -> SessionID and update webchat/router/loops
+- [x] moments/backend: rename FindConversationByRunID -> FindConversationBySessionID across sinks/adapters
+- [x] moments/backend: replace EventMetadata.RunID usage with SessionID (+ add InferenceID wiring)
+- [x] moments/backend: update SEM handler caches from RunID to SessionID and fix tests

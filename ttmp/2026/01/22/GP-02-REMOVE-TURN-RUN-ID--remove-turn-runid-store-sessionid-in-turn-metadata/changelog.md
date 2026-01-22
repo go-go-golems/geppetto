@@ -48,3 +48,12 @@ Implement SessionID-in-metadata refactor (geppetto commit 4b5fe38)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/session/session.go — NewSession() + Append() set session id metadata
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/types.go — Remove Turn.RunID field
 
+
+## 2026-01-22
+
+Moments backend: rename RunID to SessionID and wire SessionID/InferenceID/TurnID consistently (moments commit 6bb64356)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/conversation.go — Conversation + ConvManager rename
+
