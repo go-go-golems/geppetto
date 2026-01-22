@@ -358,3 +358,47 @@ ticket retains a stable “shareable” artifact under `various/`.
 ### Technical details
 - PDF generation command used (no upload):
   - `remarquee upload bundle ... --pdf-only --output-dir .../various --toc-depth 2`
+
+## Step 6: Add Tasks For Removing toolbox (Before Implementing)
+
+This step updates the PI-001 task list to explicitly include removing `toolbox` usage from Pinocchio’s
+webchat runtime. This is meant to keep the refactor honest: if the new builder/manager wiring still
+relies on implicit tool wiring via `toolbox`, we’ll keep accumulating magic, rather than converging on
+a clear “tool factories → registry → tool loop” flow.
+
+### What I did
+- Added two PI-001 tasks to remove `toolbox` dependency and any remaining webchat/example wiring that
+  relies on it.
+
+### Why
+- The new webchat design we’re moving toward should be explicit about tool registration and execution:
+  tools are registered via factories into a `ToolRegistry`, and the tool loop is driven via the session
+  runner. `toolbox` often becomes a catch-all that obscures where tools come from.
+
+### What worked
+- The tasks are now explicitly tracked in:
+  - `geppetto/ttmp/2026/01/22/PI-001-WEBCHAT-ENGINEBUILDER--pinocchio-webchat-refactor-getorcreateconv-to-enginebuilder-pattern/tasks.md`
+
+### What didn't work
+- N/A
+
+### What I learned
+- Making the “remove toolbox” objective explicit early helps prevent scope creep during implementation.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Confirm the intended scope: “remove toolbox from webchat runtime” (and possibly webchat examples),
+  not “delete geppetto/pkg/toolbox globally”.
+
+### What should be done in the future
+- Audit where `toolbox` is currently referenced from Pinocchio (and specifically webchat).
+
+### Code review instructions
+- Verify the new tasks exist under PI-001 tasks list.
+
+### Technical details
+- Added tasks:
+  - “remove `geppetto/pkg/toolbox` dependency from webchat runtime”
+  - “remove/replace any remaining `toolbox` wiring in webchat and examples”
