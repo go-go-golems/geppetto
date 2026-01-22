@@ -38,3 +38,13 @@ Implemented removal of turns.Turn.RunID: added KeyTurnMetaSessionID, NewSession(
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/keys.go — Added KeyTurnMetaSessionID
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/types.go — Removed Turn.RunID
 
+
+## 2026-01-22
+
+Implement SessionID-in-metadata refactor (geppetto commit 4b5fe38)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/session/session.go — NewSession() + Append() set session id metadata
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/types.go — Remove Turn.RunID field
+
