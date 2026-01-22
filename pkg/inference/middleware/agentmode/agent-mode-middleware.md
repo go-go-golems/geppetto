@@ -68,6 +68,11 @@ mode_switch:
 ## Example usage
 
 ```go
+import (
+  "context"
+  "github.com/go-go-golems/geppetto/pkg/inference/session"
+)
+
 svc := agentmode.NewStaticService([]*agentmode.AgentMode{
   {Name: "chat",  AllowedTools: []string{"echo"},     Prompt: "You are in chat mode; prefer concise helpful answers."},
   {Name: "clock", AllowedTools: []string{"time_now"}, Prompt: "You are in clock mode; you may use time_now when necessary."},
@@ -75,10 +80,17 @@ svc := agentmode.NewStaticService([]*agentmode.AgentMode{
 
 mw := agentmode.NewMiddleware(svc, agentmode.DefaultConfig())
 toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-engine := middleware.NewEngineWithMiddleware(base, mw, toolMw)
+runner, err := session.NewToolLoopEngineBuilder(
+  session.WithToolLoopBase(base),
+  session.WithToolLoopMiddlewares(mw, toolMw),
+).Build(context.Background(), "")
+if err != nil {
+  panic(err)
+}
 
 t := &turns.Turn{Data: map[string]any{}}
 t.Data[agentmode.DataKeyAgentMode] = "clock"
+_, _ = runner.RunInference(context.Background(), t)
 ```
 
 ## YAML parser
@@ -111,5 +123,3 @@ This document follows the internal guidance from `glaze help how-to-write-good-d
 - Explaining architecture, data flow, and configuration keys
 - Showing copy-pasteable examples
 - Referencing code locations and runtimes
-
-

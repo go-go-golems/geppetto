@@ -128,10 +128,13 @@ tb := middleware.NewMockToolbox()
 tb.RegisterTool("echo", "Echo text", map[string]any{"text": {"type": "string"}},
     func(ctx context.Context, args map[string]any) (any, error) { return args["text"], nil })
 mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5})
-wrapped := middleware.NewEngineWithMiddleware(e, mw)
 
 turns.AppendBlock(seed, turns.NewUserTextBlock("Use echo with 'hello'"))
-updated, _ := wrapped.RunInference(ctx, seed)
+runner, _ := session.NewToolLoopEngineBuilder(
+    session.WithToolLoopBase(e),
+    session.WithToolLoopMiddlewares(mw),
+).Build(ctx, "demo-session")
+updated, _ := runner.RunInference(ctx, seed)
 
 // Helper route (Turn-based loop)
 cfg := toolhelpers.NewToolConfig().WithMaxIterations(5)
@@ -155,6 +158,7 @@ import (
     "context"
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/inference/session"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -188,10 +192,17 @@ func run(ctx context.Context, e engine.Engine) error {
     }, func(ctx context.Context, args map[string]any) (any, error) {
         return args["a"].(float64) + args["b"].(float64), nil
     })
-    e = middleware.NewEngineWithMiddleware(e, middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3}))
+    builder := session.NewToolLoopEngineBuilder(
+        session.WithToolLoopBase(e),
+        session.WithToolLoopMiddlewares(middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})),
+    )
+    runner, err := builder.Build(ctx, "demo-session")
+    if err != nil {
+        return err
+    }
 
     // 5) Run inference (engine may emit tool_call; middleware executes and appends tool_use)
-    _, err := e.RunInference(ctx, t)
+    _, err = runner.RunInference(ctx, t)
     return err
 }
 ```

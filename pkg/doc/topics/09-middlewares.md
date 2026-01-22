@@ -53,8 +53,8 @@ import "context"
 type HandlerFunc func(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
 type Middleware  func(HandlerFunc) HandlerFunc
 
-// EngineWithMiddleware wraps an engine so that calls to RunInference pass through the chain.
-func NewEngineWithMiddleware(e engine.Engine, mws ...Middleware) engine.Engine { /* ... */ }
+// Chain composes multiple middleware into a single HandlerFunc.
+func Chain(handler HandlerFunc, middlewares ...Middleware) HandlerFunc { /* ... */ }
 ```
 
 Conceptually, a middleware takes a `HandlerFunc` (the next step) and returns a new `HandlerFunc` that adds behavior before and/or after calling `next`.
@@ -78,7 +78,10 @@ logMw := func(next middleware.HandlerFunc) middleware.HandlerFunc {
     }
 }
 
-e := middleware.NewEngineWithMiddleware(baseEngine, logMw)
+builder := session.NewToolLoopEngineBuilder(
+    session.WithToolLoopBase(baseEngine),
+    session.WithToolLoopMiddlewares(logMw),
+)
 ```
 
 ---
@@ -97,7 +100,10 @@ tb.RegisterTool("echo", "Echo back the input text", map[string]any{
 
 cfg := middleware.ToolConfig{ MaxIterations: 5 }
 toolMw := middleware.NewToolMiddleware(tb, cfg)
-e := middleware.NewEngineWithMiddleware(baseEngine, toolMw)
+builder := session.NewToolLoopEngineBuilder(
+    session.WithToolLoopBase(baseEngine),
+    session.WithToolLoopMiddlewares(toolMw),
+)
 ```
 
 Note: Providers learn about tools to advertise from `context.Context` (tool registry) plus `Turn.Data` (tool config, e.g. `engine.KeyToolConfig`). The middleware executes tools independent of provider.
@@ -110,15 +116,20 @@ Middlewares run in the order they're provided:
 
 ```go
 e := baseEngine
-e = middleware.NewEngineWithMiddleware(e, logMw)
-e = middleware.NewEngineWithMiddleware(e, toolMw)
+builder := session.NewToolLoopEngineBuilder(
+    session.WithToolLoopBase(e),
+    session.WithToolLoopMiddlewares(logMw, toolMw),
+)
 // Now: RunInference -> logMw -> toolMw -> engine
 ```
 
 For convenience, pass them as a slice once:
 
 ```go
-e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
+builder := session.NewToolLoopEngineBuilder(
+    session.WithToolLoopBase(baseEngine),
+    session.WithToolLoopMiddlewares(logMw, toolMw),
+)
 ```
 
 ### Recommended Ordering
@@ -174,7 +185,14 @@ func buildEngineWithMiddlewares(base engine.Engine, tb middleware.Toolbox) engin
         }
     }
     toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5})
-    return middleware.NewEngineWithMiddleware(base, logMw, toolMw)
+    runner, err := session.NewToolLoopEngineBuilder(
+        session.WithToolLoopBase(base),
+        session.WithToolLoopMiddlewares(logMw, toolMw),
+    ).Build(context.Background(), "")
+    if err != nil {
+        panic(err)
+    }
+    return runner
 }
 ```
 
@@ -184,6 +202,7 @@ func buildEngineWithMiddlewares(base engine.Engine, tb middleware.Toolbox) engin
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/middleware" // Core middleware
     "github.com/go-go-golems/geppetto/pkg/inference/engine"     // Engine interface
+    "github.com/go-go-golems/geppetto/pkg/inference/session"    // ToolLoopEngineBuilder (middleware composition root)
     "github.com/go-go-golems/geppetto/pkg/turns"                // Turn/Block types
 )
 ```

@@ -570,11 +570,12 @@ Add middleware for logging, metrics, and other cross-cutting concerns:
 
 ```go
 import (
+    "github.com/go-go-golems/geppetto/pkg/inference/session"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func addMiddleware(baseEngine engine.Engine) engine.Engine {
+func addMiddleware(baseEngine engine.Engine) session.EngineBuilder {
     // Add logging middleware
     loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
         return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -591,7 +592,10 @@ func addMiddleware(baseEngine engine.Engine) engine.Engine {
         }
     }
 
-    return middleware.NewEngineWithMiddleware(baseEngine, loggingMiddleware)
+    return session.NewToolLoopEngineBuilder(
+        session.WithToolLoopBase(baseEngine),
+        session.WithToolLoopMiddlewares(loggingMiddleware),
+    )
 }
 ```
 

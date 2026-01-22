@@ -2,11 +2,13 @@
 
 ## TODO
 
-- [ ] Inventory current `NewEngineWithMiddleware` call sites (geppetto + downstream repos)
-- [ ] Clarify what “moot” means: internal helper vs public API recommendation
-- [ ] Decide target composition API for apps:
-  - [ ] Prefer `session.ToolLoopEngineBuilder{Middlewares: ...}` for chat-style apps
-  - [ ] Keep `middleware.NewEngineWithMiddleware` for non-session use cases (or deprecate)
-- [ ] Update docs/examples to use builder-provided middlewares (where applicable)
-- [ ] Consider deprecation strategy for direct wrapper usage (notes + timeline)
-- [ ] Upload ticket docs to reMarkable
+- [ ] Remove `middleware.NewEngineWithMiddleware` (and `EngineWithMiddleware`) entirely
+- [ ] Fold engine-level middleware wrapping into `session.ToolLoopEngineBuilder` implementation
+- [ ] Add `session.NewToolLoopEngineBuilder(...WithOption)` constructor + option helpers
+- [ ] Update all `NewEngineWithMiddleware` usages to:
+  - [ ] supply `Middlewares` via `ToolLoopEngineBuilder`, or
+  - [ ] wrap at the session boundary and return an `InferenceRunner` that also satisfies `engine.Engine`
+- [ ] Migrate Geppetto examples to use `session.NewToolLoopEngineBuilder(...)`
+- [ ] Update docs/tutorials to reflect the new builder-first middleware composition pattern
+- [ ] Run `go test ./...` in `geppetto/`, `pinocchio/`, and `moments/backend/`
+- [ ] Upload updated ticket docs to reMarkable

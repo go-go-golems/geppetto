@@ -127,13 +127,13 @@ Typical shape:
 ```go
 base, _ := factory.NewEngineFromParsedLayers(parsedLayers)
 
-b := &session.ToolLoopEngineBuilder{
-    Base:       base,
-    Middlewares: []middleware.Middleware{/* system prompt, logging, etc */},
-    EventSinks: []events.EventSink{sink},
-    Registry:   registry,   // optional: enables tool loop
-    ToolConfig: toolCfg,    // optional
-}
+b := session.NewToolLoopEngineBuilder(
+    session.WithToolLoopBase(base),
+    session.WithToolLoopMiddlewares(/* system prompt, logging, etc */),
+    session.WithToolLoopEventSinks(sink),
+    session.WithToolLoopRegistry(registry), // optional: enables tool loop
+    // session.WithToolLoopToolConfig(*toolCfg), // optional
+)
 ```
 
 ## Step 3: Replace “InferenceState” with “Session”
