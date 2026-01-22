@@ -402,3 +402,58 @@ a clear “tool factories → registry → tool loop” flow.
 - Added tasks:
   - “remove `geppetto/pkg/toolbox` dependency from webchat runtime”
   - “remove/replace any remaining `toolbox` wiring in webchat and examples”
+
+## Step 7: Audit toolbox Usage (Pinocchio/Moments)
+
+This step audited current usage of `toolbox` across Pinocchio and Moments to understand what “remove
+toolbox” concretely means for PI-001. The surprising result is that Pinocchio’s current codebase does
+not reference `geppetto/pkg/toolbox` at all (and Moments didn’t show direct references either). That
+means the “toolbox removal” tasks are either:
+
+- referring to older/deprecated tool middleware patterns in Geppetto, or
+- referring to a future-direction cleanup (ensuring webchat does not reintroduce toolbox-style execution).
+
+Either way, it’s safe to proceed with PI-001’s refactor without touching `geppetto/pkg/toolbox` today,
+while keeping the tasks as guardrails.
+
+### What I did
+- Searched for `toolbox` references in:
+  - `pinocchio/`
+  - `moments/backend/`
+  - and confirmed `geppetto/pkg/toolbox` exists but is not imported by Pinocchio.
+
+### Why
+- Before starting implementation, we need to know if “remove toolbox” is a mechanical refactor
+  (remove imports/calls) or an architectural constraint (avoid adding it back).
+
+### What worked
+- Found no `toolbox` references under Pinocchio.
+- Confirmed `geppetto/pkg/toolbox` is primarily used by the deprecated tool middleware layer.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The main actionable “tooling cleanup” for PI-001 is not deleting toolbox code, but ensuring the new
+  EngineBuilder/manager refactor remains centered on:
+  - `tools.ToolRegistry` + tool loop execution (not toolbox/middleware execution),
+  - explicit tool registration via factories.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Double-check whether any Pinocchio examples outside `pinocchio/` (or downstream consumers) are still
+  depending on toolbox indirectly; the current repo grep suggests “no”.
+
+### What should be done in the future
+- Consider moving toolbox removal tasks to the Geppetto “remove tool middleware” ticket if the intent
+  is to delete the old tool middleware layer entirely.
+
+### Code review instructions
+- Re-run these greps if needed:
+  - `rg -n \"\\btoolbox\\b\" pinocchio -S`
+  - `rg -n \"github.com/go-go-golems/geppetto/pkg/toolbox\" pinocchio -S`
+
+### Technical details
+- `geppetto/pkg/toolbox` exists (reflection-based toolbox used by `geppetto/pkg/inference/middleware/tool_middleware.go`).
