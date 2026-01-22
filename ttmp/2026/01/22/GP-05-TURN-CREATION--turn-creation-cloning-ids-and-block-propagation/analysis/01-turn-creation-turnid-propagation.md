@@ -27,7 +27,7 @@ RelatedFiles:
       Note: Turn/Block structs; AppendBlock currently does not stamp TurnID
 ExternalSources: []
 Summary: Where follow-up turns are cloned/transformed; TurnID generation and propagation to blocks; block-level inference attribution.
-LastUpdated: 2026-01-22T17:25:00-05:00
+LastUpdated: 2026-01-22T17:45:00-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -389,3 +389,161 @@ has `KeyTurnMetaInferenceID` at the time of append (it might not for user blocks
    UI entity IDs), and if so, what is the stable identifier for “conversation/thread” (SessionID)?
 3) Do we want a block-level `SessionID` too, or is block-level `InferenceID` sufficient when paired
    with session-level metadata?
+
+## Appendix: Where blocks are added/modified, and how `TurnID` is (not) stamped
+
+This section inventories the main code paths that (a) append new blocks to a turn, or (b) modify or
+reorder existing blocks, and documents how `Block.TurnID` is currently set (and where it is missing).
+
+### Summary: there is no “stamp TurnID on new blocks” invariant today
+
+- `turns.AppendBlock` is a raw append and does **not** set `Block.TurnID`.
+- Block constructors (`turns.NewUserTextBlock`, `turns.NewAssistantTextBlock`, etc.) set `Block.ID`
+  but do **not** set `Block.TurnID`.
+- The only best-effort backfill of `Block.TurnID` in core code happens **before inference starts**
+  (inside `Session.StartInference`, on the input copy, and only when empty).
+
+So blocks appended during inference (assistant/tool blocks) often end up with `Block.TurnID == ""`.
+
+### A) User prompt entrypoint: “follow-up seed turn” creation
+
+The most common place a new *user* block is added for a follow-up inference is in the caller/UI
+layer, not in Geppetto core:
+
+- Pattern (documented): `clone(sess.Latest()) → AppendBlock(user) → sess.Append(seed) → StartInference`
+  - `geppetto/pkg/doc/playbooks/04-migrate-to-session-api.md`
+- Pinocchio webchat: `seedForPrompt` appends a new user block:
+  - `pinocchio/pkg/webchat/router.go` (see `seedForPrompt` + `turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))`)
+
+TurnID behavior:
+
+- The user block is created with `TurnID == ""` (constructors don’t stamp it).
+- There is no stamping at append time (`turns.AppendBlock` does not stamp).
+- `Session.StartInference` later backfills `Block.TurnID` on the input copy **only if empty**, and
+  it uses the copied turn’s `ID` (which is often stable across inferences today).
+
+### B) Middleware that inserts/edits blocks (pre-inference)
+
+#### 1) System prompt middleware: insert or edit first system block
+
+`geppetto/pkg/inference/middleware/systemprompt_middleware.go`:
+
+- If a system block exists, it mutates the existing block’s payload text:
+  - `t.Blocks[firstSystemIdx].Payload[text] = ...`
+- If no system block exists, it creates a new system block and prepends it:
+  - `newBlock := turns.NewSystemTextBlock(prompt)`
+  - `t.Blocks = append([]turns.Block{newBlock}, t.Blocks...)`
+- It also sets `KeyBlockMetaMiddleware = "systemprompt"` on the inserted/edited block.
+
+TurnID behavior:
+
+- When inserting a new system block, `newBlock.TurnID` is empty and is not stamped by the middleware.
+- If `Session.StartInference` clones and backfills input blocks, it can fill the missing TurnID on
+  the *input copy* (again, only pre-inference and only if empty).
+
+#### 2) Tool result reorder middleware: reorder blocks for provider adjacency constraints
+
+`geppetto/pkg/inference/middleware/reorder_tool_results_middleware.go`:
+
+- Rebuilds the block slice (`newBlocks := ...; t.Blocks = newBlocks`) to move matching `tool_use`
+  blocks immediately after contiguous `tool_call` runs.
+
+TurnID behavior:
+
+- The middleware copies blocks as values into a new slice; it does not set or adjust `Block.TurnID`.
+- It preserves whatever `Block.TurnID` values already exist.
+
+### C) Tool loop execution: append `tool_use` blocks
+
+Tool results are appended as new `tool_use` blocks in a few places:
+
+- Turn-based toolblocks helper:
+  - `geppetto/pkg/inference/toolblocks/toolblocks.go` (`AppendToolResultsBlocks`)
+  - It appends via `turns.AppendBlock(t, turns.NewToolUseBlock(...))`.
+- Tool middleware (stub) uses the helper:
+  - `geppetto/pkg/inference/middleware/tool_middleware.go` (`toolblocks.AppendToolResultsBlocks(updated, shared)`)
+
+TurnID behavior:
+
+- `turns.NewToolUseBlock` does not set `Block.TurnID`.
+- `turns.AppendBlock` does not stamp `Block.TurnID`.
+- There is no post-tool stamping pass in toolblocks/tool middleware, so `tool_use` blocks typically
+  have empty TurnID unless later normalized elsewhere.
+
+### D) Provider engines: append assistant/tool_call/reasoning blocks
+
+Provider engines generally mutate the passed-in `*turns.Turn` in place and append new blocks to it:
+
+- OpenAI: `geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - appends `llm_text` and `tool_call` blocks via `turns.AppendBlock(...)`
+- Claude: `geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - appends `llm_text` and `tool_call` blocks via `turns.AppendBlock(...)`
+- Gemini: `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+  - appends `llm_text` and `tool_call` blocks via `turns.AppendBlock(...)`
+- OpenAI Responses: `geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - appends `llm_text` and `tool_call` blocks via `turns.AppendBlock(...)`
+  - may also append `reasoning` blocks (explicit `turns.Block{Kind: BlockKindReasoning, Payload: ...}` then `AppendBlock`)
+  - may add provider payload fields (e.g. `PayloadKeyItemID`, `PayloadKeyEncryptedContent`) before appending
+
+TurnID behavior:
+
+- Engines publish events whose `EventMetadata.TurnID` is set from `t.ID`, but the blocks they append
+  do not get `Block.TurnID` assigned (constructors don’t set it, and `turns.AppendBlock` doesn’t).
+- So, unless some other normalization step runs after inference, blocks produced by engines will
+  frequently have `Block.TurnID == ""`.
+
+### E) Block modification patterns (not just append)
+
+In addition to appending blocks, some code paths modify existing blocks:
+
+- **System prompt middleware** mutates the payload of an existing system block:
+  - `t.Blocks[firstSystemIdx].Payload[text] = ...`
+- **Reorder middleware** rebuilds the entire block slice and assigns `t.Blocks = newBlocks` (reorder only).
+
+These operations preserve any existing `Block.TurnID` values, but they do not correct missing
+TurnIDs and they can insert new blocks with empty TurnID (systemprompt insertion).
+
+### F) Current “TurnID stamping” coverage (what is actually guaranteed today)
+
+Today, the only place that attempts to set `Block.TurnID` in core code is:
+
+- `geppetto/pkg/inference/session/session.go` (`Session.StartInference`):
+  - clones the last session turn into an input copy
+  - for each block on the **input copy**, if `b.TurnID == ""`, sets it to `inputCopy.ID`
+
+What this does *not* cover:
+
+- blocks appended during inference (assistant text, tool calls, tool uses, reasoning blocks)
+- blocks inserted by middleware via direct slice operations (`t.Blocks = append(...)`)
+- block-level inference attribution (there is no block-level inference id key today)
+
+### G) Implications for the “snapshot turn + per-block attribution” model
+
+With the snapshot model, a later turn snapshot contains blocks created across multiple inferences.
+That means:
+
+- **Reused blocks must keep their original attribution** (TurnID + block-level inference id).
+- **New blocks must be stamped deterministically** with the current cycle’s TurnID and inference id.
+
+Today, neither of these is guaranteed:
+
+- reused blocks may have empty `Block.TurnID` (legacy/missing)
+- new blocks appended by engines/toolblocks generally have empty `Block.TurnID`
+- blocks carry no `InferenceID` attribution at all
+
+### H) Recommended enforcement points (where to “make it impossible”)
+
+There are two practical “choke points” that cover the majority of block creation sites:
+
+1) **Normalize blocks after inference completes** (Session-level post-pass; see earlier pseudocode)
+   - ensures blocks appended during inference are stamped
+   - can also stamp a new block-level inference id key (proposed `turns.KeyBlockMetaInferenceID`)
+2) **Stamp on append** by changing `turns.AppendBlock` (and related helpers) to fill missing `Block.TurnID`
+   from `t.ID`
+   - reduces the chance of producing unstamped blocks in the first place
+   - still needs special-case thinking for blocks inserted by direct slice manipulation (e.g. systemprompt)
+
+In practice, doing both is robust:
+
+- `AppendBlock` prevents most “empty TurnID” blocks going forward
+- the session post-pass backfills any remaining edge cases and sets block-level inference attribution

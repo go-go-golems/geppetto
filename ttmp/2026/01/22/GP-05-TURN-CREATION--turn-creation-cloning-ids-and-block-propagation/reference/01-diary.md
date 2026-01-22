@@ -17,7 +17,7 @@ RelatedFiles:
       Note: Primary site investigated for turn cloning and stamping
 ExternalSources: []
 Summary: Investigation diary for turn cloning/creation and per-inference TurnID/block attribution.
-LastUpdated: 2026-01-22T17:25:00-05:00
+LastUpdated: 2026-01-22T17:45:00-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -336,3 +336,71 @@ policy, the rest becomes “stamp missing fields deterministically”.
 
 ### Technical details
 - N/A (no implementation changes yet).
+
+## Step 6: Inventory block creation/mutation sites (middlewares + engines + tool loop) and TurnID stamping gaps
+
+I enumerated the production code paths that add or modify blocks in a turn (not tests), focusing on
+where `Block.TurnID` is supposed to come from. The recurring theme is that block constructors and
+`turns.AppendBlock` do not stamp TurnID, and only a single pre-inference backfill exists in the
+session code. That means blocks appended during inference (assistant/tool blocks) often have empty
+TurnID today, which makes per-block attribution impossible without a new invariant.
+
+This step also covered the “user input becomes a block” entrypoint: in practice that happens in the
+caller layer (Pinocchio/webchat, Bubble Tea backend), where a new user block is appended to a cloned
+turn snapshot and then appended to the session before starting inference.
+
+**Commit (code):** N/A
+
+### What I did
+- Searched for where blocks are appended or where `t.Blocks` is rewritten:
+  - `rg -n "AppendBlock\\(|Blocks\\s*=\\s*append\\(|t\\.Blocks\\s*=" geppetto/pkg -S`
+- Read the key middlewares that insert/reorder blocks:
+  - `geppetto/pkg/inference/middleware/systemprompt_middleware.go` (inserts or edits a system block)
+  - `geppetto/pkg/inference/middleware/reorder_tool_results_middleware.go` (reorders tool_use blocks)
+  - `geppetto/pkg/inference/middleware/tool_middleware.go` (appends tool_use blocks via toolblocks)
+  - `geppetto/pkg/inference/toolblocks/toolblocks.go` (`AppendToolResultsBlocks`)
+- Read provider engine append sites:
+  - `geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - `geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+- Updated the analysis doc with a new appendix section describing these paths and their TurnID behavior:
+  - `geppetto/ttmp/2026/01/22/GP-05-TURN-CREATION--turn-creation-cloning-ids-and-block-propagation/analysis/01-turn-creation-turnid-propagation.md`
+
+### Why
+- We can’t safely enforce “blocks created in an inference cycle carry TurnID + InferenceID” unless we
+  know exactly which layers append/insert blocks and which ones bypass helper APIs.
+
+### What worked
+- The inventory confirmed that most new blocks are appended via `turns.AppendBlock`, which gives us a
+  clean enforcement point if we choose to stamp on append.
+
+### What didn't work
+- System prompt middleware inserts blocks by direct slice manipulation (`t.Blocks = append(...)`),
+  bypassing `turns.AppendBlock`, so “stamp on append” alone would not cover all insertion cases.
+
+### What I learned
+- Current stamping is asymmetric:
+  - pre-inference: session backfills missing `Block.TurnID` on the input copy (only-if-empty)
+  - post-inference: there is no normalization pass, so new engine/tool blocks can remain unstamped
+- Block metadata currently has no inference id attribution; we likely need a new typed key for that.
+
+### What was tricky to build
+- Separating “event metadata TurnID” (always set from `t.ID`) from “block attribution TurnID” (often empty).
+  It’s easy to assume they match, but they currently don’t.
+
+### What warrants a second pair of eyes
+- Whether changing `turns.AppendBlock` to stamp `Block.TurnID` would have any unintended consequences
+  for legacy code that appends old blocks with empty TurnID (potential mis-attribution).
+
+### What should be done in the future
+- If we implement the contract, enforce it in two places:
+  - stamp-on-append for the common case, and
+  - a session post-inference normalization pass that stamps remaining blocks and sets a block-level inference id key.
+
+### Code review instructions
+- Start with the “Appendix” section added to the analysis doc.
+- Cross-check the specific middlewares and toolblocks helpers cited there.
+
+### Technical details
+- N/A (analysis-only step).
