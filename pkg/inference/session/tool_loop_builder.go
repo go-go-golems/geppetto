@@ -65,9 +65,7 @@ func (b *ToolLoopEngineBuilder) Build(ctx context.Context, sessionID string) (In
 	}
 
 	eng := b.Base
-	if len(b.Middlewares) > 0 {
-		eng = middleware.NewEngineWithMiddleware(eng, b.Middlewares...)
-	}
+	eng = newEngineWithMiddlewares(eng, b.Middlewares)
 
 	cfg := toolhelpers.NewToolConfig()
 	if b.ToolConfig != nil {
@@ -99,6 +97,28 @@ type toolLoopRunner struct {
 	persister TurnPersister
 }
 
+type engineWithMiddlewares struct {
+	handler middleware.HandlerFunc
+}
+
+func newEngineWithMiddlewares(eng engine.Engine, mws []middleware.Middleware) engine.Engine {
+	if len(mws) == 0 {
+		return eng
+	}
+
+	handler := func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+		return eng.RunInference(ctx, t)
+	}
+
+	return &engineWithMiddlewares{
+		handler: middleware.Chain(handler, mws...),
+	}
+}
+
+func (e *engineWithMiddlewares) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	return e.handler(ctx, t)
+}
+
 func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -114,6 +134,9 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 
 	if t == nil {
 		t = &turns.Turn{}
+	}
+	if t.ID == "" {
+		t.ID = uuid.NewString()
 	}
 	if r.sessionID != "" {
 		if _, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err != nil || !ok {
@@ -140,6 +163,9 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 		}
 	}
 	if updated != nil {
+		if updated.ID == "" {
+			updated.ID = t.ID
+		}
 		if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok && iid != "" {
 			if _, ok2, err2 := turns.KeyTurnMetaInferenceID.Get(updated.Metadata); err2 != nil || !ok2 {
 				_ = turns.KeyTurnMetaInferenceID.Set(&updated.Metadata, iid)

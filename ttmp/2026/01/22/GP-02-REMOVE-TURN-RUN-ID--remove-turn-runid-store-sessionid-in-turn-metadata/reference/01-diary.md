@@ -342,3 +342,56 @@ This step is not a “design change” to the new API, but it is required to kee
 ### Code review instructions
 - Pinocchio: spot-check one end-to-end path (webchat/router → session/engine) for session id propagation.
 - Moments: start with `moments/backend/pkg/webchat/session_id.go` and `moments/backend/pkg/webchat/loops.go`.
+
+## Step 7: Make `TurnID`/`InferenceID` always present, and drop `run_id` from sqlite store schema
+
+I tightened the session/tool-loop execution path so every inference run always has a stable `TurnID` and `InferenceID` available for event metadata and storage. In parallel, I removed `run_id` naming from the pinocchio simple-agent sqlite debug store (schema + queries), switching fully to `session_id` (and adding `inference_id`) with no backwards compatibility in the DB layer.
+
+This makes the correlation story less ambiguous: `SessionID` is the long-lived multi-turn session, `InferenceID` is per `RunInference` call, and `TurnID` is the per-turn identifier that should always exist (so UIs and stores can key reliably without inventing IDs late).
+
+### What I did
+- Ensured `Turn.ID` is always populated before inference starts, and propagated across the runner/output:
+  - `geppetto/pkg/inference/session/session.go` (assign TurnID to input copy; keep output TurnID stable; fill Block.TurnID when missing).
+  - `geppetto/pkg/inference/session/tool_loop_builder.go` (assign TurnID before running; copy onto output if missing).
+- Removed `run_id` from the pinocchio simple-agent sqlite store and schema:
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/store/schema.sql` (rename tables/columns to `sessions`/`session_id`, add `inference_id` to `chat_events` and `tool_registry_snapshots`).
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/store/views.sql` (update views to use `session_id`/`inference_id`).
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/store/sqlstore.go` (rename `EnsureRun`→`EnsureSession`, remove `run_id` from snapshot JSON, insert `session_id`/`inference_id` in DB rows).
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/ui/debug_commands.go` (rename `/dbg runs`→`/dbg sessions`, query `turns.session_id`).
+
+### Why
+- `TurnID` is used everywhere (events, persistence, UI); letting it be empty forces downstream code to generate IDs ad-hoc and breaks correlation guarantees.
+- `run_id` had become ambiguous: it was used to mean both “session” and “inference”. The sqlite store should reflect the new canonical names to avoid reintroducing that ambiguity.
+
+### What worked
+- `cd geppetto && go test ./... -count=1`
+- `cd pinocchio && go test ./... -count=1`
+
+### What didn't work
+- Existing sqlite files created with the old schema (`runs`/`run_id`) will not be compatible. You need to delete/rotate the DB (e.g. `simple-agent.db`) to pick up the new schema.
+
+### What I learned
+- Tightening identity invariants at the session/runner boundary is the simplest way to prevent a long tail of “missing ID” edge cases in sinks, stores, and UIs.
+
+### What was tricky to build
+- Ensuring we never mutate historical turns in-place while still guaranteeing IDs: the session copies the seed turn before tagging it with per-inference metadata and ensuring `Turn.ID`.
+
+### What warrants a second pair of eyes
+- Whether `Block.TurnID` should be treated as authoritative/required across the entire codebase, or remain “best effort” while the primary correlation stays on the `Turn`.
+- Whether the sqlite store should enforce non-empty `session_id` / `inference_id` via `CHECK(length(...)>0)` constraints (currently empty strings are allowed).
+
+### What should be done in the future
+- Align other debug stores/middlewares that still say “run_id” purely for historical reasons, now that the DB/schema has moved forward.
+
+### Code review instructions
+- Start with:
+  - `geppetto/pkg/inference/session/session.go`
+  - `geppetto/pkg/inference/session/tool_loop_builder.go`
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/store/schema.sql`
+  - `pinocchio/cmd/agents/simple-chat-agent/pkg/store/sqlstore.go`
+- Validate with:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+
+### Technical details
+- DB migration is intentionally not provided (no backwards compatibility); delete the old sqlite DB files to re-init with the new schema.

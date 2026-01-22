@@ -115,6 +115,9 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 	inputCopy := *input
 	inputCopy.Metadata = input.Metadata.Clone()
 	inputCopy.Data = input.Data.Clone()
+	if inputCopy.ID == "" {
+		inputCopy.ID = uuid.NewString()
+	}
 	if len(input.Blocks) > 0 {
 		inputCopy.Blocks = make([]turns.Block, len(input.Blocks))
 		for i := range input.Blocks {
@@ -128,6 +131,9 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 				b.Payload = cp
 			}
 			b.Metadata = b.Metadata.Clone()
+			if b.TurnID == "" {
+				b.TurnID = inputCopy.ID
+			}
 			inputCopy.Blocks[i] = b
 		}
 	}
@@ -163,6 +169,9 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 
 		out, err := runner.RunInference(runCtx, &inputCopy)
 		if err == nil && out != nil {
+			if out.ID == "" {
+				out.ID = inputCopy.ID
+			}
 			_ = turns.KeyTurnMetaSessionID.Set(&out.Metadata, s.SessionID)
 			_ = turns.KeyTurnMetaInferenceID.Set(&out.Metadata, inferenceID)
 			s.Append(out)
