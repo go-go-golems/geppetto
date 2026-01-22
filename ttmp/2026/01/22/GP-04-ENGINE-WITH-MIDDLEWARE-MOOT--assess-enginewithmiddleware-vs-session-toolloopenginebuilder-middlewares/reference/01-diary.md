@@ -23,7 +23,7 @@ WhenToUse: ""
 
 ## Goal
 
-Track the investigation work for whether `middleware.EngineWithMiddleware` should be treated as a legacy/public API (discouraged in app code) now that `session.ToolLoopEngineBuilder` accepts middlewares.
+Track the investigation and implementation work to remove `middleware.NewEngineWithMiddleware` and standardize middleware composition on `session.ToolLoopEngineBuilder` (with a `NewToolLoopEngineBuilder(...WithOption)` constructor).
 
 ## Step 1: Inventory `EngineWithMiddleware` usage and builder integration
 
@@ -89,3 +89,80 @@ Captured the findings in an analysis doc under this ticket, focused on the disti
 - `EngineWithMiddleware` being *still required as an internal helper* of the builder today.
 
 **Commit (code):** N/A
+
+## Step 3: Decide to remove EngineWithMiddleware and fold into the builder
+
+The direction changed from “should we discourage this wrapper?” to “we should delete it.” The main reason is API clarity: having both engine-level wrappers and builder-level middleware creates two competing composition roots. Since the builder already owns tool-loop behavior, sinks, persistence, and snapshots, it’s the right place for middleware chaining too.
+
+This step corresponded to implementing the removal and moving the wrapper logic into `ToolLoopEngineBuilder.Build` as an unexported adapter.
+
+**Commit (code):** bdc03c1 — "tool-loop: remove NewEngineWithMiddleware helper"
+
+### What I did
+- Removed the exported `middleware.NewEngineWithMiddleware` / `EngineWithMiddleware` API.
+- Folded “engine -> HandlerFunc -> Chain(...)” into `session.ToolLoopEngineBuilder`.
+
+### Why
+- Avoid two public composition APIs (“engine-first” vs “builder-first”) and standardize on the session builder boundary.
+
+### What worked
+- Keeping the wrapper unexported preserves semantics while shrinking the public API.
+
+### What didn't work
+- N/A
+
+### What I learned
+- `InferenceRunner` is structurally compatible with `engine.Engine` (both expose `RunInference(ctx,*turns.Turn)`), which makes returning a built runner a workable replacement for “engine composition” call sites.
+
+### What was tricky to build
+- Preserving middleware ordering semantics (outermost vs innermost) while migrating call sites that previously wrapped engines repeatedly.
+
+### What warrants a second pair of eyes
+- Confirming that middleware ordering in downstream repos (Pinocchio/Moments) matches the historical wrapper semantics.
+
+### What should be done in the future
+- Convert remaining downstream repos that still reference `NewEngineWithMiddleware` (if any) or explicitly mark them “legacy/not supported”.
+
+### Code review instructions
+- Start with `geppetto/pkg/inference/session/tool_loop_builder.go` and confirm middleware chaining is internal and unexported.
+
+### Technical details
+- The builder now adapts `engine.Engine` to `middleware.HandlerFunc` and applies `middleware.Chain(...)` inside `Build`.
+
+## Step 4: Add `NewToolLoopEngineBuilder` options constructor and migrate docs/examples
+
+After the API removal, I updated public-facing examples and docs to demonstrate the new canonical pattern: create a builder via `session.NewToolLoopEngineBuilder(...)` and pass middlewares with `session.WithToolLoopMiddlewares(...)`.
+
+**Commit (docs):** 2017adf — "docs: move middleware composition to ToolLoopEngineBuilder"
+
+### What I did
+- Updated Geppetto docs and middleware package docs to remove `NewEngineWithMiddleware` references and show builder-first composition.
+- Updated the GP-04 ticket tasks and analysis doc to reflect the new direction.
+
+### Why
+- Keep the docs aligned with the new API so users don’t copy/paste removed symbols.
+
+### What worked
+- The new `With...` option helpers make snippets shorter and reduce struct-literal churn in examples.
+
+### What didn't work
+- N/A
+
+### What I learned
+- A “builder-first” story is much easier to keep coherent once we remove engine-level wrappers from the public API.
+
+### What was tricky to build
+- Updating examples that previously “wrapped and re-wrapped” engines, while still preserving middleware execution order.
+
+### What warrants a second pair of eyes
+- Review doc snippets for correctness (imports, intended ordering, and whether the examples still demonstrate best practices).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review the doc changes:
+  - `geppetto/pkg/doc/topics/09-middlewares.md`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md`
+  - `geppetto/pkg/doc/topics/07-tools.md`
+  - `geppetto/pkg/doc/playbooks/04-migrate-to-session-api.md`
