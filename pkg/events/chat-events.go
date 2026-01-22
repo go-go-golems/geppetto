@@ -370,16 +370,38 @@ type EventMetadata struct {
 	LLMInferenceData
 	ID uuid.UUID `json:"message_id" yaml:"message_id" mapstructure:"message_id"`
 	// Correlation identifiers
-	RunID  string `json:"run_id,omitempty" yaml:"run_id,omitempty" mapstructure:"run_id"`
-	TurnID string `json:"turn_id,omitempty" yaml:"turn_id,omitempty" mapstructure:"turn_id"`
+	SessionID   string `json:"session_id,omitempty" yaml:"session_id,omitempty" mapstructure:"session_id"`
+	InferenceID string `json:"inference_id,omitempty" yaml:"inference_id,omitempty" mapstructure:"inference_id"`
+	TurnID      string `json:"turn_id,omitempty" yaml:"turn_id,omitempty" mapstructure:"turn_id"`
 	// Extra carries provider-specific/context values
 	Extra map[string]interface{} `json:"extra,omitempty" yaml:"extra,omitempty" mapstructure:"extra"`
 }
 
+func (em *EventMetadata) UnmarshalJSON(b []byte) error {
+	type Alias EventMetadata
+	var a struct {
+		Alias
+		LegacyRunID string `json:"run_id,omitempty"`
+	}
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	*em = EventMetadata(a.Alias)
+	if em.SessionID == "" && a.LegacyRunID != "" {
+		em.SessionID = a.LegacyRunID
+	}
+	return nil
+}
+
 func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("message_id", em.ID.String())
-	if em.RunID != "" {
-		e.Str("run_id", em.RunID)
+	// Backwards-compatible: `run_id` remains the historical log field name (it maps to SessionID).
+	if em.SessionID != "" {
+		e.Str("run_id", em.SessionID)
+		e.Str("session_id", em.SessionID)
+	}
+	if em.InferenceID != "" {
+		e.Str("inference_id", em.InferenceID)
 	}
 	if em.TurnID != "" {
 		e.Str("turn_id", em.TurnID)
@@ -422,8 +444,9 @@ func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 
 // Extra metadata keys for correlation
 const (
-	MetaKeyRunID  = "run_id"
-	MetaKeyTurnID = "turn_id"
+	MetaKeySessionID   = "session_id"
+	MetaKeyInferenceID = "inference_id"
+	MetaKeyTurnID      = "turn_id"
 )
 
 func NewEventFromJson(b []byte) (Event, error) {

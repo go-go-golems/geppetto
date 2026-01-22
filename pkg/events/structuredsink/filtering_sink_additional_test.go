@@ -16,7 +16,7 @@ func TestFilteringSink_PassThrough_NoStructured(t *testing.T) {
 	sink := NewFilteringSink(col, Options{})
 
 	id := uuid.New()
-	meta := events.EventMetadata{ID: id, RunID: "run-1", TurnID: "turn-1"}
+	meta := events.EventMetadata{ID: id, SessionID: "run-1", TurnID: "turn-1"}
 
 	// Two partials and a final without any structured tags
 	in := []events.Event{

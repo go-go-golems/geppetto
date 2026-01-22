@@ -7,6 +7,7 @@
 - [x] Change `Session.StartInference` to fail if there is no seed turn or the seed turn has 0 blocks
 - [x] Add `turns.KeyTurnMetaSessionID` (`geppetto.session_id@v1`) in `geppetto/pkg/turns/keys.go`
 - [x] Change `Session.Append` to set `KeyTurnMetaSessionID` (instead of `t.RunID`)
+- [x] Add `turns.KeyTurnMetaInferenceID` (`geppetto.inference_id@v1`) and set it per-inference (unique per `RunInference` call)
 - [x] Decide policy: keep runner best-effort session-id injection (session + tool-loop runner both set when missing)
 - [x] Remove `RunID` from `turns.Turn` in `geppetto/pkg/turns/types.go`
 - [x] Remove `runID` parameter from `TurnPersister.PersistTurn` (derive from `Turn.Metadata`)

@@ -55,6 +55,11 @@ func TestSession_StartInference_AppendsTurnOnSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, "sess-1", sid)
+	iid, ok, err := turns.KeyTurnMetaInferenceID.Get(out.Metadata)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, h.InferenceID, iid)
+	require.NotEqual(t, "", iid)
 	require.Len(t, s.Turns, 2) // seed + appended output
 	require.Equal(t, out, s.Turns[len(s.Turns)-1])
 }
@@ -98,6 +103,23 @@ func TestSession_StartInference_EmptyTurnFails(t *testing.T) {
 	s.Append(&turns.Turn{})
 	_, err = s.StartInference(context.Background())
 	require.ErrorIs(t, err, ErrSessionEmptyTurn)
+}
+
+func TestSession_StartInference_EmptySessionIDFails(t *testing.T) {
+	s := &Session{
+		SessionID: "",
+		Builder: fakeBuilder{build: func(ctx context.Context, sessionID string) (InferenceRunner, error) {
+			t.Fatal("builder should not be called when SessionID is empty")
+			return nil, nil
+		}},
+	}
+
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
+	s.Append(seed)
+
+	_, err := s.StartInference(context.Background())
+	require.ErrorIs(t, err, ErrSessionIDEmpty)
 }
 
 func TestSession_StartInference_OnlyOneActive(t *testing.T) {

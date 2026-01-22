@@ -10,6 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/google/uuid"
 )
 
 var (
@@ -119,6 +120,9 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 			_ = turns.KeyTurnMetaSessionID.Set(&t.Metadata, r.sessionID)
 		}
 	}
+	if _, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err != nil || !ok {
+		_ = turns.KeyTurnMetaInferenceID.Set(&t.Metadata, uuid.NewString())
+	}
 
 	var (
 		updated *turns.Turn
@@ -133,6 +137,13 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 	if updated != nil && r.sessionID != "" {
 		if _, ok, err := turns.KeyTurnMetaSessionID.Get(updated.Metadata); err != nil || !ok {
 			_ = turns.KeyTurnMetaSessionID.Set(&updated.Metadata, r.sessionID)
+		}
+	}
+	if updated != nil {
+		if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok && iid != "" {
+			if _, ok2, err2 := turns.KeyTurnMetaInferenceID.Get(updated.Metadata); err2 != nil || !ok2 {
+				_ = turns.KeyTurnMetaInferenceID.Set(&updated.Metadata, iid)
+			}
 		}
 	}
 

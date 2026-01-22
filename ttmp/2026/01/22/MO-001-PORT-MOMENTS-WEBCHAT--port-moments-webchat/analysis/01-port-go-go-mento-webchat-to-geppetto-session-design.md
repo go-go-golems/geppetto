@@ -161,8 +161,9 @@ Pinocchio sets `Session.SessionID` to a generated `runID`, while also taking a
 This diverges from MO-007’s vocabulary:
 
 - `SessionID` should be stable and typically correspond to “conversation ID”.
-- “inference/run” should be a separate identifier (e.g. `ExecutionHandle.InferenceID`)
-  that can be used for UI correlation and per-inference filtering.
+- `InferenceID` is a distinct identifier tied to a single `RunInference` call,
+  stored in Turn metadata (`geppetto.inference_id@v1`) so UIs and sinks can
+  correlate/segment events within a session.
 
 This mismatch matters when you want:
 
@@ -200,8 +201,9 @@ Implications:
 Strong recommendation for MO-007 alignment:
 
 - Treat `conv_id` (UI-visible) as the **SessionID**.
-- Treat “inference id” as what the UI currently calls `run_id`.
-- Ensure `events.EventMetadata.RunID` is set to the inference id (not the conversation id).
+- Treat “inference id” as a **unique per-inference id** (one per `RunInference` call).
+- Ensure `events.EventMetadata.InferenceID` is set from Turn metadata `geppetto.inference_id@v1`.
+- Ensure `events.EventMetadata.SessionID` (formerly `RunID`) is set from Turn metadata `geppetto.session_id@v1`.
 
 This enables:
 
@@ -212,8 +214,7 @@ This enables:
 
 This will require updating:
 
-- how go-go-mento generates and returns `run_id`,
-- how the websocket stream filters (if it filters) and what the UI expects.
+- how go-go-mento (and pinocchio) define/emit `run_id` (it is not “per inference” today).
 
 ### 3) Move custom loop semantics behind an `InferenceRunner`
 
@@ -337,7 +338,7 @@ Recommendation:
    - version extraction from Redis stream ID and a defined propagation strategy
 
 3) `EventTranslator` quality improvements
-   - stable message IDs correlated by RunID/TurnID
+   - stable message IDs correlated by SessionID/InferenceID/TurnID
    - stripping tool-call noise from assistant streams
    - registry-based translation hooks (optional)
 
@@ -426,7 +427,8 @@ This is an implementation-oriented outline derived from the above.
 
 1) **Fix SessionID semantics in Pinocchio**
    - Set `Session.SessionID = conv_id` (stable conversation id).
-   - Use a per-inference ID for `run_id`/event `RunID`.
+   - Populate event `SessionID` from Turn metadata `geppetto.session_id@v1`.
+   - Populate event `InferenceID` from Turn metadata `geppetto.inference_id@v1` (unique per inference).
 
 2) **Introduce `SessionManager` to Pinocchio webchat**
    - Replace `ConvManager` with a manager that owns:
@@ -456,7 +458,8 @@ This is an implementation-oriented outline derived from the above.
 ## Open questions / decisions to make explicitly
 
 1) What is the canonical definition of `run_id`?
-   - per-inference (recommended), or per-conversation (legacy behavior)?
+   - For logs/UI backwards compatibility, `run_id` maps to `session_id` (stable conversation id).
+   - A true per-inference id is `inference_id` (from `geppetto.inference_id@v1`).
 2) Do we want ws connections to receive:
    - “only latest inference events”, or “all session events”?
 3) Where does “history replay” live:

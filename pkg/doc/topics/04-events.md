@@ -115,7 +115,8 @@ Every event carries `EventMetadata`:
 ```go
 type EventMetadata struct {
     ID       uuid.UUID // Stable per stream
-    RunID    string    // Correlation ID for the run
+    SessionID   string // Correlation ID for the session (legacy name: run_id)
+    InferenceID string // Correlation ID for the inference call
     TurnID   string    // Correlation ID for the turn
     Model    string    // Model identifier (e.g., "gpt-4")
     Duration time.Duration
@@ -334,7 +335,8 @@ func init() {
 ```go
 meta := events.EventMetadata{
     ID:     uuid.New(),
-    RunID:  "run-123",
+    SessionID:  "session-123",
+    InferenceID: "inference-456",
     TurnID: "turn-456",
 }
 
@@ -377,7 +379,7 @@ router.AddHandler("custom-collector", "chat", func(msg *message.Message) error {
 - **Embed EventImpl**: All custom events should embed `events.EventImpl` to satisfy the `Event` interface.
 - **Register in init()**: Use `init()` functions to register at package initialization.
 - **Unique type names**: Choose distinctive strings (e.g., `myapp-progress` not `progress`).
-- **Metadata consistency**: Always populate `EventMetadata` with `ID`, optionally `RunID`/`TurnID`.
+- **Metadata consistency**: Always populate `EventMetadata` with `ID`, optionally `SessionID`/`InferenceID`/`TurnID`.
 - **Handle registration errors**: Duplicate registrations will fail.
 
 ### Use Cases for Custom Events

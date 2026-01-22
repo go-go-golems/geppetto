@@ -118,7 +118,10 @@ func (e *ClaudeEngine) RunInference(
 		Msg("LLMInferenceData initialized (Claude)")
 	if t != nil {
 		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
-			metadata.RunID = sid
+			metadata.SessionID = sid
+		}
+		if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
+			metadata.InferenceID = iid
 		}
 		metadata.TurnID = t.ID
 	}

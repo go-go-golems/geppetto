@@ -24,12 +24,21 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 			}
 
 			runID := ""
+			sessionID := ""
 			if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
-				runID = sid
+				sessionID = sid
+			}
+			runID = sessionID // backwards compatibility
+
+			inferenceID := ""
+			if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
+				inferenceID = iid
 			}
 
 			lg = lg.With().
 				Str("run_id", runID).
+				Str("session_id", sessionID).
+				Str("inference_id", inferenceID).
 				Str("turn_id", t.ID).
 				Int("block_count", len(t.Blocks)).
 				Logger()

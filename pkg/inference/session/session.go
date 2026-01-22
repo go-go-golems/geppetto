@@ -15,6 +15,7 @@ var (
 	ErrSessionAlreadyActive = errors.New("session already has an active inference")
 	ErrSessionNoActive      = errors.New("session has no active inference")
 	ErrSessionEmptyTurn     = errors.New("session has no seed turn (or seed turn is empty)")
+	ErrSessionIDEmpty       = errors.New("session has empty SessionID")
 )
 
 // Session represents a long-lived, multi-turn interaction.
@@ -86,6 +87,9 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 	if s == nil {
 		return nil, ErrSessionNil
 	}
+	if s.SessionID == "" {
+		return nil, ErrSessionIDEmpty
+	}
 	if s.Builder == nil {
 		return nil, ErrSessionBuilderNil
 	}
@@ -106,11 +110,30 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 		s.mu.Unlock()
 		return nil, ErrSessionEmptyTurn
 	}
-	if s.SessionID != "" {
-		if _, ok, err := turns.KeyTurnMetaSessionID.Get(input.Metadata); err != nil || !ok {
-			_ = turns.KeyTurnMetaSessionID.Set(&input.Metadata, s.SessionID)
+	// Never mutate the session's historical seed turn in-place. We copy it and tag
+	// the copy with per-inference metadata.
+	inputCopy := *input
+	inputCopy.Metadata = input.Metadata.Clone()
+	inputCopy.Data = input.Data.Clone()
+	if len(input.Blocks) > 0 {
+		inputCopy.Blocks = make([]turns.Block, len(input.Blocks))
+		for i := range input.Blocks {
+			b := input.Blocks[i]
+			// Copy payload map to avoid in-place mutation leaking into history.
+			if b.Payload != nil {
+				cp := make(map[string]any, len(b.Payload))
+				for k, v := range b.Payload {
+					cp[k] = v
+				}
+				b.Payload = cp
+			}
+			b.Metadata = b.Metadata.Clone()
+			inputCopy.Blocks[i] = b
 		}
 	}
+	_ = turns.KeyTurnMetaSessionID.Set(&inputCopy.Metadata, s.SessionID)
+	inferenceID := uuid.NewString()
+	_ = turns.KeyTurnMetaInferenceID.Set(&inputCopy.Metadata, inferenceID)
 	s.mu.Unlock()
 
 	runner, err := s.Builder.Build(ctx, s.SessionID)
@@ -119,7 +142,7 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
-	handle := newExecutionHandle(s.SessionID, uuid.NewString(), input, cancel)
+	handle := newExecutionHandle(s.SessionID, inferenceID, &inputCopy, cancel)
 
 	s.mu.Lock()
 	// Re-check after build: another goroutine may have started a run while we were building.
@@ -138,8 +161,10 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 			s.mu.Unlock()
 		}()
 
-		out, err := runner.RunInference(runCtx, input)
+		out, err := runner.RunInference(runCtx, &inputCopy)
 		if err == nil && out != nil {
+			_ = turns.KeyTurnMetaSessionID.Set(&out.Metadata, s.SessionID)
+			_ = turns.KeyTurnMetaInferenceID.Set(&out.Metadata, inferenceID)
 			s.Append(out)
 		}
 		handle.setResult(out, err)

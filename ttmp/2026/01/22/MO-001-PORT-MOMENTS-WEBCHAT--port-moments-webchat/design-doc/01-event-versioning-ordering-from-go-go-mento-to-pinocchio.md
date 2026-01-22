@@ -269,6 +269,12 @@ Example envelope:
 }
 ```
 
+ID semantics note:
+
+- `run_id` is kept for backwards compatibility and maps to `session_id` (stable conversation id).
+- `inference_id` corresponds to Geppetto “inference id”, sourced from Turn metadata
+  `geppetto.inference_id@v1` and is unique per `RunInference` call.
+
 The UI can treat `(conv_id, stream_id)` as a dedupe key and use `stream_id` as
 the primary ordering comparator.
 
