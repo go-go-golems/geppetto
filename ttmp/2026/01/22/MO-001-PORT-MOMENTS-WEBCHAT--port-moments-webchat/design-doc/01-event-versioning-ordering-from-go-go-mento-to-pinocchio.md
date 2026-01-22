@@ -156,6 +156,56 @@ Because we’re not persisting yet, the immediate payoff is:
 - UI can order events deterministically even if frames arrive late or are replayed.
 - If we later add persistence, the “version wiring” is already designed.
 
+#### What about transports with no XID (in-memory / non-Redis)?
+
+Some transports (e.g. the in-memory Watermill router / Go channels) do not have
+a stream-native cursor like Redis XID. We still need deterministic ordering and
+deduping *within a single server lifetime*.
+
+The rule is:
+
+- If `stream_id` exists (Redis Streams), it is the authoritative cursor.
+- Otherwise, the server synthesizes an in-memory monotonic sequence `seq` per
+  `conv_id` (assigned at consume-time, not publish-time).
+
+Concretely, the StreamCoordinator owns:
+
+- `seq uint64` counter per conversation stream, incremented once per consumed message.
+
+And each emitted SEM envelope carries:
+
+- `stream_id` (optional)
+- `seq` (always)
+
+This gives us:
+
+- Redis mode: stable ordering across reconnect/replay (`stream_id`).
+- Memory mode: stable ordering for the lifetime of the process (`seq`), which is
+  sufficient as long as we’re not doing persistence/replay for that transport.
+
+Pseudocode sketch:
+
+```go
+type Cursor struct {
+    StreamID string // optional
+    Seq      uint64 // always present (fallback)
+}
+
+func (sc *StreamCoordinator) consume(ctx context.Context) {
+    for msg := range ch {
+        ev := decode(msg.Payload)
+        cur := Cursor{
+            StreamID: extractXID(msg.Metadata), // "" if not present
+            Seq:      sc.seq.Add(1),
+        }
+        for _, frame := range Translate(ev, cur) {
+            onFrame(ev, frame)
+        }
+        msg.Ack()
+    }
+}
+```
+
 ### 3) Clarify the “three orderings” (and where each is enforced)
 
 To avoid mixing concerns, we treat ordering at three layers.

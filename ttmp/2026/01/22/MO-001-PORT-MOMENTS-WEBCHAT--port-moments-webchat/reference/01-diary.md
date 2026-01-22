@@ -333,6 +333,61 @@ versioning/ordering (stream + SEM + block ordering), and one for step mode
   - `docmgr doc add --ticket MO-001-PORT-MOMENTS-WEBCHAT --doc-type design-doc --title "..."`
   - `docmgr doc relate --doc ... --file-note "..."`
 
+## Step 6: Clarify cursor fallback when there is no Redis XID
+
+This step responded to a key engineering reality: Pinocchio can run with
+transports that don’t provide a native stream cursor (e.g. the in-memory
+Watermill router / Go channels). We still want deterministic ordering for the
+UI and for future replay work, without requiring Redis or DB persistence.
+
+The solution is to treat Redis XID as authoritative when present, and otherwise
+generate a per-conversation monotonic `seq` assigned at consume-time by the
+StreamCoordinator. This keeps ordering semantics consistent across transports.
+
+**Commit (code):** N/A (docs-only)
+
+### What I did
+- Updated the ordering/versioning design doc with a dedicated subsection:
+  “What about transports with no XID (in-memory / non-Redis)?”
+- Added a task to implement the per-conversation `seq` fallback in pinocchio.
+
+### Why
+- Without a cursor, reconnect/replay ordering becomes undefined.
+- Even without persistence, the UI benefits from stable ordering within a single
+  process lifetime.
+
+### What worked
+- The fallback strategy composes cleanly with the existing Redis XID approach.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The best place to assign `seq` is at *consume-time* (reader), not publish-time,
+  because it reflects actual delivery order to the UI.
+
+### What was tricky to build
+- Ensuring we don’t accidentally suggest persistence guarantees in the in-memory
+  mode; `seq` is intentionally process-local until we add storage/replay.
+
+### What warrants a second pair of eyes
+- The SEM schema change (`seq`/`stream_id` fields) should be reviewed against
+  frontend expectations to avoid breaking clients.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review the updated doc section:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/MO-001-PORT-MOMENTS-WEBCHAT--port-moments-webchat/design-doc/01-event-versioning-ordering-from-go-go-mento-to-pinocchio.md`
+- Review the new task line:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/MO-001-PORT-MOMENTS-WEBCHAT--port-moments-webchat/tasks.md`
+
+### Technical details
+- Proposed cursor shape:
+  - `stream_id` (optional, Redis)
+  - `seq` (always, per conv_id)
+
 ## Quick Reference
 
 <!-- Provide copy/paste-ready content, API contracts, or quick-look tables -->
