@@ -18,6 +18,14 @@ type MultiResponseMockEngine struct {
 	callCount int
 }
 
+func engineHandlerFuncForTest(e interface {
+	RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
+}) HandlerFunc {
+	return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+		return e.RunInference(ctx, t)
+	}
+}
+
 func NewMultiResponseMockEngine(adders ...func(*turns.Turn)) *MultiResponseMockEngine {
 	return &MultiResponseMockEngine{adders: adders}
 }
@@ -53,7 +61,7 @@ func TestToolMiddleware_NoToolCalls(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with no tool calls
 	turn := &turns.Turn{}
@@ -97,7 +105,7 @@ func TestToolMiddleware_SingleToolCall_OpenAIStyle(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with tool call
 	turn := &turns.Turn{}
@@ -135,7 +143,7 @@ func TestToolMiddleware_SingleToolCall_ClaudeStyle(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with tool call
 	turn := &turns.Turn{}
@@ -204,7 +212,7 @@ func TestToolMiddleware_MultipleToolCalls(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with multiple tool calls
 	turn := &turns.Turn{}
@@ -247,7 +255,7 @@ func TestToolMiddleware_MaxIterationsLimit(t *testing.T) {
 		ToolFilter:    nil,
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test that it stops after max iterations
 	turn := &turns.Turn{}
@@ -295,7 +303,7 @@ func TestToolMiddleware_ToolFilter(t *testing.T) {
 		ToolFilter:    []string{"allowed_tool"}, // Only allow specific tool
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with filtered tool call
 	turn := &turns.Turn{}
@@ -331,7 +339,7 @@ func TestToolMiddleware_ToolExecutionError(t *testing.T) {
 	// Create tool middleware
 	config := DefaultToolConfig()
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with error tool call
 	turn := &turns.Turn{}
@@ -378,7 +386,7 @@ func TestToolMiddleware_TimeoutHandling(t *testing.T) {
 		ToolFilter:    nil,
 	}
 	middleware := NewToolMiddleware(toolbox, config)
-	handler := middleware(engineHandlerFunc(mockEngine))
+	handler := middleware(engineHandlerFuncForTest(mockEngine))
 
 	// Test with slow tool call
 	turn := &turns.Turn{}

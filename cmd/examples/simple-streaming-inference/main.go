@@ -180,9 +180,10 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 	}
 	sink := watermillSink
 
+	var mws []middleware.Middleware
 	// Add logging middleware if requested
 	if s.WithLogging {
-		eng = middleware.NewEngineWithMiddleware(eng, middleware.NewTurnLoggingMiddleware(log.Logger))
+		mws = append(mws, middleware.NewTurnLoggingMiddleware(log.Logger))
 	}
 
 	// Build initial Turn with Blocks (no conversation manager)
@@ -207,7 +208,11 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		<-router.Running()
 
 		sess := session.NewSession()
-		sess.Builder = &session.ToolLoopEngineBuilder{Base: eng, EventSinks: []events.EventSink{sink}}
+		sess.Builder = session.NewToolLoopEngineBuilder(
+			session.WithToolLoopBase(eng),
+			session.WithToolLoopMiddlewares(mws...),
+			session.WithToolLoopEventSinks(sink),
+		)
 		sess.Append(seed)
 		handle, err := sess.StartInference(ctx)
 		if err != nil {

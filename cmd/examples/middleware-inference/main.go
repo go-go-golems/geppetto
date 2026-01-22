@@ -196,11 +196,6 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		// Attach registry and minimal tool config to Turn at seeding time below
 	}
 
-	// Wrap engine with middleware if any are provided
-	if len(middlewares) > 0 {
-		engine = middleware.NewEngineWithMiddleware(engine, middlewares...)
-	}
-
 	// Build conversation manager
 	b := builder.NewManagerBuilder().
 		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner.").
@@ -278,7 +273,10 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	// Run inference
 	sess := session.NewSession()
-	sess.Builder = &session.ToolLoopEngineBuilder{Base: engine}
+	sess.Builder = session.NewToolLoopEngineBuilder(
+		session.WithToolLoopBase(engine),
+		session.WithToolLoopMiddlewares(middlewares...),
+	)
 	sess.Append(initialTurn)
 	handle, err := sess.StartInference(ctx)
 	if err != nil {

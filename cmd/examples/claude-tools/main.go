@@ -173,12 +173,14 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Wrap engine with tool middleware
 	mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
 
 	// Run inference with middleware-managed tool execution
 	ctx = toolcontext.WithRegistry(ctx, reg)
 	sess := session.NewSession()
-	sess.Builder = &session.ToolLoopEngineBuilder{Base: wrapped}
+	sess.Builder = session.NewToolLoopEngineBuilder(
+		session.WithToolLoopBase(engineInstance),
+		session.WithToolLoopMiddlewares(mw),
+	)
 	sess.Append(turn)
 	handle, err := sess.StartInference(ctx)
 	if err != nil {

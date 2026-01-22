@@ -339,9 +339,10 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 	}
 	sink := watermillSink
 
+	var mws []middleware.Middleware
 	// Add logging middleware if requested
 	if s.WithLogging {
-		baseEngine = middleware.NewEngineWithMiddleware(baseEngine, middleware.NewTurnLoggingMiddleware(log.Logger))
+		mws = append(mws, middleware.NewTurnLoggingMiddleware(log.Logger))
 	}
 
 	// 5. Create tool registry and register tools
@@ -430,12 +431,13 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 		cfg := helperConfig
 		sess := session.NewSession()
-		sess.Builder = &session.ToolLoopEngineBuilder{
-			Base:       baseEngine,
-			Registry:   registry,
-			ToolConfig: &cfg,
-			EventSinks: []events.EventSink{sink},
-		}
+		sess.Builder = session.NewToolLoopEngineBuilder(
+			session.WithToolLoopBase(baseEngine),
+			session.WithToolLoopMiddlewares(mws...),
+			session.WithToolLoopRegistry(registry),
+			session.WithToolLoopToolConfig(cfg),
+			session.WithToolLoopEventSinks(sink),
+		)
 		sess.Append(initialTurn)
 		handle, err := sess.StartInference(ctx)
 		if err != nil {

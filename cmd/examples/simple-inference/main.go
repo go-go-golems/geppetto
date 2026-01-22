@@ -113,6 +113,7 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return errors.Wrap(err, "failed to create engine")
 	}
 
+	var mws []middleware.Middleware
 	if s.WithLogging {
 		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
 			return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -128,7 +129,7 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 				return result, err
 			}
 		}
-		engine = middleware.NewEngineWithMiddleware(engine, loggingMiddleware)
+		mws = append(mws, loggingMiddleware)
 	}
 
 	// Seed initial Turn with Blocks (no conversation manager)
@@ -138,7 +139,10 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		Build()
 
 	sess := session.NewSession()
-	sess.Builder = &session.ToolLoopEngineBuilder{Base: engine}
+	sess.Builder = session.NewToolLoopEngineBuilder(
+		session.WithToolLoopBase(engine),
+		session.WithToolLoopMiddlewares(mws...),
+	)
 	sess.Append(initialTurn)
 	handle, err := sess.StartInference(ctx)
 	if err != nil {

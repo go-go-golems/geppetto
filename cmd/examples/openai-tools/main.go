@@ -410,11 +410,14 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Wrap engine with tool middleware
 	mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
 
 	// Run inference with middleware-managed tool execution
 	sess := session.NewSession()
-	sess.Builder = &session.ToolLoopEngineBuilder{Base: wrapped, EventSinks: []events.EventSink{sink}}
+	sess.Builder = session.NewToolLoopEngineBuilder(
+		session.WithToolLoopBase(engineInstance),
+		session.WithToolLoopMiddlewares(mw),
+		session.WithToolLoopEventSinks(sink),
+	)
 	sess.Append(turn)
 	handle, err := sess.StartInference(runCtx)
 	if err != nil {
