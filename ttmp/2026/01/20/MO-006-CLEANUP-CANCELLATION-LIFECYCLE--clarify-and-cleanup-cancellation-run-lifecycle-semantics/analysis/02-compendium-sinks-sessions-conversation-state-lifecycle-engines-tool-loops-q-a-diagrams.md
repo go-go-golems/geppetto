@@ -97,7 +97,9 @@ A short-lived, cancelable computation that advances the conversation state by ca
 In `geppetto/pkg/turns/types.go`, a `Turn` is a container of ordered **Blocks**:
 
 - `Turn.Blocks []Block` is the canonical history representation in the current implementation.
-- `Turn.RunID` is currently used as a “conversation-like identifier” in many chat contexts, which is a source of confusion.
+- (Update 2026-01-22 / GP-02) session correlation is stored on `Turn.Metadata` via
+  `turns.KeyTurnMetaSessionID` (`geppetto.session_id@v1`). The legacy name `run_id` may still appear
+  as a serialized/log field name, but it maps to SessionID.
 
 In other words: **the current system models multi-turn chat as one growing Turn** (append blocks over time), not `[]Turn`.
 
@@ -118,7 +120,6 @@ Evidence:
 ```go
 type Turn struct {
     ID     string
-    RunID  string
     Blocks []Block
     Metadata Metadata
     Data Data

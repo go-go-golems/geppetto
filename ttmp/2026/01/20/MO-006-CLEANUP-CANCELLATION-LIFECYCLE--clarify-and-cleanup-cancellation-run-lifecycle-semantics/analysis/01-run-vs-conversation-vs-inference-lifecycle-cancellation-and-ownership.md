@@ -448,7 +448,9 @@ No separate `HasCancel`, no “started vs not started” split.
 
 If we adopt the “Run == Conversation” model:
 
-- rename `Turn.RunID` to `ConversationID` (or add a new field and stop overloading RunID),
+- (Update 2026-01-22 / GP-02) remove `Turn.RunID` entirely and store the conversation/session id in
+  `Turn.Metadata` via `turns.KeyTurnMetaSessionID` (legacy `run_id` may remain as a serialized/log
+  field name, but it maps to SessionID),
 - make all webchat routes / topics key off `ConversationID`.
 
 If other domains (batch indexing) have their own “run id” concept, keep it separate (`IndexingRunID`, etc).

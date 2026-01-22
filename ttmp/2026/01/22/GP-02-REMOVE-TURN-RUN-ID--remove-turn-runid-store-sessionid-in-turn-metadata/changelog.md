@@ -57,3 +57,13 @@ Moments backend: rename RunID to SessionID and wire SessionID/InferenceID/TurnID
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/conversation.go — Conversation + ConvManager rename
 
+
+## 2026-01-22
+
+Finish remaining runID→sessionID signature cleanup in moments/backend; audit moments/web run_id usage and update cross-ticket docs to reference KeyTurnMetaSessionID.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/GP-02-REMOVE-TURN-RUN-ID--remove-turn-runid-store-sessionid-in-turn-metadata/analysis/03-moments-web-run-id-usage-audit.md — Inventory and migration guidance for run_id usage
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/artifact/buffer.go — Rename runID param to sessionID; log both run_id+session_id
+

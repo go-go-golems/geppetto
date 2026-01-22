@@ -282,7 +282,7 @@ Update code:
 
 - **Concurrency:** moments currently serializes writes to websocket connections via `connsMu` but inference run state is guarded by `Conversation.mu`. When migrating to `InferenceState`, ensure only one inference run is active per conversation (`StartRun` enforces it).
 
-- **RunID source of truth:** moments stores `RunID` on conversation and on turn. With `InferenceState`, prefer `InferenceState.RunID` and keep `Turn.RunID` set consistently.
+- **Session correlation source of truth (update 2026-01-22 / GP-02):** `turns.Turn.RunID` no longer exists in Geppetto. Prefer a single long-lived `SessionID` owned by the conversation/session, and store it on `Turn.Metadata` via `turns.KeyTurnMetaSessionID` (legacy log/API name may remain `run_id`).
 
 - **Tool loop differences:** if moments tool loop behavior differs from geppetto toolhelpers loop, don’t force unification in the first pass; focus on state/runner interface first.
 

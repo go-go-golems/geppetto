@@ -216,7 +216,9 @@ This architecture allows the inference loop to be decoupled from websocket strea
 
 **In-memory:**
 - Only the last `turns.Turn` is stored in `InferenceState.Turn`.
-- `RunID` is stored both on `InferenceState.RunID` and (often) `Turn.RunID`.
+- (Update 2026-01-22 / GP-02) Geppetto removed `Turn.RunID`. Treat the long-lived session
+  correlation id as `SessionID` and store it in `Turn.Metadata` via `turns.KeyTurnMetaSessionID`.
+  Any “run id” stored on a state object should be understood as SessionID (or renamed accordingly).
 
 **Persisted:**
 - Turns are persisted to DB after completion.
