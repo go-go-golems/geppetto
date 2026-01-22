@@ -35,3 +35,17 @@ Step 5: Add design docs for (a) event versioning+ordering and (b) step controlle
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/MO-001-PORT-MOMENTS-WEBCHAT--port-moments-webchat/design-doc/02-step-controller-integration-from-go-go-mento-to-pinocchio.md — Step mode integration plan
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/MO-001-PORT-MOMENTS-WEBCHAT--port-moments-webchat/tasks.md — Update task breakdown with new decisions
 
+
+## 2026-01-22
+
+Step 7: Start implementation: ToolExecutor injection in geppetto toolhelpers; pinocchio webchat now uses ConnectionPool+StreamCoordinator with cursor (stream_id or seq) and ws hello/ping/pong; middleware application order reversed.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers.go — Add ToolExecutor to tool loop config
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/connection_pool.go — Centralize ws connection management
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go — Refactor to use pool+coordinator
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/engine.go — Reverse middleware application order
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Add ws.hello and ws.ping/pong
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator.go — Consume events in-order and inject cursor fields
+

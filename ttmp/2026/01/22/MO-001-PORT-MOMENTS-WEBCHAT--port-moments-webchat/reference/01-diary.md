@@ -388,6 +388,100 @@ StreamCoordinator. This keeps ordering semantics consistent across transports.
   - `stream_id` (optional, Redis)
   - `seq` (always, per conv_id)
 
+## Step 7: Start implementation (ToolExecutor + reverse middleware + port streaming primitives)
+
+This step begins the actual port work. The immediate goal is to unlock moments’
+transport improvements inside Pinocchio without tackling SessionManager or DB
+persistence yet: bring in a `ConnectionPool`, a `StreamCoordinator`, and a
+cursor (`stream_id` or fallback `seq`) so the UI sees deterministic ordering.
+
+In parallel, I applied two “core abstraction” improvements we had already
+decided on: (1) reverse middleware application order in Pinocchio webchat to
+match go-go-mento’s semantics, and (2) allow Geppetto’s tool loop to accept a
+custom tool executor.
+
+**Commit (code):**
+- geppetto `c0b54dd` — "toolhelpers: allow custom ToolExecutor"
+- pinocchio `29a4bf0` — "webchat: apply middlewares in reverse order"
+- pinocchio `05e2e11` — "webchat: add ConnectionPool"
+- pinocchio `85f2749` — "webchat: add StreamCoordinator with cursor fallback"
+- pinocchio `7d5b5f8` — "webchat: switch to ConnectionPool + StreamCoordinator"
+- pinocchio `80eb311` — "webchat: send ws.hello and respond to ws.ping"
+
+### What I did
+- Geppetto:
+  - Added `ToolConfig.Executor tools.ToolExecutor` and threaded it into tool execution.
+  - Default behavior remains unchanged when Executor is nil.
+- Pinocchio:
+  - Changed `composeEngineFromSettings` to apply middlewares in reverse.
+  - Added `pkg/webchat/connection_pool.go` (ported behavior).
+  - Added `pkg/webchat/stream_coordinator.go` with:
+    - `stream_id` extraction from Watermill message metadata when available, and
+    - per-conversation `seq` fallback when not.
+  - Refactored `pkg/webchat/conversation.go` to use `ConnectionPool` + `StreamCoordinator`
+    instead of hand-rolled conn maps + reader goroutine.
+  - Added ws greeting + ping/pong support in `pkg/webchat/router.go`:
+    - emit `ws.hello` on connect
+    - respond to `"ping"` / `ws.ping` with `ws.pong`
+
+### Why
+- We need a clean way to carry ordering information (`stream_id`/`seq`) to the UI
+  across transports.
+- Reverse middleware order matches how go-go-mento defines stacks and reduces
+  “surprising” behavior differences between products.
+- ToolExecutor injection is required for moments’ authorized tool execution and
+  prevents forking the entire loop logic.
+
+### What worked
+- All changes are incremental and compile cleanly.
+- Pinocchio’s existing `SemanticEventsFromEvent` mapping stays intact; cursor
+  fields are injected by `StreamCoordinator`.
+
+### What didn't work
+- Running `go test` in the sandbox initially hit a permissions issue with the
+  default Go build cache under `/home/manuel/.cache/go-build`. I worked around
+  it for local commands by setting `GOCACHE=/tmp/go-build-cache`.
+- Committing required escalated permissions because the worktrees live under a
+  separate git directory outside the workspace, which initially caused an
+  `index.lock` permission error.
+
+### What I learned
+- Watermill metadata is the right place to pull stream-native cursors (Redis XID)
+  when available; non-Redis mode needs a server-assigned `seq`.
+
+### What was tricky to build
+- Restart semantics: stopping a subscriber-driven loop on idle and restarting it
+  on reconnect can race if stop/start happen in quick succession. The current
+  implementation mirrors go-go-mento’s behavior; we may want to harden it once
+  we start seeing real reconnect patterns.
+
+### What warrants a second pair of eyes
+- `StreamCoordinator` currently injects `seq`/`stream_id` by re-marshaling SEM
+  frames; it’s simple but potentially inefficient. We may want a tighter
+  integration in the translator later.
+- Verify that Redis subscriber implementations actually populate one of the
+  expected metadata keys (`xid`, `redis_xid`, etc) in our deployment.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Geppetto:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers.go`
+- Pinocchio:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/connection_pool.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go`
+- Validation:
+  - `GOCACHE=/tmp/go-build-cache go test ./geppetto/...`
+  - `GOCACHE=/tmp/go-build-cache go test ./pinocchio/...`
+
+### Technical details
+- Cursor injection strategy:
+  - `stream_id`: extracted from Watermill message metadata when available (Redis)
+  - `seq`: always present, assigned by StreamCoordinator per conversation stream
+
 ## Quick Reference
 
 <!-- Provide copy/paste-ready content, API contracts, or quick-look tables -->
