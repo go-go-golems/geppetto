@@ -63,6 +63,7 @@ type ToolConfig struct {
 	ToolChoice        tools.ToolChoice
 	AllowedTools      []string
 	ToolErrorHandling tools.ToolErrorHandling
+	Executor          tools.ToolExecutor
 }
 
 // RunToolCallingLoop runs a complete tool calling workflow with automatic iteration.
@@ -124,7 +125,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 		}
 
 		// Execute tools
-		results := ExecuteToolCallsTurn(ctx, calls_)
+		results := ExecuteToolCallsTurn(ctx, calls_, config.Executor)
 
 		// Append tool_use blocks
 		// map to shared ToolResult and append
@@ -160,7 +161,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 // extractPendingToolCallsTurn replaced by toolblocks.ExtractPendingToolCalls
 
 // ExecuteToolCallsTurn executes ToolCalls using the default executor and returns simplified results
-func ExecuteToolCallsTurn(ctx context.Context, toolCalls []toolblocks.ToolCall) []ToolResult {
+func ExecuteToolCallsTurn(ctx context.Context, toolCalls []toolblocks.ToolCall, executor tools.ToolExecutor) []ToolResult {
 	log.Debug().Int("tool_call_count", len(toolCalls)).Msg("ExecuteToolCallsTurn: starting tool execution")
 	if len(toolCalls) == 0 {
 		return nil
@@ -173,7 +174,9 @@ func ExecuteToolCallsTurn(ctx context.Context, toolCalls []toolblocks.ToolCall) 
 		}
 		return results
 	}
-	executor := tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
+	if executor == nil {
+		executor = tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
+	}
 	// Convert calls
 	execCalls := make([]tools.ToolCall, 0, len(toolCalls))
 	for _, call := range toolCalls {
