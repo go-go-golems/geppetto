@@ -457,3 +457,63 @@ while keeping the tasks as guardrails.
 
 ### Technical details
 - `geppetto/pkg/toolbox` exists (reflection-based toolbox used by `geppetto/pkg/inference/middleware/tool_middleware.go`).
+
+## Step 8: Start implementation — EngineBuilder-style `getOrCreateConv` + ID surfacing
+
+This step starts the concrete refactor in Pinocchio’s `pkg/webchat` to remove duplicated per-endpoint engine construction closures and replace them with a single “build config + build from config” flow. The immediate goal is to make `getOrCreateConv` able to rebuild the engine/sink/subscriber when the profile or overrides change, instead of silently reusing the first-created engine forever.
+
+While touching this path, I also aligned the webchat API surface to return and log the canonical correlation IDs (`session_id`, `inference_id`, `turn_id`) in addition to the historical `run_id` field name where still used.
+
+**Commit (code):** 2886551 — "webchat: return session/inference/turn ids; add engine config builder"
+
+### What I did
+- Added an `EngineConfig` type with a deterministic signature:
+  - `pinocchio/pkg/webchat/engine_config.go`
+- Added an EngineBuilder-style API on the router (BuildConfig + BuildFromConfig) and subscriber factory helper:
+  - `pinocchio/pkg/webchat/engine_builder.go`
+- Refactored `getOrCreateConv` to compute a config signature and rebuild when `profileSlug`/overrides change:
+  - `pinocchio/pkg/webchat/conversation.go`
+- Updated `/chat` endpoints to call `getOrCreateConv(convID, profileSlug, overrides)` instead of inlining build closures, and to return `session_id`/`inference_id`/`turn_id` for each run:
+  - `pinocchio/pkg/webchat/router.go`
+- Updated the web frontend to treat `session_id` as primary:
+  - `pinocchio/cmd/web-chat/web/src/store.js`
+
+### Why
+- The old flow cached a `Conversation` per `conv_id` but never rebuilt on config changes, so a later request with different profile/overrides could still run with the wrong engine/sinks.
+- Surfacing correlation IDs in responses makes it easier to:
+  - attach a streaming client to the right session,
+  - debug event filtering,
+  - and eventually migrate away from the ambiguous `run_id` naming.
+
+### What worked
+- `cd pinocchio && go test ./... -count=1`
+
+### What didn't work
+- N/A (kept the change compile-safe; deeper behavioral tests are still missing).
+
+### What I learned
+- Pinocchio already had most of the primitives needed for the go-go-mento-style pattern; the main missing piece was turning per-route construction into a reusable config/signature + build step.
+
+### What was tricky to build
+- Subscriber lifecycle: for the in-memory subscriber (`r.router.Subscriber`) we must not close it when rebuilding a conversation, while Redis group subscribers can be closed and recreated.
+
+### What warrants a second pair of eyes
+- Concurrency correctness around rebuilding while a stream is running:
+  - Ensure we never close the shared in-memory subscriber.
+  - Ensure stream coordinator restart behavior can’t race with WS attachment/detachment.
+
+### What should be done in the future
+- Add focused tests around “same conv_id + different overrides” ⇒ engine rebuild happens and event filtering remains correct.
+- Consider renaming `Conversation.RunID` to `SessionID` in Pinocchio to eliminate the last in-code ambiguity once API stability constraints allow it.
+
+### Code review instructions
+- Start with:
+  - `pinocchio/pkg/webchat/engine_config.go`
+  - `pinocchio/pkg/webchat/engine_builder.go`
+  - `pinocchio/pkg/webchat/conversation.go`
+  - `pinocchio/pkg/webchat/router.go`
+- Validate with:
+  - `cd pinocchio && go test ./... -count=1`
+
+### Technical details
+- Rebuild detection key: `EngineConfig.Signature()` (currently JSON-based; stable ordering via `encoding/json` rules for maps after normalization).
