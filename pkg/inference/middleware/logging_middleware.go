@@ -13,14 +13,23 @@ import (
 func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+			if t == nil {
+				t = &turns.Turn{}
+			}
+
 			lg := logger
 			// fall back to global if uninitialized
 			if lg.GetLevel() == zerolog.NoLevel {
 				lg = log.Logger
 			}
 
+			runID := ""
+			if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+				runID = sid
+			}
+
 			lg = lg.With().
-				Str("run_id", t.RunID).
+				Str("run_id", runID).
 				Str("turn_id", t.ID).
 				Int("block_count", len(t.Blocks)).
 				Logger()

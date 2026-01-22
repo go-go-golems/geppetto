@@ -117,7 +117,9 @@ func (e *ClaudeEngine) RunInference(
 		Interface("max_tokens", metadata.MaxTokens).
 		Msg("LLMInferenceData initialized (Claude)")
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.RunID = sid
+		}
 		metadata.TurnID = t.ID
 	}
 	if metadata.Extra == nil {

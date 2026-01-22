@@ -64,7 +64,6 @@ type Block struct {
 // Turn contains an ordered list of Blocks and associated metadata.
 type Turn struct {
     ID       string            // Optional unique identifier
-    RunID    string            // Parent run reference
     Blocks   []Block           // Ordered blocks
     Metadata turns.Metadata    // Request params, usage, trace IDs (opaque store)
     Data     turns.Data        // Tool config, app-specific data (opaque store)
@@ -249,7 +248,6 @@ Turns serialize to human-readable YAML for testing, debugging, and persistence:
 ```yaml
 version: 1
 id: turn_001
-run_id: run_abc
 blocks:
   - kind: system
     role: system
@@ -269,7 +267,8 @@ blocks:
   - kind: llm_text
     role: assistant
     payload: { text: "2+2 equals 4." }
-metadata: {}
+metadata:
+  geppetto.session_id@v1: sess_abc
 data: {}
 ```
 
@@ -318,6 +317,8 @@ model, ok := turns.KeyTurnMetaModel.Get(turn.Metadata)
 ```
 
 Common keys: `KeyTurnMetaProvider`, `KeyTurnMetaRuntime`, `KeyTurnMetaTraceID`, `KeyTurnMetaUsage`, `KeyTurnMetaStopReason`, `KeyTurnMetaModel`
+
+Session correlation key: `KeyTurnMetaSessionID` (stored as `geppetto.session_id@v1` in YAML).
 
 ### Block-Level Metadata
 

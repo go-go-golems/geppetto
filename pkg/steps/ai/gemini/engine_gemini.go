@@ -230,7 +230,9 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		},
 	}
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.RunID = sid
+		}
 		metadata.TurnID = t.ID
 	}
 	if metadata.Extra == nil {

@@ -173,7 +173,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		},
 	}
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.RunID = sid
+		}
 		metadata.TurnID = t.ID
 	}
 	log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")

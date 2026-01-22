@@ -12,8 +12,7 @@ import (
 func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	// Create a Turn with typed map keys
 	turn := &turns.Turn{
-		ID:    "test-turn-id",
-		RunID: "test-run-id",
+		ID: "test-turn-id",
 		Blocks: []turns.Block{
 			{
 				ID:   "block-1",
@@ -24,6 +23,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 			},
 		},
 	}
+	require.NoError(t, turns.KeyTurnMetaSessionID.Set(&turn.Metadata, "test-session-id"))
 	require.NoError(t, turns.KeyAgentMode.Set(&turn.Data, "test-mode"))
 	require.NoError(t, turns.KeyTurnMetaModel.Set(&turn.Metadata, "test-model"))
 	require.NoError(t, turns.KeyTurnMetaProvider.Set(&turn.Metadata, "test-provider"))
@@ -51,7 +51,10 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 
 	// Verify Data map keys are preserved
 	assert.Equal(t, turn.ID, roundTripTurn.ID, "Turn ID should match")
-	assert.Equal(t, turn.RunID, roundTripTurn.RunID, "Run ID should match")
+	gotSessionID, ok, err := turns.KeyTurnMetaSessionID.Get(roundTripTurn.Metadata)
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, "test-session-id", gotSessionID, "SessionID should match")
 
 	// Verify Data contents
 	gotMode, ok, err := turns.KeyAgentMode.Get(roundTripTurn.Data)
@@ -104,8 +107,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 func TestYAMLRoundTripEmptyMaps(t *testing.T) {
 	// Test with empty maps
 	turn := &turns.Turn{
-		ID:    "test-turn-id",
-		RunID: "test-run-id",
+		ID: "test-turn-id",
 		Blocks: []turns.Block{
 			{
 				ID:      "block-1",

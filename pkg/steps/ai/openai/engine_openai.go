@@ -193,7 +193,9 @@ func (e *OpenAIEngine) RunInference(
 		Msg("LLMInferenceData initialized")
 	// Propagate Turn correlation identifiers when present
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.RunID = sid
+		}
 		metadata.TurnID = t.ID
 	}
 	// Step metadata removed; settings metadata moved to EventMetadata.Extra

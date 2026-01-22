@@ -6,8 +6,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
@@ -25,7 +25,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -332,13 +331,13 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		router.AddHandler("chat", "chat", printer)
 	}
 
-	// 4. Create base engine with sink - provider agnostic!
-	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
-	baseEngine, sink, err := engBuilder.Build("", s.PinocchioProfile, nil)
+	// 4. Create base engine - provider agnostic!
+	baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
 	}
+	sink := watermillSink
 
 	// Add logging middleware if requested
 	if s.WithLogging {
@@ -429,20 +428,15 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		runID := uuid.NewString()
-		initialTurn.RunID = runID
-
 		cfg := helperConfig
-		sess := &session.Session{
-			SessionID: runID,
-			Builder: &session.ToolLoopEngineBuilder{
-				Base:       baseEngine,
-				Registry:   registry,
-				ToolConfig: &cfg,
-				EventSinks: []events.EventSink{sink},
-			},
-			Turns: []*turns.Turn{initialTurn},
+		sess := session.NewSession()
+		sess.Builder = &session.ToolLoopEngineBuilder{
+			Base:       baseEngine,
+			Registry:   registry,
+			ToolConfig: &cfg,
+			EventSinks: []events.EventSink{sink},
 		}
+		sess.Append(initialTurn)
 		handle, err := sess.StartInference(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to start inference: %w", err)

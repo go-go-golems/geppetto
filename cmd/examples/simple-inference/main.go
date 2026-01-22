@@ -6,7 +6,7 @@ import (
 	"io"
 
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
@@ -18,7 +18,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -108,8 +107,7 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return nil
 	}
 
-	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, nil)
-	engine, _, err := engBuilder.Build("", s.PinocchioProfile, nil)
+	engine, err := factory.NewEngineFromParsedLayers(parsedLayers)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
@@ -139,14 +137,9 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		WithUserPrompt(s.Prompt).
 		Build()
 
-	runID := uuid.NewString()
-	initialTurn.RunID = runID
-
-	sess := &session.Session{
-		SessionID: runID,
-		Builder:   &session.ToolLoopEngineBuilder{Base: engine},
-		Turns:     []*turns.Turn{initialTurn},
-	}
+	sess := session.NewSession()
+	sess.Builder = &session.ToolLoopEngineBuilder{Base: engine}
+	sess.Append(initialTurn)
 	handle, err := sess.StartInference(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start inference")

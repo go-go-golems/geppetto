@@ -92,7 +92,6 @@ type Block struct {
 // Turn contains an ordered list of Blocks and associated metadata.
 type Turn struct {
 	ID     string  `yaml:"id,omitempty"`
-	RunID  string  `yaml:"run_id,omitempty"`
 	Blocks []Block `yaml:"blocks"`
 	// Metadata stores arbitrary metadata about the turn
 	Metadata Metadata `yaml:"metadata,omitempty"`

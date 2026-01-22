@@ -19,10 +19,10 @@ var (
 
 // TurnPersister persists a completed turn for a session (run).
 //
-// The persister receives the run identifier explicitly. Turn identity is derived
-// from the Turn itself (t.ID). runID may also be present in t.RunID.
+// Turn identity is derived from the Turn itself (t.ID). Session correlation is
+// expected to be present in Turn.Metadata (see turns.KeyTurnMetaSessionID).
 type TurnPersister interface {
-	PersistTurn(ctx context.Context, runID string, t *turns.Turn) error
+	PersistTurn(ctx context.Context, t *turns.Turn) error
 }
 
 // ToolLoopEngineBuilder builds a runner that:
@@ -114,8 +114,10 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 	if t == nil {
 		t = &turns.Turn{}
 	}
-	if r.sessionID != "" && t.RunID == "" {
-		t.RunID = r.sessionID
+	if r.sessionID != "" {
+		if _, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err != nil || !ok {
+			_ = turns.KeyTurnMetaSessionID.Set(&t.Metadata, r.sessionID)
+		}
 	}
 
 	var (
@@ -128,16 +130,14 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 		updated, err = toolhelpers.RunToolCallingLoop(runCtx, r.eng, t, r.registry, r.toolConfig)
 	}
 
-	if updated != nil && r.sessionID != "" && updated.RunID == "" {
-		updated.RunID = r.sessionID
+	if updated != nil && r.sessionID != "" {
+		if _, ok, err := turns.KeyTurnMetaSessionID.Get(updated.Metadata); err != nil || !ok {
+			_ = turns.KeyTurnMetaSessionID.Set(&updated.Metadata, r.sessionID)
+		}
 	}
 
 	if err == nil && r.persister != nil && updated != nil {
-		runID := r.sessionID
-		if updated.RunID != "" {
-			runID = updated.RunID
-		}
-		_ = r.persister.PersistTurn(runCtx, runID, updated)
+		_ = r.persister.PersistTurn(runCtx, updated)
 	}
 
 	return updated, err

@@ -14,6 +14,7 @@ var (
 	ErrSessionBuilderNil    = errors.New("session builder is nil")
 	ErrSessionAlreadyActive = errors.New("session already has an active inference")
 	ErrSessionNoActive      = errors.New("session has no active inference")
+	ErrSessionEmptyTurn     = errors.New("session has no seed turn (or seed turn is empty)")
 )
 
 // Session represents a long-lived, multi-turn interaction.
@@ -30,6 +31,13 @@ type Session struct {
 
 	mu     sync.Mutex
 	active *ExecutionHandle
+}
+
+// NewSession constructs a Session with a generated SessionID.
+func NewSession() *Session {
+	return &Session{
+		SessionID: uuid.NewString(),
+	}
 }
 
 // IsRunning reports whether the session currently has an active inference.
@@ -60,9 +68,10 @@ func (s *Session) Append(t *turns.Turn) {
 		return
 	}
 	s.mu.Lock()
-	// Ensure RunID matches SessionID (chat-session semantics).
-	if s.SessionID != "" && t.RunID == "" {
-		t.RunID = s.SessionID
+	if s.SessionID != "" {
+		if _, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err != nil || !ok {
+			_ = turns.KeyTurnMetaSessionID.Set(&t.Metadata, s.SessionID)
+		}
 	}
 	s.Turns = append(s.Turns, t)
 	s.mu.Unlock()
@@ -93,14 +102,14 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 	if len(s.Turns) > 0 {
 		input = s.Turns[len(s.Turns)-1]
 	}
-	if input == nil {
-		// Allow starting from an empty turn if the caller hasn't seeded yet.
-		input = &turns.Turn{RunID: s.SessionID}
-		s.Turns = append(s.Turns, input)
+	if input == nil || len(input.Blocks) == 0 {
+		s.mu.Unlock()
+		return nil, ErrSessionEmptyTurn
 	}
-	// Ensure session id is threaded into the input turn.
-	if s.SessionID != "" && input.RunID == "" {
-		input.RunID = s.SessionID
+	if s.SessionID != "" {
+		if _, ok, err := turns.KeyTurnMetaSessionID.Get(input.Metadata); err != nil || !ok {
+			_ = turns.KeyTurnMetaSessionID.Set(&input.Metadata, s.SessionID)
+		}
 	}
 	s.mu.Unlock()
 

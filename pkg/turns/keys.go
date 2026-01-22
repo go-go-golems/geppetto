@@ -34,6 +34,7 @@ const (
 	// Turn.Metadata
 	TurnMetaProviderValueKey   = "provider"
 	TurnMetaRuntimeValueKey    = "runtime"
+	TurnMetaSessionIDValueKey  = "session_id"
 	TurnMetaTraceIDValueKey    = "trace_id"
 	TurnMetaUsageValueKey      = "usage"
 	TurnMetaStopReasonValueKey = "stop_reason"
@@ -61,6 +62,7 @@ var (
 var (
 	KeyTurnMetaProvider   = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaProviderValueKey, 1)
 	KeyTurnMetaRuntime    = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaRuntimeValueKey, 1)
+	KeyTurnMetaSessionID  = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaSessionIDValueKey, 1)
 	KeyTurnMetaTraceID    = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaTraceIDValueKey, 1)
 	KeyTurnMetaUsage      = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaUsageValueKey, 1)
 	KeyTurnMetaStopReason = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaStopReasonValueKey, 1)

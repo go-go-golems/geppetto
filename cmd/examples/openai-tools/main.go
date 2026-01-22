@@ -7,9 +7,9 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplebuilder"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
@@ -23,7 +23,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -268,13 +267,13 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return nil
 	})
 
-	// Create engine using factory with an event sink to publish streaming events
+	// Create engine and wire an event sink to publish streaming events
 	watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-	engBuilder := examplebuilder.NewParsedLayersEngineBuilder(parsedLayers, watermillSink)
-	engineInstance, sink, err := engBuilder.Build("", "", nil)
+	engineInstance, err := factory.NewEngineFromParsedLayers(parsedLayers)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
+	sink := watermillSink
 
 	// Run the router concurrently
 	eg := errgroup.Group{}
@@ -414,13 +413,9 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
 
 	// Run inference with middleware-managed tool execution
-	runID := uuid.NewString()
-	turn.RunID = runID
-	sess := &session.Session{
-		SessionID: runID,
-		Builder:   &session.ToolLoopEngineBuilder{Base: wrapped, EventSinks: []events.EventSink{sink}},
-		Turns:     []*turns.Turn{turn},
-	}
+	sess := session.NewSession()
+	sess.Builder = &session.ToolLoopEngineBuilder{Base: wrapped, EventSinks: []events.EventSink{sink}}
+	sess.Append(turn)
 	handle, err := sess.StartInference(runCtx)
 	if err != nil {
 		return errors.Wrap(err, "failed to start inference")

@@ -20,7 +20,6 @@ func (e *toolCallingFakeEngine) RunInference(ctx context.Context, t *turns.Turn)
 	out := &turns.Turn{}
 	if t != nil {
 		out.ID = t.ID
-		out.RunID = t.RunID
 		out.Blocks = append([]turns.Block(nil), t.Blocks...)
 		out.Metadata = t.Metadata.Clone()
 		out.Data = t.Data.Clone()
@@ -64,7 +63,10 @@ func TestRunToolCallingLoop_ExecutesSimpleToolAndReturnsFinalTurn(t *testing.T) 
 	}
 
 	eng := &toolCallingFakeEngine{}
-	initial := &turns.Turn{RunID: "run-1"}
+	initial := &turns.Turn{}
+	if err := turns.KeyTurnMetaSessionID.Set(&initial.Metadata, "run-1"); err != nil {
+		t.Fatalf("KeyTurnMetaSessionID.Set: %v", err)
+	}
 	turns.AppendBlock(initial, turns.NewUserTextBlock("please echo"))
 
 	cfg := NewToolConfig().WithMaxIterations(3)

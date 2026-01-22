@@ -34,18 +34,27 @@ func TestSession_StartInference_AppendsTurnOnSuccess(t *testing.T) {
 			return fakeRunner{run: func(ctx context.Context, in *turns.Turn) (*turns.Turn, error) {
 				out := *in
 				out.ID = "turn-2"
-				out.RunID = sessionID
+				if err := turns.KeyTurnMetaSessionID.Set(&out.Metadata, sessionID); err != nil {
+					return nil, err
+				}
 				return &out, nil
 			}}, nil
 		}},
 	}
+
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
+	s.Append(seed)
 
 	h, err := s.StartInference(context.Background())
 	require.NoError(t, err)
 	out, err := h.Wait()
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	require.Equal(t, "sess-1", out.RunID)
+	sid, ok, err := turns.KeyTurnMetaSessionID.Get(out.Metadata)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "sess-1", sid)
 	require.Len(t, s.Turns, 2) // seed + appended output
 	require.Equal(t, out, s.Turns[len(s.Turns)-1])
 }
@@ -61,12 +70,34 @@ func TestSession_StartInference_Cancel(t *testing.T) {
 		}},
 	}
 
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
+	s.Append(seed)
+
 	h, err := s.StartInference(context.Background())
 	require.NoError(t, err)
 	require.True(t, h.IsRunning())
 	h.Cancel()
 	_, err = h.Wait()
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestSession_StartInference_EmptyTurnFails(t *testing.T) {
+	s := &Session{
+		SessionID: "sess-empty",
+		Builder: fakeBuilder{build: func(ctx context.Context, sessionID string) (InferenceRunner, error) {
+			return fakeRunner{run: func(ctx context.Context, in *turns.Turn) (*turns.Turn, error) {
+				return in, nil
+			}}, nil
+		}},
+	}
+
+	_, err := s.StartInference(context.Background())
+	require.ErrorIs(t, err, ErrSessionEmptyTurn)
+
+	s.Append(&turns.Turn{})
+	_, err = s.StartInference(context.Background())
+	require.ErrorIs(t, err, ErrSessionEmptyTurn)
 }
 
 func TestSession_StartInference_OnlyOneActive(t *testing.T) {
@@ -83,6 +114,10 @@ func TestSession_StartInference_OnlyOneActive(t *testing.T) {
 		}},
 	}
 
+	seed := &turns.Turn{}
+	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
+	s.Append(seed)
+
 	h1, err := s.StartInference(context.Background())
 	require.NoError(t, err)
 
@@ -94,12 +129,14 @@ func TestSession_StartInference_OnlyOneActive(t *testing.T) {
 }
 
 type recordingPersister struct {
-	runID string
-	t     *turns.Turn
+	sessionID string
+	t         *turns.Turn
 }
 
-func (p *recordingPersister) PersistTurn(ctx context.Context, runID string, t *turns.Turn) error {
-	p.runID = runID
+func (p *recordingPersister) PersistTurn(ctx context.Context, t *turns.Turn) error {
+	if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+		p.sessionID = sid
+	}
 	p.t = t
 	return nil
 }
@@ -135,8 +172,11 @@ func TestToolLoopEngineBuilder_RunsToolLoopAndPersists(t *testing.T) {
 	out, err := runner.RunInference(context.Background(), &turns.Turn{ID: "turn-in"})
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	require.Equal(t, "sess-4", out.RunID)
-	require.Equal(t, "sess-4", p.runID)
+	sid, ok, err := turns.KeyTurnMetaSessionID.Get(out.Metadata)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "sess-4", sid)
+	require.Equal(t, "sess-4", p.sessionID)
 	require.NotNil(t, p.t)
 
 	// Tool loop calls snapshot hook at least pre/post inference on the first iteration.
