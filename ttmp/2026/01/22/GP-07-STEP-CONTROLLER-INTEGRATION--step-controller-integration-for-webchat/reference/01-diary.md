@@ -499,6 +499,8 @@ alright, add tasks to the ticket if you haven't already, and then implement. che
 ### Code review instructions
 - Review commits by repo:
   - `geppetto`: commit `013b475`
+  - `geppetto`: commit `caf773d`
+  - `geppetto`: commit `f25ed5b`
   - `pinocchio`: commit `ade1234`
   - `moments`: commit `c7d3edba`
 
