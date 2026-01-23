@@ -123,7 +123,6 @@ Use the builder functions for common block types:
 import (
     "github.com/go-go-golems/geppetto/pkg/turns"
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 )
 
 // Create a seed turn for inference
@@ -365,7 +364,7 @@ import (
     "github.com/go-go-golems/geppetto/pkg/turns"           // Core types, builders, helpers
     "github.com/go-go-golems/geppetto/pkg/turns/serde"     // YAML serialization
     "github.com/go-go-golems/geppetto/pkg/inference/engine" // KeyToolConfig
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext" // Context-based registry
+    "github.com/go-go-golems/geppetto/pkg/inference/tools" // ToolRegistry + context helpers (tools.WithRegistry/RegistryFrom)
 )
 ```
 

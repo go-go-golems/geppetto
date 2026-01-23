@@ -140,6 +140,40 @@ runner, _ := enginebuilder.New(
 updated, _ := runner.RunInference(ctx, seed)
 ```
 
+## How to wire tools end-to-end
+
+This is the minimal “wire it up and run” pattern. It assumes you already have an `engine.Engine` (via `factory.NewEngineFromParsedLayers(...)` or your own builder) and a populated `tools.ToolRegistry`:
+
+```go
+import (
+    "context"
+    "time"
+
+    "github.com/go-go-golems/geppetto/pkg/events"
+    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+)
+
+func RunWithTools(ctx context.Context, eng engine.Engine, reg tools.ToolRegistry, seed *turns.Turn, sinks ...events.EventSink) (*turns.Turn, error) {
+    if len(sinks) > 0 {
+        ctx = events.WithEventSinks(ctx, sinks...)
+    }
+
+    loopCfg := toolloop.NewLoopConfig().WithMaxIterations(5)
+    toolCfg := tools.DefaultToolConfig().WithExecutionTimeout(60 * time.Second)
+
+    loop := toolloop.New(
+        toolloop.WithEngine(eng),
+        toolloop.WithRegistry(reg),
+        toolloop.WithLoopConfig(loopCfg),
+        toolloop.WithToolConfig(toolCfg),
+    )
+    return loop.RunLoop(ctx, seed)
+}
+```
+
 ---
 
 ## Guided walkthrough: End-to-end example
