@@ -478,6 +478,65 @@ Don't worry about go-go-mento anymore, we focus on pinocchio and moments. go-go-
   - `cd moments/backend && go test ./... -count=1`
   - `cd moments && git commit -m "webchat: extract request policy builder"`
 
+## Step 8: Update GP-09 ticket bookkeeping (tasks + changelog)
+
+This step updates the GP-09 ticket’s local bookkeeping to reflect that GP-09 is now being treated as an implementation ticket, and that Phase 1 (request policy extraction) has been implemented in both Pinocchio and Moments. It also captures the “done” state in the ticket checklist so `docmgr task list` matches reality.
+
+This is intentionally a docs-only step: the code changes are already committed in their respective repos, and this step exists to make the GP-09 workspace a reliable entry point for future review.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+
+```text
+Work on docmgr ticket GP-09-PROFILE-ENGINE-BUILDER.
+
+Keep a very detailed diary. Commit at appropriate points and check off tasks.
+```
+
+```text
+Don't worry about go-go-mento anymore, we focus on pinocchio and moments. go-go-mento is the previous version of moments.
+```
+
+**Assistant interpretation:** Update the GP-09 docs to reflect the completed implementation work (Pinocchio + Moments) and mark tasks done.
+
+**Inferred user intent:** Keep the ticket workspace as the canonical “where to start” for reviewers and future follow-ups.
+
+**Commit (code):** N/A (docs-only step; previous docs commit captured Steps 5–7)
+
+### What I did
+- Marked GP-09 checklist tasks as completed in `tasks.md`.
+- Extended `changelog.md` with Steps 5–7 and the concrete commit hashes for Pinocchio and Moments.
+- Ensured the diary `RelatedFiles` includes the active implementations in Pinocchio and Moments.
+
+### Why
+- The ticket’s value is in being a durable refactor log; without updating tasks/changelog, the “state of the world” is ambiguous.
+
+### What worked
+- The ticket’s Markdown checklist (`tasks.md`) now reflects the actual implementation status across repos.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- Balancing “marking tasks as done” with the fact that some phases are implemented differently across codebases (Pinocchio has `AllowOverrides`, Moments does not).
+
+### What warrants a second pair of eyes
+- Whether marking Phase 2/3/4 as “done” in `tasks.md` is the right representation, given Moments’ profile registry doesn’t currently support `AllowOverrides` or `EngineConfig` signatures.
+
+### What should be done in the future
+- If we want strict parity in Moments, introduce `AllowOverrides` and/or a real `EngineConfig` signature there before enabling any engine-shaping overrides.
+
+### Code review instructions
+- GP-09: `geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/tasks.md`
+- GP-09: `geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/changelog.md`
+
+### Technical details
+- N/A
+
 ## Step 4: Write the GP-09 extraction analysis (BuildEngineFromReq + profileEngineBuilder)
 
 This step turns the gathered evidence into a concrete, incremental extraction plan: introduce a request-facing `BuildEngineFromReq` interface, clarify the existing webchat builder as a profile engine builder, and identify specific coupling/bugs (tools overrides, AllowOverrides, signature secrecy) that should be addressed as part of making the abstraction “real”.

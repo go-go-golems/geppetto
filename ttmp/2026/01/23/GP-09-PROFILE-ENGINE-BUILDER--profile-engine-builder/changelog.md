@@ -74,3 +74,13 @@ Step 7: Implemented Phase 1 request policy extraction in Moments (commit fe3e9dc
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/router.go — Router delegates request policy for HTTP + WS
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/engine_from_req_test.go — Request policy precedence tests
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/reference/01-diary.md — Step notes and review instructions
+
+
+## 2026-01-23
+
+Step 8: Updated GP-09 checklist + diary bookkeeping
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/tasks.md — Marked implementation tasks completed
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/reference/01-diary.md — Added bookkeeping step and review notes
