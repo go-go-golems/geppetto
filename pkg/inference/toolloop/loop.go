@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/google/uuid"
@@ -110,7 +109,7 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 		t = &turns.Turn{}
 	}
 
-	ctx = toolcontext.WithRegistry(ctx, l.registry)
+	ctx = tools.WithRegistry(ctx, l.registry)
 
 	maxIterations := l.loopCfg.MaxIterations
 	if maxIterations <= 0 {
@@ -199,7 +198,7 @@ func (l *Loop) executeTools(ctx context.Context, toolCalls []toolblocks.ToolCall
 	if len(toolCalls) == 0 {
 		return nil
 	}
-	registry, ok := toolcontext.RegistryFrom(ctx)
+	registry, ok := tools.RegistryFrom(ctx)
 	if !ok || registry == nil {
 		out := make([]toolResult, len(toolCalls))
 		for i, c := range toolCalls {

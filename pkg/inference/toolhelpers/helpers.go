@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
@@ -87,7 +86,7 @@ func RunToolCallingLoop(ctx context.Context, eng engine.Engine, initialTurn *tur
 
 	// Attach runtime registry to context so engines/middleware/executors can access it.
 	// No Turn.Data registry (runtime-only) is stored.
-	ctx = toolcontext.WithRegistry(ctx, registry)
+	ctx = tools.WithRegistry(ctx, registry)
 
 	if err := engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{
 		Enabled:           true,
@@ -166,7 +165,7 @@ func ExecuteToolCallsTurn(ctx context.Context, toolCalls []toolblocks.ToolCall, 
 	if len(toolCalls) == 0 {
 		return nil
 	}
-	registry, ok := toolcontext.RegistryFrom(ctx)
+	registry, ok := tools.RegistryFrom(ctx)
 	if !ok || registry == nil {
 		results := make([]ToolResult, len(toolCalls))
 		for i, c := range toolCalls {

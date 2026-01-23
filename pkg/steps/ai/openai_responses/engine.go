@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
@@ -54,7 +54,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	// Attach tools to Responses request when present
 	if t != nil {
 		var engineTools []engine.ToolDefinition
-		if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+		if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
 			for _, td := range reg.ListTools() {
 				engineTools = append(engineTools, engine.ToolDefinition{
 					Name:        td.Name,

@@ -1,10 +1,6 @@
-package toolcontext
+package tools
 
-import (
-	"context"
-
-	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-)
+import "context"
 
 // ctxKey is an unexported key type to avoid collisions in context values.
 type ctxKey struct{}
@@ -12,7 +8,7 @@ type ctxKey struct{}
 // WithRegistry attaches a ToolRegistry to the context for downstream engines/middleware/executors.
 //
 // This is intended to replace storing runtime registries in Turn.Data.
-func WithRegistry(ctx context.Context, reg tools.ToolRegistry) context.Context {
+func WithRegistry(ctx context.Context, reg ToolRegistry) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -24,11 +20,11 @@ func WithRegistry(ctx context.Context, reg tools.ToolRegistry) context.Context {
 }
 
 // RegistryFrom extracts the ToolRegistry from context.
-func RegistryFrom(ctx context.Context) (tools.ToolRegistry, bool) {
+func RegistryFrom(ctx context.Context) (ToolRegistry, bool) {
 	if ctx == nil {
 		return nil, false
 	}
-	reg, ok := ctx.Value(ctxKey{}).(tools.ToolRegistry)
+	reg, ok := ctx.Value(ctxKey{}).(ToolRegistry)
 	if !ok || reg == nil {
 		return nil, false
 	}

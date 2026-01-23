@@ -14,7 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
 
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -104,7 +103,7 @@ func (e *OpenAIEngine) RunInference(
 
 	// Add tools to the request if present in context (no Turn.Data registry).
 	var engineTools []engine.ToolDefinition
-	if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
 		for _, td := range reg.ListTools() {
 			engineTools = append(engineTools, engine.ToolDefinition{
 				Name:        td.Name,

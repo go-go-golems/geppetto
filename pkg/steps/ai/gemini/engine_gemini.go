@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -165,7 +164,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	}
 
 	// Attach tools from context if present (tools + minimal parameters when safe).
-	registry, _ := toolcontext.RegistryFrom(ctx)
+	registry, _ := tools.RegistryFrom(ctx)
 	if registry != nil {
 		var toolDecls []*genai.FunctionDeclaration
 		for _, td := range registry.ListTools() {
