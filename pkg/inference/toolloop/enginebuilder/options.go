@@ -40,7 +40,13 @@ func WithToolRegistry(registry tools.ToolRegistry) Option {
 	}
 }
 
-func WithToolConfig(cfg toolloop.ToolConfig) Option {
+func WithLoopConfig(cfg toolloop.LoopConfig) Option {
+	return func(b *Builder) {
+		b.LoopConfig = &cfg
+	}
+}
+
+func WithToolConfig(cfg tools.ToolConfig) Option {
 	return func(b *Builder) {
 		b.ToolConfig = &cfg
 	}

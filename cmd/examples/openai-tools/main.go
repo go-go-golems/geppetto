@@ -285,7 +285,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	var (
 		turn             *turns.Turn
 		toolLoopRegistry tools.ToolRegistry
-		toolLoopCfg      toolloop.ToolConfig
+		toolLoopLoopCfg  toolloop.LoopConfig
+		toolLoopToolCfg  tools.ToolConfig
 		toolLoopEnabled  bool
 	)
 
@@ -354,8 +355,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 		turn = &turns.Turn{}
 		toolLoopRegistry = reg
-		toolLoopCfg = toolloop.NewToolConfig().
-			WithMaxIterations(3).
+		toolLoopLoopCfg = toolloop.NewLoopConfig().WithMaxIterations(3)
+		toolLoopToolCfg = tools.DefaultToolConfig().
 			WithMaxParallelTools(maxPar).
 			WithToolChoice(tools.ToolChoiceAuto).
 			WithToolErrorHandling(tools.ToolErrorContinue)
@@ -381,7 +382,8 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	if toolLoopEnabled {
 		builderOpts = append(builderOpts,
 			enginebuilder.WithToolRegistry(toolLoopRegistry),
-			enginebuilder.WithToolConfig(toolLoopCfg),
+			enginebuilder.WithLoopConfig(toolLoopLoopCfg),
+			enginebuilder.WithToolConfig(toolLoopToolCfg),
 		)
 	}
 	sess.Builder = enginebuilder.New(builderOpts...)

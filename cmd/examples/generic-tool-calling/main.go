@@ -401,9 +401,9 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 	// 6. Create simplified tool configuration for helpers
 
-	helperConfig := toolloop.NewToolConfig().
-		WithMaxIterations(s.MaxIterations).
-		WithTimeout(30 * time.Second).
+	loopCfg := toolloop.NewLoopConfig().WithMaxIterations(s.MaxIterations)
+	toolCfg := tools.DefaultToolConfig().
+		WithExecutionTimeout(30 * time.Second).
 		WithMaxParallelTools(s.MaxParallelTools).
 		WithToolChoice(toolChoice).
 		WithAllowedTools(nil). // Allow all tools
@@ -430,12 +430,13 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		cfg := helperConfig
+		cfg := toolCfg
 		sess := session.NewSession()
 		sess.Builder = enginebuilder.New(
 			enginebuilder.WithBase(baseEngine),
 			enginebuilder.WithMiddlewares(mws...),
 			enginebuilder.WithToolRegistry(registry),
+			enginebuilder.WithLoopConfig(loopCfg),
 			enginebuilder.WithToolConfig(cfg),
 			enginebuilder.WithEventSinks(sink),
 		)

@@ -231,7 +231,8 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	}
 
 	var toolLoopRegistry tools.ToolRegistry
-	var toolLoopCfg toolloop.ToolConfig
+	var toolLoopLoopCfg toolloop.LoopConfig
+	var toolLoopToolCfg tools.ToolConfig
 	toolLoopEnabled := false
 	if s.WithTools {
 		type echoIn struct {
@@ -250,9 +251,9 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		}
 
 		toolLoopRegistry = reg
-		toolLoopCfg = toolloop.NewToolConfig().
-			WithMaxIterations(5).
-			WithTimeout(30 * time.Second).
+		toolLoopLoopCfg = toolloop.NewLoopConfig().WithMaxIterations(5)
+		toolLoopToolCfg = tools.DefaultToolConfig().
+			WithExecutionTimeout(30 * time.Second).
 			WithMaxParallelTools(1).
 			WithToolChoice(tools.ToolChoiceAuto).
 			WithToolErrorHandling(tools.ToolErrorContinue)
@@ -268,7 +269,8 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	if toolLoopEnabled {
 		builderOpts = append(builderOpts,
 			enginebuilder.WithToolRegistry(toolLoopRegistry),
-			enginebuilder.WithToolConfig(toolLoopCfg),
+			enginebuilder.WithLoopConfig(toolLoopLoopCfg),
+			enginebuilder.WithToolConfig(toolLoopToolCfg),
 		)
 	}
 	sess.Builder = enginebuilder.New(builderOpts...)

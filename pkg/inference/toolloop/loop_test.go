@@ -92,11 +92,13 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	_ = turns.KeyTurnMetaSessionID.Set(&initial.Metadata, "run-1")
 	turns.AppendBlock(initial, turns.NewUserTextBlock("please echo"))
 
-	cfg := NewToolConfig().WithMaxIterations(3)
+	loopCfg := NewLoopConfig().WithMaxIterations(3)
+	toolCfg := tools.DefaultToolConfig()
 	loop := New(
 		WithEngine(eng),
 		WithRegistry(reg),
-		WithConfig(cfg),
+		WithLoopConfig(loopCfg),
+		WithToolConfig(toolCfg),
 		WithStepController(sc),
 	)
 	out, err := loop.RunLoop(ctx, initial)

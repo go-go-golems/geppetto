@@ -45,8 +45,11 @@ type Builder struct {
 	// Registry enables tool calling. If nil, the runner performs a single-pass inference.
 	Registry tools.ToolRegistry
 
-	// ToolConfig configures tool-loop behavior when Registry is set.
-	ToolConfig *toolloop.ToolConfig
+	// LoopConfig configures loop orchestration (e.g. MaxIterations).
+	LoopConfig *toolloop.LoopConfig
+
+	// ToolConfig configures tool advertisement and execution policy.
+	ToolConfig *tools.ToolConfig
 
 	// EventSinks are attached to the run context for streaming/logging.
 	EventSinks []events.EventSink
@@ -79,16 +82,22 @@ func (b *Builder) Build(ctx context.Context, sessionID string) (session.Inferenc
 	eng := b.Base
 	eng = newEngineWithMiddlewares(eng, b.Middlewares)
 
-	cfg := toolloop.NewToolConfig()
+	loopCfg := toolloop.NewLoopConfig()
+	if b.LoopConfig != nil {
+		loopCfg = *b.LoopConfig
+	}
+
+	toolCfg := tools.DefaultToolConfig()
 	if b.ToolConfig != nil {
-		cfg = *b.ToolConfig
+		toolCfg = *b.ToolConfig
 	}
 
 	return &runner{
 		sessionID:        sessionID,
 		eng:              eng,
 		registry:         b.Registry,
-		toolConfig:       cfg,
+		loopCfg:          loopCfg,
+		toolCfg:          toolCfg,
 		eventSinks:       b.EventSinks,
 		snapshotHook:     b.SnapshotHook,
 		stepController:   b.StepController,
@@ -103,7 +112,8 @@ type runner struct {
 	eng      engine.Engine
 	registry tools.ToolRegistry
 
-	toolConfig toolloop.ToolConfig
+	loopCfg toolloop.LoopConfig
+	toolCfg tools.ToolConfig
 
 	eventSinks   []events.EventSink
 	snapshotHook toolloop.SnapshotHook
@@ -176,7 +186,8 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		opts := []toolloop.Option{
 			toolloop.WithEngine(r.eng),
 			toolloop.WithRegistry(r.registry),
-			toolloop.WithConfig(r.toolConfig),
+			toolloop.WithLoopConfig(r.loopCfg),
+			toolloop.WithToolConfig(r.toolCfg),
 			toolloop.WithStepController(r.stepController),
 		}
 		if r.stepPauseTimeout > 0 {

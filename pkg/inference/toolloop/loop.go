@@ -20,7 +20,8 @@ import (
 type Loop struct {
 	eng      engine.Engine
 	registry tools.ToolRegistry
-	cfg      ToolConfig
+	loopCfg  LoopConfig
+	toolCfg  tools.ToolConfig
 
 	executor tools.ToolExecutor
 
@@ -34,7 +35,8 @@ type Option func(*Loop)
 
 func New(opts ...Option) *Loop {
 	l := &Loop{
-		cfg:          NewToolConfig(),
+		loopCfg:      DefaultLoopConfig(),
+		toolCfg:      tools.DefaultToolConfig(),
 		pauseTimeout: 30 * time.Second,
 	}
 	for _, opt := range opts {
@@ -53,8 +55,12 @@ func WithRegistry(reg tools.ToolRegistry) Option {
 	return func(l *Loop) { l.registry = reg }
 }
 
-func WithConfig(cfg ToolConfig) Option {
-	return func(l *Loop) { l.cfg = cfg }
+func WithLoopConfig(cfg LoopConfig) Option {
+	return func(l *Loop) { l.loopCfg = cfg }
+}
+
+func WithToolConfig(cfg tools.ToolConfig) Option {
+	return func(l *Loop) { l.toolCfg = cfg }
 }
 
 func WithExecutor(exec tools.ToolExecutor) Option {
@@ -106,19 +112,16 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 
 	ctx = toolcontext.WithRegistry(ctx, l.registry)
 
-	if err := engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{
-		Enabled:           true,
-		ToolChoice:        engine.ToolChoice(l.cfg.ToolChoice),
-		MaxIterations:     l.cfg.MaxIterations,
-		ExecutionTimeout:  l.cfg.Timeout,
-		MaxParallelTools:  l.cfg.MaxParallelTools,
-		AllowedTools:      l.cfg.AllowedTools,
-		ToolErrorHandling: engine.ToolErrorHandling(l.cfg.ToolErrorHandling),
-	}); err != nil {
+	maxIterations := l.loopCfg.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = DefaultLoopConfig().MaxIterations
+	}
+
+	if err := engine.KeyToolConfig.Set(&t.Data, engineToolConfig(maxIterations, l.toolCfg)); err != nil {
 		return nil, errors.Wrap(err, "set tool config")
 	}
 
-	for i := 0; i < l.cfg.MaxIterations; i++ {
+	for i := 0; i < maxIterations; i++ {
 		log.Debug().Int("iteration", i+1).Msg("toolloop: engine inference step")
 
 		l.snapshot(ctx, t, "pre_inference")
@@ -162,8 +165,28 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 		t = updated
 	}
 
-	log.Warn().Int("max_iterations", l.cfg.MaxIterations).Msg("toolloop: maximum iterations reached")
-	return t, fmt.Errorf("max iterations (%d) reached", l.cfg.MaxIterations)
+	log.Warn().Int("max_iterations", maxIterations).Msg("toolloop: maximum iterations reached")
+	return t, fmt.Errorf("max iterations (%d) reached", maxIterations)
+}
+
+func engineToolConfig(maxIterations int, cfg tools.ToolConfig) engine.ToolConfig {
+	if maxIterations <= 0 {
+		maxIterations = DefaultLoopConfig().MaxIterations
+	}
+	return engine.ToolConfig{
+		Enabled:           cfg.Enabled,
+		ToolChoice:        engine.ToolChoice(cfg.ToolChoice),
+		MaxIterations:     maxIterations,
+		ExecutionTimeout:  cfg.ExecutionTimeout,
+		MaxParallelTools:  cfg.MaxParallelTools,
+		AllowedTools:      cfg.AllowedTools,
+		ToolErrorHandling: engine.ToolErrorHandling(cfg.ToolErrorHandling),
+		RetryConfig: engine.RetryConfig{
+			MaxRetries:    cfg.RetryConfig.MaxRetries,
+			BackoffBase:   cfg.RetryConfig.BackoffBase,
+			BackoffFactor: cfg.RetryConfig.BackoffFactor,
+		},
+	}
 }
 
 type toolResult struct {
@@ -186,10 +209,7 @@ func (l *Loop) executeTools(ctx context.Context, toolCalls []toolblocks.ToolCall
 	}
 	executor := l.executor
 	if executor == nil {
-		executor = l.cfg.Executor
-	}
-	if executor == nil {
-		executor = tools.NewDefaultToolExecutor(tools.DefaultToolConfig())
+		executor = tools.NewDefaultToolExecutor(l.toolCfg)
 	}
 
 	execCalls := make([]tools.ToolCall, 0, len(toolCalls))

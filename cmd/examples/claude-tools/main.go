@@ -140,20 +140,20 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	reg := tools.NewInMemoryToolRegistry()
 	_ = reg.RegisterTool("get_weather", *weatherToolDef)
 
-	toolCfg := toolloop.NewToolConfig().
-		WithMaxIterations(3).
-		WithMaxParallelTools(1).
-		WithToolChoice(tools.ToolChoiceAuto).
-		WithToolErrorHandling(tools.ToolErrorContinue)
-
 	// Build a Turn seeded with a user prompt that asks to use the tool.
 	turn := &turns.Turn{}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
 	sess := session.NewSession()
+	loopCfg := toolloop.NewLoopConfig().WithMaxIterations(3)
+	toolCfg2 := tools.DefaultToolConfig().
+		WithMaxParallelTools(1).
+		WithToolChoice(tools.ToolChoiceAuto).
+		WithToolErrorHandling(tools.ToolErrorContinue)
 	sess.Builder = enginebuilder.New(
 		enginebuilder.WithBase(engineInstance),
 		enginebuilder.WithToolRegistry(reg),
-		enginebuilder.WithToolConfig(toolCfg),
+		enginebuilder.WithLoopConfig(loopCfg),
+		enginebuilder.WithToolConfig(toolCfg2),
 	)
 	sess.Append(turn)
 	handle, err := sess.StartInference(ctx)
