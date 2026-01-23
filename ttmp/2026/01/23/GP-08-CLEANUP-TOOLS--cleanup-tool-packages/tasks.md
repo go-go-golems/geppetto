@@ -11,15 +11,15 @@
 
 ### Step 1 — Move the session engine builder into `toolloop/enginebuilder`
 
-- [ ] Create package: `geppetto/pkg/inference/toolloop/enginebuilder`
-- [ ] Move `toolloop.EngineBuilder` and builder options into `toolloop/enginebuilder`
+- [x] Create package: `geppetto/pkg/inference/toolloop/enginebuilder`
+- [x] Move `toolloop.EngineBuilder` and builder options into `toolloop/enginebuilder`
   - Target API:
     - `enginebuilder.New(...) *enginebuilder.Builder` (or `NewEngineBuilder`, pick one)
     - `enginebuilder.WithBase(...)`, `enginebuilder.WithMiddlewares(...)`, `enginebuilder.WithToolRegistry(...)`, `enginebuilder.WithToolConfig(...)`, `enginebuilder.WithEventSinks(...)`, `enginebuilder.WithSnapshotHook(...)`, `enginebuilder.WithStepController(...)`, `enginebuilder.WithStepPauseTimeout(...)`, `enginebuilder.WithPersister(...)`
   - Ensure it still satisfies `session.EngineBuilder`
-- [ ] Update all Geppetto call sites (examples + docs snippets where applicable)
-- [ ] Update Pinocchio/Moments call sites to the new import path (no wrapper helpers)
-- [ ] Update/relocate the builder unit tests (avoid import cycles; keep tests in `toolloop/enginebuilder`)
+- [x] Update all Geppetto call sites (examples + docs snippets where applicable)
+- [x] Update Pinocchio/Moments call sites to the new import path (no wrapper helpers)
+- [x] Update/relocate the builder unit tests (avoid import cycles; keep tests in `toolloop/enginebuilder`)
 
 ### Step 2 — Make `tools.ToolConfig` canonical (and rename loop config)
 

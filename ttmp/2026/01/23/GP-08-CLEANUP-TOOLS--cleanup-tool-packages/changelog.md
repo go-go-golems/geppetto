@@ -20,3 +20,14 @@ Step 1: Add diary + restructure tasks into step-by-step execution plan (commit e
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/reference/01-diary.md — Diary step 1
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/tasks.md — Execution plan
 
+
+## 2026-01-23
+
+Step 2: Move toolloop.EngineBuilder to toolloop/enginebuilder + migrate downstream call sites (geppetto fe9c0af; pinocchio cc40488; moments 20a6d194)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolloop/enginebuilder/builder.go — New package + implementation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/engine.go — Cutover to new import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Cutover to new import path
+
