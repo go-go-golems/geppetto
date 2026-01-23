@@ -36,11 +36,11 @@
 
 ### Step 3 — Move registry-in-context from `toolcontext` into `tools`
 
-- [ ] Add `tools.WithRegistry(ctx, reg)` and `tools.RegistryFrom(ctx)` (names TBD, but keep short)
-- [ ] Update providers to import from `tools` (OpenAI/Claude/Gemini/OpenAI-Responses)
-- [ ] Update tool loop orchestration to use `tools.WithRegistry(...)`
-- [ ] Delete `geppetto/pkg/inference/toolcontext`
-- [ ] Run `go test ./...` in `geppetto`
+- [x] Add `tools.WithRegistry(ctx, reg)` and `tools.RegistryFrom(ctx)` (names TBD, but keep short)
+- [x] Update providers to import from `tools` (OpenAI/Claude/Gemini/OpenAI-Responses)
+- [x] Update tool loop orchestration to use `tools.WithRegistry(...)`
+- [x] Delete `geppetto/pkg/inference/toolcontext`
+- [x] Run `go test ./...` in `geppetto`
 
 ### Step 4 — Move Turn block helpers from `toolblocks` into `turns`
 

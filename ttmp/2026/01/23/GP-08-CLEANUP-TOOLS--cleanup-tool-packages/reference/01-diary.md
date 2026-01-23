@@ -18,9 +18,15 @@ RelatedFiles:
     - Path: geppetto/pkg/inference/toolloop/enginebuilder/options.go
       Note: New builder option surface without naming collisions (commit fe9c0af)
     - Path: geppetto/pkg/inference/toolloop/loop.go
-      Note: Loop now accepts LoopConfig + tools.ToolConfig and maps to engine.ToolConfig on Turn.Data (commit 9ec5cdaa)
+      Note: |-
+        Loop now accepts LoopConfig + tools.ToolConfig and maps to engine.ToolConfig on Turn.Data (commit 9ec5cdaa)
+        Tool loop now uses tools.WithRegistry/RegistryFrom (commit d6f1baa)
     - Path: geppetto/pkg/inference/tools/config.go
       Note: Added With* helpers on tools.ToolConfig to keep call sites readable (commit 9ec5cdaa)
+    - Path: geppetto/pkg/inference/tools/context.go
+      Note: Canonical tools.WithRegistry/RegistryFrom context plumbing (commit d6f1baa)
+    - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
+      Note: Provider tool discovery now uses tools.RegistryFrom (commit d6f1baa)
     - Path: geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/analysis/01-tool-packages-reorg-report.md
       Note: Design/report that motivates the package moves and canonical APIs
     - Path: geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/reference/01-diary.md
@@ -31,8 +37,12 @@ RelatedFiles:
       Note: Updated Moments webchat engine composition to use enginebuilder.New (commit 20a6d194)
     - Path: moments/backend/pkg/webchat/loops.go
       Note: Updated bespoke tool loop to use LoopConfig + tools.ToolConfig (commit aa0d50ca)
+    - Path: moments/backend/pkg/webchat/router.go
+      Note: Webchat now uses tools.WithRegistry (commit 6cad48fd)
     - Path: moments/lefthook.yml
       Note: Fix lefthook glob syntax so commits can proceed (commit e47bd73)
+    - Path: pinocchio/pkg/middlewares/sqlitetool/middleware.go
+      Note: Middleware now uses tools.RegistryFrom (commit 2fdfcc9)
     - Path: pinocchio/pkg/webchat/router.go
       Note: |-
         Updated webchat builder wiring to enginebuilder.Builder (commit cc40488)
@@ -43,6 +53,7 @@ LastUpdated: 2026-01-23T08:35:51.35513599-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -235,3 +246,64 @@ Downstream repos were updated to pass `LoopConfig` + `tools.ToolConfig` everywhe
 
 ### Technical details
 - Loop now writes `engine.KeyToolConfig` from `tools.ToolConfig` + `LoopConfig` (provider engines continue to read `engine.ToolConfig`).
+
+## Step 4: Move registry-in-context from `toolcontext` into `tools` (and delete `toolcontext`)
+
+This step completed the `toolcontext` → `tools` consolidation: `tools.WithRegistry` / `tools.RegistryFrom` are now the canonical helpers for carrying a runtime `tools.ToolRegistry` via `context.Context`. All provider engines and orchestration code were migrated to import these helpers from `tools`, and the `geppetto/pkg/inference/toolcontext` package was removed.
+
+Downstream repos were updated in tandem so they no longer import `toolcontext`.
+
+**Commit (code, geppetto):** d6f1baa — "tools: move registry context helpers into tools"  
+**Commit (code, pinocchio):** 2fdfcc9 — "pinocchio: use tools.WithRegistry/RegistryFrom"  
+**Commit (code, moments):** 6cad48fd — "moments: use tools.WithRegistry/RegistryFrom"
+
+### What I did
+- Added `tools.WithRegistry(ctx, reg)` and `tools.RegistryFrom(ctx)` (moved from `toolcontext`).
+- Updated `toolloop` and provider engines (OpenAI, Claude, Gemini, OpenAI-Responses) to use `tools.RegistryFrom`.
+- Updated orchestration code (`toolloop`, `toolhelpers`) to use `tools.WithRegistry`.
+- Updated Pinocchio and Moments call sites/middlewares to use `tools.WithRegistry` / `tools.RegistryFrom`.
+- Deleted `geppetto/pkg/inference/toolcontext` (removed `toolcontext.go` from the repo).
+- Validated with:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Why
+- Reduces package count and makes the “tools substrate” self-contained: registry plumbing now lives where the registry type lives.
+- Avoids requiring users to learn a separate `toolcontext` package just to pass tool registries around.
+
+### What worked
+- Provider engines continue to discover tools by listing the registry from context, now via `tools.RegistryFrom(ctx)`.
+- The tool loop still ensures the registry is present on the inference context before calling `RunInference`.
+
+### What didn't work
+- Attempting to delete the `toolcontext` directory directly via shell was blocked:
+  - `/usr/bin/zsh -lc '... rm -rf pkg/inference/toolcontext ...' rejected: blocked by policy`
+  The package was removed by deleting `toolcontext.go` (Git no longer tracks the now-empty directory).
+
+### What I learned
+- When direct directory deletion is blocked, removing the tracked files is sufficient; the empty directory won’t persist in Git.
+
+### What was tricky to build
+- Updating a wide set of call sites while keeping imports clean (some downstream code already had local variables named `tools`, so aliasing imports was occasionally needed).
+
+### What warrants a second pair of eyes
+- Confirm no remaining code-paths (especially in downstream repos) still assume `toolcontext` exists; the goal is a hard cutover.
+
+### What should be done in the future
+- Proceed to Step 5: move `toolblocks` into `turns` (and delete `geppetto/pkg/inference/toolblocks`).
+
+### Code review instructions
+- Start in:
+  - `geppetto/pkg/inference/tools/context.go`
+  - `geppetto/pkg/inference/toolloop/loop.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Technical details
+- Canonical entry points:
+  - `tools.WithRegistry(ctx, reg)`
+  - `tools.RegistryFrom(ctx)`

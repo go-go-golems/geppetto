@@ -43,3 +43,15 @@ Step 3: Split loop orchestration (LoopConfig) from tool policy (tools.ToolConfig
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/loops.go — Pass LoopConfig + tools.ToolConfig
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Pass LoopConfig + tools.ToolConfig
 
+
+## 2026-01-23
+
+Step 4: Move toolcontext into tools (WithRegistry/RegistryFrom), migrate imports, delete toolcontext (geppetto d6f1baa; pinocchio 2fdfcc9; moments 6cad48fd)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolcontext/toolcontext.go — Deleted
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/tools/context.go — New canonical context helpers
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/router.go — Updated to tools.WithRegistry
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/middlewares/sqlitetool/middleware.go — Updated to tools.RegistryFrom
+
