@@ -55,3 +55,13 @@ Step 4: Move toolcontext into tools (WithRegistry/RegistryFrom), migrate imports
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/router.go — Updated to tools.WithRegistry
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/middlewares/sqlitetool/middleware.go — Updated to tools.RegistryFrom
 
+
+## 2026-01-23
+
+Step 5: Move toolblocks into turns and update downstream imports (geppetto cbb5058; moments 3fa89be6)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/toolblocks/toolblocks.go — New canonical home for tool_call/tool_use Turn helpers
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/loops.go — Import path update
+

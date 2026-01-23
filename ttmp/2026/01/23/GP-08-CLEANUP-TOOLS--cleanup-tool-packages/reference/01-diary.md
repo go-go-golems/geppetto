@@ -21,12 +21,15 @@ RelatedFiles:
       Note: |-
         Loop now accepts LoopConfig + tools.ToolConfig and maps to engine.ToolConfig on Turn.Data (commit 9ec5cdaa)
         Tool loop now uses tools.WithRegistry/RegistryFrom (commit d6f1baa)
+        Updated import to turns/toolblocks (commit cbb5058)
     - Path: geppetto/pkg/inference/tools/config.go
       Note: Added With* helpers on tools.ToolConfig to keep call sites readable (commit 9ec5cdaa)
     - Path: geppetto/pkg/inference/tools/context.go
       Note: Canonical tools.WithRegistry/RegistryFrom context plumbing (commit d6f1baa)
     - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
       Note: Provider tool discovery now uses tools.RegistryFrom (commit d6f1baa)
+    - Path: geppetto/pkg/turns/toolblocks/toolblocks.go
+      Note: Moved from inference/toolblocks into turns (commit cbb5058)
     - Path: geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/analysis/01-tool-packages-reorg-report.md
       Note: Design/report that motivates the package moves and canonical APIs
     - Path: geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/reference/01-diary.md
@@ -36,7 +39,9 @@ RelatedFiles:
     - Path: moments/backend/pkg/webchat/engine.go
       Note: Updated Moments webchat engine composition to use enginebuilder.New (commit 20a6d194)
     - Path: moments/backend/pkg/webchat/loops.go
-      Note: Updated bespoke tool loop to use LoopConfig + tools.ToolConfig (commit aa0d50ca)
+      Note: |-
+        Updated bespoke tool loop to use LoopConfig + tools.ToolConfig (commit aa0d50ca)
+        Updated import to turns/toolblocks (commit 3fa89be6)
     - Path: moments/backend/pkg/webchat/router.go
       Note: Webchat now uses tools.WithRegistry (commit 6cad48fd)
     - Path: moments/lefthook.yml
@@ -53,6 +58,7 @@ LastUpdated: 2026-01-23T08:35:51.35513599-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -307,3 +313,61 @@ Downstream repos were updated in tandem so they no longer import `toolcontext`.
 - Canonical entry points:
   - `tools.WithRegistry(ctx, reg)`
   - `tools.RegistryFrom(ctx)`
+
+## Step 5: Move `toolblocks` into `turns` (and delete `inference/toolblocks`)
+
+This step moved the Turn block helper functions (`ExtractPendingToolCalls`, `AppendToolResultsBlocks` and their supporting structs) from `geppetto/pkg/inference/toolblocks` into `geppetto/pkg/turns/toolblocks`. This makes their location match what they operate on: `turns.Turn` and block payload conventions.
+
+Downstream usage was updated (Moments’ bespoke tool loop) to import `github.com/go-go-golems/geppetto/pkg/turns/toolblocks`, and the old `inference/toolblocks` package was removed from Geppetto.
+
+**Commit (code, geppetto):** cbb5058 — "turns: move toolblocks helpers under turns"  
+**Commit (code, moments):** 3fa89be6 — "moments: import toolblocks from turns"
+
+### What I did
+- Moved `geppetto/pkg/inference/toolblocks/toolblocks.go` to `geppetto/pkg/turns/toolblocks/toolblocks.go` (same API; different package path).
+- Updated Geppetto imports in:
+  - `geppetto/pkg/inference/toolloop/loop.go`
+  - `geppetto/pkg/inference/toolhelpers/helpers.go`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md`
+- Updated Moments import in `moments/backend/pkg/webchat/loops.go`.
+- Validated with:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Why
+- These helpers are fundamentally “Turn block” operations, not inference/tooling policy or orchestration.
+- Keeping them under `turns/` makes the dependency direction clearer and reduces “tool* package sprawl”.
+
+### What worked
+- The move was a pure import-path relocation; behavior stayed unchanged and tests continued to pass in Geppetto and Moments.
+- The old `geppetto/pkg/inference/toolblocks` directory is now empty/untracked (only the moved file was tracked), so there’s no leftover Git package to delete.
+
+### What didn't work
+- Running `go test` in `go-go-mento/go` initially failed because `go-go-mento/go` is not listed in the workspace `go.work`:
+  - `cd go-go-mento/go && go test ./... -count=1`
+  - `pattern ./...: directory prefix . does not contain modules listed in go.work or their selected dependencies`
+  Per follow-up instruction, I stopped pursuing `go-go-mento` validation for this ticket.
+
+### What I learned
+- In a `go.work` workspace, module inclusion matters for `go test ./...`; validating legacy repos in the same workspace can require additional module wiring, but that can also surface unrelated API drift and should be avoided unless the ticket explicitly requires it.
+
+### What was tricky to build
+- Keeping the import rewrite localized: `toolblocks` is referenced by both the canonical tool loop and the legacy `toolhelpers` package, so all internal imports needed to be updated consistently.
+
+### What warrants a second pair of eyes
+- Confirm `pkg/turns/toolblocks` is the right final location (vs `pkg/turns/tools`) and that the API names still fit the `turns` package conventions.
+
+### What should be done in the future
+- Proceed to Step 6: delete `toolhelpers` (hard cutover), update any remaining downstream users, and then do the docs/guidance sweep.
+
+### Code review instructions
+- Start in `geppetto/pkg/turns/toolblocks/toolblocks.go` and follow the import updates in:
+  - `geppetto/pkg/inference/toolloop/loop.go`
+  - `geppetto/pkg/inference/toolhelpers/helpers.go`
+  - `moments/backend/pkg/webchat/loops.go`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Technical details
+- New canonical import path: `github.com/go-go-golems/geppetto/pkg/turns/toolblocks`

@@ -44,13 +44,13 @@
 
 ### Step 4 — Move Turn block helpers from `toolblocks` into `turns`
 
-- [ ] Create `geppetto/pkg/turns/toolblocks` (preferred) or `geppetto/pkg/turns/tools` (pick one)
-- [ ] Move:
+- [x] Create `geppetto/pkg/turns/toolblocks` (preferred) or `geppetto/pkg/turns/tools` (pick one)
+- [x] Move:
   - `ExtractPendingToolCalls`
   - `AppendToolResultsBlocks`
   - associated structs
-- [ ] Update imports in `toolloop` and any remaining internal users
-- [ ] Delete `geppetto/pkg/inference/toolblocks`
+- [x] Update imports in `toolloop` and any remaining internal users
+- [x] Delete `geppetto/pkg/inference/toolblocks`
 - [ ] Consider improving result block shape (optional follow-up task):
   - avoid `"Error: ..."` string payloads; use typed payload fields if the block model supports it
 
