@@ -38,10 +38,16 @@ RelatedFiles:
       Note: Added With* helpers on tools.ToolConfig to keep call sites readable (commit 9ec5cdaa)
     - Path: geppetto/pkg/inference/tools/context.go
       Note: Canonical tools.WithRegistry/RegistryFrom context plumbing (commit d6f1baa)
+    - Path: geppetto/pkg/steps/ai/openai/helpers.go
+      Note: Provider mapping serializes tool_use errors to JSON content (commit 796d32b)
     - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
       Note: Provider tool discovery now uses tools.RegistryFrom (commit d6f1baa)
+    - Path: geppetto/pkg/turns/keys.go
+      Note: Added turns.PayloadKeyError (commit 796d32b)
     - Path: geppetto/pkg/turns/toolblocks/toolblocks.go
-      Note: Moved from inference/toolblocks into turns (commit cbb5058)
+      Note: |-
+        Moved from inference/toolblocks into turns (commit cbb5058)
+        Stop encoding tool errors as Error: ... strings; use PayloadKeyError (commit 796d32b)
     - Path: geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/analysis/01-tool-packages-reorg-report.md
       Note: Design/report that motivates the package moves and canonical APIs
     - Path: geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/reference/01-diary.md
@@ -50,6 +56,8 @@ RelatedFiles:
       Note: Step-by-step execution plan for the GP-08 refactor
     - Path: moments/backend/pkg/webchat/engine.go
       Note: Updated Moments webchat engine composition to use enginebuilder.New (commit 20a6d194)
+    - Path: moments/backend/pkg/webchat/langfuse_middleware.go
+      Note: Include tool_use error in Langfuse mapping (commit e03d98b8)
     - Path: moments/backend/pkg/webchat/loops.go
       Note: |-
         Updated bespoke tool loop to use LoopConfig + tools.ToolConfig (commit aa0d50ca)
@@ -74,6 +82,7 @@ LastUpdated: 2026-01-23T08:35:51.35513599-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -552,3 +561,65 @@ I used `remarquee upload bundle` to render the key GP-08 Markdown docs into a si
 - Remote folder: `/ai/2026/01/23/GP-08-CLEANUP-TOOLS`
 - Bundle inputs:
   - `index.md`, `tasks.md`, `changelog.md`, `analysis/01-tool-packages-reorg-report.md`, `reference/01-diary.md`
+
+## Step 9: Improve tool result block shape (no `"Error: ..."` payload strings)
+
+This step improved the shape of `tool_use` blocks for failed tool executions. Previously, `AppendToolResultsBlocks` encoded failures by setting `PayloadKeyResult` to a string prefixed with `"Error: "`, which forced downstream code to parse strings to detect errors.
+
+Now, `tool_use` blocks carry a dedicated `PayloadKeyError` (string) alongside `PayloadKeyResult`. Provider mappers (OpenAI, Claude, Gemini, OpenAI Responses) were updated so tool errors are still surfaced back to the model as structured JSON content, while the Turn block remains typed and easy to inspect.
+
+**Commit (code, geppetto):** 796d32b — "turns: represent tool_use errors as typed payload"  
+**Commit (code, moments):** e03d98b8 — "moments: include tool_use error field in langfuse mapping"
+
+### What I did
+- Added `turns.PayloadKeyError` and a new constructor `turns.NewToolUseBlockWithError(...)`.
+- Updated `turns/toolblocks.AppendToolResultsBlocks` to write tool errors into `PayloadKeyError` instead of string-prefixing `PayloadKeyResult`.
+- Updated provider request builders to serialize tool error payloads back to provider tool-result fields:
+  - OpenAI chat completions (`pkg/steps/ai/openai`)
+  - Claude (`pkg/steps/ai/claude`)
+  - Gemini (`pkg/steps/ai/gemini`)
+  - OpenAI Responses (`pkg/steps/ai/openai_responses`)
+- Updated Turn printers to render `tool_result error=...` when present.
+- Updated docs to mention `PayloadKeyError` alongside `PayloadKeyResult`.
+- Updated Moments Langfuse mapping to include tool-use error fields.
+- Validated with:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Why
+- String-prefixing errors makes tool failures hard to handle programmatically and encourages brittle parsing in UIs and middleware.
+- A dedicated payload key lets downstream code distinguish “tool failed” vs “tool succeeded with string output” without guessing.
+
+### What worked
+- Geppetto’s tool loop and provider mappers continued to function, with tool errors still propagating to providers as structured JSON strings/maps.
+- Tests and linters ran clean via repo hooks on commit.
+
+### What didn't work
+- I accidentally invoked `gofmt` on markdown docs, which failed as expected with parse errors. Re-running `gofmt` on Go files only resolved it.
+
+### What I learned
+- Keeping Turn block shapes typed doesn’t prevent providers from receiving rich error strings; the mapping layer is the right place to format error payloads for each provider protocol.
+
+### What was tricky to build
+- Ensuring provider adapters still emit a useful tool result string/object to the model when `PayloadKeyResult` is nil but `PayloadKeyError` is set.
+
+### What warrants a second pair of eyes
+- Review the provider-side encoding choice for errors (JSON object with `error` and optional `result`) to confirm it matches downstream UI expectations.
+
+### What should be done in the future
+- N/A (optional task complete).
+
+### Code review instructions
+- Start in:
+  - `geppetto/pkg/turns/keys.go`
+  - `geppetto/pkg/turns/toolblocks/toolblocks.go`
+  - `geppetto/pkg/steps/ai/openai/helpers.go`
+  - `geppetto/pkg/steps/ai/openai_responses/helpers.go`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Technical details
+- `tool_use` payload now includes:
+  - `turns.PayloadKeyResult` (optional)
+  - `turns.PayloadKeyError` (optional, string)

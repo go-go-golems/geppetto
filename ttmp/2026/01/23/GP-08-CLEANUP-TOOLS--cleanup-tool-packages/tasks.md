@@ -51,7 +51,7 @@
   - associated structs
 - [x] Update imports in `toolloop` and any remaining internal users
 - [x] Delete `geppetto/pkg/inference/toolblocks`
-- [ ] Consider improving result block shape (optional follow-up task):
+- [x] Consider improving result block shape (optional follow-up task):
   - avoid `"Error: ..."` string payloads; use typed payload fields if the block model supports it
 
 ### Step 5 — Delete `toolhelpers` (hard cutover; no wrappers)

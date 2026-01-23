@@ -94,3 +94,13 @@ Step 8: Upload updated GP-08 bundle to reMarkable (/ai/2026/01/23/GP-08-CLEANUP-
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/reference/01-diary.md — Recorded reMarkable upload commands and remote path
 
+
+## 2026-01-23
+
+Step 9: Improve tool_use error shape using PayloadKeyError (geppetto 796d32b; moments e03d98b8)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai/helpers.go — Serialize tool errors back to provider
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/toolblocks/toolblocks.go — Write tool_use error to PayloadKeyError
+
