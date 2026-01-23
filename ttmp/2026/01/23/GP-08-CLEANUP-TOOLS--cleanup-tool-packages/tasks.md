@@ -66,20 +66,20 @@
 
 ### Step 6 — Docs + guidance
 
-- [ ] Update Geppetto docs to only present canonical surfaces:
+- [x] Update Geppetto docs to only present canonical surfaces:
   - tool loop: `toolloop.Loop`
   - builder: `toolloop/enginebuilder`
   - primitives: `tools.ToolRegistry`, `tools.ToolExecutor`, `tools.ToolConfig`
-- [ ] Add a “How to wire tools end-to-end” section with the new API (short, copy/pasteable)
-- [ ] Update Pinocchio docs snippets (webchat guide, README snippets) to match new paths
+- [x] Add a “How to wire tools end-to-end” section with the new API (short, copy/pasteable)
+- [x] Update Pinocchio docs snippets (webchat guide, README snippets) to match new paths
 
 ### Step 7 — Validation and rollout
 
-- [ ] Run tests:
+- [x] Run tests:
   - `cd geppetto && go test ./... -count=1`
   - `cd pinocchio && go test ./... -count=1`
   - `cd moments/backend && go test ./... -count=1`
   - `cd go-go-mento/go && go test ./... -count=1` (or module-specific)
-- [ ] Run linters/hooks where applicable (expect lefthook behavior)
-- [ ] Commit in each repo with clean message grouping (geppetto/pinocchio/moments/go-go-mento)
+- [x] Run linters/hooks where applicable (expect lefthook behavior)
+- [x] Commit in each repo with clean message grouping (geppetto/pinocchio/moments/go-go-mento)
 - [ ] Upload updated GP-08 docs to reMarkable (bundle)

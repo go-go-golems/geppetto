@@ -14,7 +14,11 @@ RelatedFiles:
     - Path: geppetto/pkg/doc/playbooks/01-add-a-new-tool.md
       Note: Updated examples to use toolloop + tools.WithRegistry (commit e4b54a7)
     - Path: geppetto/pkg/doc/topics/07-tools.md
-      Note: Updated quickstart to LoopConfig + tools.ToolConfig (commit e4b54a7)
+      Note: |-
+        Updated quickstart to LoopConfig + tools.ToolConfig (commit e4b54a7)
+        Added end-to-end wiring section (commit d55235f)
+    - Path: geppetto/pkg/doc/topics/08-turns.md
+      Note: Removed remaining toolcontext references (commit d55235f)
     - Path: geppetto/pkg/doc/tutorials/01-streaming-inference-with-tools.md
       Note: Updated to use toolloop instead of toolhelpers (commit e4b54a7)
     - Path: geppetto/pkg/inference/toolhelpers/helpers.go
@@ -54,6 +58,10 @@ RelatedFiles:
       Note: Webchat now uses tools.WithRegistry (commit 6cad48fd)
     - Path: moments/lefthook.yml
       Note: Fix lefthook glob syntax so commits can proceed (commit e47bd73)
+    - Path: pinocchio/cmd/agents/simple-chat-agent.md
+      Note: Updated docs to toolloop/session/enginebuilder (commit 4b7c3f3)
+    - Path: pinocchio/cmd/agents/simple-chat-agent/INTEGRATING-BUBBLETEA-LIPGLOSS.md
+      Note: Updated snippet to toolloop (commit 4b7c3f3)
     - Path: pinocchio/pkg/middlewares/sqlitetool/middleware.go
       Note: Middleware now uses tools.RegistryFrom (commit 2fdfcc9)
     - Path: pinocchio/pkg/webchat/router.go
@@ -66,6 +74,7 @@ LastUpdated: 2026-01-23T08:35:51.35513599-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -444,3 +453,57 @@ I also updated Geppetto’s public docs (playbooks + tutorials + topics) to stop
 ### Technical details
 - Removed package: `github.com/go-go-golems/geppetto/pkg/inference/toolhelpers`
 - Canonical loop entrypoint: `toolloop.New(...).RunLoop(ctx, turn)`
+
+## Step 7: Finish docs/guidance sweep (canonical surfaces + Pinocchio snippets)
+
+This step finished the documentation sweep so that the remaining “public” docs in Geppetto and Pinocchio consistently describe the canonical tool stack: `toolloop.Loop` (or `toolloop/enginebuilder` when you want a session-owned runner), `tools.ToolRegistry`, and `tools.ToolConfig`.
+
+I also added a short, copy/pasteable “How to wire tools end-to-end” snippet and updated the Pinocchio `simple-chat-agent` guides to describe the current session-based tool loop rather than the deleted `toolhelpers` API.
+
+**Commit (docs, geppetto):** d55235f — "docs: add end-to-end tool wiring snippet"  
+**Commit (docs, pinocchio):** 4b7c3f3 — "docs: update simple-chat-agent guides to toolloop"
+
+### What I did
+- Added a “How to wire tools end-to-end” snippet to `geppetto/pkg/doc/topics/07-tools.md`.
+- Removed remaining stale references to `toolcontext` in Geppetto docs (`08-turns` topic).
+- Updated Pinocchio docs:
+  - `pinocchio/cmd/agents/simple-chat-agent.md`
+  - `pinocchio/cmd/agents/simple-chat-agent/INTEGRATING-BUBBLETEA-LIPGLOSS.md`
+  to refer to `toolloop`/`enginebuilder`/`session` instead of `toolhelpers.RunToolCallingLoop`.
+- Updated GP-08 task bookkeeping (checked tasks 28–33).
+
+### Why
+- After deleting `toolhelpers`, any remaining doc references become actively misleading and will cause new code to “re-invent” the old API.
+- A short wiring snippet reduces cognitive overhead for new commands: build engine → register tools → run `toolloop`.
+
+### What worked
+- The docs changes are confined to markdown, and the repo tests continued to pass from the prior validation step.
+- Pinocchio’s `simple-chat-agent` implementation already uses `session` + `toolloop/enginebuilder`, so updating the docs was purely descriptive (no code changes required).
+
+### What didn't work
+- `lefthook run pre-commit` is a “staged files” hook in this repo setup, so running it without staged changes results in `SUMMARY: (SKIP EMPTY)`. Validation for this ticket is therefore captured by the explicit `go test ./...` commands and by hook output during earlier code commits.
+
+### What I learned
+- For this workspace, “run the hooks” is best interpreted as “ensure hooks ran on meaningful commits” plus explicit test commands, not necessarily `lefthook run pre-commit` on a clean tree.
+
+### What was tricky to build
+- Keeping terminology consistent across repos: `LoopConfig` for orchestration vs `tools.ToolConfig` for policy, while still acknowledging that provider engines read `engine.KeyToolConfig` from `Turn.Data` under the hood.
+
+### What warrants a second pair of eyes
+- Review the new wiring snippet for correctness and minimalism: it should be copy/pasteable without pulling in extra abstractions, and it should not suggest deprecated APIs.
+
+### What should be done in the future
+- Complete Step 8: upload the updated GP-08 docs bundle to reMarkable (task 34).
+- Optional follow-up (task 23): improve tool result block shape (avoid encoding errors as `"Error: ..."` strings).
+
+### Code review instructions
+- Start in:
+  - `geppetto/pkg/doc/topics/07-tools.md`
+  - `pinocchio/cmd/agents/simple-chat-agent.md`
+- Validate (if desired; no Go code changes in this step):
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+
+### Technical details
+- Canonical orchestration: `toolloop.New(...).RunLoop(ctx, seed)`
+- Session wiring: `toolloop/enginebuilder` + `session.Session`

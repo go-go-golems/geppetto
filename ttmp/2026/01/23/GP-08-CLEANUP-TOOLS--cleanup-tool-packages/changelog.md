@@ -75,3 +75,13 @@ Step 6: Delete toolhelpers and update docs to toolloop (geppetto 8e0614d, e4b54a
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/doc/topics/07-tools.md — Updated docs to LoopConfig + tools.ToolConfig
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers.go — Deleted legacy loop helper
 
+
+## 2026-01-23
+
+Step 7: Docs sweep + end-to-end wiring snippet + Pinocchio snippet updates (geppetto d55235f; pinocchio 4b7c3f3)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/doc/topics/07-tools.md — Added end-to-end wiring snippet
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/agents/simple-chat-agent.md — Updated docs to toolloop/session
+
