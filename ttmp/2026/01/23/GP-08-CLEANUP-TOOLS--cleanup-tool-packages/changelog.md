@@ -31,3 +31,15 @@ Step 2: Move toolloop.EngineBuilder to toolloop/enginebuilder + migrate downstre
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/engine.go — Cutover to new import path
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Cutover to new import path
 
+
+## 2026-01-23
+
+Step 3: Split loop orchestration (LoopConfig) from tool policy (tools.ToolConfig) and update downstream call sites (geppetto 9ec5cdaa; pinocchio dc6053a; moments aa0d50ca)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolloop/loop.go — Loop config + tool config split and Turn.Data mapping
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/tools/config.go — Ergonomic With* helpers
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/loops.go — Pass LoopConfig + tools.ToolConfig
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Pass LoopConfig + tools.ToolConfig
+

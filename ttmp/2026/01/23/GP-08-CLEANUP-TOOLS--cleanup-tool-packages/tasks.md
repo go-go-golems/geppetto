@@ -23,16 +23,16 @@
 
 ### Step 2 — Make `tools.ToolConfig` canonical (and rename loop config)
 
-- [ ] Introduce `toolloop.LoopConfig` (or similar) and remove/rename `toolloop.ToolConfig`
+- [x] Introduce `toolloop.LoopConfig` (or similar) and remove/rename `toolloop.ToolConfig`
   - Loop config should only cover loop orchestration concerns (e.g. `MaxIterations`)
   - Tool execution/advertisement policy must come from `tools.ToolConfig` (canonical)
-- [ ] Update `toolloop.Loop` to accept:
+- [x] Update `toolloop.Loop` to accept:
   - loop config: `LoopConfig`
   - tool config: `tools.ToolConfig` (or pointer) and set `engine.KeyToolConfig` accordingly
-- [ ] Decide the authoritative “Turn.Data tool config” type:
+- [x] Decide the authoritative “Turn.Data tool config” type:
   - Preferred: store an `engine.ToolConfig` derived from `tools.ToolConfig` (provider-facing shape stays in engine)
   - Ensure there is exactly one mapping function (single source of truth)
-- [ ] Update provider engines if they read/assume fields that diverge
+- [x] Update provider engines if they read/assume fields that diverge
 
 ### Step 3 — Move registry-in-context from `toolcontext` into `tools`
 
