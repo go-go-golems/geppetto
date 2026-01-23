@@ -1,7 +1,7 @@
 ---
 Title: Step controller integration for webchat
 Ticket: GP-07-STEP-CONTROLLER-INTEGRATION
-Status: active
+Status: complete
 Topics:
     - geppetto
     - backend
@@ -17,7 +17,7 @@ RelatedFiles:
       Note: Background on the refactored session execution model that StepController integration should target
 ExternalSources: []
 Summary: Research how the Moments backend "StepController" pattern works and how to integrate equivalent stepping into the current Geppetto `session.Session` abstraction (as used by Pinocchio webchat) post-MO-007.
-LastUpdated: 2026-01-22T17:47:19.026778905-05:00
+LastUpdated: 2026-01-22T23:17:33-05:00
 WhatFor: Capture the intent, constraints, and design options for adding step-by-step execution control ("stepping") to webchat, leveraging prior StepController work in moments/backend and the recent session execution refactor in Geppetto.
 WhenToUse: Use when implementing stepping (pause/resume/continue) for tool-loop execution in Pinocchio webchat and when evolving Geppetto’s session execution API (breaking changes allowed).
 ---
@@ -63,7 +63,7 @@ Backporting “stepping” cleanly likely means:
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

@@ -42,3 +42,22 @@ Uploaded GP-07 design/implementation-plan PDF to reMarkable under /ai/2026/01/23
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/GP-07-STEP-CONTROLLER-INTEGRATION--step-controller-integration-for-webchat/design/01-move-tool-loop-step-control-into-toolloop-package-implementation-plan.md — Uploaded as PDF via remarquee
 
+
+## 2026-01-22
+
+Implemented the new `toolloop` package (Loop struct + With* options) and moved step control into it, publishing Geppetto-native `debugger.pause` events. Wired Pinocchio webchat to a router-owned shared StepController with dev-gated enable/disable/continue endpoints, added tests, and committed changes across repos.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolloop/loop.go — Tool loop implementation (RunLoop + pause points)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolloop/step_controller.go — Shared StepController service (pause/continue)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/events/debugger_pause.go — `EventDebuggerPause` (type=debugger.pause)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Step mode wiring + debug endpoints
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/forwarder.go — SEM mapping for debugger.pause
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/GP-07-STEP-CONTROLLER-INTEGRATION--step-controller-integration-for-webchat/reference/01-diary.md — Verification + commit notes
+
+### Commits
+
+- `geppetto`: `013b475`, `caf773d`
+- `pinocchio`: `ade1234`
+- `moments`: `c7d3edba`
