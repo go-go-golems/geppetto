@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
