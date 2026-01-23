@@ -28,7 +28,7 @@ Every AI conversation is a sequence of messages — user prompts, assistant resp
 - **Serialize conversations** — save/load to YAML for testing, debugging, and persistence
 - **Enable dynamic tools** — attach different tools to each inference call
 
-> **Key Pattern:** The runtime tool registry is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `engine.KeyToolConfig`).
+> **Key Pattern:** The runtime tool registry is carried via `context.Context` (see `tools.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `engine.KeyToolConfig`).
 
 ## Core Concepts
 
@@ -232,7 +232,6 @@ Tools are configured in two places:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
 
@@ -241,7 +240,7 @@ registry := tools.NewInMemoryToolRegistry()
 // ... register tools ...
 
 // 2. Attach registry to context (engines read this)
-ctx = toolcontext.WithRegistry(ctx, registry)
+ctx = tools.WithRegistry(ctx, registry)
 
 // 3. Configure tool behavior on Turn.Data using typed key
 turn := &turns.Turn{}

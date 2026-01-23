@@ -109,33 +109,42 @@ if err := registry.RegisterTool("get_weather", *toolDef); err != nil {
 The registry must be attached to `context.Context` so engines and middleware can access it:
 
 ```go
-import "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
+import "github.com/go-go-golems/geppetto/pkg/inference/tools"
 
-// Before calling RunInference or RunToolCallingLoop
-ctx = toolcontext.WithRegistry(ctx, registry)
+// Before calling eng.RunInference(...) directly
+ctx = tools.WithRegistry(ctx, registry)
 ```
 
 **Why context, not Turn?** The registry contains function pointers (not serializable). Keeping it in context separates runtime state from persistable Turn data.
 
-### Step 5: Configure Tool Calling on the Turn
+### Step 5: Configure Tool Calling
 
-Store tool configuration in `Turn.Data` using typed keys:
+When using the canonical tool loop (`toolloop.Loop`), you typically configure tool calling via:
+- `toolloop.LoopConfig` (loop orchestration, like max iterations)
+- `tools.ToolConfig` (tool policy, like tool choice and timeouts)
+
+The loop stores provider-facing tool configuration on `Turn.Data` automatically.
 
 ```go
 import (
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+    "time"
+
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/turns"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
 
 turn := &turns.Turn{
     Data: map[turns.TurnDataKey]any{},
 }
 
-turn.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
-    Enabled:          true,
-    ToolChoice:       engine.ToolChoiceAuto,  // or ToolChoiceRequired, ToolChoiceNone
-    MaxParallelTools: 1,                       // How many tools can run in parallel
-}
+loopCfg := toolloop.NewLoopConfig().
+    WithMaxIterations(5)
+
+toolCfg := tools.DefaultToolConfig().
+    WithToolChoice(tools.ToolChoiceAuto).
+    WithExecutionTimeout(30 * time.Second).
+    WithMaxParallelTools(1)
 
 turns.AppendBlock(turn, turns.NewSystemTextBlock("You are a helpful assistant with weather tools."))
 turns.AppendBlock(turn, turns.NewUserTextBlock("What's the weather in Paris?"))
@@ -143,16 +152,19 @@ turns.AppendBlock(turn, turns.NewUserTextBlock("What's the weather in Paris?"))
 
 ### Step 6: Run Inference with Tool Calling
 
-Use `toolhelpers.RunToolCallingLoop` for automatic tool execution:
+Use `toolloop.Loop` for automatic tool execution:
 
 ```go
-import "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+import "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 
-config := toolhelpers.NewToolConfig().
-    WithMaxIterations(5).           // Max tool-call rounds
-    WithToolChoice("auto")          // Let model decide
+loop := toolloop.New(
+    toolloop.WithEngine(eng),
+    toolloop.WithRegistry(registry),
+    toolloop.WithLoopConfig(loopCfg),
+    toolloop.WithToolConfig(toolCfg),
+)
 
-result, err := toolhelpers.RunToolCallingLoop(ctx, engine, turn, registry, config)
+result, err := loop.RunLoop(ctx, turn)
 if err != nil {
     return fmt.Errorf("tool calling failed: %w", err)
 }
@@ -177,10 +189,8 @@ import (
     "context"
     "fmt"
     
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -210,21 +220,19 @@ func main() {
     registry := tools.NewInMemoryToolRegistry()
     _ = registry.RegisterTool("get_weather", *toolDef)
     
-    // 3. Attach registry to context
-    ctx = toolcontext.WithRegistry(ctx, registry)
-    
-    // 4. Build Turn with tool config
+    // 3. Build Turn
     turn := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
-    turn.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
-        Enabled:    true,
-        ToolChoice: engine.ToolChoiceAuto,
-    }
     turns.AppendBlock(turn, turns.NewSystemTextBlock("You have access to weather tools."))
     turns.AppendBlock(turn, turns.NewUserTextBlock("What's the weather in Tokyo?"))
     
-    // 5. Run tool calling loop
-    config := toolhelpers.NewToolConfig().WithMaxIterations(5)
-    result, err := toolhelpers.RunToolCallingLoop(ctx, eng, turn, registry, config)
+    // 4. Run tool calling loop
+    loop := toolloop.New(
+        toolloop.WithEngine(eng),
+        toolloop.WithRegistry(registry),
+        toolloop.WithLoopConfig(toolloop.NewLoopConfig().WithMaxIterations(5)),
+        toolloop.WithToolConfig(tools.DefaultToolConfig().WithToolChoice(tools.ToolChoiceAuto)),
+    )
+    result, err := loop.RunLoop(ctx, turn)
     if err != nil {
         panic(err)
     }
@@ -242,11 +250,11 @@ func main() {
 
 | Problem | Cause | Solution |
 |---------|-------|----------|
-| Tool not called | Registry not on context | Add `ctx = toolcontext.WithRegistry(ctx, registry)` |
-| Tool not advertised | ToolConfig not on Turn | Set `turn.Data[turns.DataKeyToolConfig]` |
+| Tool not called | Tools disabled or tool choice is `none` | Ensure `tools.ToolConfig{Enabled: true, ToolChoice: tools.ToolChoiceAuto}` |
+| Tool not advertised | Registry not available to the engine | Run inference via `toolloop.Loop` (it attaches the registry to context) |
 | "tool not found" error | Name mismatch | Ensure `RegisterTool` name matches model's request |
 | Infinite loop | No max iterations | Use `WithMaxIterations(n)` in config |
-| Context values lost | Wrong context | Pass the enriched `ctx` to `RunToolCallingLoop` |
+| Context values lost | Wrong context | Pass the same `ctx` to `loop.RunLoop(...)` (and attach sinks via `events.WithEventSinks` if streaming) |
 
 ## See Also
 
@@ -254,4 +262,3 @@ func main() {
 - [Turns and Blocks](../topics/08-turns.md) — Turn data model
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete streaming example
 - Example: `geppetto/cmd/examples/generic-tool-calling/main.go`
-

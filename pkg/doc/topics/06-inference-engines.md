@@ -202,20 +202,20 @@ func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, pro
 }
 ```
 
-## Tool Calling with Helpers (Per-Turn tools)
+## Tool Calling with the Tool Loop (Per-Turn tools)
 
-The `toolhelpers` package provides utilities for tool calling workflows. Engines focus on API calls while helpers handle orchestration.
+Geppetto’s canonical tool orchestration lives in `toolloop.Loop`. Engines focus on provider I/O, while the loop handles extracting tool calls, executing tools, appending tool results, and iterating.
 
-Providers learn about available tools from the **runtime registry attached to `context.Context`** (see `toolcontext.WithRegistry`) plus any **serializable tool config** stored on `Turn.Data` (e.g., `engine.KeyToolConfig`).
+Providers learn about available tools from the **runtime registry attached to `context.Context`** (see `tools.WithRegistry`) plus any **serializable tool config** stored on `Turn.Data` (written automatically by the loop via `engine.KeyToolConfig`).
 
-### Tool Helper Functions
+### Tool Calling Building Blocks
 
-The main helper functions are:
+The main building blocks are:
 
 - `toolblocks.ExtractPendingToolCalls`: find tool calls without matching tool_use blocks
 - `tools.NewDefaultToolExecutor`: execute tool calls against a registry
 - `toolblocks.AppendToolResultsBlocks`: append `tool_use` blocks from results
-- `toolhelpers.RunToolCallingLoop`: complete automated Turn-based workflow
+- `toolloop.Loop.RunLoop`: complete automated Turn-based workflow
 
 ### Setting Up Tools
 
@@ -352,28 +352,29 @@ import (
     "time"
 
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func automatedToolCalling(ctx context.Context, engine engine.Engine, registry tools.ToolRegistry, seed *turns.Turn) (*turns.Turn, error) {
-    // Configure tool calling behavior
-    config := toolhelpers.NewToolConfig().
-        WithMaxIterations(5).
-        WithTimeout(30 * time.Second).
-        WithMaxParallelTools(3).
-        WithToolChoice(tools.ToolChoiceAuto).
-        WithToolErrorHandling(tools.ToolErrorContinue)
+func automatedToolCalling(ctx context.Context, eng engine.Engine, registry tools.ToolRegistry, seed *turns.Turn) (*turns.Turn, error) {
+    loop := toolloop.New(
+        toolloop.WithEngine(eng),
+        toolloop.WithRegistry(registry),
+        toolloop.WithLoopConfig(toolloop.NewLoopConfig().WithMaxIterations(5)),
+        toolloop.WithToolConfig(tools.DefaultToolConfig().
+            WithExecutionTimeout(30*time.Second).
+            WithMaxParallelTools(3).
+            WithToolChoice(tools.ToolChoiceAuto)),
+    )
 
-    // Run complete workflow
-    return toolhelpers.RunToolCallingLoop(ctx, engine, seed, registry, config)
+    return loop.RunLoop(ctx, seed)
 }
 ```
 
 ## Complete Tool Calling Example (with per-Turn tools)
 
-Here's a complete example showing tool calling with streaming events (engine emits start/partial/final; helpers emit tool-call/tool-result via context). Tools are attached to the Turn instead of the Engine.
+Here's a complete example showing tool calling with streaming events (engine emits start/partial/final). Tools are attached to the Turn instead of the Engine.
 
 ```go
 package main
@@ -387,8 +388,7 @@ import (
     "github.com/go-go-golems/geppetto/pkg/events"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
     "golang.org/x/sync/errgroup"
@@ -436,27 +436,14 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         return fmt.Errorf("failed to register weather tool: %w", err)
     }
 
-    // 6. Create tool helper configuration
-    helperConfig := toolhelpers.NewToolConfig().
-        WithMaxIterations(5).
-        WithTimeout(30 * time.Second).
-        WithMaxParallelTools(3).
-        WithToolChoice(tools.ToolChoiceAuto).
-        WithToolErrorHandling(tools.ToolErrorContinue)
-
-    // 7. Build seed Turn with tool config
+    // 6. Build seed Turn
     seed := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
-    seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
-        Enabled:          true,
-        ToolChoice:       engine.ToolChoiceAuto,
-        MaxParallelTools: 3,
-    }
     turns.AppendBlock(seed, turns.NewSystemTextBlock(
         "You are a helpful assistant with access to weather information. Use the get_weather tool when users ask about weather.",
     ))
     turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
 
-    // 8. Run inference with streaming in parallel
+    // 7. Run inference with streaming in parallel
     eg := errgroup.Group{}
     ctx, cancel := context.WithCancel(ctx)
     defer cancel()
@@ -472,14 +459,21 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         defer cancel()
         <-router.Running() // Wait for router to be ready
 
-        // Attach engine sink and tool registry to context so helpers/tools can publish too
+        // Attach engine sink to context so engine can stream
         runCtx := events.WithEventSinks(ctx, watermillSink)
-        runCtx = toolcontext.WithRegistry(runCtx, registry)
+
+        loop := toolloop.New(
+            toolloop.WithEngine(baseEngine),
+            toolloop.WithRegistry(registry),
+            toolloop.WithLoopConfig(toolloop.NewLoopConfig().WithMaxIterations(5)),
+            toolloop.WithToolConfig(tools.DefaultToolConfig().
+                WithExecutionTimeout(30*time.Second).
+                WithMaxParallelTools(3).
+                WithToolChoice(tools.ToolChoiceAuto)),
+        )
 
         // Run complete tool calling workflow
-        updatedTurn, err := toolhelpers.RunToolCallingLoop(
-            runCtx, baseEngine, seed, registry, helperConfig,
-        )
+        updatedTurn, err := loop.RunLoop(runCtx, seed)
         if err != nil {
             return fmt.Errorf("tool calling failed: %w", err)
         }
@@ -662,10 +656,10 @@ log.Logger = log.Level(zerolog.DebugLevel)
 
 ### Debug Tool Execution
 
-The `toolhelpers` package includes extensive debug logging:
+Tool execution emits logs and (optionally) events depending on your wiring (engine event sinks on `context.Context`, and tool execution settings in `tools.ToolConfig`):
 
 ```go
-// Tool calling helpers log detailed information about:
+// Tool calling components can log detailed information about:
 // - Tool call extraction
 // - Tool execution steps
 // - Result processing
@@ -689,14 +683,14 @@ router.AddHandler("debug", "chat", func(msg *message.Message) error {
 
 ## Conclusion
 
-The Geppetto inference engine architecture provides a clean, testable, and provider-agnostic foundation for AI applications. By separating API communication (engines) from orchestration logic (helpers), the architecture achieves:
+The Geppetto inference engine architecture provides a clean, testable, and provider-agnostic foundation for AI applications. By separating API communication (engines) from orchestration logic (tool loop + middleware), the architecture achieves:
 
 - **Simplicity**: Easy to understand and maintain
 - **Flexibility**: Works with any AI provider
 - **Testability**: Simple interfaces enable comprehensive testing
 - **Composability**: Mix and match components as needed
 
-The combination of engines, helpers, factories, and middleware provides all the tools needed to build sophisticated AI applications while maintaining clean separation of concerns.
+The combination of engines, tool loop, factories, and middleware provides all the tools needed to build sophisticated AI applications while maintaining clean separation of concerns.
 
 ## See Also
 

@@ -40,7 +40,7 @@ In the Turn-based architecture:
 - **The tool loop runner** executes tools and appends `tool_use` blocks
 - **Engines re-run** with the updated Turn to let the model continue
 
-> **Key Pattern:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `engine.KeyToolConfig`). This keeps Turn state persistable while allowing dynamic tools per inference call.
+> **Key Pattern:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `tools.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `engine.KeyToolConfig`). This keeps Turn state persistable while allowing dynamic tools per inference call.
 
 ### Packages
 
@@ -48,7 +48,6 @@ In the Turn-based architecture:
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/session"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
     "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -67,7 +66,7 @@ import (
 
 - Registry: `tools.ToolRegistry` holds callable tools
 - Per-Turn tools:
-  - Runtime registry: carried via `context.Context` using `toolcontext.WithRegistry(ctx, reg)`
+  - Runtime registry: carried via `context.Context` using `tools.WithRegistry(ctx, reg)`
   - Serializable config: stored on `Turn.Data` via `engine.KeyToolConfig`
 - Blocks: `llm_text`, `tool_call`, `tool_use`
 ### OpenAI Responses specifics
@@ -112,8 +111,10 @@ _ = reg.RegisterTool("get_weather", *def)
 seed := &turns.Turn{}
 turns.AppendBlock(seed, turns.NewUserTextBlock("What's the weather in Paris? Use get_weather."))
 
-cfg := toolloop.NewToolConfig().
-    WithMaxIterations(5).
+loopCfg := toolloop.NewLoopConfig().
+    WithMaxIterations(5)
+
+toolCfg := tools.DefaultToolConfig().
     WithMaxParallelTools(1).
     WithToolChoice(tools.ToolChoiceAuto).
     WithToolErrorHandling(tools.ToolErrorContinue)
@@ -121,7 +122,8 @@ cfg := toolloop.NewToolConfig().
 loop := toolloop.New(
     toolloop.WithEngine(e),
     toolloop.WithRegistry(reg),
-    toolloop.WithConfig(cfg),
+    toolloop.WithLoopConfig(loopCfg),
+    toolloop.WithToolConfig(toolCfg),
 )
 updated, err := loop.RunLoop(ctx, seed)
 ```
@@ -132,7 +134,8 @@ updated, err := loop.RunLoop(ctx, seed)
 runner, _ := enginebuilder.New(
     enginebuilder.WithBase(e),
     enginebuilder.WithToolRegistry(reg),
-    enginebuilder.WithToolConfig(cfg),
+    enginebuilder.WithLoopConfig(loopCfg),
+    enginebuilder.WithToolConfig(toolCfg),
 ).Build(ctx, "demo-session")
 updated, _ := runner.RunInference(ctx, seed)
 ```
@@ -175,8 +178,10 @@ func addTool(req AddRequest) AddResponse { return AddResponse{Sum: req.A + req.B
 	    turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
 
 	    // 3) Configure the tool loop
-	    cfg := toolloop.NewToolConfig().
-	        WithMaxIterations(3).
+	    loopCfg := toolloop.NewLoopConfig().
+	        WithMaxIterations(3)
+
+	    toolCfg := tools.DefaultToolConfig().
 	        WithMaxParallelTools(1).
 	        WithToolChoice(tools.ToolChoiceAuto).
 	        WithToolErrorHandling(tools.ToolErrorContinue)
@@ -185,7 +190,8 @@ func addTool(req AddRequest) AddResponse { return AddResponse{Sum: req.A + req.B
 		    builder := enginebuilder.New(
 		        enginebuilder.WithBase(e),
 		        enginebuilder.WithToolRegistry(reg),
-		        enginebuilder.WithToolConfig(cfg),
+		        enginebuilder.WithLoopConfig(loopCfg),
+		        enginebuilder.WithToolConfig(toolCfg),
 		    )
 		    runner, err := builder.Build(ctx, "demo-session")
 	    if err != nil {
@@ -363,7 +369,7 @@ For details on event extensibility, see: `glaze help geppetto-events-streaming-w
 
 | Problem | Solution |
 |---------|----------|
-| Tools not advertised | Ensure `ctx = toolcontext.WithRegistry(ctx, reg)` before `RunInference` |
+| Tools not advertised | Ensure `ctx = tools.WithRegistry(ctx, reg)` before `RunInference` |
 | Tool call not executed | Check middleware is attached or run the tool loop explicitly via `toolloop.New(...).RunLoop(...)` |
 | Payload key errors | Use constants like `turns.PayloadKeyArgs`, never string literals |
 | Dynamic tools not working | Modify registry before calling `RunInference`; Turn.Data for config only |
