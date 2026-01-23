@@ -85,3 +85,12 @@ Step 7: Docs sweep + end-to-end wiring snippet + Pinocchio snippet updates (gepp
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/doc/topics/07-tools.md — Added end-to-end wiring snippet
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/agents/simple-chat-agent.md — Updated docs to toolloop/session
 
+
+## 2026-01-23
+
+Step 8: Upload updated GP-08 bundle to reMarkable (/ai/2026/01/23/GP-08-CLEANUP-TOOLS)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-08-CLEANUP-TOOLS--cleanup-tool-packages/reference/01-diary.md — Recorded reMarkable upload commands and remote path
+

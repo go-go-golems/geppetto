@@ -82,4 +82,4 @@
   - `cd go-go-mento/go && go test ./... -count=1` (or module-specific)
 - [x] Run linters/hooks where applicable (expect lefthook behavior)
 - [x] Commit in each repo with clean message grouping (geppetto/pinocchio/moments/go-go-mento)
-- [ ] Upload updated GP-08 docs to reMarkable (bundle)
+- [x] Upload updated GP-08 docs to reMarkable (bundle)

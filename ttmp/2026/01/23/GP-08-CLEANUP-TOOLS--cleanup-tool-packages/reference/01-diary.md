@@ -507,3 +507,48 @@ I also added a short, copy/pasteable “How to wire tools end-to-end” snippet 
 ### Technical details
 - Canonical orchestration: `toolloop.New(...).RunLoop(ctx, seed)`
 - Session wiring: `toolloop/enginebuilder` + `session.Session`
+
+## Step 8: Upload updated GP-08 bundle to reMarkable
+
+This step refreshed the reMarkable bundle for GP-08 after the final package moves and doc updates. The goal is to keep the on-device copy aligned with the repo state so review can happen away from the workstation.
+
+I used `remarquee upload bundle` to render the key GP-08 Markdown docs into a single PDF (with a ToC) and uploaded it under a stable ticket folder.
+
+### What I did
+- Confirmed `remarquee` is available via `remarquee status`.
+- Dry-ran the upload to confirm inputs and output PDF name:
+  - `remarquee upload bundle --dry-run ... --name "GP-08 Cleanup Tools" --remote-dir "/ai/2026/01/23/GP-08-CLEANUP-TOOLS" --toc-depth 2`
+- Uploaded (forced overwrite):
+  - `remarquee upload bundle ... --force`
+- Verified the remote folder:
+  - `remarquee cloud ls /ai/2026/01/23/GP-08-CLEANUP-TOOLS --long --non-interactive`
+
+### Why
+- GP-08 is review-heavy and spans multiple repos; bundling the docs as a single PDF makes it easy to read and annotate on reMarkable.
+
+### What worked
+- The bundle upload succeeded:
+  - `OK: uploaded GP-08 Cleanup Tools.pdf -> /ai/2026/01/23/GP-08-CLEANUP-TOOLS`
+
+### What didn't work
+- The remote listing shows duplicate entries named `GP-08 Cleanup Tools`. I did not delete anything automatically; if this is undesirable, we should clean the remote folder manually after confirming which file is the latest.
+
+### What I learned
+- `--force` overwrites one matching target, but it doesn’t necessarily guarantee there won’t be multiple same-named documents in the destination folder (depending on prior state).
+
+### What was tricky to build
+- N/A (upload step).
+
+### What warrants a second pair of eyes
+- Confirm the reMarkable folder contains the expected single up-to-date PDF (or decide whether to delete older duplicates).
+
+### What should be done in the future
+- Optional: implement task 23 (improve tool result block shape) if the `"Error: ..."` payload pattern becomes a pain for downstream UIs/parsers.
+
+### Code review instructions
+- N/A (no code changes in this step).
+
+### Technical details
+- Remote folder: `/ai/2026/01/23/GP-08-CLEANUP-TOOLS`
+- Bundle inputs:
+  - `index.md`, `tasks.md`, `changelog.md`, `analysis/01-tool-packages-reorg-report.md`, `reference/01-diary.md`
