@@ -104,3 +104,8 @@ Step 9: Improve tool_use error shape using PayloadKeyError (geppetto 796d32b; mo
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai/helpers.go — Serialize tool errors back to provider
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/toolblocks/toolblocks.go — Write tool_use error to PayloadKeyError
 
+
+## 2026-01-23
+
+Ticket closed
+
