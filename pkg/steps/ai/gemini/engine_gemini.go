@@ -507,6 +507,7 @@ func (e *GeminiEngine) buildPartsFromTurn(t *turns.Turn) []genai.Part {
 			// Add FunctionResponse for tool result
 			id, _ := b.Payload[turns.PayloadKeyID].(string)
 			res := b.Payload[turns.PayloadKeyResult]
+			errStr, _ := b.Payload[turns.PayloadKeyError].(string)
 			name := idToName[id]
 			var response map[string]any
 			switch rv := res.(type) {
@@ -528,6 +529,9 @@ func (e *GeminiEngine) buildPartsFromTurn(t *turns.Turn) []genai.Part {
 				} else {
 					response = map[string]any{"result": rv}
 				}
+			}
+			if errStr != "" {
+				response = map[string]any{"error": errStr, "result": response}
 			}
 			if name == "" {
 				name = "result"

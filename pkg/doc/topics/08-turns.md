@@ -167,6 +167,7 @@ const (
     PayloadKeyName             = "name"              // Tool name
     PayloadKeyArgs             = "args"              // Tool arguments
     PayloadKeyResult           = "result"            // Tool result
+    PayloadKeyError            = "error"             // Tool error (string)
     PayloadKeyImages           = "images"            // Attached images
     PayloadKeyEncryptedContent = "encrypted_content" // Reasoning trace
     PayloadKeyItemID           = "item_id"           // Provider item ID

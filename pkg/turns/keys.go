@@ -7,6 +7,7 @@ const (
 	PayloadKeyName   = "name"
 	PayloadKeyArgs   = "args"
 	PayloadKeyResult = "result"
+	PayloadKeyError  = "error"
 	// PayloadKeyImages carries a slice of image specs attached to a chat block
 	PayloadKeyImages = "images"
 	// PayloadKeyEncryptedContent stores provider encrypted reasoning content

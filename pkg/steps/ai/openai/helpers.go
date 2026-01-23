@@ -283,19 +283,7 @@ func MakeCompletionRequestFromTurn(
 				flushToolCalls()
 				toolID := ""
 				_ = assignString(&toolID, b.Payload[turns.PayloadKeyID])
-				result := ""
-				if v, ok := b.Payload[turns.PayloadKeyResult]; ok {
-					switch tv := v.(type) {
-					case string:
-						result = tv
-					case []byte:
-						result = string(tv)
-					default:
-						if bb, err := json.Marshal(v); err == nil {
-							result = string(bb)
-						}
-					}
-				}
+				result := toolUsePayloadToJSONString(b.Payload)
 				// Debug: record detected tool_use block
 				log.Debug().
 					Str("tool_id", toolID).
@@ -481,6 +469,53 @@ func assignString(out *string, v interface{}) bool {
 		}
 	}
 	return false
+}
+
+func toolUsePayloadToJSONString(payload map[string]any) string {
+	if payload == nil {
+		return ""
+	}
+	resultVal := payload[turns.PayloadKeyResult]
+	errStr, _ := payload[turns.PayloadKeyError].(string)
+	if errStr == "" {
+		return anyToJSONString(resultVal)
+	}
+
+	out := map[string]any{"error": errStr}
+	if resultVal != nil {
+		if s, ok := resultVal.(string); ok {
+			var obj any
+			if json.Unmarshal([]byte(s), &obj) == nil {
+				out["result"] = obj
+			} else {
+				out["result"] = s
+			}
+		} else {
+			out["result"] = resultVal
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return fmt.Sprintf(`{"error":%q}`, errStr)
+	}
+	return string(b)
+}
+
+func anyToJSONString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case []byte:
+		return string(tv)
+	default:
+		if bb, err := json.Marshal(v); err == nil {
+			return string(bb)
+		}
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func MakeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*go_openai.Client, error) {

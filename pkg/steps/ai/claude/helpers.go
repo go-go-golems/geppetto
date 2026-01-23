@@ -3,6 +3,7 @@ package claude
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -187,19 +188,7 @@ func MakeMessageRequestFromTurn(
 			case turns.BlockKindToolUse:
 				toolID := ""
 				_ = assignString(&toolID, b.Payload[turns.PayloadKeyID])
-				result := ""
-				if v, ok := b.Payload[turns.PayloadKeyResult]; ok {
-					switch tv := v.(type) {
-					case string:
-						result = tv
-					case []byte:
-						result = string(tv)
-					default:
-						if bb, err := json.Marshal(v); err == nil {
-							result = string(bb)
-						}
-					}
-				}
+				result := toolUsePayloadToJSONString(b.Payload)
 				msgs = append(msgs, api.Message{Role: RoleUser, Content: []api.Content{api.NewToolResultContent(toolID, result)}})
 				// After emitting tool_result, flush any delayed messages and end phase
 				flushDelayed()
@@ -291,5 +280,52 @@ func assignString(out *string, v interface{}) bool {
 }
 
 // end helpers
+
+func toolUsePayloadToJSONString(payload map[string]any) string {
+	if payload == nil {
+		return ""
+	}
+	resultVal := payload[turns.PayloadKeyResult]
+	errStr, _ := payload[turns.PayloadKeyError].(string)
+	if errStr == "" {
+		return anyToJSONString(resultVal)
+	}
+
+	out := map[string]any{"error": errStr}
+	if resultVal != nil {
+		if s, ok := resultVal.(string); ok {
+			var obj any
+			if json.Unmarshal([]byte(s), &obj) == nil {
+				out["result"] = obj
+			} else {
+				out["result"] = s
+			}
+		} else {
+			out["result"] = resultVal
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return fmt.Sprintf(`{"error":%q}`, errStr)
+	}
+	return string(b)
+}
+
+func anyToJSONString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case []byte:
+		return string(tv)
+	default:
+		if bb, err := json.Marshal(v); err == nil {
+			return string(bb)
+		}
+		return fmt.Sprintf("%v", v)
+	}
+}
 
 // Just like in the openai package, we merge the received tool calls and messages from streaming

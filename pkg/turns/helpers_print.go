@@ -45,7 +45,13 @@ func FprintTurn(w io.Writer, t *Turn) {
 			name, _ := b.Payload[PayloadKeyName].(string)
 			fmt.Fprintf(w, "tool_call: %s\n", name)
 		case BlockKindToolUse:
-			fmt.Fprintln(w, "tool_use")
+			toolID, _ := b.Payload[PayloadKeyID].(string)
+			errStr, _ := b.Payload[PayloadKeyError].(string)
+			if errStr != "" {
+				fmt.Fprintf(w, "tool_use: id=%s error=%s\n", toolID, errStr)
+			} else {
+				fmt.Fprintf(w, "tool_use: id=%s\n", toolID)
+			}
 		case BlockKindOther:
 			fmt.Fprintln(w, "other block kind")
 		}

@@ -2,6 +2,7 @@ package openai_responses
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -208,15 +209,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	}
 	appendFunctionCallOutput := func(b turns.Block) {
 		toolID, _ := b.Payload[turns.PayloadKeyID].(string)
-		result := b.Payload[turns.PayloadKeyResult]
-		var resultJSON string
-		if result != nil {
-			if s, ok := result.(string); ok {
-				resultJSON = s
-			} else if bb, err := json.Marshal(result); err == nil {
-				resultJSON = string(bb)
-			}
-		}
+		resultJSON := toolUsePayloadToJSONString(b.Payload)
 		if toolID != "" {
 			// Responses expects call_id on function_call_output
 			items = append(items, responsesInput{Type: "function_call_output", CallID: toolID, Output: resultJSON})
@@ -366,6 +359,53 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	}
 
 	return items
+}
+
+func toolUsePayloadToJSONString(payload map[string]any) string {
+	if payload == nil {
+		return ""
+	}
+	resultVal := payload[turns.PayloadKeyResult]
+	errStr, _ := payload[turns.PayloadKeyError].(string)
+	if errStr == "" {
+		return anyToJSONString(resultVal)
+	}
+
+	out := map[string]any{"error": errStr}
+	if resultVal != nil {
+		if s, ok := resultVal.(string); ok {
+			var obj any
+			if json.Unmarshal([]byte(s), &obj) == nil {
+				out["result"] = obj
+			} else {
+				out["result"] = s
+			}
+		} else {
+			out["result"] = resultVal
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return fmt.Sprintf(`{"error":%q}`, errStr)
+	}
+	return string(b)
+}
+
+func anyToJSONString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch tv := v.(type) {
+	case string:
+		return tv
+	case []byte:
+		return string(tv)
+	default:
+		if bb, err := json.Marshal(v); err == nil {
+			return string(bb)
+		}
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // PrepareToolsForResponses placeholder for parity; tools omitted in first cut.
