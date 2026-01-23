@@ -1,21 +1,85 @@
 # Tasks
 
-## TODO
+## Completed (Bookkeeping)
 
-- [ ] Confirm desired end-state package layout (minimum # of packages, naming, compatibility expectations)
-- [ ] Deprecation strategy for `geppetto/pkg/inference/toolhelpers` (wrapper vs deletion; external consumers)
-- [ ] Decide canonical tool config type(s) and remove duplication across:
-  - `engine.ToolConfig`
-  - `tools.ToolConfig`
-  - `toolloop.ToolConfig`
-  - `toolhelpers.ToolConfig`
-- [ ] Decide whether `toolcontext` becomes:
-  - part of `tools` (preferred), or
-  - stays as its own package but gets renamed (e.g. `toolsctx`)
-- [ ] Decide whether `toolblocks` becomes:
-  - part of `turns` (preferred), or
-  - stays as its own package but gets renamed (e.g. `turntools`)
-- [ ] Update docs to only present the canonical surfaces (`toolloop.Loop`, `toolloop.EngineBuilder`, `tools.ToolRegistry`, `tools.ToolExecutor`)
-- [ ] Add a “compatibility + migration” doc for downstream repos (go-go-mento, moments, pinocchio) and provide mechanical rewrite guidance
-- [ ] Add explicit deprecation markers (`// Deprecated:`) and migration notes in GoDoc
-- [ ] Optionally: add a minimal `go vet`/linter rule or `rg` check to prevent new uses of deprecated packages
+- [x] Create GP-08 ticket workspace (index + tasks + analysis)
+- [x] Write initial tool* package inventory + reorg report
+- [x] Incorporate decisions: no compat, `tools.ToolConfig` canonical, move `toolcontext`→`tools`, move `toolblocks`→`turns`, builder in `toolloop/enginebuilder`
+- [x] Upload GP-08 bundle to reMarkable (and overwrite after updates)
+
+## Execution Plan (Step-by-step)
+
+### Step 1 — Move the session engine builder into `toolloop/enginebuilder`
+
+- [ ] Create package: `geppetto/pkg/inference/toolloop/enginebuilder`
+- [ ] Move `toolloop.EngineBuilder` and builder options into `toolloop/enginebuilder`
+  - Target API:
+    - `enginebuilder.New(...) *enginebuilder.Builder` (or `NewEngineBuilder`, pick one)
+    - `enginebuilder.WithBase(...)`, `enginebuilder.WithMiddlewares(...)`, `enginebuilder.WithToolRegistry(...)`, `enginebuilder.WithToolConfig(...)`, `enginebuilder.WithEventSinks(...)`, `enginebuilder.WithSnapshotHook(...)`, `enginebuilder.WithStepController(...)`, `enginebuilder.WithStepPauseTimeout(...)`, `enginebuilder.WithPersister(...)`
+  - Ensure it still satisfies `session.EngineBuilder`
+- [ ] Update all Geppetto call sites (examples + docs snippets where applicable)
+- [ ] Update Pinocchio/Moments call sites to the new import path (no wrapper helpers)
+- [ ] Update/relocate the builder unit tests (avoid import cycles; keep tests in `toolloop/enginebuilder`)
+
+### Step 2 — Make `tools.ToolConfig` canonical (and rename loop config)
+
+- [ ] Introduce `toolloop.LoopConfig` (or similar) and remove/rename `toolloop.ToolConfig`
+  - Loop config should only cover loop orchestration concerns (e.g. `MaxIterations`)
+  - Tool execution/advertisement policy must come from `tools.ToolConfig` (canonical)
+- [ ] Update `toolloop.Loop` to accept:
+  - loop config: `LoopConfig`
+  - tool config: `tools.ToolConfig` (or pointer) and set `engine.KeyToolConfig` accordingly
+- [ ] Decide the authoritative “Turn.Data tool config” type:
+  - Preferred: store an `engine.ToolConfig` derived from `tools.ToolConfig` (provider-facing shape stays in engine)
+  - Ensure there is exactly one mapping function (single source of truth)
+- [ ] Update provider engines if they read/assume fields that diverge
+
+### Step 3 — Move registry-in-context from `toolcontext` into `tools`
+
+- [ ] Add `tools.WithRegistry(ctx, reg)` and `tools.RegistryFrom(ctx)` (names TBD, but keep short)
+- [ ] Update providers to import from `tools` (OpenAI/Claude/Gemini/OpenAI-Responses)
+- [ ] Update tool loop orchestration to use `tools.WithRegistry(...)`
+- [ ] Delete `geppetto/pkg/inference/toolcontext`
+- [ ] Run `go test ./...` in `geppetto`
+
+### Step 4 — Move Turn block helpers from `toolblocks` into `turns`
+
+- [ ] Create `geppetto/pkg/turns/toolblocks` (preferred) or `geppetto/pkg/turns/tools` (pick one)
+- [ ] Move:
+  - `ExtractPendingToolCalls`
+  - `AppendToolResultsBlocks`
+  - associated structs
+- [ ] Update imports in `toolloop` and any remaining internal users
+- [ ] Delete `geppetto/pkg/inference/toolblocks`
+- [ ] Consider improving result block shape (optional follow-up task):
+  - avoid `"Error: ..."` string payloads; use typed payload fields if the block model supports it
+
+### Step 5 — Delete `toolhelpers` (hard cutover; no wrappers)
+
+- [ ] Update all internal Geppetto call sites (should be none, verify)
+- [ ] Update downstream repos:
+  - `pinocchio`: replace any remaining `toolhelpers` usage with `toolloop.Loop` or `toolloop/enginebuilder` + `tools.ToolExecutor`
+  - `moments`: same
+  - `go-go-mento`: same
+- [ ] Delete `geppetto/pkg/inference/toolhelpers`
+- [ ] Ensure docs/playbooks do not recommend `toolhelpers` anymore (canonical path only)
+
+### Step 6 — Docs + guidance
+
+- [ ] Update Geppetto docs to only present canonical surfaces:
+  - tool loop: `toolloop.Loop`
+  - builder: `toolloop/enginebuilder`
+  - primitives: `tools.ToolRegistry`, `tools.ToolExecutor`, `tools.ToolConfig`
+- [ ] Add a “How to wire tools end-to-end” section with the new API (short, copy/pasteable)
+- [ ] Update Pinocchio docs snippets (webchat guide, README snippets) to match new paths
+
+### Step 7 — Validation and rollout
+
+- [ ] Run tests:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+  - `cd go-go-mento/go && go test ./... -count=1` (or module-specific)
+- [ ] Run linters/hooks where applicable (expect lefthook behavior)
+- [ ] Commit in each repo with clean message grouping (geppetto/pinocchio/moments/go-go-mento)
+- [ ] Upload updated GP-08 docs to reMarkable (bundle)

@@ -11,7 +11,7 @@ DocType: analysis
 Intent: long-term
 Owners: []
 Summary: Detailed inventory of Geppetto’s tool* packages, with findings on deprecated/redundant areas and a proposed reorganization + migration plan.
-LastUpdated: 2026-01-23T00:01:56-05:00
+LastUpdated: 2026-01-23T08:19:28-05:00
 ---
 
 # GP-08 report: tool* package inventory and reorg proposal
@@ -25,6 +25,17 @@ Geppetto’s tool-calling stack has converged on a clear “canonical” path (`
 3) **Small single-purpose packages** (`toolcontext`, `toolblocks`) that are useful but arguably in the “wrong place” (they’re cross-cutting helpers, not “inference features”).
 
 This document inventories the tool* packages and proposes a target organization that reduces redundancy and makes it obvious which APIs are blessed for new code.
+
+## Decisions (locked-in for GP-08)
+
+The following decisions were made after the initial report draft. The rest of this document is written to match them:
+
+- `tools.ToolConfig` is canonical (tool advertisement + execution policy).
+- The tool loop has a separate configuration concept (not called `ToolConfig`).
+- `toolcontext` should become part of `tools`.
+- `toolblocks` should become part of `turns`.
+- The session engine builder should live in a **toolloop subpackage** to avoid `With*` naming clashes.
+- **No backwards compatibility**: no wrappers; update downstream repos and cut over.
 
 ## Scope
 
@@ -51,7 +62,7 @@ It also references the provider engines in `geppetto/pkg/steps/ai/*`, because th
 - `BaseToolExecutor` provides hook points and consistent event publishing.
 
 **Needs attention**
-- `tools.ToolConfig` duplicates `engine.ToolConfig` almost field-for-field, which makes it unclear which one is authoritative.
+- `tools.ToolConfig` duplicates `engine.ToolConfig` almost field-for-field, which makes it unclear which one is authoritative. GP-08’s direction is to make `tools.ToolConfig` canonical and converge other “tool config” representations onto it.
 - Adapter APIs include partial/unimplemented stubs (e.g. `ConvertFromProviderResponse` returning “not implemented”), which is OK if intentionally unused, but should be made explicit.
 
 **Dependency notes**
@@ -65,17 +76,16 @@ It also references the provider engines in `geppetto/pkg/steps/ai/*`, because th
   - `after_inference` (when tool calls are pending)
   - `after_tools`
 - Owns a shared, application-owned `StepController` and publishes a Geppetto-native `debugger.pause` event.
-- Provides the canonical `session.EngineBuilder` implementation:
-  - `toolloop.EngineBuilder` + `toolloop.NewEngineBuilder(...)`.
+- Provides the canonical engine builder implementation for session-style apps, but **in a dedicated subpackage** to avoid `With*` name clashes:
+  - `toolloop/enginebuilder` (e.g. `enginebuilder.New(...)` + `enginebuilder.WithBase(...)`, etc.).
 
 **What’s good**
 - This is the “right place” for orchestration and step-mode pausing.
 - The functional option pattern is consistent with other Geppetto code.
 
 **Needs attention**
-- `toolloop.ToolConfig` overlaps with both `engine.ToolConfig` and `tools.ToolConfig` but is not identical. This makes “which config do I use where?” non-obvious.
-- Option naming around the builder is still slightly awkward in a couple places:
-  - `WithEngineBuilderSnapshotHook(...)` and `WithStepControllerService(...)` exist primarily to avoid name collisions with `Loop` options; we should align naming conventions (see proposal below).
+- `toolloop.ToolConfig` should not exist as a type name. The tool loop needs its own config, but GP-08’s direction is that **`tools.ToolConfig` is canonical** and the loop config should be a separate type (e.g. `toolloop.LoopConfig`).
+- `toolloop/enginebuilder` should own the ergonomic `With*` option surface for builder composition without leaking naming workarounds into the main `toolloop` package.
 
 ### `geppetto/pkg/inference/toolcontext` (small but critical; placement questionable)
 
@@ -90,8 +100,7 @@ It also references the provider engines in `geppetto/pkg/steps/ai/*`, because th
 - Solves a real problem: avoids persisting runtime registries into `Turn.Data`.
 
 **Needs attention**
-- This feels like it belongs to the *tools substrate* (either `tools` itself or a sub-area), not a separate top-level tool* package.
-- Naming: “toolcontext” is fine, but if we’re trying to reduce package count, this is the easiest merge candidate.
+- GP-08 decision: `toolcontext` moves into `tools` (no separate package).
 
 ### `geppetto/pkg/inference/toolblocks` (helpful glue; placement questionable)
 
@@ -104,7 +113,7 @@ It also references the provider engines in `geppetto/pkg/steps/ai/*`, because th
 - Centralizes the “block walking” logic so tool loop and helpers don’t duplicate it.
 
 **Needs attention**
-- This is arguably a `turns` concern (“block helpers”), not an inference concern.
+- GP-08 decision: `toolblocks` moves into `turns` (block model helpers live with the block model).
 - It currently hard-codes a string-y “Error: …” payload shape when appending tool results, which is convenient but may not match what all providers/UI layers want long-term.
 
 ### `geppetto/pkg/inference/toolhelpers` (legacy; redundant)
@@ -123,9 +132,7 @@ It also references the provider engines in `geppetto/pkg/steps/ai/*`, because th
 - It introduces a fourth “tool config” type and a second snapshot hook mechanism (which we already have in `toolloop`).
 
 **Recommendation**
-- Treat this as deprecated and either:
-  - turn it into a strict compatibility wrapper around `toolloop` (preferred for external users), or
-  - delete it and do a downstream migration sweep (more disruptive).
+- GP-08 decision: delete it and do a downstream migration sweep (no wrappers, no compat layer).
 
 ## Cross-cutting problems (why this feels messy)
 
@@ -165,28 +172,21 @@ This proposal focuses on clarity and a smaller set of “blessed” packages for
 
 2) `geppetto/pkg/inference/toolloop`
    - Keep as “orchestration”: loop + step control + builder + snapshot hook.
+   - Builder should move to `geppetto/pkg/inference/toolloop/enginebuilder`.
 
 ### Merge candidates (reduce package count)
 
-3) Merge `toolcontext` into `tools`
-   - Move:
-     - `toolcontext.WithRegistry` -> `tools.WithRegistry` (or `tools.WithToolRegistry`)
-     - `toolcontext.RegistryFrom` -> `tools.RegistryFrom` (or `tools.ToolRegistryFrom`)
-   - Rationale: provider engines depend on it; it’s part of the core “tools substrate”.
+3) Move `toolcontext` into `tools` (decision)
+   - Make registry-in-context part of the canonical “tools substrate”.
 
-4) Move `toolblocks` into `turns` (or rename for clarity)
-   - Option A (preferred): `geppetto/pkg/turns/toolblocks` or `geppetto/pkg/turns/tools`
-   - Option B: keep package but rename to make it obvious it’s about *Turn blocks*, not execution (e.g. `turntools`).
+4) Move `toolblocks` into `turns` (decision)
+   - Prefer placing helpers next to the Turn/block model to reduce mental hops and package count.
 
 ### Deprecation strategy
 
-5) Deprecate `toolhelpers`
-   - Add `// Deprecated:` GoDoc on package and exported identifiers.
-   - Implement as a thin wrapper around `toolloop`:
-     - `RunToolCallingLoop(...)` calls `toolloop.New(WithEngine, WithRegistry, WithConfig, WithExecutor?)`.
-     - `toolhelpers.ToolConfig` becomes a type alias of `toolloop.ToolConfig` (or is removed).
-     - `WithTurnSnapshotHook` becomes a wrapper around `toolloop.WithTurnSnapshotHook`.
-   - This keeps external call sites working while preventing the reintroduction of new semantics.
+5) Remove `toolhelpers` (decision)
+   - Do a hard cutover: update downstream repos (Pinocchio, Moments, go-go-mento, etc.) and delete `toolhelpers` entirely.
+   - This is more disruptive short-term but avoids carrying and documenting legacy surfaces indefinitely.
 
 ## Proposed API normalization (reduce confusion)
 
@@ -201,61 +201,56 @@ We should distinguish:
 A cleaner end state could be:
 
 ```go
-// used for provider advertisement and stored on Turn.Data (typed key)
-type ToolPolicy struct {
-  ToolChoice       ToolChoice
-  AllowedTools     []string
-  MaxParallelTools int
-  ErrorHandling    ToolErrorHandling
+// canonical: used for provider advertisement + tool execution policy
+// (this is tools.ToolConfig)
+type ToolConfig struct {
+  Enabled           bool
+  ToolChoice        ToolChoice
+  AllowedTools      []string
+  MaxParallelTools  int
+  ToolErrorHandling ToolErrorHandling
+  ExecutionTimeout  time.Duration
+  RetryConfig       RetryConfig
 }
 
-// used by toolloop orchestration
+// used by toolloop orchestration (separate from tools.ToolConfig)
 type LoopConfig struct {
   MaxIterations int
-  Timeout       time.Duration
-}
-
-// used by tools executor (retries, masking, etc.)
-type ExecutorConfig struct {
-  ExecutionTimeout time.Duration
-  Retry            RetryConfig
+  // Step/pause config is owned elsewhere (StepController + pause timeout).
 }
 ```
 
-Whether these live in `tools` or a dedicated `toolconfig` package is a design choice; the key is to avoid “same struct defined three times in three packages”.
+The key is to avoid “same struct defined three times in three packages”: GP-08’s direction is to make `tools.ToolConfig` canonical and keep only a minimal loop config in `toolloop`.
 
 ### Builder options naming
 
-Right now `toolloop` has both Loop options and EngineBuilder options. We should make naming consistent and predictable:
+Right now `toolloop` has both Loop options and EngineBuilder options. To avoid clashes, GP-08’s direction is to move the builder to a subpackage and keep the main loop options focused on the loop:
 
 - `toolloop.New(...)` / `toolloop.WithEngine(...)` / `toolloop.WithRegistry(...)` for the loop.
-- `toolloop.NewEngineBuilder(...)` / `toolloop.WithBase(...)` / `toolloop.WithMiddlewares(...)` for the builder.
+- `toolloop/enginebuilder.New(...)` / `enginebuilder.WithBase(...)` / `enginebuilder.WithMiddlewares(...)` for the builder.
 
-The few “odd” names (`WithEngineBuilderSnapshotHook`, `WithStepControllerService`) should be revisited so they read naturally at call sites while still being unambiguous.
+This removes the need for “odd” names whose only purpose is disambiguation.
 
 ## Migration plan (mechanical steps)
 
-1) Decide end-state package boundaries (merge toolcontext? move toolblocks?).
-2) Add deprecation markers on `toolhelpers` and implement wrapper behavior.
-3) Normalize config types (pick canonical owners; add adapter helpers for transitional period).
-4) Update provider engines to import the new registry-from-context location (if toolcontext is merged).
-5) Update docs and examples to only show canonical surfaces:
-   - `toolloop.EngineBuilder` / `toolloop.NewEngineBuilder`
-   - `toolloop.Loop`
-   - `tools.ToolRegistry` / `tools.ToolExecutor`
-6) Optional: add a simple `rg` check in CI or a lint rule to prevent new imports of deprecated packages.
+1) Move `toolcontext` into `tools`; update provider engines + tool loop to import the new location.
+2) Move `toolblocks` into `turns`; update tool loop and any other consumers.
+3) Move engine builder into `toolloop/enginebuilder`; update call sites (Pinocchio, Moments, examples).
+4) Make `tools.ToolConfig` canonical and remove `toolloop.ToolConfig`/`toolhelpers.ToolConfig` types.
+5) Delete `toolhelpers`; update external users (go-go-mento, etc.) to `toolloop` + `tools`.
+6) Update docs/examples to only show canonical surfaces (`toolloop.Loop`, `toolloop/enginebuilder`, `tools.ToolRegistry`, `tools.ToolExecutor`).
 
 ## What is deprecated vs redundant vs OK-ish (quick classification)
 
 **Deprecated (strong)**
-- `geppetto/pkg/inference/toolhelpers` (keep only as compat wrapper, or delete after downstream migrations)
+- `geppetto/pkg/inference/toolhelpers` (delete; no compat wrappers)
 
 **Redundant / likely merge targets**
-- `geppetto/pkg/inference/toolcontext` (merge into `tools`)
+- `geppetto/pkg/inference/toolcontext` (move into `tools`)
 - “Config duplication” across `engine`, `tools`, `toolloop`, `toolhelpers`
 
 **OK-ish but warrants attention**
-- `geppetto/pkg/inference/toolblocks` (location/ownership and result block shape)
+- `geppetto/pkg/inference/toolblocks` (move into `turns`; revisit result block shape)
 - `geppetto/pkg/inference/tools/adapters.go` (make “not implemented” parts explicit or finish them)
 
 **Canonical / OK**

@@ -27,7 +27,7 @@ RelatedFiles:
     Note: Tool execution orchestration + lifecycle hooks + event publishing
 ExternalSources: []
 Summary: Inventory and reorganize the geppetto tool* packages; identify deprecated/redundant parts and produce a migration plan for a cleaner, smaller, more coherent tool calling architecture surface.
-LastUpdated: 2026-01-23T00:01:56-05:00
+LastUpdated: 2026-01-23T08:28:47-05:00
 ---
 
 # GP-08-CLEANUP-TOOLS
