@@ -16,7 +16,7 @@ RelatedFiles:
     - Path: pkg/doc/playbooks/04-migrate-to-session-api.md
       Note: Documented UI pattern for creating follow-up turns
     - Path: pkg/doc/topics/08-turns.md
-      Note: Conceptual model Turn=one inference cycle; Block.TurnID semantics
+      Note: Conceptual model Turn=one inference cycle (note: Block.TurnID field has since been removed)
     - Path: pkg/inference/session/session.go
       Note: StartInference clones turns; current Turn.ID/backfill behavior
     - Path: pkg/inference/session/tool_loop_builder.go
@@ -24,10 +24,10 @@ RelatedFiles:
     - Path: pkg/turns/keys.go
       Note: Turn meta keys vs block meta keys (no block inference id key yet)
     - Path: pkg/turns/types.go
-      Note: Turn/Block structs; AppendBlock currently does not stamp TurnID
+      Note: Turn/Block structs; Turn.Clone and block metadata patterns
 ExternalSources: []
-Summary: Where follow-up turns are cloned/transformed; TurnID generation and propagation to blocks; block-level inference attribution.
-LastUpdated: 2026-01-22T17:45:00-05:00
+Summary: Historical analysis of follow-up turn creation and ID propagation; predates removal of Block.TurnID and introduction of Turn.Clone().
+LastUpdated: 2026-01-23T00:00:00-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -35,6 +35,20 @@ WhenToUse: ""
 
 
 # Turn creation + TurnID propagation
+
+## Update (2026-01-23)
+
+This document predates two simplifying changes:
+
+- `turns.Block` no longer has a `TurnID` field (it was unused).
+- `turns.Turn.Clone()` now centralizes turn cloning and is used by prompt/seed creation helpers in
+  key callers (and by `Session.AppendNewTurnFromUserPrompt`).
+
+As a result, sections below that discuss `Block.TurnID` stamping/backfill should be treated as
+historical exploration rather than current behavior. For the up-to-date “where cloning happens and
+what can be simplified” view, see:
+
+- `analysis/02-simplify-turn-cloning-creation.md`
 
 ## Goal
 

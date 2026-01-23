@@ -27,13 +27,15 @@ inference executions within the same session** in Geppetto, specifically:
 
 - Where and why `*turns.Turn` is **cloned** vs **mutated in-place** vs **rebuilt/transformed**.
 - When a **new `Turn.ID` should be generated** (or not), and what the current code actually does.
-- How `Turn.ID` is **propagated to blocks** (e.g. `Block.TurnID` / block metadata) and where that
-  propagation can fail or be skipped.
+- How turn-/block-level **attribution metadata** should work (block metadata, event metadata), now
+  that `Block.TurnID` has been removed.
 
 The core correctness requirement is:
 
-- **Every subsequent inference should run against a fresh, unique `Turn.ID`**, and
-- Any new blocks created by that inference should be attributable to that inference execution.
+- Each inference should have stable correlation identifiers (`SessionID`, `InferenceID`, and
+  `Turn.ID` as used by event metadata), and
+- blocks/events should be attributable to the inference execution that produced them (preferably via
+  metadata keys, not dedicated struct fields).
 
 The output should be an analysis document that maps all relevant paths (session, tool loop runner,
 engines, helpers, serde) and identifies:
@@ -46,7 +48,7 @@ engines, helpers, serde) and identifies:
 Questions to sanity-check my understanding:
 
 1. “Subsequent turns” means subsequent inference executions within the same SessionID.
-2. Reused blocks should keep the TurnID/InferenceID of the inference that originally created them.
+2. Reused blocks should keep whatever attribution metadata they already carry.
 
 Additional analysis request:
 

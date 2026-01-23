@@ -27,24 +27,19 @@ func (b fakeBuilder) Build(ctx context.Context, sessionID string) (InferenceRunn
 	return b.build(ctx, sessionID)
 }
 
-func TestSession_StartInference_AppendsTurnOnSuccess(t *testing.T) {
+func TestSession_StartInference_MutatesLatestTurnOnSuccess(t *testing.T) {
 	s := &Session{
 		SessionID: "sess-1",
 		Builder: fakeBuilder{build: func(ctx context.Context, sessionID string) (InferenceRunner, error) {
 			return fakeRunner{run: func(ctx context.Context, in *turns.Turn) (*turns.Turn, error) {
-				out := *in
-				out.ID = "turn-2"
-				if err := turns.KeyTurnMetaSessionID.Set(&out.Metadata, sessionID); err != nil {
-					return nil, err
-				}
-				return &out, nil
+				turns.AppendBlock(in, turns.NewAssistantTextBlock("ok"))
+				return in, nil
 			}}, nil
 		}},
 	}
 
-	seed := &turns.Turn{}
-	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
-	s.Append(seed)
+	seed, err := s.AppendNewTurnFromUserPrompt("hi")
+	require.NoError(t, err)
 
 	h, err := s.StartInference(context.Background())
 	require.NoError(t, err)
@@ -60,8 +55,10 @@ func TestSession_StartInference_AppendsTurnOnSuccess(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, h.InferenceID, iid)
 	require.NotEqual(t, "", iid)
-	require.Len(t, s.Turns, 2) // seed + appended output
-	require.Equal(t, out, s.Turns[len(s.Turns)-1])
+	require.Len(t, s.Turns, 1) // in-place mutation of latest turn
+	require.Equal(t, seed, s.Turns[len(s.Turns)-1])
+	require.Equal(t, seed, out)
+	require.GreaterOrEqual(t, len(seed.Blocks), 2)
 }
 
 func TestSession_StartInference_Cancel(t *testing.T) {
@@ -75,9 +72,8 @@ func TestSession_StartInference_Cancel(t *testing.T) {
 		}},
 	}
 
-	seed := &turns.Turn{}
-	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
-	s.Append(seed)
+	_, err := s.AppendNewTurnFromUserPrompt("hi")
+	require.NoError(t, err)
 
 	h, err := s.StartInference(context.Background())
 	require.NoError(t, err)
@@ -129,16 +125,14 @@ func TestSession_StartInference_OnlyOneActive(t *testing.T) {
 		Builder: fakeBuilder{build: func(ctx context.Context, sessionID string) (InferenceRunner, error) {
 			return fakeRunner{run: func(ctx context.Context, in *turns.Turn) (*turns.Turn, error) {
 				<-block
-				out := *in
-				out.ID = "turn-out"
-				return &out, nil
+				turns.AppendBlock(in, turns.NewAssistantTextBlock("ok"))
+				return in, nil
 			}}, nil
 		}},
 	}
 
-	seed := &turns.Turn{}
-	turns.AppendBlock(seed, turns.NewUserTextBlock("hi"))
-	s.Append(seed)
+	_, err := s.AppendNewTurnFromUserPrompt("hi")
+	require.NoError(t, err)
 
 	h1, err := s.StartInference(context.Background())
 	require.NoError(t, err)

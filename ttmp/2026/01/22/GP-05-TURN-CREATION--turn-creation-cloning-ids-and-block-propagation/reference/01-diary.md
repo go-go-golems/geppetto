@@ -31,6 +31,16 @@ Track investigation steps for GP-05: where follow-up turns are created/cloned fo
 inferences within a session, how `Turn.ID` is generated, and how (and whether) IDs propagate to
 blocks (`Block.TurnID` + block metadata such as `InferenceID` attribution).
 
+## Update (2026-01-23)
+
+This diary captures the investigation that led to the simplifications in this ticket, but it
+predates the final implementation decisions:
+
+- `turns.Block` no longer has a `TurnID` field.
+- Prompt turns are created via `Session.AppendNewTurnFromUserPrompt(s)`.
+- `Session.StartInference` now runs against the latest appended turn in-place (no internal cloning,
+  no “append output turn” step).
+
 ## Step 1: Restate intent + locate current Turn/Block ID behaviors
 
 I first captured the intent precisely in the ticket `index.md` and then traced the actual “turn

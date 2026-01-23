@@ -160,7 +160,9 @@ out, err := handle.Wait()
 Notes:
 
 - `Session.StartInference` runs asynchronously; `Wait()` blocks.
-- On success, the output turn is appended back into `sess.Turns` automatically.
+- On success, the latest appended turn is mutated in-place (no additional turn is appended).
+- For follow-up user prompts, prefer `Session.AppendNewTurnFromUserPrompt(...)` instead of manually
+  cloning `sess.Latest()`.
 
 ## Step 4: Move cancellation to ExecutionHandle
 
@@ -185,9 +187,8 @@ Pseudo:
 
 ```go
 func (b *EngineBackend) Start(ctx context.Context, prompt string) (tea.Cmd, error) {
-    seed := clone(b.sess.Latest())
-    turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
-    b.sess.Append(seed)
+    _, err := b.sess.AppendNewTurnFromUserPrompt(prompt)
+    if err != nil { return nil, err }
 
     handle, err := b.sess.StartInference(ctx)
     if err != nil { return nil, err }
@@ -204,7 +205,7 @@ func (b *EngineBackend) Start(ctx context.Context, prompt string) (tea.Cmd, erro
 Replace `StartRun()/FinishRun()` with:
 
 - check `sess.IsRunning()`
-- append the prompt turn (`sess.Append(seed)`)
+- append the prompt turn (`sess.AppendNewTurnFromUserPrompt(prompt)`)
 - call `sess.StartInference(ctx)` and return immediately
 
 ## Step 6: Delete (or stop using) legacy APIs

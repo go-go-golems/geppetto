@@ -54,7 +54,6 @@ Run (session)
 // Block represents a single atomic unit within a Turn.
 type Block struct {
     ID       string                  // Optional unique identifier
-    TurnID   string                  // Parent turn reference
     Kind     BlockKind               // user, llm_text, tool_call, etc.
     Role     string                  // Optional: "user", "assistant", "system"
     Payload  map[string]any          // Kind-specific content
@@ -178,20 +177,50 @@ const (
 ### Helper Functions
 
 ```go
+t := &turns.Turn{}
+
 // Append blocks
 turns.AppendBlock(t, block)
 turns.AppendBlocks(t, block1, block2, block3)
 turns.PrependBlock(t, block)
 
 // Find blocks by kind
-llmBlocks := turns.FindLastBlocksByKind(turn, turns.BlockKindLLMText)
-toolCalls := turns.FindLastBlocksByKind(turn, turns.BlockKindToolCall)
+llmBlocks := turns.FindLastBlocksByKind(*t, turns.BlockKindLLMText)
+toolCalls := turns.FindLastBlocksByKind(*t, turns.BlockKindToolCall)
+
+// Clone a Turn for safe mutation (rarely needed directly in apps; prefer session helpers below)
+cloned := t.Clone()
 
 // Store helpers (for opaque wrappers)
 turn.Data.Len()
 turn.Data.Range(func(k, v any) bool { ... })
 turn.Data.Clone()
 ```
+
+## Multi-turn Sessions (Chat-style apps)
+
+For multi-turn interactions (user prompt → inference → repeat), prefer the `session.Session` API:
+
+- Use `Session.AppendNewTurnFromUserPrompt(...)` (or `AppendNewTurnFromUserPrompts(...)`) to create the
+  next prompt turn by cloning the latest turn (full snapshot) and appending one user block per prompt.
+- Then call `Session.StartInference(ctx)` to run the tool loop/engine against the **latest appended
+  turn in-place**. Middlewares are allowed to mutate the turn, and those mutations become the base
+  for the next prompt.
+
+```go
+import "github.com/go-go-golems/geppetto/pkg/inference/session"
+
+sess := session.NewSession()
+sess.Builder = builder // e.g. ToolLoopEngineBuilder
+
+_, _ = sess.AppendNewTurnFromUserPrompt("Hello")
+handle, _ := sess.StartInference(ctx)
+updated, _ := handle.Wait()
+_ = updated // == sess.Latest()
+```
+
+This model keeps a history of snapshots (`sess.Turns`), but only the newest snapshot is mutated
+while an inference is running.
 
 ## Tool Configuration
 

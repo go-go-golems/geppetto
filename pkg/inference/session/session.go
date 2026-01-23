@@ -41,6 +41,54 @@ func NewSession() *Session {
 	}
 }
 
+// AppendNewTurnFromUserPrompt clones the latest session turn (if any), appends a user block
+// containing the prompt (if non-empty), assigns a Turn.ID if missing, appends it to the session
+// history, and returns the appended Turn.
+//
+// This is the preferred API for “next prompt” creation in UIs: it prevents callers from mutating
+// the historical latest turn in-place.
+func (s *Session) AppendNewTurnFromUserPrompt(prompt string) (*turns.Turn, error) {
+	return s.AppendNewTurnFromUserPrompts(prompt)
+}
+
+// AppendNewTurnFromUserPrompts is like AppendNewTurnFromUserPrompt, but appends one user block per
+// non-empty prompt to the newly appended turn.
+func (s *Session) AppendNewTurnFromUserPrompts(prompts ...string) (*turns.Turn, error) {
+	if s == nil {
+		return nil, ErrSessionNil
+	}
+	if s.SessionID == "" {
+		return nil, ErrSessionIDEmpty
+	}
+
+	var base *turns.Turn
+	s.mu.Lock()
+	if s.active != nil && s.active.IsRunning() {
+		s.mu.Unlock()
+		return nil, ErrSessionAlreadyActive
+	}
+	if len(s.Turns) > 0 {
+		base = s.Turns[len(s.Turns)-1]
+	}
+	s.mu.Unlock()
+
+	seed := &turns.Turn{}
+	if base != nil {
+		seed = base.Clone()
+	}
+	for _, prompt := range prompts {
+		if prompt == "" {
+			continue
+		}
+		turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
+	}
+	if seed.ID == "" {
+		seed.ID = uuid.NewString()
+	}
+	s.Append(seed)
+	return seed, nil
+}
+
 // IsRunning reports whether the session currently has an active inference.
 func (s *Session) IsRunning() bool {
 	if s == nil {
@@ -81,8 +129,8 @@ func (s *Session) Append(t *turns.Turn) {
 // StartInference starts an inference asynchronously and returns an ExecutionHandle.
 //
 // The builder is invoked to produce a blocking runner (RunInference). The runner is
-// executed in a goroutine, and the result is appended to the Session as a new Turn
-// snapshot on success.
+// executed in a goroutine against the latest appended Turn, which is intentionally
+// mutated in-place (middlewares may modify it).
 func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) {
 	if s == nil {
 		return nil, ErrSessionNil
@@ -110,36 +158,15 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 		s.mu.Unlock()
 		return nil, ErrSessionEmptyTurn
 	}
-	// Never mutate the session's historical seed turn in-place. We copy it and tag
-	// the copy with per-inference metadata.
-	inputCopy := *input
-	inputCopy.Metadata = input.Metadata.Clone()
-	inputCopy.Data = input.Data.Clone()
-	if inputCopy.ID == "" {
-		inputCopy.ID = uuid.NewString()
+
+	// Inference runs against the latest appended turn in-place. This allows middlewares
+	// to intentionally mutate the turn so the updated version becomes the next seed base.
+	if input.ID == "" {
+		input.ID = uuid.NewString()
 	}
-	if len(input.Blocks) > 0 {
-		inputCopy.Blocks = make([]turns.Block, len(input.Blocks))
-		for i := range input.Blocks {
-			b := input.Blocks[i]
-			// Copy payload map to avoid in-place mutation leaking into history.
-			if b.Payload != nil {
-				cp := make(map[string]any, len(b.Payload))
-				for k, v := range b.Payload {
-					cp[k] = v
-				}
-				b.Payload = cp
-			}
-			b.Metadata = b.Metadata.Clone()
-			if b.TurnID == "" {
-				b.TurnID = inputCopy.ID
-			}
-			inputCopy.Blocks[i] = b
-		}
-	}
-	_ = turns.KeyTurnMetaSessionID.Set(&inputCopy.Metadata, s.SessionID)
+	_ = turns.KeyTurnMetaSessionID.Set(&input.Metadata, s.SessionID)
 	inferenceID := uuid.NewString()
-	_ = turns.KeyTurnMetaInferenceID.Set(&inputCopy.Metadata, inferenceID)
+	_ = turns.KeyTurnMetaInferenceID.Set(&input.Metadata, inferenceID)
 	s.mu.Unlock()
 
 	runner, err := s.Builder.Build(ctx, s.SessionID)
@@ -148,7 +175,7 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
-	handle := newExecutionHandle(s.SessionID, inferenceID, &inputCopy, cancel)
+	handle := newExecutionHandle(s.SessionID, inferenceID, input, cancel)
 
 	s.mu.Lock()
 	// Re-check after build: another goroutine may have started a run while we were building.
@@ -167,14 +194,25 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 			s.mu.Unlock()
 		}()
 
-		out, err := runner.RunInference(runCtx, &inputCopy)
-		if err == nil && out != nil {
+		out, err := runner.RunInference(runCtx, input)
+		if err == nil {
+			if out == nil {
+				out = input
+			}
 			if out.ID == "" {
-				out.ID = inputCopy.ID
+				out.ID = input.ID
 			}
 			_ = turns.KeyTurnMetaSessionID.Set(&out.Metadata, s.SessionID)
 			_ = turns.KeyTurnMetaInferenceID.Set(&out.Metadata, inferenceID)
-			s.Append(out)
+
+			// Keep the session's latest turn as the canonical result, even if the runner
+			// returns a different pointer.
+			if out != input {
+				s.mu.Lock()
+				*input = *out
+				s.mu.Unlock()
+				out = input
+			}
 		}
 		handle.setResult(out, err)
 	}()

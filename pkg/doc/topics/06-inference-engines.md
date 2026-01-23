@@ -47,6 +47,10 @@ for _, block := range result.Blocks {
 
 That's it. The engine handles provider-specific API calls, streaming, and response parsing. You work with Turns and Blocks.
 
+For chat-style, multi-turn apps, prefer `session.Session` (it centralizes “clone latest + append user
+prompt” via `AppendNewTurnFromUserPrompt(s)` and runs inference against the latest appended turn
+in-place via `StartInference`).
+
 ## Table of Contents
 1. [Core Architecture Principles](#core-architecture-principles)
 2. [The Engine Interface](#the-engine-interface)

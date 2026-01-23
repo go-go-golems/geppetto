@@ -19,10 +19,7 @@ func (e *toolCallingFakeEngine) RunInference(ctx context.Context, t *turns.Turn)
 
 	out := &turns.Turn{}
 	if t != nil {
-		out.ID = t.ID
-		out.Blocks = append([]turns.Block(nil), t.Blocks...)
-		out.Metadata = t.Metadata.Clone()
-		out.Data = t.Data.Clone()
+		out = t.Clone()
 	}
 
 	// If we don't yet have a tool_use for call-1, request it.
