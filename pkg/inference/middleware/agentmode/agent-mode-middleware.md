@@ -70,8 +70,7 @@ mode_switch:
 ```go
 import (
   "context"
-  "github.com/go-go-golems/geppetto/pkg/inference/session"
-  "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+  "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
   "github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
 
@@ -83,12 +82,12 @@ svc := agentmode.NewStaticService([]*agentmode.AgentMode{
 mw := agentmode.NewMiddleware(svc, agentmode.DefaultConfig())
 reg := tools.NewInMemoryToolRegistry()
 // register your tools into reg (e.g. via tools.NewToolFromFunc + reg.RegisterTool)
-cfg := toolhelpers.NewToolConfig().WithMaxIterations(3)
-runner, err := session.NewToolLoopEngineBuilder(
-  session.WithToolLoopBase(base),
-  session.WithToolLoopMiddlewares(mw),
-  session.WithToolLoopRegistry(reg),
-  session.WithToolLoopToolConfig(cfg),
+cfg := toolloop.NewToolConfig().WithMaxIterations(3)
+runner, err := toolloop.NewEngineBuilder(
+  toolloop.WithBase(base),
+  toolloop.WithMiddlewares(mw),
+  toolloop.WithToolRegistry(reg),
+  toolloop.WithToolConfig(cfg),
 ).Build(context.Background(), "")
 if err != nil {
   panic(err)

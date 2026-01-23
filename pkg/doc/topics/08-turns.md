@@ -211,7 +211,7 @@ For multi-turn interactions (user prompt → inference → repeat), prefer the `
 import "github.com/go-go-golems/geppetto/pkg/inference/session"
 
 sess := session.NewSession()
-sess.Builder = builder // e.g. ToolLoopEngineBuilder
+sess.Builder = builder // e.g. toolloop.EngineBuilder
 
 _, _ = sess.AppendNewTurnFromUserPrompt("Hello")
 handle, _ := sess.StartInference(ctx)

@@ -260,17 +260,17 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	// Run inference
 	sess := session.NewSession()
-	builderOpts := []session.ToolLoopEngineBuilderOption{
-		session.WithToolLoopBase(engine),
-		session.WithToolLoopMiddlewares(middlewares...),
+	builderOpts := []toolloop.EngineBuilderOption{
+		toolloop.WithBase(engine),
+		toolloop.WithMiddlewares(middlewares...),
 	}
 	if toolLoopEnabled {
 		builderOpts = append(builderOpts,
-			session.WithToolLoopRegistry(toolLoopRegistry),
-			session.WithToolLoopToolConfig(toolLoopCfg),
+			toolloop.WithToolRegistry(toolLoopRegistry),
+			toolloop.WithToolConfig(toolLoopCfg),
 		)
 	}
-	sess.Builder = session.NewToolLoopEngineBuilder(builderOpts...)
+	sess.Builder = toolloop.NewEngineBuilder(builderOpts...)
 	sess.Append(initialTurn)
 	handle, err := sess.StartInference(ctx)
 	if err != nil {

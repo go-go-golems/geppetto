@@ -1,4 +1,4 @@
-package session
+package toolloop
 
 import (
 	"context"
@@ -8,15 +8,15 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrToolLoopEngineBuilderNil     = errors.New("tool loop engine builder is nil")
-	ErrToolLoopEngineBuilderBaseNil = errors.New("tool loop engine builder base engine is nil")
+	ErrEngineBuilderNil     = errors.New("engine builder is nil")
+	ErrEngineBuilderBaseNil = errors.New("engine builder base engine is nil")
 )
 
 // TurnPersister persists a completed turn for a session (run).
@@ -27,14 +27,14 @@ type TurnPersister interface {
 	PersistTurn(ctx context.Context, t *turns.Turn) error
 }
 
-// ToolLoopEngineBuilder builds a runner that:
+// EngineBuilder builds a runner that:
 // - wraps a base engine with middleware
 // - injects sinks and snapshot hooks via context
 // - runs either a single-pass inference or the tool-calling loop
 // - best-effort persists the final turn
 //
 // This is the standard builder used by chat-style applications.
-type ToolLoopEngineBuilder struct {
+type EngineBuilder struct {
 	// Base is the provider engine implementation (OpenAI/Claude/etc).
 	Base engine.Engine
 
@@ -45,17 +45,17 @@ type ToolLoopEngineBuilder struct {
 	Registry tools.ToolRegistry
 
 	// ToolConfig configures tool-loop behavior when Registry is set.
-	ToolConfig *toolloop.ToolConfig
+	ToolConfig *ToolConfig
 
 	// EventSinks are attached to the run context for streaming/logging.
 	EventSinks []events.EventSink
 
 	// SnapshotHook is attached to the run context for capturing intermediate turns.
-	SnapshotHook toolloop.SnapshotHook
+	SnapshotHook SnapshotHook
 
 	// StepController enables step-mode pauses in the tool loop when non-nil.
 	// It is expected to be owned by the application/web layer (not by session).
-	StepController *toolloop.StepController
+	StepController *StepController
 
 	// StepPauseTimeout is the duration to wait at each pause before auto-continuing.
 	// If zero, the loop default is used.
@@ -65,23 +65,25 @@ type ToolLoopEngineBuilder struct {
 	Persister TurnPersister
 }
 
-func (b *ToolLoopEngineBuilder) Build(ctx context.Context, sessionID string) (InferenceRunner, error) {
+var _ session.EngineBuilder = (*EngineBuilder)(nil)
+
+func (b *EngineBuilder) Build(ctx context.Context, sessionID string) (session.InferenceRunner, error) {
 	if b == nil {
-		return nil, ErrToolLoopEngineBuilderNil
+		return nil, ErrEngineBuilderNil
 	}
 	if b.Base == nil {
-		return nil, ErrToolLoopEngineBuilderBaseNil
+		return nil, ErrEngineBuilderBaseNil
 	}
 
 	eng := b.Base
 	eng = newEngineWithMiddlewares(eng, b.Middlewares)
 
-	cfg := toolloop.NewToolConfig()
+	cfg := NewToolConfig()
 	if b.ToolConfig != nil {
 		cfg = *b.ToolConfig
 	}
 
-	return &toolLoopRunner{
+	return &runner{
 		sessionID:        sessionID,
 		eng:              eng,
 		registry:         b.Registry,
@@ -94,22 +96,24 @@ func (b *ToolLoopEngineBuilder) Build(ctx context.Context, sessionID string) (In
 	}, nil
 }
 
-type toolLoopRunner struct {
+type runner struct {
 	sessionID string
 
 	eng      engine.Engine
 	registry tools.ToolRegistry
 
-	toolConfig toolloop.ToolConfig
+	toolConfig ToolConfig
 
 	eventSinks   []events.EventSink
-	snapshotHook toolloop.SnapshotHook
+	snapshotHook SnapshotHook
 
-	stepController   *toolloop.StepController
+	stepController   *StepController
 	stepPauseTimeout time.Duration
 
 	persister TurnPersister
 }
+
+var _ session.InferenceRunner = (*runner)(nil)
 
 type engineWithMiddlewares struct {
 	handler middleware.HandlerFunc
@@ -133,7 +137,7 @@ func (e *engineWithMiddlewares) RunInference(ctx context.Context, t *turns.Turn)
 	return e.handler(ctx, t)
 }
 
-func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -143,7 +147,7 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 		runCtx = events.WithEventSinks(runCtx, r.eventSinks...)
 	}
 	if r.snapshotHook != nil {
-		runCtx = toolloop.WithTurnSnapshotHook(runCtx, r.snapshotHook)
+		runCtx = WithTurnSnapshotHook(runCtx, r.snapshotHook)
 	}
 
 	if t == nil {
@@ -168,16 +172,16 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 	if r.registry == nil {
 		updated, err = r.eng.RunInference(runCtx, t)
 	} else {
-		opts := []toolloop.Option{
-			toolloop.WithEngine(r.eng),
-			toolloop.WithRegistry(r.registry),
-			toolloop.WithConfig(r.toolConfig),
-			toolloop.WithStepController(r.stepController),
+		opts := []Option{
+			WithEngine(r.eng),
+			WithRegistry(r.registry),
+			WithConfig(r.toolConfig),
+			WithStepController(r.stepController),
 		}
 		if r.stepPauseTimeout > 0 {
-			opts = append(opts, toolloop.WithPauseTimeout(r.stepPauseTimeout))
+			opts = append(opts, WithPauseTimeout(r.stepPauseTimeout))
 		}
-		loop := toolloop.New(opts...)
+		loop := New(opts...)
 		updated, err = loop.RunLoop(runCtx, t)
 	}
 

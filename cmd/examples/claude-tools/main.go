@@ -149,10 +149,10 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	turn := &turns.Turn{}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
 	sess := session.NewSession()
-	sess.Builder = session.NewToolLoopEngineBuilder(
-		session.WithToolLoopBase(engineInstance),
-		session.WithToolLoopRegistry(reg),
-		session.WithToolLoopToolConfig(toolCfg),
+	sess.Builder = toolloop.NewEngineBuilder(
+		toolloop.WithBase(engineInstance),
+		toolloop.WithToolRegistry(reg),
+		toolloop.WithToolConfig(toolCfg),
 	)
 	sess.Append(turn)
 	handle, err := sess.StartInference(ctx)

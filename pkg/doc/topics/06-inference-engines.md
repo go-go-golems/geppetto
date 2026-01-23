@@ -575,6 +575,7 @@ Add middleware for logging, metrics, and other cross-cutting concerns:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/session"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -596,9 +597,9 @@ func addMiddleware(baseEngine engine.Engine) session.EngineBuilder {
         }
     }
 
-    return session.NewToolLoopEngineBuilder(
-        session.WithToolLoopBase(baseEngine),
-        session.WithToolLoopMiddlewares(loggingMiddleware),
+    return toolloop.NewEngineBuilder(
+        toolloop.WithBase(baseEngine),
+        toolloop.WithMiddlewares(loggingMiddleware),
     )
 }
 ```

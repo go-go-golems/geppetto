@@ -431,12 +431,12 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 		cfg := helperConfig
 		sess := session.NewSession()
-		sess.Builder = session.NewToolLoopEngineBuilder(
-			session.WithToolLoopBase(baseEngine),
-			session.WithToolLoopMiddlewares(mws...),
-			session.WithToolLoopRegistry(registry),
-			session.WithToolLoopToolConfig(cfg),
-			session.WithToolLoopEventSinks(sink),
+		sess.Builder = toolloop.NewEngineBuilder(
+			toolloop.WithBase(baseEngine),
+			toolloop.WithMiddlewares(mws...),
+			toolloop.WithToolRegistry(registry),
+			toolloop.WithToolConfig(cfg),
+			toolloop.WithEventSinks(sink),
 		)
 		sess.Append(initialTurn)
 		handle, err := sess.StartInference(ctx)

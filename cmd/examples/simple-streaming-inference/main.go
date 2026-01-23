@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -208,10 +209,10 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		<-router.Running()
 
 		sess := session.NewSession()
-		sess.Builder = session.NewToolLoopEngineBuilder(
-			session.WithToolLoopBase(eng),
-			session.WithToolLoopMiddlewares(mws...),
-			session.WithToolLoopEventSinks(sink),
+		sess.Builder = toolloop.NewEngineBuilder(
+			toolloop.WithBase(eng),
+			toolloop.WithMiddlewares(mws...),
+			toolloop.WithEventSinks(sink),
 		)
 		sess.Append(seed)
 		handle, err := sess.StartInference(ctx)

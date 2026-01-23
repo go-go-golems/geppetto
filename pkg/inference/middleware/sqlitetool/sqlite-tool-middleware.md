@@ -69,9 +69,9 @@ cfg := sqlitetool.DefaultConfig()
 cfg.Name = "finance"      // tool becomes sql_query_finance
 cfg.ReadOnly = true        // allow only SELECT/WITH/EXPLAIN/PRAGMA
 mw := sqlitetool.NewMiddleware(cfg)
-runner, err := session.NewToolLoopEngineBuilder(
-  session.WithToolLoopBase(baseEngine),
-  session.WithToolLoopMiddlewares(mw),
+runner, err := toolloop.NewEngineBuilder(
+  toolloop.WithBase(baseEngine),
+  toolloop.WithMiddlewares(mw),
 ).Build(ctx, "")
 if err != nil {
   panic(err)

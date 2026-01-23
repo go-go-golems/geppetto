@@ -373,17 +373,17 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.
 	sess := session.NewSession()
-	builderOpts := []session.ToolLoopEngineBuilderOption{
-		session.WithToolLoopBase(engineInstance),
-		session.WithToolLoopEventSinks(sink),
+	builderOpts := []toolloop.EngineBuilderOption{
+		toolloop.WithBase(engineInstance),
+		toolloop.WithEventSinks(sink),
 	}
 	if toolLoopEnabled {
 		builderOpts = append(builderOpts,
-			session.WithToolLoopRegistry(toolLoopRegistry),
-			session.WithToolLoopToolConfig(toolLoopCfg),
+			toolloop.WithToolRegistry(toolLoopRegistry),
+			toolloop.WithToolConfig(toolLoopCfg),
 		)
 	}
-	sess.Builder = session.NewToolLoopEngineBuilder(builderOpts...)
+	sess.Builder = toolloop.NewEngineBuilder(builderOpts...)
 	sess.Append(turn)
 	handle, err := sess.StartInference(runCtx)
 	if err != nil {

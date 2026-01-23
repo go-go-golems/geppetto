@@ -123,10 +123,10 @@ updated, err := toolhelpers.RunToolCallingLoop(ctx, e, seed, reg, cfg)
 3) Alternatively: run via the session builder
 
 ```go
-runner, _ := session.NewToolLoopEngineBuilder(
-    session.WithToolLoopBase(e),
-    session.WithToolLoopRegistry(reg),
-    session.WithToolLoopToolConfig(cfg),
+runner, _ := toolloop.NewEngineBuilder(
+    toolloop.WithBase(e),
+    toolloop.WithToolRegistry(reg),
+    toolloop.WithToolConfig(cfg),
 ).Build(ctx, "demo-session")
 updated, _ := runner.RunInference(ctx, seed)
 ```
@@ -147,7 +147,7 @@ package main
 	import (
 	    "context"
 	    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-	    "github.com/go-go-golems/geppetto/pkg/inference/session"
+		    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
 	    "github.com/go-go-golems/geppetto/pkg/inference/tools"
 	    "github.com/go-go-golems/geppetto/pkg/turns"
@@ -176,12 +176,12 @@ func addTool(req AddRequest) AddResponse { return AddResponse{Sum: req.A + req.B
 	        WithToolErrorHandling(tools.ToolErrorContinue)
 
 	    // 4) Build a runner that owns tool execution
-	    builder := session.NewToolLoopEngineBuilder(
-	        session.WithToolLoopBase(e),
-	        session.WithToolLoopRegistry(reg),
-	        session.WithToolLoopToolConfig(cfg),
-	    )
-	    runner, err := builder.Build(ctx, "demo-session")
+		    builder := toolloop.NewEngineBuilder(
+		        toolloop.WithBase(e),
+		        toolloop.WithToolRegistry(reg),
+		        toolloop.WithToolConfig(cfg),
+		    )
+		    runner, err := builder.Build(ctx, "demo-session")
 	    if err != nil {
 	        return err
 	    }

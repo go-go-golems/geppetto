@@ -47,7 +47,7 @@ New:
 
 - provider engines and helpers publish via context only
 - attach sinks via `events.WithEventSinks(ctx, sinks...)`
-- the canonical place to wire sinks is `session.ToolLoopEngineBuilder.EventSinks`
+- the canonical place to wire sinks is `toolloop.EngineBuilder.EventSinks`
 
 ### 2) Lifecycle primitives
 
@@ -76,7 +76,7 @@ _, err = eng.RunInference(runCtx, seed)
 
 | Legacy concept | New concept |
 |---|---|
-| `engine.WithSink(sink)` | `events.WithEventSinks(ctx, sink)` (or `ToolLoopEngineBuilder.EventSinks`) |
+| `engine.WithSink(sink)` | `events.WithEventSinks(ctx, sink)` (or `toolloop.EngineBuilder.EventSinks`) |
 | `InferenceState` | `session.Session` |
 | `StartRun/FinishRun` | `Session.IsRunning()` + `Session.StartInference()` |
 | `SetCancel/HasCancel` | `ExecutionHandle.Cancel()` / `Session.CancelActive()` |
@@ -113,7 +113,7 @@ runCtx := events.WithEventSinks(ctx, sink)
 _, err = eng.RunInference(runCtx, seed)
 ```
 
-## Step 2: Introduce a ToolLoopEngineBuilder (recommended for chat-style apps)
+## Step 2: Introduce a toolloop EngineBuilder (recommended for chat-style apps)
 
 Build a single runner that owns:
 
@@ -127,12 +127,12 @@ Typical shape:
 ```go
 base, _ := factory.NewEngineFromParsedLayers(parsedLayers)
 
-b := session.NewToolLoopEngineBuilder(
-    session.WithToolLoopBase(base),
-    session.WithToolLoopMiddlewares(/* system prompt, logging, etc */),
-    session.WithToolLoopEventSinks(sink),
-    session.WithToolLoopRegistry(registry), // optional: enables tool loop
-    // session.WithToolLoopToolConfig(*toolCfg), // optional
+b := toolloop.NewEngineBuilder(
+    toolloop.WithBase(base),
+    toolloop.WithMiddlewares(/* system prompt, logging, etc */),
+    toolloop.WithEventSinks(sink),
+    toolloop.WithToolRegistry(registry), // optional: enables tool loop
+    // toolloop.WithToolConfig(*toolCfg), // optional
 )
 ```
 
