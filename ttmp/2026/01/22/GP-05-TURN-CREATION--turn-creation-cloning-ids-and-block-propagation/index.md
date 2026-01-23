@@ -1,7 +1,7 @@
 ---
 Title: 'Turn creation: cloning, IDs, and block propagation'
 Ticket: GP-05-TURN-CREATION
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-22T16:56:00-05:00
+LastUpdated: 2026-01-22T20:53:21.124259353-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Turn creation: cloning, IDs, and block propagation
 

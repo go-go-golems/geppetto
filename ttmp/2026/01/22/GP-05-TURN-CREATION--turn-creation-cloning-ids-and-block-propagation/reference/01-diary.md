@@ -17,7 +17,7 @@ RelatedFiles:
       Note: Primary site investigated for turn cloning and stamping
 ExternalSources: []
 Summary: Investigation diary for turn cloning/creation and per-inference TurnID/block attribution.
-LastUpdated: 2026-01-22T17:45:00-05:00
+LastUpdated: 2026-01-23T00:00:00-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -414,3 +414,62 @@ turn snapshot and then appended to the session before starting inference.
 
 ### Technical details
 - N/A (analysis-only step).
+
+## Step 7: Implement simplified prompt-turn creation + in-place StartInference
+
+I implemented the “prompt turn is the unit of mutation” design: callers now create follow-up prompt
+turns through a single Session API that clones the latest snapshot and appends user prompt block(s),
+and `Session.StartInference` now runs against that latest appended turn in-place (so middleware
+mutations become the persisted base for the next prompt).
+
+This also removed the now-unneeded `Block.TurnID` field and moved cloning responsibilities into
+`Turn.Clone()` / `Session.AppendNewTurnFromUserPrompt(s)` rather than repeated ad-hoc `cloneTurn`
+helpers across Pinocchio.
+
+**Commit (code):** 04efdbd — "GP-05: simplify turn creation and cloning"  
+**Commit (code):** 02df8b6 — "GP-05: use Session prompt-turn helper"
+
+### What I did
+- Added `turns.Turn.Clone()` and removed `turns.Block.TurnID`.
+- Added `Session.AppendNewTurnFromUserPrompt(...)` and `Session.AppendNewTurnFromUserPrompts(...)`.
+- Changed `Session.StartInference(...)` to run in-place on the latest appended turn (no internal cloning, no append-output-turn).
+- Updated Pinocchio webchat + UI + simple-chat-agent backends to use the new session helper.
+- Updated docs (`08-turns`, `06-inference-engines`, session migration playbook, and web-chat README).
+- Ran `go test ./...` in `geppetto/` and `pinocchio/` via pre-commit hooks.
+
+### Why
+- Centralizes “next prompt turn” creation and prevents accidental mutation of the previous snapshot.
+- Lets middleware changes become durable state for the next prompt, removing double-cloning and
+  confusion about which snapshot is authoritative.
+
+### What worked
+- The session API surface is simpler for UIs: prompt → `AppendNewTurnFromUserPrompt` → `StartInference`.
+- `StartInference` no longer needs to duplicate cloning logic; it just stamps metadata and runs.
+
+### What didn't work
+- N/A.
+
+### What I learned
+- Modeling “prompt turn as the unit of mutation” makes the system easier to reason about than the
+  previous “clone inside StartInference then append output snapshot” pattern.
+
+### What was tricky to build
+- Ensuring the session remains consistent even if a runner returns a different `*turns.Turn`
+  pointer: the session now copies that result into the latest turn so `sess.Latest()` remains the
+  canonical state.
+
+### What warrants a second pair of eyes
+- The semantic shift: `StartInference` mutates the latest appended turn in-place and does not append
+  an output turn. Any downstream assumptions about “one new turn appended per inference” should be
+  re-validated.
+
+### What should be done in the future
+- Decide whether we want block-level inference attribution as a typed block metadata key (since
+  `Block.TurnID` is gone).
+
+### Code review instructions
+- Start at `geppetto/pkg/inference/session/session.go` and `geppetto/pkg/turns/types.go`.
+- Then check the prompt call sites in `pinocchio/pkg/webchat/router.go`.
+
+### Technical details
+- N/A.

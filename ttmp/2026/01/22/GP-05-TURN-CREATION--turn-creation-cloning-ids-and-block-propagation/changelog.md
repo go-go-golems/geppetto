@@ -43,3 +43,8 @@ Simplify turn creation + cloning: remove `Block.TurnID`, centralize turn cloning
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/types.go — Remove Block.TurnID; add `Turn.Clone()`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/session/session.go — Add `AppendNewTurnFromUserPrompt(s)`; run `StartInference` in-place on latest appended turn
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Webchat now uses `AppendNewTurnFromUserPrompt`
+
+## 2026-01-22
+
+Complete: simplify turn creation (geppetto 04efdbd; pinocchio 02df8b6)
+
