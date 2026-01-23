@@ -11,6 +11,14 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/pkg/doc/playbooks/01-add-a-new-tool.md
+      Note: Updated examples to use toolloop + tools.WithRegistry (commit e4b54a7)
+    - Path: geppetto/pkg/doc/topics/07-tools.md
+      Note: Updated quickstart to LoopConfig + tools.ToolConfig (commit e4b54a7)
+    - Path: geppetto/pkg/doc/tutorials/01-streaming-inference-with-tools.md
+      Note: Updated to use toolloop instead of toolhelpers (commit e4b54a7)
+    - Path: geppetto/pkg/inference/toolhelpers/helpers.go
+      Note: Deleted legacy toolhelpers package (commit 8e0614d)
     - Path: geppetto/pkg/inference/toolloop/config.go
       Note: Introduced LoopConfig and removed toolloop.ToolConfig (commit 9ec5cdaa)
     - Path: geppetto/pkg/inference/toolloop/enginebuilder/builder.go
@@ -58,6 +66,7 @@ LastUpdated: 2026-01-23T08:35:51.35513599-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -371,3 +380,67 @@ Downstream usage was updated (Moments’ bespoke tool loop) to import `github.co
 
 ### Technical details
 - New canonical import path: `github.com/go-go-golems/geppetto/pkg/turns/toolblocks`
+
+## Step 6: Delete `toolhelpers` (hard cutover) and update docs to the canonical tool loop
+
+This step removed the legacy `geppetto/pkg/inference/toolhelpers` package entirely. The canonical tool orchestration path is now `toolloop.Loop` (and `toolloop/enginebuilder` for session wiring), so keeping `toolhelpers` around would just encourage drift and confusion.
+
+I also updated Geppetto’s public docs (playbooks + tutorials + topics) to stop recommending `toolhelpers` and to remove stale `toolcontext` references, replacing them with `toolloop` + `tools.WithRegistry`.
+
+**Commit (code, geppetto):** 8e0614d — "toolhelpers: delete legacy toolhelpers package"  
+**Commit (code, geppetto):** e4b54a7 — "docs: switch tool calling guidance to toolloop"
+
+### What I did
+- Verified that no non-`ttmp/` code in Geppetto/Pinocchio/Moments still imports `geppetto/pkg/inference/toolhelpers`.
+- Deleted the tracked `toolhelpers` implementation and its tests:
+  - `geppetto/pkg/inference/toolhelpers/helpers.go`
+  - `geppetto/pkg/inference/toolhelpers/helpers_test.go`
+- Updated Geppetto docs to only reference canonical surfaces:
+  - `toolloop.NewLoopConfig()` + `tools.DefaultToolConfig()`
+  - `toolloop.New(...).RunLoop(ctx, turn)`
+  - `tools.WithRegistry(ctx, reg)` for direct `eng.RunInference` wiring
+- Ran validation:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Why
+- `toolhelpers` duplicated orchestration logic and had already been superseded by `toolloop`.
+- Hard cutover prevents new code and docs from continuing to use legacy APIs.
+
+### What worked
+- No downstream code changes were required: Pinocchio and Moments had already moved to `toolloop` in earlier steps.
+- Removing the package did not break `go test ./...` in any of the active repos.
+
+### What didn't work
+- N/A (no build/test failures in this step). Per follow-up instruction, `go-go-mento` validation was skipped for this ticket.
+
+### What I learned
+- Keeping docs in lockstep with package moves is as important as updating imports; otherwise “dead” packages linger indefinitely because docs keep re-introducing them.
+
+### What was tricky to build
+- Updating docs that previously mixed three configuration surfaces (`toolhelpers.ToolConfig`, `toolloop` config, and `engine.ToolConfig` on `Turn.Data`) without re-introducing ambiguity; the goal was to consistently present `LoopConfig` for orchestration and `tools.ToolConfig` for policy.
+
+### What warrants a second pair of eyes
+- Review the updated docs examples for correctness and consistency around:
+  - `toolloop.NewLoopConfig()` vs `tools.ToolConfig` (don’t suggest setting MaxIterations on the wrong type)
+  - when to use `tools.WithRegistry` directly vs relying on `toolloop` to attach the registry
+
+### What should be done in the future
+- Proceed to Step 7: docs/guidance sweep (Pinocchio snippets) + full validation/rollout tasks, then upload the updated GP-08 docs bundle to reMarkable.
+
+### Code review instructions
+- Start with the deletion commit: `geppetto/pkg/inference/toolhelpers/helpers.go` (deleted) and ensure no imports remain.
+- Review docs updates in:
+  - `geppetto/pkg/doc/playbooks/01-add-a-new-tool.md`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md`
+  - `geppetto/pkg/doc/topics/07-tools.md`
+  - `geppetto/pkg/doc/tutorials/01-streaming-inference-with-tools.md`
+- Validate:
+  - `cd geppetto && go test ./... -count=1`
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd moments/backend && go test ./... -count=1`
+
+### Technical details
+- Removed package: `github.com/go-go-golems/geppetto/pkg/inference/toolhelpers`
+- Canonical loop entrypoint: `toolloop.New(...).RunLoop(ctx, turn)`

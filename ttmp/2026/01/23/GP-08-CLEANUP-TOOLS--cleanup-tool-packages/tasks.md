@@ -56,13 +56,13 @@
 
 ### Step 5 — Delete `toolhelpers` (hard cutover; no wrappers)
 
-- [ ] Update all internal Geppetto call sites (should be none, verify)
-- [ ] Update downstream repos:
+- [x] Update all internal Geppetto call sites (should be none, verify)
+- [x] Update downstream repos:
   - `pinocchio`: replace any remaining `toolhelpers` usage with `toolloop.Loop` or `toolloop/enginebuilder` + `tools.ToolExecutor`
   - `moments`: same
   - `go-go-mento`: same
-- [ ] Delete `geppetto/pkg/inference/toolhelpers`
-- [ ] Ensure docs/playbooks do not recommend `toolhelpers` anymore (canonical path only)
+- [x] Delete `geppetto/pkg/inference/toolhelpers`
+- [x] Ensure docs/playbooks do not recommend `toolhelpers` anymore (canonical path only)
 
 ### Step 6 — Docs + guidance
 

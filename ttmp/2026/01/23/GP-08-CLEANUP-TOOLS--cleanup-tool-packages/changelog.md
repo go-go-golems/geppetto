@@ -65,3 +65,13 @@ Step 5: Move toolblocks into turns and update downstream imports (geppetto cbb50
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/turns/toolblocks/toolblocks.go — New canonical home for tool_call/tool_use Turn helpers
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/webchat/loops.go — Import path update
 
+
+## 2026-01-23
+
+Step 6: Delete toolhelpers and update docs to toolloop (geppetto 8e0614d, e4b54a7)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/doc/topics/07-tools.md — Updated docs to LoopConfig + tools.ToolConfig
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers.go — Deleted legacy loop helper
+
