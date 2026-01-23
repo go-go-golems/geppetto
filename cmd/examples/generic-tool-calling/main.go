@@ -10,7 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -400,7 +400,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 	// 6. Create simplified tool configuration for helpers
 
-	helperConfig := toolhelpers.NewToolConfig().
+	helperConfig := toolloop.NewToolConfig().
 		WithMaxIterations(s.MaxIterations).
 		WithTimeout(30 * time.Second).
 		WithMaxParallelTools(s.MaxParallelTools).

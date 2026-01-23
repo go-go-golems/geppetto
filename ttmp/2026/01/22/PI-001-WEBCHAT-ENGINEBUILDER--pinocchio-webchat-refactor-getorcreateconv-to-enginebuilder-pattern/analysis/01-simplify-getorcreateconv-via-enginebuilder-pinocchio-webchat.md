@@ -24,21 +24,44 @@ RelatedFiles:
     - Path: pinocchio/pkg/inference/enginebuilder/parsed_layers.go
       Note: Existing ParsedLayersEngineBuilder abstraction we may reuse/reshape
     - Path: pinocchio/pkg/webchat/conversation.go
-      Note: Current getOrCreateConv implementation and Conversation struct state
+      Note: |-
+        Current getOrCreateConv implementation and Conversation struct state
+        getOrCreateConv rebuild-on-signature implementation
+    - Path: pinocchio/pkg/webchat/engine_builder.go
+      Note: EngineBuilder + BuildConfig/BuildFromConfig
+    - Path: pinocchio/pkg/webchat/engine_config.go
+      Note: Current EngineConfig + safe Signature() implementation
+    - Path: pinocchio/pkg/webchat/engine_config_test.go
+      Note: Signature tests (no API key leakage)
     - Path: pinocchio/pkg/webchat/router.go
-      Note: Current getOrCreateConv callers build inline build() closures (sink+engine+subscriber)
+      Note: |-
+        Current getOrCreateConv callers build inline build() closures (sink+engine+subscriber)
+        Routes call getOrCreateConv; subscriber factory
 ExternalSources: []
-Summary: "Deep analysis and refactor plan to remove ad-hoc build() closures from Pinocchio webchat getOrCreateConv by adopting a go-go-mento-style EngineBuilder + config signatures + subscriber factory, with a migration path for Moments."
+Summary: Deep analysis and refactor plan to remove ad-hoc build() closures from Pinocchio webchat getOrCreateConv by adopting a go-go-mento-style EngineBuilder + config signatures + subscriber factory, with a migration path for Moments.
 LastUpdated: 2026-01-22T13:11:49.782267796-05:00
-WhatFor: "Guide a future refactor ticket: consolidate engine/sink/subscriber composition in Pinocchio webchat and make it reusable for Moments."
-WhenToUse: "Use when implementing PI-001 and when evaluating how Moments can migrate away from its current ad-hoc webchat build closures."
+WhatFor: 'Guide a future refactor ticket: consolidate engine/sink/subscriber composition in Pinocchio webchat and make it reusable for Moments.'
+WhenToUse: Use when implementing PI-001 and when evaluating how Moments can migrate away from its current ad-hoc webchat build closures.
 ---
+
 
 # Simplify `getOrCreateConv` via EngineBuilder (Pinocchio webchat)
 
-## Problem Statement
+## Status Update (2026-01-23)
 
-Pinocchio’s webchat currently wires conversation creation with **per-callsite** `build := func() (...)` closures that construct:
+This design has largely been implemented in Pinocchio since this analysis was written:
+
+- `pinocchio/pkg/webchat/engine_config.go` defines `EngineConfig` + `Signature()`.
+  - **Important revision**: the signature must not include secrets; it now derives a sanitized signature from `StepSettings.GetMetadata()` (not the full `StepSettings`, which contains API keys).
+- `pinocchio/pkg/webchat/engine_builder.go` defines an `EngineBuilder` interface (`BuildConfig` / `BuildFromConfig`) and a `SubscriberFactory` type.
+- `pinocchio/pkg/webchat/conversation.go` implements signature-based rebuild semantics in `Router.getOrCreateConv(...)` (profile or config signature change triggers rebuild).
+- `pinocchio/pkg/webchat/router.go` no longer uses per-route `build := func() ...` closures; it delegates to `getOrCreateConv` and `buildSubscriber`.
+
+The remainder of this document should be read as the original rationale + design intent; the “Migration Plan” section is now mostly historical.
+
+## Problem Statement (Pre-Refactor Context)
+
+Pinocchio’s webchat previously wired conversation creation with **per-callsite** `build := func() (...)` closures that constructed:
 
 - a provider `engine.Engine`
 - a `WatermillSink` bound to the conversation topic
@@ -68,7 +91,7 @@ Out of scope for PI-001 (but the design should not block these):
 - DB persistence/hydration logic.
 - Step controller integration (separate workstream).
 
-## Current Pinocchio Architecture (As-Is)
+## Current Pinocchio Architecture (Pre-Refactor “As-Is”)
 
 ### Call graph (simplified)
 
@@ -260,7 +283,8 @@ func (c EngineConfig) Signature() string // returns JSON string
 
 Notes:
 
-- StepSettings must be included (or a stable derivative of it), otherwise the signature is incomplete.
+- StepSettings must be included **as a stable, sanitized derivative** (e.g. `StepSettings.GetMetadata()`), otherwise the signature is incomplete.
+  - Do **not** include raw `StepSettings` in signatures: it contains API keys and other data that should never be present in a debuggable signature string.
 - Tools are currently assembled per run from `Router.toolFactories`; we can add them later if we want rebuilds to
   occur when tool configuration changes.
 
@@ -359,7 +383,7 @@ This allows a “clean core” to exist even if Moments’ package remains messy
 
 ## Migration Plan (Implementation Checklist for PI-001)
 
-No code is written in this ticket yet; this is an implementation plan for the next phase.
+This checklist is now largely complete in code. Remaining items are mostly tests + documentation updates.
 
 1. Define `EngineConfig` + `Signature()` in Pinocchio webchat (or a shared pinocchio package).
 2. Introduce `EngineBuilder` interface matching go-go-mento’s API.

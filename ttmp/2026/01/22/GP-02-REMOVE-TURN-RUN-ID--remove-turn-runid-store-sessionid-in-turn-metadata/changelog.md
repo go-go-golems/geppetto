@@ -67,3 +67,8 @@ Finish remaining runID→sessionID signature cleanup in moments/backend; audit m
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/22/GP-02-REMOVE-TURN-RUN-ID--remove-turn-runid-store-sessionid-in-turn-metadata/analysis/03-moments-web-run-id-usage-audit.md — Inventory and migration guidance for run_id usage
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/moments/backend/pkg/artifact/buffer.go — Rename runID param to sessionID; log both run_id+session_id
 
+
+## 2026-01-22
+
+Verified complete; closing ticket (tests passed in geppetto/pinocchio/moments/backend on 2026-01-23).
+

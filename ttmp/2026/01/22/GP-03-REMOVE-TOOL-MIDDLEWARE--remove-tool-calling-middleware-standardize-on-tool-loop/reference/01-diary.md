@@ -128,3 +128,40 @@ That strongly suggests we can remove it without breaking “real” integration 
 ### Code review instructions
 - Re-run the inventory command:
   - `rg -n "NewToolMiddleware\\(" -S --glob '!**/ttmp/**'`
+
+## Step 3: Remove ToolMiddleware and migrate examples/docs/tests
+
+Based on the conclusion that the tool loop runner is sufficient (and that we do not need “tool execution as middleware”), I removed `middleware.NewToolMiddleware` and migrated remaining in-workspace call sites to builder/loop usage.
+
+This included updating examples and documentation that previously demonstrated the Toolbox-based middleware path.
+
+**Commit (code):** N/A (workspace state)
+
+### What I did
+- Migrated examples to use the tool loop runner:
+  - `geppetto/cmd/examples/openai-tools/main.go`
+  - `geppetto/cmd/examples/claude-tools/main.go`
+  - `geppetto/cmd/examples/middleware-inference/main.go`
+- Updated docs to remove the “tool middleware” pattern and show builder/loop usage:
+  - `geppetto/pkg/doc/topics/07-tools.md`
+  - `geppetto/pkg/doc/topics/09-middlewares.md`
+  - `geppetto/pkg/inference/middleware/agentmode/agent-mode-middleware.md`
+- Deleted the Toolbox-based middleware and its tests:
+  - `geppetto/pkg/inference/middleware/tool_middleware.go`
+  - `geppetto/pkg/inference/middleware/tool_middleware_test.go`
+  - `geppetto/pkg/inference/middleware/tool_middleware_turns_test.go`
+  - `geppetto/pkg/toolbox/*` (obsolete toolbox package tied to removed middleware)
+
+### Validation
+- `cd geppetto && go test ./...`
+- `cd geppetto && go vet ./...`
+- Smoke suite (requires network + `OPENAI_API_KEY`):
+  - `bash geppetto/.codex/skills/inference-smoke-tests/scripts/run_smoke.sh --quick`
+
+### Max-iterations semantics (decision)
+- The removed middleware treated `MaxIterations` as a **soft cap** (returning the current Turn without error).
+- `toolhelpers.RunToolCallingLoop` treats `MaxIterations` as a **hard cap** (returns the current Turn and an error).
+- For now, we keep the tool loop behavior as canonical. If we want “soft-cap” semantics (or persistence on cap hit), handle that in a dedicated ticket.
+
+### Scope note: Agent-mode allowed tools
+`turns.KeyAgentModeAllowedTools` enforcement/translation is explicitly deferred to ticket `GP-06-ALLOW-TOOL-CONFIGURATION-IN-MW`. The intent is to support middleware-driven configuration of which tool descriptions are passed to the provider inference call.

@@ -6,11 +6,9 @@ import (
 	"io"
 
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -141,45 +139,20 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	reg := tools.NewInMemoryToolRegistry()
 	_ = reg.RegisterTool("get_weather", *weatherToolDef)
 
+	toolCfg := toolloop.NewToolConfig().
+		WithMaxIterations(3).
+		WithMaxParallelTools(1).
+		WithToolChoice(tools.ToolChoiceAuto).
+		WithToolErrorHandling(tools.ToolErrorContinue)
+
 	// Build a Turn seeded with a user prompt that asks to use the tool.
-	// Registry is carried in context (no Turn.Data registry).
 	turn := &turns.Turn{}
-	if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
-		Enabled:           true,
-		ToolChoice:        engine.ToolChoiceAuto,
-		MaxIterations:     3,
-		MaxParallelTools:  1,
-		ToolErrorHandling: engine.ToolErrorContinue,
-	}); err != nil {
-		return errors.Wrap(err, "set tool config")
-	}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
-
-	// Prepare a toolbox and register executable implementation
-	tb := middleware.NewMockToolbox()
-	tb.RegisterTool("get_weather", "Get current weather information for a specific location", map[string]any{
-		"location": map[string]any{"type": "string"},
-		"units":    map[string]any{"type": "string"},
-	}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-		req := WeatherRequest{Units: "celsius"}
-		if v, ok := args["location"].(string); ok {
-			req.Location = v
-		}
-		if v, ok := args["units"].(string); ok && v != "" {
-			req.Units = v
-		}
-		return weatherTool(req), nil
-	})
-
-	// Wrap engine with tool middleware
-	mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-
-	// Run inference with middleware-managed tool execution
-	ctx = toolcontext.WithRegistry(ctx, reg)
 	sess := session.NewSession()
 	sess.Builder = session.NewToolLoopEngineBuilder(
 		session.WithToolLoopBase(engineInstance),
-		session.WithToolLoopMiddlewares(mw),
+		session.WithToolLoopRegistry(reg),
+		session.WithToolLoopToolConfig(toolCfg),
 	)
 	sess.Append(turn)
 	handle, err := sess.StartInference(ctx)

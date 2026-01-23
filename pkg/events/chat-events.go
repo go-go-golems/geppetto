@@ -36,6 +36,9 @@ const (
 	EventTypeLog  EventType = "log"
 	EventTypeInfo EventType = "info"
 
+	// Debugger pause event (step-mode)
+	EventTypeDebuggerPause EventType = "debugger.pause"
+
 	// Agent-mode custom event (exported so UIs can act upon it)
 	EventTypeAgentModeSwitch EventType = "agent-mode-switch"
 
@@ -552,6 +555,12 @@ func NewEventFromJson(b []byte) (Event, error) {
 		ret, ok := ToTypedEvent[EventInfo](e)
 		if !ok {
 			return nil, fmt.Errorf("could not cast event to EventInfo")
+		}
+		return ret, nil
+	case EventTypeDebuggerPause:
+		ret, ok := ToTypedEvent[EventDebuggerPause](e)
+		if !ok {
+			return nil, fmt.Errorf("could not cast event to EventDebuggerPause")
 		}
 		return ret, nil
 	case EventTypeAgentModeSwitch:

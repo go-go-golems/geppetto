@@ -1,7 +1,7 @@
 ---
 Title: Assess EngineWithMiddleware vs Session ToolLoopEngineBuilder middlewares
 Ticket: GP-04-ENGINE-WITH-MIDDLEWARE-MOOT
-Status: active
+Status: complete
 Topics:
     - geppetto
     - inference
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-22T12:37:30.414580533-05:00
+LastUpdated: 2026-01-22T21:53:52.652999682-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Assess EngineWithMiddleware vs Session ToolLoopEngineBuilder middlewares
 

@@ -31,12 +31,21 @@ go run ./cmd/examples/simple-streaming-inference \
 
 ```bash
 cd geppetto
-go run ./cmd/examples/generic-tool-calling \
+go run ./cmd/examples/generic-tool-calling generic-tool-calling \
   --pinocchio-profile 4o-mini \
-  --prompt "What's the weather in Paris and what is 2+2?" \
+  "What's the weather in Paris and what is 2+2?" \
   --tools-enabled \
   --max-iterations 2 \
   --log-level info
+```
+
+### Claude tools smoke (tool calling)
+
+```bash
+cd geppetto
+go run ./cmd/examples/claude-tools test-claude-tools \
+  --ai-api-type claude \
+  --ai-engine claude-haiku-4-5
 ```
 
 ## pinocchio examples
@@ -111,4 +120,3 @@ go run ./cmd/examples/simple-redis-streaming-inference \
   --verbose \
   --log-level debug
 ```
-

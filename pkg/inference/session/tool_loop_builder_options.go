@@ -1,10 +1,12 @@
 package session
 
 import (
+	"time"
+
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
 
@@ -38,7 +40,7 @@ func WithToolLoopRegistry(registry tools.ToolRegistry) ToolLoopEngineBuilderOpti
 	}
 }
 
-func WithToolLoopToolConfig(cfg toolhelpers.ToolConfig) ToolLoopEngineBuilderOption {
+func WithToolLoopToolConfig(cfg toolloop.ToolConfig) ToolLoopEngineBuilderOption {
 	return func(b *ToolLoopEngineBuilder) {
 		b.ToolConfig = &cfg
 	}
@@ -50,9 +52,21 @@ func WithToolLoopEventSinks(sinks ...events.EventSink) ToolLoopEngineBuilderOpti
 	}
 }
 
-func WithToolLoopSnapshotHook(hook toolhelpers.SnapshotHook) ToolLoopEngineBuilderOption {
+func WithToolLoopSnapshotHook(hook toolloop.SnapshotHook) ToolLoopEngineBuilderOption {
 	return func(b *ToolLoopEngineBuilder) {
 		b.SnapshotHook = hook
+	}
+}
+
+func WithToolLoopStepController(sc *toolloop.StepController) ToolLoopEngineBuilderOption {
+	return func(b *ToolLoopEngineBuilder) {
+		b.StepController = sc
+	}
+}
+
+func WithToolLoopStepPauseTimeout(d time.Duration) ToolLoopEngineBuilderOption {
+	return func(b *ToolLoopEngineBuilder) {
+		b.StepPauseTimeout = d
 	}
 }
 

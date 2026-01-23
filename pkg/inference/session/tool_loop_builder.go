@@ -3,11 +3,12 @@ package session
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/google/uuid"
@@ -44,13 +45,21 @@ type ToolLoopEngineBuilder struct {
 	Registry tools.ToolRegistry
 
 	// ToolConfig configures tool-loop behavior when Registry is set.
-	ToolConfig *toolhelpers.ToolConfig
+	ToolConfig *toolloop.ToolConfig
 
 	// EventSinks are attached to the run context for streaming/logging.
 	EventSinks []events.EventSink
 
 	// SnapshotHook is attached to the run context for capturing intermediate turns.
-	SnapshotHook toolhelpers.SnapshotHook
+	SnapshotHook toolloop.SnapshotHook
+
+	// StepController enables step-mode pauses in the tool loop when non-nil.
+	// It is expected to be owned by the application/web layer (not by session).
+	StepController *toolloop.StepController
+
+	// StepPauseTimeout is the duration to wait at each pause before auto-continuing.
+	// If zero, the loop default is used.
+	StepPauseTimeout time.Duration
 
 	// Persister is invoked on successful completion (when err == nil and an updated turn exists).
 	Persister TurnPersister
@@ -67,19 +76,21 @@ func (b *ToolLoopEngineBuilder) Build(ctx context.Context, sessionID string) (In
 	eng := b.Base
 	eng = newEngineWithMiddlewares(eng, b.Middlewares)
 
-	cfg := toolhelpers.NewToolConfig()
+	cfg := toolloop.NewToolConfig()
 	if b.ToolConfig != nil {
 		cfg = *b.ToolConfig
 	}
 
 	return &toolLoopRunner{
-		sessionID:    sessionID,
-		eng:          eng,
-		registry:     b.Registry,
-		toolConfig:   cfg,
-		eventSinks:   b.EventSinks,
-		snapshotHook: b.SnapshotHook,
-		persister:    b.Persister,
+		sessionID:        sessionID,
+		eng:              eng,
+		registry:         b.Registry,
+		toolConfig:       cfg,
+		eventSinks:       b.EventSinks,
+		snapshotHook:     b.SnapshotHook,
+		stepController:   b.StepController,
+		stepPauseTimeout: b.StepPauseTimeout,
+		persister:        b.Persister,
 	}, nil
 }
 
@@ -89,10 +100,13 @@ type toolLoopRunner struct {
 	eng      engine.Engine
 	registry tools.ToolRegistry
 
-	toolConfig toolhelpers.ToolConfig
+	toolConfig toolloop.ToolConfig
 
 	eventSinks   []events.EventSink
-	snapshotHook toolhelpers.SnapshotHook
+	snapshotHook toolloop.SnapshotHook
+
+	stepController   *toolloop.StepController
+	stepPauseTimeout time.Duration
 
 	persister TurnPersister
 }
@@ -129,7 +143,7 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 		runCtx = events.WithEventSinks(runCtx, r.eventSinks...)
 	}
 	if r.snapshotHook != nil {
-		runCtx = toolhelpers.WithTurnSnapshotHook(runCtx, r.snapshotHook)
+		runCtx = toolloop.WithTurnSnapshotHook(runCtx, r.snapshotHook)
 	}
 
 	if t == nil {
@@ -154,7 +168,17 @@ func (r *toolLoopRunner) RunInference(ctx context.Context, t *turns.Turn) (*turn
 	if r.registry == nil {
 		updated, err = r.eng.RunInference(runCtx, t)
 	} else {
-		updated, err = toolhelpers.RunToolCallingLoop(runCtx, r.eng, t, r.registry, r.toolConfig)
+		opts := []toolloop.Option{
+			toolloop.WithEngine(r.eng),
+			toolloop.WithRegistry(r.registry),
+			toolloop.WithConfig(r.toolConfig),
+			toolloop.WithStepController(r.stepController),
+		}
+		if r.stepPauseTimeout > 0 {
+			opts = append(opts, toolloop.WithPauseTimeout(r.stepPauseTimeout))
+		}
+		loop := toolloop.New(opts...)
+		updated, err = loop.RunLoop(runCtx, t)
 	}
 
 	if updated != nil && r.sessionID != "" {

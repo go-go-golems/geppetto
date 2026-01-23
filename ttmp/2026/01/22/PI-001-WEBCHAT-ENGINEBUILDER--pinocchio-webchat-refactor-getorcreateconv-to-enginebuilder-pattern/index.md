@@ -1,7 +1,7 @@
 ---
 Title: 'Pinocchio webchat: refactor getOrCreateConv to EngineBuilder pattern'
 Ticket: PI-001-WEBCHAT-ENGINEBUILDER
-Status: active
+Status: complete
 Topics:
     - pinocchio
     - webchat
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-22T13:11:45.0400272-05:00
+LastUpdated: 2026-01-22T22:02:35.357899502-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Pinocchio webchat: refactor getOrCreateConv to EngineBuilder pattern
 

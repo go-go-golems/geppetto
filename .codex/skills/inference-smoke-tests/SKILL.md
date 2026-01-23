@@ -20,6 +20,7 @@ If you need the full manual checklist, open:
 ## Preconditions
 
 - Ensure `OPENAI_API_KEY` is set (for OpenAI Chat + OpenAI Responses).
+- Ensure Claude credentials are available (e.g. `ANTHROPIC_API_KEY`) if you want the Claude tool-calling smoke step to pass.
 - Ensure `tmux` is installed (required for non-interactive TUI runs).
 - Expect costs: these tests make real API calls.
 
@@ -34,7 +35,10 @@ If you need the full manual checklist, open:
 3) Validate Bubble Tea TUI event flow (thinking deltas + final)?
 - Run `pinocchio/cmd/agents/simple-chat-agent` in tmux.
 
-4) Validate multi-turn chat state persistence?
+4) Validate Claude tool calling?
+- Run `geppetto/cmd/examples/claude-tools` with `--ai-api-type claude --ai-engine claude-haiku-4-5`.
+
+5) Validate multi-turn chat state persistence?
 - Run pinocchio TUI chat in tmux (manual) and/or pinocchio webchat in browser (manual).
 
 ## What “Benefits From InferenceState” (Rules of Thumb)

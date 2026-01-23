@@ -37,7 +37,7 @@ Model: "The weather in Paris is 18°C and cloudy."
 
 In the Turn-based architecture:
 - **Provider engines** emit `tool_call` blocks when models request tools
-- **Middleware or helpers** execute tools and append `tool_use` blocks
+- **The tool loop runner** executes tools and appends `tool_use` blocks
 - **Engines re-run** with the updated Turn to let the model continue
 
 > **Key Pattern:** The runtime `tools.ToolRegistry` is carried via `context.Context` (see `toolcontext.WithRegistry`). Only serializable tool configuration lives on `Turn.Data` (e.g., `engine.KeyToolConfig`). This keeps Turn state persistable while allowing dynamic tools per inference call.
@@ -47,10 +47,10 @@ In the Turn-based architecture:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+    "github.com/go-go-golems/geppetto/pkg/inference/session"
     "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
-    "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
 ```
@@ -59,7 +59,7 @@ import (
 
 - How to define tools and register them
 - How to attach tools to a `Turn` for provider advertisement
-- How middleware and helpers execute tools
+- How the tool loop runner executes tools
 - How engines map model outputs to Turn blocks
 
 ### Key concepts (at a glance)
@@ -105,40 +105,30 @@ def, _ := tools.NewToolFromFunc("get_weather", "Get weather", weatherTool)
 _ = reg.RegisterTool("get_weather", *def)
 ```
 
-2) Attach the registry to context (and optional tool config to the Turn)
+2) Run the tool loop (the loop attaches the registry to context and manages tool config on the Turn)
 
 ```go
 seed := &turns.Turn{}
-if err := engine.KeyToolConfig.Set(&seed.Data, engine.ToolConfig{
-    Enabled:          true,
-    ToolChoice:       engine.ToolChoiceAuto,
-    MaxParallelTools: 1,
-}); err != nil {
-    return err
-}
+turns.AppendBlock(seed, turns.NewUserTextBlock("What's the weather in Paris? Use get_weather."))
 
-ctx = toolcontext.WithRegistry(ctx, reg)
+cfg := toolhelpers.NewToolConfig().
+    WithMaxIterations(5).
+    WithMaxParallelTools(1).
+    WithToolChoice(tools.ToolChoiceAuto).
+    WithToolErrorHandling(tools.ToolErrorContinue)
+
+updated, err := toolhelpers.RunToolCallingLoop(ctx, e, seed, reg, cfg)
 ```
 
-3) Run the engine and execute tools with middleware or helpers
+3) Alternatively: run via the session builder
 
 ```go
-// Middleware route (Turn-native)
-tb := middleware.NewMockToolbox()
-tb.RegisterTool("echo", "Echo text", map[string]any{"text": {"type": "string"}},
-    func(ctx context.Context, args map[string]any) (any, error) { return args["text"], nil })
-mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5})
-
-turns.AppendBlock(seed, turns.NewUserTextBlock("Use echo with 'hello'"))
 runner, _ := session.NewToolLoopEngineBuilder(
     session.WithToolLoopBase(e),
-    session.WithToolLoopMiddlewares(mw),
+    session.WithToolLoopRegistry(reg),
+    session.WithToolLoopToolConfig(cfg),
 ).Build(ctx, "demo-session")
 updated, _ := runner.RunInference(ctx, seed)
-
-// Helper route (Turn-based loop)
-cfg := toolhelpers.NewToolConfig().WithMaxIterations(5)
-updated, _ := toolhelpers.RunToolCallingLoop(ctx, e, seed, reg, cfg)
 ```
 
 ---
@@ -149,62 +139,57 @@ The following example shows how to:
 - Define a tool with JSON Schema inferred from a Go function
 - Seed a Turn with a per-Turn registry
 - Let the engine advertise tools to the provider
-- Execute tools via middleware and return results as `tool_use` blocks
+- Execute tools via the tool loop and return results as `tool_use` blocks
 
 ```go
 package main
 
-import (
-    "context"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    "github.com/go-go-golems/geppetto/pkg/inference/session"
-    "github.com/go-go-golems/geppetto/pkg/inference/tools"
-    "github.com/go-go-golems/geppetto/pkg/turns"
-)
+	import (
+	    "context"
+	    "github.com/go-go-golems/geppetto/pkg/inference/engine"
+	    "github.com/go-go-golems/geppetto/pkg/inference/session"
+	    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+	    "github.com/go-go-golems/geppetto/pkg/turns"
+	)
 
 type AddRequest struct { A, B float64 `json:"a" jsonschema:"required"` }
 type AddResponse struct { Sum float64 `json:"sum"` }
 
 func addTool(req AddRequest) AddResponse { return AddResponse{Sum: req.A + req.B} }
 
-func run(ctx context.Context, e engine.Engine) error {
-    // 1) Create registry and register the tool
-    reg := tools.NewInMemoryToolRegistry()
-    def, _ := tools.NewToolFromFunc("add", "Add two numbers", addTool)
-    _ = reg.RegisterTool("add", *def)
+	func run(ctx context.Context, e engine.Engine) error {
+	    // 1) Create registry and register the tool
+	    reg := tools.NewInMemoryToolRegistry()
+	    def, _ := tools.NewToolFromFunc("add", "Add two numbers", addTool)
+	    _ = reg.RegisterTool("add", *def)
 
-    // 2) Seed a Turn with minimal tool config (registry is in context)
-    t := &turns.Turn{}
-    if err := engine.KeyToolConfig.Set(&t.Data, engine.ToolConfig{Enabled: true}); err != nil {
-        return err
-    }
-    turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
+	    // 2) Seed a Turn
+	    t := &turns.Turn{}
+	    turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
 
-    // 3) Attach registry to context (no Turn.Data registry)
-    ctx = toolcontext.WithRegistry(ctx, reg)
+	    // 3) Configure the tool loop
+	    cfg := toolhelpers.NewToolConfig().
+	        WithMaxIterations(3).
+	        WithMaxParallelTools(1).
+	        WithToolChoice(tools.ToolChoiceAuto).
+	        WithToolErrorHandling(tools.ToolErrorContinue)
 
-    // 4) Attach tool middleware to execute tool_use blocks
-    tb := middleware.NewMockToolbox()
-    tb.RegisterTool("add", "Add two numbers", map[string]any{
-        "a": {"type": "number"},
-        "b": {"type": "number"},
-    }, func(ctx context.Context, args map[string]any) (any, error) {
-        return args["a"].(float64) + args["b"].(float64), nil
-    })
-    builder := session.NewToolLoopEngineBuilder(
-        session.WithToolLoopBase(e),
-        session.WithToolLoopMiddlewares(middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})),
-    )
-    runner, err := builder.Build(ctx, "demo-session")
-    if err != nil {
-        return err
-    }
+	    // 4) Build a runner that owns tool execution
+	    builder := session.NewToolLoopEngineBuilder(
+	        session.WithToolLoopBase(e),
+	        session.WithToolLoopRegistry(reg),
+	        session.WithToolLoopToolConfig(cfg),
+	    )
+	    runner, err := builder.Build(ctx, "demo-session")
+	    if err != nil {
+	        return err
+	    }
 
-    // 5) Run inference (engine may emit tool_call; middleware executes and appends tool_use)
-    _, err = runner.RunInference(ctx, t)
-    return err
-}
+	    // 5) Run inference (engine may emit tool_call; tool loop executes and appends tool_use)
+	    _, err = runner.RunInference(ctx, t)
+	    return err
+	}
 ```
 
 ---

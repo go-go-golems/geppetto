@@ -19,3 +19,8 @@ Remove ParsedLayersEngineBuilder indirection: examples/agent now construct engin
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/simple-streaming-inference/main.go — Construct engine directly (remove builder)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/agents/simple-chat-agent/main.go — Construct engine directly (remove builder package)
 
+
+## 2026-01-22
+
+Cleanup complete; examples now construct engines directly and unused builder indirection removed.
+

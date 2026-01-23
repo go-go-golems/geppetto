@@ -1,7 +1,7 @@
 ---
 Title: Remove Turn.RunID; store SessionID in Turn metadata
 Ticket: GP-02-REMOVE-TURN-RUN-ID
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-22T09:57:27.405855024-05:00
+LastUpdated: 2026-01-22T21:53:48.099838019-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Remove Turn.RunID; store SessionID in Turn metadata
 

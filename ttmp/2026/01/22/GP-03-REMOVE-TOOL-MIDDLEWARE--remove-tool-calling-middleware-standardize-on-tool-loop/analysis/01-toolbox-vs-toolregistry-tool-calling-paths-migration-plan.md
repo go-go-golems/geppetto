@@ -49,6 +49,8 @@ They both implement a “run inference → extract `tool_call` blocks → execut
 
 This ticket proposes to standardize on the **tool loop** (and/or `ToolLoopEngineBuilder`) and remove the tool middleware, updating examples/docs/tests accordingly.
 
+**Update (2026-01-22):** In this workspace state, the Toolbox-based tool middleware (`middleware.NewToolMiddleware`) has been removed. Examples/docs were migrated to use the tool loop runner (`toolhelpers.RunToolCallingLoop`) via `session.ToolLoopEngineBuilder` with a `tools.ToolRegistry`.
+
 ## Glossary
 
 - **Turn**: `*turns.Turn` containing `Blocks` with kinds `tool_call` / `tool_use`.
@@ -135,9 +137,9 @@ Behavior:
 
 So: the “tool loop” is already the preferred orchestration path at the session level.
 
-## Who uses ToolMiddleware today?
+## Who used ToolMiddleware?
 
-Excluding `ttmp/` docs:
+Prior to removal (excluding `ttmp/` docs), it was used by:
 
 - Examples:
   - `geppetto/cmd/examples/middleware-inference/main.go`
@@ -150,7 +152,7 @@ Excluding `ttmp/` docs:
   - `geppetto/pkg/doc/topics/07-tools.md`
   - `geppetto/pkg/doc/topics/09-middlewares.md`
 
-Within this monorepo workspace, there are **no** non-`geppetto/` imports of `middleware.NewToolMiddleware(...)` (outside `ttmp/` narrative docs). This suggests we can remove it with limited blast radius once examples/docs are updated.
+In this workspace state, these call sites have been migrated and the middleware/tests were deleted. (Out-of-workspace downstream consumers may still exist.)
 
 ## Toolbox vs ToolRegistry (differences that matter)
 

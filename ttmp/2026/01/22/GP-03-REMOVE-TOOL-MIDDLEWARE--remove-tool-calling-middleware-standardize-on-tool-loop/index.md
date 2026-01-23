@@ -1,7 +1,7 @@
 ---
 Title: Remove tool calling middleware; standardize on tool loop
 Ticket: GP-03-REMOVE-TOOL-MIDDLEWARE
-Status: active
+Status: complete
 Topics:
     - geppetto
     - inference
@@ -15,16 +15,18 @@ RelatedFiles:
     - Path: geppetto/cmd/examples/generic-tool-calling/main.go
       Note: Example that uses tool loop
     - Path: geppetto/cmd/examples/middleware-inference/main.go
-      Note: Example that uses ToolMiddleware
-    - Path: geppetto/pkg/inference/middleware/tool_middleware.go
-      Note: Legacy tool-calling middleware (Toolbox-based)
+      Note: Example that uses tool loop + middleware
     - Path: geppetto/pkg/inference/session/tool_loop_builder.go
       Note: Session runner that uses tool loop when Registry set
     - Path: geppetto/pkg/inference/toolhelpers/helpers.go
       Note: Tool calling loop (ToolRegistry/ToolExecutor-based)
+    - Path: geppetto/pkg/doc/topics/07-tools.md
+      Note: Tools docs (builder/loop usage)
+    - Path: geppetto/pkg/doc/topics/09-middlewares.md
+      Note: Middleware docs (tool loop integration)
 ExternalSources: []
-Summary: ""
-LastUpdated: 2026-01-22T11:37:36.226414528-05:00
+Summary: "Completed: removed ToolMiddleware/Toolbox, migrated examples/docs to ToolLoopEngineBuilder + RunToolCallingLoop, updated smoke tests (incl. Claude tool calling)."
+LastUpdated: 2026-01-22T19:38:33-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -34,7 +36,7 @@ WhenToUse: ""
 
 ## Overview
 
-<!-- Provide a brief overview of the ticket, its goals, and current status -->
+This ticket removes the legacy tool calling middleware (ToolMiddleware/Toolbox) and standardizes tool calling on the tool loop runner via `session.ToolLoopEngineBuilder` and `toolhelpers.RunToolCallingLoop`.
 
 ## Key Links
 
@@ -43,7 +45,7 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

@@ -53,7 +53,7 @@ echo "[info] PINOCCHIO_ROOT=${PINOCCHIO_ROOT}"
 echo "[info] MODE=${MODE} AI_ENGINE=${AI_ENGINE} PROFILE=${PROFILE}"
 
 echo
-echo "[1/3] geppetto: OpenAI Responses thinking smoke"
+echo "[1/4] geppetto: OpenAI Responses thinking smoke"
 (cd "${GEPPETTO_ROOT}" && \
   go run ./cmd/examples/openai-tools test-openai-tools \
     --ai-api-type openai-responses \
@@ -63,18 +63,26 @@ echo "[1/3] geppetto: OpenAI Responses thinking smoke"
   | head -n 120)
 
 echo
-echo "[2/3] geppetto: generic tool loop smoke"
+echo "[2/4] geppetto: generic tool loop smoke"
 (cd "${GEPPETTO_ROOT}" && \
-  go run ./cmd/examples/generic-tool-calling \
+  go run ./cmd/examples/generic-tool-calling generic-tool-calling \
     --pinocchio-profile "${PROFILE}" \
-    --prompt "What's the weather in Paris and what is 2+2?" \
+    "What's the weather in Paris and what is 2+2?" \
     --tools-enabled \
     --max-iterations 2 \
     --log-level info \
   | head -n 120)
 
 echo
-echo "[3/3] pinocchio: agent TUI smoke (tmux, Tab submits, Alt-q quits)"
+echo "[3/4] geppetto: Claude tool calling smoke"
+(cd "${GEPPETTO_ROOT}" && \
+  go run ./cmd/examples/claude-tools test-claude-tools \
+    --ai-api-type claude \
+    --ai-engine "claude-haiku-4-5" \
+  | head -n 120)
+
+echo
+echo "[4/4] pinocchio: agent TUI smoke (tmux, Tab submits, Alt-q quits)"
 if ! command -v tmux >/dev/null 2>&1; then
   echo "tmux not found; skipping pinocchio TUI agent smoke." >&2
   exit 0
@@ -106,4 +114,3 @@ tail -n 180 "${AGENT_LOG}" || true
 
 echo
 echo "[ok] smoke suite complete"
-
