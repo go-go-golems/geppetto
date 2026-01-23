@@ -9,7 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -140,9 +140,9 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		Build()
 
 	sess := session.NewSession()
-	sess.Builder = toolloop.NewEngineBuilder(
-		toolloop.WithBase(engine),
-		toolloop.WithMiddlewares(mws...),
+	sess.Builder = enginebuilder.New(
+		enginebuilder.WithBase(engine),
+		enginebuilder.WithMiddlewares(mws...),
 	)
 	sess.Append(initialTurn)
 	handle, err := sess.StartInference(ctx)

@@ -575,7 +575,7 @@ Add middleware for logging, metrics, and other cross-cutting concerns:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/inference/session"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -597,9 +597,9 @@ func addMiddleware(baseEngine engine.Engine) session.EngineBuilder {
         }
     }
 
-    return toolloop.NewEngineBuilder(
-        toolloop.WithBase(baseEngine),
-        toolloop.WithMiddlewares(loggingMiddleware),
+    return enginebuilder.New(
+        enginebuilder.WithBase(baseEngine),
+        enginebuilder.WithMiddlewares(loggingMiddleware),
     )
 }
 ```
@@ -630,7 +630,7 @@ When working with the inference engine architecture:
 
 ### Tool Calling
 
-- **Use helpers**: Let `toolhelpers` handle orchestration
+- **Use canonical surfaces**: wire tools via `toolloop.Loop` + `toolloop/enginebuilder` (no `toolhelpers`)
 - **Configure limits**: Set reasonable iteration and timeout limits
 - **Handle errors**: Configure appropriate error handling strategies
 - **Test tools**: Test tool functions independently

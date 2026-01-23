@@ -1,4 +1,4 @@
-package toolloop
+package enginebuilder
 
 import (
 	"context"
@@ -30,14 +30,14 @@ func (e passthroughEngine) RunInference(ctx context.Context, t *turns.Turn) (*tu
 	return &out, nil
 }
 
-func TestEngineBuilder_RunsToolLoopAndPersists(t *testing.T) {
+func TestBuilder_RunsToolLoopAndPersists(t *testing.T) {
 	p := &recordingPersister{}
 	snapshotCalls := 0
 	hook := func(ctx context.Context, t *turns.Turn, phase string) {
 		snapshotCalls++
 	}
 
-	b := &EngineBuilder{
+	b := &Builder{
 		Base:         engine.Engine(passthroughEngine{}),
 		Registry:     tools.NewInMemoryToolRegistry(),
 		SnapshotHook: hook,

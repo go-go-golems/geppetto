@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -431,12 +432,12 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 		cfg := helperConfig
 		sess := session.NewSession()
-		sess.Builder = toolloop.NewEngineBuilder(
-			toolloop.WithBase(baseEngine),
-			toolloop.WithMiddlewares(mws...),
-			toolloop.WithToolRegistry(registry),
-			toolloop.WithToolConfig(cfg),
-			toolloop.WithEventSinks(sink),
+		sess.Builder = enginebuilder.New(
+			enginebuilder.WithBase(baseEngine),
+			enginebuilder.WithMiddlewares(mws...),
+			enginebuilder.WithToolRegistry(registry),
+			enginebuilder.WithToolConfig(cfg),
+			enginebuilder.WithEventSinks(sink),
 		)
 		sess.Append(initialTurn)
 		handle, err := sess.StartInference(ctx)

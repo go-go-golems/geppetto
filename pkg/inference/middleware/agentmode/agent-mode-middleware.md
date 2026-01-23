@@ -71,6 +71,7 @@ mode_switch:
 import (
   "context"
   "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+  "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
   "github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
 
@@ -83,11 +84,11 @@ mw := agentmode.NewMiddleware(svc, agentmode.DefaultConfig())
 reg := tools.NewInMemoryToolRegistry()
 // register your tools into reg (e.g. via tools.NewToolFromFunc + reg.RegisterTool)
 cfg := toolloop.NewToolConfig().WithMaxIterations(3)
-runner, err := toolloop.NewEngineBuilder(
-  toolloop.WithBase(base),
-  toolloop.WithMiddlewares(mw),
-  toolloop.WithToolRegistry(reg),
-  toolloop.WithToolConfig(cfg),
+runner, err := enginebuilder.New(
+  enginebuilder.WithBase(base),
+  enginebuilder.WithMiddlewares(mw),
+  enginebuilder.WithToolRegistry(reg),
+  enginebuilder.WithToolConfig(cfg),
 ).Build(context.Background(), "")
 if err != nil {
   panic(err)

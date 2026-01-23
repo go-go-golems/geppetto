@@ -49,7 +49,8 @@ import (
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/session"
     "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -111,22 +112,27 @@ _ = reg.RegisterTool("get_weather", *def)
 seed := &turns.Turn{}
 turns.AppendBlock(seed, turns.NewUserTextBlock("What's the weather in Paris? Use get_weather."))
 
-cfg := toolhelpers.NewToolConfig().
+cfg := toolloop.NewToolConfig().
     WithMaxIterations(5).
     WithMaxParallelTools(1).
     WithToolChoice(tools.ToolChoiceAuto).
     WithToolErrorHandling(tools.ToolErrorContinue)
 
-updated, err := toolhelpers.RunToolCallingLoop(ctx, e, seed, reg, cfg)
+loop := toolloop.New(
+    toolloop.WithEngine(e),
+    toolloop.WithRegistry(reg),
+    toolloop.WithConfig(cfg),
+)
+updated, err := loop.RunLoop(ctx, seed)
 ```
 
 3) Alternatively: run via the session builder
 
 ```go
-runner, _ := toolloop.NewEngineBuilder(
-    toolloop.WithBase(e),
-    toolloop.WithToolRegistry(reg),
-    toolloop.WithToolConfig(cfg),
+runner, _ := enginebuilder.New(
+    enginebuilder.WithBase(e),
+    enginebuilder.WithToolRegistry(reg),
+    enginebuilder.WithToolConfig(cfg),
 ).Build(ctx, "demo-session")
 updated, _ := runner.RunInference(ctx, seed)
 ```
@@ -148,7 +154,7 @@ package main
 	    "context"
 	    "github.com/go-go-golems/geppetto/pkg/inference/engine"
 		    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
-	    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	    "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	    "github.com/go-go-golems/geppetto/pkg/inference/tools"
 	    "github.com/go-go-golems/geppetto/pkg/turns"
 	)
@@ -169,17 +175,17 @@ func addTool(req AddRequest) AddResponse { return AddResponse{Sum: req.A + req.B
 	    turns.AppendBlock(t, turns.NewUserTextBlock("Please use add with a=2 and b=3"))
 
 	    // 3) Configure the tool loop
-	    cfg := toolhelpers.NewToolConfig().
+	    cfg := toolloop.NewToolConfig().
 	        WithMaxIterations(3).
 	        WithMaxParallelTools(1).
 	        WithToolChoice(tools.ToolChoiceAuto).
 	        WithToolErrorHandling(tools.ToolErrorContinue)
 
 	    // 4) Build a runner that owns tool execution
-		    builder := toolloop.NewEngineBuilder(
-		        toolloop.WithBase(e),
-		        toolloop.WithToolRegistry(reg),
-		        toolloop.WithToolConfig(cfg),
+		    builder := enginebuilder.New(
+		        enginebuilder.WithBase(e),
+		        enginebuilder.WithToolRegistry(reg),
+		        enginebuilder.WithToolConfig(cfg),
 		    )
 		    runner, err := builder.Build(ctx, "demo-session")
 	    if err != nil {
@@ -260,7 +266,7 @@ Available hooks on `BaseToolExecutor`:
 - `ShouldRetry` implement bespoke retry policies
 - `MaxParallel` override concurrency control per batch
 
-Override whichever hooks you need; the base executor handles the rest (context cancellation, event emission, timings, and retries). For most projects, `tools.NewDefaultToolExecutor` remains sufficient, and helper utilities such as `toolhelpers.RunToolCallingLoop` continue to use it under the hood.
+Override whichever hooks you need; the base executor handles the rest (context cancellation, event emission, timings, and retries). For most projects, `tools.NewDefaultToolExecutor` remains sufficient, and higher-level orchestration (via `toolloop.Loop` or `toolloop/enginebuilder`) wires it in under the hood.
 
 ---
 
@@ -358,7 +364,7 @@ For details on event extensibility, see: `glaze help geppetto-events-streaming-w
 | Problem | Solution |
 |---------|----------|
 | Tools not advertised | Ensure `ctx = toolcontext.WithRegistry(ctx, reg)` before `RunInference` |
-| Tool call not executed | Check middleware is attached or use `toolhelpers.RunToolCallingLoop` |
+| Tool call not executed | Check middleware is attached or run the tool loop explicitly via `toolloop.New(...).RunLoop(...)` |
 | Payload key errors | Use constants like `turns.PayloadKeyArgs`, never string literals |
 | Dynamic tools not working | Modify registry before calling `RunInference`; Turn.Data for config only |
 

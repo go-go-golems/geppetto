@@ -52,6 +52,7 @@ import (
   engpkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
   "github.com/go-go-golems/geppetto/pkg/inference/middleware"
   "github.com/go-go-golems/geppetto/pkg/inference/session"
+  "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
   "github.com/go-go-golems/pinocchio/pkg/middlewares/sqlitetool"
   "github.com/go-go-golems/geppetto/pkg/inference/tools"
   "github.com/go-go-golems/geppetto/pkg/turns"
@@ -69,9 +70,9 @@ cfg := sqlitetool.DefaultConfig()
 cfg.Name = "finance"      // tool becomes sql_query_finance
 cfg.ReadOnly = true        // allow only SELECT/WITH/EXPLAIN/PRAGMA
 mw := sqlitetool.NewMiddleware(cfg)
-runner, err := toolloop.NewEngineBuilder(
-  toolloop.WithBase(baseEngine),
-  toolloop.WithMiddlewares(mw),
+runner, err := enginebuilder.New(
+  enginebuilder.WithBase(baseEngine),
+  enginebuilder.WithMiddlewares(mw),
 ).Build(ctx, "")
 if err != nil {
   panic(err)

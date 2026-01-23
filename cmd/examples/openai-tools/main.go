@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -373,17 +374,17 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.
 	sess := session.NewSession()
-	builderOpts := []toolloop.EngineBuilderOption{
-		toolloop.WithBase(engineInstance),
-		toolloop.WithEventSinks(sink),
+	builderOpts := []enginebuilder.Option{
+		enginebuilder.WithBase(engineInstance),
+		enginebuilder.WithEventSinks(sink),
 	}
 	if toolLoopEnabled {
 		builderOpts = append(builderOpts,
-			toolloop.WithToolRegistry(toolLoopRegistry),
-			toolloop.WithToolConfig(toolLoopCfg),
+			enginebuilder.WithToolRegistry(toolLoopRegistry),
+			enginebuilder.WithToolConfig(toolLoopCfg),
 		)
 	}
-	sess.Builder = toolloop.NewEngineBuilder(builderOpts...)
+	sess.Builder = enginebuilder.New(builderOpts...)
 	sess.Append(turn)
 	handle, err := sess.StartInference(runCtx)
 	if err != nil {

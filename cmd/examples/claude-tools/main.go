@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -149,10 +150,10 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	turn := &turns.Turn{}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("Use get_weather to check the weather in Paris, France. Return the result."))
 	sess := session.NewSession()
-	sess.Builder = toolloop.NewEngineBuilder(
-		toolloop.WithBase(engineInstance),
-		toolloop.WithToolRegistry(reg),
-		toolloop.WithToolConfig(toolCfg),
+	sess.Builder = enginebuilder.New(
+		enginebuilder.WithBase(engineInstance),
+		enginebuilder.WithToolRegistry(reg),
+		enginebuilder.WithToolConfig(toolCfg),
 	)
 	sess.Append(turn)
 	handle, err := sess.StartInference(ctx)

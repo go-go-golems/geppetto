@@ -75,9 +75,9 @@ logMw := func(next middleware.HandlerFunc) middleware.HandlerFunc {
     }
 }
 
-builder := toolloop.NewEngineBuilder(
-    toolloop.WithBase(baseEngine),
-    toolloop.WithMiddlewares(logMw),
+builder := enginebuilder.New(
+    enginebuilder.WithBase(baseEngine),
+    enginebuilder.WithMiddlewares(logMw),
 )
 ```
 
@@ -89,19 +89,19 @@ Middlewares run in the order they're provided:
 
 ```go
 e := baseEngine
-	builder := toolloop.NewEngineBuilder(
-	    toolloop.WithBase(e),
-	    toolloop.WithMiddlewares(logMw /*, sysPromptMw, ... */),
-	)
+builder := enginebuilder.New(
+    enginebuilder.WithBase(e),
+    enginebuilder.WithMiddlewares(logMw /*, sysPromptMw, ... */),
+)
 // Now: RunInference -> logMw -> engine
 ```
 
 For convenience, pass them as a slice once:
 
 ```go
-builder := toolloop.NewEngineBuilder(
-    toolloop.WithBase(baseEngine),
-    toolloop.WithMiddlewares(logMw, safetyMw),
+builder := enginebuilder.New(
+    enginebuilder.WithBase(baseEngine),
+    enginebuilder.WithMiddlewares(logMw, safetyMw),
 )
 ```
 
@@ -137,7 +137,7 @@ General principle: **Middlewares that reject/filter go first; middlewares that m
 
 ## Troubleshooting
 
-- Middleware not running: ensure you’re using `toolloop.NewEngineBuilder(... toolloop.WithMiddlewares(...))` (or that you’re applying `middleware.Chain(...)` in your own engine adapter).
+- Middleware not running: ensure you’re using `enginebuilder.New(... enginebuilder.WithMiddlewares(...))` (or that you’re applying `middleware.Chain(...)` in your own engine adapter).
 - Wrong ordering: remember `middleware.Chain(m1, m2, m3)` runs as `m1(m2(m3(next)))`.
 - Nil Turn: most middleware should be defensive if `t == nil` (either treat as empty turn or error early).
 

@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -260,17 +261,17 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 
 	// Run inference
 	sess := session.NewSession()
-	builderOpts := []toolloop.EngineBuilderOption{
-		toolloop.WithBase(engine),
-		toolloop.WithMiddlewares(middlewares...),
+	builderOpts := []enginebuilder.Option{
+		enginebuilder.WithBase(engine),
+		enginebuilder.WithMiddlewares(middlewares...),
 	}
 	if toolLoopEnabled {
 		builderOpts = append(builderOpts,
-			toolloop.WithToolRegistry(toolLoopRegistry),
-			toolloop.WithToolConfig(toolLoopCfg),
+			enginebuilder.WithToolRegistry(toolLoopRegistry),
+			enginebuilder.WithToolConfig(toolLoopCfg),
 		)
 	}
-	sess.Builder = toolloop.NewEngineBuilder(builderOpts...)
+	sess.Builder = enginebuilder.New(builderOpts...)
 	sess.Append(initialTurn)
 	handle, err := sess.StartInference(ctx)
 	if err != nil {
