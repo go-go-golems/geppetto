@@ -84,3 +84,12 @@ Step 8: Updated GP-09 checklist + diary bookkeeping
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/tasks.md — Marked implementation tasks completed
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/reference/01-diary.md — Added bookkeeping step and review notes
+
+## 2026-01-23
+
+Step 9: Wrote engineering postmortem (implemented Phase 1 in Pinocchio+Moments; tools/overrides/config in Pinocchio)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/23/GP-09-PROFILE-ENGINE-BUILDER--profile-engine-builder/reference/02-postmortem.md — Detailed engineering postmortem
+
