@@ -15,7 +15,7 @@
   - Option B: define a protobuf envelope `SemEventEnvelope { oneof payload { ... } }` and still ship JSON (protojson) over the wire.
   - Acceptance: written decision + updated plan doc + an example for `llm.delta` and `tool.start` showing exact JSON on the wire.
 
-- [ ] Define and document stable ID rules
+- [x] Define and document stable ID rules
   - For each family (`llm.*`, `tool.*`, `planning.*`, widgets), specify:
     - entity ID source,
     - correlation ID source (run/session/turn),
@@ -33,7 +33,7 @@
   - Add a one-liner doc: `cd pinocchio && buf generate`.
   - Acceptance: `buf generate` produces Go types under `pinocchio/pkg/sem/pb/**` and TS schemas under the chosen React path.
 
-- [ ] Backend: replace the monolithic SEM switch with a registry + protobuf-authored payloads
+- [x] Backend: replace the monolithic SEM switch with a registry + protobuf-authored payloads
   - Start from `pinocchio/pkg/webchat/forwarder.go`.
   - Create registry-first mapping (reuse/adapt `moments/backend/pkg/sem/registry` or implement in Pinocchio).
   - For each SEM event, construct the payload as a protobuf message and convert via protojson at the boundary.

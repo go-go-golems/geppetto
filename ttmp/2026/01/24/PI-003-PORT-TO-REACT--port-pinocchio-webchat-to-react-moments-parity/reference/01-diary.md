@@ -20,12 +20,19 @@ RelatedFiles:
       Note: Main architecture narrative produced from this research
     - Path: geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/reference/01-diary.md
       Note: Research diary capturing the file/command trail
+    - Path: pinocchio/cmd/web-chat/web/src/store.js
+      Note: Adjusted to read event.data for smoke-testing
+    - Path: pinocchio/pkg/webchat/router.go
+      Note: ws.hello/ws.pong payload now in event.data
+    - Path: pinocchio/pkg/webchat/sem_translator.go
+      Note: Step 15 implementation (commit 949beb9)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-01-24T13:52:51.900577155-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -735,3 +742,80 @@ The focus was deliberately “foundational plumbing” rather than a behavior ch
 
 ### What warrants a second pair of eyes
 - Whether we want to enforce versioned protobuf package names (`.v1`) now, or defer until after the first end-to-end Pinocchio React client is working.
+
+## Step 15: Replace Pinocchio SEM switch with registry-only translator + protobuf-authored payloads (stable IDs, data envelope)
+
+This step turns the “protobuf-first + registry-only” plan into real backend behavior. I removed the monolithic SEM `switch` in Pinocchio and replaced it with a registry-backed translator that emits **only** the JSON SEM envelope and puts all payload fields into **protobuf-authored `event.data`** (protojson). In the same pass I fixed a correctness issue: previously, when `message_id` was missing, streaming LLM events could produce *different* IDs per frame, which breaks UI coalescing; the new translator derives stable IDs from `inference_id` / `turn_id` / `session_id`.
+
+I kept the work “always green”: I ran `buf lint && buf generate`, added a unit test for ID stability + tool result shaping, ran `go test ./...`, and let the Pinocchio pre-commit hook run its full suite (including a Vite build for the web-chat frontend).
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue , make sure you compile and test as you go along, to make sure we are on track"
+
+**Assistant interpretation:** Continue executing the ticket plan (starting with backend SEM refactors), and continuously compile/test so we don’t drift or break the system.
+
+**Inferred user intent:** Maintain tight feedback loops while moving from design → implementation, ensuring each chunk is shippable and reviewable.
+
+**Commit (code):** `949beb9d01bd967b95c85c2dc22d39a13b5ab2a0` — "webchat: registry-only SEM + protobuf payloads"
+
+### What I did
+- Implemented a global SEM handler registry and rewired Pinocchio webchat to be **registry-only** (no fallback switch):
+  - Added `pinocchio/pkg/sem/registry/registry.go`
+  - Added `pinocchio/pkg/webchat/sem_translator.go` and removed the switch-based mapping from `pinocchio/pkg/webchat/forwarder.go`
+- Implemented and documented **stable ID rules** in code:
+  - Prefer `EventMetadata.message_id` when set
+  - Else derive from `inference_id`, else `turn_id`, else `session_id`, else random UUID
+  - Thinking stream IDs use `:thinking` suffix
+- Defined protobuf schemas for the core SEM event families used by Pinocchio today and generated Go+TS code via Buf:
+  - New: `pinocchio/proto/sem/base/{llm,metadata,log,agent,debugger,ws}.proto`
+  - Updated: `pinocchio/proto/sem/base/tool.proto` (added `custom_kind`)
+  - Generated: `pinocchio/pkg/sem/pb/proto/sem/base/*.pb.go` and `pinocchio/web/src/sem/pb/proto/sem/base/*_pb.ts`
+- Updated backend event emission to conform to the planned wire contract:
+  - Envelope: `{ "sem": true, "event": { "type": "...", "id": "...", "data": <protojson>, "metadata": <protojson?> } }`
+  - `event.data` and `event.metadata` now use protojson lowerCamelCase field names.
+- Updated websocket greeting/pong events to put their payload in `event.data` (protobuf-authored):
+  - `pinocchio/pkg/webchat/router.go`
+- Updated the existing Pinocchio “web-chat” frontend (Zustand store) so it reads `event.data.*` instead of top-level fields:
+  - `pinocchio/cmd/web-chat/web/src/store.js`
+- Added tests for the new behavior:
+  - `pinocchio/pkg/webchat/sem_translator_test.go` asserts stable IDs and calc tool result `customKind`.
+
+### Why
+- Registry-only routing enforces handler coverage and prevents accidental “half-migrations” where a legacy switch keeps masking missing SEM handlers.
+- Protobuf-authored `event.data` is the simplest way to make schemas canonical across Go and TypeScript while keeping the wire format inspectable.
+- Stable IDs are required for correct streaming message coalescing (without stable IDs the UI can’t upsert).
+
+### What worked
+- `cd pinocchio && buf lint && buf generate`
+- `cd pinocchio && go test ./...`
+- Pinocchio pre-commit hook completed successfully and ran the repo’s standard checks.
+
+### What didn't work
+- The Pinocchio pre-commit hook surfaced `npm audit` vulnerabilities during the web-chat build step (2 moderate, 1 high). The hook did not fail the commit, but this should be tracked separately.
+
+### What I learned
+- Moving to `event.data` changes field casing expectations: protojson emits lowerCamelCase (e.g., `maxTokens`), which is a deliberate break from the prior snake_case `LLMInferenceData` JSON tags.
+
+### What was tricky to build
+- Ensuring “registry-only” does not silently drop events: handlers that return `(nil, nil)` count as “found” but produce no frames; that is correct for `EventInfo` messages we intentionally ignore, but should be used sparingly elsewhere.
+- Keeping the legacy web-chat frontend working enough for smoke testing while changing the SEM payload contract.
+
+### What warrants a second pair of eyes
+- The protobuf package organization: everything in `proto/sem/base/*` compiles into a single Go package `base`, which is convenient but may become unwieldy as SEM families grow.
+- Whether `agent.mode` IDs should be made deterministic (vs random) for idempotent upsert semantics in future hydration scenarios.
+
+### What should be done in the future
+- Consider adding protobuf schemas for any remaining SEM event families (and enforce “no ad-hoc JSON” in `event.data`).
+- Decide whether to gate or fail CI on `npm audit` output for the embedded web frontend build step.
+
+### Code review instructions
+- Start with `pinocchio/pkg/webchat/sem_translator.go` (registry registrations + protobuf shaping + stable IDs).
+- Check the schema changes in `pinocchio/proto/sem/base/*.proto` and confirm generated output is expected.
+- Validate with:
+  - `cd pinocchio && buf lint && buf generate`
+  - `cd pinocchio && go test ./...`
+
+### Technical details
+- Stable ID resolution logic is based on `EventMetadata.{message_id,inference_id,turn_id,session_id}` and is implemented in the translator (not in sinks).
+- Tool result “custom kind” is now a protobuf field (`custom_kind`) emitted as protojson `customKind`, used to hint renderers (e.g. `calc_result`).

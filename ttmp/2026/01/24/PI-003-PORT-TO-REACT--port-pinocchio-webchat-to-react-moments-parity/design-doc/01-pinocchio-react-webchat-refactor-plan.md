@@ -16,26 +16,27 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: go-go-mento/go/pkg/webchat/handlers/helpers.go
-      Note: pbToMap uses protojson to embed protobuf-shaped JSON into SEM frames
-    - Path: go-go-mento/web/src/sem/registry.ts
-      Note: Reference SEM handler registry design
-    - Path: moments/web/src/platform/chat/hooks/useChatStream.ts
-      Note: Legacy switch fallback pattern to avoid in Pinocchio
-    - Path: pinocchio/cmd/web-chat/web/src/store.js
-      Note: Current Preact/Zustand timeline and SEM handlers to replace
-    - Path: pinocchio/pkg/webchat/forwarder.go
-      Note: Current Pinocchio SEM mapping switch + legacy timeline envelope
+    - Path: pinocchio/pkg/sem/registry/registry.go
+      Note: Type-based SEM handler registry used by translator
     - Path: pinocchio/pkg/webchat/router.go
       Note: HTTP + WS endpoints and conversation/run wiring
+    - Path: pinocchio/pkg/webchat/sem_translator.go
+      Note: Registry-only SEM translator; stable IDs; protobuf shaping
     - Path: pinocchio/pkg/webchat/stream_coordinator.go
       Note: Single-writer coordination and fan-out patterns
+    - Path: pinocchio/proto/sem/base/llm.proto
+      Note: Canonical protobuf schema for llm.* SEM payloads
+    - Path: pinocchio/proto/sem/base/tool.proto
+      Note: Canonical protobuf schema for tool.* SEM payloads (includes customKind)
+    - Path: go-go-mento/web/src/sem/registry.ts
+      Note: Reference SEM handler registry design
 ExternalSources: []
 Summary: Step-by-step plan for refactoring Pinocchio’s current webchat (backend + UI) toward the Moments/go-go-mento React + Redux Toolkit + SEM streaming architecture, including Storybook workflows and explicit non-goals (no switch fallback, no legacy protocols, no sink-owned conversation state).
 LastUpdated: 2026-01-24T16:43:48.402294285-05:00
 WhatFor: Concrete refactor plan to move Pinocchio’s current web chat UI toward the Moments/go-go-mento React + RTK Toolkit + SEM streaming architecture, with explicit non-goals (no switch fallbacks, no backward-compat payload aliases, no sink-owned conversation state).
 WhenToUse: Use when planning or implementing the Pinocchio React webchat port; treat as the step-by-step roadmap and Storybook workflow guide.
 ---
+
 
 
 # Pinocchio → React Webchat Refactor Plan
@@ -356,13 +357,54 @@ Stories then mount:
 This plan assumes you want to reach “usable React chat” quickly, then iterate toward full Moments parity.
 
 ### Phase 0 — Contracts and invariants (paper cuts first)
-- [ ] Decide canonical SEM field naming (protojson camelCase vs snake_case) and enforce it.
-- [ ] Decide “stable ID” rules (which event generates which entity ID) and document them.
+- [x] Decide canonical SEM field naming (protojson camelCase vs snake_case) and enforce it.
+- [x] Decide “stable ID” rules (which event generates which entity ID) and document them.
 - [ ] Define “unknown event” behavior (debug-only generic widget).
+
+#### Canonical SEM Field Naming
+
+Pinocchio SEM uses **protojson output** for `event.data` (and for `event.metadata` when present), so keys are **lowerCamelCase** as produced by protojson.
+
+Implications:
+
+- protobuf fields like `max_tokens` become JSON keys like `maxTokens`
+- `google.protobuf.Struct` becomes a JSON object with natural JSON key casing (whatever you put into the `Struct`)
+- the SEM envelope itself stays JSON (hand-built), but its *payload* is protobuf-authored
+
+#### Stable ID Rules (Pinocchio)
+
+Stability of `event.id` is a correctness requirement: streaming and incremental updates must refer to the same entity across frames, websocket reconnects, and pagination/hydration.
+
+Pinocchio rules:
+
+1) **Prefer explicit UUID**: if Geppetto `EventMetadata.message_id` is set, it becomes `event.id` (canonical).
+
+2) **Otherwise derive a stable LLM ID** from correlation metadata:
+
+   - if `EventMetadata.inference_id` is present: `event.id = "llm-" + inference_id`
+   - else if `EventMetadata.turn_id` is present: `event.id = "llm-" + turn_id`
+   - else if `EventMetadata.session_id` is present: `event.id = "llm-" + session_id`
+   - else: `event.id = "llm-" + <random uuid>`
+
+3) **Thinking stream IDs**: thinking events reuse the base LLM ID with a suffix:
+
+   - `event.id = <base_id> + ":thinking"`
+
+4) **Tool IDs**: tool events use the tool call ID supplied by Geppetto/provider:
+
+   - `tool.start`, `tool.delta`, `tool.result`, `tool.done`: `event.id = tool_call_id`
+
+5) **Other IDs**:
+
+   - `log`: prefer `message_id` if present, else `log-<random uuid>`
+   - `agent.mode`: `agentmode-<turn_id>-<random uuid>` (best-effort; future: make it deterministic if we need idempotent upsert)
+   - `debugger.pause`: `event.id = pause_id`
+
+Implementation anchor (Pinocchio): `pinocchio/pkg/webchat/sem_translator.go`.
 
 ### Phase 1 — Backend cleanup to support a strict React client
 - [ ] Add/standardize a SEM registry for Pinocchio event → SEM mappings (eliminate monolithic switch long-term).
-  - Start by extracting the existing cases in `pinocchio/pkg/webchat/forwarder.go` into per-type handlers.
+  - Start by extracting the existing cases in `pinocchio/pkg/webchat/forwarder.go` into per-type handlers (now lives in `pinocchio/pkg/webchat/sem_translator.go`).
 - [ ] Add server-side “send serialization”:
   - only one run executes per conversation at a time,
   - additional messages enqueue (or explicit “busy” errors with a server-side queue endpoint).
@@ -404,7 +446,7 @@ This plan assumes you want to reach “usable React chat” quickly, then iterat
 ## References
 
 - Ticket architecture analysis: `geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/analysis/01-moments-react-chat-widget-architecture.md`
-- Pinocchio backend webchat (current): `pinocchio/pkg/webchat/forwarder.go`, `pinocchio/pkg/webchat/router.go`, `pinocchio/pkg/webchat/stream_coordinator.go`
+- Pinocchio backend webchat (current): `pinocchio/pkg/webchat/sem_translator.go`, `pinocchio/pkg/sem/registry/registry.go`, `pinocchio/pkg/webchat/router.go`, `pinocchio/pkg/webchat/stream_coordinator.go`
 - Pinocchio current web UI (Preact/Zustand): `pinocchio/cmd/web-chat/web/src/store.js`, `pinocchio/cmd/web-chat/web/src/app.js`
 - Moments platform chat hook (shows legacy switch to avoid in Pinocchio): `moments/web/src/platform/chat/hooks/useChatStream.ts`
 - go-go-mento SEM registry + protobuf-shaped JSON usage:
