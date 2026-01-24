@@ -824,3 +824,55 @@ I kept the work “always green”: I ran `buf lint && buf generate`, added a un
 ### Technical details
 - Stable ID resolution logic is based on `EventMetadata.{message_id,inference_id,turn_id,session_id}` and is implemented in the translator (not in sinks).
 - Tool result “custom kind” is now a protobuf field (`custom_kind`) emitted as protojson `customKind`, used to hint renderers (e.g. `calc_result`).
+
+## Step 16: Remove legacy TL protocol from Pinocchio (SEM-only stream)
+
+This step removes the last “second protocol” in Pinocchio webchat: the legacy TL envelope (`{ tl: true, event: ... }`). It’s dead weight now that SEM is registry-only and protobuf-authored; keeping it around invites drift and creates implicit compatibility obligations. After deleting the TL forwarder, I re-ran Go tests to confirm there are no hidden call sites, then checked off the corresponding ticket task and updated the plan docs to stop referencing the removed file.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue , make sure you compile and test as you go along, to make sure we are on track"
+
+**Assistant interpretation:** Keep executing the next backend cleanup items while maintaining a compile/test feedback loop.
+
+**Inferred user intent:** Remove legacy surface area early so the React port targets one protocol and one contract.
+
+**Commit (code):** `a407483122762f68f0460fc3af2e09c095c870c0` — "webchat: remove legacy TL protocol"
+
+### What I did
+- Deleted the TL envelope code path from Pinocchio:
+  - Removed `pinocchio/pkg/webchat/forwarder.go` (it only contained `TimelineEventsFromEvent` / `{ tl: true }` framing).
+- Verified Go compilation and tests:
+  - `cd pinocchio && go test ./...`
+- Checked off docmgr Task #7 (remove legacy TL protocol) and updated ticket docs to stop referencing the deleted file:
+  - `tasks.md`
+  - `design-doc/01-pinocchio-react-webchat-refactor-plan.md`
+
+### Why
+- Maintaining two protocols doubles maintenance cost and creates ambiguity about which one is canonical.
+- The port goal is React + registry-only SEM; TL is not part of that architecture.
+
+### What worked
+- Removing the file did not break any builds/tests; it appears TL was already unused by live code.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Pinocchio’s legacy TL envelope had already become “documentation-only”; deleting it was low-risk and clarifies future work.
+
+### What was tricky to build
+- N/A (straight deletion + verify).
+
+### What warrants a second pair of eyes
+- Confirm no downstream consumers (outside this repo) still expect TL frames; if any exist, they should migrate to SEM rather than reintroducing TL.
+
+### What should be done in the future
+- Remove any remaining docs in `pinocchio/ttmp/**` that imply TL is supported, or move them to an “archive” section.
+
+### Code review instructions
+- Verify deletion: `pinocchio/pkg/webchat/forwarder.go` no longer exists.
+- Validate: `cd pinocchio && go test ./...`
+
+### Technical details
+- TL envelope removal is a hard break by design; new clients should be SEM-only and registry-driven.

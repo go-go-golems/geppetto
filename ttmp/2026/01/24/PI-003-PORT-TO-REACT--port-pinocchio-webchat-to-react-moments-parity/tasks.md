@@ -20,7 +20,7 @@
     - entity ID source,
     - correlation ID source (run/session/turn),
     - dedupe rules on replay/hydration.
-  - Acceptance: a small “ID contracts” section exists and is referenced by both backend forwarder and frontend handlers.
+  - Acceptance: a small “ID contracts” section exists and is referenced by both backend SEM translator and frontend handlers.
 
 - [x] Create Pinocchio SEM protobuf source tree (baseline copy from go-go-mento)
   - Create `pinocchio/proto/sem/**` by copying/adapting from `go-go-mento/proto/sem/**` as a starting point.
@@ -34,14 +34,14 @@
   - Acceptance: `buf generate` produces Go types under `pinocchio/pkg/sem/pb/**` and TS schemas under the chosen React path.
 
 - [x] Backend: replace the monolithic SEM switch with a registry + protobuf-authored payloads
-  - Start from `pinocchio/pkg/webchat/forwarder.go`.
+  - Start from `pinocchio/pkg/webchat/sem_translator.go`.
   - Create registry-first mapping (reuse/adapt `moments/backend/pkg/sem/registry` or implement in Pinocchio).
   - For each SEM event, construct the payload as a protobuf message and convert via protojson at the boundary.
   - Acceptance: no large `switch ev := e.(type)` remains as the primary mapping mechanism.
 
-- [ ] Backend: remove legacy TL protocol (`{ tl: true, event: ... }`)
-  - Delete/stop emitting `TimelineEventsFromEvent` once the React client is in place.
-  - Acceptance: websocket stream is SEM-only; legacy TL paths are removed or hard-disabled.
+- [x] Backend: remove legacy TL protocol (`{ tl: true, event: ... }`)
+  - Delete the TL envelope implementation (`TimelineEventsFromEvent`) and ensure the websocket stream is SEM-only.
+  - Acceptance: no `{ tl: true, ... }` frames are emitted by the backend; legacy TL code path is removed.
 
 - [ ] Backend: implement server-side “send serialization / queue semantics” + idempotency
   - One conversation executes at most one run at a time; additional user messages enqueue (or explicit server-side busy semantics).

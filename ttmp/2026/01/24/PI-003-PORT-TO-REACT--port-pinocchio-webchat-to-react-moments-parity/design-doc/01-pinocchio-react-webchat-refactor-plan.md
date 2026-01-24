@@ -56,7 +56,7 @@ This document proposes a refactor path that:
 
 Pinocchio’s current web UI is functional, but it is not set up for “Moments-class” affordances:
 - The UI is not React/RTK-based; it is a small Preact app using a Zustand store (`pinocchio/cmd/web-chat/web/src/store.js`).
-- The backend SEM mapping is currently implemented as a large switch (`pinocchio/pkg/webchat/forwarder.go`), and there is also a second legacy “timeline events” envelope (`{ tl: true, event: ... }`) retained for compatibility.
+- The backend SEM mapping is implemented in a registry-only translator (`pinocchio/pkg/webchat/sem_translator.go`) and emits SEM frames with protobuf-authored `event.data` payloads (protojson). The legacy TL envelope (`{ tl: true, ... }`) has been removed.
 - Client-side behavior (send path, streaming behavior, widget coverage) will drift unless we adopt the registry-and-widget architecture that Moments stabilizes.
 
 We want to seriously improve Pinocchio webchat by converging on the Moments/go-go-mento architecture:
@@ -211,7 +211,7 @@ Target invariants for Pinocchio backend:
 Concrete refactors:
 
 1) Replace the monolithic forwarder switch with a registry pattern
-- Current: `pinocchio/pkg/webchat/forwarder.go` implements `SemanticEventsFromEvent` as `switch ev := e.(type) { ... }`.
+- Current: `pinocchio/pkg/webchat/sem_translator.go` emits SEM frames via a registry-only mapping (no switch fallback).
 - Target: `pinocchio/pkg/sem/registry` (or reuse `moments/backend/pkg/sem/registry`) where each typed event registers its mapping function:
 
 ```go
