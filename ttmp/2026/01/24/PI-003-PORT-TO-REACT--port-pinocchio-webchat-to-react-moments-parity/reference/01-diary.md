@@ -23,15 +23,20 @@ RelatedFiles:
     - Path: pinocchio/cmd/web-chat/web/src/store.js
       Note: Adjusted to read event.data for smoke-testing
     - Path: pinocchio/pkg/webchat/router.go
-      Note: ws.hello/ws.pong payload now in event.data
+      Note: |-
+        ws.hello/ws.pong payload now in event.data
+        Step 17 implementation (commit 7afc7e8)
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: Step 15 implementation (commit 949beb9)
+    - Path: pinocchio/pkg/webchat/send_queue.go
+      Note: Step 17 implementation (commit 7afc7e8)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-01-24T13:52:51.900577155-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -876,3 +881,71 @@ This step removes the last “second protocol” in Pinocchio webchat: the legac
 
 ### Technical details
 - TL envelope removal is a hard break by design; new clients should be SEM-only and registry-driven.
+
+## Step 17: Implement server-side send serialization (queue + idempotency) for Pinocchio `/chat`
+
+This step implements the core architectural inversion we want for Pinocchio: **the backend owns queue semantics**. Instead of having the frontend retry on `409 run in progress` (like go-go-mento’s `chatQueueSlice`), Pinocchio now accepts prompts while a run is in progress and queues them per conversation. This keeps client logic simple and makes correctness (single writer, idempotency, ordering) a single-owner concern.
+
+I implemented this conservatively: it’s an in-memory queue/record per live `Conversation` (not durable yet), with an idempotency key that allows safe retries without duplicating queued items. I kept a strict compile/test loop and let the Pinocchio pre-commit hook run its full suite.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Continue"
+
+**Assistant interpretation:** Move to the next checklist item and keep implementing the backend-side foundations (queue semantics + idempotency) while compiling/testing as we go.
+
+**Inferred user intent:** Make Pinocchio’s server the single owner of message serialization so the upcoming React client can be registry-only and simple (no chatQueueSlice, no fallback behaviors).
+
+**Commit (code):** `7afc7e8f025f2d1b8228ca789cb3ddcb0fcb144c` — "webchat: backend queue + idempotency for /chat"
+
+### What I did
+- Extended the chat request contract to optionally carry an idempotency key:
+  - `pinocchio/pkg/webchat/engine_from_req.go` (`idempotency_key` in JSON body)
+- Added per-conversation in-memory send queue + idempotency record bookkeeping:
+  - `pinocchio/pkg/webchat/send_queue.go`
+  - New `Conversation` fields (`runningKey`, `queue`, `requests`) in `pinocchio/pkg/webchat/conversation.go`
+- Changed `POST /chat` semantics:
+  - Accepts an idempotency key via `Idempotency-Key`, `X-Idempotency-Key`, or `idempotency_key` in the JSON body; generates one if absent.
+  - If a run is in progress, **enqueues** the prompt and returns `202 Accepted` with `{ status: "queued", queue_position, queue_depth, idempotency_key, ... }`.
+  - If no run is in progress, **starts inference immediately** and returns `{ status: "started", turn_id, inference_id, ... }`.
+  - Repeating a request with the same idempotency key returns the cached response (queued/running/completed/error).
+  - On inference completion, the backend clears the running slot and starts the next queued item.
+- Verified compile/test continuously:
+  - `cd pinocchio && go test ./...`
+  - Pinocchio pre-commit hook also ran `go generate`, Vite build, and Go linting.
+
+### Why
+- “Busy/409 retry queues” are a backend concern: they encode ordering and single-writer invariants that shouldn’t be duplicated in every client.
+- Idempotency keys allow safe retries (reloads, flaky networks, double submits) without duplicated queue entries.
+
+### What worked
+- The backend now accepts prompts during an active run and returns deterministic queue responses.
+- Pre-commit and Go test suite stayed green.
+
+### What didn't work
+- The pre-commit hook continues to report `npm audit` vulnerabilities during the web frontend build step (did not fail the commit, but it’s noisy).
+
+### What I learned
+- The current Pinocchio webchat session model uses one persistent `SessionID` per conversation; queueing is naturally “turn-serialized” on top of that.
+
+### What was tricky to build
+- Avoiding a race where two concurrent HTTP requests both see “not running” before `Session.IsRunning()` flips: the `Conversation.runningKey` acts as a lightweight claim/lock to prevent double-start.
+- Avoiding map races in the idempotency fast-path: responses are copied out under lock before encoding.
+
+### What warrants a second pair of eyes
+- Whether the queue should be made durable (Redis/DB) before we start implementing hydration (Task #9), or whether an in-memory queue is acceptable for the first React milestone.
+- Whether we should add an explicit “status query” endpoint (e.g. `/chat/status?idempotency_key=...`) so clients can poll for completion without resubmitting.
+
+### What should be done in the future
+- Add persistence for queued requests and their final status (so reload/restart doesn’t lose the queue).
+- Add a server-emitted SEM “queued/running/completed” timeline widget event family so the UI can show send state without relying on HTTP response handling.
+
+### Code review instructions
+- Start with `pinocchio/pkg/webchat/router.go` (`/chat` handler + drain/finish helpers).
+- Review `pinocchio/pkg/webchat/send_queue.go` and the new `Conversation` fields in `pinocchio/pkg/webchat/conversation.go`.
+- Validate:
+  - `cd pinocchio && go test ./...`
+
+### Technical details
+- Queue semantics are currently in-memory and scoped to the lifetime of a live `Conversation` in the router; there is no persistence yet.
+- Idempotency resolution order: `Idempotency-Key` → `X-Idempotency-Key` → body `idempotency_key` → generated UUID.

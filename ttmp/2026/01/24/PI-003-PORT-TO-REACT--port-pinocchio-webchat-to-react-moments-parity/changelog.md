@@ -24,3 +24,14 @@ Step 16: Remove legacy TL protocol from Pinocchio backend (pinocchio commit a407
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/tasks.md — Checked off Task #7
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/forwarder.go — Deleted; TL protocol removed (commit a407483)
 
+
+## 2026-01-24
+
+Step 17: Backend-owned /chat send queue + idempotency (pinocchio commit 7afc7e8)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/design-doc/01-pinocchio-react-webchat-refactor-plan.md — Document concrete /chat queue + idempotency contract
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — /chat now queues on busy; idempotency response caching (commit 7afc7e8)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/send_queue.go — In-memory per-conversation queue and request records (commit 7afc7e8)
+

@@ -16,26 +16,31 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: go-go-mento/web/src/sem/registry.ts
+      Note: Reference SEM handler registry design
     - Path: pinocchio/pkg/sem/registry/registry.go
       Note: Type-based SEM handler registry used by translator
     - Path: pinocchio/pkg/webchat/router.go
-      Note: HTTP + WS endpoints and conversation/run wiring
+      Note: |-
+        HTTP + WS endpoints and conversation/run wiring
+        /chat now queues + returns 202; drains queue after inference
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: Registry-only SEM translator; stable IDs; protobuf shaping
+    - Path: pinocchio/pkg/webchat/send_queue.go
+      Note: Backend-owned send serialization queue + idempotency records
     - Path: pinocchio/pkg/webchat/stream_coordinator.go
       Note: Single-writer coordination and fan-out patterns
     - Path: pinocchio/proto/sem/base/llm.proto
       Note: Canonical protobuf schema for llm.* SEM payloads
     - Path: pinocchio/proto/sem/base/tool.proto
       Note: Canonical protobuf schema for tool.* SEM payloads (includes customKind)
-    - Path: go-go-mento/web/src/sem/registry.ts
-      Note: Reference SEM handler registry design
 ExternalSources: []
 Summary: Step-by-step plan for refactoring Pinocchio’s current webchat (backend + UI) toward the Moments/go-go-mento React + Redux Toolkit + SEM streaming architecture, including Storybook workflows and explicit non-goals (no switch fallback, no legacy protocols, no sink-owned conversation state).
 LastUpdated: 2026-01-24T16:43:48.402294285-05:00
 WhatFor: Concrete refactor plan to move Pinocchio’s current web chat UI toward the Moments/go-go-mento React + RTK Toolkit + SEM streaming architecture, with explicit non-goals (no switch fallbacks, no backward-compat payload aliases, no sink-owned conversation state).
 WhenToUse: Use when planning or implementing the Pinocchio React webchat port; treat as the step-by-step roadmap and Storybook workflow guide.
 ---
+
 
 
 
@@ -243,24 +248,50 @@ return [][]byte{ WrapSem(ev) }
 2) Move “send queue” semantics into the server
 - Current UI approaches often do: optimistic UI + retry-on-409 in the client.
 - Target: a server-side queue per conversation/session:
-  - `POST /rpc/v1/chat` (or `POST /rpc/v1/chat/message`) always accepts a user message, assigns it a stable message ID, and serializes execution.
-  - If a run is in progress, the server enqueues or defers (implementation choice), but the client does not implement retry logic.
+  - Pinocchio implements this on `POST /chat` with an idempotency key + per-conversation queue:
+    - If no run is in progress: start inference immediately.
+    - If a run is in progress: enqueue the prompt server-side and return `202 Accepted` (no client retry queue).
+    - If the same idempotency key is submitted again: return the previously computed response (queued/running/completed/error).
 
-Minimal server-side API sketch:
+Concrete API behavior (Pinocchio `POST /chat`):
 
-```go
-// pseudocode
-type SubmitMessageReq struct {
-  ConversationID string
-  IdempotencyKey string
-  Text string
-}
-type SubmitMessageResp struct {
-  ConversationID string
-  UserMessageID string // stable, returned immediately
-  Accepted bool
+- **Idempotency key input** (first match wins):
+  - HTTP header `Idempotency-Key`
+  - HTTP header `X-Idempotency-Key`
+  - JSON body `idempotency_key`
+  - If absent, the server generates a UUID and returns it as `idempotency_key` in the response.
+
+- **Response when started (200 OK)**:
+
+```json
+{
+  "status": "started",
+  "idempotency_key": "...",
+  "conv_id": "...",
+  "session_id": "...",
+  "run_id": "...",
+  "turn_id": "...",
+  "inference_id": "..."
 }
 ```
+
+- **Response when queued (202 Accepted)**:
+
+```json
+{
+  "status": "queued",
+  "queue_position": 2,
+  "queue_depth": 2,
+  "idempotency_key": "...",
+  "conv_id": "...",
+  "session_id": "...",
+  "run_id": "..."
+}
+```
+
+- **Repeat submissions** with the same idempotency key return the cached response (status transitions to `running` / `completed` / `error` as the server processes the queued item).
+
+Implementation anchor (Pinocchio): `pinocchio/pkg/webchat/router.go`, `pinocchio/pkg/webchat/send_queue.go`.
 
 3) Eliminate “sink-owned conversation state”
 - If a feature needs derived state (team suggestions, doc suggestions, memory extraction results), implement it as:

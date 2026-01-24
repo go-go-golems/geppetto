@@ -43,9 +43,9 @@
   - Delete the TL envelope implementation (`TimelineEventsFromEvent`) and ensure the websocket stream is SEM-only.
   - Acceptance: no `{ tl: true, ... }` frames are emitted by the backend; legacy TL code path is removed.
 
-- [ ] Backend: implement server-side “send serialization / queue semantics” + idempotency
+- [x] Backend: implement server-side “send serialization / queue semantics” + idempotency
   - One conversation executes at most one run at a time; additional user messages enqueue (or explicit server-side busy semantics).
-  - Require an idempotency key and return stable IDs early.
+  - Use an idempotency key and return a stable request identifier early (idempotency key and/or derived message ID).
   - Acceptance: the UI does not need a retry queue; backend semantics are documented and tested.
 
 - [ ] Backend: implement timeline hydration snapshot endpoint(s)
