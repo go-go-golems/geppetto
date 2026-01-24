@@ -46,3 +46,14 @@ Step 18: Add GET /hydrate (SEM frame hydration) for WS gating (pinocchio commit 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — GET /hydrate returns buffered SEM frames + since_seq/limit (commit f696ce4)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/sem_buffer.go — In-memory SEM frame buffer used for hydration (commit f696ce4)
 
+
+## 2026-01-24
+
+Step 19: Scaffold React+TS+RTK frontend and add Storybook in pinocchio/cmd/web-chat/web (pinocchio commits 456e3e6, 7d5ee47)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/tasks.md — Checked off Task #10
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx — Storybook story with SEM scenario playback
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx — Single ChatWidget root component (React)
+

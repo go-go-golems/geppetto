@@ -18,6 +18,10 @@ Owners: []
 RelatedFiles:
     - Path: go-go-mento/web/src/sem/registry.ts
       Note: Reference SEM handler registry design
+    - Path: pinocchio/cmd/web-chat/web/.storybook/main.ts
+      Note: Storybook config (React+Vite)
+    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx
+      Note: Storybook ChatWidget stories (ScenarioBasic)
     - Path: pinocchio/pkg/sem/registry/registry.go
       Note: Type-based SEM handler registry used by translator
     - Path: pinocchio/pkg/webchat/router.go
@@ -43,6 +47,7 @@ LastUpdated: 2026-01-24T16:43:48.402294285-05:00
 WhatFor: Concrete refactor plan to move Pinocchio’s current web chat UI toward the Moments/go-go-mento React + RTK Toolkit + SEM streaming architecture, with explicit non-goals (no switch fallbacks, no backward-compat payload aliases, no sink-owned conversation state).
 WhenToUse: Use when planning or implementing the Pinocchio React webchat port; treat as the step-by-step roadmap and Storybook workflow guide.
 ---
+
 
 
 
@@ -485,7 +490,12 @@ Implementation anchor (Pinocchio): `pinocchio/pkg/webchat/sem_translator.go`.
 - [ ] Ensure sinks are transport/extraction only; move derived state updates to middleware/engine/projection components.
 
 ### Phase 2 — Frontend foundation (React package + store + WS manager)
-- [ ] Create `pinocchio/web` React app or a reusable package (depending on how Pinocchio hosts UI).
+- [x] Choose the Pinocchio React frontend location and scaffold tooling.
+  - Current choice: reuse and replace the existing `pinocchio/cmd/web-chat/web` Vite app with React + TypeScript + RTK.
+  - `go generate ./pinocchio/cmd/web-chat` still builds the web assets into `pinocchio/cmd/web-chat/static/dist`.
+- [ ] Implement Storybook dev loop for widget work.
+  - Run: `cd pinocchio/cmd/web-chat/web && npm run storybook`
+  - First story: `WebChat/ChatWidget` (includes a `ScenarioBasic` that replays a few SEM frames without a backend).
 - [ ] Implement `timelineSlice` (normalized entities, add/upsert/append operations).
 - [ ] Implement `sem/registry.ts` and register the minimum handlers:
   - `llm.start/delta/final`, `tool.start/delta/result/done`, `debug.pause`.

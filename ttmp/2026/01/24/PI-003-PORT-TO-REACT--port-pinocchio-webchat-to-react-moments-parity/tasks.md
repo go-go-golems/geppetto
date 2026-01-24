@@ -54,7 +54,7 @@
   - Future: consider `sem.timeline.*` snapshot messages as a durable canonical snapshot schema.
   - Acceptance: reload + reconnect reproduces a stable timeline without duplication (with WS hydration gating).
 
-- [ ] Frontend: choose the new React package/app location and scaffold tooling
+- [x] Frontend: choose the new React package/app location and scaffold tooling
   - Decide: `pinocchio/web/` standalone vs embedded into existing server static pipeline.
   - Set up Vite + React + TS + RTK + Storybook.
   - Wire Buf TS generation into the React tree (no checked-in drift).

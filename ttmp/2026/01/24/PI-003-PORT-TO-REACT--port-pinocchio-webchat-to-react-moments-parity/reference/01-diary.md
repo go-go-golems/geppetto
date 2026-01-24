@@ -20,6 +20,10 @@ RelatedFiles:
       Note: Main architecture narrative produced from this research
     - Path: geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/reference/01-diary.md
       Note: Research diary capturing the file/command trail
+    - Path: pinocchio/cmd/web-chat/web/.storybook/preview.tsx
+      Note: Storybook Redux Provider decorator
+    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
+      Note: Step 19 implementation (React ChatWidget)
     - Path: pinocchio/cmd/web-chat/web/src/store.js
       Note: Adjusted to read event.data for smoke-testing
     - Path: pinocchio/pkg/webchat/router.go
@@ -38,6 +42,7 @@ LastUpdated: 2026-01-24T13:52:51.900577155-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -1012,3 +1017,68 @@ The implementation is intentionally minimal and local: each live conversation ke
 
 ### Technical details
 - Hydration is SEM-frame based: clients replay frames through their registry-only SEM handlers, then switch to WS deltas using gating.
+
+## Step 19: Scaffold Pinocchio React frontend + Storybook (ChatWidget story + scenario playback stub)
+
+This step begins the frontend half of the ticket: establishing a React + TypeScript + Redux Toolkit foundation that can eventually replace the legacy Preact/Zustand web-chat. I intentionally reused the existing `pinocchio/cmd/web-chat/web` Vite app location (to keep the Go embedding pipeline unchanged via `go generate`), but replaced its implementation with a minimal RTK store, SEM handler registry, a singleton WS manager that hydrates first, and a single `ChatWidget` root component.
+
+I then added Storybook so we can iterate on UI behavior without running the full server. The first story includes a tiny “scenario runner” that replays a few SEM frames into the store so you can visually inspect streaming/tool widgets in isolation.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Continue"
+
+**Assistant interpretation:** Start the React migration work (scaffolding + store + basic component + Storybook) so you can begin testing UI affordances quickly.
+
+**Inferred user intent:** Get a working Storybook loop as early as possible so widget development can proceed independently of backend changes.
+
+**Commits (code):**
+- `456e3e610e1db6a4c7d33f3dc006d2ee0fc34f42` — "web-chat frontend: scaffold React+TS + RTK"
+- `7d5ee47c7f29c152bd7d73e71032aeb706690761` — "web-chat frontend: add Storybook"
+
+### What I did
+- Replaced the legacy Preact/Zustand Vite app in `pinocchio/cmd/web-chat/web` with React + TypeScript + RTK:
+  - Store: `src/store/*` (appSlice + timelineSlice)
+  - SEM registry: `src/sem/registry.ts` (registry-only handlers)
+  - WS manager: `src/ws/wsManager.ts` (hydrate-first, then connect WS)
+  - Root component: `src/chat/ChatWidget.tsx` (single integration surface)
+- Added Storybook:
+  - Config: `pinocchio/cmd/web-chat/web/.storybook/*`
+  - Story: `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx`
+    - `ScenarioBasic` replays a small set of SEM frames (no backend needed).
+- Verified tooling:
+  - `npm --prefix pinocchio/cmd/web-chat/web run typecheck`
+  - `npm --prefix pinocchio/cmd/web-chat/web run build`
+  - `npm --prefix pinocchio/cmd/web-chat/web run build-storybook`
+  - `go generate ./pinocchio/cmd/web-chat` still works (builds `static/dist`).
+
+### Why
+- We need an RTK-based timeline store + registry-only SEM routing to reach Moments parity; reusing the existing Vite embedding path keeps iteration fast.
+- Storybook is the “unit test you can see” loop that will let us build individual widgets and scenario playback harnesses without server startup.
+
+### What worked
+- Storybook builds successfully, and the `ScenarioBasic` story renders without needing a backend.
+
+### What didn't work
+- Initial Storybook build failed because `preview.ts` contained JSX; renaming to `preview.tsx` fixed it.
+
+### What I learned
+- Vite/Storybook will not treat `.ts` files as JSX even if they contain JSX; Storybook preview files must use `.tsx` when they contain JSX.
+
+### What was tricky to build
+- Keeping the Go embed pipeline stable while swapping the frontend framework (ensuring `go generate` still runs `npm ci` + `npm run build`).
+
+### What warrants a second pair of eyes
+- The current `ChatWidget` and SEM handlers are intentionally minimal; we’ll want to review the reducer semantics to ensure they match the stricter “idempotent upsert with stable IDs” invariants as we add more event families.
+
+### What should be done in the future
+- Add widget registry (`entity.kind` → component) and separate “widget-only” stories per entity kind.
+- Add scenario playback harness (timed playback + hydration + reconnect scenarios) modeled after Moments/go-go-mento.
+
+### Code review instructions
+- Start at `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx` and `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts`.
+- To run Storybook locally:
+  - `cd pinocchio/cmd/web-chat/web && npm run storybook`
+
+### Technical details
+- Storybook currently uses the same Redux store instance via a global Provider decorator in `.storybook/preview.tsx`.
