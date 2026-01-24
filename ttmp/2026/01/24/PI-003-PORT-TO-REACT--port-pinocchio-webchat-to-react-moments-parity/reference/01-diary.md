@@ -26,6 +26,8 @@ RelatedFiles:
       Note: |-
         ws.hello/ws.pong payload now in event.data
         Step 17 implementation (commit 7afc7e8)
+    - Path: pinocchio/pkg/webchat/sem_buffer.go
+      Note: Step 18 implementation (commit f696ce4)
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: Step 15 implementation (commit 949beb9)
     - Path: pinocchio/pkg/webchat/send_queue.go
@@ -36,6 +38,7 @@ LastUpdated: 2026-01-24T13:52:51.900577155-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -949,3 +952,63 @@ I implemented this conservatively: it’s an in-memory queue/record per live `Co
 ### Technical details
 - Queue semantics are currently in-memory and scoped to the lifetime of a live `Conversation` in the router; there is no persistence yet.
 - Idempotency resolution order: `Idempotency-Key` → `X-Idempotency-Key` → body `idempotency_key` → generated UUID.
+
+## Step 18: Add `GET /hydrate` (SEM-frame hydration) backed by an in-memory per-conversation buffer
+
+This step implements the other half of the “WS manager + hydration gating” pairing: a **hydration endpoint** that a frontend can call on reload to reconstruct UI state deterministically before applying live WS deltas. Rather than trying to “snapshot timeline entities” on the backend (which would require duplicating reducer semantics), Pinocchio now serves a best-effort **SEM frame history**. This keeps the backend responsible for transport + serialization while the frontend remains the only owner of “how SEM becomes widgets”.
+
+The implementation is intentionally minimal and local: each live conversation keeps an in-memory bounded buffer of recent SEM frames, and `GET /hydrate` returns those frames as JSON (already in SEM envelope format). This is sufficient to unblock the React client’s hydration gating work; persistence/durability can come later.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Continue"
+
+**Assistant interpretation:** Keep working through the ticket tasks after queue semantics, moving on to hydration so the future React client can reconnect safely.
+
+**Inferred user intent:** Reach a Moments-like “refresh doesn’t duplicate or miss events” behavior by building the backend contract that supports hydration gating.
+
+**Commit (code):** `f696ce4f0cb9d33118be71fa7a9831ed9fda0809` — "webchat: add /hydrate with buffered SEM frames"
+
+### What I did
+- Added an in-memory SEM frame buffer to each live conversation:
+  - `pinocchio/pkg/webchat/sem_buffer.go`
+  - `Conversation.semBuf` initialized in `pinocchio/pkg/webchat/conversation.go`
+  - Every SEM frame that is broadcast to WS clients is also appended to the buffer.
+- Ensured SEM frames are still produced even when no WS client is connected:
+  - `pinocchio/pkg/webchat/router.go` now starts the stream coordinator on `/chat` run start if it had been stopped due to idle.
+- Added `GET /hydrate`:
+  - Returns recent SEM frames (`frames`) plus cursors (`last_seq`, `last_stream_id`)
+  - Supports `since_seq` and `limit` query params for incremental hydration.
+
+### Why
+- Without hydration, a reconnecting client can’t reliably rebuild the timeline; WS-only streaming is inherently lossy across reloads.
+- Serving SEM frames (not pre-reduced entities) avoids duplicating frontend reducer logic on the backend.
+
+### What worked
+- `cd pinocchio && go test ./...`
+- Pinocchio pre-commit hook succeeded (tests + lint).
+
+### What didn't work
+- N/A (the only “noise” continues to be `npm audit` output during the pre-commit hook’s web build step).
+
+### What I learned
+- Pinocchio’s stream coordinator may be stopped by the WS connection pool idle logic; starting it on `/chat` is important so the buffer captures events even when no WS client is attached.
+
+### What was tricky to build
+- Avoiding a handler recursion bug for `/hydrate/` (fixed by wiring both `/hydrate` and `/hydrate/` to the same handler function).
+
+### What warrants a second pair of eyes
+- The frame buffer is currently a simple “trim slice” approach; if we expect very high throughput, we should implement a ring buffer to avoid extra allocations.
+- The response currently includes `running_idempotency`; confirm whether we want to expose this publicly or keep it for debugging only.
+
+### What should be done in the future
+- Add persistence (Redis/DB) for hydration so server restarts don’t lose replay history.
+- Consider emitting a durable sem.timeline snapshot (protobuf) for long conversations, with a “compact + incremental” strategy.
+
+### Code review instructions
+- Start with `pinocchio/pkg/webchat/router.go` (`/hydrate` handler) and `pinocchio/pkg/webchat/sem_buffer.go` (buffer behavior).
+- Validate:
+  - `cd pinocchio && go test ./...`
+
+### Technical details
+- Hydration is SEM-frame based: clients replay frames through their registry-only SEM handlers, then switch to WS deltas using gating.

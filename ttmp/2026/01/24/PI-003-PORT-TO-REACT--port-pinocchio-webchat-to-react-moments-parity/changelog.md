@@ -35,3 +35,14 @@ Step 17: Backend-owned /chat send queue + idempotency (pinocchio commit 7afc7e8)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — /chat now queues on busy; idempotency response caching (commit 7afc7e8)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/send_queue.go — In-memory per-conversation queue and request records (commit 7afc7e8)
 
+
+## 2026-01-24
+
+Step 18: Add GET /hydrate (SEM frame hydration) for WS gating (pinocchio commit f696ce4)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/tasks.md — Checked off Task #9
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — GET /hydrate returns buffered SEM frames + since_seq/limit (commit f696ce4)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/sem_buffer.go — In-memory SEM frame buffer used for hydration (commit f696ce4)
+

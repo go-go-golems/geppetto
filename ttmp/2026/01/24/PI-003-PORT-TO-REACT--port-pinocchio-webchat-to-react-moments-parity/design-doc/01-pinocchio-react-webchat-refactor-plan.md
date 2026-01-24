@@ -24,6 +24,9 @@ RelatedFiles:
       Note: |-
         HTTP + WS endpoints and conversation/run wiring
         /chat now queues + returns 202; drains queue after inference
+        GET /hydrate endpoint for hydration gating (commit f696ce4)
+    - Path: pinocchio/pkg/webchat/sem_buffer.go
+      Note: In-memory SEM frame buffer for hydration
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: Registry-only SEM translator; stable IDs; protobuf shaping
     - Path: pinocchio/pkg/webchat/send_queue.go
@@ -40,6 +43,7 @@ LastUpdated: 2026-01-24T16:43:48.402294285-05:00
 WhatFor: Concrete refactor plan to move Pinocchio’s current web chat UI toward the Moments/go-go-mento React + RTK Toolkit + SEM streaming architecture, with explicit non-goals (no switch fallbacks, no backward-compat payload aliases, no sink-owned conversation state).
 WhenToUse: Use when planning or implementing the Pinocchio React webchat port; treat as the step-by-step roadmap and Storybook workflow guide.
 ---
+
 
 
 
@@ -292,6 +296,43 @@ Concrete API behavior (Pinocchio `POST /chat`):
 - **Repeat submissions** with the same idempotency key return the cached response (status transitions to `running` / `completed` / `error` as the server processes the queued item).
 
 Implementation anchor (Pinocchio): `pinocchio/pkg/webchat/router.go`, `pinocchio/pkg/webchat/send_queue.go`.
+
+2b) Add a hydration endpoint so reloads can replay a recent SEM history
+
+Pinocchio now exposes a best-effort hydration endpoint backed by an in-memory per-conversation SEM frame buffer.
+
+- Endpoint: `GET /hydrate?conv_id=<id>&profile=<slug>`
+- Optional query params:
+  - `since_seq=<uint64>`: only return frames with `event.seq > since_seq`
+  - `limit=<int>`: return at most N frames (most recent)
+
+Response (shape):
+
+```json
+{
+  "conv_id": "...",
+  "session_id": "...",
+  "run_id": "...",
+  "server_time": 1730000000000,
+  "frames": [ { "sem": true, "event": { "...": "..." } } ],
+  "frame_count": 123,
+  "last_seq": 456,
+  "last_stream_id": "1729012345-0",
+  "queue_depth": 0,
+  "running_idempotency": ""
+}
+```
+
+Notes:
+
+- This endpoint is intentionally **SEM-frame based**, not “timeline entity snapshot” based, so the frontend can reuse its own reducers/handlers to rebuild state.
+- It is currently **not durable** (in-memory); durability/persistence is a follow-up if we need reloads to survive server restarts.
+- It is designed to pair with a singleton WS manager + hydration gating:
+  1) `GET /hydrate` → replay frames into the store
+  2) open WS (or open WS early but gate processing until hydration completes)
+  3) apply WS deltas with idempotent upsert semantics
+
+Implementation anchor (Pinocchio): `pinocchio/pkg/webchat/router.go`, `pinocchio/pkg/webchat/sem_buffer.go`.
 
 3) Eliminate “sink-owned conversation state”
 - If a feature needs derived state (team suggestions, doc suggestions, memory extraction results), implement it as:

@@ -48,10 +48,11 @@
   - Use an idempotency key and return a stable request identifier early (idempotency key and/or derived message ID).
   - Acceptance: the UI does not need a retry queue; backend semantics are documented and tested.
 
-- [ ] Backend: implement timeline hydration snapshot endpoint(s)
-  - Prefer sem.timeline snapshot messages (protobuf) as the canonical snapshot schema.
-  - Provide `since_version` support (or equivalent) for incremental hydration.
-  - Acceptance: reload + reconnect reproduces a stable timeline without duplication.
+- [x] Backend: implement timeline hydration snapshot endpoint(s)
+  - V1: serve recent **SEM frames** via `GET /hydrate` (frontend replays via handlers).
+  - Provide `since_seq` support (or equivalent) for incremental hydration.
+  - Future: consider `sem.timeline.*` snapshot messages as a durable canonical snapshot schema.
+  - Acceptance: reload + reconnect reproduces a stable timeline without duplication (with WS hydration gating).
 
 - [ ] Frontend: choose the new React package/app location and scaffold tooling
   - Decide: `pinocchio/web/` standalone vs embedded into existing server static pipeline.
