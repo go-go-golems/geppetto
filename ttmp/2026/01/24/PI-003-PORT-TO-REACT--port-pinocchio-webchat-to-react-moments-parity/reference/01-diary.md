@@ -700,7 +700,12 @@ The focus was deliberately “foundational plumbing” rather than a behavior ch
 
 ### Prompt Context
 
-**User prompt (verbatim):** "- use json envelope\n- start working, check off tasks, commit to git, keep diary"
+**User prompt (verbatim):**
+
+```text
+- use json envelope
+- start working, check off tasks, commit to git, keep diary
+```
 
 **Assistant interpretation:** Decide and document that Pinocchio will use the JSON SEM envelope, then begin implementing the plan, checking off tasks as they’re completed, committing code changes, and recording the work in this diary.
 
