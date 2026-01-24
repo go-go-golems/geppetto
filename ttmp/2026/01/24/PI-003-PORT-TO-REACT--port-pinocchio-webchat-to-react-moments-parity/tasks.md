@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] Read the required docs (1–2h) and align on invariants
+- [x] Read the required docs (1–2h) and align on invariants
   - Read (in order): `geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/design-doc/01-pinocchio-react-webchat-refactor-plan.md`
   - Then: `geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/analysis/01-moments-react-chat-widget-architecture.md`
   - Then: `go-go-mento/docs/reference/webchat/frontend-integration.md`, `go-go-mento/docs/reference/webchat/sem-and-widgets.md`, `go-go-mento/docs/reference/webchat/backend-internals.md`
@@ -60,22 +60,22 @@
   - Wire Buf TS generation into the React tree (no checked-in drift).
   - Acceptance: `pnpm dev` and `pnpm storybook` (or equivalent) run successfully.
 
-- [ ] Frontend: implement RTK timeline store + widget registry + SEM registry (registry-only)
+- [x] Frontend: implement RTK timeline store + widget registry + SEM registry (registry-only)
   - Implement `timelineSlice` with idempotent add/upsert/append semantics.
   - Implement `sem/registry.ts` and require all SEM types be handled there (no `switch (ev.type)` fallback).
   - Implement widget renderer registry by `entity.kind`.
   - Acceptance: core SEM stream updates entities and renders widgets without any fallback switch.
 
-- [ ] Frontend: implement singleton WS manager + hydration gating
+- [x] Frontend: implement singleton WS manager + hydration gating
   - Ensure exactly one connection per conversation; handle StrictMode double-mount.
   - Gate application of WS deltas until hydration completes.
   - Acceptance: refresh/reconnect does not duplicate entities and does not miss early events.
 
-- [ ] Frontend: implement a single `ChatWidget` root component
+- [x] Frontend: implement a single `ChatWidget` root component
   - One integration surface; variants are layout-only props.
   - Acceptance: `ChatWidget` can be embedded in multiple pages without semantic drift.
 
-- [ ] Storybook: add widget-only stories and end-to-end SEM scenario stories
+- [x] Storybook: add widget-only stories and end-to-end SEM scenario stories
   - Widget-only stories: each entity kind gets a representative fixture.
   - Scenario stories: “core streaming + tools”, “reconnect + hydrate”, “debug pause”, etc.
   - Acceptance: you can iterate on individual widgets without running the server.

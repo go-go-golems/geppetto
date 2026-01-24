@@ -20,10 +20,18 @@ RelatedFiles:
       Note: Main architecture narrative produced from this research
     - Path: geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/reference/01-diary.md
       Note: Research diary capturing the file/command trail
+    - Path: pinocchio/buf.gen.yaml
+      Note: Buf now generates TS SEM protos into cmd/web-chat web app
     - Path: pinocchio/cmd/web-chat/web/.storybook/preview.tsx
       Note: Storybook Redux Provider decorator
     - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
       Note: Step 19 implementation (React ChatWidget)
+    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx
+      Note: Step 20 stories: widget-only and end-to-end SEM scenario playback
+    - Path: pinocchio/cmd/web-chat/web/src/sem/registry.ts
+      Note: Step 20 registry-only SEM routing using protobuf decoding (fromJson)
+    - Path: pinocchio/cmd/web-chat/web/src/ws/wsManager.ts
+      Note: Step 20 singleton WS manager with hydration gating and StrictMode safety
     - Path: pinocchio/cmd/web-chat/web/src/store.js
       Note: Adjusted to read event.data for smoke-testing
     - Path: pinocchio/pkg/webchat/router.go
@@ -1082,3 +1090,79 @@ I then added Storybook so we can iterate on UI behavior without running the full
 
 ### Technical details
 - Storybook currently uses the same Redux store instance via a global Provider decorator in `.storybook/preview.tsx`.
+
+## Step 20: Make the frontend protobuf-first (TS protos + fromJson handlers) and harden hydration gating
+
+Upgraded the Pinocchio React web-chat frontend so that SEM handlers are protobuf-first on the TypeScript side, mirroring the backend’s protobuf-authored `event.data` payloads. This removes the “untyped JSON soup” layer between the wire format and the UI reducer logic, and it forces handler coverage to be explicit and reviewable.
+
+In parallel, I hardened the WS manager so it behaves correctly under React StrictMode and does not miss early WS frames during the hydration window. Storybook was expanded into both “widget-only” fixtures and multi-step streaming scenarios so you can iterate on widget rendering without running the server.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue , make sure you compile and test as you go along, to make sure we are on track"
+
+**User prompt (verbatim):** "let me know when storybook is ready so i can test it."
+
+**Assistant interpretation:** Finish the remaining frontend tasks (typed SEM routing, robust WS hydration gating, better Storybook coverage) while continuously compiling/building so we don’t drift.
+
+**Inferred user intent:** Make Storybook the day-to-day development loop for the new React chat widget, and ensure the frontend is already aligned with the protobuf-first SEM contract so future affordances don’t reintroduce untyped event parsing.
+
+**Commit (code):** 19438d2 — "web-chat: protobuf-first SEM handlers + WS hydration gating"
+
+### What I did
+- Updated Buf codegen to generate TS SEM protos into the embedded React app tree (`pinocchio/cmd/web-chat/web/src/sem/pb/**`) in addition to the main `pinocchio/web` tree.
+- Added `@bufbuild/protobuf` to the web-chat frontend and updated `src/sem/registry.ts` to decode `event.data` via `fromJson(MessageSchema, ev.data)` for the default SEM event families:
+  - `llm.*` (including thinking variants)
+  - `tool.*` (start/delta/result/done)
+  - `log`, `agent.mode`, `debugger.pause`
+- Hardened `src/ws/wsManager.ts`:
+  - Uses a nonce to invalidate in-flight connects (StrictMode double-mount safety).
+  - Buffers WS frames until hydration completes, then replays buffered frames after applying the hydration snapshot (filters by `seq`).
+- Expanded Storybook stories:
+  - Scenario playback with timed deltas and tool calls.
+  - Widget-only fixtures for debugger pause and agent mode.
+- Kept continuous compilation checks:
+  - `npm --prefix pinocchio/cmd/web-chat/web run typecheck`
+  - `npm --prefix pinocchio/cmd/web-chat/web run build`
+  - `npm --prefix pinocchio/cmd/web-chat/web run build-storybook`
+
+### Why
+- Protobuf-first handlers ensure the frontend and backend agree on the contract, and makes “missing fields”/schema drift obvious.
+- Hydration gating must be robust; missing early events produces “heisenbugs” that are very hard to debug once richer widgets depend on those frames.
+- Storybook coverage is the fastest way to iterate on widgets while preserving the “single ChatWidget root integration” constraint.
+
+### What worked
+- `buf generate` now produces TS schemas for both `pinocchio/web` and `pinocchio/cmd/web-chat/web`.
+- Storybook builds with multiple stories and no backend required.
+
+### What didn't work
+- N/A (no new blockers in this step).
+
+### What I learned
+- The Buf ES codegen path pairs naturally with `fromJson(..., { ignoreUnknownFields: true })` so we can tolerate additive schema evolution while still keeping handlers typed.
+
+### What was tricky to build
+- Getting hydration gating “race free” without turning the frontend into a retry queue: buffer WS frames, apply snapshot once, then drain.
+
+### What warrants a second pair of eyes
+- Confirm the “buffered frame filtering” logic (`seq <= lastSeq from hydration`) is correct for all backend stream coordinator behaviors.
+- Review whether the handler coverage set is sufficient for current Pinocchio profiles (additional SEM families may be needed).
+
+### What should be done in the future
+- Consider a small “unknown SEM event” diagnostic path (dev-only) so unhandled event families are surfaced without adding fallback behavior.
+- Add widget-only stories for `tool_call` + `tool_result` and for streaming `llm.*` (beyond the scenario stories).
+
+### Code review instructions
+- Start at:
+  - `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
+  - `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts`
+  - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx`
+- Validate with:
+  - `cd pinocchio/cmd/web-chat/web && npm run typecheck`
+  - `cd pinocchio/cmd/web-chat/web && npm run build`
+  - `cd pinocchio/cmd/web-chat/web && npm run build-storybook`
+
+### Technical details
+- Buf config: `pinocchio/buf.gen.yaml` now has two TS outputs:
+  - `web/src/sem/pb` (main Pinocchio web app)
+  - `cmd/web-chat/web/src/sem/pb` (embedded web-chat React app)

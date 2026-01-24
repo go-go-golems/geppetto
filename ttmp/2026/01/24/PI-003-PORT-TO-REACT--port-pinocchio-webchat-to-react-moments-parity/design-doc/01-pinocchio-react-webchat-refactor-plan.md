@@ -159,7 +159,8 @@ This plan assumes the implementor has read the following. These are the fastest 
 - `pinocchio/proto/sem/**`
 - Generated outputs:
   - `pinocchio/pkg/sem/pb/proto/sem/**` (Go)
-  - `pinocchio/web/src/sem/pb/proto/sem/**` (TS)
+  - `pinocchio/web/src/sem/pb/proto/sem/**` (TS; used by the main `pinocchio/web` app)
+  - `pinocchio/cmd/web-chat/web/src/sem/pb/proto/sem/**` (TS; used by the embedded `cmd/web-chat` React app)
 
 5) Moments migration tickets (historical context; why code is shaped the way it is):
 - `moments/ttmp/PORT-WEB-port-mento-web-ui-into-moments/design/01-proposed-implementation-guide-port-web-ui-into-moments.md`

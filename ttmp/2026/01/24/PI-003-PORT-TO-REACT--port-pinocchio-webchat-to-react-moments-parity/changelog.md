@@ -57,3 +57,15 @@ Step 19: Scaffold React+TS+RTK frontend and add Storybook in pinocchio/cmd/web-c
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx — Storybook story with SEM scenario playback
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx — Single ChatWidget root component (React)
 
+
+## 2026-01-24
+
+Step 20: Web-chat frontend now decodes SEM payloads via protobuf TS schemas, hardens WS hydration gating, and expands Storybook stories (pinocchio commit 19438d2)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/buf.gen.yaml — Buf now generates TS schemas into the embedded web-chat React app
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts — Registry-only SEM routing with `fromJson` decoding
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts — Singleton WS manager: StrictMode-safe hydration gating and buffering
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx — Storybook: widget-only fixtures + streaming scenarios
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/package.json — Adds `@bufbuild/protobuf`
