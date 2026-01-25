@@ -1,7 +1,7 @@
 ---
 Title: Port Moments planning middleware to Pinocchio
 Ticket: PI-005-PLANNING-MIDDLEWARE
-Status: active
+Status: complete
 Topics:
     - backend
     - middleware
@@ -17,10 +17,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-24T21:05:48.54230192-05:00
+LastUpdated: 2026-01-24T21:32:42.276161804-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Port Moments planning middleware to Pinocchio
 
