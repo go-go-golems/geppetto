@@ -63,3 +63,8 @@ Step 6: Fix New conv reset, gate stub planning events, and fix planning Storyboo
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts — Clear planning aggregates to avoid frozen-array mutation
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Gate stub planning/thinking-mode SEM emission behind --emit-planning-stubs
 
+
+## 2026-01-24
+
+Ticket closed
+
