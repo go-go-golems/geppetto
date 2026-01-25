@@ -1177,7 +1177,11 @@ This makes the `cmd/web-chat` example unambiguous: there is one supported UI (th
 
 ### Prompt Context
 
-**User prompt (verbatim):** "go ahead with A, just kill it. check off and commit and diary.\n\nThen tell me which widgets is B about? I dont need full moments parity, just a nice looking webchat."
+**User prompt (verbatim):**
+
+> go ahead with A, just kill it. check off and commit and diary.
+>
+> Then tell me which widgets is B about? I dont need full moments parity, just a nice looking webchat.
 
 **Assistant interpretation:** Remove any remaining legacy webchat frontend remnants (CSS/assets/docs), mark Task #15 done, commit changes, and record the work in the ticket diary/changelog.
 
