@@ -1,5 +1,5 @@
 ---
-Title: 'Diary'
+Title: Diary
 Ticket: GP-014-WEBCHAT-QUALITY-CHECKS
 Status: active
 Topics:
@@ -9,13 +9,66 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: pinocchio/.github/workflows/webchat-check.yml
+      Note: CI workflow for webchat npm check
+    - Path: pinocchio/Makefile
+      Note: Added web-typecheck/web-lint/web-check targets
+    - Path: pinocchio/cmd/web-chat/README.md
+      Note: Documented webchat check commands
+    - Path: pinocchio/cmd/web-chat/web/.biomeignore
+      Note: Ignore generated output for Biome
+    - Path: pinocchio/cmd/web-chat/web/biome.json
+      Note: Biome lint config and include/exclude patterns
+    - Path: pinocchio/cmd/web-chat/web/package.json
+      Note: Added lint/lint:fix/check scripts
+    - Path: pinocchio/cmd/web-chat/web/src/App.tsx
+      Note: Cleaned React import usage
+    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx
+      Note: Adjusted imports for lint
+    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
+      Note: Log errors and surface error panel
+    - Path: pinocchio/cmd/web-chat/web/src/chat/Markdown.tsx
+      Note: Log clipboard copy failures
+    - Path: pinocchio/cmd/web-chat/web/src/chat/chat.css
+      Note: Styles for error panel and pills
+    - Path: pinocchio/cmd/web-chat/web/src/components/ErrorBoundary.tsx
+      Note: React error boundary for render errors
+    - Path: pinocchio/cmd/web-chat/web/src/main.tsx
+      Note: Wrap App with ErrorBoundary
+    - Path: pinocchio/cmd/web-chat/web/src/sem/registry.ts
+      Note: Timeline mapping call sites
+    - Path: pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts
+      Note: Normalize bigint fields
+    - Path: pinocchio/cmd/web-chat/web/src/store/appSlice.ts
+      Note: Type-only import cleanup
+    - Path: pinocchio/cmd/web-chat/web/src/store/errorsSlice.ts
+      Note: Error queue slice
+    - Path: pinocchio/cmd/web-chat/web/src/store/hooks.ts
+      Note: Type-only import cleanup
+    - Path: pinocchio/cmd/web-chat/web/src/store/store.ts
+      Note: Add errors reducer
+    - Path: pinocchio/cmd/web-chat/web/src/store/timelineSlice.ts
+      Note: Type-only import cleanup
+    - Path: pinocchio/cmd/web-chat/web/src/utils/guards.ts
+      Note: isRecord helper for hydration parsing
+    - Path: pinocchio/cmd/web-chat/web/src/utils/logger.ts
+      Note: Logger helpers and error formatting
+    - Path: pinocchio/cmd/web-chat/web/src/utils/number.ts
+      Note: Bigint/number normalization helpers
+    - Path: pinocchio/cmd/web-chat/web/src/ws/wsManager.ts
+      Note: Logged ws/hydration errors and reporting
+    - Path: pinocchio/cmd/web-chat/web/vite.config.ts
+      Note: Import ordering tweak
+    - Path: pinocchio/lefthook.yml
+      Note: Run web-check when webchat files change
 ExternalSources: []
 Summary: Investigation diary for improving webchat linting, type checks, and error handling.
-LastUpdated: 2026-01-25T16:26:07-05:00
-WhatFor: ''
-WhenToUse: ''
+LastUpdated: 2026-01-25T17:03:14-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Diary
 
@@ -263,3 +316,68 @@ I added concrete tasks covering the full QA plan, including Biome setup, npm scr
 
 ### Technical details
 - Task list lives at `geppetto/ttmp/2026/01/25/GP-014-WEBCHAT-QUALITY-CHECKS--webchat-quality-checks-linting-typecheck-error-handling/tasks.md`.
+
+## Step 6: Implement webchat QA checks and error surfacing
+
+I implemented the full QA plan for webchat: Biome linting, check scripts, Makefile and hook wiring, and CI checks, plus runtime error surfacing with logging, an error boundary, and a lightweight error panel. This covers the remaining tasks in GP-014 and ties the code changes back to the agreed constraints (npm-only, client-side logs, scoped checks).
+
+I also ran the new webchat check flow end-to-end, resolved Biome config issues related to generated protobuf files, and committed the updates so the webchat checks are enforced consistently in local hooks and CI.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Continue working on docmgr ticket GP-014-WEBCHAT-QUALITY-CHECKS. Check off tasks as you go, commit to git, keep a detailed diary. We stopped mid point, so you will have to catch up here."
+
+**Assistant interpretation:** Finish implementing the webchat lint/typecheck/logging plan, mark tasks complete, commit the code, and update the diary with detailed steps.
+
+**Inferred user intent:** Deliver the full QA improvements with traceable commits and documentation so the ticket can be closed confidently.
+
+**Commit (code):** c332eee4bed822864f7eb6d439de92d833458a27 — "Webchat: add linting, checks, and error surfacing"
+
+### What I did
+- Added Biome config + ignore patterns for webchat and added npm scripts for lint, lint:fix, and check.
+- Added `web-typecheck`, `web-lint`, and `web-check` targets to the Pinocchio Makefile and hooked them into lefthook.
+- Added a webchat-only GitHub Actions workflow that runs `npm run check` when web files change.
+- Implemented client-side logging utilities, a Redux error queue, a debug error panel, and an ErrorBoundary; replaced empty catches in `wsManager` and `ChatWidget`.
+- Normalized bigint timeline fields to numbers during mapping to resolve typecheck errors.
+- Updated `cmd/web-chat/README.md` with webchat check instructions.
+- Ran `npm run check` in `pinocchio/cmd/web-chat/web` and adjusted Biome config to exclude generated protobuf and storybook output.
+
+### Why
+- Enforce lint/typecheck consistency across local dev, hooks, and CI, matching the Moments baseline.
+- Remove silent failures and make runtime issues visible without backend logging.
+- Resolve typecheck regressions caused by bigint fields in protobuf payloads.
+
+### What worked
+- `npm run check` (typecheck + lint) now succeeds in `pinocchio/cmd/web-chat/web`.
+- Lefthook `web-check` ran successfully during the commit.
+- Error logging and boundary wiring are in place with minimal UI changes.
+
+### What didn't work
+- First run of `npm run check` failed due to Biome config and generated protobuf linting:
+  - `biome.json:6:5 deserialize DEPRECATED The property experimentalScannerIgnores is deprecated.`
+  - `src/sem/pb/proto/sem/base/agent_pb.ts:5:1 The imports and exports are not sorted.`
+- Resolved by removing the deprecated config field and excluding `src/sem/pb` plus `storybook-static` via `files.includes` negation patterns.
+
+### What I learned
+- Biome v2.3.x prefers `files.includes` negation patterns to ignore folders; deprecated fields will fail CI checks.
+- Keeping generated protobuf files out of lint keeps checks fast and reduces noise.
+
+### What was tricky to build
+- Getting Biome to ignore generated output without weakening lint rules for real source files.
+- Adding error surfacing in a way that is visible but doesn’t block the normal chat flow.
+
+### What warrants a second pair of eyes
+- Review the error panel UI/UX to ensure it is acceptable in production and not too noisy.
+- Validate that the new logging patterns don’t expose sensitive data in console output.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `pinocchio/cmd/web-chat/web/biome.json` and `pinocchio/cmd/web-chat/web/package.json` for lint scripts and ignore patterns.
+- Review `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts` and `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx` for error logging changes.
+- Run: `cd pinocchio/cmd/web-chat/web && npm run check`.
+
+### Technical details
+- Webchat checks are wired via `pinocchio/Makefile`, `pinocchio/lefthook.yml`, and `.github/workflows/webchat-check.yml`.
+- Error surfacing uses `pinocchio/cmd/web-chat/web/src/store/errorsSlice.ts`, `pinocchio/cmd/web-chat/web/src/utils/logger.ts`, and `pinocchio/cmd/web-chat/web/src/components/ErrorBoundary.tsx`.
