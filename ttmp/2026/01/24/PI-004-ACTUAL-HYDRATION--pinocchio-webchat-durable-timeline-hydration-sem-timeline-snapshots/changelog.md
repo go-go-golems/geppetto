@@ -26,3 +26,14 @@ Step 3: implement SQLite projection store + projector + GET /timeline (pinocchio
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_store_sqlite.go — Durable projection store
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/timeline/transport.proto — Snapshot transport schema
 
+
+## 2026-01-24
+
+Step 4: configure timeline store via Glazed params (no env) (pinocchio commit 4c27169)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/main.go — Add --timeline-dsn/--timeline-db parameters
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Decode timeline DSN/DB from ParsedLayers
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/server.go — Close sqlite store on shutdown
+

@@ -66,7 +66,7 @@
     - `cd pinocchio && go test ./...` passes
 
 - [x] Wire configuration: SQLite DSN / file path (no multi-backend)
-  - Add a single configuration mechanism for the projection DB (env var or CLI layer param).
+  - Add a single configuration mechanism for the projection DB (Glazed parameters in `web-chat` command; supports config overlays).
   - Default should remain “no projection persistence” unless configured.
   - Acceptance:
     - docs explain how to enable it and where the DB lives

@@ -14,8 +14,14 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/README.md
+      Note: Document --timeline-dsn/--timeline-db usage (commit 4c27169)
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
+      Note: Glazed parameters for timeline store DSN/DB (commit 4c27169)
     - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
       Note: GET /timeline + env config + user message snapshot (commit b1f908b)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/server.go
+      Note: Close timeline store on shutdown (commit 4c27169)
     - Path: ../../../../../../../pinocchio/pkg/webchat/timeline_projector.go
       Note: SEM frame -> sem.timeline snapshot projector (commit b1f908b)
     - Path: ../../../../../../../pinocchio/pkg/webchat/timeline_store_sqlite.go
@@ -36,6 +42,7 @@ LastUpdated: 2026-01-24T19:38:46.981538914-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -259,3 +266,70 @@ Then implement, check off tasks as you go, keep a detailed diary (in PI-004) and
 - Validate:
   - `cd pinocchio && buf generate`
   - `cd pinocchio && go test ./... -count=1`
+
+## Step 4: Route timeline DB configuration through Glazed parameters (no manual env parsing)
+
+This step removes the last “out-of-band” configuration path for PI-004: the manual `os.Getenv(...)` wiring in the router for the timeline store. Instead, the projection store is configured the same way as the rest of the web-chat server: via Glazed parameters defined on the `web-chat` command and decoded from `ParsedLayers` using `parsed.InitializeStruct(...)`.
+
+This aligns with the Glazed best practice spelled out in `glaze help build-first-command`: decode resolved values into a settings struct rather than reading flags (or env vars) directly, so defaults, validation, and help remain consistent.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+```text
+no we should use the DSN/DB stuff through the glazed framework in the webchat command (read the output of `glaze help build-first-command` by redirecting to disk and then reading to read in full, and not truncate). Then don't do the manual env stuff.
+```
+
+**Assistant interpretation:** Replace the router’s direct env-var configuration for the timeline store with Glazed parameters in the `web-chat` command, decoded via `ParsedLayers`, and remove manual env reads.
+
+**Inferred user intent:** Keep all operational configuration inside the Glazed/layers system (including config file overlays) and avoid ad-hoc env switches that drift from CLI help/schema.
+
+**Commit (code):** `pinocchio@4c27169` — "web-chat: configure timeline store via glazed params"
+
+### What I did
+- Captured and reviewed `glaze help build-first-command` output (redirected to disk to avoid truncation):
+  - `/tmp/glaze-help-build-first-command.txt`
+- Added Glazed parameters to the `web-chat` command:
+  - `--timeline-dsn` and `--timeline-db`
+  - `pinocchio/cmd/web-chat/main.go`
+- Moved timeline store initialization to be driven by decoded router settings (no `os.Getenv`):
+  - `pinocchio/pkg/webchat/router.go`
+  - Extended `RouterSettings` with:
+    - `timeline-dsn`
+    - `timeline-db`
+- Ensured the SQLite store is closed on shutdown:
+  - `pinocchio/pkg/webchat/server.go`
+- Updated CLI docs to match:
+  - `pinocchio/cmd/web-chat/README.md`
+
+### Why
+- Avoids configuration drift: Glazed flags/help/schema stay aligned with behavior.
+- Allows config overlays and `--print-yaml/--print-parsed-parameters` workflows to include the timeline store configuration automatically.
+
+### What worked
+- `cd pinocchio && go test ./... -count=1` passed.
+- Commit passed the repo’s pre-commit hook suite.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The Glazed “decode into struct” rule is not just stylistic: it’s what makes layered configuration and help generation coherent.
+
+### What was tricky to build
+- Keeping the router package usable from other entrypoints while still relying on parsed layers for configuration (solution: decode optional fields with defaults).
+
+### What warrants a second pair of eyes
+- Whether we should also surface the “delta write throttle” as a Glazed parameter (might be useful for tuning on slower disks).
+
+### What should be done in the future
+- Finish PI-004 Task #5 (frontend hydration via `/timeline` + version cursor gating).
+
+### Code review instructions
+- Review parameter plumbing:
+  - `pinocchio/cmd/web-chat/main.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/server.go`
+- Validate:
+  - `go run ./cmd/web-chat --timeline-db /tmp/pinocchio-timeline.db`
+  - `curl 'http://localhost:8080/timeline?conv_id=demo'`
