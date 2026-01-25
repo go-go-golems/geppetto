@@ -32,8 +32,10 @@ RelatedFiles:
       Note: Step 20 registry-only SEM routing using protobuf decoding (fromJson)
     - Path: pinocchio/cmd/web-chat/web/src/ws/wsManager.ts
       Note: Step 20 singleton WS manager with hydration gating and StrictMode safety
-    - Path: pinocchio/cmd/web-chat/web/src/store.js
-      Note: Adjusted to read event.data for smoke-testing
+    - Path: pinocchio/cmd/web-chat/README.md
+      Note: Step 21 update: remove stale references to deleted legacy backend/UI structure
+    - Path: pinocchio/cmd/web-chat/web/index.html
+      Note: Step 21 update: remove legacy timeline.css reference
     - Path: pinocchio/pkg/webchat/router.go
       Note: |-
         ws.hello/ws.pong payload now in event.data
@@ -1166,3 +1168,64 @@ In parallel, I hardened the WS manager so it behaves correctly under React Stric
 - Buf config: `pinocchio/buf.gen.yaml` now has two TS outputs:
   - `web/src/sem/pb` (main Pinocchio web app)
   - `cmd/web-chat/web/src/sem/pb` (embedded web-chat React app)
+
+## Step 21: Remove remaining legacy web-chat UI assets and stale docs
+
+Removed the last “legacy UI” artifacts that were still hanging around after the React+RTK migration: an old timeline stylesheet that was still linked from the built `index.html`, plus documentation that described a now-nonexistent `pkg/backend/*` layout and a `forwarder.go` file (from the older Preact/Zustand era).
+
+This makes the `cmd/web-chat` example unambiguous: there is one supported UI (the embedded React app built by Vite) and one supported backend implementation (the `pinocchio/pkg/webchat` router and its SEM translator/stream coordinator).
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead with A, just kill it. check off and commit and diary.\n\nThen tell me which widgets is B about? I dont need full moments parity, just a nice looking webchat."
+
+**Assistant interpretation:** Remove any remaining legacy webchat frontend remnants (CSS/assets/docs), mark Task #15 done, commit changes, and record the work in the ticket diary/changelog.
+
+**Inferred user intent:** Avoid maintaining two UI stacks and eliminate “mystery legacy files” that can confuse future refactors; keep the codebase focused on the React webchat as the single path forward.
+
+**Commit (code):** c2ebd38 — "web-chat: drop legacy timeline.css + update docs"
+
+### What I did
+- Removed the legacy timeline stylesheet and its reference:
+  - Deleted: `pinocchio/cmd/web-chat/static/css/timeline.css`
+  - Updated: `pinocchio/cmd/web-chat/web/index.html` to remove the `<link rel="stylesheet" ...>` and replace it with a tiny inline reset for `html, body`.
+- Updated `pinocchio/cmd/web-chat/README.md` so it matches the current codebase:
+  - Repointed architecture references to `pinocchio/pkg/webchat/**`.
+  - Updated the `/chat` response contract (queued vs started + idempotency key).
+  - Mentioned `/hydrate` explicitly for hydration gating.
+- Verified the build and embed pipeline still works:
+  - `cd pinocchio/cmd/web-chat/web && npm run typecheck`
+  - `cd pinocchio/cmd/web-chat/web && npm run build`
+  - `go generate ./pinocchio/cmd/web-chat`
+  - `cd pinocchio && go test ./...`
+
+### Why
+- The legacy stylesheet was still linked from the built HTML, creating drift and confusing warnings during Vite builds.
+- The README described a backend layout that no longer exists, which is exactly the kind of “stale map” that slows down future work.
+
+### What worked
+- After removing the CSS link, Vite builds no longer emit the missing-file warning and the generated `static/dist/index.html` is clean.
+- `go test ./...` in `pinocchio/` passed after the cleanup.
+
+### What didn't work
+- N/A
+
+### What I learned
+- In Vite, any `<link href="./static/...">` in `index.html` is preserved into `dist/index.html`, so even “harmless” legacy links become part of the shipped artifact unless removed.
+
+### What was tricky to build
+- Keeping the storybook/static build outputs ignored while removing the last tracked legacy asset (`timeline.css`) without breaking the embedded FS serving logic.
+
+### What warrants a second pair of eyes
+- Confirm the updated `cmd/web-chat/README.md` matches the intended public API surface for the example (especially `/chat` response shape and `/hydrate` semantics).
+
+### What should be done in the future
+- N/A (this step is a cleanup to make future work simpler)
+
+### Code review instructions
+- Review changes in:
+  - `pinocchio/cmd/web-chat/web/index.html`
+  - `pinocchio/cmd/web-chat/README.md`
+- Validate quickly with:
+  - `go generate ./pinocchio/cmd/web-chat`
+  - `cd pinocchio && go test ./...`

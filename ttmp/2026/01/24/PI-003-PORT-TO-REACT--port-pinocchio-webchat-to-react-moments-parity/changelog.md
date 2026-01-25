@@ -69,3 +69,14 @@ Step 20: Web-chat frontend now decodes SEM payloads via protobuf TS schemas, har
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts — Singleton WS manager: StrictMode-safe hydration gating and buffering
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx — Storybook: widget-only fixtures + streaming scenarios
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/package.json — Adds `@bufbuild/protobuf`
+
+
+## 2026-01-24
+
+Step 21: Remove remaining legacy web-chat UI artifacts (timeline.css link) and refresh cmd/web-chat docs (pinocchio commit c2ebd38)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/index.html — Removes legacy stylesheet link; adds minimal global reset
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/static/css/timeline.css — Deleted (legacy UI artifact)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/README.md — Updated to match current backend/UI layout and API surface

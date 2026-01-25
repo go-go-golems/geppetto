@@ -80,6 +80,7 @@
   - Scenario stories: “core streaming + tools”, “reconnect + hydrate”, “debug pause”, etc.
   - Acceptance: you can iterate on individual widgets without running the server.
 
-- [ ] Remove/deprecate old Pinocchio Preact/Zustand web UI once parity exists
-  - Deprecate `pinocchio/cmd/web-chat/web/**`.
-  - Acceptance: one supported webchat UI remains; old code path is removed or explicitly archived.
+- [x] Remove/deprecate old Pinocchio Preact/Zustand web UI once parity exists
+  - Remove legacy static assets and references (e.g. `static/css/timeline.css`) that belonged to the old UI.
+  - Ensure the only supported web-chat frontend is the embedded React+RTK app in `pinocchio/cmd/web-chat/web/**`.
+  - Acceptance: no legacy UI assets are served; `go generate ./pinocchio/cmd/web-chat` produces a clean `static/dist` without legacy CSS references.
