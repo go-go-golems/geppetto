@@ -171,11 +171,63 @@ How it is updated:
   - `tool.*` → upsert tool call + result snapshots
   - `planning.*` → upsert planning snapshot
 
-Persistence options (choose one in implementation):
+### Persistence decision (this ticket): SQLite (single DB, multi-conversation)
 
-1) **In-memory only** (fast; loses state on restart; still “actual” within process).
-2) **SQLite per conversation** (durable; simplest local persistence; good for Pinocchio).
-3) **Redis** (durable/shared; fits existing redisstreams optionality).
+For PI-004, the projection store is persisted to **SQLite** and supports **multiple conversations** in the same database file.
+
+Rationale:
+- Durable across restart (unlike the current in-memory buffer).
+- Operationally simple for Pinocchio (single file, no extra infrastructure).
+- Supports multi-conversation by keying everything on `conv_id`.
+
+Non-goals (for this iteration):
+- Redis-backed projection persistence.
+- A full “audit log” of every SEM frame (we can add this later if needed).
+
+#### SQLite schema (minimal viable)
+
+We store:
+1) a per-conversation monotonic `version`, and
+2) the latest snapshot for each entity ID (upsert semantics).
+
+Tables (conceptual):
+
+```sql
+-- One row per conversation
+CREATE TABLE IF NOT EXISTS timeline_versions (
+  conv_id TEXT PRIMARY KEY,
+  version INTEGER NOT NULL
+);
+
+-- One row per entity (per conversation); row is overwritten on upsert
+CREATE TABLE IF NOT EXISTS timeline_entities (
+  conv_id TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  version INTEGER NOT NULL,
+  payload_type TEXT NOT NULL, -- e.g. "sem.timeline.MessageSnapshotV1"
+  payload_json TEXT NOT NULL, -- protojson payload
+  PRIMARY KEY (conv_id, entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS timeline_entities_by_version
+  ON timeline_entities(conv_id, version);
+```
+
+Transaction semantics for `UpsertEntity(conv_id, entity_id, ...)`:
+- Read current `timeline_versions.version` (default 0).
+- Increment to `version+1`.
+- If entity exists, keep its `created_at_ms`; else set `created_at_ms=now`.
+- Write entity row with `updated_at_ms=now` and the new `version`.
+- Update `timeline_versions` row.
+
+Query semantics:
+- `GetSnapshot(conv_id, since_version, limit)` returns:
+  - current `version`
+  - entities where `version > since_version`, ordered by `version ASC`, limited by `limit`
+- “full snapshot” is `since_version=0` and a high (or omitted) `limit`.
 
 ### E. Client hydration flow (no retry queue)
 
