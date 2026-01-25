@@ -67,7 +67,13 @@ Created a separate ticket for “actual hydration” and wrote the first version
 
 ### Prompt Context
 
-**User prompt (verbatim):** "Create a separate ticket for implementing the actual hydration, and write a detailed implementation/design doc for that in this new ticket. \n\nThen return to this ticket, and implement 2. \n\nCheck tasks off as you go, write diary, commit to git."
+**User prompt (verbatim):**
+
+> Create a separate ticket for implementing the actual hydration, and write a detailed implementation/design doc for that in this new ticket.
+>
+> Then return to this ticket, and implement 2.
+>
+> Check tasks off as you go, write diary, commit to git.
 
 **Assistant interpretation:** Create a new docmgr ticket (PI-004) for hydration design/implementation, write a detailed design doc there, then return to PI-003 to implement backend emission for planning/thinking-mode SEM events.
 
