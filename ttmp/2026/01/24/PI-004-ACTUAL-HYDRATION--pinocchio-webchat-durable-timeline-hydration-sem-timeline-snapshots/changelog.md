@@ -14,3 +14,15 @@ Step 2: choose SQLite multi-conversation projection store; expand tasks
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/24/PI-004-ACTUAL-HYDRATION--pinocchio-webchat-durable-timeline-hydration-sem-timeline-snapshots/design-doc/01-durable-hydration-via-sem-timeline-snapshots.md — Record SQLite persistence decision and schema
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/24/PI-004-ACTUAL-HYDRATION--pinocchio-webchat-durable-timeline-hydration-sem-timeline-snapshots/tasks.md — Detailed implementation checklist
 
+
+## 2026-01-24
+
+Step 3: implement SQLite projection store + projector + GET /timeline (pinocchio commits d97efe1, 244757b, b1f908b)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — GET /timeline + store enablement
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_projector.go — SEM->snapshot projection
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_store_sqlite.go — Durable projection store
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/timeline/transport.proto — Snapshot transport schema
+

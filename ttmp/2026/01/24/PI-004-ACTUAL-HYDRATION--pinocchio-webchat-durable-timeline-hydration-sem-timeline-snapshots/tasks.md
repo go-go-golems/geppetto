@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] Define snapshot transport protos (`TimelineUpsertV1`, `TimelineSnapshotV1`)
+- [x] Define snapshot transport protos (`TimelineUpsertV1`, `TimelineSnapshotV1`)
   - Add a transport schema in `pinocchio/proto/sem/timeline/` that can represent:
     - per-entity upserts (`TimelineUpsertV1`)
     - full/partial snapshots (`TimelineSnapshotV1`)
@@ -14,7 +14,7 @@
     - `cd pinocchio && buf generate` produces Go + TS types
     - protojson encoding produces stable lowerCamelCase field names
 
-- [ ] Implement server-side timeline projection store (SQLite, multi-conversation, versioned)
+- [x] Implement server-side timeline projection store (SQLite, multi-conversation, versioned)
   - Use SQLite as the canonical persistence layer (durable across restart).
   - Store must support multiple conversations (keyed by `conv_id`).
   - Schema requirements (minimal viable):
@@ -26,7 +26,7 @@
     - `version` is monotonic per `conv_id`
     - upserts are idempotent (same `entity_id` overwrites props without duplicating order)
 
-- [ ] Project engine SEM frames into `sem.timeline.*` snapshots
+- [x] Project engine SEM frames into `sem.timeline.*` snapshots
   - Implement server-side projector: `SEM frame -> projection updates -> sem.timeline snapshots`.
   - Initial projection coverage (minimum):
     - `llm.start|delta|final` -> `sem.timeline.MessageSnapshotV1`
@@ -39,7 +39,7 @@
   - Acceptance:
     - running a chat produces timeline entities in SQLite that can be reloaded after restart
 
-- [ ] Add `GET /timeline` endpoint (`since_version`, `limit`)
+- [x] Add `GET /timeline` endpoint (`since_version`, `limit`)
   - HTTP handler returns a protojson `TimelineSnapshotV1` (or equivalent).
   - Behavior:
     - `GET /timeline?conv_id=...` returns full snapshot (all entities)
@@ -55,7 +55,7 @@
     - refresh/reconnect renders immediately via `/timeline` even if the server restarted
     - no duplication when WS deltas arrive
 
-- [ ] Add projection/hydration tests (no duplicates, monotonic versions)
+- [x] Add projection/hydration tests (no duplicates, monotonic versions)
   - Unit tests for SQLite store:
     - upsert creates entity, increments version
     - repeated upsert updates entity, increments version
@@ -65,7 +65,7 @@
   - Acceptance:
     - `cd pinocchio && go test ./...` passes
 
-- [ ] Wire configuration: SQLite DSN / file path (no multi-backend)
+- [x] Wire configuration: SQLite DSN / file path (no multi-backend)
   - Add a single configuration mechanism for the projection DB (env var or CLI layer param).
   - Default should remain “no projection persistence” unless configured.
   - Acceptance:
