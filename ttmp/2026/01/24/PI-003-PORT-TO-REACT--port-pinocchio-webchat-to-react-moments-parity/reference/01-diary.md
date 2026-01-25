@@ -16,42 +16,50 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/analysis/01-moments-react-chat-widget-architecture.md
-      Note: Main architecture narrative produced from this research
-    - Path: geppetto/ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/reference/01-diary.md
-      Note: Research diary capturing the file/command trail
-    - Path: pinocchio/buf.gen.yaml
+    - Path: ../../../../../../../pinocchio/buf.gen.yaml
       Note: Buf now generates TS SEM protos into cmd/web-chat web app
-    - Path: pinocchio/cmd/web-chat/web/.storybook/preview.tsx
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/README.md
+      Note: 'Step 21 update: remove stale references to deleted legacy backend/UI structure'
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/.storybook/preview.tsx
       Note: Storybook Redux Provider decorator
-    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/index.html
+      Note: 'Step 21 update: remove legacy timeline.css reference'
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx
+      Note: 'Step 20 stories: widget-only and end-to-end SEM scenario playback'
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
       Note: Step 19 implementation (React ChatWidget)
-    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx
-      Note: Step 20 stories: widget-only and end-to-end SEM scenario playback
-    - Path: pinocchio/cmd/web-chat/web/src/sem/registry.ts
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/sem/registry.ts
       Note: Step 20 registry-only SEM routing using protobuf decoding (fromJson)
-    - Path: pinocchio/cmd/web-chat/web/src/ws/wsManager.ts
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/ws/wsManager.ts
       Note: Step 20 singleton WS manager with hydration gating and StrictMode safety
-    - Path: pinocchio/cmd/web-chat/README.md
-      Note: Step 21 update: remove stale references to deleted legacy backend/UI structure
-    - Path: pinocchio/cmd/web-chat/web/index.html
-      Note: Step 21 update: remove legacy timeline.css reference
-    - Path: pinocchio/pkg/webchat/router.go
+    - Path: ../../../../../../../pinocchio/pkg/inference/events/typed_planning.go
+      Note: Typed planning/execution events emitted by webchat router (commit 980632c)
+    - Path: ../../../../../../../pinocchio/pkg/inference/events/typed_thinking_mode.go
+      Note: Typed thinking-mode events emitted by webchat router (commit 980632c)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
       Note: |-
         ws.hello/ws.pong payload now in event.data
         Step 17 implementation (commit 7afc7e8)
-    - Path: pinocchio/pkg/webchat/sem_buffer.go
+        Emits planning/thinking/execution events around StartInference/Wait (commit 980632c)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/sem_buffer.go
       Note: Step 18 implementation (commit f696ce4)
-    - Path: pinocchio/pkg/webchat/sem_translator.go
-      Note: Step 15 implementation (commit 949beb9)
-    - Path: pinocchio/pkg/webchat/send_queue.go
+    - Path: ../../../../../../../pinocchio/pkg/webchat/sem_translator.go
+      Note: |-
+        Step 15 implementation (commit 949beb9)
+        Translates typed planning/thinking/execution events into sem.middleware protobuf payloads (commit 980632c)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/send_queue.go
       Note: Step 17 implementation (commit 7afc7e8)
+    - Path: ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/analysis/01-moments-react-chat-widget-architecture.md
+      Note: Main architecture narrative produced from this research
+    - Path: ttmp/2026/01/24/PI-003-PORT-TO-REACT--port-pinocchio-webchat-to-react-moments-parity/reference/01-diary.md
+      Note: Research diary capturing the file/command trail
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-01-24T13:52:51.900577155-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -1380,3 +1388,92 @@ Specifically, the planning aggregator stored `agg.iterations` in a `Map` and als
 
 ### Code review instructions
 - Review `planningEntityFromAgg` in `pinocchio/cmd/web-chat/web/src/sem/registry.ts`.
+
+## Step 24: Backend emits planning/thinking-mode SEM events (no more “storybook-only” planning)
+
+This step makes the Planning + Thinking Mode widgets “real” in Pinocchio: the Go backend now emits typed Geppetto events (`planning.*`, `thinking.mode.*`, `execution.*`) during a normal chat run, and the existing SEM registry converts those events into protobuf-first SEM frames over the websocket.
+
+The intent is to remove the last major gap where planning UI could only be exercised via Storybook scenario playback. With these events present in the live stream, the React frontend can render the same widgets for actual runs, and future work (PI-004 hydration) can snapshot/project them consistently.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+```text
+Create a separate ticket for implementing the actual hydration, and write a detailed implementation/design doc for that in this new ticket. 
+
+Then return to this ticket, and implement 2. 
+
+Check tasks off as you go, write diary, commit to git.
+```
+
+**Assistant interpretation:** After creating the dedicated hydration ticket, implement “(2)” for PI-003 by making the backend emit and translate planning/thinking-mode events so the React widgets are driven by real streaming SEM frames; record work in the ticket diary and commit.
+
+**Inferred user intent:** Move beyond UI mock/stories into a truly event-driven webchat where the backend emits canonical semantic events that hydrate/replay correctly and power richer affordances (planning, execution, tool transparency).
+
+**Commit (code):** `980632c` — "webchat: emit + translate planning/thinking-mode SEM"
+
+### What I did
+- Added **typed Geppetto events** in Pinocchio for agentic phases (so they can be decoded via `events.NewEventFromJson` and routed through the SEM registry):
+  - `pinocchio/pkg/inference/events/typed_thinking_mode.go`
+  - `pinocchio/pkg/inference/events/typed_planning.go`
+- Extended the backend SEM translator to map these typed events to **protobuf-authored** `sem.middleware.*` payloads and wrap them in the `{ sem: true, event: ... }` envelope:
+  - `pinocchio/pkg/webchat/sem_translator.go`
+- Wired emission into the webchat router so every run produces planning/thinking-mode signals without requiring any frontend “switch fallback” or client-owned queue logic:
+  - `pinocchio/pkg/webchat/router.go` now publishes planning/thinking events right after `StartInference(...)` and publishes `execution.complete` after `handle.Wait()`.
+- Ran verification commands during iteration:
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd pinocchio && go generate ./cmd/web-chat`
+  - `cd pinocchio && golangci-lint run -v`
+
+### Why
+- Planning/thinking widgets should be driven by the same event stream as chat + tools, not by Storybook-only fixtures.
+- Emitting typed events (instead of ad-hoc JSON) keeps the “protojson boundary” intact and keeps the wire contract stable and inspectable.
+
+### What worked
+- The commit passes the repo’s `lefthook` pre-commit suite (Go tests + go generate + lint).
+- The translator stays registry-only and uses protobuf-first payloads for these new SEM event families.
+
+### What didn't work
+- `golangci-lint` initially failed with:
+  - `pkg/webchat/router.go:... SA5011: possible nil pointer dereference (staticcheck)`
+  - Root cause: a redundant `if handle != nil { ... }` check after earlier dereferences made staticcheck treat `handle` as possibly nil.
+  - Fix: remove the redundant check and rely on the explicit `if handle == nil { return }` guard.
+- A first attempt to run `git commit ...` timed out in this environment (tool timeout), but the subsequent commit succeeded once the command timeout was increased.
+
+### What I learned
+- Staticcheck’s `SA5011` is often triggered by “nil checks after dereference”, even if there is an earlier guard; removing redundant guards can improve both clarity and analyzability.
+- For cross-layer widget affordances, the simplest correctness strategy is still: **typed events → protobuf payload → JSON envelope**.
+
+### What was tricky to build
+- Picking correlation IDs that keep UI updates stable:
+  - The typed events reuse Geppetto `EventMetadata` (`SessionID`, `InferenceID`, `TurnID`) so the UI can consistently group by run/turn.
+- Avoiding any “partial compatibility” path:
+  - The translator only emits SEM frames (no legacy TL frames, no switch fallbacks in the UI, no client queue semantics).
+
+### What warrants a second pair of eyes
+- Whether the “stub plan” emitted in `emitAgenticPlanningAndThinking` should be:
+  - kept as-is (good enough for UI affordances), or
+  - replaced quickly by a real planner emitting meaningful iterations and reflections.
+- Whether the provider/model fields selected from `cfg.StepSettings.Chat` are the right “source of truth” for UI display in all profiles.
+
+### What should be done in the future
+- Replace the stub plan with real planner integration once the planner pipeline is defined.
+- Add an end-to-end browser validation note (run server + open webchat) once we pick a consistent local profile for testing.
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/router.go`:
+  - `startRunForPrompt` emission points
+  - `emitAgenticPlanningAndThinking`, `emitAgenticExecutionComplete`
+- Then review `pinocchio/pkg/webchat/sem_translator.go`:
+  - `RegisterDefaultHandlers()` registrations for `planning.*`, `thinking.mode.*`, `execution.*`
+- Validate with:
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd pinocchio && golangci-lint run -v`
+
+### Technical details
+- Wire format remains:
+  - `{ "sem": true, "event": { "type": "...", "id": "...", "data": <protojson> } }`
+- Payload schemas used:
+  - `sem.middleware.PlanningStarted`, `sem.middleware.PlanningIteration`, `sem.middleware.PlanningCompleted`
+  - `sem.middleware.ThinkingModeStarted`, `sem.middleware.ThinkingModeUpdate`, `sem.middleware.ThinkingModeCompleted`
+  - `sem.middleware.ExecutionStarted`, `sem.middleware.ExecutionCompleted`

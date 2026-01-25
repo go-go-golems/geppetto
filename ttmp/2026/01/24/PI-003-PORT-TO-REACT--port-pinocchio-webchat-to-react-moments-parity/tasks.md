@@ -84,3 +84,6 @@
   - Remove legacy static assets and references (e.g. `static/css/timeline.css`) that belonged to the old UI.
   - Ensure the only supported web-chat frontend is the embedded React+RTK app in `pinocchio/cmd/web-chat/web/**`.
   - Acceptance: no legacy UI assets are served; `go generate ./pinocchio/cmd/web-chat` produces a clean `static/dist` without legacy CSS references.
+- [x] Backend: add typed Geppetto events for planning/thinking-mode (planning.*, thinking.mode.*, execution.*)
+- [x] Backend: translate planning/thinking-mode typed events into protobuf-first SEM frames
+- [x] Wire emission: emit planning/thinking/execution events around StartInference/Wait in webchat router

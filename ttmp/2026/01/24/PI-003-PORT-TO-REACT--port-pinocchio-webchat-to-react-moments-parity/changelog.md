@@ -102,3 +102,15 @@ Step 23: Fix Planning story crash caused by Immer-frozen planning aggregate refe
 ### Related Files
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts — `planningEntityFromAgg` now clones arrays/objects before dispatching into Redux state
+
+## 2026-01-24
+
+Step 24: backend emits planning/thinking-mode SEM events (commit 980632c)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/inference/events/typed_planning.go — Typed planning/execution events
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/inference/events/typed_thinking_mode.go — Typed thinking-mode events
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Emit planning/thinking/execution events around StartInference/Wait
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/sem_translator.go — Translate typed planning/thinking/execution events into sem.middleware payloads
+
