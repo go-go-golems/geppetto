@@ -1313,3 +1313,43 @@ The main architectural move is: treat SEM frames as the source of truth, decode 
   - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx`
 - Run locally:
   - `cd pinocchio/cmd/web-chat/web && npm run storybook`
+
+## Step 23: Fix Storybook crash in Planning widget (Immer-frozen array reference)
+
+Fixed the Storybook runtime error you hit when opening the Planning story: “can't define array index property past the end of an array with non-writable length”. This was not a Vite/Storybook config issue; it was a state/immutability bug caused by sharing references between an in-memory planning “projection cache” and the Redux store.
+
+Specifically, the planning aggregator stored `agg.iterations` in a `Map` and also wrote the same array reference into Redux state. RTK/Immer freezes Redux state trees in dev; when the next planning event arrived, the handler tried to mutate `agg.iterations` (which had become frozen), triggering the error.
+
+### Prompt Context
+
+**User prompt (verbatim):** "can't define array index property past the end of an array with non-writable length\n\nThe component failed to render properly, likely due to a configuration issue in Storybook. Here are some common causes and how you can address them:\n\n    Missing Context/Providers: You can use decorators to supply specific contexts or providers, which are sometimes necessary for components to render correctly. For detailed instructions on using decorators, please visit the Decorators documentation.\n    Misconfigured Webpack or Vite: Verify that Storybook picks up all necessary settings for loaders, plugins, and other relevant parameters. You can find step-by-step guides for configuring Webpack or Vite with Storybook.\n    Missing Environment Variables: Your Storybook may require specific environment variables to function as intended. You can set up custom environment variables as outlined in the Environment Variables documentation.\n\nregisterDefaultSemHandlers/<@http://localhost:6006/src/sem/registry.ts:260:25\nhandleSem@http://localhost:6006/src/sem/registry.ts:30:4\nScenarioRunner/<@http://localhost:6006/src/chat/ChatWidget.stories.tsx:37:41\ncommitHookEffectListMount@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:16915:34\ncommitPassiveMountOnFiber@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:18156:44\ncommitPassiveMountEffects_complete@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:18129:42\ncommitPassiveMountEffects_begin@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:18119:49\ncommitPassiveMountEffects@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:18109:42\nflushPassiveEffectsImpl@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:19490:36\nflushPassiveEffects@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:19447:22\nnode_modules/react-dom/cjs/react-dom.development.js/commitRootImpl/<@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-MWSGYS3J.js?v=495d8361:19328:17\nflushActQueue@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-USEVLOEB.js?v=495d8361:1812:32\nrecursivelyFlushAsyncActWork@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-USEVLOEB.js?v=495d8361:1785:30\nnode_modules/react/cjs/react.development.js/act/then/<@http://localhost:6006/node_modules/.cache/storybook/1c3385a5d25e538d10b518b310c74d3ca2690b6aaffeadccd74da79736171f86/sb-vite/deps/chunk-USEVLOEB.js?v=495d8361:1719:51\n\n\n\nHappens when going to planning.\n\nI meant sem.timeline.* stuff when i asked for timeline, what are those?"
+
+**Assistant interpretation:** Fix the crash (it’s likely our code, not Storybook config), and explain what `sem.timeline.*` event families are for.
+
+**Inferred user intent:** Keep Storybook as a reliable UI dev loop (no random crashes) and understand which “timeline” concepts are actually relevant for the desired webchat UX.
+
+**Commit (code):** 72975a9 — "web-chat: fix planning aggregate freeze in Storybook"
+
+### What I did
+- Changed the planning projection so it never stores mutable aggregate references inside Redux state:
+  - `planningEntityFromAgg` now clones `iterations`, `reflectionByIter`, `completed`, and `execution` before dispatching `upsertEntity`.
+- Rebuilt Storybook after the fix:
+  - `cd pinocchio/cmd/web-chat/web && npm run build-storybook`
+
+### Why
+- Redux state is frozen in dev; any reference leaked from internal caches becomes immutable and must not be mutated later.
+
+### What worked
+- Planning story now renders without crashing; subsequent planning events can be applied without hitting frozen arrays.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Any handler-level aggregation cache must be treated as “write-only” into Redux: always emit fresh copies of arrays/objects.
+
+### What warrants a second pair of eyes
+- Whether we should switch planning aggregation to a pure Redux reducer instead of a module-level Map (safer, but more code).
+
+### Code review instructions
+- Review `planningEntityFromAgg` in `pinocchio/cmd/web-chat/web/src/sem/registry.ts`.

@@ -93,3 +93,12 @@ Step 22: Implement polished core webchat UI + planning/thinking-mode widgets (pi
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/Markdown.tsx — Safe Markdown rendering + code block copy
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts — Adds protobuf-first handlers for `thinking.mode.*` + `planning.*`/`execution.*`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx — Storybook widget fixtures for planning + thinking mode
+
+
+## 2026-01-25
+
+Step 23: Fix Planning story crash caused by Immer-frozen planning aggregate references (pinocchio commit 72975a9)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts — `planningEntityFromAgg` now clones arrays/objects before dispatching into Redux state
