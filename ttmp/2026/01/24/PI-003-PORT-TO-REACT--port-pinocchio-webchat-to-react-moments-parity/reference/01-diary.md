@@ -1242,7 +1242,11 @@ The main architectural move is: treat SEM frames as the source of truth, decode 
 
 ### Prompt Context
 
-**User prompt (verbatim):** "go ahead, do all the core, and do thinking mode and planning. \n\nWhat does the timeline thing do?"
+**User prompt (verbatim):**
+
+> go ahead, do all the core, and do thinking mode and planning.
+>
+> What does the timeline thing do?
 
 **Assistant interpretation:** Implement the “core” chat UI widgets (message bubbles, tool cards, composer, status) and add SEM-driven thinking-mode + planning widgets; keep Storybook healthy and keep compiling/testing as we go.
 
