@@ -142,6 +142,20 @@ func TestSession_StartInference_OnlyOneActive(t *testing.T) {
 	_, _ = h1.Wait()
 }
 
+func TestSession_AppendNewTurnFromUserPrompt_AssignsNewTurnID(t *testing.T) {
+	s := &Session{SessionID: "sess-turnid"}
+
+	t1, err := s.AppendNewTurnFromUserPrompt("hi")
+	require.NoError(t, err)
+	require.NotEmpty(t, t1.ID)
+
+	t2, err := s.AppendNewTurnFromUserPrompt("again")
+	require.NoError(t, err)
+	require.NotEmpty(t, t2.ID)
+	require.NotEqual(t, t1.ID, t2.ID)
+	require.Len(t, s.Turns, 2)
+}
+
 func TestExecutionHandle_WaitNil(t *testing.T) {
 	_, err := (*ExecutionHandle)(nil).Wait()
 	require.ErrorIs(t, err, ErrExecutionHandleNil)

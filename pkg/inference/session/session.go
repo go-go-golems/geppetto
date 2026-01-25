@@ -75,6 +75,10 @@ func (s *Session) AppendNewTurnFromUserPrompts(prompts ...string) (*turns.Turn, 
 	seed := &turns.Turn{}
 	if base != nil {
 		seed = base.Clone()
+		// Each appended user prompt is a new turn. The latest turn is cloned to preserve
+		// conversation context, but the new turn must not retain the previous Turn.ID.
+		// Otherwise hydration/persistence keyed by Turn.ID will overwrite prior turns.
+		seed.ID = ""
 	}
 	for _, prompt := range prompts {
 		if prompt == "" {
