@@ -1233,3 +1233,79 @@ This makes the `cmd/web-chat` example unambiguous: there is one supported UI (th
 - Validate quickly with:
   - `go generate ./pinocchio/cmd/web-chat`
   - `cd pinocchio && go test ./...`
+
+## Step 22: Build a “nice webchat” core UI set + planning/thinking-mode widgets (Storybook-first)
+
+Implemented a more polished React chat UI in the embedded `cmd/web-chat` frontend, focusing on the “core” affordances you asked for (better message rendering, tool cards, copy actions, composer UX, connection status) plus the two “agentic” widget families you explicitly want: thinking-mode and planning. The work keeps `ChatWidget` as the single integration surface, but makes its internals compositional and scenario-testable in Storybook.
+
+The main architectural move is: treat SEM frames as the source of truth, decode payloads via protobuf TS schemas, and project them into timeline entities (message/tool/log/thinking_mode/planning) that have stable IDs and are replayable via hydration.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead, do all the core, and do thinking mode and planning. \n\nWhat does the timeline thing do?"
+
+**Assistant interpretation:** Implement the “core” chat UI widgets (message bubbles, tool cards, composer, status) and add SEM-driven thinking-mode + planning widgets; keep Storybook healthy and keep compiling/testing as we go.
+
+**Inferred user intent:** Ship a genuinely usable, pleasant Pinocchio webchat without requiring full Moments parity, while retaining the key agent affordances (planning + thinking mode) and a solid development loop (Storybook + protobuf-first contracts).
+
+**Commit (code):** ccd1e71 — "web-chat: nicer UI + planning/thinking widgets"
+
+### What I did
+- Added a small CSS theme and replaced the earlier inline-style prototype with a more cohesive dark UI:
+  - `pinocchio/cmd/web-chat/web/src/chat/chat.css`
+  - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx`
+- Implemented “core” UI affordances:
+  - message cards with streaming indicator + Markdown rendering + copy for code blocks
+  - tool call cards (`tool.start/delta/done`) with copy args
+  - tool result cards (`tool.result`) with copy result
+  - status header: WS status + last seq + queue depth + current status string
+  - composer: multiline textarea (Enter sends, Shift+Enter newline) + “New conv”
+  - naive scroll-to-bottom on new entities (acceptable baseline)
+- Added protobuf-first SEM handlers + timeline entity projections for:
+  - `thinking.mode.started|update|completed` → `kind: 'thinking_mode'`
+  - `planning.start|iteration|reflection|complete` and `execution.start|complete` → aggregated `kind: 'planning'`
+  - Aggregation uses an in-memory “projection cache” keyed by planning `runId` so replay/hydration rebuilds a consistent plan widget.
+- Expanded Storybook with widget-only fixtures:
+  - `WidgetOnlyThinkingMode`
+  - `WidgetOnlyPlanning`
+- Updated WS manager to push `lastSeq` + `queueDepth` into `appSlice` during hydrate / WS messages.
+- Kept continuous checks green:
+  - `cd pinocchio/cmd/web-chat/web && npm run typecheck`
+  - `cd pinocchio/cmd/web-chat/web && npm run build`
+  - `cd pinocchio/cmd/web-chat/web && npm run build-storybook`
+  - `go generate ./pinocchio/cmd/web-chat`
+  - `cd pinocchio && go test ./...`
+
+### Why
+- The “core” widgets make the chat immediately usable: readable messages, clear tool lifecycle, good copy ergonomics, and visible connection/queue state.
+- Planning and thinking mode are the two high-leverage “agent traces” that let you understand what the system is doing without overbuilding full Moments parity.
+
+### What worked
+- Vite now emits a small CSS chunk; the embedded `static/dist` build still works via `go generate`.
+- Storybook builds with the new widget fixtures and can be used as the primary UI iteration loop.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The go-go-mento SEM type names for these families are:
+  - `thinking.mode.*`
+  - `planning.*` and `execution.*`
+  So matching those names in Pinocchio’s frontend preserves interoperability when/if the backend later emits them.
+
+### What was tricky to build
+- Planning is inherently “multi-event”; making it render nicely requires aggregation across several event types while keeping the projection replayable (hydration-first, then WS deltas).
+
+### What warrants a second pair of eyes
+- The planning aggregation rules (upsert vs overwrite by `iterationIndex`) should be reviewed against the eventual backend emitter to confirm stable IDs and sequencing expectations.
+
+### What should be done in the future
+- If/when Pinocchio backend emits `planning.*` for real, validate the widget against live runs and adjust any field naming/casing assumptions.
+
+### Code review instructions
+- Start at:
+  - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx`
+  - `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
+  - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.stories.tsx`
+- Run locally:
+  - `cd pinocchio/cmd/web-chat/web && npm run storybook`
