@@ -52,3 +52,14 @@ Step 5: frontend uses GET /timeline + URL conv_id is source of truth (pinocchio 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx — Update URL with conv_id after first message; read conv_id from URL on mount
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts — Hydrate timeline from /timeline snapshot (fallback to /hydrate)
 
+
+## 2026-01-24
+
+Step 6: Fix New conv reset, gate stub planning events, and fix planning Storybook crash (pinocchio@81f41c2)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx — New conv resets timeline and ws/app state
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts — Clear planning aggregates to avoid frozen-array mutation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Gate stub planning/thinking-mode SEM emission behind --emit-planning-stubs
+

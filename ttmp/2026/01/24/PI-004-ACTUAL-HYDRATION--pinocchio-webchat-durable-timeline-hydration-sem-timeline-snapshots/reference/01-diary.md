@@ -14,34 +14,47 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../../../../../../../pinocchio/cmd/web-chat/README.md
-      Note: Document --timeline-dsn/--timeline-db usage (commit 4c27169)
-    - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
-      Note: Glazed parameters for timeline store DSN/DB (commit 4c27169)
-    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
-      Note: GET /timeline + env config + user message snapshot (commit b1f908b)
-    - Path: ../../../../../../../pinocchio/pkg/webchat/server.go
-      Note: Close timeline store on shutdown (commit 4c27169)
-    - Path: ../../../../../../../pinocchio/pkg/webchat/timeline_projector.go
-      Note: SEM frame -> sem.timeline snapshot projector (commit b1f908b)
-    - Path: ../../../../../../../pinocchio/pkg/webchat/timeline_store_sqlite.go
-      Note: SQLite schema + upsert + versioned snapshot queries (commit b1f908b)
-    - Path: ../../../../../../../pinocchio/proto/sem/timeline/planning.proto
-      Note: PlanningSnapshotV1 schema (commit 244757b)
-    - Path: ../../../../../../../pinocchio/proto/sem/timeline/tool.proto
-      Note: Tool snapshot extensions (result_raw/custom_kind/done) (commit 244757b)
-    - Path: ../../../../../../../pinocchio/proto/sem/timeline/transport.proto
-      Note: Transport protos for snapshots/upserts (commit d97efe1)
-    - Path: ttmp/2026/01/24/PI-004-ACTUAL-HYDRATION--pinocchio-webchat-durable-timeline-hydration-sem-timeline-snapshots/design-doc/01-durable-hydration-via-sem-timeline-snapshots.md
+    - Path: geppetto/ttmp/2026/01/24/PI-004-ACTUAL-HYDRATION--pinocchio-webchat-durable-timeline-hydration-sem-timeline-snapshots/design-doc/01-durable-hydration-via-sem-timeline-snapshots.md
       Note: Design doc (updated to choose SQLite + multi-conversation schema)
-    - Path: ttmp/2026/01/24/PI-004-ACTUAL-HYDRATION--pinocchio-webchat-durable-timeline-hydration-sem-timeline-snapshots/tasks.md
+    - Path: geppetto/ttmp/2026/01/24/PI-004-ACTUAL-HYDRATION--pinocchio-webchat-durable-timeline-hydration-sem-timeline-snapshots/tasks.md
       Note: Expanded implementation tasks + acceptance criteria
+    - Path: pinocchio/cmd/web-chat/README.md
+      Note: Document --timeline-dsn/--timeline-db usage (commit 4c27169)
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: |-
+        Glazed parameters for timeline store DSN/DB (commit 4c27169)
+        Expose --emit-planning-stubs CLI param (commit 81f41c2)
+    - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
+      Note: Reset state on New conv (commit 81f41c2)
+    - Path: pinocchio/cmd/web-chat/web/src/sem/registry.ts
+      Note: Clear planningAggs to prevent frozen-array mutation in Storybook (commit 81f41c2)
+    - Path: pinocchio/cmd/web-chat/web/src/ws/wsManager.ts
+      Note: Mark wsStatus disconnected on manual disconnect (commit 81f41c2)
+    - Path: pinocchio/pkg/webchat/router.go
+      Note: |-
+        GET /timeline + env config + user message snapshot (commit b1f908b)
+        Gate stub planning/thinking events behind glazed flag (commit 81f41c2)
+    - Path: pinocchio/pkg/webchat/server.go
+      Note: Close timeline store on shutdown (commit 4c27169)
+    - Path: pinocchio/pkg/webchat/timeline_projector.go
+      Note: SEM frame -> sem.timeline snapshot projector (commit b1f908b)
+    - Path: pinocchio/pkg/webchat/timeline_store_sqlite.go
+      Note: SQLite schema + upsert + versioned snapshot queries (commit b1f908b)
+    - Path: pinocchio/pkg/webchat/types.go
+      Note: Router flag storage for emitPlanningStubs (commit 81f41c2)
+    - Path: pinocchio/proto/sem/timeline/planning.proto
+      Note: PlanningSnapshotV1 schema (commit 244757b)
+    - Path: pinocchio/proto/sem/timeline/tool.proto
+      Note: Tool snapshot extensions (result_raw/custom_kind/done) (commit 244757b)
+    - Path: pinocchio/proto/sem/timeline/transport.proto
+      Note: Transport protos for snapshots/upserts (commit d97efe1)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-01-24T19:38:46.981538914-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -409,3 +422,87 @@ the first message in a conversation should update the URL so that we can actuall
   - `pinocchio/proto/sem/timeline/middleware.proto`
   - `pinocchio/proto/sem/timeline/planning.proto`
   - `pinocchio/pkg/webchat/timeline_projector.go`
+
+## Step 6: Fix “New conv” reset + gate stub planning + unblock Storybook planning
+
+This step fixes two UX issues that surfaced after moving to URL-bound `conv_id` and durable `/timeline` hydration: starting a new conversation did not actually clear the UI, and the planning widget always appeared with the same content even though no planning middleware was configured.
+
+In addition, Storybook could crash when switching to the planning story due to a subtle frozen-array mutation hazard caused by keeping long-lived planning aggregates across story rerenders.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+
+> pressing new conv doesn't clear the conversation.
+>
+> also, why is the planning widget active? Do we have a planning middleware? Because it's always the same currently, and doesn't seem to come from the llm.
+
+**Assistant interpretation:** Ensure “New conv” fully resets frontend conversation state (timeline + ws status + URL), and disable the always-on planning widget by removing/gating the stub planning/thinking event emission that is not driven by the LLM.
+
+**Inferred user intent:** Keep the minimal Pinocchio webchat clean and predictable: a new conversation should look empty, and advanced widgets should only appear when actually powered by real middleware/LLM signals.
+
+**Commit (code):** `81f41c2` — "web-chat: reset New conv and gate planning stubs"
+
+### What I did
+- Fixed “New conv” in the React widget to reset *all* relevant UI state:
+  - Disconnect WS, clear `conv_id` from URL, reset app status/seq/queue/wsStatus, and clear the timeline slice.
+  - File: `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx`
+- Made WS disconnect update UI state immediately:
+  - `wsManager.disconnect()` now dispatches `wsStatus=disconnected` via the last known dispatch (so it doesn’t get “stuck connected” when `connectNonce` changes).
+  - File: `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts`
+- Disabled the “always-on planning widget” behavior by gating the backend stub emission:
+  - The router no longer emits fixed planning/thinking-mode/execution semantic events on every run unless explicitly enabled.
+  - Added CLI flag `--emit-planning-stubs` (Glazed param) with default `false`.
+  - Files:
+    - `pinocchio/pkg/webchat/router.go`
+    - `pinocchio/pkg/webchat/types.go`
+    - `pinocchio/cmd/web-chat/main.go`
+- Fixed Storybook planning crash by clearing module-scoped planning aggregates:
+  - `registerDefaultSemHandlers()` now also clears `planningAggs`, preventing stale/frozen aggregates from being mutated across story rerenders.
+  - File: `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
+
+### Why
+- Clearing only `convId` is insufficient because the UI is driven by the RTK timeline slice, which kept the previous conversation’s entities.
+- The planning widget must not imply “real planning middleware” when it’s driven by a hard-coded backend stub.
+- Storybook runs multiple stories against the same module instance; module-scoped mutable state must be reset to keep stories deterministic and crash-free.
+
+### What worked
+- `go test ./... -count=1` passed.
+- `cd pinocchio/cmd/web-chat/web && npm run typecheck` passed.
+- The changes are localized and don’t affect the `/timeline` persistence contract.
+
+### What didn't work
+- Before the fix, Storybook could crash on planning due to a frozen-array mutation:
+  - Error: `can't define array index property past the end of an array with non-writable length`
+  - Root cause: a module-scoped aggregate retained references that had been frozen by RTK/Immer in a prior story run.
+
+### What I learned
+- A “disconnect nonce” pattern is good for ignoring stale socket callbacks, but it also means `onclose` can’t be relied on to update UI state during a manual disconnect; explicit state updates are needed.
+- Storybook is an excellent detector of hidden module-scoped state leaks.
+
+### What was tricky to build
+- Avoiding mutable-reference leaks between long-lived SEM aggregates and Redux state:
+  - Any aggregate object that is used to build Redux entities must be cloned before dispatch, otherwise Immer freezing will create time-bomb mutations later.
+
+### What warrants a second pair of eyes
+- Whether `wsManager` should be refactored to take a store reference (or explicit callbacks) rather than caching `dispatch`/`onStatus` on the instance.
+- Whether we want to remove the `/hydrate` fallback entirely once timeline storage is always enabled (a separate policy decision).
+
+### What should be done in the future
+- Add a small “Share link” button that copies the URL with `conv_id` once we settle on routing conventions.
+
+### Code review instructions
+- Review frontend reset behavior:
+  - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx`
+  - `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts`
+- Review backend stub gating:
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/cmd/web-chat/main.go`
+- Validate:
+  - `cd pinocchio && go test ./... -count=1`
+  - `cd pinocchio/cmd/web-chat/web && npm run typecheck`
+  - (optional) `cd pinocchio/cmd/web-chat/web && npm run storybook` → open `WebChat/ChatWidget` → `WidgetOnlyPlanning`
+
+### Technical details
+- The planning widget appearing “always the same” was caused by a router-level helper emitting a minimal, hard-coded plan on every run (`emitAgenticPlanningAndThinking` / `emitAgenticExecutionComplete`).
+- The Storybook crash is the classic “frozen state reused as mutable cache” failure mode: an array frozen by Immer was later mutated with `.push()` in a subsequent story run.

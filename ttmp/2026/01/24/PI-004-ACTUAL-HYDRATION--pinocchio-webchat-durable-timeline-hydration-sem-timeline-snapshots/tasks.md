@@ -70,3 +70,6 @@
   - Default should remain “no projection persistence” unless configured.
   - Acceptance:
     - docs explain how to enable it and where the DB lives
+- [x] Fix 'New conv' to fully reset timeline + ws status
+- [x] Disable stub planning/thinking semantic events by default (gate behind flag)
+- [x] Fix Storybook planning crash by clearing planning aggregates on handler reset
