@@ -1,7 +1,7 @@
 ---
 Title: Port Pinocchio Webchat to React (Moments parity)
 Ticket: PI-003-PORT-TO-REACT
-Status: active
+Status: complete
 Topics:
     - react
     - webchat
@@ -17,11 +17,12 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Research ticket documenting the Moments/go-go-mento React webchat architecture (SEM events, sink extractors, WebSocket streaming, Redux timeline widgets) for a Pinocchio React port."
-LastUpdated: 2026-01-24T13:52:51.501151796-05:00
-WhatFor: "Central entrypoint for PI-003 research artifacts and pointers."
-WhenToUse: "Start here to find the architecture doc and the research diary."
+Summary: Research ticket documenting the Moments/go-go-mento React webchat architecture (SEM events, sink extractors, WebSocket streaming, Redux timeline widgets) for a Pinocchio React port.
+LastUpdated: 2026-01-24T20:09:53.894320001-05:00
+WhatFor: Central entrypoint for PI-003 research artifacts and pointers.
+WhenToUse: Start here to find the architecture doc and the research diary.
 ---
+
 
 # Port Pinocchio Webchat to React (Moments parity)
 

@@ -114,3 +114,8 @@ Step 24: backend emits planning/thinking-mode SEM events (commit 980632c)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Emit planning/thinking/execution events around StartInference/Wait
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/sem_translator.go — Translate typed planning/thinking/execution events into sem.middleware payloads
 
+
+## 2026-01-24
+
+Ticket closed
+
