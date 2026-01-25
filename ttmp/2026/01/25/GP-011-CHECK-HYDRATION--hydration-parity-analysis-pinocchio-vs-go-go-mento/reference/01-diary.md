@@ -540,3 +540,63 @@ Keep a detailed and frequent implementation diary."
   - `go test ./pinocchio/pkg/webchat -count=1`
 - Errors observed:
   - `assignment mismatch: 2 variables but p.upsert returns 1 value`
+
+## Step 11: Resolve pre-commit lint failures and commit changes
+
+I fixed lint issues surfaced by pre-commit hooks (copylocks + ineffassign) and then completed commits in both the pinocchio and geppetto repos. This step ensures the implementation and documentation are versioned and reproducible.
+
+### Prompt Context
+
+**User prompt (verbatim):** "now implement them, check them off as you go, commit to git.
+
+Keep a detailed and frequent implementation diary."
+
+**Assistant interpretation:** Finish implementation, get commits through hooks, and record the outcome.
+
+**Inferred user intent:** Code is merged cleanly with tests/lint run, and changes are traceable.
+
+**Commit (code):** bd91a94 — "Unify timeline hydration path and add in-memory store"
+
+### What I did
+- Ran `git commit` in `pinocchio/`, which triggered pre-commit hooks (tests + lint).
+- Fixed lint errors in `timeline_store_memory.go` (copylocks, ineffassign) by using `proto.Clone` and removing unused ctx assignments.
+- Re-ran commit; hooks passed (tests, lint, frontend build) and commit succeeded.
+- Committed docs in `geppetto/` for the GP-011 ticket.
+
+### Why
+- The pre-commit hook enforces linting and ensures generated assets/builds succeed; fixes were required to pass.
+
+### What worked
+- Pre-commit hooks passed after refactoring clone logic.
+- Both code and documentation are committed with hashes.
+
+### What didn't work
+- Pre-commit initially failed with lint errors:
+  - `copylocks: assignment copies lock value` (govet)
+  - `ineffectual assignment to ctx` (ineffassign)
+
+### What I learned
+- Protobuf message structs embed mutexes; use `proto.Clone` instead of struct assignment.
+
+### What was tricky to build
+- Ensuring in-memory store cloning and ordering stayed correct while satisfying linters.
+
+### What warrants a second pair of eyes
+- Confirm timeline entity cloning and eviction logic in the in-memory store.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `pinocchio/pkg/webchat/timeline_store_memory.go` for clone + eviction logic.
+- Review commits:
+  - `bd91a94` (pinocchio)
+  - `8453d60` (geppetto docs)
+
+### Technical details
+- Commit (docs): `8453d60` — "Docs: GP-011 hydration analysis and implementation plan"
+- Hooks run on commit:
+  - `go test ./...`
+  - `go generate ./...`
+  - `vite build` (frontend)
+  - `golangci-lint run`
