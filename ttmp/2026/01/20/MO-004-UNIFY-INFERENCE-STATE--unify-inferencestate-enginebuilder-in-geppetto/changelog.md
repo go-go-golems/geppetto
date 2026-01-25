@@ -127,3 +127,8 @@ Wrote analysis doc clarifying event sink injection points (engine-config vs ctx)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-004-UNIFY-INFERENCE-STATE--unify-inferencestate-enginebuilder-in-geppetto/analysis/03-analysis-engine-sinks-vs-context-sinks-pinocchiocommand-runner-session-run-lifecycle-startrun-finishrun-hascancel.md — New analysis doc
 
+
+## 2026-01-25
+
+Ticket closed
+

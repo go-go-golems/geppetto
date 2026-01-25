@@ -1,7 +1,7 @@
 ---
 Title: Revise typed Turn data access API (Key-method families vs function API)
 Ticket: 003-REVISE-DATA-ACCESS-API
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2025-12-22T17:04:11.894261483-05:00
+LastUpdated: 2026-01-25T09:04:08.015045558-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Revise typed Turn data access API (Key-method families vs function API)
 

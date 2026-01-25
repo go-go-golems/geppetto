@@ -1,7 +1,7 @@
 ---
 Title: Fix thinking model parameter handling
 Ticket: MO-002-FIX-UP-THINKING-MODELS
-Status: active
+Status: complete
 Topics:
     - bug
     - geppetto
@@ -12,9 +12,12 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Investigate and fix GPT-5/o-series parameter handling for chat vs responses engines (max tokens + sampling params)."
-LastUpdated: 2026-01-13T00:00:00Z
+Summary: Investigate and fix GPT-5/o-series parameter handling for chat vs responses engines (max tokens + sampling params).
+LastUpdated: 2026-01-25T09:04:54.712486196-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Fix thinking model parameter handling
 

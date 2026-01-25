@@ -1,7 +1,7 @@
 ---
 Title: Fix turns data type usage in OpenAI responses
 Ticket: MO-001-FIX-DATA-TYPE
-Status: active
+Status: complete
 Topics:
     - bug
     - geppetto
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-13T12:41:07.13493503-05:00
+LastUpdated: 2026-01-25T09:03:31.398917824-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Fix turns data type usage in OpenAI responses
 

@@ -45,3 +45,8 @@ Step 5: unblock Moments lint/push + fix Gemini metadata (geppetto 6bc67dd, momen
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/block_compressor.go — Use helper key instead of calling turns.BlockMetaK directly
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/moments/backend/pkg/inference/middleware/compression/compression_keys.go — Define runtime-configurable BlockMetaKey helper in *_keys.go
 
+
+## 2026-01-25
+
+Ticket closed
+

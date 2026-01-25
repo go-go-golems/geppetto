@@ -1,7 +1,7 @@
 ---
 Title: Unify InferenceState + EngineBuilder in geppetto
 Ticket: MO-004-UNIFY-INFERENCE-STATE
-Status: active
+Status: complete
 Topics:
     - inference
     - architecture
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-20T14:32:13.058948869-05:00
+LastUpdated: 2026-01-25T09:27:39.300029983-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Unify InferenceState + EngineBuilder in geppetto
 

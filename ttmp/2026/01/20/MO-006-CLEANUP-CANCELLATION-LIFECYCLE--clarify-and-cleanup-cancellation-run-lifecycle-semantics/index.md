@@ -1,7 +1,7 @@
 ---
 Title: Clarify and cleanup cancellation/run lifecycle semantics
 Ticket: MO-006-CLEANUP-CANCELLATION-LIFECYCLE
-Status: active
+Status: complete
 Topics:
     - inference
     - architecture
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-20T16:27:02.359728171-05:00
+LastUpdated: 2026-01-25T09:28:00.319034088-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Clarify and cleanup cancellation/run lifecycle semantics
 

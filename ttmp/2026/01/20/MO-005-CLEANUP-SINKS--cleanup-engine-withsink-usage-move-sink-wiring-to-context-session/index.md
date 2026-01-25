@@ -1,7 +1,7 @@
 ---
 Title: Cleanup engine.WithSink usage; move sink wiring to context/session
 Ticket: MO-005-CLEANUP-SINKS
-Status: active
+Status: complete
 Topics:
     - inference
     - architecture
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-20T16:05:23.931932085-05:00
+LastUpdated: 2026-01-25T09:27:50.411108641-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Cleanup engine.WithSink usage; move sink wiring to context/session
 

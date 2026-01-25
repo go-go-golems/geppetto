@@ -60,3 +60,8 @@ Step 10: refine inference core Session API (Runner interface, persister runID, m
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/16/MO-003-UNIFY-INFERENCE--unify-inference/design-doc/03-inferencestate-enginebuilder-core-architecture.md — Updated API and ownership decisions
 
+
+## 2026-01-25
+
+Ticket closed
+

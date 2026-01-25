@@ -33,3 +33,8 @@ Added local unit tests: Session sink injection + cancellation; toolhelpers.RunTo
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/inference/toolhelpers/helpers_test.go — Tool loop test with fake engine + echo tool
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/20/MO-006-CLEANUP-CANCELLATION-LIFECYCLE--clarify-and-cleanup-cancellation-run-lifecycle-semantics/analysis/02-compendium-sinks-sessions-conversation-state-lifecycle-engines-tool-loops-q-a-diagrams.md — Playbook link
 
+
+## 2026-01-25
+
+Ticket closed
+

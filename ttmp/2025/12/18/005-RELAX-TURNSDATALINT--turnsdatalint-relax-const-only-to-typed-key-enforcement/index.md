@@ -1,7 +1,7 @@
 ---
 Title: 'turnsdatalint: relax const-only to typed-key enforcement'
 Ticket: 005-RELAX-TURNSDATALINT
-Status: active
+Status: complete
 Topics:
     - infrastructure
     - inference
@@ -13,8 +13,11 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2025-12-18T18:11:25.633639809-05:00
+LastUpdated: 2026-01-25T09:04:29.046903592-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # turnsdatalint: relax const-only to typed-key enforcement
 

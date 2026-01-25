@@ -1,7 +1,7 @@
 ---
 Title: Review typed Turn.Data/Metadata design (debate synthesis)
 Ticket: 001-REVIEW-TYPED-DATA-ACCESS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -26,10 +26,12 @@ RelatedFiles:
       Note: Example middleware access patterns
 ExternalSources: []
 Summary: Reviewer packet (participants + question set) to review the typed Turn.Data/Metadata synthesis doc and converge on explicit decisions.
-LastUpdated: 2025-12-22T13:50:36.042741745-05:00
+LastUpdated: 2026-01-25T09:04:23.820463538-05:00
 WhatFor: Run a structured review of the typed Turn.Data/Metadata design space, ending in explicit decisions for a big-bang implementation.
 WhenToUse: Use before starting implementation or RFC work for typed Turn.Data/Metadata/Block.Metadata changes, and during subsequent PR/RFC reviews.
 ---
+
+
 
 
 
