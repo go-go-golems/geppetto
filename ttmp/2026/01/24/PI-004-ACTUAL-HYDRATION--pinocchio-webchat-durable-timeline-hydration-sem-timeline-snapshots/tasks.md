@@ -48,7 +48,7 @@
     - response includes `conv_id`, `version`, and entities/upserts
     - endpoint is safe to call repeatedly (idempotent)
 
-- [ ] Update frontend hydration to use `GET /timeline` (+ since_version WS gating)
+- [x] Update frontend hydration to use `GET /timeline` (+ since_version WS gating)
   - Replace “replay buffered SEM frames” with “apply timeline snapshot entities”.
   - Keep the existing singleton WS manager + hydration gating pattern.
   - Acceptance:

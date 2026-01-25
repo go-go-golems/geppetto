@@ -37,3 +37,18 @@ Step 4: configure timeline store via Glazed params (no env) (pinocchio commit 4c
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Decode timeline DSN/DB from ParsedLayers
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/server.go — Close sqlite store on shutdown
 
+
+## 2026-01-24
+
+Step 5: frontend uses GET /timeline and URL conv_id is source of truth (pending pinocchio commit)
+
+
+## 2026-01-24
+
+Step 5: frontend uses GET /timeline + URL conv_id is source of truth (pinocchio commit 110280b)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx — Update URL with conv_id after first message; read conv_id from URL on mount
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts — Hydrate timeline from /timeline snapshot (fallback to /hydrate)
+

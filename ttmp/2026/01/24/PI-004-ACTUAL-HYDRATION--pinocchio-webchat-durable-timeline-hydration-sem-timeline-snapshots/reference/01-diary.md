@@ -333,3 +333,79 @@ no we should use the DSN/DB stuff through the glazed framework in the webchat co
 - Validate:
   - `go run ./cmd/web-chat --timeline-db /tmp/pinocchio-timeline.db`
   - `curl 'http://localhost:8080/timeline?conv_id=demo'`
+
+## Step 5: Frontend hydration via GET /timeline + update URL on first message
+
+This step completes the first end-to-end “actual hydration” UX loop: the React webchat frontend now hydrates by fetching the durable snapshot from `GET /timeline` (when available), and it updates the browser URL with the server-generated `conv_id` after the first message of a new conversation. Together, these changes make “refresh and continue” actually work: the URL becomes the stable handle for the conversation, and hydration pulls canonical server state instead of replaying an ephemeral frame buffer.
+
+The behavior mirrors the go-go-mento approach where the URL is treated as the conversation source of truth (there it is a route param like `/chat/:convId`; in Pinocchio’s minimal app we use `?conv_id=` because there is no router).
+
+### Prompt Context
+
+**User prompt (verbatim):**
+```text
+the first message in a conversation should update the URL so that we can actually trigger a proper hydration. Analyze go-go-mento if you need more info, and look at PI-003 research.
+```
+
+**Assistant interpretation:** Ensure the Pinocchio React webchat puts the `conv_id` in the URL after the first message (so reload/reconnect can hydrate the right conversation), and update the hydration path to use durable `/timeline` snapshots consistent with PI-004.
+
+**Inferred user intent:** Make “conversation identity” stable and shareable (URL-based), and make hydration actually durable and restart-safe by defaulting to `/timeline`.
+
+**Commit (code):** `110280b` — "web-chat: hydrate via /timeline + url conv_id"
+
+### What I did
+- Implemented URL-based conversation identity for the minimal Pinocchio webchat:
+  - On mount, read `conv_id` from `window.location.search` and set it as the active conversation.
+  - After the first successful POST `/chat` that returns a server `conv_id`, update the URL via `history.replaceState`.
+  - Clear `conv_id` from the URL when the user starts a new conversation.
+  - File: `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx`
+- Switched frontend hydration to prefer durable snapshots:
+  - `wsManager.hydrate()` now attempts `GET /timeline?conv_id=...` first and applies `TimelineSnapshotV1` entities into the Redux timeline store.
+  - Falls back to the legacy `GET /hydrate` replay when `/timeline` is unavailable (store not enabled).
+  - File: `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts`
+- Extended snapshot schemas to carry the fields required by the existing widgets:
+  - `sem.timeline.ThinkingModeSnapshotV1` now includes `success` and `error`.
+  - `sem.timeline.PlanningSnapshotV1` now includes `final_decision`, `status_reason`, `final_directive`.
+  - Files:
+    - `pinocchio/proto/sem/timeline/middleware.proto`
+    - `pinocchio/proto/sem/timeline/planning.proto`
+  - Regenerated Go+TS via Buf.
+- Updated the backend projector to populate the new snapshot fields:
+  - `pinocchio/pkg/webchat/timeline_projector.go`
+- Verified type safety and compilation:
+  - `cd pinocchio/cmd/web-chat/web && npm run typecheck`
+  - `cd pinocchio && go test ./... -count=1`
+
+### Why
+- Without a URL-bound `conv_id`, refresh cannot select the correct conversation, so “proper hydration” is impossible even if the backend snapshot store exists.
+- `/timeline` snapshots are the canonical “actual hydration” contract; the frontend must consume them to realize the design.
+
+### What worked
+- The minimal webchat now treats the URL as the conversation identifier, enabling reload-driven hydration.
+- Timeline snapshot hydration applies idempotent upserts into the RTK timeline slice.
+
+### What didn't work
+- N/A
+
+### What I learned
+- go-go-mento uses the URL route param as the conversation source of truth (see `go-go-mento/web/src/pages/Chat/ChatPage.tsx`); the same concept works well even in a router-less minimal app using query params.
+
+### What was tricky to build
+- Snapshot → widget props mapping:
+  - The existing Pinocchio widgets were built around SEM handlers, so hydration must map `sem.timeline.*` snapshots into the same prop shapes to avoid a wholesale widget rewrite.
+
+### What warrants a second pair of eyes
+- Whether we want to remove the `/hydrate` fallback once timeline store is always enabled (strict mode).
+- Whether we should persist and display the snapshot `version` in the UI (helps debugging catch-up correctness).
+
+### What should be done in the future
+- Consider adding a tiny “Share link” button that copies the URL with `conv_id`.
+
+### Code review instructions
+- Start with:
+  - `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx`
+  - `pinocchio/cmd/web-chat/web/src/ws/wsManager.ts`
+- Then check schema + projector:
+  - `pinocchio/proto/sem/timeline/middleware.proto`
+  - `pinocchio/proto/sem/timeline/planning.proto`
+  - `pinocchio/pkg/webchat/timeline_projector.go`
