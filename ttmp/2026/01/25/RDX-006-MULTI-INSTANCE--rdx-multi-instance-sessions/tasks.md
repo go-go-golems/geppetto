@@ -14,3 +14,4 @@
 - [x] Add YAML output option to debug-raw
 - [x] Decode top-level JSON in debug-raw YAML output
 - [x] Decode embedded payload/app JSON in debug-raw YAML output
+- [x] Decode embedded action JSON and add payload filter flag

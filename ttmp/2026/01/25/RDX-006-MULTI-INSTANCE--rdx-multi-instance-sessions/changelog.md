@@ -98,3 +98,12 @@ Step 9: Decode embedded payload/app JSON for debug-raw YAML (commit 98f9a90)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — Embedded JSON decode
 
+
+## 2026-01-25
+
+Step 10: Decode action JSON and filter payload in debug-raw YAML (commit 1371e35)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — Action decode and payload filtering
+

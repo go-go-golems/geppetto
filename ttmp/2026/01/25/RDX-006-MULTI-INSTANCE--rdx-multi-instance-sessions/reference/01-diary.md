@@ -39,7 +39,7 @@ RelatedFiles:
       Note: Implementation tasks
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T20:50:00-05:00
+LastUpdated: 2026-01-26T21:10:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
@@ -502,6 +502,56 @@ This makes the output more readable for frames that carry nested JSON while stil
 
 ### Code review instructions
 - Start with `rdx/cmd/rdx/debug_raw_runtime.go` for decode logic and flag handling.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
+
+## Step 10: Decode embedded action JSON and filter payload
+
+I added decoding for embedded `action` JSON strings and introduced a `--filter-payload` flag that omits payload fields by default. The filter still applies when payload decoding is disabled, keeping output focused unless explicitly requested.
+
+This change makes YAML output more readable by default while still allowing full payload visibility when needed.
+
+### Prompt Context
+
+**User prompt (verbatim):** "decode action too. Add flag to filter out payload (true per default)"
+
+**Assistant interpretation:** Decode embedded `action` JSON strings and add a payload filter flag that defaults to on.
+
+**Inferred user intent:** Reduce noise in YAML output while still decoding useful nested fields.
+
+**Commit (code):** 1371e35 — "Decode action fields and filter payload in debug-raw"
+
+### What I did
+- Added action decoding alongside payload/app.
+- Added `--filter-payload` (default true) to omit payload fields.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- Payload can be large and noisy; filtering improves readability.
+
+### What worked
+- Action fields are decoded when they contain JSON.
+- Payload is omitted by default and can be re-enabled with `--filter-payload=false`.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Filtering can be done independently of decoding to keep output minimal.
+
+### What was tricky to build
+- Ensuring payload filtering happens even when decoding is disabled.
+
+### What warrants a second pair of eyes
+- Confirm the payload filter doesn’t remove fields that should remain visible.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `rdx/cmd/rdx/debug_raw_runtime.go` for decode/filter logic.
 - Validate with `go test ./...` in `rdx`.
 
 ### Technical details
