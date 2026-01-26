@@ -1,0 +1,16 @@
+# Changelog
+
+## 2026-01-25
+
+- Initial workspace created
+
+
+## 2026-01-25
+
+Step 1: expanded spec and created tasks for multi-instance work
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/analysis/01-multi-instance-sessions-spec.md — Expanded spec
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/tasks.md — Task list
+
