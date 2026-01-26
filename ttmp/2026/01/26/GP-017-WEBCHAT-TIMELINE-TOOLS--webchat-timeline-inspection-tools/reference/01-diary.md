@@ -31,14 +31,19 @@ RelatedFiles:
       Note: List conversations in the timeline store
     - Path: pinocchio/cmd/web-chat/timeline/snapshot.go
       Note: Fetch timeline snapshots via SQLite or HTTP
+    - Path: pinocchio/cmd/web-chat/timeline/stats.go
+      Note: Timeline stats aggregation
     - Path: pinocchio/cmd/web-chat/timeline/timeline.go
       Note: Registers timeline command group
+    - Path: pinocchio/cmd/web-chat/timeline/verify.go
+      Note: Timeline consistency checks
 ExternalSources: []
 Summary: Diary of analysis and design work for webchat timeline inspection tools.
-LastUpdated: 2026-01-26T13:42:00-05:00
+LastUpdated: 2026-01-26T14:06:00-05:00
 WhatFor: Track the analysis steps and decisions used to design timeline inspection CLI tools.
 WhenToUse: When continuing or reviewing the timeline inspection tooling design.
 ---
+
 
 
 
@@ -217,6 +222,58 @@ The initial commit attempt failed because a helper used a parameter named `max`,
 ### Code review instructions
 - Start with `pinocchio/cmd/web-chat/timeline/entities.go` and `pinocchio/cmd/web-chat/timeline/entity.go`.
 - Review `pinocchio/cmd/web-chat/timeline/entity_helpers.go` for ordering + summary logic.
+
+### Technical details
+- Commit hooks ran `go test ./...`, `go generate ./...` (Vite build), and `golangci-lint`.
+
+## Step 4: Add timeline stats and verify commands
+
+I implemented `timeline stats` for per-conversation aggregation and `timeline verify` for consistency checks (missing version rows, version mismatches, timestamp ordering, empty kinds, and optional JSON parse validation). These complete the read-only inspection set from the design doc and provide a consistent Glazed output surface across all timeline tooling.
+
+Pre-commit hooks ran the standard Go tests and lint pipeline plus the webchat frontend build; no new code errors appeared, but the npm deprecation/audit warnings from earlier runs were repeated during `go generate`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes, full set. Chec koff tasksa and commit as you go, keep frequent diaries"
+
+**Assistant interpretation:** Finish the remaining subcommands and document each step with frequent diary updates.
+
+**Inferred user intent:** Complete the full set of timeline inspection tools with traceable commits and documentation.
+
+**Commit (code):** 9473e07 — "web-chat: add timeline stats and verify commands"
+
+### What I did
+- Added `timeline stats` to aggregate counts and timestamps per conversation, including per-kind totals.
+- Added `timeline verify` with configurable checks and issue limits.
+- Wired both subcommands into the timeline command group.
+
+### Why
+- Stats provide a fast overview of persisted conversation health.
+- Verify gives a repeatable way to detect common hydration/persistence anomalies.
+
+### What worked
+- SQL aggregation keeps the stats command fast even for large timelines.
+- Verify checks return structured issue rows suitable for scripting.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- Ensuring verify checks stop at a configurable issue limit without failing the command.
+
+### What warrants a second pair of eyes
+- Confirm the verify checks reflect the actual invariants expected by the timeline store.
+- Validate that stats output columns match expected downstream usage.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `pinocchio/cmd/web-chat/timeline/stats.go` and `pinocchio/cmd/web-chat/timeline/verify.go`.
+- Verify `pinocchio/cmd/web-chat/timeline/timeline.go` wiring for new subcommands.
 
 ### Technical details
 - Commit hooks ran `go test ./...`, `go generate ./...` (Vite build), and `golangci-lint`.
