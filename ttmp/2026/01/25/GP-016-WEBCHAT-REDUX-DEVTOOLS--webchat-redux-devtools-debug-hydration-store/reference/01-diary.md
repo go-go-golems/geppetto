@@ -27,16 +27,19 @@ RelatedFiles:
       Note: Added devtools dependencies
     - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
       Note: Rekey optimistic user message using turn_id from /chat
+    - Path: pinocchio/cmd/web-chat/web/src/sem/registry.ts
+      Note: Use Date.now for live SEM event timestamps
     - Path: pinocchio/cmd/web-chat/web/src/store/store.ts
       Note: DEV-only remote Redux DevTools wiring
     - Path: pinocchio/cmd/web-chat/web/src/store/timelineSlice.ts
       Note: Added rekey reducer to merge optimistic and server entities
 ExternalSources: []
 Summary: Diary of Redux DevTools wiring + hydration/duplicate message debugging for pinocchio webchat.
-LastUpdated: 2026-01-26T09:02:00-05:00
+LastUpdated: 2026-01-26T09:22:00-05:00
 WhatFor: Track debugging steps, fixes, and validation for the webchat hydration + Redux DevTools work.
 WhenToUse: When reviewing what changed for Redux DevTools and user message deduplication fixes.
 ---
+
 
 
 # Diary
@@ -105,3 +108,52 @@ I validated the trace from `/home/manuel/Downloads/state.json`, documented it in
   - `npx redux-devtools --hostname=localhost --port=8000`
   - `npm run dev`
 - Trace scripts stored in: `geppetto/ttmp/2026/01/25/GP-016-WEBCHAT-REDUX-DEVTOOLS--webchat-redux-devtools-debug-hydration-store/scripts/`
+
+## Step 2: Human-readable sent-at timestamps
+
+I switched the card header metadata from the `#<createdAt>` shorthand to a human-readable “sent at” timestamp. To avoid showing a seq number as a timestamp in the live stream, I also adjusted the client-side event timestamp to use `Date.now()` consistently for live SEM events.
+
+This makes the UI consistent across live streaming and hydration, and it aligns with the request to see readable timestamps instead of mixed seq/time values.
+
+### Prompt Context
+
+**User prompt (verbatim):** "sent at timestamp, readable by humans."
+
+**Assistant interpretation:** Update the UI to display human-readable timestamps rather than `#<createdAt>` values.
+
+**Inferred user intent:** Make chat message metadata readable and consistent across live stream and reload.
+
+**Commit (code):** bea2adc — "Webchat: show sent-at timestamps"
+
+### What I did
+- Added `fmtSentAt` in `ChatWidget.tsx` and replaced all `#...` card metadata with “sent at” timestamps.
+- Updated `createdAtFromEvent` to always use `Date.now()` so live events get real timestamps.
+
+### Why
+- `createdAt` mixed seq and epoch millis, which made the UI inconsistent and confusing after reload.
+
+### What worked
+- UI now shows a readable time for both live messages and hydrated snapshots.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The display path was reusing `createdAt` for two different concepts (seq and time).
+
+### What was tricky to build
+- Ensuring live-stream timestamps don’t regress ordering or hydration replacement behavior.
+
+### What warrants a second pair of eyes
+- Confirm that using `Date.now()` for live SEM events doesn’t break any ordering assumptions.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Check `pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx` for `fmtSentAt` usage.
+- Check `pinocchio/cmd/web-chat/web/src/sem/registry.ts` for `createdAtFromEvent`.
+- Validate in the browser that live messages and reloaded messages display readable “sent at” times.
+
+### Technical details
+- No new dependencies or scripts.
