@@ -9,3 +9,4 @@
 - [ ] Update tail/state/watch to accept --select and resolve to instance IDs
 - [ ] Add tests for selector resolution and registry behavior
 - [ ] Update diary/changelog and commit docs
+- [x] Add tail timeout + wait-for-count options and dual-mode output (plain writer default)

@@ -11,12 +11,19 @@ RelatedFiles:
       Note: Expanded spec and selector semantics
     - Path: geppetto/ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/tasks.md
       Note: Implementation tasks
+    - Path: rdx/cmd/rdx/commands.go
+      Note: Tail flags and dual-mode wiring
+    - Path: rdx/cmd/rdx/main.go
+      Note: Dual-mode command builder
+    - Path: rdx/cmd/rdx/tail_runtime.go
+      Note: Plain/glaze tail runtime
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T12:55:00-05:00
+LastUpdated: 2026-01-26T13:20:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
+
 
 
 # Diary
@@ -71,3 +78,54 @@ This step ensures the multi-instance work is tracked with the same level of deta
 
 ### Technical details
 - Ticket: RDX-006-MULTI-INSTANCE.
+
+## Step 2: Add tail timeout/count and dual-mode output
+
+I added timeout and wait-for-count options to the `tail` command and implemented dual-mode output so the default behavior is a plain text stream while structured Glazed output is still available. This makes `tail` usable even when we can’t immediately stream structured output.
+
+This step introduces a dedicated runtime for `tail` to handle both output modes and ensures the command can stop after a fixed duration or number of messages.
+
+### Prompt Context
+
+**User prompt (verbatim):** "For tail, also add a timeout option, and also a \"wait for count\" option to instead wait for a certain number of messages. because we're not able to stream the structured data immediately, we need some kind of mechanism. Make it a dual command so that per default, we have a straight writer , see glazed/pkg/doc/tutorials/05-build-first-command.md"
+
+**Assistant interpretation:** Extend `tail` with timeout and count-based stopping, and make it dual-mode so classic output is default with optional Glaze output.
+
+**Inferred user intent:** Make tailing reliable and controllable even when structured output is slow or unavailable.
+
+**Commit (code):** 5a8be95 — "Add tail timeout/count and dual-mode output"
+
+### What I did
+- Added timeout + wait-for-count flags to `tail`.
+- Implemented dual-mode output for `tail` using a plain writer by default.
+- Added a dedicated tail runtime to share logic between glaze and plain modes.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- Streaming structured output isn’t always immediate; a plain output mode and stop conditions make tail usable.
+
+### What worked
+- Dual-mode tail now defaults to plain output and still supports Glazed rows.
+- Timeout and count thresholds stop the stream as requested.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Dual-mode is handled in the Cobra builder; we just need to implement `BareCommand` + `GlazeCommand`.
+
+### What was tricky to build
+- Ensuring timeout and count behavior is consistent across both output modes.
+
+### What warrants a second pair of eyes
+- Output formatting in plain mode and whether it should include more fields.
+
+### What should be done in the future
+- Revisit plain output formatting once instance selectors land.
+
+### Code review instructions
+- Start with `rdx/cmd/rdx/commands.go` and `rdx/cmd/rdx/tail_runtime.go`.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
