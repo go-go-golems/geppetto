@@ -7,30 +7,43 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/analysis/01-multi-instance-sessions-spec.md
-      Note: Expanded spec and selector semantics
-    - Path: geppetto/ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/tasks.md
-      Note: Implementation tasks
-    - Path: rdx/cmd/rdx/commands.go
+    - Path: ../../../../../../../rdx/cmd/rdx/commands.go
       Note: Tail flags and dual-mode wiring
-    - Path: rdx/cmd/rdx/main.go
+    - Path: ../../../../../../../rdx/cmd/rdx/debug_raw_command.go
+      Note: |-
+        Raw debug command definition
+        Defines debug-raw bare command
+    - Path: ../../../../../../../rdx/cmd/rdx/debug_raw_runtime.go
+      Note: |-
+        Raw debug runtime and output wiring
+        Streams raw SocketCluster frames
+    - Path: ../../../../../../../rdx/cmd/rdx/main.go
       Note: Dual-mode command builder
-    - Path: rdx/cmd/rdx/selector_runtime.go
+    - Path: ../../../../../../../rdx/cmd/rdx/selector_runtime.go
       Note: Selector resolution flow
-    - Path: rdx/cmd/rdx/sessions_commands.go
+    - Path: ../../../../../../../rdx/cmd/rdx/sessions_commands.go
       Note: Sessions command definitions
-    - Path: rdx/cmd/rdx/tail_runtime.go
+    - Path: ../../../../../../../rdx/cmd/rdx/tail_runtime.go
       Note: Plain/glaze tail runtime
-    - Path: rdx/pkg/rtk/session_registry/registry.go
+    - Path: ../../../../../../../rdx/pkg/rtk/scclient/client.go
+      Note: |-
+        Raw message callback support
+        OnRaw callback support
+    - Path: ../../../../../../../rdx/pkg/rtk/session_registry/registry.go
       Note: Session registry for live instances
-    - Path: rdx/pkg/rtk/session_registry/selector.go
+    - Path: ../../../../../../../rdx/pkg/rtk/session_registry/selector.go
       Note: Selector parsing and matching
+    - Path: ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/analysis/01-multi-instance-sessions-spec.md
+      Note: Expanded spec and selector semantics
+    - Path: ttmp/2026/01/25/RDX-006-MULTI-INSTANCE--rdx-multi-instance-sessions/tasks.md
+      Note: Implementation tasks
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T14:30:00-05:00
+LastUpdated: 2026-01-26T19:55:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
+
 
 
 
@@ -292,6 +305,56 @@ exit status 1"
 
 ### Code review instructions
 - Check `rdx/cmd/rdx/commands.go` for watch argument order.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
+
+## Step 6: Add a raw debug writer command
+
+I added a `debug-raw` command that prints the raw SocketCluster frames to stdout using a bare writer path. This gives us a straightforward way to inspect exactly what the server is sending without Glazed transforming the output.
+
+This step introduces an `OnRaw` callback in the client so the command can dump frames as they arrive, with optional timeout, count, and subscription controls for debugging sessions.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Add a raw debug command to see what exactly you are receiving, to help me debug. Use a Writer command to write straight out, don't go through glazed"
+
+**Assistant interpretation:** Add a plain writer debug command that emits raw SocketCluster frames without Glazed processing.
+
+**Inferred user intent:** Make it easy to see the raw data to diagnose live session behavior.
+
+**Commit (code):** 63798fd — "Add debug-raw command for SocketCluster frames"
+
+### What I did
+- Added a `debug-raw` bare command that prints raw frames to stdout.
+- Implemented a raw runtime with timeout/count handling and optional channel subscription.
+- Added an `OnRaw` callback to the SocketCluster client.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- Debugging live traffic requires direct visibility into the raw data stream.
+
+### What worked
+- Raw frames now stream to stdout with configurable stop conditions.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Adding a raw callback is the simplest way to expose frames without affecting existing parsing.
+
+### What was tricky to build
+- Ensuring the raw handler doesn’t fight with other callbacks or default behavior.
+
+### What warrants a second pair of eyes
+- Confirm the raw callback won’t introduce concurrency issues in the client.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `rdx/cmd/rdx/debug_raw_runtime.go` and `rdx/pkg/rtk/scclient/client.go`.
 - Validate with `go test ./...` in `rdx`.
 
 ### Technical details

@@ -62,3 +62,12 @@ Step 5: fix watch argument order for optional selector (commit e379358)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/commands.go — Reordered watch args
 
+
+## 2026-01-25
+
+Step 6: Add debug-raw command for raw SocketCluster frames (commit 63798fd)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — Raw debug runtime with timeout/count
+
