@@ -53,3 +53,12 @@ Step 4: rename selector flag to --instance-select (commit 29fddb7)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/commands.go — Renamed selector flags
 
+
+## 2026-01-25
+
+Step 5: fix watch argument order for optional selector (commit e379358)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/commands.go — Reordered watch args
+

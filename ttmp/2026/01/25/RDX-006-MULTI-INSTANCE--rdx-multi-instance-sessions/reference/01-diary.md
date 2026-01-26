@@ -27,7 +27,7 @@ RelatedFiles:
       Note: Selector parsing and matching
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T14:20:00-05:00
+LastUpdated: 2026-01-26T14:30:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
@@ -244,3 +244,55 @@ you'll need to use a different flag name"
 
 ### Technical details
 - None.
+
+## Step 5: Fix watch argument ordering for selector support
+
+I reordered the `watch` command arguments so the required `path` argument comes before the optional instance id. This resolves Cobra’s error about required arguments following optional ones when `--instance-select` is available.
+
+This step makes the `sessions` and `watch` commands build correctly and avoids runtime command registration failures.
+
+### Prompt Context
+
+**User prompt (verbatim):** "❯ go run ./cmd/rdx sessions --timeout-seconds 20
+{"level":"error","error":"Cannot handle required argument path after optional argument","layer":"Flags","time":"2026-01-25T23:18:21-05:00","message":"Could not add layer to cobra command"}
+{"level":"error","error":"Cannot handle required argument path after optional argument","command":"watch","source":"","time":"2026-01-25T23:18:21-05:00","message":"Could not add to cobra command"}
+Error building command: Cannot handle required argument path after optional argument
+exit status 1"
+
+**Assistant interpretation:** Fix the argument order so Cobra can build the `watch` command alongside optional instance selection.
+
+**Inferred user intent:** Make the CLI build and run without argument-order errors.
+
+**Commit (code):** e379358 — "Fix watch argument order for optional selector"
+
+### What I did
+- Reordered `watch` arguments so required `path` precedes optional `instance-id`.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- Cobra cannot handle required arguments after optional ones.
+
+### What worked
+- Command registration succeeds with the new argument order.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Optional positional arguments must follow required ones for Cobra.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Check `rdx/cmd/rdx/commands.go` for watch argument order.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
