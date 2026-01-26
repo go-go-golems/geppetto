@@ -15,14 +15,23 @@ RelatedFiles:
       Note: Tail flags and dual-mode wiring
     - Path: rdx/cmd/rdx/main.go
       Note: Dual-mode command builder
+    - Path: rdx/cmd/rdx/selector_runtime.go
+      Note: Selector resolution flow
+    - Path: rdx/cmd/rdx/sessions_commands.go
+      Note: Sessions command definitions
     - Path: rdx/cmd/rdx/tail_runtime.go
       Note: Plain/glaze tail runtime
+    - Path: rdx/pkg/rtk/session_registry/registry.go
+      Note: Session registry for live instances
+    - Path: rdx/pkg/rtk/session_registry/selector.go
+      Note: Selector parsing and matching
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T13:20:00-05:00
+LastUpdated: 2026-01-26T13:55:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
+
 
 
 
@@ -125,6 +134,58 @@ This step introduces a dedicated runtime for `tail` to handle both output modes 
 
 ### Code review instructions
 - Start with `rdx/cmd/rdx/commands.go` and `rdx/cmd/rdx/tail_runtime.go`.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
+
+## Step 3: Implement session registry, selectors, and sessions commands
+
+I implemented a session registry, selector resolution, and the `sessions` command with labeling support. Tail/state/watch now accept `--select`, so you can match by instance id, label, or regex without hard-coding IDs.
+
+This step delivers the core multi-instance query features by adding registry collection from live traffic and consistent selector behavior across commands.
+
+### Prompt Context
+
+**User prompt (verbatim):** "But ok, I want to do the multi instance query stuff now, and tell me how to use the graphql stuff we have already built, so I can test it against this instance"
+
+**Assistant interpretation:** Implement multi-instance selection/listing features and provide GraphQL usage guidance.
+
+**Inferred user intent:** Quickly query and target specific instances from live traffic while testing reports.
+
+**Commit (code):** b241104 — "Add sessions registry and selectors"
+
+### What I did
+- Added `rdx/pkg/rtk/session_registry` for tracking instances and selector parsing.
+- Implemented `rdx sessions` and `rdx sessions label` commands.
+- Added selector resolution and wired `--select` into `tail`, `state`, and `watch`.
+- Added selector tests and ran `go test ./...` in `rdx`.
+
+### Why
+- Multi-instance setups need structured discovery and selector-based targeting.
+
+### What worked
+- Registry collection from live traffic enables consistent selection across commands.
+- Selector parsing supports exact id, label, prefix, and regex matching.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Labels are best stored in a small config file so selectors work across runs.
+
+### What was tricky to build
+- Matching and error messaging when multiple instances satisfy a selector.
+
+### What warrants a second pair of eyes
+- Selector semantics (prefix vs regex) and label persistence behavior.
+
+### What should be done in the future
+- Add richer filters (app/environment) once additional metadata is available.
+
+### Code review instructions
+- Start with `rdx/pkg/rtk/session_registry/registry.go` and `rdx/cmd/rdx/selector_runtime.go`.
+- Review command wiring in `rdx/cmd/rdx/sessions_commands.go` and `rdx/cmd/rdx/commands.go`.
 - Validate with `go test ./...` in `rdx`.
 
 ### Technical details

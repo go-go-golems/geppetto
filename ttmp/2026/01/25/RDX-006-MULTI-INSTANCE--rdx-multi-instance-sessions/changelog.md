@@ -24,3 +24,14 @@ Step 2: add tail timeout/count and dual-mode output (commit 5a8be95)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/commands.go — Tail flags and dual-mode
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/tail_runtime.go — Plain tail output
 
+
+## 2026-01-25
+
+Step 3: implement session registry, selectors, and sessions commands (commit b241104)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/selector_runtime.go — Selector resolution
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/sessions_commands.go — Sessions commands
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/pkg/rtk/session_registry/registry.go — Registry implementation
+
