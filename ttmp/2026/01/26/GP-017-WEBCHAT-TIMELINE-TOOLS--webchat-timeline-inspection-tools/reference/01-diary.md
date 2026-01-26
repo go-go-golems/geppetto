@@ -21,6 +21,12 @@ RelatedFiles:
       Note: Wire timeline subcommands into web-chat CLI
     - Path: pinocchio/cmd/web-chat/timeline/db.go
       Note: Timeline DB resolution helper
+    - Path: pinocchio/cmd/web-chat/timeline/entities.go
+      Note: Entity list command with filters and ordering
+    - Path: pinocchio/cmd/web-chat/timeline/entity.go
+      Note: Single-entity inspection command
+    - Path: pinocchio/cmd/web-chat/timeline/entity_helpers.go
+      Note: Summary and ordering helpers
     - Path: pinocchio/cmd/web-chat/timeline/list.go
       Note: List conversations in the timeline store
     - Path: pinocchio/cmd/web-chat/timeline/snapshot.go
@@ -29,10 +35,11 @@ RelatedFiles:
       Note: Registers timeline command group
 ExternalSources: []
 Summary: Diary of analysis and design work for webchat timeline inspection tools.
-LastUpdated: 2026-01-26T13:18:00-05:00
+LastUpdated: 2026-01-26T13:42:00-05:00
 WhatFor: Track the analysis steps and decisions used to design timeline inspection CLI tools.
 WhenToUse: When continuing or reviewing the timeline inspection tooling design.
 ---
+
 
 
 
@@ -161,3 +168,55 @@ I fixed an initial build failure caused by importing the wrong Glazed middleware
 
 ### Technical details
 - Commit hook output includes npm deprecation warnings and audit notices during `go generate` (Vite build), but the build completed successfully.
+
+## Step 3: Add timeline entities and entity commands
+
+I implemented `timeline entities` and `timeline entity` to let us list and inspect individual timeline entities with filters, ordering, and optional summaries. These commands reuse the timeline store flags and share a small helper to derive order clauses and generate human-readable summaries from the stored protojson.
+
+The initial commit attempt failed because a helper used a parameter named `max`, which violates the project’s linter rule against predeclared identifiers. Renaming it to `maxLen` resolved the lint error and the pre-commit hooks completed successfully afterward.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes, full set. Chec koff tasksa and commit as you go, keep frequent diaries"
+
+**Assistant interpretation:** Continue implementing the remaining timeline CLI commands with incremental commits and diary updates.
+
+**Inferred user intent:** Get the full tooling set delivered in staged commits with traceable documentation.
+
+**Commit (code):** 9363b02 — "web-chat: add timeline entities and entity commands"
+
+### What I did
+- Added `timeline entities` with filters for kind, versions, created/updated timestamps, and ordering.
+- Added `timeline entity` for single-entity inspection, including optional summary + raw JSON output.
+- Added `entity_helpers.go` for summary generation and order clause validation.
+- Wired new subcommands into the timeline command group.
+
+### Why
+- Entity-level inspection is critical for debugging duplicate or misordered hydration state.
+- Structured summaries help spot issues quickly without needing to parse full JSON blobs.
+
+### What worked
+- Summary extraction from protojson is reliable for messages, tool calls, and status entities.
+- Pre-commit hooks completed after the lint fix.
+
+### What didn't work
+- `golangci-lint` failed with `param max has same name as predeclared identifier` in `truncateString`.
+
+### What I learned
+- The `predeclared` linter is enforced for this repo; avoid parameter names like `max`.
+
+### What was tricky to build
+- Keeping SQL order clauses safe while supporting `-version` style descending order.
+
+### What warrants a second pair of eyes
+- Validate the summary heuristics for non-message entity kinds (planning, inner_thoughts, etc.).
+
+### What should be done in the future
+- Add stats and verify subcommands per the design doc.
+
+### Code review instructions
+- Start with `pinocchio/cmd/web-chat/timeline/entities.go` and `pinocchio/cmd/web-chat/timeline/entity.go`.
+- Review `pinocchio/cmd/web-chat/timeline/entity_helpers.go` for ordering + summary logic.
+
+### Technical details
+- Commit hooks ran `go test ./...`, `go generate ./...` (Vite build), and `golangci-lint`.
