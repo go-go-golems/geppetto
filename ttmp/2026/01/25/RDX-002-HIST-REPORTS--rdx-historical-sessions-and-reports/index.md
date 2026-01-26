@@ -1,7 +1,7 @@
 ---
 Title: RDX Historical Sessions and Reports
 Ticket: RDX-002-HIST-REPORTS
-Status: active
+Status: complete
 Topics: []
 DocType: index
 Intent: long-term
@@ -11,10 +11,11 @@ RelatedFiles:
       Note: Primary spec doc
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-25T21:23:43.491212004-05:00
+LastUpdated: 2026-01-25T22:12:22.949572203-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # RDX Historical Sessions and Reports
