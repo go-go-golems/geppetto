@@ -19,6 +19,8 @@ RelatedFiles:
       Note: Script to list timeline/addEntity actions
     - Path: geppetto/ttmp/2026/01/25/GP-016-WEBCHAT-REDUX-DEVTOOLS--webchat-redux-devtools-debug-hydration-store/scripts/inspect_state_user_entries.py
       Note: Script to list user entities in state.json
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Removed legacy profile switch endpoints
     - Path: pinocchio/cmd/web-chat/web/.env.local
       Note: Remote devtools env toggles
     - Path: pinocchio/cmd/web-chat/web/package-lock.json
@@ -27,18 +29,31 @@ RelatedFiles:
       Note: Added devtools dependencies
     - Path: pinocchio/cmd/web-chat/web/src/chat/ChatWidget.tsx
       Note: Rekey optimistic user message using turn_id from /chat
+    - Path: pinocchio/cmd/web-chat/web/src/chat/chat.css
+      Note: Profile select styling
     - Path: pinocchio/cmd/web-chat/web/src/sem/registry.ts
       Note: Use Date.now for live SEM event timestamps
+    - Path: pinocchio/cmd/web-chat/web/src/store/appSlice.ts
+      Note: Profile stored in app slice
+    - Path: pinocchio/cmd/web-chat/web/src/store/profileApi.ts
+      Note: RTK Query endpoints for profile list/switch
     - Path: pinocchio/cmd/web-chat/web/src/store/store.ts
       Note: DEV-only remote Redux DevTools wiring
     - Path: pinocchio/cmd/web-chat/web/src/store/timelineSlice.ts
       Note: Added rekey reducer to merge optimistic and server entities
+    - Path: pinocchio/cmd/web-chat/web/src/utils/basePrefix.ts
+      Note: Shared base prefix helper for RTK Query
+    - Path: pinocchio/cmd/web-chat/web/vite.config.ts
+      Note: Proxy /api for profile endpoints
+    - Path: pinocchio/pkg/webchat/router.go
+      Note: Profile list + switch API handlers
 ExternalSources: []
 Summary: Diary of Redux DevTools wiring + hydration/duplicate message debugging for pinocchio webchat.
-LastUpdated: 2026-01-26T09:22:00-05:00
+LastUpdated: 2026-01-26T10:05:00-05:00
 WhatFor: Track debugging steps, fixes, and validation for the webchat hydration + Redux DevTools work.
 WhenToUse: When reviewing what changed for Redux DevTools and user message deduplication fixes.
 ---
+
 
 
 
@@ -157,3 +172,102 @@ This makes the UI consistent across live streaming and hydration, and it aligns 
 
 ### Technical details
 - No new dependencies or scripts.
+
+## Step 3: Profile API + RTK Query wiring (replace ad-hoc endpoints)
+
+I replaced the ad-hoc profile switch endpoints with a proper JSON API and wired the web UI to use RTK Query for listing and switching profiles. The selector now talks to `/api/chat/profiles` and `/api/chat/profile`, and profile state is stored in Redux.
+
+This removes the fragile `/agent`/`/planning` GETs and centralizes profile selection in an API that works consistently under Vite.
+
+### Prompt Context
+
+**User prompt (verbatim):** "make a proper api for switching and listing profiles, and use rtk-toolkit to talk to them. Remove the /agent /planning etc endpoints, they don't really work and vite doesn't proxy them anyway"
+
+**Assistant interpretation:** Add explicit profile list/switch APIs and move the UI to RTK Query; delete the old direct endpoints.
+
+**Inferred user intent:** Make profile switching robust and consistent in dev/prod without relying on special routes.
+
+**Commit (code):** 63aa560 — "Webchat: profile API + RTK query"
+
+### What I did
+- Added `/api/chat/profile` GET/POST in the webchat router (cookie-backed).
+- Added RTK Query API slice for profile endpoints; wired it into the store.
+- Updated the profile selector in the web UI to use RTK Query instead of `fetch`.
+- Removed `/default`, `/agent`, `/planning` endpoints from `cmd/web-chat/main.go`.
+
+### Why
+- Ad-hoc endpoints were not proxied in Vite and were inconsistent with the rest of the API.
+
+### What worked
+- Profile switching now uses a consistent JSON API and works through Vite proxying.
+
+### What didn't work
+- `npm run check` initially failed with a TypeScript middleware type mismatch; resolved by coercing the RTK middleware to `any`.
+
+### What I learned
+- RTK Query middleware typing can conflict with store inference when extra reducers are added; a narrow cast is often used in TS-only apps.
+
+### What was tricky to build
+- Ensuring the profile selector remains responsive while cookie state and Redux state converge.
+
+### What warrants a second pair of eyes
+- The `any` cast for middleware typing; verify it’s acceptable for this codebase.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Check `pinocchio/pkg/webchat/router.go` for `/api/chat/profile`.
+- Check `pinocchio/cmd/web-chat/web/src/store/profileApi.ts` and `pinocchio/cmd/web-chat/web/src/store/store.ts`.
+- Validate by selecting profiles in the UI and confirming `/api/chat/profile` responses.
+
+### Technical details
+- API:
+  - `GET /api/chat/profiles` → list profiles
+  - `GET /api/chat/profile` → current profile
+  - `POST /api/chat/profile` with `{ "slug": "agent" }`
+
+## Step 4: Vite proxy for profile APIs
+
+I added the `/api` proxy entry in Vite so the profile API routes resolve in dev without manual backend origin configuration.
+
+### Prompt Context
+
+**User prompt (verbatim):** "you nee to proxy the api path in vite as well. Continue keeping and backfilling the diary for this work btw"
+
+**Assistant interpretation:** Proxy `/api` in Vite and keep the diary updated for this work.
+
+**Inferred user intent:** Ensure the new profile APIs work in dev and keep the debugging record complete.
+
+**Commit (code):** 63aa560 — "Webchat: profile API + RTK query"
+
+### What I did
+- Added `/api` to the Vite proxy configuration.
+- Updated this diary to backfill the profile API work.
+
+### Why
+- Without the proxy, profile API calls fail when running the frontend in dev mode.
+
+### What worked
+- The proxy change aligns `/api/*` with existing `/chat` and `/ws` proxying.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `pinocchio/cmd/web-chat/web/vite.config.ts` and confirm `/api` is proxied.
+
+### Technical details
+- Vite dev server proxy now includes `/api`.
