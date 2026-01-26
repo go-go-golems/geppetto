@@ -39,7 +39,7 @@ RelatedFiles:
       Note: Implementation tasks
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T19:55:00-05:00
+LastUpdated: 2026-01-26T20:15:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
@@ -355,6 +355,55 @@ This step introduces an `OnRaw` callback in the client so the command can dump f
 
 ### Code review instructions
 - Start with `rdx/cmd/rdx/debug_raw_runtime.go` and `rdx/pkg/rtk/scclient/client.go`.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
+
+## Step 7: Add YAML output mode for debug-raw
+
+I added a `--yaml` flag to the raw debug command so it can emit YAML documents instead of raw lines. Long single-line frames are now emitted using folded (`>`) style where it won’t alter content, while multiline frames use literal style to preserve newlines.
+
+This keeps the raw debug output readable in YAML while still preserving the underlying payload for parsing and inspection.
+
+### Prompt Context
+
+**User prompt (verbatim):** "add a yaml output flag. Use > syntax for long strings if possible."
+
+**Assistant interpretation:** Add a YAML output option to debug-raw and prefer folded style for long strings.
+
+**Inferred user intent:** Make raw debugging output readable and structured without losing data.
+
+**Commit (code):** 3101d08 — "Add yaml output option to debug-raw"
+
+### What I did
+- Added a `--yaml` flag to the debug-raw command.
+- Implemented YAML encoding for raw frames with folded style for long single-line strings.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- YAML output makes it easier to scan and capture raw frames, especially in longer sessions.
+
+### What worked
+- YAML mode streams per-frame documents with readable formatting.
+
+### What didn't work
+- N/A
+
+### What I learned
+- YAML node styles can be used to control folded vs literal output per frame.
+
+### What was tricky to build
+- Choosing folded vs literal style without altering multiline content.
+
+### What warrants a second pair of eyes
+- Confirm the YAML output format is compatible with downstream tooling.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `rdx/cmd/rdx/debug_raw_runtime.go` for YAML encoding.
 - Validate with `go test ./...` in `rdx`.
 
 ### Technical details

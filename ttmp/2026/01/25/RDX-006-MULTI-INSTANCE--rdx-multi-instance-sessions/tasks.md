@@ -11,3 +11,4 @@
 - [x] Update diary/changelog and commit docs
 - [x] Add tail timeout + wait-for-count options and dual-mode output (plain writer default)
 - [x] Add debug-raw command to print raw SocketCluster frames
+- [x] Add YAML output option to debug-raw

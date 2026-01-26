@@ -71,3 +71,12 @@ Step 6: Add debug-raw command for raw SocketCluster frames (commit 63798fd)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — Raw debug runtime with timeout/count
 
+
+## 2026-01-25
+
+Step 7: Add YAML output to debug-raw (commit 3101d08)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — YAML formatting for raw frames
+
