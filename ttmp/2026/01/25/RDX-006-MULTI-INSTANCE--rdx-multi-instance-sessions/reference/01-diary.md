@@ -27,7 +27,7 @@ RelatedFiles:
       Note: Selector parsing and matching
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T13:55:00-05:00
+LastUpdated: 2026-01-26T14:20:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
@@ -55,7 +55,7 @@ This step ensures the multi-instance work is tracked with the same level of deta
 
 **Inferred user intent:** Make progress on multi-instance support while validating existing report commands against live instances.
 
-**Commit (code):** N/A
+**Commit (code):** 29fddb7 — "Rename selector flag to instance-select"
 
 ### What I did
 - Created the diary document for RDX-006.
@@ -141,7 +141,7 @@ This step introduces a dedicated runtime for `tail` to handle both output modes 
 
 ## Step 3: Implement session registry, selectors, and sessions commands
 
-I implemented a session registry, selector resolution, and the `sessions` command with labeling support. Tail/state/watch now accept `--select`, so you can match by instance id, label, or regex without hard-coding IDs.
+I implemented a session registry, selector resolution, and the `sessions` command with labeling support. Tail/state/watch now accept `--instance-select`, so you can match by instance id, label, or regex without hard-coding IDs.
 
 This step delivers the core multi-instance query features by adding registry collection from live traffic and consistent selector behavior across commands.
 
@@ -190,3 +190,57 @@ This step delivers the core multi-instance query features by adding registry col
 
 ### Technical details
 - Command: `go test ./...` (in `rdx`).
+
+## Step 4: Rename selector flag to avoid Glazed conflict
+
+I renamed the selector flag to `--instance-select` (and its timeout companion) to avoid clashing with Glazed’s built-in `select` flag. This resolves the runtime error when building commands and keeps selector semantics intact.
+
+This step ensures the sessions and selector features are usable alongside Glazed’s built-in flags without collisions.
+
+### Prompt Context
+
+**User prompt (verbatim):** "❯ go run ./cmd/rdx sessions --timeout-seconds 20
+{"level":"error","error":"Flag 'select' (usage: Select instance by id, label, or /regex/ - <string>) already exists","layer":"Glazed Flags","time":"2026-01-25T22:56:10-05:00","message":"Could not add layer to cobra command"}
+{"level":"error","error":"Flag 'select' (usage: Select instance by id, label, or /regex/ - <string>) already exists","command":"tail","source":"","time":"2026-01-25T22:56:10-05:00","message":"Could not add to cobra command"}
+Error building command: Flag 'select' (usage: Select instance by id, label, or /regex/ - <string>) already exists
+exit status 1 
+
+you'll need to use a different flag name"
+
+**Assistant interpretation:** Rename the selector flag so it doesn’t conflict with Glazed’s built-in flags.
+
+**Inferred user intent:** Make the sessions and selector commands run without flag collisions.
+
+**Commit (code):** N/A
+
+### What I did
+- Renamed `--select` to `--instance-select` (and timeout flag) across tail/state/watch.
+- Updated selector error messages and spec references.
+
+### Why
+- Glazed already defines `--select`, so the custom flag collides at runtime.
+
+### What worked
+- Flag collisions are removed by using a distinct flag name.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Glazed reserves `--select`, so custom flags must avoid that name.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Check `rdx/cmd/rdx/commands.go` for flag renames and help text.
+- Validate `rdx sessions` builds correctly.
+
+### Technical details
+- None.

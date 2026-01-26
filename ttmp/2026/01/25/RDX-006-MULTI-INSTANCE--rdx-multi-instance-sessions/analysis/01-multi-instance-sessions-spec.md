@@ -82,13 +82,13 @@ List known instances with last-seen and labels.
 
 Add a label to an instance for easier selection.
 
-### `rdx tail --select <pattern>`
+### `rdx tail --instance-select <pattern>`
 
 Select instance by regex or label rather than id.
 
 ## Selector Semantics
 
-- `--select` accepts:
+- `--instance-select` accepts:
   - Exact instance id
   - Label match
   - Regex (if value is wrapped with `/.../`)

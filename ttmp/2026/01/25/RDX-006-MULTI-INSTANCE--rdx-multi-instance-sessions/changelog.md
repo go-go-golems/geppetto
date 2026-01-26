@@ -35,3 +35,21 @@ Step 3: implement session registry, selectors, and sessions commands (commit b24
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/sessions_commands.go — Sessions commands
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/pkg/rtk/session_registry/registry.go — Registry implementation
 
+
+## 2026-01-25
+
+Step 4: rename selector flag to avoid Glazed conflict
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/commands.go — Use --instance-select instead of --select
+
+
+## 2026-01-25
+
+Step 4: rename selector flag to --instance-select (commit 29fddb7)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/commands.go — Renamed selector flags
+
