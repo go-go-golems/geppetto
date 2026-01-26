@@ -89,3 +89,12 @@ Step 8: Decode top-level JSON in debug-raw YAML output (commit 7329c25)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — JSON decode and YAML styling
 
+
+## 2026-01-25
+
+Step 9: Decode embedded payload/app JSON for debug-raw YAML (commit 98f9a90)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — Embedded JSON decode
+

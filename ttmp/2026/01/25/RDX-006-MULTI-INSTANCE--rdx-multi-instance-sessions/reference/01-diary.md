@@ -39,7 +39,7 @@ RelatedFiles:
       Note: Implementation tasks
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T20:30:00-05:00
+LastUpdated: 2026-01-26T20:50:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
@@ -453,6 +453,55 @@ This step preserves readable YAML output for `#publish` frames while keeping lon
 
 ### Code review instructions
 - Start with `rdx/cmd/rdx/debug_raw_runtime.go` for JSON decode and style selection.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
+
+## Step 9: Decode embedded payload/app JSON strings
+
+I extended YAML output to attempt JSON decoding for embedded `payload` and `app` fields when they are stringified JSON. If decoding succeeds, we render the decoded structure; otherwise, the original string is preserved. A new flag disables this behavior when needed.
+
+This makes the output more readable for frames that carry nested JSON while still allowing raw string output on demand.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Try to decode payload / app optimistically, and if not, print as is, add a flag to disable."
+
+**Assistant interpretation:** Decode embedded JSON in payload/app string fields with a disable flag.
+
+**Inferred user intent:** Get readable YAML for nested payloads but retain control when decoding is undesirable.
+
+**Commit (code):** 98f9a90 — "Decode embedded payload/app JSON in debug-raw"
+
+### What I did
+- Added recursive decoding for `payload` and `app` string fields when they contain JSON.
+- Added `--no-decode-payload` to disable embedded decoding.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- Nested JSON is common in the payload; decoding it makes debugging faster.
+
+### What worked
+- Embedded JSON is decoded when valid; invalid strings are preserved.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Recursive traversal keeps decoding localized to known keys without over-eager parsing.
+
+### What was tricky to build
+- Ensuring decoding only targets payload/app while preserving original strings otherwise.
+
+### What warrants a second pair of eyes
+- Confirm the traversal doesn’t unintentionally rewrite non-payload string fields.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `rdx/cmd/rdx/debug_raw_runtime.go` for decode logic and flag handling.
 - Validate with `go test ./...` in `rdx`.
 
 ### Technical details
