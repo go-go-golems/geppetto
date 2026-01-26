@@ -80,3 +80,12 @@ Step 7: Add YAML output to debug-raw (commit 3101d08)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — YAML formatting for raw frames
 
+
+## 2026-01-25
+
+Step 8: Decode top-level JSON in debug-raw YAML output (commit 7329c25)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/rdx/cmd/rdx/debug_raw_runtime.go — JSON decode and YAML styling
+

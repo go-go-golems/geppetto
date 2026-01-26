@@ -12,3 +12,4 @@
 - [x] Add tail timeout + wait-for-count options and dual-mode output (plain writer default)
 - [x] Add debug-raw command to print raw SocketCluster frames
 - [x] Add YAML output option to debug-raw
+- [x] Decode top-level JSON in debug-raw YAML output

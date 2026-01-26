@@ -39,7 +39,7 @@ RelatedFiles:
       Note: Implementation tasks
 ExternalSources: []
 Summary: Implementation diary for multi-instance session work
-LastUpdated: 2026-01-26T20:15:00-05:00
+LastUpdated: 2026-01-26T20:30:00-05:00
 WhatFor: Track analysis and implementation progress
 WhenToUse: Update after each meaningful step
 ---
@@ -404,6 +404,55 @@ This keeps the raw debug output readable in YAML while still preserving the unde
 
 ### Code review instructions
 - Start with `rdx/cmd/rdx/debug_raw_runtime.go` for YAML encoding.
+- Validate with `go test ./...` in `rdx`.
+
+### Technical details
+- Command: `go test ./...` (in `rdx`).
+
+## Step 8: Decode top-level JSON for debug-raw YAML
+
+I updated YAML output to parse the raw frame as JSON and emit the decoded structure instead of wrapping the frame as a single raw string. This yields a top-level YAML mapping that matches the publish frame, while still falling back to a raw string if JSON decoding fails.
+
+This step preserves readable YAML output for `#publish` frames while keeping long string styling for large values.
+
+### Prompt Context
+
+**User prompt (verbatim):** "top level \"raw\" json"
+
+**Assistant interpretation:** Decode the top-level JSON and emit YAML mappings instead of a raw string wrapper.
+
+**Inferred user intent:** Make YAML output immediately usable by showing the parsed frame fields.
+
+**Commit (code):** 7329c25 — "Decode top-level JSON in debug-raw yaml"
+
+### What I did
+- Added JSON decoding for raw frames in YAML mode.
+- Applied folded/literal styles to long string scalar values in the decoded tree.
+- Ran `go test ./...` in `rdx`.
+
+### Why
+- Parsing the frame makes the YAML output inspectable without manual decoding.
+
+### What worked
+- Top-level frames now show as YAML mappings instead of a single `raw` string.
+
+### What didn't work
+- N/A
+
+### What I learned
+- `yaml.Node.Encode` provides a convenient way to transform decoded JSON into a node tree we can post-process.
+
+### What was tricky to build
+- Applying folded/literal styles without affecting mapping keys.
+
+### What warrants a second pair of eyes
+- Confirm that style selection doesn’t impact consumers that rely on exact string formatting.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with `rdx/cmd/rdx/debug_raw_runtime.go` for JSON decode and style selection.
 - Validate with `go test ./...` in `rdx`.
 
 ### Technical details
