@@ -1,7 +1,7 @@
 ---
 Title: Replace profile SystemPrompt with idempotent SystemPromptMiddleware
 Ticket: PI-002-SYSTEM-PROMPT-MW
-Status: active
+Status: complete
 Topics:
     - analysis
     - webchat
@@ -12,10 +12,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-27T21:36:19.455151387-05:00
+LastUpdated: 2026-01-27T22:40:24.901846348-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Replace profile SystemPrompt with idempotent SystemPromptMiddleware
 
