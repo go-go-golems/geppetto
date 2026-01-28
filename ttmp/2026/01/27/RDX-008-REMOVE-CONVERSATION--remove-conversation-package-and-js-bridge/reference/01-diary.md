@@ -71,3 +71,51 @@ This step does not change code; it prepares the tracking structure and clarifies
 
 ### Technical details
 - N/A
+
+## Step 2: Inventory conversation and JS bridge usage
+
+I scanned the repo to identify all remaining references to `pkg/conversation` and the JS bridge so we know exactly what will break when removing them. This confirmed that usage is limited to the JS wrapper and a single middleware example, with no production inference dependencies.
+
+This step provides concrete removal targets and helps scope the follow-up tasks.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a docmgr ticket to remove conversation and the js bridge, make an implementation plan document, then tasks, and work these off one by one, keeping a frequent diary and committing after each task."
+
+**Assistant interpretation:** Inventory current conversation/JS usage to validate the removal plan.
+
+**Inferred user intent:** Remove only the legacy pieces and avoid breaking unrelated code.
+
+**Commit (code):** N/A
+
+### What I did
+- Ran `rg -n "conversation" geppetto -g '*.go'` to list imports and references.
+- Confirmed direct usage only in `pkg/js/conversation-js.go` and `cmd/examples/middleware-inference/main.go`.
+- Noted that core AI steps already migrated away from conversation-based helpers.
+
+### Why
+- We need a precise removal scope to avoid surprises in later tasks.
+
+### What worked
+- Inventory confirmed minimal usage outside legacy paths.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Conversation is effectively isolated to the JS bridge and one example.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Double-check for any non-Go references (docs/scripts) if they matter for release notes.
+
+### What should be done in the future
+- Remove JS bridge and conversation package next.
+
+### Code review instructions
+- Review `cmd/examples/middleware-inference/main.go` and `pkg/js/conversation-js.go` as the only live users.
+
+### Technical details
+- Command: `rg -n "conversation" geppetto -g '*.go'`.
