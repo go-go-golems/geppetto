@@ -10,8 +10,8 @@ import (
 
 // NewSystemPromptMiddleware returns a middleware that ensures a fixed system prompt
 // is present as the first system block. If a system block already exists on the Turn,
-// the prompt text is appended to that first system block (separated by a blank line).
-// If no system block exists, a new one is inserted at the beginning of the Turn.
+// the prompt text is replaced. If no system block exists, a new one is inserted at
+// the beginning of the Turn.
 func NewSystemPromptMiddleware(prompt string) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -32,20 +32,6 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 			}
 
 			if prompt != "" {
-				for _, b := range t.Blocks {
-					if b.Kind != turns.BlockKindSystem {
-						continue
-					}
-					if val, ok, err := turns.KeyBlockMetaMiddleware.Get(b.Metadata); err == nil && ok && val == "systemprompt" {
-						log.Debug().
-							Str("run_id", runID).
-							Str("session_id", sessionID).
-							Str("inference_id", inferenceID).
-							Str("turn_id", t.ID).
-							Msg("systemprompt: existing systemprompt block found; skipping reinsert")
-						return next(ctx, t)
-					}
-				}
 				prev := prompt
 				if len(prev) > 120 {
 					prev = prev[:120] + "…"
@@ -69,20 +55,19 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 				}
 
 				if firstSystemIdx >= 0 {
-					// Append to existing first system block
+					// Replace the existing first system block
 					if t.Blocks[firstSystemIdx].Payload == nil {
 						t.Blocks[firstSystemIdx].Payload = map[string]any{}
 					}
 					existingText, _ := t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText].(string)
-					if err := turns.KeyBlockMetaMiddleware.Set(&t.Blocks[firstSystemIdx].Metadata, "systemprompt"); err != nil {
-						return nil, errors.Wrap(err, "set block middleware metadata (existing system block)")
-					}
-					if existingText == "" {
-						t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = prompt
-						log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: set text on existing system block")
+					if existingText == prompt {
+						log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: prompt already set on existing system block")
 					} else {
-						t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = existingText + "\n\n" + prompt
-						log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: appended text to existing system block")
+						t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = prompt
+						if err := turns.KeyBlockMetaMiddleware.Set(&t.Blocks[firstSystemIdx].Metadata, "systemprompt"); err != nil {
+							return nil, errors.Wrap(err, "set block middleware metadata (existing system block)")
+						}
+						log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: replaced text on existing system block")
 					}
 				} else {
 					// Insert a new system block at the beginning
