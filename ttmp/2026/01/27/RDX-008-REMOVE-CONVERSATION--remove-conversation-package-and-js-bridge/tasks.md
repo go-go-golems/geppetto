@@ -7,4 +7,4 @@
 - [x] Remove conversation package and builder
 - [x] Update or remove conversation-based examples
 - [x] Run tests and fix fallout
-- [ ] Update diary/changelog and commit docs for each step
+- [x] Update diary/changelog and commit docs for each step
