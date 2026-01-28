@@ -40,3 +40,12 @@ Step 4: Refactor middleware example to use Turns (commit d8eb25d)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/middleware-inference/main.go — Remove conversation builder usage
 
+
+## 2026-01-27
+
+Step 5: Remove conversation package and builder (commit b597114)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/conversation — Deleted legacy conversation package
+
