@@ -8,8 +8,6 @@ import (
 	"time"
 
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
@@ -183,52 +181,11 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		s.Prompt = "Use the echo tool with text 'hello' and return the result."
 	}
 
-	// Build conversation manager
-	b := builder.NewManagerBuilder().
-		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner.").
-		WithPrompt(s.Prompt)
-
-	manager, err := b.Build()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to build conversation manager")
-		return err
-	}
-
-	conversation_ := manager.GetConversation()
-	// Seed a Turn from the initial conversation
 	initialTurn := &turns.Turn{}
-	for _, msg := range conversation_ {
-		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-			kind := turns.BlockKindOther
-			switch chatMsg.Role {
-			case conversation.RoleSystem:
-				kind = turns.BlockKindSystem
-			case conversation.RoleUser:
-				kind = turns.BlockKindUser
-			case conversation.RoleAssistant:
-				kind = turns.BlockKindLLMText
-			case conversation.RoleTool:
-				kind = turns.BlockKindOther
-			}
-			switch kind {
-			case turns.BlockKindUser:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindLLMText:
-				turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
-			case turns.BlockKindSystem:
-				turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
-			case turns.BlockKindToolCall:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindToolUse:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindReasoning:
-				// Current middleware example has no conversation representation for reasoning; skip.
-			case turns.BlockKindOther:
-				// Preserve Other/tool role as-is
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			}
-		}
-	}
+	turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(
+		"You are a helpful assistant. Answer the question in a short and concise manner.",
+	))
+	turns.AppendBlock(initialTurn, turns.NewUserTextBlock(s.Prompt))
 
 	var toolLoopRegistry tools.ToolRegistry
 	var toolLoopLoopCfg toolloop.LoopConfig
