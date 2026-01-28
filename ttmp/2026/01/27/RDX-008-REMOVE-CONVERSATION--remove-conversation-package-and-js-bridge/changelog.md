@@ -22,3 +22,12 @@ Step 2: Inventory conversation and JS bridge usage
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/js/conversation-js.go — JS bridge usage confirmed
 
+
+## 2026-01-27
+
+Step 3: Remove conversation JS bridge (commit 5f3db56)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/js/conversation-js.go — Removed JS bridge
+

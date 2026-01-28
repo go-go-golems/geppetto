@@ -119,3 +119,49 @@ This step provides concrete removal targets and helps scope the follow-up tasks.
 
 ### Technical details
 - Command: `rg -n "conversation" geppetto -g '*.go'`.
+
+## Step 3: Remove JS conversation bridge
+
+I removed the `pkg/js/conversation-js.go` bridge that exposed the conversation manager to Goja. There were no other call sites for the bridge, so this change is isolated to deleting the file.
+
+This step eliminates the JS wrapper ahead of removing the conversation package itself.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a docmgr ticket to remove conversation and the js bridge, make an implementation plan document, then tasks, and work these off one by one, keeping a frequent diary and committing after each task."
+
+**Assistant interpretation:** Remove the JS bridge implementation as a standalone task.
+
+**Inferred user intent:** Remove legacy JS entrypoints before removing the conversation package.
+
+**Commit (code):** 5f3db56 — "Remove conversation JS bridge"
+
+### What I did
+- Deleted `pkg/js/conversation-js.go`.
+
+### Why
+- The JS bridge depends on the conversation package, so it must be removed first.
+
+### What worked
+- The bridge file was removed cleanly with no other references.
+
+### What didn't work
+- N/A
+
+### What I learned
+- No other packages referenced `RegisterConversation` or `JSConversation`.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Confirm there are no runtime expectations for the JS bridge in downstream apps.
+
+### What should be done in the future
+- Remove the conversation package and update examples next.
+
+### Code review instructions
+- Review `pkg/js` to confirm only embeddings JS remains.
+
+### Technical details
+- Removed `pkg/js/conversation-js.go`.
