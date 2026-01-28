@@ -6,5 +6,5 @@
 - [x] Remove JS conversation bridge and any registration call sites
 - [x] Remove conversation package and builder
 - [x] Update or remove conversation-based examples
-- [ ] Run tests and fix fallout
+- [x] Run tests and fix fallout
 - [ ] Update diary/changelog and commit docs for each step

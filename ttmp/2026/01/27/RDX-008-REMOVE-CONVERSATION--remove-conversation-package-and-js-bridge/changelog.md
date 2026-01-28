@@ -49,3 +49,12 @@ Step 5: Remove conversation package and builder (commit b597114)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/conversation — Deleted legacy conversation package
 
+
+## 2026-01-27
+
+Step 6: Run go test after conversation removal
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/middleware-inference/main.go — Validates example still compiles
+
