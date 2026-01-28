@@ -31,3 +31,12 @@ Step 3: Remove conversation JS bridge (commit 5f3db56)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/js/conversation-js.go — Removed JS bridge
 
+
+## 2026-01-27
+
+Step 4: Refactor middleware example to use Turns (commit d8eb25d)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/cmd/examples/middleware-inference/main.go — Remove conversation builder usage
+

@@ -165,3 +165,52 @@ This step eliminates the JS wrapper ahead of removing the conversation package i
 
 ### Technical details
 - Removed `pkg/js/conversation-js.go`.
+
+## Step 4: Refactor middleware example to use Turns
+
+I removed the conversation builder usage from the middleware inference example and replaced it with a direct Turn initialization. This keeps the example aligned with the current Turn-based API before we remove the conversation package.
+
+This step eliminates the last code path that depended on conversation types in example code.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a docmgr ticket to remove conversation and the js bridge, make an implementation plan document, then tasks, and work these off one by one, keeping a frequent diary and committing after each task."
+
+**Assistant interpretation:** Update the example to remove conversation usage before deleting the package.
+
+**Inferred user intent:** Ensure examples compile and stay consistent with the Turn-based design.
+
+**Commit (code):** d8eb25d — "Refactor middleware example to use turns"
+
+### What I did
+- Removed conversation/builder imports from `cmd/examples/middleware-inference/main.go`.
+- Built the initial Turn using system/user blocks directly.
+- Ran `go test ./...`, `go generate ./...`, `go build ./...`, and `golangci-lint` via pre-commit.
+
+### Why
+- The example was the last user of conversation types; it needed migration before deletion.
+
+### What worked
+- The example now seeds the Turn directly without conversation helpers.
+
+### What didn't work
+- Initial commit attempt timed out due to pre-commit runtime, then succeeded with a longer timeout.
+
+### What I learned
+- The repo’s pre-commit hook runs full test + lint, so commits need longer timeouts.
+
+### What was tricky to build
+- Ensuring the example retained the same prompt initialization without conversation helpers.
+
+### What warrants a second pair of eyes
+- Confirm the example behavior still matches the intended middleware flow.
+
+### What should be done in the future
+- Remove the conversation package after this change.
+
+### Code review instructions
+- Review `cmd/examples/middleware-inference/main.go` for Turn initialization.
+- Validate with `go test ./...` in `geppetto`.
+
+### Technical details
+- Pre-commit ran: `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint run -v --max-same-issues=100`, `go vet -vettool=/tmp/geppetto-lint ./...`.
