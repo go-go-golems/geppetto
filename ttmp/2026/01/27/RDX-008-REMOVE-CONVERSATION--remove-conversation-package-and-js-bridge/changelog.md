@@ -72,3 +72,13 @@ Step 7: Mark documentation task complete
 
 Ticket closed
 
+
+## 2026-01-27
+
+Step 8: remove conversation dependency from pinocchio images command (commit 7dac3aa)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/cmds/images.go — Remove conversation usage in images command
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Drop unused middlewareEnabled helper
+
