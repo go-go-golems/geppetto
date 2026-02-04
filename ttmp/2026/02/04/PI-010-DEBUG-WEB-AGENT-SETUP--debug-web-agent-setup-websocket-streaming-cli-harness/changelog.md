@@ -22,3 +22,12 @@ Step 1: add debug logging for /ws and /chat (commit e96e8c5)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Log ws queries
 
+
+## 2026-02-04
+
+Step 2: scaffold web-agent-debug CLI skeleton (commit 36d3bfe)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/main.go — Initial subcommand dispatch.
+

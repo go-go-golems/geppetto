@@ -5,7 +5,7 @@
 - [ ] Add tasks here
 
 - [x] Add debug logging in pinocchio webchat router for /chat + /ws flows (conv/profile, overrides, ws hello, pool send, idempotency)
-- [ ] Implement CLI harness skeleton (new cmd), shared config + helpers
+- [x] Implement CLI harness skeleton (new cmd), shared config + helpers
 - [ ] Implement CLI chat command (POST /chat with overrides, print response)
 - [ ] Implement CLI ws command (connect, ping, frame decoding, filters)
 - [ ] Implement CLI timeline command (GET /timeline summary)

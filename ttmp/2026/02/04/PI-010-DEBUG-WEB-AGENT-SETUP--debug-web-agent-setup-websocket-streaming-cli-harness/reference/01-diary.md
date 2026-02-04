@@ -14,12 +14,15 @@ Owners: []
 RelatedFiles:
     - Path: pinocchio/pkg/webchat/router.go
       Note: Added debug logs for ws/chat (commit e96e8c5)
+    - Path: web-agent-example/cmd/web-agent-debug/main.go
+      Note: Initial CLI skeleton (commit 36d3bfe)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-04T18:27:40.015753006-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -94,3 +97,60 @@ This step focuses on visibility rather than new behavior. It keeps the existing 
   - `ws request query` with `conv_id_query` and `profile_query`.
   - `ws resolved request` with resolved `conv_id` and `profile`.
   - `/chat overrides` with override payload when provided.
+
+## Step 2: Scaffold CLI Skeleton
+
+I created the initial `web-agent-debug` command with subcommand dispatch and a shared usage banner. This gives us a stable place to build chat/ws/timeline subcommands while keeping the compile target clean and predictable.
+
+This step intentionally does not implement behavior yet; it establishes the entrypoint and makes future incremental changes small and reviewable.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Create the CLI harness skeleton as the first implementation step.
+
+**Inferred user intent:** Make progress on the CLI tool in a structured, incremental way.
+
+**Commit (code):** 36d3bfe — "web-agent-debug: add CLI skeleton"
+
+### What I did
+
+- Added `web-agent-example/cmd/web-agent-debug/main.go`.
+- Implemented subcommand dispatch (`chat`, `ws`, `timeline`, `run`) with a stub handler.
+
+### Why
+
+- Establishing the CLI skeleton early makes later commands easier to implement and review.
+
+### What worked
+
+- The new command builds as a standalone entrypoint and provides a consistent usage banner.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Keeping the skeleton minimal avoids unnecessary dependency churn in the early steps.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm the chosen binary name/location matches conventions for this repo.
+
+### What should be done in the future
+
+- Add subcommand implementations for `/chat`, `/ws`, and `/timeline`.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-debug/main.go` for structure and usage output.
+
+### Technical details
+
+- Commands reserved: `chat`, `ws`, `timeline`, `run`.
