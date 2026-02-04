@@ -11,9 +11,13 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: pinocchio/cmd/web-chat/README.md
-      Note: Note API/UI handlers (commit 94f8d20)
+      Note: |-
+        Note API/UI handlers (commit 94f8d20)
+        Update conv manager + ordering notes (commit 1828999)
     - Path: pinocchio/pkg/doc/topics/webchat-framework-guide.md
-      Note: Document handler split/mount pattern (commit 94f8d20)
+      Note: |-
+        Document handler split/mount pattern (commit 94f8d20)
+        Document seq/stream_id ordering (commit 1828999)
     - Path: pinocchio/pkg/webchat/conversation.go
       Note: ConvManager lifecycle extraction (commit 2a29380)
     - Path: pinocchio/pkg/webchat/router.go
@@ -32,6 +36,10 @@ RelatedFiles:
       Note: Queue helper tests (commit 51929ea)
     - Path: pinocchio/pkg/webchat/server.go
       Note: NewServer accepts fs.FS (commit 94f8d20)
+    - Path: pinocchio/pkg/webchat/stream_coordinator.go
+      Note: Derive seq from Redis stream IDs (commit 1828999)
+    - Path: pinocchio/pkg/webchat/stream_coordinator_test.go
+      Note: Stream ordering tests (commit 1828999)
     - Path: pinocchio/pkg/webchat/types.go
       Note: Router staticFS now fs.FS (commit 94f8d20)
 ExternalSources: []
@@ -40,6 +48,7 @@ LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -260,3 +269,56 @@ This isolates queue behavior into testable helpers and reduces handler complexit
 
 ### Technical details
 - `PrepareRun` handles idempotency replay, queue enqueue, and running slot claims in one place.
+
+## Step 5: Derive Stream Sequence from Redis IDs
+
+Updated the stream coordinator to derive the `seq` cursor from Redis stream IDs when available, and added unit tests to verify both derived and fallback sequencing. Documentation was updated to describe the new ordering guarantees and the `stream_id`/`seq` fields.
+
+This improves ordering stability across restarts and aligns the backend with the refactor plan.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Implement the stream ordering task and update docs/tests accordingly.
+
+**Inferred user intent:** Ensure streaming order is stable and well-documented, without carrying legacy behavior.
+
+**Commit (code):** 1828999 — "Derive stream seq from Redis IDs"
+
+### What I did
+- Derived `seq` from Redis stream IDs (`xid`/`redis_xid`) when present, with fallback to the local counter.
+- Removed legacy metadata key extraction (`stream_id`/`redis_stream_id`) to avoid backward-compat shims.
+- Added tests for `deriveSeqFromStreamID` and stream coordinator sequencing.
+- Updated webchat docs to describe `seq` and `stream_id` behavior.
+- Ran `go test ./pinocchio/pkg/webchat -count=1`; pre-commit ran repo-wide tests, codegen, and lint.
+
+### Why
+- Redis stream IDs provide a monotonic order source that remains stable across restarts.
+- Removing legacy metadata keys keeps the implementation focused and predictable.
+
+### What worked
+- Tests confirm derived sequencing and fallback behavior.
+- Documentation now reflects the stable ordering contract.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Normalizing Redis stream IDs into a numeric sequence keeps ordering monotonic without changing the SEM envelope shape.
+
+### What was tricky to build
+- Ensuring the global sequence counter advances when a derived sequence is higher, without reordering or race risks.
+
+### What warrants a second pair of eyes
+- Validate the derived sequence formula (`ms*1_000_000 + seq`) is acceptable for all Redis stream ID sizes in use.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/stream_coordinator.go` and `pinocchio/pkg/webchat/stream_coordinator_test.go`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- `deriveSeqFromStreamID` parses `<ms>-<seq>` and `StreamCoordinator` now sets `seq` from Redis when possible.

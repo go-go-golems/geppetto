@@ -84,3 +84,13 @@ Step 4: Move queue/idempotency logic into conversation helpers with unit tests (
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/send_queue.go — Queue helper refactor
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/send_queue_test.go — Queue helper tests
 
+
+## 2026-02-03
+
+Step 5: Derive stream seq from Redis IDs; remove legacy metadata keys; add tests and doc updates (commit 1828999).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator.go — Derive seq
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator_test.go — Sequencing tests
+
