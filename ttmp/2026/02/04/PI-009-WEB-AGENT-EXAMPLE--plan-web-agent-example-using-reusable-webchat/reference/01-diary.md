@@ -652,3 +652,71 @@ The key outcome is a successful frontend build ready for embedding and local tes
 ### Technical details
 
 - Build output: `web-agent-example/static/dist/index.html` and `web-agent-example/static/dist/assets/*`.
+
+## Step 11: Runtime Validation (tmux + Playwright + timeline DB)
+
+I brought up the backend and frontend in tmux, fixed the static embed path error, and used Playwright to send a message through the UI. I then queried the SQLite timeline store to confirm the `webagent_thinking_mode` entity was persisted alongside the user + assistant messages.
+
+The key outcome is verified end‑to‑end behavior: custom thinking‑mode events render in the UI and persist in the timeline store for hydration.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+
+**Assistant interpretation:** Run the system, validate behavior interactively, and correlate UI with stored data.
+
+**Inferred user intent:** Confirm the external webchat is real and observable (not just compile‑clean).
+
+**Commit (code):** 56ac3a8 — "web-agent-example: align static embed path"
+
+### What I did
+
+- Started backend + frontend in tmux (`webagent` session).
+- Fixed go:embed failure by moving `static/` under `cmd/web-agent-example/` and updating Vite build output paths.
+- Killed port 8080 conflicts with `lsof-who -p 8080 -k`.
+- Used Playwright to open `http://localhost:5174/`, send a message, and observe:
+  - Custom thinking‑mode card rendering.
+  - WS connected state with non‑zero seq.
+- Queried the timeline DB:
+  - `sqlite3 /tmp/web-agent-example-timeline.db "select entity_id, kind, created_at_ms, updated_at_ms from timeline_entities where conv_id='30425eeb-a827-4653-b5bb-f24bd45d96f5' order by created_at_ms;"`
+  - Verified `webagent_thinking_mode` entry persisted.
+
+### Why
+
+- We need proof that the custom event pipeline works in live UI and durable hydration.
+
+### What worked
+
+- Playwright successfully exercised the app and triggered the custom thinking‑mode UI.
+- Timeline store contains the expected `webagent_thinking_mode` row.
+
+### What didn't work
+
+- Initial `go run` failed with `pattern static: no matching files found` until static assets were relocated.
+- Port 8080 was already in use and required termination.
+
+### What I learned
+
+- The embed path must be colocated with the Go package (no `..` allowed), so static assets belong under `cmd/web-agent-example/static/`.
+
+### What was tricky to build
+
+- Coordinating Vite output paths with go:embed location required adjusting both `package.json` and `vite.config.ts`.
+
+### What warrants a second pair of eyes
+
+- Confirm that keeping `static/dist` as a build artifact (ignored by git) is acceptable for release.
+
+### What should be done in the future
+
+- Add a script/Makefile target to build UI + run server in one step.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-example/static/index.html` and `web-agent-example/web/vite.config.ts` for embed alignment.
+- Validate via tmux + Playwright using the URLs above.
+
+### Technical details
+
+- Playwright conv_id: `30425eeb-a827-4653-b5bb-f24bd45d96f5`.
+- Timeline DB: `/tmp/web-agent-example-timeline.db`.

@@ -29,10 +29,10 @@
 - [x] Task 6.1: Build web app to static/dist.
 - [x] Task 6.2: Embed static assets in web-agent-example Go binary.
 
-- [ ] Task 7: Runtime validation + correlation
-- [ ] Task 7.1: Run server + web app in tmux.
-- [ ] Task 7.2: Use Playwright to exercise UI and capture timeline behavior.
-- [ ] Task 7.3: Query timeline store to correlate with UI results.
+- [x] Task 7: Runtime validation + correlation
+- [x] Task 7.1: Run server + web app in tmux.
+- [x] Task 7.2: Use Playwright to exercise UI and capture timeline behavior.
+- [x] Task 7.3: Query timeline store to correlate with UI results.
 - [ ] Task 7.4: Ask user to manually test critical flows.
 
 - [ ] Task 8: Cleanup + docs

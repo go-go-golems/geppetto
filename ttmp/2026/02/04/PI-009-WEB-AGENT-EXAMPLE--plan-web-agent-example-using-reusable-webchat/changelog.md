@@ -105,3 +105,14 @@ Step 10: Built web frontend assets for embedding (no code changes).
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web — Frontend build output to static/dist
 
+
+## 2026-02-04
+
+Step 11: Validated runtime flow via tmux + Playwright; fixed static embed path (commit 56ac3a8).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-example/static/index.html — Embed path fix
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/package.json — Build output path update
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/vite.config.ts — Build output path update
+
