@@ -19,6 +19,8 @@ RelatedFiles:
       Note: Print hydrated entity order for conv
     - Path: geppetto/ttmp/2026/02/03/PI-008-ADDRESS-WEBCHAT-BUGS--address-webchat-hydration-inference-bugs/sources/timeline_9a62c624.json
       Note: Post-fix hydration payload
+    - Path: pinocchio/pkg/doc/topics/webchat-frontend-integration.md
+      Note: Document canonical /timeline hydration + seq ordering (commit 640aeb2)
     - Path: pinocchio/pkg/webchat/stream_coordinator.go
       Note: Time-based seq fallback for missing stream IDs (commit fd7c65c)
     - Path: pinocchio/pkg/webchat/stream_coordinator_test.go
@@ -29,6 +31,7 @@ LastUpdated: 2026-02-03T21:00:00-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -195,3 +198,51 @@ I started the web-chat backend in tmux and used Playwright to drive a fresh conv
 
 ### Technical details
 - Timeline versions for the new conversation were `1770170943616000000` (user) followed by `1770170944980000000` (assistant), matching expected ordering.
+
+## Step 4: Refresh Webchat Documentation
+
+I updated all webchat docs to reflect the refactored backend and the new seq-based ordering and hydration behavior. The changes remove stale `/hydrate` references, clarify `event.seq` derivation and ordering, and align backend internals with the current StreamCoordinator and ConnectionPool behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, now that we refactored all the backend, update all the webchat documentation with all the new details."
+
+**Assistant interpretation:** Update every webchat-related document to match the refactored backend behavior and API semantics.
+
+**Inferred user intent:** Ensure the documentation is consistent and accurate for current webchat behavior and integration points.
+
+**Commit (code):** 640aeb2 — "Update webchat docs for seq ordering and hydration"
+
+### What I did
+- Updated webchat docs to remove `/hydrate` references and document `/timeline` as the canonical hydration path.
+- Added seq ordering notes across overview, framework guide, user guide, and backend reference/internals.
+- Updated debugging guidance to include ordering diagnostics.
+- Refreshed the web-chat example README to mention the seq fallback behavior.
+
+### Why
+- The backend refactor changed handler composition and timeline versioning; docs needed to match the new behavior.
+
+### What worked
+- Documentation now reflects seq-based ordering and the UI’s hydration flow.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Several docs still referenced legacy hydration paths or per-conversation translators that no longer exist.
+
+### What was tricky to build
+- Keeping the various overview, integration, and internals docs consistent without duplicating conflicting statements.
+
+### What warrants a second pair of eyes
+- Review the docs for any remaining references to deprecated paths or handler signatures.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/doc/topics/webchat-frontend-integration.md` and `pinocchio/pkg/doc/topics/webchat-sem-and-ui.md`.
+- Spot-check the overview, internals, and backend reference for consistency.
+
+### Technical details
+- All hydration references now point to `/timeline`, and `event.seq` ordering is described as Redis-ID-derived with a time-based fallback.

@@ -33,3 +33,13 @@ Step 3: validate hydration ordering via tmux + Playwright; capture post-fix time
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/03/PI-008-ADDRESS-WEBCHAT-BUGS--address-webchat-hydration-inference-bugs/sources/timeline_9a62c624.json — Post-fix hydration payload
 
+
+## 2026-02-03
+
+Step 4: update webchat docs for seq ordering, hydration, and handler changes (commit 640aeb2).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/doc/topics/webchat-backend-reference.md — Update StreamCoordinator/SEM notes
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/doc/topics/webchat-frontend-integration.md — Update hydration docs
+
