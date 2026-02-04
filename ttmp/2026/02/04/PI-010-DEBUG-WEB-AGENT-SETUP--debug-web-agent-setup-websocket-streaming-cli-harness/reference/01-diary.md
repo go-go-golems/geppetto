@@ -25,13 +25,16 @@ RelatedFiles:
     - Path: web-agent-example/cmd/web-agent-debug/timeline.go
       Note: CLI timeline summary (commit 38a269b)
     - Path: web-agent-example/cmd/web-agent-debug/ws.go
-      Note: CLI websocket client (commit 820a2a8)
+      Note: |-
+        CLI websocket client (commit 820a2a8)
+        Context-driven WS shutdown (commit c65f461)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-04T18:27:40.015753006-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -578,3 +581,76 @@ I restarted the web-agent server in tmux with `--log-level debug` so websocket a
 ### Technical details
 
 - tmux session: `webagent`, window `go-`.
+
+## Step 10: Run CLI Streaming Tests + Fix WS Timeout
+
+I ran the CLI harness end-to-end and confirmed streaming events are visible, then fixed a timeout issue in the `ws` command that prevented the process from exiting cleanly. I also ran back-to-back prompts on the same `conv_id` to confirm conversation continuity and timeline growth.
+
+This step provides the concrete “scrolling events” evidence the CLI was designed for and removes a usability bug discovered during testing.
+
+### Prompt Context
+
+**User prompt (verbatim):** "can you run the test and try it? you should be able to see scrolling events and do some ocnversation back and forth on your own? Keep a detailed log as you work."
+
+**Assistant interpretation:** Execute the CLI harness, verify streaming output, and log detailed results; fix any issues encountered.
+
+**Inferred user intent:** Prove the CLI can reproduce streaming events and reveal where the websocket pipeline might be failing.
+
+**Commit (code):** c65f461 — "web-agent-debug: honor ws timeout"
+
+### What I did
+
+- Ran `run` with a new `conv_id` and saw streaming events:
+  - `go run ./cmd/web-agent-debug run --prompt "hello from cli" --thinking-mode fast --filter-type webagent --timeout 8s`
+- Attempted a standalone WS session and discovered the `--timeout` flag did not stop the process (command timed out in the tool runner):
+  - `go run ./cmd/web-agent-debug ws --conv-id a52868eb-7be9-4859-a864-35716182564e --filter-type llm --timeout 6s`
+- Fixed the WS timeout by closing the connection when the context is done.
+- Re-ran WS with a short timeout and confirmed clean exit:
+  - `go run ./cmd/web-agent-debug ws --conv-id a52868eb-7be9-4859-a864-35716182564e --filter-type llm --timeout 3s`
+- Ran two consecutive `run` commands on the same `conv_id` to simulate back‑and‑forth conversation:
+  - `go run ./cmd/web-agent-debug run --conv-id b0ff62c1-a229-4ee3-a5f9-886b45a4df2f --prompt "first message" --thinking-mode fast --timeout 8s`
+  - `go run ./cmd/web-agent-debug run --conv-id b0ff62c1-a229-4ee3-a5f9-886b45a4df2f --prompt "second message" --thinking-mode fast --timeout 8s`
+- Observed:
+  - WS `ws.hello` greeting.
+  - `llm.delta` streaming increments.
+  - `webagent.thinking.*` events.
+  - Timeline summary showing entity counts increasing across runs.
+
+### Why
+
+- We needed evidence that the CLI shows live WS frames and can reproduce “scrolling events.”
+- The timeout bug made the `ws` command unsuitable for scripted debugging.
+
+### What worked
+
+- The `run` command showed streaming events and timeline updates.
+- Back‑to‑back runs on the same `conv_id` produced multiple message entities and thinking‑mode entries.
+
+### What didn't work
+
+- The `ws` command ignored `--timeout` because the read loop blocked on `ReadMessage`.
+
+### What I learned
+
+- The WS client needs an explicit close on context cancellation to interrupt `ReadMessage`.
+
+### What was tricky to build
+
+- Balancing a blocking WS read loop with a deadline without complicating the code or leaking goroutines.
+
+### What warrants a second pair of eyes
+
+- Review the WS shutdown logic to ensure it doesn’t mask real errors or terminate too aggressively.
+
+### What should be done in the future
+
+- Consider adding a `--close-after` flag to `run` if we need explicit end-of-stream capture.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-debug/ws.go` for the context‑driven close logic.
+
+### Technical details
+
+- Working `conv_id` used for back‑to‑back runs: `b0ff62c1-a229-4ee3-a5f9-886b45a4df2f`.
+- Timeline summary after second run showed `message: 4`, `webagent_thinking_mode: 2`.

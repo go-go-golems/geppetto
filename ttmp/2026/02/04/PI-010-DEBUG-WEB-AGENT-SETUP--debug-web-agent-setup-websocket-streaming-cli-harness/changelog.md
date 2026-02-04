@@ -94,3 +94,12 @@ Step 9: restarted tmux server with --log-level debug
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-010-DEBUG-WEB-AGENT-SETUP--debug-web-agent-setup-websocket-streaming-cli-harness/reference/01-diary.md — Recorded tmux restart for debug logs.
 
+
+## 2026-02-04
+
+Step 10: run CLI streaming tests + fix ws timeout (commit c65f461)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/ws.go — Close WS on context timeout.
+
