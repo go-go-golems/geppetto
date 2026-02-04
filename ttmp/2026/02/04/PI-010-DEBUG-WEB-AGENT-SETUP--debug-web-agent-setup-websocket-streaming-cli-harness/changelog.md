@@ -49,3 +49,12 @@ Step 4: implement ws command for CLI harness (commit 820a2a8)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/ws.go — /ws client with ping + SEM rendering.
 
+
+## 2026-02-04
+
+Step 5: implement timeline command for CLI harness (commit 38a269b)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/timeline.go — Timeline snapshot fetch + summary.
+

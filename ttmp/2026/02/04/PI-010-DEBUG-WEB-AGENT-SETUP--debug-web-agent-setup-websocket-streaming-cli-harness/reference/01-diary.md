@@ -20,6 +20,8 @@ RelatedFiles:
       Note: Shared helpers for CLI
     - Path: web-agent-example/cmd/web-agent-debug/main.go
       Note: Initial CLI skeleton (commit 36d3bfe)
+    - Path: web-agent-example/cmd/web-agent-debug/timeline.go
+      Note: CLI timeline summary (commit 38a269b)
     - Path: web-agent-example/cmd/web-agent-debug/ws.go
       Note: CLI websocket client (commit 820a2a8)
 ExternalSources: []
@@ -28,6 +30,7 @@ LastUpdated: 2026-02-04T18:27:40.015753006-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -281,3 +284,62 @@ This step addresses the “empty websocket” debugging gap directly: we can now
 ### Technical details
 
 - WS URL format: `<backend>/ws?conv_id=<id>&profile=<slug>`.
+
+## Step 5: Implement `timeline` Command
+
+I added a `/timeline` CLI command that fetches the snapshot JSON and prints a concise summary of entity counts. This lets us correlate websocket output with persisted timeline events and quickly verify whether streaming activity is being captured server-side.
+
+The command can also emit raw JSON for deeper inspection, but defaults to a readable summary for quick checks.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Implement the timeline-fetching portion of the CLI.
+
+**Inferred user intent:** Make it easy to cross-check streaming events against persisted timeline snapshots.
+
+**Commit (code):** 38a269b — "web-agent-debug: implement timeline command"
+
+### What I did
+
+- Added `cmd/web-agent-debug/timeline.go` to call `GET /timeline`.
+- Implemented a summary view that counts entities by kind.
+- Updated `main.go` to dispatch the `timeline` command.
+- Ran `go test ./cmd/web-agent-debug -count=1`.
+
+### Why
+
+- We need to confirm that timeline persistence is happening even when websocket output is empty.
+
+### What worked
+
+- The command fetches the snapshot and prints a stable summary of entity kinds.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The snapshot schema (`conv_id`, `version`, `entities`) is stable enough to summarize with a lightweight struct.
+
+### What was tricky to build
+
+- Ensuring the summary still works if the JSON shape changes (fallback to raw JSON if unmarshal fails).
+
+### What warrants a second pair of eyes
+
+- Validate that the summary output is sufficient for debugging and doesn’t hide important data.
+
+### What should be done in the future
+
+- Add a `run` command that ties `/chat`, `/ws`, and `/timeline` together.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-debug/timeline.go` for request construction and summary logic.
+
+### Technical details
+
+- Summary output lists entity counts by `kind` (sorted alphabetically).
