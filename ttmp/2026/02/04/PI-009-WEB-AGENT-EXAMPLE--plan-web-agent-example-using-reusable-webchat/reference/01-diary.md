@@ -339,3 +339,67 @@ The key outcome is that the reMarkable copy now matches the latest analysis cont
 ### Technical details
 
 - Upload target: `/ai/2026/02/04/PI-009-WEB-AGENT-EXAMPLE/01-web-agent-example-analysis-and-build-guide.pdf`.
+
+## Step 6: Implement Custom Thinking-Mode Events (web-agent-example)
+
+I added a dedicated custom event set for thinking mode in the web-agent-example repo, including factory registration and a round‑trip JSON decode test. This establishes the new event namespace we’ll use for the external webchat without reusing the built‑in Pinocchio thinking‑mode events.
+
+The key outcome is a concrete event type set (`webagent.thinking.*`) plus a minimal test that confirms the registry decodes the JSON payloads correctly.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, create concrete tasks, detailed and with subtasks in the ticket.
+
+Btw this is the first time we try to make an esternal webchat, so it could well be that we will have to cleanup / refactor some things in pinocchio. It's not a clear cut case. 
+
+THen, start implementing the tasks one by one, testing, then committing, then upadting the diary, then checking off the task. Ask me to test things for myself at regular intervals to make sure we are still real. Run background stuff in tmux, use playwright to interact wit hthe page yourself. Feel free to qwuery the stores too in order to correlate with  the app itself."
+
+**Assistant interpretation:** Add concrete tasks, then begin implementing them sequentially with tests, commits, diary updates, and task check‑offs; be prepared to refactor pinocchio if needed.
+
+**Inferred user intent:** Build an external webchat with a clean, well‑tracked implementation sequence and frequent validation.
+
+**Commit (code):** 1631977 — "web-agent-example: add custom thinking mode events"
+
+### What I did
+
+- Added custom thinking‑mode event types in `web-agent-example/pkg/thinkingmode/events.go` with namespace `webagent.thinking.*`.
+- Registered event factories in `init()` for JSON decoding.
+- Added a round‑trip decode test in `web-agent-example/pkg/thinkingmode/events_test.go`.
+- Ran `go test ./pkg/thinkingmode`.
+
+### Why
+
+- We need a bespoke event namespace for the external webchat to avoid coupling to the default Pinocchio thinking‑mode events.
+
+### What worked
+
+- Event factory registration + JSON decoding works via `events.NewEventFromJson`.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The Geppetto event registry allows custom event types without touching core packages.
+
+### What was tricky to build
+
+- Ensuring the test used the correct JSON shape (`type` field) so the registry could decode it.
+
+### What warrants a second pair of eyes
+
+- Confirm that the `webagent.thinking.*` namespace aligns with any team naming conventions.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Start with `web-agent-example/pkg/thinkingmode/events.go` and `web-agent-example/pkg/thinkingmode/events_test.go`.
+- Validate via `go test ./pkg/thinkingmode`.
+
+### Technical details
+
+- Event types: `webagent.thinking.started`, `webagent.thinking.update`, `webagent.thinking.completed`.

@@ -49,3 +49,13 @@ Step 5: Re-uploaded updated analysis guide to reMarkable (commit N/A).
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/reference/01-diary.md — Diary step 5
 
+
+## 2026-02-04
+
+Step 6: Added custom thinking-mode events + tests in web-agent-example (commit 1631977).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/events.go — Custom event types
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/events_test.go — Round-trip decode test
+
