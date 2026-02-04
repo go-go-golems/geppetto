@@ -14,18 +14,30 @@ RelatedFiles:
       Note: |-
         Note API/UI handlers (commit 94f8d20)
         Update conv manager + ordering notes (commit 1828999)
+        Eviction docs (commit 9c8adce)
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Eviction CLI flags (commit 9c8adce)
     - Path: pinocchio/pkg/doc/topics/webchat-framework-guide.md
       Note: |-
         Document handler split/mount pattern (commit 94f8d20)
         Document seq/stream_id ordering (commit 1828999)
+    - Path: pinocchio/pkg/doc/topics/webchat-user-guide.md
+      Note: Eviction doc section (commit 9c8adce)
+    - Path: pinocchio/pkg/webchat/conv_manager_eviction.go
+      Note: Eviction loop implementation (commit 9c8adce)
+    - Path: pinocchio/pkg/webchat/conv_manager_eviction_test.go
+      Note: Eviction tests (commit 9c8adce)
     - Path: pinocchio/pkg/webchat/conversation.go
-      Note: ConvManager lifecycle extraction (commit 2a29380)
+      Note: |-
+        ConvManager lifecycle extraction (commit 2a29380)
+        Track lastActivity for eviction (commit 9c8adce)
     - Path: pinocchio/pkg/webchat/router.go
       Note: |-
         Use StripPrefix when mounting webchat under a subpath (commit bf2c934)
         Split UI/API handlers and fs.FS usage (commit 94f8d20)
         Router delegates conversation lifecycle to manager (commit 2a29380)
         Router delegates queue prep/drain (commit 51929ea)
+        Configure eviction and update activity (commit 9c8adce)
     - Path: pinocchio/pkg/webchat/router_handlers_test.go
       Note: UI/API handler tests (commit 94f8d20)
     - Path: pinocchio/pkg/webchat/router_mount_test.go
@@ -48,6 +60,7 @@ LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -322,3 +335,56 @@ This improves ordering stability across restarts and aligns the backend with the
 
 ### Technical details
 - `deriveSeqFromStreamID` parses `<ms>-<seq>` and `StreamCoordinator` now sets `seq` from Redis when possible.
+
+## Step 6: Add Idle Conversation Eviction
+
+Introduced an eviction loop in the conversation manager to remove idle conversations with no connections or queued/running work. Added configuration flags for eviction idle/interval, updated docs, and wrote unit tests to verify eviction and skip behavior.
+
+This prevents unbounded growth when clients generate random conversation IDs.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Implement the eviction loop and document the new configuration flags.
+
+**Inferred user intent:** Avoid memory growth and make idle cleanup predictable and configurable.
+
+**Commit (code):** 9c8adce — "Add idle conversation eviction"
+
+### What I did
+- Added eviction configuration and loop helpers to `ConvManager`, with idle/interval settings.
+- Tracked `lastActivity` on conversations and updated it on connections, queue operations, and run completion.
+- Added CLI flags `--evict-idle-seconds` and `--evict-interval-seconds` with defaults.
+- Updated docs to describe the eviction tuning flags.
+- Added unit tests for eviction and “busy” conversations.
+- Ran `go test ./pinocchio/pkg/webchat -count=1`; pre-commit ran repo-wide tests, codegen, and lint.
+
+### Why
+- Eviction is required to safely embed the backend in long-running processes without memory growth.
+
+### What worked
+- Tests confirm idle conversations are evicted and busy ones are retained.
+- Eviction starts automatically when the event router runs.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Centralizing eviction in `ConvManager` keeps router/server responsibilities simple.
+
+### What was tricky to build
+- Ensuring `lastActivity` updates cover both HTTP and WS interactions without over-complicating state management.
+
+### What warrants a second pair of eyes
+- Validate that eviction doesn’t race with active WebSocket connections in high-concurrency workloads.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/conv_manager_eviction.go`, `pinocchio/pkg/webchat/conversation.go`, and `pinocchio/pkg/webchat/conv_manager_eviction_test.go`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- `ConvManager.StartEvictionLoop` runs periodic sweeps and removes conversations that are idle past `evict-idle-seconds`.

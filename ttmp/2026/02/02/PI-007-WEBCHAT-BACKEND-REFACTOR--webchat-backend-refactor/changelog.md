@@ -94,3 +94,13 @@ Step 5: Derive stream seq from Redis IDs; remove legacy metadata keys; add tests
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator.go — Derive seq
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator_test.go — Sequencing tests
 
+
+## 2026-02-03
+
+Step 6: Add idle conversation eviction loop with configurable idle/interval and tests (commit 9c8adce).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conv_manager_eviction.go — Eviction loop
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conv_manager_eviction_test.go — Eviction tests
+
