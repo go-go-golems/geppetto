@@ -20,12 +20,15 @@ RelatedFiles:
       Note: Shared helpers for CLI
     - Path: web-agent-example/cmd/web-agent-debug/main.go
       Note: Initial CLI skeleton (commit 36d3bfe)
+    - Path: web-agent-example/cmd/web-agent-debug/ws.go
+      Note: CLI websocket client (commit 820a2a8)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-04T18:27:40.015753006-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -219,3 +222,62 @@ This gives us the first half of the end‑to‑end debugging harness and makes i
 ### Technical details
 
 - Overrides payload: `{ "middlewares": [{ "name": "webagent-thinking-mode", "config": { "mode": "fast" } }] }`.
+
+## Step 4: Implement `ws` Command
+
+I implemented the CLI websocket client to connect to `/ws`, send periodic pings, and print incoming SEM frames. It supports filtering by event type prefix and can fall back to raw frame output, which is useful when the SEM envelope is missing or malformed.
+
+This step addresses the “empty websocket” debugging gap directly: we can now watch WS traffic from the terminal and confirm whether the server is emitting frames.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Build the websocket portion of the CLI harness.
+
+**Inferred user intent:** Provide a CLI tool that exposes real-time streaming behavior without the browser.
+
+**Commit (code):** 820a2a8 — "web-agent-debug: implement ws command"
+
+### What I did
+
+- Added `cmd/web-agent-debug/ws.go` implementing `/ws` connect + frame rendering.
+- Added helpers to build WS URLs and cookies.
+- Updated `main.go` to dispatch the `ws` command.
+- Ran `go test ./cmd/web-agent-debug -count=1`.
+
+### Why
+
+- Without a CLI WS client, it is hard to prove whether the backend emits stream frames or whether the browser client is at fault.
+
+### What worked
+
+- The WS client connects, pings the server, and prints SEM event types and IDs.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The server accepts either a raw "ping" string or a `ws.ping` event; the CLI uses the simple string approach.
+
+### What was tricky to build
+
+- Ensuring the WS URL is derived correctly from HTTP origins (`http`→`ws`, `https`→`wss`).
+
+### What warrants a second pair of eyes
+
+- Verify the filtering logic doesn’t hide important events when a prefix is set.
+
+### What should be done in the future
+
+- Add timeline correlation in a `run` command once the timeline fetch is implemented.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-debug/ws.go` for connection, ping loop, and SEM rendering logic.
+
+### Technical details
+
+- WS URL format: `<backend>/ws?conv_id=<id>&profile=<slug>`.

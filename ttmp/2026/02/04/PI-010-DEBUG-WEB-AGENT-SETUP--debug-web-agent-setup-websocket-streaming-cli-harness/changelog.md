@@ -40,3 +40,12 @@ Step 3: implement chat command for CLI harness (commit d9c16c7)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/chat.go — /chat POST implementation.
 
+
+## 2026-02-04
+
+Step 4: implement ws command for CLI harness (commit 820a2a8)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/ws.go — /ws client with ping + SEM rendering.
+
