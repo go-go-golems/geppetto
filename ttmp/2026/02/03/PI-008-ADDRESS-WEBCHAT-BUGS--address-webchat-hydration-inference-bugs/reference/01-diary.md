@@ -17,6 +17,8 @@ RelatedFiles:
       Note: Inspect SQLite timeline versions for conv
     - Path: geppetto/ttmp/2026/02/03/PI-008-ADDRESS-WEBCHAT-BUGS--address-webchat-hydration-inference-bugs/scripts/print_timeline_order.py
       Note: Print hydrated entity order for conv
+    - Path: geppetto/ttmp/2026/02/03/PI-008-ADDRESS-WEBCHAT-BUGS--address-webchat-hydration-inference-bugs/sources/timeline_9a62c624.json
+      Note: Post-fix hydration payload
     - Path: pinocchio/pkg/webchat/stream_coordinator.go
       Note: Time-based seq fallback for missing stream IDs (commit fd7c65c)
     - Path: pinocchio/pkg/webchat/stream_coordinator_test.go
@@ -27,6 +29,7 @@ LastUpdated: 2026-02-03T21:00:00-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -143,3 +146,52 @@ I updated the StreamCoordinator sequence generation to ensure that when stream I
 
 ### Technical details
 - Fallback seq now uses `time.Now().UnixMilli() * 1_000_000` with monotonic enforcement, replacing the small local counter default.
+
+## Step 3: Validate Hydration Order via Playwright + CLI
+
+I started the web-chat backend in tmux and used Playwright to drive a fresh conversation. After sending a prompt and refreshing, the UI preserved user-before-assistant ordering, and the stored timeline versions in SQLite matched time-based ordering.
+
+### Prompt Context
+
+**User prompt (verbatim):** "run it in tmux, then test with playwright"
+
+**Assistant interpretation:** Start the backend in a tmux session and verify the ordering fix by exercising the UI with Playwright.
+
+**Inferred user intent:** Confirm the bug is fixed end-to-end, not just in code or unit tests.
+
+**Commit (code):** N/A
+
+### What I did
+- Started `go run ./cmd/web-chat web-chat --timeline-db /tmp/pi008-webchat.db` in tmux session `pi008-webchat`.
+- Used Playwright to open `http://localhost:8080/?conv_id=9a62c624-8af3-45fd-af0e-111921f0bf24`, send "hello", and confirm user/assistant ordering in the UI.
+- Reloaded the page to validate hydration ordering.
+- Captured `/timeline` payload and SQLite ordering for the new conversation in ticket `sources/`.
+
+### Why
+- The reported bug was user-visible, so UI-level validation was required.
+
+### What worked
+- Playwright snapshots show user message followed by assistant response both before and after hydration.
+- SQLite versions show time-based ordering for both user and assistant entities.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The new seq fallback eliminates the ordering inversion on fresh conversations even without stream IDs.
+
+### What was tricky to build
+- Ensuring the tmux-run server used a clean SQLite DB so ordering was not polluted by old data.
+
+### What warrants a second pair of eyes
+- Validate against a Redis stream source that does not emit `xid` metadata to confirm fallback behavior in real deployments.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `sources/timeline_9a62c624.json` and compare to `sources/timeline_cac78e87.json` for ordering differences.
+- Use tmux session `pi008-webchat` for manual verification.
+
+### Technical details
+- Timeline versions for the new conversation were `1770170943616000000` (user) followed by `1770170944980000000` (assistant), matching expected ordering.
