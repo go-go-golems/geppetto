@@ -11,33 +11,32 @@ DocType: analysis
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/sem/registry.ts
-      Note: SEM event mapping to timeline entities
-    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx
-      Note: UI composition and renderer overrides
-    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/webchat/types.ts
-      Note: ChatWidget props
-    - Path: ../../../../../../../pinocchio/pkg/inference/events/typed_thinking_mode.go
-      Note: Typed thinking mode events emitted by middleware
-    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go
       Note: Backend router composition + extension points
-    - Path: ../../../../../../../pinocchio/pkg/webchat/sem_translator.go
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/sem_translator.go
       Note: SEM translation for thinking mode events
-    - Path: ../../../../../../../pinocchio/pkg/webchat/timeline_projector.go
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_projector.go
       Note: Timeline snapshot mapping for thinking_mode
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/inference/events/typed_thinking_mode.go
+      Note: Typed thinking mode events emitted by middleware
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx
+      Note: UI composition and renderer overrides
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/webchat/types.ts
+      Note: ChatWidget props, slots, and renderer types
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts
+      Note: SEM event mapping to timeline entities
 ExternalSources: []
-Summary: A detailed, intern-ready guide to build a new web-agent-example that reuses the Pinocchio webchat backend + frontend packaging, with a thinking-mode middleware and a custom thinking-mode switch/widget.
+Summary: "A detailed, intern-ready guide to build a new web-agent-example that reuses the Pinocchio webchat backend + frontend packaging, with a custom thinking-mode middleware and a custom ThinkingModeCard + switch UI."
 LastUpdated: 2026-02-04T16:18:16.334205935-05:00
-WhatFor: Provide a code-grounded map of where to look, what to change, and how to wire a new agent around the reusable webchat stack.
-WhenToUse: Use when implementing the web-agent-example server + UI, or when onboarding someone to the reusable webchat architecture.
+WhatFor: "Provide a code-grounded map of where to look, what to change, and how to wire a new web-agent around the reusable webchat stack, including custom thinking-mode events and UI."
+WhenToUse: "Use when implementing the web-agent-example server + UI, or when onboarding someone to the reusable webchat architecture."
 ---
-
 
 # Web Agent Example Analysis and Build Guide
 
 ## Executive Summary
 
-This document teaches a brand‑new engineer how to build a **standalone web agent** (the `web-agent-example` repo) by reusing the **Pinocchio webchat backend** and the newly modular **webchat frontend package**. The core goal is to **add a “thinking mode” middleware** on the backend and a **custom thinking‑mode widget + switch** on the frontend, without re‑implementing the chat stack. The guide is intentionally exhaustive: it names exact files, symbols, and data paths, and includes pseudo‑code, diagrams, callouts, and exercises.
+This document teaches a brand‑new engineer how to build a **standalone web agent** (the `web-agent-example` repo) by reusing the **Pinocchio webchat backend** and the modular **webchat frontend package**. The core goal is to **add a custom thinking‑mode middleware and event set** on the backend, plus a **custom ThinkingModeCard and thinking‑mode switch UI** on the frontend. The guide is intentionally exhaustive: it names exact files, symbols, and data paths, and includes pseudo‑code, diagrams, callouts, and exercises.
 
 > FUNDAMENTAL: Reuse is about seams.
 > 
@@ -95,32 +94,17 @@ Concrete example of assembly is in:
 
 ### 3) Thinking mode is already wired end‑to‑end (events → UI)
 
-There is an existing “thinking mode” event pipeline. We can reuse it rather than invent a new UI protocol.
+There is an existing “thinking mode” event pipeline. We will **not** reuse its default card or default event types; instead we’ll **fork the pipeline** with our own event names and custom UI card while still leveraging the same structural seams (events → SEM → timeline → UI).
 
-Backend event types:
+Existing baseline (for reference only):
 
-- `pinocchio/pkg/inference/events/typed_thinking_mode.go`
-  - `EventThinkingModeStarted`
-  - `EventThinkingModeUpdate`
-  - `EventThinkingModeCompleted`
+- Typed events: `pinocchio/pkg/inference/events/typed_thinking_mode.go`
+- SEM translation: `pinocchio/pkg/webchat/sem_translator.go`
+- Timeline projection: `pinocchio/pkg/webchat/timeline_projector.go`
+- UI mapping: `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
+- UI card: `pinocchio/cmd/web-chat/web/src/webchat/cards.tsx`
 
-Backend SEM translation:
-
-- `pinocchio/pkg/webchat/sem_translator.go`
-  - Emits `thinking.mode.started|update|completed`
-
-Backend timeline projection:
-
-- `pinocchio/pkg/webchat/timeline_projector.go`
-  - Projects `thinking.mode.*` to `timeline.Kind = thinking_mode`
-
-Frontend mapping and rendering:
-
-- `pinocchio/cmd/web-chat/web/src/sem/registry.ts` (event → entity)
-- `pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts` (snapshot → entity props)
-- `pinocchio/cmd/web-chat/web/src/webchat/cards.tsx` (`ThinkingModeCard`)
-
-> FUNDAMENTAL: The “thinking mode” UI card appears automatically when the backend emits the corresponding SEM events.
+> FUNDAMENTAL: You can add your own event types and cards without touching the rest of the webchat stack.
 
 ## Core Data Flow (End‑to‑End Diagram)
 
@@ -134,27 +118,26 @@ ChatWidget (React) ──POST /chat──► Webchat Router (Go)
     │                         Conversation + Engine
     │                               │
     │                               ▼
-    │                        Middleware emits events
+    │                Custom middleware emits custom events
     │                               │
     │                               ▼
-    │        Event router + sem_translator (SEM frames)
-    │                               │
-    │                               ▼
-    │                       Timeline projector (optional)
+    │        Custom SEM translation + timeline projection
     │                               │
     ▼                               ▼
 WebSocket stream ◄───────────── SEM frames + snapshots
     │
     ▼
-Timeline store + UI renderers
+Timeline store + custom UI card
 ```
 
 ### The key seams (where you hook in)
 
-- **Middleware seam** (Go): emit `EventThinkingMode*`
-- **UI renderer seam** (React): override the card for `thinking_mode`
-- **UI composer seam** (React): add a “thinking mode switch” control
-- **Request seam** (Go): accept a mode override in the request body
+- **Middleware seam** (Go): emit *custom* `thinking_mode.*` events
+- **SEM seam** (Go): translate your custom events into SEM frames
+- **Timeline seam** (Go): project your custom SEM frames into timeline snapshots
+- **UI renderer seam** (React): render a custom ThinkingModeCard
+- **UI composer seam** (React): add a thinking‑mode switch control
+- **Request seam** (Go/React): send “current thinking mode” in the request payload
 
 ## Where to Look (Annotated Map)
 
@@ -172,9 +155,9 @@ Timeline store + UI renderers
 - `pinocchio/pkg/webchat/engine_from_req.go`
   - `ChatRequestBody` includes `Overrides map[string]any`
 - `pinocchio/pkg/webchat/sem_translator.go`
-  - SEM bridging for `thinking.mode.*`
+  - Existing SEM bridging patterns (you will add your own branch)
 - `pinocchio/pkg/webchat/timeline_projector.go`
-  - Snapshot mapping for `thinking_mode`
+  - Existing snapshot mapping patterns (you will add your own branch)
 
 ### Backend: Middleware/Event infrastructure
 
@@ -182,10 +165,7 @@ Timeline store + UI renderers
   - The middleware type you must implement
 - `geppetto/pkg/events/context.go`
   - `events.PublishEventToContext` for SEM dispatch
-- `pinocchio/pkg/inference/events/typed_thinking_mode.go`
-  - Typed thinking mode events you will emit
-- Example middleware patterns:
-  - `pinocchio/pkg/middlewares/agentmode/middleware.go`
+- **You will add new event types** in `web-agent-example` (not in Pinocchio)
 
 ### Frontend: Reusable UI package
 
@@ -194,7 +174,7 @@ Timeline store + UI renderers
 - `pinocchio/cmd/web-chat/web/src/webchat/types.ts`
   - `ChatWidgetProps`, `ChatWidgetComponents`, `ChatWidgetRenderers`
 - `pinocchio/cmd/web-chat/web/src/webchat/cards.tsx`
-  - Base cards (including `ThinkingModeCard`)
+  - Base cards (you will write your own thinking mode card instead)
 - `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
   - Event → entity mapping (SEM → UI)
 - `pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts`
@@ -203,15 +183,12 @@ Timeline store + UI renderers
 ### Reference Docs (read these first)
 
 - `geppetto/ttmp/2026/02/02/PI-006-REUSABLE-WEBCHAT--reusable-webchat-modular-themable/design-doc/01-reusable-webchat-modular-themable-architecture-plan.md`
-  - Explains the reusable `webchat/` package structure, CSS tokens, and slots
 - `geppetto/ttmp/2026/01/25/GP-015-WEBCHAT-PACKAGE--webchat-packaging-reusable-npm-package/analysis/01-webchat-packaging-into-a-reusable-npm-package.md`
-  - Deep packaging analysis and the intended public API shape
 - `geppetto/ttmp/2026/02/02/PI-007-WEBCHAT-BACKEND-REFACTOR--webchat-backend-refactor/analysis/03-textbook-the-new-webchat-router.md`
-  - Deep understanding of the router and request flow
 
 ## Build Plan for `web-agent-example`
 
-Below is a minimal‑but‑complete plan for the new agent. It is written as if you will implement it from scratch in the `web-agent-example` repo.
+Below is a minimal‑but‑complete plan for the new agent, with explicit guidance for **custom events** and a **custom ThinkingModeCard**.
 
 ### Phase 1 — Boot the reusable backend
 
@@ -274,22 +251,44 @@ You can build these assets using a small `web/` frontend project that imports th
 > 
 > It only serves files out of the embedded `static` filesystem.
 
-#### 1.3 Wire configuration layers
+### Phase 2 — Custom thinking mode events + middleware (backend)
 
-Use the same parameter layer approach as `pinocchio/cmd/web-chat/main.go`:
+**Goal:** emit **your own** thinking‑mode event types (not the built‑in ones), then translate those into SEM frames and timeline snapshots.
 
-- `addr`
-- `timeline-dsn` / `timeline-db`
-- `evict-idle-seconds`
-- etc.
+#### 2.1 Define your custom events
 
-The goal is to keep compatibility with the existing router config interface, even if the `web-agent-example` binary only exposes a subset.
+Create a new package in `web-agent-example` for custom events, for example:
 
-### Phase 2 — Thinking mode middleware (backend)
+```
+web-agent-example/pkg/events/thinkingmode
+```
 
-**Goal:** emit thinking‑mode events around inference so the UI sees “thinking mode” states.
+Define your own event types and event factory registration. Example (pseudo‑code):
 
-#### 2.1 Choose the middleware insertion point
+```go
+// pkg/events/thinkingmode/events.go
+package thinkingmode
+
+type ThinkingModePayload struct {
+  Mode string
+  Phase string
+  Reason string
+  Extra map[string]any
+}
+
+type ThinkingModeStarted struct { ... }
+// register factory: events.RegisterEventFactory("webagent.thinking.started", ...)
+```
+
+Use a unique event namespace to avoid collisions:
+
+- `webagent.thinking.started`
+- `webagent.thinking.update`
+- `webagent.thinking.completed`
+
+> FUNDAMENTAL: Your custom event types are the stable contract for this agent.
+
+#### 2.2 Implement the middleware
 
 A geppetto middleware wraps the inference handler:
 
@@ -297,155 +296,126 @@ A geppetto middleware wraps the inference handler:
 type Middleware func(HandlerFunc) HandlerFunc
 ```
 
-A thinking‑mode middleware can:
-
-1. Emit `EventThinkingModeStarted` before calling the inner handler
-2. Emit `EventThinkingModeUpdate` mid‑way (optional)
-3. Emit `EventThinkingModeCompleted` on success or failure
-
-#### 2.2 Use existing typed events
-
-Use the typed events from:
-
-- `pinocchio/pkg/inference/events/typed_thinking_mode.go`
-
-Example pseudo‑code:
+Implement your own middleware that emits your custom events:
 
 ```go
 func ThinkingModeMiddleware() middleware.Middleware {
   return func(next middleware.HandlerFunc) middleware.HandlerFunc {
     return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-      meta := events.NewEventMetadataFromTurn(t) // or build from t.ID + timestamps
+      meta := events.NewEventMetadataFromTurn(t)
 
-      events.PublishEventToContext(ctx, events.NewThinkingModeStarted(meta, t.ID, &events.ThinkingModePayload{
-        Mode: "deliberate",
-        Phase: "planning",
-        Reasoning: "Starting analysis...",
-      }))
-
+      events.PublishEventToContext(ctx, thinkingmode.NewStarted(meta, t.ID, &thinkingmode.Payload{...}))
       out, err := next(ctx, t)
-
       if err != nil {
-        events.PublishEventToContext(ctx, events.NewThinkingModeCompleted(meta, t.ID, nil, false, err.Error()))
+        events.PublishEventToContext(ctx, thinkingmode.NewCompleted(meta, t.ID, nil, false, err.Error()))
         return out, err
       }
-
-      events.PublishEventToContext(ctx, events.NewThinkingModeCompleted(meta, t.ID, nil, true, ""))
+      events.PublishEventToContext(ctx, thinkingmode.NewCompleted(meta, t.ID, nil, true, ""))
       return out, nil
     }
   }
 }
 ```
 
-> FUNDAMENTAL: **Events are the contract.** Once you emit `thinking.mode.*`, everything downstream already knows how to display it.
+#### 2.3 Translate your custom events into SEM
 
-#### 2.3 Support “mode switching”
+You need a SEM translator hook similar to `pinocchio/pkg/webchat/sem_translator.go`. There are two options:
 
-The UI should be able to set a user‑selected thinking mode. There are two clean options:
+1. **Add a new translation branch** in your own code that registers with the SEM registry.
+2. **Wrap the existing translator** and extend it before you build the router.
 
-1. **Overrides in the chat request body**
-   - The `ChatRequestBody` already includes `Overrides map[string]any`.
-   - You can pass `overrides.thinking_mode = "fast"` from the UI.
-2. **Separate HTTP endpoint**
-   - Register your own route: `router.HandleFunc("/api/chat/thinking-mode", ...)`.
-   - Store it in conversation state or a per‑session config.
+The minimum behavior: for each custom event, emit a SEM frame whose `type` is something like:
 
-If you use overrides, the thinking middleware can read them by attaching overrides to the `turns.Turn` metadata or by extending `EngineConfig` to store them.
+- `webagent.thinking.started`
+- `webagent.thinking.update`
+- `webagent.thinking.completed`
 
-Pseudocode for override extraction:
+This allows the frontend `sem/registry.ts` to map these events to a timeline entity.
 
-```go
-// when building EngineConfig:
-if mode, ok := overrides["thinking_mode"].(string); ok {
-  cfg.Metadata["thinking_mode"] = mode
+#### 2.4 Project timeline snapshots
+
+In the timeline projector, add a case that consumes your custom SEM event types and writes a timeline entity of kind `webagent_thinking_mode` (or keep `thinking_mode` if you want to reuse the slot name).
+
+Example intent:
+
+```
+case "webagent.thinking.started":
+  upsert kind="webagent_thinking_mode" with status="started"
+```
+
+> FUNDAMENTAL: The timeline entity **kind** is how the UI decides what card to render.
+
+### Phase 3 — Custom ThinkingModeCard + switch UI (frontend)
+
+**Goal:** render a custom card and add a thinking‑mode switch to the composer.
+
+#### 3.1 Build a custom ThinkingModeCard
+
+Create your own card in the `web-agent-example` frontend, not in the Pinocchio shared package:
+
+```tsx
+export function WebAgentThinkingModeCard({ e }: { e: RenderEntity }) {
+  return (
+    <div className="webagent-thinking-card">
+      <div className="header">Mode: {String(e.props?.mode ?? '')}</div>
+      <div className="phase">Phase: {String(e.props?.phase ?? '')}</div>
+      <div className="reason">{String(e.props?.reasoning ?? '')}</div>
+    </div>
+  );
 }
 ```
 
-Then in middleware:
+Then register it via the `renderers` prop:
 
-```go
-mode := t.Metadata["thinking_mode"]
-```
-
-### Phase 3 — Custom thinking mode widget + switch (frontend)
-
-**Goal:** present a UI control to switch thinking modes and render the timeline entity with your own visualization.
-
-#### 3.1 Use the reusable ChatWidget package
-
-Import from the package in the frontend:
-
-```ts
-import { ChatWidget, type ChatWidgetRenderers } from '@org/webchat-react'
-```
-
-In this workspace the module lives at:
-
-- `pinocchio/cmd/web-chat/web/src/webchat`
-
-So your frontend can use a local path alias or a workspace link (until the package is published).
-
-#### 3.2 Override the renderer for thinking mode
-
-The `ChatWidget` accepts a `renderers` map keyed by entity kind:
-
-```ts
+```tsx
 const renderers: ChatWidgetRenderers = {
-  thinking_mode: ThinkingModeSwitchCard,
+  webagent_thinking_mode: WebAgentThinkingModeCard,
 };
 
 <ChatWidget renderers={renderers} />
 ```
 
-Your `ThinkingModeSwitchCard` can be a brand‑new component, or a composition around the default `ThinkingModeCard` from `webchat/cards.tsx`.
+#### 3.2 Add a thinking‑mode switch to the composer
 
-#### 3.3 Add a thinking mode switch in the Composer
+Override the Composer slot so you can add your control:
 
-Override the Composer slot so you can add a dropdown or toggle:
-
-```ts
+```tsx
 const ThinkingModeComposer = (props: ComposerSlotProps) => {
   const [mode, setMode] = useState('fast');
 
   return (
     <div>
-      <select value={mode} onChange={(e) => setMode(e.target.value)}>
-        <option value="fast">Fast</option>
-        <option value="deliberate">Deliberate</option>
-      </select>
+      <label>
+        Thinking Mode
+        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <option value="fast">Fast</option>
+          <option value="deliberate">Deliberate</option>
+        </select>
+      </label>
       <DefaultComposer {...props} />
     </div>
   );
 };
-
-<ChatWidget components={{ Composer: ThinkingModeComposer }} />
 ```
 
-#### 3.4 Wire the selected mode into the request
+#### 3.3 Serialize the selected mode in the request
 
-You need to ensure the selected mode is included in the POST payload.
+Your custom composer must write the selected mode into the POST payload. You can do that in two ways:
 
-Two options:
+1. **Extend ChatWidget** (preferred): add a `buildOverrides` callback prop and use it to build `overrides`.
+2. **Wrap ChatWidget**: clone ChatWidget into your app and modify the send logic.
 
-1. **Extend ChatWidget** (preferred)
-   - Add a prop to `ChatWidgetProps` like `buildOverrides?: () => Record<string, any>`.
-   - Use it when building the POST body:
+Payload example:
 
 ```ts
 const payload = {
   conv_id: app.convId || convIdFromLocation(),
   prompt: text,
-  overrides: buildOverrides?.(),
+  overrides: { thinking_mode: mode },
 };
 ```
 
-2. **Wrap ChatWidget**
-   - Fork ChatWidget into your app and keep the same interface.
-   - This is more work but avoids changing the reusable package.
-
-> FUNDAMENTAL: A UI switch is useless unless you serialize its state.
-> 
-> The contract boundary for that state is the **chat request payload**.
+> FUNDAMENTAL: The UI switch is only real if it gets serialized into the request.
 
 ### Phase 4 — Packaging the UI in `web-agent-example`
 
@@ -478,17 +448,18 @@ Then copy the output to `static/dist` at repo root. The Go binary will embed it 
 
 ### Backend checklist
 
-- [ ] Add a `ThinkingModeMiddleware` in `web-agent-example` (new package)
-- [ ] Register it with `Router.RegisterMiddleware("thinking-mode", ...)`
-- [ ] Decide how the user‑selected mode is stored and passed (overrides vs endpoint)
-- [ ] Emit `EventThinkingModeStarted/Completed` around inference
-- [ ] Verify that `thinking.mode.*` frames appear over the websocket
+- [ ] Create **custom thinking mode event types** in `web-agent-example/pkg/events/...`
+- [ ] Register event factories with unique type names (`webagent.thinking.*`)
+- [ ] Implement **custom thinking mode middleware** that emits these events
+- [ ] Extend SEM translation to handle your new event types
+- [ ] Extend timeline projection to map your event types to a custom entity kind
+- [ ] Verify SEM frames arrive over websocket for your custom events
 
 ### Frontend checklist
 
 - [ ] Build a small React app that imports `ChatWidget`
-- [ ] Override the `thinking_mode` renderer with a custom card
-- [ ] Override the Composer to add a dropdown/toggle
+- [ ] Create a **custom ThinkingModeCard** and register it under your custom entity kind
+- [ ] Override Composer to add a thinking‑mode switch
 - [ ] Ensure selected mode is serialized in the POST request
 - [ ] Build into `static/dist` for embedding
 
@@ -501,42 +472,42 @@ func handleUserMessage(prompt string, mode string) {
   // Backend: BuildConfig sees overrides.thinking_mode
   cfg.Metadata["thinking_mode"] = mode
 
-  // Middleware reads cfg.Metadata + emits SEM events
-  emit thinking.mode.started (mode, phase)
+  // Middleware emits custom events
+  emit webagent.thinking.started
   run inference
-  emit thinking.mode.completed (success)
+  emit webagent.thinking.completed
 
-  // Frontend receives timeline entity
-  kind = thinking_mode → render custom card
+  // Timeline projects to kind: webagent_thinking_mode
+  // UI renders WebAgentThinkingModeCard
 }
 ```
 
 ## Exercises and Quizzes
 
-### Exercise 1 — Event tracing
+### Exercise 1 — Event definition
 
-Find the line in `pinocchio/pkg/webchat/sem_translator.go` where a `thinking.mode.started` SEM frame is created. Write down the struct type being serialized and list its fields.
+Define a new event type `webagent.thinking.started` with a payload that includes `mode`, `phase`, and `reason`. Register the factory and write a unit test that serializes and re‑hydrates it.
 
 ### Exercise 2 — Timeline mapping
 
-In `pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts`, identify how `thinking_mode` is mapped to entity props. What fields are used to compute success/error?
+Add a new timeline mapping branch that turns `webagent.thinking.*` SEM frames into `webagent_thinking_mode` entities. Confirm that a `status` field is set correctly.
 
 ### Exercise 3 — Custom renderer
 
-Write a new React component `MyThinkingModeCard` that renders `mode`, `phase`, and `status` in a compact banner. Then wire it into `ChatWidget renderers` in a minimal `App.tsx`.
+Write `WebAgentThinkingModeCard` and register it in `ChatWidget renderers`. Confirm the card appears when you fake a timeline entity in Storybook.
 
 ### Quiz (short answers)
 
-1. What function builds the webchat router in the backend?
-2. Which type represents the HTTP request body for chat messages?
-3. Where does the UI map SEM events into timeline entities?
-4. What is the main file that embeds the web UI static assets?
+1. Where will you register the custom thinking mode event factories?
+2. Which file handles the POST request payload in the backend?
+3. What determines the renderer used for a timeline entity in the UI?
+4. Why do you need a custom entity kind if you want a custom card?
 
 ## Appendix: Why this architecture is stable
 
-- **Events are typed**: They don’t leak UI concerns into inference logic.
+- **Events are typed**: You can create custom event types without touching the engine.
 - **Timeline projection is pure**: events → snapshots → stable UI behavior.
-- **ChatWidget is composable**: you can override small pieces without forking the entire UI.
+- **ChatWidget is composable**: you can override renderers and slots without forking the UI.
 - **Static assets are embedded**: no runtime asset server needed for the Go binary.
 
-If you follow this guide, the new `web-agent-example` can focus on *new behavior* (thinking modes) rather than re‑creating existing infrastructure.
+If you follow this guide, the new `web-agent-example` can focus on *new behavior* (custom thinking modes + UI) rather than re‑creating existing infrastructure.

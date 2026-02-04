@@ -216,3 +216,69 @@ The key outcome is a verified upload of the analysis guide to `/ai/2026/02/04/PI
 ### Technical details
 
 - Upload target: `/ai/2026/02/04/PI-009-WEB-AGENT-EXAMPLE/01-web-agent-example-analysis-and-build-guide.pdf`.
+
+## Step 4: Update Analysis for Custom Thinking Mode Events and Card
+
+I revised the PI‑009 analysis guide to explicitly require a custom thinking‑mode event set and a custom ThinkingModeCard, rather than reusing the existing Pinocchio thinking‑mode events or card. This step tightens the specification to match the desired ownership boundaries and ensures the analysis describes a fully bespoke middleware + UI path.
+
+The key outcome is that the analysis document now lays out a custom event namespace, custom SEM mapping, and custom UI renderer path so that the new web agent is clearly distinct from the default webchat behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "- I want my own custom ThinkingModeCard 
+- I want my own custom thinking mode middleware and events
+
+
+Update the document with these things in mind."
+
+**Assistant interpretation:** Modify the analysis guide to require a custom thinking‑mode card and a custom middleware/event pipeline, rather than the existing built‑in thinking‑mode implementation.
+
+**Inferred user intent:** You want the new agent to own the thinking‑mode concept end‑to‑end and avoid coupling to built‑in webchat defaults.
+
+**Commit (code):** N/A
+
+### What I did
+
+- Updated the PI‑009 analysis guide to:
+  - Require custom event types (new namespace) for thinking mode.
+  - Require a custom SEM translation and timeline projection branch.
+  - Require a custom ThinkingModeCard renderer and composer switch.
+  - Clarify when and why to use a custom entity kind.
+
+### Why
+
+- The user explicitly wants the web agent to own its thinking‑mode semantics and UI behavior.
+
+### What worked
+
+- The document structure already separated backend and frontend seams, so customizations were easy to integrate.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The existing architecture makes it straightforward to replace the thinking‑mode pipeline without changing the core webchat router.
+
+### What was tricky to build
+
+- Ensuring the document still teaches the reuse architecture while making it clear the thinking‑mode pieces are now custom.
+
+### What warrants a second pair of eyes
+
+- Confirm that the preferred custom event namespace and entity kind naming align with team conventions.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review the updated custom‑event sections in `analysis/01-web-agent-example-analysis-and-build-guide.md`.
+- Verify the document now treats the default `ThinkingModeCard` and default events as reference only.
+
+### Technical details
+
+- Custom event names suggested: `webagent.thinking.*`.
+- Custom entity kind suggested: `webagent_thinking_mode`.
