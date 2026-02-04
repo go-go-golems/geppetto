@@ -58,3 +58,12 @@ Step 5: implement timeline command for CLI harness (commit 38a269b)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/timeline.go — Timeline snapshot fetch + summary.
 
+
+## 2026-02-04
+
+Step 6: implement run command for CLI harness (commit 5b115e0)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/run.go — Combined ws/chat/timeline flow.
+

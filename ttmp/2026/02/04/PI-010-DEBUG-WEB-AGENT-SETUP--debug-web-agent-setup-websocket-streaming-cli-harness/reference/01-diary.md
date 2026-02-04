@@ -20,6 +20,8 @@ RelatedFiles:
       Note: Shared helpers for CLI
     - Path: web-agent-example/cmd/web-agent-debug/main.go
       Note: Initial CLI skeleton (commit 36d3bfe)
+    - Path: web-agent-example/cmd/web-agent-debug/run.go
+      Note: Combined ws/chat/timeline smoke command (commit 5b115e0)
     - Path: web-agent-example/cmd/web-agent-debug/timeline.go
       Note: CLI timeline summary (commit 38a269b)
     - Path: web-agent-example/cmd/web-agent-debug/ws.go
@@ -30,6 +32,7 @@ LastUpdated: 2026-02-04T18:27:40.015753006-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -343,3 +346,64 @@ The command can also emit raw JSON for deeper inspection, but defaults to a read
 ### Technical details
 
 - Summary output lists entity counts by `kind` (sorted alphabetically).
+
+## Step 6: Implement `run` Command (ws + chat + timeline)
+
+I added a combined `run` command that connects to the websocket, posts a chat prompt, and then fetches a timeline snapshot after a short delay. This provides a single-entry smoke test that exercises the entire chain in one shot.
+
+The implementation reuses the existing chat, ws, and timeline helpers to avoid code drift and keep the harness consistent.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Combine the CLI flows into a single smoke-test command.
+
+**Inferred user intent:** Provide a one-command sanity check for websocket streaming + persistence.
+
+**Commit (code):** 5b115e0 — "web-agent-debug: add run command"
+
+### What I did
+
+- Added `cmd/web-agent-debug/run.go` with a `run` command that:
+  - Opens `/ws` and starts a read loop.
+  - Posts `/chat` with the provided prompt.
+  - Waits briefly, then fetches `/timeline`.
+- Refactored chat/timeline helpers for reuse in `run`.
+- Ran `go test ./cmd/web-agent-debug -count=1`.
+
+### Why
+
+- A single smoke-test command reduces setup friction and makes regressions easier to spot.
+
+### What worked
+
+- The command now orchestrates all three endpoints with shared config and consistent output.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The CLI flow is easier to maintain when `/chat` and `/timeline` share helper functions.
+
+### What was tricky to build
+
+- Coordinating WS reads with HTTP calls without blocking the overall timeout.
+
+### What warrants a second pair of eyes
+
+- Review the concurrency/timeout handling to ensure we don’t leak goroutines in error paths.
+
+### What should be done in the future
+
+- Add a `--no-ws` or `--no-timeline` switch for targeted runs if needed.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-debug/run.go` and the helper refactors in `chat.go` and `timeline.go`.
+
+### Technical details
+
+- Default timeline delay: 2s (`--timeline-delay`).

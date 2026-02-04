@@ -9,5 +9,5 @@
 - [x] Implement CLI chat command (POST /chat with overrides, print response)
 - [x] Implement CLI ws command (connect, ping, frame decoding, filters)
 - [x] Implement CLI timeline command (GET /timeline summary)
-- [ ] Implement CLI run/smoke command (ws + chat + timeline)
+- [x] Implement CLI run/smoke command (ws + chat + timeline)
 - [ ] Update docs + usage notes in ticket; add diary steps and checkoff
