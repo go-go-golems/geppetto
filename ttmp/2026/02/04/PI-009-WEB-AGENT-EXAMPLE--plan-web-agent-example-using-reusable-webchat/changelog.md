@@ -116,3 +116,12 @@ Step 11: Validated runtime flow via tmux + Playwright; fixed static embed path (
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/package.json — Build output path update
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/vite.config.ts — Build output path update
 
+
+## 2026-02-04
+
+Documented /chat 404 investigation and proxy validation in diary.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/reference/01-diary.md — Added Step 12 with proxy checks and curl validation.
+

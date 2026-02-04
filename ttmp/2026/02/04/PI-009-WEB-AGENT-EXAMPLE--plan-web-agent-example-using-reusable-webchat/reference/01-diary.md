@@ -720,3 +720,83 @@ The key outcome is verified end‑to‑end behavior: custom thinking‑mode even
 
 - Playwright conv_id: `30425eeb-a827-4653-b5bb-f24bd45d96f5`.
 - Timeline DB: `/tmp/web-agent-example-timeline.db`.
+
+## Step 12: Investigate /chat 404 From Vite Dev Server
+
+User reported a `404` from `POST http://localhost:5174/chat`. I verified the dev server and backend were running, inspected the Vite proxy config, and confirmed the proxy forwards to the backend successfully.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+
+```
+await fetch("http://localhost:5174/chat", {
+    "credentials": "include",
+    "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0",
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Content-Type": "application/json",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+        "Priority": "u=0"
+    },
+    "referrer": "http://localhost:5174/?conv_id=4212f97e-ca69-45ac-9d90-290cdb483fde",
+    "body": "{\"conv_id\":\"4212f97e-ca69-45ac-9d90-290cdb483fde\",\"prompt\":\"hello\",\"overrides\":{\"middlewares\":[{\"name\":\"webagent-thinking-mode\",\"config\":{\"mode\":\"fast\"}}]}}",
+    "method": "POST",
+    "mode": "cors"
+});
+```
+
+**Assistant interpretation:** Diagnose why `/chat` on port 5174 returned 404.
+
+**Inferred user intent:** Confirm that the dev server proxy is correctly forwarding to the backend and identify any misconfiguration.
+
+### What I did
+
+- Verified the Vite dev server is running on 5174 and that it is the `web-agent-example/web` instance:
+  - `lsof -nP -iTCP:5174 -sTCP:LISTEN`
+  - `ps -p <pid> -o args=`
+- Verified the backend is running on 8080:
+  - `lsof -nP -iTCP:8080 -sTCP:LISTEN`
+  - `ps -p <pid> -o args=`
+- Confirmed the Vite proxy config contains `/chat`:
+  - `web-agent-example/web/vite.config.ts` includes a `/chat` proxy to `http://localhost:8080`.
+- Probed the backend directly:
+  - `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/chat` → `405` (expected for GET).
+- Probed the proxy path:
+  - `curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:5174/chat -H 'Content-Type: application/json' -d '{"conv_id":"4212f97e-ca69-45ac-9d90-290cdb483fde","prompt":"hello","overrides":{"middlewares":[{"name":"webagent-thinking-mode","config":{"mode":"fast"}}]}}'` → `200`.
+
+### Why
+
+- We need to determine whether `/chat` is missing in the backend, not being proxied, or mis‑targeted.
+
+### What worked
+
+- The dev server proxy is working locally, and `/chat` successfully forwards to the backend.
+
+### What didn't work
+
+- The user received a 404 from `http://localhost:5174/chat`, which does not reproduce in the current environment.
+
+### What I learned
+
+- If `/chat` returns 404, the most likely causes are:
+  - The dev server running is not the `web-agent-example/web` server (wrong cwd or different Vite instance).
+  - `VITE_BACKEND_ORIGIN` is pointing to a host that is not running the webchat backend.
+  - The backend is mounted under a non‑default `--root`, requiring `/chat/chat` instead of `/chat`.
+
+### What should be done in the future
+
+- Provide a quick “health check” command sequence in the README for verifying proxy behavior.
+
+### Code review instructions
+
+- Inspect `web-agent-example/web/vite.config.ts` for the `/chat` proxy target.
+- Confirm the backend is launched without a custom `--root` flag.
+
+### Technical details
+
+- Proxy verified with direct curl to `http://localhost:5174/chat` returning `200`.
+- Backend `GET /chat` returns `405` (as expected; it requires POST).
