@@ -523,3 +523,58 @@ This closes a visibility gap where the run command appeared to work but failed t
 ### Technical details
 
 - Protojson emits `convId`, `serverTimeMs`, and stringified 64‑bit values.
+
+## Step 9: Restart Server With Debug Logging
+
+I restarted the web-agent server in tmux with `--log-level debug` so websocket and chat tracing logs are visible during CLI runs. This ensures we can correlate CLI output with server-side request resolution.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Ensure the server runs with debug logs enabled.
+
+**Inferred user intent:** Make streaming failures observable in server logs.
+
+**Commit (code):** N/A
+
+### What I did
+
+- Sent Ctrl+C to the `webagent` tmux server window and relaunched:
+  - `go run ./cmd/web-agent-example serve --addr :8080 --timeline-db /tmp/web-agent-example-timeline.db --log-level debug`
+
+### Why
+
+- Debug logs give more visibility into `/chat` and `/ws` request handling.
+
+### What worked
+
+- The server relaunched with debug logging enabled.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Running in tmux makes it easy to keep the debug server alive while iterating on CLI tools.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm the log volume is acceptable and does not drown other signals.
+
+### What should be done in the future
+
+- Add a Makefile target that launches the server with debug logs.
+
+### Code review instructions
+
+- N/A
+
+### Technical details
+
+- tmux session: `webagent`, window `go-`.

@@ -85,3 +85,12 @@ Step 7: update CLI usage notes in analysis doc (commit f2f44c0)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-010-DEBUG-WEB-AGENT-SETUP--debug-web-agent-setup-websocket-streaming-cli-harness/analysis/01-cli-harness-for-chat-websocket-streaming.md — Added implementation status and quickstart.
 
+
+## 2026-02-04
+
+Step 9: restarted tmux server with --log-level debug
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-010-DEBUG-WEB-AGENT-SETUP--debug-web-agent-setup-websocket-streaming-cli-harness/reference/01-diary.md — Recorded tmux restart for debug logs.
+
