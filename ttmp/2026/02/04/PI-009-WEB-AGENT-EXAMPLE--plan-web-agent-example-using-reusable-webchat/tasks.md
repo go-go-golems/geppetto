@@ -20,10 +20,10 @@
 - [x] Task 4.2: Add timeline projection branch to map custom events into a custom entity kind.
 - [x] Task 4.3: Validate durable timeline store writing for custom entity kind.
 
-- [ ] Task 5: Frontend custom UI (web-agent-example web app)
-- [ ] Task 5.1: Create custom ThinkingModeCard and register renderer for custom entity kind.
-- [ ] Task 5.2: Add thinking-mode switch in Composer (custom slot override).
-- [ ] Task 5.3: Serialize selected mode into POST overrides (extend or wrap ChatWidget send).
+- [x] Task 5: Frontend custom UI (web-agent-example web app)
+- [x] Task 5.1: Create custom ThinkingModeCard and register renderer for custom entity kind.
+- [x] Task 5.2: Add thinking-mode switch in Composer (custom slot override).
+- [x] Task 5.3: Serialize selected mode into POST overrides (extend or wrap ChatWidget send).
 
 - [ ] Task 6: Build + embed frontend assets
 - [ ] Task 6.1: Build web app to static/dist.

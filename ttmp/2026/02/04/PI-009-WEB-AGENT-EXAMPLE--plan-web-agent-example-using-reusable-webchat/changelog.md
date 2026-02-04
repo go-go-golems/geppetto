@@ -82,3 +82,17 @@ Step 8: Added custom SEM handlers and timeline projection registry for external 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/sem.go — Custom SEM mapping
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/timeline.go — Custom timeline mapping
 
+
+## 2026-02-04
+
+Step 9: Built custom web frontend and added buildOverrides support in ChatWidget (commits 42d06fa, 6e999e7).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx — Support buildOverrides
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/webchat/types.ts — ChatWidget prop type
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/App.tsx — Custom ChatWidget wiring
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/components/ThinkingModeComposer.tsx — Thinking mode switch UI
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/components/WebAgentThinkingModeCard.tsx — Custom ThinkingModeCard
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/sem/registerWebAgentSem.ts — Custom SEM mapping
+

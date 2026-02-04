@@ -529,3 +529,70 @@ The key outcome is a complete backend path from custom events → custom SEM fra
 
 - Custom SEM event types: `webagent.thinking.started|update|completed`.
 - Custom timeline entity kind: `webagent_thinking_mode`.
+
+## Step 9: Build Custom Frontend (Thinking Mode Card + Switch)
+
+I created a new React + TypeScript frontend in `web-agent-example/web` that reuses the Pinocchio webchat UI package, adds a custom ThinkingModeCard renderer, and injects a thinking‑mode switch into the composer. I also extended the shared ChatWidget API in Pinocchio to accept a `buildOverrides` callback so the UI can send middleware overrides per message.
+
+The key outcome is a working UI surface for the external webchat, with a custom timeline entity renderer and a mechanism to pass the selected mode into the backend.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+
+**Assistant interpretation:** Implement the frontend tasks, including a custom card and a mode switch wired into the request payload.
+
+**Inferred user intent:** You want the external webchat UI to own the thinking‑mode UX and send per‑message mode choices.
+
+**Commit (code):** 42d06fa — "web-agent-example: add custom web frontend"
+
+### What I did
+
+- Created `web-agent-example/web` with Vite + React + TypeScript + Bun tooling.
+- Implemented `WebAgentThinkingModeCard` and registered it under `webagent_thinking_mode`.
+- Added a `ThinkingModeComposer` that includes a Bootstrap select for mode choice.
+- Registered custom SEM handlers in `web/src/sem/registerWebAgentSem.ts` to map `webagent.thinking.*` events to timeline entities.
+- Added `buildOverrides` support in `pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx` and types.
+- Ran `bun install` and `bun run typecheck` in `web-agent-example/web`.
+- Ran `npm run typecheck` in `pinocchio/cmd/web-chat/web`.
+
+### Why
+
+- The custom UI provides a dedicated thinking‑mode visualization and user control surface.
+- The ChatWidget override hook is necessary to pass per‑message middleware configuration.
+
+### What worked
+
+- Bun tooling installed cleanly and TypeScript checks passed.
+- The ChatWidget extension compiled and linted successfully in Pinocchio.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The webchat package can be consumed as a source alias (`@pwchat`) without repackaging, which accelerates external app prototyping.
+
+### What was tricky to build
+
+- Ensuring the custom overrides can be injected without forking the entire ChatWidget required a small API extension.
+
+### What warrants a second pair of eyes
+
+- Validate that `buildOverrides` is the right long‑term API shape for ChatWidget consumers.
+
+### What should be done in the future
+
+- Add Storybook or visual regression coverage for the custom card if this UI becomes a product surface.
+
+### Code review instructions
+
+- Start with `web-agent-example/web/src/App.tsx` and `web-agent-example/web/src/components/WebAgentThinkingModeCard.tsx`.
+- Review the ChatWidget change in `pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx` and `types.ts`.
+- Validate via `bun run typecheck` in `web-agent-example/web`.
+
+### Technical details
+
+- Custom overrides payload: `{ middlewares: [{ name: "webagent-thinking-mode", config: { mode } }] }`.
+- Custom timeline kind: `webagent_thinking_mode`.
