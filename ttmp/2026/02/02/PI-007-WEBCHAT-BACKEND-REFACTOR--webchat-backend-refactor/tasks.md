@@ -11,7 +11,7 @@
 - [x] Fix Router.Mount subpath handling with http.StripPrefix + base-path redirect; add tests for mounting under /api/webchat.
 - [x] Split UI serving from API: introduce API-only handler + optional UI handler; keep existing Router by composing both; update docs/tests.
 - [x] Extract ConversationManager to own get/create + add/remove connections; update router to use manager methods and centralize conversation lifecycle.
-- [ ] Move run/idempotency/queue logic out of router.go into conversation/queue helpers; add unit tests for queue drain and idempotency replay.
+- [x] Move run/idempotency/queue logic out of router.go into conversation/queue helpers; add unit tests for queue drain and idempotency replay.
 - [ ] Update StreamCoordinator to derive seq from Redis stream IDs when available (xid metadata) with fallback to local counter; add tests.
 - [ ] Add eviction loop for idle conversations (no conns, no running/queued work) with configurable idle timeout + interval; add tests.
 - [ ] Make ConnectionPool non-blocking with per-connection writer goroutines + backpressure strategy; add tests.

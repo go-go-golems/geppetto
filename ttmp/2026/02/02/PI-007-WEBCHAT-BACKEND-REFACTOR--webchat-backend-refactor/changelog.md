@@ -74,3 +74,13 @@ Step 3: Extract conversation lifecycle into ConvManager and update router delega
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go — ConvManager lifecycle
 
+
+## 2026-02-03
+
+Step 4: Move queue/idempotency logic into conversation helpers with unit tests (commit 51929ea).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/send_queue.go — Queue helper refactor
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/send_queue_test.go — Queue helper tests
+

@@ -21,10 +21,15 @@ RelatedFiles:
         Use StripPrefix when mounting webchat under a subpath (commit bf2c934)
         Split UI/API handlers and fs.FS usage (commit 94f8d20)
         Router delegates conversation lifecycle to manager (commit 2a29380)
+        Router delegates queue prep/drain (commit 51929ea)
     - Path: pinocchio/pkg/webchat/router_handlers_test.go
       Note: UI/API handler tests (commit 94f8d20)
     - Path: pinocchio/pkg/webchat/router_mount_test.go
       Note: Mount/redirect tests for subpath integration (commit bf2c934)
+    - Path: pinocchio/pkg/webchat/send_queue.go
+      Note: Queue/idempotency helpers (commit 51929ea)
+    - Path: pinocchio/pkg/webchat/send_queue_test.go
+      Note: Queue helper tests (commit 51929ea)
     - Path: pinocchio/pkg/webchat/server.go
       Note: NewServer accepts fs.FS (commit 94f8d20)
     - Path: pinocchio/pkg/webchat/types.go
@@ -35,6 +40,7 @@ LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -203,3 +209,54 @@ This centralizes state and keeps router handlers focused on HTTP/WS concerns, pr
 
 ### Technical details
 - `ConvManager` now owns conversation creation and stream wiring via injected hooks and uses `SetIdleTimeoutSeconds` / `SetTimelineStore` for configuration updates.
+
+## Step 4: Move Queue/Idempotency Logic into Conversation Helpers
+
+Shifted the chat queue and idempotency logic out of `router.go` into conversation-level helpers (`PrepareRun`, `ClaimNextQueued`), and added unit tests for idempotency replay, queueing, and drain behavior. The router now just orchestrates between preparation and `startRunForPrompt`.
+
+This isolates queue behavior into testable helpers and reduces handler complexity.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Implement the next refactor task by pulling queue/idempotency logic into conversation helpers and covering it with tests.
+
+**Inferred user intent:** Make queueing behavior reliable and easier to reason about while shrinking router responsibilities.
+
+**Commit (code):** 51929ea — "Move chat queue logic into conversation helpers"
+
+### What I did
+- Added `PrepareRun` and `ClaimNextQueued` helpers to `send_queue.go`.
+- Updated `/chat` handling and queue draining to call those helpers.
+- Added unit tests covering idempotent replay, queueing when busy, immediate start, and queue drain.
+- Ran `go test ./pinocchio/pkg/webchat -count=1`; pre-commit ran repo-wide tests, codegen, and lint.
+
+### Why
+- Encapsulating queue/idempotency logic reduces router surface area and makes queue behavior directly testable.
+
+### What worked
+- Tests verify queue behavior without requiring full HTTP/WS integration.
+- Pre-commit checks passed after the change.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Minimal helper APIs (`PrepareRun`, `ClaimNextQueued`) are sufficient to cover queueing and idempotency flows.
+
+### What was tricky to build
+- Preserving response semantics (queued vs running) while keeping router responses intact.
+
+### What warrants a second pair of eyes
+- Confirm `PrepareRun` preserves all previously returned fields for queued/running responses.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/send_queue.go`, `pinocchio/pkg/webchat/router.go`, and `pinocchio/pkg/webchat/send_queue_test.go`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- `PrepareRun` handles idempotency replay, queue enqueue, and running slot claims in one place.
