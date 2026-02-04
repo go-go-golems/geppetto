@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] Add tasks here
+- [x] Add tasks here
 
 - [x] Add debug logging in pinocchio webchat router for /chat + /ws flows (conv/profile, overrides, ws hello, pool send, idempotency)
 - [x] Implement CLI harness skeleton (new cmd), shared config + helpers

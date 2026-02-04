@@ -9,6 +9,16 @@ Owners: []
 RelatedFiles:
     - Path: pinocchio/pkg/webchat/router.go
       Note: /chat and /ws handlers referenced in CLI design
+    - Path: web-agent-example/cmd/web-agent-debug/chat.go
+      Note: CLI /chat implementation
+    - Path: web-agent-example/cmd/web-agent-debug/main.go
+      Note: CLI harness entrypoint
+    - Path: web-agent-example/cmd/web-agent-debug/run.go
+      Note: CLI smoke test command
+    - Path: web-agent-example/cmd/web-agent-debug/timeline.go
+      Note: CLI /timeline implementation
+    - Path: web-agent-example/cmd/web-agent-debug/ws.go
+      Note: CLI websocket implementation
     - Path: web-agent-example/pkg/thinkingmode/middleware.go
       Note: Custom middleware config referenced by CLI overrides
     - Path: web-agent-example/web/src/App.tsx
@@ -19,6 +29,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # CLI Harness for /chat + WebSocket Streaming
@@ -395,3 +406,45 @@ web-agent-debug chat --conv-id 4212f97e-ca69-45ac-9d90-290cdb483fde --prompt "he
 ## 14) Summary
 
 A CLI harness gives us an objective, scriptable way to validate `/chat` and `/ws` behavior. It will make “empty websocket” debugging reproducible, and it will help validate custom middlewares like thinking‑mode events without requiring the browser UI.
+
+---
+
+## 15) Implementation Status (2026-02-04)
+
+The CLI harness is now implemented in `web-agent-example/cmd/web-agent-debug` with the four subcommands described above. This section documents current usage so an intern can run it immediately.
+
+### Quickstart
+
+```bash
+# from repo root
+cd web-agent-example
+
+# send a prompt (auto-generates conv_id if omitted)
+go run ./cmd/web-agent-debug chat --prompt "hello" --thinking-mode fast
+
+# connect to websocket (replace conv_id)
+go run ./cmd/web-agent-debug ws --conv-id <conv_id>
+
+# fetch timeline summary (replace conv_id)
+go run ./cmd/web-agent-debug timeline --conv-id <conv_id>
+
+# one-shot smoke test (ws + chat + timeline)
+go run ./cmd/web-agent-debug run --prompt "hello" --thinking-mode fast
+```
+
+### Debug Server Logs
+
+When diagnosing streaming issues, run the server with debug logs:
+
+```bash
+go run ./cmd/web-agent-example serve \
+  --addr :8080 \
+  --timeline-db /tmp/web-agent-example-timeline.db \
+  --log-level debug
+```
+
+### Notes
+
+- The `ws` command defaults to sending a "ping" every 5 seconds.
+- Use `--filter-type webagent.thinking` to focus on custom events.
+- `run` will wait 2 seconds before fetching `/timeline` (override with `--timeline-delay`).

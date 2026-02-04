@@ -67,3 +67,12 @@ Step 6: implement run command for CLI harness (commit 5b115e0)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/run.go — Combined ws/chat/timeline flow.
 
+
+## 2026-02-04
+
+Step 8: fix timeline summary parsing + validate run output (commit b7f54b1)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/timeline.go — Use camelCase JSON tags and raw scalar parsing.
+

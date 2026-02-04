@@ -407,3 +407,119 @@ The implementation reuses the existing chat, ws, and timeline helpers to avoid c
 ### Technical details
 
 - Default timeline delay: 2s (`--timeline-delay`).
+
+## Step 7: Update CLI Documentation and Usage Notes
+
+I updated the analysis/design document to include current implementation status and concrete usage examples. This ensures anyone picking up the ticket can immediately run the CLI without reverse‑engineering flags or code paths.
+
+This step focuses on documentation hygiene and knowledge transfer, which is essential for debugging workflows across the team.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Update the ticket documentation with actual usage instructions.
+
+**Inferred user intent:** Make the new CLI easy to use and discoverable for anyone debugging the webchat pipeline.
+
+**Commit (code):** (pending)
+
+### What I did
+
+- Added an “Implementation Status” section to the analysis doc with quickstart commands.
+- Added explicit instructions for running the server with `--log-level debug`.
+- Related the analysis doc to the CLI source files.
+
+### Why
+
+- The CLI is only useful if the usage is easy to find and copy/paste‑ready.
+
+### What worked
+
+- The doc now includes concrete `go run` examples for all subcommands.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Clear usage notes reduce repeated questions about how to run the harness.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm the usage examples match the actual flags and defaults.
+
+### What should be done in the future
+
+- Add troubleshooting tips once we have real-world failure cases.
+
+### Code review instructions
+
+- Review the updated analysis doc for correctness and clarity.
+
+### Technical details
+
+- Documented command path: `web-agent-example/cmd/web-agent-debug`.
+
+## Step 8: Fix Timeline Summary Parsing + Run Smoke Test
+
+I fixed the timeline summary parser to handle protojson field names and 64‑bit numeric encodings, then re-ran the `run` command to confirm we get a valid timeline summary. The smoke test now shows the correct `conv_id`, `server_time_ms`, and entity counts.
+
+This closes a visibility gap where the run command appeared to work but failed to print useful timeline output.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Keep the CLI harness usable and accurate by fixing its output, then validate behavior.
+
+**Inferred user intent:** Ensure the CLI results are trustworthy for debugging websocket issues.
+
+**Commit (code):** b7f54b1 — "web-agent-debug: fix timeline summary parsing"
+
+### What I did
+
+- Adjusted timeline JSON tags to match protojson camelCase field names.
+- Parsed `version`/`serverTimeMs` as raw JSON to avoid 64‑bit string decoding errors.
+- Re-ran `go run ./cmd/web-agent-debug run --prompt "hello" --thinking-mode fast --filter-type webagent --timeout 6s` and confirmed summary output.
+
+### Why
+
+- The timeline summary was blank because protojson encodes 64‑bit fields as strings and uses camelCase names.
+
+### What worked
+
+- The `run` command now prints a valid timeline summary with entity counts.
+
+### What didn't work
+
+- Prior to this fix, summary output was missing due to schema mismatch.
+
+### What I learned
+
+- Protojson defaults (`UseProtoNames=false`) mean camelCase JSON fields, not snake_case.
+
+### What was tricky to build
+
+- Handling mixed numeric encodings without losing precision or causing unmarshal errors.
+
+### What warrants a second pair of eyes
+
+- Confirm the summary output is sufficient for debugging and that the parsing fallback behavior is acceptable.
+
+### What should be done in the future
+
+- Add a `--json` flag to `run` for full timeline output if needed.
+
+### Code review instructions
+
+- Review `web-agent-example/cmd/web-agent-debug/timeline.go` for JSON tag and scalar parsing changes.
+
+### Technical details
+
+- Protojson emits `convId`, `serverTimeMs`, and stringified 64‑bit values.
