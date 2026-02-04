@@ -403,3 +403,64 @@ THen, start implementing the tasks one by one, testing, then committing, then up
 ### Technical details
 
 - Event types: `webagent.thinking.started`, `webagent.thinking.update`, `webagent.thinking.completed`.
+
+## Step 7: Implement and Wire the Custom Thinking-Mode Middleware
+
+I added the custom thinking‑mode middleware and wired it into a new `web-agent-example` server entrypoint built on the reusable Pinocchio webchat router. This step also introduced a minimal embedded static UI placeholder so the server can compile and serve assets while the real frontend is still under construction.
+
+The key outcome is a runnable server command that registers the custom middleware and a default profile that uses it, making the event pipeline operational end‑to‑end on the backend.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+
+**Assistant interpretation:** Continue implementing the task list in order, with tests, commits, and diary updates.
+
+**Inferred user intent:** Incrementally land backend functionality for the external webchat with clear checkpoints.
+
+**Commit (code):** bfd1ada — "web-agent-example: wire custom thinking mode middleware"
+
+### What I did
+
+- Added `web-agent-example/pkg/thinkingmode/middleware.go` with config parsing and event emission around inference.
+- Replaced `cmd/web-agent-example/main.go` with a Cobra + Glazed command that builds the webchat router, registers the middleware, and adds a default profile.
+- Added a minimal `static/index.html` so go:embed compiles before the real frontend build is wired.
+- Ran `go test ./pkg/thinkingmode`.
+
+### Why
+
+- The middleware must be registered with the router so the custom events flow through the SEM pipeline.
+- A basic server entrypoint is required before we can validate the UI and timeline behavior.
+
+### What worked
+
+- Middleware registration and profile wiring compiled and tested cleanly.
+
+### What didn't work
+
+- `go mod tidy` timed out while resolving dependencies (will retry after more code is in place).
+
+### What I learned
+
+- The existing Pinocchio webchat router can be reused directly as long as we provide a ParsedLayers instance and register our middleware.
+
+### What was tricky to build
+
+- Balancing a minimal server entrypoint with the Glazed + Cobra setup required for config layers.
+
+### What warrants a second pair of eyes
+
+- Confirm the chosen middleware name (`webagent-thinking-mode`) and profile defaults align with the intended UX.
+
+### What should be done in the future
+
+- Re-run `go mod tidy` once the backend wiring stabilizes.
+
+### Code review instructions
+
+- Start with `web-agent-example/cmd/web-agent-example/main.go` and `web-agent-example/pkg/thinkingmode/middleware.go`.
+- Validate via `go test ./pkg/thinkingmode`.
+
+### Technical details
+
+- Default profile uses `webagent-thinking-mode` with `thinkingmode.DefaultConfig()`.

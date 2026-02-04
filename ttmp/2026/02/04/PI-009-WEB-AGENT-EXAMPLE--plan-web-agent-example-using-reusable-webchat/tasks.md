@@ -11,9 +11,9 @@
 - [x] Task 2.1: Create new event types + payload structs with a unique namespace (e.g., webagent.thinking.*).
 - [x] Task 2.2: Register event factories and add basic serialization tests.
 
-- [ ] Task 3: Custom thinking-mode middleware (web-agent-example)
-- [ ] Task 3.1: Implement middleware to emit started/update/completed events around inference.
-- [ ] Task 3.2: Wire middleware into the router assembly in web-agent-example main.
+- [x] Task 3: Custom thinking-mode middleware (web-agent-example)
+- [x] Task 3.1: Implement middleware to emit started/update/completed events around inference.
+- [x] Task 3.2: Wire middleware into the router assembly in web-agent-example main.
 
 - [ ] Task 4: SEM translation + timeline projection for custom events (pinocchio/pkg/webchat or extension)
 - [ ] Task 4.1: Add SEM mapping for custom events into websocket frames.

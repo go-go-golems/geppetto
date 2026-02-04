@@ -59,3 +59,14 @@ Step 6: Added custom thinking-mode events + tests in web-agent-example (commit 1
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/events.go — Custom event types
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/events_test.go — Round-trip decode test
 
+
+## 2026-02-04
+
+Step 7: Added custom thinking-mode middleware and server wiring (commit bfd1ada).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-example/main.go — Server entrypoint with middleware registration
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/middleware.go — Middleware implementation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/static/index.html — Placeholder static asset for go:embed
+
