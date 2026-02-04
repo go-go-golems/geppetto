@@ -45,3 +45,23 @@ Step 1: Fix Router.Mount to strip prefixes and add base-path redirect for subpat
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — StripPrefix + redirect for mount
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router_mount_test.go — Mount tests
 
+
+## 2026-02-03
+
+Closed after seed-turn fix, prompt aliasing, and devtools disable.
+
+
+## 2026-02-03
+
+Reopened for continued work.
+
+
+## 2026-02-03
+
+Step 2: Split UI and API handlers, allow fs.FS static assets, and update docs/tests (commit 94f8d20).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — API/UI handler split
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router_handlers_test.go — Handler tests
+

@@ -10,16 +10,29 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: pinocchio/cmd/web-chat/README.md
+      Note: Note API/UI handlers (commit 94f8d20)
+    - Path: pinocchio/pkg/doc/topics/webchat-framework-guide.md
+      Note: Document handler split/mount pattern (commit 94f8d20)
     - Path: pinocchio/pkg/webchat/router.go
-      Note: Use StripPrefix when mounting webchat under a subpath (commit bf2c934)
+      Note: |-
+        Use StripPrefix when mounting webchat under a subpath (commit bf2c934)
+        Split UI/API handlers and fs.FS usage (commit 94f8d20)
+    - Path: pinocchio/pkg/webchat/router_handlers_test.go
+      Note: UI/API handler tests (commit 94f8d20)
     - Path: pinocchio/pkg/webchat/router_mount_test.go
       Note: Mount/redirect tests for subpath integration (commit bf2c934)
+    - Path: pinocchio/pkg/webchat/server.go
+      Note: NewServer accepts fs.FS (commit 94f8d20)
+    - Path: pinocchio/pkg/webchat/types.go
+      Note: Router staticFS now fs.FS (commit 94f8d20)
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -82,3 +95,56 @@ Then, work on the tasks one by one, working, keeping a frequent detailed diary, 
 
 ### Technical details
 - `Router.Mount` now strips prefixes and adds a redirect for the base path to avoid routing mismatches.
+
+## Step 2: Split UI and API Handlers
+
+Separated UI asset serving from API/websocket endpoints by introducing `APIHandler()` and `UIHandler()` on the router, while keeping the default `Router` composition intact. This makes it possible to mount UI and API on different paths or hosts without losing existing behavior.
+
+I also generalized the static filesystem type to `fs.FS` (instead of `embed.FS`) so tests can use `fstest.MapFS`, and updated docs to describe the new handler split and the improved mount pattern.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Implement the next refactor task by splitting UI and API concerns and documenting the new integration patterns.
+
+**Inferred user intent:** Make the backend easier to embed and reuse, with clear separation between UI assets and API endpoints.
+
+**Commit (code):** 94f8d20 — "Split webchat UI and API handlers"
+
+### What I did
+- Split `registerHTTPHandlers` into `registerUIHandlers` and `registerAPIHandlers`, with `APIHandler()` / `UIHandler()` accessors.
+- Switched the static FS type to `fs.FS` and used `fs.ReadFile` to allow non-embed test FS.
+- Added tests for UI index serving and API handler isolation.
+- Updated webchat docs to show the new mount pattern and handler split usage.
+- Ran `go test ./pinocchio/pkg/webchat -count=1`; pre-commit ran repo-wide tests, codegen, and lint.
+
+### Why
+- Making UI serving optional improves composability and lets hosts serve UI separately from API/WS endpoints.
+- Using `fs.FS` enables lightweight tests without forcing embed-only FS types.
+
+### What worked
+- Tests validate UI handler index serving and API handler non-responsiveness for `/`.
+- Pre-commit checks passed after the commit.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Switching to `fs.FS` is low-impact and makes handlers more testable without changing call sites.
+
+### What was tricky to build
+- Ensuring the new handlers preserve the existing default behavior while allowing API/UI separation without duplicating logic.
+
+### What warrants a second pair of eyes
+- Confirm that the `fs.FS` change doesn’t break any downstream callers relying on `embed.FS` specifics.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/router.go`, `pinocchio/pkg/webchat/types.go`, and `pinocchio/pkg/webchat/router_handlers_test.go`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- `APIHandler()` and `UIHandler()` wrap dedicated muxes, while `registerHTTPHandlers()` still composes both for default usage.
