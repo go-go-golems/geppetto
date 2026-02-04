@@ -25,6 +25,8 @@ RelatedFiles:
       Note: |-
         Document handler split/mount pattern (commit 94f8d20)
         Document seq/stream_id ordering (commit 1828999)
+    - Path: pinocchio/pkg/doc/topics/webchat-sem-and-ui.md
+      Note: Document seq-based versioning for streaming/hydration (commit 4964d10)
     - Path: pinocchio/pkg/doc/topics/webchat-user-guide.md
       Note: Eviction doc section (commit 9c8adce)
     - Path: pinocchio/pkg/webchat/connection_pool.go
@@ -60,6 +62,10 @@ RelatedFiles:
       Note: Derive seq from Redis stream IDs (commit 1828999)
     - Path: pinocchio/pkg/webchat/stream_coordinator_test.go
       Note: Stream ordering tests (commit 1828999)
+    - Path: pinocchio/pkg/webchat/timeline_projector.go
+      Note: Propagate event.seq through timeline projection (commit 4964d10)
+    - Path: pinocchio/pkg/webchat/timeline_store.go
+      Note: Require seq-based versions in timeline upserts (commit 4964d10)
     - Path: pinocchio/pkg/webchat/types.go
       Note: Router staticFS now fs.FS (commit 94f8d20)
 ExternalSources: []
@@ -68,6 +74,7 @@ LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -450,3 +457,57 @@ This removes head-of-line blocking from slow clients and keeps broadcasts fast.
 
 ### Technical details
 - `ConnectionPool` now enqueues frames to per-client channels and drops on full buffers to prevent stalls.
+
+## Step 8: Require Stream Sequence Versions for Timeline Storage
+
+Replaced timeline store auto-incrementing with explicit sequence numbers derived from SEM stream frames and removed any compatibility shims. Updated the projector to read `event.seq`, pushed the version into every upsert, and aligned docs to reflect seq-based hydration/merge behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "don't use backwards compatibility at all or v2 interfaces, just rip things out."
+
+**Assistant interpretation:** Remove compatibility layers and change the timeline storage interface directly to require explicit versions based on stream sequencing.
+
+**Inferred user intent:** Keep the refactor clean and decisive by dropping transitional APIs and relying on the new versioning semantics everywhere.
+
+**Commit (code):** 4964d10 — "Use stream seq versions for timeline store"
+
+### What I did
+- Updated `TimelineStore` to require an explicit version for `Upsert` and adjusted the in-memory/SQLite implementations accordingly.
+- Parsed `event.seq` in `TimelineProjector` and propagated it through all upserts, including planning aggregation.
+- Updated the router’s manual user-message upsert to stamp a seq-derived version.
+- Adjusted timeline store tests to assert explicit versioning and reject `version=0`.
+- Updated SEM + frontend integration docs to describe seq-based streaming/hydration merges and refreshed the StreamCoordinator reference.
+- Ran `go test ./pkg/webchat -count=1`.
+- Pre-commit ran `go test ./...`, `go generate ./...` (including Vite build), `go build ./...`, `golangci-lint run -v --max-same-issues=100`, and `go vet -vettool=/tmp/geppetto-lint ./...`.
+
+### Why
+- Timeline versions need to align with stream ordering, and the code should enforce that without any transitional V2 interface.
+
+### What worked
+- All updated tests passed and linters reported zero issues.
+- Docs now describe the new seq-based version semantics clearly.
+
+### What didn't work
+- `git commit -m "Use stream seq versions for timeline store"` timed out twice while pre-commit was running (`10s` and `20s` timeouts). Re-ran with a longer timeout to complete the commit.
+
+### What I learned
+- The stream cursor already provides enough ordering metadata; the timeline store can rely on it directly without extra interfaces.
+
+### What was tricky to build
+- Ensuring every timeline upsert path had access to a sequence (including planning aggregates and manual user-message inserts) while removing all auto-increment behavior.
+
+### What warrants a second pair of eyes
+- Confirm the chosen seq for manual user prompt upserts (time-based) is acceptable and won’t confuse ordering relative to stream-sourced events.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/timeline_store.go`, `pinocchio/pkg/webchat/timeline_store_sqlite.go`, and `pinocchio/pkg/webchat/timeline_projector.go`.
+- Review docs in `pinocchio/pkg/doc/topics/webchat-sem-and-ui.md`, `pinocchio/pkg/doc/topics/webchat-frontend-integration.md`, and `pinocchio/pkg/doc/topics/webchat-backend-reference.md`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- Timeline upserts now require an explicit version and use `event.seq` from SEM frames; `version=0` is rejected.
+- Manual user-message upserts stamp a seq based on the current time to preserve ordering without a compatibility layer.

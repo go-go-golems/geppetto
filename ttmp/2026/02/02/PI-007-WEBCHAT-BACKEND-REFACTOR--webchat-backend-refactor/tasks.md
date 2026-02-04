@@ -15,4 +15,4 @@
 - [x] Update StreamCoordinator to derive seq from Redis stream IDs when available (xid metadata) with fallback to local counter; add tests.
 - [x] Add eviction loop for idle conversations (no conns, no running/queued work) with configurable idle timeout + interval; add tests.
 - [x] Make ConnectionPool non-blocking with per-connection writer goroutines + backpressure strategy; add tests.
-- [ ] Add optional TimelineStoreV2 UpsertWithVersion hook to use stream-derived version hints; update projector to prefer v2 when available; tests.
+- [x] Add optional TimelineStoreV2 UpsertWithVersion hook to use stream-derived version hints; update projector to prefer v2 when available; tests.

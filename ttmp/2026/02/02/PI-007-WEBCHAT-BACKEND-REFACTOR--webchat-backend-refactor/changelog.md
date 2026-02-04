@@ -114,3 +114,14 @@ Step 7: Make ConnectionPool non-blocking with backpressure + tests and doc updat
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/connection_pool.go — Non-blocking pool
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/connection_pool_test.go — Backpressure test
 
+
+## 2026-02-03
+
+Step 8: switch timeline storage to seq-based versions and remove compatibility shims (commit 4964d10).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/doc/topics/webchat-sem-and-ui.md — Document seq-based versioning semantics
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_projector.go — Use event.seq to upsert timeline entities
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_store.go — Require explicit seq versions in timeline store
+
