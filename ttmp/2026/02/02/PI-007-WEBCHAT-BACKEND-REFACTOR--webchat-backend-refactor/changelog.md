@@ -65,3 +65,12 @@ Step 2: Split UI and API handlers, allow fs.FS static assets, and update docs/te
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — API/UI handler split
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router_handlers_test.go — Handler tests
 
+
+## 2026-02-03
+
+Step 3: Extract conversation lifecycle into ConvManager and update router delegation (commit 2a29380).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go — ConvManager lifecycle
+

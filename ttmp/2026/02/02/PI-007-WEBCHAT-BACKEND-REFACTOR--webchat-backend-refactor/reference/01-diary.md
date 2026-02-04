@@ -14,10 +14,13 @@ RelatedFiles:
       Note: Note API/UI handlers (commit 94f8d20)
     - Path: pinocchio/pkg/doc/topics/webchat-framework-guide.md
       Note: Document handler split/mount pattern (commit 94f8d20)
+    - Path: pinocchio/pkg/webchat/conversation.go
+      Note: ConvManager lifecycle extraction (commit 2a29380)
     - Path: pinocchio/pkg/webchat/router.go
       Note: |-
         Use StripPrefix when mounting webchat under a subpath (commit bf2c934)
         Split UI/API handlers and fs.FS usage (commit 94f8d20)
+        Router delegates conversation lifecycle to manager (commit 2a29380)
     - Path: pinocchio/pkg/webchat/router_handlers_test.go
       Note: UI/API handler tests (commit 94f8d20)
     - Path: pinocchio/pkg/webchat/router_mount_test.go
@@ -32,6 +35,7 @@ LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -148,3 +152,54 @@ I also generalized the static filesystem type to `fs.FS` (instead of `embed.FS`)
 
 ### Technical details
 - `APIHandler()` and `UIHandler()` wrap dedicated muxes, while `registerHTTPHandlers()` still composes both for default usage.
+
+## Step 3: Extract Conversation Manager Lifecycle
+
+Moved conversation lifecycle ownership into `ConvManager` by adding config hooks and new `GetOrCreate` / `AddConn` / `RemoveConn` methods. The router now delegates to the manager rather than embedding lifecycle logic itself.
+
+This centralizes state and keeps router handlers focused on HTTP/WS concerns, preparing the ground for later refactor steps like queue extraction and eviction.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Implement the next refactor task by moving conversation lifecycle control into the manager.
+
+**Inferred user intent:** Keep responsibilities cleanly separated and reduce router coupling to conversation internals.
+
+**Commit (code):** 2a29380 — "Refactor conversation manager lifecycle"
+
+### What I did
+- Added `ConvManagerOptions`, lifecycle hooks, and `GetOrCreate`/`AddConn`/`RemoveConn` methods in `conversation.go`.
+- Updated `NewRouter` to construct the manager with injected build/timeline hooks.
+- Routed WS/chat handlers and debug endpoints through manager methods.
+- Ran `go test ./pinocchio/pkg/webchat -count=1`; pre-commit ran repo-wide tests, codegen, and lint.
+
+### Why
+- Moving lifecycle logic into a dedicated manager reduces router responsibilities and makes future refactors (eviction, queue extraction) cleaner.
+
+### What worked
+- The new manager retains existing behavior while keeping router handlers thin.
+- Tests and pre-commit checks passed after the change.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The existing build hooks (`BuildConfig`, `BuildFromConfig`, subscriber creation) are easy to inject into a manager without changing call sites.
+
+### What was tricky to build
+- Preserving timeline projector wiring and stream restart logic while moving code out of the router.
+
+### What warrants a second pair of eyes
+- Validate that all manager dependency hooks are set before `GetOrCreate` is ever called, especially in custom Router constructions.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/conversation.go` and `pinocchio/pkg/webchat/router.go`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- `ConvManager` now owns conversation creation and stream wiring via injected hooks and uses `SetIdleTimeoutSeconds` / `SetTimelineStore` for configuration updates.
