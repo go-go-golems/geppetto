@@ -17,12 +17,20 @@ RelatedFiles:
         Eviction docs (commit 9c8adce)
     - Path: pinocchio/cmd/web-chat/main.go
       Note: Eviction CLI flags (commit 9c8adce)
+    - Path: pinocchio/pkg/doc/topics/webchat-backend-internals.md
+      Note: Update pool concurrency notes (commit 011c824)
+    - Path: pinocchio/pkg/doc/topics/webchat-backend-reference.md
+      Note: Document non-blocking pool (commit 011c824)
     - Path: pinocchio/pkg/doc/topics/webchat-framework-guide.md
       Note: |-
         Document handler split/mount pattern (commit 94f8d20)
         Document seq/stream_id ordering (commit 1828999)
     - Path: pinocchio/pkg/doc/topics/webchat-user-guide.md
       Note: Eviction doc section (commit 9c8adce)
+    - Path: pinocchio/pkg/webchat/connection_pool.go
+      Note: Non-blocking pool implementation (commit 011c824)
+    - Path: pinocchio/pkg/webchat/connection_pool_test.go
+      Note: Backpressure drop test (commit 011c824)
     - Path: pinocchio/pkg/webchat/conv_manager_eviction.go
       Note: Eviction loop implementation (commit 9c8adce)
     - Path: pinocchio/pkg/webchat/conv_manager_eviction_test.go
@@ -60,6 +68,7 @@ LastUpdated: 2026-02-03T19:53:36.549345638-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -388,3 +397,56 @@ This prevents unbounded growth when clients generate random conversation IDs.
 
 ### Technical details
 - `ConvManager.StartEvictionLoop` runs periodic sweeps and removes conversations that are idle past `evict-idle-seconds`.
+
+## Step 7: Make ConnectionPool Non-Blocking
+
+Reworked `ConnectionPool` to use per-connection writer goroutines and buffered send channels, enforcing backpressure by dropping connections when buffers fill. Added tests with a stub connection to verify drop behavior and updated backend docs to reflect the new concurrency model.
+
+This removes head-of-line blocking from slow clients and keeps broadcasts fast.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Implement non-blocking websocket broadcasts with backpressure and document the new behavior.
+
+**Inferred user intent:** Ensure slow clients do not stall the entire conversation stream and keep the backend reusable.
+
+**Commit (code):** 011c824 — "Make ConnectionPool non-blocking"
+
+### What I did
+- Replaced direct `WriteMessage` under a mutex with per-connection writer goroutines and buffered channels.
+- Added drop-on-full backpressure handling and write deadlines.
+- Wrote a unit test using a stub connection to validate dropping when buffers fill.
+- Updated backend reference and internals docs to describe the new behavior.
+- Ran `go test ./pinocchio/pkg/webchat -count=1`; pre-commit ran repo-wide tests, codegen, and lint.
+
+### Why
+- Slow WebSocket clients should not block other clients or stall broadcasts.
+
+### What worked
+- The connection drop test confirms backpressure behavior without real network sockets.
+- Broadcasts are now non-blocking and safe under concurrency.
+
+### What didn't work
+- N/A
+
+### What I learned
+- A small buffered channel per client plus a drop policy is enough to keep broadcasts fast and predictable.
+
+### What was tricky to build
+- Ensuring connection cleanup is safe when both the writer goroutine and the broadcaster may drop a client.
+
+### What warrants a second pair of eyes
+- Review the drop policy and write timeout to ensure they fit expected production workloads.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start at `pinocchio/pkg/webchat/connection_pool.go` and `pinocchio/pkg/webchat/connection_pool_test.go`.
+- Review doc updates in `pinocchio/pkg/doc/topics/webchat-backend-reference.md` and `pinocchio/pkg/doc/topics/webchat-backend-internals.md`.
+- Validate with `go test ./pinocchio/pkg/webchat -count=1`.
+
+### Technical details
+- `ConnectionPool` now enqueues frames to per-client channels and drops on full buffers to prevent stalls.

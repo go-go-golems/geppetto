@@ -104,3 +104,13 @@ Step 6: Add idle conversation eviction loop with configurable idle/interval and 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conv_manager_eviction.go — Eviction loop
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conv_manager_eviction_test.go — Eviction tests
 
+
+## 2026-02-03
+
+Step 7: Make ConnectionPool non-blocking with backpressure + tests and doc updates (commit 011c824).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/connection_pool.go — Non-blocking pool
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/connection_pool_test.go — Backpressure test
+
