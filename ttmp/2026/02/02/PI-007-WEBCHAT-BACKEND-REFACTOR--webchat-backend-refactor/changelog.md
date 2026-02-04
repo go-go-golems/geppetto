@@ -130,3 +130,12 @@ Step 8: switch timeline storage to seq-based versions and remove compatibility s
 
 Ticket closed
 
+
+## 2026-02-03
+
+Postmortem added: detailed refactor + bugfix summary (uploaded to reMarkable).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/02/PI-007-WEBCHAT-BACKEND-REFACTOR--webchat-backend-refactor/analysis/02-postmortem-webchat-backend-refactor.md — Postmortem
+
