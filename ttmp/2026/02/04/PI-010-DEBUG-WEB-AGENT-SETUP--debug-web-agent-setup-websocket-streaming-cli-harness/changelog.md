@@ -31,3 +31,12 @@ Step 2: scaffold web-agent-debug CLI skeleton (commit 36d3bfe)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/main.go — Initial subcommand dispatch.
 
+
+## 2026-02-04
+
+Step 3: implement chat command for CLI harness (commit d9c16c7)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/chat.go — /chat POST implementation.
+
