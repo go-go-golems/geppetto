@@ -422,7 +422,7 @@ This step focuses on documentation hygiene and knowledge transfer, which is esse
 
 **Inferred user intent:** Make the new CLI easy to use and discoverable for anyone debugging the webchat pipeline.
 
-**Commit (code):** (pending)
+**Commit (code):** f2f44c0 — "docs: update PI-010 CLI usage notes"
 
 ### What I did
 

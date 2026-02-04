@@ -76,3 +76,12 @@ Step 8: fix timeline summary parsing + validate run output (commit b7f54b1)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/timeline.go — Use camelCase JSON tags and raw scalar parsing.
 
+
+## 2026-02-04
+
+Step 7: update CLI usage notes in analysis doc (commit f2f44c0)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-010-DEBUG-WEB-AGENT-SETUP--debug-web-agent-setup-websocket-streaming-cli-harness/analysis/01-cli-harness-for-chat-websocket-streaming.md — Added implementation status and quickstart.
+

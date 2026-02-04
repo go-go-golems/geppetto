@@ -10,4 +10,4 @@
 - [x] Implement CLI ws command (connect, ping, frame decoding, filters)
 - [x] Implement CLI timeline command (GET /timeline summary)
 - [x] Implement CLI run/smoke command (ws + chat + timeline)
-- [ ] Update docs + usage notes in ticket; add diary steps and checkoff
+- [x] Update docs + usage notes in ticket; add diary steps and checkoff
