@@ -139,3 +139,12 @@ Postmortem added: detailed refactor + bugfix summary (uploaded to reMarkable).
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/02/PI-007-WEBCHAT-BACKEND-REFACTOR--webchat-backend-refactor/analysis/02-postmortem-webchat-backend-refactor.md — Postmortem
 
+
+## 2026-02-04
+
+Added Norvig-style router textbook for learning the new structure.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/02/PI-007-WEBCHAT-BACKEND-REFACTOR--webchat-backend-refactor/analysis/03-textbook-the-new-webchat-router.md — Detailed router textbook
+
