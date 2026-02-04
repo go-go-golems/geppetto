@@ -596,3 +596,59 @@ The key outcome is a working UI surface for the external webchat, with a custom 
 
 - Custom overrides payload: `{ middlewares: [{ name: "webagent-thinking-mode", config: { mode } }] }`.
 - Custom timeline kind: `webagent_thinking_mode`.
+
+## Step 10: Build Frontend Assets for Embedding
+
+I built the new web frontend with Vite so the static assets are available for go:embed in the web-agent-example server. This produces `static/dist` output that the server will serve at runtime.
+
+The key outcome is a successful frontend build ready for embedding and local testing.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+
+**Assistant interpretation:** Complete the build + embed portion of the frontend tasks.
+
+**Inferred user intent:** Ensure the external webchat can ship a static UI embedded in the Go binary.
+
+**Commit (code):** N/A
+
+### What I did
+
+- Ran `bun run build` in `web-agent-example/web` to generate `static/dist`.
+
+### Why
+
+- The Go server embeds `static/` and prefers `static/dist/index.html` when present.
+
+### What worked
+
+- Vite built the frontend successfully and produced the expected assets.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The repo-level `.gitignore` ignores `dist/`, so `static/dist` is not tracked; builds are expected to be done as part of the run/build workflow.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm whether we want to commit `static/dist` despite the `dist/` ignore (currently it is build-only).
+
+### What should be done in the future
+
+- If we need reproducible binaries without a build step, update `.gitignore` to include `static/dist` and commit assets.
+
+### Code review instructions
+
+- Validate by running `bun run build` in `web-agent-example/web` and confirming `web-agent-example/static/dist` exists.
+
+### Technical details
+
+- Build output: `web-agent-example/static/dist/index.html` and `web-agent-example/static/dist/assets/*`.

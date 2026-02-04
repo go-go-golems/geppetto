@@ -96,3 +96,12 @@ Step 9: Built custom web frontend and added buildOverrides support in ChatWidget
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/components/WebAgentThinkingModeCard.tsx — Custom ThinkingModeCard
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/sem/registerWebAgentSem.ts — Custom SEM mapping
 
+
+## 2026-02-04
+
+Step 10: Built web frontend assets for embedding (no code changes).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web — Frontend build output to static/dist
+

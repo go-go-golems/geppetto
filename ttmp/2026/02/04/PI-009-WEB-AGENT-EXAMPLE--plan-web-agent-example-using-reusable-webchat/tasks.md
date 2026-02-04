@@ -25,9 +25,9 @@
 - [x] Task 5.2: Add thinking-mode switch in Composer (custom slot override).
 - [x] Task 5.3: Serialize selected mode into POST overrides (extend or wrap ChatWidget send).
 
-- [ ] Task 6: Build + embed frontend assets
-- [ ] Task 6.1: Build web app to static/dist.
-- [ ] Task 6.2: Embed static assets in web-agent-example Go binary.
+- [x] Task 6: Build + embed frontend assets
+- [x] Task 6.1: Build web app to static/dist.
+- [x] Task 6.2: Embed static assets in web-agent-example Go binary.
 
 - [ ] Task 7: Runtime validation + correlation
 - [ ] Task 7.1: Run server + web app in tmux.
