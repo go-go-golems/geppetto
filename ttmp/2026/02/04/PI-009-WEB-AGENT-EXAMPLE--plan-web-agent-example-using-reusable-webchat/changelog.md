@@ -70,3 +70,15 @@ Step 7: Added custom thinking-mode middleware and server wiring (commit bfd1ada)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/middleware.go — Middleware implementation
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/static/index.html — Placeholder static asset for go:embed
 
+
+## 2026-02-04
+
+Step 8: Added custom SEM handlers and timeline projection registry for external events (commits ec8fab7, a39288b).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_projector.go — Handler hook + exported Upsert
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_registry.go — Timeline handler registry
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/sem.go — Custom SEM mapping
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/timeline.go — Custom timeline mapping
+

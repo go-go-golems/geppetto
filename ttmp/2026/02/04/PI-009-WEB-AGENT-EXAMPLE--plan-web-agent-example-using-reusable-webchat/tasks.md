@@ -15,10 +15,10 @@
 - [x] Task 3.1: Implement middleware to emit started/update/completed events around inference.
 - [x] Task 3.2: Wire middleware into the router assembly in web-agent-example main.
 
-- [ ] Task 4: SEM translation + timeline projection for custom events (pinocchio/pkg/webchat or extension)
-- [ ] Task 4.1: Add SEM mapping for custom events into websocket frames.
-- [ ] Task 4.2: Add timeline projection branch to map custom events into a custom entity kind.
-- [ ] Task 4.3: Validate durable timeline store writing for custom entity kind.
+- [x] Task 4: SEM translation + timeline projection for custom events (pinocchio/pkg/webchat or extension)
+- [x] Task 4.1: Add SEM mapping for custom events into websocket frames.
+- [x] Task 4.2: Add timeline projection branch to map custom events into a custom entity kind.
+- [x] Task 4.3: Validate durable timeline store writing for custom entity kind.
 
 - [ ] Task 5: Frontend custom UI (web-agent-example web app)
 - [ ] Task 5.1: Create custom ThinkingModeCard and register renderer for custom entity kind.

@@ -464,3 +464,68 @@ The key outcome is a runnable server command that registers the custom middlewar
 ### Technical details
 
 - Default profile uses `webagent-thinking-mode` with `thinkingmode.DefaultConfig()`.
+
+## Step 8: Add SEM + Timeline Support for Custom Thinking Events
+
+I added custom SEM handlers in web-agent-example for the new event namespace and introduced a timeline handler registry in Pinocchio so external webchat apps can project custom SEM events into timeline snapshots. This enables the custom thinking‑mode events to show up in both live streaming and durable hydration flows.
+
+The key outcome is a complete backend path from custom events → custom SEM frames → custom timeline entities, without altering the core webchat router logic.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+
+**Assistant interpretation:** Implement the remaining backend plumbing for custom events, including SEM translation and timeline projection support.
+
+**Inferred user intent:** Ensure the external webchat can persist and hydrate its custom thinking‑mode UI state.
+
+**Commit (code):** ec8fab7 — "web-agent-example: register SEM and timeline handlers"
+
+### What I did
+
+- Added custom SEM handlers in `web-agent-example/pkg/thinkingmode/sem.go` that emit `webagent.thinking.*` SEM frames.
+- Added custom timeline projection handlers in `web-agent-example/pkg/thinkingmode/timeline.go` that map custom SEM events into a `webagent_thinking_mode` timeline entity.
+- Added a timeline handler registry and exported `TimelineProjector.Upsert` in `pinocchio/pkg/webchat` to allow external registration.
+- Ran `go test ./pkg/thinkingmode` in web-agent-example and `go test ./pkg/webchat -count=1` in pinocchio.
+- Committed the Pinocchio refactor separately as `a39288b`.
+
+### Why
+
+- Custom SEM types require explicit mapping to timeline entities for hydration to work.
+- The existing timeline projector had no extension points for external SEM events.
+
+### What worked
+
+- The custom handlers compile and tests pass.
+- Pinocchio webchat can now accept external timeline handlers without modifying internal switch logic.
+
+### What didn't work
+
+- The Pinocchio pre-commit hook ran a full `go test ./...`, `go generate`, and `npm` build, producing warnings about deprecated npm packages and vulnerabilities; no tracked files changed, but the hook was expensive.
+
+### What I learned
+
+- The sem registry pattern is reusable: adding a matching timeline registry unblocks external event kinds cleanly.
+
+### What was tricky to build
+
+- Designing a handler API that can be called from external packages required exposing a small, safe surface (`TimelineSemEvent`, `TimelineProjector.Upsert`).
+
+### What warrants a second pair of eyes
+
+- Review the exported timeline handler API to ensure it is the right abstraction for long‑term extension.
+
+### What should be done in the future
+
+- Consider whether pinocchio should centralize custom SEM + timeline handler registration in a single external integration package.
+
+### Code review instructions
+
+- Start with `pinocchio/pkg/webchat/timeline_registry.go` and `pinocchio/pkg/webchat/timeline_projector.go`.
+- Review `web-agent-example/pkg/thinkingmode/sem.go` and `web-agent-example/pkg/thinkingmode/timeline.go` for the custom event mappings.
+- Validate via `go test ./pkg/webchat -count=1` and `go test ./pkg/thinkingmode`.
+
+### Technical details
+
+- Custom SEM event types: `webagent.thinking.started|update|completed`.
+- Custom timeline entity kind: `webagent_thinking_mode`.
