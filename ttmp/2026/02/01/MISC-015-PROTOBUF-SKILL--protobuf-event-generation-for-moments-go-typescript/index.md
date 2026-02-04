@@ -1,25 +1,24 @@
 ---
-Title: Address webchat hydration + inference bugs
-Ticket: PI-008-ADDRESS-WEBCHAT-BUGS
-Status: complete
+Title: Protobuf event generation for moments (Go + TypeScript)
+Ticket: MISC-015-PROTOBUF-SKILL
+Status: active
 Topics:
-    - webchat
-    - backend
-    - frontend
-    - bugfix
+    - events
+    - go
+    - serde
+    - architecture
 DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-03T21:21:06.710517511-05:00
+LastUpdated: 2026-02-01T16:35:48.960208216-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
 
-
-# Address webchat hydration + inference bugs
+# Protobuf event generation for moments (Go + TypeScript)
 
 ## Overview
 
@@ -36,10 +35,10 @@ Current status: **active**
 
 ## Topics
 
-- webchat
-- backend
-- frontend
-- bugfix
+- events
+- go
+- serde
+- architecture
 
 ## Tasks
 

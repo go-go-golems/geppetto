@@ -1,25 +1,29 @@
 ---
-Title: Address webchat hydration + inference bugs
-Ticket: PI-008-ADDRESS-WEBCHAT-BUGS
-Status: complete
+Title: Reusable Webchat (Modular + Themable)
+Ticket: PI-006-REUSABLE-WEBCHAT
+Status: active
 Topics:
-    - webchat
-    - backend
     - frontend
-    - bugfix
+    - webchat
+    - refactor
+    - design
+    - css
 DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles: []
-ExternalSources: []
+ExternalSources:
+    - local:css-packaging-combo.md
+    - local:webchat-css-org.md
 Summary: ""
-LastUpdated: 2026-02-03T21:21:06.710517511-05:00
+LastUpdated: 2026-02-02T20:20:43.543640846-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
 
 
-# Address webchat hydration + inference bugs
+
+# Reusable Webchat (Modular + Themable)
 
 ## Overview
 
@@ -36,10 +40,11 @@ Current status: **active**
 
 ## Topics
 
-- webchat
-- backend
 - frontend
-- bugfix
+- webchat
+- refactor
+- design
+- css
 
 ## Tasks
 
