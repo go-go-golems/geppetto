@@ -282,3 +282,60 @@ Update the document with these things in mind."
 
 - Custom event names suggested: `webagent.thinking.*`.
 - Custom entity kind suggested: `webagent_thinking_mode`.
+
+## Step 5: Re-Upload Updated Analysis to reMarkable
+
+I re-exported the updated analysis guide and re-uploaded it to the reMarkable folder for PI-009, replacing the previous PDF so the device reflects the new custom thinking-mode requirements.
+
+The key outcome is that the reMarkable copy now matches the latest analysis content.
+
+### Prompt Context
+
+**User prompt (verbatim):** "upload"
+
+**Assistant interpretation:** Upload the updated analysis document to reMarkable.
+
+**Inferred user intent:** Ensure the reMarkable copy reflects the latest doc revisions.
+
+**Commit (code):** N/A
+
+### What I did
+
+- Ran `remarquee upload md --dry-run` for the updated analysis.
+- Uploaded the PDF with `--force` to replace the previous version.
+
+### Why
+
+- The analysis guide changed; the device copy needed to be refreshed.
+
+### What worked
+
+- `remarquee upload md --force` succeeded and replaced the PDF.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- `--force` is required to overwrite a previously uploaded PDF in the same folder.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm that overwriting the prior PDF is desired rather than keeping a historical copy.
+
+### What should be done in the future
+
+- If you want version history on reMarkable, change the filename before upload instead of using `--force`.
+
+### Code review instructions
+
+- Verify the file exists via `remarquee cloud ls /ai/2026/02/04/PI-009-WEB-AGENT-EXAMPLE --long --non-interactive`.
+
+### Technical details
+
+- Upload target: `/ai/2026/02/04/PI-009-WEB-AGENT-EXAMPLE/01-web-agent-example-analysis-and-build-guide.pdf`.
