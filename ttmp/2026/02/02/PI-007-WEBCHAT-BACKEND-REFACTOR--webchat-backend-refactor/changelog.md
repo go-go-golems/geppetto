@@ -125,3 +125,8 @@ Step 8: switch timeline storage to seq-based versions and remove compatibility s
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_projector.go — Use event.seq to upsert timeline entities
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/timeline_store.go — Require explicit seq versions in timeline store
 
+
+## 2026-02-03
+
+Ticket closed
+
