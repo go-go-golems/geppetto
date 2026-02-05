@@ -41,3 +41,13 @@ Documented structured sink prompting pipeline and updated plan (commit 0b9ad10).
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/01-disco-internal-dialogue-middleware-widget-design-implementation-plan.md — Updated plan with structured sink phases and tagged YAML prompts
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/02-prompting-structured-sink-pipeline-for-disco-dialogue.md — New analysis document with pipeline details
 
+
+## 2026-02-04
+
+Step 2: added disco dialogue protobuf schema + generated outputs (commit 254094a).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/sem/pb/proto/sem/middleware/disco_dialogue.pb.go — Generated Go types
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/middleware/disco_dialogue.proto — New schema for disco dialogue events
+
