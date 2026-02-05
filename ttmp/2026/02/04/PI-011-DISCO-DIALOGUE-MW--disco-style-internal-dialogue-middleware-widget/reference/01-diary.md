@@ -21,6 +21,8 @@ RelatedFiles:
       Note: Map disco dialogue timeline snapshots into props
     - Path: pinocchio/cmd/web-chat/web/src/webchat/components/Timeline.tsx
       Note: Render disco entities as system turns
+    - Path: web-agent-example/README.md
+      Note: Demo documentation for disco dialogue web-agent-example
     - Path: web-agent-example/web/src/App.tsx
       Note: Wire disco renderer and middleware override
     - Path: web-agent-example/web/src/components/DiscoDialogueCard.tsx
@@ -33,6 +35,7 @@ LastUpdated: 2026-02-05T03:28:00-05:00
 WhatFor: Track implementation steps and decisions for the Disco dialogue middleware + widget work.
 WhenToUse: Use when reviewing or continuing PI-011 work.
 ---
+
 
 
 
@@ -527,3 +530,63 @@ The backend now emits structured disco dialogue timeline snapshots; without fron
 ### Technical details
 
 - `pinocchio` commit 12f2711 ran `npm run typecheck` + `npx @biomejs/biome ci` via lefthook.
+
+## Step 8: Add disco dialogue demo documentation
+
+I updated the `web-agent-example` README to describe how to run the backend and frontend together, enable the disco dialogue middleware, and understand the new timeline entities. This provides the missing “demo” documentation so the feature can be validated by someone new to the repo.
+
+This closes out the remaining “wire + docs” task for PI-011 from the implementation plan.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 2)
+
+**Assistant interpretation:** Finish the disco dialogue integration with demo documentation and commit the updates.
+
+**Inferred user intent:** Make it easy to run the example and verify the disco dialogue UI without tribal knowledge.
+
+**Commit (code):** 5951ac8 — "docs: add web-agent-example disco dialogue guide"
+
+### What I did
+
+- Rewrote `web-agent-example/README.md` with:
+  - Quickstart run instructions for backend + frontend.
+  - A short explanation of the Disco dialogue UI entities.
+  - Example override payloads for `/chat`.
+  - Notes on timeline persistence and debug logging.
+
+### Why
+
+The example is intended to be reusable for external web agents; having a clean, practical README is the shortest path to validation and onboarding.
+
+### What worked
+
+- The updated README now documents the disco dialogue middleware and widget in one place.
+
+### What didn't work
+
+- No automated doc checks or formatting tools were run.
+
+### What I learned
+
+- The example repository needed a reset from the placeholder template to be usable by newcomers.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm that the override payload example matches the runtime shape expected by the router.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Start with `web-agent-example/README.md` to review the demo flow.
+
+### Technical details
+
+- No tests were run for this documentation-only change.

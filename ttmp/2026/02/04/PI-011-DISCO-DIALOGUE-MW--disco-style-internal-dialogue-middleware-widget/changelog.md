@@ -102,3 +102,12 @@ Step 7: add disco dialogue UI card + timeline mapping (commit 12f2711, 8f01de6)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/components/DiscoDialogueCard.tsx — New UI renderer for disco entities
 
+
+## 2026-02-04
+
+Step 8: add web-agent-example demo docs (commit 5951ac8)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/README.md — Disco dialogue quickstart and overrides
+
