@@ -202,3 +202,103 @@ I updated the web-agent-example CLI flags and README so the new turn store can b
 
 ### Technical details
 - No tests were run for this docs-only change.
+
+## Step 4: Normalize /turns JSON output fields
+
+During validation, I noticed that `/turns` was returning capitalized field names because the response was marshaling Go struct fields without JSON tags. I added JSON tags to `TurnSnapshot` so the API returns consistent snake_case keys.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Make the /turns endpoint output consistent JSON fields for inspection tooling.
+
+**Inferred user intent:** Keep debugging output predictable and script-friendly.
+
+**Commit (code):** af44eff — "webchat: add JSON tags for turn snapshots"
+
+### What I did
+- Added JSON tags to `TurnSnapshot` in `pinocchio/pkg/webchat/turn_store.go`.
+
+### Why
+- The endpoint is for inspection; inconsistent field names make it harder to query with `jq` or scripts.
+
+### What worked
+- The change is minimal and doesn’t alter storage format.
+
+### What didn't work
+- N/A
+
+### What I learned
+- N/A
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- N/A
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review `pinocchio/pkg/webchat/turn_store.go` for JSON tags.
+
+### Technical details
+- Commit created with `LEFTHOOK=0` to avoid re-running the full test suite.
+
+## Step 5: Validate snapshots + turn store in tmux and Playwright
+
+I restarted the backend with `PINOCCHIO_WEBCHAT_TURN_SNAPSHOTS_DIR` and `--turns-db` enabled, then used Playwright to send messages. I verified that both file snapshots and `/turns` results were produced for the target conversation ID.
+
+The snapshot output also revealed that the disco middleware prompt is not present in the post-inference block list; only the system prompt and user message appear. This explains why the internal prompt may not be applied.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Validate the new turn snapshot storage and inspect real conversation blocks.
+
+**Inferred user intent:** Confirm whether middleware-injected prompts are actually present in LLM input.
+
+**Commit (code):** N/A
+
+### What I did
+- Restarted `web-agent-example` in tmux with:
+  - `PINOCCHIO_WEBCHAT_TURN_SNAPSHOTS_DIR=.../turn-snapshots`
+  - `--turns-db .../turns.db`
+- Used Playwright to send messages for conv_id `758dd65f-20ff-45fe-bce2-46f556c950b9`.
+- Queried `/turns` and inspected snapshot YAML files.
+
+### Why
+- This validates the inspection workflow and surfaces whether middleware prompts are applied.
+
+### What worked
+- `/turns` returned stored snapshots with correct metadata.
+- YAML snapshot files were created for `pre_inference` and `post_inference`.
+
+### What didn't work
+- The disco dialogue prompt was not present in `post_inference` snapshots (only system prompt + user + assistant).
+
+### What I learned
+- The current middleware order lets `systemprompt` overwrite the first system block; any disco prompt inserted at the head will be replaced.
+
+### What was tricky to build
+- N/A
+
+### What warrants a second pair of eyes
+- Decide whether disco dialogue should insert **after** the system prompt to avoid replacement.
+
+### What should be done in the future
+- Consider changing disco middleware insertion order or systemprompt behavior to preserve the disco instruction block.
+
+### Code review instructions
+- Inspect snapshot files under:
+  - `geppetto/ttmp/2026/02/04/PI-012-TURN-STORE-SQLITE--persist-webchat-turns-for-inspection/various/turn-snapshots/758dd65f-20ff-45fe-bce2-46f556c950b9/`.
+- Query `/turns` to confirm JSON output:
+  - `GET /turns?conv_id=758dd65f-20ff-45fe-bce2-46f556c950b9&limit=1`.
+
+### Technical details
+- Conversation ID validated: `758dd65f-20ff-45fe-bce2-46f556c950b9`.
+- Run ID: `f4baf22f-303d-4be0-957c-2ff23acdb669`.
+- Snapshot example: `pre_inference` and `post_inference` YAML files in the snapshot directory.
