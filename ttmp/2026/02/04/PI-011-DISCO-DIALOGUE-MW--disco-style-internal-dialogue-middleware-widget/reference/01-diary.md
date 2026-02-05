@@ -590,3 +590,59 @@ The example is intended to be reusable for external web agents; having a clean, 
 ### Technical details
 
 - No tests were run for this documentation-only change.
+
+## Step 9: Close out remaining task checklist items
+
+I marked the remaining legacy/placeholder tasks as complete so the ticket reflects the actual state of the implementation. This keeps the docmgr task list aligned with the commits already landed for PI-011.
+
+This step is purely administrative; no code changes were made.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 2)
+
+**Assistant interpretation:** Ensure the ticket’s task list reflects the completed implementation work.
+
+**Inferred user intent:** Keep the docmgr task list accurate and ready for ticket closure.
+
+**Commit (code):** N/A
+
+### What I did
+
+- Checked off tasks 1–6 in `tasks.md` to reflect already-completed work.
+
+### Why
+
+Earlier tasks were superseded by the expanded task list (7–13). Marking them complete removes ambiguity about what is still outstanding.
+
+### What worked
+
+- Docmgr task updates are immediate and keep the ticket clean.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- N/A
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- N/A
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/tasks.md` for the completed checklist.
+
+### Technical details
+
+- No code changes in this step.
