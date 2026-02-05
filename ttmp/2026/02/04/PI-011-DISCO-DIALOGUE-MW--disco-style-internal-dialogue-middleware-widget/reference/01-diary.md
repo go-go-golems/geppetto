@@ -770,3 +770,64 @@ The helper functions were removed in favor of typed metadata accessors. Using th
 ### Technical details
 
 - Compile error observed: `undefined: turns.HasBlockMetadata` and `undefined: turns.WithBlockMetadata` during `go run`.
+
+## Step 12: Manual UI verification with Playwright
+
+I restarted the backend in tmux, opened the web UI with Playwright, and validated that a conversation can stream messages and emit timeline entities. The disco dialogue card is now rendering, though the model is not consistently populating the full YAML payload (only `persona` and `success` appeared in the timeline).
+
+This confirms the pipeline is wired end-to-end, with a remaining UX question about prompt compliance.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 2)
+
+**Assistant interpretation:** Run the web-agent example and validate the streaming UI and timeline events.
+
+**Inferred user intent:** Verify the entire disco dialogue pipeline works in a real browser session.
+
+**Commit (code):** N/A
+
+### What I did
+
+- Restarted the backend in tmux (`webagent:0`) after fixing compile errors.
+- Used Playwright to open `http://localhost:5174` and send messages.
+- Observed live thinking-mode cards and assistant replies.
+- Checked timeline data via `GET /timeline` and verified `disco_dialogue_line` entities were emitted.
+
+### Why
+
+Manual verification is the fastest way to confirm the middleware, sink, SEM registry, and frontend renderer are wired together correctly.
+
+### What worked
+
+- Websocket connection established and streaming responses worked.
+- Disco dialogue timeline entities were upserted and rendered in the UI.
+
+### What didn't work
+
+- The model did not consistently emit full YAML payloads for the disco dialogue line (missing `text`, `tone`, etc.).
+
+### What I learned
+
+- The structured sink pipeline is functional, but prompt compliance is still a variable; we may need stronger prompt instructions or a model with better tag adherence.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Decide whether the prompt in `buildDiscoDialogueInstructions` needs to be stricter to guarantee all required YAML fields.
+
+### What should be done in the future
+
+- Consider adding a short prompt example or validation loop to improve structured output compliance.
+
+### Code review instructions
+
+- No code changes in this step.
+
+### Technical details
+
+- Conversation ID tested: `89847a16-ba9b-4ed7-99cf-45125acdc042`.
+- Timeline query: `GET /timeline?conv_id=89847a16-ba9b-4ed7-99cf-45125acdc042`.
