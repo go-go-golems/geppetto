@@ -779,6 +779,7 @@ This is a minimal change that keeps the rest of the middleware contract intact (
 
 - Updated `web-agent-example/pkg/discodialogue/middleware.go` to insert the disco system block after the first system block (if present), instead of prepending it.
 - Left the idempotent removal logic intact so we still avoid duplicated instruction blocks.
+- Restarted the backend and sent a `/chat` request to capture a new post-inference snapshot for validation.
 
 ### Why
 
@@ -816,6 +817,7 @@ This is a minimal change that keeps the rest of the middleware contract intact (
 ### Technical details
 
 - The insertion logic now computes the first system block index and inserts immediately after it; if no system block exists, it still prepends the disco block.
+- Validation snapshot: `geppetto/ttmp/2026/02/04/PI-012-TURN-STORE-SQLITE--persist-webchat-turns-for-inspection/various/turn-snapshots/bec007f2-4379-4ed9-a723-330f54c51d53/d045c132-bdec-4c33-a2f5-ac718787b980/20260205-031053.997667021-post_inference-76ff1773-b891-4136-86c6-bf04d62f5785.yaml` shows the disco prompt as the second system block.
 
 ### What should be done in the future
 
