@@ -120,3 +120,12 @@ Step 9: mark legacy tasks complete
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/tasks.md — Close out remaining checklist items
 
+
+## 2026-02-04
+
+Step 10: fix disco dialogue event type collision (commit 2afdd48)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/events.go — Rename event structs to unblock build
+

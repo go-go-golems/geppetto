@@ -23,6 +23,10 @@ RelatedFiles:
       Note: Render disco entities as system turns
     - Path: web-agent-example/README.md
       Note: Demo documentation for disco dialogue web-agent-example
+    - Path: web-agent-example/pkg/discodialogue/events.go
+      Note: Rename event struct types to avoid constant collisions
+    - Path: web-agent-example/pkg/discodialogue/sem.go
+      Note: Update SEM registry bindings to new event types
     - Path: web-agent-example/web/src/App.tsx
       Note: Wire disco renderer and middleware override
     - Path: web-agent-example/web/src/components/DiscoDialogueCard.tsx
@@ -35,6 +39,7 @@ LastUpdated: 2026-02-05T03:28:00-05:00
 WhatFor: Track implementation steps and decisions for the Disco dialogue middleware + widget work.
 WhenToUse: Use when reviewing or continuing PI-011 work.
 ---
+
 
 
 
@@ -646,3 +651,62 @@ Earlier tasks were superseded by the expanded task list (7–13). Marking them c
 ### Technical details
 
 - No code changes in this step.
+
+## Step 10: Fix disco dialogue event type naming conflict
+
+While restarting the web-agent-example server for manual testing, the build failed with a Go compile error caused by const/type name collisions in the disco dialogue event definitions. I resolved this by renaming the event struct types to avoid conflicting with the event type constants.
+
+This unlocks the server restart and lets the middleware register cleanly.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 2)
+
+**Assistant interpretation:** Address the compile error encountered during manual testing so the server can run with the disco middleware.
+
+**Inferred user intent:** Keep the implementation runnable and validate the UI pipeline end-to-end.
+
+**Commit (code):** 2afdd48 — "fix: rename disco dialogue event types"
+
+### What I did
+
+- Renamed the disco dialogue event struct types to avoid clashing with the `EventDialogue*` constants:
+  - `DialogueLineStartedEvent`, `DialogueLineUpdateEvent`, etc.
+- Updated SEM registry type bindings in `web-agent-example/pkg/discodialogue/sem.go`.
+- Reformatted touched files with `gofmt`.
+
+### Why
+
+Go does not allow package-level identifiers to share the same name across consts and types. The original implementation re-used identical names, which blocked compilation.
+
+### What worked
+
+- The fix is localized to the disco dialogue package; no API shape changes were required.
+
+### What didn't work
+
+- The issue only surfaced during manual testing because we hadn’t run `go test` or `go build` after the earlier commits.
+
+### What I learned
+
+- The disco dialogue event constants should stay distinct from struct type names to avoid collisions.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm there are no external references expecting the old struct type names (should be internal-only).
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `web-agent-example/pkg/discodialogue/events.go` and `web-agent-example/pkg/discodialogue/sem.go` for the renaming.
+
+### Technical details
+
+- Compile error observed: `EventDialogueCheckUpdate redeclared in this block` during `go run ./cmd/web-agent-example`.
