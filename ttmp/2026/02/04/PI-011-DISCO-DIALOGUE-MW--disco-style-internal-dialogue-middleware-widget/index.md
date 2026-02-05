@@ -13,12 +13,14 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles: []
-ExternalSources: []
+ExternalSources:
+    - local:disco-elysium.md
 Summary: ""
-LastUpdated: 2026-02-04T19:06:52.613960741-05:00
+LastUpdated: 2026-02-04T20:21:04.703900042-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Disco-style internal dialogue middleware + widget
 

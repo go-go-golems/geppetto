@@ -1,7 +1,7 @@
 ---
 Title: Expose webchat router WithOptions customization API
 Ticket: PI-012-ROUTER-OPTIONS
-Status: active
+Status: complete
 Topics:
     - backend
     - api
@@ -12,10 +12,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-04T19:38:23.871690341-05:00
+LastUpdated: 2026-02-04T20:20:57.579842529-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Expose webchat router WithOptions customization API
 

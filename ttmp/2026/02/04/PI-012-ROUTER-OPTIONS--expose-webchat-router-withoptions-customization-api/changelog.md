@@ -22,3 +22,8 @@ Step 3: wire web-agent-example to ignore cookie profile (commit a5b5642)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-example/engine_from_req.go — No-cookie EngineFromReqBuilder.
 
+
+## 2026-02-04
+
+Ticket closed
+

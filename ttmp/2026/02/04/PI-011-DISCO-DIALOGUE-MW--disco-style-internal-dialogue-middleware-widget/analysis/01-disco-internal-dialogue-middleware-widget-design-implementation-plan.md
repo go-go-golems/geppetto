@@ -7,6 +7,8 @@ DocType: ""
 Intent: ""
 Owners: []
 RelatedFiles:
+    - Path: geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/sources/local/disco-elysium.md
+      Note: Imported reference used to refine design
     - Path: pinocchio/pkg/webchat/router.go
       Note: /chat and /ws entrypoints
     - Path: pinocchio/pkg/webchat/sem_translator.go
@@ -25,6 +27,7 @@ WhenToUse: ""
 ---
 
 
+
 # Disco Internal Dialogue Middleware + Widget
 
 ## Goal
@@ -37,6 +40,18 @@ This should be a first-class webchat experience:
 - durable timeline projection for hydration
 - configurable personas and pacing
 - a dedicated widget that looks and feels like an internal debate (not a single linear message)
+
+## Updated Feature Notes (from imported Disco Elysium reference)
+
+The Disco Elysium internal dialogue is not just flavor text; it is the *core interaction mechanic*. The key behaviors to replicate:
+
+- **Voices are stats, not numbers**: each skill speaks as a distinct, biased persona (e.g., Logic, Empathy, Volition, Electrochemistry).
+- **Passive checks**: automatic interjections when thresholds are met (or *anti-passives* when thresholds are not met).
+- **Active checks**: player chooses a risky line; result is framed as inner conflict.
+- **Thought Cabinet**: long-form internalization that changes future voices/tones and unlocks new dialogue.
+- **Unreliable narrators**: voices can mislead or exaggerate based on their persona.
+
+We should encode these mechanics explicitly rather than just streaming random “inner thoughts.”
 
 ---
 
@@ -82,17 +97,23 @@ We need explicit events for the internal dialogue lifecycle. Suggested SEM event
 - `disco.dialogue.line`
 - `disco.dialogue.updated`
 - `disco.dialogue.completed`
+- `disco.dialogue.passive` (automatic interjection)
+- `disco.dialogue.antipassive` (triggered when a check fails)
+- `disco.dialogue.active_check` (user-initiated risk)
+- `disco.dialogue.thought` (long-form internalization candidate)
 
 These should map to a protobuf payload that includes:
 
 - `conv_id`
 - `dialogue_id`
 - `line_id`
-- `persona` (e.g., “Empathy”, “Logic”, “Instinct”)
+- `persona` (e.g., “Empathy”, “Logic”, “Volition”)
 - `text`
 - `tone`
 - `timestamp`
 - `status`
+- `trigger` (passive|antipassive|active|thought)
+- `check` (if relevant): difficulty, roll, success
 
 ### Proposed Protobuf (new file)
 
@@ -110,11 +131,20 @@ message DiscoDialogueLineV1 {
   string text = 5;
   int64 timestamp_ms = 6;
   string status = 7; // started|updated|completed
+  string trigger = 8; // passive|antipassive|active|thought
+  DiscoCheckV1 check = 9;
 }
 
 message DiscoDialogueEventV1 {
   string conv_id = 1;
   DiscoDialogueLineV1 line = 2;
+}
+
+message DiscoCheckV1 {
+  string check_type = 1; // passive|active|anti
+  int32 difficulty = 2;
+  int32 roll = 3;
+  bool success = 4;
 }
 ```
 
@@ -140,6 +170,7 @@ The middleware emits SEM frames like:
 We need a new entity kind in the timeline store, e.g.:
 
 - `disco_dialogue`
+- `disco_thought` (optional, for internalized thought records)
 
 Entity fields (protojson in snapshot):
 
@@ -148,6 +179,8 @@ Entity fields (protojson in snapshot):
 - `tone`
 - `text`
 - `status`
+- `trigger`
+- `check` (embedded if present)
 - `updated_at_ms`
 
 We will add a timeline projection handler similar to the existing `thinkingmode` handler:
@@ -183,15 +216,18 @@ From overrides:
 ### Behavior
 
 1. When a new user prompt starts, emit `disco.dialogue.started` for each persona.
-2. Stream `disco.dialogue.line` events as the internal debate progresses.
-3. Optionally emit `disco.dialogue.updated` when lines are revised mid-stream.
-4. Emit `disco.dialogue.completed` when the debate closes.
+2. Run **passive checks** (threshold-based) and emit `disco.dialogue.passive` or `disco.dialogue.antipassive`.
+3. Stream `disco.dialogue.line` events as the internal debate progresses.
+4. Optionally emit `disco.dialogue.updated` when lines are revised mid-stream.
+5. Emit `disco.dialogue.completed` when the debate closes.
+6. If configured, emit `disco.dialogue.thought` when a “thought cabinet” style internalization is triggered.
 
 ### Integration Points
 
 - Hook into inference lifecycle similar to `thinkingmode` middleware.
 - Use an internal generator to produce lines before final assistant response.
 - Provide deterministic IDs so timeline updates are stable.
+- Support per-persona thresholds to determine passive/anti-passive triggers.
 
 ---
 
@@ -202,6 +238,8 @@ From overrides:
 - A stacked “internal voices” column above the assistant response.
 - Each persona rendered as a card/badge with distinct color/typography.
 - Lines appear as streaming text (fade-in, typewriter, or slide-in).
+- Passive vs active checks styled differently (icons/badges, color contrast).
+- Anti-passives should read like “missed insight” (subtle, greyed tone).
 
 ### Component Name
 
@@ -233,24 +271,27 @@ interface DiscoDialogueEntry {
 
 1. Add proto definition in `pinocchio/pkg/sem/pb/proto/sem/middleware/`.
 2. Regenerate protobuf Go code.
-3. Register new SEM event type in the registry.
+3. Register new SEM event types in the registry.
 
 ### Phase 2 — Middleware
 
 1. Create package `web-agent-example/pkg/discodialogue`.
-2. Implement middleware that emits SEM events.
-3. Add config parsing + defaults.
+2. Implement middleware that emits SEM events (passive/active/anti).
+3. Add config parsing + defaults (personas, thresholds, pace, tone).
+4. Add thought-cabinet style “internalize” option and emit `disco.dialogue.thought`.
 
 ### Phase 3 — Timeline Projection
 
 1. Add timeline handler for new event types.
 2. Ensure snapshot hydration stores `disco_dialogue` entities.
+3. (Optional) store `disco_thought` entities if thought-cabinet is enabled.
 
 ### Phase 4 — Frontend Widget
 
 1. Add `DiscoDialogueCard` component.
 2. Add SEM mapping + entity type.
 3. Extend `ChatWidget` renderers to include the new card.
+4. Add visual styles for passive/anti-passive/active checks.
 
 ### Phase 5 — Wiring + Demo
 
@@ -265,6 +306,7 @@ interface DiscoDialogueEntry {
 - How far do we want to simulate “internal debate” vs. strictly real reasoning?
 - Do we want a deterministic persona list or should it be model-driven?
 - Should the dialogue stream be visible to the model or purely UI-only?
+- How do we represent “failed checks” without leaking sensitive inference?
 
 ---
 
