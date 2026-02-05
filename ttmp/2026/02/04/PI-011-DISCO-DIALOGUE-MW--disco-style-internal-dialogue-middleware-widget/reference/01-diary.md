@@ -25,6 +25,8 @@ RelatedFiles:
       Note: Demo documentation for disco dialogue web-agent-example
     - Path: web-agent-example/pkg/discodialogue/events.go
       Note: Rename event struct types to avoid constant collisions
+    - Path: web-agent-example/pkg/discodialogue/middleware.go
+      Note: Use KeyBlockMetaMiddleware for idempotent instruction tagging
     - Path: web-agent-example/pkg/discodialogue/sem.go
       Note: Update SEM registry bindings to new event types
     - Path: web-agent-example/web/src/App.tsx
@@ -39,6 +41,7 @@ LastUpdated: 2026-02-05T03:28:00-05:00
 WhatFor: Track implementation steps and decisions for the Disco dialogue middleware + widget work.
 WhenToUse: Use when reviewing or continuing PI-011 work.
 ---
+
 
 
 
@@ -710,3 +713,60 @@ Go does not allow package-level identifiers to share the same name across consts
 ### Technical details
 
 - Compile error observed: `EventDialogueCheckUpdate redeclared in this block` during `go run ./cmd/web-agent-example`.
+
+## Step 11: Replace removed block-metadata helpers in disco middleware
+
+The server restart surfaced another compile error: the helper functions `turns.HasBlockMetadata` and `turns.WithBlockMetadata` no longer exist. I replaced them with the typed metadata API (`KeyBlockMetaMiddleware`) so the middleware can tag and detect its instruction blocks correctly.
+
+This aligns the disco middleware with the current turns metadata patterns used elsewhere in the codebase.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 2)
+
+**Assistant interpretation:** Fix the build by updating the middleware to the new typed metadata API.
+
+**Inferred user intent:** Keep the middleware idempotent and compatible with the updated turns metadata system.
+
+**Commit (code):** 89fb142 — "fix: use typed block metadata for disco middleware"
+
+### What I did
+
+- Replaced `turns.HasBlockMetadata` with `turns.KeyBlockMetaMiddleware.Get` in the idempotency filter.
+- Replaced `turns.WithBlockMetadata` with `turns.KeyBlockMetaMiddleware.Set` when inserting the system block.
+
+### Why
+
+The helper functions were removed in favor of typed metadata accessors. Using the typed key keeps the middleware aligned with current geppetto conventions and avoids compile errors.
+
+### What worked
+
+- The middleware now compiles and preserves the intended behavior (remove prior instruction blocks, insert a new one).
+
+### What didn't work
+
+- The missing helper functions were not caught until a manual `go run` attempt.
+
+### What I learned
+
+- For new middlewares, the correct pattern is `KeyBlockMetaMiddleware.Get/Set` rather than legacy helpers.
+
+### What was tricky to build
+
+- N/A
+
+### What warrants a second pair of eyes
+
+- Confirm the metadata value (`disco_dialogue_instructions`) matches whatever future UI or analytics tooling expects.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `web-agent-example/pkg/discodialogue/middleware.go` for the metadata update.
+
+### Technical details
+
+- Compile error observed: `undefined: turns.HasBlockMetadata` and `undefined: turns.WithBlockMetadata` during `go run`.

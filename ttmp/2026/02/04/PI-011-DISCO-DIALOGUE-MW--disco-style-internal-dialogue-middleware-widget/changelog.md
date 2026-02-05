@@ -129,3 +129,12 @@ Step 10: fix disco dialogue event type collision (commit 2afdd48)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/events.go — Rename event structs to unblock build
 
+
+## 2026-02-04
+
+Step 11: migrate disco middleware metadata helpers (commit 89fb142)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/middleware.go — Use typed block metadata
+
