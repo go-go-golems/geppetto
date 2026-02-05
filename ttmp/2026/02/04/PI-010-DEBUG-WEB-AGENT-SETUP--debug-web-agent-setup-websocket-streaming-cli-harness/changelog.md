@@ -103,3 +103,12 @@ Step 10: run CLI streaming tests + fix ws timeout (commit c65f461)
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/ws.go — Close WS on context timeout.
 
+
+## 2026-02-04
+
+Added detailed review of PI-010 webchat debug work and externalization recommendations (commit 151d685).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-010-DEBUG-WEB-AGENT-SETUP--debug-web-agent-setup-websocket-streaming-cli-harness/analysis/02-pi-010-webchat-debug-work-review.md — Full review document
+
