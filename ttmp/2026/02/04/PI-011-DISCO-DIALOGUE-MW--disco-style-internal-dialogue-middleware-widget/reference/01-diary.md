@@ -17,12 +17,23 @@ RelatedFiles:
       Note: Updated plan with structured sink phases and tagged YAML prompts
     - Path: geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/02-prompting-structured-sink-pipeline-for-disco-dialogue.md
       Note: New pipeline analysis document
+    - Path: pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts
+      Note: Map disco dialogue timeline snapshots into props
+    - Path: pinocchio/cmd/web-chat/web/src/webchat/components/Timeline.tsx
+      Note: Render disco entities as system turns
+    - Path: web-agent-example/web/src/App.tsx
+      Note: Wire disco renderer and middleware override
+    - Path: web-agent-example/web/src/components/DiscoDialogueCard.tsx
+      Note: New disco dialogue UI card for line/check/state
+    - Path: web-agent-example/web/src/styles.css
+      Note: Styling for disco dialogue card
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-05T03:28:00-05:00
 WhatFor: Track implementation steps and decisions for the Disco dialogue middleware + widget work.
 WhenToUse: Use when reviewing or continuing PI-011 work.
 ---
+
 
 
 # Diary
@@ -445,3 +456,74 @@ Timeline hydration and the React widget require structured snapshot data. Withou
 ### Technical details
 
 - Regeneration command: `buf generate --path proto` (to avoid node_modules collisions).
+
+## Step 7: Build the Disco dialogue UI card and timeline mapping
+
+I added the frontend rendering layer for the new disco dialogue timeline entities, including a dedicated `DiscoDialogueCard` component, styling, and updated timeline mapping for the new entity kinds. This completes the UI half of the pipeline: once the backend emits the timeline snapshot, the web UI can render it with a custom card instead of a generic fallback.
+
+I also updated the timeline role mapping so disco dialogue entries render as system-style turns. This keeps the UI consistent with other internal/system entries like planning and thinking mode.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 2)
+
+**Assistant interpretation:** Implement the frontend widget and timeline entity mapping for the disco dialogue feature, then commit and document the changes.
+
+**Inferred user intent:** See the internal dialogue streaming appear as first-class cards in the UI with correct styling and timeline semantics.
+
+**Commit (code):** 12f2711 — "webchat: map disco dialogue timeline entities"
+
+**Commit (code):** 8f01de6 — "web-agent: add disco dialogue UI + middleware toggle"
+
+### What I did
+
+- Added a custom UI card for disco dialogue entities:
+  - `web-agent-example/web/src/components/DiscoDialogueCard.tsx`
+  - Added badge/status handling, line/check/state layouts, progress bar, and error rendering.
+- Updated the web-agent example UI wiring:
+  - `web-agent-example/web/src/App.tsx` to register renderers and include the disco middleware override.
+  - `web-agent-example/web/src/components/ThinkingModeComposer.tsx` to add a disco toggle.
+  - `web-agent-example/web/src/styles.css` for disco-specific styles.
+- Extended the pinocchio webchat frontend to understand the new timeline snapshot kinds:
+  - `pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts` adds mapping for `disco_dialogue_line/check/state`.
+  - `pinocchio/cmd/web-chat/web/src/webchat/components/Timeline.tsx` treats disco entities as `system` role.
+
+### Why
+
+The backend now emits structured disco dialogue timeline snapshots; without frontend mapping and a renderer, those entries would be invisible or unstyled. The card and mapping ensure the internal dialogue is readable and clearly separated from regular assistant messages.
+
+### What worked
+
+- `lefthook` ran in `pinocchio` and completed `typecheck` + `lint` successfully after the mapping changes.
+- The card design cleanly supports line/check/state variants without extra components.
+- Timeline entity mapping matches the new protobuf snapshot fields.
+
+### What didn't work
+
+- No automated UI tests were run for the web-agent-example frontend.
+
+### What I learned
+
+- The timeline mapping is the pivotal hook point: once the `kind` and `snapshot` are mapped, custom renderers in `ChatWidget` work without additional SEM registration.
+
+### What was tricky to build
+
+- Keeping the UI mapping aligned with the protobuf snapshot field names (`dialogueId`, `lineId`, etc.) required checking the generated TS types to avoid mismatched casing.
+
+### What warrants a second pair of eyes
+
+- Confirm the UI layout communicates the difference between dialogue lines vs. checks vs. state updates clearly enough for users who don’t know the pipeline.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Start with `web-agent-example/web/src/components/DiscoDialogueCard.tsx` to review the card layout and props usage.
+- Review the mapping logic in `pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts` to ensure props align with protobuf fields.
+- Validate the role classification changes in `pinocchio/cmd/web-chat/web/src/webchat/components/Timeline.tsx`.
+
+### Technical details
+
+- `pinocchio` commit 12f2711 ran `npm run typecheck` + `npx @biomejs/biome ci` via lefthook.

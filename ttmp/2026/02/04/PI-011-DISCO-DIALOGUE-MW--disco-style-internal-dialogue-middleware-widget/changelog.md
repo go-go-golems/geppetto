@@ -93,3 +93,12 @@ Step 6: added disco SEM mapping and timeline snapshots (commits 2440f7a, ad15ec2
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/sem.go — SEM registry mappings
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/timeline.go — Timeline projector handlers
 
+
+## 2026-02-04
+
+Step 7: add disco dialogue UI card + timeline mapping (commit 12f2711, 8f01de6)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/components/DiscoDialogueCard.tsx — New UI renderer for disco entities
+
