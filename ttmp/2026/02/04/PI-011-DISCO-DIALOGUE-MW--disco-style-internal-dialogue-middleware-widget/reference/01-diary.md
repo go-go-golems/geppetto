@@ -12,13 +12,18 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/01-disco-internal-dialogue-middleware-widget-design-implementation-plan.md
+      Note: Updated plan with structured sink phases and tagged YAML prompts
+    - Path: geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/02-prompting-structured-sink-pipeline-for-disco-dialogue.md
+      Note: New pipeline analysis document
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-05T03:28:00-05:00
-WhatFor: "Track implementation steps and decisions for the Disco dialogue middleware + widget work."
-WhenToUse: "Use when reviewing or continuing PI-011 work."
+WhatFor: Track implementation steps and decisions for the Disco dialogue middleware + widget work.
+WhenToUse: Use when reviewing or continuing PI-011 work.
 ---
+
 
 # Diary
 
