@@ -189,3 +189,71 @@ The SEM registry and timeline projector require concrete protobuf types to encod
 
 - Command: `buf generate` (run from `pinocchio/`).
 - `lefthook` failure: `node_modules/csstype/index.d.ts:2707` TS1010.
+
+## Step 3: Implement disco dialogue extractors + payload events
+
+I implemented the Disco dialogue payload structs and structuredsink extractors in `web-agent-example`. This step creates the event stream foundation: as tagged YAML is detected in the LLM output, these extractors parse incremental snapshots and emit typed events (started/update/completed) for line, check, and state tags.
+
+This is the first functional piece of the streaming pipeline; the next steps will wire the extractors into the sink pipeline and translate events into SEM frames for the UI.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Cool, let's however implement the disco elysium ticket. Add tasks to the ticket, then work on them step by step, updating your diary, checking off the task, committing as you go."
+
+**Assistant interpretation:** Continue implementing the PI-011 tasks with small, committed steps and diary updates.
+
+**Inferred user intent:** Build the feature incrementally with clear checkpoints and traceability.
+
+**Commit (code):** 68c93ab — "web-agent: add disco dialogue payloads and extractors"
+
+### What I did
+
+- Added `web-agent-example/pkg/discodialogue/events.go`:
+  - Defined payload structs for `dialogue_line`, `dialogue_check`, `dialogue_state`.
+  - Registered event types and factories for started/update/completed events.
+- Added `web-agent-example/pkg/discodialogue/extractor.go`:
+  - Implemented three structuredsink extractors:
+    - `<disco:dialogue_line:v1>`
+    - `<disco:dialogue_check:v1>`
+    - `<disco:dialogue_state:v1>`
+  - Used `parsehelpers.YAMLController` with debounced parsing.
+
+### Why
+
+We need structuredsink extractors that parse tagged YAML into strongly typed events before the UI can render the internal dialogue. This step builds that core extraction machinery.
+
+### What worked
+
+- The extractors compile cleanly and follow the same parsing pattern as thinking mode and debate extractors.
+- Event payloads are explicit and map cleanly to the YAML schema in the plan.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Keeping event types separate for line/check/state avoids overloading a single payload schema and simplifies timeline handling later.
+
+### What was tricky to build
+
+- Choosing a payload schema that stays compact but still preserves enough identity information (dialogue_id, line_id) for stable timeline updates.
+
+### What warrants a second pair of eyes
+
+- Confirm the event type naming (`disco.dialogue.line.*`, etc.) aligns with the intended SEM taxonomy.
+- Confirm that the YAML field names match the prompt instructions and protobuf schema.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `web-agent-example/pkg/discodialogue/events.go` for event naming + payload fields.
+- Review `web-agent-example/pkg/discodialogue/extractor.go` for the parsing logic and tag mappings.
+
+### Technical details
+
+- Tags used by extractors: `disco:dialogue_line:v1`, `disco:dialogue_check:v1`, `disco:dialogue_state:v1`.
+- Parsing cadence: `SnapshotEveryBytes=512`, `SnapshotOnNewline=true`.

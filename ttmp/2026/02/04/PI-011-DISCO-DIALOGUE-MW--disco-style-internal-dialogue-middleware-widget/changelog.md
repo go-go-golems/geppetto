@@ -51,3 +51,13 @@ Step 2: added disco dialogue protobuf schema + generated outputs (commit 254094a
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/sem/pb/proto/sem/middleware/disco_dialogue.pb.go — Generated Go types
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/middleware/disco_dialogue.proto — New schema for disco dialogue events
 
+
+## 2026-02-04
+
+Step 3: added disco dialogue payload events + structuredsink extractors (commit 68c93ab).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/events.go — Event types + payload structs
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/extractor.go — FilteringSink extractors for line/check/state
+
