@@ -3,6 +3,7 @@
 ## TODO
 
 - [x] Add tasks here
+- [x] Fix disco prompt insertion so it survives systemprompt middleware (insert after first system block).
 
 - [x] Define protobuf + SEM event types for disco dialogue (generate Go code)
 - [x] Implement DiscoDialogue middleware (Go) with config + event emission

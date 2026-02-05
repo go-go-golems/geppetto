@@ -141,9 +141,17 @@ Step 11: migrate disco middleware metadata helpers (commit 89fb142)
 
 ## 2026-02-04
 
-Step 12: manual Playwright verification of disco dialogue UI
+Step 12: preserve disco prompt after system block (commit 43b3168)
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/middleware.go — Insert disco prompt after first system block
+
+
+## 2026-02-04
+
+Step 13: manual Playwright verification of disco dialogue UI
 
 ### Related Files
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/reference/01-diary.md — Record manual test observations
-

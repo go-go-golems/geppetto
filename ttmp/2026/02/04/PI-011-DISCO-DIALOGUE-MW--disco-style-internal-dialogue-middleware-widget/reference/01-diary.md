@@ -759,6 +759,64 @@ The helper functions were removed in favor of typed metadata accessors. Using th
 
 - Confirm the metadata value (`disco_dialogue_instructions`) matches whatever future UI or analytics tooling expects.
 
+## Step 12: Preserve disco prompt when systemprompt middleware runs
+
+The disco dialogue instructions were not reaching the LLM because `systemprompt` replaces the first system block after our middleware runs. I updated the disco middleware to insert its system block *after* the first system block instead of prepending, which keeps the base system prompt replaceable while preserving the disco instructions.
+
+This is a minimal change that keeps the rest of the middleware contract intact (idempotent removal + reinsertion), but ensures the structured prompt survives the later middleware pass.
+
+### Prompt Context
+
+**User prompt (verbatim):** "I've been working on http://localhost:5174/?conv_id=758dd65f-20ff-45fe-bce2-46f556c950b9 . Is there a way for you to inspect which blocks were sent to the LLM? Because I don't think the prompt was actually sent, or the middlewares used."
+
+**Assistant interpretation:** The disco prompt is missing from inference; change the middleware so the prompt survives the systemprompt middleware.
+
+**Inferred user intent:** Ensure the internal dialogue prompt actually reaches the model for live conversations.
+
+**Commit (code):** 43b3168 — "fix: keep disco prompt after system block"
+
+### What I did
+
+- Updated `web-agent-example/pkg/discodialogue/middleware.go` to insert the disco system block after the first system block (if present), instead of prepending it.
+- Left the idempotent removal logic intact so we still avoid duplicated instruction blocks.
+
+### Why
+
+`systemprompt` replaces the first system block in the turn. By prepending the disco instructions, we were unintentionally making them the first system block, which meant they were overwritten later.
+
+### What worked
+
+- The change is localized and preserves the existing metadata tagging and idempotency behavior.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The middleware order in `pinocchio/pkg/webchat/engine.go` makes `systemprompt` the innermost handler; it will always rewrite the first system block.
+
+### What was tricky to build
+
+- The subtle ordering interaction meant the disco prompt *looked* present in our middleware code but disappeared by the time the final prompt was sent. Inserting after the first system block preserves both responsibilities (systemprompt replacement + disco prompt injection).
+
+### What warrants a second pair of eyes
+
+- Confirm there are no other middlewares or inference adapters that assume the disco prompt is the *first* system block.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `web-agent-example/pkg/discodialogue/middleware.go` and verify the `insertAt` logic for system blocks.
+- Validate by inspecting `/turns` or snapshot files to ensure the disco block appears in `post_inference`.
+
+### Technical details
+
+- The insertion logic now computes the first system block index and inserts immediately after it; if no system block exists, it still prepends the disco block.
+
 ### What should be done in the future
 
 - N/A
@@ -771,7 +829,7 @@ The helper functions were removed in favor of typed metadata accessors. Using th
 
 - Compile error observed: `undefined: turns.HasBlockMetadata` and `undefined: turns.WithBlockMetadata` during `go run`.
 
-## Step 12: Manual UI verification with Playwright
+## Step 13: Manual UI verification with Playwright
 
 I restarted the backend in tmux, opened the web UI with Playwright, and validated that a conversation can stream messages and emit timeline entities. The disco dialogue card is now rendering, though the model is not consistently populating the full YAML payload (only `persona` and `success` appeared in the timeline).
 
