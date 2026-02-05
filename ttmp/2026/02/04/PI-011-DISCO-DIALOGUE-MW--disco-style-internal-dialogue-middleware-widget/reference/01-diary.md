@@ -257,3 +257,63 @@ We need structuredsink extractors that parse tagged YAML into strongly typed eve
 
 - Tags used by extractors: `disco:dialogue_line:v1`, `disco:dialogue_check:v1`, `disco:dialogue_state:v1`.
 - Parsing cadence: `SnapshotEveryBytes=512`, `SnapshotOnNewline=true`.
+
+## Step 4: Add Disco dialogue prompt middleware
+
+I added the prompt injection middleware for Disco dialogue in `web-agent-example`. This middleware inserts the structured YAML prompt contract into the Turn before inference, ensuring the model emits the tagged blocks that the extractors can parse.
+
+The implementation mirrors the thinking-mode pattern but is tailored to the Disco schema (line/check/state tags and persona context).
+
+### Prompt Context
+
+**User prompt (verbatim):** "Cool, let's however implement the disco elysium ticket. Add tasks to the ticket, then work on them step by step, updating your diary, checking off the task, committing as you go."
+
+**Assistant interpretation:** Continue with the next step by implementing the prompt injection middleware.
+
+**Inferred user intent:** Make the structured sink pipeline functional by providing the prompt contract.
+
+**Commit (code):** 21b2967 — "web-agent: add disco dialogue prompt middleware"
+
+### What I did
+
+- Added `web-agent-example/pkg/discodialogue/middleware.go`:
+  - `Config` and `ConfigFromAny` for prompt parameters.
+  - Prompt builder emitting the `<disco:...:v1>` YAML schemas.
+  - Idempotent injection using block metadata.
+
+### Why
+
+The FilteringSink extractors only work if the model emits the tag schema. The middleware is the contract that forces those tags into the model output.
+
+### What worked
+
+- The prompt is structured and deterministic, following the same pattern as the thinking-mode middleware.
+- Config parsing supports future customization (personas, tone, max lines, seed).
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Avoiding raw string literals with backticks simplifies multi-block prompt templates in Go.
+
+### What was tricky to build
+
+- Keeping the prompt concise but still explicit about structured YAML blocks and required behavior.
+
+### What warrants a second pair of eyes
+
+- Review the prompt content to ensure it aligns with the YAML schema and the intended UI behavior.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `web-agent-example/pkg/discodialogue/middleware.go` for prompt content, schema tags, and config parsing.
+
+### Technical details
+
+- Metadata key used: `middleware=disco_dialogue_instructions` to avoid duplicate blocks.

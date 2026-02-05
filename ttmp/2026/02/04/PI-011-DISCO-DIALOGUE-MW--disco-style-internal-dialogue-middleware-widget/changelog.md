@@ -61,3 +61,12 @@ Step 3: added disco dialogue payload events + structuredsink extractors (commit 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/events.go — Event types + payload structs
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/extractor.go — FilteringSink extractors for line/check/state
 
+
+## 2026-02-04
+
+Step 4: added disco dialogue prompt injection middleware (commit 21b2967).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/middleware.go — Prompt injection + config parsing
+
