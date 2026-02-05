@@ -382,3 +382,66 @@ The FilteringSink extractors only run if they’re part of the event sink chain.
 
 - Wrapper selection is based on middleware presence: `webagent-disco-dialogue`.
 - Extractors attached: dialogue_line, dialogue_check, dialogue_state.
+
+## Step 6: Add SEM mapping + timeline snapshots for disco dialogue
+
+I wired the disco dialogue events into the SEM registry and timeline projection. This required expanding the timeline protobuf schema to include disco dialogue snapshots, then implementing handlers in `web-agent-example` that decode SEM frames and upsert the correct timeline entities.
+
+This step completes the back half of the pipeline: structured sink events are now represented as SEM frames and hydrated timeline entities.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Cool, let's however implement the disco elysium ticket. Add tasks to the ticket, then work on them step by step, updating your diary, checking off the task, committing as you go."
+
+**Assistant interpretation:** Implement SEM + timeline projection wiring for disco dialogue.
+
+**Inferred user intent:** Ensure the feature streams in real time and hydrates correctly.
+
+**Commit (code):** 2440f7a — "timeline: add disco dialogue snapshots"
+
+**Commit (code):** ad15ec2 — "web-agent: add disco SEM and timeline handlers"
+
+### What I did
+
+- Added new timeline snapshot messages in `pinocchio/proto/sem/timeline/middleware.proto` and updated `transport.proto` oneof fields.
+- Regenerated protobuf outputs using `buf generate --path proto`.
+- Implemented SEM registry mappings in `web-agent-example/pkg/discodialogue/sem.go` for all disco dialogue events.
+- Implemented timeline projection handlers in `web-agent-example/pkg/discodialogue/timeline.go` for line/check/state events.
+
+### Why
+
+Timeline hydration and the React widget require structured snapshot data. Without a timeline snapshot type and handler, the UI would only stream live events and fail on reload.
+
+### What worked
+
+- The new timeline snapshot types cleanly mirror the disco payloads.
+- Handlers follow the proven thinking-mode pattern for upsert and status mapping.
+
+### What didn't work
+
+- `buf generate` failed due to duplicate proto definitions discovered under `cmd/web-chat/web/node_modules`. I re-ran generation with `buf generate --path proto` to scope generation to the actual source tree.
+
+### What I learned
+
+- The pinocchio repo’s `buf generate` can be tripped by node_modules unless a path filter is provided.
+
+### What was tricky to build
+
+- Extending the timeline `oneof` safely while keeping the entity `kind` strings distinct and UI-friendly.
+
+### What warrants a second pair of eyes
+
+- Confirm the new timeline entity kinds (`disco_dialogue_line`, `disco_dialogue_check`, `disco_dialogue_state`) are acceptable for the UI and any downstream tooling.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review `pinocchio/proto/sem/timeline/middleware.proto` and `transport.proto` for the new snapshot types.
+- Review `web-agent-example/pkg/discodialogue/sem.go` and `timeline.go` for event ↔ snapshot mapping.
+
+### Technical details
+
+- Regeneration command: `buf generate --path proto` (to avoid node_modules collisions).

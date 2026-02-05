@@ -13,6 +13,6 @@
 - [x] Implement disco dialogue structuredsink extractors (dialogue_line/dialogue_check/dialogue_state) + event payloads
 - [x] Add disco dialogue middleware prompt injection + config parsing (web-agent-example/pkg/discodialogue)
 - [x] Wire FilteringSink extractors into webchat sink pipeline (pinocchio option + web-agent-example integration)
-- [ ] Add SEM registry mapping for disco dialogue events + timeline projector handler
+- [x] Add SEM registry mapping for disco dialogue events + timeline projector handler
 - [ ] Implement DiscoDialogueCard widget + SEM frontend registration + styles
 - [ ] Wire disco middleware + widget into web-agent-example profile; add demo docs

@@ -81,3 +81,15 @@ Step 5: added event sink wrapper and wired disco extractors (commits 5f1de53, c8
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router_options.go — New WithEventSinkWrapper option
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-example/sink_wrapper.go — Attach structuredsink extractors
 
+
+## 2026-02-04
+
+Step 6: added disco SEM mapping and timeline snapshots (commits 2440f7a, ad15ec2).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/timeline/middleware.proto — Disco dialogue timeline snapshots
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/timeline/transport.proto — Timeline oneof additions
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/sem.go — SEM registry mappings
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/timeline.go — Timeline projector handlers
+
