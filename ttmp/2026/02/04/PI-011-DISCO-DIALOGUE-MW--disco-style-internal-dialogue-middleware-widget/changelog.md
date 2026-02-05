@@ -70,3 +70,14 @@ Step 4: added disco dialogue prompt injection middleware (commit 21b2967).
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/middleware.go — Prompt injection + config parsing
 
+
+## 2026-02-04
+
+Step 5: added event sink wrapper and wired disco extractors (commits 5f1de53, c87512b).
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/engine_builder.go — Apply event sink wrapper during BuildFromConfig
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router_options.go — New WithEventSinkWrapper option
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-example/sink_wrapper.go — Attach structuredsink extractors
+
