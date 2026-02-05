@@ -22,3 +22,12 @@ Updated design to include passive/active checks, anti-passives, and thought cabi
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/01-disco-internal-dialogue-middleware-widget-design-implementation-plan.md — Expanded event model and middleware behavior.
 
+
+## 2026-02-04
+
+Added LLM prompt pack for internal dialogue + dice simulation.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-011-DISCO-DIALOGUE-MW--disco-style-internal-dialogue-middleware-widget/analysis/01-disco-internal-dialogue-middleware-widget-design-implementation-plan.md — Prompt templates and schema.
+
