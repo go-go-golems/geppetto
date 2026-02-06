@@ -125,3 +125,27 @@ Documented /chat 404 investigation and proxy validation in diary.
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/reference/01-diary.md — Added Step 12 with proxy checks and curl validation.
 
+
+## 2026-02-06
+
+Updated PI-009 scope with Redux-first frontend state requirement and protobuf-defined Go/TS SEM boundary; expanded analysis guide accordingly.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/analysis/01-web-agent-example-analysis-and-build-guide.md — Added Redux and protobuf boundary design guidance
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/tasks.md — Added Task 9/10/11 requirements
+
+
+## 2026-02-06
+
+Implemented protobuf-aware TS SEM decoding in web-agent-example handlers, added Go protobuf boundary tests for thinking/disco pipelines, and updated PI-009 task state for Redux/protobuf work.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/analysis/01-web-agent-example-analysis-and-build-guide.md — Document concrete Redux/protobuf boundary implementation and tests
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/04/PI-009-WEB-AGENT-EXAMPLE--plan-web-agent-example-using-reusable-webchat/tasks.md — Check off completed Task 9.1/9.2 and Task 10.*
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/sem_test.go — Add protobuf round-trip boundary tests
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/sem_test.go — Add protobuf round-trip boundary test
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/App.tsx — Fix middleware overrides typing for strict TS typecheck
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/sem/registerWebAgentSem.ts — Decode sem payloads with generated protobuf schemas via fromJson
+

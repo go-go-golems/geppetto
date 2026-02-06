@@ -40,6 +40,21 @@
 - [ ] Task 8.2: Capture any required pinocchio refactors and document them.
 - [ ] Task 8.3: Commit code and docs in logical chunks.
 
+- [ ] Task 9: Redux-first state integration in web-agent-example
+- [x] Task 9.1: Ensure timeline/chat runtime state is driven by the `@pwchat` Redux store (`timelineSlice`, app slice), not parallel local stores.
+- [x] Task 9.2: Keep only ephemeral UI control state local (transient composer toggles); move durable UI/session state to Redux actions/selectors.
+- [ ] Task 9.3: Validate hydration + websocket merge behavior still correct with Redux as the single source of truth.
+
+- [x] Task 10: Protobuf contract for Go↔TS SEM boundary
+- [x] Task 10.1: Define/confirm protobuf message schemas for custom middleware SEM payloads at `pinocchio/proto/sem/middleware/*`.
+- [x] Task 10.2: Ensure Go SEM emission uses generated protobuf + `protojson` serialization for payloads.
+- [x] Task 10.3: Ensure TS SEM handlers decode generated schemas with `fromJson` and map into timeline entities deterministically.
+- [x] Task 10.4: Add/refresh boundary checks (Go tests and TS typecheck coverage) for schema drift detection.
+
+- [x] Task 11: Update PI-009 guide with Redux + protobuf boundary requirements
+- [x] Task 11.1: Add explicit architecture constraints and file-level references for Redux state ownership.
+- [x] Task 11.2: Add explicit Go/TS protobuf boundary flow and decode/encode snippet patterns.
+
 ## DONE
 
 - [x] Confirm web-agent-example repo renames (no XXX remaining)

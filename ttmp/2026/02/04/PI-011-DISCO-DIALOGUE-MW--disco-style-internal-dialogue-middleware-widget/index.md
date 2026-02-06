@@ -1,7 +1,7 @@
 ---
 Title: Disco-style internal dialogue middleware + widget
 Ticket: PI-011-DISCO-DIALOGUE-MW
-Status: active
+Status: complete
 Topics:
     - backend
     - frontend
@@ -16,10 +16,11 @@ RelatedFiles: []
 ExternalSources:
     - local:disco-elysium.md
 Summary: ""
-LastUpdated: 2026-02-04T20:21:04.703900042-05:00
+LastUpdated: 2026-02-06T13:21:50.908162943-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Disco-style internal dialogue middleware + widget

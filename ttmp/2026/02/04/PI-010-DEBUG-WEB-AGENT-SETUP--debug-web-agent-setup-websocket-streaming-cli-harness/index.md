@@ -1,7 +1,7 @@
 ---
 Title: 'Debug web agent setup: websocket streaming + CLI harness'
 Ticket: PI-010-DEBUG-WEB-AGENT-SETUP
-Status: active
+Status: complete
 Topics:
     - backend
     - cli
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-04T18:17:42.864386788-05:00
+LastUpdated: 2026-02-06T13:21:51.137285273-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Debug web agent setup: websocket streaming + CLI harness
 

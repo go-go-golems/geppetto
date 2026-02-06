@@ -25,10 +25,20 @@ RelatedFiles:
       Note: ChatWidget props, slots, and renderer types
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/sem/registry.ts
       Note: SEM event mapping to timeline entities
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/cmd/web-chat/web/src/store/timelineSlice.ts
+      Note: Redux timeline source of truth used by ChatWidget
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/middleware/thinking_mode.proto
+      Note: Protobuf contract for Go to TS SEM payload boundary
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/web/src/sem/registerWebAgentSem.ts
+      Note: Web-agent SEM handlers decode protobuf payloads with fromJson before Redux upsert
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/thinkingmode/sem_test.go
+      Note: Go boundary check for protobuf encode/decode round-trip
+    - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/pkg/discodialogue/sem_test.go
+      Note: Go boundary check for disco dialogue protobuf encode/decode round-trip
 ExternalSources: []
-Summary: "A detailed, intern-ready guide to build a new web-agent-example that reuses the Pinocchio webchat backend + frontend packaging, with a custom thinking-mode middleware and a custom ThinkingModeCard + switch UI."
+Summary: "A detailed, intern-ready guide to build a new web-agent-example that reuses the Pinocchio webchat backend + frontend packaging, with Redux state ownership in the frontend and protobuf-defined SEM contracts at the Go/TS boundary."
 LastUpdated: 2026-02-04T16:18:16.334205935-05:00
-WhatFor: "Provide a code-grounded map of where to look, what to change, and how to wire a new web-agent around the reusable webchat stack, including custom thinking-mode events and UI."
+WhatFor: "Provide a code-grounded map of where to look, what to change, and how to wire a new web-agent around the reusable webchat stack, including Redux-first state handling, protobuf-backed SEM contracts, and custom middleware/UI."
 WhenToUse: "Use when implementing the web-agent-example server + UI, or when onboarding someone to the reusable webchat architecture."
 ---
 
@@ -36,7 +46,7 @@ WhenToUse: "Use when implementing the web-agent-example server + UI, or when onb
 
 ## Executive Summary
 
-This document teaches a brand‑new engineer how to build a **standalone web agent** (the `web-agent-example` repo) by reusing the **Pinocchio webchat backend** and the modular **webchat frontend package**. The core goal is to **add a custom thinking‑mode middleware and event set** on the backend, plus a **custom ThinkingModeCard and thinking‑mode switch UI** on the frontend. The guide is intentionally exhaustive: it names exact files, symbols, and data paths, and includes pseudo‑code, diagrams, callouts, and exercises.
+This document teaches a brand-new engineer how to build a **standalone web agent** (the `web-agent-example` repo) by reusing the **Pinocchio webchat backend** and the modular **webchat frontend package**. The core goal is to **add a custom thinking-mode middleware and event set** on the backend, plus a **custom ThinkingModeCard and thinking-mode switch UI** on the frontend. The guide is intentionally exhaustive: it names exact files, symbols, and data paths, and includes pseudo-code, diagrams, callouts, and exercises.
 
 > FUNDAMENTAL: Reuse is about seams.
 > 
@@ -44,6 +54,54 @@ This document teaches a brand‑new engineer how to build a **standalone web age
 > 1) **Event emission** (Go events → SEM payloads),
 > 2) **Timeline projection** (SEM events → durable timeline snapshots),
 > 3) **Frontend mapping** (timeline snapshots → UI entities).
+
+## Non-Negotiable Requirements (PI-009 Update)
+
+The ticket now has three explicit constraints that should drive all implementation choices:
+
+1. **Redux is the state authority in the web-agent frontend**
+   - The UI must rely on the existing `@pwchat` Redux store (`timelineSlice`, app slice) as the durable runtime state.
+   - Component-local state is allowed only for transient controls (for example an unsubmitted dropdown value).
+   - Do not introduce parallel global state stores for timeline entities.
+2. **Protobuf defines the Go/TS SEM boundary**
+   - Custom middleware SEM payloads must be declared in protobuf under `pinocchio/proto/sem/middleware/*`.
+   - Go should serialize SEM payloads from generated protobuf types.
+   - TS should decode those payloads using generated schemas (`fromJson`) before projecting into entities.
+3. **The guide itself must reflect these constraints**
+   - Every custom middleware section should name the protobuf contract and TS decoder path.
+   - Every frontend section should state Redux ownership and where entities are written.
+
+### Boundary contract pattern (Go → WS JSON → TS)
+
+```go
+// Go: emit protobuf-backed SEM payload
+msg := &semMw.ThinkingModeStarted{ItemId: ev.ItemID, Data: data}
+raw, _ := protojson.Marshal(msg)
+frame := map[string]any{
+  "sem": true,
+  "event": map[string]any{
+    "type": string(EventThinkingStarted),
+    "id":   ev.ItemID,
+    "data": json.RawMessage(raw),
+  },
+}
+```
+
+```ts
+// TS: decode protobuf payload, then dispatch Redux update
+const data = decodeProto<ThinkingModeStarted>(ThinkingModeStartedSchema, ev.data);
+dispatch(timelineSlice.actions.upsertEntity({
+  id: ev.id,
+  kind: 'webagent_thinking_mode',
+  createdAt: Date.now(),
+  props: { mode: data?.data?.mode, phase: data?.data?.phase, status: 'started' },
+}));
+```
+
+Boundary checks now live in Go tests:
+
+- `web-agent-example/pkg/thinkingmode/sem_test.go`
+- `web-agent-example/pkg/discodialogue/sem_test.go`
 
 ## What Already Exists (You Are Reusing)
 
@@ -60,6 +118,8 @@ Key exports:
 - `ChatWidgetComponents` (slot overrides for header/status/composer)
 - `ThinkingModeCard` (default card for `thinking_mode` entities)
 - Theme tokens and parts in `webchat/styles/`
+
+State ownership in this package is Redux-first. `ChatWidget` writes entities through Redux actions and reads entities through selectors, with `timelineSlice` as the canonical source of timeline truth.
 
 Where to read:
 
@@ -103,6 +163,8 @@ Existing baseline (for reference only):
 - Timeline projection: `pinocchio/pkg/webchat/timeline_projector.go`
 - UI mapping: `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
 - UI card: `pinocchio/cmd/web-chat/web/src/webchat/cards.tsx`
+
+For new middleware features, the SEM payload contract should be protobuf-first (`pinocchio/proto/sem/middleware/*`) so Go emission and TS decode stay in lockstep.
 
 > FUNDAMENTAL: You can add your own event types and cards without touching the rest of the webchat stack.
 

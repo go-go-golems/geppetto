@@ -10,13 +10,20 @@ Topics:
 DocType: index
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: web-agent-example/pkg/discodialogue/sem_test.go
+      Note: Boundary encode/decode test for disco dialogue SEM payloads
+    - Path: web-agent-example/pkg/thinkingmode/sem_test.go
+      Note: Boundary encode/decode test for thinking mode SEM payloads
+    - Path: web-agent-example/web/src/sem/registerWebAgentSem.ts
+      Note: Custom TS SEM handler decoding generated protobuf payloads
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-04T16:16:32.453860567-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Plan web agent example using reusable webchat
 
