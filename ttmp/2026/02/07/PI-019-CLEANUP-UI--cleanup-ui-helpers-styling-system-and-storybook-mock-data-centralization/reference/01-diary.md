@@ -28,6 +28,8 @@ RelatedFiles:
       Note: P3.9 centralized AppShell story handlers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
       Note: P2.7 inline style removal
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
+      Note: P3.10 centralized SessionList story handlers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.tsx
       Note: P2.13 verified style-clean (no inline <style> block)
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
@@ -126,10 +128,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T16:15:00-05:00
+LastUpdated: 2026-02-07T16:25:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2223,6 +2226,78 @@ This collapses repeated story-level endpoint setup and aligns AppShell stories w
 
 - Inline `http.get(...)` blocks removed from `AppShell.stories.tsx`: `7`
 - New handler builder option added: `delayMs.conversations`
+
+## Step 28: Complete P3.10 by removing SessionList story handler duplication
+
+I completed `P3.10` by replacing the final inline MSW handler block in `SessionList.stories.tsx` with centralized helper usage. The `WithMSW` story now uses `createDefaultDebugHandlers()` directly.
+
+With this step, both targeted story files in Phase 3B (`AppShell` and `SessionList`) no longer define ad-hoc endpoint handlers inline.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue to the next checklist item and apply the same deduplication pattern consistently.
+
+**Inferred user intent:** Finish the planned handler-block cleanup across all named story files before moving to broader story migration tasks.
+
+**Commit (code):** `2c996cc8a2027a0789f0e2f6bd941e6d7a0e1a3a` — "refactor(stories): centralize SessionList msw handlers"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx`
+- Refactor details:
+  - removed local `http`/`HttpResponse` imports
+  - replaced inline MSW handler block in `WithMSW` story with:
+    - `handlers: createDefaultDebugHandlers()`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.10`
+
+### Why
+
+- This was the remaining explicit story target for handler duplication cleanup in Phase 3B.
+
+### What worked
+
+- Storybook and production builds passed; story wiring remains functional via centralized defaults.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Once the shared builder/default modules exist, story-level handler deduplication becomes a low-risk import-level refactor.
+
+### What was tricky to build
+
+- Minimal technical complexity here; the important part was ensuring consistency with the new AppShell pattern and not reintroducing direct `msw` route definitions.
+
+### What warrants a second pair of eyes
+
+- Confirm `WithMSW` still reflects intended behavior and does not unintentionally include extra endpoints beyond what that story should exercise.
+
+### What should be done in the future
+
+- Begin Phase 3C (`P3.11` onward): migrate timeline/event/anomaly stories to scenario/factory-driven inputs and reduce direct `mocks/data` usage.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Inline `http.get(...)` blocks removed from `SessionList.stories.tsx`: `1`
+- Story handler source switched to: `createDefaultDebugHandlers()`
 
 
 ## Related

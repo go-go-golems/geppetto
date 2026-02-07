@@ -35,6 +35,8 @@ RelatedFiles:
         Current duplication hotspots across UI components
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx
       Note: P3.9 story-level handler deduplication evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
+      Note: P3.10 story-level handler deduplication evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/index.css
       Note: |-
         Current global tokens/utilities baseline to evolve into reusable design system layers
@@ -83,6 +85,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -769,6 +772,28 @@ P3.8 details:
   - replaced local endpoint definitions with:
     - `import { defaultHandlers } from './msw/defaultHandlers'`
     - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.10 Progress snapshot (after P3.10 SessionList story handler deduplication)
+
+Captured after commit `2c996cc` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Inline `http.get(...)` blocks in `SessionList.stories.tsx` | 1 | 0 | replaced with centralized helper usage |
+| SessionList story variants using centralized handler helpers | 0 | 1 | `WithMSW` now uses `createDefaultDebugHandlers()` |
+
+P3.10 details:
+
+- Updated:
+  - `src/components/SessionList.stories.tsx`
+- Change:
+  - removed local inline endpoint setup
+  - switched `WithMSW` story to `createDefaultDebugHandlers()`
 
 Validation:
 

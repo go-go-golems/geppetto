@@ -101,7 +101,7 @@
 - [x] P3.7 Create `src/mocks/msw/defaultHandlers.ts`
 - [x] P3.8 Migrate `src/mocks/handlers.ts` to use handler builder(s)
 - [x] P3.9 Remove repeated per-story handler blocks in `AppShell.stories.tsx`
-- [ ] P3.10 Remove repeated per-story handler blocks in `SessionList.stories.tsx`
+- [x] P3.10 Remove repeated per-story handler blocks in `SessionList.stories.tsx`
 
 ### 3C. Story migration
 
