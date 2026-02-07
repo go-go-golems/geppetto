@@ -41,16 +41,23 @@ RelatedFiles:
       Note: |-
         Central fixture file to split into factories/scenarios
         Current centralized fixture file to split into fixtures/factories/scenarios
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/conversations.ts
+      Note: P3.1 conversation/session fixture module
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/events.ts
+      Note: P3.1 event and middleware-trace fixture module
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/timeline.ts
+      Note: P3.1 timeline fixture module
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/handlers.ts
       Note: |-
         Current MSW handlers to refactor into reusable handler builders
         Current MSW handlers to refactor into reusable handler builder
 ExternalSources: []
 Summary: Detailed execution plan for reducing PI-013 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
-LastUpdated: 2026-02-07T13:20:00-05:00
+LastUpdated: 2026-02-07T13:50:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -834,3 +841,28 @@ Validation:
 - `npm run build-storybook` passed:
   - preview built in **8.67s**
 - `rg -n "rgba\\(" src/styles -g '!src/styles/tokens.css'` returned no matches.
+
+### 13.1 Progress snapshot (after P3.1 fixture domain split)
+
+Captured after commit `9f1db57` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Fixture domain files under `src/mocks/fixtures` | 0 | 5 | conversations, turns, events, timeline, anomalies |
+| Legacy `src/mocks/data.ts` role | monolithic fixture definitions | compatibility export layer | allows incremental migration |
+
+P3.1 details:
+
+- Added:
+  - `src/mocks/fixtures/conversations.ts`
+  - `src/mocks/fixtures/turns.ts`
+  - `src/mocks/fixtures/events.ts`
+  - `src/mocks/fixtures/timeline.ts`
+  - `src/mocks/fixtures/anomalies.ts`
+- Refactored:
+  - `src/mocks/data.ts` to re-export from fixture modules
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.

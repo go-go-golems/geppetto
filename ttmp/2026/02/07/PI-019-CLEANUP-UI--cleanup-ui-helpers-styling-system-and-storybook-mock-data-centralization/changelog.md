@@ -169,3 +169,19 @@ Completed Phase 2C styling standardization (`P2.22`-`P2.24`): documented a hybri
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P2.22`, `P2.23`, and `P2.24`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/README.md — Added style contract section
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/styles/tokens.css — Added alpha/shadow tokens used by shared styles
+
+
+## 2026-02-07
+
+Completed `P3.1` by splitting monolithic `src/mocks/data.ts` into domain fixture files (`conversations`, `turns`, `events`, `timeline`, `anomalies`) and converting `data.ts` into a compatibility export layer; validated with build + storybook build. Code commit: 9f1db57.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 19 for fixture split implementation and validation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.1`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts — Reduced to compatibility export layer
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/conversations.ts — Conversation/session fixtures
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts — Turn and turn-detail fixtures
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/events.ts — Event and middleware trace fixtures
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/timeline.ts — Timeline entity fixtures
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts — Anomaly fixture sets

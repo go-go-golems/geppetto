@@ -89,7 +89,7 @@
 
 ### 3A. Split fixtures/factories/scenarios
 
-- [ ] P3.1 Create `src/mocks/fixtures/` domain files (conversations, turns, events, timeline, anomalies)
+- [x] P3.1 Create `src/mocks/fixtures/` domain files (conversations, turns, events, timeline, anomalies)
 - [ ] P3.2 Create `src/mocks/factories/` for deterministic builders
 - [ ] P3.3 Create `src/mocks/scenarios/` for reusable story contexts
 - [ ] P3.4 Create deterministic id/time/seq helper utilities for factories

@@ -32,6 +32,11 @@ RelatedFiles:
       Note: |-
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
+        P3.1 compatibility export layer after fixture split
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts
+      Note: P3.1 anomalies fixture domain file
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts
+      Note: P3.1 turn and turn-detail fixture domain extraction
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components
       Note: Component CSS target directory for Phase 2B extractions
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css
@@ -88,10 +93,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T13:20:00-05:00
+LastUpdated: 2026-02-07T13:50:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1468,6 +1474,89 @@ The change was delivered as a focused frontend commit, then validated with produ
 - Runtime inline style count:
   - Before: `0`
   - After: `0`
+
+## Step 19: Complete P3.1 by splitting mock data into domain fixture files
+
+I started Phase 3 by extracting the monolithic `src/mocks/data.ts` into domain fixtures under `src/mocks/fixtures/` for conversations, turns, events, timeline, and anomalies. I kept a compatibility layer in `data.ts` so existing imports continue to work while later Phase 3 tasks migrate stories and handlers to more structured factories/scenarios.
+
+This delivered `P3.1` without introducing behavior changes and kept build/Storybook output stable.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue into the next unchecked tasks after Phase 2 completion and keep task/diary/changelog state synchronized with commits.
+
+**Inferred user intent:** Advance PI-019 incrementally with low-risk, reviewable slices that preserve runtime stability.
+
+**Commit (code):** `9f1db57a1c86578e397294496a622eac8c0c5bbf` — "refactor(mocks): split mock data into domain fixture files"
+
+### What I did
+
+- Created fixture domain files:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/conversations.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/events.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/timeline.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts`
+- Converted legacy file into compatibility export layer:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.1`
+
+### Why
+
+- `data.ts` had grown into a single large fixture source; splitting by domain is the baseline prerequisite for deterministic factories/scenarios and handler composition work in P3.2-P3.10.
+
+### What worked
+
+- Existing stories and handlers remained compatible through `data.ts` re-exports.
+- Build and Storybook compilation passed without regressions.
+
+### What didn't work
+
+- While gathering file-level metrics, I initially ran a command with a wrong directory path and got:
+  - `zsh:cd:1: no such file or directory: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-debug/web`
+- Fix:
+  - Re-ran the command with the correct `web-agent-example/cmd/web-agent-debug/web` path.
+
+### What I learned
+
+- A compatibility export layer is a safe bridge for large fixture refactors because it decouples file-structure migration from downstream import migration.
+
+### What was tricky to build
+
+- `mockTurns`/`mockTurnDetail` depended on shared local helper state (`stdBlockMeta`) that had to remain co-located during extraction. Splitting too aggressively would have forced cross-file helper coupling. I kept the helper in `fixtures/turns.ts` to preserve readability and avoid circular import risk.
+
+### What warrants a second pair of eyes
+
+- Confirm fixture boundaries are suitable for upcoming factory/scenario tasks:
+  - whether `mockMwTrace` should remain in `events.ts` or move to a separate middleware fixture module in P3.2.
+
+### What should be done in the future
+
+- Implement `P3.2` by introducing deterministic factories that consume these fixture baselines.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/conversations.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/events.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/timeline.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Fixture modules introduced: `5`
+- `data.ts` role: compatibility export layer only (no inline mock objects).
 
 
 ## Related
