@@ -48,6 +48,8 @@ RelatedFiles:
       Note: P3.1 anomalies fixture domain file
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts
       Note: P3.1 turn and turn-detail fixture domain extraction
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/handlers.ts
+      Note: P3.8 migrated to centralized defaultHandlers re-export
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
       Note: P3.6 reusable MSW debug handler builder
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts
@@ -118,10 +120,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T15:53:00-05:00
+LastUpdated: 2026-02-07T16:03:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2064,6 +2067,78 @@ This sets up `P3.8` to migrate the legacy `src/mocks/handlers.ts` onto the new s
 ### Technical details
 
 - New module exports added: `3` (`defaultDebugHandlerData`, `createDefaultDebugHandlers`, `defaultHandlers`)
+
+## Step 26: Complete P3.8 by migrating legacy handlers.ts to centralized defaults
+
+I completed `P3.8` by migrating `src/mocks/handlers.ts` to consume the centralized default handler bundle introduced in `P3.7`. The legacy file now serves as a compatibility bridge that exports `handlers` from `./msw/defaultHandlers` instead of defining endpoint logic inline.
+
+This removes duplicate endpoint logic and consolidates runtime MSW behavior around the new builder-based architecture.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue with the next unchecked migration task and keep each slice committed and documented.
+
+**Inferred user intent:** Finish architectural consolidation first, then move to per-story handler deduplication tasks.
+
+**Commit (code):** `00d9a9c79c6242b4b9a8a17316d6fa0e997a0028` — "refactor(mocks): migrate handlers to default builder"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/handlers.ts`
+- Replaced monolithic endpoint definitions with:
+  - `import { defaultHandlers } from './msw/defaultHandlers'`
+  - `export const handlers = defaultHandlers`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.8`
+
+### Why
+
+- `handlers.ts` duplicated endpoint behavior now already represented by `createDebugHandlers` + `defaultHandlers`, creating maintainability risk and drift potential.
+
+### What worked
+
+- Runtime/storybook builds remained green after replacing inline handlers with centralized defaults.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- A compatibility re-export approach lets consumers migrate incrementally while enforcing a single source of endpoint behavior.
+
+### What was tricky to build
+
+- I needed to preserve external import shape (`handlers`) while replacing internals. The minimal shim (`export const handlers = defaultHandlers`) retained compatibility and kept this change tightly scoped to architecture migration.
+
+### What warrants a second pair of eyes
+
+- Verify no consumer relies on side-effects from the old inline handler module body (none expected, but worth confirming during broader story migration).
+
+### What should be done in the future
+
+- Complete `P3.9` and `P3.10` by replacing repeated per-story MSW handler arrays in `AppShell.stories.tsx` and `SessionList.stories.tsx` with centralized helper usage.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/handlers.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Endpoint definitions removed from `handlers.ts`: `8`
+- `handlers.ts` new role: centralized default-bundle re-export shim
 
 
 ## Related

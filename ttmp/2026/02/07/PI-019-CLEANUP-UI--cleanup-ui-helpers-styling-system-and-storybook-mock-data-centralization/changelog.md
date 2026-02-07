@@ -266,3 +266,14 @@ Completed `P3.7` by creating `src/mocks/msw/defaultHandlers.ts`, which wires fix
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 25 for default MSW handler bundle creation
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.7`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts — Default debug handler data and handler bundle exports
+
+
+## 2026-02-07
+
+Completed `P3.8` by migrating `src/mocks/handlers.ts` to the new MSW handler builder architecture via `defaultHandlers`; validated with build + storybook build. Code commit: 00d9a9c.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 26 for handlers migration onto default builder
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.8`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/handlers.ts — Reduced to default handler bundle export

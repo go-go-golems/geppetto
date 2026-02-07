@@ -64,6 +64,7 @@ RelatedFiles:
       Note: |-
         Current MSW handlers to refactor into reusable handler builders
         Current MSW handlers to refactor into reusable handler builder
+        P3.8 now delegates to centralized default handler bundle
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
       Note: P3.6 reusable MSW handler builder design evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts
@@ -76,6 +77,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -742,6 +744,29 @@ Extraction details:
 Validation:
 
 - `npm run build` passed.
+
+### 13.8 Progress snapshot (after P3.8 handlers migration to centralized builder)
+
+Captured after commit `00d9a9c` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Inline endpoint definitions in `src/mocks/handlers.ts` | 8 | 0 | replaced by centralized default bundle import |
+| `src/mocks/handlers.ts` role | monolithic endpoint implementation | compatibility re-export | now delegates to `defaultHandlers` |
+
+P3.8 details:
+
+- Migrated:
+  - `src/mocks/handlers.ts`
+- Change:
+  - replaced local endpoint definitions with:
+    - `import { defaultHandlers } from './msw/defaultHandlers'`
+    - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
 
 ### 13.7 Progress snapshot (after P3.7 default MSW handler bundle)
 
