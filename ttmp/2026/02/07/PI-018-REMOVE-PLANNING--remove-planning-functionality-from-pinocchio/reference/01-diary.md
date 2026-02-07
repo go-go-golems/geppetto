@@ -260,3 +260,193 @@ I also converted the single placeholder task into a real implementation checklis
 - Worktree clarification from user: use subrepo git roots for commit operations.
 - Ticket docs path:
   - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-018-REMOVE-PLANNING--remove-planning-functionality-from-pinocchio`
+
+## Step 5: Remove Planning Backend + Schema Pipeline
+
+I executed the backend and schema removal in one focused slice: deleted planning proto/event sources, removed backend planning translation/projector code paths, regenerated protobuf outputs, and committed that as a backend refactor commit.
+
+The largest issue in this step was codegen scoping: plain `buf generate` failed because it traversed frontend `node_modules` protobufs. I switched to `buf generate --path proto`, which constrained generation to the repository proto tree and produced clean output.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 4)
+
+**Assistant interpretation:** Remove planning implementation end-to-end from backend and schemas, validate it, and keep commits focused.
+
+**Inferred user intent:** Fully eliminate planning event production/translation/projection from the running backend, not just hide it in UI.
+
+**Commit (code):** `fb12e36d4b7dc93c597423583a2a5e6c79a0346f` — "refactor: remove planning events and schema pipeline"
+
+### What I did
+- Deleted proto definitions:
+  - `pinocchio/proto/sem/middleware/planning.proto`
+  - `pinocchio/proto/sem/timeline/planning.proto`
+- Updated transport schema:
+  - `pinocchio/proto/sem/timeline/transport.proto` (remove planning import/oneof field + kind comment)
+- Regenerated protobuf outputs using `buf generate --path proto`.
+- Deleted planning-generated artifacts in Go and TS targets.
+- Deleted planning typed events:
+  - `pinocchio/pkg/inference/events/typed_planning.go`
+- Removed backend planning wiring:
+  - `pinocchio/pkg/webchat/sem_translator.go`
+  - `pinocchio/pkg/webchat/timeline_projector.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/cmd/web-chat/main.go` (removed `emit-planning-stubs` parameter)
+- Ran `gofmt -w` on modified Go files.
+
+### Why
+- Planning feature removal had to start at schema + backend to prevent stale event emission and to keep the timeline model coherent.
+
+### What worked
+- `go build ./...` passed.
+- Pre-commit hooks ran and passed repository checks (`go test`, `web-check`, lint pipeline).
+
+### What didn't work
+- `buf generate` initially failed with duplicate protobuf symbol errors from `cmd/web-chat/web/node_modules/...` and unknown extension errors from Apollo proto files.
+- Exact failing command: `buf generate`
+- Resolution: use `buf generate --path proto` to scope generation to first-party proto sources.
+
+### What I learned
+- In this repo layout, unconstrained buf generation can traverse vendored frontend proto trees; path-scoped generation is safer and deterministic.
+
+### What was tricky to build
+- Deleting planning code while keeping protobuf-generated transport files consistent in three outputs (`pkg/sem/pb`, `cmd/web-chat/web/src/sem/pb`, `web/src/sem/pb`) required explicit cleanup of stale generated files after regeneration.
+
+### What warrants a second pair of eyes
+- `timeline_projector.go` switch behavior after removing the planning branch (ensure no expected semantic events were accidentally dropped).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Start with schema diff and generated outputs in this commit.
+- Then review backend removals in:
+  - `pkg/webchat/sem_translator.go`
+  - `pkg/webchat/timeline_projector.go`
+  - `pkg/webchat/router.go`
+
+### Technical details
+- Validation seen in commit hook for this step:
+  - `go test ./...`
+  - `npm run check` in `cmd/web-chat/web`
+  - lint pipeline (`go generate`, `go build`, `golangci-lint`, `go vet`)
+
+## Step 6: Remove Frontend Planning UI Wiring
+
+After backend/schema removal, I removed the remaining frontend runtime wiring so planning events/entities are no longer handled or rendered. This included registry handlers, mapper translation, card renderer wiring, timeline lane classification, and Storybook planning-only scenario cleanup.
+
+This was committed separately to keep review and rollback simple.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 4)
+
+**Assistant interpretation:** Finish removing the planning implementation in UI code and keep it as a distinct commit.
+
+**Inferred user intent:** Ensure the frontend no longer has planning-specific behavior or dead code paths after backend removal.
+
+**Commit (code):** `cae2e274c10d20e8d16ec18726ba273f5e5255c4` — "refactor(webchat): drop planning UI handlers and card wiring"
+
+### What I did
+- Removed planning aggregation and handlers from:
+  - `pinocchio/cmd/web-chat/web/src/sem/registry.ts`
+- Removed planning mapping from:
+  - `pinocchio/cmd/web-chat/web/src/sem/timelineMapper.ts`
+- Removed `PlanningCard` component from:
+  - `pinocchio/cmd/web-chat/web/src/webchat/cards.tsx`
+- Removed planning renderer/profile fallback mentions from:
+  - `pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx`
+- Removed planning lane classification from:
+  - `pinocchio/cmd/web-chat/web/src/webchat/components/Timeline.tsx`
+- Removed planning-focused Storybook scenario from:
+  - `pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.stories.tsx`
+- Passed frontend checks in pre-commit hook (`npm run check`).
+
+### Why
+- Backend planning removal alone would leave dead frontend code and stale UI assumptions around planning entities.
+
+### What worked
+- Typecheck and lint passed after handler and renderer removal.
+- Commit remained focused to six frontend files.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The registry cleanup became simpler after transport/proto planning fields were removed first; ordering matters.
+
+### What was tricky to build
+- Removing planning logic from `registry.ts` required deleting both imports and stateful aggregator helpers to avoid latent dead references.
+
+### What warrants a second pair of eyes
+- Storybook coverage after removing planning scenario (ensure no expected demo case was still needed under a different ticket).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Review the frontend commit diff in order:
+  1. `sem/registry.ts`
+  2. `sem/timelineMapper.ts`
+  3. `webchat/cards.tsx`
+  4. `webchat/ChatWidget.tsx`
+  5. `webchat/components/Timeline.tsx`
+  6. `webchat/ChatWidget.stories.tsx`
+
+### Technical details
+- Remaining untracked file in repo was unrelated and intentionally not committed:
+  - `pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md`
+
+## Step 7: Final Verification + Ticket Closure Notes
+
+I finalized the ticket bookkeeping after both implementation commits: marked the checklist complete, recorded commit-by-commit changelog entries, and confirmed the working trees are clean except for one unrelated untracked file in pinocchio docs.
+
+This step is focused on reviewer handoff quality: make it obvious what changed, in what order, and where to start reviewing.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 4)
+
+**Assistant interpretation:** Finish documentation and handoff with complete task tracking and commit traceability.
+
+**Inferred user intent:** Leave the ticket in a fully reviewable state with no ambiguity about progress.
+
+### What I did
+- Checked off all remaining task items in `tasks.md`.
+- Added commit-referenced changelog entries for:
+  - docs baseline commit (`e8335ec...`)
+  - backend/schema removal commit (`fb12e36...`)
+  - frontend wiring removal commit (`cae2e27...`)
+- Verified no planning implementation references remained in code paths via ripgrep search.
+
+### Why
+- Without final bookkeeping, reviewers would have to reconstruct progress manually from git history.
+
+### What worked
+- Task and changelog updates are now aligned with actual commit boundaries.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Keeping a strict “task → commit → diary/changelog” cadence makes multi-repo tickets much easier to audit.
+
+### What was tricky to build
+- Ensuring that task completion state matched exactly what had already been committed in a different repo (pinocchio) before committing docs in geppetto.
+
+### What warrants a second pair of eyes
+- Sanity-check that none of the `pkg/doc/topics/*.md` planning references should be updated in this same ticket, or intentionally deferred.
+
+### What should be done in the future
+- Optional follow-up: clean or rewrite internal docs that still describe planning events in architecture/tutorial references.
+
+### Code review instructions
+- Review commits in this order:
+  1. `e8335ec2c07f2a730fa1a3a3ced45fdce321fe12` (ticket docs + checklist)
+  2. `fb12e36d4b7dc93c597423583a2a5e6c79a0346f` (backend/schema removal)
+  3. `cae2e274c10d20e8d16ec18726ba273f5e5255c4` (frontend removal)
+- Then review final doc updates in this geppetto ticket directory.
+
+### Technical details
+- Final implementation-scope search pattern used:
+  - `rg -n "planning\.start|planning\.iteration|planning\.reflection|planning\.complete|execution\.start|execution\.complete|EventPlanning|EventExecution|PlanningSnapshotV1|emit-planning-stubs|typed_planning|sem\.middleware\.planning|planning\.proto" pkg cmd/web-chat web/src proto --glob '!**/pb/**' --glob '!pkg/doc/**' --glob '!**/*.md'`
