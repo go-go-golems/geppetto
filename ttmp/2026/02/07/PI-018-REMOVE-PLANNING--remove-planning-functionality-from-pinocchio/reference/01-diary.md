@@ -1,10 +1,13 @@
 ---
-Title: ""
-Ticket: ""
-Status: ""
-Topics: []
-DocType: ""
-Intent: ""
+Title: Diary
+Ticket: PI-018-REMOVE-PLANNING
+Status: active
+Topics:
+    - pinocchio
+    - refactoring
+    - cleanup
+DocType: reference
+Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
@@ -22,10 +25,10 @@ RelatedFiles:
     - Path: ../../../../../../../pinocchio/proto/sem/timeline/transport.proto
       Note: Removed planning timeline snapshot schema wiring
 ExternalSources: []
-Summary: ""
-LastUpdated: 0001-01-01T00:00:00Z
-WhatFor: ""
-WhenToUse: ""
+Summary: Implementation diary for planning-removal execution and validation.
+LastUpdated: 2026-02-07T08:45:59-05:00
+WhatFor: Track incremental implementation progress, failures, and review checkpoints.
+WhenToUse: Use for implementation review, debugging history, and handoff context.
 ---
 
 
