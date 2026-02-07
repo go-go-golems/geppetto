@@ -33,6 +33,8 @@ RelatedFiles:
       Note: |-
         Main React component surface with helper and style duplication to clean up
         Current duplication hotspots across UI components
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx
+      Note: P3.9 story-level handler deduplication evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/index.css
       Note: |-
         Current global tokens/utilities baseline to evolve into reusable design system layers
@@ -66,9 +68,13 @@ RelatedFiles:
         Current MSW handlers to refactor into reusable handler builder
         P3.8 now delegates to centralized default handler bundle
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
-      Note: P3.6 reusable MSW handler builder design evidence
+      Note: |-
+        P3.6 reusable MSW handler builder design evidence
+        P3.9 delay override enhancement evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts
-      Note: P3.7 default handler bundle design evidence
+      Note: |-
+        P3.7 default handler bundle design evidence
+        P3.9 default handler override wiring evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
       Note: P3.3 reusable scenario layer snapshot evidence
 ExternalSources: []
@@ -77,6 +83,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -762,6 +769,31 @@ P3.8 details:
   - replaced local endpoint definitions with:
     - `import { defaultHandlers } from './msw/defaultHandlers'`
     - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.9 Progress snapshot (after P3.9 AppShell story handler deduplication)
+
+Captured after commit `db9569a` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Inline `http.get(...)` blocks in `AppShell.stories.tsx` | 7 | 0 | replaced with centralized handler helpers |
+| Storys using `defaultHandlers` / `createDefaultDebugHandlers` in `AppShell.stories.tsx` | 0 | 3 | meta/default + empty + loading overrides |
+
+P3.9 details:
+
+- Updated:
+  - `src/components/AppShell.stories.tsx`
+  - `src/mocks/msw/createDebugHandlers.ts`
+  - `src/mocks/msw/defaultHandlers.ts`
+- Changes:
+  - removed story-local endpoint definitions
+  - wired base story handlers to `defaultHandlers`
+  - wired empty/loading variants to `createDefaultDebugHandlers` with data/delay overrides
 
 Validation:
 

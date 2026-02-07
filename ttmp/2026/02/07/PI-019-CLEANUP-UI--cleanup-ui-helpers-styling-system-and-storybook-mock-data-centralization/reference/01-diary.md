@@ -24,6 +24,8 @@ RelatedFiles:
         Main source of helper/style duplication analyzed
         Duplication audit evidence
         Component migration targets for P1.7-P1.16
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx
+      Note: P3.9 centralized AppShell story handlers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
       Note: P2.7 inline style removal
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.tsx
@@ -51,9 +53,13 @@ RelatedFiles:
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/handlers.ts
       Note: P3.8 migrated to centralized defaultHandlers re-export
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
-      Note: P3.6 reusable MSW debug handler builder
+      Note: |-
+        P3.6 reusable MSW debug handler builder
+        P3.9 added delay override support for story loading scenarios
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts
-      Note: P3.7 default MSW handler bundle wiring
+      Note: |-
+        P3.7 default MSW handler bundle wiring
+        P3.9 extended default handler helper options
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
       Note: P3.3 anomaly panel scenario variants
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
@@ -120,10 +126,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T16:03:00-05:00
+LastUpdated: 2026-02-07T16:15:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2139,6 +2146,83 @@ This removes duplicate endpoint logic and consolidates runtime MSW behavior arou
 
 - Endpoint definitions removed from `handlers.ts`: `8`
 - `handlers.ts` new role: centralized default-bundle re-export shim
+
+## Step 27: Complete P3.9 by removing AppShell story-level handler duplication
+
+I completed `P3.9` by replacing inline `http.get(...)` blocks in `AppShell.stories.tsx` with centralized handler helpers from the new MSW module stack. The story meta now uses `defaultHandlers`, while scenario-specific states use `createDefaultDebugHandlers` with data/delay overrides.
+
+This collapses repeated story-level endpoint setup and aligns AppShell stories with the centralized handler architecture built in `P3.6`-`P3.8`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue checklist execution, removing duplication incrementally with isolated commits and diary updates.
+
+**Inferred user intent:** Reduce Storybook handler duplication without destabilizing existing story behavior.
+
+**Commit (code):** `db9569a0231811e4a31627b198aca12ac0a5be5f` — "refactor(stories): centralize AppShell msw handlers"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts`
+- Refactor details:
+  - removed inline MSW `http.get` handler arrays in story metadata/variants
+  - set base story handlers to `defaultHandlers`
+  - set empty-state handlers to `createDefaultDebugHandlers({ conversations: [] })`
+  - set loading handlers to `createDefaultDebugHandlers(..., { delayMs: { conversations: 10_000 } })`
+  - added optional delay override support in handler builder
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.9`
+
+### Why
+
+- `AppShell.stories.tsx` had repeated endpoint definitions that duplicated behavior already available through centralized mock handler modules.
+
+### What worked
+
+- Storybook build passed after migration and story behavior remained represented through centralized data/delay overrides.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Minimal optional override hooks (`delayMs`) in the central handler builder can remove story-local endpoint duplication without requiring ad-hoc per-story handlers.
+
+### What was tricky to build
+
+- The loading story required delayed response behavior, which previously depended on inline async handler code. I solved this by extending `createDebugHandlers` with optional per-endpoint delay configuration and threading that through `createDefaultDebugHandlers`, preserving behavior while still removing duplication.
+
+### What warrants a second pair of eyes
+
+- Confirm the delay override approach is the preferred long-term pattern for other stories that need async/latency variants.
+
+### What should be done in the future
+
+- Complete `P3.10` by removing repeated per-story handlers in `SessionList.stories.tsx` using the same centralized helper pattern.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Inline `http.get(...)` blocks removed from `AppShell.stories.tsx`: `7`
+- New handler builder option added: `delayMs.conversations`
 
 
 ## Related
