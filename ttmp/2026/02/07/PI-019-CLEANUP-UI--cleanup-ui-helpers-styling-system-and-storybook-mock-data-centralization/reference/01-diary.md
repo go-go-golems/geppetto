@@ -38,6 +38,8 @@ RelatedFiles:
       Note: P2.10 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventsPage.css
       Note: P2.20 extracted route styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/FilterBar.css
+      Note: P2.16 extracted FilterBar + FilterChip styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/NowMarker.css
       Note: P2.12 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/OverviewPage.css
@@ -82,6 +84,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1118,6 +1121,81 @@ To avoid global selector collisions after moving route styles into globally impo
 - Runtime inline style count:
   - Before: `22`
   - After: `18`
+
+## Step 15: Complete P2.16 by extracting FilterBar inline styles
+
+I extracted both inline style blocks from `FilterBar.tsx` into `styles/components/FilterBar.css` and removed the embedded `<style>{...}` usage in that component. This continues the Phase 2B pattern of moving runtime styles into the centralized component CSS layer.
+
+After extraction, both build and Storybook build remained successful and runtime inline style count dropped from `18` to `16`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue task execution with checkoffs, diary updates, and focused commits.
+
+**Inferred user intent:** Maintain consistent progress through the CSS extraction backlog and keep the ticket state current.
+
+**Commit (code):** `51ab056b8224cf33191f51907f4752c947b30095` — "refactor(debug-ui): extract FilterBar inline styles"
+
+### What I did
+
+- Removed inline style blocks from:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/FilterBar.tsx`
+- Added extracted styles to:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/FilterBar.css`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P2.16`
+
+### Why
+
+- FilterBar contained two distinct inline style regions (container and chip styles), making it a high-impact single-task extraction candidate.
+
+### What worked
+
+- Extraction preserved behavior and all validations passed.
+- Runtime inline style count decreased as expected.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The style-layer scaffold handles component-level style growth cleanly; larger extracted CSS remains manageable in dedicated component files.
+
+### What was tricky to build
+
+- FilterBar combines parent and child (`FilterChip`) style blocks; extraction required combining both in one CSS module while preserving class semantics and active chip state rules.
+
+### What warrants a second pair of eyes
+
+- Confirm filter chip active-state color classes still match the intended block-kind color mapping after extraction.
+
+### What should be done in the future
+
+- Continue with remaining major component extractions:
+  - `P2.14` (`SnapshotDiff.tsx`)
+  - `P2.15` (`EventInspector.tsx`)
+  - `P2.17` (`AnomalyPanel.tsx`)
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/FilterBar.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/FilterBar.css`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Runtime inline style count:
+  - Before: `18`
+  - After: `16`
 
 ## Related
 

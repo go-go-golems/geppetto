@@ -119,3 +119,15 @@ Completed P2.13 and P2.18-P2.21: confirmed TurnInspector is already style-clean,
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/routes/TimelinePage.tsx — Removed inline styles and added route-scoped class names
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/routes/TurnDetailPage.tsx — Removed inline styles and added route-scoped class names
 
+
+## 2026-02-07
+
+Completed P2.16 by extracting FilterBar inline styles into component CSS and reducing runtime inline style blocks from 18 to 16; validated with build + storybook build. Code commit: 51ab056.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 15 for FilterBar extraction
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off P2.16
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/FilterBar.tsx — Removed inline style blocks
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/styles/components/FilterBar.css — Centralized FilterBar and FilterChip styles
+

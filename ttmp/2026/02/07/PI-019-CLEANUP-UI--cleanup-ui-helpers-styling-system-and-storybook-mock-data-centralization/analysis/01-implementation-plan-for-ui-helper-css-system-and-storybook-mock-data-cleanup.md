@@ -709,6 +709,26 @@ Validation:
 - `npm run build` passed.
 - `npm run build-storybook` passed.
 
+### 12.10 Progress snapshot (after P2.16 FilterBar extraction)
+
+Captured after commit `51ab056` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Runtime inline `<style>{` blocks | 18 | 16 | `FilterBar.tsx` inline blocks extracted |
+
+P2.16 details:
+
+- Inline styles moved from:
+  - `src/components/FilterBar.tsx`
+- Into:
+  - `src/styles/components/FilterBar.css`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
 ### 12.9 Progress snapshot (after P2.13 + P2.18-P2.21)
 
 Captured after commit `ac2f936` in `web-agent-example`:
