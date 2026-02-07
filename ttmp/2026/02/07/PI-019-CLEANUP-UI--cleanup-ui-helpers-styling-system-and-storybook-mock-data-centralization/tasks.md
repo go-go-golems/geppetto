@@ -72,7 +72,7 @@
 - [ ] P2.14 Extract styles from `SnapshotDiff.tsx`
 - [ ] P2.15 Extract styles from `EventInspector.tsx`
 - [x] P2.16 Extract styles from `FilterBar.tsx`
-- [ ] P2.17 Extract styles from `AnomalyPanel.tsx`
+- [x] P2.17 Extract styles from `AnomalyPanel.tsx`
 - [x] P2.18 Extract route-level styles from `OverviewPage.tsx`
 - [x] P2.19 Extract route-level styles from `TimelinePage.tsx`
 - [x] P2.20 Extract route-level styles from `EventsPage.tsx`

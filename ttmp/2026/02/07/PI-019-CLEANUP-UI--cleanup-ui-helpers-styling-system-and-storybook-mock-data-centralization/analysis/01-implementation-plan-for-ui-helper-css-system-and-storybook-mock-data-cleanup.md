@@ -709,6 +709,26 @@ Validation:
 - `npm run build` passed.
 - `npm run build-storybook` passed.
 
+### 12.11 Progress snapshot (after P2.17 AnomalyPanel extraction)
+
+Captured after commit `140afcc` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Runtime inline `<style>{` blocks | 16 | 13 | `AnomalyPanel.tsx` inline blocks extracted |
+
+P2.17 details:
+
+- Inline styles moved from:
+  - `src/components/AnomalyPanel.tsx`
+- Into:
+  - `src/styles/components/AnomalyPanel.css`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
 ### 12.10 Progress snapshot (after P2.16 FilterBar extraction)
 
 Captured after commit `51ab056` in `web-agent-example`:

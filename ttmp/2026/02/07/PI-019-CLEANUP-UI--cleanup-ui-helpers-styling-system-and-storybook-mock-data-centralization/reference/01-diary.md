@@ -32,6 +32,8 @@ RelatedFiles:
         Mock centralization analysis evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components
       Note: Component CSS target directory for Phase 2B extractions
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css
+      Note: P2.17 extracted anomaly panel styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css
       Note: P2.7 extracted AppShell styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventTrackLane.css
@@ -84,6 +86,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1196,6 +1199,80 @@ After extraction, both build and Storybook build remained successful and runtime
 - Runtime inline style count:
   - Before: `18`
   - After: `16`
+
+## Step 16: Complete P2.17 by extracting AnomalyPanel inline styles
+
+I extracted all remaining inline style blocks from `AnomalyPanel.tsx` into `styles/components/AnomalyPanel.css` and removed the embedded `<style>{...}` sections from the component. This closed out the anomaly panel extraction task and further reduced runtime inline style usage.
+
+Both production and Storybook builds succeeded after the change, and the global inline-style count dropped from `16` to `13`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue with the next unchecked Phase 2 task and keep the ticket diary/changelog synchronized.
+
+**Inferred user intent:** Keep delivering concrete, test-verified cleanup increments until the phase is complete.
+
+**Commit (code):** `140afccd70bc02dc25f89843d97a4479786b2bab` — "refactor(debug-ui): extract AnomalyPanel inline styles"
+
+### What I did
+
+- Removed inline styles from:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.tsx`
+- Added extracted styles to:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P2.17`
+
+### Why
+
+- `AnomalyPanel` was one of the larger remaining style-heavy components and represented a high-value extraction target.
+
+### What worked
+
+- Build and Storybook validation remained green.
+- Runtime inline style count reduced as expected.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Even complex multi-section components can be migrated cleanly when styles are grouped by feature sections (panel shell, cards, detail pane) in the target CSS file.
+
+### What was tricky to build
+
+- `AnomalyPanel` reused generic names like `.empty-state`; moving styles to global CSS required safer selector scoping (`.anomaly-list .empty-state`) to avoid cross-component conflicts.
+
+### What warrants a second pair of eyes
+
+- Verify that anomaly severity chips and detail view badges still visually match prior behavior in Storybook.
+
+### What should be done in the future
+
+- Finish remaining high-density extractions:
+  - `P2.14` (`SnapshotDiff.tsx`)
+  - `P2.15` (`EventInspector.tsx`)
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Runtime inline style count:
+  - Before: `16`
+  - After: `13`
 
 ## Related
 
