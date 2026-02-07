@@ -93,6 +93,16 @@ The Geppetto inference architecture is built around a clean separation of concer
 - **Testable**: Easy to mock engines for testing
 - **Composable**: Mix and match engines, helpers, and middleware
 
+### Context-Based Dependency Injection
+
+Geppetto uses `context.Context` to carry runtime dependencies rather than global state or struct fields:
+
+- **Event sinks**: `events.WithEventSinks(ctx, sink)` — engines and middleware publish streaming events to sinks found on the context.
+- **Tool registries**: `tools.WithRegistry(ctx, registry)` — engines discover available tools from the context.
+- **Snapshot hooks**: `toolloop.WithTurnSnapshotHook(ctx, hook)` — the tool loop invokes snapshot callbacks found on the context.
+
+This pattern avoids global state, makes testing straightforward (just pass a different context), and supports multiple parallel inference runs with independent configuration.
+
 ## The Engine Interface
 
 The heart of the architecture is the simple `Engine` interface (no explicit streaming method; streaming happens when sinks are configured on the engine):
@@ -494,6 +504,65 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
 }
 ```
 
+## Complete Runtime Flow
+
+The sections above describe individual components. Here is how they connect into a single request flow, from user prompt to final response, in a multi-turn application:
+
+```
+1. Session.AppendNewTurnFromUserPrompt("question")
+   ├── Clones the latest turn (preserving full conversation history)
+   ├── Appends a new user block
+   └── Assigns a new TurnID
+
+2. Session.StartInference(ctx)
+   ├── Creates an ExecutionHandle (tracks async result)
+   └── Launches goroutine with runner.RunInference()
+
+3. Runner setup
+   ├── Attaches event sinks to context
+   ├── Sets SessionID and InferenceID on Turn metadata
+   └── Creates toolloop.Loop (if tool registry is present)
+
+4. Tool loop iterates (up to maxIterations):
+   │
+   ├─ a. Snapshot: "pre_inference"
+   │     Turn captured before any processing
+   │
+   ├─ b. Middleware chain (pre-processing)
+   │     System prompt → agent mode → tool reorder → ...
+   │     Each middleware can inspect/mutate the Turn
+   │
+   ├─ c. Engine.RunInference()
+   │     ├── Translates Turn blocks to provider wire format
+   │     ├── Calls LLM API
+   │     ├── Streams events: start → delta → delta → ...
+   │     └── Appends output blocks: llm_text, tool_call
+   │
+   ├─ d. Middleware chain (post-processing)
+   │     Each middleware can inspect/mutate the result
+   │
+   ├─ e. Snapshot: "post_inference"
+   │     Turn captured with model output
+   │
+   ├─ f. Extract pending tool calls
+   │     If none: loop exits (done)
+   │
+   ├─ g. Execute tools in parallel
+   │     Append tool_use blocks with results
+   │
+   ├─ h. Snapshot: "post_tools"
+   │     Turn captured with tool results
+   │
+   └─ i. Loop back to (a) with updated Turn
+
+5. Final turn persisted (if persister configured)
+
+6. ExecutionHandle receives result
+   Caller retrieves via handle.Wait()
+```
+
+This flow shows why snapshot phases are valuable for debugging: you can see the Turn at each critical moment and understand exactly what the model received and produced.
+
 ## Provider-Specific Implementations
 
 The factory automatically selects the correct provider based on configuration:
@@ -694,9 +763,11 @@ The combination of engines, tool loop, factories, and middleware provides all th
 
 ## See Also
 
-- [Turns and Blocks](08-turns.md) — The Turn data model that engines operate on
+- [Turns and Blocks](08-turns.md) — The Turn data model that engines operate on; see "How Blocks Accumulate"
+- [Sessions](10-sessions.md) — Multi-turn session management built on top of engines
 - [Tools](07-tools.md) — Defining and executing tools
 - [Events](04-events.md) — How engines publish streaming events
-- [Middlewares](09-middlewares.md) — Adding cross-cutting behavior
+- [Middlewares](09-middlewares.md) — Adding cross-cutting behavior; see "Middleware as Composable Prompting"
+- [Structured Sinks](11-structured-sinks.md) — Extracting structured data from LLM text streams
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete working example
 - Examples: `geppetto/cmd/examples/simple-streaming-inference/`, `geppetto/cmd/examples/generic-tool-calling/`

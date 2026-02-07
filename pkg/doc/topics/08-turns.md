@@ -30,6 +30,19 @@ Every AI conversation is a sequence of messages — user prompts, assistant resp
 
 > **Key Pattern:** The runtime tool registry is carried via `context.Context` (see `tools.WithRegistry`). Only serializable tool configuration belongs in `Turn.Data` (e.g., `engine.KeyToolConfig`).
 
+## Why "Turn" Instead of "Message"
+
+Most LLM frameworks model interactions as a list of chat messages with roles (`user`, `assistant`, `system`). This works for simple chatbots but breaks down for many real-world uses:
+
+- **Document processing** — one input, one output, no conversation at all.
+- **Agent loops** — the model calls tools repeatedly without any human input in between.
+- **Multi-mode agents** — different instructions and tool sets per mode, switched mid-run.
+- **Reasoning/planning** — internal steps that aren't "messages" to anyone.
+
+A **Turn** is a general-purpose container for one inference cycle. It holds everything the model needs to see (input blocks) and everything it produces (output blocks), regardless of whether the interaction is a chat, a batch job, or an agent loop. A single Turn may contain a system prompt, several prior user/assistant exchanges, multiple tool calls and results, and the model's final response — all as ordered blocks in one structure.
+
+The word "Turn" avoids the conversational connotations of "message" and correctly implies that the model takes a turn (like in a board game): it receives context, reasons, and produces output.
+
 ## Core Concepts
 
 ### The Data Model
@@ -92,6 +105,37 @@ Each block has a `Kind` that describes what it contains:
 | `ToolUse` | Middleware/Helper | Result of tool execution | `id`, `result` |
 | `Reasoning` | Engine (o1, Claude) | Model's reasoning trace | `encrypted_content`, `item_id` |
 | `Other` | Various | Catch-all for unknown types | varies |
+
+### How Blocks Accumulate During Inference
+
+A Turn is not static — blocks are **appended in place** as inference proceeds. Understanding this growth is essential for working with middleware and debugging tools.
+
+Here is what a Turn's block list looks like at different moments during a single inference cycle with tool use:
+
+```
+Before inference:        [system, user]
+After model responds:    [system, user, tool_call]
+After tool executes:     [system, user, tool_call, tool_use]
+After model finalizes:   [system, user, tool_call, tool_use, llm_text]
+```
+
+Step by step:
+
+1. Your application creates the Turn with a system prompt and the user's question.
+2. `Engine.RunInference()` calls the LLM API. The model decides to call a tool — the engine appends a `tool_call` block.
+3. The tool loop extracts the pending tool call, executes it, and appends a `tool_use` block with the result.
+4. The engine runs again (the model now sees the tool result) and appends an `llm_text` block with the final answer.
+
+This all happens on the **same Turn pointer**. The Turn is mutated in place — middlewares see and can modify the evolving context at each step.
+
+The tool loop captures **snapshots** at named phases so you can inspect the Turn's state at each stage:
+
+| Phase | When captured | What the Turn contains |
+|-------|--------------|----------------------|
+| `pre_inference` | Before engine runs | Input blocks only |
+| `post_inference` | After engine returns | Input + model output (text, tool calls) |
+| `post_tools` | After tools execute | Input + model output + tool results |
+| `final` | After loop completes | Complete Turn |
 
 ### Typed Keys
 
@@ -221,6 +265,25 @@ _ = updated // == sess.Latest()
 
 This model keeps a history of snapshots (`sess.Turns`), but only the newest snapshot is mutated
 while an inference is running.
+
+### How Turns Grow Across a Conversation
+
+Each new Turn starts as a **clone** of the previous Turn's final state, with the new user prompt appended. This means every Turn is a complete snapshot of the full context:
+
+```
+Turn 1 (start):          [system, user₁]
+Turn 1 (after inference): [system, user₁, llm_text₁]
+
+Turn 2 = clone(Turn 1) + user₂:
+Turn 2 (start):          [system, user₁, llm_text₁, user₂]
+Turn 2 (after inference): [system, user₁, llm_text₁, user₂, llm_text₂]
+
+Turn 3 = clone(Turn 2) + user₃:
+Turn 3 (start):          [system, user₁, llm_text₁, user₂, llm_text₂, user₃]
+Turn 3 (after inference): [system, user₁, llm_text₁, user₂, llm_text₂, user₃, llm_text₃]
+```
+
+You can look at any Turn in isolation and see the complete context the model had at that point. A diff between Turn N and Turn N+1 shows exactly what was added (new user prompt + model response + any tool interactions).
 
 ## Tool Configuration
 
@@ -371,7 +434,10 @@ import (
 
 ## See Also
 
-- [Inference Engines](06-inference-engines.md) — How engines use Turns
+- [Sessions](10-sessions.md) — Managing multi-turn interactions with Turn history
+- [Inference Engines](06-inference-engines.md) — How engines use Turns; see "Complete Runtime Flow"
 - [Tools](07-tools.md) — Defining and executing tools
 - [Middlewares](09-middlewares.md) — Processing Turns with middleware
+- [Events](04-events.md) — Streaming events emitted during inference
+- [Structured Sinks](11-structured-sinks.md) — Extracting structured data from LLM text streams
 - [turnsdatalint](12-turnsdatalint.md) — Linter for typed key usage
