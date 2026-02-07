@@ -105,19 +105,19 @@
 
 ### Screen 7: FilterBar
 
-- [ ] Filter overlay component
-- [ ] Block kind filters
-- [ ] Event type filters
-- [ ] Time range filters
-- [ ] Search input
-- [ ] Stories
+- [x] Filter overlay component
+- [x] Block kind filters
+- [x] Event type filters
+- [ ] Time range filters (deferred - need date picker)
+- [x] Search input
+- [x] Stories
 
 ### Screen 8: AnomalyPanel
 
-- [ ] Slide-out panel component
-- [ ] Anomaly list (orphan events, missing correlations, timing outliers)
-- [ ] Anomaly detail view
-- [ ] Stories
+- [x] Slide-out panel component
+- [x] Anomaly list (orphan events, missing correlations, timing outliers)
+- [x] Anomaly detail view
+- [x] Stories
 
 ### AppShell & Routing
 

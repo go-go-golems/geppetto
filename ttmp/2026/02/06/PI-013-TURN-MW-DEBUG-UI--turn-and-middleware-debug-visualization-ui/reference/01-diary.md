@@ -1728,3 +1728,33 @@ Created the event inspector with three view modes:
 ### What was tricky
 
 - TypeScript strict mode required careful handling of unknown types in event data
+
+## Step 26: Implemented Screen 7 (FilterBar) and Screen 8 (AnomalyPanel)
+
+### What I did
+
+**Screen 7 - FilterBar:**
+- Filter chips for block kinds with icons and colors
+- Filter chips for event types
+- Search input with placeholder
+- Show empty phases toggle
+- Select All / Clear All actions
+- Active filter count badge
+- Stories: Empty, WithSomeFilters, WithSearch, Interactive, AllSelected
+
+**Screen 8 - AnomalyPanel:**
+- Slide-out panel overlay (400px width, right side)
+- Severity filter tabs: error, warning, info
+- AnomalyCard list with severity-colored left border
+- AnomalyDetail view with type, severity, message, details, related IDs
+- Five anomaly types: orphan_event, missing_correlation, timing_outlier, sequence_gap, schema_error
+- Stories: Default, Closed, Empty, ErrorsOnly, ManyAnomalies
+
+### What worked
+
+- Chip-based filter UI is intuitive and compact
+- Slide-out panel pattern works well for secondary info
+
+### What was deferred
+
+- Time range filter (needs date picker component)
