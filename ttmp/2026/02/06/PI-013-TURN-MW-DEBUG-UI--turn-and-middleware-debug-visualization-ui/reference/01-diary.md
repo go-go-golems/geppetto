@@ -23,8 +23,8 @@ RelatedFiles:
     - Path: pinocchio/pkg/webchat/timeline_projector.go
       Note: Projection behavior and throttling findings recorded in diary
 ExternalSources: []
-Summary: Frequent implementation diary for creating the PI-013 ticket, building the long-form debug UI specification, and preparing reMarkable upload artifacts.
-LastUpdated: 2026-02-06T21:15:00-05:00
+Summary: Frequent implementation diary for PI-013 documentation and follow-up architecture review work, including new ticket creation and reMarkable upload artifacts.
+LastUpdated: 2026-02-07T11:20:00-05:00
 WhatFor: Capture exact workflow, commands, findings, and design decisions for this documentation task.
 WhenToUse: Use when reviewing how the spec and handoff package were assembled and validated.
 ---
@@ -1341,10 +1341,110 @@ Files modified (5 existing + 1 new):
 
 Focus on: accuracy of SEM frame examples, completeness of the end-to-end tutorial steps, and whether the ported content correctly reflects pinocchio's APIs.
 
+## Step 19: Deep engineering review of architecture proposal 05 and reMarkable upload
+
+The user requested a careful, thoughtful, deep engineering review of the designer proposal in `analysis/05-architecture-and-implementation-plan-for-debug-ui.md`, with storage in the ticket and upload to reMarkable.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Our designer came up with geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/05-architecture-and-implementation-plan-for-debug-ui.md . Please write a careful and thought ful and deep engineering review of the proposal, and store in the document and u pload to remarkable."
+
+**Assistant interpretation:** Produce an evidence-backed engineering review document, identify correctness and architecture-fit risks, propose fixes, and upload the review artifact to reMarkable.
+
+**Inferred user intent:** De-risk implementation before coding by validating proposal assumptions against actual backend/frontend internals.
+
+**Commit (code):** N/A (documentation and ticket bookkeeping only).
+
+### What I did
+
+- Loaded and applied relevant skills:
+  - `code-quality-review-cleanup`
+  - `docmgr`
+  - `remarkable-upload`
+- Read proposal 05 in full and cross-checked assumptions against implementation files:
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/conversation.go`
+  - `pinocchio/pkg/webchat/engine.go`
+  - `pinocchio/pkg/webchat/engine_builder.go`
+  - `pinocchio/pkg/webchat/turn_store*.go`
+  - `pinocchio/pkg/webchat/turn_persister.go`
+  - `pinocchio/pkg/webchat/sem_buffer.go`
+  - `pinocchio/pkg/webchat/stream_coordinator.go`
+  - `pinocchio/pkg/webchat/sem_translator.go`
+  - `pinocchio/cmd/web-chat/web/src/{App.tsx,ws/wsManager.ts}`
+- Created a new ticket document:
+  - `analysis/06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui.md`
+- Wrote a full review with:
+  - executive verdict,
+  - critical/high/medium findings,
+  - concrete code evidence and line-referenced citations,
+  - corrected phased implementation blueprint,
+  - immediate edits required to make proposal 05 implementation-ready.
+- Updated ticket docs:
+  - `index.md` links now include analysis 05 and 06
+  - `tasks.md` marked review+upload tasks complete
+- Performed reMarkable upload flow for the new review doc:
+  - `remarquee upload md --dry-run .../analysis/06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui.md --remote-dir /ai/2026/02/06/PI-013-TURN-MW-DEBUG-UI`
+  - `remarquee upload md .../analysis/06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui.md --remote-dir /ai/2026/02/06/PI-013-TURN-MW-DEBUG-UI`
+  - `remarquee cloud ls /ai/2026/02/06/PI-013-TURN-MW-DEBUG-UI --long --non-interactive`
+  - Verified uploaded item name: `06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui`
+
+### Why
+
+- Proposal 05 is directionally strong but had critical architecture mismatches (correlation metadata assumptions, middleware tracing integration path, and duplicate `final` snapshot proposal) that would cause rework if implemented directly.
+
+### What worked
+
+- Code-evidence-based review produced clear go/no-go guidance and actionable remediation.
+- Proposal strengths were preserved while isolating only the high-risk corrections.
+
+### What didn't work
+
+- One `rg` command accidentally used unescaped backticks and triggered shell substitution errors (`command not found` for `inference_id`/`turn_id`), then was rerun with safe quoting.
+- Initial non-escalated upload/list commands failed in sandbox with DNS resolution errors (`lookup internal.cloud.remarkable.com: no such host`); reran with escalated permissions and upload verification succeeded.
+
+### What I learned
+
+- The biggest hidden gap is correlation contract, not UI rendering.
+- Current architecture already contains several reusable hooks (final persister, event sink wrapper, existing WS hydration pipeline), so a route-module extension in the existing frontend is likely lower risk than a separate SPA.
+
+### What was tricky to build
+
+- Distinguishing product-valid UX goals from technically invalid assumptions required validating each claim in proposal 05 against exact code paths.
+
+### What warrants a second pair of eyes
+
+- Confirm the proposed Phase 0 correlation contract (fields and ownership) with backend maintainers before endpoint implementation starts.
+- Confirm whether debug routes should remain mixed (`/turns`, `/timeline`, `/debug/*`) or be migrated under a single namespace.
+
+### What should be done in the future
+
+- Convert the corrected phased blueprint into granular implementation tasks with explicit backend/frontend acceptance tests.
+
+### Code review instructions
+
+- Read `analysis/06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui.md` first.
+- Cross-check critical findings against:
+  - `pinocchio/pkg/webchat/sem_translator.go`
+  - `pinocchio/pkg/webchat/stream_coordinator.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/engine.go`
+  - `pinocchio/pkg/webchat/turn_persister.go`
+
+### Technical details
+
+- New document:
+  - `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui.md`
+- Ticket docs updated:
+  - `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/index.md`
+  - `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/tasks.md`
+
 ## Related
 
 - `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/01-turn-and-middleware-debug-ui-requirements-and-ux-specification.md`
 - `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/02-designer-primer-turns-blocks-middlewares-and-structured-events.md`
+- `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/05-architecture-and-implementation-plan-for-debug-ui.md`
+- `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/06-engineering-review-of-architecture-and-implementation-plan-for-debug-ui.md`
 - `geppetto/ttmp/2026/02/06/PI-013-TURN-MW-DEBUG-UI--turn-and-middleware-debug-visualization-ui/analysis/03-documentation-improvement-proposal-for-geppetto-core-docs.md`
 - `geppetto/pkg/doc/topics/08-turns.md`
 - `geppetto/pkg/doc/topics/09-middlewares.md`
@@ -1352,3 +1452,173 @@ Focus on: accuracy of SEM frame examples, completeness of the end-to-end tutoria
 - `geppetto/pkg/doc/topics/04-events.md`
 - `geppetto/pkg/doc/topics/10-sessions.md`
 - `geppetto/pkg/doc/topics/11-structured-sinks.md`
+
+## Step 20: Created follow-up tickets (PI-014/015/016) and updated design doc with enforced decisions
+
+Per user direction, I created three new tickets and updated the PI-013 architecture plan (`analysis/05`) to encode migration and validation decisions directly.
+
+### Prompt Context
+
+**User prompt (verbatim):** Create a new ticket and write detailed analysis for Critical 1, add design-doc update task, answer tracing/persister/SnapshotHook questions, set High 3 migration with no compatibility, set High 4 separate app in `web-agent-example/cmd/web-agent-debug`, update design doc for Medium 1 and Medium 4, create tickets for Medium 2 and Medium 3, then upload all new/updated docs to reMarkable.
+
+### What I did
+
+- Created tickets:
+  - `PI-014-CORRELATION-CONTRACT-DEBUG-UI`
+  - `PI-015-EVENTSTORE-POSTMORTEM`
+  - `PI-016-SEM-EVENT-PERF`
+- Authored analysis docs:
+  - `PI-014/.../analysis/01-correlation-contract-tracing-and-migration-implementation-plan.md`
+  - `PI-015/.../analysis/01-eventstore-design-for-postmortem-debug-mode.md`
+  - `PI-016/.../analysis/01-sem-and-event-pipeline-performance-deep-dive-and-plan.md`
+- Updated PI-013 design doc:
+  - Added decision addendum for Critical 1, High 3/4, Medium 1/4.
+  - Updated routes to `/debug/turns` and `/debug/timeline` migration model.
+  - Updated frontend app location to `web-agent-example/cmd/web-agent-debug`.
+  - Replaced index-only diff approach with identity-aware/reorder-aware diffing.
+  - Added explicit acceptance test matrix section.
+- Updated PI-013 `tasks.md` and `index.md` with follow-up linkage.
+
+### Why
+
+- This sets architecture decisions as executable constraints, not just review notes.
+
+### What worked
+
+- Ticket split cleanly matched requested scope: main correlation/migration, EventStore postmortem, and SEM/event performance.
+
+### What didn't work
+
+- Initial relative links from PI-013 index to new tickets used wrong path depth and were corrected.
+
+### What should be done in the future
+
+- Execute PI-014 first (contract + migration), then PI-015 and PI-016 in parallel where possible.
+
+## Step 21: Uploaded new ticket bundles and updated PI-013 design doc to reMarkable
+
+Completed upload of all newly created ticket artifacts and the updated PI-013 architecture plan.
+
+### What I did
+
+- Uploaded bundle PDFs:
+  - `PI-014 Correlation Contract and Migration Plan` -> `/ai/2026/02/07/PI-014-CORRELATION-CONTRACT-DEBUG-UI`
+  - `PI-015 EventStore Postmortem Mode` -> `/ai/2026/02/07/PI-015-EVENTSTORE-POSTMORTEM`
+  - `PI-016 SEM Event Performance Deep Dive` -> `/ai/2026/02/07/PI-016-SEM-EVENT-PERF`
+- Uploaded updated PI-013 design doc PDF:
+  - `05-architecture-and-implementation-plan-for-debug-ui` -> `/ai/2026/02/06/PI-013-TURN-MW-DEBUG-UI`
+- Verified remote listings:
+  - PI-014 folder contains `PI-014 Correlation Contract and Migration Plan`
+  - PI-015 folder contains `PI-015 EventStore Postmortem Mode`
+  - PI-016 folder contains `PI-016 SEM Event Performance Deep Dive`
+  - PI-013 folder contains updated `05-architecture-and-implementation-plan-for-debug-ui`
+
+### What worked
+
+- Dry-run and real upload commands executed cleanly.
+- Remote cloud listing confirmed all requested artifacts.
+
+### What didn't work
+
+- Non-escalated upload/list commands initially failed due sandbox DNS restrictions; reran with escalated permissions.
+
+## Step 22: Implemented Debug UI frontend skeleton with Storybook and MSW
+
+### Prompt Context
+
+**User prompt (verbatim):** Implement a web UI with Storybook in the web-agent-example repo, using MSW and RTK-toolkit to build components incrementally without the backend. Storybook should run in tmux to track progress.
+
+### What I did
+
+Created the full frontend scaffold at `web-agent-example/cmd/web-agent-debug/web/` with:
+
+**Infrastructure:**
+- `package.json` with Storybook 8, MSW 2, RTK Query, React Router
+- `vite.config.ts` and `tsconfig.json`
+- `.storybook/main.ts` and `.storybook/preview.tsx` (MSW integration)
+- MSW initialized in `public/mockServiceWorker.js`
+
+**Type System (`src/types/index.ts`):**
+- `ConversationSummary`, `ConversationDetail`
+- `TurnSnapshot`, `TurnDetail`, `TurnPhase`
+- `ParsedBlock`, `BlockKind`
+- `SemEvent`, `MwTrace`, `MwTraceLayer`, `EngineStats`
+- `TimelineEntity`
+- All types use `session_id` (not `run_id`) per PI-017
+
+**RTK Query API (`src/api/debugApi.ts`):**
+- `useGetConversationsQuery`
+- `useGetConversationQuery`
+- `useGetTurnsQuery`
+- `useGetTurnDetailQuery`
+- `useGetEventsQuery`
+- `useGetTimelineQuery`
+- `useGetMwTraceQuery`
+
+**Redux Store (`src/store/`):**
+- `store.ts` - configureStore with debugApi and uiSlice
+- `uiSlice.ts` - selection state, view modes, filters, compare phases
+- `hooks.ts` - typed useAppDispatch/useAppSelector
+
+**Mock Data (`src/mocks/data.ts`):**
+- 3 mock conversations (general, agent, default profiles)
+- 2 mock turn snapshots with full phase detail
+- 6 mock SEM events (llm.start/delta/final, tool.start/result)
+- Middleware chain trace with 3 layers + engine stats
+- 4 timeline entities
+- **Standard metadata on all blocks** (block_id, turn_id, session_id, created_at, plus kind-specific fields)
+
+**MSW Handlers (`src/mocks/handlers.ts`):**
+- All `/debug/*` endpoints mocked
+- Realistic response structures matching API design
+
+**Components (8 total):**
+
+| Component | Stories | Purpose |
+|-----------|---------|---------|
+| `ConversationCard` | 5 | Conversation summary with status, profile badge |
+| `BlockCard` | 12 | Block display with expandable metadata panel |
+| `CorrelationIdBar` | 5 | Copyable correlation ID chips |
+| `SessionList` | 6 | Sidebar conversation list |
+| `TurnInspector` | 4 | Phase tabs, turn metadata, block list |
+| `EventCard` | 9 | SEM event with type-specific rendering |
+| `MiddlewareChainView` | 4 | Onion-layer visualization |
+| `TimelineEntityCard` | 9 | Timeline entity display |
+
+**Key features:**
+- Click-to-expand metadata on blocks and turns
+- Phase comparison dropdowns in TurnInspector
+- Dark theme with block-kind color coding
+- Storybook running on port 6007
+
+### Commands used
+
+```bash
+cd web-agent-example/cmd/web-agent-debug/web
+npm install
+npx msw init public --save
+tmux new-session -d -s debug-ui-storybook 'npm run storybook'
+```
+
+### What worked
+
+- MSW + Storybook integration works seamlessly for component isolation
+- RTK Query provides good type inference for API layer
+- Block metadata expansion UX is intuitive
+
+### What was tricky
+
+- TypeScript strict mode caught implicit any types in map callbacks
+- Vite client types needed explicit `types: ["vite/client"]` in tsconfig
+
+### What's still needed
+
+See updated tasks.md for remaining screens:
+- Screen 1: Session Overview (three-lane timeline view)
+- Screen 3: Snapshot Diff (side-by-side block comparison)
+- Screen 5: Event Inspector (semantic/SEM/raw view modes)
+- Screen 6: Structured Sink View
+- Screen 7: FilterBar
+- Screen 8: AnomalyPanel
+- AppShell layout integration
+- WebSocket live event streaming

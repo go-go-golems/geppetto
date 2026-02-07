@@ -9,6 +9,9 @@
 - [x] Upload bundled analysis+diary document to reMarkable
 - [x] Add standalone designer primer (turns/blocks/middlewares/structured events)
 - [x] Upload standalone designer primer separately to reMarkable
+- [x] Author deep engineering review of architecture proposal `analysis/05`
+- [x] Upload engineering review document to reMarkable
+- [x] Update design doc `analysis/05` with post-review decisions (Critical 1, High 3/4, Medium 1/4)
 
 ## Documentation Improvements (from proposal 03)
 
@@ -44,6 +47,97 @@
 - [x] P1: Port EngineBuilder reference to pinocchio docs (MEDIUM)
 - [x] P2: Port Conversation Lifecycle reference to pinocchio docs (MEDIUM) — pinocchio uses Conversation+ConvManager instead of a separate InferenceState struct
 - [x] P3: Port SEM widget catalog and "Adding a New Widget" guide to webchat-sem-and-ui.md (HIGH)
+
+## Frontend Implementation (web-agent-example/cmd/web-agent-debug/web)
+
+### Done
+
+- [x] Project scaffold (package.json, vite, tsconfig, storybook config)
+- [x] TypeScript types (ConversationSummary, TurnDetail, ParsedBlock, SemEvent, MwTrace, TimelineEntity)
+- [x] RTK Query API layer (all /debug/* endpoints)
+- [x] Redux store (uiSlice with selection state, view modes, filters)
+- [x] MSW mock handlers + realistic mock data with standard block metadata
+- [x] ConversationCard component + stories
+- [x] BlockCard component with expandable metadata + stories
+- [x] CorrelationIdBar component + stories
+- [x] SessionList component + stories
+- [x] TurnInspector component (phase tabs, turn metadata card) + stories
+- [x] EventCard component + stories
+- [x] MiddlewareChainView component + stories
+- [x] TimelineEntityCard component + stories
+
+### Screen 1: Session Overview (three-lane timeline)
+
+- [ ] TimelineLanes container component
+- [ ] StateTrackLane (turn snapshots as vertical cards)
+- [ ] EventTrackLane (SEM events as vertical list)
+- [ ] ProjectionLane (timeline entities)
+- [ ] NowMarker (live streaming indicator)
+- [ ] Lane synchronization (scroll sync, time alignment)
+- [ ] Stories for all lane components
+
+### Screen 3: Snapshot Diff
+
+- [ ] DiffHeader (phaseA vs phaseB labels)
+- [ ] SideBySideBlocks container
+- [ ] DiffBlockRow (status: same|added|removed|changed|reordered)
+- [ ] MetadataDiff (key-level diff highlighting)
+- [ ] DiffSummaryBar (counts: +added -removed ~changed ↔reordered)
+- [ ] Identity-aware block matching (not index-only)
+- [ ] Stories for diff components
+
+### Screen 5: Event Inspector
+
+- [ ] ViewModeTabs (Semantic | SEM | Raw Wire)
+- [ ] SemanticView (human-readable event card)
+- [ ] SemEnvelopeView (JSON viewer for SEM frame)
+- [ ] RawWireView (provider-native JSON)
+- [ ] CorrelatedNodesPanel (linked turn/block, prev/next events, projection entity)
+- [ ] TrustSignals (correlation checks)
+- [ ] Stories for all views
+
+### Screen 6: Structured Sink View
+
+- [ ] ThreeColumnLayout (input events | sink config | output state)
+- [ ] SinkConfigPanel
+- [ ] OutputStatePanel
+- [ ] Stories
+
+### Screen 7: FilterBar
+
+- [ ] Filter overlay component
+- [ ] Block kind filters
+- [ ] Event type filters
+- [ ] Time range filters
+- [ ] Search input
+- [ ] Stories
+
+### Screen 8: AnomalyPanel
+
+- [ ] Slide-out panel component
+- [ ] Anomaly list (orphan events, missing correlations, timing outliers)
+- [ ] Anomaly detail view
+- [ ] Stories
+
+### AppShell & Routing
+
+- [ ] AppShell layout (sidebar + main content + panels)
+- [ ] React Router integration (all screen routes)
+- [ ] Sidebar navigation state
+- [ ] Responsive layout
+
+### Live Features
+
+- [ ] WebSocket connection for live SEM events
+- [ ] Real-time turn updates
+- [ ] Live NowMarker animation
+- [ ] Reconnection handling
+
+## Backend Implementation
+
+- [ ] Execute PI-014 correlation/migration implementation ticket
+- [ ] Execute PI-015 EventStore postmortem ticket
+- [ ] Execute PI-016 SEM/event performance ticket
 
 ## Next
 
