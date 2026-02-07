@@ -115,7 +115,7 @@ Every event carries `EventMetadata`:
 ```go
 type EventMetadata struct {
     ID       uuid.UUID // Stable per stream
-    SessionID   string // Correlation ID for the session (legacy name: run_id)
+    SessionID   string // Correlation ID for the session
     InferenceID string // Correlation ID for the inference call
     TurnID   string    // Correlation ID for the turn
     Model    string    // Model identifier (e.g., "gpt-4")

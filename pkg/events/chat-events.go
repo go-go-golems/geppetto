@@ -380,27 +380,9 @@ type EventMetadata struct {
 	Extra map[string]interface{} `json:"extra,omitempty" yaml:"extra,omitempty" mapstructure:"extra"`
 }
 
-func (em *EventMetadata) UnmarshalJSON(b []byte) error {
-	type Alias EventMetadata
-	var a struct {
-		Alias
-		LegacyRunID string `json:"run_id,omitempty"`
-	}
-	if err := json.Unmarshal(b, &a); err != nil {
-		return err
-	}
-	*em = EventMetadata(a.Alias)
-	if em.SessionID == "" && a.LegacyRunID != "" {
-		em.SessionID = a.LegacyRunID
-	}
-	return nil
-}
-
 func (em EventMetadata) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("message_id", em.ID.String())
-	// Backwards-compatible: `run_id` remains the historical log field name (it maps to SessionID).
 	if em.SessionID != "" {
-		e.Str("run_id", em.SessionID)
 		e.Str("session_id", em.SessionID)
 	}
 	if em.InferenceID != "" {

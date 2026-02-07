@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// NewTurnLoggingMiddleware logs run/turn and block details before and after inference.
+// NewTurnLoggingMiddleware logs session/turn and block details before and after inference.
 // It is safe to use with in-memory Turns that may not carry IDs; missing IDs are logged as empty.
 func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
@@ -23,12 +23,10 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 				lg = log.Logger
 			}
 
-			runID := ""
 			sessionID := ""
 			if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
 				sessionID = sid
 			}
-			runID = sessionID // backwards compatibility
 
 			inferenceID := ""
 			if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
@@ -36,7 +34,6 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 			}
 
 			lg = lg.With().
-				Str("run_id", runID).
 				Str("session_id", sessionID).
 				Str("inference_id", inferenceID).
 				Str("turn_id", t.ID).

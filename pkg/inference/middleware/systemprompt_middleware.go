@@ -19,12 +19,10 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 				t = &turns.Turn{}
 			}
 
-			runID := ""
 			sessionID := ""
 			if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
 				sessionID = sid
 			}
-			runID = sessionID // backwards compatibility
 
 			inferenceID := ""
 			if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
@@ -37,7 +35,6 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 					prev = prev[:120] + "…"
 				}
 				log.Debug().
-					Str("run_id", runID).
 					Str("session_id", sessionID).
 					Str("inference_id", inferenceID).
 					Str("turn_id", t.ID).
@@ -61,13 +58,13 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 					}
 					existingText, _ := t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText].(string)
 					if existingText == prompt {
-						log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: prompt already set on existing system block")
+						log.Debug().Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: prompt already set on existing system block")
 					} else {
 						t.Blocks[firstSystemIdx].Payload[turns.PayloadKeyText] = prompt
 						if err := turns.KeyBlockMetaMiddleware.Set(&t.Blocks[firstSystemIdx].Metadata, "systemprompt"); err != nil {
 							return nil, errors.Wrap(err, "set block middleware metadata (existing system block)")
 						}
-						log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: replaced text on existing system block")
+						log.Debug().Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("system_idx", firstSystemIdx).Msg("systemprompt: replaced text on existing system block")
 					}
 				} else {
 					// Insert a new system block at the beginning
@@ -83,7 +80,6 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 						roles = append(roles, bb.Role)
 					}
 					log.Debug().
-						Str("run_id", runID).
 						Str("session_id", sessionID).
 						Str("inference_id", inferenceID).
 						Str("turn_id", t.ID).
@@ -92,7 +88,7 @@ func NewSystemPromptMiddleware(prompt string) Middleware {
 				}
 			}
 
-			log.Debug().Str("run_id", runID).Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("block_count", len(t.Blocks)).Msg("systemprompt: middleware end")
+			log.Debug().Str("session_id", sessionID).Str("inference_id", inferenceID).Str("turn_id", t.ID).Int("block_count", len(t.Blocks)).Msg("systemprompt: middleware end")
 			return next(ctx, t)
 		}
 	}
