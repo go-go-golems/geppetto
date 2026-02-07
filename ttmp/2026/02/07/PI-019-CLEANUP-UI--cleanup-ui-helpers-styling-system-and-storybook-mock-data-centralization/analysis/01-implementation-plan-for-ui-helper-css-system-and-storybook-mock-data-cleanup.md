@@ -41,6 +41,14 @@ RelatedFiles:
       Note: |-
         Central fixture file to split into factories/scenarios
         Current centralized fixture file to split into fixtures/factories/scenarios
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts
+      Note: P3.2 anomaly deterministic builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts
+      Note: P3.2 event and middleware-trace deterministic builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts
+      Note: P3.2 timeline deterministic builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts
+      Note: P3.2 turn and turn-detail deterministic builders
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/conversations.ts
       Note: P3.1 conversation/session fixture module
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/events.ts
@@ -53,10 +61,11 @@ RelatedFiles:
         Current MSW handlers to refactor into reusable handler builder
 ExternalSources: []
 Summary: Detailed execution plan for reducing PI-013 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
-LastUpdated: 2026-02-07T13:50:00-05:00
+LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -713,6 +722,35 @@ Extraction details:
   - `src/styles/components/EventTrackLane.css`
   - `src/styles/components/ProjectionLane.css`
   - `src/styles/components/NowMarker.css`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.2 Progress snapshot (after P3.2 deterministic factory layer)
+
+Captured after commit `2e3c954` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Factory modules under `src/mocks/factories` | 0 | 7 | common + domain builders + index export |
+| Domains with deterministic builders | 0 | 5 | conversations, turns, events, timeline, anomalies |
+
+P3.2 details:
+
+- Added:
+  - `src/mocks/factories/common.ts`
+  - `src/mocks/factories/conversationFactory.ts`
+  - `src/mocks/factories/turnFactory.ts`
+  - `src/mocks/factories/eventFactory.ts`
+  - `src/mocks/factories/timelineFactory.ts`
+  - `src/mocks/factories/anomalyFactory.ts`
+  - `src/mocks/factories/index.ts`
+- Pattern:
+  - deterministic index-based selection from fixture arrays (`pickByIndex`)
+  - clone-safe object generation (`cloneMock`)
+  - optional override and list-builder APIs for story/scenario composition
 
 Validation:
 

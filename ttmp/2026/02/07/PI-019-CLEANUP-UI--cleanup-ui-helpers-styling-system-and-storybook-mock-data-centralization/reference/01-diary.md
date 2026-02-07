@@ -33,6 +33,12 @@ RelatedFiles:
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
         P3.1 compatibility export layer after fixture split
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/common.ts
+      Note: P3.2 deterministic fixture selector and clone helpers
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts
+      Note: P3.2 conversation/session/detail deterministic builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/index.ts
+      Note: P3.2 barrel export for all factory builders
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts
       Note: P3.1 anomalies fixture domain file
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts
@@ -93,10 +99,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T13:50:00-05:00
+LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1557,6 +1564,91 @@ This delivered `P3.1` without introducing behavior changes and kept build/Storyb
 
 - Fixture modules introduced: `5`
 - `data.ts` role: compatibility export layer only (no inline mock objects).
+
+## Step 20: Complete P3.2 by creating deterministic mock factory builders
+
+I added a dedicated `src/mocks/factories/` layer that provides deterministic builders for conversation, turn, event, timeline, and anomaly domains. Builders are index-based and fixture-backed, so they produce stable outputs for the same inputs and keep story/test data generation explicit.
+
+This keeps fixture definitions (`P3.1`) separate from generated variants and prepares the next steps for scenario composition and centralized MSW handler builders.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue PI-019 by completing the next unchecked task with an isolated implementation commit and synchronized ticket docs.
+
+**Inferred user intent:** Move through the remaining checklist in small, auditable increments that keep frontend behavior stable.
+
+**Commit (code):** `2e3c954c995b7af3e94e5124c1830761e1685872` — "feat(mocks): add deterministic fixture factory builders"
+
+### What I did
+
+- Created factory modules:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/common.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/index.ts`
+- Implemented deterministic builder patterns:
+  - index-based fixture selection via `pickByIndex`
+  - clone-safe object generation via `cloneMock`
+  - list builders (`make*` + `make*List`) with optional per-item override callbacks
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.2`
+
+### Why
+
+- Phase 3 requires reusable generated variants, not only static fixture arrays, to remove duplicated local story data and ad-hoc handler payloads in later tasks.
+
+### What worked
+
+- New factories compile and do not alter current story behavior (no consumption migration yet).
+- Existing builds remained green after introducing the factory layer.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- A minimal deterministic builder API (index + override) is sufficient to unlock scenario migration while avoiding premature complexity.
+
+### What was tricky to build
+
+- `makeConversationDetail` needed to preserve detailed engine config defaults while still allowing deterministic variation by conversation index. I resolved this by combining a base detail template with index-selected summary fields, then layering overrides.
+
+### What warrants a second pair of eyes
+
+- Factory API shape consistency across domains (`makeX`, `makeXs`, `mapOverrides`) before Phase 3 story migrations rely on it heavily.
+
+### What should be done in the future
+
+- Complete `P3.3` and `P3.4` next:
+  - scenario builders
+  - deterministic id/time/seq utility helpers shared by factories.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/common.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Factory modules introduced: `7`
+- Domains covered by deterministic builders: `5` (conversations, turns, events, timeline, anomalies)
 
 
 ## Related

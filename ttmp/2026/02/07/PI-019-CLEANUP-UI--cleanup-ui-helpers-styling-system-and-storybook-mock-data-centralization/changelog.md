@@ -185,3 +185,19 @@ Completed `P3.1` by splitting monolithic `src/mocks/data.ts` into domain fixture
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/events.ts — Event and middleware trace fixtures
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/timeline.ts — Timeline entity fixtures
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts — Anomaly fixture sets
+
+
+## 2026-02-07
+
+Completed `P3.2` by creating deterministic fixture-backed factory builders in `src/mocks/factories/` across conversation, turn, event, timeline, and anomaly domains; validated with build + storybook build. Code commit: 2e3c954.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 20 for factory layer implementation and validation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.2`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/common.ts — Deterministic fixture selection and clone helpers
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts — Conversation/session/detail builders
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts — Turn and turn-detail builders
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts — Event and middleware-trace builders
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts — Timeline entity builders
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts — Anomaly builders
