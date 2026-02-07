@@ -32,12 +32,30 @@ RelatedFiles:
         P3.13 switched AppShell anomalies to factory generation
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
       Note: P2.7 inline style removal
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/ConversationCard.stories.tsx
+      Note: P3.14 switched to fixture imports
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventCard.stories.tsx
+      Note: P3.14 switched to fixture imports
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx
       Note: P3.12 migrated EventInspector stories to centralized scenarios
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.stories.tsx
+      Note: P3.14 switched to factory/fixture imports
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/MiddlewareChainView.stories.tsx
+      Note: P3.14 switched to fixture imports
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.stories.tsx
+      Note: P3.14 switched to fixture imports
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
-      Note: P3.10 centralized SessionList story handlers
+      Note: |-
+        P3.10 centralized SessionList story handlers
+        P3.14 switched to fixture/factory imports
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.stories.tsx
+      Note: P3.14 switched to fixture imports
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineEntityCard.stories.tsx
+      Note: P3.14 switched to fixture imports
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx
       Note: P3.11 migrated timeline stories to scenario builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.stories.tsx
+      Note: P3.14 switched to fixture imports
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.tsx
       Note: P2.13 verified style-clean (no inline <style> block)
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
@@ -142,10 +160,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T16:58:00-05:00
+LastUpdated: 2026-02-07T17:12:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2537,6 +2556,89 @@ This removes the largest remaining local anomaly fixture block and aligns anomal
 
 - Local inline anomaly array definitions removed: `2` (`AnomalyPanel`, `AppShell`)
 - Centralized anomaly sources now used in stories: scenarios + factories
+
+## Step 32: Complete P3.14 by removing remaining legacy `mocks/data` story imports
+
+I completed `P3.14` by replacing the remaining `../mocks/data` imports across component stories with direct fixture/factory imports. This removes reliance on the legacy compatibility layer for these stories and standardizes data sourcing on `mocks/fixtures` and `mocks/factories`.
+
+I also simplified repeated “many” story data composition where practical by using shared builders (e.g., `makeEvents(12)`, `makeConversations(8)`).
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue migration to ensure stories consistently use centralized shared data sources and avoid local large-array composition.
+
+**Inferred user intent:** Finish Phase 3C normalization so story files no longer depend on transitional compatibility imports.
+
+**Commit (code):** `d76e750b66b91ea58313234807f2fbc24ba5653f` — "refactor(stories): replace legacy data imports with fixtures"
+
+### What I did
+
+- Updated story imports and data sourcing in:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/ConversationCard.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventCard.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/MiddlewareChainView.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TimelineEntityCard.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.stories.tsx`
+- Key changes:
+  - replaced `../mocks/data` imports with direct fixture/factory imports
+  - switched repeated “many item” story composition to factories where appropriate
+- Verified migration completeness:
+  - `rg -n "from '../mocks/data'" src/components/*.stories.tsx` returned no matches
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.14`
+
+### Why
+
+- `mocks/data.ts` is a compatibility shim; stories should consume canonical fixture/factory/scenario sources directly to reduce indirection and prepare eventual shim removal.
+
+### What worked
+
+- All targeted stories compile and Storybook builds successfully after import/source migration.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- A grep-based closure check (`from '../mocks/data'`) is a practical gate to confirm migration completion when task criteria are import-focused.
+
+### What was tricky to build
+
+- Several stories mixed straightforward fixture references with local expanded arrays. I avoided broad behavior changes by only replacing composition with factories where output shape was equivalent and left custom scenario-like cases untouched unless centralized alternatives already existed.
+
+### What warrants a second pair of eyes
+
+- Validate visual parity for story variants that previously used handcrafted “many” arrays and now use deterministic factory counts.
+
+### What should be done in the future
+
+- Complete `P3.15` by adding `src/mocks/README.md` documenting fixture/factory/scenario/msw usage contracts and migration rules.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/*.stories.tsx` import sections for fixture/factory sourcing
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && rg -n "from '../mocks/data'" src/components/*.stories.tsx`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Component story files migrated off `mocks/data`: `9`
+- Remaining `mocks/data` imports in component stories after this step: `0`
 
 
 ## Related

@@ -336,3 +336,22 @@ Completed `P3.13` by migrating anomaly-focused stories to centralized anomaly sc
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.13`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.stories.tsx — Migrated to `makeAnomalyScenario(...)`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx — Replaced local anomaly array with factory-generated anomalies
+
+
+## 2026-02-07
+
+Completed `P3.14` by replacing remaining `../mocks/data` story imports with direct fixture/factory imports and reducing local repeated large-array composition in targeted stories; validated with build + storybook build. Code commit: d76e750.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 32 for story fixture/factory import cleanup
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.14`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.stories.tsx — Switched to factory-generated event lists
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx — Switched to fixture/factory imports
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TimelineEntityCard.stories.tsx — Switched to fixture import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/MiddlewareChainView.stories.tsx — Switched to fixture import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/EventCard.stories.tsx — Switched to fixture import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/ConversationCard.stories.tsx — Switched to fixture import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.stories.tsx — Switched to fixture import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.stories.tsx — Switched to fixture import path
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.stories.tsx — Switched to fixture import path

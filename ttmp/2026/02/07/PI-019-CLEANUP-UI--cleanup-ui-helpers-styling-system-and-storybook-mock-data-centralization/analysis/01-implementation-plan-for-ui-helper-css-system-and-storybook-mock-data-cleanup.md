@@ -39,12 +39,30 @@ RelatedFiles:
       Note: |-
         P3.9 story-level handler deduplication evidence
         P3.13 AppShell anomaly factory migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/ConversationCard.stories.tsx
+      Note: P3.14 fixture import migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventCard.stories.tsx
+      Note: P3.14 fixture import migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx
       Note: P3.12 event-inspector story scenario migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.stories.tsx
+      Note: P3.14 fixture/factory import migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/MiddlewareChainView.stories.tsx
+      Note: P3.14 fixture import migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.stories.tsx
+      Note: P3.14 fixture import migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
-      Note: P3.10 story-level handler deduplication evidence
+      Note: |-
+        P3.10 story-level handler deduplication evidence
+        P3.14 fixture/factory import migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.stories.tsx
+      Note: P3.14 fixture import migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineEntityCard.stories.tsx
+      Note: P3.14 fixture import migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx
       Note: P3.11 timeline story scenario migration evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.stories.tsx
+      Note: P3.14 fixture import migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/index.css
       Note: |-
         Current global tokens/utilities baseline to evolve into reusable design system layers
@@ -99,6 +117,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -789,6 +808,37 @@ P3.8 details:
   - replaced local endpoint definitions with:
     - `import { defaultHandlers } from './msw/defaultHandlers'`
     - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.14 Progress snapshot (after P3.14 story fixture/factory import standardization)
+
+Captured after commit `d76e750` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Story imports of legacy `../mocks/data` | 9 | 0 | eliminated from component stories |
+| Story files updated to direct fixture/factory imports | 0 | 9 | switched to `mocks/fixtures` and `mocks/factories` |
+
+P3.14 details:
+
+- Updated stories:
+  - `ConversationCard.stories.tsx`
+  - `EventCard.stories.tsx`
+  - `EventTrackLane.stories.tsx`
+  - `MiddlewareChainView.stories.tsx`
+  - `ProjectionLane.stories.tsx`
+  - `SessionList.stories.tsx`
+  - `StateTrackLane.stories.tsx`
+  - `TimelineEntityCard.stories.tsx`
+  - `TurnInspector.stories.tsx`
+- Change:
+  - removed legacy compatibility-layer imports
+  - switched to shared fixture/factory imports
+  - reduced local repeated “many item” composition where applicable (`EventTrackLane`, `SessionList`)
 
 Validation:
 
