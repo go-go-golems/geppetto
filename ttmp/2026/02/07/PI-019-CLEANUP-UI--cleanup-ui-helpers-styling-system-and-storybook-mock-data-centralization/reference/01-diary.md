@@ -36,6 +36,8 @@ RelatedFiles:
       Note: P2.17 extracted anomaly panel styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css
       Note: P2.7 extracted AppShell styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventInspector.css
+      Note: P2.15 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventTrackLane.css
       Note: P2.10 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventsPage.css
@@ -48,6 +50,8 @@ RelatedFiles:
       Note: P2.18 extracted route styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/ProjectionLane.css
       Note: P2.11 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/SnapshotDiff.css
+      Note: P2.14 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/StateTrackLane.css
       Note: P2.9 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelineLanes.css
@@ -86,6 +90,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1273,6 +1278,85 @@ Both production and Storybook builds succeeded after the change, and the global 
 - Runtime inline style count:
   - Before: `16`
   - After: `13`
+
+## Step 17: Complete SnapshotDiff/EventInspector extraction and reach zero runtime inline styles
+
+I extracted all remaining inline style blocks from `SnapshotDiff.tsx` and `EventInspector.tsx` into their component CSS files. This was the final runtime style-block removal step, bringing the project to zero inline `<style>{...}` blocks in runtime TSX files.
+
+Because these two components contain many generic class names, I scoped CSS selectors under `.snapshot-diff` and `.event-inspector` to avoid unintended global collisions.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Keep executing the remaining Phase 2 tasks with commits and diary/changelog updates.
+
+**Inferred user intent:** Finish the CSS extraction phase with measurable completion and clean task-state traceability.
+
+**Commit (code):** `4e93e8571fa98c10fad2a30f1a1180d29e8e5268` — "refactor(debug-ui): extract inspector and diff inline styles"
+
+### What I did
+
+- Removed all inline `<style>{...}` blocks from:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/SnapshotDiff.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.tsx`
+- Added extracted CSS to:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/SnapshotDiff.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventInspector.css`
+- Used root-scoped selectors (`.snapshot-diff ...`, `.event-inspector ...`) in CSS to reduce selector leakage.
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+  - `rg -n \"<style>\\{\" src/components src/routes src/App.tsx` (result count `0`)
+- Checked off:
+  - `P2.14`, `P2.15`, `P2.25`
+
+### Why
+
+- These two components were the final blockers for zero runtime inline style blocks.
+
+### What worked
+
+- Both builds passed after extraction.
+- Runtime inline style count reached zero.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- For large style-heavy components, removing inline blocks first and then centralizing styles with root-scoped selectors is a reliable migration pattern.
+
+### What was tricky to build
+
+- `EventInspector` and `SnapshotDiff` had repeated generic selectors (`.json-view`, `.meta-*`, `.status-*`) that could conflict globally after extraction. I mitigated this by explicit root scoping in CSS.
+
+### What warrants a second pair of eyes
+
+- Verify visual parity for `SnapshotDiff` and `EventInspector` stories after selector scoping.
+
+### What should be done in the future
+
+- Complete the remaining Phase 2 standardization tasks (`P2.22`–`P2.24`) and then proceed to Phase 3 mock-data centralization.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/SnapshotDiff.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/SnapshotDiff.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventInspector.css`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+  - `cd web-agent-example/cmd/web-agent-debug/web && rg -n \"<style>\\{\" src/components src/routes src/App.tsx`
+
+### Technical details
+
+- Runtime inline style count:
+  - Before: `13`
+  - After: `0`
 
 ## Related
 

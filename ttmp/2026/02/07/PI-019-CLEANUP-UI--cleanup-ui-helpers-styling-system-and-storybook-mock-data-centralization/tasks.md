@@ -69,8 +69,8 @@
 - [x] P2.11 Extract styles from `ProjectionLane.tsx`
 - [x] P2.12 Extract styles from `NowMarker.tsx`
 - [x] P2.13 Extract styles from `TurnInspector.tsx`
-- [ ] P2.14 Extract styles from `SnapshotDiff.tsx`
-- [ ] P2.15 Extract styles from `EventInspector.tsx`
+- [x] P2.14 Extract styles from `SnapshotDiff.tsx`
+- [x] P2.15 Extract styles from `EventInspector.tsx`
 - [x] P2.16 Extract styles from `FilterBar.tsx`
 - [x] P2.17 Extract styles from `AnomalyPanel.tsx`
 - [x] P2.18 Extract route-level styles from `OverviewPage.tsx`
@@ -83,7 +83,7 @@
 - [ ] P2.22 Define and document style contract approach (data-part, class naming, or hybrid)
 - [ ] P2.23 Normalize naming of CSS classes/parts across all major components
 - [ ] P2.24 Ensure theme token usage replaces hard-coded repeated colors where practical
-- [ ] P2.25 Verify no inline `<style>{` blocks remain in runtime TSX files
+- [x] P2.25 Verify no inline `<style>{` blocks remain in runtime TSX files
 
 ## Phase 3 — Storybook Mock Data Centralization
 

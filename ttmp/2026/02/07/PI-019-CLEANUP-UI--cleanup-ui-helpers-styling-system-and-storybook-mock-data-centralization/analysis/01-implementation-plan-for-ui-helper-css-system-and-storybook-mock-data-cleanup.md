@@ -709,6 +709,25 @@ Validation:
 - `npm run build` passed.
 - `npm run build-storybook` passed.
 
+### 12.12 Progress snapshot (after P2.14 + P2.15 + P2.25)
+
+Captured after commit `4e93e85` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Runtime inline `<style>{` blocks | 13 | 0 | all runtime TSX `<style>` blocks removed |
+
+Completed:
+
+- `P2.14` extracted styles from `SnapshotDiff.tsx` to `src/styles/components/SnapshotDiff.css`
+- `P2.15` extracted styles from `EventInspector.tsx` to `src/styles/components/EventInspector.css`
+- `P2.25` verified no runtime inline `<style>{` blocks remain
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
 ### 12.11 Progress snapshot (after P2.17 AnomalyPanel extraction)
 
 Captured after commit `140afcc` in `web-agent-example`:
