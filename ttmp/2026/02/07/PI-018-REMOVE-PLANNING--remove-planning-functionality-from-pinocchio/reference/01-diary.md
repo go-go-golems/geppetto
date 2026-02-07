@@ -470,3 +470,76 @@ This step is focused on reviewer handoff quality: make it obvious what changed, 
 ### Technical details
 - Final implementation-scope search pattern used:
   - `rg -n "planning\.start|planning\.iteration|planning\.reflection|planning\.complete|execution\.start|execution\.complete|EventPlanning|EventExecution|PlanningSnapshotV1|emit-planning-stubs|typed_planning|sem\.middleware\.planning|planning\.proto" pkg cmd/web-chat web/src proto --glob '!**/pb/**' --glob '!pkg/doc/**' --glob '!**/*.md'`
+
+## Step 8: Upload Diary to reMarkable and Close Ticket
+
+I uploaded the current diary to reMarkable and then closed the docmgr ticket using the lifecycle command. I used a dry-run first for safety, then performed the real upload, verified the cloud folder contents, and executed the close operation with a specific changelog entry.
+
+This step finishes the ticket in the exact order requested: export the diary artifact first, then mark the ticket complete.
+
+### Prompt Context
+
+**User prompt (verbatim):** "upload diary to remarkable, close the ticket."
+
+**Assistant interpretation:** Publish the diary document to reMarkable and finalize PI-018 in docmgr.
+
+**Inferred user intent:** Ensure the latest implementation narrative is immediately reviewable on device, and formally transition the ticket to complete.
+
+### What I did
+- Verified remarquee health with `remarquee status`.
+- Ran dry-run bundle upload for the diary markdown.
+- Uploaded diary PDF to `/ai/2026/02/07/PI-018-REMOVE-PLANNING`.
+- Verified remote folder contents with `remarquee cloud ls --long --non-interactive`.
+- Closed ticket with:
+  - `docmgr ticket close --ticket PI-018-REMOVE-PLANNING --changelog-entry "Uploaded diary to reMarkable and closed ticket after completing all checklist items"`
+
+### Why
+- Dry-run avoids accidental overwrite/mis-targeting.
+- Closing via docmgr ensures status + changelog + timestamps are updated atomically.
+
+### What worked
+- Upload succeeded: `OK: uploaded PI-018 Diary.pdf -> /ai/2026/02/07/PI-018-REMOVE-PLANNING`
+- Remote listing confirms both documents present:
+  - `PI-018 Diary`
+  - `PI-018 Planning Removal Analysis`
+- Ticket close command reported status transition `active → complete`.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Using `remarquee upload bundle` even for a single markdown file gives clean naming control (`--name`) and consistent ToC settings.
+
+### What was tricky to build
+- Ensuring close happens after upload confirmation; otherwise the ticket could be marked complete before the review artifact is actually available.
+
+### What warrants a second pair of eyes
+- Optional: verify reMarkable sync completed to device (cloud state is already confirmed).
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- Confirm ticket status in `index.md` is `complete`.
+- Confirm close entry exists in `changelog.md`.
+- Confirm diary export exists in reMarkable folder `/ai/2026/02/07/PI-018-REMOVE-PLANNING`.
+
+### Technical details
+```bash
+remarquee upload bundle --dry-run \
+  /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-018-REMOVE-PLANNING--remove-planning-functionality-from-pinocchio/reference/01-diary.md \
+  --name "PI-018 Diary" \
+  --remote-dir "/ai/2026/02/07/PI-018-REMOVE-PLANNING" \
+  --toc-depth 2
+
+remarquee upload bundle \
+  /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-018-REMOVE-PLANNING--remove-planning-functionality-from-pinocchio/reference/01-diary.md \
+  --name "PI-018 Diary" \
+  --remote-dir "/ai/2026/02/07/PI-018-REMOVE-PLANNING" \
+  --toc-depth 2
+
+remarquee cloud ls /ai/2026/02/07/PI-018-REMOVE-PLANNING --long --non-interactive
+
+docmgr ticket close --ticket PI-018-REMOVE-PLANNING \
+  --changelog-entry "Uploaded diary to reMarkable and closed ticket after completing all checklist items"
+```
