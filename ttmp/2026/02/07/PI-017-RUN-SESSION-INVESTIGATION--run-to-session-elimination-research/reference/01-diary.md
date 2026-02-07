@@ -12,11 +12,11 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go
-      Note: Core webchat router with startRunForPrompt and run_id usage
+      Note: Core webchat router after session-only API hard cut (`startInferenceForPrompt`, session_id payloads)
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/conversation.go
-      Note: Conversation struct with RunID field (legacy session alias)
+      Note: Conversation struct migrated to SessionID (legacy RunID removed)
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/turn_store.go
-      Note: TurnStore interface with RunID in TurnSnapshot
+      Note: TurnStore interface/session snapshots migrated to SessionID field names
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/turn_store_sqlite.go
       Note: SQLite schema with run_id column
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/proto/sem/middleware/planning.proto
@@ -24,14 +24,14 @@ RelatedFiles:
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/inference/events/typed_planning.go
       Note: Planning events with RunID field (planning domain, not session)
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/events/chat-events.go
-      Note: EventMetadata with LegacyRunID for backwards compatibility
+      Note: EventMetadata after LegacyRunID compatibility removal
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/doc/topics/08-turns.md
       Note: Documentation showing Run (session) data model
     - Path: /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/doc/topics/10-sessions.md
       Note: Session management documentation
 ExternalSources: []
 Summary: Implementation diary tracking the run-to-session terminology investigation and elimination planning.
-LastUpdated: 2026-02-07T08:33:00-05:00
+LastUpdated: 2026-02-07T09:40:00-05:00
 WhatFor: Track investigation steps, findings, and decisions for run-to-session migration.
 WhenToUse: Reference when reviewing the investigation process or continuing the work.
 ---
@@ -269,3 +269,73 @@ Make a detailed list of tasks and add to the ticket, and show me before starting
 cd pinocchio && rg -n "\bRunID\b|run_id|\brunId\b|selectedRunId|startRunForPrompt|DistinctRuns|/runs\b" pkg cmd web proto --glob '!**/pb/**' --glob '!**/node_modules/**'
 cd geppetto && rg -n "LegacyRunID|run_id|\bRunID\b|runId|selectedRunId|DistinctRuns|/runs\b" pkg cmd --glob '!**/ttmp/**' --glob '!**/node_modules/**'
 ```
+
+## Step 4: Execute Hard-Cut Migration in Code, Frontend, and Docs
+
+### What I did
+
+I implemented the migration in small slices with focused commits:
+
+1. **Webchat backend/session identity hard-cut** (`pinocchio` commit `4e1729e`)
+   - Renamed session alias fields/symbols in webchat core (`RunID` → `SessionID`, `startRunForPrompt` → `startInferenceForPrompt`, `PrepareRun` → `PrepareSessionInference`, `runningKey` → `activeRequestKey`).
+   - Removed `run_id` from `/chat` and queue responses.
+   - Switched `/turns` query contract to `session_id` only.
+   - Migrated turn-store models and SQLite access to `session_id` with runtime DB migration support from legacy `run_id` column/index names.
+
+2. **AgentMode + frontend session terminology** (`pinocchio` commit `bc50725`)
+   - Migrated AgentMode persistence/service fields from run to session semantics.
+   - Added SQLite migration logic in AgentMode store to rename `run_id` to `session_id` (and index migration).
+   - Removed remaining session-meaning `run_id` log fields in middleware.
+   - Updated frontend state/logging (`runId` keys removed; session-only state shape).
+
+3. **Docs/examples cleanup in pinocchio** (`pinocchio` commit `e9f6b4c`)
+   - Updated `cmd/web-chat/README.md` API examples and pseudocode to session terminology.
+   - Updated webchat topic docs under `pkg/doc/topics/` to remove session-meaning `run_id` references.
+   - Updated simple agent + redis example logging to stop emitting session as `run_id`.
+
+4. **Geppetto metadata hard-cut** (`geppetto` commit `d14f3ad`)
+   - Removed `LegacyRunID` compatibility unmarshaling from `pkg/events/chat-events.go`.
+   - Removed legacy `run_id` log emission from `EventMetadata.MarshalZerologObject`.
+   - Updated middleware logging/systemprompt middleware to session-only logging keys.
+   - Updated `pkg/doc/topics/04-events.md` to remove legacy alias note.
+
+### Validation and commands
+
+- Targeted package tests before commits:
+```bash
+cd pinocchio && go test ./pkg/webchat ./pkg/middlewares/agentmode ./pkg/middlewares/sqlitetool
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... ./pkg/middlewares/agentmode/... ./pkg/middlewares/sqlitetool/...
+cd pinocchio/cmd/web-chat/web && npm run -s build
+cd geppetto && go test ./pkg/events ./pkg/inference/middleware
+```
+
+- Pre-commit hooks (both repos) additionally ran full suites:
+  - `go test ./...`
+  - `go generate ./...`
+  - `go build ./...`
+  - lint/vet checks
+  - frontend check/lint/build when staged frontend files were present.
+
+- Grep gate after implementation:
+```bash
+cd /home/manuel/workspaces/2025-10-30/implement-openai-responses-api
+rg -n "run_id|RunID|runId|LegacyRunID|selectedRunId" \
+  pinocchio/cmd pinocchio/pkg geppetto/pkg geppetto/cmd \
+  --glob '!**/node_modules/**' --glob '!**/ttmp/**'
+```
+Result: remaining matches were intentional/allowed areas only (SQLite migration code in `turn_store_sqlite.go` and `agentmode/sqlite_store.go`, plus true run-domain identifiers in `geppetto/cmd/llm-runner/web`).
+
+### What worked
+
+- The migration could be applied without regressions by preserving only DB migration shims for old columns/indexes.
+- Full pre-commit hooks in both repositories caught integration drift early and kept commits green.
+
+### What was tricky
+
+- `lefthook` runs were heavy (especially `go generate ./...` and frontend build), so each small commit was validated but took noticeable time.
+- Needed careful staging because `geppetto` had unrelated ticket noise in `ttmp/` paths.
+
+### What warrants a second pair of eyes
+
+- Any external client still posting `/turns?run_id=...` or reading `run_id` from `/chat` responses will now break by design (hard cut).
+- DB migration behavior should be exercised on an actual legacy SQLite file in staging to verify rename behavior end-to-end.
