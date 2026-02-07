@@ -22,12 +22,16 @@ RelatedFiles:
         Main source of helper/style duplication analyzed
         Duplication audit evidence
         Component migration targets for P1.7-P1.16
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
+      Note: P2.7 inline style removal
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
       Note: |-
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components
       Note: Component CSS target directory for Phase 2B extractions
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css
+      Note: P2.7 extracted AppShell styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/layout.css
       Note: Layout layer created in P2.4
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css
@@ -58,6 +62,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -851,6 +856,78 @@ This establishes the destination CSS structure so inline-style migrations can be
   - `21` files (layered + component files)
 - Runtime inline `<style>{` block count remains:
   - `31` (to be reduced in Phase 2B)
+
+## Step 12: Complete P2.7 by extracting AppShell inline styles
+
+I migrated the `AppShell.tsx` runtime inline style block into the new component stylesheet location (`styles/components/AppShell.css`) and removed the in-component `<style>{...}` block. This is the first concrete Phase 2B extraction after the scaffold setup.
+
+The extraction reduced runtime inline style blocks by one and validated cleanly with both production and Storybook builds.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue executing and checking off tasks incrementally with dedicated commits and diary updates.
+
+**Inferred user intent:** Maintain steady, auditable progress through the CSS dedup migration instead of batching risky large edits.
+
+**Commit (code):** `41d4e9ce80736b15403d6cc87416fb61cd4f0266` — "refactor(debug-ui): extract AppShell inline styles to css"
+
+### What I did
+
+- Moved AppShell styles:
+  - from `src/components/AppShell.tsx` inline `<style>{...}`
+  - to `src/styles/components/AppShell.css`
+- Removed inline style JSX block from `AppShell.tsx`.
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P2.7`
+
+### Why
+
+- Phase 2B requires one-file-at-a-time extraction to keep style regressions easy to isolate and review.
+
+### What worked
+
+- Extraction preserved build and Storybook behavior.
+- Inline `<style>{` block count dropped from `31` to `30`.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The new style-layer scaffold enabled this extraction without further `index.css` churn, confirming the Phase 2A sequencing was correct.
+
+### What was tricky to build
+
+- `AppShell` has classes that overlap with global utility names (e.g., `.main-content`), so extraction needed to preserve class names exactly to avoid behavioral drift.
+
+### What warrants a second pair of eyes
+
+- Confirm there is no unintended CSS specificity conflict between `layout.css` and `components/AppShell.css` for `.main-content`.
+
+### What should be done in the future
+
+- Continue Phase 2B extraction sequence with `TimelineLanes.tsx` (`P2.8`) next.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Runtime inline style count change:
+  - Before: `31`
+  - After: `30`
 
 ## Related
 

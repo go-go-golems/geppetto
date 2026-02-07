@@ -62,7 +62,7 @@
 
 ### 2B. Extract inline style blocks from runtime files
 
-- [ ] P2.7 Extract styles from `AppShell.tsx`
+- [x] P2.7 Extract styles from `AppShell.tsx`
 - [ ] P2.8 Extract styles from `TimelineLanes.tsx`
 - [ ] P2.9 Extract styles from `StateTrackLane.tsx`
 - [ ] P2.10 Extract styles from `EventTrackLane.tsx`

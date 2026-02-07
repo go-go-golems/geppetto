@@ -664,3 +664,18 @@ Scaffold status:
 - Validation:
   - `npm run build` passed.
   - `npm run build-storybook` passed.
+
+### 12.7 Progress snapshot (after P2.7 AppShell extraction)
+
+Captured after commit `41d4e9c` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Runtime inline `<style>{` blocks | 31 | 30 | `AppShell.tsx` inline block extracted |
+
+P2.7 details:
+
+- Inline styles moved from `src/components/AppShell.tsx` into `src/styles/components/AppShell.css`.
+- Validation:
+  - `npm run build` passed.
+  - `npm run build-storybook` passed.

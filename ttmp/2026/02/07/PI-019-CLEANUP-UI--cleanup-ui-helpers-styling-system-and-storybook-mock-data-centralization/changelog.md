@@ -78,3 +78,15 @@ Completed Phase 2A scaffold (P2.1-P2.6): created layered style files (tokens/res
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css — Shared primitive style classes
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/styles/tokens.css — Design token layer
 
+
+## 2026-02-07
+
+Completed P2.7 by extracting AppShell inline styles into component CSS and removing the runtime <style> block from AppShell.tsx; validated with build + storybook build. Code commit: 41d4e9c.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 12 for AppShell extraction
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off P2.7
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx — Removed inline style block
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css — AppShell runtime styles extracted here
+
