@@ -90,3 +90,18 @@ Completed P2.7 by extracting AppShell inline styles into component CSS and remov
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx — Removed inline style block
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css — AppShell runtime styles extracted here
 
+
+## 2026-02-07
+
+Completed P2.8-P2.12 by extracting inline styles from TimelineLanes, StateTrackLane, EventTrackLane, ProjectionLane, and NowMarker into component CSS files; runtime inline style blocks reduced from 30 to 22; validated with build + storybook build. Code commit: 9d7ba6c.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 13 for lane and marker extraction batch
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off P2.8-P2.12
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.tsx — Removed inline event dot styles
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/NowMarker.tsx — Removed inline marker animation styles
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.tsx — Removed inline projection entity styles
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.tsx — Removed inline turn card and phase styles
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.tsx — Removed inline lane layout styles
+

@@ -32,6 +32,16 @@ RelatedFiles:
       Note: Component CSS target directory for Phase 2B extractions
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css
       Note: P2.7 extracted AppShell styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventTrackLane.css
+      Note: P2.10 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/NowMarker.css
+      Note: P2.12 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/ProjectionLane.css
+      Note: P2.11 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/StateTrackLane.css
+      Note: P2.9 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelineLanes.css
+      Note: P2.8 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/layout.css
       Note: Layout layer created in P2.4
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css
@@ -62,6 +72,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -928,6 +939,93 @@ The extraction reduced runtime inline style blocks by one and validated cleanly 
 - Runtime inline style count change:
   - Before: `31`
   - After: `30`
+
+## Step 13: Complete P2.8-P2.12 by extracting lane and marker inline styles
+
+I extracted inline styles for the next five Phase 2B targets in one cohesive batch: timeline lanes, state lane, event lane, projection lane, and now marker. This removed all inline `<style>{...}` blocks from those components and moved styles into the pre-created component CSS files.
+
+The batch reduced runtime inline style blocks from `30` to `22` while keeping both production and Storybook builds passing.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue executing ticket tasks in order, with regular diary entries and focused commits.
+
+**Inferred user intent:** Keep PI-019 moving steadily through Phase 2B style extraction without losing traceability.
+
+**Commit (code):** `9d7ba6cbc0f6a03c74d121467758e45a0ad0b388` — "refactor(debug-ui): extract lane and marker inline styles"
+
+### What I did
+
+- Extracted inline styles from:
+  - `TimelineLanes.tsx` (`P2.8`)
+  - `StateTrackLane.tsx` (`P2.9`)
+  - `EventTrackLane.tsx` (`P2.10`)
+  - `ProjectionLane.tsx` (`P2.11`)
+  - `NowMarker.tsx` (`P2.12`)
+- Moved them into:
+  - `src/styles/components/TimelineLanes.css`
+  - `src/styles/components/StateTrackLane.css`
+  - `src/styles/components/EventTrackLane.css`
+  - `src/styles/components/ProjectionLane.css`
+  - `src/styles/components/NowMarker.css`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P2.8` through `P2.12`
+
+### Why
+
+- These five files are tightly related lane/marker UI pieces, so batching them made extraction coherent while still keeping commit size reviewable.
+
+### What worked
+
+- All targeted files now have no inline style blocks.
+- Build and Storybook build remained green.
+- Runtime inline style count dropped by `8` in this step.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Doing extraction in lane-oriented clusters reduces context switching and helps avoid missing shared class dependencies.
+
+### What was tricky to build
+
+- `StateTrackLane` had `.block-kind-*` rules that overlap global selectors; to preserve 2px lane-specific chips while global rules remain 3px elsewhere, I moved these into more specific selectors (`.turn-card-blocks .block-kind-*`).
+
+### What warrants a second pair of eyes
+
+- Confirm there are no unintended side-effects from shared class names like `.empty-lane` now being defined in multiple component CSS files.
+
+### What should be done in the future
+
+- Continue with remaining Phase 2B extraction tasks: `P2.13` through `P2.21`.
+
+### Code review instructions
+
+- Review extracted components:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventTrackLane.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/NowMarker.tsx`
+- Review target CSS:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelineLanes.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/StateTrackLane.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventTrackLane.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/ProjectionLane.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/NowMarker.css`
+
+### Technical details
+
+- Runtime inline style count:
+  - Before: `30`
+  - After: `22`
 
 ## Related
 

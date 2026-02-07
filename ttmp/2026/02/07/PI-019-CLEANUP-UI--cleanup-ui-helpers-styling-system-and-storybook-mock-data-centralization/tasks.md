@@ -63,11 +63,11 @@
 ### 2B. Extract inline style blocks from runtime files
 
 - [x] P2.7 Extract styles from `AppShell.tsx`
-- [ ] P2.8 Extract styles from `TimelineLanes.tsx`
-- [ ] P2.9 Extract styles from `StateTrackLane.tsx`
-- [ ] P2.10 Extract styles from `EventTrackLane.tsx`
-- [ ] P2.11 Extract styles from `ProjectionLane.tsx`
-- [ ] P2.12 Extract styles from `NowMarker.tsx`
+- [x] P2.8 Extract styles from `TimelineLanes.tsx`
+- [x] P2.9 Extract styles from `StateTrackLane.tsx`
+- [x] P2.10 Extract styles from `EventTrackLane.tsx`
+- [x] P2.11 Extract styles from `ProjectionLane.tsx`
+- [x] P2.12 Extract styles from `NowMarker.tsx`
 - [ ] P2.13 Extract styles from `TurnInspector.tsx`
 - [ ] P2.14 Extract styles from `SnapshotDiff.tsx`
 - [ ] P2.15 Extract styles from `EventInspector.tsx`

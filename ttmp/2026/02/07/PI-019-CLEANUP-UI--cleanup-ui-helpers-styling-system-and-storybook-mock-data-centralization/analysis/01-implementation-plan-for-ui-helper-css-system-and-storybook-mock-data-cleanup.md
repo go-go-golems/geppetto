@@ -679,3 +679,32 @@ P2.7 details:
 - Validation:
   - `npm run build` passed.
   - `npm run build-storybook` passed.
+
+### 12.8 Progress snapshot (after P2.8-P2.12 extraction batch)
+
+Captured after commit `9d7ba6c` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Runtime inline `<style>{` blocks | 30 | 22 | extracted from TimelineLanes, StateTrackLane, EventTrackLane, ProjectionLane, NowMarker |
+| CSS LOC (total) | 473 | 1075 | increased as inline styles moved into component CSS files |
+
+Extraction details:
+
+- Moved inline styles from:
+  - `src/components/TimelineLanes.tsx`
+  - `src/components/StateTrackLane.tsx`
+  - `src/components/EventTrackLane.tsx`
+  - `src/components/ProjectionLane.tsx`
+  - `src/components/NowMarker.tsx`
+- Into:
+  - `src/styles/components/TimelineLanes.css`
+  - `src/styles/components/StateTrackLane.css`
+  - `src/styles/components/EventTrackLane.css`
+  - `src/styles/components/ProjectionLane.css`
+  - `src/styles/components/NowMarker.css`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
