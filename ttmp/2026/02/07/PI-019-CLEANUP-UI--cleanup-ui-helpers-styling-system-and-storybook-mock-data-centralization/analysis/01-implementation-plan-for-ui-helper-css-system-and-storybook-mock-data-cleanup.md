@@ -27,6 +27,8 @@ RelatedFiles:
       Note: |-
         Reference data-part based styling structure
         Reference part-based style layering
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/README.md
+      Note: Style contract recommendation implemented in frontend docs
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components
       Note: |-
         Main React component surface with helper and style duplication to clean up
@@ -45,10 +47,11 @@ RelatedFiles:
         Current MSW handlers to refactor into reusable handler builder
 ExternalSources: []
 Summary: Detailed execution plan for reducing PI-013 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
-LastUpdated: 2026-02-07T12:05:00-05:00
+LastUpdated: 2026-02-07T13:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 # PI-019 Implementation Plan: Helper + CSS + Storybook Mock Cleanup
@@ -241,19 +244,19 @@ src/styles/
     anomaly-panel.css
 ```
 
-Use either:
+Use a consistent hybrid approach:
 
-- data-part attributes, or
-- stable BEM-like class names
-
-but standardize on one approach consistently.
+- namespaced class names for runtime styling
+- optional `data-part` attributes for external theming/extension points
 
 ### Recommendation
 
-Adopt **data-part + utility class hybrid**:
+Adopt **namespaced classes + optional data-part hooks**:
 
-- data-part for major semantic regions (`data-part="timeline-lane"` etc.)
-- utility classes from `index.css` kept minimal
+- each component/page has a stable root class (`app-shell`, `timeline-lanes`, `event-inspector`, etc.)
+- internal parts use component-prefixed names (`app-header-nav`, `timeline-lane-header`, `anomaly-detail-row`, etc.)
+- `data-part` is only added where third-party composition/theming needs semantic hooks
+- utility classes from `primitives.css` remain minimal and reusable
 
 ## 4.3 Storybook mock architecture target
 
@@ -794,3 +797,40 @@ Validation:
 
 - `npm run build` passed.
 - `npm run build-storybook` passed.
+
+### 12.13 Progress snapshot (after P2.22-P2.24 style contract standardization)
+
+Captured after commit `2181eac` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Hard-coded `rgba(...)` in component/primitives style files | 43 | 0 | replaced with token variables; `tokens.css` remains the canonical source |
+| Runtime inline `<style>{` blocks | 0 | 0 | preserved |
+| Major components with normalized part naming updates | 0 | 3 | `AppShell`, `TimelineLanes`, `AnomalyPanel` class names standardized |
+
+Phase 2C details:
+
+- `P2.22`: documented style contract approach in frontend `README.md` and aligned plan recommendation in this analysis.
+- `P2.23`: normalized class/part naming in major components:
+  - `src/components/AppShell.tsx` + `src/styles/components/AppShell.css`
+  - `src/components/TimelineLanes.tsx` + `src/styles/components/TimelineLanes.css`
+  - `src/components/AnomalyPanel.tsx` + `src/styles/components/AnomalyPanel.css`
+- `P2.24`: replaced repeated hard-coded alpha colors with shared token variables in:
+  - `src/styles/primitives.css`
+  - `src/styles/components/SnapshotDiff.css`
+  - `src/styles/components/ProjectionLane.css`
+  - `src/styles/components/StateTrackLane.css`
+  - `src/styles/components/EventTrackLane.css`
+  - `src/styles/components/EventInspector.css`
+  - `src/styles/components/TimelineLanes.css`
+  - `src/styles/components/AnomalyPanel.css`
+  - token definitions in `src/styles/tokens.css`
+
+Validation:
+
+- `npm run build` passed:
+  - `dist/assets/index-DT1c9Azr.css`: **30.24 kB** (gzip **5.05 kB**)
+  - `dist/assets/index-b1WsY2oQ.js`: **330.62 kB** (gzip **105.41 kB**)
+- `npm run build-storybook` passed:
+  - preview built in **8.67s**
+- `rg -n "rgba\\(" src/styles -g '!src/styles/tokens.css'` returned no matches.

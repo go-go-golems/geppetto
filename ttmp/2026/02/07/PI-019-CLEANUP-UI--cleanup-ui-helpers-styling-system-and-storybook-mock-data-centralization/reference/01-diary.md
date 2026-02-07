@@ -15,6 +15,8 @@ RelatedFiles:
       Note: |-
         Reference architecture used for reusable styling strategy
         Reference style architecture evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/README.md
+      Note: P2.22 style contract documentation
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/package.json
       Note: Added test:unit script for helper tests
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components
@@ -86,10 +88,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T12:20:00-05:00
+LastUpdated: 2026-02-07T13:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1357,6 +1360,115 @@ Because these two components contain many generic class names, I scoped CSS sele
 - Runtime inline style count:
   - Before: `13`
   - After: `0`
+
+## Step 18: Complete Phase 2C style contract, class naming normalization, and token replacement
+
+I completed the remaining Phase 2 styling standardization tasks by locking in a concrete style contract, normalizing major component class/part naming, and removing repeated hard-coded `rgba(...)` values from runtime style files. This closes out `P2.22`, `P2.23`, and `P2.24` and fully completes Phase 2.
+
+The change was delivered as a focused frontend commit, then validated with production and Storybook builds plus a grep-based tokenization check to confirm no remaining `rgba(...)` usage outside `tokens.css`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue PI-019 with one-by-one task completion, keep diary updates frequent, and commit changes in task-aligned slices.
+
+**Inferred user intent:** Finish the remaining Phase 2 standardization tasks with auditable docs and validated code commits.
+
+**Commit (code):** `2181eac248906e2313409940bafca7701a298731` — "refactor(debug-ui): standardize style contract naming and color tokens"
+
+### What I did
+
+- Added and documented the style contract in:
+  - `web-agent-example/cmd/web-agent-debug/web/README.md`
+- Normalized naming in major component TSX/CSS pairs:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/AppShell.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelineLanes.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css`
+- Added reusable alpha/shadow tokens in:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/tokens.css`
+- Replaced repeated `rgba(...)` values with token variables in:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/SnapshotDiff.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/ProjectionLane.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/StateTrackLane.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventTrackLane.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventInspector.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelineLanes.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+  - `rg -n "rgba\\(" src/styles -g '!src/styles/tokens.css'`
+- Checked off:
+  - `P2.22`
+  - `P2.23`
+  - `P2.24`
+
+### Why
+
+- Phase 2 had already removed runtime inline style blocks, but still needed explicit styling contract rules and tokenized alpha color usage to reduce selector collisions and future style drift.
+
+### What worked
+
+- Both build pipelines remained green.
+- Class naming updates improved selector clarity for major shell/lane/detail components.
+- Repeated color alpha values were centralized under token variables.
+
+### What didn't work
+
+- Initial bulk replacement command failed because a multiline file list was passed as a single argument:
+  - Error: `Can't open src/styles/tokens.css ... src/styles/components/StateTrackLane.css: No such file or directory.`
+- Fix:
+  - Re-ran replacement using `rg -l ... | while IFS= read -r f; do ...; done` to process each file path safely.
+
+### What I learned
+
+- For wide style-token migrations, file iteration via `while read` is safer than shell-expanded multiline variables, especially when applying scripted replacements.
+
+### What was tricky to build
+
+- This pass combined two concerns (naming normalization and token replacement) across overlapping files. I had to avoid introducing regressions while renaming classes and swapping color values in the same components. I handled this by validating all touched files via full production and Storybook builds plus targeted grep checks for leftover `rgba(...)`.
+
+### What warrants a second pair of eyes
+
+- Story-level visual parity for:
+  - `AppShell`
+  - `TimelineLanes`
+  - `AnomalyPanel`
+- Focus areas:
+  - nav/link active states, lane header/count styling, anomaly detail panel spacing.
+
+### What should be done in the future
+
+- Start Phase 3 (`P3.1` onward): Storybook mock-data centralization (fixtures/factories/scenarios + MSW handler builders).
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/README.md`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/tokens.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+  - `cd web-agent-example/cmd/web-agent-debug/web && rg -n "rgba\\(" src/styles -g '!src/styles/tokens.css'`
+
+### Technical details
+
+- Hard-coded `rgba(...)` usage in `src/styles` excluding `tokens.css`:
+  - Before: `43`
+  - After: `0`
+- Runtime inline style count:
+  - Before: `0`
+  - After: `0`
+
 
 ## Related
 

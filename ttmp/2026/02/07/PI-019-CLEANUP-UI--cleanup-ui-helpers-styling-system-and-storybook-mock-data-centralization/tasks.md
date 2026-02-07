@@ -80,9 +80,9 @@
 
 ### 2C. Styling contract standardization
 
-- [ ] P2.22 Define and document style contract approach (data-part, class naming, or hybrid)
-- [ ] P2.23 Normalize naming of CSS classes/parts across all major components
-- [ ] P2.24 Ensure theme token usage replaces hard-coded repeated colors where practical
+- [x] P2.22 Define and document style contract approach (data-part, class naming, or hybrid)
+- [x] P2.23 Normalize naming of CSS classes/parts across all major components
+- [x] P2.24 Ensure theme token usage replaces hard-coded repeated colors where practical
 - [x] P2.25 Verify no inline `<style>{` blocks remain in runtime TSX files
 
 ## Phase 3 — Storybook Mock Data Centralization
