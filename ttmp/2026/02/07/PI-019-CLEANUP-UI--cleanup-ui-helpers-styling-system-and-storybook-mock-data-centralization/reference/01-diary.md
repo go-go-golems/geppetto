@@ -15,6 +15,8 @@ RelatedFiles:
       Note: |-
         Reference architecture used for reusable styling strategy
         Reference style architecture evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/package.json
+      Note: Added test:unit script for helper tests
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components
       Note: |-
         Main source of helper/style duplication analyzed
@@ -24,6 +26,8 @@ RelatedFiles:
       Note: |-
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/format.test.ts
+      Note: Unit tests for truncation/stringify/time edge cases (P1.19)
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/phase.ts
       Note: Phase formatter module created in P1.1
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/text.ts
@@ -32,6 +36,8 @@ RelatedFiles:
       Note: Time formatter module created in P1.2
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/events.ts
       Note: Event presentation module and mappings
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/presentation.test.ts
+      Note: Unit tests for presentation mapping fallbacks (P1.18)
     - Path: ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/analysis/01-implementation-plan-for-ui-helper-css-system-and-storybook-mock-data-cleanup.md
       Note: |-
         Primary design/implementation plan produced in this ticket
@@ -42,6 +48,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -681,6 +688,79 @@ After migration, I validated with `npm run build`, `npm run build-storybook`, an
   - `truncateText`: `0`
   - `formatPhase`: `0`
   - `formatPhaseName`: `0`
+
+## Step 10: Add helper unit tests for fallback and formatting edge cases
+
+I completed the remaining Phase 1 test tasks by introducing a lightweight unit-test runner and adding focused tests for shared helper behavior. The tests cover mapping fallbacks for event/block/timeline presentation and edge cases for text truncation, stringify safety, and date formatting.
+
+After adding tests, I re-ran the production build to ensure test and dependency updates did not affect the normal build path.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue executing ticket tasks sequentially and keep the diary/changelog synchronized with each commit.
+
+**Inferred user intent:** Ensure implementation quality by validating helper behavior while keeping task progress auditable.
+
+**Commit (code):** `aaef9d176f90bcae1eef5cbf9bc9dc16949965ff` — "test(debug-ui): add unit tests for shared helper behavior"
+
+### What I did
+
+- Added `vitest` as a dev dependency and wired:
+  - `package.json` script: `test:unit`
+- Added tests:
+  - `src/ui/presentation/presentation.test.ts`
+  - `src/ui/format/format.test.ts`
+- Verified:
+  - `npm run test:unit` (9 tests passed)
+  - `npm run build` (passes)
+- Checked off tasks:
+  - `P1.18` and `P1.19`
+
+### Why
+
+- Phase 1 required explicit unit coverage for fallback mappings and format/truncation safety to prevent regressions while helpers are centralized.
+
+### What worked
+
+- Tests execute quickly and validate the key behavior contracts for helper modules.
+- Build remains green after dependency and test additions.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Keeping helper tests at the module boundary provides high confidence with low maintenance cost, especially before larger CSS and mock-data refactors.
+
+### What was tricky to build
+
+- Introducing tests into a project without an existing unit-test script required selecting a minimal toolchain change (Vitest only) to avoid broad project churn.
+
+### What warrants a second pair of eyes
+
+- Confirm the lockfile delta from adding Vitest is acceptable for this repo’s dependency policy.
+
+### What should be done in the future
+
+- Add follow-up tests for any new helper branches introduced during Phase 2/3 refactors.
+
+### Code review instructions
+
+- Review test coverage in:
+  - `web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/presentation.test.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/ui/format/format.test.ts`
+- Validate with:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run test:unit`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+
+### Technical details
+
+- Test run summary:
+  - `Test Files: 2 passed`
+  - `Tests: 9 passed`
 
 ## Related
 

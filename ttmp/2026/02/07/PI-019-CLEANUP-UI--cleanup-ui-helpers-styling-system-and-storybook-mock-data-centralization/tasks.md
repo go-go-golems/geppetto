@@ -45,8 +45,8 @@
 ### 1C. Cleanup + tests
 
 - [x] P1.17 Remove all now-duplicate local helper functions
-- [ ] P1.18 Add helper unit tests for mapping fallback behavior
-- [ ] P1.19 Add helper unit tests for truncation/format edge cases
+- [x] P1.18 Add helper unit tests for mapping fallback behavior
+- [x] P1.19 Add helper unit tests for truncation/format edge cases
 - [x] P1.20 Verify no duplicate helper signatures remain via grep check
 
 ## Phase 2 — CSS Dedup + Reusable Design System

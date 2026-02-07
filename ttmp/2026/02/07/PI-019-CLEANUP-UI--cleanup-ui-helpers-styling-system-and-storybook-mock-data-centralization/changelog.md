@@ -51,3 +51,16 @@ Completed Phase 1 helper unification core (P1.1-P1.17, P1.20): introduced shared
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/ui/format/time.ts — Shared safe time/date formatting
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/events.ts — Central event type presentation mapping
 
+
+## 2026-02-07
+
+Completed P1.18 and P1.19 by adding helper unit tests (mapping fallbacks + formatting/truncation edge cases), wiring Vitest via npm script, and validating with test run + production build. Code commit: aaef9d1.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 10 for helper test implementation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off P1.18 and P1.19
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/package.json — Added test:unit script
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/ui/format/format.test.ts — Truncation/stringify/time formatting edge-case tests
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/presentation.test.ts — Fallback mapping tests for event/block/timeline helpers
+
