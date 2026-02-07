@@ -24,8 +24,12 @@ RelatedFiles:
         Main source of helper/style duplication analyzed
         Duplication audit evidence
         Component migration targets for P1.7-P1.16
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.stories.tsx
+      Note: P3.13 migrated anomaly panel stories to centralized scenarios
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx
-      Note: P3.9 centralized AppShell story handlers
+      Note: |-
+        P3.9 centralized AppShell story handlers
+        P3.13 switched AppShell anomalies to factory generation
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
       Note: P2.7 inline style removal
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx
@@ -67,7 +71,9 @@ RelatedFiles:
         P3.7 default MSW handler bundle wiring
         P3.9 extended default handler helper options
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
-      Note: P3.3 anomaly panel scenario variants
+      Note: |-
+        P3.3 anomaly panel scenario variants
+        P3.13 anomaly story scenario source-of-truth
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
       Note: |-
         P3.3 event inspector scenario variants
@@ -136,10 +142,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T16:49:00-05:00
+LastUpdated: 2026-02-07T16:58:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2455,6 +2462,81 @@ This keeps event-inspector story setup aligned with the scenario layer and reduc
 
 - EventInspector story variants migrated to scenario-builder args: `9`
 - Local mock helper declarations removed from story file: `1`
+
+## Step 31: Complete P3.13 by centralizing anomaly stories
+
+I completed `P3.13` by migrating anomaly-focused stories to centralized scenario/factory sources. `AnomalyPanel.stories.tsx` now consumes `makeAnomalyScenario(...)`, and `AppShell.stories.tsx` now uses `makeAnomalies(2)` for anomaly args instead of an inline array.
+
+This removes the largest remaining local anomaly fixture block and aligns anomaly story setup with the centralized mock architecture.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue Phase 3C migration by moving anomaly stories off local inline fixture definitions.
+
+**Inferred user intent:** Keep reducing story-local mock duplication until stories are fully centralized.
+
+**Commit (code):** `cb7816594ca0163ceada0af57e788c72c680fcee` — "refactor(stories): migrate anomaly stories to scenarios"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx`
+- Migration details:
+  - replaced local anomaly array and derived variants in `AnomalyPanel.stories.tsx` with:
+    - `makeAnomalyScenario('default' | 'closed' | 'empty' | 'errorsOnly' | 'manyAnomalies')`
+  - replaced AppShell inline `mockAnomalies` with:
+    - `makeAnomalies(2)`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.13`
+
+### Why
+
+- Anomaly stories still contained significant inline mock data duplication despite available centralized scenarios/factories.
+
+### What worked
+
+- Storybook and production builds passed after replacing inline anomaly composition with centralized sources.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Reusing the same centralized scenarios across both focused component stories and broader shell stories reduces divergence risk between debugging views.
+
+### What was tricky to build
+
+- `AppShell` and `AnomalyPanel` had slightly different anomaly data needs (minimal vs rich detail). I used factories for lightweight AppShell anomalies and scenarios for richer AnomalyPanel variants, preserving story intent while still centralizing data generation.
+
+### What warrants a second pair of eyes
+
+- Confirm AppShell anomaly cards still present expected severity/type variety after switching from custom inline examples to factory-generated entries.
+
+### What should be done in the future
+
+- Complete `P3.14` by ensuring targeted stories uniformly import shared fixtures/scenarios and no longer keep large local arrays.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Local inline anomaly array definitions removed: `2` (`AnomalyPanel`, `AppShell`)
+- Centralized anomaly sources now used in stories: scenarios + factories
 
 
 ## Related

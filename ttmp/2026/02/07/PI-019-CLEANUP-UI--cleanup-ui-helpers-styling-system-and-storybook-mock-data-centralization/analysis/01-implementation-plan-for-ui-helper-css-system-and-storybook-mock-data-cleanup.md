@@ -33,8 +33,12 @@ RelatedFiles:
       Note: |-
         Main React component surface with helper and style duplication to clean up
         Current duplication hotspots across UI components
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.stories.tsx
+      Note: P3.13 anomaly panel scenario migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx
-      Note: P3.9 story-level handler deduplication evidence
+      Note: |-
+        P3.9 story-level handler deduplication evidence
+        P3.13 AppShell anomaly factory migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx
       Note: P3.12 event-inspector story scenario migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
@@ -83,6 +87,8 @@ RelatedFiles:
         P3.9 default handler override wiring evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
       Note: P3.3 reusable scenario layer snapshot evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
+      Note: P3.13 anomaly scenario catalog evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
       Note: P3.12 event-inspector scenario catalog evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts
@@ -93,6 +99,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -782,6 +789,29 @@ P3.8 details:
   - replaced local endpoint definitions with:
     - `import { defaultHandlers } from './msw/defaultHandlers'`
     - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.13 Progress snapshot (after P3.13 anomaly story centralization)
+
+Captured after commit `cb78165` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Local inline anomaly arrays in `AnomalyPanel.stories.tsx` | 1 | 0 | replaced by anomaly scenarios |
+| AppShell story-local anomaly array definitions | 1 | 0 | replaced by `makeAnomalies(2)` |
+
+P3.13 details:
+
+- Updated:
+  - `src/components/AnomalyPanel.stories.tsx`
+  - `src/components/AppShell.stories.tsx`
+- Change:
+  - `AnomalyPanel` story args now sourced from `makeAnomalyScenario(...)`
+  - `AppShell` anomaly args now sourced from `makeAnomalies(2)`
 
 Validation:
 

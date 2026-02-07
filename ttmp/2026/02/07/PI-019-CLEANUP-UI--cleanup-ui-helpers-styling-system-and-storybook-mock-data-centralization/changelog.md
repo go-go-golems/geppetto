@@ -324,3 +324,15 @@ Completed `P3.12` by migrating `EventInspector.stories.tsx` to centralized `even
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 30 for event-inspector story scenario migration
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.12`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx — Migrated to `makeEventInspectorScenario(...)`
+
+
+## 2026-02-07
+
+Completed `P3.13` by migrating anomaly-focused stories to centralized anomaly scenarios/factories (`AnomalyPanel.stories.tsx` + AppShell anomaly args), removing local inline anomaly arrays; validated with build + storybook build. Code commit: cb78165.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 31 for anomaly story migration
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.13`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/AnomalyPanel.stories.tsx — Migrated to `makeAnomalyScenario(...)`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx — Replaced local anomaly array with factory-generated anomalies
