@@ -1758,3 +1758,46 @@ Created the event inspector with three view modes:
 ### What was deferred
 
 - Time range filter (needs date picker component)
+
+## Step 27: Implemented AppShell and React Router
+
+### What I did
+
+**AppShell component:**
+- Top nav bar with app title and navigation tabs (Overview/Timeline/Events)
+- Collapsible left sidebar with SessionList
+- Breadcrumb showing selected conversation/session
+- Filter sidebar toggle (right side panel)
+- Anomaly panel toggle (slide-out overlay)
+- Badge counts for active filters and anomalies
+
+**Routes (src/routes/):**
+- `OverviewPage` - Conversation detail + timeline + turn inspector
+- `TimelinePage` - Full three-lane timeline view
+- `EventsPage` - Event list with EventInspector detail panel
+- `TurnDetailPage` - Dedicated turn inspection page
+
+**Integration:**
+- All pages use RTK Query hooks with proper skip logic
+- Updated main.tsx to use RouterProvider instead of BrowserRouter + App
+- AppShell stories use MSW handlers for integration testing
+
+### What worked
+
+- RTK Query integration with skip logic for conditional fetching
+- MSW story parameters for full integration testing in Storybook
+
+### What was tricky
+
+- Getting the query parameter types right (objects vs strings)
+- Ensuring TurnInspector receives TurnDetail, not individual IDs
+
+### Files created
+
+- src/components/AppShell.tsx
+- src/components/AppShell.stories.tsx
+- src/routes/index.tsx
+- src/routes/OverviewPage.tsx
+- src/routes/TimelinePage.tsx
+- src/routes/EventsPage.tsx
+- src/routes/TurnDetailPage.tsx

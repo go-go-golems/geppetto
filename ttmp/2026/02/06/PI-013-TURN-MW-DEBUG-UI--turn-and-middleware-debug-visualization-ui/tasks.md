@@ -121,10 +121,10 @@
 
 ### AppShell & Routing
 
-- [ ] AppShell layout (sidebar + main content + panels)
-- [ ] React Router integration (all screen routes)
-- [ ] Sidebar navigation state
-- [ ] Responsive layout
+- [x] AppShell layout (sidebar + main content + panels)
+- [x] React Router integration (all screen routes)
+- [x] Sidebar navigation state
+- [ ] Responsive layout (deferred)
 
 ### Live Features
 
