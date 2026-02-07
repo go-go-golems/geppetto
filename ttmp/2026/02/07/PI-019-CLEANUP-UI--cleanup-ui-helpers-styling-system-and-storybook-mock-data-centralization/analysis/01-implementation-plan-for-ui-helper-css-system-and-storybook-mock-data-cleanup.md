@@ -37,6 +37,8 @@ RelatedFiles:
       Note: P3.9 story-level handler deduplication evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
       Note: P3.10 story-level handler deduplication evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx
+      Note: P3.11 timeline story scenario migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/index.css
       Note: |-
         Current global tokens/utilities baseline to evolve into reusable design system layers
@@ -79,12 +81,15 @@ RelatedFiles:
         P3.9 default handler override wiring evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
       Note: P3.3 reusable scenario layer snapshot evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts
+      Note: P3.11 timeline scenario catalog expansion evidence
 ExternalSources: []
 Summary: Detailed execution plan for reducing PI-013 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
 LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -772,6 +777,29 @@ P3.8 details:
   - replaced local endpoint definitions with:
     - `import { defaultHandlers } from './msw/defaultHandlers'`
     - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.11 Progress snapshot (after P3.11 timeline story scenario migration)
+
+Captured after commit `a3a28ad` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| `TimelineLanes.stories.tsx` stories using local inline mock composition | 7 | 0 | all migrated to scenario builder args |
+| Timeline scenario variants available in `timelineScenarios` | 5 | 7 | added `turnsOnly` and `eventsOnly` |
+
+P3.11 details:
+
+- Updated:
+  - `src/components/TimelineLanes.stories.tsx`
+  - `src/mocks/scenarios/timelineScenarios.ts`
+- Change:
+  - story args switched from local `mocks/data` composition to `makeTimelineScenario(...)`
+  - scenario catalog expanded to cover timeline-only variants previously represented inline
 
 Validation:
 

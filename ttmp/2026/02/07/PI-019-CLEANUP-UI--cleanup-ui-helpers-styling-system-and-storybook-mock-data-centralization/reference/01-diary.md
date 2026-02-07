@@ -30,6 +30,8 @@ RelatedFiles:
       Note: P2.7 inline style removal
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
       Note: P3.10 centralized SessionList story handlers
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx
+      Note: P3.11 migrated timeline stories to scenario builders
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.tsx
       Note: P2.13 verified style-clean (no inline <style> block)
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
@@ -71,7 +73,9 @@ RelatedFiles:
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/overviewScenarios.ts
       Note: P3.3 overview story context scenarios
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts
-      Note: P3.3 timeline lane story context scenarios
+      Note: |-
+        P3.3 timeline lane story context scenarios
+        P3.11 expanded timeline scenarios for story migration
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components
       Note: Component CSS target directory for Phase 2B extractions
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css
@@ -128,10 +132,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T16:25:00-05:00
+LastUpdated: 2026-02-07T16:38:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2298,6 +2303,80 @@ With this step, both targeted story files in Phase 3B (`AppShell` and `SessionLi
 
 - Inline `http.get(...)` blocks removed from `SessionList.stories.tsx`: `1`
 - Story handler source switched to: `createDefaultDebugHandlers()`
+
+## Step 29: Complete P3.11 by migrating timeline stories to scenario builders
+
+I completed `P3.11` by migrating `TimelineLanes.stories.tsx` to use centralized scenario builders instead of inline fixture composition. Story args now consistently come from `makeTimelineScenario(...)`, and I expanded timeline scenario coverage with `turnsOnly` and `eventsOnly` variants to preserve prior story breadth.
+
+This moves timeline stories onto the same fixture/factory/scenario stack established earlier in Phase 3.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue into Phase 3C migration tasks and move stories onto centralized scenario builders.
+
+**Inferred user intent:** Eliminate story-local data composition and standardize stories around reusable scenario definitions.
+
+**Commit (code):** `a3a28adcd8d9e40ed735ad0ce3ded31db10c1675` — "refactor(stories): migrate timeline lanes to scenario builders"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts`
+- Migration details:
+  - replaced local imports from `../mocks/data` in `TimelineLanes.stories.tsx`
+  - switched story args to:
+    - `makeTimelineScenario('default' | 'withSelection' | 'live' | 'empty' | 'turnsOnly' | 'eventsOnly' | 'manyItems').args`
+  - added `turnsOnly` and `eventsOnly` scenario variants to preserve previously explicit story states
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.11`
+
+### Why
+
+- Timeline stories were a major source of local mock composition and duplicated scenario assembly.
+
+### What worked
+
+- Storybook and production builds passed after switching all timeline story args to centralized scenario sources.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Adding missing scenario variants first (`turnsOnly`, `eventsOnly`) makes story-file migration mechanical and low-risk.
+
+### What was tricky to build
+
+- The existing `ManyItems` case encoded several combined data expansions inline. Preserving that behavior required confirming equivalent logic already existed in `timelineScenarios` before removing local composition. I aligned story names directly with scenario keys to reduce mapping ambiguity.
+
+### What warrants a second pair of eyes
+
+- Confirm `ManyItems` still reflects intended visual density and selection behavior after moving source-of-truth to scenario definitions.
+
+### What should be done in the future
+
+- Complete `P3.12` by migrating `EventInspector` stories to event-inspector scenarios.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Timeline story variants migrated to scenario-builder args: `7`
+- New timeline scenario variants added: `2` (`turnsOnly`, `eventsOnly`)
 
 
 ## Related

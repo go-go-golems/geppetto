@@ -301,3 +301,15 @@ Completed `P3.10` by removing repeated inline MSW handler blocks from `SessionLi
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 28 for SessionList story handler deduplication
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.10`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx — Centralized story handler usage
+
+
+## 2026-02-07
+
+Completed `P3.11` by migrating `TimelineLanes.stories.tsx` to centralized timeline scenario builders and extending `timelineScenarios` with dedicated `turnsOnly`/`eventsOnly` contexts; validated with build + storybook build. Code commit: a3a28ad.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 29 for timeline story scenario migration
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.11`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx — Migrated to `makeTimelineScenario(...)`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts — Added timeline-only variant scenarios for story reuse

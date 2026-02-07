@@ -105,7 +105,7 @@
 
 ### 3C. Story migration
 
-- [ ] P3.11 Migrate timeline-related stories to scenario builders
+- [x] P3.11 Migrate timeline-related stories to scenario builders
 - [ ] P3.12 Migrate event inspector stories to scenario builders
 - [ ] P3.13 Migrate anomaly stories to centralized anomaly fixtures/factories
 - [ ] P3.14 Ensure stories use shared fixture imports rather than local large arrays
