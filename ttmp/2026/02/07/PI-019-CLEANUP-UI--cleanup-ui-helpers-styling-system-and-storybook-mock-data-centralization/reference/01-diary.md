@@ -33,6 +33,7 @@ RelatedFiles:
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
         P3.1 compatibility export layer after fixture split
+        P3.5 explicit legacy compatibility shim contract
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/common.ts
       Note: P3.2 deterministic fixture selector and clone helpers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts
@@ -113,10 +114,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T15:22:00-05:00
+LastUpdated: 2026-02-07T15:35:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1836,6 +1838,81 @@ This keeps factory behavior deterministic as scenarios/stories request larger li
 - New deterministic helper functions: `5`
 - Factory modules updated in this step: `6`
 - New unit test file: `1`
+
+## Step 23: Complete P3.5 by formalizing `mocks/data.ts` compatibility contract
+
+I completed `P3.5` by finalizing `src/mocks/data.ts` as an explicit legacy compatibility shim. The file already re-exported fixture modules from `P3.1`; this step codified that contract with clear migration guidance so it can safely persist until story migration tasks finish, then be removed intentionally.
+
+This avoids premature removal risk because many current stories still import `../mocks/data`, while still making the deprecation/removal path explicit.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue through unchecked PI-019 tasks one at a time with focused commits and synchronized ticket docs.
+
+**Inferred user intent:** Keep progress linear and reviewable while preventing accidental breakage from broad migrations.
+
+**Commit (code):** `af06ce20723b971cc1cd2067ece79dbae8d2ce8f` — "chore(mocks): finalize legacy data shim contract"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts`
+- Added explicit contract comments:
+  - this file is a legacy compatibility shim
+  - keep until `P3.11`-`P3.14` migration is complete
+  - new code should use `./fixtures/*` or `./factories/*`
+- Verified current import footprint before deciding to keep shim:
+  - `rg` showed `12` story imports of `../mocks/data`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.5`
+
+### Why
+
+- `P3.5` allows either removing `data.ts` or formalizing it as compatibility layer; removal now would break current stories before migration tasks are done.
+
+### What worked
+
+- Compatibility behavior stayed unchanged while migration intent is now explicit in code.
+- Build/Storybook remained green.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- For staged architecture migration, explicit temporary-shim contracts reduce ambiguity and prevent accidental churn during intermediate phases.
+
+### What was tricky to build
+
+- The key decision was whether to remove `data.ts` now or keep it. Import inventory showed substantial active usage in stories, so immediate removal would create large unrelated diffs and violate the “one task at a time” slicing objective. I kept the shim and documented removal timing, which preserves momentum without hiding technical debt.
+
+### What warrants a second pair of eyes
+
+- Confirm that keeping `data.ts` through `P3.11`-`P3.14` aligns with reviewer preference for migration sequencing versus early hard-cutover.
+
+### What should be done in the future
+
+- Start `P3.6` by introducing centralized MSW handler builders (`createDebugHandlers.ts`, then `defaultHandlers.ts`) and then migrate existing handlers/stories off repeated ad-hoc handler blocks.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && rg -n \"from '../mocks/data'\" src/components/*.stories.tsx`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- `src/mocks/data.ts` remains re-export-only (no inline fixture objects).
+- Active story imports depending on `../mocks/data` at this step: `12`.
 
 
 ## Related

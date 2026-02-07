@@ -41,6 +41,7 @@ RelatedFiles:
       Note: |-
         Central fixture file to split into factories/scenarios
         Current centralized fixture file to split into fixtures/factories/scenarios
+        P3.5 finalized as compatibility shim pending story migration
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts
       Note: P3.2 anomaly deterministic builders
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.test.ts
@@ -71,6 +72,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -766,6 +768,27 @@ P3.4 details:
 Validation:
 
 - `npm run test:unit` passed (`13` tests).
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.5 Progress snapshot (after P3.5 legacy `data.ts` compatibility finalization)
+
+Captured after commit `af06ce2` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Legacy `src/mocks/data.ts` status | compatibility re-export file | explicit compatibility shim contract | no inline fixture definitions |
+| Remaining imports of `../mocks/data` | 12 | 12 | unchanged intentionally until story migration tasks |
+
+P3.5 details:
+
+- Confirmed `src/mocks/data.ts` remains a pure re-export compatibility layer.
+- Added explicit migration guidance comment:
+  - retain for current story/handler compatibility
+  - remove after `P3.11`-`P3.14` migration completes
+
+Validation:
+
 - `npm run build` passed.
 - `npm run build-storybook` passed.
 

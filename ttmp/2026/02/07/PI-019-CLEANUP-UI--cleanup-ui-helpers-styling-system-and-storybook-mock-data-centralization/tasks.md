@@ -93,7 +93,7 @@
 - [x] P3.2 Create `src/mocks/factories/` for deterministic builders
 - [x] P3.3 Create `src/mocks/scenarios/` for reusable story contexts
 - [x] P3.4 Create deterministic id/time/seq helper utilities for factories
-- [ ] P3.5 Refactor legacy `src/mocks/data.ts` into compatibility export layer or remove after migration
+- [x] P3.5 Refactor legacy `src/mocks/data.ts` into compatibility export layer or remove after migration
 
 ### 3B. Centralize MSW handler setup
 

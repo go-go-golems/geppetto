@@ -233,3 +233,14 @@ Completed `P3.4` by introducing deterministic id/time/seq utility helpers and re
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts — Deterministic synthetic event id/seq/time overrides
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts — Deterministic synthetic entity id/time overrides
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts — Deterministic synthetic anomaly id/time overrides
+
+
+## 2026-02-07
+
+Completed `P3.5` by finalizing `src/mocks/data.ts` as an explicit legacy compatibility shim with migration guidance while preserving current story/handler imports; validated with build + storybook build. Code commit: af06ce2.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 23 for legacy `data.ts` compatibility-shim finalization
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.5`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts — Legacy compatibility export layer with explicit removal guidance
