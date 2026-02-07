@@ -58,6 +58,8 @@ RelatedFiles:
       Note: P3.14 switched to fixture imports
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.tsx
       Note: P2.13 verified style-clean (no inline <style> block)
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/README.md
+      Note: P3.15 mock architecture and usage guide
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
       Note: |-
         Storybook mock centralization baseline analysis
@@ -160,10 +162,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T17:12:00-05:00
+LastUpdated: 2026-02-07T17:21:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2639,6 +2642,76 @@ I also simplified repeated “many” story data composition where practical by 
 
 - Component story files migrated off `mocks/data`: `9`
 - Remaining `mocks/data` imports in component stories after this step: `0`
+
+## Step 33: Complete P3.15 by adding mock architecture README
+
+I completed `P3.15` by adding `src/mocks/README.md`, documenting the full mock-data architecture and usage expectations across fixtures, factories, scenarios, and MSW handlers. The README also explicitly defines the transitional role of `mocks/data.ts` and when it should be removed.
+
+This gives the team a concrete contract for how to extend stories/mocks without reintroducing local duplication patterns.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue through remaining tasks and keep implementation diary/checklist/changelog synchronized.
+
+**Inferred user intent:** Finish the centralization phase with durable documentation so future story work follows the new architecture.
+
+**Commit (code):** `74437fffb2017a4ed9d47ab604a4d72c36907f68` — "docs(mocks): add architecture and usage guide"
+
+### What I did
+
+- Added:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/README.md`
+- Documented:
+  - directory layer responsibilities (`fixtures`, `factories`, `scenarios`, `msw`, `data.ts`)
+  - strict story authoring rules (scenario-first, avoid local large arrays, avoid inline msw routes)
+  - migration guidance for eventual `data.ts` removal
+  - quick usage examples for scenario args and MSW handler helpers
+- Validated:
+  - `npm run build`
+- Checked off:
+  - `P3.15`
+
+### Why
+
+- Phase 3 introduced several new layers; without explicit local documentation, future contributors could accidentally bypass them and recreate duplication.
+
+### What worked
+
+- The README integrates cleanly with existing frontend structure and required no runtime changes.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- A short architecture README in the module directory is an effective guardrail for keeping future story/mocking changes consistent.
+
+### What was tricky to build
+
+- The main challenge was balancing concise guidance with enough specificity to prevent misuse (for example, clearly defining when to create a scenario vs extend a factory). I kept the rules layered and example-driven to make adoption friction low.
+
+### What warrants a second pair of eyes
+
+- Confirm the level of strictness in the documented story-authoring rules matches team preference and review standards.
+
+### What should be done in the future
+
+- Move into Phase 4 tasks (`P4.1+`) and final validation criteria (`V1+`), starting with cleanup of stale `src/App.tsx` and dead exports.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/README.md`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+
+### Technical details
+
+- New architecture docs added under `src/mocks`: `1`
+- Mock layers explicitly documented: `5` (`fixtures`, `factories`, `scenarios`, `msw`, `data.ts`)
 
 
 ## Related

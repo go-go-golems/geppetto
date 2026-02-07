@@ -67,6 +67,8 @@ RelatedFiles:
       Note: |-
         Current global tokens/utilities baseline to evolve into reusable design system layers
         Current token/utility baseline for style extraction planning
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/README.md
+      Note: P3.15 documented mock architecture contract
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
       Note: |-
         Central fixture file to split into factories/scenarios
@@ -117,6 +119,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -813,6 +816,29 @@ Validation:
 
 - `npm run build` passed.
 - `npm run build-storybook` passed.
+
+### 13.15 Progress snapshot (after P3.15 mock architecture README)
+
+Captured after commit `74437ff` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Mock architecture documentation files under `src/mocks` | 0 | 1 | `src/mocks/README.md` |
+| Documented mock layers (fixtures/factories/scenarios/msw/legacy shim) | ad hoc knowledge | explicit documented contract | reduces onboarding and drift risk |
+
+P3.15 details:
+
+- Added:
+  - `src/mocks/README.md`
+- Documented:
+  - layer roles and contracts
+  - story authoring rules
+  - legacy `data.ts` shim policy
+  - quick usage examples for scenarios and MSW helpers
+
+Validation:
+
+- `npm run build` passed.
 
 ### 13.14 Progress snapshot (after P3.14 story fixture/factory import standardization)
 

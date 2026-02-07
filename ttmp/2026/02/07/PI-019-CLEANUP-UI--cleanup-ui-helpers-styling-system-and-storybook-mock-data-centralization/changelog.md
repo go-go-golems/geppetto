@@ -355,3 +355,14 @@ Completed `P3.14` by replacing remaining `../mocks/data` story imports with dire
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.stories.tsx — Switched to fixture import path
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/ProjectionLane.stories.tsx — Switched to fixture import path
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.stories.tsx — Switched to fixture import path
+
+
+## 2026-02-07
+
+Completed `P3.15` by adding `src/mocks/README.md` documenting fixture/factory/scenario/msw layering, story authoring rules, and legacy shim guidance; validated with build. Code commit: 74437ff.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 33 for mock architecture README
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.15`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/README.md — Mock architecture and usage documentation

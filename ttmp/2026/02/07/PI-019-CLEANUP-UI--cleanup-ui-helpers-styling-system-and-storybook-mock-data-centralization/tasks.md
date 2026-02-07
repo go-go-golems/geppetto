@@ -109,7 +109,7 @@
 - [x] P3.12 Migrate event inspector stories to scenario builders
 - [x] P3.13 Migrate anomaly stories to centralized anomaly fixtures/factories
 - [x] P3.14 Ensure stories use shared fixture imports rather than local large arrays
-- [ ] P3.15 Add mock architecture README (`src/mocks/README.md`)
+- [x] P3.15 Add mock architecture README (`src/mocks/README.md`)
 
 ## Phase 4 — Final Cleanup + Documentation + Enforcement
 
