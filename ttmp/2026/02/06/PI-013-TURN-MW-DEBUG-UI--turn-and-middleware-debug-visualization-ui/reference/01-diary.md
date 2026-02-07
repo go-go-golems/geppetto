@@ -1622,3 +1622,109 @@ See updated tasks.md for remaining screens:
 - Screen 8: AnomalyPanel
 - AppShell layout integration
 - WebSocket live event streaming
+
+## Step 23: Implemented Screen 1 - Session Overview (three-lane timeline)
+
+### What I did
+
+Created the three-lane timeline view for the Session Overview screen:
+
+**Components:**
+- `TimelineLanes.tsx` - Container with scroll-sync across lanes
+- `StateTrackLane.tsx` - Turn snapshot cards with phase badges (pre/post/tools/final)
+- `EventTrackLane.tsx` - SEM event dots with type-specific coloring
+- `ProjectionLane.tsx` - Timeline entity cards with kind-specific summaries
+- `NowMarker.tsx` - Animated live streaming indicator with pulsing dot
+
+**Features:**
+- Scroll synchronization across all three lanes
+- Phase-colored badges for turn snapshots
+- Block kind summary chips on turn cards
+- Entity version badges
+- Streaming indicator for live messages
+
+**Stories:**
+- TimelineLanes: Default, WithSelection, Live, Empty, TurnsOnly, EventsOnly, ManyItems
+- StateTrackLane: Default, WithSelection, Empty, SingleTurn, AllPhases
+- EventTrackLane: Default, WithSelection, Empty, SingleEvent, ManyEvents
+- ProjectionLane: Default, WithSelection, Empty, StreamingMessage, WithVersions
+- NowMarker: Default, CustomLabel, Recording
+
+Also fixed BlockCard stories to include standard metadata on all block types.
+
+### What worked
+
+- Scroll sync using shared refs and event listeners
+- Phase-based coloring for visual distinction
+- Reusing existing mock data for stories
+
+### What was tricky
+
+- TypeScript strict mode required explicit type coercion for `unknown` props in TimelineEntity
+
+## Step 24: Implemented Screen 3 - Snapshot Diff
+
+### What I did
+
+Created the side-by-side snapshot diff view for comparing turn phases:
+
+**Components (all in SnapshotDiff.tsx):**
+- `SnapshotDiff` - Main container
+- `DiffHeader` - Phase labels with arrow
+- `DiffSummaryBar` - Counts for added/removed/changed/reordered/same
+- `DiffBlockRow` - Side-by-side block comparison
+- `BlockPreview` - Compact block display
+- `MetadataDiff` - Turn metadata change list
+
+**Diff algorithm:**
+- Identity-aware matching: first by block `id`, then by kind+content hash
+- Detects five states: same, added, removed, changed, reordered
+- For changed blocks, lists what changed: payload, metadata, position
+- Turn metadata diff computed separately
+
+**Stories:**
+- PreToPost, PostToTools, ToolsToFinal, PreToFinal
+- NoChanges, WithReorder, WithContentChange
+
+### What worked
+
+- Identity-aware matching correctly identifies reordered blocks
+- Separate handling of block content vs metadata changes
+
+### What was tricky
+
+- Keeping the diff algorithm readable while handling all edge cases
+
+## Step 25: Implemented Screen 5 - Event Inspector
+
+### What I did
+
+Created the event inspector with three view modes:
+
+**Components:**
+- `EventInspector` - Main container with tab switcher
+- `ViewModeTabs` - Semantic | SEM Frame | Raw Wire tabs
+- `SemanticView` - Human-readable event rendering
+- `SemEnvelopeView` - Full JSON viewer
+- `RawWireView` - Provider-native format (placeholder)
+- `CorrelatedNodesPanel` - Links to related nodes
+- `TrustSignals` - Correlation check results
+
+**Features:**
+- Event-type specific rendering for llm.* and tool.* events
+- Correlation ID bar extraction from event data
+- Clickable links to correlated block, events, entity
+- Pass/fail trust check indicators
+
+**Stories:**
+- LLMStart, LLMDelta, LLMFinal, ToolStart, ToolResult
+- WithCorrelatedNodes, WithTrustChecks, WithFailedChecks, FullExample
+
+### What worked
+
+- Three-tab pattern for progressive disclosure
+- Reusing CorrelationIdBar component
+
+### What was tricky
+
+- TypeScript strict mode required careful handling of unknown types in event data

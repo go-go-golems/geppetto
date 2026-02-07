@@ -68,33 +68,33 @@
 
 ### Screen 1: Session Overview (three-lane timeline)
 
-- [ ] TimelineLanes container component
-- [ ] StateTrackLane (turn snapshots as vertical cards)
-- [ ] EventTrackLane (SEM events as vertical list)
-- [ ] ProjectionLane (timeline entities)
-- [ ] NowMarker (live streaming indicator)
-- [ ] Lane synchronization (scroll sync, time alignment)
-- [ ] Stories for all lane components
+- [x] TimelineLanes container component
+- [x] StateTrackLane (turn snapshots as vertical cards)
+- [x] EventTrackLane (SEM events as vertical list)
+- [x] ProjectionLane (timeline entities)
+- [x] NowMarker (live streaming indicator)
+- [x] Lane synchronization (scroll sync, time alignment)
+- [x] Stories for all lane components
 
 ### Screen 3: Snapshot Diff
 
-- [ ] DiffHeader (phaseA vs phaseB labels)
-- [ ] SideBySideBlocks container
-- [ ] DiffBlockRow (status: same|added|removed|changed|reordered)
-- [ ] MetadataDiff (key-level diff highlighting)
-- [ ] DiffSummaryBar (counts: +added -removed ~changed ↔reordered)
-- [ ] Identity-aware block matching (not index-only)
-- [ ] Stories for diff components
+- [x] DiffHeader (phaseA vs phaseB labels)
+- [x] SideBySideBlocks container
+- [x] DiffBlockRow (status: same|added|removed|changed|reordered)
+- [x] MetadataDiff (key-level diff highlighting)
+- [x] DiffSummaryBar (counts: +added -removed ~changed ↔reordered)
+- [x] Identity-aware block matching (not index-only)
+- [x] Stories for diff components
 
 ### Screen 5: Event Inspector
 
-- [ ] ViewModeTabs (Semantic | SEM | Raw Wire)
-- [ ] SemanticView (human-readable event card)
-- [ ] SemEnvelopeView (JSON viewer for SEM frame)
-- [ ] RawWireView (provider-native JSON)
-- [ ] CorrelatedNodesPanel (linked turn/block, prev/next events, projection entity)
-- [ ] TrustSignals (correlation checks)
-- [ ] Stories for all views
+- [x] ViewModeTabs (Semantic | SEM | Raw Wire)
+- [x] SemanticView (human-readable event card)
+- [x] SemEnvelopeView (JSON viewer for SEM frame)
+- [x] RawWireView (provider-native JSON)
+- [x] CorrelatedNodesPanel (linked turn/block, prev/next events, projection entity)
+- [x] TrustSignals (correlation checks)
+- [x] Stories for all views
 
 ### Screen 6: Structured Sink View
 
