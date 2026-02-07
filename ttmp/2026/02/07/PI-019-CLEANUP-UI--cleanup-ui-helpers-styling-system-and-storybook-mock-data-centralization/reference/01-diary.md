@@ -43,6 +43,16 @@ RelatedFiles:
       Note: P3.1 anomalies fixture domain file
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts
       Note: P3.1 turn and turn-detail fixture domain extraction
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
+      Note: P3.3 anomaly panel scenario variants
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
+      Note: P3.3 event inspector scenario variants
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/index.ts
+      Note: P3.3 scenario barrel exports
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/overviewScenarios.ts
+      Note: P3.3 overview story context scenarios
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts
+      Note: P3.3 timeline lane story context scenarios
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components
       Note: Component CSS target directory for Phase 2B extractions
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/AnomalyPanel.css
@@ -99,10 +109,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T14:20:00-05:00
+LastUpdated: 2026-02-07T15:12:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1649,6 +1660,90 @@ This keeps fixture definitions (`P3.1`) separate from generated variants and pre
 
 - Factory modules introduced: `7`
 - Domains covered by deterministic builders: `5` (conversations, turns, events, timeline, anomalies)
+
+## Step 21: Complete P3.3 by adding reusable mock scenario modules
+
+I completed `P3.3` by introducing a dedicated `src/mocks/scenarios/` layer for reusable story contexts. Each scenario family is typed and composed from the deterministic factory layer added in `P3.2`, so story migration can consume stable scenario objects instead of repeating inline arrays and ad-hoc overrides.
+
+This keeps mock architecture progression clear: fixtures (`P3.1`) define static baselines, factories (`P3.2`) generate deterministic variants, and scenarios (`P3.3`) package representative story contexts for downstream Storybook migration tasks.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue."
+
+**Assistant interpretation:** Proceed with the next unchecked PI-019 task, complete it end-to-end, and keep docs/task state synchronized.
+
+**Inferred user intent:** Advance the checklist incrementally with auditable commits and continuous diary/changelog updates.
+
+**Commit (code):** `fd2efd35646ee9f72db18b78780afb4b17d4eb02` — "feat(mocks): add reusable story scenario definitions"
+
+### What I did
+
+- Added scenario modules:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/overviewScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/index.ts`
+- Defined reusable scenario records + helpers:
+  - `overview`: default/empty/busy
+  - `timeline`: default/selection/live/empty/many-items
+  - `event inspector`: key event types + correlated/trust-check variants
+  - `anomaly panel`: open/closed/empty/errors-only/many
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.3`
+
+### Why
+
+- Storybook migration tasks (`P3.11` onward) need centralized reusable contexts so story files stop embedding large local data arrays and one-off state setup.
+
+### What worked
+
+- New scenario modules compile cleanly and are factory-backed, so generated data is deterministic and reusable.
+- Build and Storybook build remained green after introducing scenario abstractions.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Using component prop-derived scenario arg types (`Pick<...Props, ...>`) provides a practical type boundary that keeps scenario contracts aligned with UI component expectations.
+
+### What was tricky to build
+
+- Some scenario variants needed richer combinations (e.g., many-items timeline + selections + deterministic IDs/sequences). I kept those overrides local to scenarios for now and deferred shared id/time/seq helper extraction to `P3.4` to avoid mixing two checklist tasks in one commit.
+
+### What warrants a second pair of eyes
+
+- Scenario naming and coverage balance:
+  - enough breadth to replace duplicated story fixtures,
+  - without adding maintenance-heavy scenario permutations before migration is complete.
+
+### What should be done in the future
+
+- Complete `P3.4` next by introducing deterministic id/time/seq helper utilities and refactoring factories/scenario overrides to use them.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/overviewScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/index.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Scenario modules introduced: `5`
+- Scenario families introduced: `4` (overview, timeline, event inspector, anomaly)
+- Scenario consumption migration status: pending (`P3.11`-`P3.14`)
 
 
 ## Related

@@ -59,12 +59,15 @@ RelatedFiles:
       Note: |-
         Current MSW handlers to refactor into reusable handler builders
         Current MSW handlers to refactor into reusable handler builder
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
+      Note: P3.3 reusable scenario layer snapshot evidence
 ExternalSources: []
 Summary: Detailed execution plan for reducing PI-013 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
 LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -899,6 +902,34 @@ P3.1 details:
   - `src/mocks/fixtures/anomalies.ts`
 - Refactored:
   - `src/mocks/data.ts` to re-export from fixture modules
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.3 Progress snapshot (after P3.3 scenario layer)
+
+Captured after commit `fd2efd3` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Scenario modules under `src/mocks/scenarios` | 0 | 5 | overview, timeline, event inspector, anomaly, index barrel |
+| Reusable scenario families | 0 | 4 | overview/timeline/event-inspector/anomaly contexts |
+| Factory-backed scenario builders | 0 | 4 | all scenario families build data from deterministic factories |
+
+P3.3 details:
+
+- Added:
+  - `src/mocks/scenarios/overviewScenarios.ts`
+  - `src/mocks/scenarios/timelineScenarios.ts`
+  - `src/mocks/scenarios/eventInspectorScenarios.ts`
+  - `src/mocks/scenarios/anomalyScenarios.ts`
+  - `src/mocks/scenarios/index.ts`
+- Pattern:
+  - typed scenario records plus `make*Scenario` accessors
+  - composition from `src/mocks/factories` rather than local inline arrays
+  - story-friendly contexts for empty/default/busy/selection/failure cases
 
 Validation:
 

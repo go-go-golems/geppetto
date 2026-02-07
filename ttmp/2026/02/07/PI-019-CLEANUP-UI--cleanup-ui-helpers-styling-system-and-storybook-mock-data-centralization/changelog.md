@@ -201,3 +201,18 @@ Completed `P3.2` by creating deterministic fixture-backed factory builders in `s
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts — Event and middleware-trace builders
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts — Timeline entity builders
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts — Anomaly builders
+
+
+## 2026-02-07
+
+Completed `P3.3` by adding reusable scenario modules in `src/mocks/scenarios/` for overview, timeline lanes, event inspector, and anomalies; validated with build + storybook build. Code commit: fd2efd3.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 21 for scenario layer implementation and validation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.3`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/overviewScenarios.ts — Overview data scenarios for story contexts
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts — Timeline lane scenarios including selection/live/empty/many-items
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts — Event inspector scenarios including correlated/trust-check variants
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts — Anomaly panel scenarios (open/closed/empty/errors-only/many)
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/index.ts — Barrel export for all scenario modules
