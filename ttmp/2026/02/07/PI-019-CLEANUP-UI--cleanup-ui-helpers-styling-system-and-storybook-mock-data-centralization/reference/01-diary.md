@@ -19,6 +19,10 @@ RelatedFiles:
       Note: P2.22 style contract documentation
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/package.json
       Note: Added test:unit script for helper tests
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/scripts/check-no-duplicate-helpers.sh
+      Note: P4.6 duplicate helper regression guardrail
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/scripts/check-no-runtime-inline-styles.sh
+      Note: P4.7 runtime inline-style regression guardrail
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components
       Note: |-
         Main source of helper/style duplication analyzed
@@ -156,16 +160,21 @@ RelatedFiles:
       Note: Event presentation module and mappings
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/presentation.test.ts
       Note: Unit tests for presentation mapping fallbacks (P1.18)
+    - Path: ../../../../../../../web-agent-example/web-chat-example/pkg/docs/debug-ui-storybook-widget-playbook.md
+      Note: Step 35 playbook deliverable committed in repo
+    - Path: ../../../../../../../web-chat-example/pkg/docs/debug-ui-storybook-widget-playbook.md
+      Note: Requested workspace-level playbook path
     - Path: ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/analysis/01-implementation-plan-for-ui-helper-css-system-and-storybook-mock-data-cleanup.md
       Note: |-
         Primary design/implementation plan produced in this ticket
         Primary plan artifact created during diary process
 ExternalSources: []
-Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T17:21:00-05:00
+Summary: Step-by-step diary for PI-019 from planning through Phase 4 enforcement, final validation, and a Storybook/debug-widget playbook handoff.
+LastUpdated: 2026-02-07T18:58:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2712,6 +2721,172 @@ This gives the team a concrete contract for how to extend stories/mocks without 
 
 - New architecture docs added under `src/mocks`: `1`
 - Mock layers explicitly documented: `5` (`fixtures`, `factories`, `scenarios`, `msw`, `data.ts`)
+
+## Step 34: Complete Phase 4 cleanup/enforcement and close validation gates
+
+I completed the outstanding Phase 4 work and closed the validation gates. The underlying code changes for `P4.1`-`P4.7` were already implemented in focused commits, so this step validated them together and captured closure evidence.
+
+I also finished visual parity spot-checks using the freshly built static Storybook output for the four required stories in `V3`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue execution by finishing remaining cleanup and validation checklist items and keep ticket docs synchronized.
+
+**Inferred user intent:** Reach a fully closed PI-019 task list with explicit proof for build health, style/helper guardrails, and Storybook parity.
+
+**Commit (code):** Multiple previously-created code commits covering `P4.1`-`P4.7`:
+- `8728313` — remove unused `src/App.tsx`
+- `db472d0` — remove legacy `src/mocks/data.ts` and update mock README
+- `c82c227` — add helper usage rules to frontend README
+- `7f7d49b` — add style-layer/token policy docs
+- `e6b2d30` — add Storybook fixture/factory/scenario policy docs
+- `2519526` — add duplicate-helper regression check script
+- `aae98b6` — add runtime inline-style regression check script
+
+### What I did
+
+- Ran final validation commands in `web-agent-example/cmd/web-agent-debug/web`:
+  - `npm run check:helpers:dedupe`
+  - `npm run check:styles:inline-runtime`
+  - `npm run build`
+  - `npm run build-storybook`
+- Performed visual parity spot-check screenshots from static Storybook (`http://127.0.0.1:6007/iframe.html?...`) for:
+  - `debug-ui-appshell--default`
+  - `debug-ui-timelinelanes--default`
+  - `debug-ui-snapshotdiff--pre-to-post`
+  - `debug-ui-eventinspector--llm-start`
+- Saved evidence screenshots at workspace root:
+  - `pi019-v3-appshell-default.png`
+  - `pi019-v3-timelinelanes-default.png`
+  - `pi019-v3-snapshotdiff-pre-to-post.png`
+  - `pi019-v3-eventinspector-llm-start.png`
+- Checked off:
+  - `P4.1`-`P4.7`
+  - `V1`-`V6`
+
+### Why
+
+- The ticket still had open checkboxes despite implementation being complete. This step closes the loop with current-state verification instead of assumption.
+
+### What worked
+
+- All guardrail/build checks passed on current HEAD.
+- Storybook screenshots render correctly for each required validation story.
+
+### What didn't work
+
+- First attempt to tail the analysis file used an incorrect filename and failed:
+  - `tail: cannot open '.../analysis/01-implementation-plan-for-ui-helper-css-system-and-storybook-mock-data-centralization.md' for reading: No such file or directory`
+- Attempted cleanup kill by stale PID failed harmlessly:
+  - `zsh:kill:1: kill 3716895 failed: no such process`
+
+### What I learned
+
+- Capturing screenshots from static Storybook (`build-storybook` + lightweight static server) is a reliable low-friction parity gate that survives interrupted sessions.
+
+### What was tricky to build
+
+- The interrupted turn left uncertain process state and mixed temporary artifacts. I re-established a clean baseline by rerunning all gates from scratch, then used explicit story IDs for the parity set to avoid relying on prior context.
+
+### What warrants a second pair of eyes
+
+- Verify whether the Storybook parity gate should become a scripted CI snapshot baseline in follow-up work instead of manual spot-checks.
+
+### What should be done in the future
+
+- Add one optional CI job that loads the four required stories and captures deterministic image diffs for regression review.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/scripts/check-no-duplicate-helpers.sh`
+  - `web-agent-example/cmd/web-agent-debug/web/scripts/check-no-runtime-inline-styles.sh`
+  - `web-agent-example/cmd/web-agent-debug/web/README.md`
+  - `web-agent-example/cmd/web-agent-debug/web/package.json`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run check:helpers:dedupe`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run check:styles:inline-runtime`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Final duplicate helper signature count for guarded patterns: `0`
+- Final runtime inline `<style>{...}` block count in runtime code: `0`
+- V3 parity screenshots captured: `4`
+
+## Step 35: Author a detailed Storybook/debug-widget playbook
+
+After PI-019 closure, I created a detailed implementation playbook requested by the user for authoring new debug UI widgets and Storybook stories. The playbook includes style-layer conventions, scenario/factory usage, MSW guidance, and review/test checklists.
+
+Because `web-chat-example/` did not exist in this workspace, I created the requested path and wrote the document there to preserve the exact target location.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Continue. 
+
+Once you are done, write a detailed playbook in web-chat-example/pkg/docs/ on how to write storybook stories and more widgetsfor the debug ui, both wrt styling, storybook stories, msw, reusing the factories, etc..."
+
+**Assistant interpretation:** Deliver a durable, detailed how-to for extending the debug UI and Storybook with consistent styling and mock architecture usage.
+
+**Inferred user intent:** Ensure future widget/story work follows the refactored architecture so duplication and drift do not return.
+
+**Commit (code):** `ae2fd87427bec4c6f4a34c03c91044ce6c77877f` — "docs(playbook): add debug ui storybook widget authoring guide"
+
+### What I did
+
+- Created:
+  - `web-agent-example/web-chat-example/pkg/docs/debug-ui-storybook-widget-playbook.md`
+  - `web-chat-example/pkg/docs/debug-ui-storybook-widget-playbook.md` (requested workspace-level path copy)
+- Documented:
+  - widget authoring workflow and file placement
+  - class/data-part style contract and token rules
+  - story composition standards (args/scenarios/decorators)
+  - MSW patterns (`defaultHandlers`, `createDefaultDebugHandlers`, override strategy)
+  - fixture/factory/scenario reuse rules and anti-patterns
+  - validation checklist and recommended review criteria
+
+### Why
+
+- The architecture changes in PI-019 are only durable if new contributors have a clear, local extension playbook.
+
+### What worked
+
+- The playbook format maps directly to current project structure and scripts, so reviewers can use it immediately.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The most effective guidance for this codebase is scenario-first (not raw fixture-first) story authoring, with factories for variation and MSW overrides only for endpoint behavior differences.
+
+### What was tricky to build
+
+- The playbook needed to be specific enough to prevent old patterns (inline style blocks, local story arrays, per-story ad hoc handlers) while still flexible for new widget domains. I solved this by separating strict invariants from optional patterns.
+
+### What warrants a second pair of eyes
+
+- Confirm whether additional examples should be added for route-level widgets (not only leaf components).
+
+### What should be done in the future
+
+- Add a short template directory for “new widget + story + scenario + handlers” bootstrapping to reduce copy/paste mistakes.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/web-chat-example/pkg/docs/debug-ui-storybook-widget-playbook.md`
+- Validate:
+  - confirm examples align with current helpers/styles/mocks conventions in `web-agent-example/cmd/web-agent-debug/web`
+
+### Technical details
+
+- New playbook docs created: `1`
+- Covered architecture layers: `styles`, `stories`, `fixtures`, `factories`, `scenarios`, `msw`
 
 
 ## Related

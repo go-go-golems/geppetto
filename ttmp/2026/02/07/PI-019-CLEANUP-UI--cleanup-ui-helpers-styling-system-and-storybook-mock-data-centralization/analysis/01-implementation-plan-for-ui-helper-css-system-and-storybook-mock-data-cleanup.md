@@ -29,6 +29,10 @@ RelatedFiles:
         Reference part-based style layering
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/README.md
       Note: Style contract recommendation implemented in frontend docs
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/scripts/check-no-duplicate-helpers.sh
+      Note: Final validation V4 evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/scripts/check-no-runtime-inline-styles.sh
+      Note: Final validation V5 evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components
       Note: |-
         Main React component surface with helper and style duplication to clean up
@@ -114,11 +118,12 @@ RelatedFiles:
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts
       Note: P3.11 timeline scenario catalog expansion evidence
 ExternalSources: []
-Summary: Detailed execution plan for reducing PI-013 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
-LastUpdated: 2026-02-07T14:20:00-05:00
+Summary: Detailed execution plan and progress record for reducing PI-019 frontend code size by consolidating duplicate helpers, extracting reusable CSS design system layers, and centralizing Storybook mock data generation.
+LastUpdated: 2026-02-07T18:59:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -816,6 +821,48 @@ Validation:
 
 - `npm run build` passed.
 - `npm run build-storybook` passed.
+
+### 14.1 Progress snapshot (after Phase 4 completion and final validation)
+
+Captured after Phase 4 commits (`8728313`, `db472d0`, `c82c227`, `7f7d49b`, `e6b2d30`, `2519526`, `aae98b6`) and final validation rerun:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Stale runtime entry files | 1 | 0 | removed `src/App.tsx` |
+| Legacy mock shim files | 1 | 0 | removed `src/mocks/data.ts` after story migration completion |
+| Frontend README architecture-policy sections | 0 | 3 | helper rules, style contract/token policy, Storybook mock policy |
+| Regression guardrail scripts for PI-019 invariants | 0 | 2 | helper dedupe + runtime inline-style checks |
+
+Validation rerun (current head):
+
+- `npm run check:helpers:dedupe` passed:
+  - `OK: no duplicate helper signature regressions found in src/components and src/routes.`
+- `npm run check:styles:inline-runtime` passed:
+  - `OK: no runtime inline <style>{...} blocks found.`
+- `npm run build` passed:
+  - `dist/assets/index-DT1c9Azr.css`: **30.24 kB** (gzip **5.05 kB**)
+  - `dist/assets/index-b1WsY2oQ.js`: **330.62 kB** (gzip **105.41 kB**)
+- `npm run build-storybook` passed:
+  - Storybook static output rebuilt successfully under `storybook-static/`
+
+V3 visual parity spot-check artifacts captured from static Storybook:
+
+- `pi019-v3-appshell-default.png`
+- `pi019-v3-timelinelanes-default.png`
+- `pi019-v3-snapshotdiff-pre-to-post.png`
+- `pi019-v3-eventinspector-llm-start.png`
+
+### 14.2 Exit criteria closure
+
+All Phase 4 tasks and validation gates are now closed in `tasks.md`:
+
+- `P4.1` through `P4.7`: complete
+- `V1` through `V7`: complete
+
+Residual risk notes:
+
+- Storybook visual parity remains a manual spot-check gate (not CI-enforced image diffing yet).
+- If future stories bypass scenario/factory layers, `mocks` architecture drift can reappear; keep README/playbook guidance in review checklists.
 
 ### 13.15 Progress snapshot (after P3.15 mock architecture README)
 

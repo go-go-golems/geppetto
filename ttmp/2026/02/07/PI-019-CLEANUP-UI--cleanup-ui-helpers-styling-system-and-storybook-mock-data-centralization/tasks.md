@@ -113,20 +113,20 @@
 
 ## Phase 4 — Final Cleanup + Documentation + Enforcement
 
-- [ ] P4.1 Remove stale/unused `src/App.tsx` or repurpose intentionally
-- [ ] P4.2 Remove dead exports and orphan helper files after migration
-- [ ] P4.3 Add frontend README section: helper usage rules
-- [ ] P4.4 Add frontend README section: style layer contract and token policy
-- [ ] P4.5 Add frontend README section: Storybook fixture/factory/scenario policy
-- [ ] P4.6 Add lightweight lint/check script for duplicate helper pattern regression
-- [ ] P4.7 Add lightweight check for forbidden runtime inline `<style>` blocks
+- [x] P4.1 Remove stale/unused `src/App.tsx` or repurpose intentionally
+- [x] P4.2 Remove dead exports and orphan helper files after migration
+- [x] P4.3 Add frontend README section: helper usage rules
+- [x] P4.4 Add frontend README section: style layer contract and token policy
+- [x] P4.5 Add frontend README section: Storybook fixture/factory/scenario policy
+- [x] P4.6 Add lightweight lint/check script for duplicate helper pattern regression
+- [x] P4.7 Add lightweight check for forbidden runtime inline `<style>` blocks
 
 ## Validation & Exit Criteria
 
-- [ ] V1 `npm run build` passes after each phase
-- [ ] V2 `npm run build-storybook` passes after each phase
-- [ ] V3 Visual parity spot-check done for key stories (AppShell, TimelineLanes, SnapshotDiff, EventInspector)
-- [ ] V4 Duplicate helper count reduced to zero for targeted signatures
-- [ ] V5 Runtime inline `<style>` count reduced to zero
-- [ ] V6 Storybook mock setup uses centralized fixtures/factories/scenarios
-- [ ] V7 Changelog + diary updated with implementation outcomes and follow-ups
+- [x] V1 `npm run build` passes after each phase
+- [x] V2 `npm run build-storybook` passes after each phase
+- [x] V3 Visual parity spot-check done for key stories (AppShell, TimelineLanes, SnapshotDiff, EventInspector)
+- [x] V4 Duplicate helper count reduced to zero for targeted signatures
+- [x] V5 Runtime inline `<style>` count reduced to zero
+- [x] V6 Storybook mock setup uses centralized fixtures/factories/scenarios
+- [x] V7 Changelog + diary updated with implementation outcomes and follow-ups
