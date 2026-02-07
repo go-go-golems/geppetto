@@ -26,6 +26,16 @@ RelatedFiles:
       Note: |-
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components
+      Note: Component CSS target directory for Phase 2B extractions
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/layout.css
+      Note: Layout layer created in P2.4
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css
+      Note: Primitive components layer created in P2.3
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/reset.css
+      Note: Global reset layer created in P2.2
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/tokens.css
+      Note: Token layer created in P2.1
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/format.test.ts
       Note: Unit tests for truncation/stringify/time edge cases (P1.19)
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/phase.ts
@@ -48,6 +58,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -761,6 +772,85 @@ After adding tests, I re-ran the production build to ensure test and dependency 
 - Test run summary:
   - `Test Files: 2 passed`
   - `Tests: 9 passed`
+
+## Step 11: Scaffold Phase 2A style architecture and import layers
+
+I moved the base stylesheet structure to the planned layered architecture by splitting `index.css` into token/reset/primitives/layout files and creating the `styles/components` directory with per-component CSS files. The runtime styling is unchanged at this step because inline `<style>{...}` blocks are intentionally deferred to Phase 2B extraction tasks.
+
+This establishes the destination CSS structure so inline-style migrations can be done incrementally without repeatedly reworking global imports.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue task-by-task execution with commits and diary updates, including CSS cleanup groundwork.
+
+**Inferred user intent:** Keep momentum through the planned phases while preserving traceability of each implementation slice.
+
+**Commit (code):** `6efec1b20191c0ed3133fc601cd9e2d2c6c87779` — "refactor(debug-ui): scaffold layered style architecture"
+
+### What I did
+
+- Created style layers:
+  - `src/styles/tokens.css`
+  - `src/styles/reset.css`
+  - `src/styles/primitives.css`
+  - `src/styles/layout.css`
+- Created `src/styles/components/` with per-component/per-route CSS files for upcoming extraction tasks.
+- Moved correlation bar CSS into `src/styles/components/CorrelationIdBar.css`.
+- Converted `src/index.css` to a pure import orchestrator for all style layers/files.
+- Validated with:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P2.1` to `P2.6`
+
+### Why
+
+- Phase 2B extraction is simpler and safer when file structure and import ordering are stable first.
+
+### What worked
+
+- Build and Storybook both passed after the stylesheet split.
+- No immediate UI logic changes were required for this architecture step.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Setting import orchestration first prevents repetitive merge churn when extracting dozens of inline style blocks.
+
+### What was tricky to build
+
+- Preserving current global class behavior while redistributing CSS required careful grouping to avoid accidental specificity/order changes; I kept broad utility and primitive class definitions unchanged and only moved file boundaries.
+
+### What warrants a second pair of eyes
+
+- Confirm whether placeholder component CSS files should remain minimal until each extraction task lands, or if maintainers prefer pre-populated section stubs.
+
+### What should be done in the future
+
+- Execute Phase 2B tasks (`P2.7+`) by moving inline block styles from each TSX file into its corresponding component CSS file.
+
+### Code review instructions
+
+- Review style-layer split in:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/`
+  - `web-agent-example/cmd/web-agent-debug/web/src/index.css`
+- Validate with:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- CSS topology moved from:
+  - `1` file (`index.css`)
+- to:
+  - `21` files (layered + component files)
+- Runtime inline `<style>{` block count remains:
+  - `31` (to be reduced in Phase 2B)
 
 ## Related
 

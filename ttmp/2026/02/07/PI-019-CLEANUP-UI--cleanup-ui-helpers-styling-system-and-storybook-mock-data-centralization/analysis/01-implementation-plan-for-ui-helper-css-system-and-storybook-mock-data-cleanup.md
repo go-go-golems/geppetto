@@ -645,3 +645,22 @@ Build outputs after Phase 1:
   - Build time: **1.81s**
 - `npm run build-storybook`
   - Preview build time: **~10s** (`vite` reported **9.41s**)
+
+### 12.6 Progress snapshot (after Phase 2A style scaffold)
+
+Captured after commit `6efec1b` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| CSS files | 1 | 21 | split into layered files + component placeholders |
+| CSS LOC (total) | 349 | 473 | includes scaffold placeholders and extracted base layers |
+| Runtime inline `<style>{` blocks | 31 | 31 | extraction begins in Phase 2B |
+
+Scaffold status:
+
+- `src/styles/tokens.css`, `reset.css`, `primitives.css`, `layout.css` created.
+- `src/styles/components/` created with per-component/route CSS files.
+- `src/index.css` converted to import orchestrator.
+- Validation:
+  - `npm run build` passed.
+  - `npm run build-storybook` passed.

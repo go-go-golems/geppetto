@@ -53,12 +53,12 @@
 
 ### 2A. Establish style architecture
 
-- [ ] P2.1 Create `src/styles/tokens.css` (color, spacing, type, radius, shadow tokens)
-- [ ] P2.2 Create `src/styles/reset.css` (minimal global reset)
-- [ ] P2.3 Create `src/styles/primitives.css` (buttons, cards, badges, inputs)
-- [ ] P2.4 Create `src/styles/layout.css` (app shell + page/lane layout)
-- [ ] P2.5 Create `src/styles/components/` directory and per-component CSS files
-- [ ] P2.6 Convert `src/index.css` into import orchestrator for style layers
+- [x] P2.1 Create `src/styles/tokens.css` (color, spacing, type, radius, shadow tokens)
+- [x] P2.2 Create `src/styles/reset.css` (minimal global reset)
+- [x] P2.3 Create `src/styles/primitives.css` (buttons, cards, badges, inputs)
+- [x] P2.4 Create `src/styles/layout.css` (app shell + page/lane layout)
+- [x] P2.5 Create `src/styles/components/` directory and per-component CSS files
+- [x] P2.6 Convert `src/index.css` into import orchestrator for style layers
 
 ### 2B. Extract inline style blocks from runtime files
 
