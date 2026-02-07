@@ -98,7 +98,7 @@
 ### 3B. Centralize MSW handler setup
 
 - [x] P3.6 Create `src/mocks/msw/createDebugHandlers.ts`
-- [ ] P3.7 Create `src/mocks/msw/defaultHandlers.ts`
+- [x] P3.7 Create `src/mocks/msw/defaultHandlers.ts`
 - [ ] P3.8 Migrate `src/mocks/handlers.ts` to use handler builder(s)
 - [ ] P3.9 Remove repeated per-story handler blocks in `AppShell.stories.tsx`
 - [ ] P3.10 Remove repeated per-story handler blocks in `SessionList.stories.tsx`

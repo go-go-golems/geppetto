@@ -50,6 +50,8 @@ RelatedFiles:
       Note: P3.1 turn and turn-detail fixture domain extraction
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
       Note: P3.6 reusable MSW debug handler builder
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts
+      Note: P3.7 default MSW handler bundle wiring
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
       Note: P3.3 anomaly panel scenario variants
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
@@ -116,10 +118,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T15:46:00-05:00
+LastUpdated: 2026-02-07T15:53:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1993,6 +1996,74 @@ This creates the foundation for `P3.7` and `P3.8`, where default handler bundles
 
 - New MSW builder modules: `1`
 - Debug endpoints covered by builder: `8`
+
+## Step 25: Complete P3.7 by adding default MSW handler bundle module
+
+I completed `P3.7` by adding `src/mocks/msw/defaultHandlers.ts`, which wires current fixture defaults into the `createDebugHandlers` builder from `P3.6`. This module exports both a ready-to-use `defaultHandlers` constant and a configurable `createDefaultDebugHandlers(dataOverrides?)` helper.
+
+This sets up `P3.8` to migrate the legacy `src/mocks/handlers.ts` onto the new shared MSW architecture with minimal behavior change.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue the next unchecked ticket item in Phase 3 with a focused implementation and tracked docs.
+
+**Inferred user intent:** Build migration scaffolding in small safe increments before touching existing consumers.
+
+**Commit (code):** `b3b08999faae79edf275c85486595ba14d2c3311` — "feat(mocks): add default debug msw handler bundle"
+
+### What I did
+
+- Added:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts`
+- Implemented:
+  - `defaultDebugHandlerData` using fixture-domain imports
+  - `createDefaultDebugHandlers(dataOverrides?)` wrapper around `createDebugHandlers`
+  - `defaultHandlers` constant for immediate compatibility use
+- Validated:
+  - `npm run build`
+- Checked off:
+  - `P3.7`
+
+### Why
+
+- A default bundle layer is required to bridge reusable builder logic (`P3.6`) and existing runtime/story consumers without repeating data wiring in each consumer.
+
+### What worked
+
+- The module compiles and cleanly separates fixture defaults from handler creation logic.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Exporting both a default constant and an override-capable constructor provides flexibility for story-level customization while retaining easy drop-in defaults.
+
+### What was tricky to build
+
+- I needed to avoid reintroducing legacy coupling through `mocks/data.ts`. The solution was to wire `defaultDebugHandlerData` directly from fixture-domain modules so this new layer aligns with the centralized architecture target.
+
+### What warrants a second pair of eyes
+
+- Confirm whether `defaultDebugHandlerData` should eventually be scenario-driven (Phase 3C) instead of fixture-driven once story migrations are complete.
+
+### What should be done in the future
+
+- Complete `P3.8` by migrating `src/mocks/handlers.ts` to consume `defaultHandlers` from the new module.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+
+### Technical details
+
+- New module exports added: `3` (`defaultDebugHandlerData`, `createDefaultDebugHandlers`, `defaultHandlers`)
 
 
 ## Related

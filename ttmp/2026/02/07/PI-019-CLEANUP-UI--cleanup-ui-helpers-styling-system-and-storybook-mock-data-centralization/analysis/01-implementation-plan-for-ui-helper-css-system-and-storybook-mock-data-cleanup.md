@@ -66,6 +66,8 @@ RelatedFiles:
         Current MSW handlers to refactor into reusable handler builder
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
       Note: P3.6 reusable MSW handler builder design evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/defaultHandlers.ts
+      Note: P3.7 default handler bundle design evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
       Note: P3.3 reusable scenario layer snapshot evidence
 ExternalSources: []
@@ -74,6 +76,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -735,6 +738,28 @@ Extraction details:
   - `src/styles/components/EventTrackLane.css`
   - `src/styles/components/ProjectionLane.css`
   - `src/styles/components/NowMarker.css`
+
+Validation:
+
+- `npm run build` passed.
+
+### 13.7 Progress snapshot (after P3.7 default MSW handler bundle)
+
+Captured after commit `b3b0899` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Default MSW handler bundle modules | 0 | 1 | `src/mocks/msw/defaultHandlers.ts` |
+| Reusable default handler creation helper exports | 0 | 1 | `createDefaultDebugHandlers` |
+
+P3.7 details:
+
+- Added:
+  - `src/mocks/msw/defaultHandlers.ts`
+- Introduced:
+  - `defaultDebugHandlerData` fixture-backed handler data contract
+  - `createDefaultDebugHandlers(dataOverrides?)` for configurable defaults
+  - `defaultHandlers` constant for immediate consumer migration in `P3.8`
 
 Validation:
 
