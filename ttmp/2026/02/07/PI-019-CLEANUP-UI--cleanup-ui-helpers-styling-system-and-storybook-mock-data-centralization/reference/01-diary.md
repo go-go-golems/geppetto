@@ -37,6 +37,10 @@ RelatedFiles:
       Note: P3.2 deterministic fixture selector and clone helpers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts
       Note: P3.2 conversation/session/detail deterministic builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.test.ts
+      Note: P3.4 deterministic helper unit tests
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.ts
+      Note: P3.4 deterministic id/time/seq utility helpers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/index.ts
       Note: P3.2 barrel export for all factory builders
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/anomalies.ts
@@ -109,10 +113,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T15:12:00-05:00
+LastUpdated: 2026-02-07T15:22:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1744,6 +1749,93 @@ This keeps mock architecture progression clear: fixtures (`P3.1`) define static 
 - Scenario modules introduced: `5`
 - Scenario families introduced: `4` (overview, timeline, event inspector, anomaly)
 - Scenario consumption migration status: pending (`P3.11`-`P3.14`)
+
+## Step 22: Complete P3.4 with deterministic id/time/seq helper utilities
+
+I completed `P3.4` by adding a dedicated deterministic helper utility module for ids, timestamps, and sequence numbers, then wiring those helpers into factory list builders. The builders now synthesize stable unique overrides when list generation exceeds fixture lengths, while preserving baseline fixture realism for in-range indices.
+
+This keeps factory behavior deterministic as scenarios/stories request larger lists and reduces ad-hoc hard-coded id/seq/time overrides in future migration work.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue to the next unchecked task and complete it in a focused, validated, and documented slice.
+
+**Inferred user intent:** Keep progressing through PI-019 tasks with traceable commits and disciplined diary/changelog updates.
+
+**Commit (code):** `b8b43aabe25d1201f4a7165fdabe46ba7dd7ac9b` — "feat(mocks): add deterministic id time seq utilities"
+
+### What I did
+
+- Added deterministic utility module:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.ts`
+  - helpers: `makeDeterministicId`, `makeDeterministicTimeMs`, `makeDeterministicIsoTime`, `makeDeterministicSeq`, `shouldApplyDeterministicOverrides`
+- Added unit tests:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.test.ts`
+- Refactored factory list builders to apply deterministic synthetic overrides only after fixture-wrap:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/index.ts` (exported deterministic helpers)
+- Validated:
+  - `npm run test:unit`
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.4`
+
+### Why
+
+- Without deterministic synthetic overrides, lists larger than fixture sizes wrap and duplicate ids/timestamps/sequences in ways that make story behavior less realistic and harder to reason about.
+
+### What worked
+
+- Factory generation remains fixture-faithful for baseline indices and becomes deterministic/stable for wrapped indices.
+- Unit tests and builds all passed after the refactor.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Applying deterministic overrides only when fixture-wrap occurs is a practical compromise between realistic baseline examples and scalable synthetic data generation.
+
+### What was tricky to build
+
+- I needed to avoid changing baseline fixture output for low indices while still guaranteeing unique synthetic identity fields for high indices. The solution was to gate deterministic overrides behind `shouldApplyDeterministicOverrides(absoluteIndex, fixtureCount)` and merge user `mapOverrides` last so consumers retain explicit control.
+
+### What warrants a second pair of eyes
+
+- Whether synthetic event id strategy (type-based prefix + deterministic ordinal) is sufficient for all upcoming story migration semantics, especially for tool correlation examples.
+
+### What should be done in the future
+
+- Complete `P3.5` next by deciding whether to keep `src/mocks/data.ts` as a temporary compatibility layer for the remaining story migration steps or remove it once all references are migrated.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.test.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run test:unit`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- New deterministic helper functions: `5`
+- Factory modules updated in this step: `6`
+- New unit test file: `1`
 
 
 ## Related

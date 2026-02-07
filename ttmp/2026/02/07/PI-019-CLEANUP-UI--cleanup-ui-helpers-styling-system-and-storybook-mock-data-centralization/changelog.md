@@ -216,3 +216,20 @@ Completed `P3.3` by adding reusable scenario modules in `src/mocks/scenarios/` f
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts — Event inspector scenarios including correlated/trust-check variants
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts — Anomaly panel scenarios (open/closed/empty/errors-only/many)
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/index.ts — Barrel export for all scenario modules
+
+
+## 2026-02-07
+
+Completed `P3.4` by introducing deterministic id/time/seq utility helpers and refactoring mock factory list builders to apply stable synthetic overrides when fixture indices wrap; validated with unit tests + build + storybook build. Code commit: b8b43aa.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 22 for deterministic helper utility rollout
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.4`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.ts — Shared deterministic id/time/seq utilities
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.test.ts — Unit tests for deterministic helper behavior
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/conversationFactory.ts — Deterministic synthetic conversation/session overrides
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/turnFactory.ts — Deterministic synthetic turn id/time overrides
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts — Deterministic synthetic event id/seq/time overrides
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts — Deterministic synthetic entity id/time overrides
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts — Deterministic synthetic anomaly id/time overrides

@@ -92,7 +92,7 @@
 - [x] P3.1 Create `src/mocks/fixtures/` domain files (conversations, turns, events, timeline, anomalies)
 - [x] P3.2 Create `src/mocks/factories/` for deterministic builders
 - [x] P3.3 Create `src/mocks/scenarios/` for reusable story contexts
-- [ ] P3.4 Create deterministic id/time/seq helper utilities for factories
+- [x] P3.4 Create deterministic id/time/seq helper utilities for factories
 - [ ] P3.5 Refactor legacy `src/mocks/data.ts` into compatibility export layer or remove after migration
 
 ### 3B. Centralize MSW handler setup

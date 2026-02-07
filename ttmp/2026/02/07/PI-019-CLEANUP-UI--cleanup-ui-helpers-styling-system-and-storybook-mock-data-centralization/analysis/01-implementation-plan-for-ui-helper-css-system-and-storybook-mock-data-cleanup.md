@@ -43,6 +43,10 @@ RelatedFiles:
         Current centralized fixture file to split into fixtures/factories/scenarios
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/anomalyFactory.ts
       Note: P3.2 anomaly deterministic builders
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.test.ts
+      Note: P3.4 helper validation evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/deterministic.ts
+      Note: P3.4 deterministic helper utility design evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/eventFactory.ts
       Note: P3.2 event and middleware-trace deterministic builders
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/factories/timelineFactory.ts
@@ -67,6 +71,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -728,6 +733,39 @@ Extraction details:
 
 Validation:
 
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.4 Progress snapshot (after P3.4 deterministic id/time/seq helpers)
+
+Captured after commit `b8b43aa` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Deterministic id/time/seq utility modules | 0 | 1 | `src/mocks/factories/deterministic.ts` |
+| Factory list builders using deterministic synthetic overrides | 0 | 6 | conversation/session, turn, event, timeline, anomaly, app-shell anomaly |
+| Unit tests covering deterministic helper behavior | 0 | 1 | `src/mocks/factories/deterministic.test.ts` |
+
+P3.4 details:
+
+- Added utility helpers:
+  - `makeDeterministicId`
+  - `makeDeterministicTimeMs`
+  - `makeDeterministicIsoTime`
+  - `makeDeterministicSeq`
+  - `shouldApplyDeterministicOverrides`
+- Refactored list builders to apply deterministic synthetic overrides only when `absoluteIndex` exceeds fixture list length:
+  - `src/mocks/factories/conversationFactory.ts`
+  - `src/mocks/factories/turnFactory.ts`
+  - `src/mocks/factories/eventFactory.ts`
+  - `src/mocks/factories/timelineFactory.ts`
+  - `src/mocks/factories/anomalyFactory.ts`
+- Added deterministic helper tests:
+  - `src/mocks/factories/deterministic.test.ts`
+
+Validation:
+
+- `npm run test:unit` passed (`13` tests).
 - `npm run build` passed.
 - `npm run build-storybook` passed.
 
