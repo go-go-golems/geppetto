@@ -35,6 +35,8 @@ RelatedFiles:
         Current duplication hotspots across UI components
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.stories.tsx
       Note: P3.9 story-level handler deduplication evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx
+      Note: P3.12 event-inspector story scenario migration evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
       Note: P3.10 story-level handler deduplication evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx
@@ -81,6 +83,8 @@ RelatedFiles:
         P3.9 default handler override wiring evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
       Note: P3.3 reusable scenario layer snapshot evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
+      Note: P3.12 event-inspector scenario catalog evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts
       Note: P3.11 timeline scenario catalog expansion evidence
 ExternalSources: []
@@ -89,6 +93,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -777,6 +782,28 @@ P3.8 details:
   - replaced local endpoint definitions with:
     - `import { defaultHandlers } from './msw/defaultHandlers'`
     - `export const handlers = defaultHandlers`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.
+
+### 13.12 Progress snapshot (after P3.12 event inspector story scenario migration)
+
+Captured after commit `56843d6` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| `EventInspector.stories.tsx` stories using local mock composition | 9 | 0 | all migrated to `eventInspectorScenarios` |
+| Local helper/mock declarations in `EventInspector.stories.tsx` | 1 block + multiple inline arrays/objects | 0 | replaced by centralized scenario args |
+
+P3.12 details:
+
+- Updated:
+  - `src/components/EventInspector.stories.tsx`
+- Change:
+  - story args switched to `makeEventInspectorScenario(...)`
+  - removed local `mockEvents`, `mockTimelineEntities`, and `mockBlock` composition
 
 Validation:
 

@@ -313,3 +313,14 @@ Completed `P3.11` by migrating `TimelineLanes.stories.tsx` to centralized timeli
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.11`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx — Migrated to `makeTimelineScenario(...)`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/timelineScenarios.ts — Added timeline-only variant scenarios for story reuse
+
+
+## 2026-02-07
+
+Completed `P3.12` by migrating `EventInspector.stories.tsx` to centralized `eventInspectorScenarios`, removing local mock event/block/correlation/check composition; validated with build + storybook build. Code commit: 56843d6.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 30 for event-inspector story scenario migration
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.12`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx — Migrated to `makeEventInspectorScenario(...)`

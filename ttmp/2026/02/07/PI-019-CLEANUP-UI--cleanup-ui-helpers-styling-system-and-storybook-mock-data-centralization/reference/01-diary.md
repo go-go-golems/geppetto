@@ -28,6 +28,8 @@ RelatedFiles:
       Note: P3.9 centralized AppShell story handlers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
       Note: P2.7 inline style removal
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx
+      Note: P3.12 migrated EventInspector stories to centralized scenarios
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/SessionList.stories.tsx
       Note: P3.10 centralized SessionList story handlers
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.stories.tsx
@@ -67,7 +69,9 @@ RelatedFiles:
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
       Note: P3.3 anomaly panel scenario variants
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
-      Note: P3.3 event inspector scenario variants
+      Note: |-
+        P3.3 event inspector scenario variants
+        P3.12 scenario source-of-truth for EventInspector stories
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/index.ts
       Note: P3.3 scenario barrel exports
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/overviewScenarios.ts
@@ -132,10 +136,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T16:38:00-05:00
+LastUpdated: 2026-02-07T16:49:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -2377,6 +2382,79 @@ This moves timeline stories onto the same fixture/factory/scenario stack establi
 
 - Timeline story variants migrated to scenario-builder args: `7`
 - New timeline scenario variants added: `2` (`turnsOnly`, `eventsOnly`)
+
+## Step 30: Complete P3.12 by migrating EventInspector stories to scenarios
+
+I completed `P3.12` by migrating `EventInspector.stories.tsx` to centralized event-inspector scenario builders. All story args now come from `makeEventInspectorScenario(...)`, and local mock block/correlation/trust-check construction in the story file was removed.
+
+This keeps event-inspector story setup aligned with the scenario layer and reduces story-local data drift risk.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue Phase 3C story migrations by replacing local mock composition with centralized scenarios.
+
+**Inferred user intent:** Ensure stories share a single mock-data source-of-truth and remain easier to maintain.
+
+**Commit (code):** `56843d693f81c37993bf3e941d632eb4900e3c8b` — "refactor(stories): migrate EventInspector to scenarios"
+
+### What I did
+
+- Updated:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx`
+- Migration details:
+  - replaced local `mocks/data` + local `mockBlock` usage
+  - mapped all stories to scenario keys:
+    - `llmStart`, `llmDelta`, `llmFinal`, `toolStart`, `toolResult`
+    - `withCorrelatedNodes`, `withTrustChecks`, `withFailedChecks`, `fullExample`
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P3.12`
+
+### Why
+
+- Event inspector stories had substantial local inline composition despite existing centralized scenario definitions from `P3.3`.
+
+### What worked
+
+- Build and Storybook remained green, and story args are now consistently sourced from centralized scenarios.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Event-inspector stories map cleanly to scenario keys when scenario naming mirrors story intent.
+
+### What was tricky to build
+
+- The full-example story previously merged custom fields inline into `mockEvents[1].data`; I verified that equivalent behavior already exists in `eventInspectorScenarios.fullExample` before removing inline composition to avoid semantic regression.
+
+### What warrants a second pair of eyes
+
+- Confirm that trust-check counts and full-example correlation context remain visually equivalent in Storybook after scenario sourcing.
+
+### What should be done in the future
+
+- Complete `P3.13` by migrating anomaly stories to centralized anomaly scenarios/fixtures.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/components/EventInspector.stories.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- EventInspector story variants migrated to scenario-builder args: `9`
+- Local mock helper declarations removed from story file: `1`
 
 
 ## Related
