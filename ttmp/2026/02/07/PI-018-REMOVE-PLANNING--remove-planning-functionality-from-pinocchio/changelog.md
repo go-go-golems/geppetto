@@ -34,3 +34,8 @@ Removed planning schemas/events/backend projector+translator wiring and regenera
 
 Removed frontend planning handlers/mapper/card wiring and planning Storybook scenario (pinocchio commit `cae2e274c10d20e8d16ec18726ba273f5e5255c4`)
 
+
+## 2026-02-07
+
+Related all key modified implementation files to the diary document for docmgr traceability
+

@@ -1,16 +1,33 @@
 ---
-title: Diary
-doc_type: reference
-status: active
-intent: long-term
-topics:
-  - pinocchio
-  - refactoring
-  - cleanup
-created: 2026-02-07
-updated: 2026-02-07
-owners: []
+Title: ""
+Ticket: ""
+Status: ""
+Topics: []
+DocType: ""
+Intent: ""
+Owners: []
+RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
+      Note: Removed emit-planning-stubs CLI parameter
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/sem/registry.ts
+      Note: Removed frontend planning event aggregation handlers
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx
+      Note: Removed planning renderer wiring
+    - Path: ../../../../../../../pinocchio/pkg/webchat/router.go
+      Note: Removed planning-specific execution.complete fallback emit path
+    - Path: ../../../../../../../pinocchio/pkg/webchat/sem_translator.go
+      Note: Removed planning/execution semantic event translation handlers
+    - Path: ../../../../../../../pinocchio/pkg/webchat/timeline_projector.go
+      Note: Removed planning aggregation projection path
+    - Path: ../../../../../../../pinocchio/proto/sem/timeline/transport.proto
+      Note: Removed planning timeline snapshot schema wiring
+ExternalSources: []
+Summary: ""
+LastUpdated: 0001-01-01T00:00:00Z
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Diary
 
