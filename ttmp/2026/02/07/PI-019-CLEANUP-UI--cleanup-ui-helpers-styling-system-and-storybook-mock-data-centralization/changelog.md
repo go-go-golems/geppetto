@@ -244,3 +244,14 @@ Completed `P3.5` by finalizing `src/mocks/data.ts` as an explicit legacy compati
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 23 for legacy `data.ts` compatibility-shim finalization
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.5`
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts — Legacy compatibility export layer with explicit removal guidance
+
+
+## 2026-02-07
+
+Completed `P3.6` by creating `src/mocks/msw/createDebugHandlers.ts`, a reusable MSW endpoint handler builder parameterized by debug fixture data and deterministic time/version functions; validated with build. Code commit: 1db6da8.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 24 for MSW handler builder creation
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off `P3.6`
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts — Reusable debug endpoint handler factory

@@ -48,6 +48,8 @@ RelatedFiles:
       Note: P3.1 anomalies fixture domain file
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/fixtures/turns.ts
       Note: P3.1 turn and turn-detail fixture domain extraction
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
+      Note: P3.6 reusable MSW debug handler builder
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/anomalyScenarios.ts
       Note: P3.3 anomaly panel scenario variants
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios/eventInspectorScenarios.ts
@@ -114,10 +116,11 @@ RelatedFiles:
         Primary plan artifact created during diary process
 ExternalSources: []
 Summary: Step-by-step diary for creating PI-019, analyzing helper/style/mock duplication, drafting the detailed implementation plan, and uploading design documentation to reMarkable.
-LastUpdated: 2026-02-07T15:35:00-05:00
+LastUpdated: 2026-02-07T15:46:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1913,6 +1916,83 @@ This avoids premature removal risk because many current stories still import `..
 
 - `src/mocks/data.ts` remains re-export-only (no inline fixture objects).
 - Active story imports depending on `../mocks/data` at this step: `12`.
+
+## Step 24: Complete P3.6 by creating reusable MSW debug handler builder
+
+I completed `P3.6` by introducing `src/mocks/msw/createDebugHandlers.ts`, a reusable builder for all debug UI MSW endpoints. Instead of hard-coding handlers directly in one legacy file, this module defines a structured input contract (`DebugHandlerData`) and returns a complete handler set from those inputs.
+
+This creates the foundation for `P3.7` and `P3.8`, where default handler bundles and existing handler files can be migrated onto this shared builder.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 21)
+
+**Assistant interpretation:** Continue task-by-task through remaining Phase 3 items with focused commits and synced docs.
+
+**Inferred user intent:** Keep each migration slice small, composable, and ready for follow-up integration steps.
+
+**Commit (code):** `1db6da80d57c9b642401c0acaa65a1ce5ad6f7e5` — "feat(mocks): add reusable debug msw handler builder"
+
+### What I did
+
+- Added:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts`
+- Implemented `createDebugHandlers(options)` with:
+  - `DebugHandlerData` input contract
+  - optional `nowMs` and `nowIso` function injections for deterministic timeline/turn detail response values
+  - centralized handlers for:
+    - `/debug/conversations`
+    - `/debug/conversation/:id`
+    - `/debug/conversation/:id/sessions`
+    - `/debug/turns`
+    - `/debug/turn/:convId/:sessionId/:turnId`
+    - `/debug/events/:convId`
+    - `/debug/timeline`
+    - `/debug/mw-trace/:convId/:inferenceId`
+- Validated:
+  - `npm run build`
+- Checked off:
+  - `P3.6`
+
+### Why
+
+- Handler definitions were previously monolithic and not configurable; a builder abstraction is needed before centralizing defaults and removing per-story duplication.
+
+### What worked
+
+- The new builder compiles cleanly and encapsulates existing handler behavior behind typed inputs.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Adding `nowMs`/`nowIso` hooks at builder creation time keeps time-dependent responses testable and deterministic without changing endpoint call sites.
+
+### What was tricky to build
+
+- Preserving current behavior while generalizing required careful separation between static fixture data (input contract) and derived response behavior (404 handling, filtered turns, fallback turn detail). I mirrored existing endpoint semantics directly in the builder to minimize regression risk.
+
+### What warrants a second pair of eyes
+
+- Confirm that the `DebugHandlerData` contract is complete enough for upcoming scenario-driven handler composition in `P3.7`+.
+
+### What should be done in the future
+
+- Complete `P3.7` by adding `src/mocks/msw/defaultHandlers.ts` that wires current fixture defaults into `createDebugHandlers`.
+
+### Code review instructions
+
+- Review:
+  - `web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts`
+- Validate:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+
+### Technical details
+
+- New MSW builder modules: `1`
+- Debug endpoints covered by builder: `8`
 
 
 ## Related

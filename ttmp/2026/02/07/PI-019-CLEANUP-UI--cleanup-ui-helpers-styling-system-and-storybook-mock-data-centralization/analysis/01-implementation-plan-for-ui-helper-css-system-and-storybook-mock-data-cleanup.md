@@ -64,6 +64,8 @@ RelatedFiles:
       Note: |-
         Current MSW handlers to refactor into reusable handler builders
         Current MSW handlers to refactor into reusable handler builder
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/msw/createDebugHandlers.ts
+      Note: P3.6 reusable MSW handler builder design evidence
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/scenarios
       Note: P3.3 reusable scenario layer snapshot evidence
 ExternalSources: []
@@ -72,6 +74,7 @@ LastUpdated: 2026-02-07T14:20:00-05:00
 WhatFor: Provide a concrete implementation blueprint for PI-019 cleanup work with phased tasks, target file structure, acceptance criteria, and migration strategy.
 WhenToUse: Use when implementing PI-019 cleanup tasks, assigning work, and reviewing whether the frontend has reached the desired maintainability baseline.
 ---
+
 
 
 
@@ -737,6 +740,28 @@ Validation:
 
 - `npm run build` passed.
 - `npm run build-storybook` passed.
+
+### 13.6 Progress snapshot (after P3.6 reusable MSW handler builder)
+
+Captured after commit `1db6da8` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Reusable MSW debug handler builder modules | 0 | 1 | `src/mocks/msw/createDebugHandlers.ts` |
+| Debug endpoints represented in centralized builder | 0 | 8 | conversations, conversation detail, sessions, turns, turn detail, events, timeline, mw-trace |
+
+P3.6 details:
+
+- Added:
+  - `src/mocks/msw/createDebugHandlers.ts`
+- Introduced:
+  - `DebugHandlerData` contract for fixture inputs
+  - optional deterministic `nowMs` / `nowIso` injection points
+  - single function to construct the full debug endpoint handler set
+
+Validation:
+
+- `npm run build` passed.
 
 ### 13.4 Progress snapshot (after P3.4 deterministic id/time/seq helpers)
 
