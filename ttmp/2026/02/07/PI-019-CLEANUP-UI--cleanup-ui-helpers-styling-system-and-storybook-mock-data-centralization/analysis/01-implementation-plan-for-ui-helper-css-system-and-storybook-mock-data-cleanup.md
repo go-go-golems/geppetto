@@ -621,3 +621,27 @@ The following baseline was captured on **2026-02-07** before implementation work
 - Working branch for this execution: `task/implement-openai-responses-api`.
 - Commit strategy: task-aligned, focused commits (baseline, helper modules, component migrations, tests/cleanup).
 - PR slicing remains aligned with section 9 (PR-1 helpers, PR-2/3 CSS, PR-4 mocks, PR-5 cleanup/docs).
+
+### 12.5 Progress snapshot (after Phase 1 helper extraction/migration)
+
+Captured after commit `56751d0` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| TSX LOC (total) | 6,629 | 6,452 | `src/**/*.tsx` |
+| `getEventTypeInfo` definitions | 3 | 0 | moved to `src/ui/presentation/events.ts` |
+| `getKindInfo` definitions | 2 | 0 | moved to `src/ui/presentation/timeline.ts` |
+| `getKindIcon` definitions | 3 | 0 | moved to `src/ui/presentation/blocks.ts` |
+| `truncateText` definitions | 3 | 0 | moved to `src/ui/format/text.ts` |
+| `formatPhase` definitions | 2 | 0 | moved to `src/ui/format/phase.ts` |
+| `formatPhaseName` definitions | 1 | 0 | moved to `src/ui/format/phase.ts` |
+| Runtime inline `<style>{` blocks | 31 | 31 | unchanged until Phase 2 |
+
+Build outputs after Phase 1:
+
+- `npm run build`
+  - `dist/assets/index-D_0hpNoR.css`: **5.14 kB** (gzip **1.57 kB**)
+  - `dist/assets/index-B4bn0pbi.js`: **363.71 kB** (gzip **109.32 kB**)
+  - Build time: **1.81s**
+- `npm run build-storybook`
+  - Preview build time: **~10s** (`vite` reported **9.41s**)

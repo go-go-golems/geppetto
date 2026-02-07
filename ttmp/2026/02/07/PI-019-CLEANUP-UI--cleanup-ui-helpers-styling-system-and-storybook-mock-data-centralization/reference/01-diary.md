@@ -19,10 +19,19 @@ RelatedFiles:
       Note: |-
         Main source of helper/style duplication analyzed
         Duplication audit evidence
+        Component migration targets for P1.7-P1.16
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
       Note: |-
         Storybook mock centralization baseline analysis
         Mock centralization analysis evidence
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/phase.ts
+      Note: Phase formatter module created in P1.1
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/text.ts
+      Note: Text helper module created in P1.3
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/format/time.ts
+      Note: Time formatter module created in P1.2
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/events.ts
+      Note: Event presentation module and mappings
     - Path: ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/analysis/01-implementation-plan-for-ui-helper-css-system-and-storybook-mock-data-cleanup.md
       Note: |-
         Primary design/implementation plan produced in this ticket
@@ -33,6 +42,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 # Diary
@@ -580,6 +590,97 @@ Check tsks off one by one and commit to git appropriately."
   - TSX LOC: `6629`
   - CSS LOC: `349`
   - Inline `<style>{` blocks: `31`
+
+## Step 9: Complete Phase 1 helper unification (modules + component migrations)
+
+I implemented the shared helper layer under `src/ui` and migrated all Phase 1B target components to consume those helpers. This removed local duplicate helper implementations across event, block, timeline, phase, time, and text formatting concerns.
+
+After migration, I validated with `npm run build`, `npm run build-storybook`, and helper-signature grep checks, then checked off the completed tasks one by one in docmgr.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Execute implementation tasks in order, keep diary updates frequent, and commit work in focused slices.
+
+**Inferred user intent:** Move PI-019 from planning into concrete code reduction with measurable task progress.
+
+**Commit (code):** `56751d0f6f0a261344597ff35b1ec8cb43434303` — "refactor(debug-ui): unify phase/time/text and presentation helpers"
+
+### What I did
+
+- Added shared helper modules:
+  - `src/ui/format/phase.ts`
+  - `src/ui/format/time.ts`
+  - `src/ui/format/text.ts`
+  - `src/ui/presentation/events.ts`
+  - `src/ui/presentation/blocks.ts`
+  - `src/ui/presentation/timeline.ts`
+- Migrated components:
+  - `EventCard.tsx`, `EventTrackLane.tsx`, `EventInspector.tsx`
+  - `BlockCard.tsx`, `StateTrackLane.tsx`, `FilterBar.tsx`
+  - `ProjectionLane.tsx`, `TimelineEntityCard.tsx`
+  - `SnapshotDiff.tsx`, `TurnInspector.tsx`
+- Removed now-duplicated local helper functions from migrated files.
+- Ran validation:
+  - `npm run build`
+  - `npm run build-storybook`
+  - `rg -n "function (getEventTypeInfo|getKindInfo|getKindIcon|truncateText|formatPhase|formatPhaseName)" ...` (all zero in components/routes)
+- Checked off tasks one-by-one:
+  - `P1.1` through `P1.17`
+  - `P1.20`
+
+### Why
+
+- Consolidating helper logic first reduces repeated UI logic and lowers risk for the next CSS and Storybook refactor phases.
+
+### What worked
+
+- Shared helper modules compiled cleanly and were adopted by all intended components.
+- Build and Storybook build both passed after migration.
+- Duplicate helper function signatures for the targeted set are now zero in runtime components/routes.
+
+### What didn't work
+
+- First build attempt failed due a missing closing brace in `TimelineEntityCard.tsx`:
+  - `src/components/TimelineEntityCard.tsx(112,1): error TS1005: '}' expected.`
+- Fix: restored the missing `}` after the component return block and re-ran validation successfully.
+
+### What I learned
+
+- A single shared event presentation helper needed small options (e.g., thinking icon behavior) to preserve existing per-component semantics without duplicating maps.
+
+### What was tricky to build
+
+- Preserving existing visual behavior while unifying helpers required careful mapping because previous components had subtle differences in fallback icon/color logic. I handled this by using a canonical mapping plus limited option overrides instead of introducing parallel helper variants.
+
+### What warrants a second pair of eyes
+
+- Review event presentation fallback behavior (`events.ts`) to confirm all desired icon/color defaults are unchanged for edge event types.
+
+### What should be done in the future
+
+- Complete `P1.18` and `P1.19` with dedicated unit tests for mapping fallbacks and truncation/stringify edge cases before closing Phase 1 entirely.
+
+### Code review instructions
+
+- Start with helper modules in:
+  - `web-agent-example/cmd/web-agent-debug/web/src/ui/format/`
+  - `web-agent-example/cmd/web-agent-debug/web/src/ui/presentation/`
+- Then review migrations in the ten components listed above.
+- Re-run:
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build`
+  - `cd web-agent-example/cmd/web-agent-debug/web && npm run build-storybook`
+
+### Technical details
+
+- Post-migration targeted helper-signature counts in components/routes:
+  - `getEventTypeInfo`: `0`
+  - `getKindInfo`: `0`
+  - `getKindIcon`: `0`
+  - `truncateText`: `0`
+  - `formatPhase`: `0`
+  - `formatPhaseName`: `0`
 
 ## Related
 

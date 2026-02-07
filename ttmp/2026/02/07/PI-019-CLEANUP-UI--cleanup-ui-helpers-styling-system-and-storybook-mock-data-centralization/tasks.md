@@ -22,32 +22,32 @@
 
 ### 1A. Create shared helper modules
 
-- [ ] P1.1 Create `src/ui/format/phase.ts` (`formatPhaseLabel`, `formatPhaseShort`)
-- [ ] P1.2 Create `src/ui/format/time.ts` (`formatTimeShort`, safe date formatting)
-- [ ] P1.3 Create `src/ui/format/text.ts` (`truncateText`, safe stringify helpers)
-- [ ] P1.4 Create `src/ui/presentation/events.ts` (`getEventPresentation`)
-- [ ] P1.5 Create `src/ui/presentation/blocks.ts` (`getBlockPresentation`)
-- [ ] P1.6 Create `src/ui/presentation/timeline.ts` (`getTimelineKindPresentation`)
+- [x] P1.1 Create `src/ui/format/phase.ts` (`formatPhaseLabel`, `formatPhaseShort`)
+- [x] P1.2 Create `src/ui/format/time.ts` (`formatTimeShort`, safe date formatting)
+- [x] P1.3 Create `src/ui/format/text.ts` (`truncateText`, safe stringify helpers)
+- [x] P1.4 Create `src/ui/presentation/events.ts` (`getEventPresentation`)
+- [x] P1.5 Create `src/ui/presentation/blocks.ts` (`getBlockPresentation`)
+- [x] P1.6 Create `src/ui/presentation/timeline.ts` (`getTimelineKindPresentation`)
 
 ### 1B. Migrate components to shared helpers
 
-- [ ] P1.7 Migrate `EventCard.tsx` to shared event/text helpers
-- [ ] P1.8 Migrate `EventTrackLane.tsx` to shared event helpers
-- [ ] P1.9 Migrate `EventInspector.tsx` to shared event/time helpers
-- [ ] P1.10 Migrate `BlockCard.tsx` to shared block/text helpers
-- [ ] P1.11 Migrate `StateTrackLane.tsx` to shared block/phase helpers
-- [ ] P1.12 Migrate `FilterBar.tsx` to shared block presentation helpers
-- [ ] P1.13 Migrate `ProjectionLane.tsx` to shared timeline presentation helpers
-- [ ] P1.14 Migrate `TimelineEntityCard.tsx` to shared timeline/text helpers
-- [ ] P1.15 Migrate `SnapshotDiff.tsx` to shared phase helpers
-- [ ] P1.16 Migrate `TurnInspector.tsx` to shared phase/time helpers
+- [x] P1.7 Migrate `EventCard.tsx` to shared event/text helpers
+- [x] P1.8 Migrate `EventTrackLane.tsx` to shared event helpers
+- [x] P1.9 Migrate `EventInspector.tsx` to shared event/time helpers
+- [x] P1.10 Migrate `BlockCard.tsx` to shared block/text helpers
+- [x] P1.11 Migrate `StateTrackLane.tsx` to shared block/phase helpers
+- [x] P1.12 Migrate `FilterBar.tsx` to shared block presentation helpers
+- [x] P1.13 Migrate `ProjectionLane.tsx` to shared timeline presentation helpers
+- [x] P1.14 Migrate `TimelineEntityCard.tsx` to shared timeline/text helpers
+- [x] P1.15 Migrate `SnapshotDiff.tsx` to shared phase helpers
+- [x] P1.16 Migrate `TurnInspector.tsx` to shared phase/time helpers
 
 ### 1C. Cleanup + tests
 
-- [ ] P1.17 Remove all now-duplicate local helper functions
+- [x] P1.17 Remove all now-duplicate local helper functions
 - [ ] P1.18 Add helper unit tests for mapping fallback behavior
 - [ ] P1.19 Add helper unit tests for truncation/format edge cases
-- [ ] P1.20 Verify no duplicate helper signatures remain via grep check
+- [x] P1.20 Verify no duplicate helper signatures remain via grep check
 
 ## Phase 2 — CSS Dedup + Reusable Design System
 
