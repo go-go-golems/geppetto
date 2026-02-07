@@ -68,15 +68,15 @@
 - [x] P2.10 Extract styles from `EventTrackLane.tsx`
 - [x] P2.11 Extract styles from `ProjectionLane.tsx`
 - [x] P2.12 Extract styles from `NowMarker.tsx`
-- [ ] P2.13 Extract styles from `TurnInspector.tsx`
+- [x] P2.13 Extract styles from `TurnInspector.tsx`
 - [ ] P2.14 Extract styles from `SnapshotDiff.tsx`
 - [ ] P2.15 Extract styles from `EventInspector.tsx`
 - [ ] P2.16 Extract styles from `FilterBar.tsx`
 - [ ] P2.17 Extract styles from `AnomalyPanel.tsx`
-- [ ] P2.18 Extract route-level styles from `OverviewPage.tsx`
-- [ ] P2.19 Extract route-level styles from `TimelinePage.tsx`
-- [ ] P2.20 Extract route-level styles from `EventsPage.tsx`
-- [ ] P2.21 Extract route-level styles from `TurnDetailPage.tsx`
+- [x] P2.18 Extract route-level styles from `OverviewPage.tsx`
+- [x] P2.19 Extract route-level styles from `TimelinePage.tsx`
+- [x] P2.20 Extract route-level styles from `EventsPage.tsx`
+- [x] P2.21 Extract route-level styles from `TurnDetailPage.tsx`
 
 ### 2C. Styling contract standardization
 

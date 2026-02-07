@@ -708,3 +708,30 @@ Validation:
 
 - `npm run build` passed.
 - `npm run build-storybook` passed.
+
+### 12.9 Progress snapshot (after P2.13 + P2.18-P2.21)
+
+Captured after commit `ac2f936` in `web-agent-example`:
+
+| Metric | Before | After | Notes |
+|---|---:|---:|---|
+| Runtime inline `<style>{` blocks | 22 | 18 | route-level inline styles extracted |
+
+Task notes:
+
+- `P2.13` (`TurnInspector.tsx`): no inline `<style>{...}` block present; task treated as already clean.
+- Extracted route-level styles:
+  - `OverviewPage.tsx` (`P2.18`)
+  - `TimelinePage.tsx` (`P2.19`)
+  - `EventsPage.tsx` (`P2.20`)
+  - `TurnDetailPage.tsx` (`P2.21`)
+- Styles moved into:
+  - `src/styles/components/OverviewPage.css`
+  - `src/styles/components/TimelinePage.css`
+  - `src/styles/components/EventsPage.css`
+  - `src/styles/components/TurnDetailPage.css`
+
+Validation:
+
+- `npm run build` passed.
+- `npm run build-storybook` passed.

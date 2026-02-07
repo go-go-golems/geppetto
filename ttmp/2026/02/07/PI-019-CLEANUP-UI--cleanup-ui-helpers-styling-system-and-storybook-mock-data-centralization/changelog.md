@@ -105,3 +105,17 @@ Completed P2.8-P2.12 by extracting inline styles from TimelineLanes, StateTrackL
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/StateTrackLane.tsx — Removed inline turn card and phase styles
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/components/TimelineLanes.tsx — Removed inline lane layout styles
 
+
+## 2026-02-07
+
+Completed P2.13 and P2.18-P2.21: confirmed TurnInspector is already style-clean, extracted route-level inline styles into component CSS files with route-prefixed class names, and reduced runtime inline style blocks from 22 to 18. Code commit: ac2f936.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/reference/01-diary.md — Added Step 14 for route extraction and TurnInspector status
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-019-CLEANUP-UI--cleanup-ui-helpers-styling-system-and-storybook-mock-data-centralization/tasks.md — Checked off P2.13 and P2.18-P2.21
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/routes/EventsPage.tsx — Removed inline styles and added route-scoped class names
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/routes/OverviewPage.tsx — Removed inline styles and added route-scoped class names
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/routes/TimelinePage.tsx — Removed inline styles and added route-scoped class names
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/routes/TurnDetailPage.tsx — Removed inline styles and added route-scoped class names
+

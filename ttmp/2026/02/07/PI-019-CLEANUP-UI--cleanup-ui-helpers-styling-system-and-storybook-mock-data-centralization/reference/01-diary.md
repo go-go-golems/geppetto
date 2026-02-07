@@ -24,6 +24,8 @@ RelatedFiles:
         Component migration targets for P1.7-P1.16
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/AppShell.tsx
       Note: P2.7 inline style removal
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/components/TurnInspector.tsx
+      Note: P2.13 verified style-clean (no inline <style> block)
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/mocks/data.ts
       Note: |-
         Storybook mock centralization baseline analysis
@@ -34,14 +36,22 @@ RelatedFiles:
       Note: P2.7 extracted AppShell styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventTrackLane.css
       Note: P2.10 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventsPage.css
+      Note: P2.20 extracted route styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/NowMarker.css
       Note: P2.12 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/OverviewPage.css
+      Note: P2.18 extracted route styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/ProjectionLane.css
       Note: P2.11 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/StateTrackLane.css
       Note: P2.9 extracted styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelineLanes.css
       Note: P2.8 extracted styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelinePage.css
+      Note: P2.19 extracted route styles
+    - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/components/TurnDetailPage.css
+      Note: P2.21 extracted route styles
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/layout.css
       Note: Layout layer created in P2.4
     - Path: ../../../../../../../web-agent-example/cmd/web-agent-debug/web/src/styles/primitives.css
@@ -72,6 +82,7 @@ LastUpdated: 2026-02-07T12:20:00-05:00
 WhatFor: Preserve execution trail and rationale for PI-019 planning work.
 WhenToUse: Use when reviewing how the plan was assembled, validated, and uploaded.
 ---
+
 
 
 
@@ -1026,6 +1037,87 @@ The batch reduced runtime inline style blocks from `30` to `22` while keeping bo
 - Runtime inline style count:
   - Before: `30`
   - After: `22`
+
+## Step 14: Complete P2.13 and route-level extractions (P2.18-P2.21)
+
+I finished the route-level extraction tasks by moving inline style blocks from the four route files into their corresponding component CSS files. During this pass, I also validated that `TurnInspector.tsx` already had no inline `<style>{...}` block, so `P2.13` was marked complete as style-clean without additional extraction.
+
+To avoid global selector collisions after moving route styles into globally imported CSS, I introduced route-scoped class names (`overview-*`, `timeline-*`, `events-*`, `turn-detail-*`) where needed.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue the task sequence with frequent diary updates and clean commits per logical change set.
+
+**Inferred user intent:** Progress through Phase 2B extraction with safe, reviewable slices and reliable validation.
+
+**Commit (code):** `ac2f9369a83bec4721be7a76edebb1330dd1f552` — "refactor(debug-ui): extract route-level inline styles"
+
+### What I did
+
+- Verified:
+  - `TurnInspector.tsx` has no inline `<style>{...}` block (`P2.13` style-clean).
+- Extracted route styles:
+  - `OverviewPage.tsx` -> `OverviewPage.css` (`P2.18`)
+  - `TimelinePage.tsx` -> `TimelinePage.css` (`P2.19`)
+  - `EventsPage.tsx` -> `EventsPage.css` (`P2.20`)
+  - `TurnDetailPage.tsx` -> `TurnDetailPage.css` (`P2.21`)
+- Added route-specific class names to prevent cross-page CSS conflicts in global imports.
+- Validated:
+  - `npm run build`
+  - `npm run build-storybook`
+- Checked off:
+  - `P2.13`, `P2.18`, `P2.19`, `P2.20`, `P2.21`
+
+### Why
+
+- Route-level extractions are low-risk wins that reduce inline style count quickly while keeping remaining complex component extractions isolated for next steps.
+
+### What worked
+
+- All targeted route files are now free of inline style blocks.
+- Build and Storybook remained green.
+- Runtime inline style blocks dropped from `22` to `18`.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Once styles are globally imported, generic class names like `.empty-state` and `.page-header` can collide across routes; route-prefixed class naming avoids this cleanly.
+
+### What was tricky to build
+
+- The route extraction required a small naming migration (JSX + CSS) to preserve behavior while preventing future cascade conflicts after centralization.
+
+### What warrants a second pair of eyes
+
+- Confirm the new route-prefixed class names align with frontend naming conventions desired for the rest of Phase 2.
+
+### What should be done in the future
+
+- Continue with remaining heavy component extractions: `P2.14` to `P2.17`.
+
+### Code review instructions
+
+- Review routes:
+  - `web-agent-example/cmd/web-agent-debug/web/src/routes/OverviewPage.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/routes/TimelinePage.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/routes/EventsPage.tsx`
+  - `web-agent-example/cmd/web-agent-debug/web/src/routes/TurnDetailPage.tsx`
+- Review extracted CSS:
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/OverviewPage.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/TimelinePage.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/EventsPage.css`
+  - `web-agent-example/cmd/web-agent-debug/web/src/styles/components/TurnDetailPage.css`
+
+### Technical details
+
+- Runtime inline style count:
+  - Before: `22`
+  - After: `18`
 
 ## Related
 
