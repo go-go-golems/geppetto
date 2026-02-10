@@ -1,7 +1,7 @@
 ---
 Title: Run-to-Session Elimination Research
 Ticket: PI-017-RUN-SESSION-INVESTIGATION
-Status: active
+Status: complete
 Topics:
     - backend
     - frontend
@@ -44,10 +44,10 @@ RelatedFiles:
     - Path: pkg/inference/middleware/systemprompt_middleware.go
       Note: System prompt middleware logging migrated to session_id
 ExternalSources: []
-Summary: ""
-LastUpdated: 2026-02-07T08:33:47.927810681-05:00
-WhatFor: ""
-WhenToUse: ""
+Summary: Hard-cut completion ticket for removing session-meaning run_id terminology from pinocchio/geppetto code, APIs, logs, and docs.
+LastUpdated: 2026-02-07T20:32:00-05:00
+WhatFor: Track end-to-end run-to-session migration execution and closure evidence.
+WhenToUse: Use when verifying session-only contract changes and migration scope completion.
 ---
 
 
@@ -65,7 +65,7 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

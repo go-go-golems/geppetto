@@ -53,5 +53,4 @@
 - [x] Update PI-017 diary step-by-step with commands, failures, and commit hashes
 - [x] Update PI-017 changelog with commit-by-commit entries
 - [x] Relate all modified implementation files to ticket docs via `docmgr doc relate`
-- [ ] Final review summary and close ticket
-
+- [x] Final review summary and close ticket

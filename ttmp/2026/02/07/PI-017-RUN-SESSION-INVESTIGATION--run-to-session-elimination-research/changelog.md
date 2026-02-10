@@ -60,3 +60,22 @@ Executed hard-cut run→session migration across pinocchio webchat, persistence,
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/middlewares/agentmode/sqlite_store.go — AgentMode persistence migration shim
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/events/chat-events.go — Removed LegacyRunID + `run_id` metadata log emission
 
+
+## 2026-02-07
+
+Implemented Debug UI frontend skeleton with Storybook, MSW mocking, RTK Query: 8 components (ConversationCard, BlockCard, CorrelationIdBar, SessionList, TurnInspector, EventCard, MiddlewareChainView, TimelineEntityCard), comprehensive mock data, and running Storybook at http://localhost:6007
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/api/debugApi.ts — RTK Query API layer with session terminology
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/web-agent-example/cmd/web-agent-debug/web/src/types/index.ts — TypeScript types using session_id
+
+
+## 2026-02-07
+
+Final review summary completed and ticket closed: all 33 tasks are checked, hard-cut session-only contract is documented, and remaining `run_id` references are intentionally limited to migration shims or true non-session run domains.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-017-RUN-SESSION-INVESTIGATION--run-to-session-elimination-research/tasks.md — Final closeout checkbox marked complete
+- /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/07/PI-017-RUN-SESSION-INVESTIGATION--run-to-session-elimination-research/index.md — Status changed to complete with closure summary
