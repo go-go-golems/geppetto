@@ -22,14 +22,13 @@ jobs:
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
-      - uses: actions/setup-go@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          # v2.1.0 is built with Go 1.24 and can panic when it encounters files
-          # requiring a newer language version (e.g. go1.25).
           version: v2.4.0
           args: --timeout=5m
