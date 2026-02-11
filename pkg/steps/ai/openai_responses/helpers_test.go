@@ -108,3 +108,56 @@ func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
 		t.Fatalf("fifth item must be follow-up user role message")
 	}
 }
+
+func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReasoning(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_latest", Payload: map[string]any{
+		turns.PayloadKeyEncryptedContent: "enc_latest",
+	}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Q1"),
+		turns.NewAssistantTextBlock("A1 should remain"),
+		turns.NewUserTextBlock("Q2"),
+		turns.NewAssistantTextBlock("A2 should be skipped"),
+		rs,
+		turns.NewAssistantTextBlock("A3 follower"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+
+	var assistantRoleTexts []string
+	for _, item := range got {
+		if item.Type == "" && item.Role == "assistant" && len(item.Content) > 0 {
+			assistantRoleTexts = append(assistantRoleTexts, item.Content[0].Text)
+		}
+	}
+	if len(assistantRoleTexts) != 1 {
+		t.Fatalf("expected exactly one role-based assistant pre-context message, got %d (%v)", len(assistantRoleTexts), assistantRoleTexts)
+	}
+	if assistantRoleTexts[0] != "A1 should remain" {
+		t.Fatalf("expected preserved assistant context to be A1, got %q", assistantRoleTexts[0])
+	}
+
+	if len(got) == 0 {
+		t.Fatalf("expected non-empty input items")
+	}
+	lastReasoningIdx := -1
+	for i, item := range got {
+		if item.Type == "reasoning" {
+			lastReasoningIdx = i
+		}
+	}
+	if lastReasoningIdx == -1 {
+		t.Fatalf("expected a reasoning item in request input")
+	}
+	if lastReasoningIdx+1 >= len(got) {
+		t.Fatalf("expected reasoning follower item")
+	}
+	follower := got[lastReasoningIdx+1]
+	if follower.Type != "message" || follower.Role != "assistant" {
+		t.Fatalf("expected reasoning follower to be assistant message, got type=%q role=%q", follower.Type, follower.Role)
+	}
+	if len(follower.Content) != 1 || follower.Content[0].Text != "A3 follower" {
+		t.Fatalf("unexpected follower content: %#v", follower.Content)
+	}
+}

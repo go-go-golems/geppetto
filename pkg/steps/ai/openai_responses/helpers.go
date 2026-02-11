@@ -223,11 +223,14 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	//    item-based message paired with reasoning.
 	lastAssistantBeforeReasoning := -1
 	if latestReasoningIdx > 0 {
+		for i := latestReasoningIdx - 1; i >= 0; i-- {
+			if t.Blocks[i].Kind == turns.BlockKindLLMText {
+				lastAssistantBeforeReasoning = i
+				break
+			}
+		}
 		for i := 0; i < latestReasoningIdx; i++ {
 			b := t.Blocks[i]
-			if b.Kind == turns.BlockKindLLMText {
-				lastAssistantBeforeReasoning = i
-			}
 			switch b.Kind {
 			case turns.BlockKindReasoning:
 				continue
