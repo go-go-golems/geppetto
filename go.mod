@@ -12,7 +12,7 @@ require (
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.3.0
-	github.com/go-go-golems/glazed v0.7.14
+	github.com/go-go-golems/glazed v1.0.0
 	github.com/go-go-golems/go-emrichen v0.0.10
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
@@ -116,7 +116,7 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/bmatcuk/doublestar/v4 v4.9.0 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect

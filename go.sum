@@ -47,8 +47,8 @@ github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuP
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
 github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPnH1Wvgk=
 github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
-github.com/bmatcuk/doublestar/v4 v4.9.0 h1:DBvuZxjdKkRP/dr4GVV4w2fnmrk5Hxc90T51LZjv0JA=
-github.com/bmatcuk/doublestar/v4 v4.9.0/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
+github.com/bmatcuk/doublestar/v4 v4.10.0 h1:zU9WiOla1YA122oLM6i4EXvGW62DvKZVxIe6TYWexEs=
+github.com/bmatcuk/doublestar/v4 v4.10.0/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 h1:JFgG/xnwFfbezlUnFMJy0nusZvytYysV4SCS2cYbvws=
@@ -101,8 +101,8 @@ github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-go-golems/clay v0.3.0 h1:1uvs3js6P9rZBAdNh/9s1NmAJitIG0J9OyKPBNA7lqU=
 github.com/go-go-golems/clay v0.3.0/go.mod h1:7ZjqqwhrUbC0aK7qvTix926SvmFBIrj+TSyxhvE+LTc=
-github.com/go-go-golems/glazed v0.7.14 h1:esm8sl2xfhthBZ+P87i+tJobkZMAL3+IKULRPSwaYHc=
-github.com/go-go-golems/glazed v0.7.14/go.mod h1:FsJvSjq+gh2cn5todidMF9BYlPWWt5AjUdnUfoP6hcY=
+github.com/go-go-golems/glazed v1.0.0 h1:AQ25/uXNAgMK8ISIlyWEKW1RMvgHutczdcbWKYRphm8=
+github.com/go-go-golems/glazed v1.0.0/go.mod h1:kE/DlsgJKyGci2p/qw2p4ra3HkYjBCSQrOU8k0wBetA=
 github.com/go-go-golems/go-emrichen v0.0.10 h1:y6RzGopArsUSuHfWHh3dqPnOJwIlftPkdfyJxRZboGU=
 github.com/go-go-golems/go-emrichen v0.0.10/go.mod h1:XjfFqbY7l9cYqMX9jrlbgVdjRtMHdXGIBf92F3hezVM=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
