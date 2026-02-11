@@ -14,3 +14,8 @@ Implemented typed-key enforcement for `turnsdatalint` (accept typed vars/params/
 - /home/manuel/workspaces/2025-11-18/fix-pinocchio-profiles/geppetto/pkg/analysis/turnsdatalint/testdata/src/a/a.go:Updated analysistest cases
 - /home/manuel/workspaces/2025-11-18/fix-pinocchio-profiles/geppetto/pkg/doc/topics/12-turnsdatalint.md:Updated documentation to match new rule and flags
 
+
+## 2026-01-25
+
+Ticket closed
+

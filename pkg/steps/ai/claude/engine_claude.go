@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
@@ -21,20 +20,13 @@ import (
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
 	settings    *settings.StepSettings
-	config      *engine.Config
 	toolAdapter *tools.ClaudeToolAdapter
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.StepSettings, options ...engine.Option) (*ClaudeEngine, error) {
-	config := engine.NewConfig()
-	if err := engine.ApplyOptions(config, options...); err != nil {
-		return nil, err
-	}
-
+func NewClaudeEngine(settings *settings.StepSettings) (*ClaudeEngine, error) {
 	return &ClaudeEngine{
 		settings:    settings,
-		config:      config,
 		toolAdapter: tools.NewClaudeToolAdapter(),
 	}, nil
 }
@@ -82,7 +74,7 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	// Add tools from context if present (no Turn.Data registry).
-	if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
 		var claudeTools []api.Tool
 		for _, tool := range reg.ListTools() {
 			claudeTool := api.Tool{
@@ -124,7 +116,12 @@ func (e *ClaudeEngine) RunInference(
 		Interface("max_tokens", metadata.MaxTokens).
 		Msg("LLMInferenceData initialized (Claude)")
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.SessionID = sid
+		}
+		if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
+			metadata.InferenceID = iid
+		}
 		metadata.TurnID = t.ID
 	}
 	if metadata.Extra == nil {
@@ -219,12 +216,6 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *ClaudeEngine) publishEvent(ctx context.Context, event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
-	// Best-effort publish to context sinks
 	events.PublishEventToContext(ctx, event)
 }
 

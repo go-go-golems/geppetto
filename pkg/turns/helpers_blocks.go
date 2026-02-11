@@ -75,12 +75,22 @@ func NewToolCallBlock(id string, name string, args any) Block {
 // id must match the corresponding tool_call id.
 // result holds the execution output (any JSON-serializable value or string).
 func NewToolUseBlock(id string, result any) Block {
+	return NewToolUseBlockWithError(id, result, "")
+}
+
+// NewToolUseBlockWithError returns a Block capturing the result of a tool execution, including
+// an optional error string.
+// id must match the corresponding tool_call id.
+// result holds the execution output (any JSON-serializable value or string). If the tool failed,
+// result may be nil and error should be set.
+func NewToolUseBlockWithError(id string, result any, err string) Block {
 	return Block{
 		ID:   uuid.NewString(),
 		Kind: BlockKindToolUse,
 		Payload: map[string]any{
 			PayloadKeyID:     id,
 			PayloadKeyResult: result,
+			PayloadKeyError:  err,
 		},
 	}
 }

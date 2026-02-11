@@ -216,8 +216,11 @@ func (f *FilteringSink) publishAll(ctx context.Context, meta events.EventMetadat
 			if impl.Metadata_.ID == uuid.Nil {
 				impl.Metadata_.ID = meta.ID
 			}
-			if impl.Metadata_.RunID == "" {
-				impl.Metadata_.RunID = meta.RunID
+			if impl.Metadata_.SessionID == "" {
+				impl.Metadata_.SessionID = meta.SessionID
+			}
+			if impl.Metadata_.InferenceID == "" {
+				impl.Metadata_.InferenceID = meta.InferenceID
 			}
 			if impl.Metadata_.TurnID == "" {
 				impl.Metadata_.TurnID = meta.TurnID

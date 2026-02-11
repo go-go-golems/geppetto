@@ -1,0 +1,57 @@
+---
+Title: Analyze and cleanup pinocchio webchat router
+Ticket: PI-001-WEBCHAT-ROUTER
+Status: complete
+Topics:
+    - analysis
+    - webchat
+    - refactor
+DocType: index
+Intent: long-term
+Owners: []
+RelatedFiles: []
+ExternalSources: []
+Summary: ""
+LastUpdated: 2026-02-06T13:21:51.436406599-05:00
+WhatFor: ""
+WhenToUse: ""
+---
+
+
+# Analyze and cleanup pinocchio webchat router
+
+## Overview
+
+<!-- Provide a brief overview of the ticket, its goals, and current status -->
+
+## Key Links
+
+- **Related Files**: See frontmatter RelatedFiles field
+- **External Sources**: See frontmatter ExternalSources field
+
+## Status
+
+Current status: **active**
+
+## Topics
+
+- analysis
+- webchat
+- refactor
+
+## Tasks
+
+See [tasks.md](./tasks.md) for the current task list.
+
+## Changelog
+
+See [changelog.md](./changelog.md) for recent changes and decisions.
+
+## Structure
+
+- design/ - Architecture and design documents
+- reference/ - Prompt packs, API contracts, context summaries
+- playbooks/ - Command sequences and test procedures
+- scripts/ - Temporary code and tooling
+- various/ - Working notes and research
+- archive/ - Deprecated or reference-only artifacts

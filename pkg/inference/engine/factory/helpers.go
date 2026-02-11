@@ -8,9 +8,9 @@ import (
 
 // NewEngineFromStepSettings creates an engine directly from step settings.
 // This is a convenience function that creates a StandardEngineFactory and uses it to create an engine.
-func NewEngineFromStepSettings(stepSettings *settings.StepSettings, options ...engine.Option) (engine.Engine, error) {
+func NewEngineFromStepSettings(stepSettings *settings.StepSettings) (engine.Engine, error) {
 	factory := NewStandardEngineFactory()
-	return factory.CreateEngine(stepSettings, options...)
+	return factory.CreateEngine(stepSettings)
 }
 
 // NewEngineFromParsedLayers creates an engine from parsed layers.
@@ -18,7 +18,7 @@ func NewEngineFromStepSettings(stepSettings *settings.StepSettings, options ...e
 // 1. Creates new step settings
 // 2. Updates them from the parsed layers
 // 3. Creates and returns an engine
-func NewEngineFromParsedLayers(parsedLayers *layers.ParsedLayers, options ...engine.Option) (engine.Engine, error) {
+func NewEngineFromParsedLayers(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
 	// Create step settings
 	stepSettings, err := settings.NewStepSettings()
 	if err != nil {
@@ -32,5 +32,5 @@ func NewEngineFromParsedLayers(parsedLayers *layers.ParsedLayers, options ...eng
 	}
 
 	// Create engine using step settings
-	return NewEngineFromStepSettings(stepSettings, options...)
+	return NewEngineFromStepSettings(stepSettings)
 }

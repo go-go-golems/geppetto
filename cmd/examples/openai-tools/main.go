@@ -8,10 +8,11 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -149,8 +150,8 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 			),
 			parameters.NewParameterDefinition("mode",
 				parameters.ParameterTypeChoice,
-				parameters.WithChoices("tools", "thinking", "parallel-tools"),
-				parameters.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls)"),
+				parameters.WithChoices("tools", "thinking", "parallel-tools", "server-tools"),
+				parameters.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls), server-tools (enable server-side tools)"),
 				parameters.WithDefault("tools"),
 			),
 			parameters.NewParameterDefinition("prompt",
@@ -266,12 +267,13 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return nil
 	})
 
-	// Create engine using factory with an event sink to publish streaming events
+	// Create engine and wire an event sink to publish streaming events
 	watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-	engineInstance, err := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(watermillSink))
+	engineInstance, err := factory.NewEngineFromParsedLayers(parsedLayers)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
+	sink := watermillSink
 
 	// Run the router concurrently
 	eg := errgroup.Group{}
@@ -280,17 +282,37 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	eg.Go(func() error { return router.Run(runCtx) })
 
 	// Build mode-specific setup
-	var turn *turns.Turn
-	if s.Mode == "thinking" {
-		// No tools; reasoning-focused prompt
+	var (
+		turn             *turns.Turn
+		toolLoopRegistry tools.ToolRegistry
+		toolLoopLoopCfg  toolloop.LoopConfig
+		toolLoopToolCfg  tools.ToolConfig
+		toolLoopEnabled  bool
+	)
+
+	switch s.Mode {
+	case "thinking":
 		p := s.Prompt
 		if p == "" {
 			p = "Think step-by-step and answer concisely: What is 23*17 + 55?"
 		}
 		turn = &turns.Turn{}
 		turns.AppendBlock(turn, turns.NewUserTextBlock(p))
-	} else {
-		// Tools mode (default)
+	case "server-tools":
+		turn = &turns.Turn{}
+		serverTools := []any{
+			map[string]any{"type": "web_search"},
+		}
+		if err := turns.KeyResponsesServerTools.Set(&turn.Data, serverTools); err != nil {
+			return errors.Wrap(err, "set responses server tools")
+		}
+		turns.AppendBlock(turn, turns.NewSystemTextBlock("You have access to the server-side web_search tool. Use it where appropriate."))
+		userPrompt := s.Prompt
+		if userPrompt == "" {
+			userPrompt = "Use web_search to find information about the OpenAI Responses API reasoning items and summarize briefly."
+		}
+		turns.AppendBlock(turn, turns.NewUserTextBlock(userPrompt))
+	default:
 		weatherToolDef, err := tools.NewToolFromFunc(
 			"get_weather",
 			"Get current weather information for a specific location",
@@ -299,7 +321,6 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		if err != nil {
 			return errors.Wrap(err, "failed to create weather tool")
 		}
-		// Debug print schema
 		if weatherToolDef.Parameters != nil {
 			fmt.Fprintf(w, "Tool schema type: %v\n", weatherToolDef.Parameters.Type)
 			if weatherToolDef.Parameters.Properties != nil {
@@ -313,7 +334,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		} else {
 			fmt.Fprintln(w, "Warning: Tool schema is nil")
 		}
-		// Add calculator tool
+
 		calcDef, err := tools.NewToolFromFunc(
 			"calculator",
 			"Evaluate a simple arithmetic expression (format: 'A op B')",
@@ -323,25 +344,24 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 			return errors.Wrap(err, "failed to create calculator tool")
 		}
 
-		// registry + config
 		reg := tools.NewInMemoryToolRegistry()
 		_ = reg.RegisterTool("get_weather", *weatherToolDef)
 		_ = reg.RegisterTool("calculator", *calcDef)
+
 		maxPar := 1
 		if s.Mode == "parallel-tools" {
 			maxPar = 2
 		}
+
 		turn = &turns.Turn{}
-		if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
-			Enabled:           true,
-			ToolChoice:        engine.ToolChoiceAuto,
-			MaxIterations:     3,
-			MaxParallelTools:  maxPar,
-			ToolErrorHandling: engine.ToolErrorContinue,
-		}); err != nil {
-			return errors.Wrap(err, "set tool config")
-		}
-		runCtx = toolcontext.WithRegistry(runCtx, reg)
+		toolLoopRegistry = reg
+		toolLoopLoopCfg = toolloop.NewLoopConfig().WithMaxIterations(3)
+		toolLoopToolCfg = tools.DefaultToolConfig().
+			WithMaxParallelTools(maxPar).
+			WithToolChoice(tools.ToolChoiceAuto).
+			WithToolErrorHandling(tools.ToolErrorContinue)
+		toolLoopEnabled = true
+
 		userPrompt := s.Prompt
 		if userPrompt == "" {
 			if s.Mode == "parallel-tools" {
@@ -354,47 +374,25 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 	}
 
 	// No explicit stateless toggle: encrypted reasoning is requested by default in the engine helper.
-
-	// Prepare a toolbox and register executable implementation
-	tb := middleware.NewMockToolbox()
-	tb.RegisterTool("get_weather", "Get current weather information for a specific location", map[string]any{
-		"location": map[string]any{"type": "string"},
-		"units":    map[string]any{"type": "string"},
-	}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-		// Map args to WeatherRequest
-		req := WeatherRequest{Units: "celsius"}
-		if v, ok := args["location"].(string); ok {
-			req.Location = v
-		}
-		if v, ok := args["units"].(string); ok && v != "" {
-			req.Units = v
-		}
-		resp := weatherTool(req)
-		return resp, nil
-	})
-
-	// Register calculator tool implementation
-	tb.RegisterTool("calculator", "Evaluate a simple arithmetic expression (format: 'A op B')", map[string]any{
-		"expression": map[string]any{"type": "string"},
-	}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-		// Map args to CalculatorRequest
-		req := CalculatorRequest{}
-		if v, ok := args["expression"].(string); ok {
-			req.Expression = v
-		}
-		res, err := calculatorTool(req)
-		if err != nil {
-			return nil, err
-		}
-		return map[string]any{"result": res}, nil
-	})
-
-	// Wrap engine with tool middleware
-	mw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-	wrapped := middleware.NewEngineWithMiddleware(engineInstance, mw)
-
-	// Run inference with middleware-managed tool execution
-	updatedTurn, err := wrapped.RunInference(runCtx, turn)
+	sess := session.NewSession()
+	builderOpts := []enginebuilder.Option{
+		enginebuilder.WithBase(engineInstance),
+		enginebuilder.WithEventSinks(sink),
+	}
+	if toolLoopEnabled {
+		builderOpts = append(builderOpts,
+			enginebuilder.WithToolRegistry(toolLoopRegistry),
+			enginebuilder.WithLoopConfig(toolLoopLoopCfg),
+			enginebuilder.WithToolConfig(toolLoopToolCfg),
+		)
+	}
+	sess.Builder = enginebuilder.New(builderOpts...)
+	sess.Append(turn)
+	handle, err := sess.StartInference(runCtx)
+	if err != nil {
+		return errors.Wrap(err, "failed to start inference")
+	}
+	updatedTurn, err := handle.Wait()
 	if err != nil {
 		return errors.Wrap(err, "inference with tools failed")
 	}

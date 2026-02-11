@@ -46,7 +46,7 @@ func (s *fuzzSession) OnCompleted(ctx context.Context, raw []byte, ok bool, err 
 }
 
 func newMetaFuzz() events.EventMetadata {
-	return events.EventMetadata{ID: uuid.New(), RunID: "run", TurnID: "turn"}
+	return events.EventMetadata{ID: uuid.New(), SessionID: "run", TurnID: "turn"}
 }
 
 // splitIntoParts randomly cuts s into n segments (n>=1) deterministically from seed

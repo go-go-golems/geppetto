@@ -1,7 +1,7 @@
 ---
 Title: Typed accessor for Turn.Data (opaque wrapper)
 Ticket: 001-TYPED-ACCESSOR-TURN-DATA
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -12,9 +12,12 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Investigate turning turns.Turn.Data into an opaque wrapper with typed access (Get[T]) while preserving YAML compatibility and iteration needs."
-LastUpdated: 2025-12-17T17:35:01.569057594-05:00
+Summary: Investigate turning turns.Turn.Data into an opaque wrapper with typed access (Get[T]) while preserving YAML compatibility and iteration needs.
+LastUpdated: 2026-01-25T09:04:32.300852911-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Typed accessor for Turn.Data (opaque wrapper)
 

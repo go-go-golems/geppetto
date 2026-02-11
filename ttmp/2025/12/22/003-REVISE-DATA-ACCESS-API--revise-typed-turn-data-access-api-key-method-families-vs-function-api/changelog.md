@@ -59,3 +59,8 @@ Add analysis: where Turn YAML serde is used (geppetto tooling vs moments/pinocch
 
 - /home/manuel/workspaces/2025-12-19/use-strong-turn-data-access/geppetto/ttmp/2025/12/22/003-REVISE-DATA-ACCESS-API--revise-typed-turn-data-access-api-key-method-families-vs-function-api/analysis/02-analysis-where-turn-yaml-serde-is-used-geppetto-vs-moments-vs-pinocchio.md — Usage inventory
 
+
+## 2026-01-25
+
+Ticket closed
+

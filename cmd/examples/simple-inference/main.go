@@ -8,6 +8,8 @@ import (
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -112,6 +114,7 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		return errors.Wrap(err, "failed to create engine")
 	}
 
+	var mws []middleware.Middleware
 	if s.WithLogging {
 		loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
 			return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -127,7 +130,7 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 				return result, err
 			}
 		}
-		engine = middleware.NewEngineWithMiddleware(engine, loggingMiddleware)
+		mws = append(mws, loggingMiddleware)
 	}
 
 	// Seed initial Turn with Blocks (no conversation manager)
@@ -136,7 +139,18 @@ func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers
 		WithUserPrompt(s.Prompt).
 		Build()
 
-	updatedTurn, err := engine.RunInference(ctx, initialTurn)
+	sess := session.NewSession()
+	sess.Builder = enginebuilder.New(
+		enginebuilder.WithBase(engine),
+		enginebuilder.WithMiddlewares(mws...),
+	)
+	sess.Append(initialTurn)
+	handle, err := sess.StartInference(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to start inference")
+		return fmt.Errorf("failed to start inference: %w", err)
+	}
+	updatedTurn, err := handle.Wait()
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)

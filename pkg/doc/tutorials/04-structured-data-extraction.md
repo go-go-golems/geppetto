@@ -412,8 +412,8 @@ func main() {
         &CitationsExtractor{},
     )
 
-    // 4. Create engine with filtering sink
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(filteringSink))
+    // 4. Create engine (attach filtering sink at runtime via context)
+    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
 
     // 5. Build Turn
     turn := &turns.Turn{}
@@ -497,4 +497,3 @@ func (s *citationsSession) OnRaw(ctx context.Context, chunk []byte) []events.Eve
 - [Progressive Structured Data Playbook](../playbooks/03-progressive-structured-data.md) — Step-by-step guide
 - Example: `geppetto/cmd/examples/citations-event-stream/main.go`
 - Tests: `geppetto/pkg/events/structuredsink/filtering_sink_test.go`
-

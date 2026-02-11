@@ -26,7 +26,7 @@ It also enables in-band mode switching using YAML. The assistant can output a fe
 ## Key capabilities
 
 - Inject a single, mode-specific user prompt (no system blocks)
-- Enforce allowed tools per mode (passed as a hint to tool middleware)
+- Expose allowed tools per mode (as a hint on `Turn.Data`; enforcement is handled by a separate “tool configuration” concern)
 - Parse YAML fenced blocks to detect switches:
 
 ```yaml
@@ -55,7 +55,7 @@ mode_switch:
 ## Data keys
 
 - `agent_mode`: current mode name (string)
-- `agent_mode_allowed_tools`: hint read by the Tool middleware to restrict calls
+- `agent_mode_allowed_tools`: hint for tool configuration (which tools are advertised / allowed)
 
 ## Package layout
 
@@ -68,17 +68,35 @@ mode_switch:
 ## Example usage
 
 ```go
+import (
+  "context"
+  "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+  "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
+  "github.com/go-go-golems/geppetto/pkg/inference/tools"
+)
+
 svc := agentmode.NewStaticService([]*agentmode.AgentMode{
   {Name: "chat",  AllowedTools: []string{"echo"},     Prompt: "You are in chat mode; prefer concise helpful answers."},
   {Name: "clock", AllowedTools: []string{"time_now"}, Prompt: "You are in clock mode; you may use time_now when necessary."},
 })
 
 mw := agentmode.NewMiddleware(svc, agentmode.DefaultConfig())
-toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 3})
-engine := middleware.NewEngineWithMiddleware(base, mw, toolMw)
+reg := tools.NewInMemoryToolRegistry()
+// register your tools into reg (e.g. via tools.NewToolFromFunc + reg.RegisterTool)
+cfg := toolloop.NewToolConfig().WithMaxIterations(3)
+runner, err := enginebuilder.New(
+  enginebuilder.WithBase(base),
+  enginebuilder.WithMiddlewares(mw),
+  enginebuilder.WithToolRegistry(reg),
+  enginebuilder.WithToolConfig(cfg),
+).Build(context.Background(), "")
+if err != nil {
+  panic(err)
+}
 
 t := &turns.Turn{Data: map[string]any{}}
 t.Data[agentmode.DataKeyAgentMode] = "clock"
+_, _ = runner.RunInference(context.Background(), t)
 ```
 
 ## YAML parser
@@ -111,5 +129,3 @@ This document follows the internal guidance from `glaze help how-to-write-good-d
 - Explaining architecture, data flow, and configuration keys
 - Showing copy-pasteable examples
 - Referencing code locations and runtimes
-
-

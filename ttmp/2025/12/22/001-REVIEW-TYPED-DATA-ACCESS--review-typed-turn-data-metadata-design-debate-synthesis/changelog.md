@@ -81,3 +81,13 @@ Updated key identity to use fixed NamespaceKey and ValueKey types instead of str
 
 Updated key identity to use string consts for namespace and value keys (like current design). Keys constructed via K[T](namespaceConst, valueConst, version) - linter enforces const usage.
 
+
+## 2026-01-25
+
+Ticket closed
+
+
+## 2026-01-25
+
+Ticket closed
+

@@ -6,9 +6,10 @@ import (
 	"io"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -36,15 +36,6 @@ var rootCmd = &cobra.Command{
 		err := logging.InitLoggerFromCobra(cmd)
 		if err != nil {
 			return err
-		}
-		// Honor --log-level if provided
-		if f := cmd.Flags(); f != nil {
-			lvl, _ := f.GetString("log-level")
-			if lvl != "" {
-				if l, err := zerolog.ParseLevel(lvl); err == nil {
-					zerolog.SetGlobalLevel(l)
-				}
-			}
 		}
 		return nil
 	},
@@ -120,11 +111,6 @@ func NewSimpleStreamingInferenceCommand() (*SimpleStreamingInferenceCommand, err
 				parameters.WithHelp("Verbose event router logging"),
 				parameters.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("log-level",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Global log level (trace, debug, info, warn, error)"),
-				parameters.WithDefault(""),
-			),
 		),
 		cmds.WithLayersList(
 			geppettoLayers...,
@@ -188,20 +174,17 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		router.AddHandler("chat", "chat", printer)
 	}
 
-	// 4. Create engine with sink
-	engineOptions := []engine.Option{
-		engine.WithSink(watermillSink),
-	}
-
-	engine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+	eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
 	}
+	sink := watermillSink
 
+	var mws []middleware.Middleware
 	// Add logging middleware if requested
 	if s.WithLogging {
-		engine = middleware.NewEngineWithMiddleware(engine, middleware.NewTurnLoggingMiddleware(log.Logger))
+		mws = append(mws, middleware.NewTurnLoggingMiddleware(log.Logger))
 	}
 
 	// Build initial Turn with Blocks (no conversation manager)
@@ -225,7 +208,18 @@ func (c *SimpleStreamingInferenceCommand) RunIntoWriter(ctx context.Context, par
 		defer cancel()
 		<-router.Running()
 
-		updatedTurn, err := engine.RunInference(ctx, seed)
+		sess := session.NewSession()
+		sess.Builder = enginebuilder.New(
+			enginebuilder.WithBase(eng),
+			enginebuilder.WithMiddlewares(mws...),
+			enginebuilder.WithEventSinks(sink),
+		)
+		sess.Append(seed)
+		handle, err := sess.StartInference(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start inference: %w", err)
+		}
+		updatedTurn, err := handle.Wait()
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)

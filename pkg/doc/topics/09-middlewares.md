@@ -1,12 +1,11 @@
 ---
 Title: Middlewares in Geppetto (Turn-based)
 Slug: geppetto-middlewares
-Short: A practical guide to writing, composing, and using middlewares with Turn-based engines, including logging and tool execution.
+Short: A practical guide to writing, composing, and using middlewares with Turn-based engines.
 Topics:
 - geppetto
 - middlewares
 - turns
-- tools
 - architecture
 IsTemplate: false
 IsTopLevel: true
@@ -21,7 +20,6 @@ SectionType: Tutorial
 Middlewares let you add behavior **around** inference calls without modifying the engine itself. They're the standard pattern for:
 
 - **Logging** — Record every inference call with timing and block counts
-- **Tool execution** — Detect `tool_call` blocks, run tools, append results
 - **Safety filters** — Block harmful requests before they reach the provider
 - **Tracing** — Add correlation IDs for distributed tracing
 - **Rate limiting** — Throttle requests per user or globally
@@ -29,16 +27,37 @@ Middlewares let you add behavior **around** inference calls without modifying th
 Middlewares compose cleanly: wrap an engine once, and all calls to `RunInference` pass through the chain.
 
 ```
-Request → [Logging] → [Tool Execution] → [Engine] → Response
-                                              ↓
-                     [Logging] ← [Tool Execution] ←
+Request → [Logging] → [Engine] → Response
+                     ↓          ↓
+                     [Logging] ←
 ```
+
+## Middleware as Composable Prompting
+
+The examples above (logging, safety, tracing) are **infrastructure middleware** — they observe or gate inference for operational concerns. But the most powerful use of middleware in Geppetto is as **composable prompting techniques**.
+
+Most LLM frameworks treat prompt construction as a single function that builds a string. If you want a system prompt, you concatenate it. If you want tool instructions, you concatenate more. If you want mode-specific guidance, you add more text. The result is a fragile, monolithic prompt builder.
+
+Middleware inverts this: each prompting technique is a separate, composable wrapper that adds its contribution to the Turn. Real examples in the codebase:
+
+| Middleware | What it does | Type of change |
+|-----------|-------------|----------------|
+| **System prompt** | Ensures the correct system block exists; adds or replaces it | Block insertion/replacement |
+| **Tool reorder** | Moves `tool_use` blocks to sit adjacent to their `tool_call` blocks | Block reordering |
+| **Agent mode** | Injects mode-specific guidance blocks; parses model output for mode switches | Block insertion + output parsing |
+| **SQLite tool** | Registers a database query tool into the runtime registry | Configuration change (no text change) |
+
+Each technique is:
+- **Independent** — develop and test in isolation
+- **Composable** — stack with other techniques without interference
+- **Observable** — tags blocks with provenance metadata (`Block.Metadata`) for debugging
+
+Not all middleware effects are visible as text changes. Some modify Turn configuration (`Turn.Data`), register tools, or emit events. A debugging UI must surface these "invisible" changes alongside content diffs.
 
 ## What you'll learn
 
 - The middleware interface and how it composes
-- How to write a simple logging middleware
-- How to use the built-in tool middleware
+- How to write middlewares that modify Turn content (not just log)
 - How to attach middlewares to engines
 
 ---
@@ -53,8 +72,8 @@ import "context"
 type HandlerFunc func(ctx context.Context, t *turns.Turn) (*turns.Turn, error)
 type Middleware  func(HandlerFunc) HandlerFunc
 
-// EngineWithMiddleware wraps an engine so that calls to RunInference pass through the chain.
-func NewEngineWithMiddleware(e engine.Engine, mws ...Middleware) engine.Engine { /* ... */ }
+// Chain composes multiple middleware into a single HandlerFunc.
+func Chain(handler HandlerFunc, middlewares ...Middleware) HandlerFunc { /* ... */ }
 ```
 
 Conceptually, a middleware takes a `HandlerFunc` (the next step) and returns a new `HandlerFunc` that adds behavior before and/or after calling `next`.
@@ -78,29 +97,77 @@ logMw := func(next middleware.HandlerFunc) middleware.HandlerFunc {
     }
 }
 
-e := middleware.NewEngineWithMiddleware(baseEngine, logMw)
+builder := enginebuilder.New(
+    enginebuilder.WithBase(baseEngine),
+    enginebuilder.WithMiddlewares(logMw),
+)
 ```
 
 ---
 
-## Example: Tool middleware
+## Example: Block-mutating middleware (system prompt)
 
-The tool middleware detects `tool_call` blocks and executes tools via a `Toolbox`, then appends matching `tool_use` blocks. It loops up to `MaxIterations` or until there are no pending calls.
+Unlike the logging example above, this middleware **modifies the Turn's content** before inference — it ensures a system block is always present with the correct text:
 
 ```go
-tb := middleware.NewMockToolbox()
-tb.RegisterTool("echo", "Echo back the input text", map[string]any{
-    "text": {"type": "string"},
-}, func(ctx context.Context, args map[string]any) (any, error) {
-    return args["text"], nil
-})
-
-cfg := middleware.ToolConfig{ MaxIterations: 5 }
-toolMw := middleware.NewToolMiddleware(tb, cfg)
-e := middleware.NewEngineWithMiddleware(baseEngine, toolMw)
+systemPromptMw := func(prompt string) middleware.Middleware {
+    return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+        return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+            // Check if a system block already exists
+            found := false
+            for i, b := range t.Blocks {
+                if b.Kind == turns.BlockKindSystem {
+                    // Update existing system block
+                    t.Blocks[i].Payload[turns.PayloadKeyText] = prompt
+                    _ = turns.KeyBlockMetaMiddleware.Set(&t.Blocks[i].Metadata, "systemprompt")
+                    found = true
+                    break
+                }
+            }
+            if !found {
+                // Insert system block at the beginning
+                block := turns.NewSystemTextBlock(prompt)
+                _ = turns.KeyBlockMetaMiddleware.Set(&block.Metadata, "systemprompt")
+                turns.PrependBlock(t, block)
+            }
+            return next(ctx, t)
+        }
+    }
+}
 ```
 
-Note: Providers learn about tools to advertise from `context.Context` (tool registry) plus `Turn.Data` (tool config, e.g. `engine.KeyToolConfig`). The middleware executes tools independent of provider.
+Note how the middleware tags the block with `KeyBlockMetaMiddleware` — this records provenance (which middleware touched this block), enabling debugging tools to show attribution.
+
+---
+
+## Example: Post-processing middleware (output parsing)
+
+Middlewares can also inspect and act on the model's output **after** inference. This pattern is used by the agent-mode middleware to detect mode-switch signals in the model's response:
+
+```go
+postProcessMw := func(next middleware.HandlerFunc) middleware.HandlerFunc {
+    return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+        // Call the next handler (or engine) first
+        result, err := next(ctx, t)
+        if err != nil {
+            return result, err
+        }
+
+        // Examine model output blocks
+        for _, b := range result.Blocks {
+            if b.Kind == turns.BlockKindLLMText {
+                text, _ := b.Payload[turns.PayloadKeyText].(string)
+                // Parse structured content from model output,
+                // update Turn.Data, emit events, etc.
+                _ = text
+            }
+        }
+        return result, nil
+    }
+}
+```
+
+This two-phase capability (pre-processing + post-processing) is what makes middleware a full prompting technique rather than just a request filter.
 
 ---
 
@@ -110,15 +177,20 @@ Middlewares run in the order they're provided:
 
 ```go
 e := baseEngine
-e = middleware.NewEngineWithMiddleware(e, logMw)
-e = middleware.NewEngineWithMiddleware(e, toolMw)
-// Now: RunInference -> logMw -> toolMw -> engine
+builder := enginebuilder.New(
+    enginebuilder.WithBase(e),
+    enginebuilder.WithMiddlewares(logMw /*, sysPromptMw, ... */),
+)
+// Now: RunInference -> logMw -> engine
 ```
 
 For convenience, pass them as a slice once:
 
 ```go
-e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
+builder := enginebuilder.New(
+    enginebuilder.WithBase(baseEngine),
+    enginebuilder.WithMiddlewares(logMw, safetyMw),
+)
 ```
 
 ### Recommended Ordering
@@ -128,9 +200,8 @@ e = middleware.NewEngineWithMiddleware(baseEngine, logMw, toolMw)
 | 1 | Logging | Capture all requests, including rejected ones |
 | 2 | Rate limiting | Block before expensive operations |
 | 3 | Safety filters | Block before reaching provider |
-| 4 | Mode switching | Set context (e.g., agent mode) before tools |
-| 5 | Tool execution | Execute tools, may re-invoke engine |
-| 6 | (Engine) | The actual provider call |
+| 4 | Mode switching | Set context (e.g., agent mode) before provider call |
+| 5 | (Engine) | The actual provider call |
 
 General principle: **Middlewares that reject/filter go first; middlewares that modify/augment go last.**
 
@@ -139,59 +210,32 @@ General principle: **Middlewares that reject/filter go first; middlewares that m
 ## Guidance and best practices
 
 - Keep middlewares stateless when possible; prefer reading/writing on the provided `*turns.Turn`
-- Use provider-agnostic block semantics (`tool_call`/`tool_use`, `llm_text`) rather than parsing text
+- Prefer structured Turn data (blocks + typed metadata keys) over parsing raw text when possible
 - Log with context (correlation IDs in `Turn.Metadata`), but avoid leaking sensitive data
 - Ensure the middleware chain always calls `next` unless you intend to short-circuit
 
-### Lessons learned (agent-mode and tools)
+### Lessons learned
 
-- Prefer per-Turn data hints over global state: attach small hints on `Turn.Data` using typed keys (e.g., `turns.KeyAgentMode`, `turns.KeyAgentModeAllowedTools` from `geppetto/pkg/turns`, or application-specific keys from `moments/backend/pkg/turnkeys`) to guide downstream middlewares without tight coupling. Define keys in `*_keys.go` and reuse the canonical variables everywhere else.
-- Separate declarative advertisement from imperative execution: providers read a declarative registry (schemas) from `context.Context`, while execution happens via a runtime `Toolbox` (function pointers) in the tool middleware. This separation improves safety and testability.
+- Prefer per-Turn data hints over global state: attach small hints on `Turn.Data` using typed keys (e.g., `turns.KeyAgentMode` from `geppetto/pkg/turns`, or application-specific keys from `moments/backend/pkg/turnkeys`) to guide downstream middlewares without tight coupling. Define keys in `*_keys.go` and reuse the canonical variables everywhere else.
 - Reuse shared parsers/utilities: use a central YAML fenced-block parser to reliably extract structured content from LLM output instead of ad-hoc regex.
-- Compose middlewares by concern: a mode middleware can set allowed tools; the tool middleware enforces the filter and handles execution; engines remain provider-focused.
+- Compose by concern: keep provider-specific logic in engines and cross-cutting concerns (logging, validation, mode switching) in middleware.
 - Make instructions explicit: when asking models to emit structured control output (like mode switches), provide a clear fenced YAML template and ask for long analysis when needed.
 
 ---
 
 ## Troubleshooting
 
-- Tool calls not executing: Ensure you attached the registry to context (e.g., `ctx = toolcontext.WithRegistry(ctx, reg)`) and that the engine/provider emits `tool_call` blocks
-- Infinite loops: Set `MaxIterations` and verify that new `tool_call` blocks eventually stop
-- Missing results: Confirm `tool_use` blocks carry the same `id` as the originating `tool_call`
+- Middleware not running: ensure you’re using `enginebuilder.New(... enginebuilder.WithMiddlewares(...))` (or that you’re applying `middleware.Chain(...)` in your own engine adapter).
+- Wrong ordering: remember `middleware.Chain(m1, m2, m3)` runs as `m1(m2(m3(next)))`.
+- Nil Turn: most middleware should be defensive if `t == nil` (either treat as empty turn or error early).
 
 ---
 
-## Full example (logging + tools)
-
-```go
-func buildEngineWithMiddlewares(base engine.Engine, tb middleware.Toolbox) engine.Engine {
-    logMw := func(next middleware.HandlerFunc) middleware.HandlerFunc {
-        return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-            log.Info().Int("blocks", len(t.Blocks)).Msg("Run start")
-            res, err := next(ctx, t)
-            if err != nil { log.Error().Err(err).Msg("Run error") }
-            return res, err
-        }
-    }
-    toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5})
-    return middleware.NewEngineWithMiddleware(base, logMw, toolMw)
-}
-```
-
-## Packages
-
-```go
-import (
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware" // Core middleware
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"     // Engine interface
-    "github.com/go-go-golems/geppetto/pkg/turns"                // Turn/Block types
-)
-```
-
 ## See Also
 
-- [Inference Engines](06-inference-engines.md) — The engines that middlewares wrap
-- [Tools](07-tools.md) — Tool definitions and execution
-- [Turns and Blocks](08-turns.md) — The Turn data model
+- [Inference Engines](06-inference-engines.md) — The engines that middlewares wrap; see "Complete Runtime Flow"
+- [Turns and Blocks](08-turns.md) — The Turn data model; see "How Blocks Accumulate"
+- [Sessions](10-sessions.md) — Multi-turn session management
 - [Events](04-events.md) — Event publishing from middlewares
+- [Structured Sinks](11-structured-sinks.md) — How middleware and sinks compose for structured output extraction
 - Real-world examples: `geppetto/pkg/inference/middleware/agentmode/`, `geppetto/pkg/inference/middleware/sqlitetool/`

@@ -1,7 +1,7 @@
 ---
 Title: 'Turns/Blocks serde: typed key serializability (YAML/JSON)'
 Ticket: 005-TURNS-SERDE
-Status: active
+Status: complete
 Topics:
     - architecture
     - geppetto
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-05T19:40:34.032375735-05:00
+LastUpdated: 2026-01-25T09:04:48.667537426-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Turns/Blocks serde: typed key serializability (YAML/JSON)
 

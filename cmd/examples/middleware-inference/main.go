@@ -8,12 +8,11 @@ import (
 	"time"
 
 	clay "github.com/go-go-golems/clay/pkg"
-	"github.com/go-go-golems/geppetto/pkg/conversation"
-	"github.com/go-go-golems/geppetto/pkg/conversation/builder"
-	enginepkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -24,7 +23,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
-	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -179,104 +177,67 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 		middlewares = append(middlewares, uppercaseMiddleware)
 	}
 
-	if s.WithTools {
-		// Minimal toolbox with a demo tool
-		tb := middleware.NewMockToolbox()
-		tb.RegisterTool("echo", "Echo back the input text", map[string]interface{}{
-			"text": map[string]interface{}{"type": "string"},
-		}, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-			if v, ok := args["text"].(string); ok {
-				return v, nil
-			}
-			return "", nil
-		})
-		toolMw := middleware.NewToolMiddleware(tb, middleware.ToolConfig{MaxIterations: 5, Timeout: 30 * time.Second})
-		middlewares = append(middlewares, toolMw)
-		// Attach registry and minimal tool config to Turn at seeding time below
+	if s.WithTools && s.Prompt == "" {
+		s.Prompt = "Use the echo tool with text 'hello' and return the result."
 	}
 
-	// Wrap engine with middleware if any are provided
-	if len(middlewares) > 0 {
-		engine = middleware.NewEngineWithMiddleware(engine, middlewares...)
-	}
-
-	// Build conversation manager
-	b := builder.NewManagerBuilder().
-		WithSystemPrompt("You are a helpful assistant. Answer the question in a short and concise manner.").
-		WithPrompt(s.Prompt)
-
-	manager, err := b.Build()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to build conversation manager")
-		return err
-	}
-
-	conversation_ := manager.GetConversation()
-	// Seed a Turn from the initial conversation
 	initialTurn := &turns.Turn{}
-	for _, msg := range conversation_ {
-		if chatMsg, ok := msg.Content.(*conversation.ChatMessageContent); ok {
-			kind := turns.BlockKindOther
-			switch chatMsg.Role {
-			case conversation.RoleSystem:
-				kind = turns.BlockKindSystem
-			case conversation.RoleUser:
-				kind = turns.BlockKindUser
-			case conversation.RoleAssistant:
-				kind = turns.BlockKindLLMText
-			case conversation.RoleTool:
-				kind = turns.BlockKindOther
-			}
-			switch kind {
-			case turns.BlockKindUser:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindLLMText:
-				turns.AppendBlock(initialTurn, turns.NewAssistantTextBlock(chatMsg.Text))
-			case turns.BlockKindSystem:
-				turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(chatMsg.Text))
-			case turns.BlockKindToolCall:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindToolUse:
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			case turns.BlockKindReasoning:
-				// Current middleware example has no conversation representation for reasoning; skip.
-			case turns.BlockKindOther:
-				// Preserve Other/tool role as-is
-				turns.AppendBlock(initialTurn, turns.NewUserTextBlock(chatMsg.Text))
-			}
-		}
-	}
+	turns.AppendBlock(initialTurn, turns.NewSystemTextBlock(
+		"You are a helpful assistant. Answer the question in a short and concise manner.",
+	))
+	turns.AppendBlock(initialTurn, turns.NewUserTextBlock(s.Prompt))
 
-	// If tools enabled, attach registry to context and a minimal engine ToolConfig via Turn.Data
+	var toolLoopRegistry tools.ToolRegistry
+	var toolLoopLoopCfg toolloop.LoopConfig
+	var toolLoopToolCfg tools.ToolConfig
+	toolLoopEnabled := false
 	if s.WithTools {
-		echoSchema := &jsonschema.Schema{Type: "object"}
-		props := jsonschema.NewProperties()
-		props.Set("text", &jsonschema.Schema{Type: "string"})
-		echoSchema.Properties = props
-		echoSchema.Required = []string{"text"}
-		// Build a lightweight registry the engine can read
-		reg := tools.NewInMemoryToolRegistry()
-		_ = reg.RegisterTool("echo", tools.ToolDefinition{
-			Name:        "echo",
-			Description: "Echo back the input text",
-			Parameters:  echoSchema,
-			Tags:        []string{"demo"},
-			Version:     "1.0",
-		})
-		ctx = toolcontext.WithRegistry(ctx, reg)
-		if err := enginepkg.KeyToolConfig.Set(&initialTurn.Data, enginepkg.ToolConfig{
-			Enabled:          true,
-			ToolChoice:       enginepkg.ToolChoiceAuto,
-			MaxIterations:    5,
-			ExecutionTimeout: 30 * time.Second,
-			MaxParallelTools: 1,
-		}); err != nil {
-			return fmt.Errorf("set tool config: %w", err)
+		type echoIn struct {
+			Text string `json:"text" jsonschema:"required,description=The text to echo back"`
 		}
+		echoDef, err := tools.NewToolFromFunc("echo", "Echo back the input text", func(in echoIn) (map[string]any, error) {
+			return map[string]any{"text": in.Text}, nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to create echo tool")
+		}
+
+		reg := tools.NewInMemoryToolRegistry()
+		if err := reg.RegisterTool("echo", *echoDef); err != nil {
+			return errors.Wrap(err, "failed to register echo tool")
+		}
+
+		toolLoopRegistry = reg
+		toolLoopLoopCfg = toolloop.NewLoopConfig().WithMaxIterations(5)
+		toolLoopToolCfg = tools.DefaultToolConfig().
+			WithExecutionTimeout(30 * time.Second).
+			WithMaxParallelTools(1).
+			WithToolChoice(tools.ToolChoiceAuto).
+			WithToolErrorHandling(tools.ToolErrorContinue)
+		toolLoopEnabled = true
 	}
 
 	// Run inference
-	updatedTurn, err := engine.RunInference(ctx, initialTurn)
+	sess := session.NewSession()
+	builderOpts := []enginebuilder.Option{
+		enginebuilder.WithBase(engine),
+		enginebuilder.WithMiddlewares(middlewares...),
+	}
+	if toolLoopEnabled {
+		builderOpts = append(builderOpts,
+			enginebuilder.WithToolRegistry(toolLoopRegistry),
+			enginebuilder.WithLoopConfig(toolLoopLoopCfg),
+			enginebuilder.WithToolConfig(toolLoopToolCfg),
+		)
+	}
+	sess.Builder = enginebuilder.New(builderOpts...)
+	sess.Append(initialTurn)
+	handle, err := sess.StartInference(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to start inference")
+		return fmt.Errorf("failed to start inference: %w", err)
+	}
+	updatedTurn, err := handle.Wait()
 	if err != nil {
 		log.Error().Err(err).Msg("Inference failed")
 		return fmt.Errorf("inference failed: %w", err)

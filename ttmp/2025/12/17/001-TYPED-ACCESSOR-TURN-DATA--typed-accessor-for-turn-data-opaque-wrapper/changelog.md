@@ -174,3 +174,8 @@ Edited synthesis doc for clarity/conciseness: added TL;DR + early Decision Frame
 
 - geppetto/ttmp/2025/12/17/001-TYPED-ACCESSOR-TURN-DATA--typed-accessor-for-turn-data-opaque-wrapper/design-doc/01-debate-synthesis-typed-turn-data-metadata-design.md — Restructure and clarity edits
 
+
+## 2026-01-25
+
+Ticket closed
+

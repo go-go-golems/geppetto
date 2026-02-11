@@ -1,0 +1,17 @@
+# Tasks
+
+## TODO
+
+- [ ] Add tasks here
+
+- [x] Implement session registry (rdx/pkg/rtk/session_registry) and selector resolution
+- [x] Add sessions command group (list/label) and wire into CLI
+- [x] Update tail/state/watch to accept --select and resolve to instance IDs
+- [x] Add tests for selector resolution and registry behavior
+- [x] Update diary/changelog and commit docs
+- [x] Add tail timeout + wait-for-count options and dual-mode output (plain writer default)
+- [x] Add debug-raw command to print raw SocketCluster frames
+- [x] Add YAML output option to debug-raw
+- [x] Decode top-level JSON in debug-raw YAML output
+- [x] Decode embedded payload/app JSON in debug-raw YAML output
+- [x] Decode embedded action JSON and add payload filter flag

@@ -81,7 +81,6 @@ func (k *BlockKind) UnmarshalYAML(value *yaml.Node) error {
 // Block represents a single atomic unit within a Turn.
 type Block struct {
 	ID      string         `yaml:"id,omitempty"`
-	TurnID  string         `yaml:"turn_id,omitempty"`
 	Kind    BlockKind      `yaml:"kind"`
 	Role    string         `yaml:"role,omitempty"`
 	Payload map[string]any `yaml:"payload,omitempty"`
@@ -92,12 +91,48 @@ type Block struct {
 // Turn contains an ordered list of Blocks and associated metadata.
 type Turn struct {
 	ID     string  `yaml:"id,omitempty"`
-	RunID  string  `yaml:"run_id,omitempty"`
 	Blocks []Block `yaml:"blocks"`
 	// Metadata stores arbitrary metadata about the turn
 	Metadata Metadata `yaml:"metadata,omitempty"`
 	// Data stores the application data payload associated with this turn
 	Data Data `yaml:"data,omitempty"`
+}
+
+// Clone returns a deep copy of the Turn suitable for mutation without affecting the original.
+//
+// It copies:
+// - Turn.ID
+// - Turn.Metadata (shallow copy of the underlying map)
+// - Turn.Data (shallow copy of the underlying map)
+// - Blocks slice (new slice) and, for each block:
+//   - Payload map (new map)
+//   - Block.Metadata (shallow copy of the underlying map)
+func (t *Turn) Clone() *Turn {
+	if t == nil {
+		return nil
+	}
+	out := &Turn{
+		ID:       t.ID,
+		Metadata: t.Metadata.Clone(),
+		Data:     t.Data.Clone(),
+	}
+	if len(t.Blocks) == 0 {
+		return out
+	}
+	out.Blocks = make([]Block, len(t.Blocks))
+	for i := range t.Blocks {
+		b := t.Blocks[i]
+		if b.Payload != nil {
+			cp := make(map[string]any, len(b.Payload))
+			for k, v := range b.Payload {
+				cp[k] = v
+			}
+			b.Payload = cp
+		}
+		b.Metadata = b.Metadata.Clone()
+		out.Blocks[i] = b
+	}
+	return out
 }
 
 // NewKeyString constructs a canonical key identity string in the form "namespace.value@vN".

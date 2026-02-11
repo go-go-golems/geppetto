@@ -15,7 +15,7 @@ import (
 	"github.com/dnaeon/go-vcr/recorder"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
@@ -91,17 +91,6 @@ type ExecuteOptions struct {
 	RawCapture bool
 	// When true, capture logs to out/logs.jsonl
 	CaptureLogs bool
-	// EngineFactory allows callers to customise which engine implementation is used.
-	EngineFactory EngineFactory
-}
-
-// EngineFactory constructs an inference engine for the provided settings.
-type EngineFactory func(*settings.StepSettings, ...engine.Option) (engine.Engine, error)
-
-// DefaultEngineFactory builds an OpenAI chat completions engine. A later PR can override this
-// once the Responses engine lands in the clean branch.
-var DefaultEngineFactory EngineFactory = func(st *settings.StepSettings, opts ...engine.Option) (engine.Engine, error) {
-	return openai.NewOpenAIEngine(st, opts...)
 }
 
 // ExecuteFixture runs the initial turn and all provided follow-up blocks, persisting artifacts.
@@ -180,17 +169,13 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 	}()
 	sink := &fileSink{f: ef, echo: opts.EchoEvents}
 
-	engOpts := []engine.Option{engine.WithSink(sink)}
-	engineFactory := opts.EngineFactory
-	if engineFactory == nil {
-		engineFactory = DefaultEngineFactory
-	}
-	eng, err := engineFactory(st, engOpts...)
+	eng, err := openai_responses.NewEngine(st)
 	if err != nil {
 		return nil, err
 	}
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
+	runCtx = events.WithEventSinks(runCtx, sink)
 	if opts.RawCapture {
 		turnID := ""
 		if turn != nil {
@@ -231,13 +216,14 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 				}
 			}()
 			sink2 := &fileSink{f: ef2, echo: opts.EchoEvents}
-			eng2, err := engineFactory(st, engine.WithSink(sink2))
+			eng2, err := openai_responses.NewEngine(st)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to create engine for follow-up")
 				return
 			}
 			runCtx2, cancel2 := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel2()
+			runCtx2 = events.WithEventSinks(runCtx2, sink2)
 			if opts.RawCapture {
 				turnID := ""
 				if finalTurn != nil {

@@ -19,13 +19,13 @@ SectionType: Tutorial
 
 # Build a Streaming Inference Command with Tool Calling
 
-This tutorial explains how to build a Cobra command that performs streaming inference and supports tool calling using Geppetto. We follow the engine-first architecture: engines handle provider I/O and emit events, while helpers orchestrate tools. The focus is on concepts, small runnable snippets, and the key APIs you will use, not a single large code dump. See the style guide for expectations around examples and structure: `glaze help how-to-write-good-documentation-pages`.
+This tutorial explains how to build a Cobra command that performs streaming inference and supports tool calling using Geppetto. We follow the engine-first architecture: engines handle provider I/O and emit events, while `toolloop.Loop` orchestrates tool execution. The focus is on concepts, small runnable snippets, and the key APIs you will use, not a single large code dump. See the style guide for expectations around examples and structure: `glaze help how-to-write-good-documentation-pages`.
 
 For foundational background, see:
 - [Inference Engines](../topics/06-inference-engines.md)
 - [Events and Streaming](../topics/04-events.md)
 
-Note: In current Geppetto, provider engines learn about available tools from the tool registry attached to `context.Context` (see `toolcontext.WithRegistry`). This tutorial shows that wiring explicitly in Step 6.
+Note: Provider engines learn about available tools from the tool registry attached to `context.Context` (see `tools.WithRegistry`). This tutorial shows that wiring in Step 6 (the tool loop also attaches the registry automatically).
 
 ## What You’ll Build
 
@@ -55,23 +55,23 @@ Note: In current Geppetto, provider engines learn about available tools from the
 - Event router: transports events (Watermill) and drives printers
 - Event sink: connects the engine and helpers to the router
 - Tool registry: in-memory store of callable tools
-- Tool helpers: manage the tool-calling loop and Turn updates
+- Tool loop: manages the tool-calling loop and Turn updates
 
 ## Key APIs You’ll Use
 
 - Engine and sink
-  - `factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))`
+  - `factory.NewEngineFromParsedLayers(parsed)`
   - `middleware.NewWatermillSink(publisher, topic)`
+  - `events.WithEventSinks(ctx, sink)` (attach sinks at runtime)
 - Events and printers
   - `events.NewEventRouter()`
   - `events.StepPrinterFunc(prefix, w)` or `events.NewStructuredPrinter(w, options)`
 - Tools
   - `tools.NewInMemoryToolRegistry()`
   - `tools.NewToolFromFunc(name, description, func)`
-  - `toolcontext.WithRegistry(ctx, registry)` (attach runtime registry to `context.Context`)
-- Turns and helpers
+- Turns and tool loop
   - `turns.NewSystemTextBlock(...)` / `turns.NewUserTextBlock(...)`
-  - `toolhelpers.RunToolCallingLoop(ctx, eng, turn, registry, toolConfig)`
+  - `toolloop.Loop.RunLoop(ctx, turn)`
 
 ## Step 1 — Define the CLI Command
 
@@ -122,10 +122,10 @@ Why this matters: the sink ties your engine and helpers to the router so that to
 
 ## Step 3 — Create the Engine (Streaming Enabled)
 
-Pass the sink to the engine so it can emit streaming events.
+Create the engine normally. Streaming events are emitted to the sinks attached to the runtime context.
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))
+eng, err := factory.NewEngineFromParsedLayers(parsed)
 if err != nil { return err }
 ```
 
@@ -164,7 +164,7 @@ turns.AppendBlock(seed, turns.NewUserTextBlock(s.Prompt))
 
 ## Step 6 — Run the Router and Tool-Calling Loop
 
-Run the router and the helper loop concurrently using `errgroup`. This pattern ensures proper coordination:
+Run the router and the tool loop concurrently using `errgroup`. This pattern ensures proper coordination:
 
 ```go
 eg, groupCtx := errgroup.WithContext(ctx)
@@ -178,22 +178,18 @@ eg.Go(func() error {
     // CRITICAL: Wait for router to be ready before publishing events
     <-router.Running()
     
-    // Attach the sink to context so helpers and tools can publish events
+    // Attach the sink to context so the engine can publish streaming events
     runCtx := events.WithEventSinks(groupCtx, sink)
     
-    // Attach the tool registry to context so engines know what tools are available
-    // (Engines read from context, not from Turn.Data)
-    runCtx = toolcontext.WithRegistry(runCtx, registry)
-    
-    // Run the tool-calling loop:
-    // 1. Calls RunInference with the Turn
-    // 2. If model emits tool_call blocks, executes tools
-    // 3. Appends tool_use blocks with results
-    // 4. Re-invokes inference until no more tool calls (or max iterations)
-    updated, err := toolhelpers.RunToolCallingLoop(
-        runCtx, eng, seed, registry, 
-        toolhelpers.NewToolConfig().WithMaxIterations(5),
+    loop := toolloop.New(
+        toolloop.WithEngine(eng),
+        toolloop.WithRegistry(registry),
+        toolloop.WithLoopConfig(toolloop.NewLoopConfig().WithMaxIterations(5)),
+        toolloop.WithToolConfig(tools.DefaultToolConfig()),
     )
+
+    // Run the tool-calling loop (inference → tool calls → tool execution → tool_use blocks → repeat)
+    updated, err := loop.RunLoop(runCtx, seed)
     if err != nil { return err }
     
     // 'updated' now contains the full conversation:
@@ -229,10 +225,10 @@ assistant: It’s about 22°C in Paris right now.
 
 ## Troubleshooting and Tips
 
-- No output streaming? Ensure the engine is constructed with `engine.WithSink(sink)` and that the sink is also placed on the context via `events.WithEventSinks(...)`.
+- No output streaming? Ensure the sink is placed on the context via `events.WithEventSinks(...)` *in the goroutine that runs inference*.
 - Blank console? Confirm a handler is registered for the same topic you used when creating the sink (here: `"chat"`).
-- Tool schemas not applied? Some providers don’t accept external tool definitions; fall back to the generic helper loop which inspects model output and invokes tools from the registry.
-- Infinite loops: cap iterations with `toolhelpers.NewToolConfig().WithMaxIterations(n)`.
+- Tool schemas not applied? Some providers don’t accept external tool definitions; rely on the tool loop, which inspects model output and invokes tools from the registry.
+- Infinite loops: cap iterations with `toolloop.NewLoopConfig().WithMaxIterations(n)`.
 
 ## See Also
 

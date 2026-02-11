@@ -105,8 +105,12 @@ func (p *PrettyPrinter) FprintTurn(w io.Writer, t *Turn) {
 		case BlockKindToolUse:
 			toolID, _ := b.Payload[PayloadKeyID].(string)
 			result := b.Payload[PayloadKeyResult]
+			errStr, _ := b.Payload[PayloadKeyError].(string)
 			if p.IncludeToolDetail {
 				fmt.Fprintf(w, "%stool_result: id=%s\n", prefix, toolID)
+				if errStr != "" {
+					fmt.Fprintf(w, "%s  error: %s\n", pad, errStr)
+				}
 				if result != nil {
 					fmt.Fprintf(w, "%s  result: %s\n", pad, toOneLineJSON(result))
 				}

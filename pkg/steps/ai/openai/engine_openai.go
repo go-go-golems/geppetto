@@ -14,7 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
 
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -25,20 +24,13 @@ import (
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
 	settings    *settings.StepSettings
-	config      *engine.Config
 	toolAdapter *tools.OpenAIToolAdapter
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
-func NewOpenAIEngine(settings *settings.StepSettings, options ...engine.Option) (*OpenAIEngine, error) {
-	config := engine.NewConfig()
-	if err := engine.ApplyOptions(config, options...); err != nil {
-		return nil, err
-	}
-
+func NewOpenAIEngine(settings *settings.StepSettings) (*OpenAIEngine, error) {
 	return &OpenAIEngine{
 		settings:    settings,
-		config:      config,
 		toolAdapter: tools.NewOpenAIToolAdapter(),
 	}, nil
 }
@@ -56,6 +48,8 @@ func (e *OpenAIEngine) RunInference(
 	if e.settings.Chat.ApiType == nil {
 		return nil, errors.New("no chat engine specified")
 	}
+
+	// Chat engine no longer routes to Responses; factory selects the correct engine
 
 	client, err := MakeClient(e.settings.API, *e.settings.Chat.ApiType)
 	if err != nil {
@@ -109,7 +103,7 @@ func (e *OpenAIEngine) RunInference(
 
 	// Add tools to the request if present in context (no Turn.Data registry).
 	var engineTools []engine.ToolDefinition
-	if reg, ok := toolcontext.RegistryFrom(ctx); ok && reg != nil {
+	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
 		for _, td := range reg.ListTools() {
 			engineTools = append(engineTools, engine.ToolDefinition{
 				Name:        td.Name,
@@ -198,7 +192,12 @@ func (e *OpenAIEngine) RunInference(
 		Msg("LLMInferenceData initialized")
 	// Propagate Turn correlation identifiers when present
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.SessionID = sid
+		}
+		if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
+			metadata.InferenceID = iid
+		}
 		metadata.TurnID = t.ID
 	}
 	// Step metadata removed; settings metadata moved to EventMetadata.Extra
@@ -405,12 +404,6 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
-	// Best-effort publish to context sinks
 	events.PublishEventToContext(ctx, event)
 }
 

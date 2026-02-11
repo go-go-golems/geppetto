@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -331,20 +332,18 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		router.AddHandler("chat", "chat", printer)
 	}
 
-	// 4. Create base engine with sink - provider agnostic!
-	engineOptions := []engine.Option{
-		engine.WithSink(watermillSink),
-	}
-
-	baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+	// 4. Create base engine - provider agnostic!
+	baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
 	}
+	sink := watermillSink
 
+	var mws []middleware.Middleware
 	// Add logging middleware if requested
 	if s.WithLogging {
-		baseEngine = middleware.NewEngineWithMiddleware(baseEngine, middleware.NewTurnLoggingMiddleware(log.Logger))
+		mws = append(mws, middleware.NewTurnLoggingMiddleware(log.Logger))
 	}
 
 	// 5. Create tool registry and register tools
@@ -402,9 +401,9 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 
 	// 6. Create simplified tool configuration for helpers
 
-	helperConfig := toolhelpers.NewToolConfig().
-		WithMaxIterations(s.MaxIterations).
-		WithTimeout(30 * time.Second).
+	loopCfg := toolloop.NewLoopConfig().WithMaxIterations(s.MaxIterations)
+	toolCfg := tools.DefaultToolConfig().
+		WithExecutionTimeout(30 * time.Second).
 		WithMaxParallelTools(s.MaxParallelTools).
 		WithToolChoice(toolChoice).
 		WithAllowedTools(nil). // Allow all tools
@@ -431,8 +430,22 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLay
 		defer cancel()
 		<-router.Running()
 
-		// Run inference with simplified tool calling helpers (Turn-based) - works with any provider!
-		updatedTurn, err := toolhelpers.RunToolCallingLoop(ctx, baseEngine, initialTurn, registry, helperConfig)
+		cfg := toolCfg
+		sess := session.NewSession()
+		sess.Builder = enginebuilder.New(
+			enginebuilder.WithBase(baseEngine),
+			enginebuilder.WithMiddlewares(mws...),
+			enginebuilder.WithToolRegistry(registry),
+			enginebuilder.WithLoopConfig(loopCfg),
+			enginebuilder.WithToolConfig(cfg),
+			enginebuilder.WithEventSinks(sink),
+		)
+		sess.Append(initialTurn)
+		handle, err := sess.StartInference(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start inference: %w", err)
+		}
+		updatedTurn, err := handle.Wait()
 		if err != nil {
 			log.Error().Err(err).Msg("Inference failed")
 			return fmt.Errorf("inference failed: %w", err)

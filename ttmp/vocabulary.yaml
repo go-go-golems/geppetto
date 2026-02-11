@@ -37,6 +37,8 @@ topics:
       description: Serialization/deserialization (serde)
     - slug: yaml
       description: YAML serialization
+    - slug: chat
+      description: Chat backend and frontend surfaces
 docTypes:
     - slug: index
       description: Ticket index
@@ -56,13 +58,23 @@ docTypes:
       description: Code review summary
     - slug: planning
       description: Planning / detailed analysis documents
+    - slug: skill
+      description: Skill documentation (what it's for and when to use it)
 intent:
     - slug: long-term
       description: Persistent documentation
     - slug: short-term
       description: Ephemeral notes
+    - slug: throwaway
+      description: Temporary/experimental documentation
 status:
     - slug: active
       description: In progress
     - slug: complete
       description: Done / closed
+    - slug: draft
+      description: Initial draft state
+    - slug: review
+      description: Ready for review
+    - slug: archived
+      description: Archived/completed work

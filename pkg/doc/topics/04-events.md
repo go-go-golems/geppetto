@@ -115,7 +115,8 @@ Every event carries `EventMetadata`:
 ```go
 type EventMetadata struct {
     ID       uuid.UUID // Stable per stream
-    RunID    string    // Correlation ID for the run
+    SessionID   string // Correlation ID for the session
+    InferenceID string // Correlation ID for the inference call
     TurnID   string    // Correlation ID for the turn
     Model    string    // Model identifier (e.g., "gpt-4")
     Duration time.Duration
@@ -135,31 +136,32 @@ type Usage struct {
 
 **Note**: `Usage` is updated as chunks arrive, so UIs can display evolving token counts in real-time.
 
+### Event-to-Turn Correlation
+
+Every event carries `SessionID`, `InferenceID`, and `TurnID` in its metadata. These are the same IDs stored on `Turn.Metadata` (see [Turns and Blocks](08-turns.md)), which means you can link any event back to the specific Turn snapshot it belongs to.
+
+This correlation is the bridge between the two parallel tracks in the system:
+- **State track**: Turn snapshots captured at named phases (`pre_inference`, `post_inference`, etc.)
+- **Event track**: streaming telemetry emitted during those phases
+
+A debugging UI can use these shared IDs to cross-highlight: clicking a Turn snapshot highlights all events emitted during that phase, and clicking an event highlights the Turn it belongs to.
+
 ## Publishing Events
 
-Events flow through two complementary channels:
+Geppetto uses **context-carried sinks**:
 
-### 1. Engine-Configured Sinks
+- Provider engines publish via `events.PublishEventToContext(ctx, ...)`.
+- Helper layers (tool loops, middleware) also publish via context.
 
-Pass sinks when creating the engine:
+Attach sinks to `context.Context` at runtime:
 
 ```go
 watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-eng, _ := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(watermillSink))
-```
-
-### 2. Context-Carried Sinks
-
-Attach sinks to `context.Context` for downstream code:
-
-```go
-ctx = events.WithEventSinks(ctx, watermillSink)
+runCtx := events.WithEventSinks(ctx, watermillSink)
 
 // Anywhere downstream can publish
-events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
+events.PublishEventToContext(runCtx, events.NewToolResultEvent(meta, toolResult))
 ```
-
-**Best practice**: Attach the same sink to both engine and context so all components publish to the same router.
 
 ## Provider Event Flow
 
@@ -169,7 +171,7 @@ events.PublishEventToContext(ctx, events.NewToolResultEvent(meta, toolResult))
 | **OpenAI (Responses)** | Adds `info` events for reasoning boundaries, `partial-thinking` for summary deltas. Function args streamed via SSE. |
 | **Claude** | Content-block merger emits `start` → `partial` → `tool-call` (when complete) → `final`. |
 
-All providers publish to both configured sinks and context sinks.
+All providers publish via context sinks.
 
 ## Running the Event Router
 
@@ -184,7 +186,7 @@ router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
 // Create sink and engine
 sink := middleware.NewWatermillSink(router.Publisher, "chat")
-eng, _ := factory.NewEngineFromParsedLayers(parsed, engine.WithSink(sink))
+eng, _ := factory.NewEngineFromParsedLayers(parsed)
 
 eg, groupCtx := errgroup.WithContext(ctx)
 
@@ -343,7 +345,8 @@ func init() {
 ```go
 meta := events.EventMetadata{
     ID:     uuid.New(),
-    RunID:  "run-123",
+    SessionID:  "session-123",
+    InferenceID: "inference-456",
     TurnID: "turn-456",
 }
 
@@ -386,7 +389,7 @@ router.AddHandler("custom-collector", "chat", func(msg *message.Message) error {
 - **Embed EventImpl**: All custom events should embed `events.EventImpl` to satisfy the `Event` interface.
 - **Register in init()**: Use `init()` functions to register at package initialization.
 - **Unique type names**: Choose distinctive strings (e.g., `myapp-progress` not `progress`).
-- **Metadata consistency**: Always populate `EventMetadata` with `ID`, optionally `RunID`/`TurnID`.
+- **Metadata consistency**: Always populate `EventMetadata` with `ID`, optionally `SessionID`/`InferenceID`/`TurnID`.
 - **Handle registration errors**: Duplicate registrations will fail.
 
 ### Use Cases for Custom Events
@@ -545,9 +548,84 @@ import (
 )
 ```
 
+## Where Events Go: The SEM Translation Layer
+
+When geppetto events are used in pinocchio's webchat system, they pass through a **SEM (Structured Event Message) translation layer** that converts raw geppetto events into frontend-consumable frames. This section bridges geppetto's event system with pinocchio's webchat pipeline.
+
+### The Translation Pipeline
+
+```
+Geppetto Event                    Pinocchio Webchat
+─────────────────                 ─────────────────
+Engine emits event
+    │
+    ▼
+PublishEventToContext(ctx, ev)
+    │
+    ▼
+Watermill Router / Go channel
+    │
+    ▼
+StreamCoordinator.consume()
+    │
+    ├─── SEM Translator ──────▶ SEM JSON frame ──▶ WebSocket ──▶ Browser
+    │    (sem_translator.go)     {"sem":true,        (broadcast)   (SEM registry
+    │                             "event":{...}}                    routes to Redux)
+    │
+    └─── Timeline Projector ──▶ TimelineStore (SQLite)
+         (timeline_projector.go)  (durable snapshots for hydration)
+```
+
+### How Events Map to SEM Types
+
+The SEM translator uses a type-safe registry (`semregistry.RegisterByType[T]`) that dispatches on the Go event type. Each geppetto event maps to one or more SEM frame types:
+
+| Geppetto Event | SEM Frame Type(s) | Notes |
+|----------------|-------------------|-------|
+| `EventPartialCompletionStart` | `llm.start` | Opens a streaming message entity |
+| `EventPartialCompletion` | `llm.delta` | Cumulative content (not just the delta) |
+| `EventFinal` | `llm.final` | Closes the message, final text |
+| `EventToolCall` | `tool.start` | Tool name, input, status=running |
+| `EventToolResult` | `tool.result`, `tool.done` | Result data + completion signal |
+| `EventToolCallExecute` | `tool.start` | Alternative entry for tool execution |
+| `EventError` | (logged, not translated) | Errors surface via other mechanisms |
+
+### Stable ID Resolution
+
+SEM frames need stable IDs so that streaming updates (`llm.start` → `llm.delta` → `llm.final`) reference the same entity. The translator resolves IDs using a three-tier fallback:
+
+1. **Metadata ID** — if `event.Metadata().ID` is set, use it directly
+2. **Cached correlation** — look up by InferenceID → TurnID → SessionID (first match wins)
+3. **Generated fallback** — `"llm-" + uuid.New()`
+
+IDs are cached per-translator instance so all streaming events for the same logical message share one ID.
+
+### Correlation IDs Bridge the Gap
+
+The `EventMetadata` fields (`SessionID`, `InferenceID`, `TurnID`) serve double duty:
+
+- **Within geppetto**: They link events to Turn snapshots (see [Turns and Blocks](08-turns.md))
+- **Within pinocchio**: They enable the SEM translator to resolve stable entity IDs and the timeline projector to group related events
+
+This means the metadata you set when publishing a custom event determines how it gets identified downstream in the webchat UI.
+
+### Adding Custom Events to Webchat
+
+If you define a custom event type (see [Custom Event Types](#custom-event-types) above), you can make it appear in the webchat UI by:
+
+1. Registering a SEM handler in `pinocchio/pkg/webchat/sem_translator.go`
+2. Optionally adding a timeline projector case for persistence
+3. Creating a frontend SEM handler and widget
+
+For a complete walkthrough, see [Adding a New Event Type End-to-End](../../../../pinocchio/pkg/doc/topics/webchat-adding-event-types.md) in the pinocchio docs.
+
 ## See Also
 
-- [Inference Engines](06-inference-engines.md) — How engines emit events
+- [Inference Engines](06-inference-engines.md) — How engines emit events; see "Complete Runtime Flow" for how events relate to Turn snapshots
+- [Turns and Blocks](08-turns.md) — The Turn data model; events carry Turn correlation IDs
+- [Middlewares](09-middlewares.md) — Middlewares can emit events (e.g., agent-mode-switch)
 - [Tools](07-tools.md) — Tool events and execution
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete example
+- [Adding a New Event Type (pinocchio)](../../../../pinocchio/pkg/doc/topics/webchat-adding-event-types.md) — End-to-end tutorial for custom event types in webchat
+- Implementation: `geppetto/pkg/events/structuredsink/filtering_sink.go` — The FilteringSink that extracts structured payloads from text streams
 - Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`

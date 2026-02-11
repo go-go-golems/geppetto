@@ -7,6 +7,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
+	openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -20,7 +21,7 @@ type EngineFactory interface {
 	// CreateEngine creates an Engine instance based on the provided settings.
 	// The actual provider is determined from settings.Chat.ApiType.
 	// Returns an error if the provider is unsupported or configuration is invalid.
-	CreateEngine(settings *settings.StepSettings, options ...engine.Option) (engine.Engine, error)
+	CreateEngine(settings *settings.StepSettings) (engine.Engine, error)
 
 	// SupportedProviders returns a list of provider names this factory supports.
 	// Provider names match the ApiType constants (e.g., "openai", "claude", "gemini").
@@ -45,7 +46,7 @@ func NewStandardEngineFactory() *StandardEngineFactory {
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
 // If no ApiType is specified, defaults to OpenAI.
 // Supported providers: openai, anyscale, fireworks, claude, anthropic, gemini.
-func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, options ...engine.Option) (engine.Engine, error) {
+func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (engine.Engine, error) {
 	if settings == nil {
 		return nil, errors.New("settings cannot be nil")
 	}
@@ -64,13 +65,16 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return openai.NewOpenAIEngine(settings, options...)
+		return openai.NewOpenAIEngine(settings)
+
+	case string(types.ApiTypeOpenAIResponses):
+		return openai_responses.NewEngine(settings)
 
 	case string(types.ApiTypeClaude), "anthropic":
-		return claude.NewClaudeEngine(settings, options...)
+		return claude.NewClaudeEngine(settings)
 
 	case string(types.ApiTypeGemini):
-		return gemini.NewGeminiEngine(settings, options...)
+		return gemini.NewGeminiEngine(settings)
 
 	default:
 		supported := strings.Join(f.SupportedProviders(), ", ")
@@ -82,6 +86,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings, op
 func (f *StandardEngineFactory) SupportedProviders() []string {
 	return []string{
 		string(types.ApiTypeOpenAI),
+		string(types.ApiTypeOpenAIResponses),
 		string(types.ApiTypeAnyScale),
 		string(types.ApiTypeFireworks),
 		string(types.ApiTypeClaude),
@@ -107,7 +112,7 @@ func (f *StandardEngineFactory) validateSettings(settings *settings.StepSettings
 
 	// Validate provider-specific requirements
 	switch provider {
-	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
 		return f.validateOpenAISettings(settings, provider)
 
 	case string(types.ApiTypeClaude), "anthropic":
@@ -126,12 +131,20 @@ func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.StepSe
 	// Check for API key
 	apiKeyName := provider + "-api-key"
 	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-		return errors.Errorf("missing API key %s", apiKeyName)
+		// Fallback: allow openai-responses to reuse openai-api-key
+		if provider == string(types.ApiTypeOpenAIResponses) {
+			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAI)+"-api-key"]; !ok2 {
+				return errors.Errorf("missing API key %s (or fallback openai-api-key)", apiKeyName)
+			}
+		} else {
+			return errors.Errorf("missing API key %s", apiKeyName)
+		}
 	}
 
 	// Base URL is optional for OpenAI (uses default), but required for others
 	baseURLName := provider + "-base-url"
-	if provider != string(types.ApiTypeOpenAI) {
+	// Base URL optional for openai and openai-responses; required for other OpenAI-compatible providers
+	if provider != string(types.ApiTypeOpenAI) && provider != string(types.ApiTypeOpenAIResponses) {
 		if _, ok := settings.API.BaseUrls[baseURLName]; !ok {
 			return errors.Errorf("missing base URL %s for provider %s", baseURLName, provider)
 		}

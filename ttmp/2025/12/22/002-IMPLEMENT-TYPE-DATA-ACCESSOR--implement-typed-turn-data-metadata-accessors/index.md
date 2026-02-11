@@ -1,7 +1,7 @@
 ---
 Title: Implement typed Turn.Data/Metadata accessors
 Ticket: 002-IMPLEMENT-TYPE-DATA-ACCESSOR
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -38,10 +38,12 @@ RelatedFiles:
       Note: Moments-specific Turn.Data keys (to migrate)
 ExternalSources: []
 Summary: ""
-LastUpdated: 2025-12-22T14:40:40.855310715-05:00
+LastUpdated: 2026-01-25T09:04:20.13525101-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
+
 
 
 

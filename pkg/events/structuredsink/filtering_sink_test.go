@@ -68,7 +68,7 @@ func (s *testSession) OnCompleted(ctx context.Context, raw []byte, success bool,
 }
 
 func newMeta() events.EventMetadata {
-	return events.EventMetadata{ID: uuid.New(), RunID: "run", TurnID: "turn"}
+	return events.EventMetadata{ID: uuid.New(), SessionID: "run", InferenceID: "inf", TurnID: "turn"}
 }
 
 func collectTextParts(list []events.Event) ([]string, string) {
@@ -635,7 +635,8 @@ func TestFilteringSink_MetadataPropagation(t *testing.T) {
 	impl, ok := ev.(*events.EventImpl)
 	require.True(t, ok)
 	assert.Equal(t, meta.ID, impl.Metadata_.ID)
-	assert.Equal(t, meta.RunID, impl.Metadata_.RunID)
+	assert.Equal(t, meta.SessionID, impl.Metadata_.SessionID)
+	assert.Equal(t, meta.InferenceID, impl.Metadata_.InferenceID)
 	assert.Equal(t, meta.TurnID, impl.Metadata_.TurnID)
 }
 

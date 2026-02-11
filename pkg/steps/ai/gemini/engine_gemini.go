@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -28,16 +27,11 @@ import (
 // GeminiEngine implements the Engine interface for Google's Gemini API
 type GeminiEngine struct {
 	settings *settings.StepSettings
-	config   *engine.Config
 }
 
-// NewGeminiEngine creates a new Gemini inference engine with the given settings and options.
-func NewGeminiEngine(settings *settings.StepSettings, options ...engine.Option) (*GeminiEngine, error) {
-	cfg := engine.NewConfig()
-	if err := engine.ApplyOptions(cfg, options...); err != nil {
-		return nil, err
-	}
-	return &GeminiEngine{settings: settings, config: cfg}, nil
+// NewGeminiEngine creates a new Gemini inference engine with the given settings.
+func NewGeminiEngine(settings *settings.StepSettings) (*GeminiEngine, error) {
+	return &GeminiEngine{settings: settings}, nil
 }
 
 // convertJSONSchemaToGenAI converts an invopop jsonschema.Schema to a Gemini Schema (best-effort for common types).
@@ -170,7 +164,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	}
 
 	// Attach tools from context if present (tools + minimal parameters when safe).
-	registry, _ := toolcontext.RegistryFrom(ctx)
+	registry, _ := tools.RegistryFrom(ctx)
 	if registry != nil {
 		var toolDecls []*genai.FunctionDeclaration
 		for _, td := range registry.ListTools() {
@@ -235,7 +229,12 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		},
 	}
 	if t != nil {
-		metadata.RunID = t.RunID
+		if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+			metadata.SessionID = sid
+		}
+		if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
+			metadata.InferenceID = iid
+		}
 		metadata.TurnID = t.ID
 	}
 	if metadata.Extra == nil {
@@ -508,6 +507,7 @@ func (e *GeminiEngine) buildPartsFromTurn(t *turns.Turn) []genai.Part {
 			// Add FunctionResponse for tool result
 			id, _ := b.Payload[turns.PayloadKeyID].(string)
 			res := b.Payload[turns.PayloadKeyResult]
+			errStr, _ := b.Payload[turns.PayloadKeyError].(string)
 			name := idToName[id]
 			var response map[string]any
 			switch rv := res.(type) {
@@ -529,6 +529,9 @@ func (e *GeminiEngine) buildPartsFromTurn(t *turns.Turn) []genai.Part {
 				} else {
 					response = map[string]any{"result": rv}
 				}
+			}
+			if errStr != "" {
+				response = map[string]any{"error": errStr, "result": response}
 			}
 			if name == "" {
 				name = "result"
@@ -586,11 +589,6 @@ func buildToolSignatureHint(reg tools.ToolRegistry) string {
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *GeminiEngine) publishEvent(ctx context.Context, event events.Event) {
-	for _, sink := range e.config.EventSinks {
-		if err := sink.PublishEvent(event); err != nil {
-			log.Warn().Err(err).Str("event_type", string(event.Type())).Msg("Failed to publish event to sink")
-		}
-	}
 	events.PublishEventToContext(ctx, event)
 }
 

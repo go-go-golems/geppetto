@@ -32,6 +32,46 @@ func DefaultToolConfig() ToolConfig {
 	}
 }
 
+func (tc ToolConfig) WithEnabled(enabled bool) ToolConfig {
+	tc.Enabled = enabled
+	return tc
+}
+
+func (tc ToolConfig) WithToolChoice(choice ToolChoice) ToolConfig {
+	tc.ToolChoice = choice
+	return tc
+}
+
+func (tc ToolConfig) WithMaxIterations(maxIterations int) ToolConfig {
+	tc.MaxIterations = maxIterations
+	return tc
+}
+
+func (tc ToolConfig) WithExecutionTimeout(timeout time.Duration) ToolConfig {
+	tc.ExecutionTimeout = timeout
+	return tc
+}
+
+func (tc ToolConfig) WithMaxParallelTools(maxParallel int) ToolConfig {
+	tc.MaxParallelTools = maxParallel
+	return tc
+}
+
+func (tc ToolConfig) WithAllowedTools(toolNames []string) ToolConfig {
+	tc.AllowedTools = toolNames
+	return tc
+}
+
+func (tc ToolConfig) WithToolErrorHandling(handling ToolErrorHandling) ToolConfig {
+	tc.ToolErrorHandling = handling
+	return tc
+}
+
+func (tc ToolConfig) WithRetryConfig(cfg RetryConfig) ToolConfig {
+	tc.RetryConfig = cfg
+	return tc
+}
+
 // RetryConfig defines retry behavior for tool execution
 type RetryConfig struct {
 	MaxRetries    int           `json:"max_retries"`

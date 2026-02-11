@@ -51,6 +51,8 @@ The SQLite Tool middleware attaches a SQLite database to a Turn and advertises a
 import (
   engpkg "github.com/go-go-golems/geppetto/pkg/inference/engine"
   "github.com/go-go-golems/geppetto/pkg/inference/middleware"
+  "github.com/go-go-golems/geppetto/pkg/inference/session"
+  "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
   "github.com/go-go-golems/pinocchio/pkg/middlewares/sqlitetool"
   "github.com/go-go-golems/geppetto/pkg/inference/tools"
   "github.com/go-go-golems/geppetto/pkg/turns"
@@ -68,10 +70,16 @@ cfg := sqlitetool.DefaultConfig()
 cfg.Name = "finance"      // tool becomes sql_query_finance
 cfg.ReadOnly = true        // allow only SELECT/WITH/EXPLAIN/PRAGMA
 mw := sqlitetool.NewMiddleware(cfg)
-engine := middleware.NewEngineWithMiddleware(baseEngine, mw)
+runner, err := enginebuilder.New(
+  enginebuilder.WithBase(baseEngine),
+  enginebuilder.WithMiddlewares(mw),
+).Build(ctx, "")
+if err != nil {
+  panic(err)
+}
 
 // Run inference
-updated, _ := engine.RunInference(ctx, t)
+updated, _ := runner.RunInference(ctx, t)
 ```
 
 ## Tool name and prompts
@@ -114,5 +122,3 @@ sqlite3 demo.db < seed.sql
 ## Writing good docs
 
 This guide follows the internal `glaze help how-to-write-good-documentation-pages` guidance by providing purpose, architecture, data keys, examples, and repeatable setup steps.
-
-

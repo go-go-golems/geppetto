@@ -254,15 +254,13 @@ filteringSink := structuredsink.NewFilteringSink(
 
 ### Step 6: Use the Filtering Sink with Engine
 
-Pass the filtering sink to the engine:
+Create the engine normally and attach the filtering sink to context at runtime:
 
 ```go
-import "github.com/go-go-golems/geppetto/pkg/inference/engine"
-
-eng, err := factory.NewEngineFromParsedLayers(
-    parsedLayers, 
-    engine.WithSink(filteringSink),
-)
+eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
+if err != nil {
+    return err
+}
 ```
 
 ### Step 7: Add System Instructions
@@ -368,8 +366,8 @@ func main() {
         &CitationsExtractor{},
     )
     
-    // 5. Create engine with filtering sink
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers, engine.WithSink(filteringSink))
+    // 5. Create engine (no engine options/sinks at construction time)
+    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
     
     // 6. Build Turn with instructions
     turn := &turns.Turn{}
@@ -419,4 +417,3 @@ structuredsink.Options{
 - [Events](../topics/04-events.md) — Event system reference
 - Example: `geppetto/cmd/examples/citations-event-stream/main.go`
 - Tests: `geppetto/pkg/events/structuredsink/filtering_sink_test.go`
-

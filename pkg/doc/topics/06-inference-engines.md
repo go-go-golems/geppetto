@@ -47,6 +47,10 @@ for _, block := range result.Blocks {
 
 That's it. The engine handles provider-specific API calls, streaming, and response parsing. You work with Turns and Blocks.
 
+For chat-style, multi-turn apps, prefer `session.Session` (it centralizes “clone latest + append user
+prompt” via `AppendNewTurnFromUserPrompt(s)` and runs inference against the latest appended turn
+in-place via `StartInference`).
+
 ## Table of Contents
 1. [Core Architecture Principles](#core-architecture-principles)
 2. [The Engine Interface](#the-engine-interface)
@@ -88,6 +92,16 @@ The Geppetto inference architecture is built around a clean separation of concer
 - **Provider Agnostic**: Works with OpenAI, Claude, Gemini, or any provider
 - **Testable**: Easy to mock engines for testing
 - **Composable**: Mix and match engines, helpers, and middleware
+
+### Context-Based Dependency Injection
+
+Geppetto uses `context.Context` to carry runtime dependencies rather than global state or struct fields:
+
+- **Event sinks**: `events.WithEventSinks(ctx, sink)` — engines and middleware publish streaming events to sinks found on the context.
+- **Tool registries**: `tools.WithRegistry(ctx, registry)` — engines discover available tools from the context.
+- **Snapshot hooks**: `toolloop.WithTurnSnapshotHook(ctx, hook)` — the tool loop invokes snapshot callbacks found on the context.
+
+This pattern avoids global state, makes testing straightforward (just pass a different context), and supports multiple parallel inference runs with independent configuration.
 
 ## The Engine Interface
 
@@ -149,24 +163,17 @@ func createEngine(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
 
 ### Engine Options
 
-You can customize engine creation with options:
+Provider engines are created without options. Event sinks are attached to the runtime
+`context.Context`:
 
 ```go
-import (
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-)
+func createEngine(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
+    return factory.NewEngineFromParsedLayers(parsedLayers)
+}
 
-func createEngineWithOptions(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
-    // Create event sink for streaming
-    watermillSink := middleware.NewWatermillSink(publisher, "chat")
-
-    // Engine options for customization
-    engineOptions := []engine.Option{
-        engine.WithSink(watermillSink),
-    }
-
-    return factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+func runWithSinks(ctx context.Context, eng engine.Engine, sink events.EventSink, seed *turns.Turn) (*turns.Turn, error) {
+    runCtx := events.WithEventSinks(ctx, sink)
+    return eng.RunInference(runCtx, seed)
 }
 ```
 
@@ -205,20 +212,20 @@ func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, pro
 }
 ```
 
-## Tool Calling with Helpers (Per-Turn tools)
+## Tool Calling with the Tool Loop (Per-Turn tools)
 
-The `toolhelpers` package provides utilities for tool calling workflows. Engines focus on API calls while helpers handle orchestration.
+Geppetto’s canonical tool orchestration lives in `toolloop.Loop`. Engines focus on provider I/O, while the loop handles extracting tool calls, executing tools, appending tool results, and iterating.
 
-Providers learn about available tools from the **runtime registry attached to `context.Context`** (see `toolcontext.WithRegistry`) plus any **serializable tool config** stored on `Turn.Data` (e.g., `engine.KeyToolConfig`).
+Providers learn about available tools from the **runtime registry attached to `context.Context`** (see `tools.WithRegistry`) plus any **serializable tool config** stored on `Turn.Data` (written automatically by the loop via `engine.KeyToolConfig`).
 
-### Tool Helper Functions
+### Tool Calling Building Blocks
 
-The main helper functions are:
+The main building blocks are:
 
 - `toolblocks.ExtractPendingToolCalls`: find tool calls without matching tool_use blocks
 - `tools.NewDefaultToolExecutor`: execute tool calls against a registry
 - `toolblocks.AppendToolResultsBlocks`: append `tool_use` blocks from results
-- `toolhelpers.RunToolCallingLoop`: complete automated Turn-based workflow
+- `toolloop.Loop.RunLoop`: complete automated Turn-based workflow
 
 ### Setting Up Tools
 
@@ -293,7 +300,7 @@ import (
     "encoding/json"
 
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolblocks"
+    "github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -355,28 +362,29 @@ import (
     "time"
 
     "github.com/go-go-golems/geppetto/pkg/inference/engine"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func automatedToolCalling(ctx context.Context, engine engine.Engine, registry tools.ToolRegistry, seed *turns.Turn) (*turns.Turn, error) {
-    // Configure tool calling behavior
-    config := toolhelpers.NewToolConfig().
-        WithMaxIterations(5).
-        WithTimeout(30 * time.Second).
-        WithMaxParallelTools(3).
-        WithToolChoice(tools.ToolChoiceAuto).
-        WithToolErrorHandling(tools.ToolErrorContinue)
+func automatedToolCalling(ctx context.Context, eng engine.Engine, registry tools.ToolRegistry, seed *turns.Turn) (*turns.Turn, error) {
+    loop := toolloop.New(
+        toolloop.WithEngine(eng),
+        toolloop.WithRegistry(registry),
+        toolloop.WithLoopConfig(toolloop.NewLoopConfig().WithMaxIterations(5)),
+        toolloop.WithToolConfig(tools.DefaultToolConfig().
+            WithExecutionTimeout(30*time.Second).
+            WithMaxParallelTools(3).
+            WithToolChoice(tools.ToolChoiceAuto)),
+    )
 
-    // Run complete workflow
-    return toolhelpers.RunToolCallingLoop(ctx, engine, seed, registry, config)
+    return loop.RunLoop(ctx, seed)
 }
 ```
 
 ## Complete Tool Calling Example (with per-Turn tools)
 
-Here's a complete example showing tool calling with streaming events (engine emits start/partial/final; helpers emit tool-call/tool-result via context). Tools are attached to the Turn instead of the Engine.
+Here's a complete example showing tool calling with streaming events (engine emits start/partial/final). Tools are attached to the Turn instead of the Engine.
 
 ```go
 package main
@@ -388,11 +396,9 @@ import (
     "time"
 
     "github.com/go-go-golems/geppetto/pkg/events"
-    "github.com/go-go-golems/geppetto/pkg/inference/engine"
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolcontext"
-    "github.com/go-go-golems/geppetto/pkg/inference/toolhelpers"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop"
     "github.com/go-go-golems/geppetto/pkg/inference/tools"
     "github.com/go-go-golems/geppetto/pkg/turns"
     "golang.org/x/sync/errgroup"
@@ -416,12 +422,8 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
     // 3. Create watermill sink for publishing events
     watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
 
-    // 4. Create engine with streaming
-    engineOptions := []engine.Option{
-        engine.WithSink(watermillSink),
-    }
-
-    baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers, engineOptions...)
+    // 4. Create engine (sinks are attached at runtime via context)
+    baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers)
     if err != nil {
         return fmt.Errorf("failed to create engine: %w", err)
     }
@@ -444,27 +446,14 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         return fmt.Errorf("failed to register weather tool: %w", err)
     }
 
-    // 6. Create tool helper configuration
-    helperConfig := toolhelpers.NewToolConfig().
-        WithMaxIterations(5).
-        WithTimeout(30 * time.Second).
-        WithMaxParallelTools(3).
-        WithToolChoice(tools.ToolChoiceAuto).
-        WithToolErrorHandling(tools.ToolErrorContinue)
-
-    // 7. Build seed Turn with tool config
+    // 6. Build seed Turn
     seed := &turns.Turn{Data: map[turns.TurnDataKey]any{}}
-    seed.Data[turns.DataKeyToolConfig] = engine.ToolConfig{
-        Enabled:          true,
-        ToolChoice:       engine.ToolChoiceAuto,
-        MaxParallelTools: 3,
-    }
     turns.AppendBlock(seed, turns.NewSystemTextBlock(
         "You are a helpful assistant with access to weather information. Use the get_weather tool when users ask about weather.",
     ))
     turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
 
-    // 8. Run inference with streaming in parallel
+    // 7. Run inference with streaming in parallel
     eg := errgroup.Group{}
     ctx, cancel := context.WithCancel(ctx)
     defer cancel()
@@ -480,14 +469,21 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
         defer cancel()
         <-router.Running() // Wait for router to be ready
 
-        // Attach engine sink and tool registry to context so helpers/tools can publish too
+        // Attach engine sink to context so engine can stream
         runCtx := events.WithEventSinks(ctx, watermillSink)
-        runCtx = toolcontext.WithRegistry(runCtx, registry)
+
+        loop := toolloop.New(
+            toolloop.WithEngine(baseEngine),
+            toolloop.WithRegistry(registry),
+            toolloop.WithLoopConfig(toolloop.NewLoopConfig().WithMaxIterations(5)),
+            toolloop.WithToolConfig(tools.DefaultToolConfig().
+                WithExecutionTimeout(30*time.Second).
+                WithMaxParallelTools(3).
+                WithToolChoice(tools.ToolChoiceAuto)),
+        )
 
         // Run complete tool calling workflow
-        updatedTurn, err := toolhelpers.RunToolCallingLoop(
-            runCtx, baseEngine, seed, registry, helperConfig,
-        )
+        updatedTurn, err := loop.RunLoop(runCtx, seed)
         if err != nil {
             return fmt.Errorf("tool calling failed: %w", err)
         }
@@ -508,11 +504,70 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
 }
 ```
 
+## Complete Runtime Flow
+
+The sections above describe individual components. Here is how they connect into a single request flow, from user prompt to final response, in a multi-turn application:
+
+```
+1. Session.AppendNewTurnFromUserPrompt("question")
+   ├── Clones the latest turn (preserving full conversation history)
+   ├── Appends a new user block
+   └── Assigns a new TurnID
+
+2. Session.StartInference(ctx)
+   ├── Creates an ExecutionHandle (tracks async result)
+   └── Launches goroutine with runner.RunInference()
+
+3. Runner setup
+   ├── Attaches event sinks to context
+   ├── Sets SessionID and InferenceID on Turn metadata
+   └── Creates toolloop.Loop (if tool registry is present)
+
+4. Tool loop iterates (up to maxIterations):
+   │
+   ├─ a. Snapshot: "pre_inference"
+   │     Turn captured before any processing
+   │
+   ├─ b. Middleware chain (pre-processing)
+   │     System prompt → agent mode → tool reorder → ...
+   │     Each middleware can inspect/mutate the Turn
+   │
+   ├─ c. Engine.RunInference()
+   │     ├── Translates Turn blocks to provider wire format
+   │     ├── Calls LLM API
+   │     ├── Streams events: start → delta → delta → ...
+   │     └── Appends output blocks: llm_text, tool_call
+   │
+   ├─ d. Middleware chain (post-processing)
+   │     Each middleware can inspect/mutate the result
+   │
+   ├─ e. Snapshot: "post_inference"
+   │     Turn captured with model output
+   │
+   ├─ f. Extract pending tool calls
+   │     If none: loop exits (done)
+   │
+   ├─ g. Execute tools in parallel
+   │     Append tool_use blocks with results
+   │
+   ├─ h. Snapshot: "post_tools"
+   │     Turn captured with tool results
+   │
+   └─ i. Loop back to (a) with updated Turn
+
+5. Final turn persisted (if persister configured)
+
+6. ExecutionHandle receives result
+   Caller retrieves via handle.Wait()
+```
+
+This flow shows why snapshot phases are valuable for debugging: you can see the Turn at each critical moment and understand exactly what the model received and produced.
+
 ## Provider-Specific Implementations
 
 The factory automatically selects the correct provider based on configuration:
 
-### OpenAI Engine
+### OpenAI Engine (Chat Completions)
 
 ```yaml
 # Configuration for OpenAI
@@ -521,6 +576,38 @@ api:
     api_key: "your-openai-key"
     model: "gpt-4"
     base_url: "https://api.openai.com/v1"
+```
+
+### OpenAI Responses Engine (Reasoning + Tools)
+
+The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `openai-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas.
+
+Key notes:
+- Use `--ai-api-type=openai-responses` and a reasoning-capable model (e.g., `o4-mini`).
+- The engine omits `temperature` and `top_p` for `o3/o4` families (these models reject sampling params).
+- For function tools, the engine omits `tool_choice` (vendor-only values like `file_search` are not applicable).
+- At trace log level, the engine prints a full YAML dump of the request payload to aid debugging.
+
+Example (tools):
+
+```bash
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=tools \
+  --prompt='Please use get_weather to check the weather in San Francisco, in celsius.' \
+  --log-level trace --verbose
+```
+
+Example (thinking only):
+
+```bash
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
+  --mode=thinking \
+  --prompt='Prove the sum of first n odd numbers equals n^2, stream reasoning summary.' \
+  --log-level info
 ```
 
 ### Claude Engine
@@ -550,11 +637,13 @@ Add middleware for logging, metrics, and other cross-cutting concerns:
 
 ```go
 import (
+    "github.com/go-go-golems/geppetto/pkg/inference/session"
+    "github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
     "github.com/go-go-golems/geppetto/pkg/inference/middleware"
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func addMiddleware(baseEngine engine.Engine) engine.Engine {
+func addMiddleware(baseEngine engine.Engine) session.EngineBuilder {
     // Add logging middleware
     loggingMiddleware := func(next middleware.HandlerFunc) middleware.HandlerFunc {
         return func(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -571,7 +660,10 @@ func addMiddleware(baseEngine engine.Engine) engine.Engine {
         }
     }
 
-    return middleware.NewEngineWithMiddleware(baseEngine, loggingMiddleware)
+    return enginebuilder.New(
+        enginebuilder.WithBase(baseEngine),
+        enginebuilder.WithMiddlewares(loggingMiddleware),
+    )
 }
 ```
 
@@ -601,7 +693,7 @@ When working with the inference engine architecture:
 
 ### Tool Calling
 
-- **Use helpers**: Let `toolhelpers` handle orchestration
+- **Use canonical surfaces**: wire tools via `toolloop.Loop` + `toolloop/enginebuilder` (no `toolhelpers`)
 - **Configure limits**: Set reasonable iteration and timeout limits
 - **Handle errors**: Configure appropriate error handling strategies
 - **Test tools**: Test tool functions independently
@@ -633,10 +725,10 @@ log.Logger = log.Level(zerolog.DebugLevel)
 
 ### Debug Tool Execution
 
-The `toolhelpers` package includes extensive debug logging:
+Tool execution emits logs and (optionally) events depending on your wiring (engine event sinks on `context.Context`, and tool execution settings in `tools.ToolConfig`):
 
 ```go
-// Tool calling helpers log detailed information about:
+// Tool calling components can log detailed information about:
 // - Tool call extraction
 // - Tool execution steps
 // - Result processing
@@ -660,20 +752,22 @@ router.AddHandler("debug", "chat", func(msg *message.Message) error {
 
 ## Conclusion
 
-The Geppetto inference engine architecture provides a clean, testable, and provider-agnostic foundation for AI applications. By separating API communication (engines) from orchestration logic (helpers), the architecture achieves:
+The Geppetto inference engine architecture provides a clean, testable, and provider-agnostic foundation for AI applications. By separating API communication (engines) from orchestration logic (tool loop + middleware), the architecture achieves:
 
 - **Simplicity**: Easy to understand and maintain
 - **Flexibility**: Works with any AI provider
 - **Testability**: Simple interfaces enable comprehensive testing
 - **Composability**: Mix and match components as needed
 
-The combination of engines, helpers, factories, and middleware provides all the tools needed to build sophisticated AI applications while maintaining clean separation of concerns.
+The combination of engines, tool loop, factories, and middleware provides all the tools needed to build sophisticated AI applications while maintaining clean separation of concerns.
 
 ## See Also
 
-- [Turns and Blocks](08-turns.md) — The Turn data model that engines operate on
+- [Turns and Blocks](08-turns.md) — The Turn data model that engines operate on; see "How Blocks Accumulate"
+- [Sessions](10-sessions.md) — Multi-turn session management built on top of engines
 - [Tools](07-tools.md) — Defining and executing tools
 - [Events](04-events.md) — How engines publish streaming events
-- [Middlewares](09-middlewares.md) — Adding cross-cutting behavior
+- [Middlewares](09-middlewares.md) — Adding cross-cutting behavior; see "Middleware as Composable Prompting"
+- [Structured Sinks](11-structured-sinks.md) — Extracting structured data from LLM text streams
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete working example
 - Examples: `geppetto/cmd/examples/simple-streaming-inference/`, `geppetto/cmd/examples/generic-tool-calling/`
