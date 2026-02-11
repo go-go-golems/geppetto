@@ -698,6 +698,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		d := time.Since(startTime).Milliseconds()
 		dm := int64(d)
 		metadata.DurationMs = &dm
+		if streamErr != nil {
+			log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
+			return nil, streamErr
+		}
 		if strings.TrimSpace(message) != "" {
 			ab := turns.NewAssistantTextBlock(message)
 			if latestMessageItemID != "" {

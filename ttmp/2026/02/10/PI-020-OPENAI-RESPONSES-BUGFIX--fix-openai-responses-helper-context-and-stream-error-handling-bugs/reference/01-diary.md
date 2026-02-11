@@ -108,7 +108,7 @@ After capturing the failing state, I fixed the helper by computing the last assi
 
 **Inferred user intent:** Demonstrate objective proof that the bug existed and is now fixed, with minimal behavioral side effects.
 
-**Commit (code):** pending
+**Commit (code):** cdf51af — "fix(openai-responses): preserve assistant pre-reasoning context"
 
 ### What I did
 
@@ -168,3 +168,79 @@ After capturing the failing state, I fixed the helper by computing the last assi
 - Files changed in this step:
   - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers_test.go`
   - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/helpers.go`
+
+## Step 3: Bug 2 Test-First Regression and Streaming Failure Fix
+
+For the second bug, I added a regression test targeting the streaming branch in `RunInference` and made it fail first on the current behavior. The initial test design used `httptest.NewServer`, which failed in this sandbox due socket restrictions, so I switched to an in-process custom `http.RoundTripper` that returns SSE frames directly; this kept the test focused and deterministic while avoiding environment noise.
+
+With that setup, the test reproduced the real bug: SSE `event:error` generated an error event but `RunInference` still returned success and emitted a final success event. I then fixed the streaming tail to return `streamErr` before finalization and verified the test goes green.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Add a failing regression for stream error propagation, then make streaming failures return an error and stop emitting success finals.
+
+**Inferred user intent:** Ensure stream failures are represented as failures in API semantics and not silently converted to successful completions.
+
+**Commit (code):** pending
+
+### What I did
+
+- Added test file:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine_test.go`
+- First test attempt used `httptest.NewServer` and failed due sandbox networking:
+  - `panic: httptest: failed to listen on a port: ... socket: operation not permitted`
+- Reworked test to use custom `http.RoundTripper` and override `http.DefaultClient`.
+- Reproduced bug with failing test:
+  - `GOCACHE=/tmp/go-build-cache go test ./pkg/steps/ai/openai_responses -run TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent -count=1`
+  - Failure:
+    - `expected streaming error to be returned`
+  - Logs also showed `event_type":"final"` after the stream error.
+- Fixed streaming tail in:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - Added `if streamErr != nil { return nil, streamErr }` before final event emission and turn finalization.
+- Re-ran validation:
+  - `GOCACHE=/tmp/go-build-cache go test ./pkg/steps/ai/openai_responses -run TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent -count=1` -> `ok`
+  - `GOCACHE=/tmp/go-build-cache go test ./pkg/steps/ai/openai_responses -count=1` -> `ok`
+
+### Why
+
+- Once provider stream reports failure, returning success from `RunInference` is semantically wrong and causes downstream persistence/flow errors.
+
+### What worked
+
+- The custom transport strategy exercised the same parsing logic without needing sockets.
+- The test observed both relevant failure symptoms before the fix and passes after the fix.
+
+### What didn't work
+
+- `httptest.NewServer` cannot bind ports in this execution environment (`socket: operation not permitted`).
+
+### What I learned
+
+- Streaming regression tests in this repo should prefer custom transports over socket-based servers in constrained environments.
+
+### What was tricky to build
+
+- The tricky part was separating an environment failure (socket binding) from product behavior. The custom transport removed that variable and preserved a strict red/green signal for the actual bug.
+
+### What warrants a second pair of eyes
+
+- Review whether returning `nil, streamErr` (instead of `t, streamErr`) matches expected caller contracts in all inference pathways.
+
+### What should be done in the future
+
+- Add another stream-failure test with partial text deltas prior to error to document intended partial-output handling semantics.
+
+### Code review instructions
+
+- Start with `engine_test.go` regression test.
+- Then review `engine.go` streaming tail condition guarding finalization.
+- Re-run the two `go test` commands listed above with `GOCACHE=/tmp/go-build-cache`.
+
+### Technical details
+
+- Files changed in this step:
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine_test.go`
+  - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/pkg/steps/ai/openai_responses/engine.go`
