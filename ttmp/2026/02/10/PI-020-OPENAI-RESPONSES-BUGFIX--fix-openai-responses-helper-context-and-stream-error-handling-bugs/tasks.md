@@ -11,5 +11,5 @@
 - [x] Bug 2 fix: return streamErr and suppress final success event when streaming fails
 - [x] Bug 1 commit: commit helper+test+diary updates
 - [x] Bug 2 validation: run focused openai_responses tests and confirm error propagation semantics
-- [ ] Bug 2 commit: commit engine+tests+diary updates
-- [ ] Finalize ticket docs: complete analysis, diary, changelog, related file links, and mark tasks done
+- [x] Bug 2 commit: commit engine+tests+diary updates
+- [x] Finalize ticket docs: complete analysis, diary, changelog, related file links, and mark tasks done

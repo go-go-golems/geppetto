@@ -10,13 +10,18 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: pkg/steps/ai/openai_responses/engine_test.go
+      Note: Bug 2 regression test evidence
+    - Path: pkg/steps/ai/openai_responses/helpers_test.go
+      Note: Bug 1 regression test evidence
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-10T18:18:11.05930995-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Diary
 
@@ -183,7 +188,7 @@ With that setup, the test reproduced the real bug: SSE `event:error` generated a
 
 **Inferred user intent:** Ensure stream failures are represented as failures in API semantics and not silently converted to successful completions.
 
-**Commit (code):** pending
+**Commit (code):** 841a895 — "fix(openai-responses): surface streaming SSE failures"
 
 ### What I did
 

@@ -10,13 +10,18 @@ Topics:
 DocType: analysis
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: pkg/steps/ai/openai_responses/engine.go
+      Note: Contains streaming tail that incorrectly returned success on SSE failures
+    - Path: pkg/steps/ai/openai_responses/helpers.go
+      Note: Contains the pre-reasoning assistant skip logic root cause
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-02-10T18:18:10.604263577-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Analysis
 
