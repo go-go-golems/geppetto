@@ -159,7 +159,7 @@ func GetCobraCommandGeppettoMiddlewares(
 
 	// 1) Bootstrap command settings from Cobra + env + defaults (no config).
 	commandSettings := &cli.CommandSettings{}
-	commandSettingsLayer, err := cli.NewCommandSettingsLayer()
+	commandSettingsLayer, err := cli.NewCommandSettingsSection()
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func GetCobraCommandGeppettoMiddlewares(
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
 	profileSettings := &cli.ProfileSettings{}
-	profileSettingsLayer, err := cli.NewProfileSettingsLayer()
+	profileSettingsLayer, err := cli.NewProfileSettingsSection()
 	if err != nil {
 		return nil, err
 	}

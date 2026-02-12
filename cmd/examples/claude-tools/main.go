@@ -15,9 +15,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
@@ -68,7 +68,7 @@ type TestClaudeToolsCommand struct {
 var _ cmds.WriterCommand = (*TestClaudeToolsCommand)(nil)
 
 type TestClaudeToolsSettings struct {
-	Debug bool `glazed.parameter:"debug"`
+	Debug bool `glazed:"debug"`
 }
 
 func NewTestClaudeToolsCommand() (*TestClaudeToolsCommand, error) {
@@ -81,13 +81,13 @@ func NewTestClaudeToolsCommand() (*TestClaudeToolsCommand, error) {
 		"test-claude-tools",
 		cmds.WithShort("Test Claude tools integration with debug logging"),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("debug",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable debug logging"),
-				parameters.WithDefault(true),
+			fields.New("debug",
+				fields.TypeBool,
+				fields.WithHelp("Enable debug logging"),
+				fields.WithDefault(true),
 			),
 		),
-		cmds.WithLayersList(
+		cmds.WithSections(
 			geppettoLayers...,
 		),
 	)
@@ -97,11 +97,11 @@ func NewTestClaudeToolsCommand() (*TestClaudeToolsCommand, error) {
 	}, nil
 }
 
-func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
+func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers *values.Values, w io.Writer) error {
 	log.Debug().Msg("Debug logging enabled for tool testing")
 
 	s := &TestClaudeToolsSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}

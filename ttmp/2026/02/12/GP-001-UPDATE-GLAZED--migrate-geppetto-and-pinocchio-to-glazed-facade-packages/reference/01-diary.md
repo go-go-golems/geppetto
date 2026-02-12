@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T08:50:17-05:00
+LastUpdated: 2026-02-12T08:53:44-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -748,3 +748,107 @@ ok .../inference/engine/factory
 - Core API swaps:
   - `*layers.ParsedLayers` -> `*values.Values`
   - `InitializeStruct(sectionSlug, dst)` -> `DecodeSectionInto(sectionSlug, dst)`
+
+## Step 9: Migrate Command/Example Signatures and Schema Wiring (Task 4)
+
+I migrated Geppetto command/example code under `cmd/examples/*` and `cmd/llm-runner/*` from legacy `layers/parameters` APIs to `values/fields` and updated schema wiring from `WithLayersList` to `WithSections`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Then work on the tasks one by one, commit to git after each, check off task, update your diary. go"
+
+**Assistant interpretation:** Continue through the remaining geppetto migration tasks with concrete code changes and traceable progress notes.
+
+**Inferred user intent:** Fully move geppetto command surfaces to current Glazed interfaces before pinocchio migration.
+
+**Commit (code):** Pending in next step (Task 4 commit)
+
+### What I did
+
+- Applied command-level migration across:
+  - `geppetto/cmd/examples/simple-inference/main.go`
+  - `geppetto/cmd/examples/simple-streaming-inference/main.go`
+  - `geppetto/cmd/examples/generic-tool-calling/main.go`
+  - `geppetto/cmd/examples/openai-tools/main.go`
+  - `geppetto/cmd/examples/middleware-inference/main.go`
+  - `geppetto/cmd/examples/claude-tools/main.go`
+  - `geppetto/cmd/llm-runner/main.go`
+  - `geppetto/cmd/llm-runner/serve.go`
+- Migrated import usage:
+  - `cmds/layers` -> `cmds/values`
+  - `cmds/parameters` -> `cmds/fields`
+- Migrated command definitions:
+  - `parameters.NewParameterDefinition(...)` -> `fields.New(...)`
+  - `parameters.With*` options -> `fields.With*`
+  - `cmds.WithLayersList(...)` -> `cmds.WithSections(...)`
+- Migrated runtime decode and signatures:
+  - `RunIntoWriter(..., *layers.ParsedLayers, ...)` -> `RunIntoWriter(..., *values.Values, ...)`
+  - `Run(..., *layers.ParsedLayers)` -> `Run(..., *values.Values)`
+  - `InitializeStruct(layers.DefaultSlug, ...)` -> `DecodeSectionInto(values.DefaultSlug, ...)`
+- Migrated command setting tags:
+  - `glazed.parameter:"..."` -> `glazed:"..."`
+- Fixed two remaining legacy constructor calls in `geppetto/pkg/layers/layers.go`:
+  - `cli.NewCommandSettingsLayer()` -> `cli.NewCommandSettingsSection()`
+  - `cli.NewProfileSettingsLayer()` -> `cli.NewProfileSettingsSection()`
+
+### Why
+
+- Command packages are the primary API entrypoints and needed to match the new Glazed command interfaces after earlier package-level migrations.
+
+### What worked
+
+- Static migration checks for old APIs under target directories now return no legacy hits:
+  - no `pkg/cmds/layers`
+  - no `pkg/cmds/parameters`
+  - no `glazed.parameter`
+  - no `WithLayersList(...)`
+- Updated signatures and decode calls are consistently values-based across the target command files.
+
+### What didn't work
+
+- Targeted command builds are currently blocked by an external compatibility issue in `clay` against this local glazed checkout:
+
+```text
+github.com/go-go-golems/clay@v0.3.0/pkg/init.go: undefined: logging.AddLoggingLayerToRootCommand
+```
+
+- This is upstream of the command refactor edits (in dependency interaction between `clay` and local `glazed`), not a direct command-file syntax issue.
+
+### What I learned
+
+- The command migration itself is mostly mechanical and low-risk once section/provider helpers are values-based.
+- Dependency compatibility (`clay` expecting removed logging helper) is now a separate blocker for command package build verification.
+
+### What was tricky to build
+
+- Preserving behavior while replacing a high volume of repetitive command definitions and run signatures in one task.
+
+### What warrants a second pair of eyes
+
+- Whether to add a temporary compatibility shim for `clay` expectations, or update geppetto command bootstrap paths to avoid `clay` APIs that depend on removed logging helper symbols.
+
+### What should be done in the future
+
+- Complete Task 5 (docs snippets), then run full geppetto validation and separate the `clay` compatibility issue if still present.
+
+### Code review instructions
+
+- Focus review on:
+  - `geppetto/cmd/examples/simple-inference/main.go`
+  - `geppetto/cmd/examples/generic-tool-calling/main.go`
+  - `geppetto/cmd/llm-runner/main.go`
+  - `geppetto/cmd/llm-runner/serve.go`
+- Confirm:
+  - `fields.New` usage
+  - `cmds.WithSections` wiring
+  - values-based run signatures and decode calls
+
+### Technical details
+
+- Verification commands used:
+
+```bash
+cd geppetto
+go test ./pkg/layers ./pkg/steps/ai/settings ./pkg/embeddings ./pkg/inference/engine/factory
+go test ./cmd/examples/simple-inference ./cmd/llm-runner
+```

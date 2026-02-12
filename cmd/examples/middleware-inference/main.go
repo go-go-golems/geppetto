@@ -18,9 +18,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
@@ -43,12 +43,12 @@ type MiddlewareInferenceCommand struct {
 }
 
 type MiddlewareInferenceSettings struct {
-	PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
-	Debug            bool   `glazed.parameter:"debug"`
-	WithLogging      bool   `glazed.parameter:"with-logging"`
-	WithUppercase    bool   `glazed.parameter:"with-uppercase"`
-	WithTools        bool   `glazed.parameter:"with-tools"`
-	Prompt           string `glazed.parameter:"prompt"`
+	PinocchioProfile string `glazed:"pinocchio-profile"`
+	Debug            bool   `glazed:"debug"`
+	WithLogging      bool   `glazed:"with-logging"`
+	WithUppercase    bool   `glazed:"with-uppercase"`
+	WithTools        bool   `glazed:"with-tools"`
+	Prompt           string `glazed:"prompt"`
 }
 
 func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
@@ -62,40 +62,40 @@ func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
 		cmds.WithShort("Demonstrates middleware usage with engines"),
 		cmds.WithLong("A demo command that shows how to use logging and uppercase text transformation middleware with inference engines."),
 		cmds.WithArguments(
-			parameters.NewParameterDefinition("prompt",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("The prompt to send to the AI"),
-				parameters.WithRequired(true),
+			fields.New("prompt",
+				fields.TypeString,
+				fields.WithHelp("The prompt to send to the AI"),
+				fields.WithRequired(true),
 			),
 		),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("pinocchio-profile",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Pinocchio profile"),
-				parameters.WithDefault("4o-mini"),
+			fields.New("pinocchio-profile",
+				fields.TypeString,
+				fields.WithHelp("Pinocchio profile"),
+				fields.WithDefault("4o-mini"),
 			),
-			parameters.NewParameterDefinition("debug",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Debug mode - show parsed layers"),
-				parameters.WithDefault(false),
+			fields.New("debug",
+				fields.TypeBool,
+				fields.WithHelp("Debug mode - show parsed layers"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("with-logging",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable logging middleware"),
-				parameters.WithDefault(false),
+			fields.New("with-logging",
+				fields.TypeBool,
+				fields.WithHelp("Enable logging middleware"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("with-uppercase",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable uppercase text transformation middleware"),
-				parameters.WithDefault(false),
+			fields.New("with-uppercase",
+				fields.TypeBool,
+				fields.WithHelp("Enable uppercase text transformation middleware"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("with-tools",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable tool-calling middleware (expects provider to emit tool_call blocks)"),
-				parameters.WithDefault(false),
+			fields.New("with-tools",
+				fields.TypeBool,
+				fields.WithHelp("Enable tool-calling middleware (expects provider to emit tool_call blocks)"),
+				fields.WithDefault(false),
 			),
 		),
-		cmds.WithLayersList(
+		cmds.WithSections(
 			geppettoLayers...,
 		),
 	)
@@ -105,11 +105,11 @@ func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
 	}, nil
 }
 
-func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
+func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers *values.Values, w io.Writer) error {
 	log.Info().Msg("Starting middleware inference command")
 
 	s := &MiddlewareInferenceSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}

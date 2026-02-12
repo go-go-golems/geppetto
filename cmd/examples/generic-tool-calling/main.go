@@ -21,9 +21,9 @@ import (
 	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
@@ -62,20 +62,20 @@ type GenericToolCallingCommand struct {
 var _ cmds.WriterCommand = (*GenericToolCallingCommand)(nil)
 
 type ToolCallingSettings struct {
-	PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
-	Debug            bool   `glazed.parameter:"debug"`
-	WithLogging      bool   `glazed.parameter:"with-logging"`
-	Prompt           string `glazed.parameter:"prompt"`
-	OutputFormat     string `glazed.parameter:"output-format"`
-	WithMetadata     bool   `glazed.parameter:"with-metadata"`
-	FullOutput       bool   `glazed.parameter:"full-output"`
-	Verbose          bool   `glazed.parameter:"verbose"`
+	PinocchioProfile string `glazed:"pinocchio-profile"`
+	Debug            bool   `glazed:"debug"`
+	WithLogging      bool   `glazed:"with-logging"`
+	Prompt           string `glazed:"prompt"`
+	OutputFormat     string `glazed:"output-format"`
+	WithMetadata     bool   `glazed:"with-metadata"`
+	FullOutput       bool   `glazed:"full-output"`
+	Verbose          bool   `glazed:"verbose"`
 
 	// Tool configuration
-	MaxIterations    int    `glazed.parameter:"max-iterations"`
-	ToolChoice       string `glazed.parameter:"tool-choice"`
-	MaxParallelTools int    `glazed.parameter:"max-parallel-tools"`
-	ToolsEnabled     bool   `glazed.parameter:"tools-enabled"`
+	MaxIterations    int    `glazed:"max-iterations"`
+	ToolChoice       string `glazed:"tool-choice"`
+	MaxParallelTools int    `glazed:"max-parallel-tools"`
+	ToolsEnabled     bool   `glazed:"tools-enabled"`
 }
 
 // WeatherRequest represents the input for the weather tool
@@ -200,77 +200,77 @@ func NewGenericToolCallingCommand() (*GenericToolCallingCommand, error) {
 		"generic-tool-calling",
 		cmds.WithShort("Generic tool calling example that works with any AI provider"),
 		cmds.WithArguments(
-			parameters.NewParameterDefinition(
+			fields.New(
 				"prompt",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Prompt to run"),
-				parameters.WithRequired(true),
+				fields.TypeString,
+				fields.WithHelp("Prompt to run"),
+				fields.WithRequired(true),
 			),
 		),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("pinocchio-profile",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Pinocchio profile"),
-				parameters.WithDefault("4o-mini"),
+			fields.New("pinocchio-profile",
+				fields.TypeString,
+				fields.WithHelp("Pinocchio profile"),
+				fields.WithDefault("4o-mini"),
 			),
-			parameters.NewParameterDefinition("debug",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Debug mode - show parsed layers"),
-				parameters.WithDefault(false),
+			fields.New("debug",
+				fields.TypeBool,
+				fields.WithHelp("Debug mode - show parsed layers"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("with-logging",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable logging middleware"),
-				parameters.WithDefault(false),
+			fields.New("with-logging",
+				fields.TypeBool,
+				fields.WithHelp("Enable logging middleware"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("output-format",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Output format (text, json, yaml)"),
-				parameters.WithDefault("text"),
+			fields.New("output-format",
+				fields.TypeString,
+				fields.WithHelp("Output format (text, json, yaml)"),
+				fields.WithDefault("text"),
 			),
-			parameters.NewParameterDefinition("with-metadata",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Include metadata in output"),
-				parameters.WithDefault(false),
+			fields.New("with-metadata",
+				fields.TypeBool,
+				fields.WithHelp("Include metadata in output"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("full-output",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Include full output details"),
-				parameters.WithDefault(false),
+			fields.New("full-output",
+				fields.TypeBool,
+				fields.WithHelp("Include full output details"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("verbose",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Verbose event router logging"),
-				parameters.WithDefault(false),
+			fields.New("verbose",
+				fields.TypeBool,
+				fields.WithHelp("Verbose event router logging"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("log-level",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Global log level (trace, debug, info, warn, error)"),
-				parameters.WithDefault(""),
+			fields.New("log-level",
+				fields.TypeString,
+				fields.WithHelp("Global log level (trace, debug, info, warn, error)"),
+				fields.WithDefault(""),
 			),
 			// Tool configuration parameters
-			parameters.NewParameterDefinition("max-iterations",
-				parameters.ParameterTypeInteger,
-				parameters.WithHelp("Maximum tool calling iterations"),
-				parameters.WithDefault(5),
+			fields.New("max-iterations",
+				fields.TypeInteger,
+				fields.WithHelp("Maximum tool calling iterations"),
+				fields.WithDefault(5),
 			),
-			parameters.NewParameterDefinition("tool-choice",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Tool choice strategy (auto, none, required)"),
-				parameters.WithDefault("auto"),
+			fields.New("tool-choice",
+				fields.TypeString,
+				fields.WithHelp("Tool choice strategy (auto, none, required)"),
+				fields.WithDefault("auto"),
 			),
-			parameters.NewParameterDefinition("max-parallel-tools",
-				parameters.ParameterTypeInteger,
-				parameters.WithHelp("Maximum parallel tool executions"),
-				parameters.WithDefault(3),
+			fields.New("max-parallel-tools",
+				fields.TypeInteger,
+				fields.WithHelp("Maximum parallel tool executions"),
+				fields.WithDefault(3),
 			),
-			parameters.NewParameterDefinition("tools-enabled",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable tool calling"),
-				parameters.WithDefault(true),
+			fields.New("tools-enabled",
+				fields.TypeBool,
+				fields.WithHelp("Enable tool calling"),
+				fields.WithDefault(true),
 			),
 		),
-		cmds.WithLayersList(
+		cmds.WithSections(
 			geppettoLayers...,
 		),
 	)
@@ -280,11 +280,11 @@ func NewGenericToolCallingCommand() (*GenericToolCallingCommand, error) {
 	}, nil
 }
 
-func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
+func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedLayers *values.Values, w io.Writer) error {
 	log.Info().Msg("Starting generic tool calling example")
 
 	s := &ToolCallingSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}

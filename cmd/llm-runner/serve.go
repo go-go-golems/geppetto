@@ -13,15 +13,15 @@ import (
 
 	"github.com/go-go-golems/geppetto/cmd/llm-runner/templates"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/rs/zerolog/log"
 )
 
 type ServeSettings struct {
-	Out  string `glazed.parameter:"out"`
-	Port int    `glazed.parameter:"port"`
+	Out  string `glazed:"out"`
+	Port int    `glazed:"port"`
 }
 
 type ServeCommand struct{ *cmds.CommandDescription }
@@ -33,19 +33,19 @@ func NewServeCommand() (*ServeCommand, error) {
 		"serve",
 		cmds.WithShort("Start web UI to visualize artifacts"),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("out", parameters.ParameterTypeString, parameters.WithDefault("out"), parameters.WithHelp("Artifacts directory")),
-			parameters.NewParameterDefinition("port", parameters.ParameterTypeInteger, parameters.WithDefault(8080), parameters.WithHelp("HTTP port")),
+			fields.New("out", fields.TypeString, fields.WithDefault("out"), fields.WithHelp("Artifacts directory")),
+			fields.New("port", fields.TypeInteger, fields.WithDefault(8080), fields.WithHelp("HTTP port")),
 		),
 	)
 	return &ServeCommand{CommandDescription: desc}, nil
 }
 
-func (c *ServeCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error {
+func (c *ServeCommand) Run(ctx context.Context, parsed *values.Values) error {
 	if err := logging.InitLoggerFromViper(); err != nil {
 		return err
 	}
 	s := &ServeSettings{}
-	if err := parsed.InitializeStruct(layers.DefaultSlug, s); err != nil {
+	if err := parsed.DecodeSectionInto(values.DefaultSlug, s); err != nil {
 		return err
 	}
 

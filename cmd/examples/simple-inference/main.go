@@ -14,9 +14,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
@@ -40,10 +40,10 @@ type SimpleInferenceCommand struct {
 var _ cmds.WriterCommand = (*SimpleInferenceCommand)(nil)
 
 type SimpleInferenceSettings struct {
-	PinocchioProfile string `glazed.parameter:"pinocchio-profile"`
-	Debug            bool   `glazed.parameter:"debug"`
-	WithLogging      bool   `glazed.parameter:"with-logging"`
-	Prompt           string `glazed.parameter:"prompt"`
+	PinocchioProfile string `glazed:"pinocchio-profile"`
+	Debug            bool   `glazed:"debug"`
+	WithLogging      bool   `glazed:"with-logging"`
+	Prompt           string `glazed:"prompt"`
 }
 
 func NewSimpleInferenceCommand() (*SimpleInferenceCommand, error) {
@@ -55,30 +55,30 @@ func NewSimpleInferenceCommand() (*SimpleInferenceCommand, error) {
 		"simple-inference",
 		cmds.WithShort("Simple inference with Engine-first architecture"),
 		cmds.WithArguments(
-			parameters.NewParameterDefinition(
+			fields.New(
 				"prompt",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Prompt to run"),
+				fields.TypeString,
+				fields.WithHelp("Prompt to run"),
 			),
 		),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("pinocchio-profile",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Pinocchio profile"),
-				parameters.WithDefault("4o-mini"),
+			fields.New("pinocchio-profile",
+				fields.TypeString,
+				fields.WithHelp("Pinocchio profile"),
+				fields.WithDefault("4o-mini"),
 			),
-			parameters.NewParameterDefinition("debug",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Debug mode - show parsed layers"),
-				parameters.WithDefault(false),
+			fields.New("debug",
+				fields.TypeBool,
+				fields.WithHelp("Debug mode - show parsed layers"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("with-logging",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable logging middleware"),
-				parameters.WithDefault(false),
+			fields.New("with-logging",
+				fields.TypeBool,
+				fields.WithHelp("Enable logging middleware"),
+				fields.WithDefault(false),
 			),
 		),
-		cmds.WithLayersList(
+		cmds.WithSections(
 			geppettoLayers...,
 		),
 	)
@@ -88,11 +88,11 @@ func NewSimpleInferenceCommand() (*SimpleInferenceCommand, error) {
 	}, nil
 }
 
-func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
+func (c *SimpleInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers *values.Values, w io.Writer) error {
 	log.Info().Msg("Starting simple inference command")
 
 	s := &SimpleInferenceSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedLayers.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}
