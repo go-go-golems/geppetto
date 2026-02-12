@@ -679,7 +679,7 @@ func newJSToolHookExecutor(api *moduleRuntime, cfg tools.ToolConfig, hooks *jsTo
 		api:              api,
 		hooks:            hooks,
 	}
-	exec.BaseToolExecutor.ToolExecutorExt = exec
+	exec.ToolExecutorExt = exec
 	return exec
 }
 
@@ -859,8 +859,8 @@ func (e *jsToolHookExecutor) ShouldRetry(ctx context.Context, attempt int, res *
 			"name": call.Name,
 			"args": decodeToolCallArgs(call),
 		},
-		"error":           errMsg,
-		"defaultRetry":    defaultRetry,
+		"error":        errMsg,
+		"defaultRetry": defaultRetry,
 		"defaultBackoffMs": func() int64 {
 			return defaultBackoff.Milliseconds()
 		}(),
@@ -948,6 +948,16 @@ func inferAPIType(model string) aitypes.ApiType {
 
 func inferAPIKeyFromEnv(apiType aitypes.ApiType) string {
 	switch apiType {
+	case aitypes.ApiTypeOpenAI, aitypes.ApiTypeOpenAIResponses, aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
+		return strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+	case aitypes.ApiTypeOllama:
+		return strings.TrimSpace(os.Getenv("OLLAMA_API_KEY"))
+	case aitypes.ApiTypeMistral:
+		return strings.TrimSpace(os.Getenv("MISTRAL_API_KEY"))
+	case aitypes.ApiTypePerplexity:
+		return strings.TrimSpace(os.Getenv("PERPLEXITY_API_KEY"))
+	case aitypes.ApiTypeCohere:
+		return strings.TrimSpace(os.Getenv("COHERE_API_KEY"))
 	case aitypes.ApiTypeGemini:
 		if v := strings.TrimSpace(os.Getenv("GEMINI_API_KEY")); v != "" {
 			return v
@@ -955,10 +965,9 @@ func inferAPIKeyFromEnv(apiType aitypes.ApiType) string {
 		if v := strings.TrimSpace(os.Getenv("GOOGLE_API_KEY")); v != "" {
 			return v
 		}
+		return ""
 	case aitypes.ApiTypeClaude:
 		return strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
-	default:
-		return strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
 	}
 	return ""
 }
@@ -1072,7 +1081,7 @@ func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, op
 			ss.API.APIKeys[string(apiType)+"-api-key"] = key
 			ss.API.APIKeys["openai-api-key"] = key
 		}
-	case aitypes.ApiTypeGemini, aitypes.ApiTypeClaude:
+	case aitypes.ApiTypeGemini, aitypes.ApiTypeClaude, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
 		if key != "" {
 			ss.API.APIKeys[string(apiType)+"-api-key"] = key
 		}
