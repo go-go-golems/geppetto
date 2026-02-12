@@ -43,3 +43,15 @@ Completed Pinocchio Phase 2 Task 2 by migrating command implementation files und
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/filefilter/section.go — facade-compatible section definition replacing layer-based parser dependency
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/26-pinocchio-cmd-impl-legacy-scan-after-task2.txt — post-migration local legacy-symbol scan
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/28-pinocchio-cmd-impl-aggregate-blockers.txt — aggregate command package blockers (`conversation`, `prompto`)
+
+## 2026-02-12
+
+Completed Pinocchio Phase 2 Task 3 by migrating webchat + redis settings decode paths to facade APIs in pinocchio commit `bc94338`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/redisstream/redis_layer.go — redis section migrated from layer/parameter definitions to `schema.WithFields`
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/webchat/router.go — router settings and redis settings decode switched to `values.DecodeSectionInto`
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/web-chat/main.go — command flags migrated to `fields.New` and `WithSections`
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/29-pinocchio-webchat-redis-legacy-scan-after-task3.txt — post-migration scope scan
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/31-pinocchio-webchat-focused-blocker.txt — remaining `toolhelpers` blocker in `pkg/webchat`
