@@ -290,7 +290,7 @@ This step is documentation and bookkeeping, but it is critical for maintainabili
 
 **Inferred user intent:** Preserve technical history and make review/audit straightforward.
 
-**Commit (code):** pending ticket-doc commit in geppetto (this step)
+**Commit (code):** `4ce845057cbcb6ef9b6bde1832b2f7f3fe1ff360` — "docs(ticket): add GP-018 retro diary and migration fixups log"
 
 ### What I did
 - Created ticket `GP-018-GLAZED-FACADE-FIXUPS`.
