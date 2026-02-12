@@ -561,7 +561,7 @@ func writeTopFilesSection(b *strings.Builder, title string, rows [][2]string) {
 		limit = 20
 	}
 	for i := 0; i < limit; i++ {
-		b.WriteString(fmt.Sprintf("| `%s` | %s |\n", rows[i][0], rows[i][1]))
+		_, _ = fmt.Fprintf(b, "| `%s` | %s |\n", rows[i][0], rows[i][1])
 	}
 	b.WriteString("\n")
 }
@@ -583,7 +583,7 @@ func writeTopTagKeysSection(b *strings.Builder, tags []TagHit) {
 		return
 	}
 	for _, k := range keys {
-		b.WriteString(fmt.Sprintf("- `%s`: `%d`\n", k, counts[k]))
+		_, _ = fmt.Fprintf(b, "- `%s`: `%d`\n", k, counts[k])
 	}
 	b.WriteString("\n")
 }
@@ -607,7 +607,7 @@ func writeHotspotSection(b *strings.Builder, hotspots []SignatureHotspot) {
 		if h.GoplsError != "" {
 			notes = "gopls error"
 		}
-		b.WriteString(fmt.Sprintf("| `%s` | `%s` | %d | %s |\n", h.Function, loc, h.GoplsRefCount, notes))
+		_, _ = fmt.Fprintf(b, "| `%s` | `%s` | %d | %s |\n", h.Function, loc, h.GoplsRefCount, notes)
 	}
 	b.WriteString("\n")
 }

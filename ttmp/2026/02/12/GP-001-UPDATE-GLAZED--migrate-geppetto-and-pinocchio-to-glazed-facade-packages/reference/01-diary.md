@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T09:17:37-05:00
+LastUpdated: 2026-02-12T11:59:03-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -1409,3 +1409,102 @@ simple-redis-streaming-inference: clay init expects logging.AddLoggingLayerToRoo
 cd pinocchio
 git commit --no-verify -m "refactor(pinocchio): migrate examples and agent commands to facade APIs"
 ```
+
+## Step 16: Close Remaining Runtime API Drift After Clay 0.4.0
+
+I resumed from the clay `v0.4.0` checkpoint and removed the remaining runtime/API drift blockers that were still preventing a clean end-to-end build. This included replacing removed geppetto helper packages, migrating run identifiers to metadata-based IDs, and updating engine/sink wiring to current APIs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, then continue porting"
+
+**Assistant interpretation:** Keep implementing migration tasks rather than only reporting blockers, and carry the port through to compiling/validation states.
+
+**Inferred user intent:** Finish the migration implementation, not just document it.
+
+**Commit (code):**
+
+- `9909af2` — "refactor(pinocchio): port runtime to toolloop/tools and metadata-based IDs"
+
+### What I did
+
+- Added compatibility helpers:
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/geppettocompat/compat.go`
+- Replaced removed geppetto packages and symbols:
+  - `toolhelpers` -> `toolloop` (`pkg/webchat/loops.go`, `pkg/webchat/router.go`, `cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go`)
+  - `toolcontext` -> `tools.RegistryFrom` (`cmd/agents/simple-chat-agent/pkg/store/sqlstore.go`, `pkg/middlewares/sqlitetool/middleware.go`)
+  - `conversation.NewImageContentFromFile` -> local image loader (`pkg/cmds/images.go`)
+- Migrated run identity usage:
+  - removed direct `Turn.RunID` assumptions
+  - normalized to `turns.KeyTurnMetaSessionID` / `turns.KeyTurnMetaInferenceID`
+  - switched event metadata references from `RunID` to `SessionID`/`InferenceID`
+- Fixed removed engine sink option usage:
+  - removed `engine.WithSink` call sites in `pkg/ui/runtime/builder.go` and `pkg/cmds/cmd.go`
+  - used context sink injection (`events.WithEventSinks`)
+
+### Why
+
+- These were the remaining compile/runtime drift points after facade command migration and clay bump.
+
+### What worked
+
+- Focused package tests for migrated surfaces passed after fixes.
+- Pinocchio failures narrowed from many migration blockers to one external dependency blocker (`prompto`).
+
+### What didn't work
+
+- `prompto@v0.1.13` still imported removed glazed packages (`cmds/layers`, `cmds/parameters`) and blocked full repo `make test`/`make lint`.
+
+### Technical details
+
+- Evidence logs:
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/49-pinocchio-make-test-continue.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/50-pinocchio-make-lint-continue.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/51-pinocchio-make-test-after-porting-batch1.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/52-pinocchio-make-lint-after-porting-batch1.txt`
+
+## Step 17: Remove Prompto and Finalize Green Validation
+
+After temporarily proving a compatibility shim for prompto, the user requested full removal. I removed all prompto code/dependency from pinocchio and revalidated the repository.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, kill all prompto code in pinocchio and thus the dependency."
+
+**Assistant interpretation:** Remove prompto as a feature and dependency, not patch it.
+
+**Inferred user intent:** Simplify migration and avoid carrying an upstream dependency fork.
+
+**Commit (code):**
+
+- `c64e891` — "refactor(pinocchio): remove prompto command and dependency"
+
+### What I did
+
+- Removed prompto command wiring:
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/pinocchio/main.go`
+- Deleted prompto command package:
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/pinocchio/cmds/prompto/prompto.go`
+- Removed module dependency and replace override:
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/go.mod`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/go.sum`
+- Removed temporary vendored fork:
+  - deleted `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/third_party/prompto`
+- Updated maintenance target:
+  - removed prompto bump line from `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/Makefile`
+
+### What worked
+
+- `make test` passes in pinocchio after prompto removal.
+- `make lint` passes in pinocchio after prompto removal.
+- `make test` and `make lint` pass in geppetto (including staticcheck cleanup in ticket analyzer script).
+
+### Technical details
+
+- Evidence logs:
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/55-pinocchio-make-test-after-prompto-fix2.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/56-pinocchio-make-lint-after-prompto-fix2.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/57-geppetto-make-test-after-analyzer-lint-fix.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/58-geppetto-make-lint-after-analyzer-lint-fix.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/59-pinocchio-make-test-after-removing-prompto.txt`
+  - `/home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/60-pinocchio-make-lint-after-removing-prompto.txt`

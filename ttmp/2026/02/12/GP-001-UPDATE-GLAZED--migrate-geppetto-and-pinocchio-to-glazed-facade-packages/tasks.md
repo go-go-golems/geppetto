@@ -6,6 +6,7 @@
 - [x] Capture baseline failures with `make test` and `make lint` in both repos
 - [x] Produce exhaustive migration analysis and inventory artifacts
 - [x] Create and maintain detailed implementation diary
+- [x] Bump `clay` to `v0.4.0` in both repos and re-run validation targets
 
 ## Automation
 
@@ -26,11 +27,11 @@
 - [x] Migrate pinocchio command implementations in `cmd/pinocchio/cmds/*`
 - [x] Migrate webchat + redis settings paths (`pkg/webchat/*`, `pkg/redisstream/redis_layer.go`, `cmd/web-chat/main.go`)
 - [x] Migrate examples and agent commands (`cmd/examples/*`, `cmd/agents/*`)
-- [ ] Validate pinocchio with `make test` and `make lint`
+- [x] Validate pinocchio with `make test` and `make lint`
 
 ## Follow-up / Out of Scope for This Ticket
 
-- [ ] Separate ticket for missing geppetto package imports in pinocchio (`toolhelpers`, `toolcontext`, `conversation`)
-- [ ] Separate ticket for `RunID` incompatibility in `pinocchio/pkg/middlewares/agentmode/middleware.go`
-- [ ] Separate ticket for `clay`/`glazed` logging bootstrap compatibility (`logging.AddLoggingLayerToRootCommand` missing)
-- [ ] Separate ticket for `prompto` module compatibility with facade packages (`github.com/go-go-golems/prompto@v0.1.13` still imports `cmds/layers` and `cmds/parameters`)
+- [x] Migrate pinocchio off missing geppetto package imports (`toolhelpers`, `toolcontext`, `conversation`)
+- [x] Migrate pinocchio `RunID` usage to metadata/session identifiers
+- [x] Fix `pinocchio/pkg/ui/runtime/builder.go` engine factory signature drift (`CreateEngine(..., engine.WithSink)` removal)
+- [x] Remove `prompto` command and dependency from pinocchio (delete command wiring/package, module dep, and temporary vendored fork)

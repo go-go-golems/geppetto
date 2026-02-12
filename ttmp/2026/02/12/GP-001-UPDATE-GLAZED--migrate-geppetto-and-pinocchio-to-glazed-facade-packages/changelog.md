@@ -67,3 +67,44 @@ Completed Pinocchio Phase 2 Task 4 by migrating `cmd/examples/*` and `cmd/agents
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/agents/simple-chat-agent/main.go — values/fields migration for agent command flags and decode
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/33-pinocchio-examples-agents-legacy-scan-after-task4.txt — post-migration scope scan
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/35-pinocchio-simple-redis-blocker.txt — current clay logging bootstrap blocker
+
+## 2026-02-12
+
+Completed post-Task-4 migration closure and full validation:
+
+- pinocchio runtime migration in commit `9909af2`:
+  - moved `toolhelpers` usage to `toolloop`
+  - moved `toolcontext` usage to `tools.WithRegistry`/`tools.RegistryFrom`
+  - migrated `RunID` references to turn metadata (`session_id`/`inference_id`) and `events.EventMetadata` (`SessionID`/`InferenceID`)
+  - removed `engine.WithSink` usage by attaching sinks through `events.WithEventSinks`
+- temporary prompto compatibility shim in commit `6c29260`
+- prompto removed entirely in commit `c64e891`:
+  - removed prompto command wiring and package
+  - removed `github.com/go-go-golems/prompto` dependency and replace directive
+  - deleted temporary vendored prompto tree under `third_party/prompto`
+- geppetto analyzer script staticcheck fixes (QF1012) restored `make lint` pass.
+
+Validation logs captured:
+
+- `sources/local/47-geppetto-make-test-continue.txt`
+- `sources/local/48-geppetto-make-lint-continue.txt`
+- `sources/local/49-pinocchio-make-test-continue.txt`
+- `sources/local/50-pinocchio-make-lint-continue.txt`
+- `sources/local/51-pinocchio-make-test-after-porting-batch1.txt`
+- `sources/local/52-pinocchio-make-lint-after-porting-batch1.txt`
+- `sources/local/53-pinocchio-make-test-after-prompto-local-replace.txt`
+- `sources/local/54-pinocchio-make-test-after-prompto-patch.txt`
+- `sources/local/55-pinocchio-make-test-after-prompto-fix2.txt`
+- `sources/local/56-pinocchio-make-lint-after-prompto-fix2.txt`
+- `sources/local/57-geppetto-make-test-after-analyzer-lint-fix.txt`
+- `sources/local/58-geppetto-make-lint-after-analyzer-lint-fix.txt`
+- `sources/local/59-pinocchio-make-test-after-removing-prompto.txt`
+- `sources/local/60-pinocchio-make-lint-after-removing-prompto.txt`
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/geppettocompat/compat.go — compatibility helpers for middleware chaining and turn/session metadata IDs
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/webchat/loops.go — toolloop migration replacing removed toolhelpers API
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/middlewares/agentmode/middleware.go — event metadata and run/session migration
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/pinocchio/main.go — prompto command removal
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/scripts/glazed_migration_analyzer.go — staticcheck cleanup to restore geppetto lint pass

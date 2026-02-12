@@ -1,6 +1,0 @@
-go generate ./...
-go build ./...
-# github.com/go-go-golems/clay/pkg
-../../../../go/pkg/mod/github.com/go-go-golems/clay@v0.3.0/pkg/init.go:52:17: undefined: logging.AddLoggingLayerToRootCommand
-../../../../go/pkg/mod/github.com/go-go-golems/clay@v0.3.0/pkg/init.go:124:17: undefined: logging.AddLoggingLayerToRootCommand
-make: *** [Makefile:41: build] Error 1

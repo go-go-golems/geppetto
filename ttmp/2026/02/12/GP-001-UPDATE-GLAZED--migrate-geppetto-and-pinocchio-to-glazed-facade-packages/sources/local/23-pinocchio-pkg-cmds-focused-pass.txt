@@ -1,2 +1,0 @@
-?   	github.com/go-go-golems/pinocchio/pkg/cmds/cmdlayers	[no test files]
-?   	github.com/go-go-golems/pinocchio/pkg/cmds/run	[no test files]

@@ -1,5 +1,0 @@
-# github.com/go-go-golems/pinocchio/pkg/webchat
-pkg/webchat/loops.go:8:2: no required module provides package github.com/go-go-golems/geppetto/pkg/inference/toolhelpers; to add it:
-	go get github.com/go-go-golems/geppetto/pkg/inference/toolhelpers
-FAIL	github.com/go-go-golems/pinocchio/pkg/webchat [setup failed]
-FAIL

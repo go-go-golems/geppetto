@@ -1,5 +1,0 @@
-?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/tokens	[no test files]
-?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/helpers	[no test files]
-?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/kagi	[no test files]
-?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/catter	[no test files]
-?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/catter/cmds	[no test files]

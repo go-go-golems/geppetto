@@ -1,8 +1,0 @@
-# github.com/go-go-golems/pinocchio/cmd/agents/simple-chat-agent
-cmd/agents/simple-chat-agent/pkg/backend/tool_loop_backend.go:16:2: no required module provides package github.com/go-go-golems/geppetto/pkg/inference/toolhelpers; to add it:
-	go get github.com/go-go-golems/geppetto/pkg/inference/toolhelpers
-# github.com/go-go-golems/pinocchio/cmd/agents/simple-chat-agent
-cmd/agents/simple-chat-agent/pkg/store/sqlstore.go:16:2: no required module provides package github.com/go-go-golems/geppetto/pkg/inference/toolcontext; to add it:
-	go get github.com/go-go-golems/geppetto/pkg/inference/toolcontext
-FAIL	github.com/go-go-golems/pinocchio/cmd/agents/simple-chat-agent [setup failed]
-FAIL

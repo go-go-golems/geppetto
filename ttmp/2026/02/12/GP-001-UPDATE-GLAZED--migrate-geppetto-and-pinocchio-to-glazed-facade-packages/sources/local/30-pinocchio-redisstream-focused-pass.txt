@@ -1,1 +1,0 @@
-?   	github.com/go-go-golems/pinocchio/pkg/redisstream	[no test files]
