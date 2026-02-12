@@ -19,12 +19,22 @@ RelatedFiles:
       Note: Pinocchio root command migration from geppetto layers to sections
     - Path: ../../../../../../../pinocchio/pkg/cmds/loader.go
       Note: Pinocchio command loader switched to CreateGeppettoSections
+    - Path: cmd/llm-runner/api.go
+      Note: 404 mapping for missing runs and streaming event/log parsing
+    - Path: cmd/llm-runner/api_test.go
+      Note: Tests for missing-run 404 and parseEvents behavior
+    - Path: cmd/llm-runner/path_security.go
+      Note: Constrained streaming file opener under os.Root
     - Path: pkg/doc/tutorials/05-migrating-to-geppetto-sections-and-values.md
       Note: Migration tutorial documenting old-to-new symbol mapping
     - Path: pkg/inference/engine/factory/helpers.go
       Note: Renamed parsed-values engine helper used by downstream repos
     - Path: pkg/sections/sections.go
       Note: Canonical geppetto sections middleware wiring after hard-cut
+    - Path: pkg/security/outbound_url.go
+      Note: Fixed zoned IPv6 literal handling in outbound URL checks
+    - Path: pkg/security/outbound_url_test.go
+      Note: Regression tests for zoned IPv6 URL validation
     - Path: pkg/steps/ai/settings/settings-step.go
       Note: Step settings parsed-values APIs replacing parsed-layers APIs
 ExternalSources: []
@@ -33,6 +43,7 @@ LastUpdated: 2026-02-12T16:55:00-05:00
 WhatFor: Provide a stepwise implementation log with failures, rationale, and validation for reviewers.
 WhenToUse: Use when reviewing migration correctness or resuming follow-up work.
 ---
+
 
 
 # Diary
@@ -330,3 +341,122 @@ This step is documentation and bookkeeping, but it is critical for maintainabili
 ### Technical details
 - Ticket path:
   - `ttmp/2026/02/12/GP-018-GLAZED-FACADE-FIXUPS--glazed-facade-migration-fixups-and-finetunes`
+
+## Step 6: SSRF and Run API Follow-up Fixes
+
+This step handled three follow-up review findings that were small individually but important for correctness: IPv6 zone-literal URL handling, missing-run HTTP status behavior, and event/log file parsing memory profile. I treated them as one batch because they were all already scoped to this ticket and touched security + API reliability.
+
+I implemented all three fixes, added focused tests, ran lint/test gates, then updated task state and documentation in this ticket.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+```text
+go ahead.
+
+Also : 
+
+cmd/llm-runner/api.go
+			return
+		}
+		log.Error().Err(err).Str("runID", runID).Msg("failed to parse run")
+		http.Error(w, fmt.Sprintf("Failed to parse run: %v", err), http.StatusInternalServerError)
+@chatgpt-codex-connector
+chatgpt-codex-connector bot
+40 minutes ago
+
+P2 Badge Return 404 when requested run directory is missing
+
+After introducing os.OpenRoot in parseRun, a nonexistent run now returns an error, but GetRunHandler maps that case to a 500 response. Requesting a stale or mistyped run ID therefore reports an internal server failure instead of a not-found result, which misleads API clients and breaks normal missing-resource handling.
+
+Useful? React with 👍 / 👎.
+@wesen
+
+
+---
+
+
+cmd/llm-runner/api.go
+Comment on lines +378 to 379
+	data, _, err := readFileUnderBase(baseDir, relPath)
+	if err != nil {
+@chatgpt-codex-connector
+chatgpt-codex-connector bot
+40 minutes ago
+
+P2 Badge Stream event files instead of buffering whole file
+
+This path now reads each events file fully into memory before scanning (readFileUnderBase + bytes.NewReader), whereas the previous implementation streamed from an open file descriptor. Large NDJSON artifacts can now cause significant memory spikes or OOMs when loading run details, especially in long-running sessions with many events.
+
+Useful? React with 👍 / 👎.
+@wesen
+
+
+---
+
+Create tasks for each of these inthe ticket, implement, commit, update diary.
+```
+
+**Assistant interpretation:** Add ticket tasks for the three review findings, implement fixes in code, commit them, and update the ticket diary/changelog/task state.
+
+**Inferred user intent:** Close concrete post-migration regressions quickly while maintaining disciplined ticket bookkeeping.
+
+**Commit (code):** `db090cce0430fbbc10e81c5a5d86e587c7d3460b` — "fix security URL validation and llm-runner run parsing behavior"
+
+### What I did
+- Added ticket tasks:
+  - Block IPv6 zone-literal hosts in outbound URL validation
+  - Return 404 for missing run directories in `GetRunHandler`
+  - Stream run event/log files instead of buffering entire files
+- Fixed URL validator in `pkg/security/outbound_url.go`:
+  - switched IP-literal parsing from `net.ParseIP` to `netip.ParseAddr`
+  - reject zoned IP literals when `AllowLocalNetworks == false`
+- Added URL validation tests in `pkg/security/outbound_url_test.go`.
+- Fixed missing-run status mapping in `cmd/llm-runner/api.go`:
+  - map `os.ErrNotExist` to HTTP 404 in `GetRunHandler`
+- Refactored file access in `cmd/llm-runner/path_security.go`:
+  - added `openFileUnderBase` returning a constrained streaming reader
+  - refactored `readFileUnderBase` to reuse that helper
+- Updated `cmd/llm-runner/api.go` parsers:
+  - `parseEvents` and `parseLogs` now scan directly from streamed readers
+  - removed intermediate whole-file buffers for those paths
+- Added llm-runner tests in `cmd/llm-runner/api_test.go`:
+  - missing run returns 404
+  - NDJSON event parsing still works with streaming reader flow
+
+### Why
+- Zoned IPv6 literals were bypassing local-network checks.
+- Missing run IDs are client-facing not-found conditions, not server faults.
+- Full-buffer parsing can spike memory on large artifacts.
+
+### What worked
+- `go test ./pkg/security ./cmd/llm-runner` passed.
+- `make lint` passed in geppetto.
+- pre-commit hooks passed on commit.
+
+### What didn't work
+- No implementation blockers in this step.
+
+### What I learned
+- `netip.ParseAddr` is the correct parser for IPv6 zone-literal handling in modern Go URL guards.
+
+### What was tricky to build
+- Streaming under `os.Root` confinement requires preserving both the opened file and root lifetime. I introduced a dedicated `io.ReadCloser` wrapper so both handles are closed correctly.
+
+### What warrants a second pair of eyes
+- Review whether zoned IP literals should be rejected unconditionally (current behavior rejects them only when local networks are disallowed).
+
+### What should be done in the future
+- Consider adding transport-level dial guardrails for DNS-resolved hostnames to complement URL pre-validation.
+
+### Code review instructions
+- Start with:
+  - `pkg/security/outbound_url.go`
+  - `cmd/llm-runner/api.go`
+  - `cmd/llm-runner/path_security.go`
+- Validate with:
+  - `go test ./pkg/security ./cmd/llm-runner`
+  - `make lint`
+
+### Technical details
+- Ticket tasks `7`, `8`, and `9` are now checked complete.

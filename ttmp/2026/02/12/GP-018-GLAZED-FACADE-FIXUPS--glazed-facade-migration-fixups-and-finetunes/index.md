@@ -13,16 +13,21 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: cmd/llm-runner/api.go
+      Note: Run API fixes for missing-run status and streaming parse
     - Path: pkg/doc/tutorials/05-migrating-to-geppetto-sections-and-values.md
       Note: Primary migration help page for users
     - Path: pkg/sections/sections.go
       Note: Core geppetto sections middleware entrypoint
+    - Path: pkg/security/outbound_url.go
+      Note: Outbound URL security hardening for IPv6 zone-literal hosts
 ExternalSources: []
 Summary: Consolidated follow-up fixes and finetunes after the glazed facade migration, including symbol hard-cut, docs refresh, and validation.
 LastUpdated: 2026-02-12T16:55:00-05:00
 WhatFor: Track small but high-impact migration cleanups and ensure both geppetto and pinocchio are stable on sections/values APIs.
 WhenToUse: Use this ticket to review facade migration hard-cut details, supporting commits, and validation evidence.
 ---
+
 
 
 
@@ -45,6 +50,8 @@ This ticket captures the post-migration cleanup work that converted remaining Ge
   - migrate pinocchio to geppetto sections/values facade
 - `geppetto`: `53af798dca730ca7c4edd11bde5cdbd3627800c3`
   - migrate geppetto to sections/values facade hard-cut
+- `geppetto`: `db090cce0430fbbc10e81c5a5d86e587c7d3460b`
+  - fix security URL validation and llm-runner run parsing behavior
 
 ## Task Status
 
