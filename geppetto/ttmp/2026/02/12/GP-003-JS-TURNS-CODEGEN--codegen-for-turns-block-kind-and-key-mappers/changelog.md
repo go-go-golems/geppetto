@@ -26,3 +26,14 @@ Task 2 complete: adopted generated BlockKind mapper and removed handwritten mapp
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/generate.go — Updated go:generate directives for partial migration
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/types.go — Removed handwritten block-kind mapper logic
 
+
+## 2026-02-12
+
+Task 3 complete: adopted generated keys constants and typed key vars in keys_gen.go; removed duplicate handwritten sections.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/generate.go — Generate keys in package root
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/keys.go — Kept only handwritten payload/run constants
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/keys_gen.go — Generated key constants and typed keys
+

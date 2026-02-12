@@ -236,3 +236,74 @@ I also updated `pkg/turns/generate.go` so `go generate ./pkg/turns` now regenera
 ### Technical details
 
 - `BlockKind` constants remain stable (`BlockKindUser`, `BlockKindLLMText`, etc.) and `String()/MarshalYAML()/UnmarshalYAML()` behavior remains functionally equivalent.
+
+## Step 4: Task 3 Completed — Generated Key Mapper Adoption
+
+I completed Task 3 by generating key-id constants and typed key variables into `pkg/turns/keys_gen.go` and removing those duplicated sections from handwritten `pkg/turns/keys.go`. The remaining handwritten file now only contains payload/run metadata constants that are intentionally outside generator scope.
+
+I also switched `go:generate` wiring so both kinds and keys are regenerated directly into `pkg/turns`, which makes pre-commit regeneration authoritative and removes partial-migration behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue with the next isolated implementation task and commit it separately.
+
+**Inferred user intent:** Complete full migration of manually maintained mapper code to generated files while keeping exports stable.
+
+**Commit (code):** pending Task 3 commit.
+
+### What I did
+
+- Generated and added:
+  - `pkg/turns/keys_gen.go`
+- Updated generation wiring:
+  - `pkg/turns/generate.go` now generates keys into package root.
+- Removed generated-owned sections from:
+  - `pkg/turns/keys.go`
+- Validation:
+  - `go generate ./pkg/turns`
+  - `go test ./pkg/turns/... ./pkg/inference/... ./pkg/steps/ai/... -count=1`
+
+### Why
+
+- Task 3 is the migration point where keys/constants ownership moves fully to generated source.
+
+### What worked
+
+- Exported symbol names remained stable (`GeppettoNamespaceKey`, `*ValueKey`, `Key*`).
+- Targeted tests across turns/inference/provider helper packages all passed.
+
+### What didn't work
+
+- Immediate read after generation briefly reported missing `keys_gen.go` before filesystem refresh; subsequent checks confirmed file presence.
+
+### What I learned
+
+- Migration is clean when generated and handwritten scopes are explicitly separated.
+
+### What was tricky to build
+
+- Ensuring no duplicate declarations during transition while preserving comments and import-cycle context notes.
+
+### What warrants a second pair of eyes
+
+- Whether some doc comments from former handwritten sections should be copied into templates for long-term clarity.
+
+### What should be done in the future
+
+- Task 4: add generator-focused tests/checks, ignore transient generation scratch dir, and finalize ticket docs.
+
+### Code review instructions
+
+- Review key migration files:
+  - `pkg/turns/keys_gen.go`
+  - `pkg/turns/keys.go`
+  - `pkg/turns/generate.go`
+- Re-run generation and tests:
+  - `go generate ./pkg/turns`
+  - `go test ./pkg/turns/... ./pkg/inference/... ./pkg/steps/ai/... -count=1`
+
+### Technical details
+
+- Generated key constants and typed keys now come from `pkg/turns/spec/turns_codegen.yaml` via `cmd/gen-turns`.
