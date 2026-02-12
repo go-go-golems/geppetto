@@ -2,7 +2,8 @@ package gemini
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/huandu/go-clone"
 )
 
@@ -14,7 +15,7 @@ func NewSettings() (*Settings, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.InitializeStructFromParameterDefaults(s); err != nil {
+	if err := p.InitializeStructFromFieldDefaults(s); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -30,13 +31,13 @@ const GeminiChatSlug = "gemini-chat"
 var settingsYAML []byte
 
 type ParameterLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
+	*schema.SectionImpl `yaml:",inline"`
 }
 
-func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(settingsYAML, options...)
+func NewParameterLayer(options ...schema.SectionOption) (*ParameterLayer, error) {
+	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
-	return &ParameterLayer{ParameterLayerImpl: ret}, nil
+	return &ParameterLayer{SectionImpl: ret}, nil
 }

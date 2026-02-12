@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T08:43:23-05:00
+LastUpdated: 2026-02-12T08:47:26-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -549,4 +549,115 @@ pkg/embeddings/config/settings.go:7:2: no required module provides package githu
 ```bash
 cd geppetto
 go test ./pkg/layers -run TestNonExistent
+```
+
+## Step 7: Migrate Settings Constructors and Defaults Initialization (Task 2)
+
+I migrated the settings constructor files away from legacy `cmds/layers` and `cmds/parameters` dependencies to `cmds/schema` and `cmds/fields`, and switched struct tags from `glazed.parameter` / `glazed.layer` to `glazed`.
+
+This step corresponds to Geppetto migration Phase 1 Task 2.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Then work on the tasks one by one, commit to git after each, check off task, update your diary. go"
+
+**Assistant interpretation:** Continue sequential task execution with isolated migration commits and explicit evidence.
+
+**Inferred user intent:** Keep migration momentum while preserving reviewability and traceability.
+
+**Commit (code):** Pending in next step (Task 2 commit)
+
+### What I did
+
+- Migrated constructor wrapper internals from `*layers.ParameterLayerImpl` to `*schema.SectionImpl` in:
+  - `geppetto/pkg/steps/ai/settings/settings-chat.go`
+  - `geppetto/pkg/steps/ai/settings/settings-client.go`
+  - `geppetto/pkg/steps/ai/settings/openai/settings.go`
+  - `geppetto/pkg/steps/ai/settings/claude/settings.go`
+  - `geppetto/pkg/steps/ai/settings/gemini/settings.go`
+  - `geppetto/pkg/steps/ai/settings/ollama/settings.go`
+  - `geppetto/pkg/embeddings/config/settings.go`
+- Replaced YAML constructor calls:
+  - `layers.NewParameterLayerFromYAML(...)` -> `schema.NewSectionFromYAML(...)`
+- Replaced defaults init helper calls:
+  - `InitializeStructFromParameterDefaults(...)` -> `InitializeStructFromFieldDefaults(...)`
+- Updated settings struct tags:
+  - `glazed.parameter:"..."` -> `glazed:"..."`
+  - `glazed.layer:"..."` -> `glazed:"..."`
+- Updated manual embeddings API-key section builder:
+  - `parameters.NewParameterDefinition(...)` + `layers.NewParameterLayer(...)`
+  - to `fields.New(...)` + `schema.NewSection(...)`
+- Removed obsolete `ClientSettings` methods bound to legacy `layers.ParsedLayer` types (unused in repo).
+
+### Why
+
+- Constructor files were a direct compile blocker because they imported removed Glazed packages.
+- Defaults/tag migration is required so section default initialization and future `values.DecodeSectionInto` decoding use the current tag/key model.
+
+### What worked
+
+- These migrated packages now compile:
+
+```bash
+go test ./pkg/steps/ai/settings/claude ./pkg/steps/ai/settings/gemini ./pkg/steps/ai/settings/openai ./pkg/steps/ai/settings/ollama ./pkg/embeddings/config
+```
+
+- Output:
+
+```text
+? .../settings/claude [no test files]
+? .../settings/gemini [no test files]
+? .../settings/openai [no test files]
+? .../settings/ollama [no test files]
+? .../embeddings/config [no test files]
+```
+
+### What didn't work
+
+- Parent settings package still fails due Task 3 remaining work in `settings-step.go`:
+
+```text
+pkg/steps/ai/settings/settings-step.go:13:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/layers
+```
+
+### What I learned
+
+- Constructor migration can be done safely and independently, but runtime decode glue in `settings-step.go` remains the next hard dependency.
+
+### What was tricky to build
+
+- Preserving exported constructor names/types (to minimize callsite churn) while swapping their backing implementation from legacy layers to sections.
+
+### What warrants a second pair of eyes
+
+- API compatibility expectations around removed client helper methods that referenced legacy parsed-layer types.
+
+### What should be done in the future
+
+- Complete Task 3 by moving runtime decode paths in:
+  - `pkg/steps/ai/settings/settings-step.go`
+  - `pkg/embeddings/settings_factory.go`
+  - `pkg/inference/engine/factory/helpers.go`
+  to `values.DecodeSectionInto`.
+
+### Code review instructions
+
+- Prioritize these files:
+  - `geppetto/pkg/steps/ai/settings/settings-chat.go`
+  - `geppetto/pkg/steps/ai/settings/settings-client.go`
+  - `geppetto/pkg/embeddings/config/settings.go`
+- Then verify provider settings constructors:
+  - `geppetto/pkg/steps/ai/settings/openai/settings.go`
+  - `geppetto/pkg/steps/ai/settings/claude/settings.go`
+  - `geppetto/pkg/steps/ai/settings/gemini/settings.go`
+  - `geppetto/pkg/steps/ai/settings/ollama/settings.go`
+
+### Technical details
+
+- Verification commands:
+
+```bash
+cd geppetto
+go test ./pkg/steps/ai/settings/claude ./pkg/steps/ai/settings/gemini ./pkg/steps/ai/settings/openai ./pkg/steps/ai/settings/ollama ./pkg/embeddings/config
+go test ./pkg/steps/ai/settings
 ```

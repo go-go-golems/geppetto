@@ -2,13 +2,14 @@ package claude
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/huandu/go-clone"
 )
 
 type Settings struct {
-	TopK   *int    `yaml:"top_k,omitempty" glazed.parameter:"claude-top-k"`
-	UserID *string `yaml:"user_id,omitempty" glazed.parameter:"claude-user-id"`
+	TopK   *int    `yaml:"top_k,omitempty" glazed:"claude-top-k"`
+	UserID *string `yaml:"user_id,omitempty" glazed:"claude-user-id"`
 }
 
 func NewSettings() (*Settings, error) {
@@ -22,7 +23,7 @@ func NewSettings() (*Settings, error) {
 		return nil, err
 	}
 
-	err = p.InitializeStructFromParameterDefaults(s)
+	err = p.InitializeStructFromFieldDefaults(s)
 	if err != nil {
 		return nil, err
 	}
@@ -40,16 +41,16 @@ const ClaudeChatSlug = "claude-chat"
 var settingsYAML []byte
 
 type ParameterLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
+	*schema.SectionImpl `yaml:",inline"`
 }
 
-func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(settingsYAML, options...)
+func NewParameterLayer(options ...schema.SectionOption) (*ParameterLayer, error) {
+	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ParameterLayer{
-		ParameterLayerImpl: ret,
+		SectionImpl: ret,
 	}, nil
 }

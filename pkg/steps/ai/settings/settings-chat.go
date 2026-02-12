@@ -2,26 +2,27 @@ package settings
 
 import (
 	_ "embed"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/huandu/go-clone"
 )
 
 type ChatSettings struct {
-	Engine            *string           `yaml:"engine,omitempty" glazed.parameter:"ai-engine"`
-	ApiType           *types.ApiType    `yaml:"api_type,omitempty" glazed.parameter:"ai-api-type"`
-	MaxResponseTokens *int              `yaml:"max_response_tokens,omitempty" glazed.parameter:"ai-max-response-tokens"`
-	TopP              *float64          `yaml:"top_p,omitempty" glazed.parameter:"ai-top-p"`
-	Temperature       *float64          `yaml:"temperature,omitempty" glazed.parameter:"ai-temperature"`
-	Stop              []string          `yaml:"stop,omitempty" glazed.parameter:"ai-stop"`
-	APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+	Engine            *string           `yaml:"engine,omitempty" glazed:"ai-engine"`
+	ApiType           *types.ApiType    `yaml:"api_type,omitempty" glazed:"ai-api-type"`
+	MaxResponseTokens *int              `yaml:"max_response_tokens,omitempty" glazed:"ai-max-response-tokens"`
+	TopP              *float64          `yaml:"top_p,omitempty" glazed:"ai-top-p"`
+	Temperature       *float64          `yaml:"temperature,omitempty" glazed:"ai-temperature"`
+	Stop              []string          `yaml:"stop,omitempty" glazed:"ai-stop"`
+	APIKeys           map[string]string `yaml:"api_keys,omitempty" glazed:"*-api-key"`
 	Stream            bool              `yaml:"stream,omitempty"`
 
 	// Caching settings
-	CacheType       string `yaml:"cache_type,omitempty" glazed.parameter:"ai-cache-type"`
-	CacheMaxSize    int64  `yaml:"cache_max_size,omitempty" glazed.parameter:"ai-cache-max-size"`
-	CacheMaxEntries int    `yaml:"cache_max_entries,omitempty" glazed.parameter:"ai-cache-max-entries"`
-	CacheDirectory  string `yaml:"cache_directory,omitempty" glazed.parameter:"ai-cache-directory"`
+	CacheType       string `yaml:"cache_type,omitempty" glazed:"ai-cache-type"`
+	CacheMaxSize    int64  `yaml:"cache_max_size,omitempty" glazed:"ai-cache-max-size"`
+	CacheMaxEntries int    `yaml:"cache_max_entries,omitempty" glazed:"ai-cache-max-entries"`
+	CacheDirectory  string `yaml:"cache_directory,omitempty" glazed:"ai-cache-directory"`
 }
 
 func NewChatSettings() (*ChatSettings, error) {
@@ -40,7 +41,7 @@ func NewChatSettings() (*ChatSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = p.InitializeStructFromParameterDefaults(s)
+	err = p.InitializeStructFromFieldDefaults(s)
 	if err != nil {
 		return nil, err
 	}
@@ -56,19 +57,19 @@ func (s *ChatSettings) Clone() *ChatSettings {
 var settingsYAML []byte
 
 type ChatParameterLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
+	*schema.SectionImpl `yaml:",inline"`
 }
 
 const AiChatSlug = "ai-chat"
 
-func NewChatParameterLayer(options ...layers.ParameterLayerOptions) (*ChatParameterLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(settingsYAML, options...)
+func NewChatParameterLayer(options ...schema.SectionOption) (*ChatParameterLayer, error) {
+	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ChatParameterLayer{
-		ParameterLayerImpl: ret,
+		SectionImpl: ret,
 	}, nil
 }
 
