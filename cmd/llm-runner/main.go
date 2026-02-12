@@ -78,7 +78,7 @@ func (c *RunCommand) Run(ctx context.Context, parsed *values.Values) error {
 	if s.In == "" {
 		return fmt.Errorf("--in is required")
 	}
-	if err := os.MkdirAll(s.Out, 0755); err != nil {
+	if err := os.MkdirAll(s.Out, 0750); err != nil {
 		return err
 	}
 

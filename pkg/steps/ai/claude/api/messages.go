@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -137,12 +138,19 @@ func (u Usage) MarshalZerologObject(e *zerolog.Event) {
 
 // SendMessage sends a message request and returns the response.
 func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*MessageResponse, error) {
+	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
+	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude messages URL: %w", err)
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/messages", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +161,7 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 	}
 	log.Debug().Msgf("Sending message request: %s", truncatedBody)
 
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, err
@@ -187,6 +196,11 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	}
 
 	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
+	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude messages URL: %w", err)
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
@@ -200,6 +214,7 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	}
 	log.Debug().Str("url", url).Str("body", truncatedBody).Msg("Sending streaming message request")
 
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		log.Error().Err(err).Interface("resp", resp).Msg("Error sending streaming message request")

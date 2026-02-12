@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -137,6 +139,10 @@ func (h *APIHandler) GetRunHandler(w http.ResponseWriter, r *http.Request) {
 
 	parsedRun, err := h.parseRun(runID)
 	if err != nil {
+		if errors.Is(err, ErrUnsafePath) {
+			http.Error(w, "invalid run ID", http.StatusBadRequest)
+			return
+		}
 		log.Error().Err(err).Str("runID", runID).Msg("failed to parse run")
 		http.Error(w, fmt.Sprintf("Failed to parse run: %v", err), http.StatusInternalServerError)
 		return
@@ -254,7 +260,18 @@ func toTurnDTO(turn *turns.Turn, index int, label string, rawYaml []byte, rawReq
 }
 
 func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
-	runPath := filepath.Join(h.BaseDir, runID)
+	runPath, err := secureJoinUnderBase(h.BaseDir, runID)
+	if err != nil {
+		return nil, err
+	}
+	runRoot, err := os.OpenRoot(runPath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = runRoot.Close()
+	}()
+
 	parsed := &ParsedRun{
 		ID:     runID,
 		Path:   runPath,
@@ -266,7 +283,7 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 	}
 
 	// Parse input turn
-	if inputData, err := os.ReadFile(filepath.Join(runPath, "input_turn.yaml")); err == nil {
+	if inputData, err := runRoot.ReadFile("input_turn.yaml"); err == nil {
 		if turn, err := serde.FromYAML(inputData); err == nil {
 			dto := toTurnDTO(turn, -1, "Input Turn", inputData, nil)
 			parsed.InputTurn = &dto
@@ -281,13 +298,13 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 		var rawRequestIndex *int
 
 		if i == 0 {
-			path = filepath.Join(runPath, "final_turn.yaml")
+			path = "final_turn.yaml"
 			label = "After Initial Run"
 			rawReqIdx := apiCallIndex
 			rawRequestIndex = &rawReqIdx
 			apiCallIndex++
 		} else {
-			path = filepath.Join(runPath, fmt.Sprintf("final_turn_%d.yaml", i))
+			path = fmt.Sprintf("final_turn_%d.yaml", i)
 			if i%2 == 1 {
 				label = fmt.Sprintf("After Follow-up #%d (before run)", (i+1)/2)
 				// "before run" turns should show the NEXT API call that will be made
@@ -301,7 +318,7 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 			}
 		}
 
-		turnData, err := os.ReadFile(path)
+		turnData, err := runRoot.ReadFile(path)
 		if err != nil {
 			break
 		}
@@ -323,7 +340,7 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 			path = filepath.Join(runPath, fmt.Sprintf("events-%d.ndjson", i+1))
 		}
 
-		events, err := h.parseEvents(path)
+		events, err := h.parseEvents(runPath, path)
 		if err != nil {
 			if i == 0 {
 				log.Warn().Err(err).Msg("failed to parse events")
@@ -335,13 +352,13 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 
 	// Parse logs
 	logsPath := filepath.Join(runPath, "logs.jsonl")
-	if logs, err := h.parseLogs(logsPath); err == nil {
+	if logs, err := h.parseLogs(runPath, logsPath); err == nil {
 		parsed.Logs = logs
 	}
 
 	// Parse raw artifacts
 	rawDir := filepath.Join(runPath, "raw")
-	if _, err := os.Stat(rawDir); err == nil {
+	if _, err := runRoot.Stat("raw"); err == nil {
 		if raw, err := h.parseRawArtifacts(rawDir); err == nil {
 			parsed.Raw = raw
 		}
@@ -353,19 +370,18 @@ func (h *APIHandler) parseRun(runID string) (*ParsedRun, error) {
 	return parsed, nil
 }
 
-func (h *APIHandler) parseEvents(path string) ([]Event, error) {
-	f, err := os.Open(path)
+func (h *APIHandler) parseEvents(baseDir, path string) ([]Event, error) {
+	relPath, err := filepath.Rel(baseDir, path)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			log.Error().Err(closeErr).Str("path", path).Msg("failed to close events file")
-		}
-	}()
+	data, _, err := readFileUnderBase(baseDir, relPath)
+	if err != nil {
+		return nil, err
+	}
 
 	var events []Event
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		var raw map[string]interface{}
 		if err := json.Unmarshal(scanner.Bytes(), &raw); err != nil {
@@ -390,19 +406,18 @@ func (h *APIHandler) parseEvents(path string) ([]Event, error) {
 	return events, scanner.Err()
 }
 
-func (h *APIHandler) parseLogs(path string) ([]LogEntry, error) {
-	f, err := os.Open(path)
+func (h *APIHandler) parseLogs(baseDir, path string) ([]LogEntry, error) {
+	relPath, err := filepath.Rel(baseDir, path)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			log.Error().Err(closeErr).Str("path", path).Msg("failed to close logs file")
-		}
-	}()
+	data, _, err := readFileUnderBase(baseDir, relPath)
+	if err != nil {
+		return nil, err
+	}
 
 	var logs []LogEntry
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		var raw map[string]interface{}
 		if err := json.Unmarshal(scanner.Bytes(), &raw); err != nil {
@@ -432,8 +447,15 @@ func (h *APIHandler) parseLogs(path string) ([]LogEntry, error) {
 
 func (h *APIHandler) parseRawArtifacts(rawDir string) ([]RawArtifact, error) {
 	artifacts := make(map[int]*RawArtifact)
+	rawRoot, err := os.OpenRoot(rawDir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rawRoot.Close()
+	}()
 
-	err := filepath.WalkDir(rawDir, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(rawDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -456,7 +478,11 @@ func (h *APIHandler) parseRawArtifacts(rawDir string) ([]RawArtifact, error) {
 			}
 		}
 
-		data, err := os.ReadFile(path)
+		relPath, err := filepath.Rel(rawDir, path)
+		if err != nil {
+			return nil
+		}
+		data, err := rawRoot.ReadFile(relPath)
 		if err != nil {
 			return nil
 		}

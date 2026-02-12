@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
 // Request represents the completion request payload.
@@ -78,6 +81,12 @@ func (c *Client) setHeaders(req *http.Request) {
 
 // Complete sends a completion request and returns the response.
 func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
+	if err := security.ValidateOutboundURL(c.BaseURL, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude base URL: %w", err)
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -89,6 +98,7 @@ func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
 	}
 	c.setHeaders(req_)
 
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := c.httpClient.Do(req_)
 	if err != nil {
 		return nil, err
@@ -132,6 +142,12 @@ type Event struct {
 }
 
 func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
+	if err := security.ValidateOutboundURL(c.BaseURL, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude base URL: %w", err)
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -143,6 +159,7 @@ func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
 	}
 	c.setHeaders(req_)
 
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := c.httpClient.Do(req_)
 	if err != nil {
 		return nil, err
