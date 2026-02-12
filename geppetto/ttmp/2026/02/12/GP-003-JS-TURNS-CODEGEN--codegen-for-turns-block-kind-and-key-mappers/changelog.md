@@ -37,3 +37,13 @@ Task 3 complete: adopted generated keys constants and typed key vars in keys_gen
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/keys.go — Kept only handwritten payload/run constants
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/keys_gen.go — Generated key constants and typed keys
 
+
+## 2026-02-12
+
+Task 4 complete: added generator unit tests, generation hygiene (.generated ignore), and final validation runs.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/.gitignore — Ignore temporary generated scratch outputs
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/cmd/gen-turns/main_test.go — Generator validation regression tests
+

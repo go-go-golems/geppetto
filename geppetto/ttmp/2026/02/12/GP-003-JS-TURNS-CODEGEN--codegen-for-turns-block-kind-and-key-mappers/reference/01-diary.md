@@ -307,3 +307,74 @@ I also switched `go:generate` wiring so both kinds and keys are regenerated dire
 ### Technical details
 
 - Generated key constants and typed keys now come from `pkg/turns/spec/turns_codegen.yaml` via `cmd/gen-turns`.
+
+## Step 5: Task 4 Completed — Generator Tests, Hygiene, and Ticket Finalization
+
+I finished Task 4 by adding generator-focused tests in `cmd/gen-turns`, adding ignore hygiene for temporary generated scratch output, and running final generation/tests before closing all tasks for this ticket.
+
+This step ensures the generator behavior is not only implemented but also protected by regression tests and cleaner repo behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Complete final task with validation checks and detailed diary updates.
+
+**Inferred user intent:** End the ticket with a tested, maintainable codegen workflow and complete audit trail.
+
+**Commit (code):** pending Task 4 commit.
+
+### What I did
+
+- Added tests:
+  - `cmd/gen-turns/main_test.go`
+  - coverage includes schema validation, duplicate detection, fallback selection, and key builder mapping.
+- Added ignore rule:
+  - `.gitignore` now includes `pkg/turns/.generated/`
+- Ran validations:
+  - `go test ./cmd/gen-turns -count=1`
+  - `go generate ./pkg/turns`
+  - `go test ./pkg/turns/... ./pkg/inference/... -count=1`
+
+### Why
+
+- Generator logic is central infrastructure and needs direct unit tests.
+- Temporary scratch generation output should not pollute `git status`.
+
+### What worked
+
+- New generator tests passed.
+- Regeneration and targeted inference/turn tests passed.
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- Most high-value generator failures are caught at schema-validation level, so focused tests there give strong safety per LOC.
+
+### What was tricky to build
+
+- Keeping task scope tight while still adding meaningful long-term safeguards.
+
+### What warrants a second pair of eyes
+
+- Potential future expansion: golden tests to assert exact generated file text shape.
+
+### What should be done in the future
+
+- Optionally add a CI check that runs generator and fails if working tree changes.
+
+### Code review instructions
+
+- Review:
+  - `cmd/gen-turns/main_test.go`
+  - `.gitignore`
+- Validate:
+  - `go test ./cmd/gen-turns -count=1`
+  - `go generate ./pkg/turns`
+
+### Technical details
+
+- All ticket tasks are now complete and ready to merge/review.
