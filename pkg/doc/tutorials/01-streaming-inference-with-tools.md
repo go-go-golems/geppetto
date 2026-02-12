@@ -79,22 +79,21 @@ Create a command description with arguments and flags, including a `pinocchio-pr
 
 ```go
 // inside NewStreamingCmd()
+geppettoSections, err := geppettolayers.CreateGeppettoLayers()
+if err != nil { return nil, err }
+
 desc := cmds.NewCommandDescription(
     "stream-with-tools",
     cmds.WithShort("Streaming inference with tools"),
     cmds.WithArguments(
-        parameters.NewParameterDefinition("prompt", parameters.ParameterTypeString,
-            parameters.WithHelp("Prompt")),
+        fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt")),
     ),
     cmds.WithFlags(
-        parameters.NewParameterDefinition("pinocchio-profile", parameters.ParameterTypeString,
-            parameters.WithDefault("4o-mini")),
-        parameters.NewParameterDefinition("output-format", parameters.ParameterTypeString,
-            parameters.WithDefault("text")),
-        parameters.NewParameterDefinition("with-metadata", parameters.ParameterTypeBool,
-            parameters.WithDefault(false)),
+        fields.New("pinocchio-profile", fields.TypeString, fields.WithDefault("4o-mini")),
+        fields.New("output-format", fields.TypeString, fields.WithDefault("text")),
+        fields.New("with-metadata", fields.TypeBool, fields.WithDefault(false)),
     ),
-    cmds.WithLayersList(geppettolayers.CreateGeppettoLayers()...),
+    cmds.WithSections(geppettoSections...),
 )
 ```
 

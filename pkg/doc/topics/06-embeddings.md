@@ -569,7 +569,7 @@ import (
     "github.com/go-go-golems/glazed/pkg/cli"
     "github.com/go-go-golems/glazed/pkg/cmds"
     "github.com/go-go-golems/glazed/pkg/cmds/fields"
-    "github.com/go-go-golems/glazed/pkg/cmds/middlewares"
+    "github.com/go-go-golems/glazed/pkg/middlewares"
     "github.com/go-go-golems/glazed/pkg/cmds/schema"
     "github.com/go-go-golems/glazed/pkg/cmds/values"
     "github.com/spf13/cobra"
@@ -723,7 +723,7 @@ import (
     "github.com/go-go-golems/glazed/pkg/cli"
     "github.com/go-go-golems/glazed/pkg/cmds"
     "github.com/go-go-golems/glazed/pkg/cmds/values"
-    "github.com/go-go-golems/glazed/pkg/cmds/middlewares"
+    "github.com/go-go-golems/glazed/pkg/middlewares"
     "github.com/go-go-golems/glazed/pkg/cmds/fields"
     "github.com/spf13/cobra"
 )
