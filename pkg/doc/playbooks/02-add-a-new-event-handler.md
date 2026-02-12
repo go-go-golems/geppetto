@@ -120,7 +120,7 @@ sink := middleware.NewWatermillSink(router.Publisher, "chat")
 Create the engine normally (no sink/options are passed at engine construction time):
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
+eng, err := factory.NewEngineFromParsedValues(parsedValues)
 if err != nil {
     return err
 }
@@ -199,7 +199,7 @@ func main() {
     
     // 4. Create sink and engine
     sink := middleware.NewWatermillSink(router.Publisher, "chat")
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+    eng, _ := factory.NewEngineFromParsedValues(parsedValues)
     
     // 5. Build Turn
     turn := &turns.Turn{}

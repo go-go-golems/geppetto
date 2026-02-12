@@ -2,31 +2,32 @@ package openai
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/huandu/go-clone"
 )
 
 type Settings struct {
 	// How many choice to create for each prompt
-	N *int `yaml:"n" glazed.parameter:"openai-n"`
+	N *int `yaml:"n" glazed:"openai-n"`
 	// PresencePenalty to use
-	PresencePenalty *float64 `yaml:"presence_penalty,omitempty" glazed.parameter:"openai-presence-penalty"`
+	PresencePenalty *float64 `yaml:"presence_penalty,omitempty" glazed:"openai-presence-penalty"`
 	// FrequencyPenalty to use
-	FrequencyPenalty *float64 `yaml:"frequency_penalty,omitempty" glazed.parameter:"openai-frequency-penalty"`
+	FrequencyPenalty *float64 `yaml:"frequency_penalty,omitempty" glazed:"openai-frequency-penalty"`
 	// LogitBias to use
 	// TODO(manuel, 2023-03-28) Properly load logit bias
 	// See https://github.com/go-go-golems/geppetto/issues/48
-	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed.parameter:"openai-logit-bias"`
+	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed:"openai-logit-bias"`
 	// ReasoningEffort for Responses API (low|medium|high)
-	ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed.parameter:"openai-reasoning-effort"`
+	ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed:"openai-reasoning-effort"`
 	// ParallelToolCalls is a hint for tool parallelization in Responses
-	ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed.parameter:"openai-parallel-tool-calls"`
+	ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed:"openai-parallel-tool-calls"`
 	// ReasoningSummary requests a public reasoning summary ("auto" to enable)
-	ReasoningSummary *string `yaml:"reasoning_summary,omitempty" glazed.parameter:"openai-reasoning-summary"`
+	ReasoningSummary *string `yaml:"reasoning_summary,omitempty" glazed:"openai-reasoning-summary"`
 	// IncludeReasoningEncrypted requests encrypted reasoning content for reuse across turns
-	IncludeReasoningEncrypted *bool `yaml:"include_reasoning_encrypted,omitempty" glazed.parameter:"openai-include-reasoning-encrypted"`
+	IncludeReasoningEncrypted *bool `yaml:"include_reasoning_encrypted,omitempty" glazed:"openai-include-reasoning-encrypted"`
 	// StreamIncludeUsage requests usage in streaming events (when supported)
-	StreamIncludeUsage *bool `yaml:"stream-include-usage,omitempty" glazed.parameter:"openai-stream-include-usage"`
+	StreamIncludeUsage *bool `yaml:"stream-include-usage,omitempty" glazed:"openai-stream-include-usage"`
 }
 
 func NewSettings() (*Settings, error) {
@@ -42,12 +43,12 @@ func NewSettings() (*Settings, error) {
 		StreamIncludeUsage:        nil,
 	}
 
-	p, err := NewParameterLayer()
+	p, err := NewValueSection()
 	if err != nil {
 		return nil, err
 	}
 
-	err = p.InitializeStructFromParameterDefaults(s)
+	err = p.InitializeStructFromFieldDefaults(s)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +63,19 @@ func (s *Settings) Clone() *Settings {
 //go:embed "chat.yaml"
 var settingsYAML []byte
 
-type ParameterLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
+type ValueSection struct {
+	*schema.SectionImpl `yaml:",inline"`
 }
 
 const OpenAiChatSlug = "openai-chat"
 
-func NewParameterLayer(options ...layers.ParameterLayerOptions) (*ParameterLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(settingsYAML, options...)
+func NewValueSection(options ...schema.SectionOption) (*ValueSection, error) {
+	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ParameterLayer{
-		ParameterLayerImpl: ret,
+	return &ValueSection{
+		SectionImpl: ret,
 	}, nil
 }

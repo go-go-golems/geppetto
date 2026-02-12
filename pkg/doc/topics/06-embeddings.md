@@ -319,7 +319,7 @@ Available flags:
 - `--embeddings-cache-max-entries` — max entries
 - `--embeddings-cache-directory` — custom cache path
 
-### Loading Settings from Parsed Layers
+### Loading Settings from Parsed Values
 
 For CLI applications using Glazed's parameter system:
 
@@ -327,17 +327,15 @@ For CLI applications using Glazed's parameter system:
 package main
 
 import (
-    "context"
     "fmt"
     
     "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
+    "github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
-func createProviderFromLayers(parsedLayers *layers.ParsedLayers) (embeddings.Provider, error) {
-    // Create a factory from parsed layers
-    factory, err := embeddings.NewSettingsFactoryFromParsedLayers(parsedLayers)
+func createProviderFromValues(parsedValues *values.Values) (embeddings.Provider, error) {
+    // Create a factory from parsed values
+    factory, err := embeddings.NewSettingsFactoryFromParsedValues(parsedValues)
     if err != nil {
         return nil, fmt.Errorf("failed to create factory: %w", err)
     }
@@ -554,7 +552,7 @@ func main() {
 
 ## Integrating with CLI Applications
 
-### Creating Parameter Layers
+### Creating Sections
 
 To integrate embeddings with a CLI application:
 
@@ -570,16 +568,17 @@ import (
     "github.com/go-go-golems/geppetto/pkg/embeddings/config"
     "github.com/go-go-golems/glazed/pkg/cli"
     "github.com/go-go-golems/glazed/pkg/cmds"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/go-go-golems/glazed/pkg/cmds/middlewares"
-    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
+    "github.com/go-go-golems/glazed/pkg/cmds/fields"
+    "github.com/go-go-golems/glazed/pkg/middlewares"
+    "github.com/go-go-golems/glazed/pkg/cmds/schema"
+    "github.com/go-go-golems/glazed/pkg/cmds/values"
     "github.com/spf13/cobra"
 )
 
-// GetEmbeddingsLayers returns parameter layers for embeddings
-func GetEmbeddingsLayers() ([]layers.ParameterLayer, error) {
+// GetEmbeddingsLayers returns sections for embeddings
+func GetEmbeddingsLayers() ([]schema.Section, error) {
     // Create embeddings parameter layer
-    embeddingsLayer, err := config.NewEmbeddingsParameterLayer()
+    embeddingsLayer, err := config.NewEmbeddingsValueSection()
     if err != nil {
         return nil, err
     }
@@ -590,7 +589,7 @@ func GetEmbeddingsLayers() ([]layers.ParameterLayer, error) {
         return nil, err
     }
     
-    return []layers.ParameterLayer{
+    return []schema.Section{
         embeddingsLayer,
         embeddingsApiKey,
     }, nil
@@ -613,13 +612,13 @@ func NewEmbeddingsCommand() (*EmbeddingsCommand, error) {
             "embeddings",
             cmds.WithShortDescription("Generate embeddings for text"),
             cmds.WithLongDescription("Generate vector embeddings for text using various providers"),
-            cmds.WithLayersList(parametersLayers),
+            cmds.WithSections(parametersLayers),
             cmds.WithArguments(
-                parameters.NewParameterDefinition(
+                fields.New(
                     "text",
-                    parameters.ParameterTypeString,
-                    parameters.WithHelp("Text to generate embeddings for"),
-                    parameters.WithRequired(true),
+                    fields.TypeString,
+                    fields.WithHelp("Text to generate embeddings for"),
+                    fields.WithRequired(true),
                 ),
             ),
         ),
@@ -631,17 +630,20 @@ func NewEmbeddingsCommand() (*EmbeddingsCommand, error) {
 // RunIntoGlazeProcessor runs the embeddings command
 func (c *EmbeddingsCommand) RunIntoGlazeProcessor(
     ctx context.Context,
-    parsedLayers *layers.ParsedLayers,
+    parsedValues *values.Values,
     gp middlewares.GlazeProcessor,
 ) error {
-    // Get argument
-    text, err := parsedLayers.GetString("text")
-    if err != nil {
+    // Decode arguments from the default section
+    args := struct {
+        Text string `glazed:"text"`
+    }{}
+    if err := parsedValues.DecodeSectionInto(values.DefaultSlug, &args); err != nil {
         return err
     }
+    text := args.Text
     
-    // Create factory from parsed layers
-    factory, err := embeddings.NewSettingsFactoryFromParsedLayers(parsedLayers)
+    // Create factory from parsed values
+    factory, err := embeddings.NewSettingsFactoryFromParsedValues(parsedValues)
     if err != nil {
         return err
     }
@@ -720,9 +722,9 @@ import (
     "github.com/go-go-golems/geppetto/pkg/embeddings/config"
     "github.com/go-go-golems/glazed/pkg/cli"
     "github.com/go-go-golems/glazed/pkg/cmds"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
-    "github.com/go-go-golems/glazed/pkg/cmds/middlewares"
-    "github.com/go-go-golems/glazed/pkg/cmds/parameters"
+    "github.com/go-go-golems/glazed/pkg/cmds/values"
+    "github.com/go-go-golems/glazed/pkg/middlewares"
+    "github.com/go-go-golems/glazed/pkg/cmds/fields"
     "github.com/spf13/cobra"
 )
 
@@ -741,19 +743,19 @@ func NewCompareCommand() (*CompareCommand, error) {
             "compare",
             cmds.WithShortDescription("Compare similarity between texts"),
             cmds.WithLongDescription("Generate embeddings and compute cosine similarity between texts"),
-            cmds.WithLayersList(parametersLayers),
+            cmds.WithSections(parametersLayers),
             cmds.WithArguments(
-                parameters.NewParameterDefinition(
+                fields.New(
                     "text1",
-                    parameters.ParameterTypeString,
-                    parameters.WithHelp("First text to compare"),
-                    parameters.WithRequired(true),
+                    fields.TypeString,
+                    fields.WithHelp("First text to compare"),
+                    fields.WithRequired(true),
                 ),
-                parameters.NewParameterDefinition(
+                fields.New(
                     "text2",
-                    parameters.ParameterTypeString,
-                    parameters.WithHelp("Second text to compare"),
-                    parameters.WithRequired(true),
+                    fields.TypeString,
+                    fields.WithHelp("Second text to compare"),
+                    fields.WithRequired(true),
                 ),
             ),
         ),
@@ -762,22 +764,22 @@ func NewCompareCommand() (*CompareCommand, error) {
 
 func (c *CompareCommand) RunIntoGlazeProcessor(
     ctx context.Context,
-    parsedLayers *layers.ParsedLayers,
+    parsedValues *values.Values,
     gp middlewares.GlazeProcessor,
 ) error {
-    // Get arguments
-    text1, err := parsedLayers.GetString("text1")
-    if err != nil {
+    // Decode arguments from the default section
+    args := struct {
+        Text1 string `glazed:"text1"`
+        Text2 string `glazed:"text2"`
+    }{}
+    if err := parsedValues.DecodeSectionInto(values.DefaultSlug, &args); err != nil {
         return err
     }
+    text1 := args.Text1
+    text2 := args.Text2
     
-    text2, err := parsedLayers.GetString("text2")
-    if err != nil {
-        return err
-    }
-    
-    // Create factory from parsed layers
-    factory, err := embeddings.NewSettingsFactoryFromParsedLayers(parsedLayers)
+    // Create factory from parsed values
+    factory, err := embeddings.NewSettingsFactoryFromParsedValues(parsedValues)
     if err != nil {
         return err
     }
@@ -863,7 +865,7 @@ When working with the embeddings package, keep these best practices in mind:
 | **Store embeddings** | Don't regenerate for static content |
 | **Match dimensions** | All vectors in a collection must have same dimensions |
 | **Normalize for comparison** | Use cosine similarity, not Euclidean distance |
-| **Use parameter layers** | Allow flexible configuration via CLI flags |
+| **Use sections** | Allow flexible configuration via CLI flags |
 | **Consider vector databases** | For large-scale applications, use specialized storage |
 
 ## Common Dimensions
@@ -882,7 +884,7 @@ When working with the embeddings package, keep these best practices in mind:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/embeddings"        // Core providers, cache
-    "github.com/go-go-golems/geppetto/pkg/embeddings/config" // Settings, parameter layers
+    "github.com/go-go-golems/geppetto/pkg/embeddings/config" // Settings, sections
 )
 ```
 

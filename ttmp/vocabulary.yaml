@@ -39,6 +39,12 @@ topics:
       description: YAML serialization
     - slug: chat
       description: Chat backend and frontend surfaces
+    - slug: pinocchio
+      description: Pinocchio repository changes
+    - slug: glazed
+      description: Glazed framework related work
+    - slug: migration
+      description: Migration/refactor work across APIs or modules
 docTypes:
     - slug: index
       description: Ticket index

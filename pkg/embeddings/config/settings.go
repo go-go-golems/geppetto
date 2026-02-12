@@ -3,29 +3,29 @@ package config
 import (
 	_ "embed"
 
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/huandu/go-clone"
 )
 
 // EmbeddingsConfig contains the minimal configuration needed for embeddings
 type EmbeddingsConfig struct {
 	// Type specifies the provider type (e.g. "openai", "ollama")
-	Type string `glazed.parameter:"embeddings-type"`
+	Type string `glazed:"embeddings-type"`
 	// Engine specifies the model to use (e.g. "text-embedding-ada-002" for OpenAI)
-	Engine string `glazed.parameter:"embeddings-engine"`
+	Engine string `glazed:"embeddings-engine"`
 	// Dimensions specifies the embedding dimensions (defaults to 1536 for OpenAI)
-	Dimensions int `glazed.parameter:"embeddings-dimensions"`
+	Dimensions int `glazed:"embeddings-dimensions"`
 	// APIKeys maps provider types to their API keys
-	APIKeys map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
+	APIKeys map[string]string `yaml:"api_keys,omitempty" glazed:"*-api-key"`
 	// BaseURLs maps provider types to their base URLs
-	BaseURLs map[string]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
+	BaseURLs map[string]string `yaml:"base_urls,omitempty" glazed:"*-base-url"`
 
 	// Caching settings
-	CacheType       string `glazed.parameter:"embeddings-cache-type"`
-	CacheMaxSize    int64  `glazed.parameter:"embeddings-cache-max-size"`
-	CacheMaxEntries int    `glazed.parameter:"embeddings-cache-max-entries"`
-	CacheDirectory  string `glazed.parameter:"embeddings-cache-directory"`
+	CacheType       string `glazed:"embeddings-cache-type"`
+	CacheMaxSize    int64  `glazed:"embeddings-cache-max-size"`
+	CacheMaxEntries int    `glazed:"embeddings-cache-max-entries"`
+	CacheDirectory  string `glazed:"embeddings-cache-directory"`
 }
 
 func NewEmbeddingsConfig() (*EmbeddingsConfig, error) {
@@ -34,11 +34,11 @@ func NewEmbeddingsConfig() (*EmbeddingsConfig, error) {
 		BaseURLs: make(map[string]string),
 	}
 
-	p, err := NewEmbeddingsParameterLayer()
+	p, err := NewEmbeddingsValueSection()
 	if err != nil {
 		return nil, err
 	}
-	err = p.InitializeStructFromParameterDefaults(s)
+	err = p.InitializeStructFromFieldDefaults(s)
 	if err != nil {
 		return nil, err
 	}
@@ -52,29 +52,29 @@ func (c *EmbeddingsConfig) Clone() *EmbeddingsConfig {
 //go:embed "flags/embeddings.yaml"
 var embeddingsFlagsYAML []byte
 
-type EmbeddingsParameterLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
+type EmbeddingsValueSection struct {
+	*schema.SectionImpl `yaml:",inline"`
 }
 
 const EmbeddingsSlug = "embeddings"
 const EmbeddingsApiKeySlug = "embeddings-api-key"
 
-func NewEmbeddingsParameterLayer(options ...layers.ParameterLayerOptions) (*EmbeddingsParameterLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(embeddingsFlagsYAML, options...)
+func NewEmbeddingsValueSection(options ...schema.SectionOption) (*EmbeddingsValueSection, error) {
+	ret, err := schema.NewSectionFromYAML(embeddingsFlagsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
-	return &EmbeddingsParameterLayer{ParameterLayerImpl: ret}, nil
+	return &EmbeddingsValueSection{SectionImpl: ret}, nil
 }
 
-func NewEmbeddingsApiKeyParameter() (*layers.ParameterLayerImpl, error) {
-	return layers.NewParameterLayer(EmbeddingsApiKeySlug,
+func NewEmbeddingsApiKeyValue() (*schema.SectionImpl, error) {
+	return schema.NewSection(EmbeddingsApiKeySlug,
 		"Embeddings API Key Settings",
-		layers.WithParameterDefinitions(
-			parameters.NewParameterDefinition(
+		schema.WithFields(
+			fields.New(
 				"openai-api-key",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("The API key for the OpenAI embeddings provider"),
+				fields.TypeString,
+				fields.WithHelp("The API key for the OpenAI embeddings provider"),
 			),
 		),
 	)

@@ -1,6 +1,7 @@
 package templates
 
 import "path/filepath"
+import "strconv"
 
 type ArtifactGroup struct {
     DirPath string
@@ -35,7 +36,7 @@ templ Index(groups []ArtifactGroup, baseDir string) {
                                             <strong>{ group.RelPath }</strong>
                                         }
                                         <br/>
-                                        <small class="text-muted">{ string(rune(len(group.Files))) } files</small>
+                                        <small class="text-muted">{ strconv.Itoa(len(group.Files)) } files</small>
                                     </a>
                                 }
                             </div>
@@ -102,4 +103,3 @@ func getLanguageClass(filename string) string {
         return "language-plaintext"
     }
 }
-

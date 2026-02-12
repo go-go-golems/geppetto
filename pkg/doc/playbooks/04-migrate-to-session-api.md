@@ -67,7 +67,7 @@ New:
 New (only):
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
+eng, err := factory.NewEngineFromParsedValues(parsedValues)
 runCtx := events.WithEventSinks(ctx, sink)
 _, err = eng.RunInference(runCtx, seed)
 ```
@@ -102,7 +102,7 @@ Previously you may have been passing “engine-config” options at construction
 With:
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
+eng, err := factory.NewEngineFromParsedValues(parsedValues)
 if err != nil { return err }
 ```
 
@@ -125,7 +125,7 @@ Build a single runner that owns:
 Typical shape:
 
 ```go
-base, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+base, _ := factory.NewEngineFromParsedValues(parsedValues)
 
 b := enginebuilder.New(
     enginebuilder.WithBase(base),

@@ -27,7 +27,7 @@ SectionType: Tutorial
 
 ```go
 // 1. Create an engine from configuration
-engine, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+engine, _ := factory.NewEngineFromParsedValues(parsedValues)
 
 // 2. Build a Turn with your prompt
 turn := &turns.Turn{}
@@ -83,7 +83,7 @@ The Geppetto inference architecture is built around a clean separation of concer
 
 - **Engines**: Handle provider-specific API calls and streaming (emit events)
 - **Tool Helpers**: Manage tool calling orchestration and workflows
-- **Factories**: Create engines from configuration layers
+- **Factories**: Create engines from parsed values
 - **Middleware**: Add cross-cutting concerns like logging and event publishing
 
 ### Key Benefits
@@ -137,7 +137,7 @@ Engines do **NOT** handle:
 
 ## Creating Engines with Factories
 
-The factory pattern creates engines from configuration layers, providing a provider-agnostic way to instantiate engines:
+The factory pattern creates engines from parsed values, providing a provider-agnostic way to instantiate engines:
 
 ```go
 package main
@@ -147,12 +147,12 @@ import (
     "fmt"
 
     "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
-    "github.com/go-go-golems/glazed/pkg/cmds/layers"
+    "github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
-func createEngine(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
+func createEngine(parsedValues *values.Values) (engine.Engine, error) {
     // Create engine from configuration - works with any provider
-    baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers)
+    baseEngine, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil {
         return nil, fmt.Errorf("failed to create engine: %w", err)
     }
@@ -167,8 +167,8 @@ Provider engines are created without options. Event sinks are attached to the ru
 `context.Context`:
 
 ```go
-func createEngine(parsedLayers *layers.ParsedLayers) (engine.Engine, error) {
-    return factory.NewEngineFromParsedLayers(parsedLayers)
+func createEngine(parsedValues *values.Values) (engine.Engine, error) {
+    return factory.NewEngineFromParsedValues(parsedValues)
 }
 
 func runWithSinks(ctx context.Context, eng engine.Engine, sink events.EventSink, seed *turns.Turn) (*turns.Turn, error) {
@@ -189,8 +189,8 @@ import (
     "github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func simpleInference(ctx context.Context, parsedLayers *layers.ParsedLayers, prompt string) error {
-    e, err := factory.NewEngineFromParsedLayers(parsedLayers)
+func simpleInference(ctx context.Context, parsedValues *values.Values, prompt string) error {
+    e, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil { return fmt.Errorf("failed to create engine: %w", err) }
 
     seed := &turns.Turn{}
@@ -404,7 +404,7 @@ import (
     "golang.org/x/sync/errgroup"
 )
 
-func completeToolCallingExample(ctx context.Context, parsedLayers *layers.ParsedLayers, prompt string, w io.Writer) error {
+func completeToolCallingExample(ctx context.Context, parsedValues *values.Values, prompt string, w io.Writer) error {
     // 1. Create event router for streaming
     router, err := events.NewEventRouter()
     if err != nil {
@@ -423,7 +423,7 @@ func completeToolCallingExample(ctx context.Context, parsedLayers *layers.Parsed
     watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
 
     // 4. Create engine (sinks are attached at runtime via context)
-    baseEngine, err := factory.NewEngineFromParsedLayers(parsedLayers)
+    baseEngine, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil {
         return fmt.Errorf("failed to create engine: %w", err)
     }
@@ -709,7 +709,7 @@ When working with the inference engine architecture:
 
 - **Mock engines**: Use mock engines for testing
 - **Logging**: Add logging middleware for debugging
-- **Configuration**: Use configuration layers for flexibility
+- **Configuration**: Use parsed values for flexibility
 - **Error handling**: Implement comprehensive error handling
 
 ## Debugging and Troubleshooting

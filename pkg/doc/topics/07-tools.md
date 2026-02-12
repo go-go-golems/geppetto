@@ -142,7 +142,7 @@ updated, _ := runner.RunInference(ctx, seed)
 
 ## How to wire tools end-to-end
 
-This is the minimal “wire it up and run” pattern. It assumes you already have an `engine.Engine` (via `factory.NewEngineFromParsedLayers(...)` or your own builder) and a populated `tools.ToolRegistry`:
+This is the minimal “wire it up and run” pattern. It assumes you already have an `engine.Engine` (via `factory.NewEngineFromParsedValues(...)` or your own builder) and a populated `tools.ToolRegistry`:
 
 ```go
 import (

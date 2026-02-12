@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
 // Request represents the completion request payload.
@@ -48,7 +51,7 @@ type ErrorDetail struct {
 // Client represents the Claude API client.
 type Client struct {
 	httpClient *http.Client
-	APIKey     string
+	apiKey     string
 	APIVersion string
 	BaseURL    string
 }
@@ -63,7 +66,7 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 	}
 	return &Client{
 		httpClient: &http.Client{},
-		APIKey:     apiKey,
+		apiKey:     apiKey,
 		BaseURL:    baseURL,
 		APIVersion: version,
 	}
@@ -71,13 +74,19 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("x-api-key", c.APIKey)
+	req.Header.Set("x-api-key", c.apiKey)
 	req.Header.Set("anthropic-version", c.APIVersion)
 	req.Header.Set("Content-Type", "application/json")
 }
 
 // Complete sends a completion request and returns the response.
 func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
+	if err := security.ValidateOutboundURL(c.BaseURL, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude base URL: %w", err)
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -89,6 +98,7 @@ func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
 	}
 	c.setHeaders(req_)
 
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := c.httpClient.Do(req_)
 	if err != nil {
 		return nil, err
@@ -132,6 +142,12 @@ type Event struct {
 }
 
 func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
+	if err := security.ValidateOutboundURL(c.BaseURL, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude base URL: %w", err)
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -143,6 +159,7 @@ func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
 	}
 	c.setHeaders(req_)
 
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := c.httpClient.Do(req_)
 	if err != nil {
 		return nil, err

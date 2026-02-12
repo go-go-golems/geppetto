@@ -2,51 +2,38 @@ package settings
 
 import (
 	_ "embed"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/huandu/go-clone"
-	"gopkg.in/yaml.v3"
 	"net/http"
 	"time"
+
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
+	"github.com/huandu/go-clone"
+	"gopkg.in/yaml.v3"
 )
 
 var ErrMissingYAMLAPIKey = &yaml.TypeError{Errors: []string{"missing api key"}}
 
 type ClientSettings struct {
 	Timeout        *time.Duration `yaml:"timeout,omitempty"`
-	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed.parameter:"timeout"`
-	Organization   *string        `yaml:"organization,omitempty" glazed.parameter:"organization"`
-	UserAgent      *string        `yaml:"user_agent,omitempty" glazed.parameter:"user-agent"`
+	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed:"timeout"`
+	Organization   *string        `yaml:"organization,omitempty" glazed:"organization"`
+	UserAgent      *string        `yaml:"user_agent,omitempty" glazed:"user-agent"`
 	HTTPClient     *http.Client   `yaml:"-" json:"-"`
 }
 
 //go:embed "flags/client.yaml"
 var clientFlagsYAML []byte
 
-type ClientParameterLayer struct {
-	*layers.ParameterLayerImpl `yaml:",inline"`
+type ClientValueSection struct {
+	*schema.SectionImpl `yaml:",inline"`
 }
 
-func NewClientParameterLayer(options ...layers.ParameterLayerOptions) (*ClientParameterLayer, error) {
-	ret, err := layers.NewParameterLayerFromYAML(clientFlagsYAML, options...)
+func NewClientValueSection(options ...schema.SectionOption) (*ClientValueSection, error) {
+	ret, err := schema.NewSectionFromYAML(clientFlagsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ClientParameterLayer{ParameterLayerImpl: ret}, nil
-}
-
-func (cs *ClientSettings) UpdateFromParameters(parsedLayers *layers.ParsedLayer) error {
-	_, ok := parsedLayers.Layer.(*ClientParameterLayer)
-	if !ok {
-		return layers.ErrInvalidParameterLayer{}
-	}
-
-	err := parsedLayers.InitializeStruct(cs)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return &ClientValueSection{SectionImpl: ret}, nil
 }
 
 // UnmarshalYAML overrides YAML parsing to convert time.duration from int
@@ -74,19 +61,6 @@ func (cs *ClientSettings) Clone() *ClientSettings {
 }
 
 const AiClientSlug = "ai-client"
-
-func (cs *ClientSettings) UpdateFromParsedLayer(layer *layers.ParsedLayer) error {
-	_, ok := layer.Layer.(*ClientParameterLayer)
-	if !ok {
-		return layers.ErrInvalidParameterLayer{
-			Name:     layer.Layer.GetName(),
-			Expected: AiClientSlug,
-		}
-	}
-
-	err := layer.InitializeStruct(cs)
-	return err
-}
 
 func NewClientSettings() *ClientSettings {
 	defaultTimeout := 60 * time.Second

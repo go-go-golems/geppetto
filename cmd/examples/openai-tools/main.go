@@ -14,13 +14,13 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/pkg/errors"
@@ -104,17 +104,17 @@ type TestOpenAIToolsCommand struct {
 var _ cmds.WriterCommand = (*TestOpenAIToolsCommand)(nil)
 
 type TestOpenAIToolsSettings struct {
-	Debug        bool   `glazed.parameter:"debug"`
-	OutputFormat string `glazed.parameter:"output-format"`
-	WithMetadata bool   `glazed.parameter:"with-metadata"`
-	FullOutput   bool   `glazed.parameter:"full-output"`
-	Verbose      bool   `glazed.parameter:"verbose"`
-	Mode         string `glazed.parameter:"mode"`
-	Prompt       string `glazed.parameter:"prompt"`
+	Debug        bool   `glazed:"debug"`
+	OutputFormat string `glazed:"output-format"`
+	WithMetadata bool   `glazed:"with-metadata"`
+	FullOutput   bool   `glazed:"full-output"`
+	Verbose      bool   `glazed:"verbose"`
+	Mode         string `glazed:"mode"`
+	Prompt       string `glazed:"prompt"`
 }
 
 func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
-	geppettoLayers, err := geppettolayers.CreateGeppettoLayers()
+	geppettoSections, err := geppettosections.CreateGeppettoSections()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create geppetto parameter layer")
 	}
@@ -123,45 +123,45 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 		"test-openai-tools",
 		cmds.WithShort("Test OpenAI tools integration with debug logging"),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("debug",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Enable debug logging"),
-				parameters.WithDefault(true),
+			fields.New("debug",
+				fields.TypeBool,
+				fields.WithHelp("Enable debug logging"),
+				fields.WithDefault(true),
 			),
-			parameters.NewParameterDefinition("output-format",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Printer format (text, json, yaml)"),
-				parameters.WithDefault("text"),
+			fields.New("output-format",
+				fields.TypeString,
+				fields.WithHelp("Printer format (text, json, yaml)"),
+				fields.WithDefault("text"),
 			),
-			parameters.NewParameterDefinition("with-metadata",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Include metadata in printed events"),
-				parameters.WithDefault(false),
+			fields.New("with-metadata",
+				fields.TypeBool,
+				fields.WithHelp("Include metadata in printed events"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("full-output",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Include full event details"),
-				parameters.WithDefault(false),
+			fields.New("full-output",
+				fields.TypeBool,
+				fields.WithHelp("Include full event details"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("verbose",
-				parameters.ParameterTypeBool,
-				parameters.WithHelp("Verbose router logging (SSE debug)"),
-				parameters.WithDefault(false),
+			fields.New("verbose",
+				fields.TypeBool,
+				fields.WithHelp("Verbose router logging (SSE debug)"),
+				fields.WithDefault(false),
 			),
-			parameters.NewParameterDefinition("mode",
-				parameters.ParameterTypeChoice,
-				parameters.WithChoices("tools", "thinking", "parallel-tools", "server-tools"),
-				parameters.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls), server-tools (enable server-side tools)"),
-				parameters.WithDefault("tools"),
+			fields.New("mode",
+				fields.TypeChoice,
+				fields.WithChoices("tools", "thinking", "parallel-tools", "server-tools"),
+				fields.WithHelp("Modes: tools (function calling), thinking (no tools), parallel-tools (multiple calls), server-tools (enable server-side tools)"),
+				fields.WithDefault("tools"),
 			),
-			parameters.NewParameterDefinition("prompt",
-				parameters.ParameterTypeString,
-				parameters.WithHelp("Override the default prompt for the selected mode"),
-				parameters.WithDefault(""),
+			fields.New("prompt",
+				fields.TypeString,
+				fields.WithHelp("Override the default prompt for the selected mode"),
+				fields.WithDefault(""),
 			),
 		),
-		cmds.WithLayersList(
-			geppettoLayers...,
+		cmds.WithSections(
+			geppettoSections...,
 		),
 	)
 
@@ -170,11 +170,11 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 	}, nil
 }
 
-func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers *layers.ParsedLayers, w io.Writer) error {
+func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
 	log.Debug().Msg("Debug logging enabled for tool testing")
 
 	s := &TestOpenAIToolsSettings{}
-	err := parsedLayers.InitializeStruct(layers.DefaultSlug, s)
+	err := parsedValues.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}
@@ -269,7 +269,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Create engine and wire an event sink to publish streaming events
 	watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-	engineInstance, err := factory.NewEngineFromParsedLayers(parsedLayers)
+	engineInstance, err := factory.NewEngineFromParsedValues(parsedValues)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
@@ -425,7 +425,7 @@ func main() {
 	cobra.CheckErr(err)
 
 	command, err := cli.BuildCobraCommand(testCmd,
-		cli.WithCobraMiddlewaresFunc(geppettolayers.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

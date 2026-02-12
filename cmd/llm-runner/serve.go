@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,15 +15,15 @@ import (
 
 	"github.com/go-go-golems/geppetto/cmd/llm-runner/templates"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/rs/zerolog/log"
 )
 
 type ServeSettings struct {
-	Out  string `glazed.parameter:"out"`
-	Port int    `glazed.parameter:"port"`
+	Out  string `glazed:"out"`
+	Port int    `glazed:"port"`
 }
 
 type ServeCommand struct{ *cmds.CommandDescription }
@@ -33,19 +35,19 @@ func NewServeCommand() (*ServeCommand, error) {
 		"serve",
 		cmds.WithShort("Start web UI to visualize artifacts"),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("out", parameters.ParameterTypeString, parameters.WithDefault("out"), parameters.WithHelp("Artifacts directory")),
-			parameters.NewParameterDefinition("port", parameters.ParameterTypeInteger, parameters.WithDefault(8080), parameters.WithHelp("HTTP port")),
+			fields.New("out", fields.TypeString, fields.WithDefault("out"), fields.WithHelp("Artifacts directory")),
+			fields.New("port", fields.TypeInteger, fields.WithDefault(8080), fields.WithHelp("HTTP port")),
 		),
 	)
 	return &ServeCommand{CommandDescription: desc}, nil
 }
 
-func (c *ServeCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error {
+func (c *ServeCommand) Run(ctx context.Context, parsed *values.Values) error {
 	if err := logging.InitLoggerFromViper(); err != nil {
 		return err
 	}
 	s := &ServeSettings{}
-	if err := parsed.InitializeStruct(layers.DefaultSlug, s); err != nil {
+	if err := parsed.DecodeSectionInto(values.DefaultSlug, s); err != nil {
 		return err
 	}
 
@@ -134,7 +136,16 @@ func (h *ArtifactHandler) ArtifactsHandler(w http.ResponseWriter, r *http.Reques
 	if dirPath == "" {
 		dirPath = "."
 	}
-	fullPath := filepath.Join(h.BaseDir, dirPath)
+	fullPath, err := secureJoinUnderBase(h.BaseDir, dirPath)
+	if err != nil {
+		if errors.Is(err, ErrUnsafePath) {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+		log.Error().Err(err).Str("path", dirPath).Msg("failed to resolve directory path")
+		http.Error(w, "Failed to resolve path", http.StatusInternalServerError)
+		return
+	}
 	files, err := h.listFiles(fullPath)
 	if err != nil {
 		log.Error().Err(err).Str("path", fullPath).Msg("failed to list files")
@@ -154,16 +165,17 @@ func (h *ArtifactHandler) FileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "path parameter required", http.StatusBadRequest)
 		return
 	}
-
-	// Security: prevent path traversal
-	cleanPath := filepath.Clean(relPath)
-	if strings.Contains(cleanPath, "..") {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
+	fullPath, err := secureJoinUnderBase(h.BaseDir, relPath)
+	if err != nil {
+		if errors.Is(err, ErrUnsafePath) {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+		log.Error().Err(err).Str("path", relPath).Msg("failed to resolve file path")
+		http.Error(w, "Failed to resolve path", http.StatusInternalServerError)
 		return
 	}
-
-	fullPath := filepath.Join(h.BaseDir, cleanPath)
-	content, err := os.ReadFile(fullPath)
+	content, _, err := readFileUnderBase(h.BaseDir, relPath)
 	if err != nil {
 		log.Error().Err(err).Str("path", fullPath).Msg("failed to read file")
 		http.Error(w, "Failed to read file", http.StatusInternalServerError)
@@ -256,20 +268,37 @@ type SPAHandler struct {
 }
 
 func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Get the absolute path to prevent directory traversal
-	path := filepath.Join(h.StaticPath, r.URL.Path)
-
-	// Check if file exists
-	info, err := os.Stat(path)
-	if os.IsNotExist(err) || info.IsDir() {
-		// File doesn't exist or is a directory, serve index.html
-		http.ServeFile(w, r, h.IndexPath)
+	// Convert URL path into a clean relative path under the static root.
+	cleanPath := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+	if cleanPath == "" {
+		cleanPath = "."
+	}
+	filePath, err := secureJoinUnderBase(h.StaticPath, cleanPath)
+	if err != nil {
+		if errors.Is(err, ErrUnsafePath) {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Check if file exists
+	// #nosec G703 -- filePath is constrained to StaticPath by secureJoinUnderBase.
+	info, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		// File doesn't exist, serve index.html for SPA routing.
+		http.ServeFile(w, r, h.IndexPath)
+		return
+	}
 	if err != nil {
-		// Some other error occurred
+		// Some other error occurred.
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if info.IsDir() {
+		// File doesn't exist or is a directory, serve index.html
+		http.ServeFile(w, r, h.IndexPath)
 		return
 	}
 

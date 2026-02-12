@@ -15,9 +15,9 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/rs/zerolog/log"
@@ -28,17 +28,17 @@ import (
 
 // Glazed BareCommand: run
 type RunSettings struct {
-	In          string `glazed.parameter:"in"`
-	Out         string `glazed.parameter:"out"`
-	Cassette    string `glazed.parameter:"cassette"`
-	Record      bool   `glazed.parameter:"record"`
-	Model       string `glazed.parameter:"model"`
-	Stream      bool   `glazed.parameter:"stream"`
-	EchoEvents  bool   `glazed.parameter:"echo-events"`
-	Second      bool   `glazed.parameter:"second"`
-	SecondUser  string `glazed.parameter:"second-user"`
-	Raw         bool   `glazed.parameter:"raw"`
-	CaptureLogs bool   `glazed.parameter:"capture-logs"`
+	In          string `glazed:"in"`
+	Out         string `glazed:"out"`
+	Cassette    string `glazed:"cassette"`
+	Record      bool   `glazed:"record"`
+	Model       string `glazed:"model"`
+	Stream      bool   `glazed:"stream"`
+	EchoEvents  bool   `glazed:"echo-events"`
+	Second      bool   `glazed:"second"`
+	SecondUser  string `glazed:"second-user"`
+	Raw         bool   `glazed:"raw"`
+	CaptureLogs bool   `glazed:"capture-logs"`
 }
 
 type RunCommand struct{ *cmds.CommandDescription }
@@ -50,35 +50,35 @@ func NewRunCommand() (*RunCommand, error) {
 		"run",
 		cmds.WithShort("Run LLM turns (OpenAI Responses) and record artifacts"),
 		cmds.WithFlags(
-			parameters.NewParameterDefinition("in", parameters.ParameterTypeString, parameters.WithHelp("Input turn YAML path")),
-			parameters.NewParameterDefinition("out", parameters.ParameterTypeString, parameters.WithDefault("out"), parameters.WithHelp("Output directory")),
-			parameters.NewParameterDefinition("cassette", parameters.ParameterTypeString, parameters.WithDefault(""), parameters.WithHelp("VCR cassette base path (without .yaml)")),
-			parameters.NewParameterDefinition("record", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Record HTTP (otherwise replay)")),
-			parameters.NewParameterDefinition("model", parameters.ParameterTypeString, parameters.WithDefault("o4-mini"), parameters.WithHelp("Model id for Responses")),
-			parameters.NewParameterDefinition("stream", parameters.ParameterTypeBool, parameters.WithDefault(true), parameters.WithHelp("Use streaming")),
-			parameters.NewParameterDefinition("echo-events", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Echo NDJSON events to stdout while recording")),
-			parameters.NewParameterDefinition("second", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Run a second inference on the resulting turn")),
-			parameters.NewParameterDefinition("second-user", parameters.ParameterTypeString, parameters.WithDefault("Hello"), parameters.WithHelp("User message to append before second run")),
-			parameters.NewParameterDefinition("raw", parameters.ParameterTypeBool, parameters.WithDefault(false), parameters.WithHelp("Capture raw provider data under out/raw")),
-			parameters.NewParameterDefinition("capture-logs", parameters.ParameterTypeBool, parameters.WithDefault(true), parameters.WithHelp("Capture logs to out/logs.jsonl")),
+			fields.New("in", fields.TypeString, fields.WithHelp("Input turn YAML path")),
+			fields.New("out", fields.TypeString, fields.WithDefault("out"), fields.WithHelp("Output directory")),
+			fields.New("cassette", fields.TypeString, fields.WithDefault(""), fields.WithHelp("VCR cassette base path (without .yaml)")),
+			fields.New("record", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Record HTTP (otherwise replay)")),
+			fields.New("model", fields.TypeString, fields.WithDefault("o4-mini"), fields.WithHelp("Model id for Responses")),
+			fields.New("stream", fields.TypeBool, fields.WithDefault(true), fields.WithHelp("Use streaming")),
+			fields.New("echo-events", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Echo NDJSON events to stdout while recording")),
+			fields.New("second", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Run a second inference on the resulting turn")),
+			fields.New("second-user", fields.TypeString, fields.WithDefault("Hello"), fields.WithHelp("User message to append before second run")),
+			fields.New("raw", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Capture raw provider data under out/raw")),
+			fields.New("capture-logs", fields.TypeBool, fields.WithDefault(true), fields.WithHelp("Capture logs to out/logs.jsonl")),
 		),
 	)
 	return &RunCommand{CommandDescription: desc}, nil
 }
 
-func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error {
+func (c *RunCommand) Run(ctx context.Context, parsed *values.Values) error {
 	// Setup logging from viper as in examples
 	if err := logging.InitLoggerFromViper(); err != nil {
 		return err
 	}
 	s := &RunSettings{}
-	if err := parsed.InitializeStruct(layers.DefaultSlug, s); err != nil {
+	if err := parsed.DecodeSectionInto(values.DefaultSlug, s); err != nil {
 		return err
 	}
 	if s.In == "" {
 		return fmt.Errorf("--in is required")
 	}
-	if err := os.MkdirAll(s.Out, 0755); err != nil {
+	if err := os.MkdirAll(s.Out, 0750); err != nil {
 		return err
 	}
 
@@ -122,7 +122,7 @@ func (c *RunCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error
 
 // Glazed BareCommand: report
 type ReportSettings struct {
-	Out string `glazed.parameter:"out"`
+	Out string `glazed:"out"`
 }
 type ReportCommand struct{ *cmds.CommandDescription }
 
@@ -132,17 +132,17 @@ func NewReportCommand() (*ReportCommand, error) {
 	desc := cmds.NewCommandDescription(
 		"report",
 		cmds.WithShort("Generate a Markdown report from artifacts in --out"),
-		cmds.WithFlags(parameters.NewParameterDefinition("out", parameters.ParameterTypeString, parameters.WithDefault("out"), parameters.WithHelp("Artifacts directory"))),
+		cmds.WithFlags(fields.New("out", fields.TypeString, fields.WithDefault("out"), fields.WithHelp("Artifacts directory"))),
 	)
 	return &ReportCommand{CommandDescription: desc}, nil
 }
 
-func (c *ReportCommand) Run(ctx context.Context, parsed *layers.ParsedLayers) error {
+func (c *ReportCommand) Run(ctx context.Context, parsed *values.Values) error {
 	if err := logging.InitLoggerFromViper(); err != nil {
 		return err
 	}
 	s := &ReportSettings{}
-	if err := parsed.InitializeStruct(layers.DefaultSlug, s); err != nil {
+	if err := parsed.DecodeSectionInto(values.DefaultSlug, s); err != nil {
 		return err
 	}
 	outDir := s.Out

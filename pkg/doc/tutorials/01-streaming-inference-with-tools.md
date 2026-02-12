@@ -60,7 +60,7 @@ Note: Provider engines learn about available tools from the tool registry attach
 ## Key APIs You’ll Use
 
 - Engine and sink
-  - `factory.NewEngineFromParsedLayers(parsed)`
+  - `factory.NewEngineFromParsedValues(parsed)`
   - `middleware.NewWatermillSink(publisher, topic)`
   - `events.WithEventSinks(ctx, sink)` (attach sinks at runtime)
 - Events and printers
@@ -79,22 +79,21 @@ Create a command description with arguments and flags, including a `pinocchio-pr
 
 ```go
 // inside NewStreamingCmd()
+geppettoSections, err := geppettosections.CreateGeppettoSections()
+if err != nil { return nil, err }
+
 desc := cmds.NewCommandDescription(
     "stream-with-tools",
     cmds.WithShort("Streaming inference with tools"),
     cmds.WithArguments(
-        parameters.NewParameterDefinition("prompt", parameters.ParameterTypeString,
-            parameters.WithHelp("Prompt")),
+        fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt")),
     ),
     cmds.WithFlags(
-        parameters.NewParameterDefinition("pinocchio-profile", parameters.ParameterTypeString,
-            parameters.WithDefault("4o-mini")),
-        parameters.NewParameterDefinition("output-format", parameters.ParameterTypeString,
-            parameters.WithDefault("text")),
-        parameters.NewParameterDefinition("with-metadata", parameters.ParameterTypeBool,
-            parameters.WithDefault(false)),
+        fields.New("pinocchio-profile", fields.TypeString, fields.WithDefault("4o-mini")),
+        fields.New("output-format", fields.TypeString, fields.WithDefault("text")),
+        fields.New("with-metadata", fields.TypeBool, fields.WithDefault(false)),
     ),
-    cmds.WithLayersList(geppettolayers.CreateGeppettoLayers()...),
+    cmds.WithSections(geppettoSections...),
 )
 ```
 
@@ -125,7 +124,7 @@ Why this matters: the sink ties your engine and helpers to the router so that to
 Create the engine normally. Streaming events are emitted to the sinks attached to the runtime context.
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsed)
+eng, err := factory.NewEngineFromParsedValues(parsed)
 if err != nil { return err }
 ```
 

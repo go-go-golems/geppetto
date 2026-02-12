@@ -1,22 +1,24 @@
-package layers
+package sections
 
 import (
 	"fmt"
+	"os"
+
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cli"
-	cmdlayers "github.com/go-go-golems/glazed/pkg/cmds/layers"
-	"github.com/go-go-golems/glazed/pkg/cmds/middlewares"
-	"github.com/go-go-golems/glazed/pkg/cmds/parameters"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
+	"github.com/go-go-golems/glazed/pkg/cmds/sources"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	glazedConfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/spf13/cobra"
-	"os"
 )
 
-// CreateOption configures behavior of CreateGeppettoLayers.
+// CreateOption configures behavior of CreateGeppettoSections.
 type CreateOption func(*createOptions)
 type createOptions struct {
 	stepSettings *settings.StepSettings
@@ -29,9 +31,9 @@ func WithDefaultsFromStepSettings(s *settings.StepSettings) CreateOption {
 	}
 }
 
-// CreateGeppettoLayers returns parameter layers for Geppetto AI settings.
+// CreateGeppettoSections returns settings sections for Geppetto AI settings.
 // If no StepSettings are provided via WithStepSettings, default settings.NewStepSettings() is used.
-func CreateGeppettoLayers(opts ...CreateOption) ([]cmdlayers.ParameterLayer, error) {
+func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	// Apply options
 	var co createOptions
 	for _, opt := range opts {
@@ -49,54 +51,72 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]cmdlayers.ParameterLayer, err
 		ss = co.stepSettings
 	}
 
-	chatParameterLayer, err := settings.NewChatParameterLayer(cmdlayers.WithDefaults(ss.Chat))
+	chatSection, err := settings.NewChatValueSection()
 	if err != nil {
 		return nil, err
 	}
-
-	clientParameterLayer, err := settings.NewClientParameterLayer(cmdlayers.WithDefaults(ss.Client))
-	if err != nil {
+	if err := chatSection.InitializeDefaultsFromStruct(ss.Chat); err != nil {
 		return nil, err
 	}
 
-	claudeParameterLayer, err := claude.NewParameterLayer(cmdlayers.WithDefaults(ss.Claude))
+	clientSection, err := settings.NewClientValueSection()
 	if err != nil {
 		return nil, err
 	}
-
-	geminiParameterLayer, err := gemini.NewParameterLayer(cmdlayers.WithDefaults(ss.Gemini))
-	if err != nil {
+	if err := clientSection.InitializeDefaultsFromStruct(ss.Client); err != nil {
 		return nil, err
 	}
 
-	openaiParameterLayer, err := openai.NewParameterLayer(cmdlayers.WithDefaults(ss.OpenAI))
+	claudeSection, err := claude.NewValueSection()
 	if err != nil {
 		return nil, err
 	}
-
-	embeddingsParameterLayer, err := embeddingsconfig.NewEmbeddingsParameterLayer(cmdlayers.WithDefaults(ss.Embeddings))
-	if err != nil {
+	if err := claudeSection.InitializeDefaultsFromStruct(ss.Claude); err != nil {
 		return nil, err
 	}
 
-	// Assemble layers
-	result := []cmdlayers.ParameterLayer{
-		chatParameterLayer,
-		clientParameterLayer,
-		claudeParameterLayer,
-		geminiParameterLayer,
-		openaiParameterLayer,
-		embeddingsParameterLayer,
+	geminiSection, err := gemini.NewValueSection()
+	if err != nil {
+		return nil, err
+	}
+	if err := geminiSection.InitializeDefaultsFromStruct(ss.Gemini); err != nil {
+		return nil, err
+	}
+
+	openaiSection, err := openai.NewValueSection()
+	if err != nil {
+		return nil, err
+	}
+	if err := openaiSection.InitializeDefaultsFromStruct(ss.OpenAI); err != nil {
+		return nil, err
+	}
+
+	embeddingsSection, err := embeddingsconfig.NewEmbeddingsValueSection()
+	if err != nil {
+		return nil, err
+	}
+	if err := embeddingsSection.InitializeDefaultsFromStruct(ss.Embeddings); err != nil {
+		return nil, err
+	}
+
+	// Assemble sections
+	result := []schema.Section{
+		chatSection,
+		clientSection,
+		claudeSection,
+		geminiSection,
+		openaiSection,
+		embeddingsSection,
 	}
 	return result, nil
 }
 
 func GetCobraCommandGeppettoMiddlewares(
-	parsedCommandLayers *cmdlayers.ParsedLayers,
+	parsedCommandSections *values.Values,
 	cmd *cobra.Command,
 	args []string,
-) ([]middlewares.Middleware, error) {
-	// Mapper to filter out non-layer keys like "repositories" which are handled separately.
+) ([]sources.Middleware, error) {
+	// Mapper to filter out non-section keys like "repositories" which are handled separately.
 	// We keep it here so it can be reused both for bootstrap parsing (profile selection)
 	// and for the main config middleware.
 	configMapper := func(rawConfig interface{}) (map[string]map[string]interface{}, error) {
@@ -117,7 +137,7 @@ func GetCobraCommandGeppettoMiddlewares(
 				continue // Skip excluded keys
 			}
 
-			// If the value is a map, treat the key as a layer slug
+			// If the value is a map, treat the key as a section slug
 			if layerParams, ok := value.(map[string]interface{}); ok {
 				result[key] = layerParams
 			}
@@ -132,37 +152,35 @@ func GetCobraCommandGeppettoMiddlewares(
 	// We must resolve profile selection (profile-settings.profile + profile-settings.profile-file)
 	// from defaults + config + env + flags BEFORE instantiating the profiles middleware.
 	//
-	// NOTE: parsedCommandLayers (from cli.ParseCommandSettingsLayer) is Cobra-only. We keep it
+	// NOTE: parsedCommandSections (from cli.ParseCommandSettingsLayer) is Cobra-only. We keep it
 	// around as a fallback source of command settings, but we do our own bootstrap parse so that
 	// PINOCCHIO_PROFILE and config can influence selection.
 	// ---------------------------------------------------------------------
 
 	// 1) Bootstrap command settings from Cobra + env + defaults (no config).
 	commandSettings := &cli.CommandSettings{}
-	commandSettingsLayer, err := cli.NewCommandSettingsLayer()
+	commandSettingsLayer, err := cli.NewCommandSettingsSection()
 	if err != nil {
 		return nil, err
 	}
-	bootstrapCommandLayers := cmdlayers.NewParameterLayers(
-		cmdlayers.WithLayers(commandSettingsLayer),
-	)
-	bootstrapCommandParsed := cmdlayers.NewParsedLayers()
-	err = middlewares.ExecuteMiddlewares(
-		bootstrapCommandLayers,
+	bootstrapCommandSchema := schema.NewSchema(schema.WithSections(commandSettingsLayer))
+	bootstrapCommandParsed := values.New()
+	err = sources.Execute(
+		bootstrapCommandSchema,
 		bootstrapCommandParsed,
-		middlewares.ParseFromCobraCommand(cmd, parameters.WithParseStepSource("cobra")),
-		middlewares.UpdateFromEnv("PINOCCHIO", parameters.WithParseStepSource("env")),
-		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
+		sources.FromCobra(cmd, fields.WithSource("cobra")),
+		sources.FromEnv("PINOCCHIO", fields.WithSource("env")),
+		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := bootstrapCommandParsed.InitializeStruct(cli.CommandSettingsSlug, commandSettings); err != nil {
+	if err := bootstrapCommandParsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err != nil {
 		return nil, err
 	}
-	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsedCommandLayers.
-	if commandSettings.ConfigFile == "" && commandSettings.LoadParametersFromFile == "" && parsedCommandLayers != nil {
-		_ = parsedCommandLayers.InitializeStruct(cli.CommandSettingsSlug, commandSettings)
+	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsed command settings.
+	if commandSettings.ConfigFile == "" && parsedCommandSections != nil {
+		_ = parsedCommandSections.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings)
 	}
 
 	// 2) Resolve config files once (low -> high precedence) so bootstrap + main chain are consistent.
@@ -174,59 +192,54 @@ func GetCobraCommandGeppettoMiddlewares(
 	if commandSettings.ConfigFile != "" {
 		configFiles = append(configFiles, commandSettings.ConfigFile)
 	}
-	if commandSettings.LoadParametersFromFile != "" {
-		configFiles = append(configFiles, commandSettings.LoadParametersFromFile)
-	}
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
 	profileSettings := &cli.ProfileSettings{}
-	profileSettingsLayer, err := cli.NewProfileSettingsLayer()
+	profileSettingsLayer, err := cli.NewProfileSettingsSection()
 	if err != nil {
 		return nil, err
 	}
-	bootstrapProfileLayers := cmdlayers.NewParameterLayers(
-		cmdlayers.WithLayers(profileSettingsLayer),
-	)
-	bootstrapProfileParsed := cmdlayers.NewParsedLayers()
-	err = middlewares.ExecuteMiddlewares(
-		bootstrapProfileLayers,
+	bootstrapProfileSchema := schema.NewSchema(schema.WithSections(profileSettingsLayer))
+	bootstrapProfileParsed := values.New()
+	err = sources.Execute(
+		bootstrapProfileSchema,
 		bootstrapProfileParsed,
-		middlewares.ParseFromCobraCommand(cmd, parameters.WithParseStepSource("cobra")),
-		middlewares.UpdateFromEnv("PINOCCHIO", parameters.WithParseStepSource("env")),
-		middlewares.LoadParametersFromFiles(
+		sources.FromCobra(cmd, fields.WithSource("cobra")),
+		sources.FromEnv("PINOCCHIO", fields.WithSource("env")),
+		sources.FromFiles(
 			configFiles,
-			middlewares.WithConfigFileMapper(configMapper),
-			middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
+			sources.WithConfigFileMapper(configMapper),
+			sources.WithParseOptions(fields.WithSource("config")),
 		),
-		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
+		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := bootstrapProfileParsed.InitializeStruct(cli.ProfileSettingsSlug, profileSettings); err != nil {
+	if err := bootstrapProfileParsed.DecodeSectionInto(cli.ProfileSettingsSlug, profileSettings); err != nil {
 		return nil, err
 	}
-	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsedCommandLayers.
-	if profileSettings.Profile == "" && profileSettings.ProfileFile == "" && parsedCommandLayers != nil {
-		_ = parsedCommandLayers.InitializeStruct(cli.ProfileSettingsSlug, profileSettings)
+	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsed command settings.
+	if profileSettings.Profile == "" && profileSettings.ProfileFile == "" && parsedCommandSections != nil {
+		_ = parsedCommandSections.DecodeSectionInto(cli.ProfileSettingsSlug, profileSettings)
 	}
 
 	// Build middleware chain in reverse precedence order (last applied has highest precedence)
-	middlewares_ := []middlewares.Middleware{
+	middlewares_ := []sources.Middleware{
 		// Highest precedence: command-line flags
-		middlewares.ParseFromCobraCommand(cmd,
-			parameters.WithParseStepSource("cobra"),
+		sources.FromCobra(cmd,
+			fields.WithSource("cobra"),
 		),
 		// Positional arguments
-		middlewares.GatherArguments(args,
-			parameters.WithParseStepSource("arguments"),
+		sources.FromArgs(args,
+			fields.WithSource("arguments"),
 		),
 	}
 
 	// Environment variables (PINOCCHIO_*)
 	// Whitelist the same layers that were previously whitelisted for Viper parsing
 	middlewares_ = append(middlewares_,
-		middlewares.WrapWithWhitelistedLayers(
+		sources.WrapWithWhitelistedSections(
 			[]string{
 				settings.AiChatSlug,
 				settings.AiClientSlug,
@@ -236,8 +249,8 @@ func GetCobraCommandGeppettoMiddlewares(
 				embeddingsconfig.EmbeddingsSlug,
 				cli.ProfileSettingsSlug,
 			},
-			middlewares.UpdateFromEnv("PINOCCHIO",
-				parameters.WithParseStepSource("env"),
+			sources.FromEnv("PINOCCHIO",
+				fields.WithSource("env"),
 			),
 		),
 	)
@@ -258,13 +271,13 @@ func GetCobraCommandGeppettoMiddlewares(
 		profileSettings.Profile = "default"
 	}
 	middlewares_ = append(middlewares_,
-		middlewares.GatherFlagsFromProfiles(
+		sources.GatherFlagsFromProfiles(
 			defaultProfileFile,
 			profileSettings.ProfileFile,
 			profileSettings.Profile,
 			"default",
-			parameters.WithParseStepSource("profiles"),
-			parameters.WithParseStepMetadata(map[string]interface{}{
+			fields.WithSource("profiles"),
+			fields.WithMetadata(map[string]interface{}{
 				"profileFile": profileSettings.ProfileFile,
 				"profile":     profileSettings.Profile,
 			}),
@@ -274,20 +287,18 @@ func GetCobraCommandGeppettoMiddlewares(
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
 	//
 	// NOTE: This is intentionally placed AFTER the profiles middleware in the slice ordering.
-	// Most Glazed "value-setting" middlewares call next(...) first and then update parsedLayers,
+	// Most Glazed "value-setting" middlewares call next(...) first and then update parsedValues,
 	// so later middlewares in the slice apply earlier. By placing config after profiles here,
 	// config is applied BEFORE profiles, ensuring profiles override config (while env/flags still override both).
-	middlewares_ = append(middlewares_,
-		middlewares.LoadParametersFromFiles(
-			configFiles,
-			middlewares.WithConfigFileMapper(configMapper),
-			middlewares.WithParseOptions(parameters.WithParseStepSource("config")),
-		),
-	)
+	middlewares_ = append(middlewares_, sources.FromFiles(
+		configFiles,
+		sources.WithConfigFileMapper(configMapper),
+		sources.WithParseOptions(fields.WithSource("config")),
+	))
 
 	// Lowest precedence: defaults
 	middlewares_ = append(middlewares_,
-		middlewares.SetFromDefaults(parameters.WithParseStepSource("defaults")),
+		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	)
 
 	return middlewares_, nil

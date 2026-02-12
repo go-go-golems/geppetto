@@ -213,7 +213,7 @@ func main() {
     ctx := context.Background()
     
     // 1. Create engine (assumes parsed layers from CLI or config)
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+    eng, _ := factory.NewEngineFromParsedValues(parsedValues)
     
     // 2. Create and register tool
     toolDef, _ := tools.NewToolFromFunc("get_weather", "Get weather for location", getWeather)

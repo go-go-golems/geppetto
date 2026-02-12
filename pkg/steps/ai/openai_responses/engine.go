@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
@@ -156,6 +157,11 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 	}
 	url := strings.TrimRight(baseURL, "/") + "/responses"
+	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, errors.Wrap(err, "invalid openai responses URL")
+	}
 
 	// Prepare metadata for events
 	metadata := events.EventMetadata{
@@ -206,6 +212,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		if tap != nil {
 			tap.OnHTTP(req, b)
 		}
+		// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Debug().Err(err).Msg("Responses: HTTP request failed")
@@ -742,6 +749,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	log.Trace().Msg("Responses: initiating HTTP request (non-streaming)")
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err

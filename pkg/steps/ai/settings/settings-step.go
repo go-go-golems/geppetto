@@ -10,7 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/huandu/go-clone"
 	"gopkg.in/yaml.v3"
 )
@@ -20,8 +20,8 @@ type factoryConfigFileWrapper struct {
 }
 
 type APISettings struct {
-	APIKeys  map[string]string `yaml:"api_keys,omitempty" glazed.parameter:"*-api-key"`
-	BaseUrls map[string]string `yaml:"base_urls,omitempty" glazed.parameter:"*-base-url"`
+	APIKeys  map[string]string `yaml:"api_keys,omitempty" glazed:"*-api-key"`
+	BaseUrls map[string]string `yaml:"base_urls,omitempty" glazed:"*-base-url"`
 }
 
 func NewAPISettings() *APISettings {
@@ -37,17 +37,17 @@ func (s *APISettings) Clone() *APISettings {
 
 type StepSettings struct {
 	API    *APISettings     `yaml:"api_keys,omitempty"`
-	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed.layer:"ai-chat"`
-	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed.layer:"openai-chat"`
-	Client *ClientSettings  `yaml:"client,omitempty" glazed.layer:"ai-client"`
-	Claude *claude.Settings `yaml:"claude,omitempty" glazed.layer:"claude-chat"`
-	Gemini *gemini.Settings `yaml:"gemini,omitempty" glazed.layer:"gemini-chat"`
-	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed.layer:"ollama-chat"`
+	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed:"ai-chat"`
+	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed:"openai-chat"`
+	Client *ClientSettings  `yaml:"client,omitempty" glazed:"ai-client"`
+	Claude *claude.Settings `yaml:"claude,omitempty" glazed:"claude-chat"`
+	Gemini *gemini.Settings `yaml:"gemini,omitempty" glazed:"gemini-chat"`
+	Ollama *ollama.Settings `yaml:"ollama,omitempty" glazed:"ollama-chat"`
 	// NOTE: Maybe we should separate the StepSettings struct into:
 	// - Provider settings (API, OpenAI, Claude, Ollama)
 	// - Chat settings (Chat, OpenAI, Claude, Ollama)
 	// - Embeddings settings (Embeddings)
-	Embeddings *config.EmbeddingsConfig `yaml:"embeddings,omitempty" glazed.layer:"embeddings"`
+	Embeddings *config.EmbeddingsConfig `yaml:"embeddings,omitempty" glazed:"embeddings"`
 }
 
 func NewStepSettings() (*StepSettings, error) {
@@ -104,13 +104,13 @@ func NewStepSettingsFromYAML(s io.Reader) (*StepSettings, error) {
 	return settings_.Factories, nil
 }
 
-func NewStepSettingsFromParsedLayers(parsedLayers *layers.ParsedLayers) (*StepSettings, error) {
+func NewStepSettingsFromParsedValues(parsedValues *values.Values) (*StepSettings, error) {
 	stepSettings, err := NewStepSettings()
 	if err != nil {
 		return nil, err
 	}
 
-	err = stepSettings.UpdateFromParsedLayers(parsedLayers)
+	err = stepSettings.UpdateFromParsedValues(parsedValues)
 	if err != nil {
 		return nil, err
 	}
@@ -232,33 +232,33 @@ func (s *StepSettings) Clone() *StepSettings {
 	}
 }
 
-func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers) error {
-	err := parsedLayers.InitializeStruct(AiClientSlug, ss.Client)
+func (ss *StepSettings) UpdateFromParsedValues(parsedValues *values.Values) error {
+	err := parsedValues.DecodeSectionInto(AiClientSlug, ss.Client)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(AiChatSlug, ss.Chat)
+	err = parsedValues.DecodeSectionInto(AiChatSlug, ss.Chat)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(openai.OpenAiChatSlug, ss.OpenAI)
+	err = parsedValues.DecodeSectionInto(openai.OpenAiChatSlug, ss.OpenAI)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(claude.ClaudeChatSlug, ss.Claude)
+	err = parsedValues.DecodeSectionInto(claude.ClaudeChatSlug, ss.Claude)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(gemini.GeminiChatSlug, ss.Gemini)
+	err = parsedValues.DecodeSectionInto(gemini.GeminiChatSlug, ss.Gemini)
 	if err != nil {
 		return err
 	}
 
-	err = parsedLayers.InitializeStruct(config.EmbeddingsSlug, ss.Embeddings)
+	err = parsedValues.DecodeSectionInto(config.EmbeddingsSlug, ss.Embeddings)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func (ss *StepSettings) UpdateFromParsedLayers(parsedLayers *layers.ParsedLayers
 		config.EmbeddingsSlug,
 	}
 	for _, slug := range apiSlugs {
-		err = parsedLayers.InitializeStruct(slug, ss.API)
+		err = parsedValues.DecodeSectionInto(slug, ss.API)
 		if err != nil {
 			return err
 		}
