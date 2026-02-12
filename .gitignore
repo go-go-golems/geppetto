@@ -28,3 +28,4 @@ thirdparty/
 .crush/
 
 out/
+pkg/turns/.generated/

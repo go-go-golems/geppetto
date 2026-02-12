@@ -1,0 +1,6 @@
+root: geppetto/ttmp
+defaults:
+    owners: []
+    intent: ""
+filenamePrefixPolicy: ""
+vocabulary: geppetto/ttmp/vocabulary.yaml
