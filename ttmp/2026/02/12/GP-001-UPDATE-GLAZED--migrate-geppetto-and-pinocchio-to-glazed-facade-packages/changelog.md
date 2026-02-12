@@ -55,3 +55,15 @@ Completed Pinocchio Phase 2 Task 3 by migrating webchat + redis settings decode 
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/web-chat/main.go — command flags migrated to `fields.New` and `WithSections`
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/29-pinocchio-webchat-redis-legacy-scan-after-task3.txt — post-migration scope scan
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/31-pinocchio-webchat-focused-blocker.txt — remaining `toolhelpers` blocker in `pkg/webchat`
+
+## 2026-02-12
+
+Completed Pinocchio Phase 2 Task 4 by migrating `cmd/examples/*` and `cmd/agents/simple-chat-agent/main.go` to facade command APIs in pinocchio commit `b349349`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/examples/simple-chat/main.go — values-based command signature/decode and section wiring
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/examples/simple-redis-streaming-inference/main.go — facade migration plus sink wiring update via `events.WithEventSinks`
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/agents/simple-chat-agent/main.go — values/fields migration for agent command flags and decode
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/33-pinocchio-examples-agents-legacy-scan-after-task4.txt — post-migration scope scan
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/35-pinocchio-simple-redis-blocker.txt — current clay logging bootstrap blocker

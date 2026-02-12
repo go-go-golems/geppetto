@@ -1,0 +1,5 @@
+# github.com/go-go-golems/pinocchio/cmd/examples/simple-chat
+pkg/cmds/images.go:7:2: no required module provides package github.com/go-go-golems/geppetto/pkg/conversation; to add it:
+	go get github.com/go-go-golems/geppetto/pkg/conversation
+FAIL	github.com/go-go-golems/pinocchio/cmd/examples/simple-chat [setup failed]
+FAIL

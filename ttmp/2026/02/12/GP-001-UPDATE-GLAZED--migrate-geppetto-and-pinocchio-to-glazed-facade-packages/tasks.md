@@ -25,7 +25,7 @@
 - [x] Migrate pinocchio command model/core loader to `schema/fields/sources/values` (`pkg/cmds/*`)
 - [x] Migrate pinocchio command implementations in `cmd/pinocchio/cmds/*`
 - [x] Migrate webchat + redis settings paths (`pkg/webchat/*`, `pkg/redisstream/redis_layer.go`, `cmd/web-chat/main.go`)
-- [ ] Migrate examples and agent commands (`cmd/examples/*`, `cmd/agents/*`)
+- [x] Migrate examples and agent commands (`cmd/examples/*`, `cmd/agents/*`)
 - [ ] Validate pinocchio with `make test` and `make lint`
 
 ## Follow-up / Out of Scope for This Ticket
