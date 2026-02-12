@@ -1,6 +1,7 @@
 package geppetto
 
 import (
+	"os"
 	"testing"
 
 	"github.com/dop251/goja"
@@ -63,6 +64,39 @@ func TestSessionRunWithEchoEngine(t *testing.T) {
 		const last = out.blocks[out.blocks.length - 1];
 		if (!last || last.kind !== "llm_text") throw new Error("missing llm_text output");
 		if (!last.payload || last.payload.text !== "HELLO-OUT") throw new Error("unexpected llm_text output");
+	`)
+}
+
+func TestSessionHistoryInspectionAndSnapshotImmutability(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		const s = gp.createSession({ engine: gp.engines.echo({ reply: "ACK" }) });
+
+		s.append(gp.turns.newTurn({ id: "t1", blocks: [gp.turns.newUserBlock("one")] }));
+		s.run();
+		s.append(gp.turns.newTurn({ id: "t2", blocks: [gp.turns.newUserBlock("two")] }));
+		s.run();
+
+		if (s.turnCount() !== 2) throw new Error("turnCount should be 2");
+
+		const h = s.turns();
+		if (!Array.isArray(h) || h.length !== 2) throw new Error("turns() length mismatch");
+
+		const first = s.getTurn(0);
+		const missing = s.getTurn(5);
+		if (!first || first.id !== "t1") throw new Error("getTurn(0) mismatch");
+		if (missing !== null) throw new Error("getTurn out-of-range should be null");
+
+		const range = s.turnsRange(1, 2);
+		if (!Array.isArray(range) || range.length !== 1 || range[0].id !== "t2") throw new Error("turnsRange mismatch");
+
+		// Mutating returned snapshots must not mutate session internal history.
+		h[0].id = "mutated-id";
+		h[0].blocks.push(gp.turns.newAssistantBlock("mutated"));
+		const firstAgain = s.getTurn(0);
+		if (firstAgain.id !== "t1") throw new Error("history snapshot mutability leak on id");
+		if (firstAgain.blocks.length !== 2) throw new Error("history snapshot mutability leak on blocks");
 	`)
 }
 
@@ -146,5 +180,235 @@ func TestBuilderToolsAndGoToolInvocationFromJS(t *testing.T) {
 		if (!toolUse) throw new Error("missing tool_use block: " + JSON.stringify(out.blocks));
 		const resultText = String(toolUse.payload && toolUse.payload.result || "");
 		if (!resultText.includes("sum")) throw new Error("tool_use payload missing js result");
+	`)
+}
+
+func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
+	t.Setenv("PINOCCHIO_PROFILE", "env-profile-model")
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+
+		const explicit = gp.engines.fromProfile("explicit-model", {
+			profile: "opts-model",
+			apiType: "openai",
+			apiKey: "test-openai-key"
+		});
+		if (explicit.name !== "profile:explicit-model") throw new Error("explicit profile precedence mismatch");
+
+		const optsProfile = gp.engines.fromProfile(undefined, {
+			profile: "opts-model",
+			apiType: "openai",
+			apiKey: "test-openai-key"
+		});
+		if (optsProfile.name !== "profile:opts-model") throw new Error("options profile precedence mismatch");
+
+		const envProfile = gp.engines.fromProfile(undefined, {
+			apiType: "openai",
+			apiKey: "test-openai-key"
+		});
+		if (envProfile.name !== "profile:env-profile-model") throw new Error("env profile precedence mismatch");
+
+		const fromConfig = gp.engines.fromConfig({
+			apiType: "openai",
+			model: "gpt-4o-mini",
+			apiKey: "test-openai-key"
+		});
+		if (fromConfig.name !== "config") throw new Error("fromConfig name mismatch");
+
+		let threw = false;
+		try {
+			gp.engines.fromConfig({ apiType: "bogus-provider", model: "x", apiKey: "k" });
+		} catch (e) {
+			threw = true;
+		}
+		if (!threw) throw new Error("fromConfig should throw for unknown provider");
+	`)
+}
+
+func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
+	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
+		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
+	}
+	if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") == "" {
+		t.Skip("skipping gemini integration test: GEMINI_API_KEY/GOOGLE_API_KEY not set")
+	}
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		const s = gp.createSession({
+			engine: gp.engines.fromProfile("gemini-2.5-flash-lite", {
+				apiType: "gemini"
+			})
+		});
+		s.append(gp.turns.newTurn({
+			blocks: [gp.turns.newUserBlock("Reply with exactly READY.")]
+		}));
+		const out = s.run();
+		if (!out || !Array.isArray(out.blocks) || out.blocks.length < 2) {
+			throw new Error("expected output turn with model response blocks");
+		}
+	`)
+}
+
+func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+
+		function makeEngine(toolName) {
+			return gp.engines.fromFunction((turn) => {
+				const hasToolUse = turn.blocks.some(b => b.kind === "tool_use");
+				if (!hasToolUse) {
+					turn.blocks.push(gp.turns.newToolCallBlock("tool-1", toolName, { value: "orig" }));
+					return turn;
+				}
+				turn.blocks.push(gp.turns.newAssistantBlock("done"));
+				return turn;
+			});
+		}
+
+		// Scenario A: before + after hooks mutate args/result.
+		const regA = gp.tools.createRegistry();
+		regA.register({
+			name: "echo_args",
+			description: "echo args",
+			handler: ({ value }) => ({ seen: value })
+		});
+		const sA = gp.createBuilder()
+			.withEngine(makeEngine("echo_args"))
+			.withTools(regA, { enabled: true, maxIterations: 3, toolErrorHandling: "continue" })
+			.withToolHooks({
+				beforeToolCall: (ctx) => ({ args: { value: "rewritten" } }),
+				afterToolCall: (ctx) => ({ result: { post: true, seen: ctx.call.args.value } })
+			})
+			.buildSession();
+		sA.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("calc")] }));
+		const outA = sA.run();
+		const useA = outA.blocks.find(b => b.kind === "tool_use");
+		if (!useA) throw new Error("scenario A: missing tool_use");
+		const txtA = String(useA.payload && useA.payload.result || "");
+		if (!txtA.includes("rewritten")) throw new Error("scenario A: expected rewritten arg in result");
+		if (!txtA.includes("post")) throw new Error("scenario A: expected post-processed result");
+
+		// Scenario B: retry hook drives a second attempt.
+		let attemptsB = 0;
+		let errorsSeenB = 0;
+		const regB = gp.tools.createRegistry();
+		regB.register({
+			name: "flaky_tool",
+			description: "fails once then succeeds",
+			handler: ({ value }) => {
+				attemptsB++;
+				if (attemptsB < 2) throw new Error("transient failure");
+				return { ok: true, value, attempts: attemptsB };
+			}
+		});
+		const sB = gp.createBuilder()
+			.withEngine(makeEngine("flaky_tool"))
+			.withTools(regB, {
+				enabled: true,
+				maxIterations: 3,
+				toolErrorHandling: "retry",
+				retryMaxRetries: 5,
+				retryBackoffMs: 1
+			})
+			.withToolHooks({
+				onToolError: (ctx) => {
+					errorsSeenB++;
+					return { retry: true, backoffMs: 0 };
+				}
+			})
+			.buildSession();
+		sB.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("retry")] }));
+		const outB = sB.run();
+		const useB = outB.blocks.find(b => b.kind === "tool_use");
+		if (!useB) throw new Error("scenario B: missing tool_use");
+		const txtB = String(useB.payload && useB.payload.result || "");
+		if (attemptsB !== 2) throw new Error("scenario B: expected exactly 2 attempts, got " + attemptsB);
+		if (errorsSeenB < 1) throw new Error("scenario B: expected onToolError hook call");
+		if (!txtB.includes("\"attempts\":2")) throw new Error("scenario B: expected successful second attempt");
+
+		// Scenario C: abort action in onToolError disables retries.
+		let attemptsC = 0;
+		const regC = gp.tools.createRegistry();
+		regC.register({
+			name: "always_fail",
+			description: "always fails",
+			handler: () => {
+				attemptsC++;
+				throw new Error("fail hard");
+			}
+		});
+		const sC = gp.createBuilder()
+			.withEngine(makeEngine("always_fail"))
+			.withTools(regC, {
+				enabled: true,
+				maxIterations: 3,
+				toolErrorHandling: "retry",
+				retryMaxRetries: 5,
+				retryBackoffMs: 1
+			})
+			.withToolHooks({
+				onToolError: () => ({ action: "abort" })
+			})
+			.buildSession();
+		sC.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("abort")] }));
+		const outC = sC.run();
+		const useC = outC.blocks.find(b => b.kind === "tool_use");
+		if (!useC) throw new Error("scenario C: missing tool_use");
+		if (attemptsC !== 1) throw new Error("scenario C: expected one attempt after abort, got " + attemptsC);
+
+		// Scenario D: hook callback error policy fail-open.
+		let attemptsD = 0;
+		const regD = gp.tools.createRegistry();
+		regD.register({
+			name: "ok_tool",
+			description: "returns success",
+			handler: ({ value }) => {
+				attemptsD++;
+				return { ok: true, value };
+			}
+		});
+		const sD = gp.createBuilder()
+			.withEngine(makeEngine("ok_tool"))
+			.withTools(regD, { enabled: true, maxIterations: 3 })
+			.withToolHooks({
+				failOpen: true,
+				beforeToolCall: () => { throw new Error("hook boom"); }
+			})
+			.buildSession();
+		sD.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("fail-open")] }));
+		const outD = sD.run();
+		const useD = outD.blocks.find(b => b.kind === "tool_use");
+		if (!useD) throw new Error("scenario D: missing tool_use");
+		if (attemptsD !== 1) throw new Error("scenario D: expected tool to execute in fail-open mode");
+
+		// Scenario E: hook callback error policy fail-closed.
+		let attemptsE = 0;
+		const regE = gp.tools.createRegistry();
+		regE.register({
+			name: "blocked_tool",
+			description: "would return success",
+			handler: ({ value }) => {
+				attemptsE++;
+				return { ok: true, value };
+			}
+		});
+		const sE = gp.createBuilder()
+			.withEngine(makeEngine("blocked_tool"))
+			.withTools(regE, { enabled: true, maxIterations: 3 })
+			.withToolHooks({
+				failOpen: false,
+				beforeToolCall: () => { throw new Error("hook closed"); }
+			})
+			.buildSession();
+		sE.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("fail-closed")] }));
+		const outE = sE.run();
+		const useE = outE.blocks.find(b => b.kind === "tool_use");
+		if (!useE) throw new Error("scenario E: missing tool_use");
+		if (attemptsE !== 0) throw new Error("scenario E: tool should not execute in fail-closed mode");
+		const errE = String(useE.payload && useE.payload.error || "");
+		if (!/beforeToolCall hook/i.test(errE)) throw new Error("scenario E: expected beforeToolCall hook error");
 	`)
 }

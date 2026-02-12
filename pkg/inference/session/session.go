@@ -115,6 +115,53 @@ func (s *Session) Latest() *turns.Turn {
 	return s.Turns[len(s.Turns)-1]
 }
 
+// TurnCount returns the number of turns currently stored in session history.
+func (s *Session) TurnCount() int {
+	if s == nil {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.Turns)
+}
+
+// GetTurn returns a cloned snapshot of the turn at index, or nil when out of range.
+func (s *Session) GetTurn(index int) *turns.Turn {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if index < 0 || index >= len(s.Turns) {
+		return nil
+	}
+	if s.Turns[index] == nil {
+		return nil
+	}
+	return s.Turns[index].Clone()
+}
+
+// TurnsSnapshot returns cloned snapshots of all turns in append order.
+func (s *Session) TurnsSnapshot() []*turns.Turn {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.Turns) == 0 {
+		return nil
+	}
+	out := make([]*turns.Turn, 0, len(s.Turns))
+	for _, t := range s.Turns {
+		if t == nil {
+			out = append(out, nil)
+			continue
+		}
+		out = append(out, t.Clone())
+	}
+	return out
+}
+
 // Append appends a turn snapshot to the session history.
 func (s *Session) Append(t *turns.Turn) {
 	if s == nil || t == nil {
