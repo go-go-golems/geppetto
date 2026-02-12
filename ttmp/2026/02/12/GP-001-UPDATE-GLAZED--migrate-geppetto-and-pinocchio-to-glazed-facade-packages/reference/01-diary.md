@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T08:53:44-05:00
+LastUpdated: 2026-02-12T08:56:56-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -851,4 +851,82 @@ github.com/go-go-golems/clay@v0.3.0/pkg/init.go: undefined: logging.AddLoggingLa
 cd geppetto
 go test ./pkg/layers ./pkg/steps/ai/settings ./pkg/embeddings ./pkg/inference/engine/factory
 go test ./cmd/examples/simple-inference ./cmd/llm-runner
+```
+
+## Step 10: Update Geppetto Docs Snippets to Facade APIs (Task 5)
+
+I updated the migration-sensitive snippets in the two requested topic docs so examples now show `fields/schema/values` APIs and values-based decode patterns instead of legacy layer/parameter APIs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Then work on the tasks one by one, commit to git after each, check off task, update your diary. go"
+
+**Assistant interpretation:** Continue by completing the next geppetto task in order, including docs migration updates.
+
+**Inferred user intent:** Keep developer docs aligned with the code migration so follow-on work does not reintroduce old APIs.
+
+**Commit (code):** Pending in next step (Task 5 commit)
+
+### What I did
+
+- Updated:
+  - `geppetto/pkg/doc/topics/06-embeddings.md`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md`
+- Replaced legacy snippet API usage:
+  - `cmds/layers` -> `cmds/values`
+  - `cmds/parameters` -> `cmds/fields`
+  - `WithLayersList(...)` -> `WithSections(...)`
+  - `*layers.ParsedLayers` -> `*values.Values`
+  - legacy tags `glazed.parameter` -> `glazed`
+- Updated snippet decode logic where mechanical renames were insufficient:
+  - `parsedValues.GetString(...)` replaced with `DecodeSectionInto(values.DefaultSlug, &args)` examples.
+- Updated wording references from “configuration layers / parameter layers” to “parsed values / sections” in relevant sections.
+
+### Why
+
+- These docs contained direct legacy API examples that would mislead migration implementation and new command authoring.
+
+### What worked
+
+- Legacy API pattern scan over both docs now returns no stale references for:
+  - `pkg/cmds/layers`
+  - `pkg/cmds/parameters`
+  - `WithLayersList`
+  - `glazed.parameter`
+  - `InitializeStruct`
+  - `GetString(...)` on parsed values
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- Docs required both bulk rename and semantic follow-up fixes (argument extraction snippets) to be truly migration-correct.
+
+### What was tricky to build
+
+- Keeping snippets readable while updating API idioms, especially in long tutorial sections with mixed command styles.
+
+### What warrants a second pair of eyes
+
+- Broader tutorial modernization opportunities (for example, older `RunIntoGlazeProcessor` examples) that are adjacent but not strictly required for this migration task.
+
+### What should be done in the future
+
+- Run Task 6 validation (`make test`, `make lint`) and capture blocker status.
+
+### Code review instructions
+
+- Review changed snippets in:
+  - `geppetto/pkg/doc/topics/06-embeddings.md`
+  - `geppetto/pkg/doc/topics/06-inference-engines.md`
+
+### Technical details
+
+- Validation command used:
+
+```bash
+rg -n "pkg/cmds/layers|pkg/cmds/parameters|layers\\.ParsedLayers|parameters\\.|WithLayersList\\(|glazed\\.parameter|InitializeStruct\\(|GetString\\(" \
+  geppetto/pkg/doc/topics/06-embeddings.md geppetto/pkg/doc/topics/06-inference-engines.md
 ```

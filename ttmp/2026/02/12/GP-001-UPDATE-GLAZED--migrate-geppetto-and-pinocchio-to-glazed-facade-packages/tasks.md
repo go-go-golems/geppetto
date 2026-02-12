@@ -17,7 +17,7 @@
 - [x] Migrate geppetto settings section constructors and defaults init (`pkg/steps/ai/settings/*`, `pkg/embeddings/config/settings.go`)
 - [x] Migrate geppetto runtime decode helpers to `values.DecodeSectionInto` (`pkg/steps/ai/settings/settings-step.go`, `pkg/embeddings/settings_factory.go`, `pkg/inference/engine/factory/helpers.go`)
 - [x] Migrate geppetto commands/examples signatures and schema wiring (`cmd/examples/*`, `cmd/llm-runner/*`)
-- [ ] Update geppetto docs snippets to new APIs (`pkg/doc/topics/06-embeddings.md`, `pkg/doc/topics/06-inference-engines.md`)
+- [x] Update geppetto docs snippets to new APIs (`pkg/doc/topics/06-embeddings.md`, `pkg/doc/topics/06-inference-engines.md`)
 - [ ] Validate geppetto with `make test` and `make lint`
 
 ## Pinocchio Migration (Phase 2)
