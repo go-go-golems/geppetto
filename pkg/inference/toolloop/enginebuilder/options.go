@@ -52,6 +52,12 @@ func WithToolConfig(cfg tools.ToolConfig) Option {
 	}
 }
 
+func WithToolExecutor(exec tools.ToolExecutor) Option {
+	return func(b *Builder) {
+		b.ToolExecutor = exec
+	}
+}
+
 func WithEventSinks(sinks ...events.EventSink) Option {
 	return func(b *Builder) {
 		b.EventSinks = append(b.EventSinks, sinks...)

@@ -394,6 +394,14 @@ func (m *moduleRuntime) encodeTurnValue(t *turns.Turn) (goja.Value, error) {
 	return m.toJSValue(m.encodeTurn(t)), nil
 }
 
+func (m *moduleRuntime) encodeTurnsValue(ts []*turns.Turn) (goja.Value, error) {
+	out := make([]any, 0, len(ts))
+	for _, t := range ts {
+		out = append(out, m.encodeTurn(t))
+	}
+	return m.toJSValue(out), nil
+}
+
 func (m *moduleRuntime) toJSValue(v any) goja.Value {
 	if v == nil {
 		return goja.Null()

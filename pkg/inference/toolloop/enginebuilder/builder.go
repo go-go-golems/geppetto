@@ -51,6 +51,10 @@ type Builder struct {
 	// ToolConfig configures tool advertisement and execution policy.
 	ToolConfig *tools.ToolConfig
 
+	// ToolExecutor allows overriding tool execution behavior (hooks, policies).
+	// If nil, the default executor is used.
+	ToolExecutor tools.ToolExecutor
+
 	// EventSinks are attached to the run context for streaming/logging.
 	EventSinks []events.EventSink
 
@@ -98,6 +102,7 @@ func (b *Builder) Build(ctx context.Context, sessionID string) (session.Inferenc
 		registry:         b.Registry,
 		loopCfg:          loopCfg,
 		toolCfg:          toolCfg,
+		toolExecutor:     b.ToolExecutor,
 		eventSinks:       b.EventSinks,
 		snapshotHook:     b.SnapshotHook,
 		stepController:   b.StepController,
@@ -114,6 +119,8 @@ type runner struct {
 
 	loopCfg toolloop.LoopConfig
 	toolCfg tools.ToolConfig
+
+	toolExecutor tools.ToolExecutor
 
 	eventSinks   []events.EventSink
 	snapshotHook toolloop.SnapshotHook
@@ -189,6 +196,9 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			toolloop.WithLoopConfig(r.loopCfg),
 			toolloop.WithToolConfig(r.toolCfg),
 			toolloop.WithStepController(r.stepController),
+		}
+		if r.toolExecutor != nil {
+			opts = append(opts, toolloop.WithExecutor(r.toolExecutor))
 		}
 		if r.stepPauseTimeout > 0 {
 			opts = append(opts, toolloop.WithPauseTimeout(r.stepPauseTimeout))
