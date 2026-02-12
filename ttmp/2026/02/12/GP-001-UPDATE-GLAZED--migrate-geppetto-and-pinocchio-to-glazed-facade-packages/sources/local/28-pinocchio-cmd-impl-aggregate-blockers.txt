@@ -1,0 +1,21 @@
+# github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/openai
+pkg/cmds/images.go:7:2: no required module provides package github.com/go-go-golems/geppetto/pkg/conversation; to add it:
+	go get github.com/go-go-golems/geppetto/pkg/conversation
+FAIL	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/openai [setup failed]
+# github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/prompto
+../../../../go/pkg/mod/github.com/go-go-golems/prompto@v0.1.13/pkg/prompto.go:12:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/layers; to add it:
+	go get github.com/go-go-golems/glazed/pkg/cmds/layers
+# github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/prompto
+../../../../go/pkg/mod/github.com/go-go-golems/prompto@v0.1.13/pkg/prompto.go:13:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/parameters; to add it:
+	go get github.com/go-go-golems/glazed/pkg/cmds/parameters
+FAIL	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/prompto [setup failed]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/catter	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/catter/cmds	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/catter/pkg	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/catter/pkg/doc	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/helpers	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/kagi	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/temporizer	[no test files]
+?   	github.com/go-go-golems/pinocchio/cmd/pinocchio/cmds/tokens	[no test files]
+FAIL

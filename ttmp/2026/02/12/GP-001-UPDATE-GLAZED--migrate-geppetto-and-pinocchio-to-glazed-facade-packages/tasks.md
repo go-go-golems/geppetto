@@ -23,7 +23,7 @@
 ## Pinocchio Migration (Phase 2)
 
 - [x] Migrate pinocchio command model/core loader to `schema/fields/sources/values` (`pkg/cmds/*`)
-- [ ] Migrate pinocchio command implementations in `cmd/pinocchio/cmds/*`
+- [x] Migrate pinocchio command implementations in `cmd/pinocchio/cmds/*`
 - [ ] Migrate webchat + redis settings paths (`pkg/webchat/*`, `pkg/redisstream/redis_layer.go`, `cmd/web-chat/main.go`)
 - [ ] Migrate examples and agent commands (`cmd/examples/*`, `cmd/agents/*`)
 - [ ] Validate pinocchio with `make test` and `make lint`
@@ -33,3 +33,4 @@
 - [ ] Separate ticket for missing geppetto package imports in pinocchio (`toolhelpers`, `toolcontext`, `conversation`)
 - [ ] Separate ticket for `RunID` incompatibility in `pinocchio/pkg/middlewares/agentmode/middleware.go`
 - [ ] Separate ticket for `clay`/`glazed` logging bootstrap compatibility (`logging.AddLoggingLayerToRootCommand` missing)
+- [ ] Separate ticket for `prompto` module compatibility with facade packages (`github.com/go-go-golems/prompto@v0.1.13` still imports `cmds/layers` and `cmds/parameters`)

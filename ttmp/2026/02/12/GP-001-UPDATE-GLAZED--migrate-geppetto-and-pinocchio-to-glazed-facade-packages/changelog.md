@@ -31,3 +31,15 @@ Completed Pinocchio Phase 2 Task 1 by migrating `pkg/cmds/*` core command model/
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/cmds/helpers/parse-helpers.go — source middleware migration for profile/config/env/default parsing
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/23-pinocchio-pkg-cmds-focused-pass.txt — focused package test evidence
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/24-pinocchio-pkg-cmds-helpers-blocker.txt — current missing-geppetto import blocker
+
+## 2026-02-12
+
+Completed Pinocchio Phase 2 Task 2 by migrating command implementation files under `cmd/pinocchio/cmds/*` to facade APIs (`fields`, `values`, `sources`) in pinocchio commit `826ba63`, including a local `pkg/filefilter` shim to decouple `catter` from `clay`'s legacy layer API.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/pinocchio/cmds/openai/openai.go — command section wiring and values-based decode migration
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/pinocchio/cmds/catter/cmds/print.go — catter command migration plus filefilter integration via local package
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/filefilter/section.go — facade-compatible section definition replacing layer-based parser dependency
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/26-pinocchio-cmd-impl-legacy-scan-after-task2.txt — post-migration local legacy-symbol scan
+- /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/28-pinocchio-cmd-impl-aggregate-blockers.txt — aggregate command package blockers (`conversation`, `prompto`)
