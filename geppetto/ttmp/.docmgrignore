@@ -1,0 +1,4 @@
+# Default ignores for docmgr
+.git/
+_templates/
+_guidelines/
