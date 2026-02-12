@@ -13,7 +13,7 @@
 
 ## Geppetto Migration (Phase 1)
 
-- [ ] Migrate `geppetto/pkg/layers/layers.go` from legacy `layers/parameters/middlewares` to `schema/fields/sources/values`
+- [x] Migrate `geppetto/pkg/layers/layers.go` from legacy `layers/parameters/middlewares` to `schema/fields/sources/values`
 - [ ] Migrate geppetto settings section constructors and defaults init (`pkg/steps/ai/settings/*`, `pkg/embeddings/config/settings.go`)
 - [ ] Migrate geppetto runtime decode helpers to `values.DecodeSectionInto` (`pkg/steps/ai/settings/settings-step.go`, `pkg/embeddings/settings_factory.go`, `pkg/inference/engine/factory/helpers.go`)
 - [ ] Migrate geppetto commands/examples signatures and schema wiring (`cmd/examples/*`, `cmd/llm-runner/*`)

@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T08:38:16-05:00
+LastUpdated: 2026-02-12T08:43:23-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -458,3 +458,95 @@ ok: scanned modules=[geppetto pinocchio] go_files=209 import_hits=83 selector_hi
   - Legacy struct tag capture (`glazed.parameter`, `glazed.layer`, `glazed.default`, `glazed.help`)
   - Function signature hotspot extraction
   - Optional `gopls references` enrichment per hotspot
+
+## Step 6: Migrate `geppetto/pkg/layers/layers.go` to `schema/fields/sources/values`
+
+I migrated `geppetto/pkg/layers/layers.go` away from legacy Glazed middleware and parsed-layer types to the new facade API (`schema`, `fields`, `sources`, `values`).
+
+This step corresponds to Geppetto migration Phase 1 Task 1 in the ticket.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Then work on the tasks one by one, commit to git after each, check off task, update your diary. go"
+
+**Assistant interpretation:** Execute migration tasks sequentially with atomic commits and diary/task updates per task.
+
+**Inferred user intent:** Build a clean, auditable migration history rather than one large unreviewable refactor.
+
+**Commit (code):** Pending in next step (Task 1 commit)
+
+### What I did
+
+- Updated imports in:
+  - `geppetto/pkg/layers/layers.go`
+- Replaced legacy Glazed package usage:
+  - `cmds/layers` -> `cmds/schema` + `cmds/values`
+  - `cmds/middlewares` -> `cmds/sources`
+  - `cmds/parameters` parse-step options -> `cmds/fields` parse options
+- Migrated `GetCobraCommandGeppettoMiddlewares` signature:
+  - `(*cmdlayers.ParsedLayers, *cobra.Command, []string) ([]middlewares.Middleware, error)`
+  - to `(*values.Values, *cobra.Command, []string) ([]sources.Middleware, error)`
+- Rewrote bootstrap parsing to use:
+  - `schema.NewSchema(...)`
+  - `values.New()`
+  - `sources.Execute(...)`
+  - `DecodeSectionInto(...)`
+- Replaced whitelist and config/profile middlewares:
+  - `WrapWithWhitelistedLayers` -> `WrapWithWhitelistedSections`
+  - `LoadParametersFromFiles` -> `FromFiles`
+  - `SetFromDefaults` -> `FromDefaults`
+  - parse metadata/source options migrated to `fields.WithSource(...)` and `fields.WithMetadata(...)`.
+- Updated `CreateGeppettoLayers` return type from `[]cmdlayers.ParameterLayer` to `[]schema.Section`.
+
+### Why
+
+- `glazed/pkg/cmds/layers`, `.../middlewares`, and `.../parameters` legacy packages are no longer available in this workspace version of Glazed.
+- `cli.CobraMiddlewaresFunc` now consumes/returns values/sources-based types.
+
+### What worked
+
+- File-level API migration in `geppetto/pkg/layers/layers.go` is complete and aligned with current `glazed/pkg/cli/cobra-parser.go` interfaces.
+- Existing bootstrap + precedence logic was preserved while porting to the new middleware primitives.
+
+### What didn't work
+
+- Targeted package check still fails because the next task (settings constructors) is not migrated yet:
+
+```text
+pkg/embeddings/config/settings.go:6:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/layers
+pkg/embeddings/config/settings.go:7:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/parameters
+```
+
+### What I learned
+
+- `layers.go` can be migrated independently at the API boundary, but buildability still depends on constructor migration in:
+  - `pkg/steps/ai/settings/*`
+  - `pkg/embeddings/config/settings.go`
+
+### What was tricky to build
+
+- Preserving bootstrap profile/config precedence while replacing legacy middleware calls one-for-one.
+
+### What warrants a second pair of eyes
+
+- Confirm whether keeping the public function name `CreateGeppettoLayers` (now returning `[]schema.Section`) is desired, or if we should rename to `CreateGeppettoSections` in a follow-up cleanup.
+
+### What should be done in the future
+
+- Complete Task 2 immediately so the migrated `layers.go` can compile against migrated section constructors.
+
+### Code review instructions
+
+- Review the full migration diff in:
+  - `geppetto/pkg/layers/layers.go`
+- Cross-check expected function signature with:
+  - `glazed/pkg/cli/cobra-parser.go`
+
+### Technical details
+
+- Verification command:
+
+```bash
+cd geppetto
+go test ./pkg/layers -run TestNonExistent
+```
