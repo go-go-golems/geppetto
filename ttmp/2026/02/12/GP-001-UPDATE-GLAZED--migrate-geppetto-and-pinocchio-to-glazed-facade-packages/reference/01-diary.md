@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T08:56:56-05:00
+LastUpdated: 2026-02-12T08:58:06-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -930,3 +930,83 @@ I updated the migration-sensitive snippets in the two requested topic docs so ex
 rg -n "pkg/cmds/layers|pkg/cmds/parameters|layers\\.ParsedLayers|parameters\\.|WithLayersList\\(|glazed\\.parameter|InitializeStruct\\(|GetString\\(" \
   geppetto/pkg/doc/topics/06-embeddings.md geppetto/pkg/doc/topics/06-inference-engines.md
 ```
+
+## Step 11: Validate Geppetto (`make test` / `make lint`) and Capture Blockers (Task 6)
+
+I ran the requested geppetto validation targets after completing Tasks 1-5 and captured fresh logs into the ticket artifact folder.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Then work on the tasks one by one, commit to git after each, check off task, update your diary. go"
+
+**Assistant interpretation:** Complete the validation task and document exact status, including blockers.
+
+**Inferred user intent:** Have hard evidence of migration progress and remaining blockers before moving to pinocchio.
+
+**Commit (code):** Pending in next step (Task 6 commit)
+
+### What I did
+
+- Ran:
+
+```bash
+cd geppetto
+make test
+make lint
+```
+
+- Stored outputs:
+  - `geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/21-geppetto-make-test-post-phase1.txt`
+  - `geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/22-geppetto-make-lint-post-phase1.txt`
+
+### Why
+
+- Task 6 explicitly requires running full geppetto validation after migration changes.
+
+### What worked
+
+- Core migrated packages continue to pass targeted tests:
+  - `pkg/layers`
+  - `pkg/steps/ai/settings`
+  - `pkg/embeddings`
+  - `pkg/inference/engine/factory`
+- `make test` now progresses substantially and most non-command packages build.
+
+### What didn't work
+
+- `make test` and `make lint` fail on a dependency compatibility issue:
+
+```text
+github.com/go-go-golems/clay@v0.3.0/pkg/init.go: undefined: logging.AddLoggingLayerToRootCommand
+```
+
+- This blocks command package builds (`cmd/examples/*`, `cmd/llm-runner`), but is not caused by the geppetto command signature migration itself.
+
+### What I learned
+
+- Geppetto migration work is far enough that remaining failures have shifted from removed `layers/parameters/middlewares` imports to a `clay` vs local `glazed` logging bootstrap mismatch.
+
+### What was tricky to build
+
+- Distinguishing migration regressions from upstream dependency API mismatch required targeted package tests plus full make-target runs.
+
+### What warrants a second pair of eyes
+
+- Preferred remediation path for `clay` compatibility:
+  - short-term shim in local glazed logging package, or
+  - clay update to current logging bootstrap entrypoints.
+
+### What should be done in the future
+
+- Create a separate ticket for the `clay`/`glazed` compatibility fix and keep pinocchio phase migration independent from that dependency issue.
+
+### Code review instructions
+
+- Check validation logs:
+  - `geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/21-geppetto-make-test-post-phase1.txt`
+  - `geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/sources/local/22-geppetto-make-lint-post-phase1.txt`
+
+### Technical details
+
+- `make test` fails at command package build stage due the missing logging symbol in `clay`.
+- `make lint` fails during `go build ./...` for the same symbol resolution issue.

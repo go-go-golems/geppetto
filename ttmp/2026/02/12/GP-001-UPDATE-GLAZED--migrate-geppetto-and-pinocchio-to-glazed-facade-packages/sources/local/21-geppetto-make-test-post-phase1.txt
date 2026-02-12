@@ -1,0 +1,54 @@
+go test ./...
+# github.com/go-go-golems/clay/pkg
+../../../../go/pkg/mod/github.com/go-go-golems/clay@v0.3.0/pkg/init.go:52:17: undefined: logging.AddLoggingLayerToRootCommand
+../../../../go/pkg/mod/github.com/go-go-golems/clay@v0.3.0/pkg/init.go:124:17: undefined: logging.AddLoggingLayerToRootCommand
+?   	github.com/go-go-golems/geppetto/cmd/examples/citations-event-stream	[no test files]
+FAIL	github.com/go-go-golems/geppetto/cmd/examples/claude-tools [build failed]
+FAIL	github.com/go-go-golems/geppetto/cmd/examples/generic-tool-calling [build failed]
+FAIL	github.com/go-go-golems/geppetto/cmd/examples/middleware-inference [build failed]
+FAIL	github.com/go-go-golems/geppetto/cmd/examples/openai-tools [build failed]
+FAIL	github.com/go-go-golems/geppetto/cmd/examples/simple-inference [build failed]
+FAIL	github.com/go-go-golems/geppetto/cmd/examples/simple-streaming-inference [build failed]
+?   	github.com/go-go-golems/geppetto/cmd/geppetto-lint	[no test files]
+FAIL	github.com/go-go-golems/geppetto/cmd/llm-runner [build failed]
+?   	github.com/go-go-golems/geppetto/cmd/llm-runner/templates	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/turnsdatalint	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/turnsrefactor	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/analysis/turnsdatalint	0.108s
+?   	github.com/go-go-golems/geppetto/pkg/analysis/turnsrefactor	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/doc	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/embeddings	(cached)
+?   	github.com/go-go-golems/geppetto/pkg/embeddings/config	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/events	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/events/structuredsink	(cached)
+?   	github.com/go-go-golems/geppetto/pkg/events/structuredsink/parsehelpers	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/helpers	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/inference/engine	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/inference/engine/factory	(cached)
+?   	github.com/go-go-golems/geppetto/pkg/inference/fixtures	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/inference/middleware	(cached)
+ok  	github.com/go-go-golems/geppetto/pkg/inference/session	(cached)
+ok  	github.com/go-go-golems/geppetto/pkg/inference/toolloop	(cached)
+ok  	github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder	(cached)
+?   	github.com/go-go-golems/geppetto/pkg/inference/tools	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/js	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/layers	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude	0.003s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api	(cached)
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/gemini	0.007s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/openai	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.005s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/types	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/parse	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/turns	(cached)
+ok  	github.com/go-go-golems/geppetto/pkg/turns/serde	(cached)
+?   	github.com/go-go-golems/geppetto/pkg/turns/toolblocks	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/scripts	[no test files]
+FAIL
+make: *** [Makefile:37: test] Error 1

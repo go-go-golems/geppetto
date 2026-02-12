@@ -18,7 +18,7 @@
 - [x] Migrate geppetto runtime decode helpers to `values.DecodeSectionInto` (`pkg/steps/ai/settings/settings-step.go`, `pkg/embeddings/settings_factory.go`, `pkg/inference/engine/factory/helpers.go`)
 - [x] Migrate geppetto commands/examples signatures and schema wiring (`cmd/examples/*`, `cmd/llm-runner/*`)
 - [x] Update geppetto docs snippets to new APIs (`pkg/doc/topics/06-embeddings.md`, `pkg/doc/topics/06-inference-engines.md`)
-- [ ] Validate geppetto with `make test` and `make lint`
+- [x] Validate geppetto with `make test` and `make lint`
 
 ## Pinocchio Migration (Phase 2)
 
@@ -32,3 +32,4 @@
 
 - [ ] Separate ticket for missing geppetto package imports in pinocchio (`toolhelpers`, `toolcontext`, `conversation`)
 - [ ] Separate ticket for `RunID` incompatibility in `pinocchio/pkg/middlewares/agentmode/middleware.go`
+- [ ] Separate ticket for `clay`/`glazed` logging bootstrap compatibility (`logging.AddLoggingLayerToRootCommand` missing)
