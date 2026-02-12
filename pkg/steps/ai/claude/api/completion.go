@@ -51,7 +51,7 @@ type ErrorDetail struct {
 // Client represents the Claude API client.
 type Client struct {
 	httpClient *http.Client
-	APIKey     string
+	apiKey     string
 	APIVersion string
 	BaseURL    string
 }
@@ -66,7 +66,7 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 	}
 	return &Client{
 		httpClient: &http.Client{},
-		APIKey:     apiKey,
+		apiKey:     apiKey,
 		BaseURL:    baseURL,
 		APIVersion: version,
 	}
@@ -74,7 +74,7 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("x-api-key", c.APIKey)
+	req.Header.Set("x-api-key", c.apiKey)
 	req.Header.Set("anthropic-version", c.APIVersion)
 	req.Header.Set("Content-Type", "application/json")
 }
