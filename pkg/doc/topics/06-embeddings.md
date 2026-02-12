@@ -335,7 +335,7 @@ import (
 
 func createProviderFromValues(parsedValues *values.Values) (embeddings.Provider, error) {
     // Create a factory from parsed values
-    factory, err := embeddings.NewSettingsFactoryFromParsedLayers(parsedValues)
+    factory, err := embeddings.NewSettingsFactoryFromParsedValues(parsedValues)
     if err != nil {
         return nil, fmt.Errorf("failed to create factory: %w", err)
     }
@@ -578,7 +578,7 @@ import (
 // GetEmbeddingsLayers returns sections for embeddings
 func GetEmbeddingsLayers() ([]schema.Section, error) {
     // Create embeddings parameter layer
-    embeddingsLayer, err := config.NewEmbeddingsParameterLayer()
+    embeddingsLayer, err := config.NewEmbeddingsValueSection()
     if err != nil {
         return nil, err
     }
@@ -643,7 +643,7 @@ func (c *EmbeddingsCommand) RunIntoGlazeProcessor(
     text := args.Text
     
     // Create factory from parsed values
-    factory, err := embeddings.NewSettingsFactoryFromParsedLayers(parsedValues)
+    factory, err := embeddings.NewSettingsFactoryFromParsedValues(parsedValues)
     if err != nil {
         return err
     }
@@ -779,7 +779,7 @@ func (c *CompareCommand) RunIntoGlazeProcessor(
     text2 := args.Text2
     
     // Create factory from parsed values
-    factory, err := embeddings.NewSettingsFactoryFromParsedLayers(parsedValues)
+    factory, err := embeddings.NewSettingsFactoryFromParsedValues(parsedValues)
     if err != nil {
         return err
     }

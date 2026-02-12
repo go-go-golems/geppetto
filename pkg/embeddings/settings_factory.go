@@ -167,7 +167,7 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 	}
 }
 
-func NewSettingsFactoryFromParsedLayers(parsedValues *values.Values) (ProviderFactory, error) {
+func NewSettingsFactoryFromParsedValues(parsedValues *values.Values) (ProviderFactory, error) {
 	embeddingsSettings := &config.EmbeddingsConfig{}
 	// try loading openai API keys
 	if _, ok := parsedValues.Get(geppetto_openai.OpenAiChatSlug); ok {

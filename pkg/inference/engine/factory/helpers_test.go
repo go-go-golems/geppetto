@@ -23,9 +23,9 @@ func TestHelperFunctionsExist(t *testing.T) {
 	assert.Error(t, err)                              // Expected to fail due to missing API key
 	assert.Contains(t, err.Error(), "openai-api-key") // Should mention the missing API key
 
-	// Test NewEngineFromParsedLayers function exists
+	// Test NewEngineFromParsedValues function exists
 	parsedValues := values.New()
-	_, err = NewEngineFromParsedLayers(parsedValues)
+	_, err = NewEngineFromParsedValues(parsedValues)
 	assert.Error(t, err) // Expected to fail due to missing required settings
 }
 
@@ -40,7 +40,7 @@ func TestHelperFunctionSignatures(t *testing.T) {
 
 	// These should compile but will fail at runtime due to missing config
 	_ = func() (engine.Engine, error) { return NewEngineFromStepSettings(stepSettings) }
-	_ = func() (engine.Engine, error) { return NewEngineFromParsedLayers(parsedValues) }
+	_ = func() (engine.Engine, error) { return NewEngineFromParsedValues(parsedValues) }
 
 	// If we get here, the function signatures are correct
 	assert.True(t, true)

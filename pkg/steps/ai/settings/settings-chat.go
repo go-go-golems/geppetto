@@ -37,7 +37,7 @@ func NewChatSettings() (*ChatSettings, error) {
 		Stream:            true, // Always enable streaming
 	}
 
-	p, err := NewChatParameterLayer()
+	p, err := NewChatValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -56,19 +56,19 @@ func (s *ChatSettings) Clone() *ChatSettings {
 //go:embed "flags/chat.yaml"
 var settingsYAML []byte
 
-type ChatParameterLayer struct {
+type ChatValueSection struct {
 	*schema.SectionImpl `yaml:",inline"`
 }
 
 const AiChatSlug = "ai-chat"
 
-func NewChatParameterLayer(options ...schema.SectionOption) (*ChatParameterLayer, error) {
+func NewChatValueSection(options ...schema.SectionOption) (*ChatValueSection, error) {
 	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ChatParameterLayer{
+	return &ChatValueSection{
 		SectionImpl: ret,
 	}, nil
 }

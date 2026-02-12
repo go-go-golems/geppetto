@@ -18,7 +18,7 @@ func NewSettings() (*Settings, error) {
 		UserID: nil,
 	}
 
-	p, err := NewParameterLayer()
+	p, err := NewValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +40,17 @@ const ClaudeChatSlug = "claude-chat"
 //go:embed "claude.yaml"
 var settingsYAML []byte
 
-type ParameterLayer struct {
+type ValueSection struct {
 	*schema.SectionImpl `yaml:",inline"`
 }
 
-func NewParameterLayer(options ...schema.SectionOption) (*ParameterLayer, error) {
+func NewValueSection(options ...schema.SectionOption) (*ValueSection, error) {
 	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ParameterLayer{
+	return &ValueSection{
 		SectionImpl: ret,
 	}, nil
 }

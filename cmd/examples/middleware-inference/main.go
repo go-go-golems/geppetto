@@ -14,7 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -52,7 +52,7 @@ type MiddlewareInferenceSettings struct {
 }
 
 func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
-	geppettoLayers, err := geppettolayers.CreateGeppettoLayers()
+	geppettoSections, err := geppettosections.CreateGeppettoSections()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create geppetto layers")
 	}
@@ -96,7 +96,7 @@ func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
 			),
 		),
 		cmds.WithSections(
-			geppettoLayers...,
+			geppettoSections...,
 		),
 	)
 
@@ -105,17 +105,17 @@ func NewMiddlewareInferenceCommand() (*MiddlewareInferenceCommand, error) {
 	}, nil
 }
 
-func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLayers *values.Values, w io.Writer) error {
+func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
 	log.Info().Msg("Starting middleware inference command")
 
 	s := &MiddlewareInferenceSettings{}
-	err := parsedLayers.DecodeSectionInto(values.DefaultSlug, s)
+	err := parsedValues.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}
 
 	if s.Debug {
-		b, err := yaml.Marshal(parsedLayers)
+		b, err := yaml.Marshal(parsedValues)
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedLa
 	}
 
 	// Create base engine
-	engine, err := factory.NewEngineFromParsedLayers(parsedLayers)
+	engine, err := factory.NewEngineFromParsedValues(parsedValues)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create engine")
 		return errors.Wrap(err, "failed to create engine")
@@ -282,7 +282,7 @@ func main() {
 	cobra.CheckErr(err)
 
 	command, err := cli.BuildCobraCommand(middlewareCmd,
-		cli.WithCobraMiddlewaresFunc(geppettolayers.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

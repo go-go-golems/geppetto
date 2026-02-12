@@ -23,17 +23,17 @@ type ClientSettings struct {
 //go:embed "flags/client.yaml"
 var clientFlagsYAML []byte
 
-type ClientParameterLayer struct {
+type ClientValueSection struct {
 	*schema.SectionImpl `yaml:",inline"`
 }
 
-func NewClientParameterLayer(options ...schema.SectionOption) (*ClientParameterLayer, error) {
+func NewClientValueSection(options ...schema.SectionOption) (*ClientValueSection, error) {
 	ret, err := schema.NewSectionFromYAML(clientFlagsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ClientParameterLayer{SectionImpl: ret}, nil
+	return &ClientValueSection{SectionImpl: ret}, nil
 }
 
 // UnmarshalYAML overrides YAML parsing to convert time.duration from int

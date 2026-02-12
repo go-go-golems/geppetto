@@ -43,7 +43,7 @@ func NewSettings() (*Settings, error) {
 		StreamIncludeUsage:        nil,
 	}
 
-	p, err := NewParameterLayer()
+	p, err := NewValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -63,19 +63,19 @@ func (s *Settings) Clone() *Settings {
 //go:embed "chat.yaml"
 var settingsYAML []byte
 
-type ParameterLayer struct {
+type ValueSection struct {
 	*schema.SectionImpl `yaml:",inline"`
 }
 
 const OpenAiChatSlug = "openai-chat"
 
-func NewParameterLayer(options ...schema.SectionOption) (*ParameterLayer, error) {
+func NewValueSection(options ...schema.SectionOption) (*ValueSection, error) {
 	ret, err := schema.NewSectionFromYAML(settingsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ParameterLayer{
+	return &ValueSection{
 		SectionImpl: ret,
 	}, nil
 }

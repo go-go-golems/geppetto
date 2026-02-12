@@ -186,7 +186,7 @@ router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 
 // Create sink and engine
 sink := middleware.NewWatermillSink(router.Publisher, "chat")
-eng, _ := factory.NewEngineFromParsedLayers(parsed)
+eng, _ := factory.NewEngineFromParsedValues(parsed)
 
 eg, groupCtx := errgroup.WithContext(ctx)
 

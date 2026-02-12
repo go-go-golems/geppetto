@@ -27,7 +27,7 @@ SectionType: Tutorial
 
 ```go
 // 1. Create an engine from configuration
-engine, _ := factory.NewEngineFromParsedLayers(parsedValues)
+engine, _ := factory.NewEngineFromParsedValues(parsedValues)
 
 // 2. Build a Turn with your prompt
 turn := &turns.Turn{}
@@ -152,7 +152,7 @@ import (
 
 func createEngine(parsedValues *values.Values) (engine.Engine, error) {
     // Create engine from configuration - works with any provider
-    baseEngine, err := factory.NewEngineFromParsedLayers(parsedValues)
+    baseEngine, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil {
         return nil, fmt.Errorf("failed to create engine: %w", err)
     }
@@ -168,7 +168,7 @@ Provider engines are created without options. Event sinks are attached to the ru
 
 ```go
 func createEngine(parsedValues *values.Values) (engine.Engine, error) {
-    return factory.NewEngineFromParsedLayers(parsedValues)
+    return factory.NewEngineFromParsedValues(parsedValues)
 }
 
 func runWithSinks(ctx context.Context, eng engine.Engine, sink events.EventSink, seed *turns.Turn) (*turns.Turn, error) {
@@ -190,7 +190,7 @@ import (
 )
 
 func simpleInference(ctx context.Context, parsedValues *values.Values, prompt string) error {
-    e, err := factory.NewEngineFromParsedLayers(parsedValues)
+    e, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil { return fmt.Errorf("failed to create engine: %w", err) }
 
     seed := &turns.Turn{}
@@ -423,7 +423,7 @@ func completeToolCallingExample(ctx context.Context, parsedValues *values.Values
     watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
 
     // 4. Create engine (sinks are attached at runtime via context)
-    baseEngine, err := factory.NewEngineFromParsedLayers(parsedValues)
+    baseEngine, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil {
         return fmt.Errorf("failed to create engine: %w", err)
     }

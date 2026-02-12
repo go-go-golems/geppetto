@@ -257,7 +257,7 @@ filteringSink := structuredsink.NewFilteringSink(
 Create the engine normally and attach the filtering sink to context at runtime:
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
+eng, err := factory.NewEngineFromParsedValues(parsedValues)
 if err != nil {
     return err
 }
@@ -367,7 +367,7 @@ func main() {
     )
     
     // 5. Create engine (no engine options/sinks at construction time)
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+    eng, _ := factory.NewEngineFromParsedValues(parsedValues)
     
     // 6. Build Turn with instructions
     turn := &turns.Turn{}

@@ -13,12 +13,12 @@ func NewEngineFromStepSettings(stepSettings *settings.StepSettings) (engine.Engi
 	return factory.CreateEngine(stepSettings)
 }
 
-// NewEngineFromParsedLayers creates an engine from parsed values.
+// NewEngineFromParsedValues creates an engine from parsed values.
 // This is a convenience function that:
 // 1. Creates new step settings
 // 2. Updates them from parsed values
 // 3. Creates and returns an engine
-func NewEngineFromParsedLayers(parsedValues *values.Values) (engine.Engine, error) {
+func NewEngineFromParsedValues(parsedValues *values.Values) (engine.Engine, error) {
 	// Create step settings
 	stepSettings, err := settings.NewStepSettings()
 	if err != nil {
@@ -26,7 +26,7 @@ func NewEngineFromParsedLayers(parsedValues *values.Values) (engine.Engine, erro
 	}
 
 	// Update step settings from parsed values
-	err = stepSettings.UpdateFromParsedLayers(parsedValues)
+	err = stepSettings.UpdateFromParsedValues(parsedValues)
 	if err != nil {
 		return nil, err
 	}

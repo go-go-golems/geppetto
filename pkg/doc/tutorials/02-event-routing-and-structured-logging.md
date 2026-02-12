@@ -220,7 +220,7 @@ Build a handler that collects statistics:
     sink := middleware.NewWatermillSink(router.Publisher, "chat")
 
     // Create engine (sinks are attached at runtime via context)
-    eng, err := factory.NewEngineFromParsedLayers(parsedLayers)
+    eng, err := factory.NewEngineFromParsedValues(parsedValues)
     if err != nil {
         return fmt.Errorf("failed to create engine: %w", err)
     }
@@ -324,7 +324,7 @@ func main() {
 
     // 5. Create sink and engine
     sink := middleware.NewWatermillSink(router.Publisher, "chat")
-    eng, _ := factory.NewEngineFromParsedLayers(parsedLayers)
+    eng, _ := factory.NewEngineFromParsedValues(parsedValues)
 
     // 6. Build Turn
     turn := &turns.Turn{}

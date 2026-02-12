@@ -14,7 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	geppettolayers "github.com/go-go-golems/geppetto/pkg/layers"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -114,7 +114,7 @@ type TestOpenAIToolsSettings struct {
 }
 
 func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
-	geppettoLayers, err := geppettolayers.CreateGeppettoLayers()
+	geppettoSections, err := geppettosections.CreateGeppettoSections()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create geppetto parameter layer")
 	}
@@ -161,7 +161,7 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 			),
 		),
 		cmds.WithSections(
-			geppettoLayers...,
+			geppettoSections...,
 		),
 	)
 
@@ -170,11 +170,11 @@ func NewTestOpenAIToolsCommand() (*TestOpenAIToolsCommand, error) {
 	}, nil
 }
 
-func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers *values.Values, w io.Writer) error {
+func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
 	log.Debug().Msg("Debug logging enabled for tool testing")
 
 	s := &TestOpenAIToolsSettings{}
-	err := parsedLayers.DecodeSectionInto(values.DefaultSlug, s)
+	err := parsedValues.DecodeSectionInto(values.DefaultSlug, s)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize settings")
 	}
@@ -269,7 +269,7 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedLayers
 
 	// Create engine and wire an event sink to publish streaming events
 	watermillSink := middleware.NewWatermillSink(router.Publisher, "chat")
-	engineInstance, err := factory.NewEngineFromParsedLayers(parsedLayers)
+	engineInstance, err := factory.NewEngineFromParsedValues(parsedValues)
 	if err != nil {
 		return errors.Wrap(err, "failed to create engine from parsed layers")
 	}
@@ -425,7 +425,7 @@ func main() {
 	cobra.CheckErr(err)
 
 	command, err := cli.BuildCobraCommand(testCmd,
-		cli.WithCobraMiddlewaresFunc(geppettolayers.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

@@ -60,7 +60,7 @@ Note: Provider engines learn about available tools from the tool registry attach
 ## Key APIs You’ll Use
 
 - Engine and sink
-  - `factory.NewEngineFromParsedLayers(parsed)`
+  - `factory.NewEngineFromParsedValues(parsed)`
   - `middleware.NewWatermillSink(publisher, topic)`
   - `events.WithEventSinks(ctx, sink)` (attach sinks at runtime)
 - Events and printers
@@ -79,7 +79,7 @@ Create a command description with arguments and flags, including a `pinocchio-pr
 
 ```go
 // inside NewStreamingCmd()
-geppettoSections, err := geppettolayers.CreateGeppettoLayers()
+geppettoSections, err := geppettosections.CreateGeppettoSections()
 if err != nil { return nil, err }
 
 desc := cmds.NewCommandDescription(
@@ -124,7 +124,7 @@ Why this matters: the sink ties your engine and helpers to the router so that to
 Create the engine normally. Streaming events are emitted to the sinks attached to the runtime context.
 
 ```go
-eng, err := factory.NewEngineFromParsedLayers(parsed)
+eng, err := factory.NewEngineFromParsedValues(parsed)
 if err != nil { return err }
 ```
 

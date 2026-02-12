@@ -1,4 +1,4 @@
-package layers
+package sections
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CreateOption configures behavior of CreateGeppettoLayers.
+// CreateOption configures behavior of CreateGeppettoSections.
 type CreateOption func(*createOptions)
 type createOptions struct {
 	stepSettings *settings.StepSettings
@@ -31,9 +31,9 @@ func WithDefaultsFromStepSettings(s *settings.StepSettings) CreateOption {
 	}
 }
 
-// CreateGeppettoLayers returns settings sections for Geppetto AI settings.
+// CreateGeppettoSections returns settings sections for Geppetto AI settings.
 // If no StepSettings are provided via WithStepSettings, default settings.NewStepSettings() is used.
-func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
+func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	// Apply options
 	var co createOptions
 	for _, opt := range opts {
@@ -51,7 +51,7 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
 		ss = co.stepSettings
 	}
 
-	chatSection, err := settings.NewChatParameterLayer()
+	chatSection, err := settings.NewChatValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	clientSection, err := settings.NewClientParameterLayer()
+	clientSection, err := settings.NewClientValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	claudeSection, err := claude.NewParameterLayer()
+	claudeSection, err := claude.NewValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	geminiSection, err := gemini.NewParameterLayer()
+	geminiSection, err := gemini.NewValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	openaiSection, err := openai.NewParameterLayer()
+	openaiSection, err := openai.NewValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func CreateGeppettoLayers(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	embeddingsSection, err := embeddingsconfig.NewEmbeddingsParameterLayer()
+	embeddingsSection, err := embeddingsconfig.NewEmbeddingsValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func GetCobraCommandGeppettoMiddlewares(
 	cmd *cobra.Command,
 	args []string,
 ) ([]sources.Middleware, error) {
-	// Mapper to filter out non-layer keys like "repositories" which are handled separately.
+	// Mapper to filter out non-section keys like "repositories" which are handled separately.
 	// We keep it here so it can be reused both for bootstrap parsing (profile selection)
 	// and for the main config middleware.
 	configMapper := func(rawConfig interface{}) (map[string]map[string]interface{}, error) {
@@ -137,7 +137,7 @@ func GetCobraCommandGeppettoMiddlewares(
 				continue // Skip excluded keys
 			}
 
-			// If the value is a map, treat the key as a layer slug
+			// If the value is a map, treat the key as a section slug
 			if layerParams, ok := value.(map[string]interface{}); ok {
 				result[key] = layerParams
 			}
@@ -152,7 +152,7 @@ func GetCobraCommandGeppettoMiddlewares(
 	// We must resolve profile selection (profile-settings.profile + profile-settings.profile-file)
 	// from defaults + config + env + flags BEFORE instantiating the profiles middleware.
 	//
-	// NOTE: parsedCommandLayers (from cli.ParseCommandSettingsLayer) is Cobra-only. We keep it
+	// NOTE: parsedCommandSections (from cli.ParseCommandSettingsLayer) is Cobra-only. We keep it
 	// around as a fallback source of command settings, but we do our own bootstrap parse so that
 	// PINOCCHIO_PROFILE and config can influence selection.
 	// ---------------------------------------------------------------------
@@ -287,7 +287,7 @@ func GetCobraCommandGeppettoMiddlewares(
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
 	//
 	// NOTE: This is intentionally placed AFTER the profiles middleware in the slice ordering.
-	// Most Glazed "value-setting" middlewares call next(...) first and then update parsedLayers,
+	// Most Glazed "value-setting" middlewares call next(...) first and then update parsedValues,
 	// so later middlewares in the slice apply earlier. By placing config after profiles here,
 	// config is applied BEFORE profiles, ensuring profiles override config (while env/flags still override both).
 	middlewares_ = append(middlewares_, sources.FromFiles(

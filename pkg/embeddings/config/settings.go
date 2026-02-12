@@ -34,7 +34,7 @@ func NewEmbeddingsConfig() (*EmbeddingsConfig, error) {
 		BaseURLs: make(map[string]string),
 	}
 
-	p, err := NewEmbeddingsParameterLayer()
+	p, err := NewEmbeddingsValueSection()
 	if err != nil {
 		return nil, err
 	}
@@ -52,22 +52,22 @@ func (c *EmbeddingsConfig) Clone() *EmbeddingsConfig {
 //go:embed "flags/embeddings.yaml"
 var embeddingsFlagsYAML []byte
 
-type EmbeddingsParameterLayer struct {
+type EmbeddingsValueSection struct {
 	*schema.SectionImpl `yaml:",inline"`
 }
 
 const EmbeddingsSlug = "embeddings"
 const EmbeddingsApiKeySlug = "embeddings-api-key"
 
-func NewEmbeddingsParameterLayer(options ...schema.SectionOption) (*EmbeddingsParameterLayer, error) {
+func NewEmbeddingsValueSection(options ...schema.SectionOption) (*EmbeddingsValueSection, error) {
 	ret, err := schema.NewSectionFromYAML(embeddingsFlagsYAML, options...)
 	if err != nil {
 		return nil, err
 	}
-	return &EmbeddingsParameterLayer{SectionImpl: ret}, nil
+	return &EmbeddingsValueSection{SectionImpl: ret}, nil
 }
 
-func NewEmbeddingsApiKeyParameter() (*schema.SectionImpl, error) {
+func NewEmbeddingsApiKeyValue() (*schema.SectionImpl, error) {
 	return schema.NewSection(EmbeddingsApiKeySlug,
 		"Embeddings API Key Settings",
 		schema.WithFields(
