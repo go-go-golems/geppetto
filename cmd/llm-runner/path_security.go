@@ -3,12 +3,31 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 var ErrUnsafePath = errors.New("unsafe path")
+
+type rootedReadCloser struct {
+	file *os.File
+	root *os.Root
+}
+
+func (r *rootedReadCloser) Read(p []byte) (int, error) {
+	return r.file.Read(p)
+}
+
+func (r *rootedReadCloser) Close() error {
+	fileErr := r.file.Close()
+	rootErr := r.root.Close()
+	if fileErr != nil {
+		return fileErr
+	}
+	return rootErr
+}
 
 // secureJoinUnderBase resolves relPath under baseDir and rejects traversal/absolute paths.
 func secureJoinUnderBase(baseDir, relPath string) (string, error) {
@@ -43,8 +62,8 @@ func secureJoinUnderBase(baseDir, relPath string) (string, error) {
 	return candidateAbs, nil
 }
 
-// readFileUnderBase reads a file within baseDir using os.Root confinement.
-func readFileUnderBase(baseDir, relPath string) ([]byte, string, error) {
+// openFileUnderBase opens a file within baseDir using os.Root confinement.
+func openFileUnderBase(baseDir, relPath string) (io.ReadCloser, string, error) {
 	resolvedPath, err := secureJoinUnderBase(baseDir, relPath)
 	if err != nil {
 		return nil, "", err
@@ -63,11 +82,26 @@ func readFileUnderBase(baseDir, relPath string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("open base root: %w", err)
 	}
-	defer func() {
+	file, err := root.Open(relToBase)
+	if err != nil {
 		_ = root.Close()
+		return nil, "", err
+	}
+
+	return &rootedReadCloser{file: file, root: root}, resolvedPath, nil
+}
+
+// readFileUnderBase reads a file within baseDir using os.Root confinement.
+func readFileUnderBase(baseDir, relPath string) ([]byte, string, error) {
+	reader, resolvedPath, err := openFileUnderBase(baseDir, relPath)
+	if err != nil {
+		return nil, "", err
+	}
+	defer func() {
+		_ = reader.Close()
 	}()
 
-	data, err := root.ReadFile(relToBase)
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, "", err
 	}

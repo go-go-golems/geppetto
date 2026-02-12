@@ -2,7 +2,6 @@ package security
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"net/url"
 	"strings"
@@ -46,10 +45,9 @@ func ValidateOutboundURL(rawURL string, opts OutboundURLOptions) error {
 	}
 
 	// When host is an IP literal, enforce network restrictions without DNS lookups.
-	if ip := net.ParseIP(host); ip != nil {
-		addr, ok := netip.AddrFromSlice(ip)
-		if !ok {
-			return fmt.Errorf("invalid IP address %q", host)
+	if addr, err := netip.ParseAddr(host); err == nil {
+		if addr.Zone() != "" && !opts.AllowLocalNetworks {
+			return fmt.Errorf("zoned IP address %q is not allowed", host)
 		}
 		addr = addr.Unmap()
 

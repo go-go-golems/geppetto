@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -141,6 +140,10 @@ func (h *APIHandler) GetRunHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrUnsafePath) {
 			http.Error(w, "invalid run ID", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "run not found", http.StatusNotFound)
 			return
 		}
 		log.Error().Err(err).Str("runID", runID).Msg("failed to parse run")
@@ -375,13 +378,16 @@ func (h *APIHandler) parseEvents(baseDir, path string) ([]Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, _, err := readFileUnderBase(baseDir, relPath)
+	reader, _, err := openFileUnderBase(baseDir, relPath)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = reader.Close()
+	}()
 
 	var events []Event
-	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var raw map[string]interface{}
 		if err := json.Unmarshal(scanner.Bytes(), &raw); err != nil {
@@ -411,13 +417,16 @@ func (h *APIHandler) parseLogs(baseDir, path string) ([]LogEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, _, err := readFileUnderBase(baseDir, relPath)
+	reader, _, err := openFileUnderBase(baseDir, relPath)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = reader.Close()
+	}()
 
 	var logs []LogEntry
-	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var raw map[string]interface{}
 		if err := json.Unmarshal(scanner.Bytes(), &raw); err != nil {
