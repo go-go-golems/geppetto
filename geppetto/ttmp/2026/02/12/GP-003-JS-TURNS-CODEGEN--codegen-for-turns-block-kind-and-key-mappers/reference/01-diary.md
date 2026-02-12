@@ -165,3 +165,74 @@ The scaffold includes sectioned generation (`all|kinds|keys`) to support the nex
 ### Technical details
 
 - Smoke outputs written to `/tmp/turns-codegen-smoke` and included both expected generated files.
+
+## Step 3: Task 2 Completed — Generated BlockKind Mapper Adoption
+
+I completed Task 2 by generating `BlockKind` mapping code into `pkg/turns/block_kind_gen.go` and removing the handwritten block-kind enum/string/YAML logic from `pkg/turns/types.go`. This shifts block-kind mapper ownership to generation while preserving existing exported symbol names.
+
+I also updated `pkg/turns/generate.go` so `go generate ./pkg/turns` now regenerates kinds directly into `pkg/turns` and keeps keys generation in a hidden `.generated` directory until Task 3 migration.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue with next implementation task and commit separately.
+
+**Inferred user intent:** Incrementally migrate runtime definitions to generated code without broad risky changes.
+
+**Commit (code):** pending Task 2 commit.
+
+### What I did
+
+- Generated block-kind file:
+  - `pkg/turns/block_kind_gen.go`
+- Updated generation wiring:
+  - `pkg/turns/generate.go`
+- Removed handwritten block-kind definitions and methods from:
+  - `pkg/turns/types.go`
+- Ran validations:
+  - `go generate ./pkg/turns`
+  - `go test ./pkg/turns/... ./pkg/inference/... -count=1`
+
+### Why
+
+- Task 2 focuses exclusively on block-kind mapper migration to generated ownership while keeping keys untouched for next task.
+
+### What worked
+
+- Generated file compiles and preserves existing constant names and string mappings.
+- Targeted package tests passed after migration.
+
+### What didn't work
+
+- Initial read right after generation attempted before file sync and briefly reported missing file; re-check confirmed `pkg/turns/block_kind_gen.go` exists.
+
+### What I learned
+
+- Splitting generation ownership by section (kinds first, keys later) keeps changes reviewable and reduces duplicate-definition risk.
+
+### What was tricky to build
+
+- Keeping `go generate` behavior compatible with the partial migration state required temporary dual-output wiring (`kinds` in package root, `keys` in hidden output).
+
+### What warrants a second pair of eyes
+
+- Final shape of `go:generate` directives once Task 3 moves keys to generated source in package root.
+
+### What should be done in the future
+
+- Task 3: migrate key constants + typed key vars from `keys.go` to generated `keys_gen.go` and preserve all exported names.
+
+### Code review instructions
+
+- Start with generated adoption diff:
+  - `pkg/turns/block_kind_gen.go`
+  - `pkg/turns/types.go`
+  - `pkg/turns/generate.go`
+- Re-run:
+  - `go generate ./pkg/turns`
+  - `go test ./pkg/turns/... ./pkg/inference/... -count=1`
+
+### Technical details
+
+- `BlockKind` constants remain stable (`BlockKindUser`, `BlockKindLLMText`, etc.) and `String()/MarshalYAML()/UnmarshalYAML()` behavior remains functionally equivalent.
