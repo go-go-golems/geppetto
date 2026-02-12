@@ -23,7 +23,7 @@ RelatedFiles:
       Note: Exact pinocchio lint baseline failures captured during work
 ExternalSources: []
 Summary: Step-by-step implementation diary for the GP-001 migration analysis and ticket setup.
-LastUpdated: 2026-02-12T08:47:26-05:00
+LastUpdated: 2026-02-12T08:50:17-05:00
 WhatFor: Capture exactly what was done, what failed, and how to validate the migration-analysis deliverables.
 WhenToUse: Use when reviewing this analysis ticket or continuing migration execution work.
 ---
@@ -661,3 +661,90 @@ cd geppetto
 go test ./pkg/steps/ai/settings/claude ./pkg/steps/ai/settings/gemini ./pkg/steps/ai/settings/openai ./pkg/steps/ai/settings/ollama ./pkg/embeddings/config
 go test ./pkg/steps/ai/settings
 ```
+
+## Step 8: Migrate Runtime Decode Helpers to `values.DecodeSectionInto` (Task 3)
+
+I migrated the runtime settings decode path from legacy parsed-layer APIs to `values.Values` + `DecodeSectionInto` in the three files listed in Task 3.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Then work on the tasks one by one, commit to git after each, check off task, update your diary. go"
+
+**Assistant interpretation:** Continue sequential migration tasks with independent verification and commit history.
+
+**Inferred user intent:** Ensure migration progress is technically correct and incrementally reviewable.
+
+**Commit (code):** Pending in next step (Task 3 commit)
+
+### What I did
+
+- Migrated `settings-step` decode entrypoints:
+  - `geppetto/pkg/steps/ai/settings/settings-step.go`
+  - Changed `NewStepSettingsFromParsedLayers` and `UpdateFromParsedLayers` to accept `*values.Values`.
+  - Replaced all `InitializeStruct(...)` calls with `DecodeSectionInto(...)`.
+- Migrated embeddings factory helper:
+  - `geppetto/pkg/embeddings/settings_factory.go`
+  - `NewSettingsFactoryFromParsedLayers` now accepts `*values.Values` and decodes sections via `DecodeSectionInto`.
+  - Added guard around optional `embeddings-api-key` section decode.
+- Migrated engine helper:
+  - `geppetto/pkg/inference/engine/factory/helpers.go`
+  - `NewEngineFromParsedLayers` now accepts `*values.Values`.
+- Updated affected test to new signatures/types:
+  - `geppetto/pkg/inference/engine/factory/helpers_test.go`
+  - `layers.NewParsedLayers()` -> `values.New()`.
+
+### Why
+
+- These helpers were still importing removed `cmds/layers` APIs and were blocking package compilation.
+- The current Glazed runtime interface is values-based (`DecodeSectionInto`).
+
+### What worked
+
+- Targeted packages now build/test:
+
+```bash
+cd geppetto
+go test ./pkg/steps/ai/settings ./pkg/embeddings ./pkg/inference/engine/factory
+```
+
+- Output:
+
+```text
+? .../settings [no test files]
+ok .../embeddings
+ok .../inference/engine/factory
+```
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- The value-decoding migration is straightforward once struct tags have already been moved to `glazed:"..."`.
+
+### What was tricky to build
+
+- Keeping public helper function names stable while changing their parameter types to avoid additional API churn during the same task.
+
+### What warrants a second pair of eyes
+
+- Whether to rename helper function names (`*FromParsedLayers`) to `*FromParsedValues` in a cleanup-only follow-up.
+
+### What should be done in the future
+
+- Continue with Task 4: command/example signature migration (the largest remaining geppetto block).
+
+### Code review instructions
+
+- Review these files in order:
+  - `geppetto/pkg/steps/ai/settings/settings-step.go`
+  - `geppetto/pkg/embeddings/settings_factory.go`
+  - `geppetto/pkg/inference/engine/factory/helpers.go`
+  - `geppetto/pkg/inference/engine/factory/helpers_test.go`
+
+### Technical details
+
+- Core API swaps:
+  - `*layers.ParsedLayers` -> `*values.Values`
+  - `InitializeStruct(sectionSlug, dst)` -> `DecodeSectionInto(sectionSlug, dst)`

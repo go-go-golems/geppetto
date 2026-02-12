@@ -12,7 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	geppetto_openai "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
-	"github.com/go-go-golems/glazed/pkg/cmds/layers"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/go-emrichen/pkg/emrichen"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
@@ -167,22 +167,24 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 	}
 }
 
-func NewSettingsFactoryFromParsedLayers(parsedLayers *layers.ParsedLayers) (ProviderFactory, error) {
+func NewSettingsFactoryFromParsedLayers(parsedValues *values.Values) (ProviderFactory, error) {
 	embeddingsSettings := &config.EmbeddingsConfig{}
 	// try loading openai API keys
-	if _, ok := parsedLayers.Get(geppetto_openai.OpenAiChatSlug); ok {
-		err := parsedLayers.InitializeStruct(geppetto_openai.OpenAiChatSlug, embeddingsSettings)
+	if _, ok := parsedValues.Get(geppetto_openai.OpenAiChatSlug); ok {
+		err := parsedValues.DecodeSectionInto(geppetto_openai.OpenAiChatSlug, embeddingsSettings)
 		if err != nil {
 			return nil, err
 		}
 	}
-	err := parsedLayers.InitializeStruct(config.EmbeddingsSlug, embeddingsSettings)
+	err := parsedValues.DecodeSectionInto(config.EmbeddingsSlug, embeddingsSettings)
 	if err != nil {
 		return nil, err
 	}
-	err = parsedLayers.InitializeStruct(config.EmbeddingsApiKeySlug, embeddingsSettings)
-	if err != nil {
-		return nil, err
+	if _, ok := parsedValues.Get(config.EmbeddingsApiKeySlug); ok {
+		err = parsedValues.DecodeSectionInto(config.EmbeddingsApiKeySlug, embeddingsSettings)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return NewSettingsFactory(embeddingsSettings), nil
