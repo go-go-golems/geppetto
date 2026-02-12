@@ -10,13 +10,28 @@ Topics:
 DocType: design
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: cmd/gen-turns/main.go
+      Note: Generator implementation
+    - Path: cmd/gen-turns/main_test.go
+      Note: Generator test coverage
+    - Path: pkg/turns/block_kind_gen.go
+      Note: Generated kind mapper
+    - Path: pkg/turns/keys.go
+      Note: Handwritten constants retained
+    - Path: pkg/turns/keys_gen.go
+      Note: Generated key mappers
+    - Path: pkg/turns/spec/turns_codegen.yaml
+      Note: Source schema
+    - Path: pkg/turns/types.go
+      Note: Handwritten code reduced after generation adoption
 ExternalSources: []
-Summary: "Stepwise plan to introduce code generation for turns BlockKind and key-id mappers with incremental commits per task."
+Summary: Stepwise plan to introduce code generation for turns BlockKind and key-id mappers with incremental commits per task.
 LastUpdated: 2026-02-12T14:35:00-05:00
-WhatFor: "Drive implementation of generated mappers while preserving backward-compatible symbols and behavior."
-WhenToUse: "Use when implementing and reviewing turns codegen changes in this ticket."
+WhatFor: Drive implementation of generated mappers while preserving backward-compatible symbols and behavior.
+WhenToUse: Use when implementing and reviewing turns codegen changes in this ticket.
 ---
+
 
 # Implementation Plan
 
