@@ -28,6 +28,14 @@ Updated design guidance to require frontend usage of metadata envelopes from deb
 
 Implemented Phase 1 backend contract slice in `pinocchio` (commit `55b09b0`): added canonical `/api/debug/*` wrappers for timeline, turns, and step-control endpoints; added parity and envelope regression tests in `pkg/webchat`; validated with `go test ./pkg/webchat` and commit-hook full test/lint pass.
 
+## 2026-02-13
+
+Implemented Phase 2 live-inspector read-model slice in `pinocchio` (commit `532777b`): added read-only `/api/debug/conversations`, `/api/debug/conversations/:convId`, `/api/debug/events/:convId`, and `/api/debug/turn/:convId/:sessionId/:turnId` endpoints; added endpoint tests for list/detail/filter/decode behavior; validated with `go test ./pkg/webchat` plus `go test ./pkg/persistence/chatstore ./pkg/webchat`.
+
+## 2026-02-13
+
+Started Storybook for the pinocchio web workspace in tmux session `gp001-sb`; active local URL is `http://localhost:6007/` (6006 was already occupied).
+
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/planning/01-web-agent-debug-ui-migration-analysis-for-geppetto.md — Primary migration analysis document

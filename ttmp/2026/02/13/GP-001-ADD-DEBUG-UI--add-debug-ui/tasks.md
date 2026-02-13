@@ -28,12 +28,12 @@
 
 ### Phase 2: Live Inspector Read Models (Pinocchio backend)
 
-- [ ] `P2.1` Add `GET /api/debug/conversations` from `ConvManager` snapshots.
-- [ ] `P2.2` Add `GET /api/debug/conversations/:convId` detail shape.
-- [ ] `P2.3` Add `GET /api/debug/events/:convId` backed by sem buffer snapshot with `since_seq` + `limit` filtering.
-- [ ] `P2.4` Add `GET /api/debug/turn/:convId/:sessionId/:turnId` helper on top of turn store list + decode.
-- [ ] `P2.5` Add tests for conversation/events/turn detail handlers.
-- [ ] `P2.6` Run targeted + package tests and commit.
+- [x] `P2.1` Add `GET /api/debug/conversations` from `ConvManager` snapshots.
+- [x] `P2.2` Add `GET /api/debug/conversations/:convId` detail shape.
+- [x] `P2.3` Add `GET /api/debug/events/:convId` backed by sem buffer snapshot with `since_seq` + `limit` filtering.
+- [x] `P2.4` Add `GET /api/debug/turn/:convId/:sessionId/:turnId` helper on top of turn store list + decode.
+- [x] `P2.5` Add tests for conversation/events/turn detail handlers.
+- [x] `P2.6` Run targeted + package tests and commit.
 
 ### Phase 3: Offline Viewer Sources (Pinocchio backend)
 
@@ -61,7 +61,7 @@
 - [ ] `P5.1` Add pinocchio debug app shell (offline mode + live level-2 mode switch).
 - [ ] `P5.2` Wire app shell to canonical `/api/debug/*` endpoints.
 - [ ] `P5.3` Add routing/state persistence for selected conversation/run context.
-- [ ] `P5.4` Start Storybook in `pinocchio/cmd/web-chat/web` in tmux and keep it running during iteration.
+- [x] `P5.4` Start Storybook in `pinocchio/cmd/web-chat/web` in tmux and keep it running during iteration.
 - [ ] `P5.5` Validate key inspector flows manually in Storybook and dev server.
 - [ ] `P5.6` Commit app shell slice.
 

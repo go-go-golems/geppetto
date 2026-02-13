@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T18:47:58-05:00
+LastUpdated: 2026-02-13T18:54:08-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -777,3 +777,101 @@ I also added route parity tests and a turns-envelope metadata regression test, t
 
 - Step endpoints are still gated by `PINOCCHIO_WEBCHAT_DEBUG=1`; canonical `/api/debug/step/*` wrappers preserve that behavior.
 - Timeline responses remain protojson lowerCamel shape; turns responses remain metadata envelope shape with `items`.
+
+## Step 10: Implement Live Inspector Read-Only Endpoints and Tests (Phase 2)
+
+After completing route canonicalization, I implemented the next read-only API slice needed by the debug UI: conversations list/detail, buffered events query, and turn detail by `(conv, session, turn)`. This closes the immediate backend gap for level-2 inspection without introducing write paths from the UI.
+
+I also expanded handler tests to cover list ordering, detail fields, event filtering (`since_seq`, `type`, `limit`), and turn payload decode behavior, then committed once the package tests and hook checks passed.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 9)
+
+**Assistant interpretation:** Continue executing detailed tasks sequentially with commits and tests, while keeping docs and diary updated.
+
+**Inferred user intent:** Produce tangible incremental backend progress that the frontend migration can consume immediately.
+
+**Commit (code):** `532777b` — "webchat: add live debug conversation, event, and turn detail endpoints"
+
+### What I did
+
+- Updated `pinocchio/pkg/webchat/router.go` with new read-only endpoints:
+  - `GET /api/debug/conversations`
+  - `GET /api/debug/conversations/:convId`
+  - `GET /api/debug/events/:convId?since_seq=&type=&limit=`
+  - `GET /api/debug/turn/:convId/:sessionId/:turnId`
+- Implemented conversation summaries from `ConvManager` state with stable sorting by activity timestamp.
+- Implemented events extraction from `semBuf.Snapshot()` with sequence indexing and optional type filtering.
+- Implemented turn detail aggregation by `turn_id` over turn store rows and best-effort YAML decode into parsed payload objects.
+- Expanded tests in `pinocchio/pkg/webchat/router_debug_api_test.go`:
+  - conversation list + detail coverage
+  - events filter coverage
+  - turn detail decode coverage
+- Ran validations:
+  - `go test ./pkg/webchat`
+  - `go test ./pkg/persistence/chatstore ./pkg/webchat`
+- Committed in `pinocchio`.
+- Updated ticket `tasks.md` and `changelog.md` for Phase 2 completion.
+
+### Why
+
+- These endpoints are the minimal live level-2 read model the migrated debug UI needs.
+- Keeping responses read-only and store-backed aligns with the design goal that projector/upsert happens in backend runtime, not in UI.
+
+### What worked
+
+- All Phase 2 endpoints were added and tested.
+- Package tests passed.
+- Commit hook eventually passed full test/lint/build checks.
+
+### What didn't work
+
+- First commit attempt failed due two issues:
+  - transient hook test failure while traversing frontend dependency path:
+    - `pattern ./...: open cmd/web-chat/web/node_modules/object-keys: no such file or directory`
+  - formatter failure:
+    - `pkg/webchat/router_debug_api_test.go:168:1: File is not properly formatted (gofmt)`
+- Resolution:
+  - ran `gofmt -w` on modified Go files,
+  - reran package tests,
+  - retried commit successfully.
+
+### What I learned
+
+- Large pre-commit hooks that run frontend install/build can temporarily surface filesystem timing issues unrelated to backend logic changes; rerun after normalization and formatting can clear them.
+
+### What was tricky to build
+
+- The tricky part was deriving useful event-query semantics from an in-memory raw frame buffer that does not carry explicit persisted sequence IDs. I used stable snapshot order with 1-based sequence assignment at read time, then applied `since_seq` and `type` filters consistently. This preserves deterministic query behavior without mutating runtime buffer internals.
+
+### What warrants a second pair of eyes
+
+- Review whether `turn detail` should return all phase snapshots (current behavior) or enforce one row per named phase with conflict resolution rules.
+
+### What should be done in the future
+
+- Move to Phase 3: add offline artifact/sqlite source endpoints so the same frontend can switch between live and offline inspection modes.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/router_debug_api_test.go`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/tasks.md`
+- How to validate (commands/tests):
+  - `go test ./pkg/webchat`
+  - `go test ./pkg/persistence/chatstore ./pkg/webchat`
+  - `git -C pinocchio show --stat 532777b`
+
+### Technical details
+
+- Events endpoint returns envelope keys:
+  - `conv_id`, `since_seq`, `type`, `limit`, `items`
+- Turn detail endpoint returns:
+  - `conv_id`, `session_id`, `turn_id`, `items[]`
+  - each item includes `phase`, `created_at_ms`, `payload`, and decoded `parsed` when YAML decode succeeds.
+- Storybook runtime:
+  - tmux session: `gp001-sb`
+  - local URL: `http://localhost:6007/`
+  - 6006 was already occupied, so Storybook was started on 6007.
