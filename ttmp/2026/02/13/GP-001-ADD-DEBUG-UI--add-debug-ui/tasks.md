@@ -37,11 +37,11 @@
 
 ### Phase 3: Offline Viewer Sources (Pinocchio backend)
 
-- [ ] `P3.1` Add offline debug source abstraction (`artifacts` and `sqlite`).
-- [ ] `P3.2` Implement filesystem artifact reader endpoints (yaml/ndjson/log).
-- [ ] `P3.3` Implement sqlite readers for persisted turns/timelines.
-- [ ] `P3.4` Add `runs` and `run detail` APIs using shared envelope DTOs.
-- [ ] `P3.5` Add tests with fixture files/sqlite db and commit.
+- [x] `P3.1` Add offline debug source abstraction (`artifacts` and `sqlite`).
+- [x] `P3.2` Implement filesystem artifact reader endpoints (yaml/ndjson/log).
+- [x] `P3.3` Implement sqlite readers for persisted turns/timelines.
+- [x] `P3.4` Add `runs` and `run detail` APIs using shared envelope DTOs.
+- [x] `P3.5` Add tests with fixture files/sqlite db and commit.
 
 ### Phase 4: Frontend Package Extraction In Pinocchio Web Workspace
 

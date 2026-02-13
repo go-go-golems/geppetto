@@ -36,6 +36,10 @@ Implemented Phase 2 live-inspector read-model slice in `pinocchio` (commit `5327
 
 Started Storybook for the pinocchio web workspace in tmux session `gp001-sb`; active local URL is `http://localhost:6007/` (6006 was already occupied).
 
+## 2026-02-13
+
+Implemented Phase 3 offline slice in `pinocchio` (commit `09a6320`): added `/api/debug/runs` and `/api/debug/runs/:runId` handlers supporting artifact directories plus sqlite turn/timeline sources, including artifact YAML/NDJSON/log parsing and sqlite run/detail readers with tests.
+
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/planning/01-web-agent-debug-ui-migration-analysis-for-geppetto.md — Primary migration analysis document

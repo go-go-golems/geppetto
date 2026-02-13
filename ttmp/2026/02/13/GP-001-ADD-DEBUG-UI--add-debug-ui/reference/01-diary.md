@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T18:54:08-05:00
+LastUpdated: 2026-02-13T18:58:49-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -875,3 +875,103 @@ I also expanded handler tests to cover list ordering, detail fields, event filte
   - tmux session: `gp001-sb`
   - local URL: `http://localhost:6007/`
   - 6006 was already occupied, so Storybook was started on 6007.
+
+## Step 11: Add Offline Runs API (Artifacts + SQLite) With Tests (Phase 3)
+
+I implemented the offline viewer backend slice so the debug UI can inspect both artifact directories and persisted sqlite sources through one endpoint family. This adds list/detail discovery for offline runs without requiring a live conversation runtime.
+
+To keep `router.go` maintainable, I moved the offline logic into a separate `debug_offline` module and only wired registration from the main API handler. Tests now cover artifact runs, turns sqlite runs, and timeline sqlite runs end-to-end through HTTP handlers.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 9)
+
+**Assistant interpretation:** Continue executing planned tasks with concrete implementation slices, tests, commits, and diary updates.
+
+**Inferred user intent:** Complete backend migration foundations (including offline mode) before frontend extraction.
+
+**Commit (code):** `09a6320` — "webchat: add offline artifact and sqlite debug run endpoints"
+
+### What I did
+
+- Added offline handler module:
+  - `pinocchio/pkg/webchat/debug_offline.go`
+- Wired registration in:
+  - `pinocchio/pkg/webchat/router.go`
+- Implemented endpoints:
+  - `GET /api/debug/runs`
+  - `GET /api/debug/runs/:runId`
+- Implemented supported sources:
+  - artifact root scanning (`input_turn.yaml`, `final_turn*.yaml`, `events*.ndjson`, `logs.jsonl`)
+  - sqlite turns discovery/detail
+  - sqlite timeline discovery/detail
+- Implemented run ID encoding/decoding for typed run kinds:
+  - `artifact|...`
+  - `turns|...`
+  - `timeline|...`
+- Added tests:
+  - `pinocchio/pkg/webchat/debug_offline_test.go`
+  - artifact list + detail
+  - turns sqlite list + detail
+  - timeline sqlite list + detail
+- Ran tests:
+  - `go test ./pkg/webchat`
+  - `go test ./pkg/persistence/chatstore ./pkg/webchat`
+- Committed in `pinocchio`.
+
+### Why
+
+- GP-001 requires offline viewer support for both filesystem artifacts and sqlite persisted turns/timelines.
+- Frontend extraction can now target a stable offline API shape in parallel with live mode endpoints.
+
+### What worked
+
+- Offline list/detail endpoints are implemented and tested.
+- Phase 3 tasks are now executable against actual handler responses.
+- Commit hooks passed after fixes.
+
+### What didn't work
+
+- First commit attempt failed in hook `test` phase with transient dependency path error:
+  - `pattern ./...: open cmd/web-chat/web/node_modules/object-keys: no such file or directory`
+- Same attempt also failed lint due staticcheck:
+  - `SA1012: do not pass a nil Context` in `debug_offline.go` calls to store methods.
+- Resolution:
+  - replaced `nil` contexts with `context.Background()`,
+  - ran `npm install` in `pinocchio/cmd/web-chat/web` before retrying commit.
+
+### What I learned
+
+- The repository pre-commit sequence may run `go test ./...` before frontend install in some runs; pre-installing web dependencies reduces flaky setup failures when web assets are part of hook paths.
+
+### What was tricky to build
+
+- The tricky part was defining a generic offline run identity that works across very different backends (filesystem directories vs sqlite projections) while remaining URL-safe and parseable. I used typed run IDs (`kind|escaped-part...`) plus centralized encode/decode helpers, which keeps list/detail routing deterministic without adding separate endpoint families per source type.
+
+### What warrants a second pair of eyes
+
+- Review whether the offline run IDs should be exposed as internal transport identifiers only, with separate stable display IDs for UI routing/bookmarking.
+
+### What should be done in the future
+
+- Start Phase 4 frontend extraction now that live + offline backend endpoints are both in place.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/pkg/webchat/debug_offline.go`
+  - `pinocchio/pkg/webchat/debug_offline_test.go`
+  - `pinocchio/pkg/webchat/router.go`
+- How to validate (commands/tests):
+  - `go test ./pkg/webchat`
+  - `go test ./pkg/persistence/chatstore ./pkg/webchat`
+  - `git -C pinocchio show --stat 09a6320`
+
+### Technical details
+
+- `GET /api/debug/runs` query inputs:
+  - `artifacts_root`
+  - `turns_db`
+  - `timeline_db`
+  - `limit`
+- `GET /api/debug/runs/:runId` resolves run kind by encoded prefix and returns source-specific detail payload.
