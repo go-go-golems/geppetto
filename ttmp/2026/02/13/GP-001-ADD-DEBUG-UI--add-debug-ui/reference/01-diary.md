@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T15:47:00-05:00
+LastUpdated: 2026-02-14T15:58:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -2329,3 +2329,66 @@ To keep tests focused and maintainable, I extracted small pure helpers from `App
 
 - Added two new dedicated regression test files and one helper module per bugfix area.
 - Runtime behavior remains unchanged functionally; this slice formalizes expectations and prevents regressions.
+
+## Step 27: Upload Regression-Test Milestone Bundle to reMarkable
+
+After landing regression tests and updating ticket docs, I published a refreshed milestone bundle to reMarkable and verified the listing. This keeps external review artifacts synchronized with the newly added test coverage.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 26)
+
+**Assistant interpretation:** Continue execution workflow including documentation and artifact publication.
+
+**Inferred user intent:** Maintain momentum and preserve a visible, up-to-date trail of implementation progress.
+
+**Commit (code):** N/A (upload/verification step)
+
+### What I did
+
+- Uploaded bundle:
+  - `remarquee upload bundle <planning> <tasks> <changelog> <diary> --name "GP-001-ADD-DEBUG-UI Execution Progress (Regression Tests)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Verified listing:
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Why
+
+- Preserve milestone-level visibility for stakeholders following execution via reMarkable docs.
+
+### What worked
+
+- Upload completed successfully and listing includes:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Regression Tests)`
+
+### What didn't work
+
+- N/A.
+
+### What I learned
+
+- Milestone uploads remain stable and consistent with prior naming/path conventions.
+
+### What was tricky to build
+
+- N/A.
+
+### What warrants a second pair of eyes
+
+- N/A.
+
+### What should be done in the future
+
+- Continue milestone uploads after each substantial bugfix/hardening slice.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/changelog.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md`
+- How to validate (commands/tests):
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Technical details
+
+- Uploaded document name:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Regression Tests).pdf`
