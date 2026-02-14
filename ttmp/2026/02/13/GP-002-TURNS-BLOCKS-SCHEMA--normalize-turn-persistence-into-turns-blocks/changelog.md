@@ -49,3 +49,18 @@ Step 4: per directive (“we don't need legacy backfill code! you can kill it. w
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/debug_offline_test.go — Fixtures updated for normalized-only turn snapshots
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/cmds/chat_persistence_test.go — CLI persister fixture updated for normalized-only snapshot behavior
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/main.go — Removed turns backfill command registration
+
+## 2026-02-14
+
+Step 5: added normalized read/write validation depth and a baseline list-query benchmark for fresh-db workflow (commit 0fe29f438db2d2db1b0c1ef2f1cdf3ff9e7ce7fe).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_sqlite_benchmark_test.go — Added BenchmarkSQLiteTurnStore_ListByConversation baseline benchmark for normalized query path
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go — Added stronger rehydration assertion for normalized save/list payload shape
+
+
+## 2026-02-14
+
+Ticket closed
+

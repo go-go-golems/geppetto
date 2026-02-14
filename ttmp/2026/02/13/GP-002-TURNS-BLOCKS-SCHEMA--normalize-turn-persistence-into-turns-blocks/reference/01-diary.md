@@ -37,6 +37,8 @@ RelatedFiles:
       Note: |-
         Step 2 schema migration and legacy turn snapshot table handling (commit da65342)
         Step 4 normalized-only runtime persistence after removing legacy/backfill paths (commit 19dae3b)
+    - Path: pinocchio/pkg/persistence/chatstore/turn_store_sqlite_benchmark_test.go
+      Note: Step 5 baseline benchmark for normalized list query path (commit 0fe29f4)
     - Path: pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go
       Note: |-
         Step 2 migration test coverage for fresh and legacy sqlite databases (commit da65342)
@@ -49,10 +51,11 @@ RelatedFiles:
       Note: Step 4 fixture adjustments for normalized-only turns
 ExternalSources: []
 Summary: Implementation diary for GP-002 execution steps.
-LastUpdated: 2026-02-14T12:16:00-05:00
+LastUpdated: 2026-02-14T12:32:00-05:00
 WhatFor: Record what changed, why, validation results, and review guidance while implementing GP-002.
 WhenToUse: Use when continuing GP-002 implementation or reviewing migration decisions.
 ---
+
 
 
 
@@ -422,3 +425,76 @@ I removed the backfill CLI/API and any `turn_snapshots`-based runtime path, and 
   - `blocks`
   - `turn_block_membership`
 - `turn_snapshots` payload persistence and turns backfill CLI/API were removed from `pinocchio`.
+
+## Step 5: Validation + Benchmark Completion
+
+This step completed the final open GP-002 task by strengthening normalized read/write validation and adding a baseline list-query benchmark for the fresh-db workflow.
+
+The ticket is now implementation-complete with all deferred tasks checked off.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4 context thread; continue execution)
+
+**Assistant interpretation:** Finish the remaining task by adding verification depth and measurable benchmark coverage.
+
+**Inferred user intent:** Ensure the normalized-only cutover is not only implemented but also validated and benchmarked enough to close the ticket.
+
+**Commit (code):** `0fe29f438db2d2db1b0c1ef2f1cdf3ff9e7ce7fe` — "test(chatstore): add normalized round-trip checks and list benchmark"
+
+### What I did
+
+- Updated `pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go`:
+  - added stronger payload rehydration assertion in `TestSQLiteTurnStore_SaveAndList` (`text: hello` presence in rehydrated payload).
+- Added `pinocchio/pkg/persistence/chatstore/turn_store_sqlite_benchmark_test.go`:
+  - `BenchmarkSQLiteTurnStore_ListByConversation` seeds normalized rows and benchmarks conversation list queries.
+- Validation run:
+  - `go test ./pkg/persistence/chatstore -count=1`
+  - `go test ./pkg/persistence/chatstore -run ^$ -bench BenchmarkSQLiteTurnStore_ListByConversation -benchtime=1x -count=1`
+  - `go test ./pkg/webchat -count=1`
+  - full pre-commit hooks on commit.
+
+### Why
+
+- The remaining task explicitly asked for normalized validation and query benchmarking.
+- Benchmark baseline provides a concrete starting point for later perf tracking.
+
+### What worked
+
+- New benchmark executed successfully.
+- Tests passed and commit hooks succeeded.
+
+### What didn't work
+
+- First commit attempt failed due a custom lint/vet rule requiring const payload keys in tests when indexing payload maps directly.
+  - Fix: changed assertion strategy to YAML string-content assertion rather than direct payload map indexing.
+
+### What I learned
+
+- Repository-specific analyzers can impose domain constraints even in test code; assertion style must follow those constraints.
+
+### What was tricky to build
+
+- Balancing assertion strength with custom payload-key analyzer restrictions required a slightly indirect but stable verification method.
+
+### What warrants a second pair of eyes
+
+- Whether benchmark seed size (`2000` snapshots, list limit `200`) best matches expected production/debug workloads.
+
+### What should be done in the future
+
+- Optional: add benchmark trend tracking in CI for regression detection.
+
+### Code review instructions
+
+- Start with:
+  - `pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go`
+  - `pinocchio/pkg/persistence/chatstore/turn_store_sqlite_benchmark_test.go`
+- Re-run:
+  - `go test ./pkg/persistence/chatstore -count=1`
+  - `go test ./pkg/persistence/chatstore -run ^$ -bench BenchmarkSQLiteTurnStore_ListByConversation -benchtime=1x -count=1`
+
+### Technical details
+
+- Recorded benchmark output during implementation:
+  - `BenchmarkSQLiteTurnStore_ListByConversation-8    1    10760146 ns/op`

@@ -1,7 +1,7 @@
 ---
 Title: Normalize Turn Persistence into Turns + Blocks
 Ticket: GP-002-TURNS-BLOCKS-SCHEMA
-Status: active
+Status: complete
 Topics:
     - backend
     - persistence
@@ -15,10 +15,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Deferred ticket to design and later implement normalized turns + blocks sqlite persistence (no backward compatibility) for block-level querying and dedupe.
-LastUpdated: 2026-02-13T18:30:00-05:00
+LastUpdated: 2026-02-14T11:17:05.604854348-05:00
 WhatFor: Track design and future implementation work for replacing payload-string turn snapshots with normalized storage tables.
 WhenToUse: Use when planning or executing GP-002 schema migration and backfill.
 ---
+
 
 # Normalize Turn Persistence into Turns + Blocks
 

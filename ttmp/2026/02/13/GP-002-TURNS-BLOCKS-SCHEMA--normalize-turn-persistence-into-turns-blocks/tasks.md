@@ -11,7 +11,7 @@
 - [x] Implement sqlite schema migration for `turns`, `blocks`, and `turn_block_membership`.
 - [x] (Superseded) Implement payload backfill command from legacy `turns.payload` rows.
 - [x] Cut read/write paths to normalized tables and delete payload-only storage path.
-- [ ] Add normalized read/write validation and query benchmarks for fresh-db workflow.
+- [x] Add normalized read/write validation and query benchmarks for fresh-db workflow.
 
 ## Decisions
 
