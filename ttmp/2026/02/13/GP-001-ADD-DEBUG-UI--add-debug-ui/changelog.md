@@ -157,3 +157,11 @@ Validated after patch:
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/routes/OfflinePage.tsx — Read-only offline run detail inspector
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Added runs/detail endpoints and normalization logic
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts — Canonical envelope MSW mocks plus offline endpoint handlers
+
+## 2026-02-14
+
+Uploaded refreshed GP-001 bundle after offline viewer wiring as `GP-001-ADD-DEBUG-UI Execution Progress (Offline Viewer Wiring).pdf` to `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/` and verified cloud listing includes the new file.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary records upload command and verification listing

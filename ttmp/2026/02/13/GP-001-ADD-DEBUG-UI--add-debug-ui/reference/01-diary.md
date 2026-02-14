@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T13:05:00-05:00
+LastUpdated: 2026-02-14T13:18:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -1978,3 +1978,76 @@ I implemented offline source/run state, route wiring, and read-only run detail r
   - `artifacts_root`
   - `turns_db`
   - `timeline_db`
+
+## Step 23: Upload Offline-Viewer Progress Bundle to reMarkable and Verify Cloud Listing
+
+After committing the offline viewer implementation/doc updates, I produced a refreshed bundled PDF and uploaded it to the ticket folder on reMarkable. I then verified the cloud listing to ensure propagation completed and the new file is visible.
+
+This keeps GP-001 operator-visible documentation synchronized with code-level progress and preserves continuity with prior milestone uploads in the same destination folder.
+
+### Prompt Context
+
+**User prompt (verbatim):** "upload to remarkable"
+
+**Assistant interpretation:** Upload the latest ticket documentation bundle to reMarkable after the current implementation slice.
+
+**Inferred user intent:** Maintain a continuously reviewable external artifact stream as migration execution advances.
+
+**Commit (code):** N/A (documentation upload/verification step)
+
+### What I did
+
+- Confirmed remarquee health:
+  - `remarquee status`
+- Ran dry-run bundle upload:
+  - `remarquee upload bundle --dry-run <planning> <tasks> <changelog> <diary> --name "GP-001-ADD-DEBUG-UI Execution Progress (Offline Viewer Wiring)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Executed real upload:
+  - `remarquee upload bundle <planning> <tasks> <changelog> <diary> --name "GP-001-ADD-DEBUG-UI Execution Progress (Offline Viewer Wiring)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Verified listing:
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Why
+
+- The user requested ongoing reMarkable synchronization.
+- Dry-run first prevents accidental overwrite/path mistakes before rendering/upload.
+
+### What worked
+
+- Upload succeeded with explicit confirmation:
+  - `OK: uploaded GP-001-ADD-DEBUG-UI Execution Progress (Offline Viewer Wiring).pdf -> /ai/2026/02/13/GP-001-ADD-DEBUG-UI`
+- Listing confirmed new document appears alongside previous milestones.
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- The current `remarquee upload bundle` path remains stable for this ticket and supports fast milestone publication without extra conversion scripts.
+
+### What was tricky to build
+
+- Minimal complexity here; the only sharp edge is ensuring name/remote-dir consistency so milestone PDFs do not collide.
+
+### What warrants a second pair of eyes
+
+- Confirm naming convention remains preferred as milestone count grows.
+
+### What should be done in the future
+
+- Continue appending milestone-specific suffixes in upload names for chronological clarity.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/changelog.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md`
+- How to validate (commands/tests):
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Technical details
+
+- Uploaded filename:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Offline Viewer Wiring).pdf`
+- Destination:
+  - `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/`
