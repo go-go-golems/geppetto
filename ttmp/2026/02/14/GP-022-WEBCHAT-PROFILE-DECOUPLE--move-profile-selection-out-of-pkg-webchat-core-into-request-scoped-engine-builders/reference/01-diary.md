@@ -18,7 +18,7 @@ RelatedFiles:
       Note: Detailed execution checklist for implementation slices
 ExternalSources: []
 Summary: Implementation diary for resolver-plan cutover and profile decoupling work.
-LastUpdated: 2026-02-14T17:06:48-05:00
+LastUpdated: 2026-02-14T17:10:13-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -379,3 +379,69 @@ This slice completed the internal naming cleanup by removing `ProfileSlug` seman
   - `pinocchio/pkg/webchat/router_debug_api_test.go`
   - `pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
   - `pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts`
+
+## Step 6: Add Tests for App-Owned Profile Policy (`cmd/web-chat`)
+
+This slice added dedicated tests for the app-owned profile resolver and `/api/chat/profile*` handlers in `cmd/web-chat`. The goal was to close the testing gap after moving profile policy out of core.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)  
+**Assistant interpretation:** Continue task execution by filling open validation gaps and committing each slice.
+
+**Commit (code):** `c0aaace` — "web-chat: add tests for app-owned profile resolver and handlers"
+
+### What I did
+- Added `pinocchio/cmd/web-chat/profile_policy_test.go` covering:
+  - default runtime resolution for websocket requests.
+  - override allow/deny policy behavior on chat requests.
+  - `/api/chat/profiles` listing and `/api/chat/profile` cookie get/set flow.
+- Fixed test setup to use `values.New()` (instead of uninitialized `&values.Values{}`) so router defaults decode safely.
+
+### What worked
+- `go test ./cmd/web-chat/...` passed with the new tests.
+- `go test ./pkg/webchat/...` still passed after adding app-layer tests.
+
+### What didn't work
+- First test run failed with panic caused by using uninitialized `values.Values` in `webchat.NewRouter(...)`.
+- Fix: switch to `values.New()` in the test setup.
+
+### Technical details
+- Commands run:
+  - `go test ./cmd/web-chat/...` (`pinocchio`) -> fail (initial panic), then pass after fix
+  - `go test ./pkg/webchat/...` (`pinocchio`) -> pass
+- Files changed in this slice:
+  - `pinocchio/cmd/web-chat/profile_policy_test.go`
+
+## Step 7: Remove Remaining Legacy Builder Naming in `web-agent-example`
+
+This slice cleaned up naming artifacts still referencing the old builder model, and verified no runtime dependency on `/api/chat/profile*` endpoints remains in `web-agent-example`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)  
+**Assistant interpretation:** Continue incremental cleanup and close remaining migration checklist items.
+
+**Commit (code):** `cc06983` — "web-agent-example: rename request resolver types away from legacy builder naming"
+
+### What I did
+- Renamed `noCookieEngineFromReqBuilder` -> `noCookieRequestResolver`.
+- Renamed constructor callsites accordingly in `main.go`.
+- Audited `web-agent-example` for profile endpoint dependencies:
+  - no `/api/chat/profile` usage in runtime code.
+  - no profile selector logic in `cmd/web-agent-example/static/index.html`.
+
+### What worked
+- Naming now reflects resolver API and avoids carrying old builder terminology.
+- Endpoint dependency audit confirms `web-agent-example` no longer depends on core profile endpoints.
+
+### What didn't work
+- `go test ./cmd/web-agent-example` remains blocked by pre-existing module dependency setup in this workspace (unchanged baseline).
+
+### Technical details
+- Commands run:
+  - `go test ./cmd/web-agent-example` (`web-agent-example`) -> baseline dependency failure (unchanged)
+  - `rg -n "/api/chat/profile|chat_profile|profiles?\\b" web-agent-example` -> no runtime endpoint dependency hits
+- Files changed in this slice:
+  - `web-agent-example/cmd/web-agent-example/engine_from_req.go`
+  - `web-agent-example/cmd/web-agent-example/main.go`

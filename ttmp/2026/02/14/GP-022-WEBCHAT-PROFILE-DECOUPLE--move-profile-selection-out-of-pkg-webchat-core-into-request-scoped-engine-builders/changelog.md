@@ -104,3 +104,22 @@ Renamed remaining core runtime identity fields from profile-oriented names, swit
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router_debug_routes.go — Debug conversation payloads read runtime key from conversation state
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Frontend mapping updated for backend `runtime_key`
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts — Mock payloads aligned with `runtime_key`
+
+
+## 2026-02-14 - Slice 5: app-owned profile policy tests
+
+Added dedicated tests in `cmd/web-chat` for profile resolver behavior and profile cookie API handlers, closing a migration validation gap after moving profile policy out of core.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/profile_policy_test.go — New resolver + handler tests for default profile, override policy, and cookie get/set flows
+
+
+## 2026-02-14 - Slice 6: remove legacy builder naming in web-agent-example
+
+Renamed remaining resolver implementation symbols in `web-agent-example` away from old builder terminology and confirmed no runtime dependency on `/api/chat/profile*` endpoints.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/engine_from_req.go — Resolver type/constructor renamed to request-resolver terminology
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/main.go — Updated resolver constructor call site

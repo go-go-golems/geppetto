@@ -24,7 +24,7 @@
 - [x] Move rebuild checks to signature comparison (`EngineConfig.Signature`) instead of runtime-key + signature dual checks.
 - [x] Update debug API payloads to generic runtime naming (`engine_key` / `runtime_key`).
 - [ ] Update WS hello proto semantics to remove/rename legacy `profile` field usage (currently populated with `runtimeKey`).
-- [ ] Remove dead code and tests tied only to old profile-centric request builder path.
+- [x] Remove dead code and tests tied only to old profile-centric request builder path.
 
 ## Phase 2: `pinocchio/cmd/web-chat` Migration (app-owned profile policy)
 
@@ -44,13 +44,13 @@
 - [x] Replace custom `engine_from_req.go` builder with resolver-plan implementation.
 - [x] Remove `r.AddProfile(...)` from `web-agent-example/cmd/web-agent-example/main.go`.
 - [x] Keep middleware/disco/thinking composition in app runtime factory closure.
-- [ ] Ensure web-agent-example frontend runs with profile selector disabled/optional.
-- [ ] Verify no dependency on `/api/chat/profile*` endpoints remains.
+- [x] Ensure web-agent-example frontend runs with profile selector disabled/optional.
+- [x] Verify no dependency on `/api/chat/profile*` endpoints remains.
 
 ## Phase 4: Tests and Validation
 
 - [x] Update core webchat unit/integration tests for resolver-plan flow and profile-free core behavior.
-- [ ] Add/adjust tests for app-owned profile endpoints in `cmd/web-chat`.
+- [x] Add/adjust tests for app-owned profile endpoints in `cmd/web-chat`.
 - [ ] Add/adjust tests for web-agent-example resolver and runtime behavior.
 - [x] Run and record focused test commands:
   - `go test ./pinocchio/pkg/webchat/...`
@@ -72,3 +72,5 @@
 - [x] Slice 2 done: run tests, commit code, check off tasks, update diary, update changelog.
 - [x] Slice 3 done: run tests, commit code, check off tasks, update diary, update changelog.
 - [x] Slice 4 done: run tests, commit code, check off tasks, update diary, update changelog.
+- [x] Slice 5 done: run tests, commit code, check off tasks, update diary, update changelog.
+- [x] Slice 6 done: run tests, commit code, check off tasks, update diary, update changelog.
