@@ -13,8 +13,8 @@
   - `ConvID`, `Prompt`, `IdempotencyKey`
   - runtime identity (`RuntimeKey`) + rebuild key (`Fingerprint`)
   - runtime constructor closure (`BuildRuntime(...)`)
-- [ ] Rework chat and WS handlers in core router to use resolver-plan API directly.
-- [ ] Remove or short-circuit old `BuildEngineFromReq` pathway from runtime execution path.
+- [x] Rework chat and WS handlers in core router to use resolver-plan API directly.
+- [x] Remove or short-circuit old `BuildEngineFromReq` pathway from runtime execution path.
 - [ ] Remove profile concepts from core types/options surface:
   - `Profile`, `ProfileRegistry`, `WithProfileRegistry`, `Router.AddProfile`
 - [ ] Remove core-owned profile endpoints from router:
@@ -41,7 +41,7 @@
 
 ## Phase 3: `web-agent-example` Migration (profile-free)
 
-- [ ] Replace custom `engine_from_req.go` builder with resolver-plan implementation.
+- [x] Replace custom `engine_from_req.go` builder with resolver-plan implementation.
 - [ ] Remove `r.AddProfile(...)` from `web-agent-example/cmd/web-agent-example/main.go`.
 - [ ] Keep middleware/disco/thinking composition in app runtime factory closure.
 - [ ] Ensure web-agent-example frontend runs with profile selector disabled/optional.
