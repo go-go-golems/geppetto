@@ -22,6 +22,8 @@ Core now uses `RuntimeComposer` (`RuntimeComposeRequest` + `RuntimeArtifacts`) a
 ### Commits
 
 - `04dc5e6` (`pinocchio`) — webchat: replace BuildConfig with app-owned runtime composer
+- `c3bad6c` (`pinocchio`) — webchat docs: document runtime composer architecture
+- `855b358` (`pinocchio`) — webchat docs: remove stale engine_config reference
 - `8221473` (`web-agent-example`) — web-agent-example: adopt webchat runtime composer contract
 
 ### Related Files
