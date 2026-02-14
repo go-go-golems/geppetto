@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T13:18:00-05:00
+LastUpdated: 2026-02-14T13:38:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -2051,3 +2051,130 @@ This keeps GP-001 operator-visible documentation synchronized with code-level pr
   - `GP-001-ADD-DEBUG-UI Execution Progress (Offline Viewer Wiring).pdf`
 - Destination:
   - `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/`
+
+## Step 24: Fix Live Route Navigation Loop and Turn-Detail Block Decoding Regression
+
+I investigated the runtime issue reported while clicking around debug routes and reproduced it against the exact URL from the report. The issue was a URL-sync race in `AppShell` combined with turn-detail parser assumptions that did not match backend `parsed` payload shape.
+
+I fixed both in one slice: route-query synchronization now waits for state hydration from URL before writing query params back, and turn parsing now supports both canonical lowercase fields and protobuf-style capitalized fields while preferring payload decode first.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Too many calls to Location or History APIs within a short timeframe. history.ts:676:19
+Uncaught (in promise) DOMException: The operation is insecure.
+    replace2 history.ts:676
+    completeNavigation router.ts:1274
+    handleLoaders router.ts:1951
+    startNavigation router.ts:1659
+    navigate router.ts:1441
+    navigate hooks.tsx:1106
+    setSearchParams index.tsx:1514
+    AppShell AppShell.tsx:174
+    React 8
+    workLoop scheduler.development.js:266
+    flushWork scheduler.development.js:239
+    performWorkUntilDeadline scheduler.development.js:533
+history.ts:676:19
+Too many calls to Location or History APIs within a short timeframe. history.ts:676:19
+Uncaught (in promise) DOMException: The operation is insecure.
+    replace2 history.ts:676
+    completeNavigation router.ts:1274
+    handleLoaders router.ts:1951
+    startNavigation router.ts:1659
+    navigate router.ts:1441
+    navigate hooks.tsx:1106
+    setSearchParams index.tsx:1514
+    AppShell AppShell.tsx:174
+    React 12
+history.ts:676:19
+Too many calls to Location or History APIs within a short timeframe. history.ts:676:19
+Uncaught (in promise) DOMException: The operation is insecure.
+    replace2 history.ts:676
+    completeNavigation router.ts:1274
+    handleLoaders router.ts:1951
+    startNavigation router.ts:1659
+    navigate router.ts:1441
+    navigate hooks.tsx:1106
+    setSearchParams index.tsx:1514
+    AppShell AppShell.tsx:174
+    React 12
+history.ts:676:19
+ when clicking around. Also, when clicking on turn I don't see the blocks in the diff view at the bottom, it just says \"0 blocks\" but it shows them at the top (see http://localhost:5173/?debug=1&conv=22861ef5-4082-4914-b89a-2806e0c08cae&session=5f8666ac-81f4-4205-a932-3e0b37d1a097&turn=f5e7fd19-1764-4cb4-a321-281d3187efb6)"
+
+**Assistant interpretation:** Fix both frontend regressions immediately: eliminate route-query replacement loops and restore correct turn block rendering for selected turn detail.
+
+**Inferred user intent:** Keep the migrated debug UI stable during real interactive use and remove blockers to inspecting live turns.
+
+**Commit (code):** `d511280` — "fix(debug-ui): stop url-sync loops and decode turn detail payloads"
+
+### What I did
+
+- Reworked `AppShell` URL sync logic:
+  - removed early-return dispatch flow that partially hydrated URL state in multiple render passes;
+  - derived URL params from `location.search` once per render with `useMemo`;
+  - added `pendingHydration` guard so `setSearchParams(..., { replace: true })` does not run until store state matches URL-derived targets.
+- Hardened `debugApi` turn parsing:
+  - `toParsedTurn` now recognizes both lowercase and protobuf-style keys (`blocks`/`Blocks`, `id`/`ID`, `metadata`/`Metadata`, `data`/`Data`);
+  - `toParsedBlock` now recognizes `kind`/`Kind`, etc.;
+  - `toBlockKind` now decodes numeric enum values and common enum-name strings;
+  - `getTurnDetail` now decodes from `payload` first and only falls back to `parsed` if payload decode yields no blocks.
+- Reproduced user URL and confirmed backend payload shape:
+  - `/api/debug/turn/...` currently includes `parsed` with capitalized struct keys from Go, which caused prior empty-block decode.
+- Verified manually via Playwright:
+  - repeated nav toggles (Overview ⇄ Timeline) produced no history/security errors;
+  - reported turn now renders `Blocks (5)` in turn detail.
+
+### Why
+
+- History API throttling was caused by writing URL params before state hydration settled, causing rapid replace cycles.
+- Empty block rendering was a schema mismatch: frontend expected normalized parsed keys but backend returned Go-struct/proto-style keys in `parsed` field.
+
+### What worked
+
+- The navigation loop error disappeared in manual and automated click stress.
+- Turn detail now shows expected block counts and content for the reported conversation/turn.
+- Validation suite passed:
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s typecheck`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s check`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s build`
+  - `npm --prefix pinocchio/cmd/web-chat/web run storybook -- --ci --smoke-test --port 6007`
+
+### What didn't work
+
+- Initial lint run flagged an unused `searchParams` binding after refactor; fixed by ignoring first tuple value from `useSearchParams`.
+
+### What I learned
+
+- Query-sync logic in router shells must guard against state hydration races, especially when multiple IDs are restored from URL/localStorage simultaneously.
+- Backend parser outputs can drift toward Go/protobuf serialization conventions even when envelope contracts are nominally stable.
+
+### What was tricky to build
+
+- The subtle part was distinguishing URL hydration from URL persistence. Without this distinction, setting params during hydration creates replace loops under rapid clicks.
+- Parsing had two competing sources (`payload` YAML/object and `parsed` object). Preferring payload decode with parsed fallback made behavior deterministic and robust.
+
+### What warrants a second pair of eyes
+
+- Confirm whether backend should eventually emit normalized lowercase `parsed` payloads so frontend decode complexity can be reduced.
+
+### What should be done in the future
+
+- Add adapter-level tests for `getTurnDetail` covering payload vs parsed precedence and protobuf-style key shapes.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
+- How to validate (commands/tests):
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s typecheck`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s check`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s build`
+  - open `http://localhost:5173/?debug=1&conv=22861ef5-4082-4914-b89a-2806e0c08cae&session=5f8666ac-81f4-4205-a932-3e0b37d1a097&turn=f5e7fd19-1764-4cb4-a321-281d3187efb6`, toggle Overview/Timeline repeatedly, and verify turn detail shows non-zero blocks.
+
+### Technical details
+
+- Root-cause evidence from backend detail payload:
+  - `parsed.Blocks[].Kind` numeric enum values and `ID/Role/Payload` capitalized keys.
+- Fix strategy:
+  - normalize both key casing and enum representation at adapter boundary.

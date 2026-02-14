@@ -165,3 +165,21 @@ Uploaded refreshed GP-001 bundle after offline viewer wiring as `GP-001-ADD-DEBU
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary records upload command and verification listing
+
+## 2026-02-14
+
+Fixed two live-debug regressions in `pinocchio` (commit `d511280`):
+- removed rapid URL write churn in `AppShell` that caused repeated `History/Location API` errors (`DOMException: operation is insecure`) when clicking around routes;
+- corrected turn-detail parsing for backend `parsed` payloads that use protobuf-style capitalized keys (`Blocks`, `ID`, `Kind`), and now prefer YAML/object payload decoding first with parsed fallback. This restores correct block counts in turn inspector for real `/api/debug/turn/...` responses.
+
+Validation after patch:
+- `npm run -s typecheck` (pass)
+- `npm run -s check` (pass)
+- `npm run -s build` (pass)
+- `npm run storybook -- --ci --smoke-test --port 6007` (pass)
+- manual repro path from report confirms no history spam and `Blocks (5)` rendered for turn detail.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx — URL hydration/sync guard logic to prevent navigation replace loops
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Robust turn parsed payload decoding across lowercase/protobuf-style keys and enum kinds

@@ -65,6 +65,7 @@
 - [x] `P5.5` Validate key inspector flows manually in Storybook and dev server.
 - [x] `P5.6` Commit app shell slice.
 - [x] `P5.7` Restore true offline viewer wiring in migrated debug-ui (`/api/debug/runs*`) with source/run URL persistence and read-only detail rendering.
+- [x] `P5.8` Fix URL search-param sync loop (`History API` spam) and turn-detail parsed payload decoding mismatch (`Blocks`/`ID` schema) in live inspector.
 
 ### Phase 6: Cutover + Deletion
 
