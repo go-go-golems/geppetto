@@ -74,6 +74,6 @@
 
 ### Phase 7: Ticket Hygiene Per Slice
 
-- [ ] `P7.1` After each code slice: update diary with commands, failures, commit hash, and review instructions.
-- [ ] `P7.2` After each code slice: update changelog and check completed tasks.
-- [ ] `P7.3` Upload refreshed ticket docs to reMarkable at major milestones.
+- [x] `P7.1` After each code slice: update diary with commands, failures, commit hash, and review instructions.
+- [x] `P7.2` After each code slice: update changelog and check completed tasks.
+- [x] `P7.3` Upload refreshed ticket docs to reMarkable at major milestones.

@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T19:02:30-05:00
+LastUpdated: 2026-02-13T19:03:51-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -1071,3 +1071,76 @@ I kept this slice intentionally narrow: scaffold + wiring + a metadata story com
 - Debug API base URL is now fixed to `/api/debug/`.
 - Frontend envelope contracts retain metadata fields (`conv_id`, `session_id`, `phase`, `since_ms`, etc.) instead of flattening to arrays-only.
 - Storybook remains active in tmux session `gp001-sb` on `http://localhost:6007/`.
+
+## Step 13: Upload Refreshed GP-001 Bundle to reMarkable
+
+After completing the current implementation slices and doc updates, I uploaded a fresh ticket bundle to reMarkable so the latest tasks/changelog/diary and planning state are available on device. This closes the requested upload step for the latest milestone.
+
+I used the bundling workflow with a dry-run first, then performed the actual upload and verified cloud listing under the same ticket folder used earlier.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see earlier prompt: "upload to remarkable")
+
+**Assistant interpretation:** Keep pushing updated ticket artifacts to reMarkable as implementation progresses.
+
+**Inferred user intent:** Ensure living project docs are continuously available in reMarkable during active implementation.
+
+**Commit (code):** N/A (upload + ticket doc updates only in this step)
+
+### What I did
+
+- Ran preflight checks:
+  - `remarquee status`
+  - `remarquee cloud account --non-interactive`
+- Dry-run bundle command with updated ticket docs.
+- Uploaded bundle:
+  - `GP-001-ADD-DEBUG-UI Execution Progress.pdf`
+  - remote dir: `/ai/2026/02/13/GP-001-ADD-DEBUG-UI`
+- Verified with:
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Why
+
+- This keeps the latest implementation progress synchronized to reMarkable for review as requested.
+
+### What worked
+
+- Upload completed successfully.
+- Cloud listing now includes the new execution-progress bundle alongside prior analysis documents.
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- The dry-run first pattern remains fast and avoids accidental overwrite mistakes.
+
+### What was tricky to build
+
+- No major technical complexity in this step; the key was ensuring the right set of docs (index/tasks/changelog/planning/diary) was bundled in order.
+
+### What warrants a second pair of eyes
+
+- Confirm whether future uploads should overwrite a stable filename or keep timestamped milestone variants.
+
+### What should be done in the future
+
+- Continue milestone uploads after major frontend port slices (`P4.2/P4.5` and `P5`).
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/tasks.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/changelog.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md`
+- How to validate (commands/tests):
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Technical details
+
+- Current remote folder contents:
+  - `GP-001-ADD-DEBUG-UI Execution Progress`
+  - `GP-001-ADD-DEBUG-UI Migration Analysis`
+  - `GP-001-ADD-DEBUG-UI Migration Analysis (Pinocchio Update)`

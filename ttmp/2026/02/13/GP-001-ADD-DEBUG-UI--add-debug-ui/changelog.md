@@ -44,6 +44,10 @@ Implemented Phase 3 offline slice in `pinocchio` (commit `09a6320`): added `/api
 
 Implemented initial Phase 4 frontend extraction slice in `pinocchio` (commit `30e3fa5`): scaffolded reusable `src/debug-contract`, `src/debug-api`, `src/debug-state`, and `src/debug-components` packages plus seed `debug-app` module; added metadata-focused story and validated with frontend typecheck/build and hook `web-check`.
 
+## 2026-02-13
+
+Uploaded refreshed GP-001 bundle to reMarkable as `GP-001-ADD-DEBUG-UI Execution Progress.pdf` under `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/` and verified cloud listing.
+
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/planning/01-web-agent-debug-ui-migration-analysis-for-geppetto.md — Primary migration analysis document
