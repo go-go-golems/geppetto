@@ -58,12 +58,12 @@
 
 ### Phase 5: Pinocchio Debug App Shell + Storybook
 
-- [ ] `P5.1` Add pinocchio debug app shell (offline mode + live level-2 mode switch).
-- [ ] `P5.2` Wire app shell to canonical `/api/debug/*` endpoints.
+- [x] `P5.1` Add pinocchio debug app shell (offline mode + live level-2 mode switch).
+- [x] `P5.2` Wire app shell to canonical `/api/debug/*` endpoints.
 - [ ] `P5.3` Add routing/state persistence for selected conversation/run context.
 - [x] `P5.4` Start Storybook in `pinocchio/cmd/web-chat/web` in tmux and keep it running during iteration.
 - [ ] `P5.5` Validate key inspector flows manually in Storybook and dev server.
-- [ ] `P5.6` Commit app shell slice.
+- [x] `P5.6` Commit app shell slice.
 
 ### Phase 6: Cutover + Deletion
 

@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T19:03:51-05:00
+LastUpdated: 2026-02-13T19:05:48-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -1144,3 +1144,88 @@ I used the bundling workflow with a dry-run first, then performed the actual upl
   - `GP-001-ADD-DEBUG-UI Execution Progress`
   - `GP-001-ADD-DEBUG-UI Migration Analysis`
   - `GP-001-ADD-DEBUG-UI Migration Analysis (Pinocchio Update)`
+
+## Step 14: Add Debug Shell Mode Switching and App Wiring (Phase 5 Slice)
+
+I turned the frontend scaffold into a functional debug shell slice by adding a live/offline mode switch and wiring it through the new debug API/state packages. This gives a working shell that can attach read-only to live conversations or inspect offline runs based on configured sources.
+
+I also wired the shell into the main web app via `?debug=1`, so debug mode can be activated without replacing the existing chat widget flow.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 9)
+
+**Assistant interpretation:** Continue implementing task slices with commits/tests while keeping Storybook live and docs updated.
+
+**Inferred user intent:** Reach a usable debug shell quickly, then continue iterating on deeper component migration and cleanup.
+
+**Commit (code):** `c88c3e5` — "web-chat: add debug app shell with live/offline mode switch"
+
+### What I did
+
+- Updated debug app shell:
+  - `pinocchio/cmd/web-chat/web/src/debug-app/DebugApp.tsx`
+  - added `live`/`offline` mode switch
+  - wired `getConversations`, `getTurns`, `getRuns`, `getRunDetail` queries
+  - integrated selection/offline-config state actions
+- Added provider wrapper and story:
+  - `pinocchio/cmd/web-chat/web/src/debug-app/DebugAppProvider.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-app/DebugApp.stories.tsx`
+  - updated `debug-app/index.ts` exports
+- Wired app entrypoint:
+  - `pinocchio/cmd/web-chat/web/src/App.tsx`
+  - render `DebugAppProvider` when URL query contains `debug=1`, otherwise render `ChatWidget`
+- Validation:
+  - `npm run lint:fix`
+  - `npm run check`
+  - `npm run build`
+  - commit hook `web-check` pass
+
+### Why
+
+- Phase 5 requires an actual shell that can switch between live and offline inspection modes.
+- URL-based mode activation (`?debug=1`) provides a low-friction integration path without breaking default chat behavior.
+
+### What worked
+
+- Debug shell compiles and runs.
+- API/state wiring is active in the shell.
+- Storybook session remained live and picked up updates via HMR.
+
+### What didn't work
+
+- N/A in this slice after prior package lint fixes; commit succeeded on first attempt.
+
+### What I learned
+
+- Keeping debug mode behind a query flag is a good incremental strategy while legacy chat UI continues to exist in the same app.
+
+### What was tricky to build
+
+- The tricky part was balancing integration speed with minimal blast radius. Replacing the root app outright would break current chat workflows; adding query-flag switching keeps both paths available while migration continues.
+
+### What warrants a second pair of eyes
+
+- Review whether `debug=1` query-flag activation should eventually move to explicit route-based navigation (`/debug`) for clearer bookmarking and deep-linking.
+
+### What should be done in the future
+
+- Complete `P4.2`/`P4.5` and remaining `P5.3`/`P5.5`: port baseline legacy inspector views and validate end-to-end live + offline inspection flows with real backend data.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/App.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-app/DebugApp.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-app/DebugAppProvider.tsx`
+- How to validate (commands/tests):
+  - `npm run check`
+  - `npm run build`
+  - open `http://localhost:6007/` Storybook and inspect `debug-app/DebugAppProvider`
+  - run web app with `?debug=1` query param in browser
+
+### Technical details
+
+- Live mode is read-only and driven by `/api/debug/conversations` + `/api/debug/turns`.
+- Offline mode is read-only and driven by `/api/debug/runs` + `/api/debug/runs/:runId`.
+- Storybook tmux session remains `gp001-sb` on port `6007`.

@@ -48,6 +48,10 @@ Implemented initial Phase 4 frontend extraction slice in `pinocchio` (commit `30
 
 Uploaded refreshed GP-001 bundle to reMarkable as `GP-001-ADD-DEBUG-UI Execution Progress.pdf` under `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/` and verified cloud listing.
 
+## 2026-02-13
+
+Implemented Phase 5 app-shell slice in `pinocchio` (commit `c88c3e5`): added `DebugApp` live/offline mode shell, wired live/offline API queries, exposed debug shell via `?debug=1` in main app entrypoint, and added a Storybook story/provider wrapper.
+
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/planning/01-web-agent-debug-ui-migration-analysis-for-geppetto.md — Primary migration analysis document
