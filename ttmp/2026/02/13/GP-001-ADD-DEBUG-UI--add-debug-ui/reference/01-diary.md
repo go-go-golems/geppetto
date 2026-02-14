@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T13:38:00-05:00
+LastUpdated: 2026-02-14T13:44:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -2178,3 +2178,66 @@ history.ts:676:19
   - `parsed.Blocks[].Kind` numeric enum values and `ID/Role/Payload` capitalized keys.
 - Fix strategy:
   - normalize both key casing and enum representation at adapter boundary.
+
+## Step 25: Upload URL-Loop/Turn-Parse Fix Milestone to reMarkable
+
+After landing and documenting the runtime regression fixes, I published a fresh GP-001 bundle to reMarkable and verified the cloud listing. This keeps the external review artifact synchronized with the latest implementation/debugging step.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 24)
+
+**Assistant interpretation:** Continue execution flow by keeping ticket artifacts updated and uploaded after important fixes.
+
+**Inferred user intent:** Maintain high-frequency, externally visible progress records while implementation is ongoing.
+
+**Commit (code):** N/A (upload/verification step)
+
+### What I did
+
+- Uploaded milestone PDF:
+  - `remarquee upload bundle <planning> <tasks> <changelog> <diary> --name "GP-001-ADD-DEBUG-UI Execution Progress (URL Loop + Turn Parse Fix)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Verified cloud listing:
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Why
+
+- Keeps the notebook stream aligned with latest bugfix outcomes.
+
+### What worked
+
+- Upload succeeded and listing includes the new file:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (URL Loop + Turn Parse Fix)`
+
+### What didn't work
+
+- N/A.
+
+### What I learned
+
+- Existing ticket upload path remains stable and supports rapid milestone publishing.
+
+### What was tricky to build
+
+- N/A.
+
+### What warrants a second pair of eyes
+
+- N/A.
+
+### What should be done in the future
+
+- Continue using milestone-suffixed names to avoid ambiguity.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/changelog.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md`
+- How to validate (commands/tests):
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Technical details
+
+- Uploaded document name:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (URL Loop + Turn Parse Fix).pdf`

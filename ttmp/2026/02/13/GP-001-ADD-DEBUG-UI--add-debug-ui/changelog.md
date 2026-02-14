@@ -183,3 +183,11 @@ Validation after patch:
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx — URL hydration/sync guard logic to prevent navigation replace loops
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Robust turn parsed payload decoding across lowercase/protobuf-style keys and enum kinds
+
+## 2026-02-14
+
+Uploaded refreshed GP-001 bundle after URL-loop + turn-parse fixes as `GP-001-ADD-DEBUG-UI Execution Progress (URL Loop + Turn Parse Fix).pdf` to `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/` and verified cloud listing includes the new file.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary captures upload/verification commands for this milestone
