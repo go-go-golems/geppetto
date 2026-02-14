@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T18:58:49-05:00
+LastUpdated: 2026-02-13T19:02:30-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -975,3 +975,99 @@ To keep `router.go` maintainable, I moved the offline logic into a separate `deb
   - `timeline_db`
   - `limit`
 - `GET /api/debug/runs/:runId` resolves run kind by encoded prefix and returns source-specific detail payload.
+
+## Step 12: Scaffold Reusable Frontend Debug Packages (Phase 4 Seed)
+
+With live/offline backend slices in place, I started the frontend extraction by creating reusable debug package modules in the pinocchio web workspace. This establishes a stable package surface for contract types, API access, state wiring, and metadata-focused components.
+
+I kept this slice intentionally narrow: scaffold + wiring + a metadata story component, then validated with frontend typecheck/build and hook checks. The full UI component port is left as the next task in this phase.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 9)
+
+**Assistant interpretation:** Continue implementing ticket tasks sequentially with working code, tests/checks, commits, and diary updates.
+
+**Inferred user intent:** Build reusable frontend building blocks now so full debug UI migration can proceed in smaller, safer increments.
+
+**Commit (code):** `30e3fa5` — "web-chat: scaffold reusable debug contract, api, state, and component packages"
+
+### What I did
+
+- Added package directories under `pinocchio/cmd/web-chat/web/src`:
+  - `debug-contract`
+  - `debug-api`
+  - `debug-state`
+  - `debug-components`
+  - `debug-app` (seed module)
+- Added contract interfaces for canonical debug API envelopes and metadata.
+- Added RTK Query API module targeting `/api/debug/*`:
+  - conversations, turns, turn detail, events, timeline, runs, run detail.
+- Added debug state slice/store/hooks with offline source config and selection state.
+- Added metadata UI components:
+  - `EnvelopeMetaCard`
+  - `TurnsEnvelopeCard`
+- Added Storybook story:
+  - `TurnsEnvelopeCard.stories.tsx`
+- Added seed `DebugApp` component consuming debug state + runs query metadata.
+- Ran frontend validation:
+  - `npm run typecheck`
+  - `npm run build`
+  - pre-commit `web-check` (`npm run check`) during commit.
+
+### Why
+
+- Phase 4 requires reusable React/RTK modules; this creates concrete package boundaries before migrating all legacy views/components.
+- Metadata usage requirement is now expressed directly in UI components and API contract types.
+
+### What worked
+
+- Package structure compiled cleanly.
+- Storybook HMR reflected the new story while running in tmux.
+- Commit succeeded after lint/import ordering fixes.
+
+### What didn't work
+
+- First commit attempt failed `web-check` due Biome import ordering errors in new files:
+  - `src/debug-app/DebugApp.tsx`
+  - `src/debug-state/hooks.ts`
+  - `src/debug-state/index.ts`
+- Resolution:
+  - ran `npm run lint:fix`,
+  - reran `npm run typecheck`,
+  - retried commit successfully.
+
+### What I learned
+
+- Frontend hook checks are strict about import ordering; running `lint:fix` proactively before commit is faster for new package scaffolding.
+
+### What was tricky to build
+
+- The tricky part was picking a minimal extraction slice that is real (compiles, queries, stories) without prematurely porting all legacy screens. The risk was either shipping only placeholders or over-scoping. I addressed this by shipping complete contract/api/state modules with metadata-oriented components while deferring broad UI porting to the next task.
+
+### What warrants a second pair of eyes
+
+- Confirm whether `debug-app/DebugApp` should remain a seed module or become the main debug shell entrypoint in the next slice.
+
+### What should be done in the future
+
+- Complete `P4.2` + `P4.5`: port baseline inspector views/components and add focused frontend tests around adapters/selectors.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/debug-contract/types.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-api/debugApi.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-state/store.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-components/TurnsEnvelopeCard.tsx`
+- How to validate (commands/tests):
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run check`
+  - `git -C pinocchio show --stat 30e3fa5`
+
+### Technical details
+
+- Debug API base URL is now fixed to `/api/debug/`.
+- Frontend envelope contracts retain metadata fields (`conv_id`, `session_id`, `phase`, `since_ms`, etc.) instead of flattening to arrays-only.
+- Storybook remains active in tmux session `gp001-sb` on `http://localhost:6007/`.

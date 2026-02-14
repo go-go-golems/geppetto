@@ -45,16 +45,16 @@
 
 ### Phase 4: Frontend Package Extraction In Pinocchio Web Workspace
 
-- [ ] `P4.1` Create package structure under `pinocchio/cmd/web-chat/web`:
-- [ ] `P4.1.a` `src/debug-contract`
-- [ ] `P4.1.b` `src/debug-api`
-- [ ] `P4.1.c` `src/debug-state`
-- [ ] `P4.1.d` `src/debug-components`
+- [x] `P4.1` Create package structure under `pinocchio/cmd/web-chat/web`:
+- [x] `P4.1.a` `src/debug-contract`
+- [x] `P4.1.b` `src/debug-api`
+- [x] `P4.1.c` `src/debug-state`
+- [x] `P4.1.d` `src/debug-components`
 - [ ] `P4.2` Port baseline debug UI components from `web-agent-example` into pinocchio-owned packages.
-- [ ] `P4.3` Update data adapters for timeline proto shape + metadata envelopes.
-- [ ] `P4.4` Ensure frontend uses envelope metadata in selectors/context panels (not only `items`).
+- [x] `P4.3` Update data adapters for timeline proto shape + metadata envelopes.
+- [x] `P4.4` Ensure frontend uses envelope metadata in selectors/context panels (not only `items`).
 - [ ] `P4.5` Add package-level tests/story stories and run `npm run check && npm run build`.
-- [ ] `P4.6` Commit frontend extraction slice.
+- [x] `P4.6` Commit frontend extraction slice.
 
 ### Phase 5: Pinocchio Debug App Shell + Storybook
 

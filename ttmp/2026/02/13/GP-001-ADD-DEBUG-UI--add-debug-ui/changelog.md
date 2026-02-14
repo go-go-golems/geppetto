@@ -40,6 +40,10 @@ Started Storybook for the pinocchio web workspace in tmux session `gp001-sb`; ac
 
 Implemented Phase 3 offline slice in `pinocchio` (commit `09a6320`): added `/api/debug/runs` and `/api/debug/runs/:runId` handlers supporting artifact directories plus sqlite turn/timeline sources, including artifact YAML/NDJSON/log parsing and sqlite run/detail readers with tests.
 
+## 2026-02-13
+
+Implemented initial Phase 4 frontend extraction slice in `pinocchio` (commit `30e3fa5`): scaffolded reusable `src/debug-contract`, `src/debug-api`, `src/debug-state`, and `src/debug-components` packages plus seed `debug-app` module; added metadata-focused story and validated with frontend typecheck/build and hook `web-check`.
+
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/planning/01-web-agent-debug-ui-migration-analysis-for-geppetto.md — Primary migration analysis document
