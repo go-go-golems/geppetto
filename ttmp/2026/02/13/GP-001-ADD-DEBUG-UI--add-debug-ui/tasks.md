@@ -66,6 +66,7 @@
 - [x] `P5.6` Commit app shell slice.
 - [x] `P5.7` Restore true offline viewer wiring in migrated debug-ui (`/api/debug/runs*`) with source/run URL persistence and read-only detail rendering.
 - [x] `P5.8` Fix URL search-param sync loop (`History API` spam) and turn-detail parsed payload decoding mismatch (`Blocks`/`ID` schema) in live inspector.
+- [x] `P5.9` Add regression tests for AppShell URL-sync hydration guard and turn parsing adapter (`payload` precedence + protobuf-style parsed shape support).
 
 ### Phase 6: Cutover + Deletion
 

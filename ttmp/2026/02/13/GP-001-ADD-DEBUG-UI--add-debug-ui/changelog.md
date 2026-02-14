@@ -191,3 +191,26 @@ Uploaded refreshed GP-001 bundle after URL-loop + turn-parse fixes as `GP-001-AD
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary captures upload/verification commands for this milestone
+
+## 2026-02-14
+
+Added regression-test coverage for the two recent live-debug regressions in `pinocchio` (commit `1045c3d`):
+- new URL-sync guard unit tests for `AppShell` hydration behavior (prevents History API replace-loop regressions),
+- new turn parsing adapter tests covering lowercase payloads, YAML payload strings, protobuf-style capitalized parsed payloads, and numeric/enum block kind mappings.
+
+Refactor included extracting shared helpers into:
+- `src/debug-ui/components/appShellSync.ts`
+- `src/debug-ui/api/turnParsing.ts`
+
+Validation after patch:
+- `npx vitest run src/debug-ui/components/appShellSync.test.ts src/debug-ui/api/turnParsing.test.ts` (pass)
+- `npm run -s check` (pass)
+- `npm run -s build` (pass)
+- `npm run storybook -- --ci --smoke-test --port 6007` (pass)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/appShellSync.ts — URL sync hydration-gate helper used by `AppShell`
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/appShellSync.test.ts — regression tests for URL sync loop prevention logic
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/turnParsing.ts — normalized turn parser helper for payload/parsed schemas
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/turnParsing.test.ts — parsing regressions for protobuf-style and YAML payloads

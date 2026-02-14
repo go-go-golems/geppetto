@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T13:44:00-05:00
+LastUpdated: 2026-02-14T15:47:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -2241,3 +2241,91 @@ After landing and documenting the runtime regression fixes, I published a fresh 
 
 - Uploaded document name:
   - `GP-001-ADD-DEBUG-UI Execution Progress (URL Loop + Turn Parse Fix).pdf`
+
+## Step 26: Add Regression Tests for URL Sync and Turn Parsing Fixes
+
+I continued with the next planned slice by adding targeted regression tests around the two runtime bugs we fixed in the previous step. The goal was to lock in behavior so URL sync loops and turn-detail parsing mismatches do not regress during remaining port work.
+
+To keep tests focused and maintainable, I extracted small pure helpers from `AppShell` and `debugApi` into dedicated modules and wrote Vitest coverage directly against those helpers.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continu"
+
+**Assistant interpretation:** Continue implementation immediately with the next concrete tasks, not just reporting.
+
+**Inferred user intent:** Keep shipping and harden the migration with test-backed fixes.
+
+**Commit (code):** `1045c3d` — "test(debug-ui): add regressions for url sync and turn parsing"
+
+### What I did
+
+- Added URL sync helper + tests:
+  - `src/debug-ui/components/appShellSync.ts`
+  - `src/debug-ui/components/appShellSync.test.ts`
+  - verifies hydration mismatch causes sync delay and aligned state allows URL writes.
+- Added turn parsing helper + tests:
+  - `src/debug-ui/api/turnParsing.ts`
+  - `src/debug-ui/api/turnParsing.test.ts`
+  - verifies lowercase payload parsing, YAML string parsing, protobuf-style capitalized parsed payload parsing, and enum kind mapping.
+- Wired helpers into runtime code:
+  - `AppShell.tsx` now calls `shouldDelayUrlSync(...)`
+  - `debugApi.ts` now imports `parseTurnPayload`/`toParsedTurn` from `turnParsing.ts`
+- Ran validation:
+  - `npx vitest run src/debug-ui/components/appShellSync.test.ts src/debug-ui/api/turnParsing.test.ts`
+  - `npm run -s check`
+  - `npm run -s build`
+  - `npm run storybook -- --ci --smoke-test --port 6007`
+
+### Why
+
+- We needed explicit regression tests for two high-impact runtime issues seen during real clicking/debugging.
+- Extracting pure helper modules reduces the chance of future accidental behavior drift in large UI components.
+
+### What worked
+
+- All new tests passed (`8/8`).
+- Full frontend checks/build/storybook smoke passed after helper extraction.
+- Pre-commit hook `web-check` passed on commit.
+
+### What didn't work
+
+- Initial lint warning surfaced in `AppShell` after helper extraction (`useExhaustiveDependencies`) because a generic object capture conflicted with specific dependency entries.
+- Fixed by updating sync helper inputs to use primitive offline fields (`offlineArtifactsRoot/offlineTurnsDB/offlineTimelineDB`) instead of passing the whole `offline` object.
+
+### What I learned
+
+- Biome exhaustive-deps warnings are useful at catching subtle hook capture mismatches that can reintroduce route-sync instability.
+- Keeping adapter decoding logic in a dedicated module makes schema-level tests straightforward and fast.
+
+### What was tricky to build
+
+- The tricky part was balancing hook dependency correctness with readable helper signatures. Passing nested state objects into the helper triggered lint pressure and could hide capture drift.
+- Flattening helper inputs to primitives resolved both lint clarity and test ergonomics.
+
+### What warrants a second pair of eyes
+
+- Confirm the test matrix for block-kind enum mapping is complete for all backend variants in active environments.
+
+### What should be done in the future
+
+- Add one integration-level test around `getTurnDetail` transform path once a stable API-mocking harness is added for debug-ui adapters.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/components/appShellSync.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/components/appShellSync.test.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/api/turnParsing.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/api/turnParsing.test.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
+- How to validate (commands/tests):
+  - `cd pinocchio/cmd/web-chat/web && npx vitest run src/debug-ui/components/appShellSync.test.ts src/debug-ui/api/turnParsing.test.ts`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s check`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s build`
+
+### Technical details
+
+- Added two new dedicated regression test files and one helper module per bugfix area.
+- Runtime behavior remains unchanged functionally; this slice formalizes expectations and prevents regressions.
