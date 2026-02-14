@@ -1,0 +1,66 @@
+# WS Protocol Surface Inventory
+
+## /ws handler and query params
+392:	mux.HandleFunc("/ws", func(w http.ResponseWriter, r0 *http.Request) {
+393:		queryConv := strings.TrimSpace(r0.URL.Query().Get("conv_id"))
+394:		queryProfile := strings.TrimSpace(r0.URL.Query().Get("profile"))
+409:		input, _, err := b.BuildEngineFromReq(r0)
+452:					"type": "ws.hello",
+453:					"id":   fmt.Sprintf("ws.hello:%s:%d", convID, ts),
+467:				msgType, data, err := conn.ReadMessage()
+497:								"type": "ws.pong",
+498:								"id":   fmt.Sprintf("ws.pong:%s:%d", convID, ts),
+522:		input, body, err := b.BuildEngineFromReq(r0)
+
+## Current SEM event types emitted by translator
+266:		return [][]byte{wrapSem(map[string]any{"type": "log", "id": id, "data": data})}, nil
+276:		out := map[string]any{"type": "llm.start", "id": id, "data": data}
+292:		out := map[string]any{"type": "llm.delta", "id": id, "data": data}
+308:		sem := map[string]any{"type": "llm.final", "id": id, "data": data}
+328:			out := map[string]any{"type": "llm.thinking.start", "id": id, "data": data}
+341:			return [][]byte{wrapSem(map[string]any{"type": "llm.thinking.final", "id": id, "data": data})}, nil
+349:				out := map[string]any{"type": "llm.thinking.delta", "id": id, "data": data}
+369:		out := map[string]any{"type": "llm.thinking.delta", "id": id, "data": data}
+385:		sem := map[string]any{"type": "llm.final", "id": id, "data": data}
+404:		return [][]byte{wrapSem(map[string]any{"type": "tool.start", "id": ev.ToolCall.ID, "data": data})}, nil
+421:		return [][]byte{wrapSem(map[string]any{"type": "tool.delta", "id": ev.ToolCall.ID, "data": data})}, nil
+436:				frames = append(frames, wrapSem(map[string]any{"type": "tool.result", "id": ev.ToolResult.ID, "data": resultData}))
+437:				frames = append(frames, wrapSem(map[string]any{"type": "tool.done", "id": ev.ToolResult.ID, "data": doneData}))
+449:		frames = append(frames, wrapSem(map[string]any{"type": "tool.result", "id": ev.ToolResult.ID, "data": resultData}))
+450:		frames = append(frames, wrapSem(map[string]any{"type": "tool.done", "id": ev.ToolResult.ID, "data": doneData}))
+466:				frames = append(frames, wrapSem(map[string]any{"type": "tool.result", "id": ev.ToolResult.ID, "data": resultData}))
+467:				frames = append(frames, wrapSem(map[string]any{"type": "tool.done", "id": ev.ToolResult.ID, "data": doneData}))
+479:		frames = append(frames, wrapSem(map[string]any{"type": "tool.result", "id": ev.ToolResult.ID, "data": resultData}))
+480:		frames = append(frames, wrapSem(map[string]any{"type": "tool.done", "id": ev.ToolResult.ID, "data": doneData}))
+499:		return [][]byte{wrapSem(map[string]any{"type": "agent.mode", "id": localID, "data": data})}, nil
+518:		return [][]byte{wrapSem(map[string]any{"type": "debugger.pause", "id": ev.PauseID, "data": data})}, nil
+540:		return [][]byte{wrapSem(map[string]any{"type": "thinking.mode.started", "id": ev.ItemID, "data": data})}, nil
+561:		return [][]byte{wrapSem(map[string]any{"type": "thinking.mode.update", "id": ev.ItemID, "data": data})}, nil
+582:		return [][]byte{wrapSem(map[string]any{"type": "thinking.mode.completed", "id": ev.ItemID, "data": data})}, nil
+
+## Frontend websocket consumers
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx:10:import { wsManager } from '../ws/wsManager';
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx:122:    void wsManager.connect({
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx:130:      wsManager.disconnect();
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx:208:    wsManager.disconnect();
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:36:export function registerSem(type: string, handler: Handler) {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:72:  registerSem('timeline.upsert', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:81:  registerSem('llm.start', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:87:  registerSem('llm.delta', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:100:  registerSem('llm.final', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:111:  registerSem('llm.thinking.start', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:117:  registerSem('llm.thinking.delta', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:129:  registerSem('llm.thinking.final', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:140:  registerSem('tool.start', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:145:  registerSem('tool.delta', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:150:  registerSem('tool.result', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:157:  registerSem('tool.done', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:162:  registerSem('log', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:172:  registerSem('agent.mode', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:182:  registerSem('debugger.pause', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:199:  registerSem('thinking.mode.started', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:212:  registerSem('thinking.mode.update', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/registry.ts:225:  registerSem('thinking.mode.completed', (ev, dispatch) => {
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts:79:    const url = `${proto}://${window.location.host}${args.basePrefix}/ws?conv_id=${encodeURIComponent(args.convId)}`;
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts:80:    const ws = new WebSocket(url);
+/home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/ws/wsManager.ts:221:export const wsManager = new WsManager();
