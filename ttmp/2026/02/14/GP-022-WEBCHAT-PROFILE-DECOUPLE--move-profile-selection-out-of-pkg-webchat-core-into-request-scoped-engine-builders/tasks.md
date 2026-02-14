@@ -64,7 +64,7 @@
 - [x] Update `pinocchio/pkg/doc/topics/webchat-user-guide.md` for app-owned profile policy.
 - [x] Update `pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md` to remove legacy builder guidance.
 - [x] Ensure docs/examples no longer teach `BuildEngineFromReq` after cutover.
-- [ ] Relate changed files in docmgr metadata where needed.
+- [x] Relate changed files in docmgr metadata where needed.
 
 ## Implementation Loop (required per slice)
 
