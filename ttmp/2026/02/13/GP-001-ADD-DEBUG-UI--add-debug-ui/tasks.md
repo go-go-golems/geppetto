@@ -64,6 +64,7 @@
 - [x] `P5.4` Start Storybook in `pinocchio/cmd/web-chat/web` in tmux and keep it running during iteration.
 - [x] `P5.5` Validate key inspector flows manually in Storybook and dev server.
 - [x] `P5.6` Commit app shell slice.
+- [x] `P5.7` Restore true offline viewer wiring in migrated debug-ui (`/api/debug/runs*`) with source/run URL persistence and read-only detail rendering.
 
 ### Phase 6: Cutover + Deletion
 

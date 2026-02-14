@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T20:15:13-05:00
+LastUpdated: 2026-02-14T13:05:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -1864,3 +1864,117 @@ I patched the adapter layer to tolerate real-world backend payload variance (esp
 - Commit hash: `2f79dda`
 - Files changed: `1`
 - Net result: schema-tolerant decoding for timeline/turn/event numerical fields and turn payload content shapes.
+
+## Step 22: Restore Offline Viewer in Migrated Debug UI and Align Storybook Transport Mocks
+
+I continued from the partially migrated state where live inspector routes were wired, but the active frontend app did not consume `/api/debug/runs*` even though backend offline handlers already existed. The goal of this step was to make offline viewer behavior real in the migrated app shell instead of only documented.
+
+I implemented offline source/run state, route wiring, and read-only run detail rendering, then updated Storybook MSW transport mocks to return canonical `/api/debug/*` envelope shapes. This removed a major source of schema drift noise while keeping the UI read-only.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue"
+
+**Assistant interpretation:** Continue implementation work immediately, close remaining migration gaps, and keep ticket artifacts updated.
+
+**Inferred user intent:** Finish GP-001 execution with concrete, tested code slices rather than stopping at analysis.
+
+**Commit (code):** `fba3093` — "feat(debug-ui): wire offline runs viewer into migrated app"
+
+### What I did
+
+- Extended debug-ui state in `uiSlice` with:
+  - `selectedRunId`
+  - `offline.artifactsRoot`
+  - `offline.turnsDB`
+  - `offline.timelineDB`
+  - actions `selectRun` + `setOfflineConfig`
+- Extended `debugApi.ts` with:
+  - `useGetRunsQuery`
+  - `useGetRunDetailQuery`
+  - typed transforms for runs and run detail envelopes
+- Added `OfflineSourcesPanel.tsx`:
+  - source path inputs for artifacts/sqlite
+  - run list query + selection
+- Added `OfflinePage.tsx` and route `/offline`:
+  - read-only run detail view (`run_id`, `kind`, `detail keys`, JSON payload)
+- Updated `AppShell.tsx`:
+  - added `Offline` top-nav item
+  - switched sidebar content by route (`SessionList` vs `OfflineSourcesPanel`)
+  - persisted/synced offline config + run selection via URL params and localStorage
+- Added styles:
+  - `styles/components/OfflinePage.css`
+  - offline sidebar classes in `AppShell.css`
+- Updated Storybook mocks to canonical transport envelopes in `createDebugHandlers.ts` and added offline fixtures:
+  - new fixture file `mocks/fixtures/offline.ts`
+  - default handlers now include `offlineRuns` + `runDetails`
+- Added Storybook story:
+  - `routes/OfflinePage.stories.tsx`
+
+### Why
+
+- Backend already provided offline runs APIs; the migrated frontend needed to consume them to satisfy the target architecture (offline viewer + live level-2) rather than only exposing live attach flows.
+- Canonical envelope-aligned MSW handlers reduce false positives during Storybook debugging where UI looked broken due mock shape drift, not real app logic.
+
+### What worked
+
+- Offline mode is now reachable from header nav and wired to canonical `/api/debug/runs*`.
+- Source and run state survive route and refresh via URL/localStorage sync.
+- All targeted validations passed:
+  - `npm run -s typecheck`
+  - `npm run -s check`
+  - `npm run -s build`
+  - `npm run storybook -- --ci --smoke-test --port 6007`
+
+### What didn't work
+
+- Initial typecheck failed after adding union response support in `getEvents` transform:
+  - `src/debug-ui/api/debugApi.ts(427,34): error TS2339: Property 'items' does not exist on type 'EventsResponse | DebugEventsEnvelope'.`
+  - `src/debug-ui/api/debugApi.ts(427,52): error TS7006: Parameter 'item' implicitly has an 'any' type.`
+  - `src/debug-ui/api/debugApi.ts(444,46): error TS2339: Property 'limit' does not exist on type 'EventsResponse | DebugEventsEnvelope'.`
+- Fix applied by explicit envelope cast in the non-`events[]` branch; subsequent typecheck passed.
+
+### What I learned
+
+- Even when the backend contract exists, a full UI move can regress capabilities if route wiring and selector state are moved in chunks.
+- Storybook data mismatch can hide real progress; canonical mock transport shapes are essential for confidence while porting.
+
+### What was tricky to build
+
+- The tricky part was keeping URL/state synchronization coherent across both live and offline modes while reusing one shell component. Symptoms included potential stale query params and cross-mode selection leakage.
+- I handled this by centralizing parameter reconciliation in `AppShell` and applying mode-specific rendering only at the sidebar/route layer, keeping shared shell behavior stable.
+
+### What warrants a second pair of eyes
+
+- Confirm whether offline detail view should remain generic JSON-first or gain specialized inspectors per run kind (`artifact`, `turns`, `timeline`) in this ticket.
+- Validate that URL/localStorage persistence policy for source paths is acceptable from a security/privacy standpoint for local operator workflows.
+
+### What should be done in the future
+
+- Add focused component tests for `OfflineSourcesPanel` and `OfflinePage` error/loading states.
+- Optionally split large `debugApi.ts` transforms into smaller decode modules to reduce regression surface.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/components/OfflineSourcesPanel.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/routes/OfflinePage.tsx`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts`
+- How to validate (commands/tests):
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s typecheck`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s check`
+  - `npm --prefix pinocchio/cmd/web-chat/web run -s build`
+  - `npm --prefix pinocchio/cmd/web-chat/web run storybook -- --ci --smoke-test --port 6007`
+
+### Technical details
+
+- New/updated frontend endpoints:
+  - `GET /api/debug/runs?artifacts_root=&turns_db=&timeline_db=&limit=`
+  - `GET /api/debug/runs/:runId?...`
+- New query params persisted by shell:
+  - `run`
+  - `artifacts_root`
+  - `turns_db`
+  - `timeline_db`

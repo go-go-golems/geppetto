@@ -139,3 +139,21 @@ Validated after patch:
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Schema-tolerant API adapters for timeline/turn/event decoding
+
+## 2026-02-14
+
+Implemented offline viewer wiring in the active migrated debug-ui app (commit `fba3093`): added `/api/debug/runs` and `/api/debug/runs/:runId` RTK queries, introduced offline source/run state in `uiSlice`, wired `Offline` route + sidebar source panel in `AppShell`, and added read-only run detail rendering. Also aligned Storybook MSW handlers to canonical `/api/debug/*` envelope shapes and added offline fixture coverage so stories exercise the same transport contract as backend endpoints.
+
+Validated after patch:
+- `npm run typecheck` (pass)
+- `npm run check` (pass)
+- `npm run build` (pass)
+- `npm run storybook -- --ci --smoke-test --port 6007` (pass)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx — Added offline mode navigation, source/run URL persistence, and conditional sidebar rendering
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/OfflineSourcesPanel.tsx — New source input and run selection panel for offline mode
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/routes/OfflinePage.tsx — Read-only offline run detail inspector
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Added runs/detail endpoints and normalization logic
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts — Canonical envelope MSW mocks plus offline endpoint handlers
