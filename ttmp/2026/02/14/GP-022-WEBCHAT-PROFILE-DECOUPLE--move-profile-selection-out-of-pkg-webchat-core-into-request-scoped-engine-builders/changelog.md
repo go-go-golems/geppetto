@@ -64,3 +64,16 @@ Implemented first code slice: replaced BuildEngineFromReq with ConversationReque
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/engine_from_req.go — Migrated custom resolver implementation
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/main.go — Switched option wiring to new resolver API
 
+
+## 2026-02-14 - Slice 2: remove core profile endpoints and cookie policy
+
+Removed core /api/chat/profile* endpoints and cookie-based resolver behavior; default resolver now uses generic runtime key semantics and debug API returns runtime_key. Updated tests accordingly.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/engine_from_req.go — Removed profile registry/cookie resolver dependencies and switched to runtime key query
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router.go — Removed core profile endpoints and updated WS logging/request comments
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router_debug_api_test.go — Updated debug API assertions for runtime_key
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router_debug_routes.go — Renamed debug payload field to runtime_key
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/engine_from_req.go — Simplified default runtime-key resolver path
+

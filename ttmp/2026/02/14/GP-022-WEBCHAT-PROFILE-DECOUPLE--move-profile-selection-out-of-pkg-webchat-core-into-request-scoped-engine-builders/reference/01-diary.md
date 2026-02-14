@@ -183,3 +183,89 @@ The primary objective was to establish one consistent request entry point (`Reso
   - `pinocchio/pkg/webchat/types.go`
   - `web-agent-example/cmd/web-agent-example/engine_from_req.go`
   - `web-agent-example/cmd/web-agent-example/main.go`
+
+## Step 3: Core Request Policy Becomes Runtime-Key Generic
+
+This slice removed additional profile-specific behavior from core request handling. Core resolver no longer depends on `chat_profile` cookies or core-managed profile API endpoints, and debug API payloads now expose a generic runtime identity key.
+
+The result is a clearer separation: core handles request resolution into a runtime key and execution inputs, while app-level code becomes the proper place for profile UX endpoints/policy.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementation slices with testing, commits, task checks, and diary updates.
+
+**Inferred user intent:** Progressively eliminate core profile coupling while keeping builds/tests stable and traceable.
+
+**Commit (code):** `292abe4` — "webchat: drop core profile endpoints and cookie-based request policy"  
+**Commit (code):** `1892538` — "web-agent-example: simplify resolver to runtime-key-only policy"
+
+### What I did
+- In `pinocchio/pkg/webchat/engine_from_req.go`:
+  - removed profile registry dependency from default resolver.
+  - removed cookie-based fallback (`chat_profile`) from request resolution.
+  - switched WS/query key from profile-centric to runtime-centric (`runtime`).
+  - removed profile existence validation in core resolver.
+- In `pinocchio/pkg/webchat/router.go`:
+  - removed core `/api/chat/profiles` and `/api/chat/profile` handlers.
+  - updated WS request logging to `runtime_query`.
+  - kept resolver integration in place with new generic behavior.
+- In `pinocchio/pkg/webchat/router_debug_routes.go` and tests:
+  - changed debug response field from `profile` to `runtime_key`.
+- In `web-agent-example/cmd/web-agent-example/engine_from_req.go`:
+  - removed stale profile parsing no-ops and kept strict default runtime-key policy.
+
+### Why
+- This slice directly addresses the boundary issue where core owned profile endpoints and cookie semantics.
+- It prepares the codebase for full removal of profile types/registry from core by reducing active dependencies first.
+
+### What worked
+- `go test ./pkg/webchat/...` passed after changes.
+- `go test ./cmd/web-chat/...` passed.
+- Core pre-commit hook passed (`go test ./...`, generate/build/lint/vet in `pinocchio`).
+
+### What didn't work
+- `go test ./cmd/web-agent-example` remains blocked by pre-existing module dependency setup issues:
+  - missing `github.com/go-go-golems/geppetto/pkg/layers`
+  - missing `github.com/go-go-golems/glazed/pkg/cmds/layers`
+  - missing `github.com/go-go-golems/glazed/pkg/cmds/parameters`
+
+### What I learned
+- Removing profile HTTP endpoints and cookie fallback from core is low-risk when done after the resolver contract cutover.
+- Debug payload field rename can be done backend-first while frontend mapping is updated in later app slices.
+
+### What was tricky to build
+- The tricky part was keeping behavior coherent while changing both request policy and debug schema in one slice.  
+  Symptoms: tests and handler assumptions still referred to profile naming and cookie behavior.  
+  Resolution: updated resolver tests to runtime precedence rules, removed endpoint handlers in one patch, and renamed debug response keys with matching test updates.
+
+### What warrants a second pair of eyes
+- Whether default resolver should keep accepting legacy `profile` query as temporary alias (currently no; only `runtime`).
+- Whether WS hello payload `profile` field should be renamed in the immediate next slice to avoid mixed terminology.
+
+### What should be done in the future
+- Next slice should remove core `Profile`/`ProfileRegistry`/`AddProfile` surfaces and migrate `cmd/web-chat` to app-owned profile registry and handlers.
+
+### Code review instructions
+- Review files in this order:
+  - `pinocchio/pkg/webchat/engine_from_req.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/router_debug_routes.go`
+  - `pinocchio/pkg/webchat/router_debug_api_test.go`
+- Validate with:
+  - `go test ./pkg/webchat/...` in `pinocchio/`
+  - `go test ./cmd/web-chat/...` in `pinocchio/`
+
+### Technical details
+- Commands run:
+  - `go test ./pkg/webchat/...` (`pinocchio`) -> pass
+  - `go test ./cmd/web-chat/...` (`pinocchio`) -> pass
+  - `go test ./cmd/web-agent-example` (`web-agent-example`) -> baseline setup failure
+- Files changed in this slice:
+  - `pinocchio/pkg/webchat/engine_from_req.go`
+  - `pinocchio/pkg/webchat/engine_from_req_test.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/router_debug_routes.go`
+  - `pinocchio/pkg/webchat/router_debug_api_test.go`
+  - `web-agent-example/cmd/web-agent-example/engine_from_req.go`

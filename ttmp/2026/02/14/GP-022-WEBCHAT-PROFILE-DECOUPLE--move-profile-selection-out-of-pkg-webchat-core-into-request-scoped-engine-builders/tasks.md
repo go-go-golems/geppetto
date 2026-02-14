@@ -17,12 +17,12 @@
 - [x] Remove or short-circuit old `BuildEngineFromReq` pathway from runtime execution path.
 - [ ] Remove profile concepts from core types/options surface:
   - `Profile`, `ProfileRegistry`, `WithProfileRegistry`, `Router.AddProfile`
-- [ ] Remove core-owned profile endpoints from router:
+- [x] Remove core-owned profile endpoints from router:
   - `/api/chat/profiles`
   - `/api/chat/profile`
 - [ ] Update conversation + queue structs to generic runtime identity naming (remove `ProfileSlug` fields).
 - [ ] Move rebuild checks to `Fingerprint` comparison (instead of profile+signature coupling).
-- [ ] Update debug API payloads to generic runtime naming (`engine_key` / `runtime_key`).
+- [x] Update debug API payloads to generic runtime naming (`engine_key` / `runtime_key`).
 - [ ] Update WS hello semantics to remove/rename profile field usage.
 - [ ] Remove dead code and tests tied only to old profile-centric request builder path.
 
