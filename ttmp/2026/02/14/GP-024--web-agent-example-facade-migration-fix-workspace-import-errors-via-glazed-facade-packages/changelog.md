@@ -30,3 +30,12 @@ Added focused tests for `noCookieRequestResolver` and validated package-wide tes
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/engine_from_req_test.go — New resolver behavior test suite
+
+## 2026-02-14 - Ticket closed
+
+Marked GP-024 as completed after finishing all planned migration and validation tasks.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/14/GP-024--web-agent-example-facade-migration-fix-workspace-import-errors-via-glazed-facade-packages/index.md — Status updated to completed
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/14/GP-024--web-agent-example-facade-migration-fix-workspace-import-errors-via-glazed-facade-packages/reference/01-diary.md — Diary status updated to completed

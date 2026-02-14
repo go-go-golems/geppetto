@@ -1,7 +1,7 @@
 ---
 Title: Diary
 Ticket: GP-024
-Status: active
+Status: completed
 Topics:
     - web-agent-example
     - glazed

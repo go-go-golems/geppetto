@@ -1,7 +1,7 @@
 ---
 Title: BuildConfig and BuildFromConfig Extraction Plan
 Ticket: GP-023
-Status: active
+Status: completed
 Topics:
   - webchat
   - architecture
@@ -11,14 +11,16 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-  - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/engine_builder.go
-    Note: Current core ownership of BuildConfig and BuildFromConfig
+  - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/runtime_composer.go
+    Note: New core runtime composer contract used by ConvManager
   - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/conversation.go
-    Note: ConvManager wiring to buildConfig/buildFromConfig callbacks
+    Note: ConvManager now composes runtime via RuntimeComposer and fingerprints
   - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router.go
-    Note: startInferenceForPrompt composes runtime using core builder methods
-  - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/profile_policy.go
-    Note: App-owned request policy; natural home for runtime composition policy
+    Note: Router wires runtime composer into ConvManager and sink wrappers
+  - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/runtime_composer.go
+    Note: App-owned runtime policy implementation for web-chat
+  - Path: /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/runtime_composer.go
+    Note: App-owned runtime policy implementation for web-agent-example
 ExternalSources: []
 Summary: Plan to remove BuildConfig/BuildFromConfig from pkg/webchat and make runtime composition fully app-owned.
 ---

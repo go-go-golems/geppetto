@@ -1,7 +1,7 @@
 ---
 Title: WEB-AGENT-EXAMPLE-FACADE-MIGRATION--fix-workspace-import-errors-via-glazed-facade-packages
 Ticket: GP-024
-Status: active
+Status: completed
 Topics:
     - web-agent-example
     - glazed
@@ -32,7 +32,7 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **active**
+Current status: **completed**
 
 ## Topics
 

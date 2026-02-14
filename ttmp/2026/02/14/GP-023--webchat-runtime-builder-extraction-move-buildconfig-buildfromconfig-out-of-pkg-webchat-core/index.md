@@ -1,7 +1,7 @@
 ---
 Title: WEBCHAT-RUNTIME-BUILDER-EXTRACTION--move-buildconfig-buildfromconfig-out-of-pkg-webchat-core
 Ticket: GP-023
-Status: active
+Status: completed
 Topics:
     - webchat
     - architecture
@@ -31,7 +31,7 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **active**
+Current status: **completed**
 
 ## Topics
 
