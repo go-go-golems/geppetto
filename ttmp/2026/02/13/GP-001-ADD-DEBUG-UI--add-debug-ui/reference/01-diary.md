@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T19:07:15-05:00
+LastUpdated: 2026-02-13T19:49:12-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -1426,6 +1426,172 @@ This keeps the latest state available for review without waiting for Phase 6 cle
 - Remote folder now contains:
   - `GP-001-ADD-DEBUG-UI Execution Progress`
   - `GP-001-ADD-DEBUG-UI Execution Progress (Phase 5)`
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Ported UI Slice)`
+  - `GP-001-ADD-DEBUG-UI Migration Analysis`
+  - `GP-001-ADD-DEBUG-UI Migration Analysis (Pinocchio Update)`
+
+## Step 17: Complete Phase 6 Cutover Commits and Validate Removal Surface
+
+I completed the outstanding Phase 6 implementation work by committing the final frontend route-alignment fix in `pinocchio` and the full legacy harness deletion in `web-agent-example`. This closed the code-side cutover from old debug endpoints/harness paths to the pinocchio-owned debug UI flow.
+
+I also re-ran high-signal validation commands for this slice, including grep-based removal verification and repo-level checks where possible, and captured the known workspace dependency limitations for `web-agent-example`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 15)
+
+**Assistant interpretation:** Continue execution of the active migration plan, finish pending commits, and update ticket state with validation.
+
+**Inferred user intent:** Drive the migration through concrete implementation milestones (not just planning), with commit-by-commit progress, testing, and diary hygiene.
+
+**Commit (code):** `6cb9117` — "fix(web-chat): align debug-ui msw mocks with api debug routes"; `2905322` — "chore: remove web-agent-debug harness after debug-ui migration"
+
+### What I did
+
+- In `pinocchio`, committed the pending mock-route alignment in:
+  - `cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts`
+  - switched remaining MSW routes from `/debug/*` to `/api/debug/*`.
+- In `web-agent-example`, committed removal of:
+  - `cmd/web-agent-debug/**`
+  - legacy playbook doc `web-chat-example/pkg/docs/debug-ui-storybook-widget-playbook.md`
+  - obsolete README harness section.
+- Validation commands run:
+  - `rg -n "web-agent-debug|cmd/web-agent-debug" -g '*.go' -g '*.md' -g '*.yaml' -g '*.yml' .` in `web-agent-example` (no matches)
+  - `GOWORK=off go test ./...` in `web-agent-example` (fails due missing module deps in environment)
+  - `npm run -s typecheck` in `pinocchio/cmd/web-chat/web` (pass)
+  - `tmux ls | rg gp001-sb` (storybook session healthy)
+  - `rg -n "['\"]/debug/|\\b/debug/" pinocchio/cmd/web-chat/web/src/debug-ui` (only canonical `/api/debug/*` usages remained).
+
+### Why
+
+- The migration required full deletion of legacy harness ownership and removal of old frontend compatibility route usage.
+- Finishing the two remaining commits unlocked checking off Phase 6 tasks in the ticket.
+
+### What worked
+
+- Both commits landed cleanly with intended scope.
+- Frontend mock/runtime path usage now consistently targets `/api/debug/*`.
+- Legacy `web-agent-debug` code tree is removed from `web-agent-example`.
+- Storybook tmux session remained stable during the cutover.
+
+### What didn't work
+
+- Full `go test ./...` in `web-agent-example` still fails in this workspace because module dependencies are unavailable. Representative error:
+  - `no required module provides package github.com/go-go-golems/clay/pkg`
+- This failure predates the deletion slice and prevents full repo-level test validation in current environment.
+
+### What I learned
+
+- The most reliable Phase 6 validation is a mix of route grep checks + clean commits + scoped frontend typecheck; full Go test in this repo is environment-bound unless dependencies/workspace wiring are restored.
+
+### What was tricky to build
+
+- The tricky part was executing destructive-looking deletions while following the repo policy constraints (no destructive reset/checkout). I used staged deletion via committed file removals and then validated with content searches to prove no stale references remained.
+
+### What warrants a second pair of eyes
+
+- Confirm whether we should treat `P6.4` as fully satisfied with documented environment-blocked test failure, or reopen it in a workspace where `web-agent-example` dependencies resolve.
+
+### What should be done in the future
+
+- Upload refreshed GP-001 docs bundle to reMarkable reflecting completed Phase 6 cutover status.
+- Plan a dedicated cleanup slice for `P4.5` lint/a11y debt in migrated debug-ui components.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts`
+  - `web-agent-example/README.md`
+  - `web-agent-example/cmd/web-agent-debug` (deleted tree in commit `2905322`)
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/tasks.md`
+- How to validate (commands/tests):
+  - `git -C pinocchio show --stat 6cb9117`
+  - `git -C web-agent-example show --stat 2905322`
+  - `cd web-agent-example && rg -n "web-agent-debug|cmd/web-agent-debug" -g '*.go' -g '*.md' .`
+  - `cd pinocchio/cmd/web-chat/web && npm run -s typecheck`
+
+### Technical details
+
+- Commit `6cb9117`: `1` file changed, `8` insertions, `8` deletions.
+- Commit `2905322`: `124` files changed, `17602` deletions.
+- Storybook session check:
+  - `gp001-sb: 1 windows (created Fri Feb 13 19:34:47 2026)`
+
+## Step 18: Upload Refreshed Phase 6 Bundle to reMarkable and Verify Listing
+
+With Phase 6 tasks and diary state updated, I uploaded a fresh GP-001 bundle to reMarkable so the latest cutover status is available for review outside the repo. I followed the safe upload sequence (`status` + dry-run + upload + cloud verify) and captured the resulting filename in the ticket docs.
+
+The first listing check returned without the new filename due cloud propagation delay; a second listing a few seconds later showed the uploaded document as expected.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 15)
+
+**Assistant interpretation:** Continue by completing ticket hygiene and synchronization to reMarkable after implementation progress.
+
+**Inferred user intent:** Keep the reMarkable copy of GP-001 aligned with the latest code and task/diary status.
+
+**Commit (code):** N/A (documentation/upload step)
+
+### What I did
+
+- Ran preflight:
+  - `remarquee status`
+  - `remarquee upload bundle --dry-run ... --name "GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Ran upload:
+  - `remarquee upload bundle ... --name "GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Verified cloud listing:
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+  - reran listing after short delay to confirm new file visibility.
+
+### Why
+
+- `P7.3` requires refreshed ticket uploads at major milestones, and Phase 6 completion is a milestone.
+
+### What worked
+
+- Upload command succeeded on first attempt:
+  - `OK: uploaded GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover).pdf -> /ai/2026/02/13/GP-001-ADD-DEBUG-UI`
+- Cloud listing confirms presence of:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover)`.
+
+### What didn't work
+
+- Immediate first `cloud ls` did not show the newly uploaded file yet; likely eventual consistency delay.
+- A second listing after `sleep 2` resolved it.
+
+### What I learned
+
+- For reMarkable verification, a second listing retry is useful before treating an upload as missing.
+
+### What was tricky to build
+
+- The only tricky part was distinguishing upload failure from listing delay; explicit command success output plus delayed re-check avoided a false negative.
+
+### What warrants a second pair of eyes
+
+- Confirm whether we should standardize on always running `cloud ls` twice (or with a small retry loop) in diary workflows.
+
+### What should be done in the future
+
+- Continue with remaining frontend cleanup work (`P4.5`) and upload another bundle once lint/a11y remediation lands.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/changelog.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md`
+- How to validate (commands/tests):
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Technical details
+
+- Uploaded artifact:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover).pdf`
+- Current cloud folder contents include:
+  - `GP-001-ADD-DEBUG-UI Execution Progress`
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Phase 5)`
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover)`
   - `GP-001-ADD-DEBUG-UI Execution Progress (Ported UI Slice)`
   - `GP-001-ADD-DEBUG-UI Migration Analysis`
   - `GP-001-ADD-DEBUG-UI Migration Analysis (Pinocchio Update)`

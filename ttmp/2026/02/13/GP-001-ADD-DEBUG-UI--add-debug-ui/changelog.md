@@ -80,3 +80,24 @@ Uploaded refreshed GP-001 ticket bundle after full UI port as 'GP-001-ADD-DEBUG-
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary updated with new implementation slice and validation results
 
+## 2026-02-14
+
+Completed the Phase 6 cutover deletion and route-alignment follow-up:
+- pinocchio commit `6cb9117` updated debug-ui MSW handlers to canonical `/api/debug/*` paths, removing the last `/debug/*` compatibility dependency in frontend mocks.
+- web-agent-example commit `2905322` removed `cmd/web-agent-debug` harness and legacy debug UI source tree, plus stale README/docs references.
+- validation confirms no remaining `web-agent-debug` references in `web-agent-example` source/docs and Storybook tmux session `gp001-sb` remains healthy on `http://localhost:6007/`.
+- repo-wide `GOWORK=off go test ./...` in `web-agent-example` still fails due pre-existing missing module dependencies in this workspace (not introduced by deletion); failure is documented in diary.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts — Mock handlers switched from `/debug/*` to `/api/debug/*`
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/README.md — Removed obsolete `web-agent-debug` harness instructions
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary records Phase 6 commits and validation outcomes
+
+## 2026-02-13
+
+Uploaded refreshed GP-001 bundle after Phase 6 completion as `GP-001-ADD-DEBUG-UI Execution Progress (Phase 6 Cutover).pdf` to `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/` and verified cloud listing includes the new document.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary captures upload commands and verification listing

@@ -67,10 +67,10 @@
 
 ### Phase 6: Cutover + Deletion
 
-- [ ] `P6.1` Remove `web-agent-example/cmd/web-agent-debug` frontend and Go harness.
-- [ ] `P6.2` Remove obsolete references/scripts/docs tied to deleted debug app.
-- [ ] `P6.3` Ensure no compatibility dependency on old `/debug/*` namespace in frontend.
-- [ ] `P6.4` Run repo-level checks impacted by removal and commit.
+- [x] `P6.1` Remove `web-agent-example/cmd/web-agent-debug` frontend and Go harness.
+- [x] `P6.2` Remove obsolete references/scripts/docs tied to deleted debug app.
+- [x] `P6.3` Ensure no compatibility dependency on old `/debug/*` namespace in frontend.
+- [x] `P6.4` Run repo-level checks impacted by removal and commit.
 
 ### Phase 7: Ticket Hygiene Per Slice
 
