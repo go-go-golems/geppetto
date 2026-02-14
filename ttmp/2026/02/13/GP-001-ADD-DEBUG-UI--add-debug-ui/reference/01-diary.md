@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-13T19:59:56-05:00
+LastUpdated: 2026-02-13T20:15:13-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -1775,3 +1775,92 @@ As with previous uploads, the first listing omitted the file due propagation del
   - `GP-001-ADD-DEBUG-UI Execution Progress (Ported UI Slice)`
   - `GP-001-ADD-DEBUG-UI Migration Analysis`
   - `GP-001-ADD-DEBUG-UI Migration Analysis (Pinocchio Update)`
+
+## Step 21: Harden Debug API Adapters for Schema Drift (Stringified Numeric Fields)
+
+After we resumed with the “little issues” note, I focused on schema-boundary hardening instead of component rewrites. The highest-risk area was `debugApi.ts`, where timeline/turn/event decoding assumed numeric fields were native numbers and turn payloads were always YAML strings.
+
+I patched the adapter layer to tolerate real-world backend payload variance (especially protojson int64/uint64-as-string), then re-ran full frontend validation and committed the fix.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, let's continue. There's little issues but I think they are related to matching schemas and all."
+
+**Assistant interpretation:** Continue implementation by addressing remaining integration issues, likely at schema-adapter boundaries between backend responses and debug-ui models.
+
+**Inferred user intent:** Stabilize real-app behavior after migration by fixing contract normalization mismatches without large UI rewrites.
+
+**Commit (code):** `2f79dda` — "fix(debug-ui): tolerate stringified numeric fields in api adapters"
+
+### What I did
+
+- Updated `pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`:
+  - `asNumber` now parses `number`, numeric `string`, and `bigint`.
+  - `parseTurnPayload` now accepts:
+    - YAML string payloads
+    - already-decoded object payloads
+    - empty/null fallback safely
+  - widened adapter input interfaces:
+    - `created_at_ms` accepts `number | string`
+    - `seq` accepts `number | string`
+    - turn payload accepts `string | Record<string, unknown>`
+  - `toTimelineEntity` now checks additional timestamp aliases:
+    - `createdAtMs`, `created_at_ms`, `createdAt`, `created_at`
+    - `updatedAtMs`, `updated_at_ms`, `updatedAt`, `updated_at`
+  - turn list mapping now normalizes `created_at_ms` through `asNumber`.
+- Validation executed:
+  - `npm run -s typecheck`
+  - `npm run -s check`
+  - `npm run -s build`
+  - `npm run storybook -- --ci --smoke-test --port 6007`
+
+### Why
+
+- Backend timeline responses are protojson-encoded; int64/uint64 fields may be serialized as strings.
+- Strict numeric assumptions caused silent coercion to `0`, which manifests as subtle timeline/rendering inconsistencies.
+- Fixing the adapter preserves the `mv`-first migration strategy by avoiding deep component-level changes.
+
+### What worked
+
+- The fix is isolated to one adapter file and passed pre-commit `web-check`.
+- All frontend validation commands remained green after the patch.
+- Storybook smoke test remained clean.
+
+### What didn't work
+
+- N/A in this slice.
+
+### What I learned
+
+- The debug UI adapter layer must be explicitly tolerant of protojson number encoding differences; relying on strict TS surface types (`number`) is insufficient for runtime payloads.
+
+### What was tricky to build
+
+- The tricky part was avoiding overfitting to one payload shape while keeping the changes small and reviewable. I constrained the patch to normalization helpers and decode boundaries rather than changing component/state contracts.
+
+### What warrants a second pair of eyes
+
+- Confirm whether we should add a dedicated adapter-level test file for mixed numeric encodings to prevent regressions.
+
+### What should be done in the future
+
+- Consider adding lightweight RTK transform tests for timeline and turn payload decoding edge cases.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
+    - `asNumber`
+    - `parseTurnPayload`
+    - `toTimelineEntity`
+    - `getTurns.transformResponse`
+- How to validate (commands/tests):
+  - `cd pinocchio/cmd/web-chat/web && npm run check`
+  - `cd pinocchio/cmd/web-chat/web && npm run build`
+  - `cd pinocchio/cmd/web-chat/web && npm run storybook -- --ci --smoke-test --port 6007`
+
+### Technical details
+
+- Commit hash: `2f79dda`
+- Files changed: `1`
+- Net result: schema-tolerant decoding for timeline/turn/event numerical fields and turn payload content shapes.

@@ -125,3 +125,17 @@ Uploaded refreshed GP-001 bundle after `P4.5` completion as `GP-001-ADD-DEBUG-UI
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary captures upload commands and listing verification
+
+## 2026-02-14
+
+Addressed post-port schema drift in debug UI adapters (commit `2f79dda`): updated `debugApi.ts` normalization to accept stringified numeric values (common in protojson for int64/uint64), support mixed turn payload shapes (YAML string or object), and broaden timeline timestamp/version field fallbacks. This fixes timeline/entity rendering edge cases where numeric fields were interpreted as `0`.
+
+Validated after patch:
+- `npm run typecheck` (pass)
+- `npm run check` (pass)
+- `npm run build` (pass)
+- `npm run storybook -- --ci --smoke-test --port 6007` (pass)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Schema-tolerant API adapters for timeline/turn/event decoding
