@@ -230,3 +230,11 @@ Marked GP-001 ticket status as completed in index metadata/status section after 
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/index.md — Ticket status moved from active to completed with final progress snapshot
+
+## 2026-02-14
+
+Uploaded final completion bundle as `GP-001-ADD-DEBUG-UI Execution Progress (Ticket Complete).pdf` to `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/` and verified cloud listing includes the completed-ticket artifact.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/index.md — Included in final completion bundle upload

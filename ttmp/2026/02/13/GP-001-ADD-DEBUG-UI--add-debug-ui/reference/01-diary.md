@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T16:08:00-05:00
+LastUpdated: 2026-02-14T16:17:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -2456,3 +2456,66 @@ This closes GP-001 bookkeeping cleanly while preserving all implementation detai
 ### Technical details
 
 - Closure metadata now indicates completed ticket lifecycle and final deliverables.
+
+## Step 29: Upload Final Completed-Ticket Bundle to reMarkable
+
+After marking the ticket completed, I published a final completion bundle including `index.md` plus planning/tasks/changelog/diary and verified it appears in the ticket folder on reMarkable cloud.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 26)
+
+**Assistant interpretation:** Continue through closure and finalize externally visible artifacts.
+
+**Inferred user intent:** Have a complete end-to-end record, including a clear completion artifact on reMarkable.
+
+**Commit (code):** N/A (upload/verification step)
+
+### What I did
+
+- Uploaded final bundle:
+  - `remarquee upload bundle <index> <planning> <tasks> <changelog> <diary> --name "GP-001-ADD-DEBUG-UI Execution Progress (Ticket Complete)" --remote-dir "/ai/2026/02/13/GP-001-ADD-DEBUG-UI"`
+- Verified listing:
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Why
+
+- Publish an explicit completion artifact separate from incremental progress bundles.
+
+### What worked
+
+- Upload succeeded and listing includes:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Ticket Complete)`
+
+### What didn't work
+
+- N/A.
+
+### What I learned
+
+- Including `index.md` in the final bundle improves completeness for readers consuming only reMarkable exports.
+
+### What was tricky to build
+
+- N/A.
+
+### What warrants a second pair of eyes
+
+- N/A.
+
+### What should be done in the future
+
+- Use the same "Ticket Complete" bundle convention for future ticket closures.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/index.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/changelog.md`
+- How to validate (commands/tests):
+  - `remarquee cloud ls /ai/2026/02/13/GP-001-ADD-DEBUG-UI --long --non-interactive`
+
+### Technical details
+
+- Uploaded completion artifact:
+  - `GP-001-ADD-DEBUG-UI Execution Progress (Ticket Complete).pdf`
