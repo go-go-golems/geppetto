@@ -25,7 +25,7 @@ RelatedFiles:
       Note: Diary records style guard behavior and discovered coverage gap
 ExternalSources: []
 Summary: Implementation diary for GP-001 covering ticket setup, source audit, migration analysis drafting, validation commands, and reMarkable upload workflow.
-LastUpdated: 2026-02-14T15:58:00-05:00
+LastUpdated: 2026-02-14T16:08:00-05:00
 WhatFor: Chronological execution record with commands, findings, failures, and review guidance.
 WhenToUse: Use to reconstruct why migration decisions were made and how to validate them.
 ---
@@ -2392,3 +2392,67 @@ After landing regression tests and updating ticket docs, I published a refreshed
 
 - Uploaded document name:
   - `GP-001-ADD-DEBUG-UI Execution Progress (Regression Tests).pdf`
+
+## Step 28: Mark GP-001 Ticket Status as Completed
+
+With all execution-board tasks now checked and validated, I finalized the ticket index status from `active` to `completed`. I also updated the status snapshot to reflect implemented backend/frontend migration scope, regression fixes, and milestone upload trail.
+
+This closes GP-001 bookkeeping cleanly while preserving all implementation detail in diary/changelog/task records.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 26)
+
+**Assistant interpretation:** Continue through completion and close out ticket hygiene once implementation slices are done.
+
+**Inferred user intent:** Reach a done state, not just partial progress, and leave high-quality execution records.
+
+**Commit (code):** N/A (ticket-status/documentation closure step)
+
+### What I did
+
+- Updated ticket index metadata/status:
+  - `Status: active` → `Status: completed`
+  - `Current status: **active**` → `Current status: **completed**`
+- Updated progress snapshot bullets to final state outcomes.
+- Updated `LastUpdated` in index and diary.
+
+### Why
+
+- All tasks in `tasks.md` are complete; ticket status should reflect actual closure state.
+
+### What worked
+
+- Ticket now clearly communicates completed lifecycle in one place (`index.md`).
+
+### What didn't work
+
+- Playwright MCP was unavailable for one attempted browser QA command due profile lock (`Browser is already in use...`); this did not block task closure because route-level regressions were already validated via prior manual repro + automated checks.
+
+### What I learned
+
+- Closing status explicitly in the index prevents ambiguity when many milestone uploads/changelog entries exist.
+
+### What was tricky to build
+
+- Minimal complexity; the only nuance was ensuring closure reflects verified outcomes rather than just task checkboxes.
+
+### What warrants a second pair of eyes
+
+- Optional: quick skim of final status language in `index.md` for wording preference.
+
+### What should be done in the future
+
+- Carry same closure pattern into future GP tickets: complete tasks + explicit status flip + final summary bullets.
+
+### Code review instructions
+
+- Where to start (files + key symbols):
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/index.md`
+  - `geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/tasks.md`
+- How to validate (commands/tests):
+  - `rg -n -- "- \[ \]" geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/tasks.md` (no matches)
+
+### Technical details
+
+- Closure metadata now indicates completed ticket lifecycle and final deliverables.

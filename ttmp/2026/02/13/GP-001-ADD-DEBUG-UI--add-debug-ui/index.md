@@ -1,7 +1,7 @@
 ---
 Title: Add Debug UI
 Ticket: GP-001-ADD-DEBUG-UI
-Status: active
+Status: completed
 Topics:
     - frontend
     - geppetto
@@ -21,7 +21,7 @@ RelatedFiles:
       Note: Primary frontend contract expectations assessed for migration
 ExternalSources: []
 Summary: Ticket workspace for migrating web-agent debug UI into pinocchio as a first-class visualization/debugging tool and reusable React/RTK inspector package stack for offline (filesystem/sqlite) and live level-2 modes.
-LastUpdated: 2026-02-13T18:06:00-05:00
+LastUpdated: 2026-02-14T16:05:00-05:00
 WhatFor: Track planning, decisions, and execution details for GP-001 no-backwards-compatibility migration.
 WhenToUse: Use when implementing or reviewing the GP-001 migration and cleanup work.
 ---
@@ -51,14 +51,15 @@ This ticket captures the migration strategy to move the debug UI currently in `w
 
 ## Status
 
-Current status: **active**
+Current status: **completed**
 
 Progress snapshot:
 
-- Ticket and docs created.
-- Deep migration analysis completed and stored in planning doc.
-- Diary populated with step-by-step execution details and command outcomes.
-- reMarkable upload completed and verified in cloud storage.
+- Backend canonical debug APIs, live read models, and offline artifact/sqlite run viewers implemented.
+- Migrated debug UI fully lives in pinocchio web workspace with Storybook and canonical `/api/debug/*` wiring.
+- Legacy `web-agent-example/cmd/web-agent-debug` harness/UI removed.
+- Post-port regressions (URL history loop, parsed turn block decoding) fixed and regression-tested.
+- Ticket docs/diary/changelog fully updated, with milestone bundles uploaded and verified in reMarkable cloud.
 
 ## Topics
 

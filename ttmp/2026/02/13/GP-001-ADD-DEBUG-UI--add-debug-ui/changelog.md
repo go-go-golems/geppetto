@@ -222,3 +222,11 @@ Uploaded refreshed GP-001 bundle after regression-test hardening as `GP-001-ADD-
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary records regression-test milestone upload and listing verification
+
+## 2026-02-14
+
+Marked GP-001 ticket status as completed in index metadata/status section after all execution-board tasks were checked and validated.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/index.md — Ticket status moved from active to completed with final progress snapshot
