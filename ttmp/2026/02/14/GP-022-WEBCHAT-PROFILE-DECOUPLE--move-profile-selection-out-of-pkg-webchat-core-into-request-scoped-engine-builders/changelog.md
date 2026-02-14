@@ -123,3 +123,27 @@ Renamed remaining resolver implementation symbols in `web-agent-example` away fr
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/engine_from_req.go — Resolver type/constructor renamed to request-resolver terminology
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/main.go — Updated resolver constructor call site
+
+
+## 2026-02-14 - Slice 7: docs cutover to resolver-plan model
+
+Updated core webchat docs to remove legacy builder/profile-registry guidance and document app-owned runtime/profile policy through `ConversationRequestResolver`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/doc/topics/webchat-framework-guide.md — Updated architecture and API examples for runtime-key resolver model
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/doc/topics/webchat-user-guide.md — Updated minimal wiring and customization guidance for app-owned policy
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md — Removed `WithEngineFromReqBuilder` path and replaced with resolver-plan examples
+
+
+## 2026-02-14 - Slice 8: ws hello runtime_key protobuf rename
+
+Renamed WS hello protobuf field from `profile` to `runtime_key`, regenerated Go/TS code, and updated backend WS hello emission.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/proto/sem/base/ws.proto — `WsHelloV1.runtime_key`
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/sem/pb/proto/sem/base/ws.pb.go — Regenerated Go protobuf bindings
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/sem/pb/proto/sem/base/ws_pb.ts — Regenerated TS protobuf bindings
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/web/src/sem/pb/proto/sem/base/ws_pb.ts — Regenerated TS protobuf bindings
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router.go — Updated hello frame construction to `RuntimeKey`

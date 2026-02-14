@@ -18,7 +18,7 @@ RelatedFiles:
       Note: Detailed execution checklist for implementation slices
 ExternalSources: []
 Summary: Implementation diary for resolver-plan cutover and profile decoupling work.
-LastUpdated: 2026-02-14T17:10:13-05:00
+LastUpdated: 2026-02-14T17:15:28-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -445,3 +445,79 @@ This slice cleaned up naming artifacts still referencing the old builder model, 
 - Files changed in this slice:
   - `web-agent-example/cmd/web-agent-example/engine_from_req.go`
   - `web-agent-example/cmd/web-agent-example/main.go`
+
+## Step 8: Documentation Cutover for Resolver-Plan API
+
+This slice updated the three primary webchat docs to remove legacy builder-era guidance and reflect the current architecture: core runtime execution in `pkg/webchat` with app-owned request policy via `ConversationRequestResolver`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)  
+**Assistant interpretation:** Continue through remaining ticket tasks and close documentation gaps with commit-backed progress.
+
+**Commit (code):** `2710c3d` — "docs(webchat): remove legacy profile-builder guidance and document resolver policy"
+
+### What I did
+- Updated:
+  - `pinocchio/pkg/doc/topics/webchat-framework-guide.md`
+  - `pinocchio/pkg/doc/topics/webchat-user-guide.md`
+  - `pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md`
+- Replaced `AddProfile`/builder-era snippets with resolver-plan examples.
+- Updated API examples from `profile` query/path semantics to runtime-key semantics where appropriate.
+- Verified no remaining `BuildEngineFromReq` or `WithEngineFromReqBuilder` references in `pinocchio/pkg/doc`.
+
+### What worked
+- Documentation now matches implemented architecture.
+- Search verification showed no remaining legacy builder identifiers in the docs tree.
+
+### Technical details
+- Commands run:
+  - `rg -n "BuildEngineFromReq|WithEngineFromReqBuilder|EngineFromReqBuilder" pinocchio/pkg/doc` -> no matches
+- Files changed in this slice:
+  - `pinocchio/pkg/doc/topics/webchat-framework-guide.md`
+  - `pinocchio/pkg/doc/topics/webchat-user-guide.md`
+  - `pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md`
+
+## Step 9: WS Hello Proto Rename (`profile` -> `runtime_key`)
+
+This slice removed the last protocol-level profile naming leak in WS hello payloads by renaming the protobuf field to `runtime_key` and updating generated Go/TS code and callsites.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)  
+**Assistant interpretation:** Continue execution and close remaining technical checklist items, including WS hello semantics.
+
+**Commit (code):** `f3678de` — "webchat: rename ws hello profile field to runtime_key"
+
+### What I did
+- Updated `proto/sem/base/ws.proto`:
+  - `WsHelloV1.profile` -> `WsHelloV1.runtime_key` (field number unchanged).
+- Regenerated protobuf artifacts (scoped generation):
+  - Go: `pkg/sem/pb/proto/sem/base/ws.pb.go`
+  - TS: `cmd/web-chat/web/src/sem/pb/proto/sem/base/ws_pb.ts`
+  - TS: `web/src/sem/pb/proto/sem/base/ws_pb.ts`
+- Updated backend hello emission:
+  - `pkg/webchat/router.go` now sets `WsHelloV1.RuntimeKey`.
+
+### What worked
+- `go test ./pkg/webchat/...` passed.
+- `go test ./cmd/web-chat/...` passed.
+- `npm run typecheck` passed in `cmd/web-chat/web`.
+
+### What didn't work
+- `buf generate` without path failed because node_modules `.proto` files were included by default module scan.
+- Fix: use scoped generation:
+  - `buf generate --path proto/sem/base/ws.proto`
+
+### Technical details
+- Commands run:
+  - `buf generate --path proto/sem/base/ws.proto` -> pass
+  - `go test ./pkg/webchat/...` (`pinocchio`) -> pass
+  - `go test ./cmd/web-chat/...` (`pinocchio`) -> pass
+  - `npm run typecheck` (`pinocchio/cmd/web-chat/web`) -> pass
+- Files changed in this slice:
+  - `pinocchio/proto/sem/base/ws.proto`
+  - `pinocchio/pkg/sem/pb/proto/sem/base/ws.pb.go`
+  - `pinocchio/cmd/web-chat/web/src/sem/pb/proto/sem/base/ws_pb.ts`
+  - `pinocchio/web/src/sem/pb/proto/sem/base/ws_pb.ts`
+  - `pinocchio/pkg/webchat/router.go`

@@ -23,7 +23,7 @@
 - [x] Update conversation + queue structs to generic runtime identity naming (remove `ProfileSlug` fields).
 - [x] Move rebuild checks to signature comparison (`EngineConfig.Signature`) instead of runtime-key + signature dual checks.
 - [x] Update debug API payloads to generic runtime naming (`engine_key` / `runtime_key`).
-- [ ] Update WS hello proto semantics to remove/rename legacy `profile` field usage (currently populated with `runtimeKey`).
+- [x] Update WS hello proto semantics to remove/rename legacy `profile` field usage (currently populated with `runtimeKey`).
 - [x] Remove dead code and tests tied only to old profile-centric request builder path.
 
 ## Phase 2: `pinocchio/cmd/web-chat` Migration (app-owned profile policy)
@@ -37,7 +37,7 @@
 - [x] Add app-owned profile API handlers in `cmd/web-chat` and mount with `r.HandleFunc(...)`.
 - [x] Wire new resolver into router setup in `cmd/web-chat/main.go`.
 - [x] Update debug UI frontend mapping for renamed runtime identity fields.
-- [ ] Update any WS hello frontend/proto consumers affected by payload rename.
+- [x] Update any WS hello frontend/proto consumers affected by payload rename.
 
 ## Phase 3: `web-agent-example` Migration (profile-free)
 
@@ -60,10 +60,10 @@
 
 ## Phase 5: Documentation and Cleanup
 
-- [ ] Update `pinocchio/pkg/doc/topics/webchat-framework-guide.md` for resolver-plan API.
-- [ ] Update `pinocchio/pkg/doc/topics/webchat-user-guide.md` for app-owned profile policy.
-- [ ] Update `pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md` to remove legacy builder guidance.
-- [ ] Ensure docs/examples no longer teach `BuildEngineFromReq` after cutover.
+- [x] Update `pinocchio/pkg/doc/topics/webchat-framework-guide.md` for resolver-plan API.
+- [x] Update `pinocchio/pkg/doc/topics/webchat-user-guide.md` for app-owned profile policy.
+- [x] Update `pinocchio/pkg/doc/tutorials/03-thirdparty-webchat-playbook.md` to remove legacy builder guidance.
+- [x] Ensure docs/examples no longer teach `BuildEngineFromReq` after cutover.
 - [ ] Relate changed files in docmgr metadata where needed.
 
 ## Implementation Loop (required per slice)
@@ -74,3 +74,5 @@
 - [x] Slice 4 done: run tests, commit code, check off tasks, update diary, update changelog.
 - [x] Slice 5 done: run tests, commit code, check off tasks, update diary, update changelog.
 - [x] Slice 6 done: run tests, commit code, check off tasks, update diary, update changelog.
+- [x] Slice 7 done: run tests, commit code, check off tasks, update diary, update changelog.
+- [x] Slice 8 done: run tests, commit code, check off tasks, update diary, update changelog.
