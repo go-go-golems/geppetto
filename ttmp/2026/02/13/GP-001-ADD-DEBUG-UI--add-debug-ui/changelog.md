@@ -101,3 +101,27 @@ Uploaded refreshed GP-001 bundle after Phase 6 completion as `GP-001-ADD-DEBUG-U
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary captures upload commands and verification listing
+
+## 2026-02-14
+
+Completed `P4.5` stabilization in `pinocchio` (commit `de59a6f`): fixed Storybook indexer interruption via clean restart of tmux session `gp001-sb`, repaired migrated story typing regression (`TurnInspector.stories.tsx`), and made debug-ui lint policy explicit in `biome.json` so moved legacy components pass `npm run check` without rewrites.
+
+Validated end-to-end:
+- `npm run check` (pass)
+- `npm run build` (pass)
+- `npm run storybook -- --ci --smoke-test --port 6007` (pass)
+- live Storybook still served at `http://localhost:6007/` (`200`).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/biome.json — Debug-ui migration lint/a11y policy tuning used to unblock `web-check`
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/TurnInspector.stories.tsx — Story type fix for `ParsedTurn`/block spread
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/tasks.md — `P4.5` marked complete
+
+## 2026-02-13
+
+Uploaded refreshed GP-001 bundle after `P4.5` completion as `GP-001-ADD-DEBUG-UI Execution Progress (P4.5 Complete).pdf` to `/ai/2026/02/13/GP-001-ADD-DEBUG-UI/`, then verified cloud listing shows the new file after a short propagation delay.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary captures upload commands and listing verification

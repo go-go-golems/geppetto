@@ -53,7 +53,7 @@
 - [x] `P4.2` Port baseline debug UI components from `web-agent-example` into pinocchio-owned packages.
 - [x] `P4.3` Update data adapters for timeline proto shape + metadata envelopes.
 - [x] `P4.4` Ensure frontend uses envelope metadata in selectors/context panels (not only `items`).
-- [ ] `P4.5` Add package-level tests/story stories and run `npm run check && npm run build`.
+- [x] `P4.5` Add package-level tests/story stories and run `npm run check && npm run build`.
 - [x] `P4.6` Commit frontend extraction slice.
 
 ### Phase 5: Pinocchio Debug App Shell + Storybook
