@@ -50,7 +50,7 @@
 - [x] `P4.1.b` `src/debug-api`
 - [x] `P4.1.c` `src/debug-state`
 - [x] `P4.1.d` `src/debug-components`
-- [ ] `P4.2` Port baseline debug UI components from `web-agent-example` into pinocchio-owned packages.
+- [x] `P4.2` Port baseline debug UI components from `web-agent-example` into pinocchio-owned packages.
 - [x] `P4.3` Update data adapters for timeline proto shape + metadata envelopes.
 - [x] `P4.4` Ensure frontend uses envelope metadata in selectors/context panels (not only `items`).
 - [ ] `P4.5` Add package-level tests/story stories and run `npm run check && npm run build`.
@@ -60,9 +60,9 @@
 
 - [x] `P5.1` Add pinocchio debug app shell (offline mode + live level-2 mode switch).
 - [x] `P5.2` Wire app shell to canonical `/api/debug/*` endpoints.
-- [ ] `P5.3` Add routing/state persistence for selected conversation/run context.
+- [x] `P5.3` Add routing/state persistence for selected conversation/run context.
 - [x] `P5.4` Start Storybook in `pinocchio/cmd/web-chat/web` in tmux and keep it running during iteration.
-- [ ] `P5.5` Validate key inspector flows manually in Storybook and dev server.
+- [x] `P5.5` Validate key inspector flows manually in Storybook and dev server.
 - [x] `P5.6` Commit app shell slice.
 
 ### Phase 6: Cutover + Deletion

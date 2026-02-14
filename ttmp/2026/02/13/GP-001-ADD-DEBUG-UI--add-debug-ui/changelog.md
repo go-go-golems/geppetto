@@ -60,3 +60,23 @@ Uploaded a fresh reMarkable bundle with latest Phase 5 updates as `GP-001-ADD-DE
 
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/planning/01-web-agent-debug-ui-migration-analysis-for-geppetto.md — Primary migration analysis document
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Detailed execution diary
+
+## 2026-02-13
+
+Ported full debug-ui source into pinocchio web workspace with app/storybook wiring and URL-persisted conversation/session/turn context (commit 3671aeb). Verified typecheck/build/storybook smoke; lint hook still fails on inherited a11y/style diagnostics in imported components.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/.storybook/preview.tsx — Storybook providers/styles for debug-ui and webchat stories
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui — Primary migrated UI package and selectors
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/components/AppShell.tsx — URL search/localStorage state sync for selected debug context
+
+
+## 2026-02-13
+
+Uploaded refreshed GP-001 ticket bundle after full UI port as 'GP-001-ADD-DEBUG-UI Execution Progress (Ported UI Slice).pdf' to /ai/2026/02/13/GP-001-ADD-DEBUG-UI and verified cloud listing.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/geppetto/ttmp/2026/02/13/GP-001-ADD-DEBUG-UI--add-debug-ui/reference/01-diary.md — Diary updated with new implementation slice and validation results
+
