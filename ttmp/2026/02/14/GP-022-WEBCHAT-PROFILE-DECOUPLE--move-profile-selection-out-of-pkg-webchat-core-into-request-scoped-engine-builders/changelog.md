@@ -77,3 +77,30 @@ Removed core /api/chat/profile* endpoints and cookie-based resolver behavior; de
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router_debug_routes.go — Renamed debug payload field to runtime_key
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/engine_from_req.go — Simplified default runtime-key resolver path
 
+
+## 2026-02-14 - Slice 3: app-owned profile policy in cmd/web-chat
+
+Completed removal of profile registry/types from `pkg/webchat` core and moved profile policy into `cmd/web-chat` via app-owned resolver and handlers.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/profile_policy.go — App-local profile registry, resolver, override policy, and profile endpoints
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/main.go — Router now wired with app resolver and handler registration
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/types.go — Removed core Profile/ProfileRegistry types
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router_options.go — Removed WithProfileRegistry option
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router.go — Removed AddProfile path in core
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/web-agent-example/cmd/web-agent-example/main.go — Removed stale AddProfile call
+
+
+## 2026-02-14 - Slice 4: runtime-key naming + signature-only rebuild
+
+Renamed remaining core runtime identity fields from profile-oriented names, switched rebuild checks to signature-only comparison, and updated debug UI mapping for `runtime_key`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/conversation.go — RuntimeKey/EngineConfigSignature fields and signature-only rebuild logic
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/engine_config.go — `runtime_key` in config/signature payload
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/send_queue.go — Queued request runtime key naming
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/router_debug_routes.go — Debug conversation payloads read runtime key from conversation state
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Frontend mapping updated for backend `runtime_key`
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts — Mock payloads aligned with `runtime_key`
