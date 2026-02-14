@@ -23,6 +23,8 @@ RelatedFiles:
       Note: Step 3 turns backfill CLI command implementation (commit c2058f6)
     - Path: pinocchio/cmd/web-chat/turns/turns.go
       Note: Step 3 turns command group wiring (commit c2058f6)
+    - Path: pinocchio/pkg/cmds/chat_persistence_test.go
+      Note: Step 4 CLI persistence fixture update after normalized-only cutover
     - Path: pinocchio/pkg/persistence/chatstore/block_hash.go
       Note: Canonical block hash material and normalization logic (commit 61ae8f2)
     - Path: pinocchio/pkg/persistence/chatstore/block_hash_test.go
@@ -32,17 +34,26 @@ RelatedFiles:
     - Path: pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go
       Note: Step 3 backfill tests covering dry-run and parse-error continuation (commit c2058f6)
     - Path: pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go
-      Note: Step 2 schema migration and legacy turn snapshot table handling (commit da65342)
+      Note: |-
+        Step 2 schema migration and legacy turn snapshot table handling (commit da65342)
+        Step 4 normalized-only runtime persistence after removing legacy/backfill paths (commit 19dae3b)
     - Path: pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go
-      Note: Step 2 migration test coverage for fresh and legacy sqlite databases (commit da65342)
+      Note: |-
+        Step 2 migration test coverage for fresh and legacy sqlite databases (commit da65342)
+        Step 4 normalized-only persistence test coverage
     - Path: pinocchio/pkg/webchat/debug_offline.go
-      Note: Step 2 offline sqlite run scanner update for turn_snapshots detection (commit da65342)
+      Note: |-
+        Step 2 offline sqlite run scanner update for turn_snapshots detection (commit da65342)
+        Step 4 offline run listing from normalized tables
+    - Path: pinocchio/pkg/webchat/debug_offline_test.go
+      Note: Step 4 fixture adjustments for normalized-only turns
 ExternalSources: []
 Summary: Implementation diary for GP-002 execution steps.
-LastUpdated: 2026-02-14T11:52:00-05:00
+LastUpdated: 2026-02-14T12:16:00-05:00
 WhatFor: Record what changed, why, validation results, and review guidance while implementing GP-002.
 WhenToUse: Use when continuing GP-002 implementation or reviewing migration decisions.
 ---
+
 
 
 
@@ -326,3 +337,88 @@ The backfill flow now parses YAML payloads from `turn_snapshots`, computes conte
   - latest `updated_at_ms`.
 - Block row upsert key is `(block_id, content_hash)` with hash algorithm `sha256-canonical-json-v1`.
 - Membership rows are keyed by `(conv_id, session_id, turn_id, phase, snapshot_created_at_ms, ordinal)`.
+
+## Step 4: Drop Legacy/Backfill Path (Fresh DB Only)
+
+This step superseded Step 3 by explicit direction to remove legacy/backfill support and run normalized persistence from fresh databases only.
+
+I removed the backfill CLI/API and any `turn_snapshots`-based runtime path, and kept only normalized-table read/write behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "we don't need legacy backfill code! you can kill it. we'll just start from fresh dbs."
+
+**Assistant interpretation:** Remove the backfill/legacy compatibility work and simplify persistence to normalized-only schema and codepaths.
+
+**Inferred user intent:** Reduce complexity and maintenance burden by adopting a clean-slate normalized storage model without migration/backfill concerns.
+
+**Commit (code):** `19dae3b56df1d40e173c2365c64947443a0273f1` — "refactor(chatstore): drop legacy backfill path and use normalized storage only"
+
+### What I did
+
+- Removed legacy/backfill artifacts:
+  - deleted `pinocchio/pkg/persistence/chatstore/turn_store_backfill.go`
+  - deleted `pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go`
+  - deleted `pinocchio/cmd/web-chat/turns/backfill.go`
+  - deleted `pinocchio/cmd/web-chat/turns/turns.go`
+  - removed turns backfill command wiring from `pinocchio/cmd/web-chat/main.go`
+- Reworked `pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go`:
+  - migration creates normalized tables only,
+  - `Save` parses YAML payload and writes normalized rows directly,
+  - `List` rehydrates payloads from normalized tables.
+- Updated tests and fixtures for normalized-only behavior:
+  - `pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go`
+  - `pinocchio/pkg/webchat/debug_offline.go`
+  - `pinocchio/pkg/webchat/debug_offline_test.go`
+  - `pinocchio/pkg/cmds/chat_persistence_test.go`
+
+### Why
+
+- User-directed simplification: no legacy/backfill requirement, fresh DBs only.
+- Eliminates transitional code and reduces surface area for bugs.
+
+### What worked
+
+- Normalized persistence path compiles and passes targeted tests.
+- Offline turn-run listing works against normalized tables.
+- Pre-commit full hooks passed on the cleanup commit.
+
+### What didn't work
+
+- First commit attempt failed pre-commit due an existing test fixture (`pkg/cmds/chat_persistence_test.go`) persisting an empty-block turn, which no longer produced listable snapshots.
+  - Fix: added a minimal user block to the fixture.
+
+### What I learned
+
+- Simplifying migration policy can invalidate prior implementation steps; documenting superseded steps avoids confusion for future readers.
+
+### What was tricky to build
+
+- Keeping runtime debug/offline behavior intact while deleting an entire interim command/API layer required coordinated updates across chatstore, webchat, and tests.
+
+### What warrants a second pair of eyes
+
+- Behavior when persisting turns with zero blocks (currently snapshots are effectively block-driven in normalized layout).
+- Whether any external tooling still assumes the removed turns backfill command exists.
+
+### What should be done in the future
+
+- Finish the remaining task: normalized read/write validation and query benchmarking for fresh-db workflow.
+
+### Code review instructions
+
+- Start with `pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go` (`migrate`, `Save`, `List`).
+- Then inspect deleted paths in commit diff to verify legacy/backfill removal intent.
+- Validate with:
+  - `go test ./pkg/persistence/chatstore -count=1`
+  - `go test ./pkg/webchat -count=1`
+  - `go test ./pkg/cmds -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+
+### Technical details
+
+- Runtime turn persistence now depends only on:
+  - `turns`
+  - `blocks`
+  - `turn_block_membership`
+- `turn_snapshots` payload persistence and turns backfill CLI/API were removed from `pinocchio`.

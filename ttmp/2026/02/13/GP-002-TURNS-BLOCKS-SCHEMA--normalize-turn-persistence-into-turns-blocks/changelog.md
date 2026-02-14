@@ -36,3 +36,16 @@ Step 3: implemented snapshot payload backfill API and added `web-chat turns back
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/turns/turns.go — Adds turns command group and attaches backfill subcommand
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_backfill.go — BackfillNormalizedFromSnapshots implementation with upsert logic for turns, blocks, and membership rows
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go — Backfill behavior tests (happy path, dry-run, parse-error continuation)
+
+## 2026-02-14
+
+Step 4: per directive (“we don't need legacy backfill code! you can kill it. we'll just start from fresh dbs.”), removed legacy/backfill codepaths and switched turn persistence/runtime inspection to normalized tables only (commit 19dae3b56df1d40e173c2365c64947443a0273f1).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go — Normalized-only migration/save/list implementation (no turn_snapshots/backfill path)
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go — Updated tests for normalized-only persistence behavior
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/debug_offline.go — Offline run scan now reads normalized tables
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/debug_offline_test.go — Fixtures updated for normalized-only turn snapshots
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/cmds/chat_persistence_test.go — CLI persister fixture updated for normalized-only snapshot behavior
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/main.go — Removed turns backfill command registration
