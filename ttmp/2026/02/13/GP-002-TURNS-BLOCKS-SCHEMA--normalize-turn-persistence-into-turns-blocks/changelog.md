@@ -24,3 +24,15 @@ Step 2: added normalized sqlite schema migration (`turns`, `blocks`, `turn_block
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go — Create normalized tables and migrate legacy turns->turn_snapshots
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go — Validate schema creation and legacy migration behavior
 - /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/webchat/debug_offline.go — Query proper snapshot table for offline sqlite runs after schema migration
+
+## 2026-02-14
+
+Step 3: implemented snapshot payload backfill API and added `web-chat turns backfill` command to populate normalized tables from `turn_snapshots.payload` (commit c2058f6971ea8f86bdb3e83ad4b15740671bf1f4).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/main.go — Registers turns command group under web-chat root CLI
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/turns/backfill.go — CLI surface for running backfill from sqlite turn snapshots
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/cmd/web-chat/turns/turns.go — Adds turns command group and attaches backfill subcommand
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_backfill.go — BackfillNormalizedFromSnapshots implementation with upsert logic for turns, blocks, and membership rows
+- /home/manuel/workspaces/2026-02-13/mv-debug-ui-geppetto/pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go — Backfill behavior tests (happy path, dry-run, parse-error continuation)

@@ -17,10 +17,20 @@ RelatedFiles:
       Note: Step-level changelog evidence for commit 61ae8f2
     - Path: geppetto/ttmp/2026/02/13/GP-002-TURNS-BLOCKS-SCHEMA--normalize-turn-persistence-into-turns-blocks/tasks.md
       Note: Task 3 completion status
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Step 3 root command registration for turns backfill
+    - Path: pinocchio/cmd/web-chat/turns/backfill.go
+      Note: Step 3 turns backfill CLI command implementation (commit c2058f6)
+    - Path: pinocchio/cmd/web-chat/turns/turns.go
+      Note: Step 3 turns command group wiring (commit c2058f6)
     - Path: pinocchio/pkg/persistence/chatstore/block_hash.go
       Note: Canonical block hash material and normalization logic (commit 61ae8f2)
     - Path: pinocchio/pkg/persistence/chatstore/block_hash_test.go
       Note: Determinism and mutation-sensitivity hash tests (commit 61ae8f2)
+    - Path: pinocchio/pkg/persistence/chatstore/turn_store_backfill.go
+      Note: Step 3 reusable backfill API and upsert behavior for normalized schema (commit c2058f6)
+    - Path: pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go
+      Note: Step 3 backfill tests covering dry-run and parse-error continuation (commit c2058f6)
     - Path: pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go
       Note: Step 2 schema migration and legacy turn snapshot table handling (commit da65342)
     - Path: pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go
@@ -29,10 +39,11 @@ RelatedFiles:
       Note: Step 2 offline sqlite run scanner update for turn_snapshots detection (commit da65342)
 ExternalSources: []
 Summary: Implementation diary for GP-002 execution steps.
-LastUpdated: 2026-02-14T11:33:00-05:00
+LastUpdated: 2026-02-14T11:52:00-05:00
 WhatFor: Record what changed, why, validation results, and review guidance while implementing GP-002.
 WhenToUse: Use when continuing GP-002 implementation or reviewing migration decisions.
 ---
+
 
 
 
@@ -216,3 +227,102 @@ I kept read/write behavior unchanged for now by continuing `Save/List` against `
   - `blocks(block_id, content_hash, hash_algorithm, kind, role, payload_json, block_metadata_json, first_seen_at_ms)`
   - `turn_block_membership(conv_id, session_id, turn_id, phase, snapshot_created_at_ms, ordinal, block_id, content_hash)`
 - Legacy snapshots are stored in `turn_snapshots(conv_id, session_id, turn_id, phase, created_at_ms, payload)` during transition.
+
+## Step 3: Payload Backfill API + CLI Command
+
+This step completed task 5 from GP-002 by adding a reusable backfill API in `chatstore` and exposing it as a CLI command (`web-chat turns backfill`) for operational execution.
+
+The backfill flow now parses YAML payloads from `turn_snapshots`, computes content hashes per block, upserts normalized rows, and records ordered membership per snapshot.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-002 by implementing the next deferred task with executable tooling and tests.
+
+**Inferred user intent:** Turn migration design into a practical, repeatable backfill mechanism that can be run and validated from the CLI.
+
+**Commit (code):** `c2058f6971ea8f86bdb3e83ad4b15740671bf1f4` — "feat(chatstore): add snapshot payload backfill command"
+
+### What I did
+
+- Added `BackfillNormalizedFromSnapshots` to `pinocchio/pkg/persistence/chatstore/turn_store_backfill.go`:
+  - reads snapshot rows from `turn_snapshots`,
+  - parses payload YAML into `turns.Turn`,
+  - upserts logical `turns` rows,
+  - upserts `blocks` rows using `(block_id, content_hash)` identity and canonical hash computation,
+  - writes ordered rows into `turn_block_membership`.
+- Added test coverage in `pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go`:
+  - happy path with multi-snapshot block deltas,
+  - dry-run behavior (no writes),
+  - parse-error continuation behavior.
+- Added CLI surface:
+  - `pinocchio/cmd/web-chat/turns/backfill.go`
+  - `pinocchio/cmd/web-chat/turns/turns.go`
+  - registered in `pinocchio/cmd/web-chat/main.go`
+- Validation run:
+  - `go test ./pkg/persistence/chatstore -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+  - `go test ./pkg/webchat -count=1`
+  - `go run ./cmd/web-chat turns backfill --help`
+  - full pre-commit hooks during commit.
+
+### Why
+
+- Task 5 explicitly requires a payload backfill command from legacy snapshot payload rows.
+- Providing both package API and CLI command supports programmatic use and manual ops workflows.
+
+### What worked
+
+- Backfill processed snapshots into normalized tables with expected block dedupe behavior.
+- Command wiring loaded correctly under `web-chat turns backfill`.
+- Tests covered key execution paths and stayed green under repo hooks.
+
+### What didn't work
+
+- Initial `cmd/web-chat/turns/backfill.go` used a wrong import path (`glazed/pkg/cmds/middlewares`) and failed compile:
+  - Error: `no required module provides package github.com/go-go-golems/glazed/pkg/cmds/middlewares`
+  - Fix: switched to `github.com/go-go-golems/glazed/pkg/middlewares`.
+
+### What I learned
+
+- The turns migration is easier to evolve when backfill is implemented in `chatstore` first and surfaced via CLI second.
+- Keeping backfill idempotent at membership-key granularity avoids accidental duplicate rows when rerunning.
+
+### What was tricky to build
+
+- Converting opaque turn metadata/data wrappers to stable JSON payloads required explicit map extraction via typed `Range` APIs.
+- Preserving order and snapshot identity required careful key selection in `turn_block_membership` inserts.
+
+### What warrants a second pair of eyes
+
+- Default policy for parse errors (currently counted and skipped) vs fail-fast mode.
+- Synthetic block IDs for blocks without IDs (`turnID#ordinal`) and whether this should be configurable.
+
+### What should be done in the future
+
+- Implement GP-002 task 6: cut read/write paths to normalized tables and remove payload-only storage path.
+
+### Code review instructions
+
+- Start in `pinocchio/pkg/persistence/chatstore/turn_store_backfill.go`:
+  - `BackfillNormalizedFromSnapshots`
+  - `backfillUpsertTurnRow`
+  - `backfillUpsertBlockRow`
+- Then review:
+  - `pinocchio/pkg/persistence/chatstore/turn_store_backfill_test.go`
+  - `pinocchio/cmd/web-chat/turns/backfill.go`
+  - `pinocchio/cmd/web-chat/main.go`
+- Validate with:
+  - `go test ./pkg/persistence/chatstore -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+  - `go run ./cmd/web-chat turns backfill --help`
+
+### Technical details
+
+- Backfill query source is `turn_snapshots`.
+- Turn row upsert keeps:
+  - earliest `turn_created_at_ms`,
+  - latest `updated_at_ms`.
+- Block row upsert key is `(block_id, content_hash)` with hash algorithm `sha256-canonical-json-v1`.
+- Membership rows are keyed by `(conv_id, session_id, turn_id, phase, snapshot_created_at_ms, ordinal)`.
