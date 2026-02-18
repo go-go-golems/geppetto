@@ -51,3 +51,30 @@ flags:
     type: string
     help: Directory to store cache files (for disk cache)
     default: ""
+  - name: ai-structured-output-mode
+    type: choice
+    choices:
+      - "off"
+      - "json_schema"
+    help: Structured output mode for provider-native response shaping
+    default: "off"
+  - name: ai-structured-output-name
+    type: string
+    help: Structured output schema name sent to providers
+    default: ""
+  - name: ai-structured-output-description
+    type: string
+    help: Structured output schema description sent to providers
+    default: ""
+  - name: ai-structured-output-schema
+    type: string
+    help: JSON object string for structured output schema
+    default: ""
+  - name: ai-structured-output-strict
+    type: bool
+    help: Request strict structured output validation when provider supports it
+    default: true
+  - name: ai-structured-output-require-valid
+    type: bool
+    help: Fail the request if structured output configuration is invalid or unsupported
+    default: false

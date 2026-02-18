@@ -145,6 +145,17 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		if len(ss.Chat.Stop) > 0 {
 			metadata["ai-stop"] = ss.Chat.Stop
 		}
+		if ss.Chat.IsStructuredOutputEnabled() {
+			metadata["ai-structured-output-mode"] = ss.Chat.StructuredOutputMode
+			if ss.Chat.StructuredOutputName != "" {
+				metadata["ai-structured-output-name"] = ss.Chat.StructuredOutputName
+			}
+			if ss.Chat.StructuredOutputDescription != "" {
+				metadata["ai-structured-output-description"] = ss.Chat.StructuredOutputDescription
+			}
+			metadata["ai-structured-output-strict"] = ss.Chat.StructuredOutputStrict
+			metadata["ai-structured-output-require-valid"] = ss.Chat.StructuredOutputRequireValid
+		}
 	}
 
 	if ss.OpenAI != nil {
@@ -323,6 +334,17 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 			}
 			if len(ss.Chat.Stop) > 0 {
 				summary.WriteString(fmt.Sprintf("  - Stop Sequences: %v\n", ss.Chat.Stop))
+			}
+			if ss.Chat.IsStructuredOutputEnabled() {
+				summary.WriteString(fmt.Sprintf("  - Structured Output Mode: %s\n", ss.Chat.StructuredOutputMode))
+				if ss.Chat.StructuredOutputName != "" {
+					summary.WriteString(fmt.Sprintf("  - Structured Output Name: %s\n", ss.Chat.StructuredOutputName))
+				}
+				if ss.Chat.StructuredOutputDescription != "" {
+					summary.WriteString(fmt.Sprintf("  - Structured Output Description: %s\n", ss.Chat.StructuredOutputDescription))
+				}
+				summary.WriteString(fmt.Sprintf("  - Structured Output Strict: %t\n", ss.Chat.StructuredOutputStrict))
+				summary.WriteString(fmt.Sprintf("  - Structured Output Require Valid: %t\n", ss.Chat.StructuredOutputRequireValid))
 			}
 		}
 	}
