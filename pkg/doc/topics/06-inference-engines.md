@@ -610,6 +610,52 @@ go run ./cmd/examples/openai-tools test-openai-tools \
   --log-level info
 ```
 
+### Structured Output Schema (OpenAI + Claude)
+
+Geppetto now exposes a provider-agnostic structured output surface on chat settings:
+
+- `--ai-structured-output-mode` (`off` or `json_schema`)
+- `--ai-structured-output-name`
+- `--ai-structured-output-description`
+- `--ai-structured-output-schema` (JSON object string)
+- `--ai-structured-output-strict`
+- `--ai-structured-output-require-valid`
+
+When enabled (`json_schema`), engines map this to provider-native request fields:
+
+- OpenAI Chat Completions: `response_format: {type: "json_schema", ...}`
+- OpenAI Responses: `text.format: {type: "json_schema", ...}`
+- Claude Messages: `output_format: {type: "json_schema", ...}`
+
+If schema parsing fails:
+
+- with `--ai-structured-output-require-valid=true`: request fails fast
+- with `--ai-structured-output-require-valid=false`: engine degrades to normal text output and logs a warning
+
+Example (OpenAI Chat Completions):
+
+```bash
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai \
+  --ai-engine=gpt-4o-mini \
+  --ai-structured-output-mode=json_schema \
+  --ai-structured-output-name=person \
+  --ai-structured-output-schema='{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}' \
+  --prompt='Return a person object with a name.'
+```
+
+Example (Claude):
+
+```bash
+go run ./cmd/examples/claude-tools main \
+  --ai-api-type=claude \
+  --ai-engine=claude-sonnet-4-20250514 \
+  --ai-structured-output-mode=json_schema \
+  --ai-structured-output-name=person \
+  --ai-structured-output-schema='{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}' \
+  --prompt='Return a person object with a name.'
+```
+
 ### Claude Engine
 
 ```yaml
