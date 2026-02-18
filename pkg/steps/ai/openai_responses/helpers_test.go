@@ -3,6 +3,7 @@ package openai_responses
 import (
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -159,5 +160,58 @@ func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReaso
 	}
 	if len(follower.Content) != 1 || follower.Content[0].Text != "A3 follower" {
 		t.Fatalf("unexpected follower content: %#v", follower.Content)
+	}
+}
+
+func TestBuildResponsesRequestStructuredOutput(t *testing.T) {
+	engine := "gpt-4o-mini"
+	strict := true
+	ss := &settings.StepSettings{
+		Chat: &settings.ChatSettings{
+			Engine:                 &engine,
+			StructuredOutputMode:   settings.StructuredOutputModeJSONSchema,
+			StructuredOutputName:   "person",
+			StructuredOutputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+			StructuredOutputStrict: &strict,
+			Stream:                 true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("return JSON"),
+	}}
+
+	req, err := buildResponsesRequest(ss, turn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Text == nil || req.Text.Format == nil {
+		t.Fatalf("expected text.format to be populated for structured output")
+	}
+	if req.Text.Format.Type != "json_schema" {
+		t.Fatalf("expected text.format.type=json_schema, got %q", req.Text.Format.Type)
+	}
+	if req.Text.Format.Name != "person" {
+		t.Fatalf("expected schema name person, got %q", req.Text.Format.Name)
+	}
+}
+
+func TestBuildResponsesRequestStructuredOutputInvalidSchemaRequireValid(t *testing.T) {
+	engine := "gpt-4o-mini"
+	ss := &settings.StepSettings{
+		Chat: &settings.ChatSettings{
+			Engine:                       &engine,
+			StructuredOutputMode:         settings.StructuredOutputModeJSONSchema,
+			StructuredOutputName:         "person",
+			StructuredOutputSchema:       `{"type":"object",`,
+			StructuredOutputRequireValid: true,
+			Stream:                       true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("return JSON"),
+	}}
+
+	if _, err := buildResponsesRequest(ss, turn); err == nil {
+		t.Fatalf("expected error when require_valid=true and schema JSON is invalid")
 	}
 }

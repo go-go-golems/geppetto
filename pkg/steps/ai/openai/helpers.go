@@ -446,6 +446,36 @@ func MakeCompletionRequestFromTurn(
 		FrequencyPenalty:    float32(frequencyPenalty),
 		LogitBias:           nil,
 	}
+
+	// Apply provider-native structured output schema when configured.
+	if chatSettings.IsStructuredOutputEnabled() {
+		cfg, err := chatSettings.StructuredOutputConfig()
+		if err != nil {
+			if chatSettings.StructuredOutputRequireValid {
+				return nil, err
+			}
+			log.Warn().Err(err).Msg("OpenAI request: ignoring invalid structured output configuration")
+		} else if cfg != nil {
+			schemaBytes, err := json.Marshal(cfg.Schema)
+			if err != nil {
+				if chatSettings.StructuredOutputRequireValid {
+					return nil, errors.Wrap(err, "marshal structured output schema")
+				}
+				log.Warn().Err(err).Msg("OpenAI request: ignoring non-serializable structured output schema")
+			} else {
+				req.ResponseFormat = &go_openai.ChatCompletionResponseFormat{
+					Type: go_openai.ChatCompletionResponseFormatTypeJSONSchema,
+					JSONSchema: &go_openai.ChatCompletionResponseFormatJSONSchema{
+						Name:        cfg.Name,
+						Description: cfg.Description,
+						Schema:      json.RawMessage(schemaBytes),
+						Strict:      cfg.StrictOrDefault(),
+					},
+				}
+			}
+		}
+	}
+
 	return &req, nil
 }
 
