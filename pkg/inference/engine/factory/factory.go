@@ -57,8 +57,15 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (e
 	if settings.Chat != nil && settings.Chat.ApiType != nil {
 		provider = strings.ToLower(string(*settings.Chat.ApiType))
 	}
-	if shouldAutoRouteToResponses(settings, provider) {
-		provider = string(types.ApiTypeOpenAIResponses)
+	if provider == string(types.ApiTypeOpenAI) && settings != nil && settings.Chat != nil && settings.Chat.Engine != nil {
+		model := strings.ToLower(strings.TrimSpace(*settings.Chat.Engine))
+		if isReasoningModel(model) {
+			log.Warn().
+				Str("model", model).
+				Str("provider", provider).
+				Str("recommended_provider", string(types.ApiTypeOpenAIResponses)).
+				Msg("Thinking model selected with openai api type; thinking stream events may be missing unless openai-responses is used")
+		}
 	}
 
 	// Validate that we have the required settings
@@ -86,27 +93,11 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (e
 	}
 }
 
-func shouldAutoRouteToResponses(settings *settings.StepSettings, provider string) bool {
-	if provider != string(types.ApiTypeOpenAI) {
-		return false
-	}
-	if settings == nil || settings.Chat == nil || settings.Chat.Engine == nil {
-		return false
-	}
-	model := strings.ToLower(strings.TrimSpace(*settings.Chat.Engine))
-	isReasoningModel := strings.HasPrefix(model, "o1") ||
+func isReasoningModel(model string) bool {
+	return strings.HasPrefix(model, "o1") ||
 		strings.HasPrefix(model, "o3") ||
 		strings.HasPrefix(model, "o4") ||
 		strings.HasPrefix(model, "gpt-5")
-	if !isReasoningModel {
-		return false
-	}
-	log.Debug().
-		Str("model", model).
-		Str("from_provider", provider).
-		Str("to_provider", string(types.ApiTypeOpenAIResponses)).
-		Msg("Auto-routing reasoning model to OpenAI Responses engine")
-	return true
 }
 
 // SupportedProviders returns the list of AI providers this factory can create engines for.

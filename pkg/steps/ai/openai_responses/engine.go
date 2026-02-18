@@ -455,9 +455,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.reasoning_text.done":
 				fullText := thinkBuf.String()
 				if s, ok := m["text"].(string); ok && s != "" {
-					fullText = s
-					thinkBuf.Reset()
-					thinkBuf.WriteString(s)
+					// Keep accumulated reasoning across multiple items. Done payloads
+					// can repeat already-streamed deltas for the current item.
+					if !strings.HasSuffix(fullText, s) {
+						thinkBuf.WriteString(s)
+						fullText = thinkBuf.String()
+					}
 				}
 				e.publishEvent(ctx, events.NewReasoningTextDone(metadata, fullText))
 			case "response.output_item.done":

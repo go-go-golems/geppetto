@@ -224,3 +224,110 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 		t.Fatalf("expected final metadata thinking_text to be propagated, got %q", finalThinkingText)
 	}
 }
+
+func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/v1/responses" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				"",
+				"event: response.reasoning_text.delta",
+				`data: {"delta":"First "}`,
+				"",
+				"event: response.reasoning_text.delta",
+				`data: {"delta":"thought."}`,
+				"",
+				"event: response.reasoning_text.done",
+				`data: {"text":"First thought.","item_id":"rs_1"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"item":{"type":"reasoning","id":"rs_2"}}`,
+				"",
+				"event: response.reasoning_text.done",
+				`data: {"text":" Second thought.","item_id":"rs_2"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"reasoning","id":"rs_2"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"42"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":10,"output_tokens":5,"output_tokens_details":{"reasoning_tokens":3}}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.StepSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var reasoningDoneEvents int
+	var finalThinkingText string
+	for _, event := range sink.snapshot() {
+		switch e := event.(type) {
+		case *events.EventReasoningTextDone:
+			reasoningDoneEvents++
+		case *events.EventFinal:
+			if e.Metadata().Extra != nil {
+				if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
+					finalThinkingText = s
+				}
+			}
+		}
+	}
+
+	if reasoningDoneEvents != 2 {
+		t.Fatalf("expected two reasoning done events, got %d", reasoningDoneEvents)
+	}
+	if finalThinkingText != "First thought. Second thought." {
+		t.Fatalf("expected combined thinking_text, got %q", finalThinkingText)
+	}
+}
