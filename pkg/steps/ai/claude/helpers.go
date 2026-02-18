@@ -254,6 +254,23 @@ func MakeMessageRequestFromTurn(
 		TopK:          nil,
 		TopP:          topPPtr,
 	}
+
+	// Apply provider-native structured output schema when configured.
+	if chatSettings.IsStructuredOutputEnabled() {
+		cfg, err := chatSettings.StructuredOutputConfig()
+		if err != nil {
+			if chatSettings.StructuredOutputRequireValid {
+				return nil, err
+			}
+		} else if cfg != nil {
+			req.OutputFormat = &api.OutputFormat{
+				Type:   "json_schema",
+				Name:   cfg.Name,
+				Schema: cfg.Schema,
+			}
+		}
+	}
+
 	return req, nil
 }
 
