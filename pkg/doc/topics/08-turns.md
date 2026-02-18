@@ -151,11 +151,22 @@ Keys are defined in key-definition files (e.g., `geppetto/pkg/turns/keys.go` and
 // Setting a value
 err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true})
 
+// Structured output config key (typed, engine-owned)
+strict := true
+err = engine.KeyStructuredOutputConfig.Set(&turn.Data, engine.StructuredOutputConfig{
+    Mode:   engine.StructuredOutputModeJSONSchema,
+    Name:   "person",
+    Schema: map[string]any{"type": "object"},
+    Strict: &strict,
+})
+
 // Getting a value
 config, ok := engine.KeyToolConfig.Get(turn.Data)
 ```
 
 **Why typed keys?** Direct map access like `turn.Data["config"]` compiles but creates key drift. The `turnsdatalint` analyzer catches these. Always use typed key variables.
+
+`KeyToolConfig` is actively consumed in inference paths today. `KeyStructuredOutputConfig` is available as a typed key and intended for per-turn overrides as provider wiring expands.
 
 ## Working with Turns
 

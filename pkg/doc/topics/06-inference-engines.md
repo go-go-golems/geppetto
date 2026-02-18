@@ -610,27 +610,40 @@ go run ./cmd/examples/openai-tools test-openai-tools \
   --log-level info
 ```
 
-### Structured Output Schema (OpenAI + Claude)
+### Structured Output Schema (OpenAI + Claude + OpenAI Responses)
 
-Geppetto now exposes a provider-agnostic structured output surface on chat settings:
+The structured-output setting is intentionally owned by **chat settings** (`--ai-structured-output-*`) because provider request-shaping belongs at the engine layer, not in prompt text.
 
-- `--ai-structured-output-mode` (`off` or `json_schema`)
-- `--ai-structured-output-name`
-- `--ai-structured-output-description`
+Configuration surface:
+
+- `--ai-structured-output-mode` (`off` or `json_schema`, default: `off`)
+- `--ai-structured-output-name` (schema identifier)
+- `--ai-structured-output-description` (provider hint text)
 - `--ai-structured-output-schema` (JSON object string)
-- `--ai-structured-output-strict`
-- `--ai-structured-output-require-valid`
+- `--ai-structured-output-strict` (default: `true`)
+- `--ai-structured-output-require-valid` (default: `false`)
 
-When enabled (`json_schema`), engines map this to provider-native request fields:
+Provider mapping when `mode=json_schema`:
 
-- OpenAI Chat Completions: `response_format: {type: "json_schema", ...}`
+- OpenAI Chat Completions: `response_format: {type: "json_schema", json_schema: {...}}`
 - OpenAI Responses: `text.format: {type: "json_schema", ...}`
-- Claude Messages: `output_format: {type: "json_schema", ...}`
+- Claude Messages: `output_format: {type: "json_schema", name, schema}`
+- Gemini: no provider-native schema mapping in this path yet
 
-If schema parsing fails:
+Field support differences:
 
-- with `--ai-structured-output-require-valid=true`: request fails fast
-- with `--ai-structured-output-require-valid=false`: engine degrades to normal text output and logs a warning
+- OpenAI Chat and OpenAI Responses use: `name`, `description`, `schema`, `strict`.
+- Claude currently uses: `name`, `schema` (description/strict are not emitted).
+
+Validation behavior:
+
+- `--ai-structured-output-require-valid=true`: invalid config fails the request.
+- `--ai-structured-output-require-valid=false`: invalid config is ignored, request continues as normal text output, and a warning is logged.
+
+Turn-level note:
+
+- `engine.KeyStructuredOutputConfig` exists as a typed `Turn.Data` key for structured-output config.
+- Current provider request builders consume chat settings directly; this key is ready for per-turn override wiring.
 
 Example (OpenAI Chat Completions):
 
@@ -638,6 +651,18 @@ Example (OpenAI Chat Completions):
 go run ./cmd/examples/openai-tools test-openai-tools \
   --ai-api-type=openai \
   --ai-engine=gpt-4o-mini \
+  --ai-structured-output-mode=json_schema \
+  --ai-structured-output-name=person \
+  --ai-structured-output-schema='{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}' \
+  --prompt='Return a person object with a name.'
+```
+
+Example (OpenAI Responses):
+
+```bash
+go run ./cmd/examples/openai-tools test-openai-tools \
+  --ai-api-type=openai-responses \
+  --ai-engine=o4-mini \
   --ai-structured-output-mode=json_schema \
   --ai-structured-output-name=person \
   --ai-structured-output-schema='{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}' \
