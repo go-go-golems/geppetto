@@ -62,3 +62,30 @@ func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaRequireValid(t *
 		t.Fatalf("expected error when require_valid=true and schema JSON is invalid")
 	}
 }
+
+func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaIgnoredWhenNotRequired(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.StepSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat: &aisettings.ChatSettings{
+			Engine:                       &engine,
+			StructuredOutputMode:         aisettings.StructuredOutputModeJSONSchema,
+			StructuredOutputName:         "person",
+			StructuredOutputSchema:       `{"type":"object",`,
+			StructuredOutputRequireValid: false,
+			Stream:                       true,
+		},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("return JSON"),
+	}}
+
+	req, err := MakeMessageRequestFromTurn(st, tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.OutputFormat != nil {
+		t.Fatalf("expected invalid schema to be ignored when require_valid=false")
+	}
+}

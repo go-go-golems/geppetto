@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/rs/zerolog/log"
 )
 
 // HTTP JSON models for OpenAI Responses API (minimal subset: text + reasoning + sampling)
@@ -146,6 +147,7 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 			if s.Chat.StructuredOutputRequireValid {
 				return req, err
 			}
+			log.Warn().Err(err).Msg("OpenAI Responses request: ignoring invalid structured output configuration")
 		} else if cfg != nil {
 			strict := cfg.StrictOrDefault()
 			req.Text = &responsesText{

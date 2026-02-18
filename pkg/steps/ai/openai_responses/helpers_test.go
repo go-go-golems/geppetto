@@ -215,3 +215,28 @@ func TestBuildResponsesRequestStructuredOutputInvalidSchemaRequireValid(t *testi
 		t.Fatalf("expected error when require_valid=true and schema JSON is invalid")
 	}
 }
+
+func TestBuildResponsesRequestStructuredOutputInvalidSchemaIgnoredWhenNotRequired(t *testing.T) {
+	engine := "gpt-4o-mini"
+	ss := &settings.StepSettings{
+		Chat: &settings.ChatSettings{
+			Engine:                       &engine,
+			StructuredOutputMode:         settings.StructuredOutputModeJSONSchema,
+			StructuredOutputName:         "person",
+			StructuredOutputSchema:       `{"type":"object",`,
+			StructuredOutputRequireValid: false,
+			Stream:                       true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("return JSON"),
+	}}
+
+	req, err := buildResponsesRequest(ss, turn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Text != nil {
+		t.Fatalf("expected invalid schema to be ignored when require_valid=false")
+	}
+}
