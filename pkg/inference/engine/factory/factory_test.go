@@ -114,6 +114,21 @@ func TestStandardEngineFactory_CreateEngine_DefaultsToOpenAI(t *testing.T) {
 	assert.IsType(t, &openai.OpenAIEngine{}, engine)
 }
 
+func TestStandardEngineFactory_CreateEngine_ReasoningModelsStayOnConfiguredProvider(t *testing.T) {
+	factory := NewStandardEngineFactory()
+
+	settings := createValidOpenAISettings()
+	settings.Chat.ApiType = nil // default provider path
+	engineName := "gpt-5-mini"
+	settings.Chat.Engine = &engineName
+
+	engine, err := factory.CreateEngine(settings)
+
+	require.NoError(t, err)
+	assert.NotNil(t, engine)
+	assert.IsType(t, &openai.OpenAIEngine{}, engine)
+}
+
 // Helper function to create valid OpenAI settings for testing
 func createValidOpenAISettings() *settings.StepSettings {
 	settings, _ := settings.NewStepSettings()

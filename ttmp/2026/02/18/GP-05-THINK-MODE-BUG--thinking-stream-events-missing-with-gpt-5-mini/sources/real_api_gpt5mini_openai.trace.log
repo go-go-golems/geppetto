@@ -1,0 +1,63 @@
+2026-02-18T16:10:34.711881908-05:00 TRC Logger initialized file= format=text logToStdout=false logstash=false
+2026-02-18T16:10:34.713342435-05:00 DBG Debug logging enabled for tool testing
+2026-02-18T16:10:34.714073128-05:00 DBG OpenAI RunInference started num_blocks=1 stream=true
+2026-02-18T16:10:34.714120116-05:00 DBG Making request to openai from turn blocks frequency_penalty=0 max_completion_tokens=256 max_tokens=0 model=gpt-5-mini n=1 presence_penalty=0 stop=[] stream=true temperature=0 top_p=0
+2026-02-18T16:10:34.714142142-05:00 DBG OpenAI request message content_preview="Think briefly, then answer with one short sentence: what is 12+30?" idx=0 role=user tool_call_count=0 tool_call_id= tool_call_ids=[]
+2026-02-18T16:10:34.714160163-05:00 DBG LLMInferenceData initialized event_id=cb4ba425-1b52-48b4-b1f8-f34e2ee93d32 max_tokens=256 model=gpt-5-mini temperature=0.7 top_p=1
+2026-02-18T16:10:34.714172316-05:00 DBG OpenAI publishing start event event_id=cb4ba425-1b52-48b4-b1f8-f34e2ee93d32
+2026-02-18T16:10:34.714178406-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=start sink_count=1
+2026-02-18T16:10:34.714248084-05:00 TRC Published event to watermill event_type=start topic=chat
+2026-02-18T16:10:34.714255185-05:00 DBG OpenAI using streaming mode
+2026-02-18T16:10:37.204450568-05:00 DBG OpenAI starting streaming loop
+2026-02-18T16:10:37.250890637-05:00 DBG OpenAI received chunk chunk=2 delta=12 total_length=2
+2026-02-18T16:10:37.250977224-05:00 DBG OpenAI publishing partial completion event chunk=2 delta=12
+2026-02-18T16:10:37.251001906-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+122026-02-18T16:10:37.251550573-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.25170136-05:00 DBG OpenAI received chunk chunk=3 delta=" +" total_length=4
+2026-02-18T16:10:37.251736776-05:00 DBG OpenAI publishing partial completion event chunk=3 delta=" +"
+2026-02-18T16:10:37.251761981-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ +2026-02-18T16:10:37.252880065-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.274035553-05:00 DBG OpenAI received chunk chunk=4 delta=" " total_length=5
+2026-02-18T16:10:37.274280418-05:00 DBG OpenAI publishing partial completion event chunk=4 delta=" "
+2026-02-18T16:10:37.274401157-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ 2026-02-18T16:10:37.275054696-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.275194164-05:00 DBG OpenAI received chunk chunk=5 delta=30 total_length=7
+2026-02-18T16:10:37.27528797-05:00 DBG OpenAI publishing partial completion event chunk=5 delta=30
+2026-02-18T16:10:37.275338711-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+302026-02-18T16:10:37.27597553-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.295825758-05:00 DBG OpenAI received chunk chunk=6 delta=" =" total_length=9
+2026-02-18T16:10:37.295904476-05:00 DBG OpenAI publishing partial completion event chunk=6 delta=" ="
+2026-02-18T16:10:37.295931543-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ =2026-02-18T16:10:37.296275583-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.296376008-05:00 DBG OpenAI received chunk chunk=7 delta=" " total_length=10
+2026-02-18T16:10:37.29640713-05:00 DBG OpenAI publishing partial completion event chunk=7 delta=" "
+2026-02-18T16:10:37.296427526-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ 2026-02-18T16:10:37.296708241-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.318401436-05:00 DBG OpenAI received chunk chunk=8 delta=42 total_length=12
+2026-02-18T16:10:37.318486146-05:00 DBG OpenAI publishing partial completion event chunk=8 delta=42
+2026-02-18T16:10:37.318539766-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+422026-02-18T16:10:37.31894644-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.31905021-05:00 DBG OpenAI received chunk chunk=9 delta=. total_length=13
+2026-02-18T16:10:37.31909333-05:00 DBG OpenAI publishing partial completion event chunk=9 delta=.
+2026-02-18T16:10:37.319122042-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+.2026-02-18T16:10:37.319541916-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:10:37.329472638-05:00 DBG OpenAI stop reason observed stop_reason=stop
+2026-02-18T16:10:37.329553777-05:00 DBG OpenAI usage updated from chunk input_tokens=23 output_tokens=81
+2026-02-18T16:10:37.345211824-05:00 DBG OpenAI stream completed chunks_received=11
+2026-02-18T16:10:37.345281057-05:00 DBG OpenAI metadata finalized input_tokens=23 output_tokens=81 stop_reason=stop
+2026-02-18T16:10:37.345308151-05:00 DBG OpenAI streaming complete, preparing messages final_text_length=13 tool_call_count=0
+2026-02-18T16:10:37.345350567-05:00 DBG OpenAI publishing final event (streaming) event_id=cb4ba425-1b52-48b4-b1f8-f34e2ee93d32 max_tokens=256 model=gpt-5-mini stop_reason=stop temperature=0.7 top_p=1 usage={"input_tokens":23,"output_tokens":81}
+2026-02-18T16:10:37.345418851-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=final sink_count=1
+
+📝 Output tokens: 81  |  📥 Input tokens: 23
+
+2026-02-18T16:10:37.345885035-05:00 TRC Published event to watermill event_type=final topic=chat
+2026-02-18T16:10:37.34591373-05:00 DBG OpenAI RunInference completed (streaming)
+
+Workflow completed. Blocks:
+user: Think briefly, then answer with one short sentence: what is 12+30?
+assistant: 12 + 30 = 42.
+2026-02-18T16:10:37.346063496-05:00 DBG Closing publisher
+2026-02-18T16:10:37.346108763-05:00 DBG Publisher closed
+2026-02-18T16:10:37.34611657-05:00 DBG Closing router
+2026-02-18T16:10:37.346122201-05:00 DBG Router closed
