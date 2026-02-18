@@ -260,6 +260,49 @@ func createExecutor(fn interface{}, funcType reflect.Type) func([]byte) (interfa
 			return extractResults(results)
 		}
 
+		// Two parameters: support (context.Context, Input) for Execute() by injecting Background.
+		if funcType.NumIn() == 2 {
+			log.Debug().
+				Str("param0_type", funcType.In(0).String()).
+				Str("param1_type", funcType.In(1).String()).
+				Bool("param0_is_context", funcType.In(0) == reflect.TypeOf((*context.Context)(nil)).Elem()).
+				Msg("tools: handling two-parameter function")
+
+			if funcType.In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
+				log.Error().
+					Str("param0_type", funcType.In(0).String()).
+					Msg("tools: first parameter is not context.Context")
+				return nil, fmt.Errorf("unsupported two-arg tool function signature")
+			}
+
+			in := funcType.In(1)
+			log.Debug().
+				Str("input_type", in.String()).
+				Msg("tools: creating input instance for two-param function")
+			input := reflect.New(in).Interface()
+
+			log.Debug().
+				Str("input_ptr_type", reflect.TypeOf(input).String()).
+				Msg("tools: unmarshaling JSON args for two-param function")
+			if err := json.Unmarshal(args, input); err != nil {
+				log.Error().
+					Err(err).
+					Str("input_type", in.String()).
+					Str("args", string(args)).
+					Msg("tools: failed to unmarshal arguments for two-param function")
+				return nil, fmt.Errorf("failed to unmarshal arguments: %w", err)
+			}
+
+			log.Debug().
+				Str("input_value_type", reflect.ValueOf(input).Elem().Type().String()).
+				Msg("tools: calling two-param function with Background context and input")
+			results := funcValue.Call([]reflect.Value{reflect.ValueOf(context.Background()), reflect.ValueOf(input).Elem()})
+			log.Debug().
+				Int("results_len", len(results)).
+				Msg("tools: two-param function call completed")
+			return extractResults(results)
+		}
+
 		// Fallback for unexpected signatures
 		// Add diagnostic info
 		inCount := funcType.NumIn()
