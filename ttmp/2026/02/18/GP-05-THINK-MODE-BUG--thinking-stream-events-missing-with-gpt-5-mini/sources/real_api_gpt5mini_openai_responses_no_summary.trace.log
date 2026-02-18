@@ -1,0 +1,140 @@
+2026-02-18T16:11:14.389592805-05:00 TRC Logger initialized file= format=text logToStdout=false logstash=false
+2026-02-18T16:11:14.390403817-05:00 DBG Debug logging enabled for tool testing
+2026-02-18T16:11:14.391167645-05:00 DBG Responses: Turn tool blocks present tool_call_blocks=0 tool_use_blocks=0
+2026-02-18T16:11:14.391531788-05:00 DBG Responses: request input summary input_items=1 input_preview=[{"parts":[{"len":66,"text":"Think briefly, then answer with one short sentence: what is 12+30?","type":"input_text"}],"role":"user"}]
+2026-02-18T16:11:14.392388174-05:00 DBG Responses: built request include_len=1 input_items=1 model=gpt-5-mini stream=true
+2026-02-18T16:11:14.392526988-05:00 DBG Responses: sending request body_len=270 stream=true url=https://api.openai.com/v1/responses
+2026-02-18T16:11:14.392630059-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=start sink_count=1
+2026-02-18T16:11:14.393582457-05:00 TRC Published event to watermill event_type=start topic=chat
+2026-02-18T16:11:14.393711553-05:00 TRC Responses: initiating HTTP request (streaming)
+2026-02-18T16:11:14.934897843-05:00 DBG Responses: HTTP response received content_type="text/event-stream; charset=utf-8" status=200
+2026-02-18T16:11:14.935153683-05:00 TRC Responses: starting SSE read loop
+2026-02-18T16:11:14.936592421-05:00 TRC Responses: SSE line line="event: response.created"
+2026-02-18T16:11:14.936681546-05:00 TRC Responses: SSE event name event=response.created
+2026-02-18T16:11:14.936711274-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_0692cd88b2a88eea0069962af2d20c8195b39854d61bd04ef7\",\"object\":\"response\",\"created_at\":1771449074,\"status\":\"in_progress\",\"background\":false,\"compl…"
+2026-02-18T16:11:14.936879311-05:00 TRC Responses: SSE event data={"response":{"background":false,"completed_at":null,"created_at":1771449074,"error":null,"frequency_penalty":0,"id":"resp_0692cd88b2a88eea0069962af2d20c8195b39854d61bd04ef7","incomplete_details":null,"instructions":null,"max_output_tokens":256,"max_tool_calls":null,"metadata":{},"model":"gpt-5-mini-2025-08-07","object":"response","output":[],"parallel_tool_calls":true,"presence_penalty":0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":null,"reasoning":{"effort":"medium","summary":null},"safety_identifier":null,"service_tier":"auto","status":"in_progress","store":true,"temperature":1,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1,"truncation":"disabled","usage":null,"user":null},"sequence_number":0,"type":"response.created"} event=response.created
+2026-02-18T16:11:14.936990575-05:00 TRC Responses: SSE line line="event: response.in_progress"
+2026-02-18T16:11:14.937008126-05:00 TRC Responses: SSE event name event=response.in_progress
+2026-02-18T16:11:14.937024687-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_0692cd88b2a88eea0069962af2d20c8195b39854d61bd04ef7\",\"object\":\"response\",\"created_at\":1771449074,\"status\":\"in_progress\",\"background\":false,\"c…"
+2026-02-18T16:11:14.937171115-05:00 TRC Responses: SSE event data={"response":{"background":false,"completed_at":null,"created_at":1771449074,"error":null,"frequency_penalty":0,"id":"resp_0692cd88b2a88eea0069962af2d20c8195b39854d61bd04ef7","incomplete_details":null,"instructions":null,"max_output_tokens":256,"max_tool_calls":null,"metadata":{},"model":"gpt-5-mini-2025-08-07","object":"response","output":[],"parallel_tool_calls":true,"presence_penalty":0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":null,"reasoning":{"effort":"medium","summary":null},"safety_identifier":null,"service_tier":"auto","status":"in_progress","store":true,"temperature":1,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1,"truncation":"disabled","usage":null,"user":null},"sequence_number":1,"type":"response.in_progress"} event=response.in_progress
+2026-02-18T16:11:15.292126932-05:00 TRC Responses: SSE line line="event: response.output_item.added"
+2026-02-18T16:11:15.292254646-05:00 TRC Responses: SSE event name event=response.output_item.added
+2026-02-18T16:11:15.292352257-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_item.added\",\"item\":{\"id\":\"rs_0692cd88b2a88eea0069962af33a008195b640e65c7fc27da9\",\"type\":\"reasoning\",\"encrypted_content\":\"gAAAAABplirzvlEsnSuABTfO477UhSlfa8vX3F3ZJBoDSSVM…"
+2026-02-18T16:11:15.292520208-05:00 TRC Responses: SSE event data={"item":{"encrypted_content":"gAAAAA-****-66-Bze","id":"rs_0692cd88b2a88eea0069962af33a008195b640e65c7fc27da9","summary":[],"type":"reasoning"},"output_index":0,"sequence_number":2,"type":"response.output_item.added"} event=response.output_item.added
+2026-02-18T16:11:15.292638103-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+
+--- Thinking started ---
+2026-02-18T16:11:15.293529087-05:00 TRC Published event to watermill event_type=info topic=chat
+2026-02-18T16:11:17.262135849-05:00 TRC Responses: SSE line line="event: response.output_item.done"
+2026-02-18T16:11:17.26218294-05:00 TRC Responses: SSE event name event=response.output_item.done
+2026-02-18T16:11:17.262193059-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"rs_0692cd88b2a88eea0069962af33a008195b640e65c7fc27da9\",\"type\":\"reasoning\",\"encrypted_content\":\"gAAAAABplir1wwmu4GygmDH8EWJQGIX0ApH5jDyUzC7QD_v2s…"
+2026-02-18T16:11:17.262241159-05:00 TRC Responses: SSE event data={"item":{"encrypted_content":"gAAAAA-****-TlPYW5","id":"rs_0692cd88b2a88eea0069962af33a008195b640e65c7fc27da9","summary":[],"type":"reasoning"},"output_index":0,"sequence_number":3,"type":"response.output_item.done"} event=response.output_item.done
+2026-02-18T16:11:17.262262506-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+
+--- Thinking ended ---
+2026-02-18T16:11:17.262431817-05:00 TRC Published event to watermill event_type=info topic=chat
+2026-02-18T16:11:17.262452976-05:00 TRC Responses: SSE line line="event: response.output_item.added"
+2026-02-18T16:11:17.262468178-05:00 TRC Responses: SSE event name event=response.output_item.added
+2026-02-18T16:11:17.262477373-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_item.added\",\"item\":{\"id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"type\":\"message\",\"status\":\"in_progress\",\"content\":[],\"role\":\"assistant\"},\"output_index\"…"
+2026-02-18T16:11:17.262513264-05:00 TRC Responses: SSE event data={"item":{"content":[],"id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","role":"assistant","status":"in_progress","type":"message"},"output_index":1,"sequence_number":4,"type":"response.output_item.added"} event=response.output_item.added
+2026-02-18T16:11:17.262537996-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+
+--- Output started ---
+2026-02-18T16:11:17.262642204-05:00 TRC Published event to watermill event_type=info topic=chat
+2026-02-18T16:11:17.262654682-05:00 TRC Responses: SSE line line="event: response.content_part.added"
+2026-02-18T16:11:17.262663834-05:00 TRC Responses: SSE event name event=response.content_part.added
+2026-02-18T16:11:17.262673126-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.content_part.added\",\"content_index\":0,\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"output_index\":1,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprob…"
+2026-02-18T16:11:17.262694712-05:00 TRC Responses: SSE event data={"content_index":0,"item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","output_index":1,"part":{"annotations":[],"logprobs":[],"text":"","type":"output_text"},"sequence_number":5,"type":"response.content_part.added"} event=response.content_part.added
+2026-02-18T16:11:17.268468491-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.268512491-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.268524533-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"12\",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"bHQgr7DWlkbAay\",\"output_index\"…"
+2026-02-18T16:11:17.268561212-05:00 TRC Responses: SSE event data={"content_index":0,"delta":"12","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"bHQgr7DWlkbAay","output_index":1,"sequence_number":6,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.268599996-05:00 TRC Responses: text delta delta_len=2 message_len=2
+2026-02-18T16:11:17.268611538-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+122026-02-18T16:11:17.268776807-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.280712461-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.280741974-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.280749068-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" plus\",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"HEIoIGsbK12\",\"output_index\"…"
+2026-02-18T16:11:17.280772637-05:00 TRC Responses: SSE event data={"content_index":0,"delta":" plus","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"HEIoIGsbK12","output_index":1,"sequence_number":7,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.28079479-05:00 TRC Responses: text delta delta_len=5 message_len=7
+2026-02-18T16:11:17.280803619-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ plus2026-02-18T16:11:17.280914108-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.298170622-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.298232549-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.298244047-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" \",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"eL5a04jrEGcyQHN\",\"output_index\"…"
+2026-02-18T16:11:17.298287866-05:00 TRC Responses: SSE event data={"content_index":0,"delta":" ","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"eL5a04jrEGcyQHN","output_index":1,"sequence_number":8,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.298309541-05:00 TRC Responses: text delta delta_len=1 message_len=8
+2026-02-18T16:11:17.298331312-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ 2026-02-18T16:11:17.298435144-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.324377086-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.324423127-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.324431579-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"30\",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"vKotcFDq7Sef55\",\"output_index\"…"
+2026-02-18T16:11:17.324477503-05:00 TRC Responses: SSE event data={"content_index":0,"delta":"30","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"vKotcFDq7Sef55","output_index":1,"sequence_number":9,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.324502798-05:00 TRC Responses: text delta delta_len=2 message_len=10
+2026-02-18T16:11:17.324515914-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+302026-02-18T16:11:17.324624436-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.338905922-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.338962258-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.338976873-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" equals\",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"WtKXWJUA8\",\"output_index\"…"
+2026-02-18T16:11:17.339014546-05:00 TRC Responses: SSE event data={"content_index":0,"delta":" equals","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"WtKXWJUA8","output_index":1,"sequence_number":10,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.339029022-05:00 TRC Responses: text delta delta_len=7 message_len=17
+2026-02-18T16:11:17.339037711-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ equals2026-02-18T16:11:17.339120768-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.355701468-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.355749488-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.355764872-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" \",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"G38S3Lq8Uly77qB\",\"output_index\"…"
+2026-02-18T16:11:17.355821014-05:00 TRC Responses: SSE event data={"content_index":0,"delta":" ","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"G38S3Lq8Uly77qB","output_index":1,"sequence_number":11,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.355851804-05:00 TRC Responses: text delta delta_len=1 message_len=18
+2026-02-18T16:11:17.355870116-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+ 2026-02-18T16:11:17.356041462-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.372744117-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.372894245-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.372923489-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"42\",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"SrslivsrlPzTuY\",\"output_index\"…"
+2026-02-18T16:11:17.373098624-05:00 TRC Responses: SSE event data={"content_index":0,"delta":"42","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"SrslivsrlPzTuY","output_index":1,"sequence_number":12,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.373201257-05:00 TRC Responses: text delta delta_len=2 message_len=20
+2026-02-18T16:11:17.373256308-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+422026-02-18T16:11:17.373673369-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.522172846-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:11:17.522254995-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:11:17.522294829-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\".\",\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"obfuscation\":\"tupxl4QkXJpVKzc\",\"output_index\"…"
+2026-02-18T16:11:17.522413965-05:00 TRC Responses: SSE event data={"content_index":0,"delta":".","item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"obfuscation":"tupxl4QkXJpVKzc","output_index":1,"sequence_number":13,"type":"response.output_text.delta"} event=response.output_text.delta
+2026-02-18T16:11:17.522468761-05:00 TRC Responses: text delta delta_len=1 message_len=21
+2026-02-18T16:11:17.522677876-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+.2026-02-18T16:11:17.523456282-05:00 TRC Published event to watermill event_type=partial topic=chat
+2026-02-18T16:11:17.523517339-05:00 TRC Responses: SSE line line="event: response.output_text.done"
+2026-02-18T16:11:17.523552052-05:00 TRC Responses: SSE event name event=response.output_text.done
+2026-02-18T16:11:17.523600072-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_text.done\",\"content_index\":0,\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"logprobs\":[],\"output_index\":1,\"sequence_number\":14,\"text\":\"12 plus 30 eq…"
+2026-02-18T16:11:17.523713197-05:00 TRC Responses: SSE event data={"content_index":0,"item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","logprobs":[],"output_index":1,"sequence_number":14,"text":"12 plus 30 equals 42.","type":"response.output_text.done"} event=response.output_text.done
+2026-02-18T16:11:17.523798695-05:00 TRC Responses: SSE line line="event: response.content_part.done"
+2026-02-18T16:11:17.523842091-05:00 TRC Responses: SSE event name event=response.content_part.done
+2026-02-18T16:11:17.52388902-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.content_part.done\",\"content_index\":0,\"item_id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"output_index\":1,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs…"
+2026-02-18T16:11:17.524102105-05:00 TRC Responses: SSE event data={"content_index":0,"item_id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","output_index":1,"part":{"annotations":[],"logprobs":[],"text":"12 plus 30 equals 42.","type":"output_text"},"sequence_number":15,"type":"response.content_part.done"} event=response.content_part.done
+2026-02-18T16:11:17.524495491-05:00 TRC Responses: SSE line line="event: response.output_item.done"
+2026-02-18T16:11:17.524521032-05:00 TRC Responses: SSE event name event=response.output_item.done
+2026-02-18T16:11:17.524542257-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996\",\"type\":\"message\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"annotations\":[],…"
+2026-02-18T16:11:17.524610792-05:00 TRC Responses: SSE event data={"item":{"content":[{"annotations":[],"logprobs":[],"text":"12 plus 30 equals 42.","type":"output_text"}],"id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","role":"assistant","status":"completed","type":"message"},"output_index":1,"sequence_number":16,"type":"response.output_item.done"} event=response.output_item.done
+2026-02-18T16:11:17.524657027-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+
+--- Output ended ---
+2026-02-18T16:11:17.524888834-05:00 TRC Published event to watermill event_type=info topic=chat
+2026-02-18T16:11:17.582906183-05:00 TRC Responses: SSE line line="event: response.completed"
+2026-02-18T16:11:17.583035838-05:00 TRC Responses: SSE event name event=response.completed
+2026-02-18T16:11:17.583186539-05:00 TRC Responses: SSE line line="data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_0692cd88b2a88eea0069962af2d20c8195b39854d61bd04ef7\",\"object\":\"response\",\"created_at\":1771449074,\"status\":\"completed\",\"background\":false,\"compl…"
+2026-02-18T16:11:17.584055567-05:00 TRC Responses: SSE event data={"response":{"background":false,"completed_at":1771449077,"created_at":1771449074,"error":null,"frequency_penalty":0,"id":"resp_0692cd88b2a88eea0069962af2d20c8195b39854d61bd04ef7","incomplete_details":null,"instructions":null,"max_output_tokens":256,"max_tool_calls":null,"metadata":{},"model":"gpt-5-mini-2025-08-07","object":"response","output":[{"encrypted_content":"gAAAAA-****-PyAfNn","id":"rs_0692cd88b2a88eea0069962af33a008195b640e65c7fc27da9","summary":[],"type":"reasoning"},{"content":[{"annotations":[],"logprobs":[],"text":"12 plus 30 equals 42.","type":"output_text"}],"id":"msg_0692cd88b2a88eea0069962af5320481958f86184f58683996","role":"assistant","status":"completed","type":"message"}],"parallel_tool_calls":true,"presence_penalty":0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":null,"reasoning":{"effort":"medium","summary":null},"safety_identifier":null,"service_tier":"default","status":"completed","store":true,"temperature":1,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1,"truncation":"disabled","usage":{"input_tokens":23,"input_tokens_details":{"cached_tokens":0},"output_tokens":161,"output_tokens_details":{"reasoning_tokens":128},"total_tokens":184},"user":null},"sequence_number":17,"type":"response.completed"} event=response.completed
+2026-02-18T16:11:17.584584862-05:00 DBG Responses: usage parsed input_tokens=23 output_tokens=161 reasoning_tokens=128
+2026-02-18T16:11:17.584681958-05:00 TRC Responses: EOF while reading SSE
+2026-02-18T16:11:17.584722672-05:00 DBG Responses: SSE loop ended
+2026-02-18T16:11:17.584799031-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=final sink_count=1
+
+
+🧠 Reasoning tokens: 128  |  📝 Output tokens: 161  |  📥 Input tokens: 23
+2026-02-18T16:11:17.585497149-05:00 TRC Published event to watermill event_type=final topic=chat
+
+Workflow completed. Blocks:
+user: Think briefly, then answer with one short sentence: what is 12+30?
+reasoning: <encrypted content>
+assistant: 12 plus 30 equals 42.
+2026-02-18T16:11:17.585694643-05:00 DBG Closing publisher
+2026-02-18T16:11:17.585732924-05:00 DBG Publisher closed
+2026-02-18T16:11:17.585747299-05:00 DBG Closing router
+2026-02-18T16:11:17.58575876-05:00 DBG Router closed

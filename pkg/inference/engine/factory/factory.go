@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // EngineFactory creates AI inference engines based on provider settings.
@@ -56,6 +57,9 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (e
 	if settings.Chat != nil && settings.Chat.ApiType != nil {
 		provider = strings.ToLower(string(*settings.Chat.ApiType))
 	}
+	if shouldAutoRouteToResponses(settings, provider) {
+		provider = string(types.ApiTypeOpenAIResponses)
+	}
 
 	// Validate that we have the required settings
 	if err := f.validateSettings(settings, provider); err != nil {
@@ -80,6 +84,29 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (e
 		supported := strings.Join(f.SupportedProviders(), ", ")
 		return nil, errors.Errorf("unsupported provider %s. Supported providers: %s", provider, supported)
 	}
+}
+
+func shouldAutoRouteToResponses(settings *settings.StepSettings, provider string) bool {
+	if provider != string(types.ApiTypeOpenAI) {
+		return false
+	}
+	if settings == nil || settings.Chat == nil || settings.Chat.Engine == nil {
+		return false
+	}
+	model := strings.ToLower(strings.TrimSpace(*settings.Chat.Engine))
+	isReasoningModel := strings.HasPrefix(model, "o1") ||
+		strings.HasPrefix(model, "o3") ||
+		strings.HasPrefix(model, "o4") ||
+		strings.HasPrefix(model, "gpt-5")
+	if !isReasoningModel {
+		return false
+	}
+	log.Debug().
+		Str("model", model).
+		Str("from_provider", provider).
+		Str("to_provider", string(types.ApiTypeOpenAIResponses)).
+		Msg("Auto-routing reasoning model to OpenAI Responses engine")
+	return true
 }
 
 // SupportedProviders returns the list of AI providers this factory can create engines for.

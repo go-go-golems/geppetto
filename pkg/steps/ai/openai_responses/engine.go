@@ -441,6 +441,25 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.reasoning_summary_part.done":
 				// End of a summary piece – forward as streaming info event
 				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", nil))
+			case "response.reasoning_text.delta":
+				if d, ok := m["delta"].(string); ok && d != "" {
+					thinkBuf.WriteString(d)
+					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, d))
+					// Mirror to partial-thinking so existing UIs still render live reasoning text.
+					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
+				} else if s, ok := m["text"].(string); ok && s != "" {
+					thinkBuf.WriteString(s)
+					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, s))
+					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
+				}
+			case "response.reasoning_text.done":
+				fullText := thinkBuf.String()
+				if s, ok := m["text"].(string); ok && s != "" {
+					fullText = s
+					thinkBuf.Reset()
+					thinkBuf.WriteString(s)
+				}
+				e.publishEvent(ctx, events.NewReasoningTextDone(metadata, fullText))
 			case "response.output_item.done":
 				if it, ok := m["item"].(map[string]any); ok {
 					if typ, ok := it["type"].(string); ok {

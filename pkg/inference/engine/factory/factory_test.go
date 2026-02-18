@@ -3,6 +3,7 @@ package factory
 import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
+	openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -112,6 +113,21 @@ func TestStandardEngineFactory_CreateEngine_DefaultsToOpenAI(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, engine)
 	assert.IsType(t, &openai.OpenAIEngine{}, engine)
+}
+
+func TestStandardEngineFactory_CreateEngine_AutoRoutesReasoningModelsToResponses(t *testing.T) {
+	factory := NewStandardEngineFactory()
+
+	settings := createValidOpenAISettings()
+	settings.Chat.ApiType = nil // default provider path
+	engineName := "gpt-5-mini"
+	settings.Chat.Engine = &engineName
+
+	engine, err := factory.CreateEngine(settings)
+
+	require.NoError(t, err)
+	assert.NotNil(t, engine)
+	assert.IsType(t, &openai_responses.Engine{}, engine)
 }
 
 // Helper function to create valid OpenAI settings for testing

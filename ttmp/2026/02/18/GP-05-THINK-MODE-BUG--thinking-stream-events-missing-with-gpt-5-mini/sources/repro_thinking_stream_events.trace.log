@@ -1,0 +1,128 @@
+2026-02-18T16:04:22-05:00 DBG Responses: Turn tool blocks present tool_call_blocks=0 tool_use_blocks=0
+2026-02-18T16:04:22-05:00 DBG Responses: request input summary input_items=2 input_preview=[{"parts":[{"len":25,"text":"You are a test assistant.","type":"input_text"}],"role":"system"},{"parts":[{"len":22,"text":"Return a short answer.","type":"input_text"}],"role":"user"}]
+2026-02-18T16:04:22-05:00 DBG Responses: built request include_len=1 input_items=2 model=gpt-5-mini stream=true
+2026-02-18T16:04:22-05:00 DBG Responses: sending request body_len=330 stream=true url=https://example.test/v1/responses
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=start sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: initiating HTTP request (streaming)
+2026-02-18T16:04:22-05:00 DBG Responses: HTTP response received content_type=text/event-stream status=200
+2026-02-18T16:04:22-05:00 TRC Responses: starting SSE read loop
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.added"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"reasoning\",\"id\":\"rs_summary_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"rs_summary_1","type":"reasoning"}} event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.reasoning_summary_part.added"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.reasoning_summary_part.added
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item_id\":\"rs_summary_1\",\"summary_index\":0}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item_id":"rs_summary_1","summary_index":0} event=response.reasoning_summary_part.added
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.reasoning_summary_text.delta"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.reasoning_summary_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item_id\":\"rs_summary_1\",\"summary_index\":0,\"delta\":\"Reasoning summary chunk.\"}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"delta":"Reasoning summary chunk.","item_id":"rs_summary_1","summary_index":0} event=response.reasoning_summary_text.delta
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial-thinking sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.reasoning_summary_part.done"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.reasoning_summary_part.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item_id\":\"rs_summary_1\",\"summary_index\":0}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item_id":"rs_summary_1","summary_index":0} event=response.reasoning_summary_part.done
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.done"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"reasoning\",\"id\":\"rs_summary_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"rs_summary_1","type":"reasoning"}} event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.added"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"message\",\"id\":\"msg_summary_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"msg_summary_1","type":"message"}} event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"delta\":\"42\"}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"delta":"42"} event=response.output_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: text delta delta_len=2 message_len=2
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.done"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"message\",\"id\":\"msg_summary_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"msg_summary_1","type":"message"}} event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.completed"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.completed
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"response\":{\"usage\":{\"input_tokens\":12,\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":9}}}}"
+2026-02-18T16:04:22-05:00 TRC Responses: EOF while reading SSE
+2026-02-18T16:04:22-05:00 DBG Responses: SSE loop ended
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=final sink_count=1
+=== summary-delta-events ===
+info:output-ended=1
+info:output-started=1
+info:reasoning-summary=1
+info:reasoning-summary-ended=1
+info:reasoning-summary-started=1
+info:thinking-ended=1
+info:thinking-started=1
+type:final=1
+type:info=7
+type:partial=1
+type:partial-thinking=1
+type:start=1
+
+2026-02-18T16:04:22-05:00 DBG Responses: Turn tool blocks present tool_call_blocks=0 tool_use_blocks=0
+2026-02-18T16:04:22-05:00 DBG Responses: request input summary input_items=2 input_preview=[{"parts":[{"len":25,"text":"You are a test assistant.","type":"input_text"}],"role":"system"},{"parts":[{"len":22,"text":"Return a short answer.","type":"input_text"}],"role":"user"}]
+2026-02-18T16:04:22-05:00 DBG Responses: built request include_len=1 input_items=2 model=gpt-5-mini stream=true
+2026-02-18T16:04:22-05:00 DBG Responses: sending request body_len=330 stream=true url=https://example.test/v1/responses
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=start sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: initiating HTTP request (streaming)
+2026-02-18T16:04:22-05:00 DBG Responses: HTTP response received content_type=text/event-stream status=200
+2026-02-18T16:04:22-05:00 TRC Responses: starting SSE read loop
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.added"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"reasoning\",\"id\":\"rs_text_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"rs_text_1","type":"reasoning"}} event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.reasoning_text.delta"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.reasoning_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item_id\":\"rs_text_1\",\"delta\":\"Reasoning text chunk.\"}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"delta":"Reasoning text chunk.","item_id":"rs_text_1"} event=response.reasoning_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.reasoning_text.done"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.reasoning_text.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item_id\":\"rs_text_1\",\"text\":\"Reasoning text done.\"}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item_id":"rs_text_1","text":"Reasoning text done."} event=response.reasoning_text.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.done"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"reasoning\",\"id\":\"rs_text_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"rs_text_1","type":"reasoning"}} event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.added"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"message\",\"id\":\"msg_text_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"msg_text_1","type":"message"}} event=response.output_item.added
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_text.delta"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"delta\":\"42\"}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"delta":"42"} event=response.output_text.delta
+2026-02-18T16:04:22-05:00 TRC Responses: text delta delta_len=2 message_len=2
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=partial sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.output_item.done"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"item\":{\"type\":\"message\",\"id\":\"msg_text_1\"}}"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event data={"item":{"id":"msg_text_1","type":"message"}} event=response.output_item.done
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=info sink_count=1
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="event: response.completed"
+2026-02-18T16:04:22-05:00 TRC Responses: SSE event name event=response.completed
+2026-02-18T16:04:22-05:00 TRC Responses: SSE line line="data: {\"response\":{\"usage\":{\"input_tokens\":12,\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":9}}}}"
+2026-02-18T16:04:22-05:00 TRC Responses: EOF while reading SSE
+2026-02-18T16:04:22-05:00 DBG Responses: SSE loop ended
+2026-02-18T16:04:22-05:00 TRC PublishEventToContext: publishing to sinks component=events.context event_type=final sink_count=1
+=== reasoning-text-events ===
+info:output-ended=1
+info:output-started=1
+info:thinking-ended=1
+info:thinking-started=1
+type:final=1
+type:info=4
+type:partial=1
+type:start=1
+
