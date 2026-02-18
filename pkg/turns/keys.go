@@ -27,10 +27,11 @@ const GeppettoNamespaceKey = "geppetto"
 // Canonical value keys (scoped to GeppettoNamespaceKey).
 const (
 	// Turn.Data
-	ToolConfigValueKey            = "tool_config" // typed key lives in inference/engine to avoid import cycles
-	AgentModeAllowedToolsValueKey = "agent_mode_allowed_tools"
-	AgentModeValueKey             = "agent_mode"
-	ResponsesServerToolsValueKey  = "responses_server_tools"
+	ToolConfigValueKey             = "tool_config"              // typed key lives in inference/engine to avoid import cycles
+	StructuredOutputConfigValueKey = "structured_output_config" // typed key lives in inference/engine to avoid import cycles
+	AgentModeAllowedToolsValueKey  = "agent_mode_allowed_tools"
+	AgentModeValueKey              = "agent_mode"
+	ResponsesServerToolsValueKey   = "responses_server_tools"
 
 	// Turn.Metadata
 	TurnMetaProviderValueKey    = "provider"

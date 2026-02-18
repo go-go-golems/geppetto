@@ -153,7 +153,7 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 			if ss.Chat.StructuredOutputDescription != "" {
 				metadata["ai-structured-output-description"] = ss.Chat.StructuredOutputDescription
 			}
-			metadata["ai-structured-output-strict"] = ss.Chat.StructuredOutputStrict
+			metadata["ai-structured-output-strict"] = ss.Chat.StructuredOutputStrictOrDefault()
 			metadata["ai-structured-output-require-valid"] = ss.Chat.StructuredOutputRequireValid
 		}
 	}
@@ -343,7 +343,7 @@ func (ss *StepSettings) GetSummary(verbose bool) string {
 				if ss.Chat.StructuredOutputDescription != "" {
 					summary.WriteString(fmt.Sprintf("  - Structured Output Description: %s\n", ss.Chat.StructuredOutputDescription))
 				}
-				summary.WriteString(fmt.Sprintf("  - Structured Output Strict: %t\n", ss.Chat.StructuredOutputStrict))
+				summary.WriteString(fmt.Sprintf("  - Structured Output Strict: %t\n", ss.Chat.StructuredOutputStrictOrDefault()))
 				summary.WriteString(fmt.Sprintf("  - Structured Output Require Valid: %t\n", ss.Chat.StructuredOutputRequireValid))
 			}
 		}

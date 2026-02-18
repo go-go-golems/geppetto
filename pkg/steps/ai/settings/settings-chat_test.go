@@ -37,3 +37,24 @@ func TestChatSettingsParseStructuredOutputSchemaInvalid(t *testing.T) {
 		t.Fatalf("expected parse error for invalid schema JSON")
 	}
 }
+
+func TestChatSettingsStructuredOutputConfig(t *testing.T) {
+	s := &ChatSettings{
+		StructuredOutputMode:   StructuredOutputModeJSONSchema,
+		StructuredOutputName:   "person",
+		StructuredOutputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+	}
+	cfg, err := s.StructuredOutputConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg == nil || !cfg.IsEnabled() {
+		t.Fatalf("expected enabled structured output config")
+	}
+	if cfg.Name != "person" {
+		t.Fatalf("expected name=person, got %q", cfg.Name)
+	}
+	if !cfg.StrictOrDefault() {
+		t.Fatalf("expected strict default true")
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/huandu/go-clone"
@@ -39,7 +40,7 @@ type ChatSettings struct {
 	StructuredOutputName         string               `yaml:"structured_output_name,omitempty" glazed:"ai-structured-output-name"`
 	StructuredOutputDescription  string               `yaml:"structured_output_description,omitempty" glazed:"ai-structured-output-description"`
 	StructuredOutputSchema       string               `yaml:"structured_output_schema,omitempty" glazed:"ai-structured-output-schema"`
-	StructuredOutputStrict       bool                 `yaml:"structured_output_strict,omitempty" glazed:"ai-structured-output-strict"`
+	StructuredOutputStrict       *bool                `yaml:"structured_output_strict,omitempty" glazed:"ai-structured-output-strict"`
 	StructuredOutputRequireValid bool                 `yaml:"structured_output_require_valid,omitempty" glazed:"ai-structured-output-require-valid"`
 }
 
@@ -55,7 +56,7 @@ func NewChatSettings() (*ChatSettings, error) {
 		Stream:                       true, // Always enable streaming
 		StructuredOutputMode:         StructuredOutputModeOff,
 		StructuredOutputSchema:       "",
-		StructuredOutputStrict:       true,
+		StructuredOutputStrict:       nil,
 		StructuredOutputRequireValid: false,
 	}
 
@@ -89,6 +90,36 @@ func (s *ChatSettings) ParseStructuredOutputSchema() (map[string]any, error) {
 		return nil, fmt.Errorf("invalid ai-structured-output-schema JSON: %w", err)
 	}
 	return out, nil
+}
+
+func (s *ChatSettings) StructuredOutputStrictOrDefault() bool {
+	if s.StructuredOutputStrict == nil {
+		return true
+	}
+	return *s.StructuredOutputStrict
+}
+
+func (s *ChatSettings) StructuredOutputConfig() (*engine.StructuredOutputConfig, error) {
+	if !s.IsStructuredOutputEnabled() {
+		return nil, nil
+	}
+	schema, err := s.ParseStructuredOutputSchema()
+	if err != nil {
+		return nil, err
+	}
+	strict := s.StructuredOutputStrictOrDefault()
+	cfg := &engine.StructuredOutputConfig{
+		Mode:         engine.StructuredOutputMode(s.StructuredOutputMode),
+		Name:         strings.TrimSpace(s.StructuredOutputName),
+		Description:  strings.TrimSpace(s.StructuredOutputDescription),
+		Schema:       schema,
+		Strict:       &strict,
+		RequireValid: s.StructuredOutputRequireValid,
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 //go:embed "flags/chat.yaml"
