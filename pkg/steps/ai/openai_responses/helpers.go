@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/rs/zerolog/log"
 )
 
 // HTTP JSON models for OpenAI Responses API (minimal subset: text + reasoning + sampling)
@@ -15,6 +16,7 @@ import (
 type responsesRequest struct {
 	Model             string           `json:"model"`
 	Input             []responsesInput `json:"input"`
+	Text              *responsesText   `json:"text,omitempty"`
 	MaxOutputTokens   *int             `json:"max_output_tokens,omitempty"`
 	Temperature       *float64         `json:"temperature,omitempty"`
 	TopP              *float64         `json:"top_p,omitempty"`
@@ -25,6 +27,18 @@ type responsesRequest struct {
 	Tools             []any            `json:"tools,omitempty"`
 	ToolChoice        any              `json:"tool_choice,omitempty"`
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+}
+
+type responsesText struct {
+	Format *responsesTextFormat `json:"format,omitempty"`
+}
+
+type responsesTextFormat struct {
+	Type        string         `json:"type"`
+	Name        string         `json:"name,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Schema      map[string]any `json:"schema,omitempty"`
+	Strict      *bool          `json:"strict,omitempty"`
 }
 
 type reasoningParam struct {
@@ -126,6 +140,27 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 	}
 	// Force include encrypted reasoning content on every request for stateless continuation.
 	req.Include = append(req.Include, "reasoning.encrypted_content")
+	// Apply provider-native structured output schema for Responses API when configured.
+	if s != nil && s.Chat != nil && s.Chat.IsStructuredOutputEnabled() {
+		cfg, err := s.Chat.StructuredOutputConfig()
+		if err != nil {
+			if s.Chat.StructuredOutputRequireValid {
+				return req, err
+			}
+			log.Warn().Err(err).Msg("OpenAI Responses request: ignoring invalid structured output configuration")
+		} else if cfg != nil {
+			strict := cfg.StrictOrDefault()
+			req.Text = &responsesText{
+				Format: &responsesTextFormat{
+					Type:        "json_schema",
+					Name:        cfg.Name,
+					Description: cfg.Description,
+					Schema:      cfg.Schema,
+					Strict:      &strict,
+				},
+			}
+		}
+	}
 	// NOTE: stream_options.include_usage is not supported broadly; ignore for now
 	return req, nil
 }

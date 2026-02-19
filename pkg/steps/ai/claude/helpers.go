@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Removed obsolete messageToClaudeMessage (conversation-based)
@@ -254,6 +255,24 @@ func MakeMessageRequestFromTurn(
 		TopK:          nil,
 		TopP:          topPPtr,
 	}
+
+	// Apply provider-native structured output schema when configured.
+	if chatSettings.IsStructuredOutputEnabled() {
+		cfg, err := chatSettings.StructuredOutputConfig()
+		if err != nil {
+			if chatSettings.StructuredOutputRequireValid {
+				return nil, err
+			}
+			log.Warn().Err(err).Msg("Claude request: ignoring invalid structured output configuration")
+		} else if cfg != nil {
+			req.OutputFormat = &api.OutputFormat{
+				Type:   "json_schema",
+				Name:   cfg.Name,
+				Schema: cfg.Schema,
+			}
+		}
+	}
+
 	return req, nil
 }
 
