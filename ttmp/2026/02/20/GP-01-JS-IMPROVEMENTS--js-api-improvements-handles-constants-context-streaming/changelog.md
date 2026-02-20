@@ -90,3 +90,12 @@ Added a long-form bug report analyzing goja runtime thread-safety issues in gepp
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — Primary source analyzed for async/race path
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/analysis/01-bug-report-js-async-inference-runtime-thread-safety-runasync-start.md — New bug-report analysis document
 
+
+## 2026-02-20
+
+Expanded Option D in the async runtime safety bug report into a full architecture proposal: runtime-owner actor model, message protocol, migration slices, lifecycle/cancellation semantics, deadlock prevention, observability, performance, rollout/rollback, and acceptance criteria.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/analysis/01-bug-report-js-async-inference-runtime-thread-safety-runasync-start.md — Added detailed Option D analysis and implementation blueprint
+

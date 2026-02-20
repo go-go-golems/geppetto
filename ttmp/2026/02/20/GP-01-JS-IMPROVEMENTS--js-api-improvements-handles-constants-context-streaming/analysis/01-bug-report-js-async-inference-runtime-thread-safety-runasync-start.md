@@ -346,23 +346,298 @@ Usefulness:
 
 - Good temporary mitigation, especially if release pressure is high.
 
-## Option D: Larger architectural shift to one runtime-owner actor
+## Option D: Larger architectural shift to one runtime-owner actor (detailed)
 
-Approach:
+Option D is the strategic redesign: instead of “remembering to marshal loop calls at many call sites,” create a hard architectural boundary where VM interaction is physically impossible outside one owner actor.
 
-- Move all runtime interaction behind dedicated owner goroutine/dispatcher abstraction.
+This section expands Option D into a concrete implementable blueprint.
 
-Pros:
+### D.1 Core idea
 
-- Strong architecture for long-term safety.
+Create a per-runtime owner component (call it `RuntimeOwner`/`JSRuntimeActor`) that:
 
-Cons:
+- owns the only allowed path to touch `*goja.Runtime` and JS callables,
+- executes all VM work on one serialized execution context,
+- exposes explicit request/response APIs to the rest of geppetto.
 
-- Larger migration, likely beyond this ticket scope.
+All existing direct VM access in async inference paths is replaced by actor requests.
 
-Usefulness:
+In short:
 
-- Good long-term direction; too heavy for immediate bug.
+- today: VM safety is a convention,
+- option D: VM safety is a property of topology.
+
+### D.2 Why Option D exists if Option B can fix the bug
+
+Option B fixes correctness by introducing synchronized helpers and auditing callsites.
+
+Option D goes further by removing callsite-by-callsite risk:
+
+- New feature teams cannot accidentally reintroduce off-loop VM access.
+- Refactors in tools/middleware/hook layers remain safe by default.
+- “Async + JS callbacks” becomes a first-class design, not a fragile edge case.
+
+Option D has higher up-front cost, but lowers long-term maintenance risk and code review burden.
+
+### D.3 Runtime ownership model
+
+Per JS runtime instance:
+
+1. A single owner actor is created during module/runtime initialization.
+2. Actor internally binds to configured `eventloop.EventLoop` and VM.
+3. Non-owner goroutines can only submit typed requests to actor.
+4. Actor executes request function on VM context, returns result/error.
+
+Possible conceptual API:
+
+- `Call(ctx, fn)` for request/response operations that need return values.
+- `Post(ctx, fn)` for fire-and-forget notifications.
+- `Shutdown(ctx)` for lifecycle coordination.
+- `Stats()` for queue depth/latency diagnostics.
+
+Implementation can still use `RunOnLoop` under the hood, but callers no longer use `RunOnLoop` directly.
+
+### D.4 Message protocol design
+
+Treat VM operations as RPC-style commands with narrow operation-specific payloads.
+
+Examples:
+
+1. `InvokeCallable`:
+- input: callable reference, marshaled args, metadata
+- output: returned JS-exported value (or typed decoded output), error
+
+2. `ConvertToJSValue`:
+- input: Go payload
+- output: `goja.Value` constructed in VM context
+
+3. `EmitEventToListeners`:
+- input: event DTO
+- output: none (plus callback errors aggregated/logged)
+
+4. `CreatePromise` / `ResolvePromise` / `RejectPromise`:
+- input: promise token + value/error
+- output: error (uncatchable goja errors propagated)
+
+In practice, prefer typed wrappers around a generic `Call` primitive so most code never manipulates raw `goja.Value` off-owner.
+
+### D.5 Data model boundary: JS-free outside actor
+
+A key design rule for Option D:
+
+- Outside actor boundary, only Go-native DTOs circulate.
+- JS values (`goja.Value`, `*goja.Object`, callables) are treated as capability handles controlled by actor.
+
+That implies:
+
+- encode/decode steps become explicit transition points,
+- event payload building should happen as Go maps/slices outside actor, conversion to JS object happens inside actor,
+- tool/middleware hook payload mutation can be represented in Go structs, then marshaled in actor.
+
+This reduces accidental VM leakage and clarifies which layer owns serialization concerns.
+
+### D.6 Concrete call-flow examples
+
+#### D.6.1 Async run with JS engine callback
+
+Target flow:
+
+1. `runAsync` starts background inference goroutine (still async).
+2. Inference path reaches JS engine call.
+3. Instead of direct `e.fn(...)`, code sends `InvokeCallable` request to actor.
+4. Actor schedules on VM loop, executes callable, returns result.
+5. Inference goroutine continues with decoded result.
+6. Promise resolution is also done through actor API (not ad hoc direct `RunOnLoop`).
+
+All VM touchpoints now go through one gateway.
+
+#### D.6.2 Tool hook with parallel tool execution
+
+Target flow:
+
+1. Tool executor goroutines run in parallel for external/tool I/O.
+2. Whenever hook callback is needed, each goroutine requests actor call.
+3. Actor serializes hook invocation order by queue order.
+4. Hook results return to worker goroutines; workers continue.
+
+Result: tool execution stays parallel for non-VM work while VM interactions stay single-threaded.
+
+### D.7 Lifecycle and failure semantics
+
+Option D should define strict lifecycle transitions:
+
+- `Created` -> `Running` -> `Stopping` -> `Stopped` -> (optional) `Restarted`.
+
+Required behavior:
+
+- If loop is terminated/stopped, pending `Call` requests fail fast with deterministic error.
+- `Call` supports caller context cancellation; canceled callers stop waiting even if request later executes.
+- Panics inside actor-executed functions are recovered and converted to structured errors (with stack trace logging).
+
+This avoids deadlocks and “hung goroutine waiting for loop that already died.”
+
+### D.8 Deadlock prevention rules
+
+Option D must explicitly handle reentrancy:
+
+- If actor `Call` is invoked from inside actor execution context itself, execute inline (or reject with explicit reentrancy error).
+- Never block actor goroutine waiting on itself.
+- Avoid nested actor calls that requeue synchronously without inline detection.
+
+Additionally:
+
+- ban direct use of `loop.RunOnLoop` outside actor package (lint/check pattern recommended),
+- ban direct use of `goja.Callable` invocation outside actor package.
+
+### D.9 Migration plan (incremental, low-risk)
+
+Option D can be delivered in slices without a full stop-the-world rewrite.
+
+#### Slice 1: Introduce actor and route only `runAsync/start` promise settlement through it
+
+- Minimal functional behavior change.
+- Establish API and instrumentation.
+
+#### Slice 2: Route JS callable invocation sites
+
+- `jsCallableEngine`
+- JS middleware wrapper
+- JS tool handler wrapper
+- JS tool hooks
+
+This is the safety-critical slice that eliminates current race class.
+
+#### Slice 3: Route async-path value conversion
+
+- Event collector payload conversion
+- Any `toJSValue` call reachable from background goroutines
+
+#### Slice 4: Remove direct VM access from higher layers
+
+- Make helper methods private/internal to actor package.
+- Replace remaining ad hoc VM accesses.
+
+#### Slice 5: Enforce with static and test guardrails
+
+- package-level docs: “No VM access outside actor.”
+- grep/lint CI checks for forbidden patterns in non-actor packages.
+- race/stress suites as blocking CI gate for JS async tests.
+
+### D.10 Compatibility strategy
+
+Maintain API compatibility for JS users:
+
+- `run()`, `runAsync()`, `start()` signatures unchanged,
+- event semantics and run-handle behavior preserved,
+- errors become more deterministic (loop terminated, actor shutdown, context canceled).
+
+Potential observable changes:
+
+- Slight latency increase per JS callback due to actor queue hop.
+- More predictable ordering of callback execution.
+
+Document these as expected behavior improvements.
+
+### D.11 Performance considerations
+
+Option D serializes VM work by design, so throughput depends on:
+
+- queue depth under heavy callback traffic,
+- callback duration inside actor,
+- contention from high parallel tool execution requesting hook calls.
+
+Mitigation patterns:
+
+- Keep actor callbacks tiny (do not perform blocking I/O inside actor function).
+- Move expensive pre/post processing outside actor with Go DTOs.
+- Instrument queue wait and execution time.
+
+Suggested metrics:
+
+- actor queue depth,
+- actor call enqueue-to-start latency (p50/p95/p99),
+- actor execution duration by operation type,
+- canceled/failed request counts.
+
+### D.12 Observability and debugging
+
+Add structured logs and metrics keyed by:
+
+- session ID,
+- inference ID,
+- operation name (invoke-hook, invoke-engine, encode-event, resolve-promise),
+- queue latency and execution latency,
+- outcome (ok/error/canceled/panic-recovered).
+
+This makes future concurrency incidents diagnosable without reproducing rare race windows locally.
+
+### D.13 Testing matrix specific to Option D
+
+Beyond existing race tests, Option D needs actor-contract tests:
+
+1. Serialization tests:
+- Concurrent callers submit N operations; confirm VM-visible order is deterministic.
+
+2. Reentrancy tests:
+- Actor callback triggers nested actor call; confirm no deadlock and defined behavior.
+
+3. Shutdown tests:
+- Stop/terminate loop while requests are pending; callers get deterministic errors.
+
+4. Cancellation tests:
+- Caller context times out while queued; ensure wait exits promptly.
+
+5. Stress tests:
+- high `MaxParallelTools` + frequent hook invocations + event streaming.
+
+6. API regression tests:
+- JS-facing behavior of `run/start/runAsync` unchanged except improved stability.
+
+### D.14 Risks and tradeoffs
+
+Main risks:
+
+- migration complexity across many callsites,
+- temporary dual-path behavior during rollout,
+- latency regression if actor queue grows under heavy hook usage.
+
+Tradeoff summary:
+
+- pay complexity once in architecture,
+- gain durable safety guarantees and simpler future development model.
+
+### D.15 Rollout and rollback plan
+
+Rollout:
+
+1. Feature-flag actor path (`GEPPETTO_JS_RUNTIME_ACTOR=1` style internal flag).
+2. Enable in tests first (`-race` suites).
+3. Enable in staging/canary scripts with telemetry.
+4. Promote to default after stability and latency checks.
+5. Remove legacy path once confidence is high.
+
+Rollback:
+
+- flip feature flag to legacy path immediately if production issue appears.
+- keep both paths for one release cycle max to limit maintenance burden.
+
+### D.16 Acceptance criteria for “Option D done”
+
+1. No direct VM/callable interactions outside actor package in async inference paths.
+2. `runAsync` and `start` with JS-backed engine/middleware/tool hooks pass stress + race suites.
+3. Event payload conversion in async path is owner-serialized.
+4. Loop stop/terminate/cancellation behavior is deterministic and tested.
+5. Actor metrics/logging are emitted and documented.
+6. Legacy path removed or clearly deprecated with removal date.
+
+### D.17 Practical recommendation on sequencing with this ticket
+
+Given current urgency (P1):
+
+- deliver Option B-style targeted fix first (fastest path to eliminate known race),
+- then schedule Option D as follow-up hardening epic to prevent recurrence.
+
+Option D is the highest-confidence long-term architecture, but not the fastest incident response patch.
 
 ---
 
