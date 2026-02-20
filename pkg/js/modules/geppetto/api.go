@@ -731,6 +731,18 @@ func decodeToolCallArgs(call tools.ToolCall) any {
 	return out
 }
 
+func addSessionMetaFromContext(ctx context.Context, payload map[string]any) {
+	if payload == nil {
+		return
+	}
+	if sessionID := session.SessionIDFromContext(ctx); sessionID != "" {
+		payload["sessionId"] = sessionID
+	}
+	if inferenceID := session.InferenceIDFromContext(ctx); inferenceID != "" {
+		payload["inferenceId"] = inferenceID
+	}
+}
+
 func applyCallMutation(call *tools.ToolCall, mutation map[string]any) error {
 	if call == nil || mutation == nil {
 		return nil
@@ -780,6 +792,7 @@ func (e *jsToolHookExecutor) PreExecute(ctx context.Context, call tools.ToolCall
 		},
 		"timestampMs": time.Now().UnixMilli(),
 	}
+	addSessionMetaFromContext(ctx, payload)
 	ret, err := e.hooks.Before(goja.Undefined(), e.api.toJSValue(payload))
 	if hookErr := e.hookError("beforeToolCall", err); hookErr != nil {
 		return call, hookErr
@@ -831,6 +844,7 @@ func (e *jsToolHookExecutor) PublishResult(ctx context.Context, call tools.ToolC
 		},
 		"timestampMs": time.Now().UnixMilli(),
 	}
+	addSessionMetaFromContext(ctx, payload)
 	ret, err := e.hooks.After(goja.Undefined(), e.api.toJSValue(payload))
 	if hookErr := e.hookError("afterToolCall", err); hookErr != nil {
 		res.Error = hookErr.Error()
@@ -895,6 +909,7 @@ func (e *jsToolHookExecutor) ShouldRetry(ctx context.Context, attempt int, res *
 			"error": res.Error,
 		}
 	}
+	addSessionMetaFromContext(ctx, payload)
 	ret, err := e.hooks.OnError(goja.Undefined(), e.api.toJSValue(payload))
 	if hookErr := e.hookError("onToolError", err); hookErr != nil {
 		return false, 0
@@ -1284,6 +1299,37 @@ func (m *moduleRuntime) jsMiddleware(name string, fn goja.Callable) middleware.M
 			if err != nil {
 				return nil, err
 			}
+			ctxPayload := map[string]any{
+				"middlewareName": name,
+				"timestampMs":    time.Now().UnixMilli(),
+			}
+			if t != nil {
+				if t.ID != "" {
+					ctxPayload["turnId"] = t.ID
+				}
+				if sessionID, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok && sessionID != "" {
+					ctxPayload["sessionId"] = sessionID
+				}
+				if inferenceID, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok && inferenceID != "" {
+					ctxPayload["inferenceId"] = inferenceID
+				}
+				if traceID, ok, err := turns.KeyTurnMetaTraceID.Get(t.Metadata); err == nil && ok && traceID != "" {
+					ctxPayload["traceId"] = traceID
+				}
+			}
+			if _, ok := ctxPayload["sessionId"]; !ok {
+				if sessionID := session.SessionIDFromContext(ctx); sessionID != "" {
+					ctxPayload["sessionId"] = sessionID
+				}
+			}
+			if _, ok := ctxPayload["inferenceId"]; !ok {
+				if inferenceID := session.InferenceIDFromContext(ctx); inferenceID != "" {
+					ctxPayload["inferenceId"] = inferenceID
+				}
+			}
+			if deadline, ok := ctx.Deadline(); ok {
+				ctxPayload["deadlineMs"] = deadline.UnixMilli()
+			}
 
 			nextFn := func(call goja.FunctionCall) goja.Value {
 				inTurn := t
@@ -1305,7 +1351,7 @@ func (m *moduleRuntime) jsMiddleware(name string, fn goja.Callable) middleware.M
 				return v
 			}
 
-			ret, err := fn(goja.Undefined(), jsTurn, m.vm.ToValue(nextFn))
+			ret, err := fn(goja.Undefined(), jsTurn, m.vm.ToValue(nextFn), m.toJSValue(ctxPayload))
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", name, err)
 			}
@@ -1416,8 +1462,29 @@ func (r *toolRegistryRef) register(v goja.Value, _ map[string]any) error {
 		return fmt.Errorf("tool %s handler must be a function", name)
 	}
 
-	fn := func(_ context.Context, in map[string]any) (any, error) {
-		ret, err := handler(goja.Undefined(), r.api.vm.ToValue(in))
+	fn := func(goCtx context.Context, in map[string]any) (any, error) {
+		toolCtx := map[string]any{
+			"toolName":    name,
+			"timestampMs": time.Now().UnixMilli(),
+		}
+		if sessionID := session.SessionIDFromContext(goCtx); sessionID != "" {
+			toolCtx["sessionId"] = sessionID
+		}
+		if inferenceID := session.InferenceIDFromContext(goCtx); inferenceID != "" {
+			toolCtx["inferenceId"] = inferenceID
+		}
+		if call, ok := tools.CurrentToolCallFromContext(goCtx); ok {
+			if call.ID != "" {
+				toolCtx["callId"] = call.ID
+			}
+			if call.Name != "" {
+				toolCtx["callName"] = call.Name
+			}
+		}
+		if deadline, ok := goCtx.Deadline(); ok {
+			toolCtx["deadlineMs"] = deadline.UnixMilli()
+		}
+		ret, err := handler(goja.Undefined(), r.api.vm.ToValue(in), r.api.toJSValue(toolCtx))
 		if err != nil {
 			return nil, fmt.Errorf("js tool %s: %w", name, err)
 		}

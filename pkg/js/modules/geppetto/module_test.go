@@ -233,6 +233,77 @@ func TestToolLoopEnumValidation(t *testing.T) {
 	`)
 }
 
+func TestMiddlewareToolHandlerAndHookReceiveContext(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		let middlewareCtx = null;
+		let toolHandlerCtx = null;
+		let hookCtx = null;
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "ctx_tool",
+			description: "returns context details",
+			handler: (args, ctx) => {
+				toolHandlerCtx = ctx;
+				return { ok: true, callId: ctx && ctx.callId };
+			}
+		});
+
+		const eng = gp.engines.fromFunction((turn) => {
+			const hasToolUse = turn.blocks.some(b => b.kind === "tool_use");
+			if (!hasToolUse) {
+				turn.blocks.push(gp.turns.newToolCallBlock("ctx-call-1", "ctx_tool", { value: "x" }));
+				return turn;
+			}
+			turn.blocks.push(gp.turns.newAssistantBlock("done"));
+			return turn;
+		});
+
+		const mw = gp.middlewares.fromJS((turn, next, ctx) => {
+			middlewareCtx = ctx;
+			return next(turn);
+		}, "ctx-mw");
+
+		const s = gp.createBuilder()
+			.withEngine(eng)
+			.useMiddleware(mw)
+			.withTools(reg, { enabled: true, maxIterations: 3, toolChoice: gp.consts.ToolChoice.AUTO })
+			.withToolHooks({
+				beforeToolCall: (payload) => {
+					hookCtx = payload;
+				}
+			})
+			.buildSession();
+
+		s.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("start")] }));
+		const out = s.run();
+		if (!out || !Array.isArray(out.blocks)) throw new Error("expected output turn");
+
+		if (!middlewareCtx || !middlewareCtx.sessionId || !middlewareCtx.inferenceId) {
+			throw new Error("middleware context missing sessionId/inferenceId: " + JSON.stringify(middlewareCtx));
+		}
+		if (!middlewareCtx.turnId) {
+			throw new Error("middleware context missing turnId");
+		}
+
+		if (!toolHandlerCtx || !toolHandlerCtx.callId) {
+			throw new Error("tool handler context missing callId: " + JSON.stringify(toolHandlerCtx));
+		}
+		if (!toolHandlerCtx.sessionId || !toolHandlerCtx.inferenceId) {
+			throw new Error("tool handler context missing sessionId/inferenceId: " + JSON.stringify(toolHandlerCtx));
+		}
+		if (toolHandlerCtx.callId !== "ctx-call-1") {
+			throw new Error("tool handler callId mismatch: " + toolHandlerCtx.callId);
+		}
+
+		if (!hookCtx || !hookCtx.sessionId || !hookCtx.inferenceId) {
+			throw new Error("hook payload missing sessionId/inferenceId: " + JSON.stringify(hookCtx));
+		}
+	`)
+}
+
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	t.Setenv("PINOCCHIO_PROFILE", "env-profile-model")
 	vm := newJSRuntime(t, Options{})

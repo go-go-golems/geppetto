@@ -226,6 +226,7 @@ func (s *Session) StartInference(ctx context.Context) (*ExecutionHandle, error) 
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
+	runCtx = WithSessionMeta(runCtx, s.SessionID, inferenceID)
 	handle := newExecutionHandle(s.SessionID, inferenceID, input, cancel)
 
 	s.mu.Lock()
