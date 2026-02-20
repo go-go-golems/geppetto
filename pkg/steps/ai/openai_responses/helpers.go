@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/rs/zerolog/log"
 )
@@ -27,6 +26,8 @@ type responsesRequest struct {
 	Tools             []any            `json:"tools,omitempty"`
 	ToolChoice        any              `json:"tool_choice,omitempty"`
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+	Store             *bool            `json:"store,omitempty"`
+	ServiceTier       *string          `json:"service_tier,omitempty"`
 }
 
 type responsesText struct {
@@ -42,8 +43,9 @@ type responsesTextFormat struct {
 }
 
 type reasoningParam struct {
-	Effort  string `json:"effort,omitempty"`
-	Summary string `json:"summary,omitempty"`
+	Effort    string `json:"effort,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	MaxTokens *int   `json:"max_tokens,omitempty"`
 }
 
 type responsesInput struct {
@@ -99,7 +101,8 @@ type responsesOutputContent struct {
 }
 
 // buildResponsesRequest constructs a minimal Responses request from Turn + settings
-func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRequest, error) {
+func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) {
+	s := e.settings
 	req := responsesRequest{}
 	if s != nil && s.Chat != nil && s.Chat.Engine != nil {
 		req.Model = *s.Chat.Engine
@@ -109,12 +112,8 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 		if s.Chat.MaxResponseTokens != nil {
 			req.MaxOutputTokens = s.Chat.MaxResponseTokens
 		}
-		// Some reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p; omit for those
-		m := strings.ToLower(req.Model)
-		allowSampling := !strings.HasPrefix(m, "o1") &&
-			!strings.HasPrefix(m, "o3") &&
-			!strings.HasPrefix(m, "o4") &&
-			!strings.HasPrefix(m, "gpt-5")
+		// Some reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p; omit for those.
+		allowSampling := !isResponsesReasoningModel(req.Model)
 		if allowSampling && s.Chat.Temperature != nil {
 			req.Temperature = s.Chat.Temperature
 		}
@@ -161,8 +160,88 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 			}
 		}
 	}
+	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	var engineInference *engine.InferenceConfig
+	if s != nil {
+		engineInference = s.Inference
+	}
+	if infCfg := engine.ResolveInferenceConfig(t, engineInference); infCfg != nil {
+		// Reasoning models (o1/o3/o4/gpt-5) reject temperature/top_p; sanitize upfront.
+		if isResponsesReasoningModel(req.Model) {
+			infCfg = engine.SanitizeForReasoningModel(infCfg)
+		}
+		if infCfg.ReasoningEffort != nil {
+			if req.Reasoning == nil {
+				req.Reasoning = &reasoningParam{}
+			}
+			req.Reasoning.Effort = mapEffortString(*infCfg.ReasoningEffort)
+		}
+		if infCfg.ReasoningSummary != nil && *infCfg.ReasoningSummary != "" {
+			if req.Reasoning == nil {
+				req.Reasoning = &reasoningParam{}
+			}
+			req.Reasoning.Summary = *infCfg.ReasoningSummary
+		}
+		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
+			if req.Reasoning == nil {
+				req.Reasoning = &reasoningParam{}
+			}
+			req.Reasoning.MaxTokens = infCfg.ThinkingBudget
+		}
+		if infCfg.Temperature != nil {
+			req.Temperature = infCfg.Temperature
+		}
+		if infCfg.TopP != nil {
+			req.TopP = infCfg.TopP
+		}
+		if infCfg.MaxResponseTokens != nil {
+			req.MaxOutputTokens = infCfg.MaxResponseTokens
+		}
+		if infCfg.Stop != nil {
+			req.StopSequences = infCfg.Stop
+		}
+	}
+
+	// Apply OpenAI-specific per-turn overrides from Turn.Data.
+	if oaiCfg := engine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
+		if oaiCfg.Store != nil {
+			req.Store = oaiCfg.Store
+		}
+		if oaiCfg.ServiceTier != nil {
+			req.ServiceTier = oaiCfg.ServiceTier
+		}
+	}
+
+	// Apply StructuredOutputConfig from Turn.Data (per-turn override).
+	if t != nil {
+		if soCfg, ok, err := engine.KeyStructuredOutputConfig.Get(t.Data); err == nil && ok && soCfg.IsEnabled() {
+			if err := soCfg.Validate(); err == nil {
+				strict := soCfg.StrictOrDefault()
+				req.Text = &responsesText{
+					Format: &responsesTextFormat{
+						Type:        "json_schema",
+						Name:        soCfg.Name,
+						Description: soCfg.Description,
+						Schema:      soCfg.Schema,
+						Strict:      &strict,
+					},
+				}
+			}
+		}
+	}
+
 	// NOTE: stream_options.include_usage is not supported broadly; ignore for now
 	return req, nil
+}
+
+// isResponsesReasoningModel returns true for models that do not accept
+// temperature/top_p (o1/o3/o4/gpt-5 families).
+func isResponsesReasoningModel(model string) bool {
+	m := strings.ToLower(model)
+	return strings.HasPrefix(m, "o1") ||
+		strings.HasPrefix(m, "o3") ||
+		strings.HasPrefix(m, "o4") ||
+		strings.HasPrefix(m, "gpt-5")
 }
 
 func mapEffortString(v string) string {

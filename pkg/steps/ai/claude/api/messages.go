@@ -18,18 +18,25 @@ import (
 
 // MessageRequest represents the Messages API request payload.
 type MessageRequest struct {
-	Model         string        `json:"model"`
-	Messages      []Message     `json:"messages"`
-	MaxTokens     int           `json:"max_tokens"`
-	Metadata      *Metadata     `json:"metadata,omitempty"`
-	StopSequences []string      `json:"stop_sequences,omitempty"`
-	Stream        bool          `json:"stream"`
-	System        string        `json:"system,omitempty"`
-	Temperature   *float64      `json:"temperature,omitempty"`
-	Tools         []Tool        `json:"tools,omitempty"`
-	TopK          *int          `json:"top_k,omitempty"`
-	TopP          *float64      `json:"top_p,omitempty"`
-	OutputFormat  *OutputFormat `json:"output_format,omitempty"`
+	Model         string         `json:"model"`
+	Messages      []Message      `json:"messages"`
+	MaxTokens     int            `json:"max_tokens"`
+	Metadata      *Metadata      `json:"metadata,omitempty"`
+	StopSequences []string       `json:"stop_sequences,omitempty"`
+	Stream        bool           `json:"stream"`
+	System        string         `json:"system,omitempty"`
+	Temperature   *float64       `json:"temperature,omitempty"`
+	Thinking      *ThinkingParam `json:"thinking,omitempty"`
+	Tools         []Tool         `json:"tools,omitempty"`
+	TopK          *int           `json:"top_k,omitempty"`
+	TopP          *float64       `json:"top_p,omitempty"`
+	OutputFormat  *OutputFormat  `json:"output_format,omitempty"`
+}
+
+// ThinkingParam configures extended thinking for Claude models.
+type ThinkingParam struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens"`
 }
 
 type OutputFormat struct {

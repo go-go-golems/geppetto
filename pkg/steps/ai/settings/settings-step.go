@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
@@ -48,6 +49,11 @@ type StepSettings struct {
 	// - Chat settings (Chat, OpenAI, Claude, Ollama)
 	// - Embeddings settings (Embeddings)
 	Embeddings *config.EmbeddingsConfig `yaml:"embeddings,omitempty" glazed:"embeddings"`
+
+	// Inference provides engine-level defaults for per-turn inference parameters
+	// (thinking budget, reasoning effort, temperature overrides, etc.).
+	// These can be further overridden per-turn via Turn.Data KeyInferenceConfig.
+	Inference *engine.InferenceConfig `yaml:"inference,omitempty" glazed:"ai-inference"`
 }
 
 func NewStepSettings() (*StepSettings, error) {
@@ -215,6 +221,21 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 		}
 	}
 
+	if ss.Inference != nil {
+		if ss.Inference.ThinkingBudget != nil {
+			metadata["inference-thinking-budget"] = *ss.Inference.ThinkingBudget
+		}
+		if ss.Inference.ReasoningEffort != nil {
+			metadata["inference-reasoning-effort"] = *ss.Inference.ReasoningEffort
+		}
+		if ss.Inference.ReasoningSummary != nil {
+			metadata["inference-reasoning-summary"] = *ss.Inference.ReasoningSummary
+		}
+		if ss.Inference.Seed != nil {
+			metadata["inference-seed"] = *ss.Inference.Seed
+		}
+	}
+
 	if ss.Embeddings != nil {
 		if ss.Embeddings.Engine != "" {
 			metadata["embeddings-engine"] = ss.Embeddings.Engine
@@ -231,7 +252,7 @@ func (ss *StepSettings) GetMetadata() map[string]interface{} {
 }
 
 func (s *StepSettings) Clone() *StepSettings {
-	return &StepSettings{
+	ret := &StepSettings{
 		API:        s.API.Clone(),
 		Chat:       s.Chat.Clone(),
 		OpenAI:     s.OpenAI.Clone(),
@@ -241,6 +262,10 @@ func (s *StepSettings) Clone() *StepSettings {
 		Ollama:     s.Ollama.Clone(),
 		Embeddings: s.Embeddings.Clone(),
 	}
+	if s.Inference != nil {
+		ret.Inference = clone.Clone(s.Inference).(*engine.InferenceConfig)
+	}
+	return ret
 }
 
 func (ss *StepSettings) UpdateFromParsedValues(parsedValues *values.Values) error {
@@ -285,6 +310,16 @@ func (ss *StepSettings) UpdateFromParsedValues(parsedValues *values.Values) erro
 		if err != nil {
 			return err
 		}
+	}
+
+	// Decode inference overrides directly into InferenceConfig.
+	// Fields without defaults in the YAML stay nil (= don't override).
+	if ss.Inference == nil {
+		ss.Inference = &engine.InferenceConfig{}
+	}
+	err = parsedValues.DecodeSectionInto(AiInferenceSlug, ss.Inference)
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -20,6 +20,9 @@ export type BlockKind =
     ;
 export declare const ToolConfigValueKey: "tool_config";
 export declare const StructuredOutputConfigValueKey: "structured_output_config";
+export declare const InferenceConfigValueKey: "inference_config";
+export declare const ClaudeInferenceConfigValueKey: "claude_inference_config";
+export declare const OpenAIInferenceConfigValueKey: "openai_inference_config";
 export declare const AgentModeAllowedToolsValueKey: "agent_mode_allowed_tools";
 export declare const AgentModeValueKey: "agent_mode";
 export declare const ResponsesServerToolsValueKey: "responses_server_tools";

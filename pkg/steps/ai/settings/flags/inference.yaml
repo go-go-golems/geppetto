@@ -1,0 +1,45 @@
+slug: ai-inference
+name: Inference override settings
+description: >
+  Per-request inference parameter overrides. These take precedence over
+  base chat settings and map to provider-specific API parameters
+  (thinking budget, reasoning effort, temperature, etc.).
+  All fields default to nil (unset) — only explicitly provided values
+  take effect as overrides.
+flags:
+  - name: inference-thinking-budget
+    type: int
+    help: >
+      Token budget for model thinking/reasoning. Maps to Claude
+      thinking.budget_tokens and OpenAI Responses reasoning.max_tokens.
+  - name: inference-reasoning-effort
+    type: choice
+    choices:
+      - "low"
+      - "medium"
+      - "high"
+    help: >
+      Reasoning effort level. Maps to OpenAI Responses reasoning.effort.
+  - name: inference-reasoning-summary
+    type: choice
+    choices:
+      - "auto"
+      - "concise"
+      - "detailed"
+    help: >
+      Reasoning summary mode. Maps to OpenAI Responses reasoning.summary.
+  - name: inference-temperature
+    type: float
+    help: Override temperature for this inference call
+  - name: inference-top-p
+    type: float
+    help: Override top-p sampling for this inference call
+  - name: inference-max-response-tokens
+    type: int
+    help: Override max output tokens for this inference call
+  - name: inference-stop
+    type: stringList
+    help: Override stop sequences for this inference call
+  - name: inference-seed
+    type: int
+    help: Seed for reproducibility (OpenAI Chat Completions)

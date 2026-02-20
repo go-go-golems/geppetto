@@ -10,6 +10,9 @@ const (
 	// Turn.Data
 	ToolConfigValueKey             = "tool_config"
 	StructuredOutputConfigValueKey = "structured_output_config"
+	InferenceConfigValueKey        = "inference_config"
+	ClaudeInferenceConfigValueKey  = "claude_inference_config"
+	OpenAIInferenceConfigValueKey  = "openai_inference_config"
 	AgentModeAllowedToolsValueKey  = "agent_mode_allowed_tools"
 	AgentModeValueKey              = "agent_mode"
 	ResponsesServerToolsValueKey   = "responses_server_tools"

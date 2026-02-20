@@ -26,6 +26,21 @@ keys:
     typed_key: ""
     type_expr: ""
   - scope: data
+    value_const: InferenceConfigValueKey
+    value: inference_config
+    typed_key: ""
+    type_expr: ""
+  - scope: data
+    value_const: ClaudeInferenceConfigValueKey
+    value: claude_inference_config
+    typed_key: ""
+    type_expr: ""
+  - scope: data
+    value_const: OpenAIInferenceConfigValueKey
+    value: openai_inference_config
+    typed_key: ""
+    type_expr: ""
+  - scope: data
     value_const: AgentModeAllowedToolsValueKey
     value: agent_mode_allowed_tools
     typed_key: KeyAgentModeAllowedTools
