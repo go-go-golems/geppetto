@@ -21,4 +21,11 @@
   - Rejected full Go→TS codegen as over-engineered for ~30 stable interface definitions
 - Updated implementation order table with codegen-specific phases and new file listing
 - Updated task list with granular codegen subtasks
+- **Implemented 5.1: Opaque handles + better error messages**
+  - `attachRef()` now uses two-step Set + DefineDataProperty (non-writable, non-enumerable, non-configurable)
+  - Discovered that `m.vm.ToValue(ref)` wraps Go struct pointers into goja proxies whose `Export()` returns `map[string]interface{}` — must use `o.Set()` first to preserve raw pointer, then `DefineDataProperty` with `o.Get()` to change attributes
+  - Discovered that `v.Export()` strips non-enumerable properties — refactored `applyBuilderOptions()` to read engine/middlewares/tools directly from goja object
+  - Improved `requireEngineRef()` and `requireToolRegistry()` error messages to include `%T` and `%v`
+  - Added `TestOpaqueRefHidden` test verifying non-enumerability, JSON exclusion, non-writability, continued functionality
+  - All 8 tests pass, lint clean
 
