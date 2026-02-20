@@ -464,46 +464,57 @@ func (sr *sessionRef) runAsync(seed *turns.Turn) goja.Value {
 }
 
 func (m *moduleRuntime) applyBuilderOptions(b *builderRef, v goja.Value) error {
-	opts := decodeMap(v.Export())
-	if opts == nil {
+	obj := v.ToObject(m.vm)
+	if obj == nil {
 		return fmt.Errorf("options must be an object")
 	}
-	if engRaw, ok := opts["engine"]; ok && engRaw != nil {
-		ref, err := m.requireEngineRef(m.vm.ToValue(engRaw))
+	// Read ref-carrying properties (engine, middlewares, tools) directly from
+	// the goja object to preserve non-enumerable __geppetto_ref. Using
+	// v.Export() would serialize the object to a Go map, losing non-enumerable
+	// properties.
+	if engVal := obj.Get("engine"); engVal != nil && !goja.IsUndefined(engVal) && !goja.IsNull(engVal) {
+		ref, err := m.requireEngineRef(engVal)
 		if err != nil {
 			return err
 		}
 		b.base = ref.Engine
 	}
-	if mwsRaw, ok := opts["middlewares"]; ok && mwsRaw != nil {
-		for _, item := range decodeSlice(mwsRaw) {
-			mw, err := m.resolveMiddleware(m.vm.ToValue(item))
-			if err != nil {
-				return err
+	if mwsVal := obj.Get("middlewares"); mwsVal != nil && !goja.IsUndefined(mwsVal) && !goja.IsNull(mwsVal) {
+		mwsObj := mwsVal.ToObject(m.vm)
+		if mwsObj != nil {
+			lengthVal := mwsObj.Get("length")
+			if lengthVal != nil && !goja.IsUndefined(lengthVal) {
+				n := int(lengthVal.ToInteger())
+				for i := 0; i < n; i++ {
+					item := mwsObj.Get(fmt.Sprintf("%d", i))
+					if item == nil || goja.IsUndefined(item) || goja.IsNull(item) {
+						continue
+					}
+					mw, err := m.resolveMiddleware(item)
+					if err != nil {
+						return err
+					}
+					b.middlewares = append(b.middlewares, mw)
+				}
 			}
-			b.middlewares = append(b.middlewares, mw)
 		}
 	}
-	if regRaw, ok := opts["tools"]; ok && regRaw != nil {
-		reg, err := m.requireToolRegistry(m.vm.ToValue(regRaw))
+	if regVal := obj.Get("tools"); regVal != nil && !goja.IsUndefined(regVal) && !goja.IsNull(regVal) {
+		reg, err := m.requireToolRegistry(regVal)
 		if err != nil {
 			return err
 		}
 		b.registry = reg
 	}
-	if obj := v.ToObject(m.vm); obj != nil {
-		if tlRaw := obj.Get("toolLoop"); tlRaw != nil && !goja.IsUndefined(tlRaw) && !goja.IsNull(tlRaw) {
-			m.applyToolLoopSettings(b, decodeMap(tlRaw.Export()), tlRaw)
+	if tlRaw := obj.Get("toolLoop"); tlRaw != nil && !goja.IsUndefined(tlRaw) && !goja.IsNull(tlRaw) {
+		m.applyToolLoopSettings(b, decodeMap(tlRaw.Export()), tlRaw)
+	}
+	if thRaw := obj.Get("toolHooks"); thRaw != nil && !goja.IsUndefined(thRaw) && !goja.IsNull(thRaw) {
+		hooks, err := m.parseToolHooks(thRaw)
+		if err != nil {
+			return err
 		}
-		if thRaw := obj.Get("toolHooks"); thRaw != nil && !goja.IsUndefined(thRaw) && !goja.IsNull(thRaw) {
-			hooks, err := m.parseToolHooks(thRaw)
-			if err != nil {
-				return err
-			}
-			b.toolHooks = hooks
-		}
-	} else if tlRaw, ok := opts["toolLoop"]; ok && tlRaw != nil {
-		m.applyToolLoopSettings(b, decodeMap(tlRaw), m.vm.ToValue(tlRaw))
+		b.toolHooks = hooks
 	}
 	if b.toolHooks != nil && b.toolExecutor == nil {
 		cfg := tools.DefaultToolConfig()
@@ -916,7 +927,7 @@ func (m *moduleRuntime) requireEngineRef(v goja.Value) (*engineRef, error) {
 	case engine.Engine:
 		return &engineRef{Name: "engine", Engine: x}, nil
 	default:
-		return nil, fmt.Errorf("expected engine reference")
+		return nil, fmt.Errorf("expected engine reference, got %T (value: %v)", ref, v)
 	}
 }
 
@@ -928,7 +939,7 @@ func (m *moduleRuntime) requireToolRegistry(v goja.Value) (tools.ToolRegistry, e
 	case tools.ToolRegistry:
 		return x, nil
 	default:
-		return nil, fmt.Errorf("expected tool registry reference")
+		return nil, fmt.Errorf("expected tool registry reference, got %T (value: %v)", ref, v)
 	}
 }
 

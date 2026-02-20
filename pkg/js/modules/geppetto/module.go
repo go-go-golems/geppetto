@@ -122,7 +122,15 @@ func (m *moduleRuntime) mustSet(o *goja.Object, key string, v any) {
 }
 
 func (m *moduleRuntime) attachRef(o *goja.Object, ref any) {
+	// Set the value first so goja stores the Go pointer as-is (m.vm.ToValue
+	// would wrap struct pointers in a proxy whose Export() returns a map).
+	// Then redefine the property to make it non-enumerable/non-writable/non-configurable.
 	_ = o.Set(hiddenRefKey, ref)
+	_ = o.DefineDataProperty(hiddenRefKey, o.Get(hiddenRefKey),
+		goja.FLAG_FALSE, // writable
+		goja.FLAG_FALSE, // enumerable
+		goja.FLAG_FALSE, // configurable
+	)
 }
 
 func (m *moduleRuntime) getRef(v goja.Value) any {

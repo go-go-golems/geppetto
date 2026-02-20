@@ -251,6 +251,48 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	`)
 }
 
+func TestOpaqueRefHidden(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		const eng = gp.engines.echo({ reply: "test" });
+
+		// __geppetto_ref must not appear in Object.keys()
+		const keys = Object.keys(eng);
+		if (keys.includes("__geppetto_ref")) {
+			throw new Error("__geppetto_ref is enumerable — found in Object.keys(): " + JSON.stringify(keys));
+		}
+
+		// __geppetto_ref must not appear in JSON.stringify()
+		const json = JSON.stringify(eng);
+		if (json.includes("__geppetto_ref")) {
+			throw new Error("__geppetto_ref leaks into JSON.stringify: " + json);
+		}
+
+		// Overwriting must silently fail (non-writable)
+		eng.__geppetto_ref = 42;
+		// Engine must still work after overwrite attempt
+		const s = gp.createSession({ engine: eng });
+		s.append(gp.turns.newTurn({ blocks: [ gp.turns.newUserBlock("hello") ] }));
+		const out = s.run();
+		const last = out.blocks[out.blocks.length - 1];
+		if (!last || last.kind !== "llm_text") {
+			throw new Error("engine broken after overwrite attempt");
+		}
+
+		// Also verify on session, builder, and tool registry objects
+		const builder = gp.createBuilder();
+		if (Object.keys(builder).includes("__geppetto_ref")) {
+			throw new Error("builder ref is enumerable");
+		}
+
+		const reg = gp.tools.createRegistry();
+		if (Object.keys(reg).includes("__geppetto_ref")) {
+			throw new Error("tool registry ref is enumerable");
+		}
+	`)
+}
+
 func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 	vm := newJSRuntime(t, Options{})
 	mustRunJS(t, vm, `
