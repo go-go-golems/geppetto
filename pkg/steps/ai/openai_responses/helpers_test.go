@@ -110,7 +110,7 @@ func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
 	}
 }
 
-func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReasoning(t *testing.T) {
+func TestBuildInputItemsFromTurn_PreservesAssistantContextWithReasoningFollower(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_latest", Payload: map[string]any{
 		turns.PayloadKeyEncryptedContent: "enc_latest",
 	}}
@@ -119,7 +119,7 @@ func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReaso
 		turns.NewUserTextBlock("Q1"),
 		turns.NewAssistantTextBlock("A1 should remain"),
 		turns.NewUserTextBlock("Q2"),
-		turns.NewAssistantTextBlock("A2 should be skipped"),
+		turns.NewAssistantTextBlock("A2 should remain"),
 		rs,
 		turns.NewAssistantTextBlock("A3 follower"),
 	}}
@@ -132,11 +132,14 @@ func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReaso
 			assistantRoleTexts = append(assistantRoleTexts, item.Content[0].Text)
 		}
 	}
-	if len(assistantRoleTexts) != 1 {
-		t.Fatalf("expected exactly one role-based assistant pre-context message, got %d (%v)", len(assistantRoleTexts), assistantRoleTexts)
+	if len(assistantRoleTexts) != 2 {
+		t.Fatalf("expected two role-based assistant pre-context messages, got %d (%v)", len(assistantRoleTexts), assistantRoleTexts)
 	}
 	if assistantRoleTexts[0] != "A1 should remain" {
 		t.Fatalf("expected preserved assistant context to be A1, got %q", assistantRoleTexts[0])
+	}
+	if assistantRoleTexts[1] != "A2 should remain" {
+		t.Fatalf("expected preserved assistant context to include A2, got %q", assistantRoleTexts[1])
 	}
 
 	if len(got) == 0 {
@@ -160,6 +163,75 @@ func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReaso
 	}
 	if len(follower.Content) != 1 || follower.Content[0].Text != "A3 follower" {
 		t.Fatalf("unexpected follower content: %#v", follower.Content)
+	}
+}
+
+func TestBuildInputItemsFromTurn_PreservesReasoningForOlderFunctionCallChains(t *testing.T) {
+	r1 := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_old", Payload: map[string]any{
+		turns.PayloadKeyEncryptedContent: "enc_old",
+	}}
+	call := turns.Block{
+		Kind: turns.BlockKindToolCall,
+		Payload: map[string]any{
+			turns.PayloadKeyID:     "call_1",
+			turns.PayloadKeyItemID: "fc_1",
+			turns.PayloadKeyName:   "inventory_report",
+			turns.PayloadKeyArgs:   map[string]any{"threshold": 3},
+		},
+	}
+	use := turns.Block{
+		Kind: turns.BlockKindToolUse,
+		Payload: map[string]any{
+			turns.PayloadKeyID:     "call_1",
+			turns.PayloadKeyResult: `{"ok":true}`,
+			turns.PayloadKeyError:  "",
+		},
+	}
+	r2 := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_new", Payload: map[string]any{
+		turns.PayloadKeyEncryptedContent: "enc_new",
+	}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("sys"),
+		turns.NewUserTextBlock("u1"),
+		r1,
+		call,
+		use,
+		r2,
+		turns.NewAssistantTextBlock("latest answer"),
+		turns.NewUserTextBlock("follow-up"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+
+	oldCallIdx := -1
+	for i, item := range got {
+		if item.Type == "function_call" && item.ID == "fc_1" {
+			oldCallIdx = i
+			break
+		}
+	}
+	if oldCallIdx <= 0 {
+		t.Fatalf("expected older function_call with id fc_1, got %#v", got)
+	}
+	if got[oldCallIdx-1].Type != "reasoning" || got[oldCallIdx-1].ID != "rs_old" {
+		t.Fatalf("expected reasoning rs_old immediately before function_call fc_1, got prev=%#v", got[oldCallIdx-1])
+	}
+
+	newReasoningIdx := -1
+	for i, item := range got {
+		if item.Type == "reasoning" && item.ID == "rs_new" {
+			newReasoningIdx = i
+			break
+		}
+	}
+	if newReasoningIdx == -1 {
+		t.Fatalf("expected reasoning rs_new in request input")
+	}
+	if newReasoningIdx+1 >= len(got) {
+		t.Fatalf("expected item after reasoning rs_new")
+	}
+	if got[newReasoningIdx+1].Type != "message" || got[newReasoningIdx+1].Role != "assistant" {
+		t.Fatalf("expected rs_new follower to be assistant message, got %#v", got[newReasoningIdx+1])
 	}
 }
 
