@@ -14,30 +14,30 @@ import "github.com/go-go-golems/geppetto/pkg/turns"
 type InferenceConfig struct {
 	// ThinkingBudget sets the token budget for model reasoning/thinking.
 	// Maps to Claude thinking.budget_tokens, OpenAI Responses reasoning.max_tokens.
-	ThinkingBudget *int `json:"thinking_budget,omitempty"`
+	ThinkingBudget *int `json:"thinking_budget,omitempty" yaml:"thinking_budget,omitempty" glazed:"inference-thinking-budget"`
 
 	// ReasoningEffort controls reasoning depth: "low", "medium", "high".
 	// Maps to OpenAI Responses reasoning.effort.
-	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
+	ReasoningEffort *string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort,omitempty" glazed:"inference-reasoning-effort"`
 
 	// ReasoningSummary controls reasoning summary generation.
 	// Maps to OpenAI Responses reasoning.summary ("auto", "concise", "detailed").
-	ReasoningSummary *string `json:"reasoning_summary,omitempty"`
+	ReasoningSummary *string `json:"reasoning_summary,omitempty" yaml:"reasoning_summary,omitempty" glazed:"inference-reasoning-summary"`
 
 	// Temperature overrides the sampling temperature for this turn.
-	Temperature *float64 `json:"temperature,omitempty"`
+	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty" glazed:"inference-temperature"`
 
 	// TopP overrides the top-p (nucleus) sampling for this turn.
-	TopP *float64 `json:"top_p,omitempty"`
+	TopP *float64 `json:"top_p,omitempty" yaml:"top_p,omitempty" glazed:"inference-top-p"`
 
 	// MaxResponseTokens overrides the max output tokens for this turn.
-	MaxResponseTokens *int `json:"max_response_tokens,omitempty"`
+	MaxResponseTokens *int `json:"max_response_tokens,omitempty" yaml:"max_response_tokens,omitempty" glazed:"inference-max-response-tokens"`
 
 	// Stop overrides stop sequences for this turn.
-	Stop []string `json:"stop,omitempty"`
+	Stop []string `json:"stop,omitempty" yaml:"stop,omitempty" glazed:"inference-stop"`
 
 	// Seed for reproducibility (OpenAI Chat Completions).
-	Seed *int `json:"seed,omitempty"`
+	Seed *int `json:"seed,omitempty" yaml:"seed,omitempty" glazed:"inference-seed"`
 }
 
 // ClaudeInferenceConfig holds Claude-specific per-turn overrides.

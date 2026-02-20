@@ -99,6 +99,11 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
+	inferenceSection, err := settings.NewInferenceValueSection()
+	if err != nil {
+		return nil, err
+	}
+
 	// Assemble sections
 	result := []schema.Section{
 		chatSection,
@@ -107,6 +112,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		geminiSection,
 		openaiSection,
 		embeddingsSection,
+		inferenceSection,
 	}
 	return result, nil
 }
@@ -243,6 +249,7 @@ func GetCobraCommandGeppettoMiddlewares(
 			[]string{
 				settings.AiChatSlug,
 				settings.AiClientSlug,
+				settings.AiInferenceSlug,
 				openai.OpenAiChatSlug,
 				claude.ClaudeChatSlug,
 				gemini.GeminiChatSlug,

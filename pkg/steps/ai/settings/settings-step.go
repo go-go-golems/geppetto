@@ -53,7 +53,7 @@ type StepSettings struct {
 	// Inference provides engine-level defaults for per-turn inference parameters
 	// (thinking budget, reasoning effort, temperature overrides, etc.).
 	// These can be further overridden per-turn via Turn.Data KeyInferenceConfig.
-	Inference *engine.InferenceConfig `yaml:"inference,omitempty"`
+	Inference *engine.InferenceConfig `yaml:"inference,omitempty" glazed:"ai-inference"`
 }
 
 func NewStepSettings() (*StepSettings, error) {
@@ -310,6 +310,16 @@ func (ss *StepSettings) UpdateFromParsedValues(parsedValues *values.Values) erro
 		if err != nil {
 			return err
 		}
+	}
+
+	// Decode inference overrides directly into InferenceConfig.
+	// Fields without defaults in the YAML stay nil (= don't override).
+	if ss.Inference == nil {
+		ss.Inference = &engine.InferenceConfig{}
+	}
+	err = parsedValues.DecodeSectionInto(AiInferenceSlug, ss.Inference)
+	if err != nil {
+		return err
 	}
 
 	return nil
