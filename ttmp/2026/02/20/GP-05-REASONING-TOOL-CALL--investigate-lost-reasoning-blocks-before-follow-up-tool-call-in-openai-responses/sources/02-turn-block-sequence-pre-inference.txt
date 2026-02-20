@@ -1,0 +1,15 @@
+# Turn block sequence (pre_inference) for failing turn 2a85dbb6-985d-4e45-a813-c31c1e95e0c8
+
+pre_inference|0|system|system|170cae62-6688-4080-91ac-c90efa90661b|{"text":"You are an inventory assistant. Be concise, accurate, and tool-first."}
+pre_inference|1|system|system|57df9a79-c752-4858-a506-fd20d55d22af|{"text":"Optional: when useful, you can emit follow-up suggestion chips in this exact format:\n\n\u003chypercard:suggestions:v1\u003e\n```yaml\nsuggestions:\n  - Show current inventory status\n  - Wha
+pre_inference|2|system|system|d7041a65-13d5-4cfe-890e-2440c0142b09|{"text":"When generating structured inventory artifacts, emit tags exactly in this format:\n\n\u003chypercard:widget:v1\u003e\n```yaml\ntype: report | item | table\ntitle: string\nartifact:\n  id: str
+pre_inference|3|user|user|8d3b5e49-6ced-446c-9013-df92b51d0a2c|{"text":"hello"}
+pre_inference|4|reasoning||rs_0577e434078b396c006998ced650448193aba04f31dc847cfa|{"encrypted_content":"gAAAAABpmM7YV9D0kLtnNeW3_pDDpPjVXwQQpMIRrOvlKnxd4pm2Ys48ysijlW2Ng7Nw_gSXXCm68wUI-fsUDBWvXJDdoi9zU5chw9gJXxKRQ-MP5RdcrNFP2x2KQWnGKNKT5munaI40iARN5k0VudoVmE3qu8WoAlssmjUHB6hiBr3cqv
+pre_inference|5|llm_text|assistant|22d90058-df2a-49fe-a62c-566e97bc000f|{"item_id":"msg_0577e434078b396c006998ced8d4408193b1c21d0e00124931","text":"Hi — how can I help with your inventory today?\n\n\u003chypercard:suggestions:v1\u003e\n```yaml\nsuggestions:\n  - Show curr
+pre_inference|6|user|user|16c5755c-867a-4437-8c34-1ff9fabe3e2a|{"text":"Show current inventory status"}
+pre_inference|7|reasoning||rs_0577e434078b396c006998cedf97c881938a4973922a4eab57|{"encrypted_content":"gAAAAABpmM7nY0KNojK5MMjEyG_kPz9opUUxVAI1Vr5fSUp2rLnJKFYGXvHA767K2LnOGA_dOBfZZjxul9LWrrHBxi1blEXIPKhq9nSyAysjypd-TS7ySXYX8IO4VAPdT3c6Oz5ivuf0d--46UXrIa5Nmxt7GVoCqpDrs90rT2deGMhK2u
+pre_inference|8|tool_call||call_aVA0WBzvR6tNnrO6p1v2Qiep|{"args":{"since":"","threshold":3},"id":"call_aVA0WBzvR6tNnrO6p1v2Qiep","item_id":"fc_0577e434078b396c006998cee71410819398e7a53dadd00bb2","name":"inventory_report"}
+pre_inference|9|tool_use||4151ba9d-5144-4f37-bc91-405c6b39c48e|{"error":"","id":"call_aVA0WBzvR6tNnrO6p1v2Qiep","result":"{\"summary\":{\"totalSkus\":10,\"totalUnits\":59,\"retailValue\":816.41,\"costBasis\":256,\"potentialProfit\":560.41,\"lowStockCount\":5,\"ou
+pre_inference|10|reasoning||rs_0577e434078b396c006998cee83a788193a429eafef7b5208d|{"encrypted_content":"gAAAAABpmM7xTPdcW-7sdKWrfIqzs4yx-MOJKo2r4KT3p-hzsV3oY0p4-jKLnb7SNMRQLHlJLb9knzDlBTQSdrdgXPgvplv0sW4sNdUB_GwnC1JQv9Wo66I9MFFGNkb11rFrEAYbTlo579FZ-O8zbG_NX_wbeOuOPs0p_MTZVEO2NO3UXn
+pre_inference|11|llm_text|assistant|381045a2-b31d-4905-b036-7f2f7553cfc5|{"item_id":"msg_0577e434078b396c006998cef13b688193abf31b488cf1c000","text":"Here is the current inventory status summary.\n\n\u003chypercard:widget:v1\u003e\n```yaml\ntype: report\ntitle: Current Inve
+pre_inference|12|user|user|3b0311f0-4c6b-4887-a443-2125d676ccbe|{"text":"create a card to view current stock and update stock"}
