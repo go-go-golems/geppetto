@@ -150,9 +150,11 @@ func TestConstsExported(t *testing.T) {
 		if (gp.consts.ToolChoice.NONE !== "none") throw new Error("ToolChoice.NONE mismatch");
 		if (gp.consts.ToolErrorHandling.RETRY !== "retry") throw new Error("ToolErrorHandling.RETRY mismatch");
 		if (gp.consts.BlockKind.TOOL_USE !== "tool_use") throw new Error("BlockKind.TOOL_USE mismatch");
-		if (gp.consts.MetadataKeys.SESSION_ID !== "session_id") throw new Error("MetadataKeys.SESSION_ID mismatch");
+		if (gp.consts.TurnMetadataKeys.SESSION_ID !== "session_id") throw new Error("TurnMetadataKeys.SESSION_ID mismatch");
 		if (gp.consts.TurnDataKeys.TOOL_CONFIG !== "tool_config") throw new Error("TurnDataKeys.TOOL_CONFIG mismatch");
 		if (gp.consts.BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT !== "claude_original_content") throw new Error("BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT mismatch");
+		if (gp.consts.RunMetadataKeys.TRACE_ID !== "trace_id") throw new Error("RunMetadataKeys.TRACE_ID mismatch");
+		if (gp.consts.PayloadKeys.ENCRYPTED_CONTENT !== "encrypted_content") throw new Error("PayloadKeys.ENCRYPTED_CONTENT mismatch");
 		if (gp.consts.EventType.TOOL_RESULT !== "tool-result") throw new Error("EventType.TOOL_RESULT mismatch");
 	`)
 }

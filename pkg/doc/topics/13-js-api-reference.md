@@ -75,7 +75,7 @@ gp.Register(reg, gp.Options{
 
 ## `consts` Namespace
 
-Generated from `pkg/js/modules/geppetto/spec/js_api_codegen.yaml`.
+Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 
 | Group | Example |
 |---|---|
@@ -84,9 +84,10 @@ Generated from `pkg/js/modules/geppetto/spec/js_api_codegen.yaml`.
 | `BlockKind` | `gp.consts.BlockKind.TOOL_USE` |
 | `TurnDataKeys` | `gp.consts.TurnDataKeys.TOOL_CONFIG` |
 | `HookAction` | `gp.consts.HookAction.ABORT` |
-| `MetadataKeys` | `gp.consts.MetadataKeys.SESSION_ID` |
 | `TurnMetadataKeys` | `gp.consts.TurnMetadataKeys.SESSION_ID` |
 | `BlockMetadataKeys` | `gp.consts.BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT` |
+| `RunMetadataKeys` | `gp.consts.RunMetadataKeys.TRACE_ID` |
+| `PayloadKeys` | `gp.consts.PayloadKeys.ENCRYPTED_CONTENT` |
 | `EventType` | `gp.consts.EventType.TOOL_RESULT` |
 
 ## `turns` Namespace
