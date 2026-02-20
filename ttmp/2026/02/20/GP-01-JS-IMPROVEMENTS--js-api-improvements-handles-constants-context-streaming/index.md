@@ -1,0 +1,85 @@
+---
+Title: 'JS API Improvements: handles, constants, context, streaming'
+Ticket: GP-01-JS-IMPROVEMENTS
+Status: active
+Topics:
+    - geppetto
+    - javascript
+    - goja
+    - api-design
+DocType: index
+Intent: long-term
+Owners: []
+RelatedFiles:
+    - pkg/js/modules/geppetto/module.go
+    - pkg/js/modules/geppetto/api.go
+    - pkg/js/modules/geppetto/codec.go
+    - pkg/inference/tools/config.go
+    - pkg/inference/middleware/middleware.go
+    - pkg/inference/session/session.go
+    - pkg/inference/session/execution.go
+    - pkg/inference/toolloop/loop.go
+    - pkg/events/chat-events.go
+    - pkg/events/context.go
+    - pkg/events/sink.go
+    - pkg/turns/block_kind_gen.go
+    - pkg/turns/keys_gen.go
+ExternalSources: []
+Summary: >
+  Four improvement areas for the geppetto JS/goja integration: (5.1) make opaque
+  handles truly hidden via DefineDataProperty, (5.2) export enums/constants and
+  ship .d.ts type definitions, (5.3) forward context (session/inference/turn IDs,
+  timing) to middleware, tool handlers, and tool hooks, (5.4) add RunHandle with
+  event streaming, per-run cancellation, and per-run options.
+LastUpdated: 2026-02-20T07:37:50.199347415-05:00
+WhatFor: ""
+WhenToUse: ""
+---
+
+# JS API Improvements: handles, constants, context, streaming
+
+## Overview
+
+Four improvement areas for the geppetto JS/goja integration layer that make it
+harder to write correct, observable, and ergonomic JS scripts:
+
+1. **5.1 Opaque handles leak** — `__geppetto_ref` is enumerable/writable/discoverable
+2. **5.2 Stringly-typed configs** — no constants, no IDE guidance, runtime-only failures
+3. **5.3 Missing context** — middleware and tool handlers lack session/inference/turn IDs
+4. **5.4 No streaming/RunHandle** — `runAsync()` returns bare Promise with no events or cancellation
+
+All four are analyzed in detail with code locations and modification strategies in the design document.
+
+## Key Links
+
+- [Design: Codebase Analysis](./design/01-js-api-improvements-codebase-analysis.md) — detailed analysis of all four areas
+- **Related Files**: See frontmatter RelatedFiles field
+- **External Sources**: See frontmatter ExternalSources field
+
+## Status
+
+Current status: **active**
+
+## Topics
+
+- geppetto
+- javascript
+- goja
+- api-design
+
+## Tasks
+
+See [tasks.md](./tasks.md) for the current task list.
+
+## Changelog
+
+See [changelog.md](./changelog.md) for recent changes and decisions.
+
+## Structure
+
+- design/ - Architecture and design documents
+- reference/ - Prompt packs, API contracts, context summaries
+- playbooks/ - Command sequences and test procedures
+- scripts/ - Temporary code and tooling
+- various/ - Working notes and research
+- archive/ - Deprecated or reference-only artifacts
