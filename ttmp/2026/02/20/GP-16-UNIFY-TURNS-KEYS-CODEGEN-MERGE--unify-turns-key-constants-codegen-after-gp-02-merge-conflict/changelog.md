@@ -11,3 +11,4 @@
 - Regenerated turns artifacts and validated turns/inference/provider packages.
 - Extended `cmd/gen-js-api` with `--turns-schema` import support and generated turns-domain const groups in `gp.consts`: `BlockKind`, `TurnDataKeys`, `MetadataKeys`, `TurnMetadataKeys`, `BlockMetadataKeys`.
 - Updated JS module tests and JS API reference docs for new const groups.
+- Added contributor note in `pkg/turns/spec/README.md` documenting schema/codegen ownership and required regeneration commands.

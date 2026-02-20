@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] Add a short contributor note documenting schema/codegen as the single source of truth for turns value constants
+No open tasks.
 
 ## Done
 
@@ -14,3 +14,4 @@
 - [x] Generate `TurnDataKeys`, `TurnMetadataKeys`, and `BlockMetadataKeys` in `gp.consts`
 - [x] Regenerate geppetto constants outputs and update module/generator tests
 - [x] Update JS API reference docs for the new key groups
+- [x] Add a short contributor note documenting schema/codegen as the single source of truth for turns value constants
