@@ -54,3 +54,15 @@ Phase 5.3 complete: added middleware/tool handler context objects, session metad
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/module_test.go — Validates middleware/tool/hook context payloads
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/tasks.md — Added new turns/blocks .d.ts generation tasks
 
+
+## 2026-02-20
+
+Completed additional 5.2 scope: extended cmd/gen-turns to generate turns/block key TypeScript declarations via template, wired go:generate, and generated pkg/doc/types/turns.d.ts (commit 7bee52dd684c89a165a3d19e994422df333f6c3c).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/cmd/gen-turns/main.go — Added dts section with template/out rendering path
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/types/turns.d.ts — Generated turns and block key declaration file
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/generate.go — Added go:generate directive for turns.d.ts output
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/spec/turns.d.ts.tmpl — Template for generated turns/block key declarations
+

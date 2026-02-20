@@ -10,8 +10,8 @@
 - [x] 5.2 Add `generate.go` with `//go:generate` directive, run `go generate`
 - [x] 5.2 Wire `installConsts()` call into `installExports()` (module.go)
 - [x] 5.2 Add validation for ToolChoice/ToolErrorHandling string values (api.go:589-590)
-- [ ] 5.2 Extend `cmd/gen-turns` to generate `.d.ts` for BlockKind + turns key constants
-- [ ] 5.2 Add `pkg/turns/spec/turns.d.ts.tmpl` and generated `pkg/doc/types/turns.d.ts` via `go generate`
+- [x] 5.2 Extend `cmd/gen-turns` to generate `.d.ts` for BlockKind + turns key constants
+- [x] 5.2 Add `pkg/turns/spec/turns.d.ts.tmpl` and generated `pkg/doc/types/turns.d.ts` via `go generate`
 
 ## Phase 2 — Context Plumbing
 
