@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"math"
 
+	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -21,10 +21,10 @@ import (
 
 // MakeMessageRequestFromTurn builds a Claude MessageRequest directly from a Turn's blocks,
 // avoiding any dependency on conversation.Conversation.
-func MakeMessageRequestFromTurn(
-	s *settings.StepSettings,
+func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	t *turns.Turn,
 ) (*api.MessageRequest, error) {
+	s := e.settings
 	if s.Client == nil {
 		return nil, steps.ErrMissingClientSettings
 	}
@@ -269,6 +269,64 @@ func MakeMessageRequestFromTurn(
 				Type:   "json_schema",
 				Name:   cfg.Name,
 				Schema: cfg.Schema,
+			}
+		}
+	}
+
+	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	infCfg := infengine.ResolveInferenceConfig(t, s.Inference)
+	if infCfg != nil {
+		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
+			req.Thinking = &api.ThinkingParam{
+				Type:         "enabled",
+				BudgetTokens: *infCfg.ThinkingBudget,
+			}
+		}
+		if infCfg.Temperature != nil {
+			v := *infCfg.Temperature
+			req.Temperature = &v
+		}
+		if infCfg.TopP != nil {
+			v := *infCfg.TopP
+			req.TopP = &v
+		}
+		if infCfg.MaxResponseTokens != nil && *infCfg.MaxResponseTokens > 0 {
+			req.MaxTokens = *infCfg.MaxResponseTokens
+		}
+		if infCfg.Stop != nil {
+			req.StopSequences = infCfg.Stop
+		}
+	}
+
+	// Re-validate Claude sampling constraints after overrides.
+	// Claude requires at most one of temperature/top_p to be non-default.
+	if req.Temperature != nil && req.TopP != nil {
+		return nil, errors.New("both temperature and top_p are set (after inference overrides); Claude models require only one to be specified")
+	}
+	// When thinking is enabled, Claude requires temperature to be 1.0 or unset.
+	if req.Thinking != nil && req.Temperature != nil && *req.Temperature != 1.0 {
+		return nil, fmt.Errorf("thinking is enabled but temperature is %.2f; Claude requires temperature=1.0 (or unset) when thinking is active", *req.Temperature)
+	}
+
+	// Apply Claude-specific per-turn overrides from Turn.Data.
+	if claudeCfg := infengine.ResolveClaudeInferenceConfig(t); claudeCfg != nil {
+		if claudeCfg.UserID != nil {
+			req.Metadata = &api.Metadata{UserID: *claudeCfg.UserID}
+		}
+		if claudeCfg.TopK != nil {
+			req.TopK = claudeCfg.TopK
+		}
+	}
+
+	// Apply StructuredOutputConfig from Turn.Data (per-turn override).
+	if t != nil {
+		if soCfg, ok, err := infengine.KeyStructuredOutputConfig.Get(t.Data); err == nil && ok && soCfg.IsEnabled() {
+			if err := soCfg.Validate(); err == nil {
+				req.OutputFormat = &api.OutputFormat{
+					Type:   "json_schema",
+					Name:   soCfg.Name,
+					Schema: soCfg.Schema,
+				}
 			}
 		}
 	}

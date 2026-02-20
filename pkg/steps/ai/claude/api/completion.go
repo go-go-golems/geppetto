@@ -25,9 +25,9 @@ type Request struct {
 	Stream            bool      `json:"stream"`
 }
 
-// Metadata represents the metadata object.
+// Metadata represents the metadata object for Claude API requests.
 type Metadata struct {
-	// Add metadata fields as needed
+	UserID string `json:"user_id,omitempty"`
 }
 
 // SuccessfulResponse represents the API's successful response.

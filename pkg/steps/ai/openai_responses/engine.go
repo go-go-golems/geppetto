@@ -47,7 +47,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 
 	// Build HTTP request to /v1/responses
-	reqBody, err := buildResponsesRequest(e.settings, t)
+	reqBody, err := e.buildResponsesRequest(t)
 	if err != nil {
 		return nil, err
 	}
