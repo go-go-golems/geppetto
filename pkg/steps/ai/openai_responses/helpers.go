@@ -27,6 +27,8 @@ type responsesRequest struct {
 	Tools             []any            `json:"tools,omitempty"`
 	ToolChoice        any              `json:"tool_choice,omitempty"`
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+	Store             *bool            `json:"store,omitempty"`
+	ServiceTier       *string          `json:"service_tier,omitempty"`
 }
 
 type responsesText struct {
@@ -42,8 +44,9 @@ type responsesTextFormat struct {
 }
 
 type reasoningParam struct {
-	Effort  string `json:"effort,omitempty"`
-	Summary string `json:"summary,omitempty"`
+	Effort    string `json:"effort,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	MaxTokens *int   `json:"max_tokens,omitempty"`
 }
 
 type responsesInput struct {
@@ -161,6 +164,72 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 			}
 		}
 	}
+	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	var engineInference *engine.InferenceConfig
+	if s != nil {
+		engineInference = s.Inference
+	}
+	if infCfg := engine.ResolveInferenceConfig(t, engineInference); infCfg != nil {
+		if infCfg.ReasoningEffort != nil {
+			if req.Reasoning == nil {
+				req.Reasoning = &reasoningParam{}
+			}
+			req.Reasoning.Effort = mapEffortString(*infCfg.ReasoningEffort)
+		}
+		if infCfg.ReasoningSummary != nil && *infCfg.ReasoningSummary != "" {
+			if req.Reasoning == nil {
+				req.Reasoning = &reasoningParam{}
+			}
+			req.Reasoning.Summary = *infCfg.ReasoningSummary
+		}
+		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
+			if req.Reasoning == nil {
+				req.Reasoning = &reasoningParam{}
+			}
+			req.Reasoning.MaxTokens = infCfg.ThinkingBudget
+		}
+		if infCfg.Temperature != nil {
+			req.Temperature = infCfg.Temperature
+		}
+		if infCfg.TopP != nil {
+			req.TopP = infCfg.TopP
+		}
+		if infCfg.MaxResponseTokens != nil {
+			req.MaxOutputTokens = infCfg.MaxResponseTokens
+		}
+		if len(infCfg.Stop) > 0 {
+			req.StopSequences = infCfg.Stop
+		}
+	}
+
+	// Apply OpenAI-specific per-turn overrides from Turn.Data.
+	if oaiCfg := engine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
+		if oaiCfg.Store != nil {
+			req.Store = oaiCfg.Store
+		}
+		if oaiCfg.ServiceTier != nil {
+			req.ServiceTier = oaiCfg.ServiceTier
+		}
+	}
+
+	// Apply StructuredOutputConfig from Turn.Data (per-turn override).
+	if t != nil {
+		if soCfg, ok, err := engine.KeyStructuredOutputConfig.Get(t.Data); err == nil && ok && soCfg.IsEnabled() {
+			if err := soCfg.Validate(); err == nil {
+				strict := soCfg.StrictOrDefault()
+				req.Text = &responsesText{
+					Format: &responsesTextFormat{
+						Type:        "json_schema",
+						Name:        soCfg.Name,
+						Description: soCfg.Description,
+						Schema:      soCfg.Schema,
+						Strict:      &strict,
+					},
+				}
+			}
+		}
+	}
+
 	// NOTE: stream_options.include_usage is not supported broadly; ignore for now
 	return req, nil
 }

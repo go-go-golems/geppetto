@@ -29,6 +29,9 @@ const (
 	// Turn.Data
 	ToolConfigValueKey             = "tool_config"              // typed key lives in inference/engine to avoid import cycles
 	StructuredOutputConfigValueKey = "structured_output_config" // typed key lives in inference/engine to avoid import cycles
+	InferenceConfigValueKey        = "inference_config"         // typed key lives in inference/engine to avoid import cycles
+	ClaudeInferenceConfigValueKey  = "claude_inference_config"  // typed key lives in inference/engine to avoid import cycles
+	OpenAIInferenceConfigValueKey  = "openai_inference_config"  // typed key lives in inference/engine to avoid import cycles
 	AgentModeAllowedToolsValueKey  = "agent_mode_allowed_tools"
 	AgentModeValueKey              = "agent_mode"
 	ResponsesServerToolsValueKey   = "responses_server_tools"

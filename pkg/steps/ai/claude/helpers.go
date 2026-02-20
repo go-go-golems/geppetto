@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 
+	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -269,6 +270,54 @@ func MakeMessageRequestFromTurn(
 				Type:   "json_schema",
 				Name:   cfg.Name,
 				Schema: cfg.Schema,
+			}
+		}
+	}
+
+	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	infCfg := infengine.ResolveInferenceConfig(t, s.Inference)
+	if infCfg != nil {
+		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
+			req.Thinking = &api.ThinkingParam{
+				Type:         "enabled",
+				BudgetTokens: *infCfg.ThinkingBudget,
+			}
+		}
+		if infCfg.Temperature != nil {
+			v := *infCfg.Temperature
+			req.Temperature = &v
+		}
+		if infCfg.TopP != nil {
+			v := *infCfg.TopP
+			req.TopP = &v
+		}
+		if infCfg.MaxResponseTokens != nil && *infCfg.MaxResponseTokens > 0 {
+			req.MaxTokens = *infCfg.MaxResponseTokens
+		}
+		if len(infCfg.Stop) > 0 {
+			req.StopSequences = infCfg.Stop
+		}
+	}
+
+	// Apply Claude-specific per-turn overrides from Turn.Data.
+	if claudeCfg := infengine.ResolveClaudeInferenceConfig(t); claudeCfg != nil {
+		if claudeCfg.UserID != nil {
+			req.Metadata = &api.Metadata{UserID: *claudeCfg.UserID}
+		}
+		if claudeCfg.TopK != nil {
+			req.TopK = claudeCfg.TopK
+		}
+	}
+
+	// Apply StructuredOutputConfig from Turn.Data (per-turn override).
+	if t != nil {
+		if soCfg, ok, err := infengine.KeyStructuredOutputConfig.Get(t.Data); err == nil && ok && soCfg.IsEnabled() {
+			if err := soCfg.Validate(); err == nil {
+				req.OutputFormat = &api.OutputFormat{
+					Type:   "json_schema",
+					Name:   soCfg.Name,
+					Schema: soCfg.Schema,
+				}
 			}
 		}
 	}

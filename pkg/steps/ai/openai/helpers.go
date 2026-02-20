@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -471,6 +472,62 @@ func MakeCompletionRequestFromTurn(
 						Schema:      json.RawMessage(schemaBytes),
 						Strict:      cfg.StrictOrDefault(),
 					},
+				}
+			}
+		}
+	}
+
+	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	if infCfg := infengine.ResolveInferenceConfig(t, settings.Inference); infCfg != nil {
+		if infCfg.Temperature != nil {
+			req.Temperature = float32(*infCfg.Temperature)
+		}
+		if infCfg.TopP != nil {
+			req.TopP = float32(*infCfg.TopP)
+		}
+		if infCfg.MaxResponseTokens != nil && *infCfg.MaxResponseTokens > 0 {
+			if isReasoningModel(engine) {
+				req.MaxCompletionTokens = *infCfg.MaxResponseTokens
+			} else {
+				req.MaxTokens = *infCfg.MaxResponseTokens
+			}
+		}
+		if len(infCfg.Stop) > 0 {
+			req.Stop = infCfg.Stop
+		}
+		if infCfg.Seed != nil {
+			req.Seed = infCfg.Seed
+		}
+	}
+
+	// Apply OpenAI-specific per-turn overrides from Turn.Data.
+	if oaiCfg := infengine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
+		if oaiCfg.N != nil {
+			req.N = *oaiCfg.N
+		}
+		if oaiCfg.PresencePenalty != nil {
+			req.PresencePenalty = float32(*oaiCfg.PresencePenalty)
+		}
+		if oaiCfg.FrequencyPenalty != nil {
+			req.FrequencyPenalty = float32(*oaiCfg.FrequencyPenalty)
+		}
+	}
+
+	// Apply StructuredOutputConfig from Turn.Data (per-turn override).
+	if t != nil {
+		if soCfg, ok, err := infengine.KeyStructuredOutputConfig.Get(t.Data); err == nil && ok && soCfg.IsEnabled() {
+			if err := soCfg.Validate(); err == nil {
+				schemaBytes, marshalErr := json.Marshal(soCfg.Schema)
+				if marshalErr == nil {
+					req.ResponseFormat = &go_openai.ChatCompletionResponseFormat{
+						Type: go_openai.ChatCompletionResponseFormatTypeJSONSchema,
+						JSONSchema: &go_openai.ChatCompletionResponseFormatJSONSchema{
+							Name:        soCfg.Name,
+							Description: soCfg.Description,
+							Schema:      json.RawMessage(schemaBytes),
+							Strict:      soCfg.StrictOrDefault(),
+						},
+					}
 				}
 			}
 		}
