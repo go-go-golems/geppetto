@@ -27,3 +27,12 @@ Step 2 complete: integrated geppetto runtime bridge and migrated async JS callba
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/module_test.go — Async regression tests and promise polling helpers
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/runtimebridge/bridge.go — Bridge helpers for Call/Post/InvokeCallable/ToJSValue
 
+
+## 2026-02-20
+
+Added dedicated deadlock analysis document explaining owner-thread run() circular wait and prevention rules.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-03-ASYNC-RUNTIME-RUNNER--reusable-async-runtime-runner-and-geppetto-bridge/analysis/01-deadlock-analysis-owner-thread-run-async-callback-scheduling.md — Detailed deadlock root-cause analysis
+
