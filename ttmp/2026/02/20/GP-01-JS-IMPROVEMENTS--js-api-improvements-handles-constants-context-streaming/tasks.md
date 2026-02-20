@@ -23,16 +23,16 @@
 
 ## Phase 3 — RunHandle & Streaming
 
-- [ ] 5.4 Implement `jsEventCollector` (new type implementing `events.EventSink`)
-- [ ] 5.4 Add `session.start()` method returning `RunHandle` with `.promise`, `.cancel()`, `.on()`
-- [ ] 5.4 Add per-run options (timeoutMs, tags) to `session.run()` and `session.start()`
+- [x] 5.4 Implement `jsEventCollector` (new type implementing `events.EventSink`)
+- [x] 5.4 Add `session.start()` method returning `RunHandle` with `.promise`, `.cancel()`, `.on()`
+- [x] 5.4 Add per-run options (timeoutMs, tags) to `session.run()` and `session.start()`
 
 ## Phase 4 — Documentation & Polish
 
-- [ ] Update `.d.ts.tmpl` with types from phases 2-3 (MiddlewareContext, StreamEvent, RunHandle), re-run `go generate`
-- [ ] Add example `07_context_and_constants.js` demonstrating new features
-- [ ] Update `13-js-api-reference.md` with new API surface
-- [ ] Add CI check: `go generate ./... && git diff --exit-code` to catch stale generated files
+- [x] Update `.d.ts.tmpl` with types from phases 2-3 (MiddlewareContext, StreamEvent, RunHandle), re-run `go generate`
+- [x] Add example `07_context_and_constants.js` demonstrating new features
+- [x] Update `13-js-api-reference.md` with new API surface
+- [x] Add CI check: `go generate ./... && git diff --exit-code` to catch stale generated files
 
 ## Done
 

@@ -66,3 +66,17 @@ Completed additional 5.2 scope: extended cmd/gen-turns to generate turns/block k
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/generate.go — Added go:generate directive for turns.d.ts output
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/spec/turns.d.ts.tmpl — Template for generated turns/block key declarations
 
+
+## 2026-02-20
+
+Completed Phase 5.4 and final polish: implemented jsEventCollector, added session.start() RunHandle API, added run/start per-run options (timeoutMs,tags), updated generated .d.ts and JS API reference, added example 07_context_and_constants.js, and added CI generated-file freshness check (commit d9d7d52af843b054752060c4e746a2f8a612bed5).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/.github/workflows/push.yml — CI now verifies generated files are committed
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/examples/js/geppetto/07_context_and_constants.js — Demonstrates constants + context-aware callbacks
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Reference updated for consts/start/run options/context payloads
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/types/geppetto.d.ts — Regenerated declarations for new API surface
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — RunHandle/start implementation + jsEventCollector + run options plumbing
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl — Template updated for MiddlewareContext/RunHandle/StreamEvent
+
