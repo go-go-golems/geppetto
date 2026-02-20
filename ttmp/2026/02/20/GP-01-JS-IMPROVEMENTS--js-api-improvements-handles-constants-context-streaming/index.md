@@ -27,6 +27,8 @@ RelatedFiles:
     - Path: geppetto/pkg/turns/keys_gen.go
     - Path: geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/analysis/01-bug-report-js-async-inference-runtime-thread-safety-runasync-start.md
       Note: Long-form bug report on async JS runtime safety
+    - Path: geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md
+      Note: Intern-focused architecture and integration guide for reusable async VM safety runner
 ExternalSources: []
 Summary: |
     Four improvement areas for the geppetto JS/goja integration: (5.1) make opaque handles truly hidden via DefineDataProperty, (5.2) export enums/constants and ship .d.ts type definitions, (5.3) forward context (session/inference/turn IDs, timing) to middleware, tool handlers, and tool hooks, (5.4) add RunHandle with event streaming, per-run cancellation, and per-run options.
@@ -34,6 +36,7 @@ LastUpdated: 2026-02-20T07:37:50.199347415-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # JS API Improvements: handles, constants, context, streaming

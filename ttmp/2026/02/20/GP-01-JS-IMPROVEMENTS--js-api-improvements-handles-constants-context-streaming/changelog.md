@@ -99,3 +99,12 @@ Expanded Option D in the async runtime safety bug report into a full architectur
 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/analysis/01-bug-report-js-async-inference-runtime-thread-safety-runasync-start.md — Added detailed Option D analysis and implementation blueprint
 
+
+## 2026-02-20
+
+Added an intern-facing architecture guide covering a reusable async runtime-safety runner design for go-go-goja, geppetto integration strategy, and third-party app wiring with both database and geppetto modules.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md — New detailed planning/implementation guide for async safety runner and integration patterns
+
