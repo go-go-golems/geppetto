@@ -8,6 +8,10 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
+func newTestEngine(st *aisettings.StepSettings) *ClaudeEngine {
+	return &ClaudeEngine{settings: st}
+}
+
 func TestMakeMessageRequestFromTurnStructuredOutput(t *testing.T) {
 	engine := "claude-sonnet-4-20250514"
 	st := &aisettings.StepSettings{
@@ -25,7 +29,8 @@ func TestMakeMessageRequestFromTurnStructuredOutput(t *testing.T) {
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	req, err := MakeMessageRequestFromTurn(st, tu)
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(tu)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,7 +63,8 @@ func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaRequireValid(t *
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	if _, err := MakeMessageRequestFromTurn(st, tu); err == nil {
+	e := newTestEngine(st)
+	if _, err := e.MakeMessageRequestFromTurn(tu); err == nil {
 		t.Fatalf("expected error when require_valid=true and schema JSON is invalid")
 	}
 }
@@ -81,7 +87,8 @@ func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaIgnoredWhenNotRe
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	req, err := MakeMessageRequestFromTurn(st, tu)
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(tu)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

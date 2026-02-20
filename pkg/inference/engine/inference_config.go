@@ -69,16 +69,63 @@ type OpenAIInferenceConfig struct {
 	ServiceTier *string `json:"service_tier,omitempty"`
 }
 
-// ResolveInferenceConfig returns the effective InferenceConfig by checking
-// Turn.Data first, then falling back to the engine-level default.
+// MergeInferenceConfig returns a new InferenceConfig where turnCfg fields
+// take precedence over engineDefault fields. Nil fields in turnCfg fall
+// back to the corresponding engineDefault field.
+func MergeInferenceConfig(turnCfg, engineDefault *InferenceConfig) *InferenceConfig {
+	if turnCfg == nil {
+		return engineDefault
+	}
+	if engineDefault == nil {
+		return turnCfg
+	}
+	merged := *engineDefault // shallow copy of defaults
+	if turnCfg.ThinkingBudget != nil {
+		v := *turnCfg.ThinkingBudget
+		merged.ThinkingBudget = &v
+	}
+	if turnCfg.ReasoningEffort != nil {
+		v := *turnCfg.ReasoningEffort
+		merged.ReasoningEffort = &v
+	}
+	if turnCfg.ReasoningSummary != nil {
+		v := *turnCfg.ReasoningSummary
+		merged.ReasoningSummary = &v
+	}
+	if turnCfg.Temperature != nil {
+		v := *turnCfg.Temperature
+		merged.Temperature = &v
+	}
+	if turnCfg.TopP != nil {
+		v := *turnCfg.TopP
+		merged.TopP = &v
+	}
+	if turnCfg.MaxResponseTokens != nil {
+		v := *turnCfg.MaxResponseTokens
+		merged.MaxResponseTokens = &v
+	}
+	if len(turnCfg.Stop) > 0 {
+		merged.Stop = append([]string(nil), turnCfg.Stop...)
+	}
+	if turnCfg.Seed != nil {
+		v := *turnCfg.Seed
+		merged.Seed = &v
+	}
+	return &merged
+}
+
+// ResolveInferenceConfig returns the effective InferenceConfig by merging
+// Turn.Data config with the engine-level default. Turn-level fields take
+// precedence; nil fields fall back to the engine default.
 // Returns nil if neither source has a config.
 func ResolveInferenceConfig(t *turns.Turn, engineDefault *InferenceConfig) *InferenceConfig {
+	var turnCfg *InferenceConfig
 	if t != nil {
 		if cfg, ok, err := KeyInferenceConfig.Get(t.Data); err == nil && ok {
-			return &cfg
+			turnCfg = &cfg
 		}
 	}
-	return engineDefault
+	return MergeInferenceConfig(turnCfg, engineDefault)
 }
 
 // ResolveClaudeInferenceConfig returns the per-turn Claude config from Turn.Data, or nil.

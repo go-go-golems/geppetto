@@ -10,6 +10,10 @@ import (
 
 func boolPtr(v bool) *bool { return &v }
 
+func newTestEngine(st *aisettings.StepSettings) *OpenAIEngine {
+	return &OpenAIEngine{settings: st}
+}
+
 func TestMakeCompletionRequestFromTurnStructuredOutput(t *testing.T) {
 	engine := "gpt-4o-mini"
 	st := &aisettings.StepSettings{
@@ -27,7 +31,8 @@ func TestMakeCompletionRequestFromTurnStructuredOutput(t *testing.T) {
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	req, err := MakeCompletionRequestFromTurn(st, tu)
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,11 +64,47 @@ func TestMakeCompletionRequestFromTurnStructuredOutputInvalidSchemaIgnoredWhenNo
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	req, err := MakeCompletionRequestFromTurn(st, tu)
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if req.ResponseFormat != nil {
 		t.Fatalf("expected invalid schema to be ignored when require_valid=false")
+	}
+}
+
+func TestMakeCompletionRequestFromTurnReasoningModelSanitizesPenalties(t *testing.T) {
+	engine := "o3-mini"
+	pp := 0.5
+	fp := 0.3
+	st := &aisettings.StepSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{
+			PresencePenalty:  &pp,
+			FrequencyPenalty: &fp,
+		},
+		Chat: &aisettings.ChatSettings{
+			Engine: &engine,
+		},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Reasoning models should have penalties zeroed
+	if req.PresencePenalty != 0 {
+		t.Errorf("expected PresencePenalty=0 for reasoning model, got %v", req.PresencePenalty)
+	}
+	if req.FrequencyPenalty != 0 {
+		t.Errorf("expected FrequencyPenalty=0 for reasoning model, got %v", req.FrequencyPenalty)
+	}
+	if req.Temperature != 0 {
+		t.Errorf("expected Temperature=0 for reasoning model, got %v", req.Temperature)
 	}
 }

@@ -84,10 +84,10 @@ func isReasoningModel(engine string) bool {
 
 // MakeCompletionRequestFromTurn builds an OpenAI ChatCompletionRequest directly from a Turn's blocks,
 // avoiding any dependency on conversation.Conversation.
-func MakeCompletionRequestFromTurn(
-	settings *settings.StepSettings,
+func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	t *turns.Turn,
 ) (*go_openai.ChatCompletionRequest, error) {
+	settings := e.settings
 	if settings.Client == nil {
 		return nil, steps.ErrMissingClientSettings
 	}
@@ -478,14 +478,17 @@ func MakeCompletionRequestFromTurn(
 	}
 
 	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
-	// Reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p/penalties;
-	// respect the same guard applied to base chat settings above.
+	// ResolveInferenceConfig performs field-level merge: turn fields override engine defaults.
 	if infCfg := infengine.ResolveInferenceConfig(t, settings.Inference); infCfg != nil {
 		reasoning := isReasoningModel(engine)
-		if !reasoning && infCfg.Temperature != nil {
+		// Reasoning models (o1/o3/o4/gpt-5) reject temperature/top_p; sanitize upfront.
+		if reasoning {
+			infCfg = infengine.SanitizeForReasoningModel(infCfg)
+		}
+		if infCfg.Temperature != nil {
 			req.Temperature = float32(*infCfg.Temperature)
 		}
-		if !reasoning && infCfg.TopP != nil {
+		if infCfg.TopP != nil {
 			req.TopP = float32(*infCfg.TopP)
 		}
 		if infCfg.MaxResponseTokens != nil && *infCfg.MaxResponseTokens > 0 {
@@ -505,6 +508,10 @@ func MakeCompletionRequestFromTurn(
 
 	// Apply OpenAI-specific per-turn overrides from Turn.Data.
 	if oaiCfg := infengine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
+		// Reasoning models reject penalties and N>1; sanitize upfront.
+		if isReasoningModel(engine) {
+			oaiCfg = infengine.SanitizeOpenAIForReasoningModel(oaiCfg)
+		}
 		if oaiCfg.N != nil {
 			req.N = *oaiCfg.N
 		}

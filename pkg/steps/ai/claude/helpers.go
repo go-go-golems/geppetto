@@ -9,7 +9,6 @@ import (
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -22,10 +21,10 @@ import (
 
 // MakeMessageRequestFromTurn builds a Claude MessageRequest directly from a Turn's blocks,
 // avoiding any dependency on conversation.Conversation.
-func MakeMessageRequestFromTurn(
-	s *settings.StepSettings,
+func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	t *turns.Turn,
 ) (*api.MessageRequest, error) {
+	s := e.settings
 	if s.Client == nil {
 		return nil, steps.ErrMissingClientSettings
 	}

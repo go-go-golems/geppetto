@@ -275,11 +275,35 @@ type Engine interface {
 not at the Engine level. The Engine doesn't build requests — helpers do. This
 would require restructuring the call chain.
 
-### Recommendation
+### Recommendation (updated after discussion)
 
-**Option A** for constraints (centralized functions in `engine` package) combined
-with field-level merge. This addresses both bugs and reduces the scattered-guard
-problem without over-engineering.
+**Option B** — make helpers methods on their engine structs — combined with
+centralized sanitize/validate functions in the `engine` package and field-level
+merge.
+
+After discussion, Option B is preferred because:
+
+1. **Helpers become methods** on ClaudeEngine / OpenAIEngine / Engine (responses).
+   They lose their `settings` parameter (access via `e.settings`), but gain
+   natural access to the engine struct for validation dispatch.
+
+2. **Standalone testability is not lost.** The engine structs are lightweight
+   (`settings *StepSettings` + optional adapter). Constructing one for tests is
+   one extra line: `e := &Engine{settings: settings}`.
+
+3. **No signature gymnastics.** No extra parameters, no function-pointer injection,
+   no Turn.Data mutation. The helpers call sanitize/validate at the right internal
+   point using centralized functions from the `engine` package.
+
+4. **Sanitize functions live in `engine` but don't check model names.** Providers
+   call `SanitizeForReasoningModel(cfg)` / `SanitizeOpenAIForReasoningModel(cfg)`
+   after their own `isReasoningModel()` check. This keeps model-name knowledge in
+   the provider and generic field-clearing in `engine`.
+
+5. **Claude validation stays post-application.** Claude constraints involve the
+   interaction between ChatSettings and InferenceConfig (e.g., ChatSettings.TopP +
+   InferenceConfig.Temperature = conflict). These are correctly validated on the
+   final request state, not on InferenceConfig alone.
 
 ### Layer 3: OpenAIInferenceConfig penalty guard
 
@@ -329,42 +353,60 @@ asked for something contradictory), while OpenAI reasoning-model constraints are
 
 ## Implementation Plan
 
-### Step 1: Add `MergeInferenceConfig` (fixes Bug #1)
+### Step 1: Add `MergeInferenceConfig` + sanitize functions to `engine` package
 
-- Add `MergeInferenceConfig(turn, default)` to `inference_config.go`
-- Update `ResolveInferenceConfig` to use it
-- Unit test: merge with various nil/non-nil field combinations
+- Add `MergeInferenceConfig(turnCfg, engineDefault)` to `inference_config.go`
+- Update `ResolveInferenceConfig` to use `MergeInferenceConfig`
+- Add `SanitizeForReasoningModel(cfg) *InferenceConfig` (clears Temperature, TopP)
+- Add `SanitizeOpenAIForReasoningModel(cfg) *OpenAIInferenceConfig` (clears penalties, N)
+- Unit tests for merge + sanitize
 
-### Step 2: Add validation/sanitize functions
+### Step 2: Convert Claude helper to method on ClaudeEngine
 
-- `ValidateClaudeInferenceConfig(cfg) error`
-- `SanitizeForReasoningModel(cfg) *InferenceConfig`
-- `SanitizeOpenAIForReasoningModel(cfg) *OpenAIInferenceConfig`
-- Unit tests for each
+- `MakeMessageRequestFromTurn(s, t)` → `(e *ClaudeEngine) MakeMessageRequestFromTurn(t)`
+- Uses `e.settings` instead of parameter
+- Uses MergeInferenceConfig (via updated ResolveInferenceConfig)
+- Claude post-application validation stays on request state (catches ChatSettings +
+  InferenceConfig cross-source conflicts)
 
-### Step 3: Refactor provider override blocks
+### Step 3: Convert OpenAI Chat helper to method on OpenAIEngine
 
-- **Claude:** Replace inline constraints with `ValidateClaudeInferenceConfig` call
-- **OpenAI Chat:** Call `SanitizeForReasoningModel` + `SanitizeOpenAIForReasoningModel` before applying (fixes Bug #2)
-- **OpenAI Responses:** Call `SanitizeForReasoningModel` before applying
-- **Gemini:** No constraints currently; leave as-is
+- `MakeCompletionRequestFromTurn(settings, t)` → `(e *OpenAIEngine) MakeCompletionRequestFromTurn(t)`
+- Uses `e.settings` instead of parameter
+- For reasoning models: sanitize merged InferenceConfig + OpenAIInferenceConfig
+  upfront (replaces per-field guards, **fixes Bug #2**)
 
-### Step 4: Move `isReasoningModel` to shared location
+### Step 4: Convert OpenAI Responses helper to method on Engine
 
-Both `openai/helpers.go` and `openai_responses/helpers.go` have their own copy
-of the same prefix-check logic. Consider moving to a shared helper in `engine`
-or a new `providers` package. (Optional — could be a follow-up.)
+- `buildResponsesRequest(s, t)` → `(e *Engine) buildResponsesRequest(t)`
+- Uses `e.settings` instead of parameter
+- For reasoning models: sanitize merged InferenceConfig upfront
+
+### Step 5: Update Gemini
+
+- Already inline in RunInference; just benefits from MergeInferenceConfig in
+  ResolveInferenceConfig.
+
+### Step 6: Update tests
+
+- Update `helpers_test.go` in each package to construct engine structs
 
 ## Files to Create/Modify
 
 | File | Action | Description |
 |------|--------|-------------|
 | `pkg/inference/engine/inference_config.go` | MODIFY | Add MergeInferenceConfig, refactor ResolveInferenceConfig |
-| `pkg/inference/engine/inference_config_validate.go` | CREATE | ValidateClaudeInferenceConfig, SanitizeForReasoningModel, SanitizeOpenAIForReasoningModel |
-| `pkg/inference/engine/inference_config_test.go` | CREATE | Tests for merge + validation |
-| `pkg/steps/ai/claude/helpers.go` | MODIFY | Replace inline constraints with ValidateClaudeInferenceConfig |
-| `pkg/steps/ai/openai/helpers.go` | MODIFY | Add sanitize calls, fix penalty bug |
-| `pkg/steps/ai/openai_responses/helpers.go` | MODIFY | Use SanitizeForReasoningModel |
+| `pkg/inference/engine/inference_config_sanitize.go` | CREATE | SanitizeForReasoningModel, SanitizeOpenAIForReasoningModel |
+| `pkg/inference/engine/inference_config_test.go` | CREATE | Tests for merge + sanitize |
+| `pkg/steps/ai/claude/helpers.go` | MODIFY | Convert to method, use merged config |
+| `pkg/steps/ai/claude/helpers_test.go` | MODIFY | Construct ClaudeEngine for tests |
+| `pkg/steps/ai/claude/engine_claude.go` | MODIFY | Update call site |
+| `pkg/steps/ai/openai/helpers.go` | MODIFY | Convert to method, sanitize for reasoning models |
+| `pkg/steps/ai/openai/helpers_test.go` | MODIFY | Construct OpenAIEngine for tests |
+| `pkg/steps/ai/openai/engine_openai.go` | MODIFY | Update call site |
+| `pkg/steps/ai/openai_responses/helpers.go` | MODIFY | Convert to method, sanitize for reasoning models |
+| `pkg/steps/ai/openai_responses/helpers_test.go` | MODIFY | Construct Engine for tests |
+| `pkg/steps/ai/openai_responses/engine.go` | MODIFY | Update call site |
 
 ## Open Questions
 
@@ -378,9 +420,7 @@ or a new `providers` package. (Optional — could be a follow-up.)
    callers notice their override was ignored, but could be noisy in normal
    operation.
 
-3. **Should SanitizeForReasoningModel live in `engine` or in the provider package?**
-   It references model-name prefixes which are provider-specific knowledge. But
-   the InferenceConfig types live in `engine`. Putting the sanitizer in `engine`
-   with the model prefix list is pragmatic but couples `engine` to provider
-   details. Alternatively, providers could call a generic `ClearSamplingFields`
-   and handle the model check themselves.
+3. **Resolved: Where do sanitize functions live?** Sanitize functions live in
+   `engine` but do NOT check model names. They only clear fields. Providers
+   call `isReasoningModel()` themselves and conditionally invoke the sanitizer.
+   This keeps model-name knowledge in the provider package.

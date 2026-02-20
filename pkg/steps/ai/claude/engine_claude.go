@@ -68,7 +68,7 @@ func (e *ClaudeEngine) RunInference(
 
 	client := api.NewClient(apiKey, baseURL)
 
-	req, err := MakeMessageRequestFromTurn(e.settings, t)
+	req, err := e.MakeMessageRequestFromTurn(t)
 	if err != nil {
 		return nil, err
 	}

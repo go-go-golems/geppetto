@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/rs/zerolog/log"
 )
@@ -102,7 +101,8 @@ type responsesOutputContent struct {
 }
 
 // buildResponsesRequest constructs a minimal Responses request from Turn + settings
-func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRequest, error) {
+func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) {
+	s := e.settings
 	req := responsesRequest{}
 	if s != nil && s.Chat != nil && s.Chat.Engine != nil {
 		req.Model = *s.Chat.Engine
@@ -166,6 +166,10 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 		engineInference = s.Inference
 	}
 	if infCfg := engine.ResolveInferenceConfig(t, engineInference); infCfg != nil {
+		// Reasoning models (o1/o3/o4/gpt-5) reject temperature/top_p; sanitize upfront.
+		if isResponsesReasoningModel(req.Model) {
+			infCfg = engine.SanitizeForReasoningModel(infCfg)
+		}
 		if infCfg.ReasoningEffort != nil {
 			if req.Reasoning == nil {
 				req.Reasoning = &reasoningParam{}
@@ -184,13 +188,10 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 			}
 			req.Reasoning.MaxTokens = infCfg.ThinkingBudget
 		}
-		// Reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p;
-		// respect the same guard used for base chat settings above.
-		overrideAllowSampling := !isResponsesReasoningModel(req.Model)
-		if overrideAllowSampling && infCfg.Temperature != nil {
+		if infCfg.Temperature != nil {
 			req.Temperature = infCfg.Temperature
 		}
-		if overrideAllowSampling && infCfg.TopP != nil {
+		if infCfg.TopP != nil {
 			req.TopP = infCfg.TopP
 		}
 		if infCfg.MaxResponseTokens != nil {

@@ -163,12 +163,16 @@ func TestBuildInputItemsFromTurn_PreservesOlderAssistantContextBeforeLatestReaso
 	}
 }
 
+func newTestEngine(ss *settings.StepSettings) *Engine {
+	return &Engine{settings: ss}
+}
+
 func TestBuildResponsesRequestStructuredOutput(t *testing.T) {
-	engine := "gpt-4o-mini"
+	model := "gpt-4o-mini"
 	strict := true
 	ss := &settings.StepSettings{
 		Chat: &settings.ChatSettings{
-			Engine:                 &engine,
+			Engine:                 &model,
 			StructuredOutputMode:   settings.StructuredOutputModeJSONSchema,
 			StructuredOutputName:   "person",
 			StructuredOutputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
@@ -180,7 +184,8 @@ func TestBuildResponsesRequestStructuredOutput(t *testing.T) {
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	req, err := buildResponsesRequest(ss, turn)
+	e := newTestEngine(ss)
+	req, err := e.buildResponsesRequest(turn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -196,10 +201,10 @@ func TestBuildResponsesRequestStructuredOutput(t *testing.T) {
 }
 
 func TestBuildResponsesRequestStructuredOutputInvalidSchemaRequireValid(t *testing.T) {
-	engine := "gpt-4o-mini"
+	model := "gpt-4o-mini"
 	ss := &settings.StepSettings{
 		Chat: &settings.ChatSettings{
-			Engine:                       &engine,
+			Engine:                       &model,
 			StructuredOutputMode:         settings.StructuredOutputModeJSONSchema,
 			StructuredOutputName:         "person",
 			StructuredOutputSchema:       `{"type":"object",`,
@@ -211,16 +216,17 @@ func TestBuildResponsesRequestStructuredOutputInvalidSchemaRequireValid(t *testi
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	if _, err := buildResponsesRequest(ss, turn); err == nil {
+	e := newTestEngine(ss)
+	if _, err := e.buildResponsesRequest(turn); err == nil {
 		t.Fatalf("expected error when require_valid=true and schema JSON is invalid")
 	}
 }
 
 func TestBuildResponsesRequestStructuredOutputInvalidSchemaIgnoredWhenNotRequired(t *testing.T) {
-	engine := "gpt-4o-mini"
+	model := "gpt-4o-mini"
 	ss := &settings.StepSettings{
 		Chat: &settings.ChatSettings{
-			Engine:                       &engine,
+			Engine:                       &model,
 			StructuredOutputMode:         settings.StructuredOutputModeJSONSchema,
 			StructuredOutputName:         "person",
 			StructuredOutputSchema:       `{"type":"object",`,
@@ -232,7 +238,8 @@ func TestBuildResponsesRequestStructuredOutputInvalidSchemaIgnoredWhenNotRequire
 		turns.NewUserTextBlock("return JSON"),
 	}}
 
-	req, err := buildResponsesRequest(ss, turn)
+	e := newTestEngine(ss)
+	req, err := e.buildResponsesRequest(turn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
