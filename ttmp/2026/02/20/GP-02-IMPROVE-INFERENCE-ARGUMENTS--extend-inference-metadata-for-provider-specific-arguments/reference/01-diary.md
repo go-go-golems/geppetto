@@ -468,7 +468,108 @@ Fix pattern:
 3. Request sent with valid parameters
 ```
 
+## Step 6: Field-Level Merge, Sanitize Helpers, and Helper→Method Conversion
+
+After the sampling-guard fixes in Step 5, a code review identified three remaining issues: (1) `ResolveInferenceConfig` used full-replacement instead of field-level merge, losing engine defaults when a caller set only one Turn.Data field; (2) reasoning-model constraint enforcement was duplicated inline across providers; (3) provider helper functions were standalone, making it awkward to add engine-level context. An analysis document (Option A/B/C) was written, and Option B was chosen.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes, then add tasks and build the clean solution."
+
+**Assistant interpretation:** Implement the refactoring plan from analysis doc 03 using Option B (convert helpers to methods on engine structs).
+
+**Commit:** 3bb7a62 — "refactor(providers): field-level merge, sanitize helpers, helper-to-method conversion"
+
+### What I did
+
+1. **MergeInferenceConfig** (`inference/engine/inference_config.go`):
+   - Added `MergeInferenceConfig(turnCfg, engineDefault *InferenceConfig) *InferenceConfig` for field-level merge
+   - Deep-copies pointer values and slices to prevent mutation of inputs
+   - Updated `ResolveInferenceConfig` to use `MergeInferenceConfig` instead of full-replacement
+
+2. **Sanitize helpers** (`inference/engine/inference_config_sanitize.go` — NEW):
+   - `SanitizeForReasoningModel(cfg *InferenceConfig)` — clears Temperature, TopP
+   - `SanitizeOpenAIForReasoningModel(cfg *OpenAIInferenceConfig)` — clears PresencePenalty, FrequencyPenalty, N
+
+3. **Helper→method conversion** (Option B):
+   - Claude: `MakeMessageRequestFromTurn(s, t)` → `(e *ClaudeEngine) MakeMessageRequestFromTurn(t)`
+   - OpenAI Chat: `MakeCompletionRequestFromTurn(s, t)` → `(e *OpenAIEngine) MakeCompletionRequestFromTurn(t)`
+   - OpenAI Responses: `buildResponsesRequest(s, t)` → `(e *Engine) buildResponsesRequest(t)`
+   - Each now uses `e.settings` instead of a parameter
+
+4. **Bug #2 fix**: OpenAI Chat PresencePenalty/FrequencyPenalty bypassed reasoning-model guards when set via `OpenAIInferenceConfig`. Fixed by upfront `SanitizeOpenAIForReasoningModel` before applying fields.
+
+5. **Tests** (`inference/engine/inference_config_test.go` — NEW):
+   - 6 tests for MergeInferenceConfig (both nil, turn nil, default nil, overrides, all fields, mutation safety)
+   - 2 tests for SanitizeForReasoningModel (nil, clears fields)
+   - 2 tests for SanitizeOpenAIForReasoningModel (nil, clears fields)
+   - New test in openai/helpers_test.go for reasoning model penalty sanitization
+
+### Why
+
+- **Field-level merge** means callers can set `ThinkingBudget` on Turn.Data without losing the engine-level `Temperature` default
+- **Sanitize helpers** centralize constraint enforcement — each provider checks model type and calls the sanitizer, replacing scattered inline guards
+- **Method conversion** gives helpers access to `e.settings` naturally, eliminating the need to pass settings as a parameter
+
+### What worked
+
+- Option B was clean: engine structs are lightweight (`settings *StepSettings`), so test setup is just `newTestEngine(ss)` — one extra line
+- No external callers of the helper functions existed (only in-package tests and the engine's RunInference), so the refactor was fully contained
+- Upfront sanitize pattern is clearer than per-field guards — impossible to miss a field
+
+### What didn't work
+
+1. **MergeInferenceConfig pointer sharing**: Initial implementation used shallow copy, sharing pointers with input structs. `TestMergeInferenceConfig_DoesNotMutateInputs` caught it — mutating `*got.Temperature = 999.0` also changed `turn.Temperature`. Fixed by deep-copying: `v := *turnCfg.Temperature; merged.Temperature = &v`
+2. **Unused import after method conversion**: Converting `MakeMessageRequestFromTurn` to a method removed the direct use of the `settings` package in `claude/helpers.go`. Same for `openai_responses/helpers.go`. Fixed by removing the imports.
+3. **gofmt alignment**: Helper functions like `func intPtr(v int) *int { return &v }` aligned with different column spacing than gofmt expected. Pre-commit hook caught it.
+4. **Unused `float64Ptr`**: After removing `float64Ptr` usage from openai test (penalty values now come from `StepSettings` not `InferenceConfig`), the function became unused. Lint caught it.
+
+### What I learned
+
+- Deep-copy is essential for merge functions that produce a new config from two inputs — shallow copy creates aliased pointers that break mutation safety
+- The upfront-sanitize pattern (sanitize config, then apply all fields unconditionally) is cleaner than the guard-per-field pattern (check model type before each field assignment)
+- When converting a standalone function to a method, always check for now-unused imports
+
+### What was tricky to build
+
+Nothing technically tricky. The mutation-safety bug was subtle but the test caught it immediately. The key design decision (Option B vs A vs C) was resolved in the analysis phase.
+
+### What warrants a second pair of eyes
+
+- **Merge semantics**: Turn.Data fields override individual engine defaults. An empty `Stop` slice in Turn.Data does NOT clear the engine default (only a non-empty slice overrides). This might surprise callers who want to explicitly clear stop sequences.
+- **Sanitize placement**: Providers check `isReasoningModel()` themselves and conditionally call the sanitizer. Model-name knowledge stays in provider packages, which is correct, but means new providers must remember to add the check.
+
+### What should be done in the future
+
+- Integration tests that exercise the full Turn.Data → merge → sanitize → request pipeline
+- Consider a `ClearStop` sentinel value if callers need to explicitly clear stop sequences
+
+### Code review instructions
+
+**Start with:**
+1. `pkg/inference/engine/inference_config.go` — `MergeInferenceConfig` deep-copy logic
+2. `pkg/inference/engine/inference_config_sanitize.go` — sanitize helpers
+3. `pkg/inference/engine/inference_config_test.go` — mutation safety test
+4. Any provider helper (e.g., `openai/helpers.go`) — method signature + upfront sanitize pattern
+
+**Validate with:**
+```bash
+go build ./... && go test ./...
+```
+
+### Technical details
+
+Files modified:
+- `pkg/inference/engine/inference_config.go` — MergeInferenceConfig + updated ResolveInferenceConfig
+- `pkg/inference/engine/inference_config_sanitize.go` (NEW) — sanitize functions
+- `pkg/inference/engine/inference_config_test.go` (NEW) — 10 tests
+- `pkg/steps/ai/claude/{helpers,engine_claude,helpers_test}.go` — method conversion
+- `pkg/steps/ai/openai/{helpers,engine_openai,helpers_test}.go` — method conversion + Bug #2 fix
+- `pkg/steps/ai/openai_responses/{helpers,engine,helpers_test}.go` — method conversion + sanitize
+- Analysis doc 03 updated with Option B recommendation
+
 ## Related
 
 - [Analysis: Extending Inference Arguments via Typed Turn.Data Keys](../design/01-analysis-inference-arguments.md)
 - [Analysis: Glazed Section for InferenceConfig](../analysis/02-glazed-section-for-inferenceconfig.md)
+- [Analysis: Rigorous Merge and Validation for InferenceConfig](../analysis/03-rigorous-merge-and-validation-for-inferenceconfig.md)
