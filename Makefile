@@ -8,21 +8,22 @@ docker-lint:
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.1.0 golangci-lint run -v
 
 LINTTOOL_BIN ?= /tmp/geppetto-lint
+LINT_PKGS := $(shell go list ./... | grep -v '/ttmp/')
 
 linttool-build:
 	go build -o $(LINTTOOL_BIN) ./cmd/geppetto-lint
 
 linttool:
 	$(MAKE) linttool-build
-	go vet -vettool=$(LINTTOOL_BIN) ./...
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
 
 lint: build linttool-build
 	golangci-lint run -v
-	go vet -vettool=$(LINTTOOL_BIN) ./...
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
 
 lintmax: build linttool-build
 	golangci-lint run -v --max-same-issues=100
-	go vet -vettool=$(LINTTOOL_BIN) ./...
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 
@@ -31,7 +32,7 @@ turnsdatalint-build:
 
 turnsdatalint:
 	$(MAKE) turnsdatalint-build
-	go vet -vettool=$(TURNSDATALINT_BIN) ./...
+	go vet -vettool=$(TURNSDATALINT_BIN) $(LINT_PKGS)
 
 test:
 	go test ./...
@@ -64,7 +65,7 @@ bump-glazed:
 
 gosec:
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=testdata ./...
+	gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=testdata -exclude-dir=ttmp ./...
 
 govulncheck:
 	go install golang.org/x/vuln/cmd/govulncheck@latest
