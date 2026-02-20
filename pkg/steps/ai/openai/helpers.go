@@ -498,7 +498,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 				req.MaxTokens = *infCfg.MaxResponseTokens
 			}
 		}
-		if len(infCfg.Stop) > 0 {
+		if infCfg.Stop != nil {
 			req.Stop = infCfg.Stop
 		}
 		if infCfg.Seed != nil {

@@ -197,7 +197,7 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 		if infCfg.MaxResponseTokens != nil {
 			req.MaxOutputTokens = infCfg.MaxResponseTokens
 		}
-		if len(infCfg.Stop) > 0 {
+		if infCfg.Stop != nil {
 			req.StopSequences = infCfg.Stop
 		}
 	}

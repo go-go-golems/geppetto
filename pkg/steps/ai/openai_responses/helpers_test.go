@@ -3,6 +3,7 @@ package openai_responses
 import (
 	"testing"
 
+	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -245,5 +246,33 @@ func TestBuildResponsesRequestStructuredOutputInvalidSchemaIgnoredWhenNotRequire
 	}
 	if req.Text != nil {
 		t.Fatalf("expected invalid schema to be ignored when require_valid=false")
+	}
+}
+
+func TestBuildResponsesRequestInferenceEmptyStopClearsChatStop(t *testing.T) {
+	model := "gpt-4o-mini"
+	ss := &settings.StepSettings{
+		Chat: &settings.ChatSettings{
+			Engine: &model,
+			Stop:   []string{"<END>"},
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+	if err := infengine.KeyInferenceConfig.Set(&turn.Data, infengine.InferenceConfig{Stop: []string{}}); err != nil {
+		t.Fatalf("failed to set inference config: %v", err)
+	}
+
+	e := newTestEngine(ss)
+	req, err := e.buildResponsesRequest(turn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.StopSequences == nil {
+		t.Fatalf("expected explicit empty stop override to produce non-nil empty stop list")
+	}
+	if len(req.StopSequences) != 0 {
+		t.Fatalf("expected stop override to clear chat stop, got %v", req.StopSequences)
 	}
 }

@@ -293,7 +293,7 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 		if infCfg.MaxResponseTokens != nil && *infCfg.MaxResponseTokens > 0 {
 			req.MaxTokens = *infCfg.MaxResponseTokens
 		}
-		if len(infCfg.Stop) > 0 {
+		if infCfg.Stop != nil {
 			req.StopSequences = infCfg.Stop
 		}
 	}
