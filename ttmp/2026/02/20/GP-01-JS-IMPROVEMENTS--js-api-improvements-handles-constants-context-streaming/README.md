@@ -2,6 +2,8 @@
 
 This is the document workspace for ticket GP-01-JS-IMPROVEMENTS.
 
+Ticket status: `complete` (closed on 2026-02-20).
+
 ## Structure
 
 - **design/**: Design documents and architecture notes

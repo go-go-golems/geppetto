@@ -16,6 +16,16 @@ Summary: >
 
 # JS API Improvements: Codebase Analysis
 
+## Implementation Addendum (2026-02-20, Post GP-16)
+
+This document contains the original implementation analysis from GP-01 and intentionally preserves its historical design path. The final implemented codegen architecture has since been consolidated in GP-16:
+
+- `cmd/gen-meta/main.go` is now the single generator.
+- `pkg/spec/geppetto_codegen.yaml` is now the single manifest.
+- `cmd/gen-js-api`, `cmd/gen-turns`, `js_api_codegen.yaml`, and `turns_codegen.yaml` were removed.
+
+When using this document as an implementation guide, treat sections describing those removed generators/manifests as historical context and use the GP-16 architecture above for current development.
+
 ## Table of Contents
 
 1. [5.1 Opaque Handle Design Leaks Into Userland](#51-opaque-handle-design-leaks-into-userland)

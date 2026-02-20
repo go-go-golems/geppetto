@@ -1,5 +1,11 @@
 # Tasks
 
+## Post-GP-16 Reconciliation
+
+- [x] Reconcile GP-01 implementation docs with unified codegen architecture from GP-16 (`cmd/gen-meta` + `pkg/spec/geppetto_codegen.yaml`)
+- [x] Add GP-01 changelog linkage to GP-16 migration commit (`78dfc79`)
+- [x] Close GP-01 ticket status after reconciliation pass
+
 ## Phase 1 — Handles + Codegen Infrastructure
 
 - [x] 5.1 Replace `attachRef()` with `DefineDataProperty` (module.go:124-126)

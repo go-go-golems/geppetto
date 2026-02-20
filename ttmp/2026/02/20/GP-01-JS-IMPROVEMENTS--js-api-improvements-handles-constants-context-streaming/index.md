@@ -1,12 +1,12 @@
 ---
 Title: 'JS API Improvements: handles, constants, context, streaming'
 Ticket: GP-01-JS-IMPROVEMENTS
-Status: active
+Status: complete
 Topics:
     - geppetto
-    - javascript
-    - goja
-    - api-design
+    - architecture
+    - inference
+    - tools
 DocType: index
 Intent: long-term
 Owners: []
@@ -19,8 +19,10 @@ RelatedFiles:
     - Path: geppetto/pkg/inference/session/session.go
     - Path: geppetto/pkg/inference/toolloop/loop.go
     - Path: geppetto/pkg/inference/tools/config.go
-    - Path: geppetto/pkg/js/modules/geppetto/api.go
-      Note: Core async/session code analyzed in bug report
+    - Path: geppetto/pkg/js/modules/geppetto/api_sessions.go
+      Note: Session/run surface after mechanical split of former api.go
+    - Path: geppetto/pkg/js/modules/geppetto/api_owner_bridge.go
+      Note: Runtime owner bridge used by async session paths
     - Path: geppetto/pkg/js/modules/geppetto/codec.go
     - Path: geppetto/pkg/js/modules/geppetto/module.go
     - Path: geppetto/pkg/turns/block_kind_gen.go
@@ -32,10 +34,12 @@ RelatedFiles:
 ExternalSources: []
 Summary: |
     Four improvement areas for the geppetto JS/goja integration: (5.1) make opaque handles truly hidden via DefineDataProperty, (5.2) export enums/constants and ship .d.ts type definitions, (5.3) forward context (session/inference/turn IDs, timing) to middleware, tool handlers, and tool hooks, (5.4) add RunHandle with event streaming, per-run cancellation, and per-run options.
-LastUpdated: 2026-02-20T07:37:50.199347415-05:00
+LastUpdated: 2026-02-20T17:37:46.0078507-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
+
 
 
 
@@ -61,14 +65,31 @@ All four are analyzed in detail with code locations and modification strategies 
 
 ## Status
 
-Current status: **active**
+Current status: **complete** (closed 2026-02-20)
+
+## Post-GP-16 Implementation Addendum
+
+This ticket is complete, but the codegen implementation described in early 5.2 artifacts was later consolidated in GP-16.
+
+Current authoritative codegen paths are:
+
+- `cmd/gen-meta/main.go` (single generator)
+- `pkg/spec/geppetto_codegen.yaml` (single manifest)
+- `pkg/turns/generate.go`, `pkg/inference/engine/generate.go`, `pkg/js/modules/geppetto/generate.go` (sectioned `go:generate` entrypoints)
+
+Legacy items referenced in historical GP-01 notes were removed by GP-16:
+
+- `cmd/gen-js-api`
+- `cmd/gen-turns`
+- `pkg/js/modules/geppetto/spec/js_api_codegen.yaml`
+- `pkg/turns/spec/turns_codegen.yaml`
 
 ## Topics
 
 - geppetto
-- javascript
-- goja
-- api-design
+- architecture
+- inference
+- tools
 
 ## Tasks
 

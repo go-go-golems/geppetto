@@ -2,6 +2,17 @@
 
 ## 2026-02-20
 
+Post-implementation reconciliation: aligned GP-01 docs with the final unified codegen architecture delivered in GP-16, linked GP-16 migration commit `78dfc79`, and closed GP-01 ticket status. Historical references to `cmd/gen-js-api`/`cmd/gen-turns` are preserved as historical context, while index/tasks now point to the canonical `cmd/gen-meta` + `pkg/spec/geppetto_codegen.yaml` flow.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/index.md — Marked GP-01 closed and added post-GP-16 implementation addendum
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/tasks.md — Added reconciliation closure checklist
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/cmd/gen-meta/main.go — Canonical unified generator referenced by GP-01 addendum
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/spec/geppetto_codegen.yaml — Canonical unified schema referenced by GP-01 addendum
+
+## 2026-02-20
+
 - Initial workspace created
 - Completed codebase analysis covering all four improvement areas (5.1-5.4)
   - 5.1: Identified `attachRef()` → `DefineDataProperty` as the fix; mapped all 6 call sites
@@ -135,4 +146,3 @@ Updated public JS docs to Runner-based async host requirement (removed remaining
 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Updated async requirements and troubleshooting to Options.Runner
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/tutorials/05-js-api-getting-started.md — Updated common failure mode to Runner wording
-
