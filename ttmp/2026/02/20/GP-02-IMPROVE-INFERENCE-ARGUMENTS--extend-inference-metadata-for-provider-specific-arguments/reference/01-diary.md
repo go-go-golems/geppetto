@@ -549,13 +549,13 @@ Nothing technically tricky. The mutation-safety bug was subtle but the test caug
 
 ### What warrants a second pair of eyes
 
-- **Merge semantics**: Turn.Data fields override individual engine defaults. An empty `Stop` slice in Turn.Data does NOT clear the engine default (only a non-empty slice overrides). This might surprise callers who want to explicitly clear stop sequences.
+- **Merge semantics**: (Superseded by Step 7 / commit `2e0b55e`) Turn.Data fields override individual engine defaults, and explicit empty `Stop` now correctly clears inherited stop sequences in provider builders.
 - **Sanitize placement**: Providers check `isReasoningModel()` themselves and conditionally call the sanitizer. Model-name knowledge stays in provider packages, which is correct, but means new providers must remember to add the check.
 
 ### What should be done in the future
 
 - Integration tests that exercise the full Turn.Data → merge → sanitize → request pipeline
-- Consider a `ClearStop` sentinel value if callers need to explicitly clear stop sequences
+- Superseded by Step 7: explicit empty `Stop` already provides clear semantics (`nil`=inherit, empty=clear, non-empty=replace)
 
 ### Code review instructions
 

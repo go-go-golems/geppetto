@@ -12,7 +12,7 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: pkg/inference/engine/inference_config.go
-      Note: ResolveInferenceConfig (currently full-replacement, needs field-level merge)
+      Note: MergeInferenceConfig + ResolveInferenceConfig field-level merge semantics
     - Path: pkg/steps/ai/claude/helpers.go
       Note: Claude override block + post-override validation
     - Path: pkg/steps/ai/openai/helpers.go
@@ -23,14 +23,19 @@ RelatedFiles:
       Note: Gemini override block (no constraints currently)
 ExternalSources: []
 Summary: 'Analysis of how to refactor InferenceConfig override resolution from scattered per-provider imperative code into a structured merge + validate pipeline, addressing field-level merge and constraint enforcement.'
-LastUpdated: 2026-02-20T09:34:58.801351685-05:00
+LastUpdated: 2026-02-20T11:52:25-05:00
 WhatFor: Planning a principled refactor of InferenceConfig resolution
 WhenToUse: When implementing the merge/validation refactor
 ---
 
 # Analysis: Rigorous Merge and Validation for InferenceConfig
 
-## Two Open Bugs
+## Original Bugs (Now Fixed)
+
+Status update (2026-02-20):
+- Bug 1 (full-replacement merge) fixed in commit `3bb7a62`.
+- Bug 2 (reasoning-model penalty bypass) fixed in commit `3bb7a62`.
+- Stop explicit-clear leak across builders fixed in commit `2e0b55e`.
 
 ### Bug 1: Full-replacement instead of field-level merge (P1)
 
@@ -72,7 +77,7 @@ Same class of bypass as the temperature/top_p issue fixed in commit `0c06789`.
 
 ```
 Turn.Data InferenceConfig
-    ↓ (field-level merge, but currently full-replacement)
+    ↓ (field-level merge)
 StepSettings.Inference
     ↓ (override)
 StepSettings.Chat / StepSettings.OpenAI / StepSettings.Claude
@@ -90,7 +95,7 @@ Each provider has its own imperative code that enforces model-specific rules:
 | temperature=1 when thinking | Claude | `helpers.go:308` | Post-override error |
 | No temp/topP for reasoning models | OpenAI Chat | `helpers.go:484-489` | Guard before write |
 | No temp/topP for reasoning models | OpenAI Responses | `helpers.go:189-194` | Guard before write |
-| No penalties for reasoning models | OpenAI Chat | **MISSING** | Bug #2 |
+| No penalties for reasoning models | OpenAI Chat | Suppress | Yes (sanitized) |
 | No N>1 for reasoning models | OpenAI Chat | `helpers.go:378` | Base settings zeroed |
 | maxTokens→maxCompletionTokens | OpenAI Chat | `helpers.go:492` | Conditional field |
 
@@ -100,12 +105,12 @@ Each provider has its own imperative code that enforces model-specific rules:
    override-application code. New constraints require touching the right provider
    file and knowing where to insert the check.
 
-2. **Easy to miss.** We've already had two rounds of bug fixes (commit `0c06789` and
-   the pending P2) for the same pattern: "override block bypasses guard". Each new
+2. **Easy to miss.** We've already had multiple rounds of bug fixes (commit `0c06789`,
+   commit `3bb7a62`, and commit `2e0b55e`) for the same pattern: "override block bypasses guard". Each new
    field or provider-specific config adds more surface area for this class of bug.
 
-3. **Merge is wrong.** `ResolveInferenceConfig` does full-replacement, not field-level
-   merge. The "layered" documentation is aspirational, not actual.
+3. **Merge semantics are now correct in code.** This section is retained for postmortem context:
+   `ResolveInferenceConfig` now delegates to `MergeInferenceConfig` with field-level merge.
 
 4. **No single source of truth** for what each provider accepts. The model-prefix
    checks (`isReasoningModel`, `isResponsesReasoningModel`) are duplicated across
@@ -147,8 +152,9 @@ func MergeInferenceConfig(turnCfg, engineDefault *InferenceConfig) *InferenceCon
     if turnCfg.MaxResponseTokens != nil {
         merged.MaxResponseTokens = turnCfg.MaxResponseTokens
     }
-    if len(turnCfg.Stop) > 0 {
-        merged.Stop = turnCfg.Stop
+    if turnCfg.Stop != nil {
+        merged.Stop = make([]string, len(turnCfg.Stop))
+        copy(merged.Stop, turnCfg.Stop)
     }
     if turnCfg.Seed != nil {
         merged.Seed = turnCfg.Seed

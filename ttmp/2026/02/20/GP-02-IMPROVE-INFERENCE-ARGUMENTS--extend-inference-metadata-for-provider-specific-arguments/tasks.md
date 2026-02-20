@@ -29,6 +29,7 @@
 - [x] Add tests for MergeInferenceConfig, sanitize helpers, reasoning model behavior (commit 3bb7a62)
 - [x] Update analysis doc 03 with Option B recommendation (commit 3bb7a62)
 - [x] Fix empty Stop override leak in OpenAI/Claude/Responses builders and add regression tests (commit 2e0b55e)
+- [x] Sync ticket docs to reflect merged precedence and explicit-empty stop clear semantics
 
 ## TODO (follow-up)
 

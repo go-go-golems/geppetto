@@ -239,9 +239,13 @@ Turn.Data InferenceConfig  >  StepSettings.Inference  >  StepSettings.Chat field
 ```
 
 Resolution is handled by `engine.ResolveInferenceConfig(turn, settings.Inference)`:
-- If Turn.Data has `KeyInferenceConfig`, returns that
-- Otherwise returns `StepSettings.Inference` (may be nil)
-- Engines then apply non-nil fields from the resolved config, falling back to ChatSettings for any unset fields
+- `ResolveInferenceConfig` reads Turn.Data and merges field-by-field over `StepSettings.Inference`
+- Nil fields in Turn.Data preserve engine defaults
+- `Stop` has explicit three-state semantics:
+  - `Stop == nil` preserves inherited stop sequences
+  - `Stop == []string{}` explicitly clears inherited stop sequences
+  - `Stop == []string{"..."}` explicitly replaces inherited stop sequences
+- Engines then apply non-nil resolved fields and still fall back to ChatSettings when unset
 
 ### 4.4 Type Definitions
 
@@ -306,7 +310,8 @@ engine.KeyInferenceConfig.Set(&turn.Data, cfg)
 
 **Resolution in engine** (handled automatically):
 ```go
-// engine.ResolveInferenceConfig checks Turn.Data first, falls back to settings.Inference
+// engine.ResolveInferenceConfig performs field-level merge:
+// Turn.Data overrides non-nil fields, preserving engine defaults for nil fields.
 infCfg := engine.ResolveInferenceConfig(t, e.settings.Inference)
 if infCfg != nil && infCfg.ThinkingBudget != nil {
     req.Thinking = &api.ThinkingParam{
