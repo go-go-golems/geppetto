@@ -12,7 +12,7 @@ require (
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.4.0
-	github.com/go-go-golems/glazed v1.0.0
+	github.com/go-go-golems/glazed v1.0.1
 	github.com/go-go-golems/go-emrichen v0.0.10
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2

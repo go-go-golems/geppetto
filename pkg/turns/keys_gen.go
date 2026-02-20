@@ -8,10 +8,11 @@ const GeppettoNamespaceKey = "geppetto"
 // Canonical value keys (scoped to GeppettoNamespaceKey).
 const (
 	// Turn.Data
-	ToolConfigValueKey            = "tool_config"
-	AgentModeAllowedToolsValueKey = "agent_mode_allowed_tools"
-	AgentModeValueKey             = "agent_mode"
-	ResponsesServerToolsValueKey  = "responses_server_tools"
+	ToolConfigValueKey             = "tool_config"
+	StructuredOutputConfigValueKey = "structured_output_config"
+	AgentModeAllowedToolsValueKey  = "agent_mode_allowed_tools"
+	AgentModeValueKey              = "agent_mode"
+	ResponsesServerToolsValueKey   = "responses_server_tools"
 
 	// Turn.Metadata
 	TurnMetaProviderValueKey    = "provider"

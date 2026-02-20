@@ -20,4 +20,3 @@ const (
 const (
 	RunMetaKeyTraceID RunMetadataKey = "trace_id" // tracing id for correlation
 )
-

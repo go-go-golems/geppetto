@@ -110,8 +110,8 @@ github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-go-golems/clay v0.4.0 h1:8VeR+o3ah9P95TWLFtitSLabF567AzhjjoeYK87vEwM=
 github.com/go-go-golems/clay v0.4.0/go.mod h1:8wx9hz+dUN4jodWN4CzfMqjBfcXyZ4X6DaJfFFAI8eE=
-github.com/go-go-golems/glazed v1.0.0 h1:AQ25/uXNAgMK8ISIlyWEKW1RMvgHutczdcbWKYRphm8=
-github.com/go-go-golems/glazed v1.0.0/go.mod h1:kE/DlsgJKyGci2p/qw2p4ra3HkYjBCSQrOU8k0wBetA=
+github.com/go-go-golems/glazed v1.0.1 h1:IZJSEcLzgSsmeBg8LIyYrqxEiN1JVkdK+fq+ESp7iiw=
+github.com/go-go-golems/glazed v1.0.1/go.mod h1:kE/DlsgJKyGci2p/qw2p4ra3HkYjBCSQrOU8k0wBetA=
 github.com/go-go-golems/go-emrichen v0.0.10 h1:y6RzGopArsUSuHfWHh3dqPnOJwIlftPkdfyJxRZboGU=
 github.com/go-go-golems/go-emrichen v0.0.10/go.mod h1:XjfFqbY7l9cYqMX9jrlbgVdjRtMHdXGIBf92F3hezVM=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=

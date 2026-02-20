@@ -21,6 +21,11 @@ keys:
     typed_key: ""
     type_expr: ""
   - scope: data
+    value_const: StructuredOutputConfigValueKey
+    value: structured_output_config
+    typed_key: ""
+    type_expr: ""
+  - scope: data
     value_const: AgentModeAllowedToolsValueKey
     value: agent_mode_allowed_tools
     typed_key: KeyAgentModeAllowedTools
