@@ -383,6 +383,91 @@ Files created/modified:
 - `pkg/sections/sections.go` (MODIFIED) — section registration + env whitelist
 - `scripts/test_glazed_pointer_nil/main.go` (NEW) — experiment confirming nil behavior
 
+## Step 5: Fix Sampling-Guard Bypass in InferenceConfig Overrides
+
+A code review surfaced three P1 bugs where the InferenceConfig override blocks could reintroduce sampling parameters that earlier model-specific guards had deliberately omitted, causing provider API rejections.
+
+### Prompt Context
+
+**User prompt (verbatim):** Three review comments identifying that InferenceConfig overrides in Claude, OpenAI Responses, and OpenAI Chat helpers could bypass model-specific sampling guards (temperature/top_p exclusivity for Claude, reasoning-model omission for OpenAI).
+
+**Assistant interpretation:** Fix all three provider helpers to respect model constraints after applying InferenceConfig overrides.
+
+**Commit:** 0c06789 — "fix(providers): respect model constraints after InferenceConfig overrides"
+
+### What I did
+
+1. **Claude (`helpers.go`):** Added post-override re-validation:
+   - Check that at most one of `req.Temperature`/`req.TopP` is set (Claude requires exclusivity)
+   - Check that when thinking is enabled, temperature is 1.0 or unset (Claude constraint)
+   - Both return errors with clear messages for fail-fast behavior
+
+2. **OpenAI Responses (`helpers.go`):**
+   - Extracted inline reasoning-model check into `isResponsesReasoningModel()` helper
+   - Refactored the base-settings check to use the helper (reducing duplication)
+   - Guarded temperature/top_p overrides behind `!isResponsesReasoningModel(req.Model)`
+
+3. **OpenAI Chat (`helpers.go`):**
+   - Cached `isReasoningModel(engine)` result into `reasoning` local
+   - Guarded temperature/top_p overrides behind `!reasoning`
+
+### Why
+
+The original InferenceConfig override blocks were added after the model-specific guards in the request-building flow. They ran unconditionally, which meant:
+- Claude: An InferenceConfig with both Temperature and TopP set would bypass the exclusivity error that fires on base chat settings
+- OpenAI: A reasoning model (o1/o3/o4/gpt-5) with temperature/top_p overrides would send parameters the API rejects
+
+### What worked
+
+- All three fixes follow the same pattern: check the model constraint before applying the override
+- The OpenAI Responses refactor (extracting `isResponsesReasoningModel`) also cleaned up the inline check in the base settings path
+
+### What didn't work
+
+N/A — all fixes compiled and passed lint on first attempt.
+
+### What I learned
+
+- Override blocks that run late in request construction must re-validate any constraints that earlier code enforced. The "apply overrides last" pattern is convenient but can bypass guards if not careful.
+- The three providers had slightly different guard patterns (Claude: exclusivity error, OpenAI Responses: inline model prefix check, OpenAI Chat: `isReasoningModel` helper). Standardizing on extracted helpers reduces future risk.
+
+### What was tricky to build
+
+Nothing technically tricky — the fix pattern was straightforward once the bug was identified. The key insight was recognizing that all three bugs shared the same root cause: overrides applied after guards.
+
+### What warrants a second pair of eyes
+
+- **Claude thinking + temperature = 1.0 constraint:** The Claude API docs say temperature must be 1.0 when thinking is enabled. The current check rejects any temperature != 1.0. Should we auto-coerce to 1.0 instead of erroring? Current behavior: fail-fast with a clear error message.
+- **OpenAI Responses reasoning model list:** The `isResponsesReasoningModel` check uses the same prefix list as the OpenAI Chat `isReasoningModel`. If these diverge in the future (different providers support different model families), they'd need separate maintenance.
+
+### What should be done in the future
+
+- Add unit tests that specifically exercise InferenceConfig overrides on reasoning models to prevent regression
+- Consider consolidating the reasoning-model detection into a shared helper (both OpenAI packages use the same prefix list)
+
+### Code review instructions
+
+**Start with:** Each provider's InferenceConfig override block — look for the guard checks added before temperature/top_p assignment:
+- `claude/helpers.go` — post-override validation block (~line 302-308)
+- `openai_responses/helpers.go` — `isResponsesReasoningModel()` helper + `overrideAllowSampling` guard
+- `openai/helpers.go` — `reasoning` local + `!reasoning` guards
+
+### Technical details
+
+All three bugs shared the same pattern:
+```
+1. Base settings applied with model constraints (guard A)
+2. InferenceConfig overrides applied WITHOUT checking constraints
+3. Request sent with invalid parameter combination → provider rejects
+```
+
+Fix pattern:
+```
+1. Base settings applied with model constraints (guard A)
+2. InferenceConfig overrides applied WITH same constraint check
+3. Request sent with valid parameters
+```
+
 ## Related
 
 - [Analysis: Extending Inference Arguments via Typed Turn.Data Keys](../design/01-analysis-inference-arguments.md)

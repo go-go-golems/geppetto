@@ -14,6 +14,10 @@
 - [x] Wire into `sections.CreateGeppettoSections()` and env var whitelist (commit 71e8154)
 - [x] Wire `DecodeSectionInto` in `settings.UpdateFromParsedValues()` (commit 71e8154)
 - [x] Add `glazed:"ai-inference"` tag to `StepSettings.Inference` (commit 71e8154)
+- [x] Fix Claude: re-validate temperature/top_p exclusivity after overrides (commit 0c06789)
+- [x] Fix Claude: reject temperature != 1.0 when thinking enabled (commit 0c06789)
+- [x] Fix OpenAI Responses: guard temperature/top_p overrides for reasoning models (commit 0c06789)
+- [x] Fix OpenAI Chat: guard temperature/top_p overrides for reasoning models (commit 0c06789)
 
 ## TODO (follow-up)
 
@@ -21,3 +25,5 @@
 - [ ] Test choice flags without defaults in real Cobra command (--help display, omission behavior)
 - [ ] Consider exposing ClaudeInferenceConfig / OpenAIInferenceConfig as glazed sections
 - [ ] Add example profiles with inference settings to misc/profiles.yaml
+- [ ] Unit tests for InferenceConfig overrides on reasoning models (regression prevention)
+- [ ] Consider consolidating isReasoningModel helpers across OpenAI packages
