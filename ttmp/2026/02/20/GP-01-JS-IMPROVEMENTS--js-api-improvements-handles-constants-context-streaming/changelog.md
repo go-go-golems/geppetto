@@ -80,3 +80,13 @@ Completed Phase 5.4 and final polish: implemented jsEventCollector, added sessio
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — RunHandle/start implementation + jsEventCollector + run options plumbing
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl — Template updated for MiddlewareContext/RunHandle/StreamEvent
 
+
+## 2026-02-20
+
+Added a long-form bug report analyzing goja runtime thread-safety issues in geppetto async inference (runAsync/start), compared with goja/goja_nodejs and go-go-goja patterns, and documented concrete fix strategies and test plan.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — Primary source analyzed for async/race path
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/analysis/01-bug-report-js-async-inference-runtime-thread-safety-runasync-start.md — New bug-report analysis document
+

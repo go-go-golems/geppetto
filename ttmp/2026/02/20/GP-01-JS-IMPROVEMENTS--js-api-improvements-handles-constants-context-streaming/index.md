@@ -11,30 +11,30 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - pkg/js/modules/geppetto/module.go
-    - pkg/js/modules/geppetto/api.go
-    - pkg/js/modules/geppetto/codec.go
-    - pkg/inference/tools/config.go
-    - pkg/inference/middleware/middleware.go
-    - pkg/inference/session/session.go
-    - pkg/inference/session/execution.go
-    - pkg/inference/toolloop/loop.go
-    - pkg/events/chat-events.go
-    - pkg/events/context.go
-    - pkg/events/sink.go
-    - pkg/turns/block_kind_gen.go
-    - pkg/turns/keys_gen.go
+    - Path: geppetto/pkg/events/chat-events.go
+    - Path: geppetto/pkg/events/context.go
+    - Path: geppetto/pkg/events/sink.go
+    - Path: geppetto/pkg/inference/middleware/middleware.go
+    - Path: geppetto/pkg/inference/session/execution.go
+    - Path: geppetto/pkg/inference/session/session.go
+    - Path: geppetto/pkg/inference/toolloop/loop.go
+    - Path: geppetto/pkg/inference/tools/config.go
+    - Path: geppetto/pkg/js/modules/geppetto/api.go
+      Note: Core async/session code analyzed in bug report
+    - Path: geppetto/pkg/js/modules/geppetto/codec.go
+    - Path: geppetto/pkg/js/modules/geppetto/module.go
+    - Path: geppetto/pkg/turns/block_kind_gen.go
+    - Path: geppetto/pkg/turns/keys_gen.go
+    - Path: geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/analysis/01-bug-report-js-async-inference-runtime-thread-safety-runasync-start.md
+      Note: Long-form bug report on async JS runtime safety
 ExternalSources: []
-Summary: >
-  Four improvement areas for the geppetto JS/goja integration: (5.1) make opaque
-  handles truly hidden via DefineDataProperty, (5.2) export enums/constants and
-  ship .d.ts type definitions, (5.3) forward context (session/inference/turn IDs,
-  timing) to middleware, tool handlers, and tool hooks, (5.4) add RunHandle with
-  event streaming, per-run cancellation, and per-run options.
+Summary: |
+    Four improvement areas for the geppetto JS/goja integration: (5.1) make opaque handles truly hidden via DefineDataProperty, (5.2) export enums/constants and ship .d.ts type definitions, (5.3) forward context (session/inference/turn IDs, timing) to middleware, tool handlers, and tool hooks, (5.4) add RunHandle with event streaming, per-run cancellation, and per-run options.
 LastUpdated: 2026-02-20T07:37:50.199347415-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API Improvements: handles, constants, context, streaming
 
