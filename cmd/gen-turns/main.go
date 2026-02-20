@@ -54,18 +54,28 @@ type keysRenderData struct {
 	BlockMeta []keyRender
 }
 
+type dtsRenderData struct {
+	Namespace  string
+	BlockKinds []blockKindSchema
+	Data       []keyRender
+	TurnMeta   []keyRender
+	BlockMeta  []keyRender
+}
+
 func main() {
 	var (
-		schemaPath = flag.String("schema", "", "Path to turns codegen schema YAML")
-		outDir     = flag.String("out", "", "Output directory")
-		section    = flag.String("section", "all", "Section to generate: all|kinds|keys")
+		schemaPath  = flag.String("schema", "", "Path to turns codegen schema YAML")
+		outDir      = flag.String("out", "", "Output directory for Go outputs")
+		section     = flag.String("section", "all", "Section to generate: all|kinds|keys|dts")
+		dtsTemplate = flag.String("dts-template", "", "Path to turns .d.ts template")
+		dtsOutPath  = flag.String("dts-out", "", "Path to generated turns .d.ts file")
 	)
 	flag.Parse()
 
 	if *schemaPath == "" {
 		fatalf("--schema is required")
 	}
-	if *outDir == "" {
+	if *section != "dts" && *outDir == "" {
 		fatalf("--out is required")
 	}
 
@@ -79,13 +89,25 @@ func main() {
 	}
 
 	switch *section {
-	case "all", "kinds", "keys":
+	case "all", "kinds", "keys", "dts":
 	default:
-		fatalf("invalid --section %q (expected all|kinds|keys)", *section)
+		fatalf("invalid --section %q (expected all|kinds|keys|dts)", *section)
 	}
 
-	if err := os.MkdirAll(*outDir, 0o755); err != nil {
-		fatalf("mkdir out: %v", err)
+	needsGoOut := *section == "all" || *section == "kinds" || *section == "keys"
+	needsDTS := *section == "all" || *section == "dts"
+	if needsGoOut {
+		if err := os.MkdirAll(*outDir, 0o755); err != nil {
+			fatalf("mkdir out: %v", err)
+		}
+	}
+	if needsDTS {
+		if *dtsTemplate == "" {
+			fatalf("--dts-template is required for section %q", *section)
+		}
+		if *dtsOutPath == "" {
+			fatalf("--dts-out is required for section %q", *section)
+		}
 	}
 
 	if *section == "all" || *section == "kinds" {
@@ -112,6 +134,17 @@ func main() {
 		}
 		if err := writeFormatted(filepath.Join(*outDir, "keys_gen.go"), src); err != nil {
 			fatalf("write keys_gen.go: %v", err)
+		}
+	}
+
+	if needsDTS {
+		data := toDTSRenderData(s)
+		src, err := renderTemplateFile(*dtsTemplate, data)
+		if err != nil {
+			fatalf("render dts: %v", err)
+		}
+		if err := writeFile(*dtsOutPath, src); err != nil {
+			fatalf("write dts output: %v", err)
 		}
 	}
 }
@@ -227,6 +260,17 @@ func toKeysRenderData(s *schema) keysRenderData {
 	return out
 }
 
+func toDTSRenderData(s *schema) dtsRenderData {
+	keysData := toKeysRenderData(s)
+	return dtsRenderData{
+		Namespace:  s.Namespace,
+		BlockKinds: s.BlockKinds,
+		Data:       keysData.Data,
+		TurnMeta:   keysData.TurnMeta,
+		BlockMeta:  keysData.BlockMeta,
+	}
+}
+
 func builderForScope(scope string) string {
 	switch scope {
 	case "data":
@@ -252,12 +296,28 @@ func renderTemplate(tplSrc string, data any) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+func renderTemplateFile(path string, data any) ([]byte, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return renderTemplate(string(b), data)
+}
+
 func writeFormatted(path string, src []byte) error {
 	formatted, err := format.Source(src)
 	if err != nil {
 		return fmt.Errorf("format source for %s: %w", path, err)
 	}
-	return os.WriteFile(path, formatted, 0o644)
+	return writeFile(path, formatted)
+}
+
+func writeFile(path string, src []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	return os.WriteFile(path, src, 0o644)
 }
 
 func fatalf(format string, args ...any) {

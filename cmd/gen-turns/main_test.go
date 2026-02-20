@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestValidateSchemaOK(t *testing.T) {
 	s := &schema{
@@ -151,5 +156,50 @@ func TestToKeysRenderDataBuilders(t *testing.T) {
 	}
 	if len(r.BlockMeta) != 1 || r.BlockMeta[0].Builder != "BlockMetaK" {
 		t.Fatalf("unexpected block_meta builder mapping: %+v", r.BlockMeta)
+	}
+}
+
+func TestToDTSRenderDataIncludesKindsAndKeys(t *testing.T) {
+	s := &schema{
+		Namespace: "geppetto",
+		BlockKinds: []blockKindSchema{
+			{Const: "BlockKindUser", Value: "user"},
+			{Const: "BlockKindOther", Value: "other"},
+		},
+		Keys: []keySchema{
+			{Scope: "data", ValueConst: "A", Value: "a"},
+			{Scope: "turn_meta", ValueConst: "B", Value: "b"},
+			{Scope: "block_meta", ValueConst: "C", Value: "c"},
+		},
+	}
+
+	r := toDTSRenderData(s)
+	if r.Namespace != "geppetto" {
+		t.Fatalf("unexpected namespace %q", r.Namespace)
+	}
+	if len(r.BlockKinds) != 2 {
+		t.Fatalf("expected 2 block kinds, got %d", len(r.BlockKinds))
+	}
+	if len(r.Data) != 1 || len(r.TurnMeta) != 1 || len(r.BlockMeta) != 1 {
+		t.Fatalf("unexpected key grouping: data=%d turn_meta=%d block_meta=%d", len(r.Data), len(r.TurnMeta), len(r.BlockMeta))
+	}
+}
+
+func TestRenderTemplateFile(t *testing.T) {
+	dir := t.TempDir()
+	tplPath := filepath.Join(dir, "x.tmpl")
+	if err := os.WriteFile(tplPath, []byte(`{{ .Namespace }}-{{ len .BlockKinds }}`), 0o644); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+
+	out, err := renderTemplateFile(tplPath, dtsRenderData{
+		Namespace:  "geppetto",
+		BlockKinds: []blockKindSchema{{Const: "A", Value: "a"}},
+	})
+	if err != nil {
+		t.Fatalf("renderTemplateFile() error: %v", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != "geppetto-1" {
+		t.Fatalf("unexpected template output %q", got)
 	}
 }
