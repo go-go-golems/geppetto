@@ -28,6 +28,7 @@
 - [x] Replace per-field reasoning guards with upfront sanitize pattern (commit 3bb7a62)
 - [x] Add tests for MergeInferenceConfig, sanitize helpers, reasoning model behavior (commit 3bb7a62)
 - [x] Update analysis doc 03 with Option B recommendation (commit 3bb7a62)
+- [x] Fix empty Stop override leak in OpenAI/Claude/Responses builders and add regression tests (commit 2e0b55e)
 
 ## TODO (follow-up)
 
@@ -37,4 +38,3 @@
 - [ ] Add example profiles with inference settings to misc/profiles.yaml
 - [ ] Integration tests for full Turn.Data → merge → sanitize → request pipeline
 - [ ] Consider consolidating isReasoningModel helpers across OpenAI packages
-- [ ] Consider a ClearStop sentinel value for explicitly clearing stop sequences

@@ -19,23 +19,36 @@ RelatedFiles:
     - Path: pkg/steps/ai/claude/api/messages.go
       Note: Added ThinkingParam struct and Thinking field to MessageRequest (commit 36d93f1)
     - Path: pkg/steps/ai/claude/helpers.go
-      Note: Wired InferenceConfig + ClaudeInferenceConfig + StructuredOutputConfig reading (commit 36d93f1)
+      Note: |-
+        Wired InferenceConfig + ClaudeInferenceConfig + StructuredOutputConfig reading (commit 36d93f1)
+        Fix stop override semantics to honor explicit empty clear (commit 2e0b55e)
+    - Path: pkg/steps/ai/claude/helpers_test.go
+      Note: Add regression test for empty stop clear precedence (commit 2e0b55e)
     - Path: pkg/steps/ai/gemini/engine_gemini.go
       Note: Wired InferenceConfig reading for Temperature
     - Path: pkg/steps/ai/openai/helpers.go
-      Note: Wired InferenceConfig + OpenAIInferenceConfig + StructuredOutputConfig reading (commit 36d93f1)
+      Note: |-
+        Wired InferenceConfig + OpenAIInferenceConfig + StructuredOutputConfig reading (commit 36d93f1)
+        Fix stop override semantics to honor explicit empty clear (commit 2e0b55e)
+    - Path: pkg/steps/ai/openai/helpers_test.go
+      Note: Add regression test for empty stop clear precedence (commit 2e0b55e)
     - Path: pkg/steps/ai/openai_responses/helpers.go
-      Note: Wired InferenceConfig + OpenAIInferenceConfig + StructuredOutputConfig; added reasoning.max_tokens
+      Note: |-
+        Wired InferenceConfig + OpenAIInferenceConfig + StructuredOutputConfig; added reasoning.max_tokens
+        Fix stop override semantics to honor explicit empty clear (commit 2e0b55e)
+    - Path: pkg/steps/ai/openai_responses/helpers_test.go
+      Note: Add regression test for empty stop clear precedence (commit 2e0b55e)
     - Path: pkg/steps/ai/settings/settings-step.go
       Note: Added Inference *engine.InferenceConfig field to StepSettings (commit 36d93f1)
     - Path: pkg/turns/keys.go
       Note: Added value key constants for inference configs (commit 36d93f1)
 ExternalSources: []
 Summary: 'Implementation diary for GP-02: extending inference metadata with per-turn provider-specific arguments'
-LastUpdated: 2026-02-20T08:07:05.719217457-05:00
+LastUpdated: 2026-02-20T11:22:39-05:00
 WhatFor: Tracking the implementation journey of the layered InferenceConfig system
 WhenToUse: When reviewing, continuing, or understanding the inference config work
 ---
+
 
 
 # Diary
@@ -567,6 +580,123 @@ Files modified:
 - `pkg/steps/ai/openai/{helpers,engine_openai,helpers_test}.go` — method conversion + Bug #2 fix
 - `pkg/steps/ai/openai_responses/{helpers,engine,helpers_test}.go` — method conversion + sanitize
 - Analysis doc 03 updated with Option B recommendation
+
+## Step 7: Fix Empty Stop Override Leak Across OpenAI, Claude, and Responses
+
+A review comment identified a precedence bug: `MergeInferenceConfig` now supports `Stop: []string{}` as an explicit clear, but provider request builders were still applying stop overrides only when `len(infCfg.Stop) > 0`. That conditional dropped explicit empty overrides and let legacy `Chat.Stop` defaults leak into requests.
+
+I fixed the three affected builders and added regression tests in each provider package to lock the behavior. I also ran a quick sweep for similar `len(...)`-based override leaks in inference paths.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+```text
+pkg/steps/ai/openai/helpers.go
+Comment on lines +501 to +502
+		if len(infCfg.Stop) > 0 {
+			req.Stop = infCfg.Stop
+@chatgpt-codex-connector
+chatgpt-codex-connector bot
+10 minutes ago
+
+P2 Badge Treat empty stop override as an explicit clear
+
+MergeInferenceConfig now treats Stop: []string{} as an explicit way to clear inherited stop sequences (see the new TestMergeInferenceConfig_EmptyStopClearsDefault), but the request builders only apply stop overrides when len(infCfg.Stop) > 0, so an explicit empty override is ignored and legacy Chat.Stop values still leak into the request. This breaks the documented precedence model for per-turn overrides whenever a caller needs to remove defaults rather than replace them with another non-empty list (the same length check pattern appears in Claude and Responses builders too).
+
+Useful? React with 👍 / 👎.
+@wesen
+
+
+---
+
+We are working on docmgr GP-02-IMPROVE-INFERENCE-ARGUMENTS. Our previous coworker wasnt all that smart, so fix this bug but also do your own review (see the diary).
+
+Continue keeping the diary and commit at opportune intervals.
+```
+
+**Assistant interpretation:** Fix the explicit-empty stop override bug in all affected providers, run a focused review for similar precedence issues, and record everything in the GP-02 diary with commits.
+
+**Inferred user intent:** Preserve the documented precedence model so per-turn inference metadata can clear defaults, not only replace them with non-empty values.
+
+**Commit (code):** 2e0b55e — "fix(inference): honor empty stop override across providers"
+
+### What I did
+
+- Updated stop override application in:
+  - `pkg/steps/ai/openai/helpers.go`
+  - `pkg/steps/ai/claude/helpers.go`
+  - `pkg/steps/ai/openai_responses/helpers.go`
+- Replaced `if len(infCfg.Stop) > 0` with `if infCfg.Stop != nil` so `[]string{}` is treated as explicit override.
+- Added regression tests:
+  - `TestMakeCompletionRequestFromTurnInferenceEmptyStopClearsChatStop`
+  - `TestMakeMessageRequestFromTurnInferenceEmptyStopClearsChatStop`
+  - `TestBuildResponsesRequestInferenceEmptyStopClearsChatStop`
+- Ran focused tests:
+  - `go test ./pkg/steps/ai/openai ./pkg/steps/ai/claude ./pkg/steps/ai/openai_responses ./pkg/inference/engine -count=1`
+- Ran full pre-commit suite through lefthook (repo-wide `go test ./...` + lint/vet) during commit.
+- Performed a grep-based follow-up review for other `len(infCfg.Stop) > 0` override patterns in provider builders; none remain.
+
+### Why
+
+- `MergeInferenceConfig` already distinguishes nil vs empty stop slices.
+- Builder-level logic must honor that distinction; otherwise merged config semantics are lost before request serialization.
+
+### What worked
+
+- All three provider paths now implement the same stop override rule (`nil` means inherit, non-nil means override).
+- New regression tests pass and reproduce the intended precedence behavior.
+- Full pre-commit validation passed cleanly.
+
+### What didn't work
+
+- Initial grep used a too-specific regex and returned exit code 1 with no matches; I reran with simpler patterns and completed the review.
+
+### What I learned
+
+- Precedence invariants need enforcement at both merge and request-build layers; fixing one layer alone is insufficient.
+- Slice presence (`nil` vs non-nil empty) is a useful and low-friction signal for explicit-clear semantics in Go config models.
+
+### What was tricky to build
+
+- The subtle part is semantic, not syntactic: `len(...) > 0` looks harmless but collapses two distinct states (`nil` and explicit empty), which silently breaks override intent.
+- Regressions are easiest to catch with tests that include both a non-empty `Chat.Stop` default and a per-turn explicit empty override; without both, leakage is invisible.
+
+### What warrants a second pair of eyes
+
+- Confirm API-level expectations for omitted vs empty stop fields remain acceptable across provider SDKs. Current behavior intentionally clears in-process request state; JSON `omitempty` may omit empty slices, which is still correct for per-request semantics.
+- If additional providers add `InferenceConfig.Stop` support later, ensure they use the same non-nil override rule.
+
+### What should be done in the future
+
+- Add integration coverage for full Turn.Data -> merge -> provider request serialization paths across providers.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/steps/ai/openai/helpers.go`
+  - `pkg/steps/ai/claude/helpers.go`
+  - `pkg/steps/ai/openai_responses/helpers.go`
+- Validate with:
+```bash
+go test ./pkg/steps/ai/openai ./pkg/steps/ai/claude ./pkg/steps/ai/openai_responses ./pkg/inference/engine -count=1
+```
+- Check regression tests in:
+  - `pkg/steps/ai/openai/helpers_test.go`
+  - `pkg/steps/ai/claude/helpers_test.go`
+  - `pkg/steps/ai/openai_responses/helpers_test.go`
+
+### Technical details
+
+- Core fix:
+```go
+if infCfg.Stop != nil {
+    req.Stop = infCfg.Stop // or req.StopSequences = infCfg.Stop
+}
+```
+- This preserves:
+  - `infCfg.Stop == nil` -> inherit existing defaults
+  - `infCfg.Stop == []string{}` -> explicit clear
+  - `infCfg.Stop == []string{"..."} ` -> explicit replacement
 
 ## Related
 
