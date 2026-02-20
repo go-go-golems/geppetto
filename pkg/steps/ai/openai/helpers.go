@@ -478,15 +478,18 @@ func MakeCompletionRequestFromTurn(
 	}
 
 	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	// Reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p/penalties;
+	// respect the same guard applied to base chat settings above.
 	if infCfg := infengine.ResolveInferenceConfig(t, settings.Inference); infCfg != nil {
-		if infCfg.Temperature != nil {
+		reasoning := isReasoningModel(engine)
+		if !reasoning && infCfg.Temperature != nil {
 			req.Temperature = float32(*infCfg.Temperature)
 		}
-		if infCfg.TopP != nil {
+		if !reasoning && infCfg.TopP != nil {
 			req.TopP = float32(*infCfg.TopP)
 		}
 		if infCfg.MaxResponseTokens != nil && *infCfg.MaxResponseTokens > 0 {
-			if isReasoningModel(engine) {
+			if reasoning {
 				req.MaxCompletionTokens = *infCfg.MaxResponseTokens
 			} else {
 				req.MaxTokens = *infCfg.MaxResponseTokens

@@ -299,6 +299,16 @@ func MakeMessageRequestFromTurn(
 		}
 	}
 
+	// Re-validate Claude sampling constraints after overrides.
+	// Claude requires at most one of temperature/top_p to be non-default.
+	if req.Temperature != nil && req.TopP != nil {
+		return nil, errors.New("both temperature and top_p are set (after inference overrides); Claude models require only one to be specified")
+	}
+	// When thinking is enabled, Claude requires temperature to be 1.0 or unset.
+	if req.Thinking != nil && req.Temperature != nil && *req.Temperature != 1.0 {
+		return nil, fmt.Errorf("thinking is enabled but temperature is %.2f; Claude requires temperature=1.0 (or unset) when thinking is active", *req.Temperature)
+	}
+
 	// Apply Claude-specific per-turn overrides from Turn.Data.
 	if claudeCfg := infengine.ResolveClaudeInferenceConfig(t); claudeCfg != nil {
 		if claudeCfg.UserID != nil {

@@ -112,12 +112,8 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 		if s.Chat.MaxResponseTokens != nil {
 			req.MaxOutputTokens = s.Chat.MaxResponseTokens
 		}
-		// Some reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p; omit for those
-		m := strings.ToLower(req.Model)
-		allowSampling := !strings.HasPrefix(m, "o1") &&
-			!strings.HasPrefix(m, "o3") &&
-			!strings.HasPrefix(m, "o4") &&
-			!strings.HasPrefix(m, "gpt-5")
+		// Some reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p; omit for those.
+		allowSampling := !isResponsesReasoningModel(req.Model)
 		if allowSampling && s.Chat.Temperature != nil {
 			req.Temperature = s.Chat.Temperature
 		}
@@ -188,10 +184,13 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 			}
 			req.Reasoning.MaxTokens = infCfg.ThinkingBudget
 		}
-		if infCfg.Temperature != nil {
+		// Reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p;
+		// respect the same guard used for base chat settings above.
+		overrideAllowSampling := !isResponsesReasoningModel(req.Model)
+		if overrideAllowSampling && infCfg.Temperature != nil {
 			req.Temperature = infCfg.Temperature
 		}
-		if infCfg.TopP != nil {
+		if overrideAllowSampling && infCfg.TopP != nil {
 			req.TopP = infCfg.TopP
 		}
 		if infCfg.MaxResponseTokens != nil {
@@ -232,6 +231,16 @@ func buildResponsesRequest(s *settings.StepSettings, t *turns.Turn) (responsesRe
 
 	// NOTE: stream_options.include_usage is not supported broadly; ignore for now
 	return req, nil
+}
+
+// isResponsesReasoningModel returns true for models that do not accept
+// temperature/top_p (o1/o3/o4/gpt-5 families).
+func isResponsesReasoningModel(model string) bool {
+	m := strings.ToLower(model)
+	return strings.HasPrefix(m, "o1") ||
+		strings.HasPrefix(m, "o3") ||
+		strings.HasPrefix(m, "o4") ||
+		strings.HasPrefix(m, "gpt-5")
 }
 
 func mapEffortString(v string) string {
