@@ -117,3 +117,12 @@ Expanded the intern guide with a v2 addendum clarifying NativeModule vs Loader r
 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md — Added NativeModule/Loader explanation and improved third-party registration API design
 
+
+## 2026-02-20
+
+Updated intern implementation guide to final Runner-based API (Options.Runner, runtimeowner error/interface names, and host wiring snippets).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md — Align guide with implemented Runner API
+

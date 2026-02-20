@@ -1,7 +1,7 @@
 ---
 Title: Reusable async runtime runner and geppetto bridge
 Ticket: GP-03-ASYNC-RUNTIME-RUNNER
-Status: active
+Status: complete
 Topics:
     - architecture
     - geppetto
@@ -21,10 +21,11 @@ RelatedFiles:
       Note: Reusable runtime-owner runner implementation
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-20T10:41:26.923524308-05:00
+LastUpdated: 2026-02-20T11:47:34.190005955-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Reusable async runtime runner and geppetto bridge

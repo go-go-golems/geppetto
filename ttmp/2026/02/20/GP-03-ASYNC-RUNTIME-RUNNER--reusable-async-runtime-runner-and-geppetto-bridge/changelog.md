@@ -36,3 +36,8 @@ Added dedicated deadlock analysis document explaining owner-thread run() circula
 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-03-ASYNC-RUNTIME-RUNNER--reusable-async-runtime-runner-and-geppetto-bridge/analysis/01-deadlock-analysis-owner-thread-run-async-callback-scheduling.md — Detailed deadlock root-cause analysis
 
+
+## 2026-02-20
+
+Ticket closed
+

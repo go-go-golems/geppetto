@@ -74,9 +74,9 @@ The module registration point is:
 - `geppetto/pkg/js/modules/geppetto/module.go`
 - `func Register(reg *require.Registry, opts Options)`
 
-and `Options` currently expects:
+and `Options` now expects:
 
-- `Loop *eventloop.EventLoop`
+- `Runner runtimeowner.Runner`
 - optional tool registry and middleware factories.
 
 This is good, explicit, and runtime-friendly.
@@ -152,7 +152,7 @@ Key idea: callers do not touch `vm` directly; they submit closures that the runn
 
 ---
 
-## Proposed reusable package in go-go-goja
+## Implemented reusable package in go-go-goja
 
 ### Suggested package and files
 
@@ -161,9 +161,8 @@ Place a reusable component under:
 - `go-go-goja/pkg/runtimeowner/runner.go`
 - `go-go-goja/pkg/runtimeowner/types.go`
 - `go-go-goja/pkg/runtimeowner/errors.go`
-- `go-go-goja/pkg/runtimeowner/metrics.go` (optional)
 - `go-go-goja/pkg/runtimeowner/runner_test.go`
-- `go-go-goja/pkg/runtimeowner/race_test.go`
+- `go-go-goja/pkg/runtimeowner/runner_race_test.go`
 
 This keeps it neutral and reusable across modules.
 
@@ -185,10 +184,10 @@ type Scheduler interface {
 }
 
 type Runner interface {
-    Call(ctx context.Context, op string, fn func(*goja.Runtime) (any, error)) (any, error)
-    Post(ctx context.Context, op string, fn func(*goja.Runtime)) error
-    IsOwnerThread() bool
+    Call(ctx context.Context, op string, fn CallFunc) (any, error)
+    Post(ctx context.Context, op string, fn PostFunc) error
     Shutdown(ctx context.Context) error
+    IsClosed() bool
 }
 ```
 
@@ -201,13 +200,12 @@ Notes for interns:
 
 ```go
 // go-go-goja/pkg/runtimeowner/runner.go
-func NewRunner(vm *goja.Runtime, scheduler Scheduler, opts Options) *runner
+func NewRunner(vm *goja.Runtime, scheduler Scheduler, opts Options) Runner
 
 type Options struct {
     Name string
-    MaxQueueWait time.Duration
-    Logger *zerolog.Logger
-    Metrics MetricsSink
+    MaxWait int64 // milliseconds
+    RecoverPanics bool
 }
 ```
 
@@ -215,10 +213,10 @@ type Options struct {
 
 ```go
 var (
-    ErrRunnerClosed      = errors.New("runtime runner closed")
-    ErrSchedulerRejected = errors.New("scheduler rejected task")
-    ErrCallCanceled      = errors.New("runtime call canceled")
-    ErrCallPanicked      = errors.New("runtime call panicked")
+    ErrClosed           = errors.New("runtime runner closed")
+    ErrScheduleRejected = errors.New("runtime schedule rejected")
+    ErrCanceled         = errors.New("runtime call canceled")
+    ErrPanicked         = errors.New("runtime call panicked")
 )
 ```
 
@@ -232,21 +230,21 @@ var (
 
 Behavior contract:
 
-- If runner is closed: return `ErrRunnerClosed`.
-- If caller context is canceled before completion: return `ErrCallCanceled` + `ctx.Err()` cause.
-- If scheduler rejects (loop terminated/stopped): return `ErrSchedulerRejected`.
-- If closure panics: recover and return `ErrCallPanicked` with panic text/stack info logged.
-- If called from owner thread: execute inline to avoid deadlock.
+- If runner is closed: return `ErrClosed`.
+- If caller context is canceled before completion: return `ErrCanceled` + `ctx.Err()` cause.
+- If scheduler rejects (loop terminated/stopped): return `ErrScheduleRejected`.
+- If closure panics: recover and return `ErrPanicked` when panic recovery is enabled.
+- If called from owner context: execute inline to avoid deadlock.
 
 Pseudocode:
 
 ```go
 func (r *runner) Call(ctx context.Context, op string, fn func(*goja.Runtime) (any, error)) (any, error) {
     if r.closed.Load() {
-        return nil, ErrRunnerClosed
+        return nil, ErrClosed
     }
 
-    if r.IsOwnerThread() {
+    if r.isOwnerContext(ctx) {
         return safeInvoke(op, r.vm, fn)
     }
 
@@ -256,12 +254,12 @@ func (r *runner) Call(ctx context.Context, op string, fn func(*goja.Runtime) (an
         done <- result{v: v, err: err}
     })
     if !accepted {
-        return nil, ErrSchedulerRejected
+        return nil, ErrScheduleRejected
     }
 
     select {
     case <-ctx.Done():
-        return nil, wrap(ErrCallCanceled, ctx.Err())
+        return nil, wrap(ErrCanceled, ctx.Err())
     case out := <-done:
         return out.v, out.err
     }
@@ -283,16 +281,9 @@ Behavior contract:
 - returns immediate error if runner closed/scheduler rejected,
 - closure panic is recovered and logged.
 
-### owner thread detection
+### owner context detection
 
-You need a strategy to detect if caller already runs on owner context.
-
-Options:
-
-- If scheduler can expose owner identity, use it.
-- If not available, treat all calls as non-owner and avoid nested sync calls by policy.
-
-Pragmatic recommendation: add explicit runner-internal context markers whenever executing `Call` closures and check marker in nested calls.
+The current implementation uses runner-internal context markers, not explicit thread IDs. Whenever work executes on owner via `Call`/`Post`, the runner stamps the context and nested calls fast-path inline.
 
 ---
 
@@ -339,23 +330,15 @@ From `geppetto/pkg/js/modules/geppetto/api.go`, async-sensitive VM boundaries in
 - JS tool hooks (`before/after/onError`).
 - async event payload conversion and listener callback invocations.
 
-### Proposed geppetto runtime struct changes
+### Implemented geppetto runtime struct changes
 
-Current `Options` has `Loop *eventloop.EventLoop`.
+Current `Options` uses `Runner runtimeowner.Runner`.
 
 Refactor direction:
 
 ```go
-// geppetto/pkg/js/modules/geppetto/module.go (proposed shape)
-type RuntimeScheduler interface {
-    RunOnLoop(func(*goja.Runtime)) bool
-}
-
 type Options struct {
-    Scheduler RuntimeScheduler // replace or complement Loop
-    // Keep Loop temporarily for compatibility; convert internally to scheduler.
-    Loop *eventloop.EventLoop
-
+    Runner runtimeowner.Runner
     GoToolRegistry tools.ToolRegistry
     GoMiddlewareFactories map[string]MiddlewareFactory
     Logger zerolog.Logger
@@ -364,9 +347,8 @@ type Options struct {
 
 At runtime init:
 
-- if `Scheduler` provided: use it.
-- else if `Loop` provided: wrap as scheduler.
-- else: run sync-only mode (no async APIs) or explicit error.
+- runner is injected once in options.
+- module runtime builds one bridge from the runner and reuses it for all callback/value boundaries.
 
 Then instantiate a runner/bridge once per module runtime and reuse everywhere.
 
@@ -422,6 +404,7 @@ import (
     "github.com/dop251/goja_nodejs/console"
     "github.com/dop251/goja_nodejs/eventloop"
     "github.com/dop251/goja_nodejs/require"
+    "github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 
     ggmodules "github.com/go-go-golems/go-go-goja/modules"
     _ "github.com/go-go-golems/go-go-goja/modules/database" // ensure database init registration
@@ -435,6 +418,10 @@ func buildRuntime() (*goja.Runtime, *require.RequireModule, *eventloop.EventLoop
 
     loop := eventloop.NewEventLoop()
     go loop.Start()
+    runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
+        Name: "notes-assistant",
+        RecoverPanics: true,
+    })
 
     reg := require.NewRegistry()
 
@@ -443,7 +430,7 @@ func buildRuntime() (*goja.Runtime, *require.RequireModule, *eventloop.EventLoop
 
     // 2) Register geppetto explicitly.
     gp.Register(reg, gp.Options{
-        Loop: loop,
+        Runner: runner,
         // GoToolRegistry: your tool registry,
     })
 
@@ -498,8 +485,12 @@ Usage:
 ```go
 vm, req, err := engine.NewWithBootstrap(engine.Bootstrap{
     RuntimeConfig: engine.DefaultRuntimeConfig(),
-    BeforeEnable: func(reg *require.Registry) {
-        gp.Register(reg, gp.Options{Loop: loop, GoToolRegistry: toolReg})
+    BeforeEnable: func(vm *goja.Runtime, reg *require.Registry) {
+        runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
+            Name: "app-runtime",
+            RecoverPanics: true,
+        })
+        gp.Register(reg, gp.Options{Runner: runner, GoToolRegistry: toolReg})
     },
 })
 ```
@@ -588,7 +579,7 @@ Deliverables:
 - Add bridge wrapper package in geppetto.
 - Wire bridge into module runtime init.
 - Replace direct VM callback/value call sites.
-- Keep backwards-compatible options while introducing scheduler abstraction.
+- Make `Options.Runner` the required async wiring surface.
 
 Deliverables:
 
@@ -666,7 +657,7 @@ What to look for:
 
 ---
 
-## Minimal signature checklist (for implementation PR)
+## Minimal signature checklist (implemented)
 
 These signatures are enough to implement the first usable version.
 
@@ -674,7 +665,7 @@ These signatures are enough to implement the first usable version.
 
 - `pkg/runtimeowner/types.go`
   - `type Scheduler interface { RunOnLoop(func(*goja.Runtime)) bool }`
-  - `type Runner interface { Call(...); Post(...); IsOwnerThread() bool; Shutdown(...) }`
+  - `type Runner interface { Call(...); Post(...); Shutdown(...); IsClosed() bool }`
 
 - `pkg/runtimeowner/runner.go`
   - `func NewRunner(vm *goja.Runtime, scheduler Scheduler, opts Options) Runner`
@@ -685,11 +676,11 @@ These signatures are enough to implement the first usable version.
 ### geppetto
 
 - `pkg/js/modules/geppetto/module.go`
-  - extend `Options` with scheduler/bridge-compatible field(s).
+  - `type Options struct { Runner runtimeowner.Runner ... }`
 
 - `pkg/js/runtimebridge/bridge.go` (proposed)
-  - `func InvokeCallable(...)`
-  - `func ToJSValue(...)`
+  - `func (b *Bridge) InvokeCallable(...)`
+  - `func (b *Bridge) ToJSValue(...)`
 
 - `pkg/js/modules/geppetto/api.go`
   - replace direct callback invocations with bridge calls.
@@ -912,8 +903,12 @@ go loop.Start()
 vm, req, err := engine.NewWithBootstrap(engine.Bootstrap{
     RuntimeConfig: engine.DefaultRuntimeConfig(),
     BeforeEnable: func(vm *goja.Runtime, reg *require.Registry) {
+        runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
+            Name: "notes-assistant",
+            RecoverPanics: true,
+        })
         gp.Register(reg, gp.Options{
-            Loop: loop,
+            Runner: runner,
             GoToolRegistry: toolRegistry,
         })
     },
