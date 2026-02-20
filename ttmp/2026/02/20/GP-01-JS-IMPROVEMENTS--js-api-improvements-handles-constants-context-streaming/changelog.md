@@ -108,3 +108,12 @@ Added an intern-facing architecture guide covering a reusable async runtime-safe
 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md — New detailed planning/implementation guide for async safety runner and integration patterns
 
+
+## 2026-02-20
+
+Expanded the intern guide with a v2 addendum clarifying NativeModule vs Loader responsibilities and proposing a concrete improved go-go-goja bootstrap API for easy third-party module registration.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md — Added NativeModule/Loader explanation and improved third-party registration API design
+

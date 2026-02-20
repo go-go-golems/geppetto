@@ -738,3 +738,226 @@ The north star is simple:
 
 Design everything around that invariant and the rest of the architecture becomes much easier to reason about.
 
+
+---
+
+## Addendum (v2): `NativeModule` vs `NativeModule.Loader()` and a better third-party registration API
+
+This section answers two practical architecture questions that usually come up when people first read `go-go-goja`:
+
+1. What exactly is `NativeModule`?
+2. How is `NativeModule.Loader()` different from the module itself?
+3. What should a better `go-go-goja` API look like so third-party modules (like geppetto) register easily?
+
+### 1) What is `NativeModule`?
+
+In `go-go-goja/modules/common.go`, `NativeModule` is the module contract/interface:
+
+```go
+type NativeModule interface {
+    Name() string
+    Doc() string
+    Loader(*goja.Runtime, *goja.Object)
+}
+```
+
+Conceptually, `NativeModule` is the **module descriptor + installer contract**. It tells the registry:
+
+- what the module is called (`Name`),
+- what docs/help text it has (`Doc`),
+- how to install exports into Node-style module `exports` (`Loader`).
+
+So “what is NativeModule?”
+
+- It is not a JS value.
+- It is not the runtime.
+- It is a Go-side module definition that can be registered once and then enabled on one or more registries.
+
+### 2) What is `NativeModule.Loader()` specifically?
+
+`Loader(vm, moduleObj)` is a callback invoked by `require` when module code is being initialized.
+
+Responsibilities of `Loader`:
+
+- read `exports := moduleObj.Get("exports")`,
+- set exported functions/objects on `exports`,
+- optionally capture `vm` for closure-based helpers,
+- do lightweight setup needed for JS-facing API.
+
+Non-responsibilities of `Loader`:
+
+- it should not be your app bootstrap,
+- it should not create global runtime wiring across unrelated modules,
+- it should not perform long-blocking operations on VM thread.
+
+A simple mental model:
+
+- `NativeModule` = “module type/class”.
+- `Loader` = “module constructor/install hook for a runtime”.
+
+### 3) Why geppetto looks a little different today
+
+Geppetto currently exposes `Register(reg, opts)` directly (in `geppetto/pkg/js/modules/geppetto/module.go`) and then internally calls `reg.RegisterNativeModule(...)`.
+
+That means geppetto is still a native module, but registration is done via its own package-level function because it needs explicit options (loop/tool registry/middleware factories/logger).
+
+So this is valid and intentional:
+
+- `go-go-goja` typical module path: `modules.Register(&m{})` during init.
+- geppetto path: app calls `gp.Register(reg, gp.Options{...})` when it has runtime-specific dependencies.
+
+### 4) Why third-party registration feels awkward today
+
+`go-go-goja/engine.New()` currently does all of this internally:
+
+1. `vm := goja.New()`
+2. `reg := require.NewRegistry(...)`
+3. `modules.EnableAll(reg)`
+4. `req := reg.Enable(vm)`
+
+This is convenient for built-ins, but there is no first-class pre-enable hook for app-specific module registration.
+
+That is why apps using geppetto either:
+
+- manually build runtime+registry, or
+- need new bootstrap APIs in go-go-goja.
+
+### 5) Better API shape for third-party modules
+
+A better API should satisfy both:
+
+- keep simple `engine.New()` for quick starts,
+- allow deterministic customization points for third-party module wiring.
+
+Recommended additions:
+
+#### A. Bootstrap struct with hooks
+
+```go
+// go-go-goja/engine/bootstrap.go (proposed)
+type Bootstrap struct {
+    RuntimeConfig RuntimeConfig
+    RequireOptions []require.Option
+
+    // Called after registry creation, before modules.EnableAll (optional).
+    BeforeBuiltinModules func(reg *require.Registry)
+
+    // Called after modules.EnableAll, before reg.Enable(vm) (optional).
+    BeforeEnable func(vm *goja.Runtime, reg *require.Registry)
+
+    // Optional final hook after reg.Enable(vm).
+    AfterEnable func(vm *goja.Runtime, req *require.RequireModule)
+}
+
+func NewWithBootstrap(b Bootstrap) (*goja.Runtime, *require.RequireModule, error)
+```
+
+Why two hooks (`BeforeBuiltinModules`, `BeforeEnable`)?
+
+- Some apps may want to override/replace built-ins.
+- Others just want to add extra modules after built-ins are loaded.
+
+#### B. Functional options variant
+
+If you prefer option functions:
+
+```go
+type RuntimeOption func(*runtimeBuild)
+
+func WithRequireOption(opt require.Option) RuntimeOption
+func WithRegistryMutator(fn func(vm *goja.Runtime, reg *require.Registry)) RuntimeOption
+func WithModuleRegistrar(fn func(reg *require.Registry)) RuntimeOption
+
+func NewExt(opts ...RuntimeOption) (*goja.Runtime, *require.RequireModule, error)
+```
+
+This is flexible but usually less discoverable than a typed bootstrap struct for newcomers.
+
+#### C. Optional module composer helper
+
+For very frequent module composition patterns:
+
+```go
+type ModuleRegistrar interface {
+    RegisterTo(reg *require.Registry) error
+}
+
+func ComposeRegistrars(rs ...ModuleRegistrar) func(*require.Registry) error
+```
+
+Then adapters can be written once per third-party module.
+
+### 6) Adapter pattern for geppetto under improved API
+
+Because geppetto currently uses `Register(reg, opts)`, the app can provide a registrar closure:
+
+```go
+func GeppettoRegistrar(opts gp.Options) func(vm *goja.Runtime, reg *require.Registry) {
+    return func(vm *goja.Runtime, reg *require.Registry) {
+        gp.Register(reg, opts)
+    }
+}
+```
+
+This keeps geppetto decoupled from go-go-goja internals and still gives ergonomic app bootstrap.
+
+### 7) Example: ideal third-party app setup (`database` + `geppetto`)
+
+With proposed bootstrap API:
+
+```go
+loop := eventloop.NewEventLoop()
+go loop.Start()
+
+vm, req, err := engine.NewWithBootstrap(engine.Bootstrap{
+    RuntimeConfig: engine.DefaultRuntimeConfig(),
+    BeforeEnable: func(vm *goja.Runtime, reg *require.Registry) {
+        gp.Register(reg, gp.Options{
+            Loop: loop,
+            GoToolRegistry: toolRegistry,
+        })
+    },
+})
+if err != nil { /* handle */ }
+_ = req
+```
+
+JS runtime usage:
+
+```javascript
+const db = require("database");
+const gp = require("geppetto");
+
+// database module still works
+// geppetto module also available in same runtime
+```
+
+### 8) API quality checklist (what “better” means)
+
+When reviewing the improved go-go-goja API, check these criteria:
+
+- Third-party modules can register without forking `engine.New()`.
+- Order of registration is explicit and documented.
+- Built-in path remains one-liner for simple users.
+- Hook errors propagate clearly (no silent partial setup).
+- Tests cover module collision scenarios (same module name registered twice).
+- Documentation includes a complete geppetto + database example.
+
+### 9) Migration strategy for minimal disruption
+
+1. Add `NewWithBootstrap` without changing `New`.
+2. Re-implement `New` as thin wrapper over `NewWithBootstrap` default config.
+3. Add docs and examples.
+4. Migrate advanced apps (geppetto users) gradually.
+
+This keeps backward compatibility while unlocking clean third-party module integration.
+
+### 10) Final takeaway for interns
+
+If you remember one sentence:
+
+- `NativeModule` describes **what** a module is,
+- `Loader` describes **how** it is installed into one runtime,
+- and a good engine API decides **when** third-party module registration hooks run.
+
+That separation of concerns is what makes a JavaScript embedding ecosystem scalable.
