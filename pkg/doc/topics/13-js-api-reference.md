@@ -41,6 +41,24 @@ List available host Go tools:
 go run ./cmd/examples/geppetto-js-lab --list-go-tools
 ```
 
+## Host Wiring Requirement
+
+For async APIs (`runAsync`, `start`), register the module with `Options.Runner`:
+
+```go
+loop := eventloop.NewEventLoop()
+go loop.Start()
+runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
+    Name:          "my-app",
+    RecoverPanics: true,
+})
+
+gp.Register(reg, gp.Options{
+    Runner: runner,
+    // GoToolRegistry: ...
+})
+```
+
 ## Top-Level Exports
 
 | Export | Type | Purpose |
@@ -123,7 +141,7 @@ Generated from `pkg/js/modules/geppetto/spec/js_api_codegen.yaml`.
 | `getTurn` | `getTurn(index)` | Turn snapshot or `null` |
 | `turnsRange` | `turnsRange(start, end)` | Sliced snapshot array |
 | `run` | `run(seedTurn?, runOptions?)` | Sync inference with optional per-run options |
-| `runAsync` | `runAsync(seedTurn?)` | Promise inference (event loop required) |
+| `runAsync` | `runAsync(seedTurn?)` | Promise inference (host must configure `Options.Runner`) |
 | `start` | `start(seedTurn?, runOptions?)` | RunHandle-based async inference with cancellation and event subscriptions |
 | `isRunning` | `isRunning()` | Run state |
 | `cancelActive` | `cancelActive()` | Cancel active run |
@@ -274,8 +292,8 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | `createSession requires options object with engine` | Missing engine | pass `{ engine: gp.engines.*(...) }` |
 | `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
 | `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
-| `runAsync requires module options Loop to be configured` | event loop not provided | use sync `run()` or provide `Options.Loop` |
-| `start requires module options Loop to be configured` | event loop not provided | use sync `run()` or provide `Options.Loop` |
+| `runAsync requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |
+| `start requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |
 | `invalid toolChoice ...` / `invalid toolErrorHandling ...` | unsupported enum value | use allowed values or `gp.consts.*` constants |
 | Tool calls not executed | registry not attached | call `.withTools(reg, { enabled: true })` |
 

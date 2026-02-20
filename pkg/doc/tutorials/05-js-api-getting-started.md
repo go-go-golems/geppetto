@@ -719,7 +719,7 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | `builder has no engine configured` | `withEngine` omitted | call `withEngine` before `buildSession` |
 | `no go tool registry configured` | `useGoTools` in host without Go registry | run in `geppetto-js-lab` or inject `Options.GoToolRegistry` |
 | no tool execution | tool registry not bound to builder | use `.withTools(reg, { enabled: true })` |
-| `runAsync requires module options Loop to be configured` | missing event loop in host | use `run()` or provide loop support |
+| `runAsync requires module options Runner to be configured` | missing runtime runner in host | use `run()` or register module with `Options.Runner` |
 | live script fails auth | missing/invalid API key | set `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
 
 ## Design Guidance for Real Projects

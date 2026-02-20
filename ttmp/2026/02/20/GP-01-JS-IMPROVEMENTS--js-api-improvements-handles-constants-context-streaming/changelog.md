@@ -126,3 +126,13 @@ Updated intern implementation guide to final Runner-based API (Options.Runner, r
 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/planning/01-intern-guide-reusable-async-runtime-safety-runner-go-go-goja-geppetto.md — Align guide with implemented Runner API
 
+
+## 2026-02-20
+
+Updated public JS docs to Runner-based async host requirement (removed remaining Loop wording, added host wiring snippet in API reference).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Updated async requirements and troubleshooting to Options.Runner
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/doc/tutorials/05-js-api-getting-started.md — Updated common failure mode to Runner wording
+
