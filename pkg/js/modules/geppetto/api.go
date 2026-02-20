@@ -597,8 +597,20 @@ func (m *moduleRuntime) applyToolLoopSettings(b *builderRef, cfg map[string]any,
 		toolCfg.MaxParallelTools = 1
 	}
 	toolCfg.ExecutionTimeout = time.Duration(toInt(cfg["executionTimeoutMs"], int(toolCfg.ExecutionTimeout.Milliseconds()))) * time.Millisecond
-	toolCfg.ToolChoice = tools.ToolChoice(toString(cfg["toolChoice"], string(toolCfg.ToolChoice)))
-	toolCfg.ToolErrorHandling = tools.ToolErrorHandling(toString(cfg["toolErrorHandling"], string(toolCfg.ToolErrorHandling)))
+	toolChoice := tools.ToolChoice(strings.TrimSpace(toString(cfg["toolChoice"], string(toolCfg.ToolChoice))))
+	switch toolChoice {
+	case tools.ToolChoiceAuto, tools.ToolChoiceNone, tools.ToolChoiceRequired:
+		toolCfg.ToolChoice = toolChoice
+	default:
+		panic(m.vm.NewTypeError("invalid toolChoice %q, expected one of: auto, none, required", string(toolChoice)))
+	}
+	toolErrorHandling := tools.ToolErrorHandling(strings.TrimSpace(toString(cfg["toolErrorHandling"], string(toolCfg.ToolErrorHandling))))
+	switch toolErrorHandling {
+	case tools.ToolErrorContinue, tools.ToolErrorAbort, tools.ToolErrorRetry:
+		toolCfg.ToolErrorHandling = toolErrorHandling
+	default:
+		panic(m.vm.NewTypeError("invalid toolErrorHandling %q, expected one of: continue, abort, retry", string(toolErrorHandling)))
+	}
 	toolCfg.RetryConfig.MaxRetries = toInt(cfg["retryMaxRetries"], toolCfg.RetryConfig.MaxRetries)
 	if backoffMS := toInt(cfg["retryBackoffMs"], int(toolCfg.RetryConfig.BackoffBase.Milliseconds())); backoffMS > 0 {
 		toolCfg.RetryConfig.BackoffBase = time.Duration(backoffMS) * time.Millisecond

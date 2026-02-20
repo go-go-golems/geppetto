@@ -53,6 +53,20 @@ func TestTurnsCodecAndHelpers(t *testing.T) {
 	`)
 }
 
+func TestConstsExported(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		if (!gp.consts) throw new Error("missing consts export");
+		if (gp.consts.ToolChoice.AUTO !== "auto") throw new Error("ToolChoice.AUTO mismatch");
+		if (gp.consts.ToolChoice.NONE !== "none") throw new Error("ToolChoice.NONE mismatch");
+		if (gp.consts.ToolErrorHandling.RETRY !== "retry") throw new Error("ToolErrorHandling.RETRY mismatch");
+		if (gp.consts.BlockKind.TOOL_USE !== "tool_use") throw new Error("BlockKind.TOOL_USE mismatch");
+		if (gp.consts.MetadataKeys.SESSION_ID !== "session_id") throw new Error("MetadataKeys.SESSION_ID mismatch");
+		if (gp.consts.EventType.TOOL_RESULT !== "tool-result") throw new Error("EventType.TOOL_RESULT mismatch");
+	`)
+}
+
 func TestSessionRunWithEchoEngine(t *testing.T) {
 	vm := newJSRuntime(t, Options{})
 	mustRunJS(t, vm, `
@@ -180,6 +194,42 @@ func TestBuilderToolsAndGoToolInvocationFromJS(t *testing.T) {
 		if (!toolUse) throw new Error("missing tool_use block: " + JSON.stringify(out.blocks));
 		const resultText = String(toolUse.payload && toolUse.payload.result || "");
 		if (!resultText.includes("sum")) throw new Error("tool_use payload missing js result");
+	`)
+}
+
+func TestToolLoopEnumValidation(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "noop",
+			description: "noop",
+			handler: () => ({ ok: true })
+		});
+		const eng = gp.engines.echo({ reply: "OK" });
+
+		let threwChoice = false;
+		try {
+			gp.createBuilder().withEngine(eng).withTools(reg, {
+				enabled: true,
+				toolChoice: "bad-choice"
+			});
+		} catch (e) {
+			threwChoice = /invalid toolChoice/i.test(String(e));
+		}
+		if (!threwChoice) throw new Error("expected invalid toolChoice to throw");
+
+		let threwHandling = false;
+		try {
+			gp.createBuilder().withEngine(eng).withTools(reg, {
+				enabled: true,
+				toolErrorHandling: "explode"
+			});
+		} catch (e) {
+			threwHandling = /invalid toolErrorHandling/i.test(String(e));
+		}
+		if (!threwHandling) throw new Error("expected invalid toolErrorHandling to throw");
 	`)
 }
 

@@ -83,6 +83,7 @@ func (m *module) Loader(vm *goja.Runtime, moduleObj *goja.Object) {
 
 func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(exports, "version", "0.1.0")
+	m.installConsts(exports)
 	m.mustSet(exports, "createBuilder", m.createBuilder)
 	m.mustSet(exports, "createSession", m.createSession)
 	m.mustSet(exports, "runInference", m.runInference)
