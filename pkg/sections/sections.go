@@ -103,6 +103,9 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := inferenceSection.InitializeDefaultsFromStruct(ss.Inference); err != nil {
+		return nil, err
+	}
 
 	// Assemble sections
 	result := []schema.Section{

@@ -125,6 +125,38 @@ func TestMergeInferenceConfig_DoesNotMutateInputs(t *testing.T) {
 	}
 }
 
+func TestMergeInferenceConfig_EmptyStopClearsDefault(t *testing.T) {
+	def := &InferenceConfig{
+		Stop: []string{"<END>", "STOP"},
+	}
+	turn := &InferenceConfig{
+		Stop: []string{}, // explicitly empty — should clear inherited stops
+	}
+	got := MergeInferenceConfig(turn, def)
+
+	if got.Stop == nil {
+		t.Fatal("Stop should be non-nil empty slice, got nil")
+	}
+	if len(got.Stop) != 0 {
+		t.Errorf("Stop should be empty, got %v", got.Stop)
+	}
+}
+
+func TestMergeInferenceConfig_NilStopPreservesDefault(t *testing.T) {
+	def := &InferenceConfig{
+		Stop: []string{"<END>"},
+	}
+	turn := &InferenceConfig{
+		Temperature: float64Ptr(0.5),
+		// Stop is nil — should preserve default
+	}
+	got := MergeInferenceConfig(turn, def)
+
+	if len(got.Stop) != 1 || got.Stop[0] != "<END>" {
+		t.Errorf("Stop should be preserved from default, got %v", got.Stop)
+	}
+}
+
 // --- SanitizeForReasoningModel ---
 
 func TestSanitizeForReasoningModel_Nil(t *testing.T) {

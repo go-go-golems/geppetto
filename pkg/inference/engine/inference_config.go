@@ -104,8 +104,9 @@ func MergeInferenceConfig(turnCfg, engineDefault *InferenceConfig) *InferenceCon
 		v := *turnCfg.MaxResponseTokens
 		merged.MaxResponseTokens = &v
 	}
-	if len(turnCfg.Stop) > 0 {
-		merged.Stop = append([]string(nil), turnCfg.Stop...)
+	if turnCfg.Stop != nil {
+		merged.Stop = make([]string, len(turnCfg.Stop))
+		copy(merged.Stop, turnCfg.Stop)
 	}
 	if turnCfg.Seed != nil {
 		v := *turnCfg.Seed
