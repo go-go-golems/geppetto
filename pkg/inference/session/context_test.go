@@ -33,3 +33,21 @@ func TestSessionMetaAccessorsMissing(t *testing.T) {
 		t.Fatalf("InferenceIDFromContext() = %q, want empty", got)
 	}
 }
+
+func TestWithRunTagsRoundTrip(t *testing.T) {
+	ctx := WithRunTags(context.Background(), map[string]any{"request_id": "r-1", "attempt": 2})
+	tags := RunTagsFromContext(ctx)
+	if tags["request_id"] != "r-1" {
+		t.Fatalf("RunTagsFromContext()[request_id] = %v, want r-1", tags["request_id"])
+	}
+	if tags["attempt"] != 2 {
+		t.Fatalf("RunTagsFromContext()[attempt] = %v, want 2", tags["attempt"])
+	}
+
+	// Ensure caller mutation does not alter stored context tags.
+	tags["request_id"] = "changed"
+	tags2 := RunTagsFromContext(ctx)
+	if tags2["request_id"] != "r-1" {
+		t.Fatalf("RunTagsFromContext() should return cloned tags, got %v", tags2["request_id"])
+	}
+}

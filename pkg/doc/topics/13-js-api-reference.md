@@ -49,10 +49,24 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 | `createBuilder(opts?)` | function | Create a chainable session builder |
 | `createSession(opts)` | function | Build a session directly |
 | `runInference(engine, turn, opts?)` | function | One-shot inference helper |
+| `consts` | namespace | Generated string constants (tool loop, block kinds, keys, event types) |
 | `turns` | namespace | Turn and block helpers |
 | `engines` | namespace | Engine constructors |
 | `middlewares` | namespace | Middleware adapters |
 | `tools` | namespace | Tool registry constructors |
+
+## `consts` Namespace
+
+Generated from `pkg/js/modules/geppetto/spec/js_api_codegen.yaml`.
+
+| Group | Example |
+|---|---|
+| `ToolChoice` | `gp.consts.ToolChoice.AUTO` |
+| `ToolErrorHandling` | `gp.consts.ToolErrorHandling.RETRY` |
+| `BlockKind` | `gp.consts.BlockKind.TOOL_USE` |
+| `HookAction` | `gp.consts.HookAction.ABORT` |
+| `MetadataKeys` | `gp.consts.MetadataKeys.SESSION_ID` |
+| `EventType` | `gp.consts.EventType.TOOL_RESULT` |
 
 ## `turns` Namespace
 
@@ -108,8 +122,9 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 | `turns` | `turns()` | Turn snapshot array |
 | `getTurn` | `getTurn(index)` | Turn snapshot or `null` |
 | `turnsRange` | `turnsRange(start, end)` | Sliced snapshot array |
-| `run` | `run(seedTurn?)` | Sync inference |
+| `run` | `run(seedTurn?, runOptions?)` | Sync inference with optional per-run options |
 | `runAsync` | `runAsync(seedTurn?)` | Promise inference (event loop required) |
+| `start` | `start(seedTurn?, runOptions?)` | RunHandle-based async inference with cancellation and event subscriptions |
 | `isRunning` | `isRunning()` | Run state |
 | `cancelActive` | `cancelActive()` | Cancel active run |
 
@@ -129,7 +144,7 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 
 | Function | Signature | Notes |
 |---|---|---|
-| `fromJS` | `fromJS((turn, next) => out, name?)` | JS middleware adapter |
+| `fromJS` | `fromJS((turn, next, ctx?) => out, name?)` | JS middleware adapter with context payload |
 | `go` | `go(name, opts?)` | Build Go middleware reference |
 
 Built-in Go middleware names:
@@ -157,7 +172,7 @@ JS tool spec fields:
 |---|---|---|---|
 | `name` | string | yes | Unique name |
 | `description` | string | no | Human description |
-| `handler` | function | yes | `({ ...args }) => result` |
+| `handler` | function | yes | `({ ...args }, ctx?) => result` |
 | `parameters` | object | no | JSON schema payload |
 
 ## Toolloop Options and Hooks
@@ -168,11 +183,11 @@ JS tool spec fields:
 |---|---|---|
 | `enabled` | bool | Enable tool loop |
 | `maxIterations` | number | Max loop iterations |
-| `toolChoice` | string | `auto` / `none` / `required` |
+| `toolChoice` | string | `auto` / `none` / `required` (or `gp.consts.ToolChoice.*`) |
 | `maxParallelTools` | number | Max parallel tool calls |
 | `executionTimeoutMs` | number | Per-tool timeout |
 | `allowedTools` | string[] | Tool allowlist |
-| `toolErrorHandling` | string | `continue` / `abort` / `retry` |
+| `toolErrorHandling` | string | `continue` / `abort` / `retry` (or `gp.consts.ToolErrorHandling.*`) |
 | `retryMaxRetries` | number | Retry count |
 | `retryBackoffMs` | number | Retry backoff base |
 | `retryBackoffFactor` | number | Exponential factor |
@@ -188,6 +203,40 @@ JS tool spec fields:
 | `failOpen` | bool | Ignore hook failures |
 | `hookErrorPolicy` / `onHookError` | string | `fail-open` or `fail-closed` |
 | `maxHookRetries` | number | Hard cap for hook retries |
+
+### Callback Context Payloads
+
+- Middleware callback third parameter (`ctx`):
+  - `sessionId`, `inferenceId`, `traceId`, `turnId`
+  - `middlewareName`, `timestampMs`
+  - optional `deadlineMs`
+  - optional `tags` from `run(..., { tags })` / `start(..., { tags })`
+- Tool handler second parameter (`ctx`):
+  - `toolName`, `timestampMs`
+  - `sessionId`, `inferenceId`
+  - `callId`, optional `callName`
+  - optional `deadlineMs`
+  - optional `tags`
+- Hook payloads (`beforeToolCall`, `afterToolCall`, `onToolError`) include:
+  - `sessionId`, `inferenceId`
+  - optional `tags`
+
+## Run Options and RunHandle
+
+Per-run options accepted by `session.run()` and `session.start()`:
+
+| Option | Type | Notes |
+|---|---|---|
+| `timeoutMs` | number | Creates a run-scoped context deadline |
+| `tags` | object | Arbitrary run tags propagated to callback context payloads |
+
+`session.start()` returns a `RunHandle`:
+
+| Field/Method | Type | Notes |
+|---|---|---|
+| `promise` | `Promise<Turn>` | Resolves/rejects when run finishes |
+| `cancel()` | function | Cancels the in-flight run |
+| `on(eventType, cb)` | function | Subscribe to streamed events; `eventType` supports exact type or `"*"` |
 
 ## Metadata and Key Mapping
 
@@ -207,6 +256,7 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/02_session_e
 go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/03_middleware_composition.js
 go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/04_tools_and_toolloop.js
 go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/05_go_tools_from_js.js
+go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/07_context_and_constants.js
 ```
 
 Optional live inference script:
@@ -225,6 +275,8 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
 | `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
 | `runAsync requires module options Loop to be configured` | event loop not provided | use sync `run()` or provide `Options.Loop` |
+| `start requires module options Loop to be configured` | event loop not provided | use sync `run()` or provide `Options.Loop` |
+| `invalid toolChoice ...` / `invalid toolErrorHandling ...` | unsupported enum value | use allowed values or `gp.consts.*` constants |
 | Tool calls not executed | registry not attached | call `.withTools(reg, { enabled: true })` |
 
 ## See Also

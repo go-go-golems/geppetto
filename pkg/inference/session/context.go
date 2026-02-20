@@ -7,6 +7,7 @@ type sessionMetaContextKey string
 const (
 	sessionIDContextKey   sessionMetaContextKey = "session_id"
 	inferenceIDContextKey sessionMetaContextKey = "inference_id"
+	runTagsContextKey     sessionMetaContextKey = "run_tags"
 )
 
 // WithSessionMeta stores session and inference identifiers in context so
@@ -42,4 +43,35 @@ func InferenceIDFromContext(ctx context.Context) string {
 	}
 	inferenceID, _ := ctx.Value(inferenceIDContextKey).(string)
 	return inferenceID
+}
+
+// WithRunTags stores per-run tags in context for downstream callbacks.
+func WithRunTags(ctx context.Context, tags map[string]any) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(tags) == 0 {
+		return ctx
+	}
+	cloned := make(map[string]any, len(tags))
+	for k, v := range tags {
+		cloned[k] = v
+	}
+	return context.WithValue(ctx, runTagsContextKey, cloned)
+}
+
+// RunTagsFromContext returns per-run tags attached with WithRunTags.
+func RunTagsFromContext(ctx context.Context) map[string]any {
+	if ctx == nil {
+		return nil
+	}
+	tags, _ := ctx.Value(runTagsContextKey).(map[string]any)
+	if len(tags) == 0 {
+		return nil
+	}
+	cloned := make(map[string]any, len(tags))
+	for k, v := range tags {
+		cloned[k] = v
+	}
+	return cloned
 }

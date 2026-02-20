@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
+	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
@@ -16,6 +17,17 @@ func newJSRuntime(t *testing.T, opts Options) *goja.Runtime {
 	Register(reg, opts)
 	reg.Enable(vm)
 	return vm
+}
+
+func newJSRuntimeWithLoop(t *testing.T, opts Options) *goja.Runtime {
+	t.Helper()
+	loop := eventloop.NewEventLoop()
+	go loop.Start()
+	t.Cleanup(func() {
+		_ = loop.Stop()
+	})
+	opts.Loop = loop
+	return newJSRuntime(t, opts)
 }
 
 func mustRunJS(t *testing.T, vm *goja.Runtime, src string) goja.Value {
@@ -301,6 +313,61 @@ func TestMiddlewareToolHandlerAndHookReceiveContext(t *testing.T) {
 		if (!hookCtx || !hookCtx.sessionId || !hookCtx.inferenceId) {
 			throw new Error("hook payload missing sessionId/inferenceId: " + JSON.stringify(hookCtx));
 		}
+	`)
+}
+
+func TestRunOptionsTimeoutAndTags(t *testing.T) {
+	vm := newJSRuntime(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		let seenCtx = null;
+
+		const s = gp.createBuilder()
+			.withEngine(gp.engines.echo({ reply: "OK" }))
+			.useMiddleware(gp.middlewares.fromJS((turn, next, ctx) => {
+				seenCtx = ctx;
+				return next(turn);
+			}, "opts-mw"))
+			.buildSession();
+
+		s.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("hello")] }));
+		const out = s.run(undefined, {
+			timeoutMs: 1000,
+			tags: { requestId: "req-1", attempt: 2 }
+		});
+		if (!out || !Array.isArray(out.blocks)) throw new Error("expected output turn");
+		if (!seenCtx || !seenCtx.deadlineMs) throw new Error("expected deadlineMs in middleware ctx");
+		if (!seenCtx.tags || seenCtx.tags.requestId !== "req-1" || seenCtx.tags.attempt !== 2) {
+			throw new Error("expected run tags in middleware ctx: " + JSON.stringify(seenCtx));
+		}
+
+		let badTimeout = false;
+		try {
+			s.run(undefined, { timeoutMs: -1 });
+		} catch (e) {
+			badTimeout = /timeoutMs/i.test(String(e));
+		}
+		if (!badTimeout) throw new Error("expected negative timeoutMs to throw");
+	`)
+}
+
+func TestSessionStartReturnsRunHandle(t *testing.T) {
+	vm := newJSRuntimeWithLoop(t, Options{})
+	mustRunJS(t, vm, `
+		const gp = require("geppetto");
+		const s = gp.createSession({ engine: gp.engines.echo({ reply: "OK" }) });
+
+		const handle = s.start(undefined, {
+			timeoutMs: 1000,
+			tags: { mode: "start-test" }
+		});
+		if (!handle || typeof handle !== "object") throw new Error("start() should return object");
+		if (!handle.promise || typeof handle.promise.then !== "function") throw new Error("missing promise");
+		if (typeof handle.cancel !== "function") throw new Error("missing cancel()");
+		if (typeof handle.on !== "function") throw new Error("missing on()");
+
+		const chained = handle.on("*", () => {});
+		if (chained !== handle) throw new Error("on() should return run handle for chaining");
 	`)
 }
 

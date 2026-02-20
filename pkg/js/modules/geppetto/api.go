@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
@@ -44,6 +46,19 @@ type builderRef struct {
 type sessionRef struct {
 	api     *moduleRuntime
 	session *session.Session
+}
+
+type runOptions struct {
+	timeoutMs int
+	tags      map[string]any
+}
+
+type jsEventCollector struct {
+	api *moduleRuntime
+
+	mu        sync.RWMutex
+	listeners map[string][]goja.Callable
+	closed    bool
 }
 
 type jsMiddlewareRef struct {
@@ -171,7 +186,7 @@ func (m *moduleRuntime) runInference(call goja.FunctionCall) goja.Value {
 		panic(m.vm.NewGoError(err))
 	}
 	sr.session.Append(turn)
-	out, err := sr.runSync(nil)
+	out, err := sr.runSync(nil, runOptions{})
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -403,7 +418,11 @@ func (m *moduleRuntime) newSessionObject(sr *sessionRef) goja.Value {
 				panic(m.vm.NewGoError(err))
 			}
 		}
-		out, err := sr.runSync(t)
+		opts, err := m.parseRunOptions(call.Arguments, 1)
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		out, err := sr.runSync(t, opts)
 		if err != nil {
 			panic(m.vm.NewGoError(err))
 		}
@@ -412,6 +431,21 @@ func (m *moduleRuntime) newSessionObject(sr *sessionRef) goja.Value {
 			panic(m.vm.NewGoError(err))
 		}
 		return v
+	})
+	m.mustSet(o, "start", func(call goja.FunctionCall) goja.Value {
+		var t *turns.Turn
+		var err error
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
+			t, err = m.decodeTurnValue(call.Arguments[0])
+			if err != nil {
+				panic(m.vm.NewGoError(err))
+			}
+		}
+		opts, err := m.parseRunOptions(call.Arguments, 1)
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		return sr.start(t, opts)
 	})
 	m.mustSet(o, "runAsync", func(call goja.FunctionCall) goja.Value {
 		var t *turns.Turn
@@ -427,11 +461,16 @@ func (m *moduleRuntime) newSessionObject(sr *sessionRef) goja.Value {
 	return o
 }
 
-func (sr *sessionRef) runSync(seed *turns.Turn) (*turns.Turn, error) {
+func (sr *sessionRef) runSync(seed *turns.Turn, opts runOptions) (*turns.Turn, error) {
 	if seed != nil {
 		sr.session.Append(seed)
 	}
-	handle, err := sr.session.StartInference(context.Background())
+	ctx, cancel, err := sr.buildRunContext(opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	handle, err := sr.session.StartInference(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +484,7 @@ func (sr *sessionRef) runAsync(seed *turns.Turn) goja.Value {
 	promise, resolve, reject := sr.api.vm.NewPromise()
 
 	go func() {
-		out, err := sr.runSync(seed)
+		out, err := sr.runSync(seed, runOptions{})
 		sr.api.loop.RunOnLoop(func(*goja.Runtime) {
 			if err != nil {
 				_ = reject(sr.api.vm.ToValue(err.Error()))
@@ -461,6 +500,252 @@ func (sr *sessionRef) runAsync(seed *turns.Turn) goja.Value {
 	}()
 
 	return sr.api.vm.ToValue(promise)
+}
+
+func newJSEventCollector(api *moduleRuntime) *jsEventCollector {
+	return &jsEventCollector{
+		api:       api,
+		listeners: map[string][]goja.Callable{},
+	}
+}
+
+var _ events.EventSink = (*jsEventCollector)(nil)
+
+func (c *jsEventCollector) subscribe(eventType string, fn goja.Callable) {
+	if c == nil || fn == nil {
+		return
+	}
+	eventType = strings.TrimSpace(eventType)
+	if eventType == "" {
+		eventType = "*"
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
+	c.listeners[eventType] = append(c.listeners[eventType], fn)
+}
+
+func (c *jsEventCollector) close() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.closed = true
+	c.listeners = nil
+	c.mu.Unlock()
+}
+
+func (c *jsEventCollector) PublishEvent(ev events.Event) error {
+	if c == nil || ev == nil {
+		return nil
+	}
+	c.mu.RLock()
+	if c.closed {
+		c.mu.RUnlock()
+		return nil
+	}
+	eventType := string(ev.Type())
+	callbacks := make([]goja.Callable, 0, len(c.listeners[eventType])+len(c.listeners["*"]))
+	callbacks = append(callbacks, c.listeners[eventType]...)
+	callbacks = append(callbacks, c.listeners["*"]...)
+	c.mu.RUnlock()
+	if len(callbacks) == 0 || c.api == nil || c.api.loop == nil {
+		return nil
+	}
+
+	payload := c.encodeEvent(ev)
+	c.api.loop.RunOnLoop(func(*goja.Runtime) {
+		for _, cb := range callbacks {
+			_, _ = cb(goja.Undefined(), payload)
+		}
+	})
+	return nil
+}
+
+func (c *jsEventCollector) encodeEvent(ev events.Event) goja.Value {
+	meta := ev.Metadata()
+	payload := map[string]any{
+		"type":        string(ev.Type()),
+		"timestampMs": time.Now().UnixMilli(),
+	}
+	if meta.SessionID != "" {
+		payload["sessionId"] = meta.SessionID
+	}
+	if meta.InferenceID != "" {
+		payload["inferenceId"] = meta.InferenceID
+	}
+	if meta.TurnID != "" {
+		payload["turnId"] = meta.TurnID
+	}
+	if len(meta.Extra) > 0 {
+		payload["metaExtra"] = cloneJSONValue(meta.Extra)
+	}
+
+	switch e := ev.(type) {
+	case *events.EventPartialCompletion:
+		payload["delta"] = e.Delta
+		payload["completion"] = e.Completion
+	case *events.EventThinkingPartial:
+		payload["delta"] = e.Delta
+		payload["completion"] = e.Completion
+	case *events.EventToolCall:
+		payload["toolCall"] = map[string]any{
+			"id":    e.ToolCall.ID,
+			"name":  e.ToolCall.Name,
+			"input": e.ToolCall.Input,
+		}
+	case *events.EventToolResult:
+		payload["toolResult"] = map[string]any{
+			"id":     e.ToolResult.ID,
+			"result": e.ToolResult.Result,
+		}
+	case *events.EventToolCallExecute:
+		payload["toolCall"] = map[string]any{
+			"id":    e.ToolCall.ID,
+			"name":  e.ToolCall.Name,
+			"input": e.ToolCall.Input,
+		}
+	case *events.EventToolCallExecutionResult:
+		payload["toolResult"] = map[string]any{
+			"id":     e.ToolResult.ID,
+			"result": e.ToolResult.Result,
+		}
+	case *events.EventFinal:
+		payload["text"] = e.Text
+	case *events.EventError:
+		payload["error"] = e.ErrorString
+	case *events.EventInterrupt:
+		payload["text"] = e.Text
+	}
+	if raw := ev.Payload(); len(raw) > 0 {
+		payload["rawPayload"] = string(raw)
+	}
+	return c.api.toJSValue(payload)
+}
+
+func (sr *sessionRef) start(seed *turns.Turn, opts runOptions) goja.Value {
+	if sr.api.loop == nil {
+		panic(sr.api.vm.NewTypeError("start requires module options Loop to be configured"))
+	}
+	promise, resolve, reject := sr.api.vm.NewPromise()
+	collector := newJSEventCollector(sr.api)
+	handleObj := sr.api.vm.NewObject()
+
+	var (
+		cancelMu sync.RWMutex
+		cancelFn context.CancelFunc
+	)
+	setCancel := func(fn context.CancelFunc) {
+		cancelMu.Lock()
+		cancelFn = fn
+		cancelMu.Unlock()
+	}
+	getCancel := func() context.CancelFunc {
+		cancelMu.RLock()
+		defer cancelMu.RUnlock()
+		return cancelFn
+	}
+
+	sr.api.mustSet(handleObj, "promise", promise)
+	sr.api.mustSet(handleObj, "cancel", func(goja.FunctionCall) goja.Value {
+		if fn := getCancel(); fn != nil {
+			fn()
+		}
+		return goja.Undefined()
+	})
+	sr.api.mustSet(handleObj, "on", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(sr.api.vm.NewTypeError("on(eventType, callback) requires 2 arguments"))
+		}
+		eventType := call.Arguments[0].String()
+		cb, ok := goja.AssertFunction(call.Arguments[1])
+		if !ok {
+			panic(sr.api.vm.NewTypeError("on() callback must be a function"))
+		}
+		collector.subscribe(eventType, cb)
+		return handleObj
+	})
+
+	go func() {
+		if seed != nil {
+			sr.session.Append(seed)
+		}
+		ctx, cancel, err := sr.buildRunContext(opts)
+		if err != nil {
+			sr.api.loop.RunOnLoop(func(*goja.Runtime) {
+				_ = reject(sr.api.vm.ToValue(err.Error()))
+			})
+			return
+		}
+		ctx = events.WithEventSinks(ctx, collector)
+		setCancel(cancel)
+
+		handle, err := sr.session.StartInference(ctx)
+		if err != nil {
+			cancel()
+			sr.api.loop.RunOnLoop(func(*goja.Runtime) {
+				collector.close()
+				_ = reject(sr.api.vm.ToValue(err.Error()))
+			})
+			return
+		}
+		out, err := handle.Wait()
+		cancel()
+
+		sr.api.loop.RunOnLoop(func(*goja.Runtime) {
+			defer collector.close()
+			if err != nil {
+				_ = reject(sr.api.vm.ToValue(err.Error()))
+				return
+			}
+			v, encErr := sr.api.encodeTurnValue(out)
+			if encErr != nil {
+				_ = reject(sr.api.vm.ToValue(encErr.Error()))
+				return
+			}
+			_ = resolve(v)
+		})
+	}()
+
+	return handleObj
+}
+
+func (sr *sessionRef) buildRunContext(opts runOptions) (context.Context, context.CancelFunc, error) {
+	ctx := context.Background()
+	cancel := func() {}
+	if opts.timeoutMs < 0 {
+		return nil, nil, fmt.Errorf("timeoutMs must be >= 0")
+	}
+	if opts.timeoutMs > 0 {
+		var timeoutCancel context.CancelFunc
+		ctx, timeoutCancel = context.WithTimeout(ctx, time.Duration(opts.timeoutMs)*time.Millisecond)
+		cancel = timeoutCancel
+	}
+	if len(opts.tags) > 0 {
+		ctx = session.WithRunTags(ctx, opts.tags)
+	}
+	return ctx, cancel, nil
+}
+
+func (m *moduleRuntime) parseRunOptions(args []goja.Value, idx int) (runOptions, error) {
+	out := runOptions{}
+	if len(args) <= idx || args[idx] == nil || goja.IsUndefined(args[idx]) || goja.IsNull(args[idx]) {
+		return out, nil
+	}
+	raw := decodeMap(args[idx].Export())
+	if raw == nil {
+		return out, fmt.Errorf("run options must be an object")
+	}
+	out.timeoutMs = toInt(raw["timeoutMs"], 0)
+	if out.timeoutMs < 0 {
+		return out, fmt.Errorf("timeoutMs must be >= 0")
+	}
+	if tags := decodeMap(raw["tags"]); len(tags) > 0 {
+		out.tags = cloneJSONMap(tags)
+	}
+	return out, nil
 }
 
 func (m *moduleRuntime) applyBuilderOptions(b *builderRef, v goja.Value) error {
@@ -731,6 +1016,21 @@ func decodeToolCallArgs(call tools.ToolCall) any {
 	return out
 }
 
+func cloneJSONMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	cloned := cloneJSONValue(in)
+	if out, ok := cloned.(map[string]any); ok {
+		return out
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
 func addSessionMetaFromContext(ctx context.Context, payload map[string]any) {
 	if payload == nil {
 		return
@@ -740,6 +1040,9 @@ func addSessionMetaFromContext(ctx context.Context, payload map[string]any) {
 	}
 	if inferenceID := session.InferenceIDFromContext(ctx); inferenceID != "" {
 		payload["inferenceId"] = inferenceID
+	}
+	if tags := session.RunTagsFromContext(ctx); len(tags) > 0 {
+		payload["tags"] = cloneJSONMap(tags)
 	}
 }
 
@@ -1327,6 +1630,9 @@ func (m *moduleRuntime) jsMiddleware(name string, fn goja.Callable) middleware.M
 					ctxPayload["inferenceId"] = inferenceID
 				}
 			}
+			if tags := session.RunTagsFromContext(ctx); len(tags) > 0 {
+				ctxPayload["tags"] = cloneJSONMap(tags)
+			}
 			if deadline, ok := ctx.Deadline(); ok {
 				ctxPayload["deadlineMs"] = deadline.UnixMilli()
 			}
@@ -1472,6 +1778,9 @@ func (r *toolRegistryRef) register(v goja.Value, _ map[string]any) error {
 		}
 		if inferenceID := session.InferenceIDFromContext(goCtx); inferenceID != "" {
 			toolCtx["inferenceId"] = inferenceID
+		}
+		if tags := session.RunTagsFromContext(goCtx); len(tags) > 0 {
+			toolCtx["tags"] = cloneJSONMap(tags)
 		}
 		if call, ok := tools.CurrentToolCallFromContext(goCtx); ok {
 			if call.ID != "" {

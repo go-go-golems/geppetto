@@ -102,6 +102,9 @@ declare module "geppetto" {
         phase: "beforeToolCall";
         call: ToolHookCallInfo;
         timestampMs: number;
+        sessionId?: string;
+        inferenceId?: string;
+        tags?: Record<string, any>;
     }
 
     export interface AfterToolCallPayload {
@@ -109,6 +112,9 @@ declare module "geppetto" {
         call: ToolHookCallInfo;
         result: { value: any; error: string; durationMs: number };
         timestampMs: number;
+        sessionId?: string;
+        inferenceId?: string;
+        tags?: Record<string, any>;
     }
 
     export interface OnToolErrorPayload {
@@ -119,6 +125,9 @@ declare module "geppetto" {
         defaultRetry: boolean;
         defaultBackoffMs: number;
         timestampMs: number;
+        sessionId?: string;
+        inferenceId?: string;
+        tags?: Record<string, any>;
     }
 
     export interface ToolHooks {
@@ -147,8 +156,19 @@ declare module "geppetto" {
         hooks?: ToolHooks;
     }
 
+    export interface MiddlewareContext {
+        sessionId?: string;
+        inferenceId?: string;
+        traceId?: string;
+        turnId?: string;
+        middlewareName: string;
+        timestampMs: number;
+        deadlineMs?: number;
+        tags?: Record<string, any>;
+    }
+
     export type NextFn = (turn: Turn) => Turn;
-    export type MiddlewareFn = (turn: Turn, next: NextFn) => Turn;
+    export type MiddlewareFn = (turn: Turn, next: NextFn, ctx?: MiddlewareContext) => Turn;
 
     export interface MiddlewareRef {
         type: "js" | "go";
@@ -156,8 +176,19 @@ declare module "geppetto" {
         options?: Record<string, any>;
     }
 
+    export interface ToolHandlerContext {
+        toolName: string;
+        timestampMs: number;
+        sessionId?: string;
+        inferenceId?: string;
+        callId?: string;
+        callName?: string;
+        deadlineMs?: number;
+        tags?: Record<string, any>;
+    }
+
     export interface ToolHandler {
-        (args: Record<string, any>): any;
+        (args: Record<string, any>, ctx?: ToolHandlerContext): any;
     }
 
     export interface ToolSpec {
@@ -208,8 +239,36 @@ declare module "geppetto" {
         turnsRange(start?: number, end?: number): Turn[];
         isRunning(): boolean;
         cancelActive(): void;
-        run(seedTurn?: Turn): Turn;
+        run(seedTurn?: Turn, options?: RunOptions): Turn;
         runAsync(seedTurn?: Turn): Promise<Turn>;
+        start(seedTurn?: Turn, options?: RunOptions): RunHandle;
+    }
+
+    export interface RunOptions {
+        timeoutMs?: number;
+        tags?: Record<string, any>;
+    }
+
+    export interface StreamEvent {
+        type: string;
+        sessionId?: string;
+        inferenceId?: string;
+        turnId?: string;
+        timestampMs: number;
+        delta?: string;
+        completion?: string;
+        text?: string;
+        error?: string;
+        rawPayload?: string;
+        toolCall?: { id: string; name: string; input: string };
+        toolResult?: { id: string; result: string };
+        metaExtra?: Record<string, any>;
+    }
+
+    export interface RunHandle {
+        promise: Promise<Turn>;
+        cancel(): void;
+        on(eventType: string, callback: (event: StreamEvent) => void): RunHandle;
     }
 
     export const turns: {
