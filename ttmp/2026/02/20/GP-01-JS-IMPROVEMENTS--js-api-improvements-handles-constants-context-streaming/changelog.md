@@ -41,3 +41,16 @@ Phase 5.2 complete: added JS API codegen pipeline (schema + generator + template
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/consts_gen.go — Generated consts installer wired into module exports
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/spec/js_api_codegen.yaml — Single-source enum schema for generated JS exports
 
+
+## 2026-02-20
+
+Phase 5.3 complete: added middleware/tool handler context objects, session metadata context helpers, StartInference context injection, and hook payload session/inference enrichment (commit f2acde50e3f7758b844c35cb3fd2d24c1e2248c6). Also added two new open 5.2 tasks for generating turns/blocks key .d.ts outputs via cmd/gen-turns per user request.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/inference/session/context.go — New context helpers for session and inference identifiers
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/inference/session/session.go — Injects session/inference identifiers into run context
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — Passes context to JS middleware/tool handlers and enriches hook payloads
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/module_test.go — Validates middleware/tool/hook context payloads
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/ttmp/2026/02/20/GP-01-JS-IMPROVEMENTS--js-api-improvements-handles-constants-context-streaming/tasks.md — Added new turns/blocks .d.ts generation tasks
+

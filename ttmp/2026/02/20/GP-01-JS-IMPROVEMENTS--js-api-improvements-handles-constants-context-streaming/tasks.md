@@ -10,14 +10,16 @@
 - [x] 5.2 Add `generate.go` with `//go:generate` directive, run `go generate`
 - [x] 5.2 Wire `installConsts()` call into `installExports()` (module.go)
 - [x] 5.2 Add validation for ToolChoice/ToolErrorHandling string values (api.go:589-590)
+- [ ] 5.2 Extend `cmd/gen-turns` to generate `.d.ts` for BlockKind + turns key constants
+- [ ] 5.2 Add `pkg/turns/spec/turns.d.ts.tmpl` and generated `pkg/doc/types/turns.d.ts` via `go generate`
 
 ## Phase 2 — Context Plumbing
 
-- [ ] 5.3a Add `ctx` parameter to `jsMiddleware()` (api.go:1257-1298)
-- [ ] 5.3b Add `ctx` parameter to JS tool handler wrapper (api.go:1396-1401)
-- [ ] 5.3c Create `session/context.go` with `WithSessionMeta()`, `SessionIDFromContext()`, `InferenceIDFromContext()`
-- [ ] 5.3c Inject session/inference IDs into context in `StartInference()` (session.go:228)
-- [ ] 5.3c Enrich tool hook payloads with session/inference IDs (api.go:750-868)
+- [x] 5.3a Add `ctx` parameter to `jsMiddleware()` (api.go:1257-1298)
+- [x] 5.3b Add `ctx` parameter to JS tool handler wrapper (api.go:1396-1401)
+- [x] 5.3c Create `session/context.go` with `WithSessionMeta()`, `SessionIDFromContext()`, `InferenceIDFromContext()`
+- [x] 5.3c Inject session/inference IDs into context in `StartInference()` (session.go:228)
+- [x] 5.3c Enrich tool hook payloads with session/inference IDs (api.go:750-868)
 
 ## Phase 3 — RunHandle & Streaming
 
