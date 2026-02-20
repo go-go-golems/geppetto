@@ -4,12 +4,12 @@
 
 - [x] 5.1 Replace `attachRef()` with `DefineDataProperty` (module.go:124-126)
 - [x] 5.1 Improve error messages in `requireEngineRef()` and `requireToolRegistry()` (api.go:911-933)
-- [ ] 5.2 Create YAML schema `spec/js_api_codegen.yaml` with all JS-exported enums
-- [ ] 5.2 Create `.d.ts` template `spec/geppetto.d.ts.tmpl` (generated consts + hand-maintained API surface)
-- [ ] 5.2 Implement `cmd/gen-js-api` generator (YAML + template → `consts_gen.go` + `geppetto.d.ts`)
-- [ ] 5.2 Add `generate.go` with `//go:generate` directive, run `go generate`
-- [ ] 5.2 Wire `installConsts()` call into `installExports()` (module.go)
-- [ ] 5.2 Add validation for ToolChoice/ToolErrorHandling string values (api.go:589-590)
+- [x] 5.2 Create YAML schema `spec/js_api_codegen.yaml` with all JS-exported enums
+- [x] 5.2 Create `.d.ts` template `spec/geppetto.d.ts.tmpl` (generated consts + hand-maintained API surface)
+- [x] 5.2 Implement `cmd/gen-js-api` generator (YAML + template → `consts_gen.go` + `geppetto.d.ts`)
+- [x] 5.2 Add `generate.go` with `//go:generate` directive, run `go generate`
+- [x] 5.2 Wire `installConsts()` call into `installExports()` (module.go)
+- [x] 5.2 Add validation for ToolChoice/ToolErrorHandling string values (api.go:589-590)
 
 ## Phase 2 — Context Plumbing
 

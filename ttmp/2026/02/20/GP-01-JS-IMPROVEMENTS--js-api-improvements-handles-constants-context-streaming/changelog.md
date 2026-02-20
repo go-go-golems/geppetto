@@ -29,3 +29,15 @@
   - Added `TestOpaqueRefHidden` test verifying non-enumerability, JSON exclusion, non-writability, continued functionality
   - All 8 tests pass, lint clean
 
+
+## 2026-02-20
+
+Phase 5.2 complete: added JS API codegen pipeline (schema + generator + template), generated consts/.d.ts outputs, wired gp.consts exports, and validated toolChoice/toolErrorHandling values (commit ac2271685f4f12a44d55f9cac09ac60861f24e12).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/cmd/gen-js-api/main.go — New code generator for JS constants + TypeScript definitions
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — Added strict validation for toolChoice/toolErrorHandling
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/consts_gen.go — Generated consts installer wired into module exports
+- /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/spec/js_api_codegen.yaml — Single-source enum schema for generated JS exports
+
