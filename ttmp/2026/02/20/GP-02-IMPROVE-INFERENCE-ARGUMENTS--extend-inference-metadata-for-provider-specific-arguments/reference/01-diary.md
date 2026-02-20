@@ -289,6 +289,101 @@ Cross-provider field mapping:
 | Stop | stop_sequences | stop_sequences | stop | ignored |
 | Seed | ignored | ignored | seed | ignored |
 
+## Step 4: Glazed Section for InferenceConfig — CLI/Config/Env/Profile Support
+
+With the InferenceConfig types and engine wiring in place from Step 3, the next gap was that `StepSettings.Inference` was the only settings field not wired into the glazed parameter system — no CLI flags, no YAML config loading, no env vars, no profiles.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Analyze how to add a glazed Schema/Section to load the inference settings from config, like the other chat parameter. Create a new analysis document in the ticket and upload to remarkable tablet."
+
+Followed by: "are you sure that pointers become non-nil with glazed? how do you know?"
+
+Then: "alright, add tasks to the ticket and then implement them, committing as you go, keeping a diary"
+
+**Assistant interpretation:** Design and implement the glazed section integration so InferenceConfig is loadable from CLI flags, YAML config, env vars, and profiles.
+
+**Commit (code):** 71e8154 — "feat(settings): add glazed section for InferenceConfig"
+
+### What I did
+
+1. **Analysis:** Wrote `analysis/02-glazed-section-for-inferenceconfig.md` exploring three options for where to place the section and the nil-pointer semantics question.
+
+2. **Experiment:** Created `scripts/test_glazed_pointer_nil/` to verify whether glazed's `DecodeSectionInto` leaves pointer fields nil when the YAML flag definition has no `default:` key.
+
+3. **Corrected my assumption:** I initially assumed glazed always populates pointer fields (making nil detection impossible), which would have required a wrapper struct with zero-to-nil mapping. The experiment proved this wrong — omitting `default:` from the YAML preserves nil pointers. This simplified the design significantly.
+
+4. **Implementation:**
+   - Added `yaml:` + `glazed:` tags to `engine.InferenceConfig` fields
+   - Created `flags/inference.yaml` with slug `ai-inference` and **no default values**
+   - Created `settings-inference.go` with `InferenceValueSection` and `AiInferenceSlug`
+   - Registered section in `CreateGeppettoSections()`
+   - Added `AiInferenceSlug` to env var whitelist in `GetCobraCommandGeppettoMiddlewares()`
+   - Added `glazed:"ai-inference"` tag to `StepSettings.Inference`
+   - Added `DecodeSectionInto(AiInferenceSlug, ss.Inference)` in `UpdateFromParsedValues()`
+
+### Why
+
+- Without the glazed section, users had no way to set inference overrides from CLI, config files, environment, or profiles
+- Every other settings struct in StepSettings had a corresponding section — Inference was the only gap
+- This enables use cases like: `pinocchio chat --inference-thinking-budget 8192`
+
+### What worked
+
+- **Omitting defaults preserves nil pointers.** The experiment confirmed that glazed's `FieldValuesFromDefaults()` skips definitions where `Default == nil`, and `DecodeInto()` skips fields not in the FieldValues map. Pointer fields stay nil unless explicitly provided.
+- **Direct tagging on engine.InferenceConfig** — no wrapper struct needed. The `glazed:` tag is just a struct field annotation with no import requirement.
+- **The existing section registration pattern** was easy to follow: create section, add to slice, add to whitelist, add decode call.
+
+### What didn't work
+
+1. **gofmt lint failure on first commit attempt.** The experiment script `main.go` had Unicode arrows (`→`) in comments. While valid Go, `gofmt` reformatted them and the pre-commit hook rejected the diff. Fixed by running `gofmt -w` on the file.
+
+2. **Initial incorrect analysis.** I assumed glazed always populated pointer fields from defaults, which would have required a wrapper struct (`InferenceSettings`) with value types and a `ToInferenceConfig()` mapping function. The user correctly questioned this assumption, leading to the experiment that disproved it. The analysis document was updated to reflect the simpler approach.
+
+### What I learned
+
+- **Verify assumptions about library behavior experimentally.** Reading source code is good, but running a quick experiment in `scripts/` is faster and more reliable for behavioral questions.
+- **Glazed nil semantics:** `default:` key present (even with zero value like `0`) → pointer becomes non-nil. `default:` key absent → pointer stays nil. This is the critical distinction for override-layer settings.
+- **Choice fields without defaults:** Glazed supports `type: choice` with `choices:` but no `default:` — the pointer stays nil until the user explicitly provides a value.
+
+### What was tricky to build
+
+Nothing in the implementation was tricky — the pattern was well-established and the experiment removed all ambiguity. The tricky part was the analysis: correctly identifying that the nil-preservation question was the key design decision, and then verifying it experimentally rather than guessing.
+
+### What warrants a second pair of eyes
+
+- **Choice field behavior without defaults:** The YAML defines `inference-reasoning-effort` as `type: choice` with `choices: [low, medium, high]` but no default. I haven't tested whether glazed's Cobra flag binding handles this correctly (e.g., does `--help` show the choices? Does omitting the flag work?). Worth verifying in a real Cobra command.
+
+### What should be done in the future
+
+- Add an integration test that creates a command with the ai-inference section, parses known flags, and verifies the InferenceConfig fields are correctly populated (non-nil for provided flags, nil for omitted ones)
+- Consider whether to expose `ClaudeInferenceConfig` and `OpenAIInferenceConfig` as sections too, or keep them as Turn.Data-only
+
+### Code review instructions
+
+**Start with:**
+1. `pkg/steps/ai/settings/flags/inference.yaml` — verify no `default:` keys
+2. `pkg/inference/engine/inference_config.go` — verify `glazed:` tag names match YAML flag names
+3. `pkg/steps/ai/settings/settings-step.go` — verify `DecodeSectionInto` call
+
+**Validate with:**
+```bash
+go build ./... && go test ./...
+# Run the experiment:
+go run ./ttmp/.../scripts/test_glazed_pointer_nil/
+```
+
+### Technical details
+
+Files created/modified:
+- `pkg/steps/ai/settings/flags/inference.yaml` (NEW) — 8 flags, no defaults
+- `pkg/steps/ai/settings/settings-inference.go` (NEW) — ValueSection wrapper
+- `pkg/inference/engine/inference_config.go` (MODIFIED) — added yaml:/glazed: tags
+- `pkg/steps/ai/settings/settings-step.go` (MODIFIED) — glazed tag + decode call
+- `pkg/sections/sections.go` (MODIFIED) — section registration + env whitelist
+- `scripts/test_glazed_pointer_nil/main.go` (NEW) — experiment confirming nil behavior
+
 ## Related
 
 - [Analysis: Extending Inference Arguments via Typed Turn.Data Keys](../design/01-analysis-inference-arguments.md)
+- [Analysis: Glazed Section for InferenceConfig](../analysis/02-glazed-section-for-inferenceconfig.md)
