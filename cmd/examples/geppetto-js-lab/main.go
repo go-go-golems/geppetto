@@ -14,6 +14,7 @@ import (
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
 func main() {
@@ -48,12 +49,16 @@ func main() {
 	defer loop.Stop()
 
 	vm := goja.New()
+	runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
+		Name:          "geppetto-js-lab",
+		RecoverPanics: true,
+	})
 	installConsole(vm)
 	installHelpers(vm)
 
 	reg := require.NewRegistry()
 	gp.Register(reg, gp.Options{
-		Loop:           loop,
+		Runner:         runner,
 		GoToolRegistry: goRegistry,
 	})
 	reg.Enable(vm)

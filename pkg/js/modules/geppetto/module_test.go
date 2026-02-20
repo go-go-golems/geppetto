@@ -1,47 +1,123 @@
 package geppetto
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
-func newJSRuntime(t *testing.T, opts Options) *goja.Runtime {
-	t.Helper()
-	vm := goja.New()
-	reg := require.NewRegistry()
-	Register(reg, opts)
-	reg.Enable(vm)
-	return vm
+type jsRuntime struct {
+	vm     *goja.Runtime
+	runner runtimeowner.Runner
 }
 
-func newJSRuntimeWithLoop(t *testing.T, opts Options) *goja.Runtime {
+func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
 	t.Helper()
 	loop := eventloop.NewEventLoop()
 	go loop.Start()
 	t.Cleanup(func() {
 		_ = loop.Stop()
 	})
-	opts.Loop = loop
-	return newJSRuntime(t, opts)
+
+	vm := goja.New()
+	opts.Runner = runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
+		Name:          "geppetto-js-module-test",
+		RecoverPanics: true,
+	})
+	reg := require.NewRegistry()
+	Register(reg, opts)
+	reg.Enable(vm)
+	return &jsRuntime{
+		vm:     vm,
+		runner: opts.Runner,
+	}
 }
 
-func mustRunJS(t *testing.T, vm *goja.Runtime, src string) goja.Value {
+func mustRunJS(t *testing.T, rt *jsRuntime, src string) goja.Value {
 	t.Helper()
-	v, err := vm.RunString(src)
+	v, err := rt.vm.RunString(src)
 	if err != nil {
 		t.Fatalf("js execution failed: %v\nscript:\n%s", err, src)
 	}
 	return v
 }
 
+type promiseSnapshot struct {
+	State  goja.PromiseState
+	Result any
+}
+
+func waitForPromiseExpr(t *testing.T, rt *jsRuntime, expr string, timeout time.Duration) promiseSnapshot {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		ret, err := rt.runner.Call(context.Background(), "module_test.PromiseState", func(_ context.Context, vm *goja.Runtime) (any, error) {
+			v, runErr := vm.RunString(expr)
+			if runErr != nil {
+				return nil, runErr
+			}
+			if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+				return nil, fmt.Errorf("promise expression %q returned null/undefined", expr)
+			}
+			p, ok := v.Export().(*goja.Promise)
+			if !ok {
+				return nil, fmt.Errorf("promise expression %q returned %T", expr, v.Export())
+			}
+			snap := promiseSnapshot{State: p.State()}
+			if p.Result() != nil {
+				snap.Result = p.Result().Export()
+			}
+			return snap, nil
+		})
+		if err != nil {
+			t.Fatalf("failed to inspect promise %q: %v", expr, err)
+		}
+		snap, ok := ret.(promiseSnapshot)
+		if !ok {
+			t.Fatalf("unexpected promise snapshot type %T for %q", ret, expr)
+		}
+		if snap.State == goja.PromiseStateFulfilled {
+			return snap
+		}
+		if snap.State == goja.PromiseStateRejected {
+			t.Fatalf("promise %q rejected: %v", expr, snap.Result)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for promise %q to settle", expr)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func mustEvalExprExport(t *testing.T, rt *jsRuntime, expr string) any {
+	t.Helper()
+	ret, err := rt.runner.Call(context.Background(), "module_test.EvalExpr", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		v, runErr := vm.RunString(expr)
+		if runErr != nil {
+			return nil, runErr
+		}
+		if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+			return nil, nil
+		}
+		return v.Export(), nil
+	})
+	if err != nil {
+		t.Fatalf("failed evaluating %q: %v", expr, err)
+	}
+	return ret
+}
+
 func TestTurnsCodecAndHelpers(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const t = gp.turns.newTurn({
 			id: "turn-1",
@@ -66,8 +142,8 @@ func TestTurnsCodecAndHelpers(t *testing.T) {
 }
 
 func TestConstsExported(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		if (!gp.consts) throw new Error("missing consts export");
 		if (gp.consts.ToolChoice.AUTO !== "auto") throw new Error("ToolChoice.AUTO mismatch");
@@ -80,8 +156,8 @@ func TestConstsExported(t *testing.T) {
 }
 
 func TestSessionRunWithEchoEngine(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const eng = gp.engines.echo({ reply: "HELLO-OUT" });
 		const s = gp.createSession({ engine: eng });
@@ -94,8 +170,8 @@ func TestSessionRunWithEchoEngine(t *testing.T) {
 }
 
 func TestSessionHistoryInspectionAndSnapshotImmutability(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const s = gp.createSession({ engine: gp.engines.echo({ reply: "ACK" }) });
 
@@ -127,8 +203,8 @@ func TestSessionHistoryInspectionAndSnapshotImmutability(t *testing.T) {
 }
 
 func TestMiddlewareCompositionJSAndGo(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const eng = gp.engines.fromFunction((turn) => {
 			turn.blocks.push(gp.turns.newAssistantBlock("ok"));
@@ -169,11 +245,11 @@ func TestBuilderToolsAndGoToolInvocationFromJS(t *testing.T) {
 		t.Fatalf("register go tool: %v", err)
 	}
 
-	vm := newJSRuntime(t, Options{
+	rt := newJSRuntime(t, Options{
 		GoToolRegistry: goRegistry,
 	})
 
-	mustRunJS(t, vm, `
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const reg = gp.tools.createRegistry();
 		reg.register({
@@ -210,8 +286,8 @@ func TestBuilderToolsAndGoToolInvocationFromJS(t *testing.T) {
 }
 
 func TestToolLoopEnumValidation(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const reg = gp.tools.createRegistry();
 		reg.register({
@@ -246,8 +322,8 @@ func TestToolLoopEnumValidation(t *testing.T) {
 }
 
 func TestMiddlewareToolHandlerAndHookReceiveContext(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		let middlewareCtx = null;
 		let toolHandlerCtx = null;
@@ -317,8 +393,8 @@ func TestMiddlewareToolHandlerAndHookReceiveContext(t *testing.T) {
 }
 
 func TestRunOptionsTimeoutAndTags(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		let seenCtx = null;
 
@@ -352,8 +428,8 @@ func TestRunOptionsTimeoutAndTags(t *testing.T) {
 }
 
 func TestSessionStartReturnsRunHandle(t *testing.T) {
-	vm := newJSRuntimeWithLoop(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const s = gp.createSession({ engine: gp.engines.echo({ reply: "OK" }) });
 
@@ -371,10 +447,108 @@ func TestSessionStartReturnsRunHandle(t *testing.T) {
 	`)
 }
 
+func TestRunAsyncWithJSEngineAndMiddleware(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		globalThis.__seenAsync = { engine: false, middleware: false };
+
+		const eng = gp.engines.fromFunction((turn) => {
+			globalThis.__seenAsync.engine = true;
+			turn.blocks.push(gp.turns.newAssistantBlock("ASYNC-OK"));
+			return turn;
+		});
+		const mw = gp.middlewares.fromJS((turn, next) => {
+			globalThis.__seenAsync.middleware = true;
+			return next(turn);
+		}, "async-mw");
+
+		const s = gp.createBuilder()
+			.withEngine(eng)
+			.useMiddleware(mw)
+			.buildSession();
+		s.append(gp.turns.newTurn({ blocks: [ gp.turns.newUserBlock("hello") ] }));
+		globalThis.__runAsyncPromise = s.runAsync();
+	`)
+
+	snap := waitForPromiseExpr(t, rt, "__runAsyncPromise", 2*time.Second)
+	if snap.State != goja.PromiseStateFulfilled {
+		t.Fatalf("expected fulfilled promise, got %v", snap.State)
+	}
+	if turn, ok := snap.Result.(map[string]any); !ok || len(turn) == 0 {
+		t.Fatalf("expected non-empty turn result map, got %T (%v)", snap.Result, snap.Result)
+	}
+
+	seenRaw := mustEvalExprExport(t, rt, "__seenAsync")
+	seen, ok := seenRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected __seenAsync object, got %T (%v)", seenRaw, seenRaw)
+	}
+	if seen["engine"] != true {
+		t.Fatalf("expected JS engine callback to run, got %v", seen["engine"])
+	}
+	if seen["middleware"] != true {
+		t.Fatalf("expected JS middleware callback to run, got %v", seen["middleware"])
+	}
+}
+
+func TestStartWithJSEngineAndMiddleware(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		globalThis.__seenStart = { engine: false, middleware: false, events: 0 };
+
+		const eng = gp.engines.fromFunction((turn) => {
+			globalThis.__seenStart.engine = true;
+			turn.blocks.push(gp.turns.newAssistantBlock("START-OK"));
+			return turn;
+		});
+		const mw = gp.middlewares.fromJS((turn, next) => {
+			globalThis.__seenStart.middleware = true;
+			return next(turn);
+		}, "start-mw");
+
+		const s = gp.createBuilder()
+			.withEngine(eng)
+			.useMiddleware(mw)
+			.buildSession();
+		s.append(gp.turns.newTurn({ blocks: [ gp.turns.newUserBlock("hello") ] }));
+
+		const handle = s.start(undefined, {
+			timeoutMs: 1000,
+			tags: { mode: "start-async-test" }
+		});
+		handle.on("*", () => {
+			globalThis.__seenStart.events++;
+		});
+		globalThis.__startHandle = handle;
+	`)
+
+	snap := waitForPromiseExpr(t, rt, "__startHandle.promise", 2*time.Second)
+	if snap.State != goja.PromiseStateFulfilled {
+		t.Fatalf("expected fulfilled start promise, got %v", snap.State)
+	}
+	if turn, ok := snap.Result.(map[string]any); !ok || len(turn) == 0 {
+		t.Fatalf("expected non-empty turn result map, got %T (%v)", snap.Result, snap.Result)
+	}
+
+	seenRaw := mustEvalExprExport(t, rt, "__seenStart")
+	seen, ok := seenRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected __seenStart object, got %T (%v)", seenRaw, seenRaw)
+	}
+	if seen["engine"] != true {
+		t.Fatalf("expected JS engine callback to run in start(), got %v", seen["engine"])
+	}
+	if seen["middleware"] != true {
+		t.Fatalf("expected JS middleware callback to run in start(), got %v", seen["middleware"])
+	}
+}
+
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	t.Setenv("PINOCCHIO_PROFILE", "env-profile-model")
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 
 		const explicit = gp.engines.fromProfile("explicit-model", {
@@ -421,8 +595,8 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") == "" {
 		t.Skip("skipping gemini integration test: GEMINI_API_KEY/GOOGLE_API_KEY not set")
 	}
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const s = gp.createSession({
 			engine: gp.engines.fromProfile("gemini-2.5-flash-lite", {
@@ -440,8 +614,8 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 }
 
 func TestOpaqueRefHidden(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const eng = gp.engines.echo({ reply: "test" });
 
@@ -482,8 +656,8 @@ func TestOpaqueRefHidden(t *testing.T) {
 }
 
 func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
-	vm := newJSRuntime(t, Options{})
-	mustRunJS(t, vm, `
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 
 		function makeEngine(toolName) {

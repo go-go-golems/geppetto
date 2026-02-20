@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -24,7 +25,7 @@ type MiddlewareFactory func(options map[string]any) (middleware.Middleware, erro
 
 // Options configures module behavior for a specific runtime.
 type Options struct {
-	Loop                  *eventloop.EventLoop
+	Runner                runtimeowner.Runner
 	GoToolRegistry        tools.ToolRegistry
 	GoMiddlewareFactories map[string]MiddlewareFactory
 	Logger                zerolog.Logger
@@ -44,8 +45,9 @@ type module struct {
 }
 
 type moduleRuntime struct {
-	vm   *goja.Runtime
-	loop *eventloop.EventLoop
+	vm     *goja.Runtime
+	runner runtimeowner.Runner
+	bridge *runtimebridge.Bridge
 
 	logger zerolog.Logger
 
@@ -60,10 +62,13 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 	}
 	m := &moduleRuntime{
 		vm:                    vm,
-		loop:                  opts.Loop,
+		runner:                opts.Runner,
 		logger:                lg,
 		goToolRegistry:        opts.GoToolRegistry,
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
+	}
+	if m.runner != nil {
+		m.bridge = runtimebridge.New(m.runner)
 	}
 	for k, v := range defaultGoMiddlewareFactories(lg) {
 		m.goMiddlewareFactories[k] = v
