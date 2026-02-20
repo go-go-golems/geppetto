@@ -18,6 +18,11 @@ type schema struct {
 	Enums []enumSchema `yaml:"enums"`
 }
 
+type turnsSchema struct {
+	BlockKinds []turnsBlockKindSchema `yaml:"block_kinds"`
+	Keys       []turnsKeySchema       `yaml:"keys"`
+}
+
 type enumSchema struct {
 	Name   string            `yaml:"name"`
 	Doc    string            `yaml:"doc"`
@@ -30,14 +35,28 @@ type enumValueSchema struct {
 	GoConst string `yaml:"go_const"`
 }
 
-var identifierRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+type turnsBlockKindSchema struct {
+	Value string `yaml:"value"`
+}
+
+type turnsKeySchema struct {
+	Scope string `yaml:"scope"`
+	Value string `yaml:"value"`
+}
+
+var (
+	identifierRE      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	nonAlnumRE        = regexp.MustCompile(`[^A-Z0-9]+`)
+	multiUnderscoreRE = regexp.MustCompile(`_+`)
+)
 
 func main() {
 	var (
-		schemaPath   = flag.String("schema", "", "Path to JS API codegen schema YAML")
-		templatePath = flag.String("dts-template", "", "Path to geppetto.d.ts template")
-		goOutPath    = flag.String("go-out", "", "Path to generated Go file (consts_gen.go)")
-		tsOutPath    = flag.String("ts-out", "", "Path to generated TypeScript declaration file")
+		schemaPath      = flag.String("schema", "", "Path to JS API codegen schema YAML")
+		turnsSchemaPath = flag.String("turns-schema", "", "Optional path to turns codegen schema YAML for importing turns constants")
+		templatePath    = flag.String("dts-template", "", "Path to geppetto.d.ts template")
+		goOutPath       = flag.String("go-out", "", "Path to generated Go file (consts_gen.go)")
+		tsOutPath       = flag.String("ts-out", "", "Path to generated TypeScript declaration file")
 	)
 	flag.Parse()
 
@@ -57,6 +76,13 @@ func main() {
 	s, err := loadSchema(*schemaPath)
 	if err != nil {
 		fatalf("load schema: %v", err)
+	}
+	if strings.TrimSpace(*turnsSchemaPath) != "" {
+		ts, err := loadTurnsSchema(*turnsSchemaPath)
+		if err != nil {
+			fatalf("load turns schema: %v", err)
+		}
+		s.Enums = mergeEnums(s.Enums, importedTurnsEnums(ts))
 	}
 	if err := validateSchema(s); err != nil {
 		fatalf("validate schema: %v", err)
@@ -89,6 +115,119 @@ func loadSchema(path string) (*schema, error) {
 		return nil, err
 	}
 	return &s, nil
+}
+
+func loadTurnsSchema(path string) (*turnsSchema, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var s turnsSchema
+	if err := yaml.Unmarshal(b, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func importedTurnsEnums(s *turnsSchema) []enumSchema {
+	if s == nil {
+		return nil
+	}
+
+	return []enumSchema{
+		{
+			Name:   "BlockKind",
+			Doc:    "The kind of a block within a Turn (from turns schema)",
+			Values: enumValuesFromBlockKinds(s.BlockKinds),
+		},
+		{
+			Name:   "TurnDataKeys",
+			Doc:    "Canonical Turn.Data value keys (from turns schema)",
+			Values: enumValuesFromKeysByScope(s.Keys, "data"),
+		},
+		{
+			Name:   "MetadataKeys",
+			Doc:    "Standard turn metadata key names (from turns schema)",
+			Values: enumValuesFromKeysByScope(s.Keys, "turn_meta"),
+		},
+		{
+			Name:   "TurnMetadataKeys",
+			Doc:    "Canonical Turn.Metadata value keys (from turns schema)",
+			Values: enumValuesFromKeysByScope(s.Keys, "turn_meta"),
+		},
+		{
+			Name:   "BlockMetadataKeys",
+			Doc:    "Canonical Block.Metadata value keys (from turns schema)",
+			Values: enumValuesFromKeysByScope(s.Keys, "block_meta"),
+		},
+	}
+}
+
+func enumValuesFromBlockKinds(kinds []turnsBlockKindSchema) []enumValueSchema {
+	out := make([]enumValueSchema, 0, len(kinds))
+	for _, k := range kinds {
+		v := strings.TrimSpace(k.Value)
+		if v == "" {
+			continue
+		}
+		out = append(out, enumValueSchema{
+			JSKey: valueToJSKey(v),
+			Value: v,
+		})
+	}
+	return out
+}
+
+func enumValuesFromKeysByScope(keys []turnsKeySchema, scope string) []enumValueSchema {
+	out := make([]enumValueSchema, 0, len(keys))
+	for _, k := range keys {
+		if strings.TrimSpace(k.Scope) != scope {
+			continue
+		}
+		v := strings.TrimSpace(k.Value)
+		if v == "" {
+			continue
+		}
+		out = append(out, enumValueSchema{
+			JSKey: valueToJSKey(v),
+			Value: v,
+		})
+	}
+	return out
+}
+
+func mergeEnums(base, imported []enumSchema) []enumSchema {
+	if len(imported) == 0 {
+		return base
+	}
+	override := make(map[string]struct{}, len(imported))
+	for _, e := range imported {
+		override[e.Name] = struct{}{}
+	}
+
+	out := make([]enumSchema, 0, len(base)+len(imported))
+	for _, e := range base {
+		if _, ok := override[e.Name]; ok {
+			continue
+		}
+		out = append(out, e)
+	}
+	out = append(out, imported...)
+	return out
+}
+
+func valueToJSKey(v string) string {
+	s := strings.ToUpper(strings.TrimSpace(v))
+	s = nonAlnumRE.ReplaceAllString(s, "_")
+	s = multiUnderscoreRE.ReplaceAllString(s, "_")
+	s = strings.Trim(s, "_")
+	if s == "" {
+		return "VALUE"
+	}
+	if s[0] >= '0' && s[0] <= '9' {
+		return "K_" + s
+	}
+	return s
 }
 
 func validateSchema(s *schema) error {

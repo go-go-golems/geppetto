@@ -36,7 +36,22 @@ declare module "geppetto" {
             readonly ABORT: "abort";
             readonly RETRY: "retry";
         };
-        /** The kind of a block within a Turn */
+        /** Actions returned from tool hook callbacks */
+        HookAction: {
+            readonly ABORT: "abort";
+            readonly RETRY: "retry";
+            readonly CONTINUE: "continue";
+        };
+        /** Streaming event types for RunHandle.on() */
+        EventType: {
+            readonly START: "start";
+            readonly PARTIAL: "partial";
+            readonly FINAL: "final";
+            readonly TOOL_CALL: "tool-call";
+            readonly TOOL_RESULT: "tool-result";
+            readonly ERROR: "error";
+        };
+        /** The kind of a block within a Turn (from turns schema) */
         BlockKind: {
             readonly USER: "user";
             readonly LLM_TEXT: "llm_text";
@@ -46,13 +61,18 @@ declare module "geppetto" {
             readonly REASONING: "reasoning";
             readonly OTHER: "other";
         };
-        /** Actions returned from tool hook callbacks */
-        HookAction: {
-            readonly ABORT: "abort";
-            readonly RETRY: "retry";
-            readonly CONTINUE: "continue";
+        /** Canonical Turn.Data value keys (from turns schema) */
+        TurnDataKeys: {
+            readonly TOOL_CONFIG: "tool_config";
+            readonly STRUCTURED_OUTPUT_CONFIG: "structured_output_config";
+            readonly INFERENCE_CONFIG: "inference_config";
+            readonly CLAUDE_INFERENCE_CONFIG: "claude_inference_config";
+            readonly OPENAI_INFERENCE_CONFIG: "openai_inference_config";
+            readonly AGENT_MODE_ALLOWED_TOOLS: "agent_mode_allowed_tools";
+            readonly AGENT_MODE: "agent_mode";
+            readonly RESPONSES_SERVER_TOOLS: "responses_server_tools";
         };
-        /** Standard turn metadata key names */
+        /** Standard turn metadata key names (from turns schema) */
         MetadataKeys: {
             readonly PROVIDER: "provider";
             readonly RUNTIME: "runtime";
@@ -63,14 +83,24 @@ declare module "geppetto" {
             readonly STOP_REASON: "stop_reason";
             readonly MODEL: "model";
         };
-        /** Streaming event types for RunHandle.on() */
-        EventType: {
-            readonly START: "start";
-            readonly PARTIAL: "partial";
-            readonly FINAL: "final";
-            readonly TOOL_CALL: "tool-call";
-            readonly TOOL_RESULT: "tool-result";
-            readonly ERROR: "error";
+        /** Canonical Turn.Metadata value keys (from turns schema) */
+        TurnMetadataKeys: {
+            readonly PROVIDER: "provider";
+            readonly RUNTIME: "runtime";
+            readonly SESSION_ID: "session_id";
+            readonly INFERENCE_ID: "inference_id";
+            readonly TRACE_ID: "trace_id";
+            readonly USAGE: "usage";
+            readonly STOP_REASON: "stop_reason";
+            readonly MODEL: "model";
+        };
+        /** Canonical Block.Metadata value keys (from turns schema) */
+        BlockMetadataKeys: {
+            readonly CLAUDE_ORIGINAL_CONTENT: "claude_original_content";
+            readonly TOOL_CALLS: "tool_calls";
+            readonly MIDDLEWARE: "middleware";
+            readonly AGENTMODE_TAG: "agentmode_tag";
+            readonly AGENTMODE: "agentmode";
         };
     };
 

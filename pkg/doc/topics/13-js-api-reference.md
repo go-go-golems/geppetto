@@ -82,8 +82,11 @@ Generated from `pkg/js/modules/geppetto/spec/js_api_codegen.yaml`.
 | `ToolChoice` | `gp.consts.ToolChoice.AUTO` |
 | `ToolErrorHandling` | `gp.consts.ToolErrorHandling.RETRY` |
 | `BlockKind` | `gp.consts.BlockKind.TOOL_USE` |
+| `TurnDataKeys` | `gp.consts.TurnDataKeys.TOOL_CONFIG` |
 | `HookAction` | `gp.consts.HookAction.ABORT` |
 | `MetadataKeys` | `gp.consts.MetadataKeys.SESSION_ID` |
+| `TurnMetadataKeys` | `gp.consts.TurnMetadataKeys.SESSION_ID` |
+| `BlockMetadataKeys` | `gp.consts.BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT` |
 | `EventType` | `gp.consts.EventType.TOOL_RESULT` |
 
 ## `turns` Namespace

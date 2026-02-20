@@ -26,7 +26,28 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 		m.mustSet(constsObj, "ToolErrorHandling", o)
 	}
 
-	// BlockKind - The kind of a block within a Turn
+	// HookAction - Actions returned from tool hook callbacks
+	{
+		o := m.vm.NewObject()
+		m.mustSet(o, "ABORT", "abort")
+		m.mustSet(o, "RETRY", "retry")
+		m.mustSet(o, "CONTINUE", "continue")
+		m.mustSet(constsObj, "HookAction", o)
+	}
+
+	// EventType - Streaming event types for RunHandle.on()
+	{
+		o := m.vm.NewObject()
+		m.mustSet(o, "START", "start")
+		m.mustSet(o, "PARTIAL", "partial")
+		m.mustSet(o, "FINAL", "final")
+		m.mustSet(o, "TOOL_CALL", "tool-call")
+		m.mustSet(o, "TOOL_RESULT", "tool-result")
+		m.mustSet(o, "ERROR", "error")
+		m.mustSet(constsObj, "EventType", o)
+	}
+
+	// BlockKind - The kind of a block within a Turn (from turns schema)
 	{
 		o := m.vm.NewObject()
 		m.mustSet(o, "USER", "user")
@@ -39,16 +60,21 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 		m.mustSet(constsObj, "BlockKind", o)
 	}
 
-	// HookAction - Actions returned from tool hook callbacks
+	// TurnDataKeys - Canonical Turn.Data value keys (from turns schema)
 	{
 		o := m.vm.NewObject()
-		m.mustSet(o, "ABORT", "abort")
-		m.mustSet(o, "RETRY", "retry")
-		m.mustSet(o, "CONTINUE", "continue")
-		m.mustSet(constsObj, "HookAction", o)
+		m.mustSet(o, "TOOL_CONFIG", "tool_config")
+		m.mustSet(o, "STRUCTURED_OUTPUT_CONFIG", "structured_output_config")
+		m.mustSet(o, "INFERENCE_CONFIG", "inference_config")
+		m.mustSet(o, "CLAUDE_INFERENCE_CONFIG", "claude_inference_config")
+		m.mustSet(o, "OPENAI_INFERENCE_CONFIG", "openai_inference_config")
+		m.mustSet(o, "AGENT_MODE_ALLOWED_TOOLS", "agent_mode_allowed_tools")
+		m.mustSet(o, "AGENT_MODE", "agent_mode")
+		m.mustSet(o, "RESPONSES_SERVER_TOOLS", "responses_server_tools")
+		m.mustSet(constsObj, "TurnDataKeys", o)
 	}
 
-	// MetadataKeys - Standard turn metadata key names
+	// MetadataKeys - Standard turn metadata key names (from turns schema)
 	{
 		o := m.vm.NewObject()
 		m.mustSet(o, "PROVIDER", "provider")
@@ -62,16 +88,29 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 		m.mustSet(constsObj, "MetadataKeys", o)
 	}
 
-	// EventType - Streaming event types for RunHandle.on()
+	// TurnMetadataKeys - Canonical Turn.Metadata value keys (from turns schema)
 	{
 		o := m.vm.NewObject()
-		m.mustSet(o, "START", "start")
-		m.mustSet(o, "PARTIAL", "partial")
-		m.mustSet(o, "FINAL", "final")
-		m.mustSet(o, "TOOL_CALL", "tool-call")
-		m.mustSet(o, "TOOL_RESULT", "tool-result")
-		m.mustSet(o, "ERROR", "error")
-		m.mustSet(constsObj, "EventType", o)
+		m.mustSet(o, "PROVIDER", "provider")
+		m.mustSet(o, "RUNTIME", "runtime")
+		m.mustSet(o, "SESSION_ID", "session_id")
+		m.mustSet(o, "INFERENCE_ID", "inference_id")
+		m.mustSet(o, "TRACE_ID", "trace_id")
+		m.mustSet(o, "USAGE", "usage")
+		m.mustSet(o, "STOP_REASON", "stop_reason")
+		m.mustSet(o, "MODEL", "model")
+		m.mustSet(constsObj, "TurnMetadataKeys", o)
+	}
+
+	// BlockMetadataKeys - Canonical Block.Metadata value keys (from turns schema)
+	{
+		o := m.vm.NewObject()
+		m.mustSet(o, "CLAUDE_ORIGINAL_CONTENT", "claude_original_content")
+		m.mustSet(o, "TOOL_CALLS", "tool_calls")
+		m.mustSet(o, "MIDDLEWARE", "middleware")
+		m.mustSet(o, "AGENTMODE_TAG", "agentmode_tag")
+		m.mustSet(o, "AGENTMODE", "agentmode")
+		m.mustSet(constsObj, "BlockMetadataKeys", o)
 	}
 
 	m.mustSet(exports, "consts", constsObj)

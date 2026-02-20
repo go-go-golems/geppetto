@@ -1,5 +1,8 @@
 # JS API constants exported to JavaScript via gp.consts.*
 # Also used to generate TypeScript const types.
+#
+# Turns-domain groups (BlockKind, TurnDataKeys, MetadataKeys, TurnMetadataKeys,
+# BlockMetadataKeys) are imported from turns_codegen.yaml via --turns-schema.
 
 enums:
   - name: ToolChoice
@@ -28,24 +31,6 @@ enums:
         value: retry
         go_const: tools.ToolErrorRetry
 
-  - name: BlockKind
-    doc: The kind of a block within a Turn
-    values:
-      - js_key: USER
-        value: user
-      - js_key: LLM_TEXT
-        value: llm_text
-      - js_key: TOOL_CALL
-        value: tool_call
-      - js_key: TOOL_USE
-        value: tool_use
-      - js_key: SYSTEM
-        value: system
-      - js_key: REASONING
-        value: reasoning
-      - js_key: OTHER
-        value: other
-
   - name: HookAction
     doc: Actions returned from tool hook callbacks
     values:
@@ -55,26 +40,6 @@ enums:
         value: retry
       - js_key: CONTINUE
         value: continue
-
-  - name: MetadataKeys
-    doc: Standard turn metadata key names
-    values:
-      - js_key: PROVIDER
-        value: provider
-      - js_key: RUNTIME
-        value: runtime
-      - js_key: SESSION_ID
-        value: session_id
-      - js_key: INFERENCE_ID
-        value: inference_id
-      - js_key: TRACE_ID
-        value: trace_id
-      - js_key: USAGE
-        value: usage
-      - js_key: STOP_REASON
-        value: stop_reason
-      - js_key: MODEL
-        value: model
 
   - name: EventType
     doc: Streaming event types for RunHandle.on()
