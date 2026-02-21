@@ -274,15 +274,6 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 		return "assistant"
 	}
 
-	// Locate the latest reasoning block index (if any)
-	latestReasoningIdx := -1
-	for i := len(t.Blocks) - 1; i >= 0; i-- {
-		if t.Blocks[i].Kind == turns.BlockKindReasoning {
-			latestReasoningIdx = i
-			break
-		}
-	}
-
 	// Helpers
 	appendMessage := func(b turns.Block) {
 		role := roleFor(b.Kind)
@@ -330,101 +321,44 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 		}
 	}
 
-	// 1) Pre-context: all blocks before latest reasoning, skipping older reasoning.
-	//    Additionally, ensure that for the LAST assistant text preceding latest reasoning we do NOT
-	//    emit it as a role-based message, because the provider will expect the assistant text to be
-	//    item-based and follow the reasoning item immediately. We will re-emit it later as an
-	//    item-based message paired with reasoning.
-	lastAssistantBeforeReasoning := -1
-	if latestReasoningIdx > 0 {
-		for i := latestReasoningIdx - 1; i >= 0; i-- {
-			if t.Blocks[i].Kind == turns.BlockKindLLMText {
-				lastAssistantBeforeReasoning = i
-				break
-			}
+	reasoningItem := func(b turns.Block) responsesInput {
+		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
+		empty := make([]any, 0)
+		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &empty}
+		if enc != "" {
+			ri.EncryptedContent = enc
 		}
-		for i := 0; i < latestReasoningIdx; i++ {
-			b := t.Blocks[i]
-			switch b.Kind {
-			case turns.BlockKindReasoning:
-				continue
-			case turns.BlockKindLLMText:
-				// Skip the last assistant text before reasoning; it will become the follower.
-				if i == lastAssistantBeforeReasoning {
-					continue
-				}
-				appendMessage(b)
-			case turns.BlockKindToolCall:
-				appendFunctionCall(b)
-			case turns.BlockKindToolUse:
-				appendFunctionCallOutput(b)
-			case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindOther:
-				appendMessage(b)
-			}
-		}
-	} else if latestReasoningIdx == -1 {
-		// No reasoning present: just include all blocks as before
-		for _, b := range t.Blocks {
-			switch b.Kind {
-			case turns.BlockKindToolCall:
-				appendFunctionCall(b)
-			case turns.BlockKindToolUse:
-				appendFunctionCallOutput(b)
-			case turns.BlockKindUser, turns.BlockKindLLMText, turns.BlockKindSystem, turns.BlockKindReasoning, turns.BlockKindOther:
-				appendMessage(b)
-			}
-		}
-		return items
+		return ri
 	}
 
-	// 2) If a reasoning item is present, it must be immediately followed by an item-based follower
-	//    according to the Responses API: either a type:"message" (assistant output) or a type:"function_call".
-	//    We therefore emit reasoning only when we can include a valid follower right after it. When the
-	//    follower is an assistant text block, we encode it as an item-based message and later skip the
-	//    role-based rendering of that same block to avoid duplication.
-	consumedAssistantIdx := -1
-	includedReasoning := false
-	groupEndIdx := latestReasoningIdx + 1
-	if latestReasoningIdx >= 0 {
-		nextIdx := latestReasoningIdx + 1
-		if nextIdx < len(t.Blocks) {
+	// Process blocks in-order so every function_call can retain its required reasoning predecessor.
+	for i := 0; i < len(t.Blocks); i++ {
+		b := t.Blocks[i]
+		switch b.Kind {
+		case turns.BlockKindReasoning:
+			nextIdx := i + 1
+			if nextIdx >= len(t.Blocks) {
+				continue
+			}
 			next := t.Blocks[nextIdx]
 			switch next.Kind {
 			case turns.BlockKindLLMText:
-				// Emit reasoning + immediate item-based message follower
-				rb := t.Blocks[latestReasoningIdx]
-				enc, _ := rb.Payload[turns.PayloadKeyEncryptedContent].(string)
-				empty := make([]any, 0)
-				ri := responsesInput{Type: "reasoning", ID: rb.ID, Summary: &empty}
-				if enc != "" {
-					ri.EncryptedContent = enc
-				}
-				// Build item-based assistant message
 				if v, ok := next.Payload[turns.PayloadKeyText]; ok && v != nil {
 					if s, ok2 := v.(string); ok2 && strings.TrimSpace(s) != "" {
 						msgID, _ := next.Payload[turns.PayloadKeyItemID].(string)
-						items = append(items, ri)
+						items = append(items, reasoningItem(b))
 						items = append(items, responsesInput{
 							Type:    "message",
 							Role:    "assistant",
 							ID:      msgID,
 							Content: []responsesContentPart{{Type: "output_text", Text: s}},
 						})
-						includedReasoning = true
-						consumedAssistantIdx = nextIdx
-						groupEndIdx = nextIdx + 1
+						i = nextIdx
+						continue
 					}
 				}
 			case turns.BlockKindToolCall:
-				// Emit reasoning then group contiguous tool_call/tool_use items
-				rb := t.Blocks[latestReasoningIdx]
-				enc, _ := rb.Payload[turns.PayloadKeyEncryptedContent].(string)
-				empty := make([]any, 0)
-				ri := responsesInput{Type: "reasoning", ID: rb.ID, Summary: &empty}
-				if enc != "" {
-					ri.EncryptedContent = enc
-				}
-				items = append(items, ri)
+				items = append(items, reasoningItem(b))
 				j := nextIdx
 				for j < len(t.Blocks) {
 					nb := t.Blocks[j]
@@ -440,33 +374,17 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 					}
 					break
 				}
-				includedReasoning = true
-				groupEndIdx = j
+				i = j - 1
+				continue
 			case turns.BlockKindToolUse:
 				// No valid immediate follower when reasoning is followed directly by tool output.
-				// We intentionally fall through to omit reasoning.
+				// Omit reasoning to avoid provider 400s.
+				continue
 			case turns.BlockKindUser, turns.BlockKindSystem, turns.BlockKindReasoning, turns.BlockKindOther:
-				// No valid immediate follower; omit reasoning to avoid 400s.
+				// No valid immediate follower; omit reasoning to avoid provider 400s.
+				continue
 			}
-		}
-	}
-
-	// 3) Remaining blocks after the grouped segment (or after reasoning+message follower)
-	startIdx := latestReasoningIdx + 1
-	if includedReasoning {
-		startIdx = groupEndIdx
-	}
-	for k := startIdx; k < len(t.Blocks); k++ {
-		if k == consumedAssistantIdx {
-			continue
-		}
-		b := t.Blocks[k]
-		switch b.Kind {
-		case turns.BlockKindReasoning:
-			// skip any additional reasoning items
-			continue
 		case turns.BlockKindToolCall:
-			// Avoid duplicating the tool_call we already grouped with reasoning.
 			appendFunctionCall(b)
 		case turns.BlockKindToolUse:
 			appendFunctionCallOutput(b)
