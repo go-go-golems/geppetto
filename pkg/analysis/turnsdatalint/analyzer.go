@@ -37,7 +37,7 @@ var (
 // normal Go patterns like typed conversions, variables, and parameters.
 //
 // Additionally, it enforces that new typed turns keys are constructed only in key-definition files
-// (e.g. `*turnkeys/*_keys.go` or `pkg/turns/keys.go`) so the rest of the codebase consistently
+// (e.g. generated `keys_gen.go`/`turnkeys_gen.go` or app-level `*_keys.go`) so the rest of the codebase consistently
 // reuses canonical key variables.
 //
 // Note: raw string literals like turn.Data["foo"] can compile in Go because untyped string
@@ -206,17 +206,17 @@ func checkKeyConstructorCall(pass *analysis.Pass, call *ast.CallExpr) {
 
 	pass.Reportf(
 		call.Lparen,
-		`do not call turns.%s outside key-definition files (define canonical keys in *turnkeys/*_keys.go or geppetto/pkg/turns/keys.go)`,
+		`do not call turns.%s outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)`,
 		fn.Name(),
 	)
 }
 
 func isAllowedKeyConstructorFile(filename string) bool {
-	// Canonical geppetto key-definition files.
-	if strings.HasSuffix(filename, "/geppetto/pkg/turns/keys.go") {
+	// Canonical geppetto generated key-definition files.
+	if strings.HasSuffix(filename, "/geppetto/pkg/turns/keys_gen.go") {
 		return true
 	}
-	if strings.HasSuffix(filename, "/geppetto/pkg/inference/engine/turnkeys.go") {
+	if strings.HasSuffix(filename, "/geppetto/pkg/inference/engine/turnkeys_gen.go") {
 		return true
 	}
 

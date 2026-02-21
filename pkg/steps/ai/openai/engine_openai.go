@@ -56,7 +56,7 @@ func (e *OpenAIEngine) RunInference(
 		return nil, err
 	}
 
-	req, err := MakeCompletionRequestFromTurn(e.settings, t)
+	req, err := e.MakeCompletionRequestFromTurn(t)
 	if err != nil {
 		return nil, err
 	}

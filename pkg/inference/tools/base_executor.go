@@ -10,6 +10,23 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 )
 
+type currentToolCallKey struct{}
+
+// WithCurrentToolCall annotates context with the current tool call for executor hook consumers.
+func WithCurrentToolCall(ctx context.Context, call ToolCall) context.Context {
+	return context.WithValue(ctx, currentToolCallKey{}, call)
+}
+
+// CurrentToolCallFromContext returns the current tool call if available.
+func CurrentToolCallFromContext(ctx context.Context) (ToolCall, bool) {
+	if ctx == nil {
+		return ToolCall{}, false
+	}
+	v := ctx.Value(currentToolCallKey{})
+	call, ok := v.(ToolCall)
+	return call, ok
+}
+
 // ToolExecutorExt defines lifecycle hooks that can be overridden.
 type ToolExecutorExt interface {
 	// PreExecute may mutate the call (e.g., inject auth) or reject it.
@@ -128,6 +145,7 @@ func (b *BaseToolExecutor) ExecuteToolCall(ctx context.Context, call ToolCall, r
 	if err != nil {
 		return &ToolResult{ID: call.ID, Error: err.Error(), Duration: time.Since(start)}, nil
 	}
+	ctx = WithCurrentToolCall(ctx, call)
 
 	// Lookup + allow checks
 	def, err := registry.GetTool(call.Name)

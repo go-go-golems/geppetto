@@ -67,7 +67,7 @@ In current Geppetto, `Turn.Data`, `Turn.Metadata`, and `Block.Metadata` are wrap
 
 - **Run.Metadata** (`map[turns.RunMetadataKey]any`): key expression must have type `turns.RunMetadataKey` (no raw string literals; no untyped string const identifiers)
 - **Block.Payload** (`map[string]any`): key must be a **const string** (no raw literals; no variables)
-- **Key constructor locality**: `turns.DataK/TurnMetaK/BlockMetaK` calls are only allowed in `*_keys.go`, `geppetto/pkg/turns/keys.go`, `geppetto/pkg/inference/engine/turnkeys.go`, and tests.
+- **Key constructor locality**: `turns.DataK/TurnMetaK/BlockMetaK` calls are only allowed in generated canonical key files (`geppetto/pkg/turns/keys_gen.go`, `geppetto/pkg/inference/engine/turnkeys_gen.go`), app-level `*_keys.go`, and tests.
 
 **Allowed examples (high-level):**
 - `b.Payload[turns.PayloadKeyText]`
@@ -134,4 +134,3 @@ If you want to bundle Geppetto’s analyzers plus your own analyzers, create you
   - `multichecker.Main(turnsdatalint.Analyzer, yourlint.Analyzer, ...)`
 - **Import**:
   - `github.com/go-go-golems/geppetto/pkg/analysis/turnsdatalint`
-

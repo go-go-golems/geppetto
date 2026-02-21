@@ -163,6 +163,30 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		model.GenerationConfig = cfg
 	}
 
+	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	if infCfg := engine.ResolveInferenceConfig(t, e.settings.Inference); infCfg != nil {
+		if infCfg.Temperature != nil {
+			v := float32(*infCfg.Temperature)
+			model.Temperature = &v
+		}
+		if infCfg.TopP != nil {
+			v := float32(*infCfg.TopP)
+			model.TopP = &v
+		}
+		if infCfg.MaxResponseTokens != nil {
+			mt := *infCfg.MaxResponseTokens
+			var v int32
+			if mt < 0 {
+				v = 0
+			} else if mt > int(math.MaxInt32) {
+				v = math.MaxInt32
+			} else {
+				v = int32(int64(mt)) // #nosec G115
+			}
+			model.MaxOutputTokens = &v
+		}
+	}
+
 	// Attach tools from context if present (tools + minimal parameters when safe).
 	registry, _ := tools.RegistryFrom(ctx)
 	if registry != nil {

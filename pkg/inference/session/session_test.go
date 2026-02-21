@@ -59,6 +59,34 @@ func TestSession_StartInference_MutatesLatestTurnOnSuccess(t *testing.T) {
 	require.GreaterOrEqual(t, len(seed.Blocks), 2)
 }
 
+func TestSession_StartInference_InjectsSessionMetaIntoContext(t *testing.T) {
+	var (
+		seenSessionID   string
+		seenInferenceID string
+	)
+	s := &Session{
+		SessionID: "sess-meta",
+		Builder: fakeBuilder{build: func(ctx context.Context, sessionID string) (InferenceRunner, error) {
+			return fakeRunner{run: func(ctx context.Context, in *turns.Turn) (*turns.Turn, error) {
+				seenSessionID = SessionIDFromContext(ctx)
+				seenInferenceID = InferenceIDFromContext(ctx)
+				turns.AppendBlock(in, turns.NewAssistantTextBlock("ok"))
+				return in, nil
+			}}, nil
+		}},
+	}
+
+	_, err := s.AppendNewTurnFromUserPrompt("hi")
+	require.NoError(t, err)
+
+	h, err := s.StartInference(context.Background())
+	require.NoError(t, err)
+	_, err = h.Wait()
+	require.NoError(t, err)
+	require.Equal(t, "sess-meta", seenSessionID)
+	require.Equal(t, h.InferenceID, seenInferenceID)
+}
+
 func TestSession_StartInference_Cancel(t *testing.T) {
 	s := &Session{
 		SessionID: "sess-2",
