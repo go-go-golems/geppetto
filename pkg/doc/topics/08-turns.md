@@ -145,7 +145,7 @@ Geppetto uses typed keys for all store access to prevent drift and typos. Three 
 - `turns.TurnMetaKey[T]` for `Turn.Metadata`
 - `turns.BlockMetaKey[T]` for `Block.Metadata`
 
-Keys are defined in key-definition files (e.g., `geppetto/pkg/turns/keys.go` and `geppetto/pkg/inference/engine/turnkeys.go`) and accessed via methods:
+Keys are defined in generated key-definition files (e.g., `geppetto/pkg/turns/keys_gen.go` and `geppetto/pkg/inference/engine/turnkeys_gen.go`) and accessed via methods:
 
 ```go
 // Setting a value

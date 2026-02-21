@@ -444,8 +444,12 @@ func extractResults(results []reflect.Value) (interface{}, error) {
 
 	if len(results) == 1 {
 		result := results[0].Interface()
+		resultType := "<nil>"
+		if rt := reflect.TypeOf(result); rt != nil {
+			resultType = rt.String()
+		}
 		log.Debug().
-			Str("result_type", reflect.TypeOf(result).String()).
+			Str("result_type", resultType).
 			Msg("tools: returning single result")
 		return result, nil
 	}
@@ -453,9 +457,13 @@ func extractResults(results []reflect.Value) (interface{}, error) {
 	if len(results) == 2 {
 		result := results[0].Interface()
 		errInterface := results[1].Interface()
+		resultType := "<nil>"
+		if rt := reflect.TypeOf(result); rt != nil {
+			resultType = rt.String()
+		}
 
 		log.Debug().
-			Str("result_type", reflect.TypeOf(result).String()).
+			Str("result_type", resultType).
 			Bool("error_is_nil", errInterface == nil).
 			Msg("tools: processing two results")
 

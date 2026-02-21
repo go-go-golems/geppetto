@@ -28,7 +28,8 @@ If you're new to Geppetto, read these docs in order:
 
 1. **[Turns and Blocks](08-turns.md)** — The core data model. Understand this first.
 2. **[Inference Engines](06-inference-engines.md)** — How to run inference against AI providers.
-3. **[Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md)** — Build your first streaming command.
+3. **[JS API Getting Started](../tutorials/05-js-api-getting-started.md)** — Step-by-step tutorial for the JavaScript API.
+4. **[Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md)** — Build your first streaming command.
 
 After that, explore based on what you need:
 
@@ -45,6 +46,8 @@ After that, explore based on what you need:
 | [Tools](07-tools.md) | Defining tools, registering them, and executing tool calls. |
 | [Events and Streaming](04-events.md) | Real-time event delivery, Watermill routing, and printers. |
 | [Middlewares](09-middlewares.md) | Adding cross-cutting behavior (logging, tool execution) around inference. |
+| [JS API Reference](13-js-api-reference.md) | Exhaustive contract for `require(\"geppetto\")` namespaces and options. |
+| [JS API User Guide](14-js-api-user-guide.md) | Practical composition patterns for sessions, middlewares, tools, and hooks. |
 
 ## Configuration and Setup
 
@@ -62,6 +65,7 @@ After that, explore based on what you need:
 | [Event Routing and Structured Logging](../tutorials/02-event-routing-and-structured-logging.md) | Multiple event handlers with JSON logging and metrics. |
 | [Embeddings Workflows](../tutorials/03-embeddings-workflows.md) | Semantic search with caching and batch processing. |
 | [Structured Data Extraction](../tutorials/04-structured-data-extraction.md) | Extract structured data from streaming output in real-time. |
+| [JS API Getting Started](../tutorials/05-js-api-getting-started.md) | End-to-end walkthrough of turns, sessions, tools, and hooks from JavaScript. |
 
 ## Playbooks
 

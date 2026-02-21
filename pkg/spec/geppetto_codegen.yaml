@@ -1,0 +1,244 @@
+version: 1
+namespace: geppetto
+
+# Paths are relative to this schema file.
+outputs:
+  turns_block_kind_go: ../turns/block_kind_gen.go
+  turns_keys_go: ../turns/keys_gen.go
+  engine_turnkeys_go: ../inference/engine/turnkeys_gen.go
+  turns_dts: ../doc/types/turns.d.ts
+  geppetto_consts_go: ../js/modules/geppetto/consts_gen.go
+  geppetto_dts: ../doc/types/geppetto.d.ts
+
+templates:
+  turns_dts: ../turns/spec/turns.d.ts.tmpl
+  geppetto_dts: ../js/modules/geppetto/spec/geppetto.d.ts.tmpl
+
+block_kinds:
+  - const: BlockKindUser
+    value: user
+  - const: BlockKindLLMText
+    value: llm_text
+  - const: BlockKindToolCall
+    value: tool_call
+  - const: BlockKindToolUse
+    value: tool_use
+  - const: BlockKindSystem
+    value: system
+  - const: BlockKindReasoning
+    value: reasoning
+  - const: BlockKindOther
+    value: other
+
+key_families:
+  data:
+    - value_const: ToolConfigValueKey
+      value: tool_config
+      typed_key: KeyToolConfig
+      type_expr: ToolConfig
+      typed_owner: engine
+    - value_const: StructuredOutputConfigValueKey
+      value: structured_output_config
+      typed_key: KeyStructuredOutputConfig
+      type_expr: StructuredOutputConfig
+      typed_owner: engine
+    - value_const: InferenceConfigValueKey
+      value: inference_config
+      typed_key: KeyInferenceConfig
+      type_expr: InferenceConfig
+      typed_owner: engine
+    - value_const: ClaudeInferenceConfigValueKey
+      value: claude_inference_config
+      typed_key: KeyClaudeInferenceConfig
+      type_expr: ClaudeInferenceConfig
+      typed_owner: engine
+    - value_const: OpenAIInferenceConfigValueKey
+      value: openai_inference_config
+      typed_key: KeyOpenAIInferenceConfig
+      type_expr: OpenAIInferenceConfig
+      typed_owner: engine
+    - value_const: AgentModeAllowedToolsValueKey
+      value: agent_mode_allowed_tools
+      typed_key: KeyAgentModeAllowedTools
+      type_expr: "[]string"
+      typed_owner: turns
+    - value_const: AgentModeValueKey
+      value: agent_mode
+      typed_key: KeyAgentMode
+      type_expr: string
+      typed_owner: turns
+    - value_const: ResponsesServerToolsValueKey
+      value: responses_server_tools
+      typed_key: KeyResponsesServerTools
+      type_expr: "[]any"
+      typed_owner: turns
+
+  turn_meta:
+    - value_const: TurnMetaProviderValueKey
+      value: provider
+      typed_key: KeyTurnMetaProvider
+      type_expr: string
+      typed_owner: turns
+    - value_const: TurnMetaRuntimeValueKey
+      value: runtime
+      typed_key: KeyTurnMetaRuntime
+      type_expr: any
+      typed_owner: turns
+    - value_const: TurnMetaSessionIDValueKey
+      value: session_id
+      typed_key: KeyTurnMetaSessionID
+      type_expr: string
+      typed_owner: turns
+    - value_const: TurnMetaInferenceIDValueKey
+      value: inference_id
+      typed_key: KeyTurnMetaInferenceID
+      type_expr: string
+      typed_owner: turns
+    - value_const: TurnMetaTraceIDValueKey
+      value: trace_id
+      typed_key: KeyTurnMetaTraceID
+      type_expr: string
+      typed_owner: turns
+    - value_const: TurnMetaUsageValueKey
+      value: usage
+      typed_key: KeyTurnMetaUsage
+      type_expr: any
+      typed_owner: turns
+    - value_const: TurnMetaStopReasonValueKey
+      value: stop_reason
+      typed_key: KeyTurnMetaStopReason
+      type_expr: string
+      typed_owner: turns
+    - value_const: TurnMetaModelValueKey
+      value: model
+      typed_key: KeyTurnMetaModel
+      type_expr: string
+      typed_owner: turns
+
+  block_meta:
+    - value_const: BlockMetaClaudeOriginalContentValueKey
+      value: claude_original_content
+      typed_key: KeyBlockMetaClaudeOriginalContent
+      type_expr: any
+      typed_owner: turns
+    - value_const: BlockMetaToolCallsValueKey
+      value: tool_calls
+      typed_key: KeyBlockMetaToolCalls
+      type_expr: any
+      typed_owner: turns
+    - value_const: BlockMetaMiddlewareValueKey
+      value: middleware
+      typed_key: KeyBlockMetaMiddleware
+      type_expr: string
+      typed_owner: turns
+    - value_const: BlockMetaAgentModeTagValueKey
+      value: agentmode_tag
+      typed_key: KeyBlockMetaAgentModeTag
+      type_expr: string
+      typed_owner: turns
+    - value_const: BlockMetaAgentModeValueKey
+      value: agentmode
+      typed_key: KeyBlockMetaAgentMode
+      type_expr: string
+      typed_owner: turns
+
+  run_meta:
+    - value_const: RunMetaKeyTraceID
+      value: trace_id
+      const_type: RunMetadataKey
+
+  payload:
+    - value_const: PayloadKeyText
+      value: text
+    - value_const: PayloadKeyID
+      value: id
+    - value_const: PayloadKeyName
+      value: name
+    - value_const: PayloadKeyArgs
+      value: args
+    - value_const: PayloadKeyResult
+      value: result
+    - value_const: PayloadKeyError
+      value: error
+    - value_const: PayloadKeyImages
+      value: images
+    - value_const: PayloadKeyEncryptedContent
+      value: encrypted_content
+    - value_const: PayloadKeyItemID
+      value: item_id
+
+js_enums:
+  - name: ToolChoice
+    doc: How the model should choose tools
+    values:
+      - js_key: AUTO
+        value: auto
+      - js_key: NONE
+        value: none
+      - js_key: REQUIRED
+        value: required
+
+  - name: ToolErrorHandling
+    doc: How to handle tool execution errors
+    values:
+      - js_key: CONTINUE
+        value: continue
+      - js_key: ABORT
+        value: abort
+      - js_key: RETRY
+        value: retry
+
+  - name: HookAction
+    doc: Actions returned from tool hook callbacks
+    values:
+      - js_key: ABORT
+        value: abort
+      - js_key: RETRY
+        value: retry
+      - js_key: CONTINUE
+        value: continue
+
+  - name: EventType
+    doc: Streaming event types for RunHandle.on()
+    values:
+      - js_key: START
+        value: start
+      - js_key: PARTIAL
+        value: partial
+      - js_key: FINAL
+        value: final
+      - js_key: TOOL_CALL
+        value: tool-call
+      - js_key: TOOL_RESULT
+        value: tool-result
+      - js_key: ERROR
+        value: error
+
+js_exports:
+  const_groups:
+    - name: BlockKind
+      doc: The kind of a block within a Turn
+      source: block_kinds
+    - name: TurnDataKeys
+      doc: Canonical Turn.Data value keys
+      source: key_family:data
+    - name: TurnMetadataKeys
+      doc: Canonical Turn.Metadata value keys
+      source: key_family:turn_meta
+    - name: BlockMetadataKeys
+      doc: Canonical Block.Metadata value keys
+      source: key_family:block_meta
+    - name: RunMetadataKeys
+      doc: Canonical Run.Metadata value keys
+      source: key_family:run_meta
+    - name: PayloadKeys
+      doc: Canonical Block.Payload key names
+      source: key_family:payload
+    - name: ToolChoice
+      source: js_enum:ToolChoice
+    - name: ToolErrorHandling
+      source: js_enum:ToolErrorHandling
+    - name: HookAction
+      source: js_enum:HookAction
+    - name: EventType
+      source: js_enum:EventType
