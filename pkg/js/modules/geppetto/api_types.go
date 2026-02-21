@@ -7,10 +7,12 @@ import (
 	"sync"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -31,6 +33,9 @@ type builderRef struct {
 	toolCfg      *tools.ToolConfig
 	toolExecutor tools.ToolExecutor
 	toolHooks    *jsToolHooks
+	eventSinks   []events.EventSink
+	snapshotHook toolloop.SnapshotHook
+	persister    enginebuilder.TurnPersister
 }
 
 type sessionRef struct {

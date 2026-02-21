@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
@@ -63,6 +64,34 @@ func (m *moduleRuntime) applyBuilderOptions(b *builderRef, v goja.Value) error {
 		}
 		b.toolHooks = hooks
 	}
+	if persisterRaw := obj.Get("persister"); persisterRaw != nil && !goja.IsUndefined(persisterRaw) && !goja.IsNull(persisterRaw) {
+		persister, err := m.requireTurnPersister(persisterRaw)
+		if err != nil {
+			return err
+		}
+		b.persister = persister
+	}
+	if sinksRaw := obj.Get("eventSinks"); sinksRaw != nil && !goja.IsUndefined(sinksRaw) && !goja.IsNull(sinksRaw) {
+		sinks, err := m.decodeEventSinksValue(sinksRaw)
+		if err != nil {
+			return err
+		}
+		b.eventSinks = append(b.eventSinks, sinks...)
+	}
+	if sinkRaw := obj.Get("eventSink"); sinkRaw != nil && !goja.IsUndefined(sinkRaw) && !goja.IsNull(sinkRaw) {
+		sink, err := m.requireEventSink(sinkRaw)
+		if err != nil {
+			return err
+		}
+		b.eventSinks = append(b.eventSinks, sink)
+	}
+	if snapshotHookRaw := obj.Get("snapshotHook"); snapshotHookRaw != nil && !goja.IsUndefined(snapshotHookRaw) && !goja.IsNull(snapshotHookRaw) {
+		hook, err := m.requireSnapshotHook(snapshotHookRaw)
+		if err != nil {
+			return err
+		}
+		b.snapshotHook = hook
+	}
 	if b.toolHooks != nil && b.toolExecutor == nil {
 		cfg := tools.DefaultToolConfig()
 		if b.toolCfg != nil {
@@ -71,6 +100,42 @@ func (m *moduleRuntime) applyBuilderOptions(b *builderRef, v goja.Value) error {
 		b.toolExecutor = newJSToolHookExecutor(m, cfg, b.toolHooks)
 	}
 	return nil
+}
+
+func (m *moduleRuntime) decodeEventSinksValue(v goja.Value) ([]events.EventSink, error) {
+	if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+		return nil, nil
+	}
+	obj := v.ToObject(m.vm)
+	if obj == nil {
+		sink, err := m.requireEventSink(v)
+		if err != nil {
+			return nil, err
+		}
+		return []events.EventSink{sink}, nil
+	}
+	lengthVal := obj.Get("length")
+	if lengthVal == nil || goja.IsUndefined(lengthVal) {
+		sink, err := m.requireEventSink(v)
+		if err != nil {
+			return nil, err
+		}
+		return []events.EventSink{sink}, nil
+	}
+	n := int(lengthVal.ToInteger())
+	out := make([]events.EventSink, 0, n)
+	for i := 0; i < n; i++ {
+		item := obj.Get(fmt.Sprintf("%d", i))
+		if item == nil || goja.IsUndefined(item) || goja.IsNull(item) {
+			continue
+		}
+		sink, err := m.requireEventSink(item)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, sink)
+	}
+	return out, nil
 }
 
 func toBool(v any, def bool) bool {

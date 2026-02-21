@@ -160,6 +160,9 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 | `withTools` | `withTools(registry, toolLoopOpts?)` | Attach tools + loop config |
 | `withToolLoop` | `withToolLoop(opts)` | Configure loop directly |
 | `withToolHooks` | `withToolHooks(hooks)` | Lifecycle hook registration |
+| `withPersister` | `withPersister(persister)` | Attach a turn persister hook |
+| `withEventSink` | `withEventSink(eventSink)` | Append an event sink hook |
+| `withSnapshotHook` | `withSnapshotHook(snapshotHook)` | Attach a snapshot hook |
 | `buildSession` | `buildSession()` | Materialize session |
 
 ## `middlewares` Namespace
@@ -242,6 +245,27 @@ JS tool spec fields:
 - Hook payloads (`beforeToolCall`, `afterToolCall`, `onToolError`) include:
   - `sessionId`, `inferenceId`
   - optional `tags`
+
+## Storage and Event Recording Hooks
+
+The builder also accepts runtime hook references so host applications can persist
+turns and project timeline/event streams.
+
+Object options on `createBuilder(...)`, `createSession(...)`, and
+`runInference(..., opts)`:
+
+| Option | Type | Meaning |
+|---|---|---|
+| `persister` | `TurnPersister` | called to persist final turns |
+| `eventSinks` | `EventSink[]` | sinks receiving runtime events |
+| `eventSink` | `EventSink` | singular sink convenience key |
+| `snapshotHook` | `SnapshotHook` | receives phase-tagged turn snapshots |
+
+Equivalent chainable methods:
+
+- `builder.withPersister(persister)`
+- `builder.withEventSink(eventSink)` (call repeatedly for multiple sinks)
+- `builder.withSnapshotHook(snapshotHook)`
 
 ## Run Options and RunHandle
 
