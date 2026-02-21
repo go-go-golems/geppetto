@@ -390,3 +390,99 @@ make: *** [Makefile:68: gosec] Error 1
 - Guard pattern used:
   - unsigned: compare against `uint64(maxInt)` before cast
   - signed/float: compare against `[minInt, maxInt]` before cast
+
+## Step 5: Remove second full non-stream envelope unmarshal (review follow-up)
+
+I implemented the review feedback about memory pressure in the non-stream path. Previously we unmarshaled the same full response body twice: once into `responsesResponse` and again into a generic `map[string]any` only to read usage fields.
+
+The new approach keeps a single full decode into `responsesResponse` and parses usage from `json.RawMessage` fields (`usage` and fallback `response.usage`) so we only do a second decode for the small usage subtree.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Going back to geppetto: 
+
+
+pkg/steps/ai/openai_responses/engine.go
+Comment on lines +800 to 802
+	var rawEnvelope map[string]any
+	if err := json.Unmarshal(rawResponse, &rawEnvelope); err != nil {
+		return nil, err
+@chatgpt-codex-connector
+chatgpt-codex-connector bot
+now
+
+P2 Badge Parse non-stream responses without a second full unmarshal
+
+The non-streaming branch now reads the entire body into rawResponse and then unmarshals it into both responsesResponse and a generic map[string]any; this means large completions are materialized multiple times (raw bytes + typed struct + generic map), which can noticeably increase peak memory and cause OOMs under high-token outputs or concurrent requests. Since this change only needs usage metadata, prefer decoding usage via typed fields (or a small auxiliary struct) instead of building a second full envelope map.
+
+Useful? React with 👍 / 👎.
+@wesen"
+
+**Assistant interpretation:** Refactor non-stream usage parsing to avoid decoding the full response into a generic envelope map, while preserving cached token metadata behavior.
+
+**Inferred user intent:** Resolve review concern by reducing avoidable memory amplification in large non-stream responses.
+
+**Commit (code):** `e489ab2c883a601bf6e1c10f0af882530f0e3564` — "openai_responses: avoid full envelope unmarshal for non-stream usage"
+
+### What I did
+
+- Extended response types in:
+  - `pkg/steps/ai/openai_responses/helpers.go`
+  - Added `Usage json.RawMessage` and nested `Response.Usage json.RawMessage`.
+- Refactored non-stream path in:
+  - `pkg/steps/ai/openai_responses/engine.go`
+  - Removed `rawEnvelope map[string]any` full unmarshal.
+  - Added `parseUsageTotalsFromResponse(...)` and `parseUsageTotalsFromRawUsage(...)`.
+  - Non-stream metadata now resolves usage from typed response fields only.
+- Added regression coverage in:
+  - `pkg/steps/ai/openai_responses/engine_test.go`
+  - New test: `TestParseUsageTotalsFromResponse_NestedResponseUsage`.
+- Ran:
+  - `GOCACHE=/tmp/go-build-cache go test ./pkg/steps/ai/openai_responses -count=1`
+  - `gosec ./pkg/steps/ai/openai_responses/...`
+  - pre-commit full checks (`go test ./...`, lint, vet) via commit hook.
+
+### Why
+
+- Full second unmarshal into `map[string]any` duplicates large payload structures unnecessarily.
+- This path only needs usage metadata, so usage-only decoding is sufficient.
+
+### What worked
+
+- Behavior for top-level `usage` and nested `response.usage` is preserved.
+- Tests and security checks passed after refactor.
+
+### What didn't work
+
+- No blocking failures in this step.
+
+### What I learned
+
+- `json.RawMessage` is an effective middle ground here: it preserves one typed decode pass while enabling targeted subtree parsing.
+
+### What was tricky to build
+
+- Needed to preserve existing fallback behavior (`usage` vs `response.usage`) while eliminating the generic envelope decode.
+
+### What warrants a second pair of eyes
+
+- Confirm whether we should also add a benchmark for non-stream responses to quantify memory reduction in CI/perf tooling.
+
+### What should be done in the future
+
+- If additional metadata fields are needed, prefer adding targeted raw/typed fields rather than broad `map[string]any` envelope decoding.
+
+### Code review instructions
+
+- Review non-stream section around response decode and usage assignment in `pkg/steps/ai/openai_responses/engine.go`.
+- Review `responsesResponse` additions in `pkg/steps/ai/openai_responses/helpers.go`.
+- Review nested usage fallback test in `pkg/steps/ai/openai_responses/engine_test.go`.
+
+### Technical details
+
+- Old path:
+  - full `rawResponse -> responsesResponse`
+  - full `rawResponse -> map[string]any` (removed)
+- New path:
+  - full `rawResponse -> responsesResponse`
+  - usage-only `json.RawMessage -> map[string]any` (small subtree decode)

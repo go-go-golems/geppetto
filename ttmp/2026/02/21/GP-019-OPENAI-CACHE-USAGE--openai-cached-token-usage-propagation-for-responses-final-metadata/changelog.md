@@ -13,3 +13,7 @@
   - Code commit: `bcbe17d5c5d0f4ee4534270785b4e87384a72975`
   - Added bounds checks before converting float/int/uint values to `int` in `toInt(...)`
   - Re-ran targeted tests and `gosec` for `pkg/steps/ai/openai_responses` (0 issues)
+- Review-driven optimization: non-stream usage parsing no longer performs a second full envelope unmarshal
+  - Code commit: `e489ab2c883a601bf6e1c10f0af882530f0e3564`
+  - Kept one full decode into `responsesResponse` and parsed `usage` via `json.RawMessage`
+  - Added regression test for nested `response.usage` parsing
