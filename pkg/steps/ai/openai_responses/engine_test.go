@@ -2,6 +2,7 @@ package openai_responses
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -430,5 +431,32 @@ func TestRunInference_NonStreamingUsageIncludesCachedTokens(t *testing.T) {
 	}
 	if reasoningTokens != 2 {
 		t.Fatalf("expected reasoning_tokens=2 in metadata extra, got %d", reasoningTokens)
+	}
+}
+
+func TestParseUsageTotalsFromResponse_NestedResponseUsage(t *testing.T) {
+	rr := responsesResponse{
+		Response: &responsesResponseNested{
+			Usage: json.RawMessage(`{
+  "input_tokens": 9,
+  "output_tokens": 4,
+  "input_tokens_details": {"cached_tokens": 3},
+  "output_tokens_details": {"reasoning_tokens": 1}
+}`),
+		},
+	}
+
+	totals, ok := parseUsageTotalsFromResponse(rr)
+	if !ok {
+		t.Fatalf("expected usage totals from nested response.usage")
+	}
+	if totals.inputTokens != 9 || totals.outputTokens != 4 || totals.cachedTokens != 3 || totals.reasoningTokens != 1 {
+		t.Fatalf(
+			"unexpected totals: input=%d output=%d cached=%d reasoning=%d",
+			totals.inputTokens,
+			totals.outputTokens,
+			totals.cachedTokens,
+			totals.reasoningTokens,
+		)
 	}
 }

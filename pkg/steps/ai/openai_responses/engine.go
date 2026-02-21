@@ -797,10 +797,6 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	if err := json.Unmarshal(rawResponse, &rr); err != nil {
 		return nil, err
 	}
-	var rawEnvelope map[string]any
-	if err := json.Unmarshal(rawResponse, &rawEnvelope); err != nil {
-		return nil, err
-	}
 	var message string
 	latestMessageItemID := ""
 	for _, oi := range rr.Output {
@@ -831,7 +827,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		turns.AppendBlock(t, ab)
 	}
-	if totals, ok := parseUsageTotalsFromEnvelope(rawEnvelope); ok {
+	if totals, ok := parseUsageTotalsFromResponse(rr); ok {
 		if totals.inputTokens > 0 || totals.outputTokens > 0 || totals.cachedTokens > 0 {
 			if metadata.Usage == nil {
 				metadata.Usage = &events.Usage{}
@@ -873,6 +869,29 @@ func parseUsageTotalsFromEnvelope(envelope map[string]any) (usageTotals, bool) {
 		}
 	}
 	if !ok || usage == nil {
+		return usageTotals{}, false
+	}
+	return parseUsageTotals(usage), true
+}
+
+func parseUsageTotalsFromResponse(resp responsesResponse) (usageTotals, bool) {
+	if totals, ok := parseUsageTotalsFromRawUsage(resp.Usage); ok {
+		return totals, true
+	}
+	if resp.Response != nil {
+		if totals, ok := parseUsageTotalsFromRawUsage(resp.Response.Usage); ok {
+			return totals, true
+		}
+	}
+	return usageTotals{}, false
+}
+
+func parseUsageTotalsFromRawUsage(raw json.RawMessage) (usageTotals, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return usageTotals{}, false
+	}
+	var usage map[string]any
+	if err := json.Unmarshal(raw, &usage); err != nil {
 		return usageTotals{}, false
 	}
 	return parseUsageTotals(usage), true
