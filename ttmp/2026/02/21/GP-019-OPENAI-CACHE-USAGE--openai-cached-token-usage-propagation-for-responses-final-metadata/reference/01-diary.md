@@ -274,3 +274,119 @@ I kept code and documentation commits separated for review clarity: first commit
 - Key tests:
   - `pkg/steps/ai/openai_responses/engine_test.go:113`
   - `pkg/steps/ai/openai_responses/engine_test.go:343`
+
+## Step 4: Fix gosec G115 overflow findings in numeric usage conversion
+
+I addressed the follow-up security lint failure reported by `gosec` after the cached-usage implementation landed. The issue was valid: unsigned numeric branches in `toInt(...)` could overflow when converting to `int`.
+
+The fix hardens all conversion branches with explicit bounds checks so out-of-range values are rejected (`ok=false`) rather than truncated by cast.
+
+### Prompt Context
+
+**User prompt (verbatim):** "[gosec] 2026/02/21 18:17:01 Checking package: main
+[gosec] 2026/02/21 18:17:01 Checking file: /home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/cmd/examples/middleware-inference/main.go
+[gosec] 2026/02/21 18:17:01 Checking package: main
+[gosec] 2026/02/21 18:17:01 Checking file: /home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/cmd/examples/openai-tools/main.go
+[gosec] 2026/02/21 18:17:01 Checking package: main
+[gosec] 2026/02/21 18:17:01 Checking file: /home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/cmd/examples/simple-inference/main.go
+[gosec] 2026/02/21 18:17:01 Checking package: main
+[gosec] 2026/02/21 18:17:01 Checking file: /home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/cmd/examples/geppetto-js-lab/main.go
+[gosec] 2026/02/21 18:17:01 Checking package: factory
+[gosec] 2026/02/21 18:17:01 Checking file: /home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/pkg/inference/engine/factory/factory.go
+[gosec] 2026/02/21 18:17:01 Checking file: /home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/pkg/inference/engine/factory/helpers.go
+Results:
+
+
+[/home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/pkg/steps/ai/openai_responses/engine.go:923] - G115 (CWE-190): integer overflow conversion uint64 -> int (Confidence: MEDIUM, Severity: HIGH)
+    922: 	case uint64:
+  > 923: 		return int(x), true
+    924: 	default:
+
+Autofix: 
+
+[/home/manuel/workspaces/2026-02-21/hypercard-qol/geppetto/pkg/steps/ai/openai_responses/engine.go:919] - G115 (CWE-190): integer overflow conversion uint -> int (Confidence: MEDIUM, Severity: HIGH)
+    918: 	case uint:
+  > 919: 		return int(x), true
+    920: 	case uint32:
+
+Autofix: 
+
+Summary:
+  Gosec  : dev
+  Files  : 139
+  Lines  : 26607
+  Nosec  : 10
+  Issues : 2
+
+make: *** [Makefile:68: gosec] Error 1
+
+                                      
+  ────────────────────────────────────"
+
+**Assistant interpretation:** Patch the unsafe conversions in `toInt(...)` to satisfy G115 and rerun validation.
+
+**Inferred user intent:** Remove security/lint blockers introduced by the cached-usage work while preserving behavior.
+
+**Commit (code):** `bcbe17d5c5d0f4ee4534270785b4e87384a72975` — "openai_responses: guard usage int conversions against overflow"
+
+### What I did
+
+- Updated conversion helper in:
+  - `pkg/steps/ai/openai_responses/engine.go`
+- Added explicit `int` bounds checks (`maxInt`, `minInt`) for:
+  - `float64`, `float32`
+  - `int64`
+  - `uint`, `uint32`, `uint64`
+- Kept return contract unchanged:
+  - valid in-range value => `(intValue, true)`
+  - out-of-range value => `(0, false)`
+- Re-ran:
+  - `GOCACHE=/tmp/go-build-cache go test ./pkg/steps/ai/openai_responses -count=1`
+  - `gosec ./pkg/steps/ai/openai_responses/...`
+- Pre-commit hooks also passed:
+  - `go test ./...`
+  - lint/vet checks
+
+### Why
+
+- G115 flagged real overflow risk for unsigned-to-int casts.
+- This parser handles provider metadata, so it should fail-safe on malformed or extreme values.
+
+### What worked
+
+- `gosec` now reports `Issues : 0` for the package.
+- Targeted and pre-commit checks passed after the fix.
+
+### What didn't work
+
+- No blocking failures in this step.
+
+### What I learned
+
+- Even though JSON numbers usually arrive as `float64`, keeping overflow-safe branches for integer-typed inputs avoids future regressions when map construction paths differ.
+
+### What was tricky to build
+
+- The main detail was preserving permissive parsing behavior (best-effort parsing, no hard failure) while eliminating unsafe casts.
+
+### What warrants a second pair of eyes
+
+- Confirm whether we want a dedicated helper test matrix for `toInt(...)` with explicit edge values (`maxInt`, `maxInt+1`, negatives, large uint64).
+
+### What should be done in the future
+
+- Add direct unit tests for `toInt(...)` edge cases to prevent regressions in future parser edits.
+
+### Code review instructions
+
+- Review `toInt(...)` in `pkg/steps/ai/openai_responses/engine.go`.
+- Verify that unsigned branches reject out-of-range values before cast.
+- Re-run:
+  - `gosec ./pkg/steps/ai/openai_responses/...`
+  - `GOCACHE=/tmp/go-build-cache go test ./pkg/steps/ai/openai_responses -count=1`
+
+### Technical details
+
+- Guard pattern used:
+  - unsigned: compare against `uint64(maxInt)` before cast
+  - signed/float: compare against `[minInt, maxInt]` before cast
