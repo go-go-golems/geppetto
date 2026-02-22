@@ -82,7 +82,14 @@ type responsesContentPart struct {
 
 type responsesResponse struct {
 	Output []responsesOutputItem `json:"output"`
+	Usage  json.RawMessage       `json:"usage,omitempty"`
+	// Some envelopes may nest usage under response.usage.
+	Response *responsesResponseNested `json:"response,omitempty"`
 	// Error field intentionally omitted; HTTP non-2xx will carry error body
+}
+
+type responsesResponseNested struct {
+	Usage json.RawMessage `json:"usage,omitempty"`
 }
 
 type responsesOutputItem struct {

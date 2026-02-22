@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,13 @@ import (
 // Engine implements the Engine interface for OpenAI Responses API calls.
 type Engine struct {
 	settings *settings.StepSettings
+}
+
+type usageTotals struct {
+	inputTokens     int
+	outputTokens    int
+	cachedTokens    int
+	reasoningTokens int
 }
 
 func NewEngine(s *settings.StepSettings) (*Engine, error) {
@@ -236,7 +244,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		var eventName string
 		var message string
 		var dataBuf strings.Builder
-		var inputTokens, outputTokens, reasoningTokens int
+		var inputTokens, outputTokens, cachedTokens, reasoningTokens int
 		var stopReason *string
 		var streamErr error
 		var thinkBuf strings.Builder
@@ -616,33 +624,19 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 						pc.args.WriteString(d)
 					}
 				}
-				// No assistant text in this event; only arguments aggregation
+			// No assistant text in this event; only arguments aggregation
 			case "response.completed":
-				// usage may be nested under response.usage
-				var usage map[string]any
-				if u, ok := m["usage"].(map[string]any); ok {
-					usage = u
-				} else if respObj, ok := m["response"].(map[string]any); ok {
-					if u2, ok2 := respObj["usage"].(map[string]any); ok2 {
-						usage = u2
-					}
-				}
-				if usage != nil {
-					if v, ok := usage["input_tokens"].(float64); ok {
-						inputTokens = int(v)
-					}
-					if v, ok := usage["output_tokens"].(float64); ok {
-						outputTokens = int(v)
-					}
-					// reasoning tokens may be nested under output_tokens_details
-					if od, ok := usage["output_tokens_details"].(map[string]any); ok {
-						if v, ok := od["reasoning_tokens"].(float64); ok {
-							reasoningTokens = int(v)
-						}
-					} else if v, ok := usage["reasoning_tokens"].(float64); ok {
-						reasoningTokens = int(v)
-					}
-					log.Debug().Int("input_tokens", inputTokens).Int("output_tokens", outputTokens).Int("reasoning_tokens", reasoningTokens).Msg("Responses: usage parsed")
+				if totals, ok := parseUsageTotalsFromEnvelope(m); ok {
+					inputTokens = totals.inputTokens
+					outputTokens = totals.outputTokens
+					cachedTokens = totals.cachedTokens
+					reasoningTokens = totals.reasoningTokens
+					log.Debug().
+						Int("input_tokens", inputTokens).
+						Int("output_tokens", outputTokens).
+						Int("cached_tokens", cachedTokens).
+						Int("reasoning_tokens", reasoningTokens).
+						Msg("Responses: usage parsed")
 				}
 				// optional stop reason, sometimes nested
 				if sr, ok := m["stop_reason"].(string); ok && sr != "" {
@@ -663,12 +657,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		for {
 			line, err := reader.ReadString('\n')
-			if err != nil {
-				if err.Error() != "EOF" {
-					log.Debug().Err(err).Msg("Responses: error reading SSE line")
-				} else {
-					log.Trace().Msg("Responses: EOF while reading SSE")
-				}
+			if err != nil && err != io.EOF {
+				log.Debug().Err(err).Msg("Responses: error reading SSE line")
 				break
 			}
 			line = strings.TrimRight(line, "\r\n")
@@ -682,6 +672,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			if line == "" {
 				_ = flush()
 				eventName = ""
+				if err == io.EOF {
+					log.Trace().Msg("Responses: EOF while reading SSE")
+					break
+				}
 				continue
 			}
 			if strings.HasPrefix(line, "event:") {
@@ -697,16 +691,27 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				if tap != nil {
 					tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))))
 				}
+				if err == io.EOF {
+					log.Trace().Msg("Responses: EOF while reading SSE")
+					_ = flush()
+					break
+				}
 				continue
+			}
+			if err == io.EOF {
+				log.Trace().Msg("Responses: EOF while reading SSE")
+				_ = flush()
+				break
 			}
 		}
 		log.Debug().Msg("Responses: SSE loop ended")
-		if inputTokens > 0 || outputTokens > 0 {
+		if inputTokens > 0 || outputTokens > 0 || cachedTokens > 0 {
 			if metadata.Usage == nil {
 				metadata.Usage = &events.Usage{}
 			}
 			metadata.Usage.InputTokens = inputTokens
 			metadata.Usage.OutputTokens = outputTokens
+			metadata.Usage.CachedTokens = cachedTokens
 		}
 		if metadata.Extra == nil {
 			metadata.Extra = map[string]any{}
@@ -784,8 +789,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error (non-streaming)")
 		return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 	}
+	rawResponse, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	var rr responsesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&rr); err != nil {
+	if err := json.Unmarshal(rawResponse, &rr); err != nil {
 		return nil, err
 	}
 	var message string
@@ -818,6 +827,22 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		turns.AppendBlock(t, ab)
 	}
+	if totals, ok := parseUsageTotalsFromResponse(rr); ok {
+		if totals.inputTokens > 0 || totals.outputTokens > 0 || totals.cachedTokens > 0 {
+			if metadata.Usage == nil {
+				metadata.Usage = &events.Usage{}
+			}
+			metadata.Usage.InputTokens = totals.inputTokens
+			metadata.Usage.OutputTokens = totals.outputTokens
+			metadata.Usage.CachedTokens = totals.cachedTokens
+		}
+		if totals.reasoningTokens > 0 {
+			if metadata.Extra == nil {
+				metadata.Extra = map[string]any{}
+			}
+			metadata.Extra["reasoning_tokens"] = totals.reasoningTokens
+		}
+	}
 	d := time.Since(startTime).Milliseconds()
 	dm := int64(d)
 	metadata.DurationMs = &dm
@@ -831,4 +856,113 @@ func mustMarshalJSON(v any) []byte {
 		return []byte("{}")
 	}
 	return b
+}
+
+func parseUsageTotalsFromEnvelope(envelope map[string]any) (usageTotals, bool) {
+	if envelope == nil {
+		return usageTotals{}, false
+	}
+	usage, ok := envelope["usage"].(map[string]any)
+	if !ok {
+		if respObj, hasResponse := envelope["response"].(map[string]any); hasResponse {
+			usage, ok = respObj["usage"].(map[string]any)
+		}
+	}
+	if !ok || usage == nil {
+		return usageTotals{}, false
+	}
+	return parseUsageTotals(usage), true
+}
+
+func parseUsageTotalsFromResponse(resp responsesResponse) (usageTotals, bool) {
+	if totals, ok := parseUsageTotalsFromRawUsage(resp.Usage); ok {
+		return totals, true
+	}
+	if resp.Response != nil {
+		if totals, ok := parseUsageTotalsFromRawUsage(resp.Response.Usage); ok {
+			return totals, true
+		}
+	}
+	return usageTotals{}, false
+}
+
+func parseUsageTotalsFromRawUsage(raw json.RawMessage) (usageTotals, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return usageTotals{}, false
+	}
+	var usage map[string]any
+	if err := json.Unmarshal(raw, &usage); err != nil {
+		return usageTotals{}, false
+	}
+	return parseUsageTotals(usage), true
+}
+
+func parseUsageTotals(usage map[string]any) usageTotals {
+	ret := usageTotals{}
+	if v, ok := toInt(usage["input_tokens"]); ok {
+		ret.inputTokens = v
+	}
+	if v, ok := toInt(usage["output_tokens"]); ok {
+		ret.outputTokens = v
+	}
+	if inputDetails, ok := usage["input_tokens_details"].(map[string]any); ok {
+		if v, ok := toInt(inputDetails["cached_tokens"]); ok {
+			ret.cachedTokens = v
+		}
+	} else if v, ok := toInt(usage["cached_tokens"]); ok {
+		ret.cachedTokens = v
+	}
+	if outputDetails, ok := usage["output_tokens_details"].(map[string]any); ok {
+		if v, ok := toInt(outputDetails["reasoning_tokens"]); ok {
+			ret.reasoningTokens = v
+		}
+	} else if v, ok := toInt(usage["reasoning_tokens"]); ok {
+		ret.reasoningTokens = v
+	}
+	return ret
+}
+
+func toInt(v any) (int, bool) {
+	const maxInt = int(^uint(0) >> 1)
+	const minInt = -maxInt - 1
+
+	switch x := v.(type) {
+	case float64:
+		if x > float64(maxInt) || x < float64(minInt) {
+			return 0, false
+		}
+		return int(x), true
+	case float32:
+		f := float64(x)
+		if f > float64(maxInt) || f < float64(minInt) {
+			return 0, false
+		}
+		return int(x), true
+	case int:
+		return x, true
+	case int32:
+		return int(x), true
+	case int64:
+		if x > int64(maxInt) || x < int64(minInt) {
+			return 0, false
+		}
+		return int(x), true
+	case uint:
+		if uint64(x) > uint64(maxInt) {
+			return 0, false
+		}
+		return int(x), true
+	case uint32:
+		if uint64(x) > uint64(maxInt) {
+			return 0, false
+		}
+		return int(x), true
+	case uint64:
+		if x > uint64(maxInt) {
+			return 0, false
+		}
+		return int(x), true
+	default:
+		return 0, false
+	}
 }
