@@ -125,6 +125,28 @@ The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_AP
 3. Commit only scripts that are executable without manual edits.
 4. Add live-provider scripts only after deterministic script set is green.
 
+## Recording/Storage Hook Pattern
+
+When the host wants to persist runs, pass hook references through builder
+options or the chainable methods:
+
+```javascript
+const session = gp
+  .createBuilder({
+    engine,
+    persister,
+    eventSinks: [eventSink],
+    snapshotHook,
+  })
+  .buildSession();
+```
+
+These map to the same runtime builder hooks:
+
+- `withPersister(...)`
+- `withEventSink(...)`
+- `withSnapshotHook(...)`
+
 ## Troubleshooting
 
 | Problem | Cause | Solution |
@@ -132,6 +154,7 @@ The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_AP
 | `module geppetto not found` | host runtime did not register module | use `geppetto-js-lab` or register via `gp.Register(reg, opts)` |
 | `no go tool registry configured` | script calls `useGoTools` in host without Go registry | run with `geppetto-js-lab` or configure `Options.GoToolRegistry` |
 | tool loop does not execute | registry not bound to builder | call `.withTools(reg, { enabled: true })` |
+| recording hooks ignored | non-hook values passed into builder options | pass Go `TurnPersister` / `EventSink` / `SnapshotHook` references |
 | unstable output in live script | provider variability | keep deterministic checks in `echo`/`fromFunction` scripts |
 
 ## See Also

@@ -249,6 +249,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		var streamErr error
 		var thinkBuf strings.Builder
 		var sayBuf strings.Builder
+		assistantByItem := map[string]string{}
 		var summaryBuf strings.Builder
 		// Placeholder for potential future pairing of reasoning with assistant item id
 		// (keep declared logic out until needed to avoid unused var)
@@ -317,6 +318,62 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			if zerolog.GlobalLevel() <= zerolog.TraceLevel {
 				if rb, err := json.Marshal(redact(m)); err == nil {
 					log.Trace().Str("event", eventName).RawJSON("data", rb).Msg("Responses: SSE event")
+				}
+			}
+			appendAssistantChunk := func(chunk string) {
+				if chunk == "" {
+					return
+				}
+				message += chunk
+				sayBuf.WriteString(chunk)
+				e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, chunk, message))
+			}
+			backfillAssistantChunk := func(itemID, fullChunk string) {
+				if fullChunk == "" {
+					return
+				}
+				current := message
+				if itemID != "" {
+					if streamed := assistantByItem[itemID]; streamed != "" {
+						current = streamed
+					}
+				}
+				if strings.HasSuffix(current, fullChunk) {
+					return
+				}
+				overlap := 0
+				maxOverlap := len(fullChunk)
+				if len(current) < maxOverlap {
+					maxOverlap = len(current)
+				}
+				for i := maxOverlap; i > 0; i-- {
+					if strings.HasSuffix(current, fullChunk[:i]) {
+						overlap = i
+						break
+					}
+				}
+				missing := fullChunk[overlap:]
+				if missing == "" {
+					return
+				}
+				if itemID != "" {
+					assistantByItem[itemID] += missing
+				}
+				appendAssistantChunk(missing)
+			}
+			chunkFromValue := func(v any) string {
+				switch tv := v.(type) {
+				case string:
+					return tv
+				default:
+					if tv == nil {
+						return ""
+					}
+					b, err := json.Marshal(tv)
+					if err != nil {
+						return ""
+					}
+					return string(b)
 				}
 			}
 			switch eventName {
@@ -497,8 +554,27 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							}
 						case "message":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+							itemID := ""
 							if v, ok := it["id"].(string); ok && v != "" {
 								latestMessageItemID = v
+								itemID = v
+							}
+							if rawContent, ok := it["content"].([]any); ok {
+								for _, item := range rawContent {
+									content, ok := item.(map[string]any)
+									if !ok {
+										continue
+									}
+									typ, _ := content["type"].(string)
+									switch typ {
+									case "output_text", "text":
+										if s, ok := content["text"].(string); ok && s != "" {
+											backfillAssistantChunk(itemID, s)
+										}
+									case "output_json":
+										backfillAssistantChunk(itemID, chunkFromValue(content["json"]))
+									}
+								}
 							}
 							if tap != nil {
 								tap.OnProviderObject("output.message", it)
@@ -554,18 +630,49 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				}
 			case "response.output_text.delta":
 				// Stream assistant text deltas
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok && v != "" {
+					itemID = v
+				}
 				if d, ok := m["delta"].(string); ok && d != "" {
-					message += d
-					sayBuf.WriteString(d)
+					if itemID != "" {
+						assistantByItem[itemID] += d
+					}
+					appendAssistantChunk(d)
 					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
-					e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
 				} else if tv, ok := m["text"].(map[string]any); ok {
 					if d, ok := tv["delta"].(string); ok && d != "" {
-						message += d
-						sayBuf.WriteString(d)
+						if itemID != "" {
+							assistantByItem[itemID] += d
+						}
+						appendAssistantChunk(d)
 						log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
-						e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
 					}
+				}
+				if tap != nil {
+					tap.OnSSE(eventName, []byte(raw))
+				}
+			case "response.output_json.delta":
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok && v != "" {
+					itemID = v
+				}
+				if d, ok := m["delta"].(string); ok && d != "" {
+					if itemID != "" {
+						assistantByItem[itemID] += d
+					}
+					appendAssistantChunk(d)
+				}
+				if tap != nil {
+					tap.OnSSE(eventName, []byte(raw))
+				}
+			case "response.output_json.done":
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok && v != "" {
+					itemID = v
+				}
+				if j, ok := m["json"]; ok {
+					backfillAssistantChunk(itemID, chunkFromValue(j))
 				}
 				if tap != nil {
 					tap.OnSSE(eventName, []byte(raw))
@@ -812,8 +919,15 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			latestMessageItemID = oi.ID
 		}
 		for _, c := range oi.Content {
-			if c.Type == "output_text" || c.Type == "text" {
+			switch c.Type {
+			case "output_text", "text":
 				message += c.Text
+			case "output_json":
+				if c.JSON != nil {
+					if b, err := json.Marshal(c.JSON); err == nil {
+						message += string(b)
+					}
+				}
 			}
 		}
 	}

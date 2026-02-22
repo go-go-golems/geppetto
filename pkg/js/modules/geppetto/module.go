@@ -5,7 +5,10 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
@@ -16,6 +19,9 @@ import (
 const (
 	// ModuleName is the name used from JavaScript: require("geppetto").
 	ModuleName = "geppetto"
+	// PluginsModuleName is the shared JS plugin-contract helper module:
+	// require("geppetto/plugins").
+	PluginsModuleName = ModuleName + "/plugins"
 	// hiddenRefKey stores Go references on JS objects created by this module.
 	hiddenRefKey = "__geppetto_ref"
 )
@@ -28,6 +34,9 @@ type Options struct {
 	Runner                runtimeowner.Runner
 	GoToolRegistry        tools.ToolRegistry
 	GoMiddlewareFactories map[string]MiddlewareFactory
+	DefaultEventSinks     []events.EventSink
+	DefaultSnapshotHook   toolloop.SnapshotHook
+	DefaultPersister      enginebuilder.TurnPersister
 	Logger                zerolog.Logger
 }
 
@@ -38,6 +47,7 @@ func Register(reg *require.Registry, opts Options) {
 	}
 	mod := &module{opts: opts}
 	reg.RegisterNativeModule(ModuleName, mod.Loader)
+	reg.RegisterNativeModule(PluginsModuleName, mod.pluginsLoader)
 }
 
 type module struct {
@@ -53,6 +63,9 @@ type moduleRuntime struct {
 
 	goToolRegistry        tools.ToolRegistry
 	goMiddlewareFactories map[string]MiddlewareFactory
+	defaultEventSinks     []events.EventSink
+	defaultSnapshotHook   toolloop.SnapshotHook
+	defaultPersister      enginebuilder.TurnPersister
 }
 
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
@@ -66,6 +79,9 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		logger:                lg,
 		goToolRegistry:        opts.GoToolRegistry,
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
+		defaultEventSinks:     append([]events.EventSink(nil), opts.DefaultEventSinks...),
+		defaultSnapshotHook:   opts.DefaultSnapshotHook,
+		defaultPersister:      opts.DefaultPersister,
 	}
 	if m.runner != nil {
 		m.bridge = runtimebridge.New(m.runner)

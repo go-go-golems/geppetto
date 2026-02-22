@@ -159,6 +159,43 @@ func TestConstsExported(t *testing.T) {
 	`)
 }
 
+func TestPluginContractHelpersModule(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const plugins = require("geppetto/plugins");
+		if (!plugins) throw new Error("missing geppetto/plugins");
+		if (plugins.EXTRACTOR_PLUGIN_API_VERSION !== "cozo.extractor/v1") {
+			throw new Error("unexpected EXTRACTOR_PLUGIN_API_VERSION");
+		}
+
+		const descriptor = plugins.defineExtractorPlugin({
+			id: "test.extractor",
+			name: "Test Extractor",
+			create() {
+				return {
+					run: plugins.wrapExtractorRun((input) => ({ ok: true, transcript: input.transcript, timeoutMs: input.timeoutMs }))
+				};
+			}
+		});
+
+		const instance = descriptor.create({});
+		const result = instance.run({ transcript: "hello world" });
+		if (!result || result.ok !== true || result.timeoutMs !== 120000) {
+			throw new Error("wrapped run did not normalize timeout");
+		}
+
+		let threw = false;
+		try {
+			instance.run({ transcript: "" });
+		} catch (e) {
+			threw = /input\.transcript/i.test(String(e));
+		}
+		if (!threw) {
+			throw new Error("expected transcript validation error");
+		}
+	`)
+}
+
 func TestSessionRunWithEchoEngine(t *testing.T) {
 	rt := newJSRuntime(t, Options{})
 	mustRunJS(t, rt, `

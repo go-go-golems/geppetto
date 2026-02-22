@@ -9,15 +9,14 @@ import (
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 func (m *moduleRuntime) createBuilder(call goja.FunctionCall) goja.Value {
-	b := &builderRef{
-		api: m,
-	}
+	b := m.newBuilderRef()
 	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
 		if err := m.applyBuilderOptions(b, call.Arguments[0]); err != nil {
 			panic(m.vm.NewGoError(err))
@@ -27,7 +26,7 @@ func (m *moduleRuntime) createBuilder(call goja.FunctionCall) goja.Value {
 }
 
 func (m *moduleRuntime) createSession(call goja.FunctionCall) goja.Value {
-	b := &builderRef{api: m}
+	b := m.newBuilderRef()
 	if len(call.Arguments) == 0 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
 		panic(m.vm.NewTypeError("createSession requires options object with engine"))
 	}
@@ -55,8 +54,11 @@ func (m *moduleRuntime) runInference(call goja.FunctionCall) goja.Value {
 	}
 
 	b := &builderRef{
-		api:  m,
-		base: engineRef.Engine,
+		api:          m,
+		base:         engineRef.Engine,
+		eventSinks:   append([]events.EventSink(nil), m.defaultEventSinks...),
+		snapshotHook: m.defaultSnapshotHook,
+		persister:    m.defaultPersister,
 	}
 	if len(call.Arguments) > 2 && !goja.IsUndefined(call.Arguments[2]) && !goja.IsNull(call.Arguments[2]) {
 		if err := m.applyBuilderOptions(b, call.Arguments[2]); err != nil {
@@ -160,6 +162,39 @@ func (m *moduleRuntime) newBuilderObject(b *builderRef) goja.Value {
 		b.toolExecutor = newJSToolHookExecutor(m, cfg, b.toolHooks)
 		return o
 	})
+	m.mustSet(o, "withPersister", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			panic(m.vm.NewTypeError("withPersister requires persister argument"))
+		}
+		persister, err := m.requireTurnPersister(call.Arguments[0])
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		b.persister = persister
+		return o
+	})
+	m.mustSet(o, "withEventSink", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			panic(m.vm.NewTypeError("withEventSink requires event sink argument"))
+		}
+		sink, err := m.requireEventSink(call.Arguments[0])
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		b.eventSinks = append(b.eventSinks, sink)
+		return o
+	})
+	m.mustSet(o, "withSnapshotHook", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			panic(m.vm.NewTypeError("withSnapshotHook requires snapshot hook argument"))
+		}
+		hook, err := m.requireSnapshotHook(call.Arguments[0])
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		b.snapshotHook = hook
+		return o
+	})
 	m.mustSet(o, "buildSession", func(goja.FunctionCall) goja.Value {
 		sr, err := b.buildSession()
 		if err != nil {
@@ -192,12 +227,60 @@ func (b *builderRef) buildSession() (*sessionRef, error) {
 	if b.toolExecutor != nil {
 		opts = append(opts, enginebuilder.WithToolExecutor(b.toolExecutor))
 	}
+	if len(b.eventSinks) > 0 {
+		opts = append(opts, enginebuilder.WithEventSinks(b.eventSinks...))
+	}
+	if b.snapshotHook != nil {
+		opts = append(opts, enginebuilder.WithSnapshotHook(b.snapshotHook))
+	}
+	if b.persister != nil {
+		opts = append(opts, enginebuilder.WithPersister(b.persister))
+	}
 	s := session.NewSession()
 	s.Builder = enginebuilder.New(opts...)
 	return &sessionRef{
 		api:     b.api,
 		session: s,
 	}, nil
+}
+
+func (m *moduleRuntime) newBuilderRef() *builderRef {
+	return &builderRef{
+		api:          m,
+		eventSinks:   append([]events.EventSink(nil), m.defaultEventSinks...),
+		snapshotHook: m.defaultSnapshotHook,
+		persister:    m.defaultPersister,
+	}
+}
+
+func (m *moduleRuntime) requireTurnPersister(v goja.Value) (enginebuilder.TurnPersister, error) {
+	ref := m.getRef(v)
+	switch x := ref.(type) {
+	case enginebuilder.TurnPersister:
+		return x, nil
+	default:
+		return nil, fmt.Errorf("expected turn persister reference, got %T (value: %v)", ref, v)
+	}
+}
+
+func (m *moduleRuntime) requireEventSink(v goja.Value) (events.EventSink, error) {
+	ref := m.getRef(v)
+	switch x := ref.(type) {
+	case events.EventSink:
+		return x, nil
+	default:
+		return nil, fmt.Errorf("expected event sink reference, got %T (value: %v)", ref, v)
+	}
+}
+
+func (m *moduleRuntime) requireSnapshotHook(v goja.Value) (toolloop.SnapshotHook, error) {
+	ref := m.getRef(v)
+	switch x := ref.(type) {
+	case toolloop.SnapshotHook:
+		return x, nil
+	default:
+		return nil, fmt.Errorf("expected snapshot hook reference, got %T (value: %v)", ref, v)
+	}
 }
 
 func (m *moduleRuntime) newSessionObject(sr *sessionRef) goja.Value {

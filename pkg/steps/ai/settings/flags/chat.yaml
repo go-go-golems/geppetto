@@ -18,7 +18,6 @@ flags:
   - name: ai-max-response-tokens
     type: int
     help: Maximum number of tokens in the response
-    default: 1000
   - name: ai-top-p
     type: float
     help: Top-p sampling value
