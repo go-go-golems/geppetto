@@ -105,6 +105,7 @@ type responsesOutputItem struct {
 type responsesOutputContent struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
+	JSON any    `json:"json,omitempty"`
 }
 
 // buildResponsesRequest constructs a minimal Responses request from Turn + settings

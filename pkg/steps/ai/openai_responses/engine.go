@@ -319,6 +319,29 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					log.Trace().Str("event", eventName).RawJSON("data", rb).Msg("Responses: SSE event")
 				}
 			}
+			appendAssistantChunk := func(chunk string) {
+				if strings.TrimSpace(chunk) == "" {
+					return
+				}
+				message += chunk
+				sayBuf.WriteString(chunk)
+				e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, chunk, message))
+			}
+			chunkFromValue := func(v any) string {
+				switch tv := v.(type) {
+				case string:
+					return tv
+				default:
+					if tv == nil {
+						return ""
+					}
+					b, err := json.Marshal(tv)
+					if err != nil {
+						return ""
+					}
+					return string(b)
+				}
+			}
 			switch eventName {
 			case "response.output_item.added":
 				if it, ok := m["item"].(map[string]any); ok {
@@ -500,6 +523,23 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							if v, ok := it["id"].(string); ok && v != "" {
 								latestMessageItemID = v
 							}
+							if rawContent, ok := it["content"].([]any); ok {
+								for _, item := range rawContent {
+									content, ok := item.(map[string]any)
+									if !ok {
+										continue
+									}
+									typ, _ := content["type"].(string)
+									switch typ {
+									case "output_text", "text":
+										if s, ok := content["text"].(string); ok && s != "" {
+											appendAssistantChunk(s)
+										}
+									case "output_json":
+										appendAssistantChunk(chunkFromValue(content["json"]))
+									}
+								}
+							}
 							if tap != nil {
 								tap.OnProviderObject("output.message", it)
 							}
@@ -555,16 +595,29 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.output_text.delta":
 				// Stream assistant text deltas
 				if d, ok := m["delta"].(string); ok && d != "" {
-					message += d
-					sayBuf.WriteString(d)
+					appendAssistantChunk(d)
 					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
-					e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
 				} else if tv, ok := m["text"].(map[string]any); ok {
 					if d, ok := tv["delta"].(string); ok && d != "" {
-						message += d
-						sayBuf.WriteString(d)
+						appendAssistantChunk(d)
 						log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
-						e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, d, message))
+					}
+				}
+				if tap != nil {
+					tap.OnSSE(eventName, []byte(raw))
+				}
+			case "response.output_json.delta":
+				if d, ok := m["delta"].(string); ok && d != "" {
+					appendAssistantChunk(d)
+				}
+				if tap != nil {
+					tap.OnSSE(eventName, []byte(raw))
+				}
+			case "response.output_json.done":
+				if j, ok := m["json"]; ok {
+					doneChunk := chunkFromValue(j)
+					if doneChunk != "" && !strings.HasSuffix(message, doneChunk) {
+						appendAssistantChunk(doneChunk)
 					}
 				}
 				if tap != nil {
@@ -812,8 +865,15 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			latestMessageItemID = oi.ID
 		}
 		for _, c := range oi.Content {
-			if c.Type == "output_text" || c.Type == "text" {
+			switch c.Type {
+			case "output_text", "text":
 				message += c.Text
+			case "output_json":
+				if c.JSON != nil {
+					if b, err := json.Marshal(c.JSON); err == nil {
+						message += string(b)
+					}
+				}
 			}
 		}
 	}
