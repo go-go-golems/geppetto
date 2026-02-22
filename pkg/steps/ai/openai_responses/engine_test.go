@@ -341,6 +341,267 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 	}
 }
 
+func TestRunInference_StreamingOutputItemDoneDoesNotDuplicateStreamedText(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/v1/responses" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"Hel","item_id":"msg_1"}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"lo","item_id":"msg_1"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"message","id":"msg_1","content":[{"type":"output_text","text":"Hello"}]}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.StepSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var finalText string
+	var partialDeltas []string
+	for _, event := range sink.snapshot() {
+		switch e := event.(type) {
+		case *events.EventPartialCompletion:
+			partialDeltas = append(partialDeltas, e.Delta)
+		case *events.EventFinal:
+			finalText = e.Text
+		}
+	}
+
+	if finalText != "Hello" {
+		t.Fatalf("expected final text %q, got %q", "Hello", finalText)
+	}
+	if strings.Join(partialDeltas, "") != "Hello" {
+		t.Fatalf("expected partial deltas to compose %q, got %q", "Hello", strings.Join(partialDeltas, ""))
+	}
+	if len(partialDeltas) != 2 {
+		t.Fatalf("expected exactly two streamed partial deltas, got %d (%v)", len(partialDeltas), partialDeltas)
+	}
+}
+
+func TestRunInference_StreamingOutputItemDoneBackfillsMissingTail(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/v1/responses" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"Hel","item_id":"msg_1"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"message","id":"msg_1","content":[{"type":"output_text","text":"Hello"}]}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.StepSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var finalText string
+	var partialDeltas []string
+	for _, event := range sink.snapshot() {
+		switch e := event.(type) {
+		case *events.EventPartialCompletion:
+			partialDeltas = append(partialDeltas, e.Delta)
+		case *events.EventFinal:
+			finalText = e.Text
+		}
+	}
+
+	if finalText != "Hello" {
+		t.Fatalf("expected final text %q, got %q", "Hello", finalText)
+	}
+	if strings.Join(partialDeltas, "") != "Hello" {
+		t.Fatalf("expected partial deltas to compose %q, got %q", "Hello", strings.Join(partialDeltas, ""))
+	}
+	if len(partialDeltas) != 2 {
+		t.Fatalf("expected two partial deltas (stream + backfill), got %d (%v)", len(partialDeltas), partialDeltas)
+	}
+	if partialDeltas[1] != "lo" {
+		t.Fatalf("expected done backfill delta %q, got %q", "lo", partialDeltas[1])
+	}
+}
+
+func TestRunInference_StreamingPreservesWhitespaceOnlyDelta(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/v1/responses" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"Hello","item_id":"msg_1"}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":" ","item_id":"msg_1"}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"world","item_id":"msg_1"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"message","id":"msg_1","content":[{"type":"output_text","text":"Hello world"}]}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.StepSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var finalText string
+	var partialDeltas []string
+	for _, event := range sink.snapshot() {
+		switch e := event.(type) {
+		case *events.EventPartialCompletion:
+			partialDeltas = append(partialDeltas, e.Delta)
+		case *events.EventFinal:
+			finalText = e.Text
+		}
+	}
+
+	if finalText != "Hello world" {
+		t.Fatalf("expected final text %q, got %q", "Hello world", finalText)
+	}
+	if strings.Join(partialDeltas, "") != "Hello world" {
+		t.Fatalf("expected partial deltas to compose %q, got %q", "Hello world", strings.Join(partialDeltas, ""))
+	}
+	if len(partialDeltas) != 3 {
+		t.Fatalf("expected exactly three streamed partial deltas, got %d (%v)", len(partialDeltas), partialDeltas)
+	}
+	if partialDeltas[1] != " " {
+		t.Fatalf("expected preserved whitespace-only delta %q, got %q", " ", partialDeltas[1])
+	}
+}
+
 func TestRunInference_NonStreamingUsageIncludesCachedTokens(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{

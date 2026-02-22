@@ -249,6 +249,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		var streamErr error
 		var thinkBuf strings.Builder
 		var sayBuf strings.Builder
+		assistantByItem := map[string]string{}
 		var summaryBuf strings.Builder
 		// Placeholder for potential future pairing of reasoning with assistant item id
 		// (keep declared logic out until needed to avoid unused var)
@@ -320,12 +321,45 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				}
 			}
 			appendAssistantChunk := func(chunk string) {
-				if strings.TrimSpace(chunk) == "" {
+				if chunk == "" {
 					return
 				}
 				message += chunk
 				sayBuf.WriteString(chunk)
 				e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, chunk, message))
+			}
+			backfillAssistantChunk := func(itemID, fullChunk string) {
+				if fullChunk == "" {
+					return
+				}
+				current := message
+				if itemID != "" {
+					if streamed := assistantByItem[itemID]; streamed != "" {
+						current = streamed
+					}
+				}
+				if strings.HasSuffix(current, fullChunk) {
+					return
+				}
+				overlap := 0
+				maxOverlap := len(fullChunk)
+				if len(current) < maxOverlap {
+					maxOverlap = len(current)
+				}
+				for i := maxOverlap; i > 0; i-- {
+					if strings.HasSuffix(current, fullChunk[:i]) {
+						overlap = i
+						break
+					}
+				}
+				missing := fullChunk[overlap:]
+				if missing == "" {
+					return
+				}
+				if itemID != "" {
+					assistantByItem[itemID] += missing
+				}
+				appendAssistantChunk(missing)
 			}
 			chunkFromValue := func(v any) string {
 				switch tv := v.(type) {
@@ -520,8 +554,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							}
 						case "message":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+							itemID := ""
 							if v, ok := it["id"].(string); ok && v != "" {
 								latestMessageItemID = v
+								itemID = v
 							}
 							if rawContent, ok := it["content"].([]any); ok {
 								for _, item := range rawContent {
@@ -533,10 +569,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 									switch typ {
 									case "output_text", "text":
 										if s, ok := content["text"].(string); ok && s != "" {
-											appendAssistantChunk(s)
+											backfillAssistantChunk(itemID, s)
 										}
 									case "output_json":
-										appendAssistantChunk(chunkFromValue(content["json"]))
+										backfillAssistantChunk(itemID, chunkFromValue(content["json"]))
 									}
 								}
 							}
@@ -594,11 +630,21 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				}
 			case "response.output_text.delta":
 				// Stream assistant text deltas
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok && v != "" {
+					itemID = v
+				}
 				if d, ok := m["delta"].(string); ok && d != "" {
+					if itemID != "" {
+						assistantByItem[itemID] += d
+					}
 					appendAssistantChunk(d)
 					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
 				} else if tv, ok := m["text"].(map[string]any); ok {
 					if d, ok := tv["delta"].(string); ok && d != "" {
+						if itemID != "" {
+							assistantByItem[itemID] += d
+						}
 						appendAssistantChunk(d)
 						log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
 					}
@@ -607,18 +653,26 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					tap.OnSSE(eventName, []byte(raw))
 				}
 			case "response.output_json.delta":
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok && v != "" {
+					itemID = v
+				}
 				if d, ok := m["delta"].(string); ok && d != "" {
+					if itemID != "" {
+						assistantByItem[itemID] += d
+					}
 					appendAssistantChunk(d)
 				}
 				if tap != nil {
 					tap.OnSSE(eventName, []byte(raw))
 				}
 			case "response.output_json.done":
+				itemID := ""
+				if v, ok := m["item_id"].(string); ok && v != "" {
+					itemID = v
+				}
 				if j, ok := m["json"]; ok {
-					doneChunk := chunkFromValue(j)
-					if doneChunk != "" && !strings.HasSuffix(message, doneChunk) {
-						appendAssistantChunk(doneChunk)
-					}
+					backfillAssistantChunk(itemID, chunkFromValue(j))
 				}
 				if tap != nil {
 					tap.OnSSE(eventName, []byte(raw))
