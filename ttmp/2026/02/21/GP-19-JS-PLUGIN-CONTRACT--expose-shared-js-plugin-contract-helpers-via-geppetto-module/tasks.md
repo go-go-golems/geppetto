@@ -31,7 +31,7 @@
 - [x] Keep extractor logic unchanged apart from import boundary.
 
 - [x] Phase 5: Documentation and ticket placement
-- [ ] Update GP-19 changelog with commit references.
-- [ ] Extend GP-19 diary with worked/failed commands and review notes.
-- [ ] Move GP-19 ticket to `geppetto/ttmp/...` layout.
-- [ ] Commit move + docs closure updates.
+- [x] Update GP-19 changelog with commit references.
+- [x] Extend GP-19 diary with worked/failed commands and review notes.
+- [x] Move GP-19 ticket to `geppetto/ttmp/...` layout.
+- [x] Commit move + docs closure updates.

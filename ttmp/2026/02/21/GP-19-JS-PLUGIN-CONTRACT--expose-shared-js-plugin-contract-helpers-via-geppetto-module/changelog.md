@@ -9,3 +9,8 @@
 - Migrated runner scripts to consume `require("geppetto/plugins")` and removed local duplicate helper.
 - Implemented `geppetto/plugins` module and helper API (`3f5320f`).
 - Migrated cozo runner scripts to shared helper import and removed local duplicate helper (`19ca200`).
+
+## 2026-02-21
+
+Ticket closed
+
