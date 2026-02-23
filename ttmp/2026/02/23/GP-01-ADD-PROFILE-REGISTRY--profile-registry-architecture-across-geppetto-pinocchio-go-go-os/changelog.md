@@ -99,3 +99,14 @@ Implemented GP01-404: added integration precedence test through GetCobraCommandG
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go — New precedence integration test and helpers
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — GP01-404 checked
 
+
+## 2026-02-23
+
+Implemented GP01-405: added profile-first help/deprecation notes to ai-engine and ai-api-type command flags, plus tests and docs updates to lock guidance during migration (commit 8acfb80).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/flags/chat.yaml — Help text updates for engine/provider flags
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/settings-chat_test.go — Help guidance test coverage
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — GP01-405 checked
+

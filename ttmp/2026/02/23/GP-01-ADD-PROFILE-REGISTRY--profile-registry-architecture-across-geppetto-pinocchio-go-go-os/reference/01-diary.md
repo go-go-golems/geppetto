@@ -20,6 +20,8 @@ RelatedFiles:
       Note: Logged as current client payload contract needing profile fields
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
       Note: Logged as key seam for replacing local profile registry
+    - Path: pkg/doc/topics/01-profiles.md
+      Note: Documented profile-first recommendation and compatibility escape-hatch positioning
     - Path: pkg/profiles/codec_yaml.go
       Note: Implemented YAML codec for canonical and legacy profile formats
     - Path: pkg/profiles/codec_yaml_test.go
@@ -62,6 +64,10 @@ RelatedFiles:
       Note: |-
         Logged as key seam for profile middleware migration
         Conditional middleware selection integrating registry adapter
+    - Path: pkg/steps/ai/settings/flags/chat.yaml
+      Note: Added profile-first migration/deprecation guidance to ai-engine and ai-api-type help text (commit 8acfb80)
+    - Path: pkg/steps/ai/settings/settings-chat_test.go
+      Note: Added help-text regression test for profile-first guidance (commit 8acfb80)
     - Path: ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/01-profileregistry-architecture-and-migration-plan.md
       Note: Primary architecture deliverable authored during this ticket
     - Path: ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md
@@ -69,12 +75,14 @@ RelatedFiles:
         Marked GP01-300..305 complete
         Marked GP01-400..403 complete
         Marked GP01-404 complete
+        Marked GP01-405 complete
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1073,3 +1081,75 @@ go test ./pkg/sections -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go`
 - Commit hash:
   - `d8a93de`
+
+## Step 14: Completed CLI Help/Deprecation Notes for Profile-First Path (GP01-405)
+
+I completed the remaining Phase 4 task by updating user-facing help text so command-line engine/provider overrides explicitly communicate the profile-first configuration direction. This keeps existing flags functional while signaling migration intent directly in command help.
+
+I also added a test that locks this behavior by asserting the relevant field definitions include profile-first guidance.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementation and close the remaining Geppetto Phase 4 item before moving to Pinocchio integration.
+
+**Inferred user intent:** Keep migration progress explicit and user-facing while preserving compatibility.
+
+**Commit (code):** 8acfb80 — "settings: add profile-first help notes for engine flags"
+
+### What I did
+- Updated chat flag help text in `geppetto/pkg/steps/ai/settings/flags/chat.yaml`:
+  - `ai-engine`
+  - `ai-api-type`
+- Added profile-first guidance to `geppetto/pkg/doc/topics/01-profiles.md`.
+- Added test coverage in `geppetto/pkg/steps/ai/settings/settings-chat_test.go`:
+  - `TestChatValueSection_HelpMentionsProfileFirstForEngineFlags`
+- Marked `GP01-405` complete in ticket tasks.
+- Ran validations:
+  - `go test ./pkg/steps/ai/settings -count=1`
+  - `go test ./pkg/sections -count=1`
+  - full pre-commit suite on commit.
+
+### Why
+- `GP01-405` requires command help/deprecation notes that steer usage toward profile-first config while keeping old flags as compatibility escape hatches.
+
+### What worked
+- Help text updates are reflected in field definitions used by command help.
+- Test locks migration wording so accidental regressions are caught.
+- Full pre-commit checks passed.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The simplest stable contract for this task is to enforce help-string intent at definition level, independent of specific command binaries.
+
+### What was tricky to build
+- The main constraint was avoiding hard deprecation/removal behavior changes while still providing a clear migration signal in help output.
+
+### What warrants a second pair of eyes
+- Wording tone in help messages (ensure it is clear but not misleading about immediate removal timelines).
+- Whether to mirror this same guidance in additional command-level docs/readmes that enumerate AI flags.
+
+### What should be done in the future
+- Start Phase 5 (`GP01-500+`) in Pinocchio: replace local web-chat profile registry structs with shared `profiles.Registry` integration.
+
+### Code review instructions
+- Review:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/flags/chat.yaml`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/settings-chat_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+- Validate with:
+```bash
+cd geppetto
+go test ./pkg/steps/ai/settings -count=1
+```
+
+### Technical details
+- Updated files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/flags/chat.yaml`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/settings-chat_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+- Commit hash:
+  - `8acfb80`

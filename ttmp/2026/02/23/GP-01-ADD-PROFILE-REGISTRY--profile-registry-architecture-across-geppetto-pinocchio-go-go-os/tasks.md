@@ -59,7 +59,7 @@
 - [x] GP01-402 Keep bootstrap parsing for profile selection, but source profile payload from registry service.
 - [x] GP01-403 Add feature flag to toggle old/new middleware path during migration.
 - [x] GP01-404 Add integration tests for env/config/flags/profile ordering.
-- [ ] GP01-405 Update command help/deprecation notes for profile-first configuration path.
+- [x] GP01-405 Update command help/deprecation notes for profile-first configuration path.
 
 ## Phase 5: Pinocchio Web-Chat Integration
 
