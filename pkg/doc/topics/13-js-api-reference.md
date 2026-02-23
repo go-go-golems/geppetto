@@ -75,6 +75,43 @@ gp.Register(reg, gp.Options{
 | `middlewares` | namespace | Middleware adapters |
 | `tools` | namespace | Tool registry constructors |
 
+## Plugin Contract Helpers
+
+The shared plugin contract helpers live in a separate module:
+
+```javascript
+const plugins = require("geppetto/plugins");
+```
+
+Exports:
+
+| Export | Type | Purpose |
+|---|---|---|
+| `EXTRACTOR_PLUGIN_API_VERSION` | string | Current extractor plugin API version |
+| `defineExtractorPlugin` | function | Validates/freezes extractor descriptors |
+| `wrapExtractorRun` | function | Normalizes extractor `run(input, options)` input |
+| `OPTIMIZER_PLUGIN_API_VERSION` | string | Current optimizer plugin API version |
+| `defineOptimizerPlugin` | function | Validates/freezes optimizer descriptors |
+
+### Optimizer plugin descriptor shape
+
+```javascript
+const plugins = require("geppetto/plugins");
+
+module.exports = plugins.defineOptimizerPlugin({
+  apiVersion: plugins.OPTIMIZER_PLUGIN_API_VERSION,
+  kind: "optimizer",
+  id: "my.optimizer",
+  name: "My Optimizer",
+  create(ctx) {
+    return {
+      dataset() { return []; }, // optional
+      evaluate(input, options) { return { score: 0.0 }; } // required
+    };
+  }
+});
+```
+
 ## `consts` Namespace
 
 Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.

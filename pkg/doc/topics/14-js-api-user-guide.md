@@ -233,6 +233,25 @@ These map to the same runtime builder hooks:
 - `withEventSink(...)`
 - `withSnapshotHook(...)`
 
+
+## Writing Plugin Descriptors
+
+For extractor and optimizer plugin scripts, import shared helpers from:
+
+```javascript
+const plugins = require("geppetto/plugins");
+```
+
+Use:
+
+1. `plugins.defineExtractorPlugin(...)` for extractor descriptor scripts.
+2. `plugins.wrapExtractorRun(...)` to normalize extractor `run` input.
+3. `plugins.defineOptimizerPlugin(...)` for optimizer evaluator scripts.
+
+Reference optimizer script:
+
+1. `cmd/gepa-runner/scripts/toy_math_optimizer.js`
+
 ## Troubleshooting
 
 | Problem | Cause | Solution |
