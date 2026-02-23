@@ -26,8 +26,13 @@ RelatedFiles:
       Note: |-
         Logged as key seam for replacing local profile registry
         Replaced local chatProfileRegistry with shared geppetto profiles.Registry-backed resolver and handlers (commit eb13816)
+        Added request-scoped profile/registry resolution and registry slug parsing (commit 3a4b585)
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
-      Note: Updated resolver/handler tests to shared registry model
+      Note: |-
+        Updated resolver/handler tests to shared registry model
+        Added GP01-502 resolver tests for body/query registry+profile selection and invalid registry validation (commit 3a4b585)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
+      Note: Extended ChatRequestBody with optional profile and registry request fields (commit 3a4b585)
     - Path: pkg/doc/topics/01-profiles.md
       Note: Documented profile-first recommendation and compatibility escape-hatch positioning
     - Path: pkg/profiles/codec_yaml.go
@@ -91,6 +96,7 @@ LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1243,3 +1249,82 @@ go test ./pkg/webchat/... -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`
 - Commit hash:
   - `eb13816`
+
+## Step 16: Added Explicit `profile` and `registry` Request Parsing in Web-Chat Resolver (GP01-502)
+
+I implemented the next Phase 5 task by extending Pinocchio web-chat request parsing so clients can provide explicit `profile` and `registry` selectors directly in request payloads and query parameters. This keeps cookie/default behavior intact while unlocking explicit profile selection for API clients and future Go-Go-OS wiring.
+
+The resolver now performs registry selection per request before fetching profile/default data, so profile lookup is no longer hardwired to the resolver's default registry in chat and websocket paths.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue with the next granular implementation task and keep the ticket diary/changelog current.
+
+**Inferred user intent:** Deliver incremental, reviewable migration progress with tight feedback loops and explicit traceability.
+
+**Commit (code):** 3a4b585 — "web-chat: accept profile and registry in request body/query"
+
+### What I did
+- Updated `pinocchio/pkg/webchat/http/api.go`:
+  - added optional `profile` and `registry` fields to `ChatRequestBody`.
+- Updated `pinocchio/cmd/web-chat/profile_policy.go`:
+  - expanded `resolveProfile(...)` inputs to include body `profile` and `registry`
+  - added `resolveRegistrySlug(...)` helper with body/query/default precedence
+  - switched profile/default lookup to use request-resolved registry slug
+  - kept existing fallback chain for profile selection (path/query/runtime/cookie/default), with body profile added ahead of query
+  - updated compatibility handler call to new default resolution signature.
+- Added tests in `pinocchio/cmd/web-chat/profile_policy_test.go`:
+  - chat body selects `{registry, profile}`
+  - websocket query selects `{registry, profile}`
+  - invalid registry in body returns client-facing error path.
+- Ran validations:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./pkg/webchat/... -count=1`
+  - pre-commit hook suite on commit (`go test ./...`, `go generate ./...`, frontend build, lint, vet).
+
+### Why
+- `GP01-502` requires explicit `profile` and `registry` inputs in chat body/query to reduce reliance on cookie-only selection and support app-controlled profile routing.
+
+### What worked
+- Resolver now accepts explicit selectors in both HTTP chat and websocket request flows.
+- Existing tests remained green after updates; new resolver tests passed.
+- Full pre-commit suite passed and produced the final commit.
+
+### What didn't work
+- Initial negative test used `registry:"INVALID"`, but slug parsing normalizes to lowercase and accepted it; resolver returned `registry not found` instead of `invalid registry`.
+- I corrected the test input to `registry:"invalid registry!"` so validation fails at parse time as intended.
+
+### What I learned
+- Geppetto slug parsing is normalization-first (`strings.ToLower`) and only rejects values that violate slug pattern constraints; uppercase alone is not invalid.
+
+### What was tricky to build
+- The main tricky point was introducing per-request registry lookup without accidentally changing backward-compatible behavior for default registry and cookie-based profile selection. This required tightening resolver signatures while preserving existing endpoint contracts.
+
+### What warrants a second pair of eyes
+- Selection precedence details now that body and query both carry selectors, especially before GP01-507 formal precedence matrix tests are added.
+- Error semantics for unknown registry (`not configured`) vs invalid registry format (`bad request`) to ensure API consumers can distinguish them reliably.
+
+### What should be done in the future
+- Implement `GP01-503`: feed resolved profile runtime into runtime composition so defaults stop living in local composer assumptions.
+
+### Code review instructions
+- Start in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+- Validate with:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./pkg/webchat/... -count=1
+```
+
+### Technical details
+- Updated files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+- Commit hash:
+  - `3a4b585`

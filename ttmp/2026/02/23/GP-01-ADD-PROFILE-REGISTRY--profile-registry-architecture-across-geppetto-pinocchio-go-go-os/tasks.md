@@ -65,7 +65,7 @@
 
 - [x] GP01-500 Replace local `chatProfileRegistry` structs in `pinocchio/cmd/web-chat/profile_policy.go`.
 - [x] GP01-501 Inject shared profile registry service into request resolver.
-- [ ] GP01-502 Extend request parsing to accept explicit `profile` and `registry` fields in chat body/query.
+- [x] GP01-502 Extend request parsing to accept explicit `profile` and `registry` fields in chat body/query.
 - [ ] GP01-503 Update runtime composer to consume resolved profile runtime instead of local defaults.
 - [ ] GP01-504 Keep runtime fingerprint rebuild behavior in `ConvManager` and verify with profile version changes.
 - [ ] GP01-505 Add profile CRUD HTTP endpoints (`GET/POST/PATCH/DELETE /api/chat/profiles...`).
