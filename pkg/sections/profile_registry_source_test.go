@@ -94,22 +94,7 @@ func TestGatherFlagsFromProfileRegistry_MissingNonDefaultProfileErrors(t *testin
 	}
 }
 
-func TestIsProfileRegistryMiddlewareEnabled(t *testing.T) {
-	t.Setenv(profileRegistryMiddlewareEnv, "")
-	if isProfileRegistryMiddlewareEnabled() {
-		t.Fatalf("expected feature flag disabled for empty value")
-	}
-
-	for _, raw := range []string{"1", "true", "yes", "on", "TRUE"} {
-		t.Setenv(profileRegistryMiddlewareEnv, raw)
-		if !isProfileRegistryMiddlewareEnabled() {
-			t.Fatalf("expected feature flag enabled for %q", raw)
-		}
-	}
-}
-
 func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t *testing.T) {
-	t.Setenv(profileRegistryMiddlewareEnv, "1")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 

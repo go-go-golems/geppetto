@@ -280,7 +280,7 @@ func GetCobraCommandGeppettoMiddlewares(
 	if profileSettings.Profile == "" {
 		profileSettings.Profile = "default"
 	}
-	profileMiddleware := sources.GatherFlagsFromProfiles(
+	profileMiddleware := GatherFlagsFromProfileRegistry(
 		defaultProfileFile,
 		profileSettings.ProfileFile,
 		profileSettings.Profile,
@@ -289,22 +289,9 @@ func GetCobraCommandGeppettoMiddlewares(
 		fields.WithMetadata(map[string]interface{}{
 			"profileFile": profileSettings.ProfileFile,
 			"profile":     profileSettings.Profile,
+			"mode":        "profile-registry",
 		}),
 	)
-	if isProfileRegistryMiddlewareEnabled() {
-		profileMiddleware = GatherFlagsFromProfileRegistry(
-			defaultProfileFile,
-			profileSettings.ProfileFile,
-			profileSettings.Profile,
-			"default",
-			fields.WithSource("profiles"),
-			fields.WithMetadata(map[string]interface{}{
-				"profileFile": profileSettings.ProfileFile,
-				"profile":     profileSettings.Profile,
-				"mode":        "profile-registry",
-			}),
-		)
-	}
 	middlewares_ = append(middlewares_,
 		profileMiddleware,
 	)
