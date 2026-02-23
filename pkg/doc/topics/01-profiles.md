@@ -69,6 +69,13 @@ Pinocchio’s precedence (highest → lowest) is:
 
 **flags > env > config > profiles > defaults**
 
+### Profile-First Recommendation
+
+Use profiles as the primary way to choose runtime/provider/model defaults.
+Direct per-flag engine/provider overrides (for example `--ai-engine` and `--ai-api-type`)
+are still supported as compatibility escape hatches during migration to registry-backed
+profiles, but they should not be the routine configuration path.
+
 ### Using the Environment Variable
 
 ```bash
@@ -104,4 +111,3 @@ After setting the desired profile, Pinocchio will use the parameters defined wit
 ## Debugging (recommended)
 
 Use `--print-parsed-parameters` to see exactly where each parameter value came from (defaults vs profiles vs config vs env vs flags).
-
