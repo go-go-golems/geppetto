@@ -12,6 +12,18 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/cmd/gepa-runner/scripts/toy_math_optimizer.js
+      Note: Reference optimizer plugin for future runner wiring
+    - Path: geppetto/pkg/doc/topics/13-js-api-reference.md
+      Note: Documents geppetto/plugins helper exports and optimizer descriptor shape
+    - Path: geppetto/pkg/doc/topics/14-js-api-user-guide.md
+      Note: Documents plugin descriptor authoring workflow
+    - Path: geppetto/pkg/js/modules/geppetto/module.go
+      Note: Registers geppetto/plugins native module
+    - Path: geppetto/pkg/js/modules/geppetto/module_test.go
+      Note: Plugin helper contract coverage including optimizer descriptor test
+    - Path: geppetto/pkg/js/modules/geppetto/plugins_module.go
+      Note: Shared extractor/optimizer plugin contract helper module
     - Path: geppetto/pkg/optimizer/gepa/optimizer.go
       Note: Added no-progress loop guard and imported core GEPA optimization flow
     - Path: geppetto/pkg/optimizer/gepa/optimizer_test.go
@@ -28,6 +40,7 @@ LastUpdated: 2026-02-23T17:10:00-05:00
 WhatFor: Preserve an auditable step-by-step record of implementation decisions and outcomes.
 WhenToUse: Use when reviewing implementation progress, reproducing issues, or resuming work on GP-01-ADD-GEPA.
 ---
+
 
 
 # Diary
@@ -150,3 +163,105 @@ The tricky part was designing a deterministic no-progress test that exercises ca
   - aggregate stats math
   - fence parsing regression
   - no-progress/cache reuse behavior
+
+## Step 2: Track A Batch 2 - Add `geppetto/plugins` Optimizer Contract Support
+
+This step delivered the shared JS plugin contract surface required for optimizer scripts, including module registration and test coverage in the existing JS module test suite. The implementation intentionally reused the extractor descriptor pattern so optimizer and extractor scripts follow a consistent descriptor lifecycle.
+
+The step also added an optimizer reference script and documentation updates so plugin authors have concrete examples before the CLI runner is fully wired. This closes all remaining Track A checklist items from section 9.1.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementing tasks sequentially, check them off, keep detailed diary updates, and commit at meaningful milestones.
+
+**Inferred user intent:** Finish foundational platform changes that unblock runner implementation while preserving high reviewability and operational traceability.
+
+**Commit (code):** `d634fa3` — "Add geppetto/plugins optimizer contract helpers and docs"
+
+### What I did
+
+- Added shared plugin helper module:
+  - `geppetto/pkg/js/modules/geppetto/plugins_module.go`
+- Wired plugin module registration:
+  - `geppetto/pkg/js/modules/geppetto/module.go`
+  - Registered `PluginsModuleName` as `require("geppetto/plugins")`.
+- Extended JS module tests:
+  - `geppetto/pkg/js/modules/geppetto/module_test.go`
+  - Added extractor helper contract test.
+  - Added optimizer helper contract test validating `OPTIMIZER_PLUGIN_API_VERSION` and `defineOptimizerPlugin`.
+- Added optimizer reference script:
+  - `geppetto/cmd/gepa-runner/scripts/toy_math_optimizer.js`
+- Updated docs:
+  - `geppetto/pkg/doc/topics/13-js-api-reference.md`
+  - `geppetto/pkg/doc/topics/14-js-api-user-guide.md`
+- Validation commands:
+  - `gofmt -w pkg/js/modules/geppetto/module.go pkg/js/modules/geppetto/module_test.go pkg/js/modules/geppetto/plugins_module.go`
+  - `go test ./pkg/js/modules/geppetto -count=1`
+  - `go test ./pkg/optimizer/gepa -count=1`
+- Pre-commit also executed full repo checks on commit (`go test ./...`, lint, vet) and passed.
+
+### Why
+
+- The upcoming `gepa-runner` depends on stable descriptor-level helpers (`defineOptimizerPlugin`), and local geppetto did not yet expose `geppetto/plugins`.
+- Reusing the established extractor helper pattern reduces API drift between extractor and optimizer plugin ecosystems.
+- Adding docs and a concrete script prevents contract ambiguity for future plugin authors.
+
+### What worked
+
+- `require("geppetto/plugins")` now resolves and exposes both extractor and optimizer helpers.
+- New module tests passed and validated contract behavior.
+- Full pre-commit gate passed with no lint/test regressions.
+- Track A tasks for plugin contract, module registration, tests, example script, and docs are now complete.
+
+### What didn't work
+
+- No functional failures in this step; implementation and checks passed first attempt.
+
+### What I learned
+
+- Keeping helper APIs in a separate native module (`geppetto/plugins`) avoids bloating the core `geppetto` runtime surface while still enabling shared contracts across runners.
+- The current helper design cleanly supports both strict descriptor validation and input normalization wrappers without requiring runner-specific script scaffolding.
+
+### What was tricky to build
+
+The main subtlety was controlling scope so only plugin-contract functionality landed, without pulling unrelated imported runtime changes (builder event sinks, responses engine deltas). The symptom/risk was accidental broad module drift from the imported snapshot. I mitigated this by adding only `PluginsModuleName` registration in `module.go` plus a dedicated `plugins_module.go`, leaving existing session/tool runtime paths untouched.
+
+### What warrants a second pair of eyes
+
+- `geppetto/pkg/js/modules/geppetto/plugins_module.go`:
+  - Check whether allowed optimizer/extractor descriptor defaults and validations match intended long-term contract evolution.
+- `geppetto/pkg/doc/topics/13-js-api-reference.md`:
+  - Confirm documentation wording aligns with intended CLI host behavior for optimizer scripts.
+
+### What should be done in the future
+
+- Start Track B implementation of local `cmd/gepa-runner` and bind it to this new optimizer plugin contract.
+- Add runner-level integration tests that consume `cmd/gepa-runner/scripts/toy_math_optimizer.js` end-to-end.
+
+### Code review instructions
+
+- Start with:
+  - `geppetto/pkg/js/modules/geppetto/plugins_module.go`
+  - `geppetto/pkg/js/modules/geppetto/module.go`
+  - `geppetto/pkg/js/modules/geppetto/module_test.go`
+  - `geppetto/cmd/gepa-runner/scripts/toy_math_optimizer.js`
+  - `geppetto/pkg/doc/topics/13-js-api-reference.md`
+- Validate:
+  - `cd geppetto`
+  - `go test ./pkg/js/modules/geppetto -count=1`
+  - `go test ./pkg/optimizer/gepa -count=1`
+  - `git show d634fa3 --stat`
+
+### Technical details
+
+- New constants exported from helper module:
+  - `EXTRACTOR_PLUGIN_API_VERSION = "cozo.extractor/v1"`
+  - `OPTIMIZER_PLUGIN_API_VERSION = "gepa.optimizer/v1"`
+- New helper API:
+  - `defineExtractorPlugin(descriptor)`
+  - `wrapExtractorRun(runImpl)`
+  - `defineOptimizerPlugin(descriptor)`
+- Module registration update:
+  - `reg.RegisterNativeModule(PluginsModuleName, mod.pluginsLoader)`

@@ -13,11 +13,11 @@ Implement analysis sections `9.1`, `9.2`, and `10.1` as the first shippable GEPA
 - [x] Add no-progress/stagnation guard in optimizer loop (break or fallback when no new evals are consumed and no accepted child is produced).
 - [x] Add regression test that proves loop exits cleanly in repeated-child / cache-hit scenarios.
 - [x] Ensure `pkg/optimizer/gepa` compiles and tests pass under local workspace (`go test ./pkg/optimizer/gepa`).
-- [ ] Port optimizer plugin contract support into local geppetto plugin module (`defineOptimizerPlugin`, `OPTIMIZER_PLUGIN_API_VERSION`).
-- [ ] Register `geppetto/plugins` optimizer helper exports in local module registration path.
-- [ ] Add/extend JS module tests to validate optimizer descriptor contract checks (`apiVersion`, `kind`, `id`, `name`, `create`).
-- [ ] Port and adapt `toy_math_optimizer.js` example into local repo as reference script for optimizer plugin authors.
-- [ ] Add/update documentation page(s) showing optimizer plugin contract and example usage.
+- [x] Port optimizer plugin contract support into local geppetto plugin module (`defineOptimizerPlugin`, `OPTIMIZER_PLUGIN_API_VERSION`).
+- [x] Register `geppetto/plugins` optimizer helper exports in local module registration path.
+- [x] Add/extend JS module tests to validate optimizer descriptor contract checks (`apiVersion`, `kind`, `id`, `name`, `create`).
+- [x] Port and adapt `toy_math_optimizer.js` example into local repo as reference script for optimizer plugin authors.
+- [x] Add/update documentation page(s) showing optimizer plugin contract and example usage.
 
 ## Track B: Medium-Value Refit (`9.2`)
 
