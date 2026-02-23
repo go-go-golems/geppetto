@@ -139,7 +139,7 @@ RelatedFiles:
         Phase 6 task checkboxes updated
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
-LastUpdated: 2026-02-23T14:04:00-05:00
+LastUpdated: 2026-02-23T17:17:18-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
@@ -2000,3 +2000,97 @@ go test ./... -count=1
   - `profile-registry-db`
 - Bootstrap behavior:
   - DB-backed registry initialized via `newSQLiteProfileService`, with builtin profile seeding for first boot.
+
+## Step 24: Rebased Plan and Made Profile CRUD Mounting Reusable Across Pinocchio and Go-Go-OS
+
+I updated the ticket plan to insert an explicit phase for reusable profile CRUD route packaging before the Go-Go-OS client phase, then implemented that phase end-to-end. The CRUD handler logic now lives in `pinocchio/pkg/webchat/http` and is mounted from both `pinocchio/cmd/web-chat` and `go-go-os/go-inventory-chat`.
+
+While integrating into `go-go-os`, I hit a cross-repo API/version boundary: the inventory server module was pinned to released `pinocchio/geppetto` versions that predate the profile-registry API. I resolved this in-workspace by aligning inventory-server code to the newer local runtime/request-resolver interfaces and validating with a temporary workspace `go.work` that includes all three modules.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, so let's update the plan to do the following:
+
+- make CRUD routes reusable across pinocchio/cmd/web-chat and go-go-os, integrate into go-go-os and then continue as normal. Then continue working on it."
+
+**Assistant interpretation:** Add an explicit plan phase for reusable CRUD route extraction, implement it immediately, and continue normal sequencing after that milestone.
+
+**Inferred user intent:** Avoid app-specific duplication and make the profile CRUD surface a shared backend capability available to both web-chat hosts.
+
+**Commit (code):** c000fac7f3fefe28b34d664e53bc9af6ad8f7755 — "webchat/http: extract reusable profile CRUD route registrar"
+
+**Commit (code):** dafd4a11ddd3158707d36c093c4118f8535f495e — "inventory-server: mount reusable profile CRUD routes"
+
+### What I did
+- Updated ticket tasks to add and complete `GP01-650..653` in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md`
+- Added reusable profile CRUD route registration in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go`
+- Switched `cmd/web-chat` to mount reusable package routes via thin wrapper in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Mounted reusable profile CRUD routes in inventory server and bootstrapped an in-memory profile registry in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go`
+- Added inventory-server integration coverage for mounted CRUD endpoints in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+- Updated inventory-server runtime glue to current local pinocchio API contracts in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/hypercard_extractors.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/tools_inventory.go`
+- Validation run:
+  - `cd pinocchio && go test ./cmd/web-chat ./pkg/webchat/http`
+  - `cd go-go-os/go-inventory-chat && GOWORK=/tmp/add-profile-registry.go.work go test ./cmd/hypercard-inventory-server ./internal/pinoweb`
+
+### Why
+- A shared route registrar removes drift and avoids duplicating CRUD semantics between hosts.
+- The user requested immediate cross-app reusability and then continuation of the broader plan.
+
+### What worked
+- Reusable CRUD route package extracted and consumed by `pinocchio/cmd/web-chat`.
+- Inventory server now mounts the same reusable route set.
+- Added integration test proves CRUD route availability on inventory server.
+- Both repos passed targeted tests after API alignment.
+
+### What didn't work
+- I accidentally attempted `apply_patch` via shell once; this was blocked and corrected by switching to the dedicated `apply_patch` tool.
+- First `pinocchio` commit attempt failed lint with:
+  - `cmd/web-chat/profile_policy.go:346:34: func (*ProfileRequestResolver).profileExists is unused (unused)`
+  - Fixed by removing dead helper after route extraction.
+- `go-go-os/go-inventory-chat` failed against local modules initially due old API symbols:
+  - missing `webhttp.ConversationRequestPlan`
+  - missing `infruntime.RuntimeComposeRequest`/`RuntimeArtifacts`
+  - missing `infruntime.ToolFactory`
+  - Fixed by migrating inventory server glue code to current local `pinocchio` interfaces (`ResolvedConversationRequest`, `ConversationRuntimeRequest`, `ComposedRuntime`, `ToolRegistrar`).
+
+### What I learned
+- The route extraction itself is straightforward, but cross-repo module/version alignment is the real risk when one app pins released dependencies while another repo is mid-migration.
+
+### What was tricky to build
+- The tricky part was enabling reuse without stalling on dependency versioning. I addressed this by:
+  - extracting the shared handler API first (clear reusable seam),
+  - then adapting inventory-server integration code to the current local runtime contracts,
+  - and validating with a workspace `go.work` that includes all relevant local modules.
+
+### What warrants a second pair of eyes
+- Whether `go-go-os/go-inventory-chat` should formally move to local/updated `pinocchio/geppetto` versions in its own module management path now, or keep temporary workspace-only integration while release tags catch up.
+
+### What should be done in the future
+- Continue with Phase 7 client/runtime wiring now that server-side CRUD route reuse is done.
+
+### Code review instructions
+- Start with reusable route extraction:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go`
+- Confirm pinocchio command wiring is now a wrapper:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Review inventory mount + bootstrap:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go`
+- Review integration proof:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+
+### Technical details
+- New reusable entrypoint:
+  - `webhttp.RegisterProfileAPIHandlers(mux, registry, opts)`
+- Option knobs include:
+  - default registry slug
+  - write actor/source
+  - optional current-profile cookie route

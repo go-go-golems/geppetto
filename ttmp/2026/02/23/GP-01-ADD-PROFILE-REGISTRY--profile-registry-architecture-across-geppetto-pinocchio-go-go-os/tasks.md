@@ -82,6 +82,13 @@
 - [x] GP01-604 Add integration tests with sqlite temp DB.
 - [x] GP01-605 Add optional profile-store settings flags/fields in server config.
 
+## Phase 6B: Reusable Profile CRUD Route Packaging
+
+- [x] GP01-650 Extract profile CRUD route registration into reusable `pinocchio/pkg/webchat/http` package APIs.
+- [x] GP01-651 Switch `pinocchio/cmd/web-chat` to mount reusable profile CRUD routes (no behavior change).
+- [x] GP01-652 Integrate reusable profile CRUD route mounting in `go-go-os/go-inventory-chat` server.
+- [x] GP01-653 Add/extend integration tests proving CRUD route availability in both servers.
+
 ## Phase 7: Go-Go-OS Client Integration
 
 - [ ] GP01-700 Add profile runtime API client module in `go-go-os/packages/engine/src/chat/runtime`.
