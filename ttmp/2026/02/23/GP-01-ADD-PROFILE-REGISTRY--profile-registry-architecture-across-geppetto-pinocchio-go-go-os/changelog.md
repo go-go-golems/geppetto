@@ -144,3 +144,15 @@ Implemented GP01-503: pinocchio web-chat runtime composer now consumes typed res
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go — Extended runtime compose request contract with ResolvedRuntime
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go — Added ResolvedRuntime field to request plan and forwarding path
 
+
+## 2026-02-23
+
+Implemented GP01-504: runtime fingerprint/rebuild path now incorporates profile version and is verified by conversation-service coverage for same-version reuse vs new-version rebuild (commit ec779f8).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-504 complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go — Fingerprint payload now includes profile version
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go — Runtime compose request contract extended with profile version
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service_test.go — Added version-driven rebuild verification
+

@@ -67,7 +67,7 @@
 - [x] GP01-501 Inject shared profile registry service into request resolver.
 - [x] GP01-502 Extend request parsing to accept explicit `profile` and `registry` fields in chat body/query.
 - [x] GP01-503 Update runtime composer to consume resolved profile runtime instead of local defaults.
-- [ ] GP01-504 Keep runtime fingerprint rebuild behavior in `ConvManager` and verify with profile version changes.
+- [x] GP01-504 Keep runtime fingerprint rebuild behavior in `ConvManager` and verify with profile version changes.
 - [ ] GP01-505 Add profile CRUD HTTP endpoints (`GET/POST/PATCH/DELETE /api/chat/profiles...`).
 - [ ] GP01-506 Keep compatibility endpoint `/api/chat/profile` (cookie-based current selection).
 - [ ] GP01-507 Add resolver tests for cookie/query/body/path precedence.

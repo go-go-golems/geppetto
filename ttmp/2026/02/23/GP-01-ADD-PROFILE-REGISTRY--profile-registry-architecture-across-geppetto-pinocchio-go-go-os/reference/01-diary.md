@@ -28,27 +28,44 @@ RelatedFiles:
         Replaced local chatProfileRegistry with shared geppetto profiles.Registry-backed resolver and handlers (commit eb13816)
         Added request-scoped profile/registry resolution and registry slug parsing (commit 3a4b585)
         Added ResolvedRuntime emission in request plans for composer consumption (commit 2ac2dc6)
+        Resolver now propagates profile metadata version into conversation request plans (commit ec779f8)
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
       Note: |-
         Updated resolver/handler tests to shared registry model
         Added GP01-502 resolver tests for body/query registry+profile selection and invalid registry validation (commit 3a4b585)
         Added assertions for ResolvedRuntime presence in resolver plans (commit 2ac2dc6)
+        Added assertions for profile version propagation in resolver plans (commit ec779f8)
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
-      Note: Composer now seeds prompt/middlewares/tools from RuntimeComposeRequest.ResolvedRuntime (commit 2ac2dc6)
+      Note: |-
+        Composer now seeds prompt/middlewares/tools from RuntimeComposeRequest.ResolvedRuntime (commit 2ac2dc6)
+        Runtime fingerprint now includes profile version to drive rebuild decisions (commit ec779f8)
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer_test.go
-      Note: Added GP01-503 tests for resolved-runtime defaults and override precedence (commit 2ac2dc6)
+      Note: |-
+        Added GP01-503 tests for resolved-runtime defaults and override precedence (commit 2ac2dc6)
+        Added profile-version fingerprint regression coverage (commit ec779f8)
     - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
-      Note: Extended RuntimeComposeRequest with typed ResolvedRuntime field (commit 2ac2dc6)
+      Note: |-
+        Extended RuntimeComposeRequest with typed ResolvedRuntime field (commit 2ac2dc6)
+        Extended RuntimeComposeRequest with ProfileVersion for lifecycle semantics (commit ec779f8)
     - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
-      Note: ConvManager GetOrCreate now forwards ResolvedRuntime into runtime composer requests (commit 2ac2dc6)
+      Note: |-
+        ConvManager GetOrCreate now forwards ResolvedRuntime into runtime composer requests (commit 2ac2dc6)
+        ConvManager now receives profile version and forwards it to runtime composer (commit ec779f8)
     - Path: ../../../../../../../pinocchio/pkg/webchat/conversation_service.go
-      Note: Propagated ResolvedRuntime through chat service request models (commit 2ac2dc6)
+      Note: |-
+        Propagated ResolvedRuntime through chat service request models (commit 2ac2dc6)
+        Added profile version propagation across service request models (commit ec779f8)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation_service_test.go
+      Note: Added rebuild-on-profile-version-change integration-style test (commit ec779f8)
     - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
       Note: |-
         Extended ChatRequestBody with optional profile and registry request fields (commit 3a4b585)
         ConversationRequestPlan now carries ResolvedRuntime and forwards it to services (commit 2ac2dc6)
+        Conversation request plans now forward profile version from resolver to services (commit ec779f8)
     - Path: ../../../../../../../pinocchio/pkg/webchat/stream_hub.go
-      Note: StreamHub now passes ResolvedRuntime to ConvManager GetOrCreate (commit 2ac2dc6)
+      Note: |-
+        StreamHub now passes ResolvedRuntime to ConvManager GetOrCreate (commit 2ac2dc6)
+        Stream hub now passes profile version into conversation resolution path (commit ec779f8)
     - Path: pkg/doc/topics/01-profiles.md
       Note: Documented profile-first recommendation and compatibility escape-hatch positioning
     - Path: pkg/profiles/codec_yaml.go
@@ -112,6 +129,7 @@ LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1447,3 +1465,107 @@ go test ./... -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/stream_hub.go`
 - Commit hash:
   - `2ac2dc6`
+
+## Step 18: Added Profile-Version Fingerprint Inputs and Rebuild Verification (GP01-504)
+
+I completed GP01-504 by extending the runtime request pipeline with explicit profile version propagation and including that version in runtime fingerprint generation. This ensures conversation runtime rebuild decisions can react to profile-version changes even when runtime key and visible prompt/tool settings remain otherwise stable.
+
+I also added a focused conversation-service test that verifies no rebuild for same version and rebuild for changed version on the same conversation ID.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementing the next pending Phase 5 task and keep task/doc bookkeeping fully up to date.
+
+**Inferred user intent:** Make profile updates safe and deterministic by tying runtime lifecycle behavior to profile version changes.
+
+**Commit (code):** ec779f8 — "web-chat: trigger runtime rebuilds on profile version changes"
+
+### What I did
+- Added `ProfileVersion uint64` to runtime/request contracts:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation.go`
+- Propagated profile version from resolver:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+    - request plans now include `ProfileVersion` from resolved profile metadata.
+- Updated composer fingerprint payload:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go`
+    - `runtimeFingerprint(...)` now includes `profile_version`.
+- Updated stream wiring:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/stream_hub.go`
+    - passes profile version into `ConvManager.GetOrCreate(...)`.
+- Added/updated tests:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer_test.go`
+    - fingerprint changes across profile versions.
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+    - resolver populates plan profile version.
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service_test.go`
+    - `TestConversationService_ResolveAndEnsureConversation_RebuildsOnProfileVersionChange`.
+- Validation:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./... -count=1`
+  - pre-commit hook suite on commit (`go test ./...`, frontend build, lint, vet).
+
+### Why
+- GP01-504 explicitly requires preserving rebuild semantics and validating behavior when profile version changes.
+
+### What worked
+- Version now flows end-to-end into runtime composition.
+- Runtime fingerprint now changes when profile version changes.
+- New conversation-service test confirms behavior:
+  - same version keeps current engine
+  - new version rebuilds engine for same conversation.
+
+### What didn't work
+- No functional blockers after design was settled.
+- The only cost was wide signature churn across multiple layers, which required synchronized updates in all callers/tests.
+
+### What I learned
+- The cleanest place to enforce profile-version rebuild semantics is fingerprint construction in composer, not conversation manager heuristics.
+
+### What was tricky to build
+- The main complexity was cross-layer contract propagation (`ConversationRequestPlan` -> `AppConversationRequest` -> `RuntimeComposeRequest`) without losing backward compatibility for existing call sites that do not set profile metadata.
+
+### What warrants a second pair of eyes
+- Whether future API contracts should also include profile registry/profile slug metadata in typed fields (today version is explicit; slug/registry still primarily runtime key + resolver context).
+- Whether queued in-flight requests need additional metadata persistence for audit/debug visibility.
+
+### What should be done in the future
+- Continue with `GP01-505`: add full profile CRUD endpoints (`GET/POST/PATCH/DELETE /api/chat/profiles...`).
+
+### Code review instructions
+- Review signature propagation first:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go`
+- Then review fingerprint and test coverage:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service_test.go`
+- Validate with:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./pkg/webchat/... -count=1
+go test ./... -count=1
+```
+
+### Technical details
+- Updated files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/stream_hub.go`
+- Commit hash:
+  - `ec779f8`
