@@ -55,7 +55,9 @@ RelatedFiles:
     - Path: pkg/sections/profile_registry_source.go
       Note: Registry-backed middleware adapter for profile loading in sections pipeline (commit 1098b9d)
     - Path: pkg/sections/profile_registry_source_test.go
-      Note: Middleware adapter and feature flag coverage tests (commit 1098b9d)
+      Note: |-
+        Middleware adapter and feature flag coverage tests (commit 1098b9d)
+        Integration precedence coverage for config/profile/env/flags with registry adapter (commit d8a93de)
     - Path: pkg/sections/sections.go
       Note: |-
         Logged as key seam for profile middleware migration
@@ -66,12 +68,14 @@ RelatedFiles:
       Note: |-
         Marked GP01-300..305 complete
         Marked GP01-400..403 complete
+        Marked GP01-404 complete
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -992,3 +996,80 @@ go test ./pkg/sections -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/sections.go`
 - Commit hash:
   - `1098b9d`
+
+## Step 13: Added Integration Coverage for Config/Profile/Env/Flag Precedence (GP01-404)
+
+I added an integration-style sections test that exercises the real Geppetto middleware chain (`GetCobraCommandGeppettoMiddlewares`) with the registry adapter feature flag enabled. The test verifies the intended precedence ordering across config values, selected profile values, environment overrides, and explicit CLI flags.
+
+This directly covers a high-risk migration area: ensuring registry-backed profile loading preserves current operational behavior in mixed-source configuration scenarios.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementing tasks incrementally and keep diary detail high; proceed with pending Phase 4 test coverage.
+
+**Inferred user intent:** Ship migration-safe changes with concrete regression coverage before broader rollouts.
+
+**Commit (code):** d8a93de — "sections: add profile precedence integration coverage"
+
+### What I did
+- Extended `geppetto/pkg/sections/profile_registry_source_test.go` with:
+  - `TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter`
+- Test setup details:
+  - enables `PINOCCHIO_ENABLE_PROFILE_REGISTRY_MIDDLEWARE=1`
+  - writes temporary `profiles.yaml` and `config.yaml`
+  - parses real Cobra flags against schema sections
+  - runs the actual middleware chain via `sources.Execute(...)`
+  - decodes into `StepSettings` and asserts precedence:
+    - profile overrides config
+    - env overrides profile
+    - flags override env/profile/config
+- Added helper functions in the same test file for schema/flag setup with command and profile settings sections.
+- Ran validations:
+  - `go test ./pkg/sections -count=1`
+  - full pre-commit suite on commit (`go test ./...`, lint, vet).
+
+### Why
+- GP01-404 explicitly requires precedence coverage across config/env/flags/profile, and this is a regression-sensitive part of the migration.
+
+### What worked
+- Final test passes and validates expected ordering under registry middleware mode.
+- Full repo pre-commit checks passed after test refinement.
+
+### What didn't work
+- First attempt failed because env var clearing used `t.Setenv("PINOCCHIO_AI_ENGINE", "")`, which still counts as "set" and therefore overrode profile/config with an empty value.
+- Diagnostic output from field parse logs confirmed an `env` parse step with empty value was winning precedence.
+- Fix: explicitly `os.Unsetenv("PINOCCHIO_AI_ENGINE")` when no env override should be active in a given sub-case.
+- First commit attempt also failed lint due a now-unused helper (`mustGeppettoParser`) after refactoring the test harness; removed helper and re-committed.
+
+### What I learned
+- In this middleware stack, "empty but set" env vars are semantically different from "unset" env vars and can intentionally override lower-precedence sources.
+
+### What was tricky to build
+- Building a robust integration harness required aligning Cobra flag registration, command-settings parsing, and middleware execution exactly like production. Small deviations (e.g., parser shortcuts) masked the real precedence behavior.
+
+### What warrants a second pair of eyes
+- Additional ordering scenarios with profile selection coming from env/flags (not only config file) to broaden migration confidence.
+- Behavior when both legacy and canonical registry YAML shapes include overlapping profile content.
+
+### What should be done in the future
+- Implement GP01-405 (command help/deprecation messaging for profile-first path).
+- Add one more ordering test covering `PINOCCHIO_PROFILE` and `--profile` precedence once those are moved to registry-first docs.
+
+### Code review instructions
+- Review `geppetto/pkg/sections/profile_registry_source_test.go`:
+  - `TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter`
+  - `mustGeppettoSchemaWithCommandAndProfile`
+  - `addSchemaFlagsToCommand`
+- Validate with:
+```bash
+cd geppetto
+go test ./pkg/sections -count=1
+```
+
+### Technical details
+- Updated file:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go`
+- Commit hash:
+  - `d8a93de`

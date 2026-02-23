@@ -89,3 +89,13 @@ Implemented GP01-400..403: added feature-flagged registry-backed profile middlew
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/sections.go — Registry middleware wiring point with migration toggle
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Phase 4 task checkboxes updated
 
+
+## 2026-02-23
+
+Implemented GP01-404: added integration precedence test through GetCobraCommandGeppettoMiddlewares under registry-adapter mode, covering config/profile/env/flag override ordering and migration regression risk (commit d8a93de).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go — New precedence integration test and helpers
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — GP01-404 checked
+
