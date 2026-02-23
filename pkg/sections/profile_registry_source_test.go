@@ -3,6 +3,7 @@ package sections
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -177,6 +178,55 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 	}
 }
 
+func TestGatherFlagsFromProfileRegistry_RegressionMatchesLegacyGatherFlags(t *testing.T) {
+	tmpDir := t.TempDir()
+	profilePath := filepath.Join(tmpDir, "profiles.yaml")
+	content := `default:
+  ai-chat:
+    ai-engine: default-engine
+    ai-api-type: openai
+  ai-client:
+    timeout: 11
+agent:
+  ai-chat:
+    ai-engine: profile-engine
+    ai-api-type: openai
+  ai-client:
+    timeout: 17
+writer:
+  ai-chat:
+    ai-engine: writer-engine
+`
+	if err := os.WriteFile(profilePath, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	schema_ := mustGeppettoSchema(t)
+	cases := []struct {
+		name           string
+		profile        string
+		defaultProfile string
+	}{
+		{name: "default profile", profile: "default", defaultProfile: "default"},
+		{name: "agent override", profile: "agent", defaultProfile: "default"},
+		{name: "writer partial override", profile: "writer", defaultProfile: "default"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			legacy := mustStepSettingsFromSource(t, schema_, sources.GatherFlagsFromProfiles(profilePath, profilePath, tc.profile, tc.defaultProfile))
+			registry := mustStepSettingsFromSource(t, schema_, GatherFlagsFromProfileRegistry(profilePath, profilePath, tc.profile, tc.defaultProfile))
+
+			got := projectSettingsForRegression(registry)
+			want := projectSettingsForRegression(legacy)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("registry-backed projection mismatch:\n got: %#v\nwant: %#v", got, want)
+			}
+		})
+	}
+}
+
 func mustGeppettoSchema(t *testing.T) *schema.Schema {
 	t.Helper()
 	sections, err := CreateGeppettoSections()
@@ -217,4 +267,46 @@ func addSchemaFlagsToCommand(t *testing.T, schema_ *schema.Schema, cmd *cobra.Co
 	if err != nil {
 		t.Fatalf("failed to add schema flags to command: %v", err)
 	}
+}
+
+func mustStepSettingsFromSource(t *testing.T, schema_ *schema.Schema, source sources.Middleware) *settings.StepSettings {
+	t.Helper()
+	parsed := values.New()
+	if err := sources.Execute(schema_, parsed, source, sources.FromDefaults()); err != nil {
+		t.Fatalf("sources.Execute returned error: %v", err)
+	}
+	ss, err := settings.NewStepSettingsFromParsedValues(parsed)
+	if err != nil {
+		t.Fatalf("NewStepSettingsFromParsedValues returned error: %v", err)
+	}
+	return ss
+}
+
+func projectSettingsForRegression(ss *settings.StepSettings) map[string]any {
+	if ss == nil {
+		return map[string]any{}
+	}
+
+	projected := map[string]any{
+		"chat.engine":          "",
+		"chat.api_type":        "",
+		"client.timeout":       "",
+		"metadata.ai-engine":   nil,
+		"metadata.ai-api-type": nil,
+		"metadata.timeout":     nil,
+	}
+	if ss.Chat != nil && ss.Chat.Engine != nil {
+		projected["chat.engine"] = *ss.Chat.Engine
+	}
+	if ss.Chat != nil && ss.Chat.ApiType != nil {
+		projected["chat.api_type"] = string(*ss.Chat.ApiType)
+	}
+	if ss.Client != nil {
+		projected["client.timeout"] = ss.Client.Timeout.String()
+	}
+	metadata := ss.GetMetadata()
+	projected["metadata.ai-engine"] = metadata["ai-engine"]
+	projected["metadata.ai-api-type"] = metadata["ai-api-type"]
+	projected["metadata.timeout"] = metadata["timeout"]
+	return projected
 }
