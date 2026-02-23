@@ -1,0 +1,10 @@
+--- /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/geppetto/pkg/steps/ai/settings/flags/chat.yaml	2026-02-22 17:02:05.269595576 -0500
++++ /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/imported/geppetto-main/pkg/steps/ai/settings/flags/chat.yaml	2026-02-22 16:34:26.000000000 -0500
+@@ -18,7 +18,6 @@
+   - name: ai-max-response-tokens
+     type: int
+     help: Maximum number of tokens in the response
+-    default: 1000
+   - name: ai-top-p
+     type: float
+     help: Top-p sampling value

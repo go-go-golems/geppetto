@@ -1,0 +1,173 @@
+Generated: 2026-02-22T17:18:34-05:00
+
+== Imported GEPA-related Symbols ==
+ttmp/2025-08-03/04-comprehensive-step-api-analysis-and-engine-migration-plan.md:376:    reflector *jsonschema.Reflector
+ttmp/2025-08-03/04-comprehensive-step-api-analysis-and-engine-migration-plan.md:484:    reflector *jsonschema.Reflector
+ttmp/2025-08-03/04-comprehensive-step-api-analysis-and-engine-migration-plan.md:537:    reflector: &jsonschema.Reflector{DoNotReference: true},
+cmd/gepa-runner/scripts/toy_math_optimizer.js:30:module.exports = plugins.defineOptimizerPlugin({
+cmd/gepa-runner/scripts/toy_math_optimizer.js:31:  apiVersion: plugins.OPTIMIZER_PLUGIN_API_VERSION,
+cmd/gepa-runner/scripts/toy_math_optimizer.js:32:  kind: "optimizer",
+cmd/gepa-runner/main.go:14:	gepaopt "github.com/go-go-golems/geppetto/pkg/optimizer/gepa"
+cmd/gepa-runner/main.go:30:	Use:   "gepa-runner",
+cmd/gepa-runner/main.go:67:			fields.New("script", fields.TypeString, fields.WithHelp("Path to JS optimizer plugin (descriptor)"), fields.WithRequired(true)),
+cmd/gepa-runner/main.go:148:		"app":           "gepa-runner",
+cmd/gepa-runner/main.go:154:	plugin, meta, err := loadOptimizerPlugin(jsrt, absScript, hostContext)
+cmd/gepa-runner/main.go:158:	log.Info().Str("plugin_id", meta.ID).Str("plugin_name", meta.Name).Msg("Loaded optimizer plugin")
+cmd/gepa-runner/main.go:177:	evalFn := func(ctx context.Context, cand gepaopt.Candidate, exampleIndex int, example any) (gepaopt.EvalResult, error) {
+cmd/gepa-runner/main.go:184:	cfg := gepaopt.Config{
+cmd/gepa-runner/main.go:191:	reflector := &gepaopt.Reflector{
+cmd/gepa-runner/main.go:196:	opt := gepaopt.NewOptimizer(cfg, evalFn, reflector)
+cmd/gepa-runner/main.go:198:	res, err := opt.Optimize(ctx, gepaopt.Candidate{"prompt": seedText}, examples)
+cmd/gepa-runner/README.md:1:# gepa-runner
+cmd/gepa-runner/README.md:3:`gepa-runner` is a small CLI that runs a **GEPA-style reflective prompt evolution loop** on top of:
+cmd/gepa-runner/README.md:23:1. Write a JS plugin that exports an optimizer descriptor:
+cmd/gepa-runner/README.md:29:module.exports = plugins.defineOptimizerPlugin({
+cmd/gepa-runner/README.md:30:  apiVersion: plugins.OPTIMIZER_PLUGIN_API_VERSION,
+cmd/gepa-runner/README.md:31:  kind: "optimizer",
+cmd/gepa-runner/README.md:51:gepa-runner optimize \
+cmd/gepa-runner/README.md:52:  --script ./cmd/gepa-runner/scripts/toy_math_optimizer.js \
+cmd/gepa-runner/README.md:64:gepa-runner optimize \
+cmd/gepa-runner/README.md:89:- The optimizer currently mutates the `"prompt"` field (or falls back to the first key in `candidate`).
+cmd/gepa-runner/eval_command.go:12:	gepaopt "github.com/go-go-golems/geppetto/pkg/optimizer/gepa"
+cmd/gepa-runner/eval_command.go:48:			fields.New("script", fields.TypeString, fields.WithHelp("Path to JS optimizer plugin (descriptor)"), fields.WithRequired(true)),
+cmd/gepa-runner/eval_command.go:115:		"app":           "gepa-runner",
+cmd/gepa-runner/eval_command.go:121:	plugin, meta, err := loadOptimizerPlugin(jsrt, absScript, hostContext)
+cmd/gepa-runner/eval_command.go:143:	evals := make([]gepaopt.ExampleEval, 0, len(examples))
+cmd/gepa-runner/eval_command.go:145:		r, err := plugin.Evaluate(gepaopt.Candidate{"prompt": promptText}, i, ex, pluginEvaluateOptions{
+cmd/gepa-runner/eval_command.go:153:			r.Objectives = gepaopt.ObjectiveScores{"score": r.Score}
+cmd/gepa-runner/eval_command.go:155:		evals = append(evals, gepaopt.ExampleEval{ExampleIndex: i, Result: r})
+cmd/gepa-runner/eval_command.go:158:	stats := gepaopt.AggregateStats(evals)
+cmd/gepa-runner/js_runtime.go:38:		Name:          "gepa-runner",
+cmd/gepa-runner/plugin_loader.go:10:	gepaopt "github.com/go-go-golems/geppetto/pkg/optimizer/gepa"
+cmd/gepa-runner/plugin_loader.go:14:const optimizerPluginAPIVersion = "gepa.optimizer/v1"
+cmd/gepa-runner/plugin_loader.go:16:type optimizerPluginMeta struct {
+cmd/gepa-runner/plugin_loader.go:29:type optimizerPlugin struct {
+cmd/gepa-runner/plugin_loader.go:31:	meta     optimizerPluginMeta
+cmd/gepa-runner/plugin_loader.go:38:func loadOptimizerPlugin(rt *jsRuntime, absScriptPath string, hostContext map[string]any) (*optimizerPlugin, optimizerPluginMeta, error) {
+cmd/gepa-runner/plugin_loader.go:40:		return nil, optimizerPluginMeta{}, errors.New("plugin loader: runtime is nil")
+cmd/gepa-runner/plugin_loader.go:43:		return nil, optimizerPluginMeta{}, errors.New("plugin loader: script path is empty")
+cmd/gepa-runner/plugin_loader.go:51:		return nil, optimizerPluginMeta{}, errors.Wrap(err, "plugin loader: require script module")
+cmd/gepa-runner/plugin_loader.go:56:		return nil, optimizerPluginMeta{}, fmt.Errorf("plugin loader: script module did not export an object descriptor")
+cmd/gepa-runner/plugin_loader.go:61:		return nil, optimizerPluginMeta{}, err
+cmd/gepa-runner/plugin_loader.go:67:		return nil, optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.create must be a function")
+cmd/gepa-runner/plugin_loader.go:76:		return nil, optimizerPluginMeta{}, errors.Wrap(err, "plugin loader: descriptor.create failed")
+cmd/gepa-runner/plugin_loader.go:80:		return nil, optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.create must return an object instance")
+cmd/gepa-runner/plugin_loader.go:86:		return nil, optimizerPluginMeta{}, fmt.Errorf("plugin loader: plugin instance.evaluate must be a function")
+cmd/gepa-runner/plugin_loader.go:104:	p := &optimizerPlugin{
+cmd/gepa-runner/plugin_loader.go:115:func decodeOptimizerPluginMeta(descriptorObj *goja.Object) (optimizerPluginMeta, error) {
+cmd/gepa-runner/plugin_loader.go:123:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.apiVersion is required")
+cmd/gepa-runner/plugin_loader.go:125:	if apiVersion != optimizerPluginAPIVersion {
+cmd/gepa-runner/plugin_loader.go:126:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: unsupported apiVersion %q (expected %q)", apiVersion, optimizerPluginAPIVersion)
+cmd/gepa-runner/plugin_loader.go:128:	if kind != "optimizer" {
+cmd/gepa-runner/plugin_loader.go:129:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.kind must be %q", "optimizer")
+cmd/gepa-runner/plugin_loader.go:132:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.id is required")
+cmd/gepa-runner/plugin_loader.go:135:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.name is required")
+cmd/gepa-runner/plugin_loader.go:140:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.create is required")
+cmd/gepa-runner/plugin_loader.go:143:		return optimizerPluginMeta{}, fmt.Errorf("plugin loader: descriptor.create must be a function")
+cmd/gepa-runner/plugin_loader.go:146:	return optimizerPluginMeta{
+cmd/gepa-runner/plugin_loader.go:154:func (p *optimizerPlugin) Dataset() ([]any, error) {
+cmd/gepa-runner/plugin_loader.go:186:func (p *optimizerPlugin) Evaluate(
+cmd/gepa-runner/plugin_loader.go:187:	candidate gepaopt.Candidate,
+cmd/gepa-runner/plugin_loader.go:191:) (gepaopt.EvalResult, error) {
+cmd/gepa-runner/plugin_loader.go:193:		return gepaopt.EvalResult{}, fmt.Errorf("plugin evaluate: plugin not initialized")
+cmd/gepa-runner/plugin_loader.go:209:		return gepaopt.EvalResult{}, errors.Wrap(err, "plugin evaluate: call failed")
+cmd/gepa-runner/plugin_loader.go:214:		return gepaopt.EvalResult{}, errors.Wrap(err, "plugin evaluate: invalid return value")
+cmd/gepa-runner/plugin_loader.go:219:		return gepaopt.EvalResult{}, err
+cmd/gepa-runner/plugin_loader.go:253:func decodeEvalResult(v any) (gepaopt.EvalResult, error) {
+cmd/gepa-runner/plugin_loader.go:264:		return gepaopt.EvalResult{Score: x}, nil
+cmd/gepa-runner/plugin_loader.go:266:		return gepaopt.EvalResult{Score: float64(x)}, nil
+cmd/gepa-runner/plugin_loader.go:268:		return gepaopt.EvalResult{}, fmt.Errorf("evaluator must return an object with {score}, got %T", v)
+cmd/gepa-runner/plugin_loader.go:272:func decodeEvalResultFromMap(m map[string]any) (gepaopt.EvalResult, error) {
+cmd/gepa-runner/plugin_loader.go:279:		return gepaopt.EvalResult{}, fmt.Errorf("evaluator return value missing required field: score")
+cmd/gepa-runner/plugin_loader.go:284:		return gepaopt.EvalResult{}, fmt.Errorf("invalid score: %w", err)
+cmd/gepa-runner/plugin_loader.go:287:	var objScores gepaopt.ObjectiveScores
+cmd/gepa-runner/plugin_loader.go:295:	out := gepaopt.EvalResult{
+cmd/gepa-runner/plugin_loader.go:312:func decodeObjectiveScores(v any) (gepaopt.ObjectiveScores, error) {
+cmd/gepa-runner/plugin_loader.go:313:	out := gepaopt.ObjectiveScores{}
+pkg/optimizer/gepa/types.go:1:package gepa
+pkg/optimizer/gepa/config.go:1:package gepa
+pkg/optimizer/gepa/config.go:19:	// If 0, the optimizer will use time-based entropy.
+pkg/optimizer/gepa/optimizer.go:1:package gepa
+pkg/optimizer/gepa/optimizer.go:22:	reflector *Reflector
+pkg/optimizer/gepa/optimizer.go:39:	// The optimizer cache is the source of truth; this field is a convenience view.
+pkg/optimizer/gepa/optimizer.go:64:// NewOptimizer constructs an optimizer.
+pkg/optimizer/gepa/optimizer.go:65:func NewOptimizer(cfg Config, eval EvaluateFunc, reflector *Reflector) *Optimizer {
+pkg/optimizer/gepa/optimizer.go:87:		return nil, fmt.Errorf("optimizer is nil")
+pkg/optimizer/gepa/optimizer.go:90:		return nil, fmt.Errorf("optimizer: evaluator is nil")
+pkg/optimizer/gepa/optimizer.go:93:		return nil, fmt.Errorf("optimizer: reflector is nil")
+pkg/optimizer/gepa/optimizer.go:96:		return nil, fmt.Errorf("optimizer: seed candidate is empty")
+pkg/optimizer/gepa/optimizer.go:99:		return nil, fmt.Errorf("optimizer: dataset is empty")
+pkg/optimizer/gepa/optimizer.go:115:		return nil, fmt.Errorf("optimizer: insufficient budget to evaluate seed")
+pkg/optimizer/gepa/optimizer.go:256:		candIdx = ParetoFront(obj)
+pkg/optimizer/gepa/pareto.go:1:package gepa
+pkg/optimizer/gepa/pareto.go:43:// ParetoFront returns the indices of the non-dominated points.
+pkg/optimizer/gepa/pareto.go:45:func ParetoFront(points []ObjectiveScores) []int {
+pkg/optimizer/gepa/reflector.go:1:package gepa
+pkg/optimizer/gepa/reflector.go:13:// Reflector runs the natural-language reflection step that proposes prompt mutations.
+pkg/optimizer/gepa/reflector.go:14:type Reflector struct {
+pkg/optimizer/gepa/reflector.go:21:func (r *Reflector) Propose(ctx context.Context, currentInstruction string, sideInfo string) (string, string, error) {
+pkg/optimizer/gepa/format.go:1:package gepa
+pkg/helpers/jsonschema.go:75:func GetFunctionParametersJsonSchema(reflector *jsonschema.Reflector, f Callable) (*jsonschema.Schema, error) {
+pkg/helpers/jsonschema.go:143:func GetSimplifiedFunctionParametersJsonSchema(reflector *jsonschema.Reflector, f Callable) (*SimplifiedJsonSchema, error) {
+pkg/js/modules/geppetto/plugins_module.go:12:const optimizerPluginAPIVersion = "gepa.optimizer/v1"
+pkg/js/modules/geppetto/plugins_module.go:88:	mustSet("OPTIMIZER_PLUGIN_API_VERSION", optimizerPluginAPIVersion)
+pkg/js/modules/geppetto/plugins_module.go:89:	mustSet("defineOptimizerPlugin", func(call goja.FunctionCall) goja.Value {
+pkg/js/modules/geppetto/plugins_module.go:101:			apiVersion = optimizerPluginAPIVersion
+pkg/js/modules/geppetto/plugins_module.go:103:		if apiVersion != optimizerPluginAPIVersion {
+pkg/js/modules/geppetto/plugins_module.go:106:				apiVersion, optimizerPluginAPIVersion,
+pkg/js/modules/geppetto/plugins_module.go:112:			kind = "optimizer"
+pkg/js/modules/geppetto/plugins_module.go:114:		if kind != "optimizer" {
+pkg/js/modules/geppetto/plugins_module.go:115:			panic(vm.NewTypeError("plugin descriptor kind must be %q, got %q", "optimizer", kind))
+pkg/inference/tools/definition.go:180:	reflector := jsonschema.Reflector{
+
+== COZO Runner Plugin Symbols ==
+eval_report.go:55:		Use:   "eval-report",
+plugin_loader.go:13:const extractorPluginAPIVersion = "cozo.extractor/v1"
+plugin_loader.go:74:func loadAndRunExtractorPlugin(
+plugin_loader.go:170:	if apiVersion != extractorPluginAPIVersion {
+plugin_loader.go:171:		return extractorPluginMeta{}, fmt.Errorf("plugin loader: unsupported apiVersion %q (expected %q)", apiVersion, extractorPluginAPIVersion)
+README.md:48:Use the `eval-report` subcommand to summarize benchmark telemetry from the
+README.md:52:go run . eval-report --db .cozo-runner/runs.sqlite --limit-runs 20 --format table
+README.md:53:go run . eval-report --db .cozo-runner/runs.sqlite --limit-runs 20 --format json
+scripts/lib/relationship_extractor_factory.js:3:  RELATIONSHIP_EXTRACTION_SCHEMA,
+scripts/lib/relationship_extractor_factory.js:4:  PROTOTYPE_RELATIONSHIP_PROMPT,
+scripts/lib/relationship_extractor_factory.js:12:      : PROTOTYPE_RELATIONSHIP_PROMPT;
+scripts/lib/relationship_extractor_factory.js:33:    schema: cfg.schema && typeof cfg.schema === "object" ? cfg.schema : RELATIONSHIP_EXTRACTION_SCHEMA,
+scripts/lib/relationship_extractor_factory.js:121:      : PROTOTYPE_RELATIONSHIP_PROMPT;
+scripts/lib/relationship_extractor_factory.js:135:    const builderOptions = (globalThis.RELATIONSHIP_BUILDER_OPTIONS && typeof globalThis.RELATIONSHIP_BUILDER_OPTIONS === "object")
+scripts/lib/relationship_extractor_factory.js:136:      ? globalThis.RELATIONSHIP_BUILDER_OPTIONS
+scripts/lib/relationship_extractor_factory.js:143:        prompt: prompt || PROTOTYPE_RELATIONSHIP_PROMPT,
+scripts/lib/relationship_extractor_factory.js:203:      prompt: globalThis.RELATIONSHIP_PROMPT,
+scripts/lib/relationship_extractor_factory.js:204:      profile: globalThis.RELATIONSHIP_PROFILE,
+scripts/lib/relationship_extractor_factory.js:205:      timeoutMs: globalThis.RELATIONSHIP_TIMEOUT_MS,
+scripts/lib/relationship_extractor_factory.js:206:      engineOptions: globalThis.RELATIONSHIP_ENGINE_OPTIONS,
+scripts/lib/relationship_parsing.js:1:const { RELATIONSHIP_KIND_MAP } = require("./relationship_constants");
+scripts/lib/relationship_parsing.js:198:  for (const key of RELATIONSHIP_KIND_MAP) {
+scripts/lib/relationship_constants.js:1:const RELATIONSHIP_KIND_MAP = ["persons", "relationships", "behaviors", "events"];
+scripts/lib/relationship_constants.js:3:const RELATIONSHIP_EXTRACTION_SCHEMA = {
+scripts/lib/relationship_constants.js:82:const PROTOTYPE_RELATIONSHIP_PROMPT = "".trim() +
+scripts/lib/relationship_constants.js:97:  RELATIONSHIP_KIND_MAP,
+scripts/lib/relationship_constants.js:98:  RELATIONSHIP_EXTRACTION_SCHEMA,
+scripts/lib/relationship_constants.js:99:  PROTOTYPE_RELATIONSHIP_PROMPT,
+scripts/relation_extractor_reflective.js:1:const { defineExtractorPlugin, wrapExtractorRun } = require("geppetto/plugins");
+scripts/relation_extractor_reflective.js:33:module.exports = defineExtractorPlugin({
+scripts/relation_extractor_template.js:1:const { defineExtractorPlugin, wrapExtractorRun } = require("geppetto/plugins");
+scripts/relation_extractor_template.js:4:module.exports = defineExtractorPlugin({
+main.go:452:	if err := vm.Set("RELATIONSHIP_RUN_ID", runID); err != nil {
+main.go:455:	if err := vm.Set("RELATIONSHIP_PROFILE", o.Profile); err != nil {
+main.go:458:	if err := vm.Set("RELATIONSHIP_ENGINE_OPTIONS", o.EngineOptions); err != nil {
+main.go:461:	if err := vm.Set("RELATIONSHIP_PROMPT", o.Prompt); err != nil {
+main.go:464:	if err := vm.Set("RELATIONSHIP_TIMEOUT_MS", o.TimeoutMs); err != nil {
+main.go:467:	if err := vm.Set("RELATIONSHIP_TRANSCRIPT", o.Transcript); err != nil {
+main.go:470:	if err := vm.Set("RELATIONSHIP_SCRIPT_ROOT", scriptRoot); err != nil {
+main.go:473:	if err := vm.Set("RELATIONSHIP_SCRIPT_DB_DSN", scriptDB); err != nil {
+main.go:481:		if err := vm.Set("RELATIONSHIP_BUILDER_OPTIONS", builderOpts); err != nil {
+main.go:504:	extraction, meta, err := loadAndRunExtractorPlugin(vm, reqMod, filepath.ToSlash(absScriptPath), extractorPluginRunRequest{
+
+== GEPPETTO JS Module Registration (base vs imported) ==
+-- base module.go
+40:	reg.RegisterNativeModule(ModuleName, mod.Loader)
+-- imported module.go
+23:	// require("geppetto/plugins").
+49:	reg.RegisterNativeModule(ModuleName, mod.Loader)
+50:	reg.RegisterNativeModule(PluginsModuleName, mod.pluginsLoader)

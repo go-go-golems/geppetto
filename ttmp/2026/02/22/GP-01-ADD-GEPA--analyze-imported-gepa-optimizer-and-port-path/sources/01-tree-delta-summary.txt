@@ -1,0 +1,67 @@
+Generated: 2026-02-22T17:18:32-05:00
+Workspace: /home/manuel/workspaces/2026-02-22/add-gepa-optimizer
+
+== Baseline Repos ==
+Base:     /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/geppetto
+Imported: /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/imported/geppetto-main
+COZO:     /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/2026-02-18--cozodb-extraction/cozo-relationship-js-runner
+
+== Git / Revision Context ==
+geppetto HEAD: 7d8b754
+cozo extraction HEAD: b503625
+imported/geppetto-main has .git: no
+
+== File Set Delta ==
+only_in_geppetto=8
+only_in_imported=38
+common=1191
+
+== Files Only In Imported (first 200) ==
+CRUSH.md
+cmd/gepa-runner/README.md
+cmd/gepa-runner/console.go
+cmd/gepa-runner/dataset.go
+cmd/gepa-runner/eval_command.go
+cmd/gepa-runner/js_runtime.go
+cmd/gepa-runner/main.go
+cmd/gepa-runner/plugin_loader.go
+cmd/gepa-runner/profile_helpers.go
+cmd/gepa-runner/scripts/toy_math_optimizer.js
+pkg/js/modules/geppetto/plugins_module.go
+pkg/optimizer/gepa/config.go
+pkg/optimizer/gepa/format.go
+pkg/optimizer/gepa/optimizer.go
+pkg/optimizer/gepa/pareto.go
+pkg/optimizer/gepa/reflector.go
+pkg/optimizer/gepa/types.go
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/README.md
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/changelog.md
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/design-doc/01-implementation-plan-explicit-js-plugin-descriptor-and-registration-lifecycle.md
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/index.md
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/reference/01-diary.md
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/scripts/01-run-template-descriptor.sh
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/scripts/02-malformed-descriptor.js
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/scripts/03-run-malformed-descriptor.sh
+ttmp/2026/02/21/CO-07-PLUGIN-DESCRIPTOR-API--introduce-explicit-js-plugin-descriptor-api-for-runner-scripts/tasks.md
+ttmp/2026/02/21/GP-019-OPENAI-CACHE-USAGE--openai-cached-token-usage-propagation-for-responses-final-metadata/README.md
+ttmp/2026/02/21/GP-019-OPENAI-CACHE-USAGE--openai-cached-token-usage-propagation-for-responses-final-metadata/changelog.md
+ttmp/2026/02/21/GP-019-OPENAI-CACHE-USAGE--openai-cached-token-usage-propagation-for-responses-final-metadata/design-doc/01-implementation-plan-cached-usage-propagation.md
+ttmp/2026/02/21/GP-019-OPENAI-CACHE-USAGE--openai-cached-token-usage-propagation-for-responses-final-metadata/index.md
+ttmp/2026/02/21/GP-019-OPENAI-CACHE-USAGE--openai-cached-token-usage-propagation-for-responses-final-metadata/reference/01-diary.md
+ttmp/2026/02/21/GP-019-OPENAI-CACHE-USAGE--openai-cached-token-usage-propagation-for-responses-final-metadata/tasks.md
+ttmp/2026/02/21/GP-19-JS-PLUGIN-CONTRACT--expose-shared-js-plugin-contract-helpers-via-geppetto-module/README.md
+ttmp/2026/02/21/GP-19-JS-PLUGIN-CONTRACT--expose-shared-js-plugin-contract-helpers-via-geppetto-module/changelog.md
+ttmp/2026/02/21/GP-19-JS-PLUGIN-CONTRACT--expose-shared-js-plugin-contract-helpers-via-geppetto-module/design-doc/01-implementation-plan-geppetto-shared-plugin-contract-module.md
+ttmp/2026/02/21/GP-19-JS-PLUGIN-CONTRACT--expose-shared-js-plugin-contract-helpers-via-geppetto-module/index.md
+ttmp/2026/02/21/GP-19-JS-PLUGIN-CONTRACT--expose-shared-js-plugin-contract-helpers-via-geppetto-module/reference/01-diary.md
+ttmp/2026/02/21/GP-19-JS-PLUGIN-CONTRACT--expose-shared-js-plugin-contract-helpers-via-geppetto-module/tasks.md
+
+== Files Only In Base Geppetto ==
+.git
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/README.md
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/analysis/01-deep-analysis-imported-gepa-optimizer-js-plugin-contract-and-port-plan.md
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/changelog.md
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/index.md
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/scripts/01-collect-delta.sh
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/scripts/02-build-and-probe.sh
+ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/tasks.md
