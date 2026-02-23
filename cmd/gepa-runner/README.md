@@ -88,3 +88,31 @@ Optional:
 
 - The optimizer currently mutates the `"prompt"` field (or falls back to the first key in `candidate`).
 - Each `(candidate, example)` evaluation counts as **1** call against `--max-evals`.
+
+## Persistent run recording (Phase 2)
+
+`gepa-runner` can persist optimize/eval metrics to SQLite:
+
+- `--record` enables persistence
+- `--record-db <path>` sets database path (default: `.gepa-runner/runs.sqlite`)
+
+Example:
+
+```bash
+gepa-runner optimize \
+  --script ./cmd/gepa-runner/scripts/smoke_noop_optimizer.js \
+  --seed "ok seed" \
+  --max-evals 4 \
+  --batch-size 2 \
+  --record \
+  --record-db ./tmp/gepa-runs.sqlite
+```
+
+## Reporting recorded runs
+
+Use `eval-report` to inspect recent runs:
+
+```bash
+gepa-runner eval-report --db ./tmp/gepa-runs.sqlite --limit-runs 20 --format table
+gepa-runner eval-report --db ./tmp/gepa-runs.sqlite --limit-runs 20 --format json
+```

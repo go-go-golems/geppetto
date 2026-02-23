@@ -32,6 +32,8 @@ type EvalSettings struct {
 	Prompt      string `glazed:"prompt"`
 	PromptFile  string `glazed:"prompt-file"`
 	OutReport   string `glazed:"out-report"`
+	Record      bool   `glazed:"record"`
+	RecordDB    string `glazed:"record-db"`
 	Debug       bool   `glazed:"debug"`
 }
 
@@ -50,6 +52,8 @@ func NewEvalCommand() (*EvalCommand, error) {
 			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt text (overrides --prompt-file)")),
 			fields.New("prompt-file", fields.TypeString, fields.WithHelp("Path to prompt file")),
 			fields.New("out-report", fields.TypeString, fields.WithHelp("Write JSON eval report to this file (optional)")),
+			fields.New("record", fields.TypeBool, fields.WithHelp("Persist run/example metrics to SQLite"), fields.WithDefault(false)),
+			fields.New("record-db", fields.TypeString, fields.WithHelp("SQLite file path for GEPA run metrics"), fields.WithDefault(".gepa-runner/runs.sqlite")),
 			fields.New("debug", fields.TypeBool, fields.WithHelp("Debug mode - show parsed layers"), fields.WithDefault(false)),
 		),
 		cmds.WithSections(geppettoSections...),
@@ -140,14 +144,45 @@ func (c *EvalCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Va
 		return fmt.Errorf("dataset is empty")
 	}
 
+	var recorder *runRecorder
+	if s.Record {
+		recordDB := strings.TrimSpace(s.RecordDB)
+		if recordDB == "" {
+			recordDB = ".gepa-runner/runs.sqlite"
+		}
+		recorder, err = newRunRecorder(runRecorderConfig{
+			DBPath:      recordDB,
+			Mode:        "eval",
+			PluginID:    meta.ID,
+			PluginName:  meta.Name,
+			Profile:     profile,
+			DatasetSize: len(examples),
+			SeedPrompt:  promptText,
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to create run recorder")
+		}
+	}
+	finalizeRun := func(runErr error) error {
+		if recorder == nil {
+			return runErr
+		}
+		closeErr := recorder.Close(runErr == nil, runErr)
+		if runErr != nil {
+			return runErr
+		}
+		return closeErr
+	}
+
+	candidate := gepaopt.Candidate{"prompt": promptText}
 	evals := make([]gepaopt.ExampleEval, 0, len(examples))
 	for i, ex := range examples {
-		r, err := plugin.Evaluate(gepaopt.Candidate{"prompt": promptText}, i, ex, pluginEvaluateOptions{
+		r, err := plugin.Evaluate(candidate, i, ex, pluginEvaluateOptions{
 			Profile:       profile,
 			EngineOptions: engineOptions,
 		})
 		if err != nil {
-			return err
+			return finalizeRun(err)
 		}
 		if len(r.Objectives) == 0 {
 			r.Objectives = gepaopt.ObjectiveScores{"score": r.Score}
@@ -156,6 +191,11 @@ func (c *EvalCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Va
 	}
 
 	stats := gepaopt.AggregateStats(evals)
+	if recorder != nil {
+		if err := recorder.RecordEvalResult(candidate, stats, evals); err != nil {
+			return finalizeRun(err)
+		}
+	}
 
 	fmt.Fprintf(w, "Plugin: %s (%s)\n", meta.Name, meta.ID)
 	fmt.Fprintf(w, "Dataset: %d examples\n", len(examples))
@@ -177,12 +217,12 @@ func (c *EvalCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Va
 		}
 		blob, _ := json.MarshalIndent(report, "", "  ")
 		if err := os.WriteFile(s.OutReport, blob, 0o644); err != nil {
-			return errors.Wrap(err, "failed to write out report")
+			return finalizeRun(errors.Wrap(err, "failed to write out report"))
 		}
 		fmt.Fprintf(w, "Wrote report to: %s\n", s.OutReport)
 	}
 
-	return nil
+	return finalizeRun(nil)
 }
 
 // Ensure the ProfileSettings section is linked.

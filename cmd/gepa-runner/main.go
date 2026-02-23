@@ -51,6 +51,8 @@ type OptimizeSettings struct {
 	MaxSideInfoChars int    `glazed:"max-side-info-chars"`
 	OutPrompt        string `glazed:"out-prompt"`
 	OutReport        string `glazed:"out-report"`
+	Record           bool   `glazed:"record"`
+	RecordDB         string `glazed:"record-db"`
 	Debug            bool   `glazed:"debug"`
 }
 
@@ -74,6 +76,8 @@ func NewOptimizeCommand() (*OptimizeCommand, error) {
 			fields.New("max-side-info-chars", fields.TypeInteger, fields.WithHelp("Cap formatted side-info chars passed to reflection LLM (0 = uncapped)"), fields.WithDefault(8000)),
 			fields.New("out-prompt", fields.TypeString, fields.WithHelp("Write best prompt to this file (optional)")),
 			fields.New("out-report", fields.TypeString, fields.WithHelp("Write JSON optimization report to this file (optional)")),
+			fields.New("record", fields.TypeBool, fields.WithHelp("Persist run/candidate/eval metrics to SQLite"), fields.WithDefault(false)),
+			fields.New("record-db", fields.TypeString, fields.WithHelp("SQLite file path for GEPA run metrics"), fields.WithDefault(".gepa-runner/runs.sqlite")),
 			fields.New("debug", fields.TypeBool, fields.WithHelp("Debug mode - show parsed layers"), fields.WithDefault(false)),
 		),
 		cmds.WithSections(geppettoSections...),
@@ -195,9 +199,47 @@ func (c *OptimizeCommand) RunIntoWriter(ctx context.Context, parsedValues *value
 
 	opt := gepaopt.NewOptimizer(cfg, evalFn, reflector)
 
+	var recorder *runRecorder
+	if s.Record {
+		recordDB := strings.TrimSpace(s.RecordDB)
+		if recordDB == "" {
+			recordDB = ".gepa-runner/runs.sqlite"
+		}
+		recorder, err = newRunRecorder(runRecorderConfig{
+			DBPath:      recordDB,
+			Mode:        "optimize",
+			PluginID:    meta.ID,
+			PluginName:  meta.Name,
+			Profile:     profile,
+			DatasetSize: len(examples),
+			Objective:   s.Objective,
+			MaxEvals:    s.MaxEvalCalls,
+			BatchSize:   s.BatchSize,
+			SeedPrompt:  seedText,
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to create run recorder")
+		}
+	}
+	finalizeRun := func(runErr error) error {
+		if recorder == nil {
+			return runErr
+		}
+		closeErr := recorder.Close(runErr == nil, runErr)
+		if runErr != nil {
+			return runErr
+		}
+		return closeErr
+	}
+
 	res, err := opt.Optimize(ctx, gepaopt.Candidate{"prompt": seedText}, examples)
 	if err != nil {
-		return err
+		return finalizeRun(err)
+	}
+	if recorder != nil {
+		if err := recorder.RecordOptimizeResult(res); err != nil {
+			return finalizeRun(err)
+		}
 	}
 
 	// Output summary.
@@ -209,7 +251,7 @@ func (c *OptimizeCommand) RunIntoWriter(ctx context.Context, parsedValues *value
 	bestPrompt := res.BestCandidate["prompt"]
 	if strings.TrimSpace(s.OutPrompt) != "" {
 		if err := os.WriteFile(s.OutPrompt, []byte(bestPrompt), 0o644); err != nil {
-			return errors.Wrap(err, "failed to write out prompt")
+			return finalizeRun(errors.Wrap(err, "failed to write out prompt"))
 		}
 		fmt.Fprintf(w, "Wrote best prompt to: %s\n", s.OutPrompt)
 	} else {
@@ -220,12 +262,12 @@ func (c *OptimizeCommand) RunIntoWriter(ctx context.Context, parsedValues *value
 	if strings.TrimSpace(s.OutReport) != "" {
 		blob, _ := json.MarshalIndent(res, "", "  ")
 		if err := os.WriteFile(s.OutReport, blob, 0o644); err != nil {
-			return errors.Wrap(err, "failed to write out report")
+			return finalizeRun(errors.Wrap(err, "failed to write out report"))
 		}
 		fmt.Fprintf(w, "Wrote report to: %s\n", s.OutReport)
 	}
 
-	return nil
+	return finalizeRun(nil)
 }
 
 func main() {
@@ -254,6 +296,7 @@ func main() {
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command2)
+	rootCmd.AddCommand(newEvalReportCommand())
 
 	cobra.CheckErr(rootCmd.Execute())
 }
