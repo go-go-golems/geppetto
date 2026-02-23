@@ -45,6 +45,8 @@ topics:
       description: Glazed framework related work
     - slug: migration
       description: Migration/refactor work across APIs or modules
+    - slug: sqlite
+      description: SQLite storage and query workflows
     - slug: menus
       description: menu systems, command menus, and context-menu architecture
     - slug: go-go-os
