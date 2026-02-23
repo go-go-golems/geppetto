@@ -75,12 +75,12 @@
 
 ## Phase 6: Profile Persistence (SQLite First)
 
-- [ ] GP01-600 Create profile registry SQLite schema and migration files.
-- [ ] GP01-601 Implement `SQLiteProfileStore` read/list/create/update/delete operations.
-- [ ] GP01-602 Implement optimistic concurrency update path (`expected_version`).
-- [ ] GP01-603 Implement default-profile mutation and registry-level metadata updates.
-- [ ] GP01-604 Add integration tests with sqlite temp DB.
-- [ ] GP01-605 Add optional profile-store settings flags/fields in server config.
+- [x] GP01-600 Create profile registry SQLite schema and migration files.
+- [x] GP01-601 Implement `SQLiteProfileStore` read/list/create/update/delete operations.
+- [x] GP01-602 Implement optimistic concurrency update path (`expected_version`).
+- [x] GP01-603 Implement default-profile mutation and registry-level metadata updates.
+- [x] GP01-604 Add integration tests with sqlite temp DB.
+- [x] GP01-605 Add optional profile-store settings flags/fields in server config.
 
 ## Phase 7: Go-Go-OS Client Integration
 

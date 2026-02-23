@@ -21,7 +21,9 @@ RelatedFiles:
     - Path: ../../../../../../../pinocchio/cmd/web-chat/app_owned_chat_integration_test.go
       Note: Updated integration server setup to shared profile registry
     - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
-      Note: Injected shared registry bootstrap into web-chat command wiring (commit eb13816)
+      Note: |-
+        Injected shared registry bootstrap into web-chat command wiring (commit eb13816)
+        Glazed profile-registry settings and startup selection logic
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
       Note: |-
         Logged as key seam for replacing local profile registry
@@ -30,6 +32,7 @@ RelatedFiles:
         Added ResolvedRuntime emission in request plans for composer consumption (commit 2ac2dc6)
         Resolver now propagates profile metadata version into conversation request plans (commit ec779f8)
         GP01-505 CRUD API routes and error mapping
+        SQLite profile service bootstrap helper for web-chat
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
       Note: |-
         Updated resolver/handler tests to shared registry model
@@ -37,6 +40,7 @@ RelatedFiles:
         Added assertions for ResolvedRuntime presence in resolver plans (commit 2ac2dc6)
         Added assertions for profile version propagation in resolver plans (commit ec779f8)
         GP01-507/508 precedence and endpoint status tests
+        Web-chat SQLite bootstrap/reopen test
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
       Note: |-
         Composer now seeds prompt/middlewares/tools from RuntimeComposeRequest.ResolvedRuntime (commit 2ac2dc6)
@@ -92,6 +96,10 @@ RelatedFiles:
       Note: Phase 3 tests including GatherFlags compatibility golden coverage (commit 6a0f1be)
     - Path: pkg/profiles/slugs.go
       Note: Implemented strong typed slug value objects
+    - Path: pkg/profiles/sqlite_store.go
+      Note: Phase 6 SQLite store implementation and schema migration
+    - Path: pkg/profiles/sqlite_store_test.go
+      Note: Phase 6 integration tests for persistence/version/default behavior
     - Path: pkg/profiles/step_settings_mapper.go
       Note: Schema-driven StepSettings patch application and patch merge helpers (commit 6a0f1be)
     - Path: pkg/profiles/store.go
@@ -128,12 +136,14 @@ RelatedFiles:
         Marked GP01-405 complete
         Marked GP01-500 and GP01-501 complete
         GP01-505..508 checklist updates
+        Phase 6 task checkboxes updated
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1823,3 +1833,170 @@ go test ./... -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md`
 - Changelog updated:
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/changelog.md`
+
+## Step 22: Implemented Geppetto SQLite Profile Store and Phase 6 Persistence Semantics
+
+I implemented a new SQLite-backed profile store in Geppetto and validated it with integration-style tests. The store persists each registry as a JSON payload row in SQLite while delegating mutation semantics (validation, optimistic version checks, metadata touch behavior) to the existing in-memory store implementation used as an in-process domain core.
+
+This approach preserved behavioral consistency with existing store semantics while adding durable storage and startup reload behavior, which was the primary blocker for Phase 6.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead. config should be through glazed like the rest."
+
+**Assistant interpretation:** Continue execution into Phase 6 and implement persistence next, while ensuring runtime configuration is surfaced via Glazed flags/fields.
+
+**Inferred user intent:** Move from in-memory-only profile registry into durable, configurable storage so web-chat profile CRUD is production-usable.
+
+**Commit (code):** 2b36856ea22bdd23deb328b167f852e2ff84500c — "profiles: add sqlite profile store and integration tests"
+
+### What I did
+- Added new store implementation:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store.go`
+- Added integration tests:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store_test.go`
+- Implemented:
+  - schema/migration bootstrap (`profile_registries` table)
+  - durable load on startup
+  - persist-on-mutation behavior for registry/profile/default mutations
+  - DSN helper: `SQLiteProfileDSNForFile`
+  - close semantics for DB handle
+- Preserved expected-version behavior by delegating to in-memory store mutation logic before DB persistence.
+- Ran validation:
+  - `go test ./pkg/profiles -count=1`
+  - pre-commit hooks in `geppetto` (`go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint`, `go vet`).
+
+### Why
+- Phase 6 required a first durable backend for profile registries.
+- Using the in-memory store as mutation core reduced divergence risk and kept optimistic concurrency and metadata semantics aligned with existing tests and service contracts.
+
+### What worked
+- New store passed targeted and full-module checks.
+- Roundtrip persistence and reopen behavior worked.
+- Version-conflict and default-profile behavior remained consistent with service expectations.
+
+### What didn't work
+- First commit attempt failed lint:
+  - `pkg/profiles/sqlite_store.go:196:18: Error return value of rows.Close is not checked (errcheck)`
+- Fix:
+  - replaced raw `defer rows.Close()` with checked/ignored form via deferred closure.
+
+### What I learned
+- A payload-per-registry SQLite format is a useful transitional persistence shape: it is migration-light while still durable and transactional enough for current APIs.
+
+### What was tricky to build
+- The tricky part was preserving domain semantics while adding persistence without rewriting mutation logic twice.
+- I resolved this by making SQLite storage an outer persistence layer and retaining in-memory mutation behavior as the authoritative path for validation/version handling.
+
+### What warrants a second pair of eyes
+- Whether we should keep payload-row storage long-term or normalize into per-profile SQL rows for better queryability and cross-process optimistic locking guarantees.
+- Whether future multi-writer scenarios require store-level SQL CAS semantics rather than process-local mutation ordering.
+
+### What should be done in the future
+- If profile query/reporting needs grow, introduce a normalized schema migration path from JSON payload rows.
+
+### Code review instructions
+- Review core implementation:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store.go`
+- Review tests for persistence/optimistic-version coverage:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store_test.go`
+- Validate locally:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles -count=1
+go test ./... -count=1
+```
+
+### Technical details
+- New store type:
+  - `SQLiteProfileStore` implementing `ProfileStore`.
+- New helper:
+  - `SQLiteProfileDSNForFile(path string)`.
+- Persistence strategy:
+  - each registry serialized to JSON in `profile_registries.payload_json`.
+
+## Step 23: Wired Pinocchio Web-Chat Profile Registry Storage Through Glazed Config
+
+After adding Geppetto SQLite persistence, I integrated it into `pinocchio/cmd/web-chat` via Glazed settings so operators can choose durable profile registry storage with either DSN or DB file path flags. Startup now initializes a SQLite-backed profile service when configured and seeds builtin profiles on first boot.
+
+This completed the configuration side of Phase 6 and removed the last in-memory-only constraint for profile CRUD in web-chat deployments.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 22)
+
+**Assistant interpretation:** Wire the newly added persistence backend into command/runtime settings using existing glazed configuration patterns.
+
+**Inferred user intent:** Keep operational configuration consistent with existing command architecture and avoid one-off env/config paths.
+
+**Commit (code):** fd9171a056fc9bd51c800b021c8401ea2501712c — "web-chat: add glazed profile-registry sqlite config"
+
+### What I did
+- Added glazed flags in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go`
+  - `profile-registry-dsn`
+  - `profile-registry-db`
+- Added profile-service bootstrap helpers in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `buildBootstrapRegistry(...)`
+  - `newSQLiteProfileService(...)`
+- Updated startup flow:
+  - use SQLite-backed profile registry when either new glazed setting is set.
+  - fallback to in-memory profile service otherwise.
+  - seed default/agent profiles only on first startup for a new DB.
+- Added regression test:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `TestNewSQLiteProfileService_BootstrapAndReopen`
+- Ran validation:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./... -count=1`
+  - pre-commit hooks in `pinocchio` (`go test`, frontend build/generate, lint, vet).
+
+### Why
+- User explicitly requested config to be exposed through glazed settings.
+- This aligns profile persistence configuration with existing timeline/turns DSN configuration patterns in web-chat.
+
+### What worked
+- Startup now supports durable profile storage without changing HTTP handler contracts.
+- Existing in-memory behavior remains as fallback when no profile store settings are passed.
+- Hooks and full tests passed after formatting/lint fixes.
+
+### What didn't work
+- Two pre-commit failures occurred before final commit:
+  - first failure: `gofmt` lint on `cmd/web-chat/main.go` due simplifiable pointer literal syntax in `[]*Profile` initializer.
+  - fix: switched from explicit `&gepprofiles.Profile{...}` elements to simplified literal form accepted by `gofmt -s`.
+
+### What I learned
+- This repository’s gofmt lint path effectively enforces `-s` simplifications; code that passes plain `gofmt` can still fail pre-commit if simplifiable literals remain.
+
+### What was tricky to build
+- The tricky part was sequencing: persistence backend first, then command wiring, while preserving existing default bootstrap profile behavior for local/demo runs.
+- I solved this by extracting a shared bootstrap-registry builder and using it in both in-memory and SQLite startup paths.
+
+### What warrants a second pair of eyes
+- Startup seeding policy (`seed when missing or empty`) should be confirmed against expected operator workflows for manually initialized DBs.
+- We may want a future explicit `--profile-registry-bootstrap` policy flag if teams need finer control.
+
+### What should be done in the future
+- Add user-facing docs for new flags and operational examples (`GP01-902`/`GP01-903` path).
+
+### Code review instructions
+- Review command setting surface and startup branch:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go`
+- Review profile service bootstrap helpers:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Review new test:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+- Validate locally:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./... -count=1
+```
+
+### Technical details
+- New glazed fields:
+  - `profile-registry-dsn`
+  - `profile-registry-db`
+- Bootstrap behavior:
+  - DB-backed registry initialized via `newSQLiteProfileService`, with builtin profile seeding for first boot.

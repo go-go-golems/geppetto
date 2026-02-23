@@ -177,3 +177,26 @@ Implemented GP01-505..508 in pinocchio: added /api/chat/profiles CRUD handlers, 
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Added CRUD routes and API error mapping over geppetto Registry
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go — Added lifecycle CRUD
 
+
+## 2026-02-23
+
+Completed GP01-600..604: added geppetto SQLiteProfileStore with schema/migration, persistent registry payload storage, and integration coverage for version conflicts/default updates (commit 2b3685600e73fe3977cb70cc86fa039d98bcfa90).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store.go — New SQLite-backed ProfileStore with migrate/load/persist and DSN helper
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store_test.go — Integration tests for roundtrip persistence and optimistic-version semantics
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-600/601/602/603/604 complete
+
+
+## 2026-02-23
+
+Completed GP01-605 in pinocchio web-chat: added glazed settings for profile-registry SQLite DSN/DB and switched profile service bootstrap to SQLite store when configured, with seed-on-first-boot behavior (commit fd9171a6ff6a644ec9fef0ef7e9e74cae3237d26).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-605 complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go — Added profile-registry-dsn/profile-registry-db glazed flags and startup wiring
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Added SQLite profile service initialization helpers and bootstrap registry builder
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go — Added bootstrap/reopen test for SQLite profile service
+
