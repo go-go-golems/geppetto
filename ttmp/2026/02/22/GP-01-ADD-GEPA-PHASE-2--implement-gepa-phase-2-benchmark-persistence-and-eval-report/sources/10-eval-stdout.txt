@@ -1,0 +1,9 @@
+2026-02-22T21:20:50.773553339-05:00 INF Loaded evaluator plugin plugin_id=example.smoke_noop plugin_name="Example: Smoke Noop Optimizer"
+Plugin: Example: Smoke Noop Optimizer (example.smoke_noop)
+Dataset: 2 examples
+Mean score: 1.000000
+Mean objectives:
+{
+  "score": 1
+}
+Wrote report to: ./ttmp/2026/02/22/GP-01-ADD-GEPA-PHASE-2--implement-gepa-phase-2-benchmark-persistence-and-eval-report/sources/10-eval-report.json
