@@ -53,7 +53,7 @@ After that, explore based on what you need:
 
 | Doc | What It Covers |
 |-----|----------------|
-| [Profiles](01-profiles.md) | Switching between providers and environments via config. |
+| [Profiles](01-profiles.md) | Registry-first profile model, persistence, policy, and migration from legacy profile maps. |
 | [Embeddings](06-embeddings.md) | Vector embeddings for semantic search, including caching. |
 | [Linting (turnsdatalint)](12-turnsdatalint.md) | Custom linter for Turn data key hygiene. |
 
