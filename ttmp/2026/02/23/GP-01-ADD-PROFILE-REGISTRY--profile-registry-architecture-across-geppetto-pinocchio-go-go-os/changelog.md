@@ -213,3 +213,15 @@ Completed Phase 8 (GP01-800..804) with inventory e2e profile tests and geppetto 
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go — Profile-aware request resolution feeding runtime key/version/runtime.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md — Detailed webchat profile registry and CRUD payload documentation.
 
+
+## 2026-02-23
+
+Added legacy profiles migration operator workflow: new playbook and new 'pinocchio profiles migrate-legacy' command with tests and command wiring; completed GP01-901.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md — Step-by-step migration playbook.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-901 complete.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go — Legacy profile map to registry conversion command implementation.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go — Migration command regression tests.
+

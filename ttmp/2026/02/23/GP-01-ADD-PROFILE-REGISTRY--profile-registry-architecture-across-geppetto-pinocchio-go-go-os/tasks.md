@@ -111,7 +111,7 @@
 ## Phase 9: Documentation and Rollout
 
 - [x] GP01-900 Update geppetto/pinocchio user docs for registry-first profile workflows.
-- [ ] GP01-901 Add migration guide for legacy `profiles.yaml` users.
+- [x] GP01-901 Add migration guide for legacy `profiles.yaml` users.
 - [x] GP01-902 Add API docs for profile CRUD endpoints and payload schema.
 - [ ] GP01-903 Add ops notes for DB-backed profile storage (backup/recovery/permissions).
 - [ ] GP01-904 Publish release notes including deprecations and fallback strategy.

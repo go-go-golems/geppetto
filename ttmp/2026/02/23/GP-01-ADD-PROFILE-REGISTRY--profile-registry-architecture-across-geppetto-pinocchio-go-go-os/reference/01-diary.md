@@ -18,6 +18,12 @@ Owners: []
 RelatedFiles:
     - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/http.ts
       Note: Logged as current client payload contract needing profile fields
+    - Path: ../../../../../../../pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go
+      Note: New pinocchio migration verb implementation for legacy profiles map conversion.
+    - Path: ../../../../../../../pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go
+      Note: Command migration behavior tests (conversion/backup/dry-run/skip).
+    - Path: ../../../../../../../pinocchio/cmd/pinocchio/main.go
+      Note: Profiles command group wiring for migrate-legacy verb.
     - Path: ../../../../../../../pinocchio/cmd/web-chat/app_owned_chat_integration_test.go
       Note: Updated integration server setup to shared profile registry
     - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
@@ -82,6 +88,8 @@ RelatedFiles:
       Note: |-
         StreamHub now passes ResolvedRuntime to ConvManager GetOrCreate (commit 2ac2dc6)
         Stream hub now passes profile version into conversation resolution path (commit ec779f8)
+    - Path: pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md
+      Note: Legacy migration playbook guidance.
     - Path: pkg/doc/topics/00-docs-index.md
       Note: Index entry updated for new profile registry guidance.
     - Path: pkg/doc/topics/01-profiles.md
@@ -158,6 +166,7 @@ LastUpdated: 2026-02-23T17:25:12-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -2398,3 +2407,89 @@ The implementation goal was practical operator clarity: explain what profile reg
   - profile list response shape,
   - create/patch/default-selection payloads,
   - cookie-selection route payload (`/api/chat/profile`).
+
+## Step 28: Added Legacy profiles.yaml Migration Playbook and `pinocchio profiles migrate-legacy` Verb
+
+This step closes the operator migration gap for teams still on legacy `profiles.yaml` map format. I added a dedicated migration playbook in Geppetto docs and implemented a concrete Pinocchio CLI verb so migration is executable, repeatable, and scriptable instead of purely conceptual.
+
+The command reuses Geppetto profile codec logic (`DecodeYAMLRegistries` + `EncodeYAMLRegistries`) to avoid duplicate conversion behavior. This keeps command output aligned with the same canonical registry model used by runtime and HTTP APIs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "add th emgration playbook forthe legacy profiles.yaml and in fact maybe we can even make a pinocchio verb to do that?"
+
+**Assistant interpretation:** Add a migration playbook document and implement a Pinocchio command that performs the legacy-to-registry conversion.
+
+**Inferred user intent:** Make migration practical for operators and third-party integrators by providing both written guidance and a first-party CLI automation path.
+
+### What I did
+- Implemented new Pinocchio command:
+  - `pinocchio profiles migrate-legacy`
+  - file: `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go`
+- Added command tests:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go`
+- Registered command under existing `profiles` group:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/main.go`
+- Added migration playbook doc:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`
+- Linked playbook in Geppetto docs:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/00-docs-index.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+- Updated Pinocchio profile-registry guide with migration command usage:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Marked GP01-901 complete (legacy migration guide).
+
+### Why
+- The docs alone were not enough for reliable migration at scale.
+- A command removes manual YAML transformation mistakes and standardizes output shape.
+
+### What worked
+- Command supports:
+  - explicit input/output paths,
+  - in-place write with backup,
+  - dry-run output,
+  - registry slug selection for legacy conversion,
+  - skip mode when input is already canonical.
+- Tests passed for conversion, backup, dry-run, and skip semantics.
+- Docs package tests passed after adding playbook and cross-links.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Reusing the profile codec in the command keeps migration behavior future-proof; when codec rules evolve, CLI migration stays aligned automatically.
+
+### What was tricky to build
+- Balancing safety vs ergonomics for file writes. I handled this by defaulting to non-destructive output (`<input>.registry.yaml`), adding explicit in-place mode, and creating backup support for in-place migrations.
+
+### What warrants a second pair of eyes
+- Final command UX naming and flag defaults (`--skip-if-not-legacy`, backup default behavior) before broad announcement.
+
+### What should be done in the future
+- Add a short release-note entry showing one-liner migration examples and rollback (`.bak`) behavior for operators.
+
+### Code review instructions
+- Start with CLI behavior:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/main.go`
+- Then verify documentation:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Validate with:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/pinocchio/cmds ./cmd/pinocchio
+go test ./pkg/doc
+
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/doc
+```
+
+### Technical details
+- Command path: `pinocchio profiles migrate-legacy`
+- Input format detection categories: `legacy-map`, `canonical-registries`, `single-registry`, `empty`, `invalid`
+- Default write behavior:
+  - non-in-place: writes `<input>.registry.yaml`
+  - in-place: writes input file, optional backup `<input>.bak`
