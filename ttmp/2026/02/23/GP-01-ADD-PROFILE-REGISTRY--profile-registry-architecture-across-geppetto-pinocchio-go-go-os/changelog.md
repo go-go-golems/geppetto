@@ -77,3 +77,15 @@ Implemented GP01-300..305: added StoreRegistry resolver service with precedence 
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/step_settings_mapper.go — StepSettings patch mapping and merge logic
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Phase 3 task checkboxes updated
 
+
+## 2026-02-23
+
+Implemented GP01-400..403: added feature-flagged registry-backed profile middleware in geppetto sections, replaced direct GatherFlagsFromProfiles call with compatibility-preserving adapter path, and added focused section tests (commit 1098b9d).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source.go — Adapter implementation bridging sections to profiles registry
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go — Adapter behavior tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/sections.go — Registry middleware wiring point with migration toggle
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Phase 4 task checkboxes updated
+

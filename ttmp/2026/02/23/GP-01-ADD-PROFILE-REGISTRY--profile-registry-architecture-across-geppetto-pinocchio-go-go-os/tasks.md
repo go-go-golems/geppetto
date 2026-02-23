@@ -54,10 +54,10 @@
 
 ## Phase 4: Geppetto CLI Middleware Integration
 
-- [ ] GP01-400 Add registry-backed middleware adapter in `geppetto/pkg/sections` pipeline.
-- [ ] GP01-401 Replace direct `sources.GatherFlagsFromProfiles` use with adapter while preserving compatibility.
-- [ ] GP01-402 Keep bootstrap parsing for profile selection, but source profile payload from registry service.
-- [ ] GP01-403 Add feature flag to toggle old/new middleware path during migration.
+- [x] GP01-400 Add registry-backed middleware adapter in `geppetto/pkg/sections` pipeline.
+- [x] GP01-401 Replace direct `sources.GatherFlagsFromProfiles` use with adapter while preserving compatibility.
+- [x] GP01-402 Keep bootstrap parsing for profile selection, but source profile payload from registry service.
+- [x] GP01-403 Add feature flag to toggle old/new middleware path during migration.
 - [ ] GP01-404 Add integration tests for env/config/flags/profile ordering.
 - [ ] GP01-405 Update command help/deprecation notes for profile-first configuration path.
 

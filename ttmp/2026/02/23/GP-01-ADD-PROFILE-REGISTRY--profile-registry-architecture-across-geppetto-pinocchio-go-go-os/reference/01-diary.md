@@ -50,18 +50,29 @@ RelatedFiles:
       Note: Implemented core profile and registry domain structs
     - Path: pkg/profiles/validation.go
       Note: Implemented profile and registry validation helpers
+    - Path: pkg/sections/profile_registry_feature_flag.go
+      Note: Feature-flag gating for legacy vs registry profile middleware path (commit 1098b9d)
+    - Path: pkg/sections/profile_registry_source.go
+      Note: Registry-backed middleware adapter for profile loading in sections pipeline (commit 1098b9d)
+    - Path: pkg/sections/profile_registry_source_test.go
+      Note: Middleware adapter and feature flag coverage tests (commit 1098b9d)
     - Path: pkg/sections/sections.go
-      Note: Logged as key seam for profile middleware migration
+      Note: |-
+        Logged as key seam for profile middleware migration
+        Conditional middleware selection integrating registry adapter
     - Path: ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/01-profileregistry-architecture-and-migration-plan.md
       Note: Primary architecture deliverable authored during this ticket
     - Path: ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md
-      Note: Marked GP01-300..305 complete
+      Note: |-
+        Marked GP01-300..305 complete
+        Marked GP01-400..403 complete
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -898,3 +909,86 @@ go test ./pkg/profiles -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/service_test.go`
 - Commit hash:
   - `6a0f1be`
+
+## Step 12: Integrated Registry-Backed Sections Middleware Behind a Feature Flag (Phase 4 Start)
+
+I implemented the first migration step in Geppetto sections by introducing a registry-backed profile middleware adapter and wiring it into the existing middleware chain. The legacy `sources.GatherFlagsFromProfiles` path remains the default, while a dedicated environment feature flag enables the new registry adapter path.
+
+This keeps behavior stable for current users while allowing controlled rollout and side-by-side validation before full migration.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementation in small, reviewable steps with commits and diary updates, moving into middleware integration after resolver foundation.
+
+**Inferred user intent:** Incrementally replace legacy profile middleware without breaking existing CLI behavior.
+
+**Commit (code):** 1098b9d — "sections: add feature-flagged registry profile middleware"
+
+### What I did
+- Added `geppetto/pkg/sections/profile_registry_source.go`:
+  - new `GatherFlagsFromProfileRegistry(...)` middleware adapter
+  - loads profile content through `pkg/profiles` (`YAMLFileProfileStore` + `StoreRegistry`)
+  - preserves missing-file and missing-default profile semantics aligned with legacy middleware
+  - applies section-field values via `sources.FromMap(...)`
+- Added `geppetto/pkg/sections/profile_registry_feature_flag.go`:
+  - feature flag parsing helper
+  - environment variable: `PINOCCHIO_ENABLE_PROFILE_REGISTRY_MIDDLEWARE`
+- Updated `geppetto/pkg/sections/sections.go`:
+  - replaced direct `sources.GatherFlagsFromProfiles` call with conditional middleware selection
+  - default path remains legacy middleware
+  - flag-enabled path uses registry adapter
+  - bootstrap profile selection flow remains unchanged
+- Added tests in `geppetto/pkg/sections/profile_registry_source_test.go`:
+  - legacy profile loading via registry adapter
+  - missing default profile is non-fatal behavior
+  - missing non-default profile returns error
+  - feature flag parsing behavior
+- Ran validations:
+  - `go test ./pkg/sections -count=1`
+  - `go test ./pkg/profiles -count=1`
+  - pre-commit full suite (`go test ./...`, lint, vet) on commit.
+
+### Why
+- This is the migration bridge needed for Phase 4: preserve current behavior while validating the new registry-based path in controlled environments.
+
+### What worked
+- Adapter path loads legacy `profiles.yaml` through the new registry core.
+- Feature-flag gating allows safe opt-in without behavior change by default.
+- Sections and profiles tests passed, and full pre-commit checks passed.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The migration is simplest when adapter signature mirrors legacy middleware signature; this minimizes call-site changes and keeps rollout semantics explicit.
+
+### What was tricky to build
+- The subtle part was preserving legacy edge behavior (especially missing default-profile behavior) while routing through the new registry abstractions. Small mismatch here would produce confusing CLI regressions during rollout.
+
+### What warrants a second pair of eyes
+- Error message parity against legacy middleware for all failure modes.
+- Registry adapter behavior when profile files use canonical multi-registry YAML shape with non-default registry slugs.
+
+### What should be done in the future
+- Implement GP01-404 integration tests for full ordering across defaults/config/profile/env/args/flags.
+- Implement GP01-405 help/deprecation docs and migration notes.
+
+### Code review instructions
+- Start with `geppetto/pkg/sections/sections.go` profile middleware selection block.
+- Then review `geppetto/pkg/sections/profile_registry_source.go` for semantics and compatibility.
+- Validate with:
+```bash
+cd geppetto
+go test ./pkg/sections -count=1
+```
+
+### Technical details
+- New/updated files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_feature_flag.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/sections.go`
+- Commit hash:
+  - `1098b9d`
