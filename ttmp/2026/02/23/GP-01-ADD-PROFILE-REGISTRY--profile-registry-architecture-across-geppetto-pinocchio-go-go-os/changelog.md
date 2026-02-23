@@ -166,3 +166,14 @@ Authored detailed intern-facing implementation postmortem (8+ page long-form) co
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/02-implementation-postmortem-and-intern-guide.md — New comprehensive postmortem deliverable
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/reference/01-diary.md — Added documentation and upload execution diary steps
 
+
+## 2026-02-23
+
+Implemented GP01-505..508 in pinocchio: added /api/chat/profiles CRUD handlers, explicit error/status mapping, compatibility endpoint retained, and resolver/endpoint precedence+conflict tests (commit c25bcd2724f5e51136d968f3dda8c593cf1f252e).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-505/506/507/508 complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Added CRUD routes and API error mapping over geppetto Registry
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go — Added lifecycle CRUD
+

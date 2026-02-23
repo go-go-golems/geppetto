@@ -29,12 +29,14 @@ RelatedFiles:
         Added request-scoped profile/registry resolution and registry slug parsing (commit 3a4b585)
         Added ResolvedRuntime emission in request plans for composer consumption (commit 2ac2dc6)
         Resolver now propagates profile metadata version into conversation request plans (commit ec779f8)
+        GP01-505 CRUD API routes and error mapping
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
       Note: |-
         Updated resolver/handler tests to shared registry model
         Added GP01-502 resolver tests for body/query registry+profile selection and invalid registry validation (commit 3a4b585)
         Added assertions for ResolvedRuntime presence in resolver plans (commit 2ac2dc6)
         Added assertions for profile version propagation in resolver plans (commit ec779f8)
+        GP01-507/508 precedence and endpoint status tests
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
       Note: |-
         Composer now seeds prompt/middlewares/tools from RuntimeComposeRequest.ResolvedRuntime (commit 2ac2dc6)
@@ -125,12 +127,14 @@ RelatedFiles:
         Marked GP01-404 complete
         Marked GP01-405 complete
         Marked GP01-500 and GP01-501 complete
+        GP01-505..508 checklist updates
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1712,3 +1716,110 @@ remarquee cloud ls /ai/2026/02/23/GP-01-ADD-PROFILE-REGISTRY --long --non-intera
 - Uploaded documents:
   - `02-implementation-postmortem-and-intern-guide`
   - `01-diary`
+
+## Step 21: Implemented Web-Chat Profile CRUD Endpoints and Error/Precedence Tests
+
+I completed the remaining Phase 5 web-chat profile API work by implementing CRUD handlers under `/api/chat/profiles...` and wiring them directly to the shared `geppetto/pkg/profiles.Registry` service. This replaced the previous list-only surface with a proper mutation API while keeping the existing cookie-selection endpoint behavior stable.
+
+I also added targeted resolver-precedence and endpoint-failure tests so the contract is explicit and regression-resistant. The implementation was committed in a single code commit after passing full `pinocchio` test and lint hooks.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok go ahead. task by task and committ at appropriate times and keep a diary. do all the CRUD things"
+
+**Assistant interpretation:** Implement all remaining profile CRUD API work for GP-01 in small, validated steps with commit checkpoints and diary updates.
+
+**Inferred user intent:** Finish the web-chat profile API backend so clients can create/update/delete/default profiles, with test-backed behavior and ticket tracking kept current.
+
+**Commit (code):** c25bcd2724f5e51136d968f3dda8c593cf1f252e — "web-chat: add profile CRUD API endpoints and precedence tests"
+
+### What I did
+- Implemented CRUD API handlers in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Added endpoints:
+  - `GET /api/chat/profiles` (summary list with default/version hints)
+  - `POST /api/chat/profiles` (create profile)
+  - `GET /api/chat/profiles/{slug}` (detail read)
+  - `PATCH /api/chat/profiles/{slug}` (partial update)
+  - `DELETE /api/chat/profiles/{slug}` (delete with optional `expected_version`)
+  - `POST /api/chat/profiles/{slug}/default` (set default profile)
+- Added request/route helpers:
+  - profile path parsing for `/api/chat/profiles/{slug}` and `/default` action.
+  - registry slug resolution from query/body.
+  - `expected_version` parsing.
+  - centralized API error-to-status mapping for `ErrValidation`, `ErrPolicyViolation`, `ErrProfileNotFound`, `ErrRegistryNotFound`, `ErrVersionConflict`.
+- Preserved compatibility endpoint behavior:
+  - existing `GET/POST /api/chat/profile` cookie selection path remains active and unchanged in semantics.
+- Added/expanded tests in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+- New test coverage includes:
+  - full CRUD lifecycle (create/read/update/set-default/delete).
+  - status mapping checks (`400`, `403`, `404`, `409`).
+  - resolver precedence checks across path/body/query/runtime/cookie/default.
+  - registry precedence body-over-query behavior.
+- Ran validation:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./... -count=1`
+  - commit hook suite (`go test`, frontend build via `go generate`, `golangci-lint`, `go vet`).
+- Updated ticket tracking:
+  - checked tasks `GP01-505`, `GP01-506`, `GP01-507`, `GP01-508`.
+  - appended changelog entry with commit and file notes.
+
+### Why
+- These tasks were the explicit remaining Phase 5 backend deliverables before moving into persistence and client integration phases.
+- Locking the API and error contracts now reduces churn for future Go-Go-OS/web clients and for SQLite store integration.
+
+### What worked
+- CRUD handlers integrated cleanly with existing `gepprofiles.Registry` write APIs.
+- Optimistic-concurrency error mapping (`409`) and policy mapping (`403`) are now test-covered.
+- Compatibility endpoint (`/api/chat/profile`) continued to pass existing tests.
+
+### What didn't work
+- First commit attempt failed due pre-commit lint:
+  - `cmd/web-chat/profile_policy.go:448:1: named return "slug" with type "string" found (nonamedreturns)`
+  - Fix: removed named returns from `parseProfilePath`, re-ran tests, and recommitted.
+- An earlier commit attempt reported a stale lock path:
+  - `fatal: Unable to create '.../index.lock': File exists.`
+  - Re-running commit after process check succeeded; no repository content rollback/recovery was needed.
+
+### What I learned
+- The `gepprofiles` service API was already mature enough for web CRUD; most effort was in HTTP contract shaping and deterministic status behavior.
+- A dedicated profile default endpoint (`/{slug}/default`) keeps mutation intent explicit and avoids overloading PATCH semantics.
+
+### What was tricky to build
+- The tricky part was adding richer CRUD behavior while preserving old lightweight selection routes and frontend assumptions (`/api/chat/profile`, `/api/chat/profiles` list usage).  
+- The second tricky part was ensuring precedence tests capture real policy order (path > body > query profile > query runtime > cookie > default) without conflating registry precedence.
+
+### What warrants a second pair of eyes
+- API payload shape decisions (flat vs nested profile fields) for long-term external compatibility.
+- Whether create/update should accept caller-provided `metadata` fields, or if those should be constrained server-side in a follow-up hardening pass.
+- Registry-level expected-version behavior for `set default` under high write contention (currently supported, but not deeply load-tested yet).
+
+### What should be done in the future
+- Phase 6 (`GP01-600+`): implement SQLite-backed profile store with migrations and integration tests.
+- Phase 9 (`GP01-902`): publish explicit API docs/examples for the CRUD payloads and status contracts.
+
+### Code review instructions
+- Start with handler contract and helpers:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Then validate behavior coverage:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+- Check ticket bookkeeping updates:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/changelog.md`
+- Validate locally:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./... -count=1
+```
+
+### Technical details
+- Primary implementation file:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Primary test file:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+- Task/checklist updated:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md`
+- Changelog updated:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/changelog.md`
