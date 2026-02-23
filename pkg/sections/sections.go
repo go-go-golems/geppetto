@@ -280,8 +280,19 @@ func GetCobraCommandGeppettoMiddlewares(
 	if profileSettings.Profile == "" {
 		profileSettings.Profile = "default"
 	}
-	middlewares_ = append(middlewares_,
-		sources.GatherFlagsFromProfiles(
+	profileMiddleware := sources.GatherFlagsFromProfiles(
+		defaultProfileFile,
+		profileSettings.ProfileFile,
+		profileSettings.Profile,
+		"default",
+		fields.WithSource("profiles"),
+		fields.WithMetadata(map[string]interface{}{
+			"profileFile": profileSettings.ProfileFile,
+			"profile":     profileSettings.Profile,
+		}),
+	)
+	if isProfileRegistryMiddlewareEnabled() {
+		profileMiddleware = GatherFlagsFromProfileRegistry(
 			defaultProfileFile,
 			profileSettings.ProfileFile,
 			profileSettings.Profile,
@@ -290,8 +301,12 @@ func GetCobraCommandGeppettoMiddlewares(
 			fields.WithMetadata(map[string]interface{}{
 				"profileFile": profileSettings.ProfileFile,
 				"profile":     profileSettings.Profile,
+				"mode":        "profile-registry",
 			}),
-		),
+		)
+	}
+	middlewares_ = append(middlewares_,
+		profileMiddleware,
 	)
 
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
