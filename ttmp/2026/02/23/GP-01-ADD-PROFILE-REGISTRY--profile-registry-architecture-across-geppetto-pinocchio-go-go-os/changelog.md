@@ -132,3 +132,15 @@ Implemented GP01-502 in pinocchio web-chat: request resolver now accepts explici
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Resolver update for body/query profile+registry parsing
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go — Request body contract now includes profile and registry selectors
 
+
+## 2026-02-23
+
+Implemented GP01-503: pinocchio web-chat runtime composer now consumes typed resolved profile runtime passed end-to-end from resolver through conversation pipeline (commit 2ac2dc6).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-503 complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go — Runtime composition now starts from resolved profile runtime spec
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go — Extended runtime compose request contract with ResolvedRuntime
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go — Added ResolvedRuntime field to request plan and forwarding path
+

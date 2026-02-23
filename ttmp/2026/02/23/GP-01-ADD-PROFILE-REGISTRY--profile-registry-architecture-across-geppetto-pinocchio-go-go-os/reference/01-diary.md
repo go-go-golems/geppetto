@@ -27,12 +27,28 @@ RelatedFiles:
         Logged as key seam for replacing local profile registry
         Replaced local chatProfileRegistry with shared geppetto profiles.Registry-backed resolver and handlers (commit eb13816)
         Added request-scoped profile/registry resolution and registry slug parsing (commit 3a4b585)
+        Added ResolvedRuntime emission in request plans for composer consumption (commit 2ac2dc6)
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
       Note: |-
         Updated resolver/handler tests to shared registry model
         Added GP01-502 resolver tests for body/query registry+profile selection and invalid registry validation (commit 3a4b585)
+        Added assertions for ResolvedRuntime presence in resolver plans (commit 2ac2dc6)
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
+      Note: Composer now seeds prompt/middlewares/tools from RuntimeComposeRequest.ResolvedRuntime (commit 2ac2dc6)
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer_test.go
+      Note: Added GP01-503 tests for resolved-runtime defaults and override precedence (commit 2ac2dc6)
+    - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
+      Note: Extended RuntimeComposeRequest with typed ResolvedRuntime field (commit 2ac2dc6)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
+      Note: ConvManager GetOrCreate now forwards ResolvedRuntime into runtime composer requests (commit 2ac2dc6)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation_service.go
+      Note: Propagated ResolvedRuntime through chat service request models (commit 2ac2dc6)
     - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
-      Note: Extended ChatRequestBody with optional profile and registry request fields (commit 3a4b585)
+      Note: |-
+        Extended ChatRequestBody with optional profile and registry request fields (commit 3a4b585)
+        ConversationRequestPlan now carries ResolvedRuntime and forwards it to services (commit 2ac2dc6)
+    - Path: ../../../../../../../pinocchio/pkg/webchat/stream_hub.go
+      Note: StreamHub now passes ResolvedRuntime to ConvManager GetOrCreate (commit 2ac2dc6)
     - Path: pkg/doc/topics/01-profiles.md
       Note: Documented profile-first recommendation and compatibility escape-hatch positioning
     - Path: pkg/profiles/codec_yaml.go
@@ -96,6 +112,7 @@ LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1328,3 +1345,105 @@ go test ./pkg/webchat/... -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
 - Commit hash:
   - `3a4b585`
+
+## Step 17: Routed Resolved Profile Runtime Through Composer Pipeline (GP01-503)
+
+I completed GP01-503 by threading a typed resolved runtime object from request resolution all the way into runtime composition. This removes the composer’s dependence on purely local defaults and makes runtime construction explicitly profile-driven at the API boundary.
+
+The key behavior shift is that `RuntimeComposeRequest` now carries `ResolvedRuntime`, and the web-chat composer seeds `system_prompt`, `middlewares`, and `tools` from that struct before applying overrides.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue with the next implementation task and keep frequent ticket diary/changelog updates.
+
+**Inferred user intent:** Incrementally land the architecture migration by making runtime execution consume profile registry output directly, not just ad-hoc override maps.
+
+**Commit (code):** 2ac2dc6 — "web-chat: compose runtime from resolved profile runtime spec"
+
+### What I did
+- Extended runtime request contracts:
+  - `pinocchio/pkg/inference/runtime/composer.go`:
+    - added `ResolvedRuntime *profiles.RuntimeSpec` to `RuntimeComposeRequest`.
+  - `pinocchio/pkg/webchat/http/api.go`:
+    - added `ResolvedRuntime` to `ConversationRequestPlan`.
+    - forwarded `ResolvedRuntime` into chat/stream service calls.
+  - `pinocchio/pkg/webchat/conversation_service.go`, `pinocchio/pkg/webchat/stream_hub.go`, `pinocchio/pkg/webchat/conversation.go`:
+    - propagated `ResolvedRuntime` through `AppConversationRequest`, `SubmitPromptInput`, and `ConvManager.GetOrCreate(...)`.
+- Updated resolver output:
+  - `pinocchio/cmd/web-chat/profile_policy.go` now emits `ResolvedRuntime` in request plans using `profileRuntimeSpec(...)`.
+- Updated composer behavior:
+  - `pinocchio/cmd/web-chat/runtime_composer.go` now seeds runtime inputs from `req.ResolvedRuntime` and then applies override maps.
+  - retained fallback safety prompt when neither profile runtime nor overrides provide one.
+- Added tests:
+  - `pinocchio/cmd/web-chat/runtime_composer_test.go`:
+    - verifies composer uses resolved runtime defaults.
+    - verifies explicit overrides still win over resolved runtime.
+  - `pinocchio/cmd/web-chat/profile_policy_test.go`:
+    - verifies resolver now emits `ResolvedRuntime`.
+- Validation:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./... -count=1`
+  - pre-commit hook suite on commit (`go test ./...`, frontend build, lint, vet).
+
+### Why
+- GP01-503 requires runtime composition to consume resolved profile runtime directly, reducing hidden local defaults and clarifying resolver->composer contracts.
+
+### What worked
+- Typed resolved runtime is now wired end-to-end through request planning and conversation lifecycle.
+- Composer tests validate both profile-default behavior and override precedence.
+- Full pinocchio test + lint/vet hook pipeline passed.
+
+### What didn't work
+- First composer tests failed with:
+  - `section ai-client not found`
+  - then `invalid settings for provider openai: missing API key openai-api-key`
+- Root cause: success-path composer tests were using `values.New()` without required section values or minimal API key setup.
+- Fix: introduced `minimalRuntimeComposerValues(...)` test helper with required section stubs and a dummy `openai-api-key`.
+
+### What I learned
+- Runtime composer success-path tests must provide enough parsed-value structure to satisfy `settings.NewStepSettingsFromParsedValues` and downstream engine validation.
+
+### What was tricky to build
+- The tricky part was widening runtime contracts across multiple layers (`webhttp` plan, conversation service, stream hub, conv manager, runtime composer) without breaking unrelated call sites. The change is mechanically broad and required careful signature synchronization.
+
+### What warrants a second pair of eyes
+- Whether plan `Overrides` should now carry request-only overrides instead of merged effective profile payload (currently still merged for compatibility).
+- Any downstream consumers relying on old assumptions about where runtime defaults originate.
+
+### What should be done in the future
+- Continue with `GP01-504`: verify runtime fingerprint-driven rebuild behavior when profile versions mutate.
+
+### Code review instructions
+- Start with the contract boundary updates:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go`
+- Then inspect pipeline wiring:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/stream_hub.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+- Validate with:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./pkg/webchat/... -count=1
+go test ./... -count=1
+```
+
+### Technical details
+- Updated files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/stream_hub.go`
+- Commit hash:
+  - `2ac2dc6`
