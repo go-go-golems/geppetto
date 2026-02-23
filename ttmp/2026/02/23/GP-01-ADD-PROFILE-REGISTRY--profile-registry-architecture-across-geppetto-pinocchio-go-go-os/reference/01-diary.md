@@ -16,6 +16,14 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/pkg/profiles/codec_yaml.go
+      Note: Implemented YAML codec for canonical and legacy profile formats
+    - Path: geppetto/pkg/profiles/codec_yaml_test.go
+      Note: Legacy compatibility tests using misc/profiles.yaml fixture
+    - Path: geppetto/pkg/profiles/file_store_yaml.go
+      Note: Implemented YAML file-backed store with atomic persistence
+    - Path: geppetto/pkg/profiles/file_store_yaml_test.go
+      Note: File-store persistence and reload tests
     - Path: geppetto/pkg/profiles/memory_store.go
       Note: Implemented thread-safe in-memory ProfileStore backend
     - Path: geppetto/pkg/profiles/memory_store_test.go
@@ -46,6 +54,7 @@ LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -707,4 +716,77 @@ I added version-aware mutation behavior (expected-version checks), clone-on-read
 ```bash
 go test ./pkg/profiles
 git commit -m "profiles: add in-memory profile store" # 32264ab
+```
+
+## Step 10: Implemented YAML Codec and YAMLFileProfileStore (GP01-201..205)
+
+After establishing the in-memory backend, I implemented YAML interoperability and file persistence. This included both compatibility parsing of legacy profile maps and canonical registry document support so migration can happen without breaking existing `profiles.yaml` users.
+
+I also added a migration helper conversion path and tests, including a direct backward-compatibility test against `geppetto/misc/profiles.yaml`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 8)
+
+**Assistant interpretation:** Continue sequential implementation with small commits and ongoing diary updates.
+
+**Inferred user intent:** Build practical migration-ready infrastructure, not just abstract interfaces.
+
+### What I did
+- Added `geppetto/pkg/profiles/codec_yaml.go`:
+- decode canonical `registries:` format
+- decode single-registry document format
+- decode legacy flat map format
+- migration helper `ConvertLegacyProfilesMapToRegistry`
+- canonical encoder `EncodeYAMLRegistries`
+- Added `geppetto/pkg/profiles/file_store_yaml.go`:
+- file-backed store wrapper using in-memory store internally
+- load-on-start from YAML
+- atomic write via temp file + rename
+- Added tests:
+- `codec_yaml_test.go`
+- `file_store_yaml_test.go`
+- test coverage includes legacy fixture compatibility against:
+- `geppetto/misc/profiles.yaml`
+- Updated task checklist to mark complete:
+- `GP01-201`, `GP01-202`, `GP01-203`, `GP01-204`, `GP01-205`
+- Committed code:
+- `ca5b46a` — `profiles: add yaml codec and file store`
+
+### Why
+- These tasks are required to bridge old profile files into the new registry model while enabling disk-backed persistence before DB-backed store work.
+
+### What worked
+- Compatibility decoding works for legacy and new schemas.
+- File store reload/persist tests passed with local temp files.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Keeping YAML decode path format-flexible is critical for migration velocity; strict single-schema parsing would create unnecessary adoption friction.
+
+### What was tricky to build
+- Distinguishing the three YAML shapes reliably (canonical, single-registry, legacy map) required explicit detection logic before typed unmarshalling.
+
+### What warrants a second pair of eyes
+- Canonical output schema format (`registries:` map) should be reviewed for long-term API/docs alignment before external tooling depends on it.
+
+### What should be done in the future
+- Move to Phase 3 (`ResolveEffectiveProfile` behavior and fingerprinting) and begin wiring these stores into a concrete registry service implementation.
+
+### Code review instructions
+- Review:
+- `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/codec_yaml.go`
+- `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/file_store_yaml.go`
+- `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/codec_yaml_test.go`
+- `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/file_store_yaml_test.go`
+- Verify legacy fixture test path references:
+- `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/misc/profiles.yaml`
+
+### Technical details
+- Commands run:
+```bash
+go test ./pkg/profiles
+git commit -m "profiles: add yaml codec and file store" # ca5b46a
 ```

@@ -51,3 +51,17 @@ Implemented GP01-200 by adding InMemoryProfileStore with thread-safe read/write 
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/reference/01-diary.md — Implementation diary step for GP01-200
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-200 complete
 
+
+## 2026-02-23
+
+Implemented GP01-201..205: YAML registry codec with legacy compatibility, conversion helper, canonical encoding, YAML file-backed store with atomic writes, and compatibility tests against geppetto/misc/profiles.yaml.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/codec_yaml.go — YAML decode/encode and legacy migration helper
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/codec_yaml_test.go — Compatibility tests including legacy fixture decode
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/file_store_yaml.go — YAML file-backed ProfileStore implementation
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/file_store_yaml_test.go — Persistence and reload tests for file store
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/reference/01-diary.md — Diary step documenting YAML codec/file-store implementation
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-201 through GP01-205 complete
+

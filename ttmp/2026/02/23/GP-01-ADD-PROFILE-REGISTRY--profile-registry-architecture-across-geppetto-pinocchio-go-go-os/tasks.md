@@ -37,11 +37,11 @@
 ## Phase 2: File and Memory Stores
 
 - [x] GP01-200 Implement `InMemoryProfileStore` with thread-safe read/write behavior.
-- [ ] GP01-201 Implement YAML codec supporting legacy flat profile map format.
-- [ ] GP01-202 Implement YAML codec supporting new registry document format.
-- [ ] GP01-203 Implement `YAMLFileProfileStore` load/save with atomic write and backup strategy.
-- [ ] GP01-204 Add migration helper from legacy profiles.yaml to new normalized registry objects.
-- [ ] GP01-205 Add unit tests for backward compatibility with existing `geppetto/misc/profiles.yaml`-style data.
+- [x] GP01-201 Implement YAML codec supporting legacy flat profile map format.
+- [x] GP01-202 Implement YAML codec supporting new registry document format.
+- [x] GP01-203 Implement `YAMLFileProfileStore` load/save with atomic write and backup strategy.
+- [x] GP01-204 Add migration helper from legacy profiles.yaml to new normalized registry objects.
+- [x] GP01-205 Add unit tests for backward compatibility with existing `geppetto/misc/profiles.yaml`-style data.
 
 ## Phase 3: Resolver and Effective Runtime Construction
 
