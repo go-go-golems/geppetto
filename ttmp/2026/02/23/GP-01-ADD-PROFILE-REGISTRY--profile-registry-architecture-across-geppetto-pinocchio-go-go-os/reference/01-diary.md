@@ -49,6 +49,16 @@ RelatedFiles:
       Note: |-
         Added GP01-503 tests for resolved-runtime defaults and override precedence (commit 2ac2dc6)
         Added profile-version fingerprint regression coverage (commit ec779f8)
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-framework-guide.md
+      Note: Cross-link registry guidance from framework guide.
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-overview.md
+      Note: Cross-link registry guide from overview.
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-profile-registry.md
+      Note: New detailed profile registry guide for webchat.
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-user-guide.md
+      Note: Cross-link registry guidance from user guide.
+    - Path: ../../../../../../../pinocchio/pkg/doc/tutorials/02-webchat-getting-started.md
+      Note: Tutorial updated with registry endpoints.
     - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
       Note: |-
         Extended RuntimeComposeRequest with typed ResolvedRuntime field (commit 2ac2dc6)
@@ -72,8 +82,12 @@ RelatedFiles:
       Note: |-
         StreamHub now passes ResolvedRuntime to ConvManager GetOrCreate (commit 2ac2dc6)
         Stream hub now passes profile version into conversation resolution path (commit ec779f8)
+    - Path: pkg/doc/topics/00-docs-index.md
+      Note: Index entry updated for new profile registry guidance.
     - Path: pkg/doc/topics/01-profiles.md
-      Note: Documented profile-first recommendation and compatibility escape-hatch positioning
+      Note: |-
+        Documented profile-first recommendation and compatibility escape-hatch positioning
+        Registry-first profile documentation rewrite for Geppetto.
     - Path: pkg/profiles/codec_yaml.go
       Note: Implemented YAML codec for canonical and legacy profile formats
     - Path: pkg/profiles/codec_yaml_test.go
@@ -137,12 +151,14 @@ RelatedFiles:
         Marked GP01-500 and GP01-501 complete
         GP01-505..508 checklist updates
         Phase 6 task checkboxes updated
+        Phase 8 and docs tasks completion tracking.
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T17:25:12-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -2199,3 +2215,186 @@ pnpm --filter @hypercard/engine test
   - `profile`, `registry`
 - WS URL now conditionally includes query params:
   - `?conv_id=...&profile=...&registry=...`
+
+## Step 26: Created GP-03 Findings Ticket and Completed Phase 8 End-to-End/Regression Coverage (GP01-800..804)
+
+This step split into two linked outcomes. First, I created a dedicated follow-up ticket (`GP-03-ENGINE-TS-BASELINE-TYPECHECK`) and wrote a detailed baseline findings/remediation document for the pre-existing TypeScript/React compile debt in `@hypercard/engine`, so that work can proceed independently without blocking GP-01 completion. Second, I implemented and validated the Phase 8 GP-01 test deliverables, including profile-selection e2e coverage in `go-inventory-chat` and legacy-vs-registry regression coverage in geppetto sections.
+
+The key implementation insight was that Phase 8 e2e requirements exposed a real runtime path gap in `go-inventory-chat`: resolver/runtime composition still hard-coded `inventory` and ignored resolved profile metadata. I fixed that gap directly, then codified the expected behavior with integration tests for selection, creation, version-driven rebuild behavior, and read-only mutation protection.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a new ticket to address this, with a detailed document of your findings so far, so we can address this later. Then, tackle what was next otherwise."
+
+**Assistant interpretation:** Create a new docmgr ticket documenting the TS baseline issues in detail, then continue GP-01 at the next planned phase (Phase 8 tests).
+
+**Inferred user intent:** Preserve current TS debt analysis in a dedicated workstream while keeping momentum on profile-registry delivery and test hardening.
+
+**Commit (code):**
+- `e768f24` — "inventory-chat: add profile-aware resolver and phase 8 e2e tests"
+- `b03096d` — "profiles: add legacy-vs-registry regression matrix test"
+- `d2ba59b` — "docs: add GP-03 engine TS baseline findings and plan"
+
+### What I did
+- Created GP-03 ticket and authored detailed findings/remediation plan:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/design-doc/01-typescript-react-baseline-typecheck-findings-and-remediation-plan.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/tasks.md`
+- Implemented profile-aware resolver plumbing in inventory server flow:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go`
+- Updated inventory runtime composer to consume profile key/version/runtime fields and include profile version in fingerprint inputs:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`
+- Added/updated integration tests covering GP01-800..803:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+- Added GP01-804 regression matrix test comparing legacy `GatherFlagsFromProfiles` vs registry-backed source output projection:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go`
+- Updated GP-01 task checklist Phase 8 entries to done:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md`
+
+### Why
+- GP-03 separation keeps known baseline TS debt actionable without stalling profile-registry milestones.
+- Phase 8 needed to validate real user flows and migration confidence, not only isolated unit logic.
+- Resolver/composer hard-coding in inventory server prevented profile selection from affecting runtime behavior; tests should validate behavior that production code actually provides.
+
+### What worked
+- New e2e tests now verify:
+  - list/select/send-chat runtime selection behavior,
+  - create-then-use immediacy,
+  - profile version increment causing runtime rebuild signal on next request,
+  - read-only policy mutation rejection with deterministic status/message class.
+- Geppetto regression matrix test verifies registry adapter parity with legacy profile source for representative default/override scenarios.
+- Targeted suites passed:
+  - `cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat && go test ./internal/pinoweb ./cmd/hypercard-inventory-server`
+  - `cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto && go test ./pkg/sections ./pkg/profiles`
+
+### What didn't work
+- Initial docmgr validation call used a wrong path (`ttmp/ttmp/...`) and failed; reran with docs-root-relative path and validation passed.
+- First read-only mutation assertion expected old generic message text; current API returns detailed policy error text from service (`policy violation ... read-only`). Updated test to assert stable forbidden status and policy-violation message class.
+- First GP01-804 fixture used unsupported `ai-api-type: anthropic` for this schema and failed validation; replaced with supported values.
+
+### What I learned
+- Inventory server e2e semantics depended on resolver and composer honoring `ProfileKey`, `ProfileVersion`, and `ResolvedProfileRuntime`; Phase 8 tests are a useful guardrail for this contract.
+- For policy-error assertions, matching the message class (and status) is more stable than hard-coding older generic phrasing when API now forwards typed service error details.
+
+### What was tricky to build
+- The hardest part was designing GP01-802 so it proves runtime rebuild behavior instead of merely proving profile update success. I handled this by making integration test runtime keys/fingerprints version-sensitive (`<profile>@v<version>`) and asserting runtime key transition for the same conversation after profile update. This confirms the runtime-change path (`runtime config changed, rebuilding engine`) is actually exercised.
+
+### What warrants a second pair of eyes
+- Whether inventory runtime keys should remain version-decorated in tests only (current behavior) and plain in production, or be standardized.
+- Whether policy-error text should be further normalized for external API consumers, or if current detailed service messages are preferred.
+
+### What should be done in the future
+- Move to Phase 9 docs/rollout tasks (`GP01-900..904`), especially public CRUD/API and migration documentation now that phase 8 behavior is covered.
+- Execute GP-03 remediation tasks when ready to make `@hypercard/engine` `tsc -b` green.
+
+### Code review instructions
+- Start with behavior-enabling server changes:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go`
+- Then review Phase 8 tests:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go`
+- Validate with:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat
+go test ./internal/pinoweb ./cmd/hypercard-inventory-server
+
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/sections ./pkg/profiles
+```
+
+### Technical details
+- GP-03 baseline counts captured from `/tmp/engine-build-errors.log`:
+  - `TS7016=175`, `TS7006=83`, `TS2742=82`, `TS2322=28`, `TS18046=14`, `TS2339=2`, `TS2307=1`.
+- Inventory resolver behavior when profile registry is configured:
+  - profile selection precedence: body `profile` -> query `profile` -> query `runtime` -> `chat_profile` cookie -> registry default.
+  - registry selection: body/query override, otherwise configured default registry slug.
+  - overrides remain blocked (`runtime overrides are not allowed`).
+- Phase 8 e2e assertions:
+  - runtime selection through cookie/API route,
+  - immediate use after CRUD create,
+  - version-sensitive rebuild on same conversation after profile patch,
+  - read-only policy mutation rejection with `403` and policy-violation message.
+
+## Step 27: Authored Registry-First Help Pages for Geppetto and Pinocchio
+
+This step focused on docs quality and discoverability while UI work proceeds in parallel. I rewrote the Geppetto profiles topic into a registry-first reference and added a dedicated Pinocchio webchat profile-registry guide with endpoint and payload details, then wired cross-links from existing webchat docs/tutorials so users can navigate from quick-start guides to full registry semantics.
+
+The implementation goal was practical operator clarity: explain what profile registries are, how selection precedence works, how runtime composition should consume profile/version inputs, and how CRUD errors should be interpreted. The new docs keep the same Glazed help-page structure used elsewhere in both repositories.
+
+### Prompt Context
+
+**User prompt (verbatim):** "while we're waiting for our colleague to finish go-go-os UI work, let's update the geppetto and pinocchio documentation to explain the profile registyr in detail, in the same style as the doc that is already there (glazed help pages)."
+
+**Assistant interpretation:** Update official help pages in both repos to cover profile registry concepts and usage in detail, keeping the established Glazed doc style.
+
+**Inferred user intent:** Improve onboarding and operational clarity for registry-first profile workflows before UI work lands.
+
+**Commit (code):**
+- `c501145` — "docs(geppetto): rewrite profiles topic for registry-first model"
+- `9ba5c17` — "docs(webchat): add detailed profile registry guide and cross-links"
+
+### What I did
+- Rewrote Geppetto profiles topic as registry-first architecture and migration reference:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+- Updated Geppetto docs index profile entry:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/00-docs-index.md`
+- Added new Pinocchio guide for webchat profile registry wiring and API semantics:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Added cross-links in core webchat docs:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-overview.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-framework-guide.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-user-guide.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/tutorials/02-webchat-getting-started.md`
+- Marked GP-01 Phase 9 docs tasks complete where covered:
+  - `GP01-900`
+  - `GP01-902`
+
+### Why
+- Registry behavior moved from implicit flag overlays to explicit services and APIs; docs needed to match current architecture.
+- Teams now need both conceptual guidance (Geppetto) and app integration details (Pinocchio webchat).
+
+### What worked
+- New docs now describe:
+  - typed slugs, stores, service APIs, policy/version semantics,
+  - request selection precedence and runtime composition contracts,
+  - profile CRUD endpoints and payload examples,
+  - migration/troubleshooting guidance.
+- Doc loading checks passed:
+  - `cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto && go test ./pkg/doc`
+  - `cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio && go test ./pkg/doc`
+
+### What didn't work
+- N/A
+
+### What I learned
+- The most useful split is: Geppetto page for domain model + migration, Pinocchio page for request/runtime/API behavior.
+
+### What was tricky to build
+- Balancing detail without scattering information across too many pages. I handled this by adding one canonical Pinocchio profile-registry guide and linking it from overview/framework/user/tutorial pages instead of duplicating full endpoint docs in each location.
+
+### What warrants a second pair of eyes
+- Terminology consistency around `runtime` vs `profile` naming in older webchat docs that still reference pre-rename symbols.
+
+### What should be done in the future
+- Add a dedicated legacy `profiles.yaml` migration playbook page (`GP01-901`) if we want step-by-step cutover instructions beyond the summary now present in topic docs.
+
+### Code review instructions
+- Geppetto entry point:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+- Pinocchio entry point:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Verify cross-linking in:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-overview.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-framework-guide.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-user-guide.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/tutorials/02-webchat-getting-started.md`
+
+### Technical details
+- New API payload examples now cover:
+  - profile list response shape,
+  - create/patch/default-selection payloads,
+  - cookie-selection route payload (`/api/chat/profile`).

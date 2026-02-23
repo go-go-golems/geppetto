@@ -102,16 +102,16 @@
 
 ## Phase 8: End-to-End and Regression Testing
 
-- [ ] GP01-800 Add e2e test: list profiles -> select profile -> send chat -> runtime key reflects selection.
-- [ ] GP01-801 Add e2e test: create profile from web API -> appears in list -> usable immediately.
-- [ ] GP01-802 Add e2e test: profile update increments version and triggers runtime rebuild on next request.
-- [ ] GP01-803 Add e2e test: read-only profile mutation rejected with stable error code/message.
-- [ ] GP01-804 Add regression test suite comparing legacy and registry-backed profile resolution outputs.
+- [x] GP01-800 Add e2e test: list profiles -> select profile -> send chat -> runtime key reflects selection.
+- [x] GP01-801 Add e2e test: create profile from web API -> appears in list -> usable immediately.
+- [x] GP01-802 Add e2e test: profile update increments version and triggers runtime rebuild on next request.
+- [x] GP01-803 Add e2e test: read-only profile mutation rejected with stable error code/message.
+- [x] GP01-804 Add regression test suite comparing legacy and registry-backed profile resolution outputs.
 
 ## Phase 9: Documentation and Rollout
 
-- [ ] GP01-900 Update geppetto/pinocchio user docs for registry-first profile workflows.
+- [x] GP01-900 Update geppetto/pinocchio user docs for registry-first profile workflows.
 - [ ] GP01-901 Add migration guide for legacy `profiles.yaml` users.
-- [ ] GP01-902 Add API docs for profile CRUD endpoints and payload schema.
+- [x] GP01-902 Add API docs for profile CRUD endpoints and payload schema.
 - [ ] GP01-903 Add ops notes for DB-backed profile storage (backup/recovery/permissions).
 - [ ] GP01-904 Publish release notes including deprecations and fallback strategy.

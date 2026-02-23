@@ -200,3 +200,16 @@ Completed GP01-605 in pinocchio web-chat: added glazed settings for profile-regi
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Added SQLite profile service initialization helpers and bootstrap registry builder
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go — Added bootstrap/reopen test for SQLite profile service
 
+
+## 2026-02-23
+
+Completed Phase 8 (GP01-800..804) with inventory e2e profile tests and geppetto legacy-vs-registry regression matrix; updated geppetto and pinocchio help docs for registry-first workflows and CRUD API reference (commits e768f24, b03096d, c501145, 9ba5c17).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md — Registry-first conceptual and migration documentation.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/sections/profile_registry_source_test.go — Legacy-vs-registry regression matrix coverage.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Phase 8 e2e tests for profile selection
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go — Profile-aware request resolution feeding runtime key/version/runtime.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md — Detailed webchat profile registry and CRUD payload documentation.
+
