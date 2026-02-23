@@ -250,7 +250,7 @@ Use:
 
 Reference optimizer script:
 
-1. `cmd/gepa-runner/scripts/toy_math_optimizer.js`
+1. `github.com/gepa-ai/gepa/go-gepa-runner/cmd/gepa-runner/scripts/toy_math_optimizer.js`
 
 ## Troubleshooting
 

@@ -1,9 +1,0 @@
-Recent GEPA runs
-RUN ID                             MODE      STATUS     STARTED                    DURATION_MS  DATASET  CALLS  CANDIDATES  SCORE     PLUGIN
-gepa-eval-1771813250774309155      eval      completed  2026-02-22T21:20:50-05:00  0            2        2      1           1.000000  Example: Smoke Noop Optimizer (example.smoke_noop)
-gepa-optimize-1771813250475426350  optimize  completed  2026-02-22T21:20:50-05:00  0            2        1      1           1.000000  Example: Smoke Noop Optimizer (example.smoke_noop)
-
-Plugin summary (recent runs)
-PLUGIN              MODE      RUNS  COMPLETED  FAILED  AVG_DURATION_MS  AVG_SCORE
-example.smoke_noop  eval      1     1          0       0.0              1.000000
-example.smoke_noop  optimize  1     1          0       0.0              1.000000

@@ -1,4 +1,0 @@
-calls_used=11
-best_mean_score=1.000
-best_prompt="with OPT-1 and be concise."
-candidate_count=2
