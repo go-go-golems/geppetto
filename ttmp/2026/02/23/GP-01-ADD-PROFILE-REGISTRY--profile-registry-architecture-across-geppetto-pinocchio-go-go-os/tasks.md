@@ -91,14 +91,14 @@
 
 ## Phase 7: Go-Go-OS Client Integration
 
-- [ ] GP01-700 Add profile runtime API client module in `go-go-os/packages/engine/src/chat/runtime`.
-- [ ] GP01-701 Extend `submitPrompt` payload to include `profile`/`registry` (optional).
-- [ ] GP01-702 Extend websocket connect URL builder to include profile query when configured.
-- [ ] GP01-703 Add profile redux slice (available profiles, selected profile, loading/error state).
-- [ ] GP01-704 Add profile hooks (`useProfiles`, `useCurrentProfile`, `useSetProfile`).
-- [ ] GP01-705 Add profile selector UI integration in `ChatConversationWindow` header actions.
-- [ ] GP01-706 Integrate inventory app with explicit profile selection UX.
-- [ ] GP01-707 Add tests for runtime/http contract changes and profile reducer behavior.
+- [x] GP01-700 Add profile runtime API client module in `go-go-os/packages/engine/src/chat/runtime`.
+- [x] GP01-701 Extend `submitPrompt` payload to include `profile`/`registry` (optional).
+- [x] GP01-702 Extend websocket connect URL builder to include profile query when configured.
+- [x] GP01-703 Add profile redux slice (available profiles, selected profile, loading/error state).
+- [x] GP01-704 Add profile hooks (`useProfiles`, `useCurrentProfile`, `useSetProfile`).
+- [x] GP01-705 Add profile selector UI integration in `ChatConversationWindow` header actions.
+- [x] GP01-706 Integrate inventory app with explicit profile selection UX.
+- [x] GP01-707 Add tests for runtime/http contract changes and profile reducer behavior.
 
 ## Phase 8: End-to-End and Regression Testing
 

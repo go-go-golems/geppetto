@@ -139,7 +139,7 @@ RelatedFiles:
         Phase 6 task checkboxes updated
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
-LastUpdated: 2026-02-23T17:17:18-05:00
+LastUpdated: 2026-02-23T17:25:12-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
@@ -2094,3 +2094,108 @@ While integrating into `go-go-os`, I hit a cross-repo API/version boundary: the 
   - default registry slug
   - write actor/source
   - optional current-profile cookie route
+
+## Step 25: Implemented Go-Go-OS Phase 7 Profile Client Integration (700-707)
+
+After the reusable server CRUD phase, I continued with the planned client integration and completed the full Go-Go-OS Phase 7 scope: runtime profile API client, prompt/websocket profile propagation, profile redux state and hooks, selector UI in chat window, inventory app wiring, and test coverage for the new contracts.
+
+The implementation keeps profile selection optional, so existing chat flows still work without profile state, while inventory chat now exposes explicit profile selection UX backed by `/api/chat/profiles`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 24)
+
+**Assistant interpretation:** Continue normal implementation flow immediately after reusable CRUD extraction by executing the next scheduled phase tasks.
+
+**Inferred user intent:** Maintain momentum and deliver the end-to-end profile-selection flow in the client/runtime layer, not just server plumbing.
+
+**Commit (code):** 2214fb4828bd6eb49522bcf08fd82a5408828105 — "engine-chat: add profile selection state and transport wiring"
+
+### What I did
+- Added runtime profile API client and shared profile types:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileTypes.ts`
+- Extended chat POST payload contract:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/http.ts`
+  - optional `profile` / `registry` now included in `/chat` body when selected.
+- Extended websocket URL/profile reuse behavior:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/ws/wsManager.ts`
+  - profile/registry appended as query params.
+  - reconnect reuse now depends on `(conv_id, profile, registry)`.
+- Added profile redux state and selectors:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/state/profileSlice.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/state/selectors.ts`
+- Added profile hooks:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useProfiles.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useCurrentProfile.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useSetProfile.ts`
+- Wired profile selection into conversation runtime flow:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/conversationManager.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useConversation.ts`
+- Added selector UI integration in chat window and inventory app:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/ChatConversationWindow.tsx`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/apps/inventory/src/App.tsx`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/apps/inventory/src/app/store.ts`
+- Exported new APIs:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/index.ts`
+- Added/updated tests:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/http.test.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/state/profileSlice.test.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/state/selectors.test.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/ws/wsManager.test.ts`
+
+### Why
+- Phase 7 is the first point where users can actually choose runtime profiles in the Go-Go-OS chat UI.
+- Transport/state/UI all needed to move together so selection is not cosmetic.
+
+### What worked
+- Engine test suite passed with the new selectors/hooks/transport contract changes.
+- Profile selection now flows from UI -> redux -> HTTP/WS payloads.
+- Inventory app store now includes chat profile state and profile selector in chat header.
+
+### What didn't work
+- `npm install` failed with workspace protocol handling in this environment:
+  - `Unsupported URL Type "workspace:": workspace:*`
+  - Switched to `pnpm install`, then ran tests with `pnpm`.
+- `pnpm --filter @hypercard/engine build` reports many pre-existing TS environment/type issues (mostly React typings and existing UI typing debt), plus baseline unrelated errors; this blocked a clean build validation signal for only this change.
+
+### What I learned
+- In this repo, `pnpm` is the reliable workspace toolchain path; `npm` is not robust for this lock/workspace setup in the current environment.
+
+### What was tricky to build
+- The tricky part was avoiding accidental behavior regressions while threading profile selection through multiple layers (hook -> manager -> HTTP + WS).
+- I handled this by making profile fields optional everywhere and adding contract tests at each seam before wiring the UI.
+
+### What warrants a second pair of eyes
+- UX defaults for profile auto-selection (currently default profile or first listed profile when none selected).
+- Whether we should persist current selection via `/api/chat/profile` cookie endpoint for reload continuity in all apps.
+
+### What should be done in the future
+- Continue into Phase 8 end-to-end/regression tests now that server and client profile selection flow is implemented.
+
+### Code review instructions
+- Start with transport contracts:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/http.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/ws/wsManager.ts`
+- Then review state/hooks:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/state/profileSlice.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useProfiles.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useConversation.ts`
+- Then inventory integration:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/apps/inventory/src/App.tsx`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/apps/inventory/src/app/store.ts`
+- Validate:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os
+pnpm install
+pnpm --filter @hypercard/engine test
+```
+
+### Technical details
+- Selection is represented as:
+  - `{ profile?: string, registry?: string }`
+- Chat request body now conditionally includes:
+  - `profile`, `registry`
+- WS URL now conditionally includes query params:
+  - `?conv_id=...&profile=...&registry=...`
