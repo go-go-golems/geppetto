@@ -16,44 +16,53 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/profiles/codec_yaml.go
-      Note: Implemented YAML codec for canonical and legacy profile formats
-    - Path: geppetto/pkg/profiles/codec_yaml_test.go
-      Note: Legacy compatibility tests using misc/profiles.yaml fixture
-    - Path: geppetto/pkg/profiles/file_store_yaml.go
-      Note: Implemented YAML file-backed store with atomic persistence
-    - Path: geppetto/pkg/profiles/file_store_yaml_test.go
-      Note: File-store persistence and reload tests
-    - Path: geppetto/pkg/profiles/memory_store.go
-      Note: Implemented thread-safe in-memory ProfileStore backend
-    - Path: geppetto/pkg/profiles/memory_store_test.go
-      Note: Validation tests for in-memory store behavior and version conflict semantics
-    - Path: geppetto/pkg/profiles/overlay.go
-      Note: Implemented overlay store merge behavior
-    - Path: geppetto/pkg/profiles/registry.go
-      Note: Implemented registry service interfaces and resolve contracts
-    - Path: geppetto/pkg/profiles/slugs.go
-      Note: Implemented strong typed slug value objects
-    - Path: geppetto/pkg/profiles/store.go
-      Note: Implemented profile store interfaces
-    - Path: geppetto/pkg/profiles/types.go
-      Note: Implemented core profile and registry domain structs
-    - Path: geppetto/pkg/profiles/validation.go
-      Note: Implemented profile and registry validation helpers
-    - Path: geppetto/pkg/sections/sections.go
-      Note: Logged as key seam for profile middleware migration
-    - Path: geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/01-profileregistry-architecture-and-migration-plan.md
-      Note: Primary architecture deliverable authored during this ticket
-    - Path: go-go-os/packages/engine/src/chat/runtime/http.ts
+    - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/http.ts
       Note: Logged as current client payload contract needing profile fields
-    - Path: pinocchio/cmd/web-chat/profile_policy.go
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
       Note: Logged as key seam for replacing local profile registry
+    - Path: pkg/profiles/codec_yaml.go
+      Note: Implemented YAML codec for canonical and legacy profile formats
+    - Path: pkg/profiles/codec_yaml_test.go
+      Note: Legacy compatibility tests using misc/profiles.yaml fixture
+    - Path: pkg/profiles/file_store_yaml.go
+      Note: Implemented YAML file-backed store with atomic persistence
+    - Path: pkg/profiles/file_store_yaml_test.go
+      Note: File-store persistence and reload tests
+    - Path: pkg/profiles/memory_store.go
+      Note: Implemented thread-safe in-memory ProfileStore backend
+    - Path: pkg/profiles/memory_store_test.go
+      Note: Validation tests for in-memory store behavior and version conflict semantics
+    - Path: pkg/profiles/overlay.go
+      Note: Implemented overlay store merge behavior
+    - Path: pkg/profiles/registry.go
+      Note: Implemented registry service interfaces and resolve contracts
+    - Path: pkg/profiles/service.go
+      Note: Store-backed registry implementation including ResolveEffectiveProfile and policy/fingerprint logic (commit 6a0f1be)
+    - Path: pkg/profiles/service_test.go
+      Note: Phase 3 tests including GatherFlags compatibility golden coverage (commit 6a0f1be)
+    - Path: pkg/profiles/slugs.go
+      Note: Implemented strong typed slug value objects
+    - Path: pkg/profiles/step_settings_mapper.go
+      Note: Schema-driven StepSettings patch application and patch merge helpers (commit 6a0f1be)
+    - Path: pkg/profiles/store.go
+      Note: Implemented profile store interfaces
+    - Path: pkg/profiles/types.go
+      Note: Implemented core profile and registry domain structs
+    - Path: pkg/profiles/validation.go
+      Note: Implemented profile and registry validation helpers
+    - Path: pkg/sections/sections.go
+      Note: Logged as key seam for profile middleware migration
+    - Path: ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/01-profileregistry-architecture-and-migration-plan.md
+      Note: Primary architecture deliverable authored during this ticket
+    - Path: ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md
+      Note: Marked GP01-300..305 complete
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -790,3 +799,102 @@ I also added a migration helper conversion path and tests, including a direct ba
 go test ./pkg/profiles
 git commit -m "profiles: add yaml codec and file store" # ca5b46a
 ```
+
+## Step 11: Implemented Phase 3 Resolver, Policy, Fingerprint, and Golden Compatibility Tests
+
+I implemented the Phase 3 scope in `geppetto/pkg/profiles` by adding a concrete store-backed registry service and a full `ResolveEffectiveProfile` path. The resolver now performs explicit merge precedence (`base settings` -> `profile patch` -> `request patch`), policy checks, metadata emission, and runtime fingerprint generation.
+
+I also added compatibility coverage so the new resolver output is validated against the current `sources.GatherFlagsFromProfiles` behavior for profile-derived StepSettings fields. This gives us a concrete safety net before we replace middleware wiring in Phase 4.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementation task-by-task with real commits and frequent diary updates, focusing next on the resolver/runtime composition phase.
+
+**Inferred user intent:** Move from planning/foundations into executable registry behavior that can replace ad-hoc profile handling without breaking current profile precedence semantics.
+
+**Commit (code):** 6a0f1be — "profiles: add store-backed resolver service"
+
+### What I did
+- Added `geppetto/pkg/profiles/service.go` with a concrete `StoreRegistry` implementing `Registry`.
+- Implemented read APIs (`ListRegistries`, `GetRegistry`, `ListProfiles`, `GetProfile`) with typed not-found mapping.
+- Implemented write APIs (`CreateProfile`, `UpdateProfile`, `DeleteProfile`, `SetDefaultProfile`) with policy/read-only checks and store delegation.
+- Implemented `ResolveEffectiveProfile` with:
+  - registry/profile fallback resolution
+  - runtime merge precedence (`BaseStepSettings` -> `Runtime.StepSettingsPatch` -> request `step_settings_patch`)
+  - request override parsing for `system_prompt`, `middlewares`, `tools`, `step_settings_patch`
+  - policy enforcement (`AllowOverrides`, allowed keys, denied keys)
+  - metadata emission (`profile.registry`, `profile.slug`, `profile.version`, `profile.source`)
+  - deterministic fingerprint generation (`sha256:` hash over normalized runtime payload + step metadata)
+- Added `geppetto/pkg/profiles/step_settings_mapper.go`:
+  - schema builder for Geppetto AI sections
+  - patch application helper `ApplyStepSettingsPatch`
+  - patch merge helper `MergeStepSettingsPatches`
+- Added tests in `geppetto/pkg/profiles/service_test.go` for:
+  - default-profile fallback and metadata fields
+  - unknown registry/profile mapping to typed errors
+  - precedence and policy behavior
+  - allow-list/deny-list policy handling
+  - golden comparison against `sources.GatherFlagsFromProfiles`
+- Ran validations:
+  - `go test ./pkg/profiles -count=1`
+  - pre-commit hook suite (`go test ./...`, generate/build/lint/vet) during commit.
+
+### Why
+- Phase 3 tasks are the architectural bridge between static profile documents and runtime composition.
+- Implementing compatibility tests now reduces migration risk for Phase 4 middleware replacement.
+
+### What worked
+- Resolver behavior and policy checks passed focused package tests.
+- Golden test validated matching behavior against `GatherFlagsFromProfiles` for core section fields.
+- Pre-commit full-suite checks passed on final commit.
+
+### What didn't work
+- Initial golden fixture used `ai-client.timeout: 17s`, which failed Glazed parsing:
+  - Error: `Invalid value for field timeout: Could not parse argument timeout as integer: strconv.Atoi: parsing "17s": invalid syntax`
+  - Fix: switched fixture/profile patch value to integer seconds (`17`) to match current `ai-client.timeout` field parser.
+- First commit attempt failed lint with staticcheck `S1016` in `toSaveOptions`:
+  - Error: `should convert opts (type WriteOptions) to SaveOptions instead of using struct literal`
+  - Fix: replaced struct literal with `return SaveOptions(opts)` and re-committed.
+
+### What I learned
+- Current Glazed client timeout field in this path is integer-seconds typed (not duration string), so compatibility fixtures need to follow that exact contract.
+- Keeping patch application based on the same section definitions as existing settings parsing makes golden parity tests straightforward.
+
+### What was tricky to build
+- The hardest part was preserving compatibility semantics while introducing a typed resolver model. `GatherFlagsFromProfiles` operates through Glazed section parsing, while registry runtime patches are generic maps; bridging them safely required a schema-driven patch apply path (`ApplyStepSettingsPatch`) rather than ad-hoc map decoding.
+
+### What warrants a second pair of eyes
+- Fingerprint payload shape (`runtimeFingerprint`) to ensure it captures exactly the intended fields and no sensitive data drift.
+- Policy behavior for unknown request override keys (currently rejected as validation errors).
+- Write API patch semantics (`UpdateProfile`) to confirm partial update expectations before external API handlers rely on it.
+
+### What should be done in the future
+- Wire `StoreRegistry.ResolveEffectiveProfile` into Geppetto sections middleware path (Phase 4).
+- Add a migration toggle that can run both old/new resolution for side-by-side comparison during rollout.
+
+### Code review instructions
+- Start with `geppetto/pkg/profiles/service.go`:
+  - `ResolveEffectiveProfile`
+  - `resolveRuntimeSpec`
+  - `enforceOverridePolicy`
+  - `runtimeFingerprint`
+- Then inspect `geppetto/pkg/profiles/step_settings_mapper.go`:
+  - `ApplyStepSettingsPatch`
+  - `MergeStepSettingsPatches`
+- Validate via:
+```bash
+cd geppetto
+go test ./pkg/profiles -count=1
+```
+- Confirm golden compatibility test:
+  - `TestResolveEffectiveProfile_GoldenAgainstGatherFlagsFromProfiles`
+
+### Technical details
+- New files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/service.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/step_settings_mapper.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/service_test.go`
+- Commit hash:
+  - `6a0f1be`

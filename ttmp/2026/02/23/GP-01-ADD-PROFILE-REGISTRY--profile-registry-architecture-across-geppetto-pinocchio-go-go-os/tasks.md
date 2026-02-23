@@ -45,12 +45,12 @@
 
 ## Phase 3: Resolver and Effective Runtime Construction
 
-- [ ] GP01-300 Implement `ResolveEffectiveProfile` merge precedence rules.
-- [ ] GP01-301 Implement policy enforcement for request overrides (allow-list and deny-list handling).
-- [ ] GP01-302 Implement resolved runtime fingerprint generation from effective runtime payload.
-- [ ] GP01-303 Add metadata emission (`profile.registry`, `profile.slug`, `profile.version`, `profile.source`).
-- [ ] GP01-304 Add golden tests for precedence against current behavior from `GatherFlagsFromProfiles`.
-- [ ] GP01-305 Add tests for default-profile fallback and unknown-profile error mapping.
+- [x] GP01-300 Implement `ResolveEffectiveProfile` merge precedence rules.
+- [x] GP01-301 Implement policy enforcement for request overrides (allow-list and deny-list handling).
+- [x] GP01-302 Implement resolved runtime fingerprint generation from effective runtime payload.
+- [x] GP01-303 Add metadata emission (`profile.registry`, `profile.slug`, `profile.version`, `profile.source`).
+- [x] GP01-304 Add golden tests for precedence against current behavior from `GatherFlagsFromProfiles`.
+- [x] GP01-305 Add tests for default-profile fallback and unknown-profile error mapping.
 
 ## Phase 4: Geppetto CLI Middleware Integration
 

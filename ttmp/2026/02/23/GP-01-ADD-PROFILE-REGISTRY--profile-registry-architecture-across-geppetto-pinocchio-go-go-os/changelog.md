@@ -65,3 +65,15 @@ Implemented GP01-201..205: YAML registry codec with legacy compatibility, conver
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/reference/01-diary.md — Diary step documenting YAML codec/file-store implementation
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Marked GP01-201 through GP01-205 complete
 
+
+## 2026-02-23
+
+Implemented GP01-300..305: added StoreRegistry resolver service with precedence merge, request override policy enforcement, runtime fingerprinting, metadata emission, and golden compatibility tests against GatherFlagsFromProfiles (commit 6a0f1be).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/service.go — Phase 3 resolver and policy implementation
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/service_test.go — Golden compatibility and fallback/error mapping tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/step_settings_mapper.go — StepSettings patch mapping and merge logic
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Phase 3 task checkboxes updated
+
