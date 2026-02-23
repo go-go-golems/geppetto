@@ -77,6 +77,7 @@ Operational step-by-step guides for common tasks:
 | [Add a New Event Handler](../playbooks/02-add-a-new-event-handler.md) | Implement handler, subscribe to router, parse events. |
 | [Progressive Structured Data](../playbooks/03-progressive-structured-data.md) | Extract structured payloads from streaming output with filtering sinks. |
 | [Migrate to Session API](../playbooks/04-migrate-to-session-api.md) | Migrate from legacy lifecycle APIs to `session.Session` + `ExecutionHandle`. |
+| [Migrate legacy profiles.yaml to registry](../playbooks/05-migrate-legacy-profiles-yaml-to-registry.md) | Convert legacy profile maps to canonical registry YAML and switch to registry-first profile workflows. |
 
 ## Example Programs
 

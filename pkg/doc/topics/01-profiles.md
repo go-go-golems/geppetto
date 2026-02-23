@@ -219,6 +219,7 @@ This keeps profile logic centralized and avoids app-specific shadow profile stru
 ## See Also
 
 - [Geppetto Documentation Index](00-docs-index.md)
+- [Migration playbook: legacy profiles.yaml to registry format](../playbooks/05-migrate-legacy-profiles-yaml-to-registry.md)
 - [Middlewares](09-middlewares.md)
 - [Session Management in Geppetto](10-sessions.md)
 - `geppetto/pkg/profiles/*` (implementation package)
