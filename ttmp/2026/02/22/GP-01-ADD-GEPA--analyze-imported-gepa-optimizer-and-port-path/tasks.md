@@ -21,32 +21,32 @@ Implement analysis sections `9.1`, `9.2`, and `10.1` as the first shippable GEPA
 
 ## Track B: Medium-Value Refit (`9.2`)
 
-- [ ] Create local `cmd/gepa-runner` command skeleton in `geppetto/cmd/gepa-runner` (do not copy imported code blindly).
-- [ ] Re-implement runtime bootstrap using current local APIs (`goja` event loop + geppetto module registration) and verify type signatures.
-- [ ] Re-implement optimize command flags using current glazed field types (replace invalid imported `fields.TypeInt` usage).
-- [ ] Re-implement eval command for one-shot prompt benchmarking over dataset.
-- [ ] Rebuild plugin loader for optimizer descriptors and evaluator invocation (`dataset()` optional, `evaluate()` required).
-- [ ] Rebuild evaluator result decode path with no duplicate map type-switch cases.
-- [ ] Implement dataset loader (`.json`, `.jsonl`) with clear parse errors and line context for JSONL failures.
-- [ ] Wire profile and provider option bridging (`resolvePinocchioProfile`, `applyProfileEnvironment`, `resolveEngineOptions`) against current local sections.
-- [ ] Add optimize/eval smoke tests (or scripted checks) that run with deterministic fake engine/evaluator where possible.
-- [ ] Add command help/readme for `cmd/gepa-runner` including contract and sample commands.
-- [ ] Ensure `go build ./cmd/gepa-runner` passes in local `geppetto/`.
+- [x] Create local `cmd/gepa-runner` command skeleton in `geppetto/cmd/gepa-runner` (do not copy imported code blindly).
+- [x] Re-implement runtime bootstrap using current local APIs (`goja` event loop + geppetto module registration) and verify type signatures.
+- [x] Re-implement optimize command flags using current glazed field types (replace invalid imported `fields.TypeInt` usage).
+- [x] Re-implement eval command for one-shot prompt benchmarking over dataset.
+- [x] Rebuild plugin loader for optimizer descriptors and evaluator invocation (`dataset()` optional, `evaluate()` required).
+- [x] Rebuild evaluator result decode path with no duplicate map type-switch cases.
+- [x] Implement dataset loader (`.json`, `.jsonl`) with clear parse errors and line context for JSONL failures.
+- [x] Wire profile and provider option bridging (`resolvePinocchioProfile`, `applyProfileEnvironment`, `resolveEngineOptions`) against current local sections.
+- [x] Add optimize/eval smoke tests (or scripted checks) that run with deterministic fake engine/evaluator where possible.
+- [x] Add command help/readme for `cmd/gepa-runner` including contract and sample commands.
+- [x] Ensure `go build ./cmd/gepa-runner` passes in local `geppetto/`.
 
 ## Track C: Minimal Viable Integration Gates (`10.1`)
 
-- [ ] Integrate GEPA package and runner without changing unrelated OpenAI responses or JS builder hook behavior in same PR.
-- [ ] Keep output format stable: best prompt output plus JSON report file from optimize/eval commands.
-- [ ] Verify end-to-end local run path with sample script (`optimize` then `eval`) and capture artifacts in ticket `sources/`.
-- [ ] Document known limitations for MVP (single primary param mutation, no persistent benchmark DB, no crossover/merge).
-- [ ] Add CI or local checklist commands to ticket docs:
-- [ ] `go test ./pkg/optimizer/gepa`
-- [ ] `go test ./pkg/js/modules/geppetto`
-- [ ] `go build ./cmd/gepa-runner`
-- [ ] Mark MVP done only when all gates above pass and artifacts are linked in ticket changelog.
+- [x] Integrate GEPA package and runner without changing unrelated OpenAI responses or JS builder hook behavior in same PR.
+- [x] Keep output format stable: best prompt output plus JSON report file from optimize/eval commands.
+- [x] Verify end-to-end local run path with sample script (`optimize` then `eval`) and capture artifacts in ticket `sources/`.
+- [x] Document known limitations for MVP (single primary param mutation, no persistent benchmark DB, no crossover/merge).
+- [x] Add CI or local checklist commands to ticket docs:
+- [x] `go test ./pkg/optimizer/gepa`
+- [x] `go test ./pkg/js/modules/geppetto`
+- [x] `go build ./cmd/gepa-runner`
+- [x] Mark MVP done only when all gates above pass and artifacts are linked in ticket changelog.
 
 ## Ticket Hygiene / Delivery
 
-- [ ] Update `changelog.md` after each implementation chunk with precise file-level notes.
-- [ ] Keep `analysis` doc synced with any architecture deviations discovered during implementation.
-- [ ] Upload Phase 1 implementation summary to reMarkable after code is merged/ready for review.
+- [x] Update `changelog.md` after each implementation chunk with precise file-level notes.
+- [x] Keep `analysis` doc synced with any architecture deviations discovered during implementation.
+- [x] Upload Phase 1 implementation summary to reMarkable after code is merged/ready for review.

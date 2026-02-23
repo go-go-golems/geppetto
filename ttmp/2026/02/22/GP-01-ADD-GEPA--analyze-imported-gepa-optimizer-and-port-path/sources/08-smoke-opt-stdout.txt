@@ -1,0 +1,7 @@
+2026-02-22T20:43:13.991498827-05:00 INF Loaded optimizer plugin plugin_id=example.smoke_noop plugin_name="Example: Smoke Noop Optimizer"
+Plugin: Example: Smoke Noop Optimizer (example.smoke_noop)
+Dataset: 2 examples
+Calls used: 1 / 1
+Best mean score (over cached evals): 1.000000 (n=1)
+Wrote best prompt to: ./ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/sources/08-smoke-opt-best-prompt.txt
+Wrote report to: ./ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/sources/08-smoke-opt-report.json

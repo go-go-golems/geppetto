@@ -30,7 +30,7 @@ RelatedFiles:
       Note: Reflection prompt proposal and fenced-block parsing behavior
 ExternalSources: []
 Summary: Deep technical analysis of imported GEPA optimizer work, its lineage from cozo-relationship-js-runner patterns, compile/runtime findings, and a phased port strategy for local geppetto.
-LastUpdated: 2026-02-22T17:26:00-05:00
+LastUpdated: 2026-02-22T20:55:00-05:00
 WhatFor: Onboard a developer new to GEPA and this codebase, and provide a defensible implementation/port decision record.
 WhenToUse: Use before porting GEPA optimizer code from imported/geppetto-main into local geppetto and before designing benchmark storage/reporting for optimizer runs.
 ---
@@ -560,3 +560,51 @@ If executed with the phased plan above, the team can get a reliable first optimi
 12. `2026-02-18--cozodb-extraction/cozo-relationship-js-runner/scripts/relation_extractor_template.js:1`
 13. `geppetto/ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/sources/04-build-and-test-results.txt`
 14. `geppetto/ttmp/2026/02/22/GP-01-ADD-GEPA--analyze-imported-gepa-optimizer-and-port-path/sources/05-offline-optimizer-harness.txt`
+
+## 15. Phase 1 Implementation Update (2026-02-22)
+
+### 15.1 Implemented Outcome vs Recommended Plan
+
+Phase 1 sections `9.1`, `9.2`, and `10.1` are now implemented in local `geppetto/` with targeted refit instead of wholesale imported copying.
+
+Completed deliverables:
+
+1. `pkg/optimizer/gepa` was ported with the two required correctness hardenings:
+   - fenced parsing fix in `geppetto/pkg/optimizer/gepa/reflector.go`
+   - no-progress loop guard in `geppetto/pkg/optimizer/gepa/optimizer.go`
+2. Optimizer plugin helper contract was integrated into `require("geppetto/plugins")`:
+   - `geppetto/pkg/js/modules/geppetto/plugins_module.go`
+   - registration in `geppetto/pkg/js/modules/geppetto/module.go`
+3. Local runner was rebuilt against current APIs under `geppetto/cmd/gepa-runner/`:
+   - compile-safe glazed field types
+   - updated goja `require` bootstrap path
+   - cleaned result-decoder type switching
+   - `.json/.jsonl` dataset loading with line-context errors
+4. Deterministic optimize/eval smoke artifacts were captured in ticket `sources/` using:
+   - `geppetto/cmd/gepa-runner/scripts/smoke_noop_optimizer.js`
+
+### 15.2 Architecture Deviations from Imported Snapshot
+
+The final local implementation intentionally diverges from imported `cmd/gepa-runner` in a few places:
+
+1. Runtime bootstrap now follows current local `require` registration flow:
+   - uses `reg.Enable(vm)` in `geppetto/cmd/gepa-runner/js_runtime.go`
+2. CLI flag typing is aligned to current glazed enums:
+   - uses `fields.TypeInteger` in `geppetto/cmd/gepa-runner/main.go`
+3. Evaluator decode path is simplified and lint-clean:
+   - duplicate `map[string]interface{}`/`map[string]any` switching removed
+4. Dataset file-close behavior is explicit and error-propagating:
+   - close errors are now returned in `geppetto/cmd/gepa-runner/dataset.go`
+
+These were required to pass current build/lint gates and are not feature-level deviations.
+
+### 15.3 MVP Limitations (Intentionally Deferred)
+
+The current Phase 1 MVP keeps scope constrained:
+
+1. Mutation targets a single primary prompt parameter (`"prompt"` or first key fallback).
+2. No persistent benchmark DB/SQLite recorder is included yet.
+3. No crossover/merge operator is included yet.
+4. Runner currently focuses on CLI artifacts (best prompt + JSON report), not long-term run history APIs.
+
+These limitations are consistent with section `10.1` and reserved for later phases (`10.2`, `10.3`).
