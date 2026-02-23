@@ -110,3 +110,14 @@ Implemented GP01-405: added profile-first help/deprecation notes to ai-engine an
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/steps/ai/settings/settings-chat_test.go — Help guidance test coverage
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — GP01-405 checked
 
+
+## 2026-02-23
+
+Implemented GP01-500 and GP01-501 in pinocchio web-chat: replaced local chatProfileRegistry structs with shared geppetto profiles.Registry integration and injected registry-backed resolver wiring (commit eb13816).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md — Phase 5 task updates
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go — Registry bootstrap and injection in command runtime
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Shared registry resolver and API handler conversion
+

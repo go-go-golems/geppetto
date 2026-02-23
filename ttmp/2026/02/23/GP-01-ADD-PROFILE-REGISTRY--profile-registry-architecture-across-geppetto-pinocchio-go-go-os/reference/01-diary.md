@@ -18,8 +18,16 @@ Owners: []
 RelatedFiles:
     - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/http.ts
       Note: Logged as current client payload contract needing profile fields
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app_owned_chat_integration_test.go
+      Note: Updated integration server setup to shared profile registry
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
+      Note: Injected shared registry bootstrap into web-chat command wiring (commit eb13816)
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
-      Note: Logged as key seam for replacing local profile registry
+      Note: |-
+        Logged as key seam for replacing local profile registry
+        Replaced local chatProfileRegistry with shared geppetto profiles.Registry-backed resolver and handlers (commit eb13816)
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
+      Note: Updated resolver/handler tests to shared registry model
     - Path: pkg/doc/topics/01-profiles.md
       Note: Documented profile-first recommendation and compatibility escape-hatch positioning
     - Path: pkg/profiles/codec_yaml.go
@@ -76,12 +84,14 @@ RelatedFiles:
         Marked GP01-400..403 complete
         Marked GP01-404 complete
         Marked GP01-405 complete
+        Marked GP01-500 and GP01-501 complete
 ExternalSources: []
 Summary: Frequent step-by-step execution diary covering ticket setup, cross-repo analysis, architecture authoring, docmgr metadata updates, and reMarkable upload.
 LastUpdated: 2026-02-23T14:04:00-05:00
 WhatFor: Record implementation narrative, findings, pitfalls, and validation commands for GP-01-ADD-PROFILE-REGISTRY.
 WhenToUse: Use when reviewing how decisions were made and how deliverables were produced.
 ---
+
 
 
 
@@ -1153,3 +1163,83 @@ go test ./pkg/steps/ai/settings -count=1
   - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
 - Commit hash:
   - `8acfb80`
+
+## Step 15: Replaced Pinocchio Local Web-Chat Profile Registry with Shared Geppetto Registry (GP01-500, GP01-501)
+
+I migrated the web-chat profile resolver in Pinocchio from app-local `chatProfileRegistry` structs to the shared Geppetto `profiles.Registry` abstraction. This removes the duplicate in-command profile model and aligns web-chat profile selection with the same typed domain model introduced in Geppetto.
+
+The resolver and compatibility profile endpoints now operate against `profiles.Registry`, while preserving existing endpoint paths and cookie semantics.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue implementation beyond Geppetto and start Pinocchio integration task-by-task.
+
+**Inferred user intent:** Drive end-to-end migration by replacing duplicated profile logic in web-chat with the shared registry service.
+
+**Commit (code):** eb13816 — "web-chat: switch profile resolver to shared registry"
+
+### What I did
+- Reworked `pinocchio/cmd/web-chat/profile_policy.go`:
+  - removed local `chatProfile` / `chatProfileRegistry`
+  - added in-memory bootstrap helper `newInMemoryProfileRegistry(...)` based on `geppetto/pkg/profiles`
+  - updated `webChatProfileResolver` to use injected `profiles.Registry`
+  - updated profile resolution + fallback logic to read defaults from `ProfileRegistry`
+  - updated `/api/chat/profiles` and `/api/chat/profile` handlers to query shared registry
+- Updated `pinocchio/cmd/web-chat/main.go`:
+  - bootstraps default/agent profiles as `profiles.Profile`
+  - injects shared registry into resolver
+  - keeps compatibility endpoint registration (`/api/chat/profile`)
+- Updated tests:
+  - `pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`
+- Validation:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./pkg/webchat/... -count=1`
+  - pre-commit full pinocchio suite passed on commit.
+
+### Why
+- `GP01-500` and `GP01-501` require replacing local profile registry structures and moving request resolver policy to a shared profile registry service.
+
+### What worked
+- Resolver now resolves profiles through shared registry APIs.
+- Existing profile endpoints remained functional with the new backend.
+- Updated command and integration tests pass.
+
+### What didn't work
+- During test migration, one compile error occurred (`no new variables on left side of :=`) in `profile_policy_test.go`; fixed by replacing `:=` with `=` for reused `err`.
+- One list-order assumption in tests failed (`default` vs `agent` ordering) because shared store returns sorted slugs; fixed by asserting set membership instead of positional order.
+
+### What I learned
+- Replacing ad-hoc in-memory structs with shared registry APIs quickly surfaces implicit assumptions (like ordering and variable scoping in tests) that were previously hidden.
+
+### What was tricky to build
+- The nuanced part was preserving old API behavior (cookie endpoint and overrides merge behavior) while swapping out the underlying profile model. The implementation had to keep external behavior stable while internal lookup moved to typed slug + registry contracts.
+
+### What warrants a second pair of eyes
+- Error mapping in resolver (`invalid profile`, `profile not found`, `registry unavailable`) for externally visible API consistency.
+- Whether profile list ordering should be explicit and documented for clients.
+
+### What should be done in the future
+- Continue Phase 5 with `GP01-502` and `GP01-503`: accept explicit `profile`/`registry` request fields and feed resolved runtime into composer.
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go`
+- Then validate tests:
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./pkg/webchat/... -count=1
+```
+
+### Technical details
+- Updated files:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`
+- Commit hash:
+  - `eb13816`
