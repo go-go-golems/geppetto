@@ -264,8 +264,50 @@ This avoids storing profile data that only fails later at compose-time.
 
 Schema catalogs can be exposed by app APIs:
 
-- `GET /api/chat/schemas/middlewares` returns middleware names + JSON schema payloads,
-- `GET /api/chat/schemas/extensions` returns extension keys + JSON schema payloads.
+- `GET /api/chat/schemas/middlewares` returns middleware names + metadata + JSON schema payloads,
+- `GET /api/chat/schemas/extensions` returns typed extension keys + JSON schema payloads.
+
+Middleware schema item contract:
+
+```json
+{
+  "name": "agentmode",
+  "version": 1,
+  "display_name": "Agent Mode",
+  "description": "Inject mode guidance and parse mode switches.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "default_mode": { "type": "string" }
+    }
+  }
+}
+```
+
+Extension schema item contract:
+
+```json
+{
+  "key": "middleware.config.agentmode@v1",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "instances": {
+        "type": "object",
+        "additionalProperties": { "type": "object" }
+      }
+    },
+    "required": ["instances"],
+    "additionalProperties": false
+  }
+}
+```
+
+Important behavior:
+
+- middleware config is stored as profile extensions under typed keys (for example `middleware.config.agentmode@v1`),
+- extension schema discovery can include middleware-derived keys and codec-discovered keys,
+- explicit app-provided extension schemas win on duplicate keys.
 
 Frontend editors can use these endpoints to build profile forms and validate payloads before sending CRUD writes.
 

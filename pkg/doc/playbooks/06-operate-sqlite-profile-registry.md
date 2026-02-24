@@ -61,6 +61,21 @@ curl -s http://localhost:8080/api/chat/schemas/extensions | jq .
 
 You should get JSON arrays. If the arrays are empty unexpectedly, check application startup wiring for middleware definitions and extension schema registration.
 
+Quick contract checks:
+
+```bash
+curl -s http://localhost:8080/api/chat/schemas/middlewares \
+  | jq '.[0] | {name,version,display_name,description}'
+
+curl -s http://localhost:8080/api/chat/schemas/extensions \
+  | jq 'map(select(.key | startswith("middleware.config."))) | .[0].key'
+```
+
+Expected:
+
+- middleware schema items expose `name`, `version`, `display_name`, `description`, and `schema`,
+- extension schema keys use typed-key format (for example `middleware.config.agentmode@v1`).
+
 ## Step 3: Validate write-time middleware checks
 
 Unknown middleware names should hard-fail:

@@ -228,7 +228,55 @@ Application APIs can expose schema catalogs for frontend form generation:
 - `GET /api/chat/schemas/middlewares`
 - `GET /api/chat/schemas/extensions`
 
-These are discovery endpoints for UI/tooling. Profile mutations still go through profile CRUD endpoints.
+Middleware schema items include UI metadata and the JSON Schema payload:
+
+```json
+[
+  {
+    "name": "agentmode",
+    "version": 1,
+    "display_name": "Agent Mode",
+    "description": "Injects and parses mode control output.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "default_mode": { "type": "string" }
+      }
+    }
+  }
+]
+```
+
+Extension schema items are keyed by typed extension key:
+
+```json
+[
+  {
+    "key": "middleware.config.agentmode@v1",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "instances": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        }
+      },
+      "required": ["instances"],
+      "additionalProperties": false
+    }
+  }
+]
+```
+
+For extension discovery, the merge order is deterministic:
+
+1. explicit extension schema docs supplied by the application,
+2. middleware-derived extension schemas (`middleware.config.<name>@v1`),
+3. codec-discovered schemas from `ExtensionCodecRegistry` entries that implement:
+   - `ExtensionCodecLister` (registry supports listing codecs),
+   - `ExtensionSchemaCodec` (codec exposes `JSONSchema()`).
+
+This keeps the endpoint extensible without hardcoding all extension keys in app code. Profile mutations still go through profile CRUD endpoints.
 
 ## Troubleshooting
 
