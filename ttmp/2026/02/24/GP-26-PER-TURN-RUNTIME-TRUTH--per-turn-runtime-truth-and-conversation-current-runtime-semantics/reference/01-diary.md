@@ -13,6 +13,10 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go
+      Note: Integration helper aligned with current_runtime_key response
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts
+      Note: Debug UI API parser switched to current_runtime_key
     - Path: ../../../../../../../pinocchio/pkg/cmds/chat_persistence.go
       Note: CLI persister updated to TurnSaveOptions contract
     - Path: ../../../../../../../pinocchio/pkg/persistence/chatstore/turn_store.go
@@ -27,6 +31,8 @@ RelatedFiles:
       Note: Debug endpoint payloads that must expose runtime_key/inference_id
     - Path: ../../../../../../../pinocchio/pkg/webchat/turn_persister.go
       Note: Per-turn save callsite to update for new turn metadata fields
+    - Path: ../../../../../../../pinocchio/pkg/webchat/turn_persister_runtime_test.go
+      Note: Runtime-switch regression tests for final persister and snapshot hook paths
     - Path: ../../../../../../../pinocchio/pkg/webchat/turn_snapshot_hook.go
       Note: Snapshot-path runtime/inference projection into turn store
     - Path: ttmp/2026/02/24/GP-26-PER-TURN-RUNTIME-TRUTH--per-turn-runtime-truth-and-conversation-current-runtime-semantics/reference/01-diary.md
@@ -37,6 +43,7 @@ LastUpdated: 2026-02-24T16:57:32.334205138-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -277,3 +284,84 @@ Save(ctx context.Context, convID, sessionID, turnID, phase string, createdAtMs i
 - Fallback policy when metadata missing:
   - `runtime_key`: `""` (empty sentinel)
   - `inference_id`: `""` (empty sentinel)
+
+## Step 4: Downstream Consumer Alignment And Runtime-Switch Regression Tests
+
+After the primary backend cutover, I aligned downstream consumers and added explicit runtime-switch regression tests to lock in behavior. This closed the immediate contract drift from renaming conversation debug payloads to `current_runtime_key`.
+
+The added tests focus on the invariant that runtime is a per-turn truth: switching runtime for later turns must not rewrite prior turn rows.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue GP-26 work beyond the first commit, including dependent consumer updates and deeper correctness tests.
+
+**Inferred user intent:** Finish the cutover in a usable state across pinocchio/go-go-os consumers and reduce regression risk.
+
+**Commit (code):**
+- `79d3516` — "GP-26: switch debug web UI conversation field to current_runtime_key"
+- `c0084df` — "GP-26: accept current_runtime_key in conversation debug assertions"
+- `e47df35` — "GP-26: add runtime-switch persistence tests for turn persister paths"
+
+### What I did
+- Updated pinocchio debug UI API client + tests + MSW mocks:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.test.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts`
+- Updated go-go-os integration test helper for conversation debug payload parsing:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+- Added runtime-switch persistence tests covering both save paths:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/turn_persister_runtime_test.go`
+  - `TestTurnStorePersister_RuntimeSwitchPersistsPerTurnRuntime`
+  - `TestSnapshotHookForConv_RuntimeSwitchPersistsPerTurnRuntime`
+- Validation commands run:
+```bash
+cd pinocchio && go test ./pkg/webchat ./pkg/persistence/chatstore ./cmd/web-chat -count=1
+cd pinocchio/cmd/web-chat/web && pnpm -s vitest run src/debug-ui/api/debugApi.test.ts
+cd go-go-os/go-inventory-chat && go test ./cmd/hypercard-inventory-server -count=1
+```
+
+### Why
+- Hard cutover is only complete when the primary consumer surfaces stop assuming old response keys.
+- Runtime switch correctness needed dedicated regression tests to prove historical turn rows remain unchanged.
+
+### What worked
+- Web debug UI consumed the renamed field without type/lint issues.
+- Go integration tests passed after helper alignment.
+- Runtime-switch tests now assert turn-by-turn runtime immutability across runtime changes.
+
+### What didn't work
+- First version of new runtime-switch tests assumed deterministic list ordering and failed when timestamps were close:
+  - Expected first item `turn-2`, got `turn-1`.
+- Fixed by asserting via `turn_id -> snapshot` map instead of positional order.
+
+### What I learned
+- Turn list ordering is not a stable assertion target under near-identical millisecond timestamps; identity-based assertions are safer.
+
+### What was tricky to build
+- Ensuring tests represented the intended invariant without coupling to incidental SQL ordering details. The corrected approach validates semantic state (`runtime_key` per `turn_id`) rather than ordering artifacts.
+
+### What warrants a second pair of eyes
+- Whether we want to enforce a stronger deterministic order contract in turn list API (currently not required for correctness).
+
+### What should be done in the future
+- Add end-to-end assertion that `first turn runtime remains inventory` and `conversation current runtime equals planner` in one shared scenario using persisted DB queries.
+- Complete remaining docs/playbook updates in GP-26 before closeout.
+
+### Code review instructions
+- Consumer updates:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/mocks/msw/createDebugHandlers.ts`
+- Runtime-switch tests:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/turn_persister_runtime_test.go`
+- Cross-repo integration helper alignment:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+
+### Technical details
+- Conversation debug field consumed by UI:
+  - old: `runtime_key`
+  - new: `current_runtime_key`
+- Runtime-switch test invariant:
+  - turn 1 saved under runtime A remains runtime A
+  - turn 2 saved after switch uses runtime B

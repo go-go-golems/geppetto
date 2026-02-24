@@ -47,3 +47,14 @@ Implemented hard cutover commit d39acba: added turns.runtime_key + turns.inferen
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go — Migration/backfill behavior tests
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/router_debug_routes.go — Conversation runtime field rename and turn detail enrichment
 
+
+## 2026-02-24
+
+Follow-up cutover alignment: commit 79d3516 updated web debug UI to current_runtime_key, commit c0084df updated go-go-os integration helper, and commit e47df35 added runtime-switch per-turn persistence tests (final persister + snapshot hook). Validation rerun: go test ./pkg/webchat ./pkg/persistence/chatstore ./cmd/web-chat -count=1, vitest debugApi test, and go-go-os integration package tests.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Conversation debug payload parser update
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Conversation current_runtime_key client parsing
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/turn_persister_runtime_test.go — Runtime-switch regressions now covered
+

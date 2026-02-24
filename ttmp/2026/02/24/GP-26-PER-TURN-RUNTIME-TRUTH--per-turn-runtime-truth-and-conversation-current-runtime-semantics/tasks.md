@@ -29,7 +29,7 @@
 - [x] Add inference-id extraction fallback from `turns.KeyTurnMetaInferenceID`.
 - [x] Ensure turn save path sets runtime key for both final-persister and snapshot hook paths.
 - [x] Ensure empty runtime handling follows policy (error or empty sentinel).
-- [ ] Add tests for persister behavior when runtime changes mid-conversation.
+- [x] Add tests for persister behavior when runtime changes mid-conversation.
 
 ## Conversation Semantics Cleanup
 
@@ -37,14 +37,14 @@
 - [x] Update conversation response DTOs to expose `current_runtime_key`.
 - [x] Preserve old `runtime_key` response alias only if required by callers, otherwise remove.
 - [ ] Document that conversation runtime is latest pointer, not history.
-- [ ] Ensure conversation index persistence updates current runtime on profile switch.
+- [x] Ensure conversation index persistence updates current runtime on profile switch.
 
 ## Debug API and Query Surface
 
 - [x] Add per-item `runtime_key` and `inference_id` to `/api/debug/turns` response payload.
 - [x] Add per-phase `runtime_key` and `inference_id` to `/api/debug/turn/:conv/:session/:turn` payload.
 - [x] Update debug API tests for new response fields.
-- [ ] Update any frontend debug parsers/types that assume old shape.
+- [x] Update any frontend debug parsers/types that assume old shape.
 - [ ] Add API documentation snippets for querying runtime history by turn.
 
 ## Runtime Switch Correctness
@@ -68,7 +68,7 @@
 
 - [x] Run `go test ./pkg/persistence/chatstore -count=1` and capture results.
 - [x] Run `go test ./pkg/webchat -count=1` and capture results.
-- [ ] Run integration tests for profile switch and runtime persistence.
+- [x] Run integration tests for profile switch and runtime persistence.
 - [ ] Validate with sample conversation DBs (`/tmp/timeline3.db` and `/tmp/turns.db` style checks).
 - [x] Confirm no compatibility env flags are introduced for this semantic change.
 - [x] Record validation evidence in changelog.
