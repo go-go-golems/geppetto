@@ -108,3 +108,56 @@ func TestSlugJSONRejectsInvalid(t *testing.T) {
 		t.Fatalf("expected invalid slug json error")
 	}
 }
+
+func TestSlugTextRoundTrip(t *testing.T) {
+	registryIn := MustRegistrySlug("default")
+	registryText, err := registryIn.MarshalText()
+	if err != nil {
+		t.Fatalf("registry MarshalText failed: %v", err)
+	}
+	var registryOut RegistrySlug
+	if err := registryOut.UnmarshalText(registryText); err != nil {
+		t.Fatalf("registry UnmarshalText failed: %v", err)
+	}
+	if registryOut != "default" {
+		t.Fatalf("registry text round-trip mismatch: %q", registryOut)
+	}
+
+	profileIn := MustProfileSlug("agent")
+	profileText, err := profileIn.MarshalText()
+	if err != nil {
+		t.Fatalf("profile MarshalText failed: %v", err)
+	}
+	var profileOut ProfileSlug
+	if err := profileOut.UnmarshalText(profileText); err != nil {
+		t.Fatalf("profile UnmarshalText failed: %v", err)
+	}
+	if profileOut != "agent" {
+		t.Fatalf("profile text round-trip mismatch: %q", profileOut)
+	}
+
+	runtimeIn := MustRuntimeKey("agent")
+	runtimeText, err := runtimeIn.MarshalText()
+	if err != nil {
+		t.Fatalf("runtime MarshalText failed: %v", err)
+	}
+	var runtimeOut RuntimeKey
+	if err := runtimeOut.UnmarshalText(runtimeText); err != nil {
+		t.Fatalf("runtime UnmarshalText failed: %v", err)
+	}
+	if runtimeOut != "agent" {
+		t.Fatalf("runtime text round-trip mismatch: %q", runtimeOut)
+	}
+}
+
+func TestSlugTextRejectsInvalid(t *testing.T) {
+	var profile ProfileSlug
+	if err := profile.UnmarshalText([]byte("bad slug")); err == nil {
+		t.Fatalf("expected invalid profile text error")
+	}
+
+	var runtime RuntimeKey
+	if err := runtime.UnmarshalText([]byte(" ")); err == nil {
+		t.Fatalf("expected invalid runtime key text error")
+	}
+}
