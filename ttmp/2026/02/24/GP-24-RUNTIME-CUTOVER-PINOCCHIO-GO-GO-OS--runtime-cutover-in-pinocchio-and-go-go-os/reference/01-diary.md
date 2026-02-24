@@ -84,3 +84,29 @@ All commands passed.
 - Audited maintained docs for stale references to removed profile-registry middleware toggle and alias behavior.
 - Verified no active docs in `pinocchio/pkg/doc` or `geppetto/pkg/doc` still instruct users to use removed middleware-switch env vars.
 - Marked compatibility cleanup documentation task complete; historical references remain only in archived ticket artifacts under `ttmp/`.
+
+### Step 8 - Pinocchio Frontend Profile Contract + Selection Reconciliation
+
+- Updated `pinocchio/cmd/web-chat/web/src/store/profileApi.ts` so profile list/get/set decoding follows shared API semantics:
+  - list supports canonical array and legacy indexed-object payload shapes,
+  - current-profile decoding accepts `slug` and legacy `profile` fallback fields,
+  - malformed payloads now fail fast in frontend contract decoding.
+- Updated `pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx` to reconcile selected profile from three sources:
+  - local app state,
+  - server current-profile response,
+  - available profile options.
+- Added profile-set failure fallback: when server rejects a profile switch, widget refreshes current profile and re-syncs selection so UI does not remain stale.
+
+New tests added:
+
+- `pinocchio/cmd/web-chat/web/src/store/profileApi.test.ts`
+- `pinocchio/cmd/web-chat/web/src/webchat/profileSelection.test.ts`
+
+Validation:
+
+- `npm run typecheck` (in `pinocchio/cmd/web-chat/web`): pass.
+- `npx vitest run src/store/profileApi.test.ts src/webchat/profileSelection.test.ts`: pass.
+
+Task impact:
+
+- Completed GP-24 tasks 26, 27, 28, 29.

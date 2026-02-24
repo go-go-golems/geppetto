@@ -33,16 +33,16 @@
 
 - [x] Align Go-Go-OS profile API client with shared backend contract.
 - [x] Fix profile list parsing edge cases (array vs map-index legacy shape).
-- [ ] Ensure profile selector can switch between at least three seeded profiles.
+- [x] Ensure profile selector can switch between at least three seeded profiles.
 - [ ] Add UI test for switching from `inventory` to `default` and back.
 - [ ] Add UI test for switching selected profile before first message send.
 
 ## Pinocchio Frontend Integration
 
-- [ ] Ensure web-chat frontend uses the same profile list/get/set APIs.
-- [ ] Ensure selected profile widget updates when server rejects invalid profile.
-- [ ] Add frontend tests for default profile display and selection changes.
-- [ ] Add regression test for stale selected profile cookie value.
+- [x] Ensure web-chat frontend uses the same profile list/get/set APIs.
+- [x] Ensure selected profile widget updates when server rejects invalid profile.
+- [x] Add frontend tests for default profile display and selection changes.
+- [x] Add regression test for stale selected profile cookie value.
 
 ## Compatibility Cleanup (Hard Cutover)
 
@@ -62,7 +62,7 @@
 ## Manual QA Checklist
 
 - [ ] Start Pinocchio web-chat and verify profile list/create/update/delete/default/select manually.
-- [ ] Start Go-Go-OS inventory server and verify same manual profile flow.
+- [x] Start Go-Go-OS inventory server and verify same manual profile flow.
 - [ ] Verify a true `default` profile with no middlewares runs without middleware-specific events.
 - [ ] Verify switching to middleware-enabled profile produces expected middleware events.
 - [ ] Verify error handling for invalid profile slug and invalid registry slug.

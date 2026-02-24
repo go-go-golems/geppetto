@@ -71,3 +71,20 @@ Completed compatibility cleanup audit for obsolete toggle references in maintain
 
 - `rg -n "PINOCCHIO_ENABLE_PROFILE_REGISTRY_MIDDLEWARE|profile alias|\"profile\" field|legacy middleware switch|env var" pinocchio/pkg/doc geppetto/pkg/doc go-go-os -g'*.md'`
 - Result: no maintained docs reference the removed middleware-switch toggle; only historical ticket artifacts remain under `ttmp/`.
+
+## 2026-02-24
+
+Hardened Pinocchio web-chat frontend profile contract handling and selector reconciliation to match shared profile API semantics.
+
+### Verification
+
+- `npm run typecheck` (pinocchio/cmd/web-chat/web): pass.
+- `npx vitest run src/store/profileApi.test.ts src/webchat/profileSelection.test.ts` (pinocchio/cmd/web-chat/web): pass.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/store/profileApi.ts — Added shared-contract response decoding for profile list/current-profile endpoints, including indexed-object list fallback.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx — Added selected-profile reconciliation logic and server-refresh fallback after profile set failures.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/webchat/profileSelection.ts — Added deterministic selection resolver for app/server/options profile reconciliation.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/store/profileApi.test.ts — Added frontend API contract tests for list/get/set profile behavior.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/webchat/profileSelection.test.ts — Added tests covering default display, selection change stability, and stale selection fallback.
