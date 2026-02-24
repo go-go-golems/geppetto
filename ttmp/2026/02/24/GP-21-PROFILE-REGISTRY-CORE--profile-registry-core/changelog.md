@@ -57,3 +57,8 @@ Step 5 completed: metadata/version invariants and cross-backend parity baseline 
 - pkg/profiles/memory_store_test.go — Added registry/profile metadata version bump and attribution/timestamp invariant coverage
 - ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/reference/02-core-behavior-matrix.md — Added downstream-facing core behavior matrix
 
+
+## 2026-02-24
+
+All GP-21 core profile registry tasks completed; ticket closed before GP-22 implementation start.
+

@@ -1,7 +1,7 @@
 ---
 Title: Profile Registry Core
 Ticket: GP-21-PROFILE-REGISTRY-CORE
-Status: active
+Status: complete
 Topics:
     - architecture
     - backend
@@ -26,10 +26,11 @@ RelatedFiles:
       Note: SQLite-backed durable persistence flow.
 ExternalSources: []
 Summary: Foundation ticket for hardening profile registry core model, invariants, and storage behavior prior to extension and middleware cutovers.
-LastUpdated: 2026-02-25T00:50:00-05:00
+LastUpdated: 2026-02-24T13:43:05.150546902-05:00
 WhatFor: Provide a stable and well-tested profile registry substrate used by extension/CRUD/middleware tickets.
 WhenToUse: Use when implementing or reviewing model, validation, and persistence behavior for profile registries.
 ---
+
 
 # Profile Registry Core
 
