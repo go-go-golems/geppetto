@@ -25,16 +25,38 @@ var _ Registry = (*StoreRegistry)(nil)
 type StoreRegistry struct {
 	store               ProfileStore
 	defaultRegistrySlug RegistrySlug
+	extensionCodecs     ExtensionCodecRegistry
 }
 
-func NewStoreRegistry(store ProfileStore, defaultRegistrySlug RegistrySlug) (*StoreRegistry, error) {
+type StoreRegistryOption func(*StoreRegistry) error
+
+func WithExtensionCodecRegistry(registry ExtensionCodecRegistry) StoreRegistryOption {
+	return func(sr *StoreRegistry) error {
+		if sr == nil {
+			return fmt.Errorf("store registry is nil")
+		}
+		sr.extensionCodecs = registry
+		return nil
+	}
+}
+
+func NewStoreRegistry(store ProfileStore, defaultRegistrySlug RegistrySlug, options ...StoreRegistryOption) (*StoreRegistry, error) {
 	if store == nil {
 		return nil, fmt.Errorf("profile store is required")
 	}
 	if defaultRegistrySlug.IsZero() {
 		defaultRegistrySlug = MustRegistrySlug("default")
 	}
-	return &StoreRegistry{store: store, defaultRegistrySlug: defaultRegistrySlug}, nil
+	ret := &StoreRegistry{store: store, defaultRegistrySlug: defaultRegistrySlug}
+	for _, opt := range options {
+		if opt == nil {
+			continue
+		}
+		if err := opt(ret); err != nil {
+			return nil, err
+		}
+	}
+	return ret, nil
 }
 
 func (r *StoreRegistry) ListRegistries(ctx context.Context) ([]RegistrySummary, error) {
