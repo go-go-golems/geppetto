@@ -22,13 +22,13 @@
 
 ## Service Semantics
 
-- [ ] Add tests for resolve behavior when requested profile slug is empty and registry default exists.
-- [ ] Add tests for resolve behavior when requested profile slug is empty and registry default missing.
-- [ ] Add tests for fallback to `default` slug only when present.
-- [ ] Add tests for policy violation on update of read-only profile.
-- [ ] Add tests for policy violation on delete of read-only profile.
-- [ ] Add tests for version conflict behavior when expected version mismatches.
-- [ ] Add tests for list ordering determinism of registry summaries.
+- [x] Add tests for resolve behavior when requested profile slug is empty and registry default exists.
+- [x] Add tests for resolve behavior when requested profile slug is empty and registry default missing.
+- [x] Add tests for fallback to `default` slug only when present.
+- [x] Add tests for policy violation on update of read-only profile.
+- [x] Add tests for policy violation on delete of read-only profile.
+- [x] Add tests for version conflict behavior when expected version mismatches.
+- [x] Add tests for list ordering determinism of registry summaries.
 
 ## Persistence: YAML Store
 

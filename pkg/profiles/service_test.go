@@ -89,6 +89,62 @@ func TestStoreRegistryResolve_UnknownMapping(t *testing.T) {
 	}
 }
 
+func TestStoreRegistryResolve_EmptyProfileFallbackToDefaultSlug(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	// Build an intentionally invalid in-memory registry state (no default_profile_slug)
+	// to assert fallback behavior in resolveProfileSlugForRegistry.
+	store.registries[MustRegistrySlug("default")] = (&ProfileRegistry{
+		Slug: MustRegistrySlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {
+				Slug: MustProfileSlug("default"),
+				Runtime: RuntimeSpec{
+					SystemPrompt: "fallback profile",
+				},
+			},
+		},
+	}).Clone()
+
+	registry := mustNewStoreRegistry(t, store)
+	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+	}
+	if got := resolved.ProfileSlug; got != MustProfileSlug("default") {
+		t.Fatalf("expected fallback profile slug=default, got %q", got)
+	}
+}
+
+func TestStoreRegistryResolve_EmptyProfileWithoutDefaultReturnsValidation(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	// Build an intentionally invalid in-memory registry state (no default_profile_slug)
+	// to assert validation behavior when neither default_profile_slug nor "default" exists.
+	store.registries[MustRegistrySlug("default")] = (&ProfileRegistry{
+		Slug: MustRegistrySlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
+		},
+	}).Clone()
+
+	registry := mustNewStoreRegistry(t, store)
+	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("expected ErrValidation, got %v", err)
+	}
+	var verr *ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("expected ValidationError type, got %T", err)
+	}
+	if got, want := verr.Field, "profile.slug"; got != want {
+		t.Fatalf("validation field mismatch: got=%q want=%q", got, want)
+	}
+}
+
 func TestStoreRegistryResolve_PrecendenceAndPolicy(t *testing.T) {
 	ctx := context.Background()
 	store := NewInMemoryProfileStore()
@@ -217,6 +273,117 @@ func TestStoreRegistryResolve_AllowedAndDeniedOverrideKeys(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected allowed override to pass, got %v", err)
+	}
+}
+
+func TestStoreRegistryUpdateProfile_ReadOnlyPolicyViolation(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("locked"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("locked"): {
+				Slug: MustProfileSlug("locked"),
+				Policy: PolicySpec{
+					ReadOnly: true,
+				},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	name := "updated"
+	_, err := registry.UpdateProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("locked"), ProfilePatch{
+		DisplayName: &name,
+	}, WriteOptions{Actor: "test", Source: "test"})
+	if !errors.Is(err, ErrPolicyViolation) {
+		t.Fatalf("expected ErrPolicyViolation, got %v", err)
+	}
+}
+
+func TestStoreRegistryDeleteProfile_ReadOnlyPolicyViolation(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("locked"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("locked"): {
+				Slug: MustProfileSlug("locked"),
+				Policy: PolicySpec{
+					ReadOnly: true,
+				},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	err := registry.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("locked"), WriteOptions{
+		Actor:  "test",
+		Source: "test",
+	})
+	if !errors.Is(err, ErrPolicyViolation) {
+		t.Fatalf("expected ErrPolicyViolation, got %v", err)
+	}
+}
+
+func TestStoreRegistryUpdateProfile_VersionConflict(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	description := "new description"
+	_, err := registry.UpdateProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), ProfilePatch{
+		Description: &description,
+	}, WriteOptions{
+		ExpectedVersion: 999,
+		Actor:           "test",
+		Source:          "test",
+	})
+	if !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("expected ErrVersionConflict, got %v", err)
+	}
+}
+
+func TestStoreRegistryListRegistries_DeterministicOrdering(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("zeta"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	})
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("alpha"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	summaries, err := registry.ListRegistries(ctx)
+	if err != nil {
+		t.Fatalf("ListRegistries returned error: %v", err)
+	}
+	if len(summaries) != 2 {
+		t.Fatalf("expected 2 summaries, got %d", len(summaries))
+	}
+	if got, want := summaries[0].Slug, MustRegistrySlug("alpha"); got != want {
+		t.Fatalf("summary ordering mismatch at index 0: got=%q want=%q", got, want)
+	}
+	if got, want := summaries[1].Slug, MustRegistrySlug("zeta"); got != want {
+		t.Fatalf("summary ordering mismatch at index 1: got=%q want=%q", got, want)
 	}
 }
 
