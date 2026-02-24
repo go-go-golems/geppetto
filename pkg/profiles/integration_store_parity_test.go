@@ -144,3 +144,103 @@ func TestStoreRegistryLifecycleParityAcrossBackends(t *testing.T) {
 		})
 	}
 }
+
+func TestStoreRegistryExtensionParityAcrossBackends(t *testing.T) {
+	type backendFactory struct {
+		name  string
+		build func(t *testing.T) ProfileStore
+	}
+
+	backends := []backendFactory{
+		{
+			name: "memory",
+			build: func(t *testing.T) ProfileStore {
+				t.Helper()
+				return NewInMemoryProfileStore()
+			},
+		},
+		{
+			name: "yaml",
+			build: func(t *testing.T) ProfileStore {
+				t.Helper()
+				path := filepath.Join(t.TempDir(), "profiles.yaml")
+				store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+				if err != nil {
+					t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+				}
+				return store
+			},
+		},
+		{
+			name: "sqlite",
+			build: func(t *testing.T) ProfileStore {
+				t.Helper()
+				dsn, err := SQLiteProfileDSNForFile(filepath.Join(t.TempDir(), "profiles.db"))
+				if err != nil {
+					t.Fatalf("SQLiteProfileDSNForFile failed: %v", err)
+				}
+				store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+				if err != nil {
+					t.Fatalf("NewSQLiteProfileStore failed: %v", err)
+				}
+				return store
+			},
+		},
+	}
+
+	for _, backend := range backends {
+		backend := backend
+		t.Run(backend.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := backend.build(t)
+			t.Cleanup(func() { _ = store.Close() })
+
+			if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+				Slug:               MustRegistrySlug("default"),
+				DefaultProfileSlug: MustProfileSlug("default"),
+				Profiles: map[ProfileSlug]*Profile{
+					MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+				},
+			}, SaveOptions{Actor: "bootstrap", Source: backend.name}); err != nil {
+				t.Fatalf("bootstrap UpsertRegistry failed: %v", err)
+			}
+
+			service := mustNewStoreRegistry(t, store)
+			created, err := service.CreateProfile(ctx, MustRegistrySlug("default"), &Profile{
+				Slug: MustProfileSlug("agent"),
+				Extensions: map[string]any{
+					"Vendor.Custom@V1": map[string]any{
+						"flags": []any{map[string]any{"enabled": true}},
+					},
+				},
+			}, WriteOptions{Actor: "create", Source: backend.name})
+			if err != nil {
+				t.Fatalf("CreateProfile failed: %v", err)
+			}
+			if _, ok := created.Extensions["vendor.custom@v1"]; !ok {
+				t.Fatalf("expected canonical extension key after create")
+			}
+
+			displayName := "Agent Updated"
+			updated, err := service.UpdateProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), ProfilePatch{
+				DisplayName: &displayName,
+			}, WriteOptions{
+				ExpectedVersion: created.Metadata.Version,
+				Actor:           "update",
+				Source:          backend.name,
+			})
+			if err != nil {
+				t.Fatalf("UpdateProfile failed: %v", err)
+			}
+
+			ext, ok := updated.Extensions["vendor.custom@v1"]
+			if !ok {
+				t.Fatalf("expected canonical extension key after update")
+			}
+			enabled := ext.(map[string]any)["flags"].([]any)[0].(map[string]any)["enabled"].(bool)
+			if !enabled {
+				t.Fatalf("expected unknown extension payload preserved after update")
+			}
+		})
+	}
+}

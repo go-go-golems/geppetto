@@ -68,6 +68,14 @@ func TestEncodeDecodeYAMLRoundTrip(t *testing.T) {
 				Runtime: RuntimeSpec{StepSettingsPatch: map[string]any{
 					"ai-chat": map[string]any{"ai-engine": "gpt-4o-mini"},
 				}},
+				Extensions: map[string]any{
+					"app.custom@v1": map[string]any{
+						"items": []any{
+							map[string]any{"enabled": true},
+							"note",
+						},
+					},
+				},
 			},
 		},
 	}}
@@ -83,7 +91,54 @@ func TestEncodeDecodeYAMLRoundTrip(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected 1 registry, got %d", len(out))
 	}
-	if out[0].Profiles[MustProfileSlug("default")] == nil {
+	profile := out[0].Profiles[MustProfileSlug("default")]
+	if profile == nil {
 		t.Fatalf("missing default profile after roundtrip")
+	}
+	ext, ok := profile.Extensions["app.custom@v1"]
+	if !ok {
+		t.Fatalf("expected extension payload after roundtrip")
+	}
+	items := ext.(map[string]any)["items"].([]any)
+	if got, want := len(items), 2; got != want {
+		t.Fatalf("extension items length mismatch: got=%d want=%d", got, want)
+	}
+}
+
+func TestEncodeDecodeYAML_PreservesUnknownExtensionKeys(t *testing.T) {
+	in := []*ProfileRegistry{{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {
+				Slug: MustProfileSlug("default"),
+				Extensions: map[string]any{
+					"thirdparty.feature@v1": map[string]any{
+						"config": map[string]any{"flag": true},
+					},
+					"vendor.extra@v2": []any{"a", "b"},
+				},
+			},
+		},
+	}}
+
+	b, err := EncodeYAMLRegistries(in)
+	if err != nil {
+		t.Fatalf("EncodeYAMLRegistries failed: %v", err)
+	}
+	out, err := DecodeYAMLRegistries(b, MustRegistrySlug("unused"))
+	if err != nil {
+		t.Fatalf("DecodeYAMLRegistries failed: %v", err)
+	}
+
+	profile := out[0].Profiles[MustProfileSlug("default")]
+	if profile == nil {
+		t.Fatalf("missing default profile after roundtrip")
+	}
+	if _, ok := profile.Extensions["thirdparty.feature@v1"]; !ok {
+		t.Fatalf("missing thirdparty extension key after roundtrip")
+	}
+	if _, ok := profile.Extensions["vendor.extra@v2"]; !ok {
+		t.Fatalf("missing vendor extension key after roundtrip")
 	}
 }

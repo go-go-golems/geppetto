@@ -454,6 +454,134 @@ func TestSQLiteProfileStore_DeleteProfilePersistsRegistryRowUpdate(t *testing.T)
 	}
 }
 
+func TestSQLiteProfileStore_ExtensionsRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	}, SaveOptions{Actor: "bootstrap", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertRegistry failed: %v", err)
+	}
+	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
+		Slug: MustProfileSlug("agent"),
+		Extensions: map[string]any{
+			"app.custom@v1": map[string]any{
+				"items": []any{
+					map[string]any{"enabled": true},
+					"note",
+				},
+			},
+		},
+	}, SaveOptions{Actor: "create", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertProfile failed: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("reopen store failed: %v", err)
+	}
+	defer func() { _ = reloaded.Close() }()
+
+	profile, ok, err := reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil || !ok || profile == nil {
+		t.Fatalf("expected profile after reopen, ok=%v err=%v", ok, err)
+	}
+	ext, ok := profile.Extensions["app.custom@v1"]
+	if !ok {
+		t.Fatalf("expected extension key after sqlite roundtrip")
+	}
+	items := ext.(map[string]any)["items"].([]any)
+	if got, want := len(items), 2; got != want {
+		t.Fatalf("extension items length mismatch: got=%d want=%d", got, want)
+	}
+}
+
+func TestSQLiteProfileStore_UnknownExtensionsPreservedOnServicePartialUpdate(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	}, SaveOptions{Actor: "bootstrap", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertRegistry failed: %v", err)
+	}
+
+	service, err := NewStoreRegistry(store, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	if _, err := service.CreateProfile(ctx, MustRegistrySlug("default"), &Profile{
+		Slug: MustProfileSlug("agent"),
+		Extensions: map[string]any{
+			"Vendor.Custom@V1": map[string]any{
+				"flags": []any{map[string]any{"enabled": true}},
+			},
+		},
+	}, WriteOptions{Actor: "create", Source: "sqlite"}); err != nil {
+		t.Fatalf("CreateProfile failed: %v", err)
+	}
+
+	displayName := "Agent Updated"
+	if _, err := service.UpdateProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), ProfilePatch{
+		DisplayName: &displayName,
+	}, WriteOptions{Actor: "update", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpdateProfile failed: %v", err)
+	}
+
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("reopen store failed: %v", err)
+	}
+	defer func() { _ = reloaded.Close() }()
+
+	profile, ok, err := reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil || !ok || profile == nil {
+		t.Fatalf("expected profile after reopen, ok=%v err=%v", ok, err)
+	}
+	if got := profile.DisplayName; got != "Agent Updated" {
+		t.Fatalf("display name mismatch after partial update: %q", got)
+	}
+	ext, ok := profile.Extensions["vendor.custom@v1"]
+	if !ok {
+		t.Fatalf("expected canonical unknown extension key after partial update")
+	}
+	enabled := ext.(map[string]any)["flags"].([]any)[0].(map[string]any)["enabled"].(bool)
+	if !enabled {
+		t.Fatalf("expected unknown extension payload preserved after partial update")
+	}
+}
+
 func TestSQLiteProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
