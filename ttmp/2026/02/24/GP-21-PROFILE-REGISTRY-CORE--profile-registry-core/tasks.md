@@ -49,13 +49,13 @@
 
 ## Metadata and Versioning
 
-- [ ] Add tests for registry metadata version bump on each mutating operation.
-- [ ] Add tests for profile metadata version bump on each mutating operation.
-- [ ] Add tests for created/updated actor/source attribution propagation.
-- [ ] Add tests for created timestamp immutability and updated timestamp monotonicity.
+- [x] Add tests for registry metadata version bump on each mutating operation.
+- [x] Add tests for profile metadata version bump on each mutating operation.
+- [x] Add tests for created/updated actor/source attribution propagation.
+- [x] Add tests for created timestamp immutability and updated timestamp monotonicity.
 
 ## Integration Baseline
 
-- [ ] Add backend integration test covering create -> update -> set-default -> delete lifecycle.
-- [ ] Add parity test suite that runs same expectations against in-memory, YAML, and SQLite stores.
-- [ ] Produce a short behavior matrix note in ticket docs summarizing guaranteed invariants for downstream tickets.
+- [x] Add backend integration test covering create -> update -> set-default -> delete lifecycle.
+- [x] Add parity test suite that runs same expectations against in-memory, YAML, and SQLite stores.
+- [x] Produce a short behavior matrix note in ticket docs summarizing guaranteed invariants for downstream tickets.
