@@ -46,3 +46,14 @@ Step 4 completed: SQLite store robustness coverage landed (commit 160c8b785990b1
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/sqlite_store_test.go — Added migration/malformed/mismatch/crud/delete/close-state tests
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/tasks.md — Marked SQLite persistence tasks complete
 
+
+## 2026-02-24
+
+Step 5 completed: metadata/version invariants and cross-backend parity baseline coverage landed (commit fcbf87593f1557675829fe0d1c7578eb56f8f4a8).
+
+### Related Files
+
+- pkg/profiles/integration_store_parity_test.go — Added lifecycle parity test across memory
+- pkg/profiles/memory_store_test.go — Added registry/profile metadata version bump and attribution/timestamp invariant coverage
+- ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/reference/02-core-behavior-matrix.md — Added downstream-facing core behavior matrix
+

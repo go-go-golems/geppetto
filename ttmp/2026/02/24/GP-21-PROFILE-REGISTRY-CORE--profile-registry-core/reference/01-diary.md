@@ -14,6 +14,10 @@ Owners: []
 RelatedFiles:
     - Path: pkg/profiles/file_store_yaml_test.go
       Note: Step 3 YAML store robustness coverage
+    - Path: pkg/profiles/integration_store_parity_test.go
+      Note: Step 5 cross-backend lifecycle parity baseline coverage
+    - Path: pkg/profiles/memory_store_test.go
+      Note: Step 5 metadata/version attribution and monotonicity coverage
     - Path: pkg/profiles/service_test.go
       Note: Step 2 service semantics edge-case coverage
     - Path: pkg/profiles/slugs_test.go
@@ -30,6 +34,8 @@ RelatedFiles:
       Note: |-
         Validation field-path assertions and ErrValidation consistency checks.
         Step 1 validation field-path and error-type contract coverage
+    - Path: ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/reference/02-core-behavior-matrix.md
+      Note: Step 5 behavior matrix contract for downstream tickets
     - Path: ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/tasks.md
       Note: |-
         GP-21 checklist progress updates for completed model/validation tasks.
@@ -39,10 +45,11 @@ RelatedFiles:
         Step 4 sqlite checklist completion
 ExternalSources: []
 Summary: Implementation diary for GP-21 profile registry core work, including commit-level changes, validation outcomes, and review guidance.
-LastUpdated: 2026-02-24T13:32:15-05:00
+LastUpdated: 2026-02-24T13:36:26-05:00
 WhatFor: Track each implementation step for GP-21 with exact commands, outcomes, and follow-ups.
 WhenToUse: Use when reviewing what was implemented for GP-21 and how to reproduce verification.
 ---
+
 
 
 
@@ -392,6 +399,93 @@ go test ./pkg/profiles/... -count=1
 
 - Added raw-row fixture setup with `database/sql` for malformed/mismatch load-path tests.
 - Added close-guard matrix to validate all public `SQLiteProfileStore` methods fail cleanly after close.
+
+## Step 5: Metadata/Version Contracts and Cross-Backend Parity Baseline
+
+This step completed the remaining GP-21 checklist: metadata/version invariants and integration baseline parity across in-memory, YAML, and SQLite stores.
+
+I added focused metadata attribution/version tests in memory store coverage and introduced a cross-backend lifecycle parity test that runs one canonical CRUD flow against all three stores. I also added a standalone behavior matrix reference note for downstream tickets.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Finish the remaining GP-21 tasks sequentially, with commits and detailed diary continuity.
+
+**Inferred user intent:** Leave GP-21 in a fully completed state with both executable tests and concise downstream contract documentation.
+
+**Commit (code):** `fcbf87593f1557675829fe0d1c7578eb56f8f4a8` — "profiles: add metadata and cross-backend parity coverage for GP-21 step 5"
+
+### What I did
+
+- Extended `geppetto/pkg/profiles/memory_store_test.go` with:
+  - registry metadata/version mutation coverage (version increments, actor/source propagation, created/updated timestamp behavior),
+  - profile metadata/version mutation coverage with explicit created/updated attribution checks.
+- Added `geppetto/pkg/profiles/integration_store_parity_test.go`:
+  - canonical lifecycle flow (`create -> update -> set-default -> delete`) run for each backend (memory/YAML/SQLite),
+  - identical end-state assertions for all backends.
+- Created behavior matrix reference doc:
+  - `.../reference/02-core-behavior-matrix.md`,
+  - summarizes guaranteed invariants and their test evidence.
+- Marked all remaining GP-21 tasks complete in `tasks.md`.
+
+### Why
+
+- Metadata/version contracts are critical for conflict handling, auditability, and API-level debugging.
+- Parity tests ensure backend choice does not alter service-level behavior.
+- The behavior matrix provides a compact contract for GP-22..GP-25 implementation decisions.
+
+### What worked
+
+- New tests passed locally and under full pre-commit pipeline.
+- Task list reached 100% completion.
+- Behavior matrix doc gives a one-page downstream reference of guarantees + source tests.
+
+### What didn't work
+
+- No failing iterations occurred in this step.
+
+### What I learned
+
+- Metadata propagation semantics are deterministic and testable without mocking time by asserting immutability and monotonic non-decrease.
+- A single well-defined lifecycle parity test provides high confidence across storage adapters with minimal duplication.
+
+### What was tricky to build
+
+- The subtle part was choosing a lifecycle flow that remains valid under current registry invariants while still covering create/update/set-default/delete operations.
+- I used a flow that deletes the non-default profile after switching default to avoid producing invalid registry states in parity assertions.
+
+### What warrants a second pair of eyes
+
+- Review whether parity test should expand to include reopen checks within the same flow for all backends.
+- Review whether registry metadata source-overwrite behavior on each mutation is desired long-term or should be additive.
+
+### What should be done in the future
+
+- GP-21 implementation tasks are complete.
+- Next action is ticket close or targeted follow-up only if new core invariants are requested.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/profiles/memory_store_test.go` new metadata/version sections.
+- Review `geppetto/pkg/profiles/integration_store_parity_test.go` for lifecycle parity logic.
+- Read `.../reference/02-core-behavior-matrix.md` for the compact invariant contract.
+- Validate:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Metadata assertions verify:
+  - version increments on each mutation,
+  - `CreatedAtMs` immutability,
+  - `UpdatedAtMs` monotonicity,
+  - `CreatedBy` stickiness and `UpdatedBy` refresh,
+  - source propagation behavior.
+- Parity assertions verify stable final state across memory/YAML/SQLite with identical service calls.
 
 ## Usage Examples
 
