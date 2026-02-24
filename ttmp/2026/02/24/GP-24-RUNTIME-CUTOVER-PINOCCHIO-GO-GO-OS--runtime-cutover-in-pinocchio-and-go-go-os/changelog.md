@@ -62,3 +62,12 @@ Removed shared profile API payload alias fallback (`profile`) to enforce slug-on
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go — Removed `profile` alias fields and fallback parsing in create-profile and set-current-profile payload decoding.
+
+## 2026-02-24
+
+Completed compatibility cleanup audit for obsolete toggle references in maintained docs.
+
+### Verification
+
+- `rg -n "PINOCCHIO_ENABLE_PROFILE_REGISTRY_MIDDLEWARE|profile alias|\"profile\" field|legacy middleware switch|env var" pinocchio/pkg/doc geppetto/pkg/doc go-go-os -g'*.md'`
+- Result: no maintained docs reference the removed middleware-switch toggle; only historical ticket artifacts remain under `ttmp/`.

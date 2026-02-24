@@ -78,3 +78,9 @@ All commands passed.
 - Removed `profile` alias fallback from shared profile API request payloads in Pinocchio webchat HTTP handlers.
 - Create-profile and current-profile writes now parse `slug` only, which aligns with hard-cutover API cleanup goals.
 - Re-ran pinocchio command/package tests to confirm no regression in profile route behavior or build.
+
+### Step 7 - Compatibility Docs Audit
+
+- Audited maintained docs for stale references to removed profile-registry middleware toggle and alias behavior.
+- Verified no active docs in `pinocchio/pkg/doc` or `geppetto/pkg/doc` still instruct users to use removed middleware-switch env vars.
+- Marked compatibility cleanup documentation task complete; historical references remain only in archived ticket artifacts under `ttmp/`.

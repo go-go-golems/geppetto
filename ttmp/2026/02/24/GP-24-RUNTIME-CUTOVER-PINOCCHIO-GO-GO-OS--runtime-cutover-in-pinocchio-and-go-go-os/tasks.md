@@ -48,7 +48,7 @@
 
 - [x] Remove remaining compatibility toggles related to legacy middleware/profile behavior.
 - [x] Remove dead route aliases or fallback handlers superseded by shared CRUD routes.
-- [ ] Remove obsolete comments/docs referencing removed toggles.
+- [x] Remove obsolete comments/docs referencing removed toggles.
 - [x] Verify no `os.Getenv` reads remain for legacy profile middleware switching.
 
 ## Cross-App Parity Testing
