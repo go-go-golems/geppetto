@@ -18,7 +18,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-24T16:21:12.702492314-05:00
+LastUpdated: 2026-02-24T23:38:00Z
 WhatFor: Deliver strict write-time middleware validation and schema-discovery APIs, and move middleware config payloads to typed-key extensions for namespaced governance.
 WhenToUse: Use when implementing or reviewing profile registry middleware parameter validation, schema APIs for frontend forms, and typed-key middleware payload migration.
 ---
@@ -43,6 +43,7 @@ Current middleware CRUD model remains profile-scoped (via profile CRUD `runtime.
 - Design: [Implementation plan middleware schema API write-time validation and typed-key middleware payloads](./design-doc/01-implementation-plan-middleware-schema-api-write-time-validation-and-typed-key-middleware-payloads.md)
 - Tasks: [tasks.md](./tasks.md)
 - Changelog: [changelog.md](./changelog.md)
+- Diary: [reference/01-diary.md](./reference/01-diary.md)
 
 ## Status
 

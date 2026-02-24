@@ -25,3 +25,43 @@ Implemented profile write-time middleware schema validation in shared profile CR
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go — API tests for middleware validation and schema endpoints
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go — Write-time validation and schema endpoints
 
+## 2026-02-24
+
+Implemented typed-key middleware payload model and runtime hydration path.
+
+### Highlights
+
+- Added Geppetto typed-key middleware extension helpers:
+  - canonical key convention `middleware.<name>_config@v1`
+  - projection from inline `runtime.middlewares[*].config` to typed-key extension payloads
+  - per-instance slot mapping (`id:<id>` / `index:<i>`)
+  - read/write helper APIs for middleware config extension payloads
+- Updated shared profile CRUD handler logic to:
+  - project inline middleware config to typed-key extensions during create/patch writes,
+  - validate middleware config from canonical typed-key payloads against definition schema,
+  - normalize resolved payloads back into typed-key extension storage.
+- Updated request resolver hydration in both web-chat and inventory app to load middleware config from typed-key extensions when runtime inline config is absent.
+- Extended extension schema endpoint to include generated middleware typed-key extension schemas.
+- Added/updated tests for projection and schema endpoint expectations.
+
+### Verification matrix
+
+- `go test ./pkg/profiles -count=1` (geppetto) ✅
+- `go test ./pkg/webchat/http ./cmd/web-chat -count=1` (pinocchio) ✅
+- `go test ./go-inventory-chat/internal/pinoweb ./go-inventory-chat/cmd/hypercard-inventory-server -count=1` (go-go-os) ✅
+
+### Related commits
+
+- `geppetto` `b887394` — profiles typed-key middleware extension helpers
+- `pinocchio` `0cf75e5` — profile API typed-key projection/validation + resolver hydration + tests
+- `go-go-os` `0c2c7ad` — inventory resolver hydration from typed-key middleware extensions
+
+### Related files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/middleware_extensions.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/middleware_extensions_test.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/reference/01-diary.md
