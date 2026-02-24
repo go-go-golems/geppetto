@@ -12,6 +12,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: pkg/profiles/file_store_yaml_test.go
+      Note: Step 3 YAML store robustness coverage
     - Path: pkg/profiles/service_test.go
       Note: Step 2 service semantics edge-case coverage
     - Path: pkg/profiles/slugs_test.go
@@ -31,12 +33,14 @@ RelatedFiles:
         GP-21 checklist progress updates for completed model/validation tasks.
         Step 1 task checklist updates
         Step 2 checklist progress
+        Step 3 YAML checklist completion
 ExternalSources: []
 Summary: Implementation diary for GP-21 profile registry core work, including commit-level changes, validation outcomes, and review guidance.
-LastUpdated: 2026-02-24T13:27:54-05:00
+LastUpdated: 2026-02-24T13:29:51-05:00
 WhatFor: Track each implementation step for GP-21 with exact commands, outcomes, and follow-ups.
 WhenToUse: Use when reviewing what was implemented for GP-21 and how to reproduce verification.
 ---
+
 
 
 
@@ -229,6 +233,83 @@ go test ./pkg/profiles/... -count=1
 - Added explicit `ValidationError.Field` assertion for empty-profile/no-default path.
 - Added deterministic ordering assertion for `ListRegistries` summaries.
 - Added policy and version-conflict checks at service API level (not just store-level tests).
+
+## Step 3: YAML Store Robustness Coverage
+
+This step completed the YAML persistence checklist for GP-21. The tests now exercise file lifecycle behavior, malformed input handling, multi-registry reload parity, atomic temp-file rename behavior, and post-close guards.
+
+The focus was to move YAML store confidence from basic happy-path persistence to explicit failure and lifecycle semantics.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue executing GP-21 tasks sequentially, committing each completed task group and recording progress in a detailed diary.
+
+**Inferred user intent:** Ensure persistence behaviors are fully test-proven before downstream integration relies on them.
+
+**Commit (code):** `5d825aeea7acafd342fc77a1c2fe74dd483d2afb` — "profiles: harden yaml store coverage for GP-21 step 3"
+
+### What I did
+
+- Extended `geppetto/pkg/profiles/file_store_yaml_test.go` with new tests:
+  - `TestYAMLFileProfileStore_MissingFileInitialization`
+  - `TestYAMLFileProfileStore_ParseFailureSurfacing`
+  - `TestYAMLFileProfileStore_WriteThenReloadParity_MultipleRegistries`
+  - `TestYAMLFileProfileStore_AtomicTempRenameBehavior`
+  - `TestYAMLFileProfileStore_CloseStateGuards`
+- Updated GP-21 task checklist to mark all `Persistence: YAML Store` tasks completed.
+- Ran `go test ./pkg/profiles/... -count=1`, then full pre-commit test/lint pipeline via lefthook.
+
+### Why
+
+- YAML store is a primary operator-facing persistence path; missing edge-case coverage can produce silent data-loss risks or confusing runtime errors.
+- Lifecycle tests (`missing file`, `closed store`) prevent regressions in initialization and shutdown paths.
+
+### What worked
+
+- All added YAML tests passed.
+- Final file decode checks confirmed post-write readability and no `.tmp` residue.
+- Multi-registry parity test validated durable write/reload behavior beyond a single default registry.
+
+### What didn't work
+
+- No code-level failures occurred in this step.
+
+### What I learned
+
+- Existing YAML store implementation already had robust behavior; the main gap was explicit coverage for edge cases and lifecycle guards.
+- `persistLocked` temp-file + rename strategy is verifiable in tests by asserting no lingering `.tmp` and successful decode of final file.
+
+### What was tricky to build
+
+- The tricky part was writing assertions that test atomic write intent without race-prone filesystem assumptions.
+- I used deterministic post-condition checks (`.tmp` does not exist, final file decodes) instead of timing-sensitive checks.
+
+### What warrants a second pair of eyes
+
+- Review whether parse-failure assertions should enforce stricter error-shape guarantees (currently checks for yaml context, not exact message).
+- Review if additional corruption scenarios (partial file truncation) should be simulated in future.
+
+### What should be done in the future
+
+- Next: finish SQLite persistence robustness tests, then metadata/version invariants, then integration parity baseline.
+
+### Code review instructions
+
+- Start with new tests in `geppetto/pkg/profiles/file_store_yaml_test.go`.
+- Verify each new test maps 1:1 to GP-21 YAML checklist items.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Added close-guard assertions across all public YAML store methods to ensure `ensureOpen` contract remains enforced.
+- Added reload parity checks across two registries (`default`, `team`) to confirm cross-registry serialization integrity.
 
 ## Usage Examples
 

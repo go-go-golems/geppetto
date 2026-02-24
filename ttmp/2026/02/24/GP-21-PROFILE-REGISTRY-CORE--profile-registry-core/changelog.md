@@ -26,3 +26,13 @@ Step 2 completed: service semantics fallback/policy/conflict/order coverage land
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/service_test.go — Added service edge-case tests
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/tasks.md — Marked service semantics tasks complete
 
+
+## 2026-02-24
+
+Step 3 completed: YAML store robustness coverage landed (commit 5d825aeea7acafd342fc77a1c2fe74dd483d2afb).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/file_store_yaml_test.go — Added missing-file/parse/reload/atomic/close-state tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-21-PROFILE-REGISTRY-CORE--profile-registry-core/tasks.md — Marked YAML persistence tasks complete
+
