@@ -12,6 +12,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: pkg/profiles/service_test.go
+      Note: Step 2 service semantics edge-case coverage
     - Path: pkg/profiles/slugs_test.go
       Note: |-
         Text marshal/unmarshal slug round-trip and invalid-input coverage.
@@ -28,12 +30,14 @@ RelatedFiles:
       Note: |-
         GP-21 checklist progress updates for completed model/validation tasks.
         Step 1 task checklist updates
+        Step 2 checklist progress
 ExternalSources: []
 Summary: Implementation diary for GP-21 profile registry core work, including commit-level changes, validation outcomes, and review guidance.
-LastUpdated: 2026-02-24T13:24:55-05:00
+LastUpdated: 2026-02-24T13:27:54-05:00
 WhatFor: Track each implementation step for GP-21 with exact commands, outcomes, and follow-ups.
 WhenToUse: Use when reviewing what was implemented for GP-21 and how to reproduce verification.
 ---
+
 
 
 # Diary
@@ -146,6 +150,85 @@ go vet -vettool=/tmp/geppetto-lint ./...
   - `errors.Is(err, ErrValidation)`,
   - concrete `*ValidationError` type,
   - expected `Field` path.
+
+## Step 2: Service Semantics Regression Coverage
+
+This step targeted the GP-21 service semantics checklist. I added explicit coverage for default/fallback profile resolution behavior, policy-denied mutations, optimistic-locking conflicts, and deterministic registry summary ordering.
+
+The tests were written against `StoreRegistry` APIs to keep coverage at service boundary level rather than store-internal behavior only.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-21 incrementally with one task group at a time, commit each chunk, and keep detailed diary records.
+
+**Inferred user intent:** Ensure service-level profile behavior is stable and explicitly tested before persistence/integration tasks.
+
+**Commit (code):** `04c51203a7e8838b63de45d6b76af2e8efb4c0d7` — "profiles: cover service semantics edge cases for GP-21 step 2"
+
+### What I did
+
+- Added service tests in `geppetto/pkg/profiles/service_test.go` for:
+  - empty profile request + no default slug + explicit `default` profile fallback,
+  - empty profile request + no fallback available -> validation error with field assertion,
+  - update of read-only profile -> `ErrPolicyViolation`,
+  - delete of read-only profile -> `ErrPolicyViolation`,
+  - update with stale expected version -> `ErrVersionConflict`,
+  - deterministic `ListRegistries` ordering by slug.
+- Updated GP-21 task checklist to mark all `Service Semantics` tasks complete.
+
+### Why
+
+- Service behavior is where API and UI expectations converge. Missing edge-case tests here can cause runtime profile selection bugs even if store logic is correct.
+- Explicit ordering and policy/conflict tests prevent regressions in list endpoints and write-path safety.
+
+### What worked
+
+- New service tests passed after adjustments.
+- Full repository pre-commit pipeline (`go test ./...`, lint, vet, generate, build) passed on commit.
+- Service semantics checklist section is now fully checked.
+
+### What didn't work
+
+- Initial fallback tests attempted to create registries without `default_profile_slug` through normal upsert paths; validation rejected this as expected.
+- To test fallback logic paths that handle legacy/invalid in-memory states, tests were updated to inject intentionally invalid registry state directly into in-memory store internals (`store.registries[...] = ...`) inside package-level tests.
+
+### What I learned
+
+- `resolveProfileSlugForRegistry` contains fallback behavior that is not reachable through strict validation/write paths, but is still useful to guard for defensive compatibility.
+- Policy and version conflict handling in `UpdateProfile`/`DeleteProfile` is straightforward and now explicitly asserted.
+
+### What was tricky to build
+
+- The tricky part was testing fallback branches that are logically valid but structurally blocked by current validation rules.
+- The solution was to avoid weakening validation and instead construct controlled invalid state directly in tests within the same package, so fallback code remains tested without changing production contracts.
+
+### What warrants a second pair of eyes
+
+- Confirm that testing fallback via injected invalid state is acceptable long-term for defensive branches.
+- Verify whether fallback-to-`default` branch should eventually be removed if validation invariants are guaranteed at all boundaries.
+
+### What should be done in the future
+
+- Next: Persistence coverage tasks (YAML and SQLite robustness tests), then metadata/version invariants and integration parity baseline.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/profiles/service_test.go` new tests around fallback/policy/conflict/ordering.
+- Review the two injected invalid-state tests and ensure they reflect intended defensive semantics.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Added explicit `ValidationError.Field` assertion for empty-profile/no-default path.
+- Added deterministic ordering assertion for `ListRegistries` summaries.
+- Added policy and version-conflict checks at service API level (not just store-level tests).
 
 ## Usage Examples
 
