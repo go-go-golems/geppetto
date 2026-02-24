@@ -1,0 +1,19 @@
+registries:
+  default:
+    default_profile: inventory
+    profiles:
+      inventory:
+        display_name: Inventory
+        description: Tool-first inventory assistant.
+        runtime:
+          system_prompt: You are an inventory assistant.
+      analyst:
+        display_name: Analyst
+        description: Investigation and analysis assistant.
+        runtime:
+          system_prompt: You are an analyst assistant.
+      default:
+        display_name: Default
+        description: Minimal baseline profile.
+        runtime:
+          system_prompt: You are a concise assistant.

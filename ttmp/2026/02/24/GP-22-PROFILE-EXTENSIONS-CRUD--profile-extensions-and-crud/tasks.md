@@ -1,0 +1,83 @@
+# Tasks
+
+## Model and Types
+
+- [x] Add `extensions` map field to `geppetto/pkg/profiles/types.go` profile model with JSON/YAML tags.
+- [x] Decide and document whether registry-level `extensions` is included in this ticket or deferred.
+- [x] Add deep-copy behavior for extensions in `Profile.Clone()`.
+- [x] Add deep-copy behavior for extensions in `ProfileRegistry.Clone()`.
+- [x] Add tests proving mutation isolation of cloned extension payloads.
+
+## Extension Key and Codec Infrastructure
+
+- [x] Add extension key type and parser (`namespace.feature@vN`) with validation tests.
+- [x] Add helper constructor for extension keys with panic-free parse API.
+- [x] Add generic typed-key helpers for profile extension get/set/decode.
+- [x] Add extension codec interface and in-memory registry.
+- [x] Add duplicate key registration guard for codec registry.
+- [x] Add service option plumbing for codec registry injection.
+- [x] Add tests for known-key decode success and decode failure.
+- [x] Add tests for unknown-key pass-through behavior.
+
+## Validation and Service Flow
+
+- [x] Extend `ValidateProfile` to validate extension-key syntax.
+- [x] Validate extension payload serializability at service boundary.
+- [x] Wire codec normalization into create-profile path.
+- [x] Wire codec normalization into update-profile path.
+- [x] Ensure service errors map to typed validation/policy/conflict errors.
+- [x] Add tests for extension validation field paths in returned errors.
+
+## Persistence and Round-Trip
+
+- [x] Extend YAML codec tests to include extension payload round-trip.
+- [x] Add YAML regression test for preserving unknown extension keys.
+- [x] Extend SQLite store tests to include extension payload round-trip.
+- [x] Add SQLite regression test for preserving unknown extension keys on partial profile updates.
+- [x] Add parity tests proving same extension behavior in memory/YAML/SQLite stores.
+
+## CRUD API Contract
+
+- [x] Add `extensions` field to profile API list DTO.
+- [x] Add `extensions` field to profile API get DTO.
+- [x] Add `extensions` field to profile API create request DTO.
+- [x] Add `extensions` field to profile API create response DTO.
+- [x] Add `extensions` field to profile API patch request DTO.
+- [x] Add `extensions` field to profile API patch response DTO.
+- [x] Ensure list responses serialize as arrays, not map-index objects.
+- [x] Ensure list ordering is deterministic by slug.
+- [x] Verify status code mapping for invalid extension payload (400/422 as defined).
+- [x] Verify status code mapping for missing registry/profile (404).
+- [x] Verify status code mapping for version conflicts (409).
+- [x] Add endpoint tests for create/update/delete/default flows with extension payloads.
+
+## Shared Route Reuse Across Apps
+
+- [x] Confirm Pinocchio web-chat mounts shared CRUD handlers only via package API.
+- [x] Mount the same shared CRUD handlers in Go-Go-OS inventory server.
+- [x] Ensure Go-Go-OS mount uses same registry selection semantics as Pinocchio.
+- [x] Add integration test in Go-Go-OS server for CRUD list/get/create/update/delete/default endpoints.
+- [x] Add integration test in Pinocchio web-chat for equivalent endpoint behavior.
+- [x] Add contract comparison test to catch cross-app response-shape drift.
+
+## Frontend Client Integration
+
+- [x] Update Go-Go-OS `profileApi.ts` types to include `extensions`.
+- [x] Add TS runtime decoder guards for extension payload presence/absence.
+- [x] Add TS tests for list response parsing with multiple profiles.
+- [x] Add TS tests for create/update responses with extension payloads.
+- [x] Validate profile selector behavior after CRUD writes and default switch.
+
+## Documentation
+
+- [x] Document extension key naming/versioning conventions in ticket docs.
+- [x] Add profile CRUD API examples with extension payloads.
+- [x] Add starter-suggestions extension example payload and expected UI contract.
+- [x] Document error semantics for extension validation failures.
+
+## Release Readiness
+
+- [x] Run `go test ./...` for geppetto profiles and pinocchio webchat packages.
+- [x] Run Go-Go-OS tests for profile API client and chat runtime slices.
+- [x] Execute manual smoke: create profile -> set default -> select profile -> send message.
+- [x] Record verification output in ticket changelog before close.

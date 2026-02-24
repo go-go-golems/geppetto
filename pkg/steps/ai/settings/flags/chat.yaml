@@ -4,7 +4,7 @@ description: Settings for AI chat operations
 flags:
   - name: ai-engine
     type: string
-    help: The model to use for chat
+    help: The model to use for chat. Prefer profile selection (`--profile`, `--profile-file`, `PINOCCHIO_PROFILE`) for routine configuration; this direct override is a compatibility escape hatch during profile-registry migration.
     default: "gpt-4"
   - name: ai-api-type
     type: choice
@@ -13,7 +13,7 @@ flags:
       - "openai-responses"
       - "claude"
       - "gemini"
-    help: The provider type to use for chat
+    help: The provider type to use for chat. Prefer profile selection (`--profile`, `--profile-file`, `PINOCCHIO_PROFILE`) for routine configuration; this direct override is a compatibility escape hatch during profile-registry migration.
     default: openai
   - name: ai-max-response-tokens
     type: int

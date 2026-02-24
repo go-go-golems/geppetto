@@ -53,7 +53,7 @@ After that, explore based on what you need:
 
 | Doc | What It Covers |
 |-----|----------------|
-| [Profiles](01-profiles.md) | Switching between providers and environments via config. |
+| [Profiles](01-profiles.md) | Registry-first profile model, persistence, policy, and migration from legacy profile maps. |
 | [Embeddings](06-embeddings.md) | Vector embeddings for semantic search, including caching. |
 | [Linting (turnsdatalint)](12-turnsdatalint.md) | Custom linter for Turn data key hygiene. |
 
@@ -77,6 +77,8 @@ Operational step-by-step guides for common tasks:
 | [Add a New Event Handler](../playbooks/02-add-a-new-event-handler.md) | Implement handler, subscribe to router, parse events. |
 | [Progressive Structured Data](../playbooks/03-progressive-structured-data.md) | Extract structured payloads from streaming output with filtering sinks. |
 | [Migrate to Session API](../playbooks/04-migrate-to-session-api.md) | Migrate from legacy lifecycle APIs to `session.Session` + `ExecutionHandle`. |
+| [Migrate legacy profiles.yaml to registry](../playbooks/05-migrate-legacy-profiles-yaml-to-registry.md) | Convert legacy profile maps to canonical registry YAML and switch to registry-first profile workflows. |
+| [Operate SQLite-backed profile registry](../playbooks/06-operate-sqlite-profile-registry.md) | Run profile registry with SQLite storage, plus backup/recovery and permissions guidance. |
 
 ## Example Programs
 

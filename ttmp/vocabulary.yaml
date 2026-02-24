@@ -45,6 +45,12 @@ topics:
       description: Glazed framework related work
     - slug: migration
       description: Migration/refactor work across APIs or modules
+    - slug: menus
+      description: menu systems, command menus, and context-menu architecture
+    - slug: go-go-os
+      description: go-go-os monorepo and desktop shell architecture work
+    - slug: ui
+      description: user interface architecture and interaction design
 docTypes:
     - slug: index
       description: Ticket index

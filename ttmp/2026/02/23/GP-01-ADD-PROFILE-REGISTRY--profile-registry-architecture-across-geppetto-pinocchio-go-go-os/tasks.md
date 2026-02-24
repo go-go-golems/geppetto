@@ -1,0 +1,117 @@
+# Tasks
+
+## Completed
+
+- [x] GP01-DONE-001 Create ticket workspace and initial planning/diary docs.
+- [x] GP01-DONE-002 Map runtime/profile/config flow across geppetto, pinocchio, and go-go-os.
+- [x] GP01-DONE-003 Author long-form ProfileRegistry architecture and migration proposal.
+- [x] GP01-DONE-004 Upload bundled ticket docs to reMarkable and verify remote artifact.
+
+## Phase 0: Backlog Refinement and Guardrails
+
+- [x] GP01-000 Define implementation milestone plan with target order (Geppetto core -> Pinocchio -> Go-Go-OS).
+- [x] GP01-001 Create risk checklist for compatibility regressions in profile precedence.
+- [x] GP01-002 Define deprecation policy for `ai-engine` / `ai-api-type` user-facing flags.
+- [x] GP01-003 Add compatibility matrix document (legacy profiles.yaml vs new registry behavior).
+- [x] GP01-004 Define rollout feature flags and fallback toggles for first integration PRs.
+
+## Phase 1: Geppetto Profile Domain Core
+
+- [x] GP01-100 Create `geppetto/pkg/profiles/types.go` for `Profile`, `ProfileRegistry`, `RuntimeSpec`, `PolicySpec`.
+- [x] GP01-101 Create `geppetto/pkg/profiles/store.go` interfaces for registry/profile persistence.
+- [x] GP01-102 Create `geppetto/pkg/profiles/registry.go` service interfaces (`List/Get/Resolve/Create/Update/Delete`).
+- [x] GP01-103 Create `geppetto/pkg/profiles/errors.go` typed errors (`ErrProfileNotFound`, `ErrVersionConflict`, `ErrPolicyViolation`).
+- [x] GP01-104 Create `geppetto/pkg/profiles/validation.go` schema and policy validation.
+- [x] GP01-105 Create `geppetto/pkg/profiles/overlay.go` multi-store read overlay and single-store write strategy.
+- [x] GP01-106 Create `geppetto/pkg/profiles/metadata.go` provenance fields and version handling.
+
+## Phase 1A: Strong Slug Types
+
+- [x] GP01-120 Create `geppetto/pkg/profiles/slugs.go` with custom types: `RegistrySlug`, `ProfileSlug`, `RuntimeKey`.
+- [x] GP01-121 Add parse/normalize constructors (`ParseRegistrySlug`, `ParseProfileSlug`) with validation.
+- [x] GP01-122 Add `String()` methods and JSON/YAML marshal/unmarshal for slug types.
+- [x] GP01-123 Replace raw-string slug fields in new profile domain structs with custom slug types.
+- [x] GP01-124 Add adapter helpers for glazed/string APIs (`ToString`, `FromString`) at boundaries.
+- [x] GP01-125 Add tests for slug normalization, invalid values, and serialization round-trips.
+
+## Phase 2: File and Memory Stores
+
+- [x] GP01-200 Implement `InMemoryProfileStore` with thread-safe read/write behavior.
+- [x] GP01-201 Implement YAML codec supporting legacy flat profile map format.
+- [x] GP01-202 Implement YAML codec supporting new registry document format.
+- [x] GP01-203 Implement `YAMLFileProfileStore` load/save with atomic write and backup strategy.
+- [x] GP01-204 Add migration helper from legacy profiles.yaml to new normalized registry objects.
+- [x] GP01-205 Add unit tests for backward compatibility with existing `geppetto/misc/profiles.yaml`-style data.
+
+## Phase 3: Resolver and Effective Runtime Construction
+
+- [x] GP01-300 Implement `ResolveEffectiveProfile` merge precedence rules.
+- [x] GP01-301 Implement policy enforcement for request overrides (allow-list and deny-list handling).
+- [x] GP01-302 Implement resolved runtime fingerprint generation from effective runtime payload.
+- [x] GP01-303 Add metadata emission (`profile.registry`, `profile.slug`, `profile.version`, `profile.source`).
+- [x] GP01-304 Add golden tests for precedence against current behavior from `GatherFlagsFromProfiles`.
+- [x] GP01-305 Add tests for default-profile fallback and unknown-profile error mapping.
+
+## Phase 4: Geppetto CLI Middleware Integration
+
+- [x] GP01-400 Add registry-backed middleware adapter in `geppetto/pkg/sections` pipeline.
+- [x] GP01-401 Replace direct `sources.GatherFlagsFromProfiles` use with adapter while preserving compatibility.
+- [x] GP01-402 Keep bootstrap parsing for profile selection, but source profile payload from registry service.
+- [x] GP01-403 Add feature flag to toggle old/new middleware path during migration.
+- [x] GP01-404 Add integration tests for env/config/flags/profile ordering.
+- [x] GP01-405 Update command help/deprecation notes for profile-first configuration path.
+
+## Phase 5: Pinocchio Web-Chat Integration
+
+- [x] GP01-500 Replace local `chatProfileRegistry` structs in `pinocchio/cmd/web-chat/profile_policy.go`.
+- [x] GP01-501 Inject shared profile registry service into request resolver.
+- [x] GP01-502 Extend request parsing to accept explicit `profile` and `registry` fields in chat body/query.
+- [x] GP01-503 Update runtime composer to consume resolved profile runtime instead of local defaults.
+- [x] GP01-504 Keep runtime fingerprint rebuild behavior in `ConvManager` and verify with profile version changes.
+- [x] GP01-505 Add profile CRUD HTTP endpoints (`GET/POST/PATCH/DELETE /api/chat/profiles...`).
+- [x] GP01-506 Keep compatibility endpoint `/api/chat/profile` (cookie-based current selection).
+- [x] GP01-507 Add resolver tests for cookie/query/body/path precedence.
+- [x] GP01-508 Add endpoint tests for validation, policy failures, and version conflict handling.
+
+## Phase 6: Profile Persistence (SQLite First)
+
+- [x] GP01-600 Create profile registry SQLite schema and migration files.
+- [x] GP01-601 Implement `SQLiteProfileStore` read/list/create/update/delete operations.
+- [x] GP01-602 Implement optimistic concurrency update path (`expected_version`).
+- [x] GP01-603 Implement default-profile mutation and registry-level metadata updates.
+- [x] GP01-604 Add integration tests with sqlite temp DB.
+- [x] GP01-605 Add optional profile-store settings flags/fields in server config.
+
+## Phase 6B: Reusable Profile CRUD Route Packaging
+
+- [x] GP01-650 Extract profile CRUD route registration into reusable `pinocchio/pkg/webchat/http` package APIs.
+- [x] GP01-651 Switch `pinocchio/cmd/web-chat` to mount reusable profile CRUD routes (no behavior change).
+- [x] GP01-652 Integrate reusable profile CRUD route mounting in `go-go-os/go-inventory-chat` server.
+- [x] GP01-653 Add/extend integration tests proving CRUD route availability in both servers.
+
+## Phase 7: Go-Go-OS Client Integration
+
+- [x] GP01-700 Add profile runtime API client module in `go-go-os/packages/engine/src/chat/runtime`.
+- [x] GP01-701 Extend `submitPrompt` payload to include `profile`/`registry` (optional).
+- [x] GP01-702 Extend websocket connect URL builder to include profile query when configured.
+- [x] GP01-703 Add profile redux slice (available profiles, selected profile, loading/error state).
+- [x] GP01-704 Add profile hooks (`useProfiles`, `useCurrentProfile`, `useSetProfile`).
+- [x] GP01-705 Add profile selector UI integration in `ChatConversationWindow` header actions.
+- [x] GP01-706 Integrate inventory app with explicit profile selection UX.
+- [x] GP01-707 Add tests for runtime/http contract changes and profile reducer behavior.
+
+## Phase 8: End-to-End and Regression Testing
+
+- [x] GP01-800 Add e2e test: list profiles -> select profile -> send chat -> runtime key reflects selection.
+- [x] GP01-801 Add e2e test: create profile from web API -> appears in list -> usable immediately.
+- [x] GP01-802 Add e2e test: profile update increments version and triggers runtime rebuild on next request.
+- [x] GP01-803 Add e2e test: read-only profile mutation rejected with stable error code/message.
+- [x] GP01-804 Add regression test suite comparing legacy and registry-backed profile resolution outputs.
+
+## Phase 9: Documentation and Rollout
+
+- [x] GP01-900 Update geppetto/pinocchio user docs for registry-first profile workflows.
+- [x] GP01-901 Add migration guide for legacy `profiles.yaml` users.
+- [x] GP01-902 Add API docs for profile CRUD endpoints and payload schema.
+- [x] GP01-903 Add ops notes for DB-backed profile storage (backup/recovery/permissions).
+- [x] GP01-904 Publish release notes including deprecations and fallback strategy.

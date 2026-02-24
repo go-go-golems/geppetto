@@ -1,0 +1,740 @@
+---
+Title: Diary
+Ticket: GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP
+Status: active
+Topics:
+    - architecture
+    - backend
+    - geppetto
+    - pinocchio
+    - middleware
+DocType: reference
+Intent: long-term
+Owners: []
+RelatedFiles:
+    - Path: pkg/inference/middlewarecfg/definition.go
+      Note: Step 1 definition contract and build dependency carrier
+    - Path: pkg/inference/middlewarecfg/registry.go
+      Note: Step 1 in-memory middleware definition registry
+    - Path: pkg/inference/middlewarecfg/registry_test.go
+      Note: Step 1 registry deterministic ordering and duplicate guard tests
+    - Path: pkg/inference/middlewarecfg/resolver.go
+      Note: Step 2 schema defaults
+    - Path: pkg/inference/middlewarecfg/resolver_test.go
+      Note: Step 2 precedence/default/coercion/path-ordering resolver coverage
+    - Path: pkg/inference/middlewarecfg/chain.go
+      Note: Step 4 BuildChain integration for resolved middleware instances
+    - Path: pkg/inference/middlewarecfg/chain_test.go
+      Note: Step 4 BuildChain ordering/disabled/error diagnostics coverage
+    - Path: pinocchio/cmd/web-chat/runtime_composer.go
+      Note: Step 5 resolver-driven runtime composer integration
+    - Path: pinocchio/cmd/web-chat/runtime_composer_test.go
+      Note: Step 5 precedence and schema failure runtime composer tests
+    - Path: pinocchio/cmd/web-chat/middleware_definitions.go
+      Note: Step 5 JSON-schema middleware definitions and dependency wiring
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Step 5 registry + build deps runtime wiring
+    - Path: pinocchio/cmd/web-chat/profile_policy.go
+      Note: Step 5 middleware override payload id/enabled propagation
+    - Path: pinocchio/pkg/inference/runtime/engine.go
+      Note: Step 5 engine builder helper for pre-resolved middleware chains
+    - Path: go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go
+      Note: Step 6 go-go-os runtime composer resolver cutover
+    - Path: go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go
+      Note: Step 6 inventory middleware definition registry and schemas
+    - Path: go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go
+      Note: Step 6 resolver coercion/parity/runtime middleware behavior tests
+    - Path: go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go
+      Note: Step 6 profile defaults now carry explicit runtime middleware list
+    - Path: go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go
+      Note: Step 6 integration assertion for profile-default middleware propagation
+    - Path: pkg/inference/middlewarecfg/glazed_adapter.go
+      Note: Step 7 JSON-schema-to-Glazed adapter implementation and limitation reporting
+    - Path: pkg/inference/middlewarecfg/glazed_adapter_test.go
+      Note: Step 7 adapter regression coverage for required/default/enum/help mapping
+    - Path: pkg/inference/middlewarecfg/source.go
+      Note: Step 2 layered source contract and canonical precedence ordering
+    - Path: pkg/profiles/service.go
+      Note: Step 1 request override parsing for middleware id/enabled
+    - Path: pkg/profiles/service_test.go
+      Note: Step 1 duplicate override middleware ID validation coverage
+    - Path: pkg/profiles/types.go
+      Note: Step 1 middleware use id/enabled fields and clone behavior
+    - Path: pkg/profiles/types_clone_test.go
+      Note: Step 1 clone isolation for middleware id/enabled
+    - Path: pkg/profiles/validation.go
+      Note: Step 1 middleware instance ID validation rules
+    - Path: pkg/profiles/validation_test.go
+      Note: Step 1 middleware instance validation regressions
+ExternalSources: []
+Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
+LastUpdated: 2026-02-24T18:22:00-05:00
+WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
+WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
+---
+
+
+
+# Diary
+
+## Goal
+
+Capture GP-23 implementation progress in auditable, task-sized steps while preserving the reasoning and validation details needed for handoff.
+
+## Context
+
+GP-23 is the JSON-schema-first middleware resolver ticket. This diary starts after GP-22 closure and records the first implementation slice (package scaffold + middleware instance model updates).
+
+## Quick Reference
+
+## Step 1: Middleware Definition Package Scaffold and Middleware Instance Contract
+
+This step establishes the foundational contracts for GP-23: a new `middlewarecfg` package with definition registry primitives, and profile middleware-use fields that can represent stable instance identity and enablement.
+
+The work intentionally focused on baseline data/contract correctness before resolver layering and ParseStep provenance logic.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, close and move on to the next ticket."
+
+**Assistant interpretation:** Close GP-22 and begin implementation on GP-23 immediately.
+
+**Inferred user intent:** Maintain delivery momentum by moving directly into the next planned ticket with task-by-task progress.
+
+### What I did
+
+- Closed GP-22 in docmgr and started GP-23.
+- Added `pkg/inference/middlewarecfg`:
+  - `definition.go`: `Definition` interface + `BuildDeps` carrier.
+  - `registry.go`: definition registry interface and in-memory implementation.
+  - `registry_test.go`: registration/lookup/ordering/duplicate/nil tests.
+- Extended profile middleware instance model in `pkg/profiles/types.go`:
+  - `MiddlewareUse` now includes `id` and `enabled`.
+  - clone behavior deep-copies `enabled` pointer.
+- Updated validation in `pkg/profiles/validation.go`:
+  - middleware name non-empty checks preserved,
+  - duplicate non-empty middleware IDs rejected with stable field paths.
+- Updated runtime override parsing in `pkg/profiles/service.go`:
+  - parse and validate `id` and `enabled` for request middleware overrides.
+- Added/updated tests:
+  - `pkg/profiles/validation_test.go`,
+  - `pkg/profiles/service_test.go`,
+  - `pkg/profiles/types_clone_test.go`.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg ./pkg/profiles/... -count=1`.
+
+### Why
+
+- GP-23 resolver phases require a canonical definition registry and explicit instance identity semantics before source layering can be implemented safely.
+- Without instance IDs, repeated middleware entries become ambiguous for future build/trace tooling.
+
+### What worked
+
+- New package and profile changes compiled cleanly.
+- Regression tests passed for both new package behavior and profile validation/override flows.
+
+### What didn't work
+
+- No implementation failures in this step.
+
+### What I learned
+
+- Keeping duplicate-ID enforcement in shared middleware-use validation simplifies both profile validation and override parsing behavior.
+
+### What was tricky to build
+
+- The subtle point was preserving existing request override field-path semantics (`request_overrides.middlewares[...]`) while introducing shared instance validation logic. This was handled by reusing a validation helper with an injectable field prefix.
+
+### What warrants a second pair of eyes
+
+- Confirm duplicate-ID policy should remain scoped to explicit non-empty IDs only (current behavior), and not implicitly enforce uniqueness for repeated names without IDs.
+
+### What should be done in the future
+
+- Implement GP-23 JSON Schema Resolver Core (`source` interface + precedence + projection/coercion + final validation).
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/definition.go`
+  - `pkg/inference/middlewarecfg/registry.go`
+  - `pkg/profiles/types.go`
+  - `pkg/profiles/validation.go`
+  - `pkg/profiles/service.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- In-memory definition registry guarantees deterministic list order by middleware name.
+- `MiddlewareUse.Enabled` is pointer-typed to support tri-state semantics (`nil` = unset/default, `true`, `false`).
+- Duplicate middleware ID validation currently applies only when `id` is explicitly set.
+
+## Step 2: JSON Schema Resolver Core
+
+This step implemented the core schema resolver for middleware instances: layered source intake, canonical precedence ordering, default extraction, path projection, per-write coercion/validation, and final-object validation.
+
+The result is a deterministic, schema-first resolution engine that can now be extended with ParseStep provenance in the next phase.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 implementation task-by-task after finishing package scaffolding.
+
+**Inferred user intent:** Deliver concrete resolver functionality in small, committed increments.
+
+### What I did
+
+- Added `pkg/inference/middlewarecfg/source.go`:
+  - `Source` interface with `Name/Layer/Payload`.
+  - `SourceLayer` constants and canonical precedence map.
+  - deterministic source ordering helper.
+- Added `pkg/inference/middlewarecfg/resolver.go`:
+  - `Resolver` with `Resolve(def, use)` API.
+  - schema-default source layer applied first.
+  - JSON pointer payload projection (`/path/to/key`) with deterministic key ordering.
+  - per-write schema-fragment coercion + validation.
+  - final config validation against full schema (required fields, object constraints, enums).
+  - deterministic `OrderedPaths` and per-path winning values in output.
+- Added `pkg/inference/middlewarecfg/resolver_test.go`:
+  - precedence winner behavior,
+  - schema defaults,
+  - required field rejection,
+  - coercion success/failure behavior,
+  - deterministic projected path ordering,
+  - deterministic canonical source ordering by layer then name.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`
+  - `go test ./pkg/profiles/... -count=1`
+
+### Why
+
+- GP-23 cannot integrate runtimes until middleware config is resolved predictably from layered sources.
+- Path-level projection/coercion is required groundwork for upcoming ParseStep provenance logs.
+
+### What worked
+
+- Resolver behavior is covered by focused unit tests and passed cleanly.
+- Existing profile tests continued to pass with the new resolver package additions.
+
+### What didn't work
+
+- Initial implementation had duplicate type-switch branches (`map[string]any` and `map[string]interface{}` aliases), causing compile failures.
+- Fixed by removing redundant alias branches.
+
+### What I learned
+
+- A path-projection model can be introduced incrementally before full provenance logging, while still enforcing deterministic behavior.
+
+### What was tricky to build
+
+- The key challenge was balancing strict schema enforcement with practical coercion across source layers (for example, string-to-integer from env-like sources). The resolver now coerces per write, then validates the final merged object to catch incomplete/invalid end states.
+
+### What warrants a second pair of eyes
+
+- Confirm current coercion rules (especially integer/string conversions) align with the expected behavior for Glazed/config inputs.
+- Confirm unknown-field handling strategy for `additionalProperties` is sufficiently strict for hard-cutover goals.
+
+### What should be done in the future
+
+- Implement ParseStep provenance models/logs and path history helpers on top of current per-path resolution.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/source.go`
+  - `pkg/inference/middlewarecfg/resolver.go`
+  - `pkg/inference/middlewarecfg/resolver_test.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Resolver layer precedence: `schema-defaults` < `profile` < `config-file` < `environment` < `flags` < `request`.
+- Resolver output currently includes:
+  - final `Config` object,
+  - `PathValues` winning value map by JSON pointer,
+  - sorted `OrderedPaths`,
+  - participating source references.
+
+## Step 3: ParseStep Provenance and Path History APIs
+
+This step added explicit provenance tracking to the resolver output, so each resolved path now carries a write history with raw input values, coerced values, source/layer identity, and metadata.
+
+The objective was to make resolution behavior auditable and diagnosable without changing the precedence semantics implemented in Step 2.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 by implementing ParseStep tasks and update ticket docs.
+
+**Inferred user intent:** Keep implementation incremental, test-backed, and documented in ticket diary form.
+
+### What I did
+
+- Extended `ResolvedConfig` in `pkg/inference/middlewarecfg/resolver.go` with:
+  - `Trace map[string]PathTrace`.
+- Added provenance models:
+  - `ParseStep` (`source`, `layer`, `path`, `raw`, `value`, `metadata`),
+  - `PathTrace` (`path`, winning `value`, `steps`).
+- Added result helpers:
+  - `LatestValue(path string) (any, bool)`,
+  - `History(path string) []ParseStep`.
+- Updated resolver write application flow:
+  - every projected write appends one `ParseStep`,
+  - trace stores both raw and coerced values,
+  - metadata currently includes `schema_type`.
+- Added tests in `pkg/inference/middlewarecfg/resolver_test.go`:
+  - precedence-ordered path history (`profile -> flags -> request`),
+  - raw-vs-coerced visibility for schema coercion (`"42"` -> `int64(42)`).
+- Marked full ParseStep block complete in `tasks.md`.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`.
+
+### Why
+
+- ParseStep provenance is the core diagnostic primitive required by GP-23 design goals and later runtime integration debugging.
+- It enables deterministic introspection of “why this value won” per middleware config path.
+
+### What worked
+
+- Trace collection integrated without regressions in existing resolver behavior.
+- Added tests passed and validate both ordering and coercion visibility.
+
+### What didn't work
+
+- No functional blockers in this step.
+
+### What I learned
+
+- Path-scoped trace maps keep provenance querying simple while preserving deterministic behavior established in earlier steps.
+
+### What was tricky to build
+
+- Maintaining deep-copy semantics for history return values (`History`/`LatestValue`) to avoid accidental caller-side mutation of resolver internals.
+
+### What warrants a second pair of eyes
+
+- Confirm metadata key contract (`schema_type`) should remain stringly-typed map entries or evolve to typed metadata structs.
+
+### What should be done in the future
+
+- Implement BuildChain integration so resolved middleware instances are turned into runtime middleware chains with instance-keyed diagnostics.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/resolver.go`
+  - `pkg/inference/middlewarecfg/resolver_test.go`
+  - `ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+```
+
+### Technical details
+
+- Each applied payload write now records:
+  - source and layer that produced the write,
+  - raw input value before coercion,
+  - coerced/validated value committed to state,
+  - schema-fragment metadata for diagnostics.
+- `LatestValue` resolves from trace first, then falls back to `PathValues`.
+
+## Step 4: BuildChain Integration for Resolved Instances
+
+This step connected resolver outputs to runtime middleware instantiation by adding a chain builder that consumes resolved instances, skips disabled entries, preserves deterministic input order, and emits instance-keyed diagnostics.
+
+The scope intentionally stayed inside `middlewarecfg` so Pinocchio and Go-Go-OS can adopt the same primitive in subsequent integration phases.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 tasks immediately after ParseStep completion.
+
+**Inferred user intent:** Keep shipping incremental, test-backed slices and maintain detailed implementation diary records.
+
+### What I did
+
+- Added `pkg/inference/middlewarecfg/chain.go`:
+  - `ResolvedInstance` model for build input (`use`, `resolved`, `definition`, optional key),
+  - `MiddlewareInstanceKey(use, index)` helper for stable diagnostics,
+  - `MiddlewareUseIsEnabled(use)` helper for tri-state enablement semantics,
+  - `BuildChain(ctx, deps, resolved)` function.
+- `BuildChain` behavior implemented:
+  - validates `ctx` is non-nil,
+  - iterates instances in given order,
+  - skips instances where `enabled=false`,
+  - calls `Definition.Build` with resolved config payload,
+  - fails fast on nil definitions, nil built middleware, or build errors.
+- Error messages now include middleware instance key (`name#id` or fallback `name[index]`) for direct diagnostics.
+- Added `pkg/inference/middlewarecfg/chain_test.go`:
+  - disabled middleware skipping behavior,
+  - stable build order from resolved input list,
+  - error diagnostics include instance key and wrapped cause,
+  - repeated middleware name with unique IDs builds successfully in order,
+  - key formatting helper behavior.
+- Marked Build Chain Integration checklist complete in `tasks.md`.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`.
+
+### Why
+
+- GP-23 runtime cutover needs one reusable primitive that turns resolved middleware configs into executable middleware chain entries without app-local ad-hoc loops.
+- Instance-keyed errors are required for multi-instance middleware setups where names repeat.
+
+### What worked
+
+- BuildChain and tests passed on first pass after gofmt.
+- Existing resolver tests remained green, confirming no regression to earlier steps.
+
+### What didn't work
+
+- No runtime or compile blockers in this step.
+
+### What I learned
+
+- Keeping enabled/disabled semantics in a dedicated helper (`MiddlewareUseIsEnabled`) avoids duplicating tri-state logic during later runtime composer integrations.
+
+### What was tricky to build
+
+- Guaranteeing diagnostics remain stable when callers do not provide explicit keys required a deterministic fallback key format derived from `use` + list index.
+
+### What warrants a second pair of eyes
+
+- Confirm whether `BuildChain` should pass a cloned dependency map per instance (`deps.Clone()`, current behavior) or shared map for middlewares that intentionally mutate dependency state.
+
+### What should be done in the future
+
+- Integrate Pinocchio runtime composer with resolver + BuildChain primitives and remove ad-hoc middleware override parsing.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/chain.go`
+  - `pkg/inference/middlewarecfg/chain_test.go`
+  - `ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+```
+
+### Technical details
+
+- `BuildChain` preserves input ordering as execution ordering contract for requested middleware instances.
+- Disabled instances (`enabled=false`) are skipped without invoking `Definition.Build`.
+- Build errors are emitted as:
+  - `build middleware <instance-key>: <wrapped cause>`
+  so logs immediately identify which instance failed.
+
+## Step 5: Pinocchio Runtime Composer Cutover to Resolver + Definition Registry
+
+This step migrated `pinocchio/cmd/web-chat` from the legacy middleware-factory map path to the new JSON-schema resolver path powered by `middlewarecfg` definitions and `BuildChain`.
+
+The result is that middleware config handling in web-chat now goes through schema validation/coercion and source precedence rules, instead of ad-hoc direct map parsing into factory calls.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 after BuildChain by executing the Pinocchio integration block.
+
+**Inferred user intent:** Progress ticket tasks continuously with commit-sized, verified steps and ticket diary traceability.
+
+### What I did
+
+- Refactored `pinocchio/cmd/web-chat/runtime_composer.go`:
+  - switched constructor from middleware factory map to `middlewarecfg.DefinitionRegistry + BuildDeps`,
+  - merged profile middleware config and request middleware overrides into per-instance resolver inputs,
+  - resolved each middleware instance through schema defaults/profile/request layers,
+  - built middleware execution chain via `middlewarecfg.BuildChain`,
+  - passed resolved chain into engine build flow.
+- Added `pinocchio/cmd/web-chat/middleware_definitions.go`:
+  - app-owned middleware definition registry for `agentmode` and `sqlite`,
+  - JSON Schemas for middleware config contracts,
+  - typed config decoding from resolved config payloads,
+  - dependency keys for injected app services (`agentmode.service`, `sqlite.db`).
+- Updated `pinocchio/cmd/web-chat/main.go`:
+  - replaced legacy `mwFactories` wiring with definition registry + build deps,
+  - removed middleware registration loop for the old map path,
+  - normalized default agent profile middleware config to schema key format (`default_mode`).
+- Updated `pinocchio/cmd/web-chat/profile_policy.go`:
+  - middleware runtime defaults now propagate `id` and `enabled` fields in override payload shape.
+- Updated `pinocchio/pkg/inference/runtime/engine.go`:
+  - introduced `BuildEngineFromSettingsWithMiddlewares(...)`,
+  - existing `BuildEngineFromSettings(...)` now adapts specs/factories then delegates.
+- Added/updated tests in `pinocchio/cmd/web-chat/runtime_composer_test.go`:
+  - resolver precedence behavior (`profile` retained + `request` override wins for same path),
+  - invalid middleware schema payload rejection with middleware instance + path context.
+- Verification:
+  - `go test ./cmd/web-chat -count=1`,
+  - `go test ./pkg/inference/runtime -count=1`.
+
+### Why
+
+- Pinocchio runtime composition was the first app integration target in GP-23; migrating it proves the new resolver/definition model can replace legacy per-app middleware parsing.
+- The new path guarantees schema-level validation errors are surfaced early with deterministic diagnostic context.
+
+### What worked
+
+- Runtime composer integration compiled and tests passed.
+- New tests confirmed path-level precedence and schema failure behavior exactly at runtime composer boundary.
+
+### What didn't work
+
+- Initial build failed due two now-unused imports in `cmd/web-chat/main.go` after factory removal.
+- Fixed by removing stale imports and rerunning tests.
+
+### What I learned
+
+- A small app-owned definition adapter layer (`middleware_definitions.go`) keeps middlewarecfg generic while preserving application-specific dependency injection needs.
+
+### What was tricky to build
+
+- Merge logic for middleware overrides needed explicit ambiguity handling when matching by name without instance IDs. The implementation now rejects ambiguous no-ID overrides and requests explicit IDs.
+
+### What warrants a second pair of eyes
+
+- Confirm whether request override semantics should remain patch-style merge (current behavior) or allow explicit full replacement semantics for middleware lists.
+
+### What should be done in the future
+
+- Execute GP-23 Go-Go-OS integration block so inventory runtime follows the same resolver-driven middleware composition path.
+
+### Code review instructions
+
+- Start with:
+  - `pinocchio/cmd/web-chat/runtime_composer.go`
+  - `pinocchio/cmd/web-chat/middleware_definitions.go`
+  - `pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `pinocchio/pkg/inference/runtime/engine.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./pkg/inference/runtime -count=1
+```
+
+### Technical details
+
+- Runtime composer now resolves middleware config from layered sources:
+  - schema defaults,
+  - profile middleware config,
+  - request middleware config override.
+- Instance diagnostics consistently use `name#id` (or `name[index]` fallback) across resolve/build error paths.
+- Engine build path now supports pre-resolved middleware chains, reducing app-local middleware wiring complexity.
+
+## Step 6: Go-Go-OS Runtime Composer Cutover and Inventory Middleware Default Integration
+
+This step migrated Go-Go-OS inventory runtime composition to the same resolver-driven architecture as Pinocchio and added test coverage proving profile-default middleware behavior is now honored end-to-end.
+
+The previous inventory composer hard-coded middleware factories and ignored profile middleware lists. The new implementation resolves profile middlewares through `middlewarecfg` definitions, then builds middleware chains with the shared `BuildChain` path.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 after Pinocchio integration by completing the Go-Go-OS integration block.
+
+**Inferred user intent:** Keep executing ticket tasks sequentially with commits and diary updates until major integration blocks are landed.
+
+### What I did
+
+- Added `go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go`:
+  - definition registry for inventory middlewares:
+    - `inventory_artifact_policy`,
+    - `inventory_suggestions_policy`,
+    - `inventory_artifact_generator`,
+  - JSON Schema contracts for middleware config payloads,
+  - default inventory middleware-use list helper.
+- Refactored `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`:
+  - switched from local middleware-factory map to `middlewarecfg` resolver + `BuildChain`,
+  - preserved inventory runtime policy (`runtime overrides not allowed`),
+  - resolved middleware configs from profile runtime middleware list,
+  - only falls back to default app middleware list when no profile runtime is present,
+  - composed engine via shared `BuildEngineFromSettingsWithMiddlewares`.
+- Updated `go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go`:
+  - inventory/analyst/planner profiles now explicitly declare inventory runtime middleware list in profile runtime spec.
+- Added tests `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go`:
+  - profile middleware application with resolver coercion behavior,
+  - explicit empty profile middleware list does not silently fall back to app defaults,
+  - invalid middleware schema payload rejection with path context.
+- Added integration assertion in `go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`:
+  - verifies `/chat` request resolution passes profile default middlewares into runtime composer request.
+- Verification:
+  - `go test ./go-inventory-chat/internal/pinoweb -count=1`,
+  - `go test ./go-inventory-chat/cmd/hypercard-inventory-server -count=1`.
+
+### Why
+
+- GP-23 requires runtime parity across Pinocchio and Go-Go-OS; both must consume the shared resolver architecture to avoid middleware config drift.
+- Explicit profile runtime middleware lists are necessary for “real default profile with no middlewares” behavior while keeping inventory/analyst/planner profiles app-opinionated.
+
+### What worked
+
+- Refactored runtime composer compiled and tests passed.
+- Integration test confirmed middleware defaults from selected profile are present in runtime composer inputs.
+
+### What didn't work
+
+- No blockers in this step.
+
+### What I learned
+
+- Splitting “no profile runtime” fallback behavior from “profile runtime present but empty middlewares” is key to preserving explicit no-middleware profiles without losing app defaults when profile resolution is unavailable.
+
+### What was tricky to build
+
+- Ensuring parity goals while inventory runtime intentionally forbids request overrides required focusing parity on shared schema/coercion semantics and profile middleware handling, not request-layer merges.
+
+### What warrants a second pair of eyes
+
+- Confirm whether inventory should always include artifact generator middleware in default profile middleware set, or keep it opt-in as currently implemented.
+
+### What should be done in the future
+
+- Implement GP-23 Glazed adapter block (JSON-schema-to-Glazed section adapter) and debug/observability enhancements.
+
+### Code review instructions
+
+- Start with:
+  - `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`
+  - `go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go`
+  - `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go`
+  - `go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os
+go test ./go-inventory-chat/internal/pinoweb -count=1
+go test ./go-inventory-chat/cmd/hypercard-inventory-server -count=1
+```
+
+### Technical details
+
+- Runtime composer source layers in go-go-os currently use:
+  - schema defaults,
+  - profile middleware config.
+  Request layer is intentionally absent due inventory runtime override policy.
+- Profile runtime middleware specs now drive middleware inclusion; hard-coded runtime middleware insertion path is removed.
+- Integration coverage now verifies middleware defaults survive full request-resolution and chat-handler flow.
+
+## Step 7: JSON-Schema-to-Glazed Adapter
+
+This step added the GP-23 adapter that converts middleware JSON schemas into Glazed sections for CLI/help-facing workflows while returning explicit limitation notes for schema constructs that do not map 1:1.
+
+The adapter is intentionally conservative: it maps common scalar/list/enum patterns and flags unsupported nested/dynamic constructs as non-fatal limitations.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 after app integrations by implementing the Glazed adapter tooling block.
+
+**Inferred user intent:** Complete foundational middlewarecfg tooling so schema remains canonical while CLI/help integration remains practical.
+
+### What I did
+
+- Added `pkg/inference/middlewarecfg/glazed_adapter.go`:
+  - `AdapterResult` (`section`, `limitations`),
+  - `AdaptSchemaToGlazedSection(sectionSlug, sectionName, schema)` API,
+  - type mapping from JSON schema to Glazed field types,
+  - required/default/enum/description mapping,
+  - deterministic field ordering.
+- Implemented mapping behavior:
+  - required -> `fields.WithRequired(true)`,
+  - defaults -> validated/coerced via resolver coercion (`coerceAndValidate`) then `fields.WithDefault(...)`,
+  - description/title -> `fields.WithHelp(...)`,
+  - string enum -> `TypeChoice` + `WithChoices`.
+- Added limitation reporting for non-1:1 constructs:
+  - nested object properties,
+  - `additionalProperties=true`,
+  - unsupported array item types and non-string enums.
+- Added tests in `pkg/inference/middlewarecfg/glazed_adapter_test.go`:
+  - required/default/enum/help mapping assertions,
+  - limitation reporting assertions for nested/dynamic schema constructs.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`.
+
+### Why
+
+- GP-23 keeps JSON schema canonical for middleware configuration; the adapter ensures CLI/help can be generated from the same contract instead of introducing a second independent definition source.
+
+### What worked
+
+- Adapter API and tests passed cleanly.
+- Existing middlewarecfg resolver/chain tests remained green.
+
+### What didn't work
+
+- Initial implementation used older Glazed API assumptions (`GetParameterDefinitions` / `WithFields(definitions)`), causing compile failures.
+- Fixed by using current v1 API (`GetDefinitions` and variadic `WithFields(fieldDefs...)`).
+
+### What I learned
+
+- Reusing the resolver’s coercion/validation helpers for defaults in adapter mapping keeps behavior consistent across runtime composition and CLI default materialization.
+
+### What was tricky to build
+
+- Balancing practical coverage with explicit limitation reporting required choosing clear skip behavior for nested objects rather than silently flattening in a potentially lossy way.
+
+### What warrants a second pair of eyes
+
+- Confirm whether nested object flattening should be added in a follow-up adapter phase, or remain explicitly unsupported to keep field semantics simple.
+
+### What should be done in the future
+
+- Implement GP-23 debug/observability block (trace serialization and structured resolver rejection logs), then hard-cutover cleanup tasks.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/glazed_adapter.go`
+  - `pkg/inference/middlewarecfg/glazed_adapter_test.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+```
+
+### Technical details
+
+- Adapter output is deterministic by sorting schema property keys.
+- Defaults are validated with the same schema coercion logic as runtime resolver writes.
+- Limitations are deduplicated/sorted so assertion and documentation output remain stable.
+
+## Usage Examples
+
+Use this diary entry when reviewing GP-23 commits to understand:
+
+- which resolver contracts and data models are already in place,
+- how source precedence/defaulting/coercion currently behaves,
+- how parse-step history and winning-value lookups are exposed,
+- how resolved instances are converted into executable middleware chains,
+- how Pinocchio web-chat now consumes resolver output with schema-driven middleware definitions,
+- how Go-Go-OS inventory runtime now uses profile-driven middleware resolution with integration coverage,
+- how JSON schema is now bridged into Glazed sections with explicit mapping limitations,
+- which validations are already covered by tests.
+
+## Related
+
+- `../tasks.md`
+- `../design-doc/01-implementation-plan-middleware-json-schema-and-parsestep-resolver.md`

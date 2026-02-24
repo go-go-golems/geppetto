@@ -1,6 +1,9 @@
 package settings
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestChatSettingsIsStructuredOutputEnabled(t *testing.T) {
 	s := &ChatSettings{StructuredOutputMode: StructuredOutputModeOff}
@@ -56,5 +59,29 @@ func TestChatSettingsStructuredOutputConfig(t *testing.T) {
 	}
 	if !cfg.StrictOrDefault() {
 		t.Fatalf("expected strict default true")
+	}
+}
+
+func TestChatValueSection_HelpMentionsProfileFirstForEngineFlags(t *testing.T) {
+	section, err := NewChatValueSection()
+	if err != nil {
+		t.Fatalf("NewChatValueSection: %v", err)
+	}
+
+	defs := section.GetDefinitions()
+	engineDef, ok := defs.Get("ai-engine")
+	if !ok {
+		t.Fatalf("expected ai-engine definition")
+	}
+	if !strings.Contains(engineDef.Help, "Prefer profile selection") {
+		t.Fatalf("expected ai-engine help to mention profile-first path, got %q", engineDef.Help)
+	}
+
+	apiTypeDef, ok := defs.Get("ai-api-type")
+	if !ok {
+		t.Fatalf("expected ai-api-type definition")
+	}
+	if !strings.Contains(apiTypeDef.Help, "Prefer profile selection") {
+		t.Fatalf("expected ai-api-type help to mention profile-first path, got %q", apiTypeDef.Help)
 	}
 }

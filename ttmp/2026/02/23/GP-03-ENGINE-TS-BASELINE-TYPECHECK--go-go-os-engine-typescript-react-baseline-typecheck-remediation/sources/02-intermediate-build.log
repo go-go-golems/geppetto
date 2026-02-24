@@ -1,0 +1,9 @@
+
+> @hypercard/engine@0.1.0 build /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine
+> tsc -b
+
+src/components/widgets/CodeEditorWindow.stories.tsx(27,7): error TS2742: The inferred type of 'meta' cannot be named without a reference to '.pnpm/storybook@10.2.11_@testing-library+dom@10.4.1_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/storybook/internal/csf'. This is likely not portable. A type annotation is necessary.
+src/hypercard/editor/editorLaunch.ts(8,36): error TS2307: Cannot find module 'redux' or its corresponding type declarations.
+/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @hypercard/engine@0.1.0 build: `tsc -b`
+Exit status 1
