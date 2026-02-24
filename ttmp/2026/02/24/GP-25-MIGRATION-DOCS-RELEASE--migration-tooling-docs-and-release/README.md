@@ -1,6 +1,6 @@
-# go-go-os application menu and context-menu architecture
+# Migration Tooling, Docs, and Release
 
-This is the document workspace for ticket OS-01-ADD-MENUS.
+This is the document workspace for ticket GP-25-MIGRATION-DOCS-RELEASE.
 
 ## Structure
 
@@ -16,6 +16,6 @@ This is the document workspace for ticket OS-01-ADD-MENUS.
 
 Use docmgr commands to manage this workspace:
 
-- Add documents: `docmgr doc add --ticket OS-01-ADD-MENUS --doc-type design-doc --title "My Design"`
-- Import sources: `docmgr import file --ticket OS-01-ADD-MENUS --file /path/to/doc.md`
-- Update metadata: `docmgr meta update --ticket OS-01-ADD-MENUS --field Status --value review`
+- Add documents: `docmgr doc add --ticket GP-25-MIGRATION-DOCS-RELEASE --doc-type design-doc --title "My Design"`
+- Import sources: `docmgr import file --ticket GP-25-MIGRATION-DOCS-RELEASE --file /path/to/doc.md`
+- Update metadata: `docmgr meta update --ticket GP-25-MIGRATION-DOCS-RELEASE --field Status --value review`
