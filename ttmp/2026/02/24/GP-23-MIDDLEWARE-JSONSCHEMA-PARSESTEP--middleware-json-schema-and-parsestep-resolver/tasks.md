@@ -29,12 +29,12 @@
 
 ## ParseStep Provenance
 
-- [ ] Introduce resolver ParseStep model (`source`, `layer`, `path`, `raw`, `value`, `metadata`).
-- [ ] Add per-path log append behavior on every applied write.
-- [ ] Add trace store in resolver result object.
-- [ ] Add helper for retrieving latest winning value and full history per path.
-- [ ] Add tests for provenance ordering across multiple source layers.
-- [ ] Add tests for coercion visibility in provenance (`raw` vs `value`).
+- [x] Introduce resolver ParseStep model (`source`, `layer`, `path`, `raw`, `value`, `metadata`).
+- [x] Add per-path log append behavior on every applied write.
+- [x] Add trace store in resolver result object.
+- [x] Add helper for retrieving latest winning value and full history per path.
+- [x] Add tests for provenance ordering across multiple source layers.
+- [x] Add tests for coercion visibility in provenance (`raw` vs `value`).
 
 ## Build Chain Integration
 

@@ -42,3 +42,15 @@ Step 2 completed: JSON-schema resolver core landed with layered source precedenc
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/resolver.go — Added schema-first resolver core, write projection, coercion/validation, and deterministic output paths
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/resolver_test.go — Added precedence/defaults/coercion/required-field/path-ordering regression tests
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked JSON Schema Resolver Core checklist complete
+
+
+## 2026-02-24
+
+Step 3 completed: ParseStep provenance landed with per-path trace history, raw/coerced value tracking, helper APIs for latest/history lookups, and regression coverage.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/resolver.go — Added `ParseStep`, `PathTrace`, trace storage, and history/latest helper APIs
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/resolver_test.go — Added provenance ordering and coercion visibility tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked ParseStep Provenance checklist complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 3 diary entry and verification details

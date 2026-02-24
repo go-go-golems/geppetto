@@ -242,6 +242,111 @@ func TestResolver_ProducesDeterministicPathOrdering(t *testing.T) {
 	}
 }
 
+func TestResolver_TraceHistoryFollowsSourcePrecedenceOrder(t *testing.T) {
+	resolver := NewResolver(
+		staticSource{
+			name:  "profile",
+			layer: SourceLayerProfile,
+			payload: map[string]any{
+				"threshold": 1,
+			},
+		},
+		staticSource{
+			name:  "flags",
+			layer: SourceLayerFlags,
+			payload: map[string]any{
+				"threshold": 3,
+			},
+		},
+		staticSource{
+			name:  "request",
+			layer: SourceLayerRequest,
+			payload: map[string]any{
+				"threshold": 5,
+			},
+		},
+	)
+	definition := &resolverTestDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"threshold": map[string]any{"type": "integer"},
+			},
+		},
+	}
+
+	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	if err != nil {
+		t.Fatalf("Resolve returned error: %v", err)
+	}
+
+	history := resolved.History("/threshold")
+	if len(history) != 3 {
+		t.Fatalf("expected 3 parse steps for /threshold, got %d", len(history))
+	}
+	if got, want := history[0].Source, "profile"; got != want {
+		t.Fatalf("history source mismatch at 0: got=%q want=%q", got, want)
+	}
+	if got, want := history[1].Source, "flags"; got != want {
+		t.Fatalf("history source mismatch at 1: got=%q want=%q", got, want)
+	}
+	if got, want := history[2].Source, "request"; got != want {
+		t.Fatalf("history source mismatch at 2: got=%q want=%q", got, want)
+	}
+
+	latest, ok := resolved.LatestValue("/threshold")
+	if !ok {
+		t.Fatalf("expected latest value for /threshold")
+	}
+	if got, want := latest.(int64), int64(5); got != want {
+		t.Fatalf("latest value mismatch: got=%d want=%d", got, want)
+	}
+}
+
+func TestResolver_TraceIncludesRawAndCoercedValues(t *testing.T) {
+	resolver := NewResolver(staticSource{
+		name:  "environment",
+		layer: SourceLayerEnvironment,
+		payload: map[string]any{
+			"threshold": "42",
+		},
+	})
+	definition := &resolverTestDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"threshold": map[string]any{"type": "integer"},
+			},
+		},
+	}
+
+	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	if err != nil {
+		t.Fatalf("Resolve returned error: %v", err)
+	}
+
+	history := resolved.History("/threshold")
+	if len(history) != 1 {
+		t.Fatalf("expected one parse step, got %d", len(history))
+	}
+	step := history[0]
+	if got, want := step.Raw, "42"; got != want {
+		t.Fatalf("raw value mismatch: got=%#v want=%#v", got, want)
+	}
+	if got, want := step.Value, int64(42); got != want {
+		t.Fatalf("coerced value mismatch: got=%#v want=%#v", got, want)
+	}
+	schemaTypeRaw, ok := step.Metadata["schema_type"]
+	if !ok {
+		t.Fatalf("expected schema_type metadata")
+	}
+	if got, want := schemaTypeRaw, "integer"; got != want {
+		t.Fatalf("schema_type metadata mismatch: got=%#v want=%#v", got, want)
+	}
+}
+
 func TestCanonicalOrderedSources_DeterministicByLayerThenName(t *testing.T) {
 	sources := []Source{
 		staticSource{name: "z-profile", layer: SourceLayerProfile},

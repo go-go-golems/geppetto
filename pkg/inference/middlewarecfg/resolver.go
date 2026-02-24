@@ -25,16 +25,74 @@ func NewResolver(sources ...Source) *Resolver {
 
 // ResolvedConfig is a schema-validated middleware config result.
 type ResolvedConfig struct {
-	Config       map[string]any      `json:"config"`
-	PathValues   map[string]any      `json:"path_values,omitempty"`
-	OrderedPaths []string            `json:"ordered_paths,omitempty"`
-	Sources      []ResolvedSourceRef `json:"sources,omitempty"`
+	Config       map[string]any       `json:"config"`
+	PathValues   map[string]any       `json:"path_values,omitempty"`
+	OrderedPaths []string             `json:"ordered_paths,omitempty"`
+	Sources      []ResolvedSourceRef  `json:"sources,omitempty"`
+	Trace        map[string]PathTrace `json:"trace,omitempty"`
 }
 
 // ResolvedSourceRef identifies a source that participated in resolution.
 type ResolvedSourceRef struct {
 	Name  string      `json:"name"`
 	Layer SourceLayer `json:"layer"`
+}
+
+// ParseStep captures one path-level write applied by the resolver.
+type ParseStep struct {
+	Source   string         `json:"source"`
+	Layer    SourceLayer    `json:"layer"`
+	Path     string         `json:"path"`
+	Raw      any            `json:"raw"`
+	Value    any            `json:"value"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// PathTrace stores full write history for one JSON pointer path.
+type PathTrace struct {
+	Path  string      `json:"path"`
+	Value any         `json:"value"`
+	Steps []ParseStep `json:"steps"`
+}
+
+// LatestValue returns the latest winning value for a path.
+func (r *ResolvedConfig) LatestValue(path string) (any, bool) {
+	if r == nil {
+		return nil, false
+	}
+	if r.Trace != nil {
+		if trace, ok := r.Trace[path]; ok {
+			return copyAny(trace.Value), true
+		}
+	}
+	v, ok := r.PathValues[path]
+	if !ok {
+		return nil, false
+	}
+	return copyAny(v), true
+}
+
+// History returns the full parse-step history for a path.
+func (r *ResolvedConfig) History(path string) []ParseStep {
+	if r == nil || r.Trace == nil {
+		return nil
+	}
+	trace, ok := r.Trace[path]
+	if !ok || len(trace.Steps) == 0 {
+		return nil
+	}
+	steps := make([]ParseStep, 0, len(trace.Steps))
+	for _, step := range trace.Steps {
+		steps = append(steps, ParseStep{
+			Source:   step.Source,
+			Layer:    step.Layer,
+			Path:     step.Path,
+			Raw:      copyAny(step.Raw),
+			Value:    copyAny(step.Value),
+			Metadata: copyStringAnyMap(step.Metadata),
+		})
+	}
+	return steps
 }
 
 // Resolve resolves one middleware use config against a middleware definition schema.
@@ -67,6 +125,7 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 
 	state := map[string]any{}
 	pathValues := map[string]any{}
+	trace := map[string]PathTrace{}
 	sourceRefs := make([]ResolvedSourceRef, 0, len(ordered)+1)
 
 	defaultPayload, ok := schemaDefaultsObject(schema)
@@ -74,6 +133,7 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 		if err := applyPayloadWithProjection(
 			state,
 			pathValues,
+			trace,
 			schema,
 			defaultPayload,
 			SourceLayerSchemaDefaults,
@@ -98,6 +158,7 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 		if err := applyPayloadWithProjection(
 			state,
 			pathValues,
+			trace,
 			schema,
 			payload,
 			source.source.Layer(),
@@ -131,12 +192,14 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 		PathValues:   pathValues,
 		OrderedPaths: orderedPaths,
 		Sources:      sourceRefs,
+		Trace:        trace,
 	}, nil
 }
 
 func applyPayloadWithProjection(
 	state map[string]any,
 	pathValues map[string]any,
+	trace map[string]PathTrace,
 	schema map[string]any,
 	payload map[string]any,
 	layer SourceLayer,
@@ -162,6 +225,20 @@ func applyPayloadWithProjection(
 			return fmt.Errorf("apply middleware payload at %s from source %s[%s]: %w", write.Path, strings.TrimSpace(sourceName), layer, err)
 		}
 		pathValues[write.Path] = copyAny(value)
+		pathTrace := trace[write.Path]
+		pathTrace.Path = write.Path
+		pathTrace.Value = copyAny(value)
+		pathTrace.Steps = append(pathTrace.Steps, ParseStep{
+			Source: strings.TrimSpace(sourceName),
+			Layer:  layer,
+			Path:   write.Path,
+			Raw:    copyAny(write.RawValue),
+			Value:  copyAny(value),
+			Metadata: map[string]any{
+				"schema_type": schemaType(write.Schema),
+			},
+		})
+		trace[write.Path] = pathTrace
 	}
 	return nil
 }

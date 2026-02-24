@@ -38,7 +38,7 @@ RelatedFiles:
       Note: Step 1 middleware instance validation regressions
 ExternalSources: []
 Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
-LastUpdated: 2026-02-24T15:08:00-05:00
+LastUpdated: 2026-02-24T16:35:00-05:00
 WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
 WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
 ---
@@ -237,12 +237,100 @@ go test ./pkg/profiles/... -count=1
   - sorted `OrderedPaths`,
   - participating source references.
 
+## Step 3: ParseStep Provenance and Path History APIs
+
+This step added explicit provenance tracking to the resolver output, so each resolved path now carries a write history with raw input values, coerced values, source/layer identity, and metadata.
+
+The objective was to make resolution behavior auditable and diagnosable without changing the precedence semantics implemented in Step 2.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 by implementing ParseStep tasks and update ticket docs.
+
+**Inferred user intent:** Keep implementation incremental, test-backed, and documented in ticket diary form.
+
+### What I did
+
+- Extended `ResolvedConfig` in `pkg/inference/middlewarecfg/resolver.go` with:
+  - `Trace map[string]PathTrace`.
+- Added provenance models:
+  - `ParseStep` (`source`, `layer`, `path`, `raw`, `value`, `metadata`),
+  - `PathTrace` (`path`, winning `value`, `steps`).
+- Added result helpers:
+  - `LatestValue(path string) (any, bool)`,
+  - `History(path string) []ParseStep`.
+- Updated resolver write application flow:
+  - every projected write appends one `ParseStep`,
+  - trace stores both raw and coerced values,
+  - metadata currently includes `schema_type`.
+- Added tests in `pkg/inference/middlewarecfg/resolver_test.go`:
+  - precedence-ordered path history (`profile -> flags -> request`),
+  - raw-vs-coerced visibility for schema coercion (`"42"` -> `int64(42)`).
+- Marked full ParseStep block complete in `tasks.md`.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`.
+
+### Why
+
+- ParseStep provenance is the core diagnostic primitive required by GP-23 design goals and later runtime integration debugging.
+- It enables deterministic introspection of “why this value won” per middleware config path.
+
+### What worked
+
+- Trace collection integrated without regressions in existing resolver behavior.
+- Added tests passed and validate both ordering and coercion visibility.
+
+### What didn't work
+
+- No functional blockers in this step.
+
+### What I learned
+
+- Path-scoped trace maps keep provenance querying simple while preserving deterministic behavior established in earlier steps.
+
+### What was tricky to build
+
+- Maintaining deep-copy semantics for history return values (`History`/`LatestValue`) to avoid accidental caller-side mutation of resolver internals.
+
+### What warrants a second pair of eyes
+
+- Confirm metadata key contract (`schema_type`) should remain stringly-typed map entries or evolve to typed metadata structs.
+
+### What should be done in the future
+
+- Implement BuildChain integration so resolved middleware instances are turned into runtime middleware chains with instance-keyed diagnostics.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/resolver.go`
+  - `pkg/inference/middlewarecfg/resolver_test.go`
+  - `ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+```
+
+### Technical details
+
+- Each applied payload write now records:
+  - source and layer that produced the write,
+  - raw input value before coercion,
+  - coerced/validated value committed to state,
+  - schema-fragment metadata for diagnostics.
+- `LatestValue` resolves from trace first, then falls back to `PathValues`.
+
 ## Usage Examples
 
 Use this diary entry when reviewing GP-23 commits to understand:
 
 - which resolver contracts and data models are already in place,
 - how source precedence/defaulting/coercion currently behaves,
+- how parse-step history and winning-value lookups are exposed,
 - which validations are already covered by tests.
 
 ## Related
