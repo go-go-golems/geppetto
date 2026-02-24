@@ -13,33 +13,46 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: pkg/profiles/extensions.go
-      Note: |-
-        Step 2 extension key parser, typed-key helpers, codec registry, and normalization helpers.
-        Step 2 extension key/parser/typed-key/codec registry implementation
+      Note: Step 2 extension key parser, typed-key helpers, codec registry, and normalization helpers.
     - Path: pkg/profiles/extensions_test.go
+      Note: Step 2 parser/codec/normalization regression coverage.
+    - Path: pkg/profiles/registry.go
       Note: |-
-        Step 2 parser/codec/normalization regression coverage.
-        Step 2 coverage for known/unknown decode behavior and option plumbing
+        Step 3 profile patch extensions field for service update flows.
+        Step 3 ProfilePatch extensions support
     - Path: pkg/profiles/service.go
       Note: |-
-        Step 2 service option plumbing for extension codec registry injection.
-        Step 2 StoreRegistry option injection for extension codec registry
+        Step 2 option plumbing and Step 3 create/update extension normalization.
+        Step 3 create/update extension normalization integration
+    - Path: pkg/profiles/service_test.go
+      Note: |-
+        Step 3 create/update extension normalization and error-field contract tests.
+        Step 3 normalization and error mapping tests
     - Path: pkg/profiles/types.go
       Note: Step 1 profile extensions model field and clone behavior.
     - Path: pkg/profiles/types_clone_test.go
       Note: Step 1 clone mutation-isolation coverage for extensions.
+    - Path: pkg/profiles/validation.go
+      Note: |-
+        Step 3 extension-key syntax and payload serializability validation.
+        Step 3 extension key syntax and serializability validation
+    - Path: pkg/profiles/validation_test.go
+      Note: |-
+        Step 3 field-path validation tests for extension errors.
+        Step 3 extension validation field-path tests
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md
       Note: Step 1 decision to defer registry-level extensions in GP-22.
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md
       Note: |-
-        Step 1 and Step 2 checklist progress.
-        Step 2 task checklist progress
+        Step 1-3 checklist progress.
+        Step 3 task checklist progress
 ExternalSources: []
 Summary: Implementation diary for GP-22 profile extension and CRUD rollout, including commit checkpoints, failures, and validation commands.
-LastUpdated: 2026-02-24T14:09:00-05:00
+LastUpdated: 2026-02-24T14:25:00-05:00
 WhatFor: Track GP-22 task-by-task implementation details and verification evidence.
 WhenToUse: Use when reviewing what landed in GP-22 and how to validate each step.
 ---
+
 
 
 
@@ -222,6 +235,91 @@ go test ./pkg/profiles/... -count=1
 
 - `NormalizeProfileExtensions` canonicalizes keys and deep-copies payloads on output to prevent aliasing.
 - Known extension keys are codec-decoded; unknown keys are preserved unchanged (except canonical key string normalization).
+
+## Step 3: Validation and Service-Flow Integration for Extensions
+
+This step wired extension validation and codec normalization directly into profile create/update service flows. The scope covered key syntax validation, JSON-serializability checks, patch plumbing for `extensions`, and regression tests for error field paths.
+
+The result is that malformed extension keys and non-serializable payloads are rejected as typed validation errors before persistence, and extension payloads are normalized consistently through the service boundary.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue executing GP-22 tasks in sequence and commit each completed slice.
+
+**Inferred user intent:** Move from extension infrastructure to enforceable runtime behavior with strong validation guarantees.
+
+**Commit (code):** `440fb4f` — "profiles: validate and normalize extensions in service create/update flows"
+
+### What I did
+
+- Updated `pkg/profiles/validation.go`:
+  - added `ValidateProfileExtensions(...)`,
+  - enforced extension key syntax via `ParseExtensionKey`,
+  - enforced JSON-serializable extension payloads with field-specific `ValidationError`.
+- Updated `pkg/profiles/registry.go`:
+  - added `Extensions *map[string]any` to `ProfilePatch`.
+- Updated `pkg/profiles/service.go`:
+  - added `normalizeAndValidateProfile(...)` helper,
+  - wired extension normalization + validation into `CreateProfile`,
+  - wired patch-extension update + normalization into `UpdateProfile`.
+- Added/extended tests:
+  - `pkg/profiles/validation_test.go` for extension error field paths,
+  - `pkg/profiles/service_test.go` for create/update normalization, codec decode failure handling, unknown pass-through, and invalid-key update errors.
+- Marked GP-22 “Validation and Service Flow” checklist complete in `tasks.md`.
+- Ran validation:
+  - `go test ./pkg/profiles/... -count=1`,
+  - pre-commit full `go test ./...`, lint, vet.
+
+### Why
+
+- Validation needs to happen before write paths so malformed extension payloads never persist.
+- Service-boundary normalization ensures payload handling is consistent regardless of caller path.
+- Explicit field-path errors are required for predictable HTTP/API mapping in downstream tickets.
+
+### What worked
+
+- All new tests passed with targeted and full pre-commit checks.
+- Existing typed error handling (`ErrValidation`, `ErrPolicyViolation`, `ErrVersionConflict`) remained stable.
+
+### What didn't work
+
+- No code-level failures in this step.
+
+### What I learned
+
+- Extension normalization fits cleanly as a pre-validation step and avoids duplicated logic across create/update methods.
+- Field-path assertions in tests are essential because map-key input errors are otherwise easy to regress silently.
+
+### What was tricky to build
+
+- The subtle part was preserving update semantics while adding extension patch support. The approach was to introduce `ProfilePatch.Extensions` as an optional pointer map, apply it only when present, and then run one shared normalize/validate helper for final consistency.
+
+### What warrants a second pair of eyes
+
+- Confirm `ProfilePatch.Extensions` semantics are correct for “clear all extensions” versus “no change” behavior in API layers.
+- Confirm JSON-serializability checks are sufficient for downstream storage/runtime expectations.
+
+### What should be done in the future
+
+- Next step is GP-22 “Persistence and Round-Trip” coverage for YAML/SQLite and cross-backend parity with extension payloads.
+
+### Code review instructions
+
+- Start with `pkg/profiles/validation.go` and `pkg/profiles/service.go` integration points.
+- Review `pkg/profiles/service_test.go` new extension-flow tests and `pkg/profiles/validation_test.go` field-path assertions.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Service create/update flows now normalize extension keys and codec-decode known keys before validation and persistence.
+- Invalid extension keys and non-serializable values now surface as `ValidationError` with `profile.extensions[...]` field paths.
 
 ## Related
 

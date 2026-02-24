@@ -38,3 +38,17 @@ Step 2 completed: extension key parser, typed-key helpers, codec registry infras
 - pkg/profiles/service.go — Added StoreRegistryOption and WithExtensionCodecRegistry plumbing
 - ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked extension infrastructure checklist complete
 
+
+## 2026-02-24
+
+Step 3 completed: extension validation and service create/update normalization wiring landed (commit 440fb4f).
+
+### Related Files
+
+- pkg/profiles/registry.go — Added ProfilePatch.Extensions for update flow
+- pkg/profiles/service.go — Wired extension normalization/validation into create and update paths
+- pkg/profiles/service_test.go — Added create/update extension normalization and field-path error tests
+- pkg/profiles/validation.go — Added extension-key syntax and payload serializability validation
+- pkg/profiles/validation_test.go — Added extension validation field-path assertions
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked validation/service-flow checklist complete
+

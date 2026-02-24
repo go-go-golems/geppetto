@@ -21,12 +21,12 @@
 
 ## Validation and Service Flow
 
-- [ ] Extend `ValidateProfile` to validate extension-key syntax.
-- [ ] Validate extension payload serializability at service boundary.
-- [ ] Wire codec normalization into create-profile path.
-- [ ] Wire codec normalization into update-profile path.
-- [ ] Ensure service errors map to typed validation/policy/conflict errors.
-- [ ] Add tests for extension validation field paths in returned errors.
+- [x] Extend `ValidateProfile` to validate extension-key syntax.
+- [x] Validate extension payload serializability at service boundary.
+- [x] Wire codec normalization into create-profile path.
+- [x] Wire codec normalization into update-profile path.
+- [x] Ensure service errors map to typed validation/policy/conflict errors.
+- [x] Add tests for extension validation field paths in returned errors.
 
 ## Persistence and Round-Trip
 
