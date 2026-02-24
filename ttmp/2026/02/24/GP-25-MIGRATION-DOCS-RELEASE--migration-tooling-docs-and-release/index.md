@@ -51,6 +51,7 @@ Legacy conversion tooling is out of scope here. This ticket assumes canonical re
 ## Key Links
 
 - Design: [Implementation Plan - Migration Tooling Docs and Release](./design-doc/01-implementation-plan-migration-tooling-docs-and-release.md)
+- Follow-up semantics: [GP-26 - Per-turn Runtime Truth and Conversation Current Runtime Semantics](../GP-26-PER-TURN-RUNTIME-TRUTH--per-turn-runtime-truth-and-conversation-current-runtime-semantics/index.md)
 - Release Notes: [Hard-Cutover Release Notes - Profile Registry Rollout](./reference/01-hard-cutover-release-notes.md)
 - Operator Checklist: [Operator Checklist - Profile Registry Hard Cutover](./playbooks/01-operator-cutover-checklist.md)
 - Tasks: [tasks.md](./tasks.md)

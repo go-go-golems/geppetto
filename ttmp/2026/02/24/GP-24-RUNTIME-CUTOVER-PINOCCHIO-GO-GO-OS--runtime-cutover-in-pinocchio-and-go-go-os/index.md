@@ -50,6 +50,7 @@ Focus areas:
 ## Key Links
 
 - Design: [Implementation Plan - Runtime Cutover in Pinocchio and Go-Go-OS](./design-doc/01-implementation-plan-runtime-cutover-in-pinocchio-and-go-go-os.md)
+- Follow-up semantics: [GP-26 - Per-turn Runtime Truth and Conversation Current Runtime Semantics](../GP-26-PER-TURN-RUNTIME-TRUTH--per-turn-runtime-truth-and-conversation-current-runtime-semantics/index.md)
 - Tasks: [tasks.md](./tasks.md)
 - Changelog: [changelog.md](./changelog.md)
 

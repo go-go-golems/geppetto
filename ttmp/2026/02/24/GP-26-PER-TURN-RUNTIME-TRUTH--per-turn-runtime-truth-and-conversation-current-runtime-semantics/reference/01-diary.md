@@ -41,6 +41,10 @@ RelatedFiles:
       Note: Runtime-switch regression tests for final persister and snapshot hook paths
     - Path: ../../../../../../../pinocchio/pkg/webchat/turn_snapshot_hook.go
       Note: Snapshot-path runtime/inference projection into turn store
+    - Path: ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/index.md
+      Note: Linked GP-26 runtime semantics follow-up from GP-24
+    - Path: ttmp/2026/02/24/GP-25-MIGRATION-DOCS-RELEASE--migration-tooling-docs-and-release/index.md
+      Note: Linked GP-26 runtime semantics follow-up from GP-25
     - Path: ttmp/2026/02/24/GP-26-PER-TURN-RUNTIME-TRUTH--per-turn-runtime-truth-and-conversation-current-runtime-semantics/reference/01-diary.md
       Note: Primary GP-26 implementation diary and prompt-context log
 ExternalSources: []
@@ -49,6 +53,7 @@ LastUpdated: 2026-02-24T16:57:32.334205138-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -433,3 +438,83 @@ The new docs make the "turn truth vs conversation pointer" split explicit and in
 - Docs now state:
   - conversation debug field: `current_runtime_key`
   - turn debug fields: `runtime_key`, `inference_id`
+
+## Step 6: Runtime-Switch Integration Completion, Sample DB Validation, and Ticket Closeout
+
+This step closed the remaining GP-26 gaps by adding app-level runtime-switch persistence verification and completing closeout checks. I also validated real local sample DB files to confirm additive migration behavior.
+
+During this step, I iterated on a new go-go-os integration test to handle queueing and debug-route availability timing correctly, then finalized ticket bookkeeping and status.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Keep executing until GP-26 is effectively complete, including unresolved validation and closeout items.
+
+**Inferred user intent:** Finish the ticket end-to-end rather than leaving residual checklist items.
+
+**Commit (code):** `6678135` — "GP-26: add runtime-switch integration test for per-turn runtime truth"
+
+### What I did
+- Added go-go-os integration coverage:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+  - New `TestProfileE2E_RuntimeSwitchKeepsPerTurnRuntimeTruth` verifies:
+    - first turn persisted with inventory runtime,
+    - profile switch to planner,
+    - second turn persisted with planner runtime,
+    - conversation debug current runtime converges to planner profile.
+- Validated sample DB migration state:
+  - `/tmp/turns.db` initially lacked `runtime_key`/`inference_id`.
+  - Opened DB through `NewSQLiteTurnStore(...)` migration path and confirmed additive columns appeared.
+  - Queried rows to confirm backfill behavior (including empty sentinel when runtime metadata is missing).
+  - Inspected `/tmp/timeline3.db` conversation runtime pointer rows.
+- Linked GP-26 outcomes from:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/index.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-25-MIGRATION-DOCS-RELEASE--migration-tooling-docs-and-release/index.md`
+- Ran closeout check:
+```bash
+docmgr doctor --ticket GP-26-PER-TURN-RUNTIME-TRUTH
+```
+- Updated GP-26 ticket status to `complete`.
+
+### Why
+- Runtime switch correctness needed app-level proof with persisted-turn assertions.
+- Closeout required explicit evidence against real local DB artifacts and ticket hygiene completion.
+
+### What worked
+- Integration package test now passes with runtime-switch assertions.
+- DB migration validation confirmed additive schema upgrade and expected fallback semantics.
+- `docmgr doctor` reported all checks passed.
+
+### What didn't work
+- Initial integration test assumptions were too strict:
+  - expected immediate `200` responses, but second request can be `202` while queued.
+  - expected debug endpoint availability without explicitly enabling debug routes in test server options.
+  - expected exact runtime string suffix in all cases; stabilized to planner-profile convergence check.
+- These were corrected in follow-up edits before final pass.
+
+### What I learned
+- Queue-aware chat APIs require status assertions that accept both synchronous and queued outcomes.
+- Runtime convergence checks are more robust when checking semantic profile identity (`planner*`) rather than strict version suffix at unstable edges.
+
+### What was tricky to build
+- The test had to avoid false negatives from asynchronous inference scheduling and route availability gating while still validating the core invariant about per-turn runtime truth.
+
+### What warrants a second pair of eyes
+- Whether the runtime convergence assertion should stay prefix-based or be tightened to a versioned key contract in go-go-os integration.
+
+### What should be done in the future
+- Optionally add a reusable helper in integration suites for queue-aware chat response assertions (`200` vs `202`) to avoid repeated boilerplate.
+
+### Code review instructions
+- New integration scenario:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+- Ticket closeout linkage:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/index.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-25-MIGRATION-DOCS-RELEASE--migration-tooling-docs-and-release/index.md`
+
+### Technical details
+- Sample DB observation after migration open:
+  - `/tmp/turns.db` now includes `runtime_key` and `inference_id` columns.
+- Backfill expectation:
+  - runtime remains empty sentinel for rows with no recoverable runtime metadata.

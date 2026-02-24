@@ -36,7 +36,7 @@
 - [x] Define canonical naming: `current_runtime_key` for conversation-level runtime pointer.
 - [x] Update conversation response DTOs to expose `current_runtime_key`.
 - [x] Preserve old `runtime_key` response alias only if required by callers, otherwise remove.
-- [ ] Document that conversation runtime is latest pointer, not history.
+- [x] Document that conversation runtime is latest pointer, not history.
 - [x] Ensure conversation index persistence updates current runtime on profile switch.
 
 ## Debug API and Query Surface
@@ -49,12 +49,12 @@
 
 ## Runtime Switch Correctness
 
-- [ ] Add integration test: start with runtime `inventory`, send turn, verify persisted turn runtime.
-- [ ] Add integration test: switch profile/runtime to `planner` in same conversation.
-- [ ] Add integration test: send second turn and verify persisted runtime switched to `planner`.
-- [ ] Verify conversation current runtime is `planner` after switch.
-- [ ] Verify first turn remains `inventory` and is not rewritten.
-- [ ] Add regression test to prevent turn runtime overwrite by subsequent turns.
+- [x] Add integration test: start with runtime `inventory`, send turn, verify persisted turn runtime.
+- [x] Add integration test: switch profile/runtime to `planner` in same conversation.
+- [x] Add integration test: send second turn and verify persisted runtime switched to `planner`.
+- [x] Verify conversation current runtime is `planner` after switch.
+- [x] Verify first turn remains `inventory` and is not rewritten.
+- [x] Add regression test to prevent turn runtime overwrite by subsequent turns.
 
 ## Migration Playbook and Docs
 
@@ -69,12 +69,12 @@
 - [x] Run `go test ./pkg/persistence/chatstore -count=1` and capture results.
 - [x] Run `go test ./pkg/webchat -count=1` and capture results.
 - [x] Run integration tests for profile switch and runtime persistence.
-- [ ] Validate with sample conversation DBs (`/tmp/timeline3.db` and `/tmp/turns.db` style checks).
+- [x] Validate with sample conversation DBs (`/tmp/timeline3.db` and `/tmp/turns.db` style checks).
 - [x] Confirm no compatibility env flags are introduced for this semantic change.
 - [x] Record validation evidence in changelog.
 
 ## Closeout
 
-- [ ] Run `docmgr doctor --ticket GP-26-PER-TURN-RUNTIME-TRUTH`.
-- [ ] Update ticket status to `complete` once all validations pass.
-- [ ] Link GP-26 outcome from GP-24/GP-25 docs where runtime semantics are referenced.
+- [x] Run `docmgr doctor --ticket GP-26-PER-TURN-RUNTIME-TRUTH`.
+- [x] Update ticket status to `complete` once all validations pass.
+- [x] Link GP-26 outcome from GP-24/GP-25 docs where runtime semantics are referenced.

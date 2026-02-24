@@ -69,3 +69,15 @@ Documentation completion commit dbdcd12: added runtime-truth migration playbook,
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md — Conversation pointer vs per-turn truth guidance
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-runtime-truth-migration-playbook.md — Primary GP-26 migration/reference playbook
 
+
+## 2026-02-24
+
+Closeout block: commit 6678135 added go-go-os runtime-switch integration test with per-turn runtime assertions; validated /tmp/turns.db and /tmp/timeline3.db migration/runtime state; ran docmgr doctor (all checks passed); linked GP-26 follow-up from GP-24/GP-25 ticket docs; set GP-26 status to complete.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/index.md — Cross-ticket outcome link
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-25-MIGRATION-DOCS-RELEASE--migration-tooling-docs-and-release/index.md — Cross-ticket outcome link
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-26-PER-TURN-RUNTIME-TRUTH--per-turn-runtime-truth-and-conversation-current-runtime-semantics/index.md — Ticket status finalized to complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — App-level runtime-switch persistence assertions
+

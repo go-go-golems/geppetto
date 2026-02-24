@@ -1,7 +1,7 @@
 ---
 Title: Per-turn Runtime Truth and Conversation Current Runtime Semantics
 Ticket: GP-26-PER-TURN-RUNTIME-TRUTH
-Status: active
+Status: complete
 Topics:
     - architecture
     - backend
@@ -41,7 +41,7 @@ This ticket delivers schema changes, persistence wiring, API shape updates, migr
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 
