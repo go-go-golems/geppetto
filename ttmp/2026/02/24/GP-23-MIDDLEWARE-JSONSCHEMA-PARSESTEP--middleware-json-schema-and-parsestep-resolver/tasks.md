@@ -61,10 +61,10 @@
 
 ## Glazed Adapter and Tooling
 
-- [ ] Add JSON-schema-to-Glazed-section adapter for CLI/help integration.
-- [ ] Add adapter tests for required/default/enum mapping.
-- [ ] Verify generated sections preserve human-readable docs/help text.
-- [ ] Document adapter limitations where JSON schema constructs do not map 1:1.
+- [x] Add JSON-schema-to-Glazed-section adapter for CLI/help integration.
+- [x] Add adapter tests for required/default/enum mapping.
+- [x] Verify generated sections preserve human-readable docs/help text.
+- [x] Document adapter limitations where JSON schema constructs do not map 1:1.
 
 ## Debug and Observability
 

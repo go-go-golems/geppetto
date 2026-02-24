@@ -48,6 +48,10 @@ RelatedFiles:
       Note: Step 6 profile defaults now carry explicit runtime middleware list
     - Path: go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go
       Note: Step 6 integration assertion for profile-default middleware propagation
+    - Path: pkg/inference/middlewarecfg/glazed_adapter.go
+      Note: Step 7 JSON-schema-to-Glazed adapter implementation and limitation reporting
+    - Path: pkg/inference/middlewarecfg/glazed_adapter_test.go
+      Note: Step 7 adapter regression coverage for required/default/enum/help mapping
     - Path: pkg/inference/middlewarecfg/source.go
       Note: Step 2 layered source contract and canonical precedence ordering
     - Path: pkg/profiles/service.go
@@ -64,7 +68,7 @@ RelatedFiles:
       Note: Step 1 middleware instance validation regressions
 ExternalSources: []
 Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
-LastUpdated: 2026-02-24T18:05:00-05:00
+LastUpdated: 2026-02-24T18:22:00-05:00
 WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
 WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
 ---
@@ -632,6 +636,91 @@ go test ./go-inventory-chat/cmd/hypercard-inventory-server -count=1
 - Profile runtime middleware specs now drive middleware inclusion; hard-coded runtime middleware insertion path is removed.
 - Integration coverage now verifies middleware defaults survive full request-resolution and chat-handler flow.
 
+## Step 7: JSON-Schema-to-Glazed Adapter
+
+This step added the GP-23 adapter that converts middleware JSON schemas into Glazed sections for CLI/help-facing workflows while returning explicit limitation notes for schema constructs that do not map 1:1.
+
+The adapter is intentionally conservative: it maps common scalar/list/enum patterns and flags unsupported nested/dynamic constructs as non-fatal limitations.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 after app integrations by implementing the Glazed adapter tooling block.
+
+**Inferred user intent:** Complete foundational middlewarecfg tooling so schema remains canonical while CLI/help integration remains practical.
+
+### What I did
+
+- Added `pkg/inference/middlewarecfg/glazed_adapter.go`:
+  - `AdapterResult` (`section`, `limitations`),
+  - `AdaptSchemaToGlazedSection(sectionSlug, sectionName, schema)` API,
+  - type mapping from JSON schema to Glazed field types,
+  - required/default/enum/description mapping,
+  - deterministic field ordering.
+- Implemented mapping behavior:
+  - required -> `fields.WithRequired(true)`,
+  - defaults -> validated/coerced via resolver coercion (`coerceAndValidate`) then `fields.WithDefault(...)`,
+  - description/title -> `fields.WithHelp(...)`,
+  - string enum -> `TypeChoice` + `WithChoices`.
+- Added limitation reporting for non-1:1 constructs:
+  - nested object properties,
+  - `additionalProperties=true`,
+  - unsupported array item types and non-string enums.
+- Added tests in `pkg/inference/middlewarecfg/glazed_adapter_test.go`:
+  - required/default/enum/help mapping assertions,
+  - limitation reporting assertions for nested/dynamic schema constructs.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`.
+
+### Why
+
+- GP-23 keeps JSON schema canonical for middleware configuration; the adapter ensures CLI/help can be generated from the same contract instead of introducing a second independent definition source.
+
+### What worked
+
+- Adapter API and tests passed cleanly.
+- Existing middlewarecfg resolver/chain tests remained green.
+
+### What didn't work
+
+- Initial implementation used older Glazed API assumptions (`GetParameterDefinitions` / `WithFields(definitions)`), causing compile failures.
+- Fixed by using current v1 API (`GetDefinitions` and variadic `WithFields(fieldDefs...)`).
+
+### What I learned
+
+- Reusing the resolver’s coercion/validation helpers for defaults in adapter mapping keeps behavior consistent across runtime composition and CLI default materialization.
+
+### What was tricky to build
+
+- Balancing practical coverage with explicit limitation reporting required choosing clear skip behavior for nested objects rather than silently flattening in a potentially lossy way.
+
+### What warrants a second pair of eyes
+
+- Confirm whether nested object flattening should be added in a follow-up adapter phase, or remain explicitly unsupported to keep field semantics simple.
+
+### What should be done in the future
+
+- Implement GP-23 debug/observability block (trace serialization and structured resolver rejection logs), then hard-cutover cleanup tasks.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/glazed_adapter.go`
+  - `pkg/inference/middlewarecfg/glazed_adapter_test.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+```
+
+### Technical details
+
+- Adapter output is deterministic by sorting schema property keys.
+- Defaults are validated with the same schema coercion logic as runtime resolver writes.
+- Limitations are deduplicated/sorted so assertion and documentation output remain stable.
+
 ## Usage Examples
 
 Use this diary entry when reviewing GP-23 commits to understand:
@@ -642,6 +731,7 @@ Use this diary entry when reviewing GP-23 commits to understand:
 - how resolved instances are converted into executable middleware chains,
 - how Pinocchio web-chat now consumes resolver output with schema-driven middleware definitions,
 - how Go-Go-OS inventory runtime now uses profile-driven middleware resolution with integration coverage,
+- how JSON schema is now bridged into Glazed sections with explicit mapping limitations,
 - which validations are already covered by tests.
 
 ## Related
