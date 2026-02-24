@@ -40,12 +40,12 @@
 
 ## Persistence: SQLite Store
 
-- [ ] Add tests for schema migration idempotency.
-- [ ] Add tests for malformed payload JSON row handling.
-- [ ] Add tests for row slug != payload slug mismatch error path.
-- [ ] Add tests for persistence after profile CRUD operations.
-- [ ] Add tests for delete profile causing registry row update persistence.
-- [ ] Add tests for `Close()` idempotency and post-close guard behavior.
+- [x] Add tests for schema migration idempotency.
+- [x] Add tests for malformed payload JSON row handling.
+- [x] Add tests for row slug != payload slug mismatch error path.
+- [x] Add tests for persistence after profile CRUD operations.
+- [x] Add tests for delete profile causing registry row update persistence.
+- [x] Add tests for `Close()` idempotency and post-close guard behavior.
 
 ## Metadata and Versioning
 

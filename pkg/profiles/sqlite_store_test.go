@@ -2,8 +2,11 @@ package profiles
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -223,4 +226,280 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 	if ok {
 		t.Fatalf("expected analyst profile to be deleted")
 	}
+}
+
+func TestSQLiteProfileStore_SchemaMigrationIdempotency(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+
+	if err := store.migrate(); err != nil {
+		t.Fatalf("first migrate call failed: %v", err)
+	}
+	if err := store.migrate(); err != nil {
+		t.Fatalf("second migrate call failed: %v", err)
+	}
+}
+
+func TestSQLiteProfileStore_MalformedPayloadRowHandling(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("sql.Open returned error: %v", err)
+	}
+	if _, err := db.Exec(sqliteProfilesSchemaV1); err != nil {
+		t.Fatalf("create schema failed: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO profile_registries (slug, payload_json, updated_at_ms) VALUES (?, ?, ?)`,
+		"default",
+		`{"slug":"default","profiles":`,
+		1,
+	); err != nil {
+		t.Fatalf("insert malformed payload failed: %v", err)
+	}
+	_ = db.Close()
+
+	_, err = NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err == nil {
+		t.Fatalf("expected load error for malformed payload JSON")
+	}
+	errS := strings.ToLower(err.Error())
+	if !strings.Contains(errS, "json") && !strings.Contains(errS, "unexpected") && !strings.Contains(errS, "invalid") {
+		t.Fatalf("expected invalid payload details, got %v", err)
+	}
+}
+
+func TestSQLiteProfileStore_RowSlugPayloadSlugMismatch(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	registry := &ProfileRegistry{
+		Slug:               MustRegistrySlug("other"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	}
+	payload, err := json.Marshal(registry)
+	if err != nil {
+		t.Fatalf("marshal payload failed: %v", err)
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("sql.Open returned error: %v", err)
+	}
+	if _, err := db.Exec(sqliteProfilesSchemaV1); err != nil {
+		t.Fatalf("create schema failed: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO profile_registries (slug, payload_json, updated_at_ms) VALUES (?, ?, ?)`,
+		"default",
+		string(payload),
+		1,
+	); err != nil {
+		t.Fatalf("insert mismatch payload failed: %v", err)
+	}
+	_ = db.Close()
+
+	_, err = NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err == nil {
+		t.Fatalf("expected slug mismatch error")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "slug mismatch") {
+		t.Fatalf("expected slug mismatch details, got %v", err)
+	}
+}
+
+func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+
+	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertRegistry failed: %v", err)
+	}
+	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
+		Slug:        MustProfileSlug("agent"),
+		DisplayName: "Agent v1",
+	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertProfile create failed: %v", err)
+	}
+	agent, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil || !ok || agent == nil {
+		t.Fatalf("expected created profile, ok=%v err=%v", ok, err)
+	}
+	updated := agent.Clone()
+	updated.DisplayName = "Agent v2"
+	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), updated, SaveOptions{
+		ExpectedVersion: agent.Metadata.Version,
+		Actor:           "test",
+		Source:          "sqlite",
+	}); err != nil {
+		t.Fatalf("UpsertProfile update failed: %v", err)
+	}
+	if err := store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{
+		Actor:  "test",
+		Source: "sqlite",
+	}); err != nil {
+		t.Fatalf("SetDefaultProfile failed: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("reopen store failed: %v", err)
+	}
+	defer func() { _ = reloaded.Close() }()
+
+	reg, ok, err := reloaded.GetRegistry(ctx, MustRegistrySlug("default"))
+	if err != nil || !ok || reg == nil {
+		t.Fatalf("expected registry after reopen, ok=%v err=%v", ok, err)
+	}
+	if got := reg.DefaultProfileSlug; got != MustProfileSlug("agent") {
+		t.Fatalf("default profile mismatch after reopen: %q", got)
+	}
+	reloadedAgent, ok, err := reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil || !ok || reloadedAgent == nil {
+		t.Fatalf("expected profile after reopen, ok=%v err=%v", ok, err)
+	}
+	if got := reloadedAgent.DisplayName; got != "Agent v2" {
+		t.Fatalf("updated profile mismatch after reopen: %q", got)
+	}
+}
+
+func TestSQLiteProfileStore_DeleteProfilePersistsRegistryRowUpdate(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+
+	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
+		},
+	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertRegistry failed: %v", err)
+	}
+
+	if err := store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{
+		Actor:  "test",
+		Source: "sqlite",
+	}); err != nil {
+		t.Fatalf("DeleteProfile failed: %v", err)
+	}
+
+	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("reopen store failed: %v", err)
+	}
+	defer func() { _ = reloaded.Close() }()
+
+	reg, ok, err := reloaded.GetRegistry(ctx, MustRegistrySlug("default"))
+	if err != nil || !ok || reg == nil {
+		t.Fatalf("expected registry after reopen, ok=%v err=%v", ok, err)
+	}
+	if got := reg.DefaultProfileSlug; got != "" {
+		t.Fatalf("expected cleared default profile after deletion, got %q", got)
+	}
+	_, ok, err = reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil {
+		t.Fatalf("GetProfile after reopen failed: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected deleted profile to remain absent after reopen")
+	}
+}
+
+func TestSQLiteProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+
+	if err := store.Close(); err != nil {
+		t.Fatalf("first Close failed: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("second Close failed: %v", err)
+	}
+
+	assertClosedErr := func(err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatalf("expected closed-store error")
+		}
+		if !strings.Contains(strings.ToLower(err.Error()), "closed") {
+			t.Fatalf("expected closed-store error details, got %v", err)
+		}
+	}
+
+	_, err = store.ListRegistries(ctx)
+	assertClosedErr(err)
+	_, _, err = store.GetRegistry(ctx, MustRegistrySlug("default"))
+	assertClosedErr(err)
+	_, err = store.ListProfiles(ctx, MustRegistrySlug("default"))
+	assertClosedErr(err)
+	_, _, err = store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"))
+	assertClosedErr(err)
+	err = store.UpsertRegistry(ctx, &ProfileRegistry{Slug: MustRegistrySlug("default")}, SaveOptions{})
+	assertClosedErr(err)
+	err = store.DeleteRegistry(ctx, MustRegistrySlug("default"), SaveOptions{})
+	assertClosedErr(err)
+	err = store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{Slug: MustProfileSlug("default")}, SaveOptions{})
+	assertClosedErr(err)
+	err = store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"), SaveOptions{})
+	assertClosedErr(err)
+	err = store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"), SaveOptions{})
+	assertClosedErr(err)
 }
