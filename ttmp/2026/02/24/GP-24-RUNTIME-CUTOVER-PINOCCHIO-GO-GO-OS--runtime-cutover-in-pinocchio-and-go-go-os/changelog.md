@@ -149,3 +149,8 @@ Go-Go-OS:
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go — Added invalid registry/slug API behavior integration test.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Added invalid registry/slug API behavior integration test.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/design-doc/01-implementation-plan-runtime-cutover-in-pinocchio-and-go-go-os.md — Added post-cutover troubleshooting section with command checklist.
+
+## 2026-02-24
+
+Ticket closed after runtime cutover validation in go-go-os and pinocchio; remaining follow-ups tracked in GP-25/GP-27/GP-26.
+

@@ -1,5 +1,5 @@
 ---
-Title: Implementation Plan - Migration Tooling Docs and Release
+Title: Implementation Plan - Hard-Cutover Docs and Release
 Ticket: GP-25-MIGRATION-DOCS-RELEASE
 Status: active
 Topics:
@@ -12,93 +12,88 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go
-      Note: Core migration command implementation.
-    - Path: pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go
-      Note: Command behavior, format detection, and conversion tests.
     - Path: geppetto/pkg/doc/topics/01-profiles.md
       Note: Geppetto profile registry reference docs.
-    - Path: geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md
-      Note: Practical migration runbook and command examples.
-    - Path: pinocchio/cmd/pinocchio/main.go
-      Note: CLI command tree where migration verb is mounted.
+    - Path: geppetto/pkg/doc/topics/09-middlewares.md
+      Note: Middleware conceptual reference to align with profile-scoped configuration.
+    - Path: geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md
+      Note: Registry operations runbook.
+    - Path: pinocchio/pkg/webchat/http/profile_api.go
+      Note: Authoritative profile CRUD endpoint behavior and error model.
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Runtime/profile wiring and startup defaults to document.
     - Path: pinocchio/cmd/pinocchio/doc/doc.go
-      Note: Help-page wiring used for docs publication validation.
+      Note: Help-page wiring for docs publication validation.
 ExternalSources: []
-Summary: Detailed rollout plan for migration tooling, help-page documentation, and release operations for the profile-registry cutover.
+Summary: Detailed rollout plan for hard-cutover documentation, API/schema references, and release communication for profile-registry adoption.
 LastUpdated: 2026-02-24T13:12:02-05:00
-WhatFor: Ensure users and integrators can migrate with minimal friction and clear operational guidance.
-WhenToUse: Use when preparing documentation updates, running migration conversions, and finalizing release communication.
+WhatFor: Ensure users and integrators can adopt the hard cutover with clear API/schema contracts and operational guidance.
+WhenToUse: Use when preparing docs/release artifacts for the registry-first runtime model without legacy conversion paths.
 ---
 
-# Implementation Plan - Migration Tooling Docs and Release
+# Implementation Plan - Hard-Cutover Docs and Release
 
 ## Executive Summary
 
-Technical completion is not enough for this rollout because APIs and symbols changed, aliases were removed, and profile storage format evolved.
+Technical completion is not enough for this rollout because APIs and symbols changed, aliases were removed, middleware configuration moved into profile-driven behavior, and schema discovery is expanding.
 
-This ticket makes the cutover operationally safe by shipping:
+This ticket makes the hard cutover operationally safe by shipping:
 
-1. migration CLI tooling with robust input-shape detection,
-2. glazed help pages/playbooks for both geppetto and pinocchio users,
+1. glazed help pages/playbooks aligned to the final registry-first model,
+2. API/schema references for frontend and operator teams,
 3. release checklist with explicit breaking-change communication,
-4. validation procedures for both direct users and third-party integrators.
+4. validation procedures for pinocchio and go-go-os behavior.
 
 ## Problem Statement
 
-Users still have legacy `profiles.yaml` files and older API/symbol assumptions. Without structured migration support, they face:
+After cutover, teams need accurate docs for the new steady state. The main risks are:
 
-- unclear conversion steps,
-- uncertainty around what changed and why,
-- high-risk manual edits of profile files,
-- production incidents from stale automation scripts.
+- stale guidance that still references deprecated compatibility surfaces,
+- unclear API contracts for profile CRUD and schema discovery,
+- inconsistent understanding of profile/runtime semantics across pinocchio and go-go-os,
+- release notes that under-specify required operator action.
 
 Documentation is also distributed across repositories and can drift unless deliberately synchronized around one migration narrative.
 
+Scope decision for this ticket: no legacy conversion tooling work.
+
 ## User Segments
 
-- CLI operators running Pinocchio directly.
+- CLI operators running Pinocchio directly on canonical registry files.
 - Web-chat operators running Pinocchio and/or Go-Go-OS servers.
 - Third-party package consumers affected by symbol renames and alias removals.
-- Internal maintainers who need a release gate checklist.
+- Frontend consumers needing schema endpoints for profile/middleware forms.
+- Internal maintainers needing a release gate checklist.
 
 ## Proposed Solution
 
-### 1. Migration Command Hardening
-
-Use `pinocchio profiles migrate-legacy` as the canonical conversion command.
-
-Required command capabilities:
-
-- detect legacy vs single-registry vs canonical multi-registry input,
-- convert legacy maps to canonical registry format,
-- support explicit registry slug override,
-- support in-place and output-path modes,
-- emit summary metrics (`registry_count`, `profile_count`, output path).
-
-Expected operator flow:
-
-```bash
-pinocchio profiles migrate-legacy --input profiles.yaml --output profiles.registry.yaml
-pinocchio profiles migrate-legacy --input profiles.registry.yaml --check
-```
-
-### 2. Documentation Set (Glazed Help Page Style)
+### 1. Documentation Set (Glazed Help Page Style)
 
 Publish/update:
 
-- geppetto profile topic: conceptual model + schema expectations,
-- geppetto migration playbook: command-by-command conversion workflow,
+- geppetto profile topic: conceptual model + extension/validation expectations,
+- geppetto middleware topic: profile-scoped middleware configuration and resolver behavior,
+- geppetto registry operations playbook: canonical operational procedures,
 - pinocchio profile registry page: runtime usage and CRUD behavior,
-- pinocchio migration playbook: renamed symbols, removed aliases, practical before/after examples.
+- pinocchio cutover note: removed aliases/env vars and replacement behavior.
 
 All docs should include:
 
 - prerequisites,
 - concrete commands,
 - expected output snippets,
-- rollback guidance,
-- troubleshooting section.
+- troubleshooting section,
+- cross-links to schema endpoints and error contracts.
+
+### 2. API and Schema Contracts
+
+Document and stabilize:
+
+- `GET /api/chat/profiles` and profile CRUD behavior,
+- profile selection/default semantics,
+- middleware schema discovery endpoint contract (`/api/chat/schemas/middlewares`),
+- extension schema discovery endpoint contract (`/api/chat/schemas/extensions`),
+- validation error payload shape for create/update failures.
 
 ### 3. Breaking-Change Communication
 
@@ -106,86 +101,87 @@ Document explicitly:
 
 - removed aliases,
 - removed compatibility env vars,
-- new canonical endpoints/symbol names,
-- minimum version requirements across repos.
+- canonical endpoints/symbol names,
+- minimum compatible versions across repos.
 
-Release notes should include a migration matrix:
+Release notes should include a cutover matrix:
 
 ```text
-old behavior -> new behavior -> required user action
+old behavior -> new behavior -> required action
 ```
 
 ### 4. Verification and Release Gate
 
 Add a release checklist that blocks rollout unless:
 
-- migration command passes against fixture corpus,
 - docs are validated and linked,
-- manual smoke passes for both Pinocchio and Go-Go-OS,
+- API examples and snippets execute as written,
+- manual smoke passes for both pinocchio and go-go-os,
 - changelog entries and upgrade notes are complete.
 
 ## Design Decisions
 
-1. One canonical migration command (`migrate-legacy`) instead of multiple ad-hoc scripts.
+1. Legacy conversion tooling is out of scope for GP-25.
 2. Glazed help pages are the canonical user-facing docs format.
-3. Hard-cutover language is explicit; we do not hide breaking changes behind soft wording.
-4. Release is gated by migration and docs verification, not code tests only.
+3. Hard-cutover language is explicit; no soft compatibility messaging.
+4. Release is gated by docs/API validation and application-level smoke checks.
 
 ## Alternatives Considered
 
-### A. Rely on manual YAML editing instructions only
+### A. Keep legacy migration tooling as part of this ticket
 
-Rejected because it is error-prone and difficult to support at scale.
+Rejected because the current direction is hard cutover and this inflates scope with non-goals.
 
-### B. Keep compatibility aliases indefinitely
+### B. Publish only terse release notes without docs refresh
 
-Rejected because it prolongs technical debt and muddies API understanding.
+Rejected because operators and frontend teams need concrete contracts and examples.
 
-### C. Publish migration docs only in one repo
+### C. Keep compatibility aliases indefinitely
 
-Rejected because users consume both geppetto and pinocchio contexts.
+Rejected because it prolongs technical debt and muddies the canonical API model.
 
 ## Implementation Plan
 
-### Phase A - Command and Fixture Validation
+### Phase A - Scope Reset and Baseline
 
-1. Audit migration command flags and output contracts.
-2. Add/expand fixture corpus for legacy/single/multi-registry input files.
-3. Add idempotency tests and failure-mode tests.
+1. Remove legacy-tooling references from GP-25 docs/tasks.
+2. Anchor scope to hard-cutover deliverables only.
+3. Cross-link GP-25 dependencies on GP-24 and GP-27.
 
 ### Phase B - Geppetto Docs
 
-1. Update profile topic to include registry-first model and extension basics.
-2. Update migration playbook with current command usage and caveats.
-3. Validate frontmatter and help-page discoverability.
+1. Update profile topic with registry-first model and extension conventions.
+2. Update middleware topic with profile-scoped configuration model.
+3. Refresh registry operations playbook with canonical commands.
+4. Validate frontmatter and help-page discoverability.
 
 ### Phase C - Pinocchio Docs
 
 1. Add/update profile registry topic in pinocchio docs.
-2. Add migration playbook for symbol/API renames and alias removals.
-3. Include copy-ready command snippets for common deployment patterns.
+2. Add cutover note for symbol/API renames and alias/env-var removals.
+3. Include copy-ready snippets for common deployment patterns.
 
-### Phase D - Release Notes and Upgrade Matrix
+### Phase D - API/Schema Contract Publication
 
-1. Draft release notes with explicit breaking changes.
-2. Add upgrade matrix old->new with required operator actions.
-3. Add troubleshooting section for common migration failures.
+1. Document profile CRUD and selection semantics with examples.
+2. Document schema endpoints and response contract examples.
+3. Document validation error patterns expected by frontend clients.
 
-### Phase E - Operational Validation
+### Phase E - Release Notes and Validation
 
-1. Run migration command on sample real-world profile files.
-2. Run both servers with migrated profiles and execute CRUD/profile selection smoke.
-3. Record outputs and known caveats in ticket changelog.
+1. Draft release notes with explicit breaking changes and action matrix.
+2. Run both servers and execute CRUD/profile selection/schema endpoint smoke.
+3. Record outputs and caveats in ticket changelog.
 
 ## Open Questions
 
-1. Should migration command support automatic backup creation by default when `--in-place` is used?
+1. Should schema endpoint examples include both minimal and fully-decorated UI metadata variants?
 2. Do we publish a machine-readable upgrade advisory (JSON/YAML) alongside human docs?
-3. Which release version boundary will be called out as the hard-cutover floor for third-party consumers?
+3. Which release boundary will be called out as the hard-cutover floor for third-party consumers?
 
 ## References
 
-- `pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go`
-- `pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go`
-- `geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`
 - `geppetto/pkg/doc/topics/01-profiles.md`
+- `geppetto/pkg/doc/topics/09-middlewares.md`
+- `geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md`
+- `pinocchio/pkg/webchat/http/profile_api.go`

@@ -1,5 +1,5 @@
 ---
-Title: Migration Tooling, Docs, and Release
+Title: Hard-Cutover Docs and Release
 Ticket: GP-25-MIGRATION-DOCS-RELEASE
 Status: active
 Topics:
@@ -12,36 +12,40 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go
-      Note: CLI migration verb for converting legacy profiles.yaml into registry YAML.
-    - Path: pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go
-      Note: Migration correctness and idempotency tests.
-    - Path: geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md
-      Note: Geppetto migration playbook in glazed help page format.
     - Path: geppetto/pkg/doc/topics/01-profiles.md
       Note: Core profile-registry user documentation.
-    - Path: pinocchio/cmd/pinocchio/main.go
-      Note: CLI root command integration point for migration tooling and docs discoverability.
+    - Path: geppetto/pkg/doc/topics/09-middlewares.md
+      Note: Middleware model and configuration documentation to align with profile registry.
+    - Path: geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md
+      Note: Operational playbook for registry-backed deployments.
+    - Path: pinocchio/pkg/webchat/http/profile_api.go
+      Note: Profile CRUD and schema endpoint contracts to document for operators and frontend teams.
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Runtime bootstrap defaults and registry integration behavior to document.
+    - Path: go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go
+      Note: Application integration reference for profile CRUD/runtime behavior.
     - Path: pinocchio/cmd/pinocchio/doc/doc.go
-      Note: Embedded help-page loader used for pinocchio glazed docs.
+      Note: Embedded help-page loader used for pinocchio glazed docs publishing.
 ExternalSources: []
-Summary: Final migration, documentation, and release-readiness track for shipping profile registry cutover safely to users and integrators.
+Summary: Documentation and release-readiness track for shipping profile-registry hard cutover without legacy conversion tooling.
 LastUpdated: 2026-02-24T13:12:02-05:00
-WhatFor: Capture operator playbooks, CLI tooling, compatibility break notices, and release checklist for profile-registry rollout.
-WhenToUse: Use when preparing migration guides, running conversion tooling, and publishing release notes for profile-registry changes.
+WhatFor: Capture operator playbooks, schema/API references, compatibility-break notices, and release checklist for hard-cutover rollout.
+WhenToUse: Use when preparing hard-cutover docs, validating command/API examples, and publishing release notes for profile-registry changes.
 ---
 
-# Migration Tooling, Docs, and Release
+# Hard-Cutover Docs and Release
 
 ## Overview
 
 This ticket packages the technical work into an adoptable release:
 
-- migration tooling for legacy profile files,
-- polished help pages and migration playbooks,
+- polished help pages and operation playbooks,
+- API and schema reference for profile and middleware behavior,
 - explicit compatibility-break communication and release checks.
 
 It is the bridge between implementation and successful downstream adoption by internal teams and third-party users.
+
+Legacy conversion tooling is out of scope here. This ticket assumes canonical registry-first configuration and documents hard errors for invalid/unknown middleware/profile payloads.
 
 ## Key Links
 
@@ -55,7 +59,7 @@ Current status: **active**
 
 ## Topics
 
-- documentation
+- architecture
 - migration
 - backend
 - chat

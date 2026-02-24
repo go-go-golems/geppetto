@@ -1,75 +1,54 @@
 # Tasks
 
-## Migration Command Quality
+## Scope Reset (No Legacy Migration Tooling)
 
-- [ ] Audit `profiles_migrate_legacy` command flags and defaults for final UX.
-- [ ] Add tests for legacy map input detection.
-- [ ] Add tests for single-registry input detection.
-- [ ] Add tests for canonical multi-registry input passthrough.
-- [ ] Add tests for invalid registry slug handling.
-- [ ] Add tests for `--in-place` behavior.
-- [ ] Add tests for default output path behavior.
-- [ ] Add tests for summary output metrics.
-- [ ] Add tests for idempotent repeated conversion.
+- [ ] Record scope decision: no legacy conversion tooling work in this ticket.
+- [ ] Remove legacy-command references from ticket docs and plan artifacts.
+- [ ] Clarify hard-cutover assumption: canonical registry files only.
+- [ ] Link GP-25 scope to GP-24 (runtime cutover) and GP-27 (write-time/schema APIs).
 
-## Migration Fixture Corpus
+## Geppetto Help Pages
 
-- [ ] Add representative legacy fixtures with minimal profile fields.
-- [ ] Add fixtures with multiple profiles and mixed middleware/tool sections.
-- [ ] Add fixtures with extension payload examples.
-- [ ] Add malformed YAML fixtures for error-path testing.
-- [ ] Add fixtures with comments/format variations to test parser resilience.
+- [ ] Update `geppetto/pkg/doc/topics/01-profiles.md` with current registry-first model.
+- [ ] Document typed-key extension conventions used for profile payloads.
+- [ ] Add/refresh section for middleware config ownership and validation timing.
+- [ ] Update `geppetto/pkg/doc/topics/09-middlewares.md` with profile-scoped middleware configuration model.
+- [ ] Update `geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md` with operational examples.
+- [ ] Add troubleshooting for hard validation errors (unknown middleware, schema failure).
 
-## Geppetto Documentation
+## Pinocchio and App Docs
 
-- [ ] Update `geppetto` profile topic with registry-first model details.
-- [ ] Update profile topic with extension key conventions and examples.
-- [ ] Update migration playbook with latest command examples.
-- [ ] Add troubleshooting section for common migration failures.
-- [ ] Validate geppetto help-page frontmatter for updated docs.
+- [ ] Add/update Pinocchio help page that documents `/api/chat/profiles` CRUD behavior.
+- [ ] Add endpoint contract section for current-profile selection and default-profile semantics.
+- [ ] Add hard-cutover notes for removed aliases/env vars with replacement guidance.
+- [ ] Add Go-Go-OS integration notes describing reuse of shared profile API handlers.
+- [ ] Document profile switching semantics (per-turn runtime truth vs conversation defaults).
 
-## Pinocchio Documentation
+## Schema API Documentation
 
-- [ ] Add/update pinocchio profile registry help page.
-- [ ] Add migration playbook in pinocchio docs for legacy profile conversion.
-- [ ] Add migration section for removed aliases and renamed symbols.
-- [ ] Add before/after API examples for CRUD and profile selection endpoints.
-- [ ] Validate pinocchio help-page frontmatter and discoverability.
+- [ ] Document middleware schema endpoint contract (`/api/chat/schemas/middlewares`).
+- [ ] Document extension schema endpoint contract (`/api/chat/schemas/extensions`).
+- [ ] Add response examples for frontend form-generation consumers.
+- [ ] Document error model for create/update profile when schema validation fails.
+- [ ] Cross-link schema docs to GP-27 implementation details.
 
-## Third-Party Migration Guidance
+## Release Notes and Cutover Communication
 
-- [ ] Document all removed aliases with replacements in one table.
-- [ ] Document removed compatibility env vars and their replacements.
-- [ ] Provide code snippet migration guide for common third-party usage paths.
-- [ ] Add risk notes for integrations pinned to previous DTO shapes.
-- [ ] Publish transition checklist for downstream maintainers.
+- [ ] Draft hard-cutover release notes for profile registry rollout.
+- [ ] Add explicit breaking-changes section (no soft compatibility mode).
+- [ ] Add operator action checklist (`old behavior -> new behavior -> required action`).
+- [ ] Add compatibility/version floor across geppetto, pinocchio, and go-go-os.
+- [ ] Add rollback and incident-response guidance.
 
-## Release Notes and Communication
+## Verification
 
-- [ ] Draft release notes section for profile registry cutover.
-- [ ] Add explicit breaking-changes section with required actions.
-- [ ] Add upgrade matrix (`old -> new -> action`) for operators.
-- [ ] Add compatibility floor (minimum versions across repos).
-- [ ] Add rollback guidance and known limitations section.
-
-## Validation and QA
-
-- [ ] Run migration command on fixture corpus and capture outputs.
-- [ ] Run migration command on one real legacy file sample.
-- [ ] Start Pinocchio with migrated registry and verify profile CRUD/select flows.
-- [ ] Start Go-Go-OS with migrated registry and verify profile CRUD/select flows.
-- [ ] Verify docs command snippets execute as written.
-- [ ] Capture QA transcript in ticket changelog.
-
-## Operational Artifacts
-
-- [ ] Add concise migration checklist page for on-call/deploy operators.
-- [ ] Add FAQ section for common migration questions.
-- [ ] Add support escalation notes (what logs/files to collect).
-- [ ] Add final sign-off checklist for release approval.
+- [ ] Verify all documented API examples against live endpoints.
+- [ ] Verify all documented CLI/help examples execute as written.
+- [ ] Run manual smoke for profile CRUD + selection in Pinocchio and Go-Go-OS.
+- [ ] Capture validation transcript and commands in changelog.
 
 ## Closeout
 
-- [ ] Run `docmgr doctor` and `docmgr validate frontmatter` for ticket docs.
-- [ ] Ensure changelog includes migration command and docs updates.
-- [ ] Link GP-21..GP-24 completion status in final release summary.
+- [ ] Run `docmgr doctor --ticket GP-25-MIGRATION-DOCS-RELEASE`.
+- [ ] Run `docmgr validate frontmatter` on updated docs as needed.
+- [ ] Ensure final changelog includes docs updates and release-note links.
