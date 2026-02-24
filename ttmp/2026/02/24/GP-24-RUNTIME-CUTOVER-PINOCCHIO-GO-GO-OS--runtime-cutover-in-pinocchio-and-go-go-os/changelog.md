@@ -34,3 +34,18 @@ Advanced GP-24 execution with explicit profile-selection runtime policy tests in
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Added integration test proving in-flight conversation runtime rebuild on selected-profile change.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/tasks.md — Checked completed GP-24 work items.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/design-doc/01-implementation-plan-runtime-cutover-in-pinocchio-and-go-go-os.md — Recorded explicit in-flight conversation policy decision.
+
+## 2026-02-24
+
+Integrated server-confirmed current-profile writes into Go-Go-OS profile selector state flow.
+
+### Verification
+
+- `pnpm exec vitest run src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts` (go-go-os/packages/engine): pass.
+- `pnpm exec tsc -b` (go-go-os/packages/engine): pass.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useSetProfile.ts — `useSetProfile` now calls `setCurrentProfile` and updates local state from server-confirmed slug.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/ChatConversationWindow.tsx — Selector now invokes async server-backed profile selection updates.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts — Added current-profile API decode/request contract test.

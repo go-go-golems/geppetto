@@ -65,3 +65,10 @@ All commands passed.
 - Updated GP-24 task list with completed backend/runtime/profile-selection items.
 - Recorded explicit in-flight policy decision in design doc.
 - Added changelog entry with decisions, verification commands, and related files.
+
+### Step 5 - Go-Go-OS Selector Server Sync
+
+- Updated `useSetProfile` to call `setCurrentProfile` so selector state follows server-confirmed profile slug rather than optimistic local-only updates.
+- Updated `ChatConversationWindow` profile selector callback to invoke async profile writes (`void setProfile(...)`) and preserve current registry context in state.
+- Added/ran frontend runtime tests to lock request/decode contract for current-profile API.
+- Verified `packages/engine` typecheck passes after hook API change.

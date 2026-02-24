@@ -27,7 +27,7 @@
 - [x] Add integration test for selection change affecting next conversation creation.
 - [x] Decide and document policy for in-flight conversations when selected profile changes.
 - [x] Add tests for chosen in-flight conversation policy.
-- [ ] Ensure profile selector UI reflects server-selected profile after write response.
+- [x] Ensure profile selector UI reflects server-selected profile after write response.
 
 ## Go-Go-OS Frontend Integration
 
