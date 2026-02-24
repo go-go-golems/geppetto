@@ -103,3 +103,49 @@ Added Go-Go-OS profile-selector behavior tests for bidirectional switching and p
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/profileSelectorState.ts — Added pure selector-state helpers for selected-profile value and change-target resolution.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/profileSelectorState.test.ts — Added tests covering inventory/default switching, pre-send selection, and stale-selection fallback.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/ChatConversationWindow.tsx — Wired selector UI logic through tested helper functions.
+
+## 2026-02-24
+
+Captured cross-app profile API/runtime parity evidence and added explicit parity fixture specification.
+
+### Verification
+
+- `go test ./cmd/web-chat -run 'TestProfileAPI_CRUDRoutesAreMounted|TestAppOwnedProfileSelection_InFlightConversation_RebuildsRuntime|TestAppOwnedProfileSelection_AffectsNextConversationCreation' -count=1` (pinocchio): pass.
+- `go test ./go-inventory-chat/cmd/hypercard-inventory-server -run 'TestProfileAPI_CRUDRoutesAreMounted|TestProfileE2E_ListSelectChat_RuntimeKeyReflectsSelection|TestProfileE2E_SelectedProfileChange_RebuildsInFlightConversationRuntime' -count=1` (go-go-os): pass.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/sources/01-profile-parity-fixture.yaml — Shared parity fixture specification for profile registry semantics.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/analysis/01-cross-app-profile-api-and-runtime-parity-report.md — Parity report comparing CRUD, profile selection, and runtime marker behavior.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/tasks.md — Checked parity task block complete.
+
+## 2026-02-24
+
+Added invalid-input API coverage, post-cutover troubleshooting guidance, and explicit cutover commit index.
+
+### Verification
+
+- `go test ./cmd/web-chat -run 'TestProfileAPI_InvalidSlugAndRegistry_ReturnBadRequest' -count=1` (pinocchio): pass.
+- `go test ./go-inventory-chat/cmd/hypercard-inventory-server -run 'TestProfileAPI_InvalidSlugAndRegistry_ReturnBadRequest' -count=1` (go-go-os): pass.
+
+### Cutover Commit Index
+
+Pinocchio:
+
+- `673b8ad` — mount shared profile CRUD and verify route contract lifecycle.
+- `cc2b10c` — profile-selection integration tests for next and in-flight conversation behavior.
+- `036a128` — hard-cutover compatibility removal for profile alias fallback in profile API payloads.
+- `3077aa5` — frontend contract decoding + selector reconciliation fixes.
+
+Go-Go-OS:
+
+- `903a5fe` — shared profile CRUD integration and contract checks.
+- `df0a590` — in-flight runtime rebuild integration coverage.
+- `7801932` — selector state synced with server-confirmed current profile response.
+- `8928527` — selector switching tests (inventory/default and pre-send selection) via pure helper module.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go — Added invalid registry/slug API behavior integration test.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Added invalid registry/slug API behavior integration test.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-24-RUNTIME-CUTOVER-PINOCCHIO-GO-GO-OS--runtime-cutover-in-pinocchio-and-go-go-os/design-doc/01-implementation-plan-runtime-cutover-in-pinocchio-and-go-go-os.md — Added post-cutover troubleshooting section with command checklist.

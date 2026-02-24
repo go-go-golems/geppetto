@@ -195,6 +195,33 @@ Rejected: creates immediate divergence and breaks confidence in shared platform 
 2. Do we need profile selection persistence beyond cookie scope (e.g., user/session DB)?
 3. Should Go-Go-OS expose all CRUD verbs in production UI initially or gate create/update/delete behind feature flags?
 
+## Post-Cutover Troubleshooting
+
+Use this checklist when profile selection or runtime behavior appears inconsistent after cutover.
+
+1. Verify endpoint contract first:
+   - `GET /api/chat/profiles`
+   - `GET /api/chat/profile`
+   - `POST /api/chat/profile` with `{"slug":"<valid-slug>"}`
+2. Check current cookie state:
+   - ensure `chat_profile` cookie exists and contains a valid slug.
+3. Validate profile list payload shape:
+   - expected canonical response is a JSON array of profile items,
+   - indexed-object responses are treated as legacy intermediaries and should be removed upstream when found.
+4. Verify runtime marker on websocket hello:
+   - connect `GET /ws?conv_id=<id>`,
+   - inspect first `ws.hello` frame for runtime key marker (`runtimeKey` or `runtime_key`).
+5. If runtime switch seems ignored for an in-flight conversation:
+   - confirm selected profile changed successfully (`POST /api/chat/profile` returned `200`),
+   - send a new `/chat` request with same `conv_id`,
+   - confirm runtime fingerprint changed in logs/tests and websocket marker reflects new profile.
+6. Validate invalid-input behavior:
+   - invalid `registry` query should return `400`,
+   - invalid profile slug on `/api/chat/profile` should return `400`.
+7. Re-run known-good parity checks:
+   - Pinocchio: `go test ./cmd/web-chat -run 'TestProfileAPI_CRUDRoutesAreMounted|TestAppOwnedProfileSelection_InFlightConversation_RebuildsRuntime|TestAppOwnedProfileSelection_AffectsNextConversationCreation|TestProfileAPI_InvalidSlugAndRegistry_ReturnBadRequest' -count=1`
+   - Go-Go-OS: `go test ./go-inventory-chat/cmd/hypercard-inventory-server -run 'TestProfileAPI_CRUDRoutesAreMounted|TestProfileE2E_ListSelectChat_RuntimeKeyReflectsSelection|TestProfileE2E_SelectedProfileChange_RebuildsInFlightConversationRuntime|TestProfileAPI_InvalidSlugAndRegistry_ReturnBadRequest' -count=1`
+
 ## References
 
 - `pinocchio/pkg/webchat/http/profile_api.go`

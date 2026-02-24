@@ -137,3 +137,45 @@ Validation:
 Task impact:
 
 - Completed GP-24 tasks 24 and 25.
+
+### Step 10 - Cross-App Parity Fixture + Report
+
+- Added a shared parity fixture specification under `sources/01-profile-parity-fixture.yaml` to define common semantic baseline (`default`, `inventory`, `analyst`).
+- Added parity analysis doc:
+  - `analysis/01-cross-app-profile-api-and-runtime-parity-report.md`.
+- Executed targeted integration suites in both apps for parity coverage across:
+  - CRUD routes,
+  - current-profile selection flow,
+  - in-flight runtime switch markers.
+
+Commands run:
+
+- `go test ./cmd/web-chat -run 'TestProfileAPI_CRUDRoutesAreMounted|TestAppOwnedProfileSelection_InFlightConversation_RebuildsRuntime|TestAppOwnedProfileSelection_AffectsNextConversationCreation' -count=1` (pinocchio)
+- `go test ./go-inventory-chat/cmd/hypercard-inventory-server -run 'TestProfileAPI_CRUDRoutesAreMounted|TestProfileE2E_ListSelectChat_RuntimeKeyReflectsSelection|TestProfileE2E_SelectedProfileChange_RebuildsInFlightConversationRuntime' -count=1` (go-go-os)
+
+Both passed.
+
+Task impact:
+
+- Completed GP-24 tasks 34, 35, 36, 37, 38.
+
+### Step 11 - Invalid Input Coverage + Troubleshooting Closeout
+
+- Added integration tests in both apps for invalid profile API inputs:
+  - invalid `registry` query parameter on `GET /api/chat/profiles` -> `400`,
+  - invalid `slug` on `POST /api/chat/profile` -> `400`.
+- Added post-cutover troubleshooting checklist to GP-24 design doc, including endpoint, cookie, websocket runtime marker, and parity re-check commands.
+- Added explicit cutover commit index into GP-24 changelog to satisfy release/traceability requirements.
+
+Commands run:
+
+- `go test ./cmd/web-chat -run 'TestProfileAPI_InvalidSlugAndRegistry_ReturnBadRequest' -count=1` (pinocchio)
+- `go test ./go-inventory-chat/cmd/hypercard-inventory-server -run 'TestProfileAPI_InvalidSlugAndRegistry_ReturnBadRequest' -count=1` (go-go-os)
+
+Both passed.
+
+Task impact:
+
+- Completed GP-24 task 43.
+- Completed GP-24 task 44.
+- Completed GP-24 task 45.

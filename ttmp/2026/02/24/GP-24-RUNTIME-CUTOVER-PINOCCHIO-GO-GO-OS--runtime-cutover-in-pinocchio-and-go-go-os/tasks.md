@@ -53,11 +53,11 @@
 
 ## Cross-App Parity Testing
 
-- [ ] Build a parity fixture with same registry/profile set for both apps.
-- [ ] Run same CRUD sequence against both servers and compare responses.
-- [ ] Run same profile selection sequence and compare selected-profile responses.
-- [ ] Run one inference request after profile switch and compare effective runtime markers.
-- [ ] Capture parity report in ticket docs/changelog.
+- [x] Build a parity fixture with same registry/profile set for both apps.
+- [x] Run same CRUD sequence against both servers and compare responses.
+- [x] Run same profile selection sequence and compare selected-profile responses.
+- [x] Run one inference request after profile switch and compare effective runtime markers.
+- [x] Capture parity report in ticket docs/changelog.
 
 ## Manual QA Checklist
 
@@ -65,10 +65,10 @@
 - [x] Start Go-Go-OS inventory server and verify same manual profile flow.
 - [ ] Verify a true `default` profile with no middlewares runs without middleware-specific events.
 - [ ] Verify switching to middleware-enabled profile produces expected middleware events.
-- [ ] Verify error handling for invalid profile slug and invalid registry slug.
+- [x] Verify error handling for invalid profile slug and invalid registry slug.
 
 ## Closeout
 
-- [ ] Update changelog with cutover commits and compatibility removals.
-- [ ] Add post-cutover troubleshooting notes to ticket docs.
+- [x] Update changelog with cutover commits and compatibility removals.
+- [x] Add post-cutover troubleshooting notes to ticket docs.
 - [ ] Confirm downstream teams notified of stable endpoint surface.
