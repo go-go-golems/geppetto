@@ -20,6 +20,8 @@ RelatedFiles:
       Note: |-
         Text marshal/unmarshal slug round-trip and invalid-input coverage.
         Step 1 text marshal/unmarshal regression coverage
+    - Path: pkg/profiles/sqlite_store_test.go
+      Note: Step 4 sqlite store robustness coverage
     - Path: pkg/profiles/types_clone_test.go
       Note: |-
         Clone mutation-isolation coverage for profile and registry models.
@@ -34,12 +36,14 @@ RelatedFiles:
         Step 1 task checklist updates
         Step 2 checklist progress
         Step 3 YAML checklist completion
+        Step 4 sqlite checklist completion
 ExternalSources: []
 Summary: Implementation diary for GP-21 profile registry core work, including commit-level changes, validation outcomes, and review guidance.
-LastUpdated: 2026-02-24T13:29:51-05:00
+LastUpdated: 2026-02-24T13:32:15-05:00
 WhatFor: Track each implementation step for GP-21 with exact commands, outcomes, and follow-ups.
 WhenToUse: Use when reviewing what was implemented for GP-21 and how to reproduce verification.
 ---
+
 
 
 
@@ -310,6 +314,84 @@ go test ./pkg/profiles/... -count=1
 
 - Added close-guard assertions across all public YAML store methods to ensure `ensureOpen` contract remains enforced.
 - Added reload parity checks across two registries (`default`, `team`) to confirm cross-registry serialization integrity.
+
+## Step 4: SQLite Store Robustness Coverage
+
+This step completed the SQLite persistence checklist for GP-21. I added tests for migration idempotency, malformed payload and slug-mismatch detection at load time, CRUD persistence across reopen cycles, delete-persistence behavior, and post-close method guards.
+
+The scope intentionally mirrored the YAML robustness matrix so behavior guarantees remain consistent across store backends.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue task-by-task execution with commit-level checkpoints and detailed diary updates.
+
+**Inferred user intent:** Verify SQLite durability and error handling before relying on registry storage in production workflows.
+
+**Commit (code):** `160c8b785990b1503f19c25feb2b6985072892fe` — "profiles: expand sqlite store resilience tests for GP-21 step 4"
+
+### What I did
+
+- Extended `geppetto/pkg/profiles/sqlite_store_test.go` with tests for:
+  - migration idempotency (`store.migrate()` repeated calls),
+  - malformed JSON payload row handling,
+  - row slug vs payload slug mismatch rejection,
+  - CRUD persistence after reopen,
+  - delete profile persistence updating registry row/default slug state,
+  - close idempotency + post-close operation guard checks across all public methods.
+- Updated GP-21 checklist to mark all `Persistence: SQLite Store` tasks complete.
+
+### Why
+
+- SQLite is the durable backend used for production profile registries; load-time corruption checks and reopen parity are critical.
+- Close-state guard behavior needs explicit assertions to avoid hidden nil-pointer/closed-db runtime failures.
+
+### What worked
+
+- All new SQLite tests passed after one assertion refinement.
+- Full pre-commit pipeline passed (`go test ./...`, lint, vet, generate, build).
+- SQLite task section is now fully complete in ticket checklist.
+
+### What didn't work
+
+- Initial malformed-payload assertion expected `"invalid"` substring only, but runtime error surfaced as `"unexpected end of JSON input"`.
+- Assertion was broadened to accept equivalent JSON parse-failure indicators (`json`, `unexpected`, or `invalid`) while still enforcing failure clarity.
+
+### What I learned
+
+- Defensive load behavior in `loadFromDB` is strong and catches both payload malformed JSON and row/payload slug mismatches.
+- Delete-profile persistence semantics include clearing default profile slug when deleting the current default, and this now survives reopen checks.
+
+### What was tricky to build
+
+- Crafting realistic malformed-row scenarios required bypassing normal service/store write paths and inserting raw rows directly using `database/sql`.
+- The challenge was ensuring failure-mode tests stayed deterministic without overfitting to one exact parser error string.
+
+### What warrants a second pair of eyes
+
+- Review whether malformed-payload error assertions should remain flexible or if we want stricter wrapped error contracts in store implementation.
+- Verify that direct `store.migrate()` coverage is acceptable as an internal-behavior test.
+
+### What should be done in the future
+
+- Next: metadata/versioning invariants and integration baseline parity tests across memory/YAML/SQLite service behavior.
+
+### Code review instructions
+
+- Review new SQLite tests in `geppetto/pkg/profiles/sqlite_store_test.go`.
+- Check that each test maps directly to one checklist item in the SQLite section.
+- Validate with:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Added raw-row fixture setup with `database/sql` for malformed/mismatch load-path tests.
+- Added close-guard matrix to validate all public `SQLiteProfileStore` methods fail cleanly after close.
 
 ## Usage Examples
 
