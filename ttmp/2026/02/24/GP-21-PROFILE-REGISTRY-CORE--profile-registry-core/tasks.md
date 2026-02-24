@@ -32,11 +32,11 @@
 
 ## Persistence: YAML Store
 
-- [ ] Add tests for missing YAML file initialization behavior.
-- [ ] Add tests for YAML parse failure surfacing and error clarity.
-- [ ] Add tests for write-then-reload parity with multiple registries.
-- [ ] Add tests for atomic temp-file rename behavior (no partial final file).
-- [ ] Add tests for close-state behavior (`ensureOpen`).
+- [x] Add tests for missing YAML file initialization behavior.
+- [x] Add tests for YAML parse failure surfacing and error clarity.
+- [x] Add tests for write-then-reload parity with multiple registries.
+- [x] Add tests for atomic temp-file rename behavior (no partial final file).
+- [x] Add tests for close-state behavior (`ensureOpen`).
 
 ## Persistence: SQLite Store
 
