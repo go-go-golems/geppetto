@@ -76,3 +76,58 @@ Step 5 completed: Pinocchio shared CRUD API contract updated for extensions, det
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go — Added extensions in list/get/create/patch DTOs and deterministic list sorting
 - ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked CRUD API contract checklist complete
 
+
+## 2026-02-24
+
+Step 6 completed: shared profile CRUD route reuse validated across Pinocchio and Go-Go-OS with full integration lifecycle and response-shape contract assertions (commits 673b8ad, 903a5fe).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go — Mounted shared package handlers in integration server and added CRUD lifecycle contract test
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Expanded mounted CRUD integration test to cover create/get/patch/delete/default with contract-key assertions
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked shared-route reuse checklist complete
+
+
+## 2026-02-24
+
+Step 7 completed: Go-Go-OS frontend profile client now decodes/guards extension-aware API payloads and hardens selector fallback behavior after CRUD/default changes (commit cb20eff).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.ts — Added runtime decoders for list/document/current-profile payloads with extension map handling and malformed-payload errors
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts — Added list/create/update/default decoder coverage including indexed-object fallback parsing
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileTypes.ts — Added extension fields on list/document types
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useProfiles.ts — Added deterministic selection resolution helper for CRUD/default-switch refreshes
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useProfiles.test.ts — Added profile selection fallback regression tests
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked frontend integration checklist complete
+
+
+## 2026-02-24
+
+Step 8 completed: ticket documentation expanded with extension naming/versioning conventions, CRUD examples, starter-suggestions extension contract, and extension validation error semantics.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md — Added implementation-facing conventions, payload examples, and error mapping details
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked documentation checklist complete
+
+
+## 2026-02-24
+
+Step 9 verification completed: release-readiness checks passed for Go backend packages, Go-Go-OS frontend runtime tests, and manual end-to-end HTTP smoke flow.
+
+### Verification Commands
+
+- `go test ./pkg/profiles/... -count=1` (geppetto) -> pass
+- `go test ./cmd/web-chat ./pkg/webchat/... -count=1` (pinocchio) -> pass
+- `npm run test -w packages/engine -- src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts src/chat/runtime/http.test.ts src/chat/state/profileSlice.test.ts src/chat/state/selectors.test.ts` (go-go-os) -> pass
+- Manual smoke against running `hypercard-inventory-server`:
+  - `GET /api/chat/profiles?registry=default` -> `200`
+  - `POST /api/chat/profiles` (create `smokeops`) -> `201`
+  - `POST /api/chat/profiles/smokeops/default?registry=default` -> `200`
+  - `POST /api/chat/profile` (select `smokeops`) -> `200`
+  - `POST /chat` (prompt with selected profile cookie) -> `200`
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked release-readiness checklist complete

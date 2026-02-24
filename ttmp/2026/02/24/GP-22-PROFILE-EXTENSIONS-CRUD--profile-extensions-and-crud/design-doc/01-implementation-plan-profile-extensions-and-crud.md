@@ -189,6 +189,134 @@ This enables UI features like starter suggestions without app-side forked endpoi
 5. Response shape is normalized around arrays and explicit objects (no map-index JSON artifacts).
 6. Registry-level `extensions` is deferred in GP-22; this ticket standardizes only profile-level `extensions` until a concrete registry-scope use case is implemented.
 
+## Extension Key Conventions
+
+Extension keys follow this canonical grammar:
+
+```text
+<namespace>.<feature>@v<major>
+```
+
+Examples:
+
+- `webchat.starter_suggestions@v1`
+- `inventory.ui_hints@v2`
+- `acme.routing_rules@v1`
+
+Rules:
+
+1. `namespace` identifies ownership (team/product/system boundary).
+2. `feature` identifies one coherent payload contract.
+3. `@vN` is required and must increment on breaking schema changes.
+4. Producers should write canonical lowercase keys; service normalization canonicalizes case where supported.
+5. Never reuse the same key/version for incompatible payload shapes.
+
+Versioning guidance:
+
+- Backward-compatible additive fields: keep the same `@vN`.
+- Breaking structural or semantic changes: publish `@vN+1`.
+- During migrations, both old and new versions may coexist in one profile `extensions` map.
+
+## CRUD API Examples with Extension Payloads
+
+Create profile with extensions:
+
+```http
+POST /api/chat/profiles
+Content-Type: application/json
+
+{
+  "registry": "default",
+  "slug": "analyst",
+  "display_name": "Analyst",
+  "runtime": {
+    "system_prompt": "You are an analyst"
+  },
+  "extensions": {
+    "webchat.starter_suggestions@v1": {
+      "items": [
+        "Summarize top SKUs by movement",
+        "Show low-stock items"
+      ]
+    }
+  },
+  "set_default": true
+}
+```
+
+Patch profile extensions:
+
+```http
+PATCH /api/chat/profiles/analyst
+Content-Type: application/json
+
+{
+  "expected_version": 1,
+  "extensions": {
+    "webchat.starter_suggestions@v1": {
+      "items": [
+        "Highlight urgent replenishment actions"
+      ]
+    }
+  }
+}
+```
+
+List response shape (array, deterministic slug order):
+
+```json
+[
+  {
+    "slug": "analyst",
+    "display_name": "Analyst",
+    "default_prompt": "You are an analyst",
+    "extensions": {
+      "webchat.starter_suggestions@v1": {
+        "items": ["Highlight urgent replenishment actions"]
+      }
+    },
+    "is_default": true,
+    "version": 2
+  }
+]
+```
+
+## Starter Suggestions Extension Contract
+
+Reference payload:
+
+```json
+{
+  "webchat.starter_suggestions@v1": {
+    "items": [
+      "Show low-stock products",
+      "List stale inventory older than 90 days",
+      "Summarize restock priorities for this week"
+    ]
+  }
+}
+```
+
+UI contract expectations:
+
+1. `items` is an ordered list of suggestion strings.
+2. Empty or missing `items` means "no starter suggestions".
+3. Unknown additional fields are ignored by UI consumers unless explicitly supported.
+4. UI should prefer assistant-generated suggestion entities when present; fallback to profile starter suggestions only when conversation has no richer suggestions.
+
+## Error Semantics for Extension Validation
+
+Extension validation errors map to the existing profile error taxonomy:
+
+1. Invalid extension key syntax (for example `bad key`) -> `ErrValidation` -> HTTP `400`.
+2. Known extension key with codec decode failure -> `ErrValidation` -> HTTP `400`.
+3. Non-serializable payload values at service boundary -> `ErrValidation` -> HTTP `400`.
+4. Missing registry/profile -> HTTP `404`.
+5. Version conflict during patch/delete -> HTTP `409`.
+6. Read-only/policy violations -> HTTP `403`.
+
+Expected error-body shape remains plain text for now (stable status/message contract), with field-path context retained in service-layer `ValidationError` for logs/tests.
+
 ## Alternatives Considered
 
 ### A. Add dedicated first-class fields for every new app feature

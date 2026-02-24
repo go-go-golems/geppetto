@@ -53,31 +53,31 @@
 
 ## Shared Route Reuse Across Apps
 
-- [ ] Confirm Pinocchio web-chat mounts shared CRUD handlers only via package API.
-- [ ] Mount the same shared CRUD handlers in Go-Go-OS inventory server.
-- [ ] Ensure Go-Go-OS mount uses same registry selection semantics as Pinocchio.
-- [ ] Add integration test in Go-Go-OS server for CRUD list/get/create/update/delete/default endpoints.
-- [ ] Add integration test in Pinocchio web-chat for equivalent endpoint behavior.
-- [ ] Add contract comparison test to catch cross-app response-shape drift.
+- [x] Confirm Pinocchio web-chat mounts shared CRUD handlers only via package API.
+- [x] Mount the same shared CRUD handlers in Go-Go-OS inventory server.
+- [x] Ensure Go-Go-OS mount uses same registry selection semantics as Pinocchio.
+- [x] Add integration test in Go-Go-OS server for CRUD list/get/create/update/delete/default endpoints.
+- [x] Add integration test in Pinocchio web-chat for equivalent endpoint behavior.
+- [x] Add contract comparison test to catch cross-app response-shape drift.
 
 ## Frontend Client Integration
 
-- [ ] Update Go-Go-OS `profileApi.ts` types to include `extensions`.
-- [ ] Add TS runtime decoder guards for extension payload presence/absence.
-- [ ] Add TS tests for list response parsing with multiple profiles.
-- [ ] Add TS tests for create/update responses with extension payloads.
-- [ ] Validate profile selector behavior after CRUD writes and default switch.
+- [x] Update Go-Go-OS `profileApi.ts` types to include `extensions`.
+- [x] Add TS runtime decoder guards for extension payload presence/absence.
+- [x] Add TS tests for list response parsing with multiple profiles.
+- [x] Add TS tests for create/update responses with extension payloads.
+- [x] Validate profile selector behavior after CRUD writes and default switch.
 
 ## Documentation
 
-- [ ] Document extension key naming/versioning conventions in ticket docs.
-- [ ] Add profile CRUD API examples with extension payloads.
-- [ ] Add starter-suggestions extension example payload and expected UI contract.
-- [ ] Document error semantics for extension validation failures.
+- [x] Document extension key naming/versioning conventions in ticket docs.
+- [x] Add profile CRUD API examples with extension payloads.
+- [x] Add starter-suggestions extension example payload and expected UI contract.
+- [x] Document error semantics for extension validation failures.
 
 ## Release Readiness
 
-- [ ] Run `go test ./...` for geppetto profiles and pinocchio webchat packages.
-- [ ] Run Go-Go-OS tests for profile API client and chat runtime slices.
-- [ ] Execute manual smoke: create profile -> set default -> select profile -> send message.
-- [ ] Record verification output in ticket changelog before close.
+- [x] Run `go test ./...` for geppetto profiles and pinocchio webchat packages.
+- [x] Run Go-Go-OS tests for profile API client and chat runtime slices.
+- [x] Execute manual smoke: create profile -> set default -> select profile -> send message.
+- [x] Record verification output in ticket changelog before close.

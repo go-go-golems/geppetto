@@ -12,6 +12,20 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go
+      Note: Step 6 shared CRUD lifecycle and response-shape contract checks
+    - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts
+      Note: Step 7 frontend parser and malformed payload regression coverage
+    - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/profileApi.ts
+      Note: Step 7 runtime decoders and extension-aware payload guards
+    - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/profileTypes.ts
+      Note: Step 7 extension fields on frontend profile contracts
+    - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/useProfiles.test.ts
+      Note: Step 7 selection fallback regression tests
+    - Path: ../../../../../../../go-go-os/packages/engine/src/chat/runtime/useProfiles.ts
+      Note: Step 7 selection fallback helper after CRUD/default changes
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app_owned_chat_integration_test.go
+      Note: Step 6 shared CRUD integration lifecycle and contract assertions
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
       Note: |-
         Step 5 extension-aware CRUD endpoint and status mapping tests
@@ -54,19 +68,26 @@ RelatedFiles:
       Note: Step 3 extension-key syntax and payload serializability validation.
     - Path: pkg/profiles/validation_test.go
       Note: Step 3 extension validation field-path assertions.
+    - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/changelog.md
+      Note: Step 8-9 completion and verification evidence
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md
-      Note: Step 1 scope decision to defer registry-level extensions in GP-22.
+      Note: |-
+        Step 1 scope decision to defer registry-level extensions in GP-22.
+        Step 8 extension conventions
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md
       Note: |-
         Step 1-4 checklist progress.
         Step 4 checklist progress
         Step 5 CRUD API contract checklist progress
+        Step 6-9 checklist completion
 ExternalSources: []
 Summary: Implementation diary for GP-22 profile extension and CRUD rollout, including commit checkpoints, failures, and validation commands.
 LastUpdated: 2026-02-24T15:09:00-05:00
 WhatFor: Track GP-22 task-by-task implementation details and verification evidence.
 WhenToUse: Use when reviewing what landed in GP-22 and how to validate each step.
 ---
+
+
 
 
 
@@ -506,6 +527,318 @@ go test ./cmd/web-chat -count=1
   - `GET /api/chat/profiles` list items,
   - `GET /api/chat/profiles/{slug}` profile document.
 - List endpoint enforces deterministic ordering via `sort.Slice` by profile slug before encoding JSON response.
+
+## Step 6: Shared CRUD Route Reuse Across Pinocchio and Go-Go-OS
+
+This step completed the cross-application route-reuse phase by validating that both servers rely on the shared `pinocchio/pkg/webchat/http` profile CRUD package surface and by expanding integration tests to cover full lifecycle semantics.
+
+The implementation specifically added full create/get/patch/delete/default lifecycle assertions and response-key contract checks so drift is caught if either app diverges from the shared API contract.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 and execute the next open task block with commits and diary updates.
+
+**Inferred user intent:** Finish integration across both apps so profile CRUD behavior is reusable and stable.
+
+**Commit (code):** `673b8ad` — "webchat: mount shared profile CRUD in integration server and verify contract lifecycle"  
+**Commit (code):** `903a5fe` — "inventory-chat: expand shared profile CRUD integration and contract checks"
+
+### What I did
+
+- Updated `/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`:
+  - mounted `registerProfileAPIHandlers(...)` in integration server setup,
+  - added full profile CRUD lifecycle integration test with extension payloads,
+  - added allowed-key contract assertions for list items and profile documents.
+- Updated `/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`:
+  - expanded mounted CRUD test from list/create/get to full lifecycle including patch/default/delete,
+  - added extension key normalization and metadata-version checks,
+  - added allowed-key contract assertions to detect response-shape drift.
+- Resolved compile issue by importing the correct plz-confirm proto package path:
+  - `github.com/go-go-golems/plz-confirm/proto/generated/go/plz_confirm/v1`.
+- Ran validations:
+  - `go test ./cmd/web-chat -count=1` (pinocchio),
+  - `go test ./cmd/hypercard-inventory-server -count=1` (go-go-os).
+
+### Why
+
+- Route-reuse confidence requires app-level integration coverage, not only package-level handler tests.
+- Contract-key assertions prevent accidental API drift across apps even if handlers evolve.
+
+### What worked
+
+- Both app integration suites passed with full lifecycle profile operations.
+- Shared handler mounting in Pinocchio app-owned integration now mirrors Go-Go-OS setup.
+
+### What didn't work
+
+- First Go-Go-OS test run failed due missing imports in the integration test file (`undefined: plzconfirmbackend`, `undefined: v1`, `undefined: protojson`).
+- Second run failed with wrong proto import path (`no required module provides package .../proto/gen/go/golem/plzconfirm/v1`).
+- Fixed by restoring imports and using `.../proto/generated/go/plz_confirm/v1`.
+
+### What I learned
+
+- Some pre-existing test helpers had hidden dependency on plz-confirm proto package naming conventions; relying on `go list` was the fastest way to recover the correct import path.
+- Contract-key checks are lightweight and immediately useful for guarding route reuse.
+
+### What was tricky to build
+
+- The subtle part was distinguishing real regressions from pre-existing integration test import drift in Go-Go-OS. The symptoms looked like new breakage, but root cause was stale/missing imports in the current branch state. Using iterative compile feedback plus module package discovery resolved it cleanly.
+
+### What warrants a second pair of eyes
+
+- Confirm the chosen contract-key allowlists are strict enough (and not overly permissive) for long-term API compatibility guarantees.
+
+### What should be done in the future
+
+- Proceed to frontend runtime client integration and selector-behavior hardening (Step 7).
+
+### Code review instructions
+
+- Start with `/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`.
+- Then review `/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat
+go test ./cmd/hypercard-inventory-server -count=1
+```
+
+### Technical details
+
+- Shared CRUD route mounting remains package-driven in both apps:
+  - Pinocchio: app wrapper `registerProfileAPIHandlers(...)` delegates to `webhttp.RegisterProfileAPIHandlers(...)`.
+  - Go-Go-OS: direct call to `webhttp.RegisterProfileAPIHandlers(...)`.
+
+## Step 7: Go-Go-OS Frontend Profile Client Decoder and Selector Hardening
+
+This step completed the frontend integration block by adding extension-aware typing, runtime payload decoders, and regression tests for both API parsing and profile selection fallback behavior.
+
+The result is a safer frontend boundary: malformed profile payloads now fail loudly with `ChatProfileApiError`, indexed-object legacy list payloads are normalized, and selection fallback works after CRUD/delete/default updates.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 and implement the frontend client integration task set.
+
+**Inferred user intent:** Ensure UI-level profile operations are robust against payload shape issues and profile lifecycle changes.
+
+**Commit (code):** `cb20eff` — "engine: decode profile extension payloads and harden selection refresh"
+
+### What I did
+
+- Updated `/go-go-os/packages/engine/src/chat/runtime/profileTypes.ts`:
+  - added `extensions?: Record<string, unknown>` on list/document types.
+- Reworked `/go-go-os/packages/engine/src/chat/runtime/profileApi.ts`:
+  - added runtime decoders for list items, profile documents, and current-profile payloads,
+  - added indexed-object (`{"0": {...}}`) list fallback coercion,
+  - added malformed payload errors as `ChatProfileApiError`,
+  - enforced extension map cloning and optional-field decoding.
+- Expanded `/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts`:
+  - multiple-profile list parse coverage,
+  - indexed-object legacy parse coverage,
+  - create/update/set-default extension-aware decode coverage,
+  - malformed payload error coverage.
+- Updated `/go-go-os/packages/engine/src/chat/runtime/useProfiles.ts`:
+  - added exported selection resolver helper,
+  - fallback now handles deleted profiles and default switch scenarios.
+- Added `/go-go-os/packages/engine/src/chat/runtime/useProfiles.test.ts`:
+  - tests for no-selection defaulting, stable selection, CRUD-deletion fallback, and empty-registry clearing.
+- Ran validations:
+  - `npm run test -w packages/engine -- src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts`,
+  - `npm run build -w packages/engine`.
+
+### Why
+
+- UI regressions around profile selection and list payload shape were previously easy to miss.
+- Runtime decoders provide strong boundary checks instead of implicit trust in transport payloads.
+
+### What worked
+
+- All new vitest and TypeScript build checks passed.
+- Decoder behavior now normalizes both canonical array payloads and indexed-object legacy payloads.
+
+### What didn't work
+
+- No additional failures after Step 6 import-path fixes.
+
+### What I learned
+
+- Extracting selection resolution into a pure helper made behavior testable without React hook harness overhead.
+- Strict decoder checks are practical and improve debugging when backend/proxy responses drift.
+
+### What was tricky to build
+
+- The key design balance was strictness versus resilience: list payloads are now strict by default but still tolerate indexed-object intermediary responses that were observed during integration.
+
+### What warrants a second pair of eyes
+
+- Confirm `invalid payload` error messages are sufficient for UI diagnostics in production logs.
+- Confirm fallback selection behavior is aligned with expected UX when a selected profile is deleted remotely.
+
+### What should be done in the future
+
+- Move to GP-22 documentation and release-readiness verification tasks.
+
+### Code review instructions
+
+- Review `/go-go-os/packages/engine/src/chat/runtime/profileApi.ts` decoders first.
+- Review `/go-go-os/packages/engine/src/chat/runtime/useProfiles.ts` selection resolver.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os
+npm run test -w packages/engine -- src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts
+npm run build -w packages/engine
+```
+
+### Technical details
+
+- Decoder contract checks enforce:
+  - list item requires `slug`,
+  - document requires `registry`, `slug`, and `is_default`,
+  - current profile requires `slug`,
+  - extension payloads are accepted only when object-shaped.
+
+## Step 8: Documentation Completion for Extension Contract
+
+This step completed the documentation task block by expanding the GP-22 design doc with concrete extension-key rules, end-to-end CRUD payload examples, starter-suggestions extension shape, and explicit error semantics.
+
+The main goal was to make implementation and onboarding unambiguous for new contributors while aligning docs with the behavior already enforced in code and tests.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 and finish the remaining documentation checklist.
+
+**Inferred user intent:** Ensure the profile extension system is documented as an operational contract, not only as code.
+
+### What I did
+
+- Updated `/geppetto/ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md` with:
+  - extension key naming/versioning conventions (`namespace.feature@vN`),
+  - create/patch/list API examples with `extensions`,
+  - starter-suggestions extension payload and UI expectations,
+  - extension validation/error status mapping semantics.
+- Updated `/geppetto/ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md` to mark all documentation checklist items complete.
+
+### Why
+
+- Extension metadata is intentionally generic; without a documented contract, teams will diverge quickly on key naming and payload shape.
+- API examples reduce integration guesswork for frontend and third-party consumers.
+
+### What worked
+
+- Documentation now matches the implemented API and validation behaviors across Geppetto/Pinocchio/Go-Go-OS.
+
+### What didn't work
+
+- No failures in this step.
+
+### What I learned
+
+- Explicitly documenting versioning strategy (`@vN`) in the design doc is critical for long-term extension evolution.
+
+### What was tricky to build
+
+- The hard part was keeping docs precise without overcommitting on future GP-23 schema machinery. The solution was to document current behavior and leave advanced schema orchestration out of GP-22 scope.
+
+### What warrants a second pair of eyes
+
+- Confirm wording around status mappings (400/403/404/409) matches the desired external API documentation style.
+
+### What should be done in the future
+
+- Execute and record final release-readiness checks before closing GP-22.
+
+### Code review instructions
+
+- Review `/geppetto/ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md` new sections:
+  - `Extension Key Conventions`
+  - `CRUD API Examples with Extension Payloads`
+  - `Starter Suggestions Extension Contract`
+  - `Error Semantics for Extension Validation`
+
+### Technical details
+
+- Documentation intentionally records canonical lowercase key examples and version increment rules for breaking changes.
+
+## Step 9: Release-Readiness Verification and Manual Smoke
+
+This step ran the GP-22 verification matrix and recorded outcomes: backend tests, frontend runtime tests, and a real HTTP smoke flow against a running inventory server.
+
+The smoke flow covered the requested user journey: create profile, set default, select profile, and send a chat message with selected-profile cookie context.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 and finish remaining verification/release-readiness tasks.
+
+**Inferred user intent:** Ensure the delivered feature set is operationally validated before ticket close.
+
+### What I did
+
+- Ran Go verification:
+  - `go test ./pkg/profiles/... -count=1` (geppetto),
+  - `go test ./cmd/web-chat ./pkg/webchat/... -count=1` (pinocchio).
+- Ran Go-Go-OS frontend/runtime verification:
+  - `npm run test -w packages/engine -- src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts src/chat/runtime/http.test.ts src/chat/state/profileSlice.test.ts src/chat/state/selectors.test.ts`.
+- Executed manual HTTP smoke by running:
+  - `go run ./cmd/hypercard-inventory-server hypercard-inventory-server --addr :18091`
+  - then invoking:
+    - `GET /api/chat/profiles?registry=default`,
+    - `POST /api/chat/profiles` (create `smokeops`),
+    - `POST /api/chat/profiles/smokeops/default?registry=default`,
+    - `POST /api/chat/profile` (select `smokeops`),
+    - `POST /chat` with profile cookie.
+- Recorded all command outcomes/status codes in changelog.
+- Marked release-readiness tasks complete in `tasks.md`.
+
+### Why
+
+- Passing unit/integration tests alone is not enough; this ticket needed proof of end-to-end API behavior under a running server process.
+
+### What worked
+
+- All verification commands passed.
+- Manual smoke returned expected statuses (`200/201`) and produced a started chat turn response with IDs.
+
+### What didn't work
+
+- First smoke attempt failed because I started the binary with root-level flag syntax (`--addr`) instead of subcommand invocation. Error: `unknown flag: --addr`.
+- Fixed by running the actual command form: `hypercard-inventory-server hypercard-inventory-server --addr :18091`.
+
+### What I learned
+
+- This CLI is command-group based; smoke automation should always invoke the explicit subcommand to avoid flag-scope confusion.
+
+### What was tricky to build
+
+- The tricky part was reliable process readiness in the shell smoke script. I used a readiness loop on the profile list endpoint before issuing CRUD/chat calls, which stabilized the smoke flow.
+
+### What warrants a second pair of eyes
+
+- Confirm whether smoke scripts should also assert websocket runtime-key behavior as part of close criteria, or keep that covered only by integration tests.
+
+### What should be done in the future
+
+- GP-22 is ready for close once final reviewer signoff confirms no additional migration/documentation items are required.
+
+### Code review instructions
+
+- Review changelog Step 9 verification section for exact command outputs/statuses.
+- Re-run smoke manually with the same command sequence if needed.
+
+### Technical details
+
+- Smoke response bodies included extension payload round-trip on create/default endpoints and returned `status: started` from `/chat`, confirming profile selection/cookie flow was accepted by the server.
 
 ## Related
 
