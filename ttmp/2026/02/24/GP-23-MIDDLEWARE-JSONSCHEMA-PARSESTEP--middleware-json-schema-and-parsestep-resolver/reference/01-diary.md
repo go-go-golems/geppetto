@@ -22,6 +22,10 @@ RelatedFiles:
       Note: Step 2 schema defaults
     - Path: pkg/inference/middlewarecfg/resolver_test.go
       Note: Step 2 precedence/default/coercion/path-ordering resolver coverage
+    - Path: pkg/inference/middlewarecfg/chain.go
+      Note: Step 4 BuildChain integration for resolved middleware instances
+    - Path: pkg/inference/middlewarecfg/chain_test.go
+      Note: Step 4 BuildChain ordering/disabled/error diagnostics coverage
     - Path: pkg/inference/middlewarecfg/source.go
       Note: Step 2 layered source contract and canonical precedence ordering
     - Path: pkg/profiles/service.go
@@ -38,7 +42,7 @@ RelatedFiles:
       Note: Step 1 middleware instance validation regressions
 ExternalSources: []
 Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
-LastUpdated: 2026-02-24T16:35:00-05:00
+LastUpdated: 2026-02-24T16:54:00-05:00
 WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
 WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
 ---
@@ -324,6 +328,95 @@ go test ./pkg/inference/middlewarecfg -count=1
   - schema-fragment metadata for diagnostics.
 - `LatestValue` resolves from trace first, then falls back to `PathValues`.
 
+## Step 4: BuildChain Integration for Resolved Instances
+
+This step connected resolver outputs to runtime middleware instantiation by adding a chain builder that consumes resolved instances, skips disabled entries, preserves deterministic input order, and emits instance-keyed diagnostics.
+
+The scope intentionally stayed inside `middlewarecfg` so Pinocchio and Go-Go-OS can adopt the same primitive in subsequent integration phases.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 tasks immediately after ParseStep completion.
+
+**Inferred user intent:** Keep shipping incremental, test-backed slices and maintain detailed implementation diary records.
+
+### What I did
+
+- Added `pkg/inference/middlewarecfg/chain.go`:
+  - `ResolvedInstance` model for build input (`use`, `resolved`, `definition`, optional key),
+  - `MiddlewareInstanceKey(use, index)` helper for stable diagnostics,
+  - `MiddlewareUseIsEnabled(use)` helper for tri-state enablement semantics,
+  - `BuildChain(ctx, deps, resolved)` function.
+- `BuildChain` behavior implemented:
+  - validates `ctx` is non-nil,
+  - iterates instances in given order,
+  - skips instances where `enabled=false`,
+  - calls `Definition.Build` with resolved config payload,
+  - fails fast on nil definitions, nil built middleware, or build errors.
+- Error messages now include middleware instance key (`name#id` or fallback `name[index]`) for direct diagnostics.
+- Added `pkg/inference/middlewarecfg/chain_test.go`:
+  - disabled middleware skipping behavior,
+  - stable build order from resolved input list,
+  - error diagnostics include instance key and wrapped cause,
+  - repeated middleware name with unique IDs builds successfully in order,
+  - key formatting helper behavior.
+- Marked Build Chain Integration checklist complete in `tasks.md`.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`.
+
+### Why
+
+- GP-23 runtime cutover needs one reusable primitive that turns resolved middleware configs into executable middleware chain entries without app-local ad-hoc loops.
+- Instance-keyed errors are required for multi-instance middleware setups where names repeat.
+
+### What worked
+
+- BuildChain and tests passed on first pass after gofmt.
+- Existing resolver tests remained green, confirming no regression to earlier steps.
+
+### What didn't work
+
+- No runtime or compile blockers in this step.
+
+### What I learned
+
+- Keeping enabled/disabled semantics in a dedicated helper (`MiddlewareUseIsEnabled`) avoids duplicating tri-state logic during later runtime composer integrations.
+
+### What was tricky to build
+
+- Guaranteeing diagnostics remain stable when callers do not provide explicit keys required a deterministic fallback key format derived from `use` + list index.
+
+### What warrants a second pair of eyes
+
+- Confirm whether `BuildChain` should pass a cloned dependency map per instance (`deps.Clone()`, current behavior) or shared map for middlewares that intentionally mutate dependency state.
+
+### What should be done in the future
+
+- Integrate Pinocchio runtime composer with resolver + BuildChain primitives and remove ad-hoc middleware override parsing.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/chain.go`
+  - `pkg/inference/middlewarecfg/chain_test.go`
+  - `ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+```
+
+### Technical details
+
+- `BuildChain` preserves input ordering as execution ordering contract for requested middleware instances.
+- Disabled instances (`enabled=false`) are skipped without invoking `Definition.Build`.
+- Build errors are emitted as:
+  - `build middleware <instance-key>: <wrapped cause>`
+  so logs immediately identify which instance failed.
+
 ## Usage Examples
 
 Use this diary entry when reviewing GP-23 commits to understand:
@@ -331,6 +424,7 @@ Use this diary entry when reviewing GP-23 commits to understand:
 - which resolver contracts and data models are already in place,
 - how source precedence/defaulting/coercion currently behaves,
 - how parse-step history and winning-value lookups are exposed,
+- how resolved instances are converted into executable middleware chains,
 - which validations are already covered by tests.
 
 ## Related

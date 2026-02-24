@@ -38,11 +38,11 @@
 
 ## Build Chain Integration
 
-- [ ] Implement `BuildChain` that converts resolved instances to middleware chain.
-- [ ] Skip disabled middleware instances in chain build.
-- [ ] Ensure stable middleware execution order from resolved list.
-- [ ] Include instance key in build errors for diagnostics.
-- [ ] Add tests for repeated middleware name with unique IDs.
+- [x] Implement `BuildChain` that converts resolved instances to middleware chain.
+- [x] Skip disabled middleware instances in chain build.
+- [x] Ensure stable middleware execution order from resolved list.
+- [x] Include instance key in build errors for diagnostics.
+- [x] Add tests for repeated middleware name with unique IDs.
 
 ## Pinocchio Integration
 

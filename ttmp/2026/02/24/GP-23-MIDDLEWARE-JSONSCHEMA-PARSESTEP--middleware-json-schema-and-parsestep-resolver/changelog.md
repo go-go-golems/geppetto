@@ -54,3 +54,15 @@ Step 3 completed: ParseStep provenance landed with per-path trace history, raw/c
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/resolver_test.go — Added provenance ordering and coercion visibility tests
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked ParseStep Provenance checklist complete
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 3 diary entry and verification details
+
+
+## 2026-02-24
+
+Step 4 completed: BuildChain integration landed for resolved middleware instances, including disabled-instance skipping, stable order preservation, instance-keyed build diagnostics, and repeated-name/unique-ID regression coverage.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/chain.go — Added `ResolvedInstance`, `BuildChain`, and instance key/enablement helpers
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/chain_test.go — Added chain build ordering/skip/error/repeated-name tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked Build Chain Integration checklist complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 4 diary entry and review instructions
