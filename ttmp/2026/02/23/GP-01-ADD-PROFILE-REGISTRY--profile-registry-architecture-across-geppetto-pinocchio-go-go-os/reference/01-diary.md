@@ -2493,3 +2493,80 @@ go test ./pkg/doc
 - Default write behavior:
   - non-in-place: writes `<input>.registry.yaml`
   - in-place: writes input file, optional backup `<input>.bak`
+
+## Step 29: Closed Remaining Documentation Tasks and Aligned Final Rollout/Ops Guidance
+
+This step completed the remaining documentation backlog for GP-01 and reconciled stale wording from earlier migration phases. I added dedicated ticket docs for Phase 0 guardrails and DB/release operations, then propagated key operational clarifications into first-party Geppetto and Pinocchio help pages.
+
+The most important correction was rollout posture: registry middleware is now always on, so docs now describe release rollback plus storage backup strategy instead of runtime env toggle switching.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, yes, update all the documentation that is still necessary."
+
+**Assistant interpretation:** Complete every remaining docs gap in GP-01, including ticket tasks and public help docs, and ensure the docs reflect current implementation reality.
+
+**Inferred user intent:** Finish documentation closure so the profile registry work can be treated as fully handed off and operationally usable.
+
+### What I did
+- Created and authored new ticket planning doc:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/03-phase-0-rollout-guardrails-and-compatibility-plan.md`
+  - covers milestone order, risk checklist, deprecation policy, compatibility matrix, and final rollout strategy (`GP01-000..004`).
+- Created and authored new ticket playbook:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/playbook/01-db-profile-store-ops-notes-and-gp-01-release-notes.md`
+  - covers DB backup/recovery/permissions plus GP-01 release notes (`GP01-903`, `GP01-904`).
+- Updated ticket index links and structure:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/index.md`
+- Updated postmortem stale feature-flag guidance to always-on middleware state:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/02-implementation-postmortem-and-intern-guide.md`
+- Added first-party Geppetto ops playbook and links:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/00-docs-index.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+- Added Pinocchio webchat ops/rollout notes:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Marked remaining tasks complete:
+  - `docmgr task check --ticket GP-01-ADD-PROFILE-REGISTRY --id 5,6,7,8,9,76,77`
+- Updated changelog:
+  - `docmgr changelog update --ticket GP-01-ADD-PROFILE-REGISTRY ...`
+
+### Why
+- GP-01 still had open documentation tasks despite implementation being complete.
+- Operators needed DB-backed storage runbook details before declaring rollout ready.
+- Historical docs still referenced a removed env toggle and needed correction.
+
+### What worked
+- All remaining docs tasks were closed in `tasks.md`.
+- Ticket now has dedicated docs for planning guardrails and operational release notes.
+- Public docs now include a SQLite operations playbook and always-on middleware posture notes.
+
+### What didn't work
+- `docmgr doc add` created the new runbook under `playbook/` (singular) while the ticket template also has a `playbooks/` folder. This is harmless but visually inconsistent with older manual folder naming.
+
+### What I learned
+- The cleanest way to keep ticket docs and product docs aligned is to document rollout/ops once in ticket form, then publish a condensed reusable runbook in first-party help pages.
+
+### What was tricky to build
+- Ensuring documentation reflects final implementation state rather than intermediate migration states. The postmortem contained historically accurate but currently misleading feature-flag instructions; I updated those sections to explicitly describe temporary-vs-final behavior and current rollout practices.
+
+### What warrants a second pair of eyes
+- Folder naming consistency (`playbook/` vs template `playbooks/`) in ticket workspaces.
+- Whether release-note excerpts from the ticket should be copied into an external project changelog as part of release process.
+
+### What should be done in the future
+- If GP-01 is ready for closure, run `docmgr ticket close --ticket GP-01-ADD-PROFILE-REGISTRY` after final review/commit.
+
+### Code review instructions
+- Start with ticket docs:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/03-phase-0-rollout-guardrails-and-compatibility-plan.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/playbook/01-db-profile-store-ops-notes-and-gp-01-release-notes.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/index.md`
+- Then verify first-party docs:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+
+### Technical details
+- Task IDs closed: `5,6,7,8,9,76,77` (`GP01-000..004`, `GP01-903`, `GP01-904`)
+- Changelog entry recorded under:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/changelog.md`

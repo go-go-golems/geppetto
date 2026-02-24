@@ -18,6 +18,10 @@ Owners: []
 RelatedFiles:
     - Path: geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/01-profileregistry-architecture-and-migration-plan.md
       Note: Primary architecture proposal and migration plan
+    - Path: geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/03-phase-0-rollout-guardrails-and-compatibility-plan.md
+      Note: Phase 0 guardrails, compatibility matrix, and rollout posture
+    - Path: geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/playbook/01-db-profile-store-ops-notes-and-gp-01-release-notes.md
+      Note: DB-backed operations notes and release notes
     - Path: geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/reference/01-diary.md
       Note: Detailed diary of actions
     - Path: geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/tasks.md
@@ -42,6 +46,8 @@ Current status: analysis complete and implementation proposal delivered.
 ## Key Links
 
 - [ProfileRegistry Architecture and Migration Plan](./planning/01-profileregistry-architecture-and-migration-plan.md)
+- [Phase 0 Rollout Guardrails and Compatibility Plan](./planning/03-phase-0-rollout-guardrails-and-compatibility-plan.md)
+- [DB Profile Store Ops Notes and GP-01 Release Notes](./playbook/01-db-profile-store-ops-notes-and-gp-01-release-notes.md)
 - [Implementation Diary](./reference/01-diary.md)
 - **Related Files**: See frontmatter RelatedFiles field for the key source files used in analysis.
 - **External Sources**: N/A (analysis based on local codebase).
@@ -73,6 +79,7 @@ See [changelog.md](./changelog.md) for recent changes and decisions.
 ## Structure
 
 - planning/ - Long-form architecture proposal and migration strategy
+- playbook/ - Operations and release communication runbooks
 - reference/ - Detailed diary and analysis artifacts
 - scripts/ - Temporary tooling (none added yet)
 - archive/ - Deprecated or historical material

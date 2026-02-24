@@ -186,6 +186,8 @@ Precedence remains:
 
 Profile-first selection is the recommended path. Direct engine/provider flags (`--ai-engine`, `--ai-api-type`) are migration escape hatches, not the default operator workflow.
 
+Registry-backed middleware resolution is now the only path; there is no environment toggle for legacy middleware switching.
+
 ## Application Patterns
 
 Use this baseline in apps:
@@ -220,6 +222,7 @@ This keeps profile logic centralized and avoids app-specific shadow profile stru
 
 - [Geppetto Documentation Index](00-docs-index.md)
 - [Migration playbook: legacy profiles.yaml to registry format](../playbooks/05-migrate-legacy-profiles-yaml-to-registry.md)
+- [Operate SQLite-backed profile registry](../playbooks/06-operate-sqlite-profile-registry.md)
 - [Middlewares](09-middlewares.md)
 - [Session Management in Geppetto](10-sessions.md)
 - `geppetto/pkg/profiles/*` (implementation package)

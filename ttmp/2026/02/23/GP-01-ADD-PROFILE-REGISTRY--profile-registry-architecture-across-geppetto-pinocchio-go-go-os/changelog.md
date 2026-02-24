@@ -225,3 +225,16 @@ Added legacy profiles migration operator workflow: new playbook and new 'pinocch
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go — Legacy profile map to registry conversion command implementation.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go — Migration command regression tests.
 
+
+## 2026-02-23
+
+Completed remaining documentation tasks: added Phase 0 guardrails (milestones/risk/deprecation/compatibility/rollout), DB-backed profile store ops runbook, and GP-01 release notes; updated geppetto/pinocchio help docs and removed stale feature-flag guidance in postmortem.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md — Adds persistent docs runbook
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md — Updated profile doc with always-on registry middleware note
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/planning/03-phase-0-rollout-guardrails-and-compatibility-plan.md — Closes GP01-000..004
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/23/GP-01-ADD-PROFILE-REGISTRY--profile-registry-architecture-across-geppetto-pinocchio-go-go-os/playbook/01-db-profile-store-ops-notes-and-gp-01-release-notes.md — Closes GP01-903/904
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md — Added SQLite ops and rollout notes
+

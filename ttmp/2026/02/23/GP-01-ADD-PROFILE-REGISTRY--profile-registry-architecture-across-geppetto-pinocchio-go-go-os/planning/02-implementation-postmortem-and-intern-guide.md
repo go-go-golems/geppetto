@@ -202,7 +202,7 @@ Why third: this is the semantic heart of the migration.
 Implemented:
 
 - registry-backed sections adapter;
-- feature flag toggle (`PINOCCHIO_ENABLE_PROFILE_REGISTRY_MIDDLEWARE`);
+- temporary feature-flagged migration seam (later removed for always-on registry path);
 - integration precedence tests (`config/profile/env/flags`);
 - profile-first migration notes in help text.
 
@@ -410,11 +410,7 @@ If no explicit registry/profile is supplied:
 
 ### 9.3 Running With Registry Adapter in Geppetto
 
-Set feature flag:
-
-```bash
-export PINOCCHIO_ENABLE_PROFILE_REGISTRY_MIDDLEWARE=1
-```
+Current state: registry-backed middleware is always enabled. There is no environment toggle for old/new middleware selection.
 
 Then run command parsing path as usual. Precedence behavior is preserved by integration tests.
 
@@ -451,13 +447,15 @@ Then run command parsing path as usual. Precedence behavior is preserved by inte
 
 ## 11. Design Tradeoffs and Rationale
 
-### 11.1 Why Keep Feature Flag in Geppetto Sections?
+### 11.1 Why Remove Feature Flag in Geppetto Sections?
 
-Because migration safety mattered more than immediate hard cutover. The flag gives:
+Early migration used a temporary feature-flag seam to compare behavior. Final implementation removed this toggle to avoid permanent dual-path complexity.
 
-- fallback path if production behavior regresses;
-- controlled rollout capability;
-- A/B comparison against legacy middleware behavior.
+Final rollout strategy relies on:
+
+- strong regression/e2e coverage,
+- migration tooling + storage backups,
+- release rollback by version rather than runtime branching.
 
 ### 11.2 Why Include Profile Version in Fingerprint?
 

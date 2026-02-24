@@ -9,11 +9,11 @@
 
 ## Phase 0: Backlog Refinement and Guardrails
 
-- [ ] GP01-000 Define implementation milestone plan with target order (Geppetto core -> Pinocchio -> Go-Go-OS).
-- [ ] GP01-001 Create risk checklist for compatibility regressions in profile precedence.
-- [ ] GP01-002 Define deprecation policy for `ai-engine` / `ai-api-type` user-facing flags.
-- [ ] GP01-003 Add compatibility matrix document (legacy profiles.yaml vs new registry behavior).
-- [ ] GP01-004 Define rollout feature flags and fallback toggles for first integration PRs.
+- [x] GP01-000 Define implementation milestone plan with target order (Geppetto core -> Pinocchio -> Go-Go-OS).
+- [x] GP01-001 Create risk checklist for compatibility regressions in profile precedence.
+- [x] GP01-002 Define deprecation policy for `ai-engine` / `ai-api-type` user-facing flags.
+- [x] GP01-003 Add compatibility matrix document (legacy profiles.yaml vs new registry behavior).
+- [x] GP01-004 Define rollout feature flags and fallback toggles for first integration PRs.
 
 ## Phase 1: Geppetto Profile Domain Core
 
@@ -113,5 +113,5 @@
 - [x] GP01-900 Update geppetto/pinocchio user docs for registry-first profile workflows.
 - [x] GP01-901 Add migration guide for legacy `profiles.yaml` users.
 - [x] GP01-902 Add API docs for profile CRUD endpoints and payload schema.
-- [ ] GP01-903 Add ops notes for DB-backed profile storage (backup/recovery/permissions).
-- [ ] GP01-904 Publish release notes including deprecations and fallback strategy.
+- [x] GP01-903 Add ops notes for DB-backed profile storage (backup/recovery/permissions).
+- [x] GP01-904 Publish release notes including deprecations and fallback strategy.
