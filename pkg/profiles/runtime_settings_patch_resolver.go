@@ -14,7 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
-func newStepSettingsSchema() (*schema.Schema, error) {
+func newRuntimeStepSettingsSchema() (*schema.Schema, error) {
 	chatSection, err := settings.NewChatValueSection()
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func newStepSettingsSchema() (*schema.Schema, error) {
 	)), nil
 }
 
-func ApplyStepSettingsPatch(base *settings.StepSettings, patch map[string]any) (*settings.StepSettings, error) {
+func ApplyRuntimeStepSettingsPatch(base *settings.StepSettings, patch map[string]any) (*settings.StepSettings, error) {
 	var err error
 	resolved := base
 	if resolved == nil {
@@ -77,7 +77,7 @@ func ApplyStepSettingsPatch(base *settings.StepSettings, patch map[string]any) (
 		return resolved, nil
 	}
 
-	schema_, err := newStepSettingsSchema()
+	schema_, err := newRuntimeStepSettingsSchema()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func ApplyStepSettingsPatch(base *settings.StepSettings, patch map[string]any) (
 		return nil, err
 	}
 
-	patchMap, err := normalizeSectionPatchMap(patch)
+	patchMap, err := normalizeRuntimeSectionPatchMap(patch)
 	if err != nil {
 		return nil, err
 	}
@@ -112,13 +112,13 @@ func ApplyStepSettingsPatch(base *settings.StepSettings, patch map[string]any) (
 	return resolved, nil
 }
 
-func MergeStepSettingsPatches(base map[string]any, overlay map[string]any) (map[string]any, error) {
+func MergeRuntimeStepSettingsPatches(base map[string]any, overlay map[string]any) (map[string]any, error) {
 	if len(base) == 0 && len(overlay) == 0 {
 		return nil, nil
 	}
 
 	merged := map[string]any{}
-	baseMap, err := normalizeSectionPatchMap(base)
+	baseMap, err := normalizeRuntimeSectionPatchMap(base)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func MergeStepSettingsPatches(base map[string]any, overlay map[string]any) (map[
 		merged[sectionSlug] = deepCopyStringAnyMap(sectionValues)
 	}
 
-	overlayMap, err := normalizeSectionPatchMap(overlay)
+	overlayMap, err := normalizeRuntimeSectionPatchMap(overlay)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func MergeStepSettingsPatches(base map[string]any, overlay map[string]any) (map[
 	return merged, nil
 }
 
-func normalizeSectionPatchMap(raw map[string]any) (map[string]map[string]interface{}, error) {
+func normalizeRuntimeSectionPatchMap(raw map[string]any) (map[string]map[string]interface{}, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}

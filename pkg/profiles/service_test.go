@@ -677,9 +677,9 @@ agent:
 func runGatherFlagsStepSettings(t *testing.T, profilePath, profileSlug string) *settings.StepSettings {
 	t.Helper()
 
-	schema_, err := newStepSettingsSchema()
+	schema_, err := newRuntimeStepSettingsSchema()
 	if err != nil {
-		t.Fatalf("newStepSettingsSchema returned error: %v", err)
+		t.Fatalf("newRuntimeStepSettingsSchema returned error: %v", err)
 	}
 	parsed := values.New()
 	if err := sources.Execute(

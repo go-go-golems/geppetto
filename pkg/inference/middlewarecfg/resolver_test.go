@@ -1,7 +1,10 @@
 package middlewarecfg
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -45,6 +48,27 @@ func (s staticSource) Payload(Definition, gepprofiles.MiddlewareUse) (map[string
 		return nil, false, nil
 	}
 	return copyStringAnyMap(s.payload), true, nil
+}
+
+type failingSource struct {
+	name  string
+	layer SourceLayer
+	err   error
+}
+
+func (s failingSource) Name() string {
+	return s.name
+}
+
+func (s failingSource) Layer() SourceLayer {
+	return s.layer
+}
+
+func (s failingSource) Payload(Definition, gepprofiles.MiddlewareUse) (map[string]any, bool, error) {
+	if s.err == nil {
+		return nil, false, nil
+	}
+	return nil, false, s.err
 }
 
 func TestResolver_AppliesCanonicalSourcePrecedence(t *testing.T) {
@@ -344,6 +368,130 @@ func TestResolver_TraceIncludesRawAndCoercedValues(t *testing.T) {
 	}
 	if got, want := schemaTypeRaw, "integer"; got != want {
 		t.Fatalf("schema_type metadata mismatch: got=%#v want=%#v", got, want)
+	}
+}
+
+func TestResolvedConfig_MarshalDebugPayloadIsDeterministic(t *testing.T) {
+	resolver := NewResolver(
+		staticSource{
+			name:  "profile",
+			layer: SourceLayerProfile,
+			payload: map[string]any{
+				"threshold": "2",
+				"mode":      "safe",
+			},
+		},
+		staticSource{
+			name:  "request",
+			layer: SourceLayerRequest,
+			payload: map[string]any{
+				"threshold": 7,
+			},
+		},
+	)
+	definition := &resolverTestDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"threshold": map[string]any{"type": "integer"},
+				"mode":      map[string]any{"type": "string"},
+			},
+		},
+	}
+
+	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"})
+	if err != nil {
+		t.Fatalf("Resolve returned error: %v", err)
+	}
+
+	payloadA, err := resolved.MarshalDebugPayload()
+	if err != nil {
+		t.Fatalf("MarshalDebugPayload returned error: %v", err)
+	}
+	payloadB, err := resolved.MarshalDebugPayload()
+	if err != nil {
+		t.Fatalf("MarshalDebugPayload returned error on second call: %v", err)
+	}
+	if !bytes.Equal(payloadA, payloadB) {
+		t.Fatalf("expected deterministic debug payload JSON")
+	}
+
+	var decoded DebugPayload
+	if err := json.Unmarshal(payloadA, &decoded); err != nil {
+		t.Fatalf("unmarshal debug payload failed: %v", err)
+	}
+	if len(decoded.Paths) == 0 {
+		t.Fatalf("expected debug payload paths")
+	}
+	if got, want := decoded.Paths[0].Path, "/mode"; got != want {
+		t.Fatalf("expected first path %q, got %q", want, got)
+	}
+	if got, want := decoded.Paths[1].Path, "/threshold"; got != want {
+		t.Fatalf("expected second path %q, got %q", want, got)
+	}
+}
+
+func TestResolver_ErrorIncludesMiddlewareSourceAndPathContext(t *testing.T) {
+	resolver := NewResolver(staticSource{
+		name:  "env",
+		layer: SourceLayerEnvironment,
+		payload: map[string]any{
+			"threshold": "oops",
+		},
+	})
+	definition := &resolverTestDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"threshold": map[string]any{"type": "integer"},
+			},
+		},
+	}
+
+	_, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"})
+	if err == nil {
+		t.Fatalf("expected resolver error")
+	}
+	errText := err.Error()
+	for _, expected := range []string{
+		"agentmode#primary",
+		"/threshold",
+		"env[environment]",
+	} {
+		if !strings.Contains(errText, expected) {
+			t.Fatalf("expected error to contain %q, got: %v", expected, err)
+		}
+	}
+}
+
+func TestResolver_SourcePayloadErrorIncludesMiddlewareAndSourceContext(t *testing.T) {
+	resolver := NewResolver(failingSource{
+		name:  "request",
+		layer: SourceLayerRequest,
+		err:   errors.New("boom"),
+	})
+	definition := &resolverTestDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+		},
+	}
+
+	_, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"})
+	if err == nil {
+		t.Fatalf("expected resolver error")
+	}
+	errText := err.Error()
+	for _, expected := range []string{
+		"agentmode#primary",
+		"request[request]",
+		"boom",
+	} {
+		if !strings.Contains(errText, expected) {
+			t.Fatalf("expected error to contain %q, got: %v", expected, err)
+		}
 	}
 }
 

@@ -146,7 +146,7 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		return nil, err
 	}
 
-	effectiveStepSettings, err := ApplyStepSettingsPatch(in.BaseStepSettings, effectiveRuntime.StepSettingsPatch)
+	effectiveStepSettings, err := ApplyRuntimeStepSettingsPatch(in.BaseStepSettings, effectiveRuntime.StepSettingsPatch)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +368,7 @@ func resolveRuntimeSpec(base RuntimeSpec, policy PolicySpec, requestOverrides ma
 			if err != nil {
 				return RuntimeSpec{}, err
 			}
-			merged, err := MergeStepSettingsPatches(ret.StepSettingsPatch, overlayPatch)
+			merged, err := MergeRuntimeStepSettingsPatches(ret.StepSettingsPatch, overlayPatch)
 			if err != nil {
 				return RuntimeSpec{}, err
 			}

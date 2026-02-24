@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
+	"github.com/rs/zerolog/log"
 )
 
 // Resolver resolves middleware config using canonical source precedence and JSON schema validation.
@@ -112,6 +113,7 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 	if useName != defName {
 		return nil, fmt.Errorf("middleware use name %q does not match definition %q", useName, defName)
 	}
+	useKey := middlewareUseDiagnosticKey(use)
 
 	schema := copyStringAnyMap(def.ConfigJSONSchema())
 	if len(schema) == 0 {
@@ -138,6 +140,7 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 			defaultPayload,
 			SourceLayerSchemaDefaults,
 			SourceLayerSchemaDefaults.String(),
+			useKey,
 		); err != nil {
 			return nil, err
 		}
@@ -150,7 +153,10 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 	for _, source := range ordered {
 		payload, hasPayload, err := source.source.Payload(def, use)
 		if err != nil {
-			return nil, fmt.Errorf("resolve middleware source %s[%s]: %w", source.source.Name(), source.source.Layer(), err)
+			sourceName := strings.TrimSpace(source.source.Name())
+			layer := source.source.Layer()
+			logResolverSourceReject(useKey, sourceName, layer, "", err)
+			return nil, fmt.Errorf("resolve middleware %s source %s[%s]: %w", useKey, sourceName, layer, err)
 		}
 		if !hasPayload || len(payload) == 0 {
 			continue
@@ -163,6 +169,7 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 			payload,
 			source.source.Layer(),
 			source.source.Name(),
+			useKey,
 		); err != nil {
 			return nil, err
 		}
@@ -174,11 +181,11 @@ func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*Reso
 
 	validated, err := coerceAndValidate(schema, state)
 	if err != nil {
-		return nil, fmt.Errorf("final middleware config validation failed: %w", err)
+		return nil, fmt.Errorf("final middleware %s config validation failed: %w", useKey, err)
 	}
 	validatedMap, ok := toStringAnyMap(validated)
 	if !ok {
-		return nil, fmt.Errorf("final middleware config must resolve to object")
+		return nil, fmt.Errorf("final middleware %s config must resolve to object", useKey)
 	}
 
 	orderedPaths := make([]string, 0, len(pathValues))
@@ -204,32 +211,38 @@ func applyPayloadWithProjection(
 	payload map[string]any,
 	layer SourceLayer,
 	sourceName string,
+	useKey string,
 ) error {
+	sourceName = strings.TrimSpace(sourceName)
 	writes, err := projectPayloadWrites(schema, payload)
 	if err != nil {
-		return fmt.Errorf("project middleware payload for source %s[%s]: %w", strings.TrimSpace(sourceName), layer, err)
+		logResolverSourceReject(useKey, sourceName, layer, "", err)
+		return fmt.Errorf("project middleware %s payload for source %s[%s]: %w", useKey, sourceName, layer, err)
 	}
 
 	for _, write := range writes {
 		value, err := coerceAndValidate(write.Schema, write.RawValue)
 		if err != nil {
+			logResolverSourceReject(useKey, sourceName, layer, write.Path, err)
 			return fmt.Errorf(
-				"coerce middleware payload at %s from source %s[%s]: %w",
+				"coerce middleware %s payload at %s from source %s[%s]: %w",
+				useKey,
 				write.Path,
-				strings.TrimSpace(sourceName),
+				sourceName,
 				layer,
 				err,
 			)
 		}
 		if err := setJSONPointer(state, write.Path, value); err != nil {
-			return fmt.Errorf("apply middleware payload at %s from source %s[%s]: %w", write.Path, strings.TrimSpace(sourceName), layer, err)
+			logResolverSourceReject(useKey, sourceName, layer, write.Path, err)
+			return fmt.Errorf("apply middleware %s payload at %s from source %s[%s]: %w", useKey, write.Path, sourceName, layer, err)
 		}
 		pathValues[write.Path] = copyAny(value)
 		pathTrace := trace[write.Path]
 		pathTrace.Path = write.Path
 		pathTrace.Value = copyAny(value)
 		pathTrace.Steps = append(pathTrace.Steps, ParseStep{
-			Source: strings.TrimSpace(sourceName),
+			Source: sourceName,
 			Layer:  layer,
 			Path:   write.Path,
 			Raw:    copyAny(write.RawValue),
@@ -241,6 +254,30 @@ func applyPayloadWithProjection(
 		trace[write.Path] = pathTrace
 	}
 	return nil
+}
+
+func middlewareUseDiagnosticKey(use gepprofiles.MiddlewareUse) string {
+	name := strings.TrimSpace(use.Name)
+	if name == "" {
+		name = "middleware"
+	}
+	if id := strings.TrimSpace(use.ID); id != "" {
+		return fmt.Sprintf("%s#%s", name, id)
+	}
+	return name
+}
+
+func logResolverSourceReject(useKey string, sourceName string, layer SourceLayer, path string, err error) {
+	logger := log.Error().
+		Str("component", "middlewarecfg.resolver").
+		Str("middleware_use", strings.TrimSpace(useKey)).
+		Str("source", strings.TrimSpace(sourceName)).
+		Str("layer", string(layer)).
+		Err(err)
+	if strings.TrimSpace(path) != "" {
+		logger = logger.Str("path", strings.TrimSpace(path))
+	}
+	logger.Msg("middleware source payload rejected")
 }
 
 type projectedWrite struct {
