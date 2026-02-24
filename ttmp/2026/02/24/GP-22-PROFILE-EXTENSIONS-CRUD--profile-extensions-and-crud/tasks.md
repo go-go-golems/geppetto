@@ -10,14 +10,14 @@
 
 ## Extension Key and Codec Infrastructure
 
-- [ ] Add extension key type and parser (`namespace.feature@vN`) with validation tests.
-- [ ] Add helper constructor for extension keys with panic-free parse API.
-- [ ] Add generic typed-key helpers for profile extension get/set/decode.
-- [ ] Add extension codec interface and in-memory registry.
-- [ ] Add duplicate key registration guard for codec registry.
-- [ ] Add service option plumbing for codec registry injection.
-- [ ] Add tests for known-key decode success and decode failure.
-- [ ] Add tests for unknown-key pass-through behavior.
+- [x] Add extension key type and parser (`namespace.feature@vN`) with validation tests.
+- [x] Add helper constructor for extension keys with panic-free parse API.
+- [x] Add generic typed-key helpers for profile extension get/set/decode.
+- [x] Add extension codec interface and in-memory registry.
+- [x] Add duplicate key registration guard for codec registry.
+- [x] Add service option plumbing for codec registry injection.
+- [x] Add tests for known-key decode success and decode failure.
+- [x] Add tests for unknown-key pass-through behavior.
 
 ## Validation and Service Flow
 

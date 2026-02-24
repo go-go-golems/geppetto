@@ -26,3 +26,15 @@ Step 1 completed: profile-level extensions model and clone-isolation baseline la
 - ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md — Recorded decision to defer registry-level extensions in GP-22
 - ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked Model and Types checklist items complete
 
+
+## 2026-02-24
+
+Step 2 completed: extension key parser, typed-key helpers, codec registry infrastructure, and service option plumbing landed (commit edfb34d).
+
+### Related Files
+
+- pkg/profiles/extensions.go — Added ExtensionKey parser/types
+- pkg/profiles/extensions_test.go — Added parser/constructor/registry/normalization/service-option tests
+- pkg/profiles/service.go — Added StoreRegistryOption and WithExtensionCodecRegistry plumbing
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked extension infrastructure checklist complete
+

@@ -12,28 +12,35 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: pkg/profiles/extensions.go
+      Note: |-
+        Step 2 extension key parser, typed-key helpers, codec registry, and normalization helpers.
+        Step 2 extension key/parser/typed-key/codec registry implementation
+    - Path: pkg/profiles/extensions_test.go
+      Note: |-
+        Step 2 parser/codec/normalization regression coverage.
+        Step 2 coverage for known/unknown decode behavior and option plumbing
+    - Path: pkg/profiles/service.go
+      Note: |-
+        Step 2 service option plumbing for extension codec registry injection.
+        Step 2 StoreRegistry option injection for extension codec registry
     - Path: pkg/profiles/types.go
-      Note: |-
-        Step 1 profile extensions model field and clone behavior.
-        Step 1 profile extensions model field and clone deep-copy behavior
+      Note: Step 1 profile extensions model field and clone behavior.
     - Path: pkg/profiles/types_clone_test.go
-      Note: |-
-        Step 1 clone mutation-isolation coverage for extensions.
-        Step 1 extension clone mutation-isolation coverage
+      Note: Step 1 clone mutation-isolation coverage for extensions.
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md
-      Note: |-
-        Step 1 decision to defer registry-level extensions in GP-22.
-        Step 1 registry-level extension scope decision
+      Note: Step 1 decision to defer registry-level extensions in GP-22.
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md
       Note: |-
-        Step 1 checklist progress for model/type tasks.
-        Step 1 task progress
+        Step 1 and Step 2 checklist progress.
+        Step 2 task checklist progress
 ExternalSources: []
 Summary: Implementation diary for GP-22 profile extension and CRUD rollout, including commit checkpoints, failures, and validation commands.
-LastUpdated: 2026-02-24T13:47:00-05:00
+LastUpdated: 2026-02-24T14:09:00-05:00
 WhatFor: Track GP-22 task-by-task implementation details and verification evidence.
 WhenToUse: Use when reviewing what landed in GP-22 and how to validate each step.
 ---
+
 
 
 # Diary
@@ -124,6 +131,97 @@ go test ./pkg/profiles/... -count=1
 
 - Extension payload examples used in tests include nested map/list combinations to expose aliasing bugs.
 - No serialization code was required in this step because struct tags on `Profile` are sufficient for YAML/JSON persistence paths.
+
+## Step 2: Extension Keys, Typed Accessors, and Codec Registry Infrastructure
+
+This step implemented the full extension-infrastructure layer used by later validation and CRUD tasks. The focus was to add a canonical extension key format, typed access helpers, and codec-based normalization primitives without yet changing API behavior.
+
+Service-level option plumbing for codec registry injection was added in the same step so downstream create/update flow can adopt normalization without constructor churn.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 task-by-task with focused commits and diary updates.
+
+**Inferred user intent:** Build extension support incrementally with clear, testable foundations before wiring it into endpoints.
+
+**Commit (code):** `edfb34d` — "profiles: add extension key typed helpers and codec registry plumbing"
+
+### What I did
+
+- Added `pkg/profiles/extensions.go` with:
+  - `ExtensionKey` parse/type helpers for `namespace.feature@vN`,
+  - panic-free `NewExtensionKey(...)` and panic `MustExtensionKey(...)`,
+  - generic `ProfileExtensionKey[T]` with `Get/Set/Decode/Delete`,
+  - `ExtensionCodec` and `ExtensionCodecRegistry` interfaces,
+  - `InMemoryExtensionCodecRegistry` with duplicate-key guards,
+  - `NormalizeProfileExtensions(...)` for canonical-key normalization + codec decode with unknown-key pass-through.
+- Updated `pkg/profiles/service.go`:
+  - introduced `StoreRegistryOption`,
+  - added `WithExtensionCodecRegistry(...)`,
+  - changed `NewStoreRegistry(...)` to accept variadic options and wire codec registry.
+- Added `pkg/profiles/extensions_test.go` coverage for:
+  - extension key parse/constructor behavior,
+  - typed key get/set/decode behavior,
+  - duplicate codec registration failure,
+  - known-key decode success and decode failure,
+  - unknown-key pass-through with deep-copy isolation,
+  - service option plumbing behavior.
+- Marked all tasks complete in GP-22 “Extension Key and Codec Infrastructure” checklist.
+- Ran validation:
+  - `go test ./pkg/profiles/... -count=1`,
+  - pre-commit full `go test ./...`, lint, vet.
+
+### Why
+
+- Typed extension access avoids repetitive map decode logic in every caller.
+- Codec registry centralizes normalization and payload validation semantics per extension key.
+- Constructor option plumbing enables incremental service integration without breaking existing call sites.
+
+### What worked
+
+- New infrastructure compiled cleanly and passed both targeted and full-repo hooks.
+- Variadic `NewStoreRegistry(..., options...)` kept external call sites source-compatible.
+
+### What didn't work
+
+- No code-level failures in this step.
+
+### What I learned
+
+- The typed-key pattern from `pkg/turns` maps cleanly to profile extensions with minimal adaptation.
+- Unknown-key preservation with deep-copy is easy to enforce centrally in a single normalization helper.
+
+### What was tricky to build
+
+- The main nuance was keeping canonicalization strict while still preserving unknown keys. The solution was to always parse/canonicalize keys, then apply codec decoding only when a registered codec exists.
+
+### What warrants a second pair of eyes
+
+- Confirm extension-key regex constraints are strict enough for long-term key hygiene but not too restrictive for app teams.
+- Confirm decode errors should remain wrapped as `ValidationError` at this layer versus preserving raw codec error types.
+
+### What should be done in the future
+
+- Next step is GP-22 “Validation and Service Flow”: validate extension keys in `ValidateProfile`, enforce serializability at service boundary, and wire normalization into create/update paths.
+
+### Code review instructions
+
+- Start with `pkg/profiles/extensions.go` for parser/types/registry/normalization contracts.
+- Review `pkg/profiles/extensions_test.go` for behavior matrix coverage.
+- Check `pkg/profiles/service.go` constructor option changes for compatibility impact.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- `NormalizeProfileExtensions` canonicalizes keys and deep-copies payloads on output to prevent aliasing.
+- Known extension keys are codec-decoded; unknown keys are preserved unchanged (except canonical key string normalization).
 
 ## Related
 
