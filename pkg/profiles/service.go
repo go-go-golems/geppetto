@@ -183,24 +183,25 @@ func (r *StoreRegistry) CreateProfile(ctx context.Context, registrySlug Registry
 		return nil, err
 	}
 
-	if err := ValidateProfile(profile); err != nil {
+	next, err := r.normalizeAndValidateProfile(profile)
+	if err != nil {
 		return nil, err
 	}
-	if _, ok, err := r.store.GetProfile(ctx, resolvedRegistrySlug, profile.Slug); err != nil {
+	if _, ok, err := r.store.GetProfile(ctx, resolvedRegistrySlug, next.Slug); err != nil {
 		return nil, err
 	} else if ok {
 		return nil, &VersionConflictError{
 			Resource: "profile",
-			Slug:     profile.Slug.String(),
+			Slug:     next.Slug.String(),
 			Expected: 0,
-			Actual:   profile.Metadata.Version,
+			Actual:   next.Metadata.Version,
 		}
 	}
 
-	if err := r.store.UpsertProfile(ctx, resolvedRegistrySlug, profile, toSaveOptions(opts)); err != nil {
+	if err := r.store.UpsertProfile(ctx, resolvedRegistrySlug, next, toSaveOptions(opts)); err != nil {
 		return nil, err
 	}
-	return r.GetProfile(ctx, resolvedRegistrySlug, profile.Slug)
+	return r.GetProfile(ctx, resolvedRegistrySlug, next.Slug)
 }
 
 func (r *StoreRegistry) UpdateProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, patch ProfilePatch, opts WriteOptions) (*Profile, error) {
@@ -234,8 +235,12 @@ func (r *StoreRegistry) UpdateProfile(ctx context.Context, registrySlug Registry
 	if patch.Metadata != nil {
 		next.Metadata = mergeProfileMetadata(next.Metadata, *patch.Metadata)
 	}
+	if patch.Extensions != nil {
+		next.Extensions = deepCopyStringAnyMap(*patch.Extensions)
+	}
 
-	if err := ValidateProfile(next); err != nil {
+	next, err = r.normalizeAndValidateProfile(next)
+	if err != nil {
 		return nil, err
 	}
 	if err := r.store.UpsertProfile(ctx, resolvedRegistrySlug, next, toSaveOptions(opts)); err != nil {
@@ -272,6 +277,22 @@ func (r *StoreRegistry) SetDefaultProfile(ctx context.Context, registrySlug Regi
 		return err
 	}
 	return r.store.SetDefaultProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug, toSaveOptions(opts))
+}
+
+func (r *StoreRegistry) normalizeAndValidateProfile(profile *Profile) (*Profile, error) {
+	if profile == nil {
+		return nil, &ValidationError{Field: "profile", Reason: "must not be nil"}
+	}
+	next := profile.Clone()
+	normalizedExtensions, err := NormalizeProfileExtensions(next.Extensions, r.extensionCodecs)
+	if err != nil {
+		return nil, err
+	}
+	next.Extensions = normalizedExtensions
+	if err := ValidateProfile(next); err != nil {
+		return nil, err
+	}
+	return next, nil
 }
 
 func (r *StoreRegistry) resolveRegistrySlug(slug RegistrySlug) RegistrySlug {

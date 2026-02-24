@@ -114,6 +114,26 @@ func TestValidateRuntimeSpec_RejectsWhitespaceToolName(t *testing.T) {
 	requireValidationField(t, err, "runtime.tools[0]")
 }
 
+func TestValidateProfile_RejectsInvalidExtensionKeyFieldPath(t *testing.T) {
+	err := ValidateProfile(&Profile{
+		Slug: MustProfileSlug("default"),
+		Extensions: map[string]any{
+			"bad key": map[string]any{"foo": "bar"},
+		},
+	})
+	requireValidationField(t, err, "profile.extensions[bad key]")
+}
+
+func TestValidateProfile_RejectsNonSerializableExtensionPayload(t *testing.T) {
+	err := ValidateProfile(&Profile{
+		Slug: MustProfileSlug("default"),
+		Extensions: map[string]any{
+			"webchat.starter_suggestions@v1": func() {},
+		},
+	})
+	requireValidationField(t, err, "profile.extensions[webchat.starter_suggestions@v1]")
+}
+
 func requireValidationField(t *testing.T, err error, field string) {
 	t.Helper()
 	if err == nil {

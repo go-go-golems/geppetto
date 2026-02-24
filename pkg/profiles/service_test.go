@@ -387,6 +387,191 @@ func TestStoreRegistryListRegistries_DeterministicOrdering(t *testing.T) {
 	}
 }
 
+func TestStoreRegistryCreateProfile_NormalizesKnownExtensionsWithCodec(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	})
+
+	codecRegistry, err := NewInMemoryExtensionCodecRegistry(starterSuggestionsCodec{
+		key: MustExtensionKey("webchat.starter_suggestions@v1"),
+	})
+	if err != nil {
+		t.Fatalf("NewInMemoryExtensionCodecRegistry returned error: %v", err)
+	}
+	registry, err := NewStoreRegistry(store, MustRegistrySlug("default"), WithExtensionCodecRegistry(codecRegistry))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry returned error: %v", err)
+	}
+
+	created, err := registry.CreateProfile(ctx, MustRegistrySlug("default"), &Profile{
+		Slug: MustProfileSlug("agent"),
+		Extensions: map[string]any{
+			"WebChat.Starter_Suggestions@V1": map[string]any{
+				"items": []any{"one", "two"},
+			},
+		},
+	}, WriteOptions{Actor: "test", Source: "test"})
+	if err != nil {
+		t.Fatalf("CreateProfile returned error: %v", err)
+	}
+
+	value, ok := created.Extensions["webchat.starter_suggestions@v1"]
+	if !ok {
+		t.Fatalf("expected canonical extension key in created profile")
+	}
+	decoded, ok := value.(starterSuggestionsPayload)
+	if !ok {
+		t.Fatalf("expected decoded payload type, got %T", value)
+	}
+	if got, want := len(decoded.Items), 2; got != want {
+		t.Fatalf("decoded payload items mismatch: got=%d want=%d", got, want)
+	}
+}
+
+func TestStoreRegistryCreateProfile_ExtensionDecodeFailureReturnsValidation(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	})
+
+	codecRegistry, err := NewInMemoryExtensionCodecRegistry(starterSuggestionsCodec{
+		key:      MustExtensionKey("webchat.starter_suggestions@v1"),
+		forceErr: true,
+	})
+	if err != nil {
+		t.Fatalf("NewInMemoryExtensionCodecRegistry returned error: %v", err)
+	}
+	registry, err := NewStoreRegistry(store, MustRegistrySlug("default"), WithExtensionCodecRegistry(codecRegistry))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry returned error: %v", err)
+	}
+
+	_, err = registry.CreateProfile(ctx, MustRegistrySlug("default"), &Profile{
+		Slug: MustProfileSlug("agent"),
+		Extensions: map[string]any{
+			"webchat.starter_suggestions@v1": map[string]any{"items": []any{"one"}},
+		},
+	}, WriteOptions{Actor: "test", Source: "test"})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	requireValidationField(t, err, "profile.extensions[webchat.starter_suggestions@v1]")
+}
+
+func TestStoreRegistryCreateProfile_UnknownExtensionPassThrough(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	created, err := registry.CreateProfile(ctx, MustRegistrySlug("default"), &Profile{
+		Slug: MustProfileSlug("agent"),
+		Extensions: map[string]any{
+			"App.Custom@V1": map[string]any{
+				"flags": []any{map[string]any{"enabled": true}},
+			},
+		},
+	}, WriteOptions{Actor: "test", Source: "test"})
+	if err != nil {
+		t.Fatalf("CreateProfile returned error: %v", err)
+	}
+
+	if _, ok := created.Extensions["App.Custom@V1"]; ok {
+		t.Fatalf("expected canonicalized extension key")
+	}
+	raw, ok := created.Extensions["app.custom@v1"]
+	if !ok {
+		t.Fatalf("expected canonicalized unknown extension key")
+	}
+	if got := raw.(map[string]any)["flags"].([]any)[0].(map[string]any)["enabled"].(bool); !got {
+		t.Fatalf("expected unknown extension payload pass-through")
+	}
+}
+
+func TestStoreRegistryUpdateProfile_NormalizesExtensionPatch(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
+		},
+	})
+
+	codecRegistry, err := NewInMemoryExtensionCodecRegistry(starterSuggestionsCodec{
+		key: MustExtensionKey("webchat.starter_suggestions@v1"),
+	})
+	if err != nil {
+		t.Fatalf("NewInMemoryExtensionCodecRegistry returned error: %v", err)
+	}
+	registry, err := NewStoreRegistry(store, MustRegistrySlug("default"), WithExtensionCodecRegistry(codecRegistry))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry returned error: %v", err)
+	}
+
+	extensionsPatch := map[string]any{
+		"WebChat.Starter_Suggestions@V1": map[string]any{
+			"items": []any{"a", "b"},
+		},
+	}
+	updated, err := registry.UpdateProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), ProfilePatch{
+		Extensions: &extensionsPatch,
+	}, WriteOptions{Actor: "test", Source: "test"})
+	if err != nil {
+		t.Fatalf("UpdateProfile returned error: %v", err)
+	}
+
+	value, ok := updated.Extensions["webchat.starter_suggestions@v1"]
+	if !ok {
+		t.Fatalf("expected canonical extension key after update")
+	}
+	if _, ok := value.(starterSuggestionsPayload); !ok {
+		t.Fatalf("expected decoded payload type, got %T", value)
+	}
+}
+
+func TestStoreRegistryUpdateProfile_InvalidExtensionKeyFieldPath(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	extensionsPatch := map[string]any{
+		"bad key": map[string]any{"value": true},
+	}
+	_, err := registry.UpdateProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), ProfilePatch{
+		Extensions: &extensionsPatch,
+	}, WriteOptions{Actor: "test", Source: "test"})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	requireValidationField(t, err, "profile.extensions[bad key]")
+}
+
 func TestResolveEffectiveProfile_GoldenAgainstGatherFlagsFromProfiles(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()

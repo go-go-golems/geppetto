@@ -1,6 +1,7 @@
 package profiles
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -79,6 +80,28 @@ func ValidateProfile(profile *Profile) error {
 	}
 	if err := ValidatePolicySpec(profile.Policy); err != nil {
 		return err
+	}
+	if err := ValidateProfileExtensions(profile.Extensions); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidateProfileExtensions(extensions map[string]any) error {
+	for rawKey, rawValue := range extensions {
+		key, err := ParseExtensionKey(rawKey)
+		if err != nil {
+			return &ValidationError{
+				Field:  fmt.Sprintf("profile.extensions[%s]", strings.TrimSpace(rawKey)),
+				Reason: err.Error(),
+			}
+		}
+		if _, err := json.Marshal(rawValue); err != nil {
+			return &ValidationError{
+				Field:  fmt.Sprintf("profile.extensions[%s]", key),
+				Reason: fmt.Sprintf("payload must be JSON-serializable: %v", err),
+			}
+		}
 	}
 	return nil
 }

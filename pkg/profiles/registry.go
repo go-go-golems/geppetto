@@ -21,6 +21,7 @@ type ProfilePatch struct {
 	Runtime     *RuntimeSpec     `json:"runtime,omitempty" yaml:"runtime,omitempty"`
 	Policy      *PolicySpec      `json:"policy,omitempty" yaml:"policy,omitempty"`
 	Metadata    *ProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Extensions  *map[string]any  `json:"extensions,omitempty" yaml:"extensions,omitempty"`
 }
 
 // WriteOptions carries mutation context for registry service APIs.
