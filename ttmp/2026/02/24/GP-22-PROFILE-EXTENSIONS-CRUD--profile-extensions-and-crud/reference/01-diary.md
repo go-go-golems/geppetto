@@ -12,6 +12,14 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
+      Note: |-
+        Step 5 extension-aware CRUD endpoint and status mapping tests
+        Step 5 CRUD endpoint extension/status regression coverage
+    - Path: ../../../../../../../pinocchio/pkg/webchat/http/profile_api.go
+      Note: |-
+        Step 5 shared CRUD handler DTO and response-shape updates for extensions
+        Step 5 extension DTO/request/response and list ordering updates
     - Path: pkg/profiles/codec_yaml_test.go
       Note: |-
         Step 4 YAML codec round-trip and unknown extension preservation tests.
@@ -52,12 +60,15 @@ RelatedFiles:
       Note: |-
         Step 1-4 checklist progress.
         Step 4 checklist progress
+        Step 5 CRUD API contract checklist progress
 ExternalSources: []
 Summary: Implementation diary for GP-22 profile extension and CRUD rollout, including commit checkpoints, failures, and validation commands.
-LastUpdated: 2026-02-24T14:43:00-05:00
+LastUpdated: 2026-02-24T15:09:00-05:00
 WhatFor: Track GP-22 task-by-task implementation details and verification evidence.
 WhenToUse: Use when reviewing what landed in GP-22 and how to validate each step.
 ---
+
+
 
 
 
@@ -411,6 +422,90 @@ go test ./pkg/profiles/... -count=1
   - YAML file store reload after service partial update,
   - SQLite reopen durability and partial-update preservation,
   - backend parity across memory/YAML/SQLite service flows.
+
+## Step 5: CRUD API Contract Extensions in Pinocchio Webchat
+
+This step applied the extension-aware CRUD contract at the shared webchat HTTP API layer in Pinocchio. DTOs and request payloads now carry `extensions`, list output is explicitly sorted by slug in handler code, and CRUD endpoint tests validate extension behavior end-to-end.
+
+The focus here was API-level contract stability: response shape, status-code mappings, and extension field presence across list/get/create/patch flows.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 into API contract tasks and commit the next completed slice.
+
+**Inferred user intent:** Ensure extension support is usable through the real HTTP interface consumed by webchat and downstream clients.
+
+**Commit (code):** `834fa5c` — "webchat: include profile extensions in CRUD API contract"
+
+### What I did
+
+- Updated `/pinocchio/pkg/webchat/http/profile_api.go`:
+  - added `extensions` to `ProfileListItem`, `ProfileDocument`, `CreateProfileRequest`, and `PatchProfileRequest`,
+  - passed create/patch extension payloads into geppetto profile service calls,
+  - added handler-level slug sorting in list endpoint for deterministic order,
+  - added extension payload projection in list/get/create/patch responses.
+- Updated `/pinocchio/cmd/web-chat/profile_policy_test.go`:
+  - extended CRUD lifecycle test to include extension payload create/get/patch assertions,
+  - added list-response ordering assertion,
+  - added error/status checks for invalid extension payload (`400`) and missing registry (`404`) while keeping conflict check (`409`).
+- Verified Pinocchio package tests:
+  - `go test ./cmd/web-chat -count=1`,
+  - plus full pre-commit pipeline during commit.
+
+### Why
+
+- Clients cannot consume extension metadata if API DTOs omit it.
+- Deterministic list ordering should be enforced at the API boundary, not only assumed from backend implementations.
+- Extension-specific validation/status checks are required to lock the HTTP contract.
+
+### What worked
+
+- Handler and tests compiled cleanly with no extra migration layer.
+- Existing error mapping logic (`ErrValidation` => `400`, `ErrRegistryNotFound/ErrProfileNotFound` => `404`, `ErrVersionConflict` => `409`) remained intact and now has explicit regression coverage for extension paths.
+
+### What didn't work
+
+- No code-level failures in this step.
+
+### What I learned
+
+- The webchat handler already had a strong structure for extending DTOs; adding extension support was mostly straightforward field plumbing.
+- API-level deterministic sorting is cheap and removes hidden dependencies on store ordering behavior.
+
+### What was tricky to build
+
+- The main subtlety was keeping extension payload output safe without exposing shared mutable maps. The handler uses map cloning before writing JSON responses to avoid accidental aliasing.
+
+### What warrants a second pair of eyes
+
+- Confirm handler-level map cloning strategy is acceptable long-term for large extension payloads.
+- Confirm no additional API consumers rely on previous unsorted list order.
+
+### What should be done in the future
+
+- Next step is GP-22 shared-route reuse and Go-Go-OS integration tasks, then frontend client typing/runtime decoder updates.
+
+### Code review instructions
+
+- Review `/pinocchio/pkg/webchat/http/profile_api.go` first for DTO/request/response updates and list sort behavior.
+- Review `/pinocchio/cmd/web-chat/profile_policy_test.go` for extension-aware CRUD and status assertions.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+```
+
+### Technical details
+
+- `extensions` now flows through:
+  - `POST /api/chat/profiles` request and response,
+  - `PATCH /api/chat/profiles/{slug}` request and response,
+  - `GET /api/chat/profiles` list items,
+  - `GET /api/chat/profiles/{slug}` profile document.
+- List endpoint enforces deterministic ordering via `sort.Slice` by profile slug before encoding JSON response.
 
 ## Related
 

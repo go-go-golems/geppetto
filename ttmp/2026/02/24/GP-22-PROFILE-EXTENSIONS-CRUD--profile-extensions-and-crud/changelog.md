@@ -65,3 +65,14 @@ Step 4 completed: extension persistence round-trip and cross-backend parity cove
 - pkg/profiles/sqlite_store_test.go — Added SQLite extension round-trip and partial-update preservation tests
 - ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked persistence checklist complete
 
+
+## 2026-02-24
+
+Step 5 completed: Pinocchio shared CRUD API contract updated for extensions, deterministic list ordering, and endpoint/status regression coverage (commit 834fa5c).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go — Added extension-aware CRUD lifecycle and status mapping assertions
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go — Added extensions in list/get/create/patch DTOs and deterministic list sorting
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked CRUD API contract checklist complete
+

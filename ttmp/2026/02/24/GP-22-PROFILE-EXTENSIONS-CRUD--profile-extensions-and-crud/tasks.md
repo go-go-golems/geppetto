@@ -38,18 +38,18 @@
 
 ## CRUD API Contract
 
-- [ ] Add `extensions` field to profile API list DTO.
-- [ ] Add `extensions` field to profile API get DTO.
-- [ ] Add `extensions` field to profile API create request DTO.
-- [ ] Add `extensions` field to profile API create response DTO.
-- [ ] Add `extensions` field to profile API patch request DTO.
-- [ ] Add `extensions` field to profile API patch response DTO.
-- [ ] Ensure list responses serialize as arrays, not map-index objects.
-- [ ] Ensure list ordering is deterministic by slug.
-- [ ] Verify status code mapping for invalid extension payload (400/422 as defined).
-- [ ] Verify status code mapping for missing registry/profile (404).
-- [ ] Verify status code mapping for version conflicts (409).
-- [ ] Add endpoint tests for create/update/delete/default flows with extension payloads.
+- [x] Add `extensions` field to profile API list DTO.
+- [x] Add `extensions` field to profile API get DTO.
+- [x] Add `extensions` field to profile API create request DTO.
+- [x] Add `extensions` field to profile API create response DTO.
+- [x] Add `extensions` field to profile API patch request DTO.
+- [x] Add `extensions` field to profile API patch response DTO.
+- [x] Ensure list responses serialize as arrays, not map-index objects.
+- [x] Ensure list ordering is deterministic by slug.
+- [x] Verify status code mapping for invalid extension payload (400/422 as defined).
+- [x] Verify status code mapping for missing registry/profile (404).
+- [x] Verify status code mapping for version conflicts (409).
+- [x] Add endpoint tests for create/update/delete/default flows with extension payloads.
 
 ## Shared Route Reuse Across Apps
 
