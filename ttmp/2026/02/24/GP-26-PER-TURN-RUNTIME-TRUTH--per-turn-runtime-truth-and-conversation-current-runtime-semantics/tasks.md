@@ -45,7 +45,7 @@
 - [x] Add per-phase `runtime_key` and `inference_id` to `/api/debug/turn/:conv/:session/:turn` payload.
 - [x] Update debug API tests for new response fields.
 - [x] Update any frontend debug parsers/types that assume old shape.
-- [ ] Add API documentation snippets for querying runtime history by turn.
+- [x] Add API documentation snippets for querying runtime history by turn.
 
 ## Runtime Switch Correctness
 
@@ -58,11 +58,11 @@
 
 ## Migration Playbook and Docs
 
-- [ ] Update migration playbook with semantic model (`turn runtime` vs `conversation current runtime`).
-- [ ] Add SQL examples for operators validating migrated DBs.
-- [ ] Add troubleshooting note for incomplete runtime backfill on old records.
-- [ ] Update API reference docs with `current_runtime_key` terminology.
-- [ ] Add release note entry for semantic change and consumer impact.
+- [x] Update migration playbook with semantic model (`turn runtime` vs `conversation current runtime`).
+- [x] Add SQL examples for operators validating migrated DBs.
+- [x] Add troubleshooting note for incomplete runtime backfill on old records.
+- [x] Update API reference docs with `current_runtime_key` terminology.
+- [x] Add release note entry for semantic change and consumer impact.
 
 ## Rollout and Validation
 

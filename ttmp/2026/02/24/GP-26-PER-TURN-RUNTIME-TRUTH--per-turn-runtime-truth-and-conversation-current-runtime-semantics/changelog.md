@@ -58,3 +58,14 @@ Follow-up cutover alignment: commit 79d3516 updated web debug UI to current_runt
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/debug-ui/api/debugApi.ts — Conversation current_runtime_key client parsing
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/turn_persister_runtime_test.go — Runtime-switch regressions now covered
 
+
+## 2026-02-24
+
+Documentation completion commit dbdcd12: added runtime-truth migration playbook, SQL validation queries, backfill troubleshooting, debug API runtime history snippets, and current_runtime_key terminology updates.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-debugging-and-ops.md — Runtime history operational checks
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md — Conversation pointer vs per-turn truth guidance
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-runtime-truth-migration-playbook.md — Primary GP-26 migration/reference playbook
+

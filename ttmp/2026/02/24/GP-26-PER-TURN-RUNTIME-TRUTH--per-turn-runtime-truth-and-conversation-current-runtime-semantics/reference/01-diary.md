@@ -19,6 +19,12 @@ RelatedFiles:
       Note: Debug UI API parser switched to current_runtime_key
     - Path: ../../../../../../../pinocchio/pkg/cmds/chat_persistence.go
       Note: CLI persister updated to TurnSaveOptions contract
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-debugging-and-ops.md
+      Note: Operational runtime history checks and current_runtime_key guidance
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-profile-registry.md
+      Note: Profile/runtime semantics clarification for debug APIs
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-runtime-truth-migration-playbook.md
+      Note: New migration playbook with SQL and runtime semantics guidance
     - Path: ../../../../../../../pinocchio/pkg/persistence/chatstore/turn_store.go
       Note: TurnStore contract baseline lacks runtime_key and inference_id
     - Path: ../../../../../../../pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go
@@ -43,6 +49,7 @@ LastUpdated: 2026-02-24T16:57:32.334205138-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -365,3 +372,64 @@ cd go-go-os/go-inventory-chat && go test ./cmd/hypercard-inventory-server -count
 - Runtime-switch test invariant:
   - turn 1 saved under runtime A remains runtime A
   - turn 2 saved after switch uses runtime B
+
+## Step 5: Migration Playbook And API Docs Completion
+
+This step completed the documentation side of GP-26 so operational teams and integrators have explicit migration and validation guidance. The focus was runtime semantics clarity, API field naming, and concrete SQL/curl checks.
+
+The new docs make the "turn truth vs conversation pointer" split explicit and include troubleshooting for incomplete metadata backfill in legacy rows.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue to complete remaining GP-26 work items, including documentation and operational guidance.
+
+**Inferred user intent:** Leave no ambiguity for future maintainers and operators after the cutover.
+
+**Commit (code):** `dbdcd12` — "GP-26: add runtime-truth migration playbook and debug API docs"
+
+### What I did
+- Added migration playbook topic:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-runtime-truth-migration-playbook.md`
+  - Includes semantic model, API contract deltas, SQL validation queries, backfill troubleshooting, and release-note template text.
+- Updated debugging ops topic:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-debugging-and-ops.md`
+  - Added `current_runtime_key` semantics and runtime history curl/jq snippets.
+- Updated profile-registry topic:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+  - Added explicit interpretation of conversation vs turn-level runtime fields.
+
+### Why
+- GP-26 changed runtime semantics materially; operators need deterministic checks and consumer teams need explicit contract language.
+
+### What worked
+- Documentation now contains both API-level and SQL-level validation paths.
+- Migration/backfill caveats are explicitly documented, reducing support ambiguity.
+
+### What didn't work
+- N/A.
+
+### What I learned
+- Including release-note template text directly in migration docs reduces cross-team drift during rollout communication.
+
+### What was tricky to build
+- Keeping docs precise without over-promising strict historical recovery for rows that never had canonical runtime metadata.
+
+### What warrants a second pair of eyes
+- Verify wording in release-note template matches product/release comms style.
+
+### What should be done in the future
+- Add a small operator script that automates the SQL checks from the playbook.
+
+### Code review instructions
+- Start with the new playbook:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-runtime-truth-migration-playbook.md`
+- Then verify cross-links:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-debugging-and-ops.md`
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+
+### Technical details
+- Docs now state:
+  - conversation debug field: `current_runtime_key`
+  - turn debug fields: `runtime_key`, `inference_id`
