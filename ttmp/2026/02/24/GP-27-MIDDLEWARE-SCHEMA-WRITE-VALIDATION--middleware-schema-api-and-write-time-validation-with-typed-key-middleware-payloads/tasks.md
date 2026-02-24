@@ -54,7 +54,7 @@
 
 - [ ] Update GP-20 follow-up cross-reference with resolved decisions.
 - [ ] Add help-page section describing middleware schema API endpoints.
-- [ ] Update profile migration playbook with typed-key middleware payload migration.
+- [ ] Update profile playbook with hard-cutover notes for typed-key middleware payloads (no migration command/fallback).
 - [ ] Add example profile JSON/YAML snippets for typed-key middleware config.
 - [ ] Add troubleshooting section for write-time schema validation failures.
 
