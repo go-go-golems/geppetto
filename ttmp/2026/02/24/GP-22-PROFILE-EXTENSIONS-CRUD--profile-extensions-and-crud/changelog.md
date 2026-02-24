@@ -52,3 +52,16 @@ Step 3 completed: extension validation and service create/update normalization w
 - pkg/profiles/validation_test.go — Added extension validation field-path assertions
 - ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked validation/service-flow checklist complete
 
+
+## 2026-02-24
+
+Step 4 completed: extension persistence round-trip and cross-backend parity coverage landed (commit 09bc4ca).
+
+### Related Files
+
+- pkg/profiles/codec_yaml_test.go — Added YAML extension round-trip and unknown key preservation tests
+- pkg/profiles/file_store_yaml_test.go — Added YAML store partial-update regression preserving unknown extensions
+- pkg/profiles/integration_store_parity_test.go — Added extension behavior parity test across memory/YAML/SQLite
+- pkg/profiles/sqlite_store_test.go — Added SQLite extension round-trip and partial-update preservation tests
+- ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md — Marked persistence checklist complete
+

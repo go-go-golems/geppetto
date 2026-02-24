@@ -30,11 +30,11 @@
 
 ## Persistence and Round-Trip
 
-- [ ] Extend YAML codec tests to include extension payload round-trip.
-- [ ] Add YAML regression test for preserving unknown extension keys.
-- [ ] Extend SQLite store tests to include extension payload round-trip.
-- [ ] Add SQLite regression test for preserving unknown extension keys on partial profile updates.
-- [ ] Add parity tests proving same extension behavior in memory/YAML/SQLite stores.
+- [x] Extend YAML codec tests to include extension payload round-trip.
+- [x] Add YAML regression test for preserving unknown extension keys.
+- [x] Extend SQLite store tests to include extension payload round-trip.
+- [x] Add SQLite regression test for preserving unknown extension keys on partial profile updates.
+- [x] Add parity tests proving same extension behavior in memory/YAML/SQLite stores.
 
 ## CRUD API Contract
 

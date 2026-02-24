@@ -12,46 +12,53 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: pkg/profiles/codec_yaml_test.go
+      Note: |-
+        Step 4 YAML codec round-trip and unknown extension preservation tests.
+        Step 4 YAML extension roundtrip and unknown key preservation coverage
     - Path: pkg/profiles/extensions.go
       Note: Step 2 extension key parser, typed-key helpers, codec registry, and normalization helpers.
     - Path: pkg/profiles/extensions_test.go
       Note: Step 2 parser/codec/normalization regression coverage.
+    - Path: pkg/profiles/file_store_yaml_test.go
+      Note: |-
+        Step 4 YAML store regression for unknown extension preservation across partial updates.
+        Step 4 YAML file-store unknown extension persistence on partial updates
+    - Path: pkg/profiles/integration_store_parity_test.go
+      Note: |-
+        Step 4 cross-backend extension behavior parity tests.
+        Step 4 extension behavior parity across backends
     - Path: pkg/profiles/registry.go
-      Note: |-
-        Step 3 profile patch extensions field for service update flows.
-        Step 3 ProfilePatch extensions support
+      Note: Step 3 profile patch extensions field for service update flows.
     - Path: pkg/profiles/service.go
-      Note: |-
-        Step 2 option plumbing and Step 3 create/update extension normalization.
-        Step 3 create/update extension normalization integration
+      Note: Step 2 option plumbing and Step 3 create/update extension normalization.
     - Path: pkg/profiles/service_test.go
+      Note: Step 3 normalization and error-field contract tests.
+    - Path: pkg/profiles/sqlite_store_test.go
       Note: |-
-        Step 3 create/update extension normalization and error-field contract tests.
-        Step 3 normalization and error mapping tests
+        Step 4 SQLite extension round-trip and partial-update preservation tests.
+        Step 4 SQLite extension roundtrip and partial-update persistence
     - Path: pkg/profiles/types.go
       Note: Step 1 profile extensions model field and clone behavior.
     - Path: pkg/profiles/types_clone_test.go
       Note: Step 1 clone mutation-isolation coverage for extensions.
     - Path: pkg/profiles/validation.go
-      Note: |-
-        Step 3 extension-key syntax and payload serializability validation.
-        Step 3 extension key syntax and serializability validation
+      Note: Step 3 extension-key syntax and payload serializability validation.
     - Path: pkg/profiles/validation_test.go
-      Note: |-
-        Step 3 field-path validation tests for extension errors.
-        Step 3 extension validation field-path tests
+      Note: Step 3 extension validation field-path assertions.
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/design-doc/01-implementation-plan-profile-extensions-and-crud.md
-      Note: Step 1 decision to defer registry-level extensions in GP-22.
+      Note: Step 1 scope decision to defer registry-level extensions in GP-22.
     - Path: ttmp/2026/02/24/GP-22-PROFILE-EXTENSIONS-CRUD--profile-extensions-and-crud/tasks.md
       Note: |-
-        Step 1-3 checklist progress.
-        Step 3 task checklist progress
+        Step 1-4 checklist progress.
+        Step 4 checklist progress
 ExternalSources: []
 Summary: Implementation diary for GP-22 profile extension and CRUD rollout, including commit checkpoints, failures, and validation commands.
-LastUpdated: 2026-02-24T14:25:00-05:00
+LastUpdated: 2026-02-24T14:43:00-05:00
 WhatFor: Track GP-22 task-by-task implementation details and verification evidence.
 WhenToUse: Use when reviewing what landed in GP-22 and how to validate each step.
 ---
+
 
 
 
@@ -320,6 +327,90 @@ go test ./pkg/profiles/... -count=1
 
 - Service create/update flows now normalize extension keys and codec-decode known keys before validation and persistence.
 - Invalid extension keys and non-serializable values now surface as `ValidationError` with `profile.extensions[...]` field paths.
+
+## Step 4: Persistence and Round-Trip Coverage for Extension Payloads
+
+This step completed the persistence matrix for extension payload behavior across YAML and SQLite stores, plus backend parity checks. The work focused on ensuring extension payloads survive encode/decode, reload, and partial profile update flows without key drift or data loss.
+
+The tests explicitly cover unknown extension keys because forward-compatible pass-through is a core requirement for mixed-version deployments.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-22 execution and complete the next checklist block with commit checkpoints.
+
+**Inferred user intent:** Prove that extension payload guarantees remain stable across all persistence backends before API/client integration.
+
+**Commit (code):** `09bc4ca` — "profiles: add extension persistence round-trip coverage across backends"
+
+### What I did
+
+- Extended `pkg/profiles/codec_yaml_test.go`:
+  - added extension payload assertions to YAML encode/decode roundtrip,
+  - added regression test for preserving unknown extension keys.
+- Extended `pkg/profiles/file_store_yaml_test.go`:
+  - added service-driven partial update regression ensuring unknown extension payload survives YAML reload.
+- Extended `pkg/profiles/sqlite_store_test.go`:
+  - added SQLite extension roundtrip test,
+  - added partial-update regression ensuring unknown extension payload survives reopen.
+- Extended `pkg/profiles/integration_store_parity_test.go`:
+  - added cross-backend parity test for extension behavior across memory/YAML/SQLite.
+- Marked all tasks complete in GP-22 “Persistence and Round-Trip” checklist.
+- Ran validation:
+  - `go test ./pkg/profiles/... -count=1`,
+  - pre-commit full `go test ./...`, lint, vet.
+
+### Why
+
+- Persistence behavior is the contract boundary used by web-chat and Go-Go-OS. Any extension data loss or key mutation here would break profile-scoped features.
+- Unknown-key retention is required so third-party and future extensions can coexist safely.
+
+### What worked
+
+- All new tests passed in targeted and full pre-commit pipelines.
+- Extension key canonicalization and unknown-payload pass-through stayed consistent across all backends.
+
+### What didn't work
+
+- No code-level failures in this step.
+
+### What I learned
+
+- Service-level partial updates are a useful regression lens for persistence because they emulate real API usage better than direct store-only tests.
+- Backend parity tests keep expectations aligned and reduce drift risk between adapters.
+
+### What was tricky to build
+
+- The tricky part was asserting parity without relying on backend-specific value concrete types. I focused assertions on canonical keys and nested payload content semantics rather than strict concrete Go types.
+
+### What warrants a second pair of eyes
+
+- Confirm parity assertions are strict enough for downstream API contract confidence, especially around nested `any` payload values.
+- Confirm no additional reopen/close lifecycle variants are needed for extension-heavy payloads.
+
+### What should be done in the future
+
+- Next step is GP-22 CRUD API contract implementation in Pinocchio webchat handlers and DTOs (`extensions` fields and status-code shape checks).
+
+### Code review instructions
+
+- Start with `pkg/profiles/codec_yaml_test.go`, `pkg/profiles/file_store_yaml_test.go`, and `pkg/profiles/sqlite_store_test.go`.
+- Review `pkg/profiles/integration_store_parity_test.go` extension parity test.
+- Re-run:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Added extension regression coverage for:
+  - YAML encode/decode registry codec layer,
+  - YAML file store reload after service partial update,
+  - SQLite reopen durability and partial-update preservation,
+  - backend parity across memory/YAML/SQLite service flows.
 
 ## Related
 
