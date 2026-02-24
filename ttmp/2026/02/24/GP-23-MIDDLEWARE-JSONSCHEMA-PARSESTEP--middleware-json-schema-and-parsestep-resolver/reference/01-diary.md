@@ -26,6 +26,18 @@ RelatedFiles:
       Note: Step 4 BuildChain integration for resolved middleware instances
     - Path: pkg/inference/middlewarecfg/chain_test.go
       Note: Step 4 BuildChain ordering/disabled/error diagnostics coverage
+    - Path: pinocchio/cmd/web-chat/runtime_composer.go
+      Note: Step 5 resolver-driven runtime composer integration
+    - Path: pinocchio/cmd/web-chat/runtime_composer_test.go
+      Note: Step 5 precedence and schema failure runtime composer tests
+    - Path: pinocchio/cmd/web-chat/middleware_definitions.go
+      Note: Step 5 JSON-schema middleware definitions and dependency wiring
+    - Path: pinocchio/cmd/web-chat/main.go
+      Note: Step 5 registry + build deps runtime wiring
+    - Path: pinocchio/cmd/web-chat/profile_policy.go
+      Note: Step 5 middleware override payload id/enabled propagation
+    - Path: pinocchio/pkg/inference/runtime/engine.go
+      Note: Step 5 engine builder helper for pre-resolved middleware chains
     - Path: pkg/inference/middlewarecfg/source.go
       Note: Step 2 layered source contract and canonical precedence ordering
     - Path: pkg/profiles/service.go
@@ -42,7 +54,7 @@ RelatedFiles:
       Note: Step 1 middleware instance validation regressions
 ExternalSources: []
 Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
-LastUpdated: 2026-02-24T16:54:00-05:00
+LastUpdated: 2026-02-24T17:20:00-05:00
 WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
 WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
 ---
@@ -417,6 +429,104 @@ go test ./pkg/inference/middlewarecfg -count=1
   - `build middleware <instance-key>: <wrapped cause>`
   so logs immediately identify which instance failed.
 
+## Step 5: Pinocchio Runtime Composer Cutover to Resolver + Definition Registry
+
+This step migrated `pinocchio/cmd/web-chat` from the legacy middleware-factory map path to the new JSON-schema resolver path powered by `middlewarecfg` definitions and `BuildChain`.
+
+The result is that middleware config handling in web-chat now goes through schema validation/coercion and source precedence rules, instead of ad-hoc direct map parsing into factory calls.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 after BuildChain by executing the Pinocchio integration block.
+
+**Inferred user intent:** Progress ticket tasks continuously with commit-sized, verified steps and ticket diary traceability.
+
+### What I did
+
+- Refactored `pinocchio/cmd/web-chat/runtime_composer.go`:
+  - switched constructor from middleware factory map to `middlewarecfg.DefinitionRegistry + BuildDeps`,
+  - merged profile middleware config and request middleware overrides into per-instance resolver inputs,
+  - resolved each middleware instance through schema defaults/profile/request layers,
+  - built middleware execution chain via `middlewarecfg.BuildChain`,
+  - passed resolved chain into engine build flow.
+- Added `pinocchio/cmd/web-chat/middleware_definitions.go`:
+  - app-owned middleware definition registry for `agentmode` and `sqlite`,
+  - JSON Schemas for middleware config contracts,
+  - typed config decoding from resolved config payloads,
+  - dependency keys for injected app services (`agentmode.service`, `sqlite.db`).
+- Updated `pinocchio/cmd/web-chat/main.go`:
+  - replaced legacy `mwFactories` wiring with definition registry + build deps,
+  - removed middleware registration loop for the old map path,
+  - normalized default agent profile middleware config to schema key format (`default_mode`).
+- Updated `pinocchio/cmd/web-chat/profile_policy.go`:
+  - middleware runtime defaults now propagate `id` and `enabled` fields in override payload shape.
+- Updated `pinocchio/pkg/inference/runtime/engine.go`:
+  - introduced `BuildEngineFromSettingsWithMiddlewares(...)`,
+  - existing `BuildEngineFromSettings(...)` now adapts specs/factories then delegates.
+- Added/updated tests in `pinocchio/cmd/web-chat/runtime_composer_test.go`:
+  - resolver precedence behavior (`profile` retained + `request` override wins for same path),
+  - invalid middleware schema payload rejection with middleware instance + path context.
+- Verification:
+  - `go test ./cmd/web-chat -count=1`,
+  - `go test ./pkg/inference/runtime -count=1`.
+
+### Why
+
+- Pinocchio runtime composition was the first app integration target in GP-23; migrating it proves the new resolver/definition model can replace legacy per-app middleware parsing.
+- The new path guarantees schema-level validation errors are surfaced early with deterministic diagnostic context.
+
+### What worked
+
+- Runtime composer integration compiled and tests passed.
+- New tests confirmed path-level precedence and schema failure behavior exactly at runtime composer boundary.
+
+### What didn't work
+
+- Initial build failed due two now-unused imports in `cmd/web-chat/main.go` after factory removal.
+- Fixed by removing stale imports and rerunning tests.
+
+### What I learned
+
+- A small app-owned definition adapter layer (`middleware_definitions.go`) keeps middlewarecfg generic while preserving application-specific dependency injection needs.
+
+### What was tricky to build
+
+- Merge logic for middleware overrides needed explicit ambiguity handling when matching by name without instance IDs. The implementation now rejects ambiguous no-ID overrides and requests explicit IDs.
+
+### What warrants a second pair of eyes
+
+- Confirm whether request override semantics should remain patch-style merge (current behavior) or allow explicit full replacement semantics for middleware lists.
+
+### What should be done in the future
+
+- Execute GP-23 Go-Go-OS integration block so inventory runtime follows the same resolver-driven middleware composition path.
+
+### Code review instructions
+
+- Start with:
+  - `pinocchio/cmd/web-chat/runtime_composer.go`
+  - `pinocchio/cmd/web-chat/middleware_definitions.go`
+  - `pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `pinocchio/pkg/inference/runtime/engine.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio
+go test ./cmd/web-chat -count=1
+go test ./pkg/inference/runtime -count=1
+```
+
+### Technical details
+
+- Runtime composer now resolves middleware config from layered sources:
+  - schema defaults,
+  - profile middleware config,
+  - request middleware config override.
+- Instance diagnostics consistently use `name#id` (or `name[index]` fallback) across resolve/build error paths.
+- Engine build path now supports pre-resolved middleware chains, reducing app-local middleware wiring complexity.
+
 ## Usage Examples
 
 Use this diary entry when reviewing GP-23 commits to understand:
@@ -425,6 +535,7 @@ Use this diary entry when reviewing GP-23 commits to understand:
 - how source precedence/defaulting/coercion currently behaves,
 - how parse-step history and winning-value lookups are exposed,
 - how resolved instances are converted into executable middleware chains,
+- how Pinocchio web-chat now consumes resolver output with schema-driven middleware definitions,
 - which validations are already covered by tests.
 
 ## Related

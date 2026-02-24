@@ -46,11 +46,11 @@
 
 ## Pinocchio Integration
 
-- [ ] Refactor `pinocchio/cmd/web-chat/runtime_composer.go` to consume resolver output.
-- [ ] Remove ad-hoc middleware override parsing in runtime composer.
-- [ ] Remove legacy map-based builder plumbing where replaced.
-- [ ] Add runtime composer tests for resolver precedence behavior.
-- [ ] Add runtime composer tests for invalid middleware schema payload failures.
+- [x] Refactor `pinocchio/cmd/web-chat/runtime_composer.go` to consume resolver output.
+- [x] Remove ad-hoc middleware override parsing in runtime composer.
+- [x] Remove legacy map-based builder plumbing where replaced.
+- [x] Add runtime composer tests for resolver precedence behavior.
+- [x] Add runtime composer tests for invalid middleware schema payload failures.
 
 ## Go-Go-OS Integration
 

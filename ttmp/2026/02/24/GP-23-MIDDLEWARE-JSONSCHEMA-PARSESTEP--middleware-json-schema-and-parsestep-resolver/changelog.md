@@ -66,3 +66,19 @@ Step 4 completed: BuildChain integration landed for resolved middleware instance
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/chain_test.go — Added chain build ordering/skip/error/repeated-name tests
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked Build Chain Integration checklist complete
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 4 diary entry and review instructions
+
+
+## 2026-02-24
+
+Step 5 completed: Pinocchio web-chat runtime composer migrated to resolver output + middleware definition registry, legacy map-based middleware factory path removed from composition wiring, and resolver precedence/schema-failure tests added.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer.go — Refactored runtime composition to resolve middleware configs and build chain via `middlewarecfg`
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/middleware_definitions.go — Added app-owned middleware definitions (`agentmode`, `sqlite`) with JSON schemas and dependency-aware builders
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/main.go — Replaced legacy middleware factory map wiring with definition registry and build deps
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy.go — Included middleware `id`/`enabled` fields in default runtime override payload shape
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/runtime_composer_test.go — Added resolver precedence and invalid schema payload runtime tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/engine.go — Added `BuildEngineFromSettingsWithMiddlewares` helper for pre-resolved middleware chains
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked Pinocchio Integration checklist complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 5 implementation diary and verification notes
