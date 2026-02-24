@@ -54,10 +54,10 @@
 
 ## Go-Go-OS Integration
 
-- [ ] Refactor `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go` to consume resolver.
-- [ ] Ensure profile runtime middlewares are no longer ignored in inventory runtime path.
-- [ ] Add integration tests proving middleware profile defaults apply in inventory server.
-- [ ] Add parity tests against Pinocchio for identical middleware-use inputs.
+- [x] Refactor `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go` to consume resolver.
+- [x] Ensure profile runtime middlewares are no longer ignored in inventory runtime path.
+- [x] Add integration tests proving middleware profile defaults apply in inventory server.
+- [x] Add parity tests against Pinocchio for identical middleware-use inputs.
 
 ## Glazed Adapter and Tooling
 

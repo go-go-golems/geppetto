@@ -38,6 +38,16 @@ RelatedFiles:
       Note: Step 5 middleware override payload id/enabled propagation
     - Path: pinocchio/pkg/inference/runtime/engine.go
       Note: Step 5 engine builder helper for pre-resolved middleware chains
+    - Path: go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go
+      Note: Step 6 go-go-os runtime composer resolver cutover
+    - Path: go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go
+      Note: Step 6 inventory middleware definition registry and schemas
+    - Path: go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go
+      Note: Step 6 resolver coercion/parity/runtime middleware behavior tests
+    - Path: go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go
+      Note: Step 6 profile defaults now carry explicit runtime middleware list
+    - Path: go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go
+      Note: Step 6 integration assertion for profile-default middleware propagation
     - Path: pkg/inference/middlewarecfg/source.go
       Note: Step 2 layered source contract and canonical precedence ordering
     - Path: pkg/profiles/service.go
@@ -54,7 +64,7 @@ RelatedFiles:
       Note: Step 1 middleware instance validation regressions
 ExternalSources: []
 Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
-LastUpdated: 2026-02-24T17:20:00-05:00
+LastUpdated: 2026-02-24T18:05:00-05:00
 WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
 WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
 ---
@@ -527,6 +537,101 @@ go test ./pkg/inference/runtime -count=1
 - Instance diagnostics consistently use `name#id` (or `name[index]` fallback) across resolve/build error paths.
 - Engine build path now supports pre-resolved middleware chains, reducing app-local middleware wiring complexity.
 
+## Step 6: Go-Go-OS Runtime Composer Cutover and Inventory Middleware Default Integration
+
+This step migrated Go-Go-OS inventory runtime composition to the same resolver-driven architecture as Pinocchio and added test coverage proving profile-default middleware behavior is now honored end-to-end.
+
+The previous inventory composer hard-coded middleware factories and ignored profile middleware lists. The new implementation resolves profile middlewares through `middlewarecfg` definitions, then builds middleware chains with the shared `BuildChain` path.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 after Pinocchio integration by completing the Go-Go-OS integration block.
+
+**Inferred user intent:** Keep executing ticket tasks sequentially with commits and diary updates until major integration blocks are landed.
+
+### What I did
+
+- Added `go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go`:
+  - definition registry for inventory middlewares:
+    - `inventory_artifact_policy`,
+    - `inventory_suggestions_policy`,
+    - `inventory_artifact_generator`,
+  - JSON Schema contracts for middleware config payloads,
+  - default inventory middleware-use list helper.
+- Refactored `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`:
+  - switched from local middleware-factory map to `middlewarecfg` resolver + `BuildChain`,
+  - preserved inventory runtime policy (`runtime overrides not allowed`),
+  - resolved middleware configs from profile runtime middleware list,
+  - only falls back to default app middleware list when no profile runtime is present,
+  - composed engine via shared `BuildEngineFromSettingsWithMiddlewares`.
+- Updated `go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go`:
+  - inventory/analyst/planner profiles now explicitly declare inventory runtime middleware list in profile runtime spec.
+- Added tests `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go`:
+  - profile middleware application with resolver coercion behavior,
+  - explicit empty profile middleware list does not silently fall back to app defaults,
+  - invalid middleware schema payload rejection with path context.
+- Added integration assertion in `go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`:
+  - verifies `/chat` request resolution passes profile default middlewares into runtime composer request.
+- Verification:
+  - `go test ./go-inventory-chat/internal/pinoweb -count=1`,
+  - `go test ./go-inventory-chat/cmd/hypercard-inventory-server -count=1`.
+
+### Why
+
+- GP-23 requires runtime parity across Pinocchio and Go-Go-OS; both must consume the shared resolver architecture to avoid middleware config drift.
+- Explicit profile runtime middleware lists are necessary for “real default profile with no middlewares” behavior while keeping inventory/analyst/planner profiles app-opinionated.
+
+### What worked
+
+- Refactored runtime composer compiled and tests passed.
+- Integration test confirmed middleware defaults from selected profile are present in runtime composer inputs.
+
+### What didn't work
+
+- No blockers in this step.
+
+### What I learned
+
+- Splitting “no profile runtime” fallback behavior from “profile runtime present but empty middlewares” is key to preserving explicit no-middleware profiles without losing app defaults when profile resolution is unavailable.
+
+### What was tricky to build
+
+- Ensuring parity goals while inventory runtime intentionally forbids request overrides required focusing parity on shared schema/coercion semantics and profile middleware handling, not request-layer merges.
+
+### What warrants a second pair of eyes
+
+- Confirm whether inventory should always include artifact generator middleware in default profile middleware set, or keep it opt-in as currently implemented.
+
+### What should be done in the future
+
+- Implement GP-23 Glazed adapter block (JSON-schema-to-Glazed section adapter) and debug/observability enhancements.
+
+### Code review instructions
+
+- Start with:
+  - `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go`
+  - `go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go`
+  - `go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go`
+  - `go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os
+go test ./go-inventory-chat/internal/pinoweb -count=1
+go test ./go-inventory-chat/cmd/hypercard-inventory-server -count=1
+```
+
+### Technical details
+
+- Runtime composer source layers in go-go-os currently use:
+  - schema defaults,
+  - profile middleware config.
+  Request layer is intentionally absent due inventory runtime override policy.
+- Profile runtime middleware specs now drive middleware inclusion; hard-coded runtime middleware insertion path is removed.
+- Integration coverage now verifies middleware defaults survive full request-resolution and chat-handler flow.
+
 ## Usage Examples
 
 Use this diary entry when reviewing GP-23 commits to understand:
@@ -536,6 +641,7 @@ Use this diary entry when reviewing GP-23 commits to understand:
 - how parse-step history and winning-value lookups are exposed,
 - how resolved instances are converted into executable middleware chains,
 - how Pinocchio web-chat now consumes resolver output with schema-driven middleware definitions,
+- how Go-Go-OS inventory runtime now uses profile-driven middleware resolution with integration coverage,
 - which validations are already covered by tests.
 
 ## Related

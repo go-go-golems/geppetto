@@ -82,3 +82,18 @@ Step 5 completed: Pinocchio web-chat runtime composer migrated to resolver outpu
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/inference/runtime/engine.go — Added `BuildEngineFromSettingsWithMiddlewares` helper for pre-resolved middleware chains
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked Pinocchio Integration checklist complete
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 5 implementation diary and verification notes
+
+
+## 2026-02-24
+
+Step 6 completed: Go-Go-OS inventory runtime composer migrated to resolver + definition registry, profile runtime middlewares now drive runtime middleware inclusion, and both unit/integration coverage added for middleware-default propagation.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer.go — Refactored runtime composition to resolve profile middlewares via `middlewarecfg`
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go — Added inventory middleware definition registry and JSON schemas
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/runtime_composer_test.go — Added resolver coercion, explicit-empty middleware, and schema-failure tests
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main.go — Added explicit runtime middleware defaults to inventory/analyst/planner profiles
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go — Added integration assertion for profile-default middleware propagation to runtime composer
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked Go-Go-OS Integration checklist complete
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 6 diary entry with verification details
