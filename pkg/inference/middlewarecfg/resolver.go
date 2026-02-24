@@ -623,6 +623,9 @@ func toInt64(v any) (int64, error) {
 	case int64:
 		return value, nil
 	case uint:
+		if uint64(value) > math.MaxInt64 {
+			return 0, fmt.Errorf("out of range")
+		}
 		return int64(value), nil
 	case uint8:
 		return int64(value), nil

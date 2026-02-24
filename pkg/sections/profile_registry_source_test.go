@@ -120,17 +120,31 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 		t.Fatalf("WriteFile config returned error: %v", err)
 	}
 	oldEnv, hadEnv := os.LookupEnv("PINOCCHIO_AI_ENGINE")
+	oldProfileEnv, hadProfileEnv := os.LookupEnv("PINOCCHIO_PROFILE")
+	oldProfileFileEnv, hadProfileFileEnv := os.LookupEnv("PINOCCHIO_PROFILE_FILE")
 	defer func() {
 		if hadEnv {
 			_ = os.Setenv("PINOCCHIO_AI_ENGINE", oldEnv)
 		} else {
 			_ = os.Unsetenv("PINOCCHIO_AI_ENGINE")
 		}
+		if hadProfileEnv {
+			_ = os.Setenv("PINOCCHIO_PROFILE", oldProfileEnv)
+		} else {
+			_ = os.Unsetenv("PINOCCHIO_PROFILE")
+		}
+		if hadProfileFileEnv {
+			_ = os.Setenv("PINOCCHIO_PROFILE_FILE", oldProfileFileEnv)
+		} else {
+			_ = os.Unsetenv("PINOCCHIO_PROFILE_FILE")
+		}
 	}()
 
 	parseEngine := func(args []string, envEngine string) string {
 		t.Helper()
 		_ = os.Unsetenv("PINOCCHIO_AI_ENGINE")
+		_ = os.Unsetenv("PINOCCHIO_PROFILE")
+		_ = os.Unsetenv("PINOCCHIO_PROFILE_FILE")
 		if envEngine != "" {
 			_ = os.Setenv("PINOCCHIO_AI_ENGINE", envEngine)
 		}
