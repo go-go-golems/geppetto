@@ -223,11 +223,61 @@ General principle: **Middlewares that reject/filter go first; middlewares that m
 
 ---
 
+## Profile-Scoped Middleware Configuration
+
+In current app integrations, middleware selection and config are profile-scoped runtime data:
+
+```json
+{
+  "runtime": {
+    "middlewares": [
+      {
+        "name": "agentmode",
+        "id": "default",
+        "config": {
+          "default_mode": "financial_analyst"
+        }
+      }
+    ]
+  }
+}
+```
+
+The profile controls:
+
+- middleware ordering,
+- per-instance identity (`id`),
+- enabled/disabled flags,
+- config payload values.
+
+## Write-Time Validation Model
+
+Profile write APIs validate middleware entries before persistence:
+
+- unknown middleware names fail hard (`400` + validation error),
+- config payloads are coerced and validated against middleware JSON schema,
+- invalid shape/types fail hard (`400` + validation error with field path).
+
+This avoids storing profile data that only fails later at compose-time.
+
+## Schema Discovery for Frontends
+
+Schema catalogs can be exposed by app APIs:
+
+- `GET /api/chat/schemas/middlewares` returns middleware names + JSON schema payloads,
+- `GET /api/chat/schemas/extensions` returns extension keys + JSON schema payloads.
+
+Frontend editors can use these endpoints to build profile forms and validate payloads before sending CRUD writes.
+
+---
+
 ## Troubleshooting
 
 - Middleware not running: ensure you’re using `enginebuilder.New(... enginebuilder.WithMiddlewares(...))` (or that you’re applying `middleware.Chain(...)` in your own engine adapter).
 - Wrong ordering: remember `middleware.Chain(m1, m2, m3)` runs as `m1(m2(m3(next)))`.
 - Nil Turn: most middleware should be defensive if `t == nil` (either treat as empty turn or error early).
+- `validation error (runtime.middlewares[*].name)`: middleware definition is not registered in the application runtime definition registry.
+- `validation error (runtime.middlewares[*].config)`: payload does not satisfy the middleware JSON schema. Fetch schema from `/api/chat/schemas/middlewares` and fix payload shape/types.
 
 ---
 

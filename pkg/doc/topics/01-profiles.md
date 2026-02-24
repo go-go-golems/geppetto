@@ -27,11 +27,11 @@ Geppetto now treats profiles as a first-class domain object (`ProfileRegistry`) 
 - enforcing profile policy (for example read-only or override restrictions),
 - exposing profile CRUD APIs from applications.
 
-If you are migrating from the legacy `profiles.yaml` map format, this page shows what changed, what stayed compatible, and what to update first.
+This page documents the canonical, registry-first model used by current pinocchio and go-go-os integrations.
 
 ## Why Registry-First Profiles
 
-Legacy profile support was useful for static config overlays, but it was hard to reuse from API-driven applications. Registry-first profiles solve that by making profile state explicit and reusable across CLI flows and HTTP services.
+Registry-first profiles make profile state explicit and reusable across CLI flows and HTTP services.
 
 Key benefits:
 
@@ -132,30 +132,17 @@ Resolution output includes:
 
 Request overrides are policy-gated. If a profile denies overrides or marks keys as denied, resolution returns a policy violation error.
 
-## Legacy Compatibility
+## Hard-Cutover Model
 
-Geppetto still supports legacy flat profile YAML maps and migration helpers. The important rule is:
+The runtime model is registry-first and profile-first:
 
-- **You can load legacy documents**
-- **Runtime should resolve through the registry service**
+- profiles are stored and resolved through `profiles.Registry`,
+- profile CRUD is the write path for runtime defaults,
+- middleware configuration is profile-scoped and validated before persistence in API surfaces.
 
-The sections adapter (`GatherFlagsFromProfileRegistry`) exists to preserve command-layer behavior while internally resolving via registry logic.
+There is no environment-variable toggle for old middleware selection paths.
 
-## YAML Examples
-
-### Legacy map format (still accepted)
-
-```yaml
-default:
-  ai-chat:
-    ai-engine: gpt-4o-mini
-agent:
-  ai-chat:
-    ai-engine: gpt-4.1
-    ai-api-type: openai
-```
-
-### Registry document format
+## Registry YAML Example
 
 ```yaml
 slug: default
@@ -171,6 +158,40 @@ profiles:
     policy:
       allow_overrides: true
 ```
+
+## Typed Extension Keys
+
+`profile.extensions` use namespaced typed keys:
+
+```text
+<namespace>.<feature>@v<version>
+```
+
+Examples:
+
+- `webchat.starter_suggestions@v1`
+- `inventory.starter_suggestions@v1`
+
+Keys are normalized and validated; malformed keys fail profile create/update.
+
+## Middleware Config Ownership and Validation Timing
+
+Middleware configuration lives inside the profile runtime:
+
+```yaml
+runtime:
+  middlewares:
+    - name: agentmode
+      id: default
+      config:
+        default_mode: financial_analyst
+```
+
+Authoritative behavior:
+
+- middleware identity/order/enable state are profile runtime concerns,
+- middleware config payloads are validated against middleware JSON schema,
+- unknown middleware names are hard errors in write-time validated APIs.
 
 ## CLI and Environment Selection
 
@@ -200,13 +221,14 @@ Use this baseline in apps:
 
 This keeps profile logic centralized and avoids app-specific shadow profile structures.
 
-## Migration Playbook
+## Schema Discovery in Application APIs
 
-1. Keep existing `profiles.yaml` as input.
-2. Switch resolution path to registry service.
-3. Add CRUD surface only after resolution path is stable.
-4. Move persistent storage from file to SQLite when multi-user edits are needed.
-5. Remove app-owned duplicated profile models.
+Application APIs can expose schema catalogs for frontend form generation:
+
+- `GET /api/chat/schemas/middlewares`
+- `GET /api/chat/schemas/extensions`
+
+These are discovery endpoints for UI/tooling. Profile mutations still go through profile CRUD endpoints.
 
 ## Troubleshooting
 
@@ -216,12 +238,13 @@ This keeps profile logic centralized and avoids app-specific shadow profile stru
 | `registry not found` | Store missing bootstrap registry | Ensure bootstrap upsert runs before service start |
 | policy violation on update/delete | Profile is read-only or blocked by policy | Adjust policy intentionally or mutate a writable profile |
 | stale update conflict | `expected_version` does not match latest | Re-fetch profile, then retry update with current version |
+| `validation error (runtime.middlewares[*].name)` | Unknown middleware definition | Fix middleware name or register definition in application runtime |
+| `validation error (runtime.middlewares[*].config)` | Middleware payload fails schema validation | Correct payload shape/types based on middleware schema endpoint |
 | runtime did not switch after profile change | Resolver/composer not using profile version/fingerprint inputs | Ensure request plan includes `ProfileVersion` and runtime composer fingerprint includes version-sensitive inputs |
 
 ## See Also
 
 - [Geppetto Documentation Index](00-docs-index.md)
-- [Migration playbook: legacy profiles.yaml to registry format](../playbooks/05-migrate-legacy-profiles-yaml-to-registry.md)
 - [Operate SQLite-backed profile registry](../playbooks/06-operate-sqlite-profile-registry.md)
 - [Middlewares](09-middlewares.md)
 - [Session Management in Geppetto](10-sessions.md)

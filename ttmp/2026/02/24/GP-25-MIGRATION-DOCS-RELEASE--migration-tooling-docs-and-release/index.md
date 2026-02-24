@@ -1,7 +1,7 @@
 ---
 Title: Hard-Cutover Docs and Release
 Ticket: GP-25-MIGRATION-DOCS-RELEASE
-Status: active
+Status: complete
 Topics:
     - architecture
     - migration
@@ -28,10 +28,11 @@ RelatedFiles:
       Note: Embedded help-page loader used for pinocchio glazed docs publishing.
 ExternalSources: []
 Summary: Documentation and release-readiness track for shipping profile-registry hard cutover without legacy conversion tooling.
-LastUpdated: 2026-02-24T13:12:02-05:00
+LastUpdated: 2026-02-24T16:52:31.160740185-05:00
 WhatFor: Capture operator playbooks, schema/API references, compatibility-break notices, and release checklist for hard-cutover rollout.
 WhenToUse: Use when preparing hard-cutover docs, validating command/API examples, and publishing release notes for profile-registry changes.
 ---
+
 
 # Hard-Cutover Docs and Release
 
@@ -50,6 +51,8 @@ Legacy conversion tooling is out of scope here. This ticket assumes canonical re
 ## Key Links
 
 - Design: [Implementation Plan - Migration Tooling Docs and Release](./design-doc/01-implementation-plan-migration-tooling-docs-and-release.md)
+- Release Notes: [Hard-Cutover Release Notes - Profile Registry Rollout](./reference/01-hard-cutover-release-notes.md)
+- Operator Checklist: [Operator Checklist - Profile Registry Hard Cutover](./playbooks/01-operator-cutover-checklist.md)
 - Tasks: [tasks.md](./tasks.md)
 - Changelog: [changelog.md](./changelog.md)
 

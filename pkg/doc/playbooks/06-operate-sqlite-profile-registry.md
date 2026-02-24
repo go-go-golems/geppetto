@@ -5,7 +5,6 @@ Short: Runbook for operating, backing up, and recovering SQLite-backed profile r
 Topics:
   - profiles
   - persistence
-  - migration
   - pinocchio
 Commands:
   - pinocchio
@@ -22,7 +21,7 @@ SectionType: Playbook
 
 ## Goal
 
-Run pinocchio/geppetto apps with durable SQLite profile registry storage, and keep safe backup/recovery procedures for profile mutations.
+Run pinocchio/geppetto apps with durable SQLite profile registry storage, verify schema discovery endpoints, and keep safe backup/recovery procedures for profile mutations.
 
 ## Before you start
 
@@ -53,7 +52,38 @@ curl -s http://localhost:8080/api/chat/profiles | jq .
 
 You should see a JSON profile list, not an empty response body or server error.
 
-## Step 3: Back up before risky changes
+Verify schema discovery endpoints:
+
+```bash
+curl -s http://localhost:8080/api/chat/schemas/middlewares | jq .
+curl -s http://localhost:8080/api/chat/schemas/extensions | jq .
+```
+
+You should get JSON arrays. If the arrays are empty unexpectedly, check application startup wiring for middleware definitions and extension schema registration.
+
+## Step 3: Validate write-time middleware checks
+
+Unknown middleware names should hard-fail:
+
+```bash
+curl -s -X POST http://localhost:8080/api/chat/profiles \
+  -H 'content-type: application/json' \
+  -d '{"slug":"bad-mw","runtime":{"middlewares":[{"name":"does_not_exist"}]}}'
+```
+
+Expect HTTP `400` with a `validation error` mentioning `runtime.middlewares[0].name`.
+
+Schema-invalid middleware payloads should also hard-fail:
+
+```bash
+curl -s -X POST http://localhost:8080/api/chat/profiles \
+  -H 'content-type: application/json' \
+  -d '{"slug":"bad-config","runtime":{"middlewares":[{"name":"agentmode","config":{"unknown":"x"}}]}}'
+```
+
+Expect HTTP `400` with a `validation error` mentioning `runtime.middlewares[0].config`.
+
+## Step 4: Back up before risky changes
 
 Filesystem snapshot backup:
 
@@ -67,7 +97,7 @@ Optional SQL check:
 sqlite3 ./data/profiles.db "SELECT slug, updated_at_ms FROM profile_registries ORDER BY slug;"
 ```
 
-## Step 4: Restore procedure
+## Step 5: Restore procedure
 
 1. Stop the service writing to the DB.
 2. Replace the DB with a known-good backup.
@@ -80,9 +110,10 @@ Example:
 cp ./data/profiles.db.bak.20260223-220000 ./data/profiles.db
 ```
 
-## Step 5: Post-restore validation
+## Step 6: Post-restore validation
 
 - `GET /api/chat/profiles` returns expected slugs/default.
+- `GET /api/chat/schemas/middlewares` and `GET /api/chat/schemas/extensions` return expected schema catalogs.
 - `PATCH /api/chat/profiles/{slug}` with stale `expected_version` still returns `409`.
 - Chat requests using explicit `profile` or `registry` still resolve correctly.
 
@@ -100,8 +131,9 @@ cp ./data/profiles.db.bak.20260223-220000 ./data/profiles.db
 | writes fail with busy/lock errors | concurrent writers and missing timeout/WAL settings | use DSN with WAL + busy timeout and avoid external long-running transactions |
 | restored DB loads but profiles seem stale | restored snapshot older than expected | verify backup timestamp and repeat restore with newer snapshot |
 | API returns 500 after restore | payload/schema corruption in DB row | inspect `payload_json`, restore cleaner snapshot, then reapply desired changes |
+| `validation error (runtime.middlewares[*].name)` on create/update | middleware name not registered in app runtime | check middleware definition registry wiring at server bootstrap |
+| `validation error (runtime.middlewares[*].config)` on create/update | config payload does not satisfy middleware schema | fetch schema from `/api/chat/schemas/middlewares` and correct payload |
 
 ## See Also
 
 - [Profile Registry in Geppetto](../topics/01-profiles.md)
-- [Migration playbook: legacy profiles.yaml to registry format](05-migrate-legacy-profiles-yaml-to-registry.md)
