@@ -98,3 +98,26 @@ Recorded hard-cutover policy and implemented middleware schema metadata response
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/tasks.md
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/design-doc/01-implementation-plan-middleware-schema-api-write-time-validation-and-typed-key-middleware-payloads.md
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/index.md
+
+## 2026-02-24
+
+Added frontend runtime schema decoders/types for profile schema endpoints.
+
+### Highlights
+
+- Added `ChatMiddlewareSchemaDocument` and `ChatExtensionSchemaDocument` types.
+- Added runtime API methods:
+  - `listMiddlewareSchemas()`
+  - `listExtensionSchemas()`
+- Added response decoders/validators in profile API client.
+- Added frontend unit tests for both schema catalog decoders.
+
+### Verification matrix
+
+- `pnpm vitest run src/chat/runtime/profileApi.test.ts` (go-go-os/packages/engine) ✅
+
+### Related files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileTypes.ts
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.ts
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts

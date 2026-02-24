@@ -40,7 +40,7 @@
 - [x] Return deterministic ordering in schema API responses.
 - [x] Add integration tests for middleware schema endpoint contract.
 - [x] Add integration tests for extension schema endpoint contract.
-- [ ] Add frontend runtime decoder/types for schema endpoint payloads.
+- [x] Add frontend runtime decoder/types for schema endpoint payloads.
 
 ## Runtime Composer Alignment
 
