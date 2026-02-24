@@ -88,3 +88,18 @@ Hardened Pinocchio web-chat frontend profile contract handling and selector reco
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/webchat/profileSelection.ts — Added deterministic selection resolver for app/server/options profile reconciliation.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/store/profileApi.test.ts — Added frontend API contract tests for list/get/set profile behavior.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/web/src/webchat/profileSelection.test.ts — Added tests covering default display, selection change stability, and stale selection fallback.
+
+## 2026-02-24
+
+Added Go-Go-OS profile-selector behavior tests for bidirectional switching and pre-send selection flow.
+
+### Verification
+
+- `pnpm exec vitest run src/chat/components/profileSelectorState.test.ts src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts` (go-go-os/packages/engine): pass.
+- `pnpm exec tsc -b` (go-go-os/packages/engine): pass.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/profileSelectorState.ts — Added pure selector-state helpers for selected-profile value and change-target resolution.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/profileSelectorState.test.ts — Added tests covering inventory/default switching, pre-send selection, and stale-selection fallback.
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/ChatConversationWindow.tsx — Wired selector UI logic through tested helper functions.

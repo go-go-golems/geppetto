@@ -34,8 +34,8 @@
 - [x] Align Go-Go-OS profile API client with shared backend contract.
 - [x] Fix profile list parsing edge cases (array vs map-index legacy shape).
 - [x] Ensure profile selector can switch between at least three seeded profiles.
-- [ ] Add UI test for switching from `inventory` to `default` and back.
-- [ ] Add UI test for switching selected profile before first message send.
+- [x] Add UI test for switching from `inventory` to `default` and back.
+- [x] Add UI test for switching selected profile before first message send.
 
 ## Pinocchio Frontend Integration
 

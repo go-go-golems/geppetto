@@ -110,3 +110,30 @@ Validation:
 Task impact:
 
 - Completed GP-24 tasks 26, 27, 28, 29.
+
+### Step 9 - Go-Go-OS Selector Behavior Tests
+
+- Added a pure selector-state helper module to make profile selector behavior deterministic and testable outside DOM harnesses.
+- Wired `ChatConversationWindow` profile selector through those helpers.
+- Added test coverage for:
+  - switching `inventory -> default -> inventory`,
+  - selecting a profile before any message is sent,
+  - fallback to default when current selection is stale.
+
+New files:
+
+- `go-go-os/packages/engine/src/chat/components/profileSelectorState.ts`
+- `go-go-os/packages/engine/src/chat/components/profileSelectorState.test.ts`
+
+Updated file:
+
+- `go-go-os/packages/engine/src/chat/components/ChatConversationWindow.tsx`
+
+Validation:
+
+- `pnpm exec vitest run src/chat/components/profileSelectorState.test.ts src/chat/runtime/profileApi.test.ts src/chat/runtime/useProfiles.test.ts`: pass.
+- `pnpm exec tsc -b`: pass.
+
+Task impact:
+
+- Completed GP-24 tasks 24 and 25.
