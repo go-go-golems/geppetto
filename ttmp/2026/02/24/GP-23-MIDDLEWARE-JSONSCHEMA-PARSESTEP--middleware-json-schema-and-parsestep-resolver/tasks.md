@@ -68,22 +68,22 @@
 
 ## Debug and Observability
 
-- [ ] Add debug payload serializer for resolved middleware config traces.
-- [ ] Add structured log event when resolver rejects source payload.
-- [ ] Include path and source details in resolver error messages.
-- [ ] Add tests for error payload clarity and stability.
+- [x] Add debug payload serializer for resolved middleware config traces.
+- [x] Add structured log event when resolver rejects source payload.
+- [x] Include path and source details in resolver error messages.
+- [x] Add tests for error payload clarity and stability.
 
 ## Cleanup and Hard Cutover
 
-- [ ] Remove compatibility flags or toggles related to legacy middleware parsing.
-- [ ] Delete dead helper functions used only by previous ad-hoc parser path.
-- [ ] Rename/replace `step_settings_mapper` symbol family with resolver-accurate naming.
-- [ ] Update imports and compile references across geppetto/pinocchio/go-go-os.
+- [x] Remove compatibility flags or toggles related to legacy middleware parsing.
+- [x] Delete dead helper functions used only by previous ad-hoc parser path.
+- [x] Rename/replace `step_settings_mapper` symbol family with resolver-accurate naming.
+- [x] Update imports and compile references across geppetto/pinocchio/go-go-os.
 
 ## Verification
 
-- [ ] Run unit tests for resolver package.
-- [ ] Run Pinocchio runtime composer tests.
-- [ ] Run Go-Go-OS integration tests touching middleware runtime paths.
+- [x] Run unit tests for resolver package.
+- [x] Run Pinocchio runtime composer tests.
+- [x] Run Go-Go-OS integration tests touching middleware runtime paths.
 - [ ] Execute manual smoke validating layered source precedence.
-- [ ] Record verification matrix in ticket changelog.
+- [x] Record verification matrix in ticket changelog.

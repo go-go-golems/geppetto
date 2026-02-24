@@ -109,3 +109,15 @@ Step 7 completed: JSON-schema-to-Glazed adapter landed with required/default/enu
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/inference/middlewarecfg/glazed_adapter_test.go — Added adapter regression tests for required/default/enum/help mapping and limitations
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/tasks.md — Marked Glazed Adapter and Tooling checklist complete
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-23-MIDDLEWARE-JSONSCHEMA-PARSESTEP--middleware-json-schema-and-parsestep-resolver/reference/01-diary.md — Added Step 7 implementation diary and verification notes
+
+## 2026-02-24
+
+Completed hard cutover cleanup, resolver observability, and verification matrix; moving execution to GP-24 runtime cutover.
+
+### Verification Matrix
+
+- `go test ./pkg/inference/middlewarecfg ./pkg/profiles -count=1` (geppetto): pass
+- `go test ./pkg/webchat/... ./cmd/web-chat -count=1` (pinocchio): pass
+- `go test ./go-inventory-chat/internal/pinoweb ./go-inventory-chat/cmd/hypercard-inventory-server -count=1` (go-go-os): pass
+- Cross-repo compile/reference update after cutover commits (`20e8d6c`, `9b53ed3`): pass
+- Manual smoke for layered source precedence remains a follow-up item.
