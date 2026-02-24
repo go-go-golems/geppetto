@@ -1,0 +1,81 @@
+
+> @hypercard/engine@0.1.0 test /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine
+> node ../../scripts/storybook/check-taxonomy.mjs && vitest run
+
+Storyboard taxonomy check passed (63 story files).
+
+ RUN  v4.0.18 /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine
+
+ ✓ src/__tests__/plugin-card-runtime.test.ts (3 tests) 39ms
+ ✓ src/__tests__/windowing.test.ts (48 tests) 68ms
+ ✓ src/__tests__/plugin-intent-routing.test.ts (2 tests) 40ms
+ ✓ src/plugin-runtime/runtimeService.integration.test.ts (7 tests) 240ms
+ ✓ src/chat/sem/semRegistry.test.ts (7 tests) 106ms
+ ✓ src/chat/debug/clipboard.test.ts (3 tests) 16ms
+ ✓ src/hypercard/artifacts/artifactProjectionMiddleware.test.ts (3 tests) 38ms
+ ✓ src/__tests__/diagnostics.test.ts (38 tests) 48ms
+ ✓ src/chat/state/timelineSlice.test.ts (6 tests) 43ms
+ ✓ src/hypercard/timeline/hypercardCard.test.ts (2 tests) 104ms
+ ✓ src/hypercard/timeline/hypercardWidget.test.ts (1 test) 41ms
+ ✓ src/chat/ws/wsManager.test.ts (5 tests) 110ms
+ ✓ src/components/shell/windowing/desktopContributions.test.ts (5 tests) 41ms
+stderr | src/plugin-runtime/runtimeCardRegistry.test.ts > runtimeCardRegistry > continues injecting if one card fails
+[runtimeCardRegistry] Failed to inject card bad into session-1: Error: syntax error
+    at Object.<anonymous> (/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.test.ts:68:37)
+    at Object.Mock [as defineCard] (file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+spy@4.0.18/node_modules/@vitest/spy/dist/index.js:285:34)
+    at injectPendingCardsWithReport (/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.ts:83:15)
+    at injectPendingCards (/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.ts:72:10)
+    at /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.test.ts:71:22
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1209:10)
+
+stderr | src/plugin-runtime/runtimeCardRegistry.test.ts > runtimeCardRegistry > returns injection failure details with report helper
+[runtimeCardRegistry] Failed to inject card bad into session-1: Error: syntax error
+    at Object.<anonymous> (/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.test.ts:81:37)
+    at Object.Mock [as defineCard] (file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+spy@4.0.18/node_modules/@vitest/spy/dist/index.js:285:34)
+    at injectPendingCardsWithReport (/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.ts:83:15)
+    at /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/plugin-runtime/runtimeCardRegistry.test.ts:84:20
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1653:37
+
+ ✓ src/plugin-runtime/runtimeCardRegistry.test.ts (7 tests) 56ms
+ ✓ src/chat/state/chatSessionSlice.test.ts (6 tests) 61ms
+ ✓ src/chat/state/profileSlice.test.ts (2 tests) 11ms
+ ✓ src/chat/state/selectors.test.ts (6 tests) 11ms
+ ✓ src/plugin-runtime/intentSchema.test.ts (6 tests) 16ms
+ ✓ src/chat/runtime/registerChatModules.test.ts (3 tests) 43ms
+ ✓ src/__tests__/selectable-list.test.ts (4 tests) 21ms
+ ✓ src/plugin-runtime/uiSchema.test.ts (3 tests) 8ms
+ ✓ src/chat/debug/eventBus.test.ts (7 tests) 19ms
+ ✓ src/components/shell/windowing/dragOverlayStore.test.ts (5 tests) 15ms
+ ✓ src/__tests__/listview-footer.test.ts (15 tests) 10ms
+ ✓ src/hypercard/artifacts/artifactRuntime.test.ts (11 tests) 15ms
+ ✓ src/chat/runtime/conversationManager.test.ts (2 tests) 18ms
+ ✓ src/chat/debug/timelineDebugModel.test.ts (18 tests) 33ms
+ ✓ src/chat/runtime/http.test.ts (2 tests) 16ms
+ ✓ src/__tests__/selectable-data-table.test.ts (4 tests) 27ms
+ ✓ src/hypercard/artifacts/artifactsSlice.test.ts (3 tests) 33ms
+ ✓ src/__tests__/schema-form-renderer.test.ts (3 tests) 8ms
+ ✓ src/components/shell/windowing/desktopCommandRouter.test.ts (6 tests) 24ms
+ ✓ src/chat/runtime/profileApi.test.ts (1 test) 24ms
+ ✓ src/components/shell/windowing/windowContentAdapter.test.ts (3 tests) 11ms
+ ✓ src/__tests__/storybook-app-smoke.test.ts (4 tests) 7ms
+ ✓ src/chat/sem/timelineMapper.test.ts (4 tests) 17ms
+ ✓ src/chat/debug/EventViewerWindow.test.ts (7 tests) 13ms
+ ✓ src/components/shell/windowing/WindowTitleBar.test.ts (4 tests) 12ms
+ ✓ src/__tests__/form-view.test.ts (3 tests) 7ms
+ ✓ src/__tests__/story-helpers.test.ts (3 tests) 5ms
+ ✓ src/chat/debug/yamlFormat.test.ts (8 tests) 7ms
+
+ Test Files  41 passed (41)
+      Tests  280 passed (280)
+   Start at  22:44:25
+   Duration  4.72s (transform 5.92s, setup 0ms, import 11.74s, tests 1.49s, environment 12ms)
+

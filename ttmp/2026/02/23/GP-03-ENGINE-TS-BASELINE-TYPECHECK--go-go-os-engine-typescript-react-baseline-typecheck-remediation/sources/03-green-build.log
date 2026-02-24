@@ -1,0 +1,4 @@
+
+> @hypercard/engine@0.1.0 build /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine
+> tsc -b
+

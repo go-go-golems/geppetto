@@ -22,13 +22,35 @@ RelatedFiles:
       Note: Strict/declaration compiler settings driving failure modes.
 ExternalSources: []
 Summary: Baseline compile audit for @hypercard/engine documenting TypeScript/React error taxonomy, root causes, and phased remediation to restore strict declaration builds.
-LastUpdated: 2026-02-23T23:14:00-05:00
+LastUpdated: 2026-02-24T22:53:00-05:00
 WhatFor: Use this when planning or executing type-system remediation for go-go-os/packages/engine so strict package builds become green.
 WhenToUse: When tsc -b fails for @hypercard/engine or when introducing new exported React/TS APIs that can affect declaration portability.
 ---
 
 
 # TypeScript/React Baseline Typecheck Findings and Remediation Plan
+
+## Implementation Status (2026-02-24)
+
+Remediation is complete for the scoped GP-03 tasks.
+
+What changed:
+
+- Added package-local React and React type dev dependencies in `@hypercard/engine`.
+- Added explicit story meta typing for `CodeEditorWindow` story module to avoid non-portable inferred declaration output.
+- Removed direct `redux` type import from editor launch path by deriving dispatch action type from local `openWindow` action creator.
+
+Verification:
+
+- `pnpm --filter @hypercard/engine build` passes.
+- `pnpm --filter @hypercard/engine test` passes.
+
+Attached evidence:
+
+- `sources/01-baseline-build.log`
+- `sources/02-intermediate-build.log`
+- `sources/03-green-build.log`
+- `sources/04-green-test.log`
 
 ## Executive Summary
 
