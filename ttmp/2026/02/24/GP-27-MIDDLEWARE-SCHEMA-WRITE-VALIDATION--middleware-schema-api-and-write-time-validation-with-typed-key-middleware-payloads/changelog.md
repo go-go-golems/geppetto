@@ -121,3 +121,31 @@ Added frontend runtime schema decoders/types for profile schema endpoints.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileTypes.ts
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.ts
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts
+
+## 2026-02-24
+
+Implemented extension codec schema interface + registry listing integration for extension schema discovery.
+
+### Highlights
+
+- Added optional extension codec schema interface support in Geppetto profiles:
+  - `ExtensionSchemaCodec` (`JSONSchema()`),
+  - `ExtensionCodecLister` (`ListCodecs()`),
+  - in-memory codec registry now provides deterministic `ListCodecs()`.
+- Updated shared profile API extension schema discovery to consume codec registries:
+  - `/api/chat/schemas/extensions` now auto-includes schemas from codecs implementing `ExtensionSchemaCodec`,
+  - explicit schemas remain precedence winners for duplicate keys,
+  - registries without list capability are handled gracefully.
+- Added focused unit tests for codec-based extension schema discovery and precedence behavior.
+
+### Verification matrix
+
+- `go test ./pkg/profiles -count=1` (geppetto) ✅
+- `go test ./pkg/webchat/http ./cmd/web-chat -count=1` (pinocchio) ✅
+
+### Related files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/extensions.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/extensions_test.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api_test.go

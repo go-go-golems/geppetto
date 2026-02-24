@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -144,9 +145,28 @@ type ExtensionCodec interface {
 	Decode(raw any) (any, error)
 }
 
+// ExtensionSchemaCodec optionally exposes JSON schema metadata for one extension codec.
+// This is used by API schema discovery endpoints.
+type ExtensionSchemaCodec interface {
+	ExtensionCodec
+	JSONSchema() map[string]any
+}
+
+// ExtensionCodecMetadataProvider optionally exposes display metadata for one extension codec.
+type ExtensionCodecMetadataProvider interface {
+	ExtensionDisplayName() string
+	ExtensionDescription() string
+}
+
 // ExtensionCodecRegistry resolves codecs for extension keys.
 type ExtensionCodecRegistry interface {
 	Lookup(key ExtensionKey) (ExtensionCodec, bool)
+}
+
+// ExtensionCodecLister is an optional capability for registries that can enumerate
+// all registered codecs in deterministic order.
+type ExtensionCodecLister interface {
+	ListCodecs() []ExtensionCodec
 }
 
 // InMemoryExtensionCodecRegistry stores codecs in a map keyed by extension key.
@@ -193,6 +213,30 @@ func (r *InMemoryExtensionCodecRegistry) Register(codec ExtensionCodec) error {
 	}
 	r.codecs[key] = codec
 	return nil
+}
+
+// ListCodecs returns registered codecs ordered by extension key.
+func (r *InMemoryExtensionCodecRegistry) ListCodecs() []ExtensionCodec {
+	if r == nil || len(r.codecs) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(r.codecs))
+	for key := range r.codecs {
+		keys = append(keys, key.String())
+	}
+	sort.Strings(keys)
+	out := make([]ExtensionCodec, 0, len(keys))
+	for _, key := range keys {
+		codec := r.codecs[ExtensionKey(key)]
+		if codec == nil {
+			continue
+		}
+		out = append(out, codec)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // NormalizeProfileExtensions canonicalizes extension keys and applies registered

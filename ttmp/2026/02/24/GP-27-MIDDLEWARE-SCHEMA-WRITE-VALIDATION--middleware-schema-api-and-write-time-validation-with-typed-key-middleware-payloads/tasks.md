@@ -36,7 +36,7 @@
 - [x] Add middleware schema list endpoint (`GET /api/chat/schemas/middlewares`).
 - [x] Include middleware name, version metadata, JSON Schema, and display metadata in response.
 - [x] Add extension schema list endpoint (`GET /api/chat/schemas/extensions`).
-- [ ] Define codec interface extension for schema exposure where needed.
+- [x] Define codec interface extension for schema exposure where needed.
 - [x] Return deterministic ordering in schema API responses.
 - [x] Add integration tests for middleware schema endpoint contract.
 - [x] Add integration tests for extension schema endpoint contract.

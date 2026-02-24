@@ -27,6 +27,20 @@ func (c starterSuggestionsCodec) Decode(raw any) (any, error) {
 	return key.Decode(raw)
 }
 
+func (c starterSuggestionsCodec) JSONSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"items": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "string",
+				},
+			},
+		},
+	}
+}
+
 func TestParseExtensionKey_NormalizesAndValidates(t *testing.T) {
 	key, err := ParseExtensionKey("  WebChat.Starter_Suggestions@V1 ")
 	if err != nil {
@@ -113,6 +127,27 @@ func TestInMemoryExtensionCodecRegistry_DuplicateGuard(t *testing.T) {
 	}
 	if !errors.Is(err, ErrValidation) {
 		t.Fatalf("expected ErrValidation, got %v", err)
+	}
+}
+
+func TestInMemoryExtensionCodecRegistry_ListCodecsSorted(t *testing.T) {
+	registry, err := NewInMemoryExtensionCodecRegistry(
+		starterSuggestionsCodec{key: MustExtensionKey("zeta.feature@v1")},
+		starterSuggestionsCodec{key: MustExtensionKey("alpha.feature@v1")},
+	)
+	if err != nil {
+		t.Fatalf("NewInMemoryExtensionCodecRegistry returned error: %v", err)
+	}
+
+	codecs := registry.ListCodecs()
+	if got, want := len(codecs), 2; got != want {
+		t.Fatalf("codec count mismatch: got=%d want=%d", got, want)
+	}
+	if got, want := codecs[0].Key().String(), "alpha.feature@v1"; got != want {
+		t.Fatalf("codec order mismatch at index 0: got=%q want=%q", got, want)
+	}
+	if got, want := codecs[1].Key().String(), "zeta.feature@v1"; got != want {
+		t.Fatalf("codec order mismatch at index 1: got=%q want=%q", got, want)
 	}
 }
 
