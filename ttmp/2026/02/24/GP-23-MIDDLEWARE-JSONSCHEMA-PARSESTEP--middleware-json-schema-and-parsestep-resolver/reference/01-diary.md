@@ -18,6 +18,12 @@ RelatedFiles:
       Note: Step 1 in-memory middleware definition registry
     - Path: pkg/inference/middlewarecfg/registry_test.go
       Note: Step 1 registry deterministic ordering and duplicate guard tests
+    - Path: pkg/inference/middlewarecfg/resolver.go
+      Note: Step 2 schema defaults
+    - Path: pkg/inference/middlewarecfg/resolver_test.go
+      Note: Step 2 precedence/default/coercion/path-ordering resolver coverage
+    - Path: pkg/inference/middlewarecfg/source.go
+      Note: Step 2 layered source contract and canonical precedence ordering
     - Path: pkg/profiles/service.go
       Note: Step 1 request override parsing for middleware id/enabled
     - Path: pkg/profiles/service_test.go
@@ -31,11 +37,12 @@ RelatedFiles:
     - Path: pkg/profiles/validation_test.go
       Note: Step 1 middleware instance validation regressions
 ExternalSources: []
-Summary: ""
-LastUpdated: 2026-02-24T14:25:28.769147871-05:00
+Summary: Diary of GP-23 middleware JSON-schema resolver implementation steps, test outcomes, and follow-up work.
+LastUpdated: 2026-02-24T15:08:00-05:00
 WhatFor: Track GP-23 implementation progress with commit-level detail, validation evidence, and follow-up context.
 WhenToUse: Use when reviewing what landed in each GP-23 step and how to verify behavior locally.
 ---
+
 
 
 # Diary
@@ -137,13 +144,106 @@ go test ./pkg/inference/middlewarecfg ./pkg/profiles/... -count=1
 - `MiddlewareUse.Enabled` is pointer-typed to support tri-state semantics (`nil` = unset/default, `true`, `false`).
 - Duplicate middleware ID validation currently applies only when `id` is explicitly set.
 
+## Step 2: JSON Schema Resolver Core
+
+This step implemented the core schema resolver for middleware instances: layered source intake, canonical precedence ordering, default extraction, path projection, per-write coercion/validation, and final-object validation.
+
+The result is a deterministic, schema-first resolution engine that can now be extended with ParseStep provenance in the next phase.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue GP-23 implementation task-by-task after finishing package scaffolding.
+
+**Inferred user intent:** Deliver concrete resolver functionality in small, committed increments.
+
+### What I did
+
+- Added `pkg/inference/middlewarecfg/source.go`:
+  - `Source` interface with `Name/Layer/Payload`.
+  - `SourceLayer` constants and canonical precedence map.
+  - deterministic source ordering helper.
+- Added `pkg/inference/middlewarecfg/resolver.go`:
+  - `Resolver` with `Resolve(def, use)` API.
+  - schema-default source layer applied first.
+  - JSON pointer payload projection (`/path/to/key`) with deterministic key ordering.
+  - per-write schema-fragment coercion + validation.
+  - final config validation against full schema (required fields, object constraints, enums).
+  - deterministic `OrderedPaths` and per-path winning values in output.
+- Added `pkg/inference/middlewarecfg/resolver_test.go`:
+  - precedence winner behavior,
+  - schema defaults,
+  - required field rejection,
+  - coercion success/failure behavior,
+  - deterministic projected path ordering,
+  - deterministic canonical source ordering by layer then name.
+- Verification:
+  - `go test ./pkg/inference/middlewarecfg -count=1`
+  - `go test ./pkg/profiles/... -count=1`
+
+### Why
+
+- GP-23 cannot integrate runtimes until middleware config is resolved predictably from layered sources.
+- Path-level projection/coercion is required groundwork for upcoming ParseStep provenance logs.
+
+### What worked
+
+- Resolver behavior is covered by focused unit tests and passed cleanly.
+- Existing profile tests continued to pass with the new resolver package additions.
+
+### What didn't work
+
+- Initial implementation had duplicate type-switch branches (`map[string]any` and `map[string]interface{}` aliases), causing compile failures.
+- Fixed by removing redundant alias branches.
+
+### What I learned
+
+- A path-projection model can be introduced incrementally before full provenance logging, while still enforcing deterministic behavior.
+
+### What was tricky to build
+
+- The key challenge was balancing strict schema enforcement with practical coercion across source layers (for example, string-to-integer from env-like sources). The resolver now coerces per write, then validates the final merged object to catch incomplete/invalid end states.
+
+### What warrants a second pair of eyes
+
+- Confirm current coercion rules (especially integer/string conversions) align with the expected behavior for Glazed/config inputs.
+- Confirm unknown-field handling strategy for `additionalProperties` is sufficiently strict for hard-cutover goals.
+
+### What should be done in the future
+
+- Implement ParseStep provenance models/logs and path history helpers on top of current per-path resolution.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/inference/middlewarecfg/source.go`
+  - `pkg/inference/middlewarecfg/resolver.go`
+  - `pkg/inference/middlewarecfg/resolver_test.go`
+- Validate by running:
+
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto
+go test ./pkg/inference/middlewarecfg -count=1
+go test ./pkg/profiles/... -count=1
+```
+
+### Technical details
+
+- Resolver layer precedence: `schema-defaults` < `profile` < `config-file` < `environment` < `flags` < `request`.
+- Resolver output currently includes:
+  - final `Config` object,
+  - `PathValues` winning value map by JSON pointer,
+  - sorted `OrderedPaths`,
+  - participating source references.
+
 ## Usage Examples
 
-Use this diary entry when reviewing the first GP-23 commit to understand:
+Use this diary entry when reviewing GP-23 commits to understand:
 
-- which core contracts are now available for resolver phases,
-- how middleware instance identity is represented in profile/runtime data,
-- which tests already protect the new behavior.
+- which resolver contracts and data models are already in place,
+- how source precedence/defaulting/coercion currently behaves,
+- which validations are already covered by tests.
 
 ## Related
 

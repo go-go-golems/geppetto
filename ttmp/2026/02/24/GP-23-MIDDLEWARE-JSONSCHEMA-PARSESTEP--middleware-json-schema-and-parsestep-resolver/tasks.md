@@ -19,13 +19,13 @@
 
 ## JSON Schema Resolver Core
 
-- [ ] Add source interface for layered middleware config sources.
-- [ ] Implement canonical source precedence ordering.
-- [ ] Implement schema default extraction as first source layer.
-- [ ] Implement schema projection for source payload writes by JSON pointer.
-- [ ] Implement per-write coercion/validation against schema fragments.
-- [ ] Implement final object validation against full schema.
-- [ ] Add deterministic path ordering in resolver output.
+- [x] Add source interface for layered middleware config sources.
+- [x] Implement canonical source precedence ordering.
+- [x] Implement schema default extraction as first source layer.
+- [x] Implement schema projection for source payload writes by JSON pointer.
+- [x] Implement per-write coercion/validation against schema fragments.
+- [x] Implement final object validation against full schema.
+- [x] Add deterministic path ordering in resolver output.
 
 ## ParseStep Provenance
 
