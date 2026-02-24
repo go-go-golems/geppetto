@@ -35,6 +35,14 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 		Metadata: ProfileMetadata{
 			Tags: []string{"stable"},
 		},
+		Extensions: map[string]any{
+			"webchat.starter_suggestions@v1": map[string]any{
+				"items": []any{
+					"Show inventory alerts",
+					map[string]any{"text": "Summarize yesterday's sales"},
+				},
+			},
+		},
 	}
 
 	cloned := original.Clone()
@@ -58,6 +66,12 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	cloned.Policy.AllowedOverrideKeys[0] = "tools"
 	cloned.Policy.DeniedOverrideKeys[0] = "middlewares"
 	cloned.Metadata.Tags[0] = "mutated"
+	clonedExtensions := cloned.Extensions["webchat.starter_suggestions@v1"].(map[string]any)
+	clonedItems := clonedExtensions["items"].([]any)
+	clonedItems[0] = "Mutated suggestion"
+	clonedItems[1].(map[string]any)["text"] = "Mutated nested suggestion"
+	clonedExtensions["items"] = append(clonedItems, "new suggestion")
+	clonedExtensions["new_flag"] = true
 
 	originalChatPatch := original.Runtime.StepSettingsPatch["ai-chat"].(map[string]any)
 	originalProviders := originalChatPatch["providers"].([]any)
@@ -92,6 +106,20 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	if got := original.Metadata.Tags[0]; got != "stable" {
 		t.Fatalf("expected original metadata tags unchanged, got %q", got)
 	}
+	originalExtensions := original.Extensions["webchat.starter_suggestions@v1"].(map[string]any)
+	originalItems := originalExtensions["items"].([]any)
+	if got := originalItems[0].(string); got != "Show inventory alerts" {
+		t.Fatalf("expected original extension first item unchanged, got %q", got)
+	}
+	if got := originalItems[1].(map[string]any)["text"].(string); got != "Summarize yesterday's sales" {
+		t.Fatalf("expected original extension nested item unchanged, got %q", got)
+	}
+	if got := len(originalItems); got != 2 {
+		t.Fatalf("expected original extension items length=2, got %d", got)
+	}
+	if _, ok := originalExtensions["new_flag"]; ok {
+		t.Fatalf("expected original extensions map unchanged")
+	}
 }
 
 func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T) {
@@ -106,6 +134,9 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 						"ai-chat": map[string]any{"ai-engine": "gpt-4o-mini"},
 					},
 				},
+				Extensions: map[string]any{
+					"app.note@v1": map[string]any{"enabled": true},
+				},
 			},
 			MustProfileSlug("agent"): {
 				Slug: MustProfileSlug("agent"),
@@ -114,6 +145,11 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 						Name:   "agentmode",
 						Config: map[string]any{"mode": "planner"},
 					}},
+				},
+				Extensions: map[string]any{
+					"app.note@v1": map[string]any{
+						"items": []any{"a", "b"},
+					},
 				},
 			},
 		},
@@ -135,6 +171,11 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 	agent := cloned.Profiles[MustProfileSlug("agent")]
 	agent.DisplayName = "Agent v2"
 	agent.Runtime.Middlewares[0].Config.(map[string]any)["mode"] = "executor"
+	agentExt := agent.Extensions["app.note@v1"].(map[string]any)
+	agentExtItems := agentExt["items"].([]any)
+	agentExtItems[0] = "mutated"
+	agentExt["items"] = append(agentExtItems, "c")
+	agentExt["added"] = true
 
 	if got := original.DefaultProfileSlug; got != MustProfileSlug("default") {
 		t.Fatalf("expected original default profile unchanged, got %q", got)
@@ -151,5 +192,16 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 	mode := original.Profiles[MustProfileSlug("agent")].Runtime.Middlewares[0].Config.(map[string]any)["mode"]
 	if got := mode.(string); got != "planner" {
 		t.Fatalf("expected original middleware config unchanged, got %q", got)
+	}
+	origAgentExt := original.Profiles[MustProfileSlug("agent")].Extensions["app.note@v1"].(map[string]any)
+	origItems := origAgentExt["items"].([]any)
+	if got := origItems[0].(string); got != "a" {
+		t.Fatalf("expected original extension item unchanged, got %q", got)
+	}
+	if got := len(origItems); got != 2 {
+		t.Fatalf("expected original extension items length=2, got %d", got)
+	}
+	if _, ok := origAgentExt["added"]; ok {
+		t.Fatalf("expected original extension map unchanged")
 	}
 }

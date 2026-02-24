@@ -54,6 +54,7 @@ type Profile struct {
 	Runtime     RuntimeSpec     `json:"runtime,omitempty" yaml:"runtime,omitempty"`
 	Policy      PolicySpec      `json:"policy,omitempty" yaml:"policy,omitempty"`
 	Metadata    ProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Extensions  map[string]any  `json:"extensions,omitempty" yaml:"extensions,omitempty"`
 }
 
 // ProfileRegistry is a set of profiles with a default profile selector.
@@ -96,6 +97,7 @@ func (p *Profile) Clone() *Profile {
 			UpdatedBy:   p.Metadata.UpdatedBy,
 			Tags:        append([]string(nil), p.Metadata.Tags...),
 		},
+		Extensions: deepCopyStringAnyMap(p.Extensions),
 	}
 	for i := range ret.Runtime.Middlewares {
 		ret.Runtime.Middlewares[i].Name = strings.TrimSpace(ret.Runtime.Middlewares[i].Name)
