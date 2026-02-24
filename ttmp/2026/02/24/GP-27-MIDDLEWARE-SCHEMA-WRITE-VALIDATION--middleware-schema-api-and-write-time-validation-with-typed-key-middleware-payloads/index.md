@@ -32,6 +32,7 @@ This ticket resolves GP-20 follow-up decisions:
 - no registry-level extensions in this phase,
 - middleware definitions/config must validate at profile write-time,
 - unknown middleware names remain hard errors,
+- hard cutover only: no migration command and no transitional fallback path,
 - expose middleware and extension schemas through API for frontend tooling,
 - move middleware config payloads into typed-key extensions (namespaced/versioned),
 - keep provenance trace debug-only.

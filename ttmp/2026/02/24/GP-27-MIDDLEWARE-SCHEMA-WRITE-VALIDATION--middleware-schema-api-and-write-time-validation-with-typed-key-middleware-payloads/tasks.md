@@ -29,14 +29,12 @@
 - [x] Implement write-path projection from legacy `runtime.middlewares[].config` into typed-key payloads.
 - [x] Implement read-path for middleware config from typed-key extensions.
 - [x] Keep middleware order/enable semantics in `runtime.middlewares`.
-- [ ] Add migration command/update path for existing registries to typed-key config shape.
-- [ ] Add tests for mixed legacy+typed-key payload handling (if transitional read path is kept).
-- [ ] Add tests for strict hard-cut mode (if legacy fallback disabled).
+- [x] Hard cutover policy: no migration command and no transitional fallback path.
 
 ## Schema Discovery API
 
 - [x] Add middleware schema list endpoint (`GET /api/chat/schemas/middlewares`).
-- [ ] Include middleware name, version metadata, JSON Schema, and display metadata in response.
+- [x] Include middleware name, version metadata, JSON Schema, and display metadata in response.
 - [x] Add extension schema list endpoint (`GET /api/chat/schemas/extensions`).
 - [ ] Define codec interface extension for schema exposure where needed.
 - [x] Return deterministic ordering in schema API responses.

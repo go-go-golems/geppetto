@@ -125,18 +125,16 @@ Rejected because it lacks namespaced/versioned ownership and weakens extension-k
 1. Add middleware write-validator service that depends on definition registry.
 2. Integrate validator into profile create/update service flow.
 3. Define typed-key convention for middleware config extension payloads.
-4. Add migration helper that moves existing `runtime.middlewares[].config` into typed-key extensions.
-5. Refactor composers to read middleware config from typed-key extensions first.
-6. Add strict failure when middleware definition is missing.
-7. Add schema API surfaces for middleware and extension schemas.
-8. Add API contract tests and frontend decoder tests.
-9. Update docs/help pages and migration playbook.
+4. Refactor composers to read middleware config from typed-key extensions.
+5. Add strict failure when middleware definition is missing.
+6. Add schema API surfaces for middleware and extension schemas.
+7. Add API contract tests and frontend decoder tests.
+8. Update docs/help pages.
 
 ## Open Questions
 
-1. Should we keep temporary read fallback from legacy `runtime.middlewares[].config` for one release, or hard cut immediately?
-2. Exact schema endpoint payload shape for frontend form generation metadata (`title`, `description`, ui hints).
-3. Whether middleware instance ID should be encoded into typed-key names or keyed in payload structure.
+1. Exact schema endpoint payload shape for frontend form generation metadata (`title`, `description`, ui hints).
+2. Whether middleware instance ID should be encoded into typed-key names or keyed in payload structure.
 
 ## References
 

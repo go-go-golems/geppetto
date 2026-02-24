@@ -65,3 +65,36 @@ Implemented typed-key middleware payload model and runtime hydration path.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/request_resolver.go
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/reference/01-diary.md
+
+## 2026-02-24
+
+Recorded hard-cutover policy and implemented middleware schema metadata response fields.
+
+### Highlights
+
+- Ticket scope clarified to hard cutover:
+  - no migration command for existing registries,
+  - no transitional fallback path.
+- Middleware schema endpoint (`GET /api/chat/schemas/middlewares`) now includes:
+  - `name`,
+  - `version`,
+  - `display_name`,
+  - `description`,
+  - `schema`.
+- Added metadata provider methods on app middleware definitions so schema endpoint has stable display metadata for both web-chat and inventory middleware catalogs.
+- Updated API contract test expectations for middleware schema metadata fields.
+
+### Verification matrix
+
+- `go test ./pkg/webchat/http ./cmd/web-chat -count=1` (pinocchio) ✅
+- `go test ./go-inventory-chat/internal/pinoweb ./go-inventory-chat/cmd/hypercard-inventory-server -count=1` (go-go-os) ✅
+
+### Related files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/middleware_definitions.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/cmd/web-chat/profile_policy_test.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/internal/pinoweb/middleware_definitions.go
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/tasks.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/design-doc/01-implementation-plan-middleware-schema-api-write-time-validation-and-typed-key-middleware-payloads.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/index.md
