@@ -72,3 +72,9 @@ All commands passed.
 - Updated `ChatConversationWindow` profile selector callback to invoke async profile writes (`void setProfile(...)`) and preserve current registry context in state.
 - Added/ran frontend runtime tests to lock request/decode contract for current-profile API.
 - Verified `packages/engine` typecheck passes after hook API change.
+
+### Step 6 - Hard Cutover Alias Removal
+
+- Removed `profile` alias fallback from shared profile API request payloads in Pinocchio webchat HTTP handlers.
+- Create-profile and current-profile writes now parse `slug` only, which aligns with hard-cutover API cleanup goals.
+- Re-ran pinocchio command/package tests to confirm no regression in profile route behavior or build.

@@ -47,7 +47,7 @@
 ## Compatibility Cleanup (Hard Cutover)
 
 - [x] Remove remaining compatibility toggles related to legacy middleware/profile behavior.
-- [ ] Remove dead route aliases or fallback handlers superseded by shared CRUD routes.
+- [x] Remove dead route aliases or fallback handlers superseded by shared CRUD routes.
 - [ ] Remove obsolete comments/docs referencing removed toggles.
 - [x] Verify no `os.Getenv` reads remain for legacy profile middleware switching.
 

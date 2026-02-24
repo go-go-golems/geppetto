@@ -49,3 +49,16 @@ Integrated server-confirmed current-profile writes into Go-Go-OS profile selecto
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/useSetProfile.ts — `useSetProfile` now calls `setCurrentProfile` and updates local state from server-confirmed slug.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/components/ChatConversationWindow.tsx — Selector now invokes async server-backed profile selection updates.
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/packages/engine/src/chat/runtime/profileApi.test.ts — Added current-profile API decode/request contract test.
+
+## 2026-02-24
+
+Removed shared profile API payload alias fallback (`profile`) to enforce slug-only request contract under hard cutover policy.
+
+### Verification
+
+- `go test ./cmd/web-chat -count=1` (pinocchio): pass.
+- `go test ./pkg/webchat/http -count=1` (pinocchio): pass (`no test files`, compile validation).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go — Removed `profile` alias fields and fallback parsing in create-profile and set-current-profile payload decoding.
