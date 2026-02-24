@@ -68,13 +68,13 @@ curl -s http://localhost:8080/api/chat/schemas/middlewares \
   | jq '.[0] | {name,version,display_name,description}'
 
 curl -s http://localhost:8080/api/chat/schemas/extensions \
-  | jq 'map(select(.key | startswith("middleware.config."))) | .[0].key'
+  | jq 'map(select(.key | startswith("middleware."))) | .[0].key'
 ```
 
 Expected:
 
 - middleware schema items expose `name`, `version`, `display_name`, `description`, and `schema`,
-- extension schema keys use typed-key format (for example `middleware.config.agentmode@v1`).
+- extension schema keys use typed-key format (for example `middleware.agentmode_config@v1`).
 
 ## Step 3: Validate write-time middleware checks
 
@@ -97,6 +97,25 @@ curl -s -X POST http://localhost:8080/api/chat/profiles \
 ```
 
 Expect HTTP `400` with a `validation error` mentioning `runtime.middlewares[0].config`.
+
+## Step 3b: Verify typed-key middleware payload write shape (hard cutover)
+
+Middleware config is persisted in profile `extensions` under middleware typed keys.
+There is no migration command or fallback route in this flow.
+
+```bash
+curl -s -X POST http://localhost:8080/api/chat/profiles \
+  -H 'content-type: application/json' \
+  -d '{
+    "slug":"analyst",
+    "runtime":{"middlewares":[{"name":"agentmode","id":"default","enabled":true}]},
+    "extensions":{
+      "middleware.agentmode_config@v1":{
+        "instances":{"id:default":{"default_mode":"financial_analyst"}}
+      }
+    }
+  }' | jq .
+```
 
 ## Step 4: Back up before risky changes
 

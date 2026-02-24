@@ -39,6 +39,10 @@ This ticket resolves GP-20 follow-up decisions:
 
 Current middleware CRUD model remains profile-scoped (via profile CRUD `runtime.middlewares`), not a separate middleware CRUD resource.
 
+Related umbrella planning ticket:
+
+- [GP-20 Profile Registry Extensions](../GP-20-PROFILE-REGISTRY-EXTENSIONS--extensible-typed-key-metadata-for-profile-registry/index.md) — planning umbrella now resolved by GP-21 through GP-27 implementation tickets.
+
 ## Key Links
 
 - Design: [Implementation plan middleware schema API write-time validation and typed-key middleware payloads](./design-doc/01-implementation-plan-middleware-schema-api-write-time-validation-and-typed-key-middleware-payloads.md)

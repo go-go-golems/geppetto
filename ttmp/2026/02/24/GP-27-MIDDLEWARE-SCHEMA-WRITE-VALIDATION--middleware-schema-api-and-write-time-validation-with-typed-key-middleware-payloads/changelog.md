@@ -149,3 +149,24 @@ Implemented extension codec schema interface + registry listing integration for 
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/profiles/extensions_test.go
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api.go
 - /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/webchat/http/profile_api_test.go
+
+## 2026-02-24
+
+Closed GP-27 documentation follow-ups and aligned typed-key examples with implemented middleware extension key format.
+
+### Highlights
+
+- Updated help-page docs and playbook examples for middleware schema APIs and write-time validation troubleshooting.
+- Added explicit JSON and YAML profile snippets that use typed-key middleware payloads.
+- Corrected extension key examples to implemented format (`middleware.<name>_config@v1`).
+- Added GP-20 cross-reference resolution notes in ticket index docs.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/01-profiles.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/topics/09-middlewares.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/pinocchio/pkg/doc/topics/webchat-profile-registry.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/tasks.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-27-MIDDLEWARE-SCHEMA-WRITE-VALIDATION--middleware-schema-api-and-write-time-validation-with-typed-key-middleware-payloads/index.md
+- /home/manuel/workspaces/2026-02-23/add-profile-registry/geppetto/ttmp/2026/02/24/GP-20-PROFILE-REGISTRY-EXTENSIONS--extensible-typed-key-metadata-for-profile-registry/index.md

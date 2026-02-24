@@ -252,7 +252,7 @@ Extension schema items are keyed by typed extension key:
 ```json
 [
   {
-    "key": "middleware.config.agentmode@v1",
+    "key": "middleware.agentmode_config@v1",
     "schema": {
       "type": "object",
       "properties": {
@@ -271,12 +271,54 @@ Extension schema items are keyed by typed extension key:
 For extension discovery, the merge order is deterministic:
 
 1. explicit extension schema docs supplied by the application,
-2. middleware-derived extension schemas (`middleware.config.<name>@v1`),
+2. middleware-derived extension schemas (`middleware.<name>_config@v1`),
 3. codec-discovered schemas from `ExtensionCodecRegistry` entries that implement:
    - `ExtensionCodecLister` (registry supports listing codecs),
    - `ExtensionSchemaCodec` (codec exposes `JSONSchema()`).
 
 This keeps the endpoint extensible without hardcoding all extension keys in app code. Profile mutations still go through profile CRUD endpoints.
+
+## Typed-Key Middleware Config Examples
+
+Middleware config values are persisted in `profile.extensions` under middleware typed keys.
+
+JSON profile excerpt:
+
+```json
+{
+  "slug": "analyst",
+  "runtime": {
+    "middlewares": [
+      { "name": "agentmode", "id": "default", "enabled": true }
+    ]
+  },
+  "extensions": {
+    "middleware.agentmode_config@v1": {
+      "instances": {
+        "id:default": {
+          "default_mode": "financial_analyst"
+        }
+      }
+    }
+  }
+}
+```
+
+YAML profile excerpt:
+
+```yaml
+slug: analyst
+runtime:
+  middlewares:
+    - name: agentmode
+      id: default
+      enabled: true
+extensions:
+  middleware.agentmode_config@v1:
+    instances:
+      "id:default":
+        default_mode: financial_analyst
+```
 
 ## Troubleshooting
 

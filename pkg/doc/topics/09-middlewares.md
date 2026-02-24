@@ -288,7 +288,7 @@ Extension schema item contract:
 
 ```json
 {
-  "key": "middleware.config.agentmode@v1",
+  "key": "middleware.agentmode_config@v1",
   "schema": {
     "type": "object",
     "properties": {
@@ -305,7 +305,7 @@ Extension schema item contract:
 
 Important behavior:
 
-- middleware config is stored as profile extensions under typed keys (for example `middleware.config.agentmode@v1`),
+- middleware config is stored as profile extensions under typed keys (for example `middleware.agentmode_config@v1`),
 - extension schema discovery can include middleware-derived keys and codec-discovered keys,
 - explicit app-provided extension schemas win on duplicate keys.
 

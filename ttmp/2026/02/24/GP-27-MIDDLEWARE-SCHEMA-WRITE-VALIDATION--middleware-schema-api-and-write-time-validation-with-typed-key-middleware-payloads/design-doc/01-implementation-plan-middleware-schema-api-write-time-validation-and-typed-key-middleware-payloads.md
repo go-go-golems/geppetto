@@ -69,8 +69,8 @@ No request-layer overrides at write-time.
 
 Introduce canonical typed-key extension payload for middleware config, e.g.:
 
-- `middleware.agentmode.config@v1`
-- `middleware.sqlite.config@v1`
+- `middleware.agentmode_config@v1`
+- `middleware.sqlite_config@v1`
 
 `runtime.middlewares[]` remains the enable/order/identity list (`name`, `id`, `enabled`), while config payloads move to `profile.extensions`.
 

@@ -63,7 +63,12 @@ Current artifacts in this ticket include:
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
+
+## Follow-Up Resolution
+
+Implementation work split from this umbrella is now covered by GP-21 through GP-27.
+GP-27 finalizes middleware schema API and write-time validation decisions tracked here.
 
 ## Topics
 

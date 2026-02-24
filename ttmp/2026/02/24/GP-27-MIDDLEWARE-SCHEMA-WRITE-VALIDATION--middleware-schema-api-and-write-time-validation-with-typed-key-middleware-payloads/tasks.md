@@ -23,7 +23,7 @@
 
 ## Typed-Key Middleware Payload Model
 
-- [x] Define canonical middleware extension key format (for example `middleware.<name>.config@v1`).
+- [x] Define canonical middleware extension key format (for example `middleware.<name>_config@v1`).
 - [x] Add typed key helpers for middleware config payload access.
 - [x] Define mapping between `runtime.middlewares[]` instances and extension payloads.
 - [x] Implement write-path projection from legacy `runtime.middlewares[].config` into typed-key payloads.
@@ -52,11 +52,11 @@
 
 ## Docs and Migration
 
-- [ ] Update GP-20 follow-up cross-reference with resolved decisions.
-- [ ] Add help-page section describing middleware schema API endpoints.
-- [ ] Update profile playbook with hard-cutover notes for typed-key middleware payloads (no migration command/fallback).
-- [ ] Add example profile JSON/YAML snippets for typed-key middleware config.
-- [ ] Add troubleshooting section for write-time schema validation failures.
+- [x] Update GP-20 follow-up cross-reference with resolved decisions.
+- [x] Add help-page section describing middleware schema API endpoints.
+- [x] Update profile playbook with hard-cutover notes for typed-key middleware payloads (no migration command/fallback).
+- [x] Add example profile JSON/YAML snippets for typed-key middleware config.
+- [x] Add troubleshooting section for write-time schema validation failures.
 
 ## Verification and Closeout
 
