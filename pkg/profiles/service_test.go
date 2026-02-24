@@ -276,6 +276,45 @@ func TestStoreRegistryResolve_AllowedAndDeniedOverrideKeys(t *testing.T) {
 	}
 }
 
+func TestStoreRegistryResolve_RejectsDuplicateOverrideKeysAfterCanonicalization(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {
+				Slug: MustProfileSlug("default"),
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"system_prompt"},
+				},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		RequestOverrides: map[string]any{
+			"system_prompt": "snake",
+			"systemPrompt":  "camel",
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate canonical override key validation error")
+	}
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("expected ErrValidation, got %v", err)
+	}
+	var verr *ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("expected ValidationError type, got %T", err)
+	}
+	if got, want := verr.Field, "request_overrides.system_prompt"; got != want {
+		t.Fatalf("validation field mismatch: got=%q want=%q", got, want)
+	}
+}
+
 func TestStoreRegistryResolve_RejectsDuplicateMiddlewareOverrideIDs(t *testing.T) {
 	ctx := context.Background()
 	store := NewInMemoryProfileStore()

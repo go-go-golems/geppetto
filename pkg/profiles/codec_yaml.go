@@ -44,6 +44,9 @@ func DecodeYAMLRegistries(data []byte, defaultRegistrySlug RegistrySlug) ([]*Pro
 		if err != nil {
 			return nil, err
 		}
+		if err := ValidateRegistry(reg); err != nil {
+			return nil, err
+		}
 		return []*ProfileRegistry{reg}, nil
 	}
 
@@ -77,7 +80,11 @@ func decodeCanonicalRegistries(raw any) ([]*ProfileRegistry, error) {
 			return nil, err
 		}
 		if reg.Slug.IsZero() {
-			reg.Slug = MustRegistrySlug(slug)
+			parsed, err := ParseRegistrySlug(slug)
+			if err != nil {
+				return nil, err
+			}
+			reg.Slug = parsed
 		}
 		if err := ValidateRegistry(reg); err != nil {
 			return nil, err
@@ -107,9 +114,6 @@ func decodeSingleRegistry(raw map[string]any) (*ProfileRegistry, error) {
 		if profile.Slug.IsZero() {
 			profile.Slug = slug
 		}
-	}
-	if err := ValidateRegistry(reg); err != nil {
-		return nil, err
 	}
 	return reg, nil
 }

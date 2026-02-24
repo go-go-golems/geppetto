@@ -391,6 +391,12 @@ func normalizeOverrideMap(overrides map[string]any) (map[string]any, error) {
 		if key == "" {
 			return nil, &ValidationError{Field: "request_overrides", Reason: "override keys must not be empty"}
 		}
+		if _, exists := out[key]; exists {
+			return nil, &ValidationError{
+				Field:  fmt.Sprintf("request_overrides.%s", key),
+				Reason: "duplicate override key after canonicalization",
+			}
+		}
 		out[key] = value
 	}
 	return out, nil

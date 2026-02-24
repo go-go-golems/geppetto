@@ -58,6 +58,27 @@ func TestDecodeYAMLRegistries_CanonicalFormat(t *testing.T) {
 	}
 }
 
+func TestDecodeYAMLRegistries_CanonicalFormatSlugFallsBackToMapKey(t *testing.T) {
+	input := []byte(`registries:
+  default:
+    default_profile_slug: default
+    profiles:
+      default:
+        slug: default
+`)
+
+	regs, err := DecodeYAMLRegistries(input, MustRegistrySlug("unused"))
+	if err != nil {
+		t.Fatalf("DecodeYAMLRegistries failed: %v", err)
+	}
+	if len(regs) != 1 {
+		t.Fatalf("expected 1 registry, got %d", len(regs))
+	}
+	if regs[0].Slug != MustRegistrySlug("default") {
+		t.Fatalf("registry slug fallback mismatch: %q", regs[0].Slug)
+	}
+}
+
 func TestEncodeDecodeYAMLRoundTrip(t *testing.T) {
 	in := []*ProfileRegistry{{
 		Slug:               MustRegistrySlug("default"),
