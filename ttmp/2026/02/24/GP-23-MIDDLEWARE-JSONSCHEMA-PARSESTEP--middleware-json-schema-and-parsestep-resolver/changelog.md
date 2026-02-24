@@ -120,4 +120,4 @@ Completed hard cutover cleanup, resolver observability, and verification matrix;
 - `go test ./pkg/webchat/... ./cmd/web-chat -count=1` (pinocchio): pass
 - `go test ./go-inventory-chat/internal/pinoweb ./go-inventory-chat/cmd/hypercard-inventory-server -count=1` (go-go-os): pass
 - Cross-repo compile/reference update after cutover commits (`20e8d6c`, `9b53ed3`): pass
-- Manual smoke for layered source precedence remains a follow-up item.
+- Manual layered-precedence smoke: `go test ./pkg/inference/middlewarecfg -run 'TestResolver_AppliesCanonicalSourcePrecedence|TestResolver_TraceIncludesRawAndCoercedValues|TestResolver_ErrorIncludesMiddlewareSourceAndPathContext' -count=1 -v` (pass).

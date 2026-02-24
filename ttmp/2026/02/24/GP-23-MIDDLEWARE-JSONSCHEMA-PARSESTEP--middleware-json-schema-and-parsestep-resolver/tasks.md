@@ -85,5 +85,5 @@
 - [x] Run unit tests for resolver package.
 - [x] Run Pinocchio runtime composer tests.
 - [x] Run Go-Go-OS integration tests touching middleware runtime paths.
-- [ ] Execute manual smoke validating layered source precedence.
+- [x] Execute manual smoke validating layered source precedence.
 - [x] Record verification matrix in ticket changelog.
