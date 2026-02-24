@@ -276,6 +276,44 @@ func TestStoreRegistryResolve_AllowedAndDeniedOverrideKeys(t *testing.T) {
 	}
 }
 
+func TestStoreRegistryResolve_RejectsDuplicateMiddlewareOverrideIDs(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("default"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("default"): {
+				Slug: MustProfileSlug("default"),
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"middlewares"},
+				},
+			},
+		},
+	})
+	registry := mustNewStoreRegistry(t, store)
+
+	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		RequestOverrides: map[string]any{
+			"middlewares": []any{
+				map[string]any{"name": "agentmode", "id": "agent"},
+				map[string]any{"name": "sqlite", "id": "agent"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate middleware id validation error")
+	}
+	var verr *ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("expected ValidationError type, got %T", err)
+	}
+	if got, want := verr.Field, "request_overrides.middlewares[1].id"; got != want {
+		t.Fatalf("validation field mismatch: got=%q want=%q", got, want)
+	}
+}
+
 func TestStoreRegistryUpdateProfile_ReadOnlyPolicyViolation(t *testing.T) {
 	ctx := context.Background()
 	store := NewInMemoryProfileStore()

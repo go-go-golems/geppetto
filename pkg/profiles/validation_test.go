@@ -107,6 +107,35 @@ func TestValidateRuntimeSpec_RejectsWhitespaceMiddlewareName(t *testing.T) {
 	requireValidationField(t, err, "runtime.middlewares[0].name")
 }
 
+func TestValidateRuntimeSpec_RejectsWhitespaceMiddlewareID(t *testing.T) {
+	err := ValidateRuntimeSpec(RuntimeSpec{
+		Middlewares: []MiddlewareUse{{Name: "agentmode", ID: "  "}},
+	})
+	requireValidationField(t, err, "runtime.middlewares[0].id")
+}
+
+func TestValidateRuntimeSpec_RejectsDuplicateMiddlewareID(t *testing.T) {
+	err := ValidateRuntimeSpec(RuntimeSpec{
+		Middlewares: []MiddlewareUse{
+			{Name: "agentmode", ID: "agent"},
+			{Name: "sqlite", ID: "agent"},
+		},
+	})
+	requireValidationField(t, err, "runtime.middlewares[1].id")
+}
+
+func TestValidateRuntimeSpec_AllowsRepeatedNamesWithUniqueIDs(t *testing.T) {
+	err := ValidateRuntimeSpec(RuntimeSpec{
+		Middlewares: []MiddlewareUse{
+			{Name: "agentmode", ID: "agent-primary"},
+			{Name: "agentmode", ID: "agent-secondary"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected repeated middleware names with unique IDs to be valid, got %v", err)
+	}
+}
+
 func TestValidateRuntimeSpec_RejectsWhitespaceToolName(t *testing.T) {
 	err := ValidateRuntimeSpec(RuntimeSpec{
 		Tools: []string{"  "},

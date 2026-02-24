@@ -16,7 +16,9 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 			},
 			Middlewares: []MiddlewareUse{
 				{
-					Name: "agentmode",
+					Name:    "agentmode",
+					ID:      "agent-primary",
+					Enabled: boolPtr(true),
 					Config: map[string]any{
 						"settings": []any{
 							map[string]any{"enabled": true},
@@ -57,6 +59,8 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	chatPatch["new_flag"] = true
 
 	cloned.Runtime.Middlewares[0].Name = "updated-mw"
+	cloned.Runtime.Middlewares[0].ID = "agent-secondary"
+	*cloned.Runtime.Middlewares[0].Enabled = false
 	mwConfig := cloned.Runtime.Middlewares[0].Config.(map[string]any)
 	mwSettings := mwConfig["settings"].([]any)
 	mwSettings[0].(map[string]any)["enabled"] = false
@@ -86,6 +90,12 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	}
 	if got := original.Runtime.Middlewares[0].Name; got != "agentmode" {
 		t.Fatalf("expected original middleware name unchanged, got %q", got)
+	}
+	if got := original.Runtime.Middlewares[0].ID; got != "agent-primary" {
+		t.Fatalf("expected original middleware id unchanged, got %q", got)
+	}
+	if !*original.Runtime.Middlewares[0].Enabled {
+		t.Fatalf("expected original middleware enabled pointer unchanged")
 	}
 	originalSettings := original.Runtime.Middlewares[0].Config.(map[string]any)["settings"].([]any)
 	if got := originalSettings[0].(map[string]any)["enabled"].(bool); !got {
@@ -142,8 +152,10 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 				Slug: MustProfileSlug("agent"),
 				Runtime: RuntimeSpec{
 					Middlewares: []MiddlewareUse{{
-						Name:   "agentmode",
-						Config: map[string]any{"mode": "planner"},
+						Name:    "agentmode",
+						ID:      "agent",
+						Enabled: boolPtr(true),
+						Config:  map[string]any{"mode": "planner"},
 					}},
 				},
 				Extensions: map[string]any{
@@ -170,6 +182,8 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 
 	agent := cloned.Profiles[MustProfileSlug("agent")]
 	agent.DisplayName = "Agent v2"
+	agent.Runtime.Middlewares[0].ID = "agent-updated"
+	*agent.Runtime.Middlewares[0].Enabled = false
 	agent.Runtime.Middlewares[0].Config.(map[string]any)["mode"] = "executor"
 	agentExt := agent.Extensions["app.note@v1"].(map[string]any)
 	agentExtItems := agentExt["items"].([]any)
@@ -193,6 +207,12 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 	if got := mode.(string); got != "planner" {
 		t.Fatalf("expected original middleware config unchanged, got %q", got)
 	}
+	if got := original.Profiles[MustProfileSlug("agent")].Runtime.Middlewares[0].ID; got != "agent" {
+		t.Fatalf("expected original middleware id unchanged, got %q", got)
+	}
+	if !*original.Profiles[MustProfileSlug("agent")].Runtime.Middlewares[0].Enabled {
+		t.Fatalf("expected original middleware enabled pointer unchanged")
+	}
 	origAgentExt := original.Profiles[MustProfileSlug("agent")].Extensions["app.note@v1"].(map[string]any)
 	origItems := origAgentExt["items"].([]any)
 	if got := origItems[0].(string); got != "a" {
@@ -204,4 +224,8 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 	if _, ok := origAgentExt["added"]; ok {
 		t.Fatalf("expected original extension map unchanged")
 	}
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }

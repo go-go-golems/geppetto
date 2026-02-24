@@ -460,7 +460,19 @@ func parseMiddlewareOverrideValue(v any) ([]MiddlewareUse, error) {
 			if name == "" {
 				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].name", i), Reason: "must not be empty"}
 			}
-			ret = append(ret, MiddlewareUse{Name: name, Config: deepCopyAny(typed[i].Config)})
+			id := strings.TrimSpace(typed[i].ID)
+			if typed[i].ID != "" && id == "" {
+				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].id", i), Reason: "must not be empty"}
+			}
+			ret = append(ret, MiddlewareUse{
+				Name:    name,
+				ID:      id,
+				Enabled: cloneBoolPtr(typed[i].Enabled),
+				Config:  deepCopyAny(typed[i].Config),
+			})
+		}
+		if err := validateMiddlewareUses(ret, "request_overrides.middlewares"); err != nil {
+			return nil, err
 		}
 		return ret, nil
 	case []any:
@@ -475,7 +487,30 @@ func parseMiddlewareOverrideValue(v any) ([]MiddlewareUse, error) {
 			if name == "" {
 				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].name", i), Reason: "must not be empty"}
 			}
-			ret = append(ret, MiddlewareUse{Name: name, Config: deepCopyAny(obj["config"])})
+			id, _ := obj["id"].(string)
+			id = strings.TrimSpace(id)
+			if obj["id"] != nil && id == "" {
+				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].id", i), Reason: "must not be empty"}
+			}
+
+			var enabled *bool
+			if rawEnabled, exists := obj["enabled"]; exists && rawEnabled != nil {
+				typedEnabled, ok := rawEnabled.(bool)
+				if !ok {
+					return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].enabled", i), Reason: "must be a boolean"}
+				}
+				enabled = &typedEnabled
+			}
+
+			ret = append(ret, MiddlewareUse{
+				Name:    name,
+				ID:      id,
+				Enabled: enabled,
+				Config:  deepCopyAny(obj["config"]),
+			})
+		}
+		if err := validateMiddlewareUses(ret, "request_overrides.middlewares"); err != nil {
+			return nil, err
 		}
 		return ret, nil
 	default:
@@ -560,7 +595,12 @@ func cloneMiddlewares(in []MiddlewareUse) []MiddlewareUse {
 	}
 	ret := make([]MiddlewareUse, 0, len(in))
 	for _, mw := range in {
-		ret = append(ret, MiddlewareUse{Name: strings.TrimSpace(mw.Name), Config: deepCopyAny(mw.Config)})
+		ret = append(ret, MiddlewareUse{
+			Name:    strings.TrimSpace(mw.Name),
+			ID:      strings.TrimSpace(mw.ID),
+			Enabled: cloneBoolPtr(mw.Enabled),
+			Config:  deepCopyAny(mw.Config),
+		})
 	}
 	return ret
 }

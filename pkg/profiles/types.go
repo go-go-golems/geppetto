@@ -4,8 +4,10 @@ import "strings"
 
 // MiddlewareUse describes a named middleware and optional config payload.
 type MiddlewareUse struct {
-	Name   string `json:"name" yaml:"name"`
-	Config any    `json:"config,omitempty" yaml:"config,omitempty"`
+	Name    string `json:"name" yaml:"name"`
+	ID      string `json:"id,omitempty" yaml:"id,omitempty"`
+	Enabled *bool  `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	Config  any    `json:"config,omitempty" yaml:"config,omitempty"`
 }
 
 // RuntimeSpec describes runtime-level defaults and patches provided by a profile.
@@ -101,6 +103,8 @@ func (p *Profile) Clone() *Profile {
 	}
 	for i := range ret.Runtime.Middlewares {
 		ret.Runtime.Middlewares[i].Name = strings.TrimSpace(ret.Runtime.Middlewares[i].Name)
+		ret.Runtime.Middlewares[i].ID = strings.TrimSpace(ret.Runtime.Middlewares[i].ID)
+		ret.Runtime.Middlewares[i].Enabled = cloneBoolPtr(ret.Runtime.Middlewares[i].Enabled)
 		ret.Runtime.Middlewares[i].Config = deepCopyAny(ret.Runtime.Middlewares[i].Config)
 	}
 
@@ -159,4 +163,12 @@ func deepCopyAny(in any) any {
 	default:
 		return in
 	}
+}
+
+func cloneBoolPtr(in *bool) *bool {
+	if in == nil {
+		return nil
+	}
+	v := *in
+	return &v
 }
