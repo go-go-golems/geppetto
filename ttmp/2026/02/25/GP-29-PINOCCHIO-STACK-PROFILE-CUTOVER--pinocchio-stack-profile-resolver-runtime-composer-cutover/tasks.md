@@ -14,7 +14,7 @@
 ## Phase 1 - Request resolver adoption
 
 - [x] Refactor `cmd/web-chat/profile_policy.go` to delegate request override policy checks to geppetto profile resolution output instead of local duplication.
-- [ ] Ensure request payload supports:
+- [x] Ensure request payload supports:
   - `registrySlug`,
   - `runtimeKey`,
   - policy-gated `requestOverrides`.

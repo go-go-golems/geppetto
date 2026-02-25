@@ -12,15 +12,21 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
-      Note: Resolver now delegates to ResolveEffectiveProfile
+      Note: |-
+        Resolver now delegates to ResolveEffectiveProfile
+        Resolver query/body parsing now only accepts runtime_key/registry_slug/request_overrides
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
-      Note: Updated tests for effective runtime assertions
+      Note: |-
+        Updated tests for effective runtime assertions
+        Updated precedence/payload tests for hard-cut request names
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
       Note: |-
         Composer now prefers resolved profile fingerprint
         Removed local runtime override parser/merge behavior
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer_test.go
       Note: Updated to resolved-runtime-only semantics
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx
+      Note: Widget payload now emits request_overrides
     - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
       Note: |-
         ConversationRuntimeRequest extended with ResolvedProfileFingerprint
@@ -28,17 +34,20 @@ RelatedFiles:
     - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
       Note: GetOrCreate no longer passes request overrides into runtime composer
     - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
-      Note: Runtime fingerprint propagated from request resolver to submit/stream paths
+      Note: |-
+        Runtime fingerprint propagated from request resolver to submit/stream paths
+        Chat request contract hard-cut to runtime_key/registry_slug/request_overrides
     - Path: ../../../../../../../pinocchio/pkg/webchat/stream_hub.go
       Note: Updated GetOrCreate calls after runtime override contract removal
     - Path: ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md
       Note: Phase tracking for request resolver cutover
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-25T15:18:00-05:00
+LastUpdated: 2026-02-25T15:27:00-05:00
 WhatFor: Chronological implementation log for GP-29 Pinocchio stack-profile cutover.
 WhenToUse: Use when reviewing exactly what changed, why, and how to validate each completed phase.
 ---
+
 
 
 
@@ -348,6 +357,111 @@ Ensuring the cleanup remained narrowly scoped:
 ### Technical details
 
 1. Commit hash: `36bedc3`.
+
+## Step 4: Hard-Cut Request Payload Naming (`runtime_key` / `registry_slug` / `request_overrides`)
+
+This step completed the remaining Phase 1 payload hardening work by moving request resolution to explicit hard-cut field names aligned with GP-28 terminology, and removing legacy resolver aliases (`profile`, `registry`, `overrides`, `runtime` query alias) from chat/ws request resolution paths.
+
+Because the web-chat frontend still emitted `overrides`, a follow-up commit updated the widget payload key to `request_overrides`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok continue"
+
+**Assistant interpretation:** continue with next open GP-29 phase item after runtime-composer cleanup.
+
+**Inferred user intent:** complete phased hard-cut migration with granular commits and detailed diary history.
+
+**Commits (code):**
+1. `d1ba9b2` — "web-chat: hard-cut resolver payload to runtime_key"
+2. `1ec381a` — "web-chat: send request_overrides in chat widget payload"
+
+### Commands run
+
+```bash
+gofmt -w cmd/web-chat/profile_policy.go cmd/web-chat/profile_policy_test.go pkg/webchat/http/api.go
+go test ./cmd/web-chat/... ./pkg/webchat/...
+git add cmd/web-chat/profile_policy.go cmd/web-chat/profile_policy_test.go pkg/webchat/http/api.go cmd/web-chat/web/src/webchat/ChatWidget.tsx
+git commit -m "web-chat: hard-cut request payload to runtime_key"
+# commit failed due parallel pre-commit web-check/lint race
+git reset HEAD cmd/web-chat/web/src/webchat/ChatWidget.tsx
+git commit -m "web-chat: hard-cut resolver payload to runtime_key"
+git add cmd/web-chat/web/src/webchat/ChatWidget.tsx
+git commit -m "web-chat: send request_overrides in chat widget payload"
+```
+
+### What I did
+
+1. Updated `pkg/webchat/http/api.go` `ChatRequestBody` to use:
+   - `runtime_key`,
+   - `registry_slug`,
+   - `request_overrides`.
+2. Updated `cmd/web-chat/profile_policy.go` resolver extraction paths:
+   - chat body now reads `RuntimeKey`, `RegistrySlug`, `RequestOverrides`,
+   - query parsing now reads only `runtime_key` and `registry_slug`,
+   - parse error messaging now reports `invalid runtime_key`.
+3. Updated resolver tests in `cmd/web-chat/profile_policy_test.go` to reflect new body/query names and precedence behavior.
+4. Updated chat widget request payload in `cmd/web-chat/web/src/webchat/ChatWidget.tsx` to send `request_overrides`.
+
+### Why
+
+1. Hard-cut migration explicitly removes legacy naming and compatibility aliases.
+2. Consistent naming with GP-28 contracts simplifies downstream migration planning for go-go-os and pinocchio surfaces.
+
+### What worked
+
+1. Targeted suite passed:
+   - `go test ./cmd/web-chat/... ./pkg/webchat/...`.
+2. Both resulting commits passed pre-commit checks.
+
+### What didn't work
+
+The first attempt to commit Go + web changes together failed due a pre-commit race:
+1. `lefthook` pre-commit is configured with `parallel: true`.
+2. `web-check` (`npm run check`) and `lint` (`make lintmax`) ran concurrently.
+3. `lint` runs `go generate`, which performs frontend install/build and races against `web-check`, causing transient TypeScript lib-not-found errors.
+
+Fix:
+1. split commit into Go-only (skips `web-check`),
+2. commit web file separately (runs only `web-check` and passes).
+
+### What I learned
+
+1. With current hook configuration, staging both Go and web files can trigger nondeterministic frontend hook failures due parallelized install/check paths.
+2. Operationally safer commit sequencing in this repo is:
+   - Go changes first,
+   - web changes second.
+
+### What was tricky to build
+
+Ensuring hard-cut naming without accidentally changing profile-management API semantics:
+1. request resolver path changed for `/chat` and `/ws`,
+2. profile CRUD/list endpoints still intentionally use their own `registry` query/body naming.
+
+### What warrants a second pair of eyes
+
+1. External callers still posting `profile`/`registry`/`overrides` to `/chat` will now fail and must be updated.
+2. WS consumers that relied on `profile`/`runtime` query aliases must switch to `runtime_key`.
+
+### What should be done in the future
+
+1. Complete GP-29 Phase 3 metadata exposure (`profile.stack.lineage`, `profile.stack.trace` in chat/web responses).
+2. Optionally update lefthook pre-commit sequencing to avoid web-check/lint race when mixed Go+web files are staged.
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx`
+2. Validate with:
+   - `go test ./cmd/web-chat/... ./pkg/webchat/...`,
+   - `cd cmd/web-chat/web && npm run check`.
+
+### Technical details
+
+1. Commit hashes: `d1ba9b2`, `1ec381a`.
 
 ## Related
 

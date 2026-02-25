@@ -103,3 +103,35 @@ Implemented GP-29 Phase 2B runtime-composer hard cutover cleanup (`commit 36bedc
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go — `GetOrCreate` no longer forwards request override maps into runtime composition
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/stream_hub.go — Updated `GetOrCreate` callsites for new signature
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer_test.go — Updated tests for hard-cut runtime composer semantics
+
+## 2026-02-25
+
+Implemented GP-29 Phase 1B request payload hard-cut naming (`commits d1ba9b2, 1ec381a`).
+
+### What changed
+
+- Updated chat/ws resolver payload/query contracts to canonical hard-cut names:
+  - body fields:
+    - `runtime_key`,
+    - `registry_slug`,
+    - `request_overrides`;
+  - query fields:
+    - `runtime_key`,
+    - `registry_slug`.
+- Removed legacy resolver field/query usage for:
+  - `profile`,
+  - `registry`,
+  - `overrides`,
+  - `runtime` query alias.
+- Updated resolver tests to assert new payload/query field names and precedence semantics under the hard-cut contract.
+- Updated web chat widget payload to send `request_overrides` instead of `overrides` so browser chat requests remain aligned with resolver API.
+- Verification:
+  - `go test ./cmd/web-chat/... ./pkg/webchat/...` passed,
+  - full pre-commit checks passed for both commits.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go — Chat request body contract switched to `runtime_key`/`registry_slug`/`request_overrides`
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Resolver now consumes only hard-cut request field/query names
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go — Updated tests for new payload/query key semantics
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx — Chat payload now emits `request_overrides`
