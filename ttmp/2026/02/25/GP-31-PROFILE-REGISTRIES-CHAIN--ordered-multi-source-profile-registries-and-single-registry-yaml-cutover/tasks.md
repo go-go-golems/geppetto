@@ -55,7 +55,7 @@
 ## Phase 7 - Tests and validation
 
 - [x] Add unit tests for source parsing/detection.
-- [ ] Add unit tests for duplicate registry slug detection.
+- [x] Add unit tests for duplicate registry slug detection.
 - [x] Add unit tests for stack-top-first profile search behavior.
 - [x] Add integration tests for mixed YAML+SQLite chain loading.
 - [x] Add web-chat tests for stack-top-first resolution with runtime registry selector removed.

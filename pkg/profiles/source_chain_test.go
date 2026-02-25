@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -211,6 +212,38 @@ profiles:
 	}
 	if got, want := getUpdated.DisplayName, "shared-updated"; got != want {
 		t.Fatalf("aggregate store not refreshed after write: got=%q want=%q", got, want)
+	}
+}
+
+func TestChainedRegistry_RejectsDuplicateRegistrySlugsAcrossSources(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	pathA := filepath.Join(tmpDir, "a.yaml")
+	pathB := filepath.Join(tmpDir, "b.yaml")
+
+	content := `slug: duplicate
+profiles:
+  default:
+    slug: default
+`
+	if err := os.WriteFile(pathA, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile a.yaml failed: %v", err)
+	}
+	if err := os.WriteFile(pathB, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile b.yaml failed: %v", err)
+	}
+
+	specs, err := ParseRegistrySourceSpecs([]string{pathA, pathB})
+	if err != nil {
+		t.Fatalf("ParseRegistrySourceSpecs failed: %v", err)
+	}
+	_, err = NewChainedRegistryFromSourceSpecs(ctx, specs)
+	if err == nil {
+		t.Fatalf("expected duplicate registry slug error")
+	}
+	if !strings.Contains(err.Error(), "duplicate registry slug") {
+		t.Fatalf("expected duplicate registry slug error, got: %v", err)
 	}
 }
 
