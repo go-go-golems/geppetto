@@ -111,6 +111,7 @@ declare module "geppetto" {
 
     export interface Engine {
         name: string;
+        metadata?: Record<string, any>;
     }
 
     export interface EngineOptions {
