@@ -163,3 +163,89 @@ func TestEncodeDecodeYAML_PreservesUnknownExtensionKeys(t *testing.T) {
 		t.Fatalf("missing vendor extension key after roundtrip")
 	}
 }
+
+func TestEncodeDecodeYAML_PreservesStackRefs(t *testing.T) {
+	in := []*ProfileRegistry{
+		{
+			Slug:               MustRegistrySlug("default"),
+			DefaultProfileSlug: MustProfileSlug("agent"),
+			Profiles: map[ProfileSlug]*Profile{
+				MustProfileSlug("provider-openai"): {
+					Slug: MustProfileSlug("provider-openai"),
+				},
+				MustProfileSlug("model-gpt4o"): {
+					Slug: MustProfileSlug("model-gpt4o"),
+					Stack: []ProfileRef{
+						{ProfileSlug: MustProfileSlug("provider-openai")},
+					},
+				},
+				MustProfileSlug("agent"): {
+					Slug: MustProfileSlug("agent"),
+					Stack: []ProfileRef{
+						{ProfileSlug: MustProfileSlug("model-gpt4o")},
+						{RegistrySlug: MustRegistrySlug("shared"), ProfileSlug: MustProfileSlug("mw-observability")},
+					},
+				},
+			},
+		},
+		{
+			Slug:               MustRegistrySlug("shared"),
+			DefaultProfileSlug: MustProfileSlug("mw-observability"),
+			Profiles: map[ProfileSlug]*Profile{
+				MustProfileSlug("mw-observability"): {
+					Slug: MustProfileSlug("mw-observability"),
+				},
+			},
+		},
+	}
+
+	b, err := EncodeYAMLRegistries(in)
+	if err != nil {
+		t.Fatalf("EncodeYAMLRegistries failed: %v", err)
+	}
+	out, err := DecodeYAMLRegistries(b, MustRegistrySlug("unused"))
+	if err != nil {
+		t.Fatalf("DecodeYAMLRegistries failed: %v", err)
+	}
+
+	registryBySlug := map[RegistrySlug]*ProfileRegistry{}
+	for _, reg := range out {
+		registryBySlug[reg.Slug] = reg
+	}
+
+	defaultRegistry := registryBySlug[MustRegistrySlug("default")]
+	if defaultRegistry == nil {
+		t.Fatalf("missing default registry after roundtrip")
+	}
+
+	model := defaultRegistry.Profiles[MustProfileSlug("model-gpt4o")]
+	if model == nil {
+		t.Fatalf("missing model-gpt4o profile after roundtrip")
+	}
+	if got, want := len(model.Stack), 1; got != want {
+		t.Fatalf("model stack length mismatch: got=%d want=%d", got, want)
+	}
+	if got := model.Stack[0].ProfileSlug; got != MustProfileSlug("provider-openai") {
+		t.Fatalf("model stack profile mismatch: got=%q", got)
+	}
+	if got := model.Stack[0].RegistrySlug; got != "" {
+		t.Fatalf("model stack registry should be empty (same registry), got=%q", got)
+	}
+
+	agent := defaultRegistry.Profiles[MustProfileSlug("agent")]
+	if agent == nil {
+		t.Fatalf("missing agent profile after roundtrip")
+	}
+	if got, want := len(agent.Stack), 2; got != want {
+		t.Fatalf("agent stack length mismatch: got=%d want=%d", got, want)
+	}
+	if got := agent.Stack[0].ProfileSlug; got != MustProfileSlug("model-gpt4o") {
+		t.Fatalf("agent stack first ref profile mismatch: got=%q", got)
+	}
+	if got := agent.Stack[1].RegistrySlug; got != MustRegistrySlug("shared") {
+		t.Fatalf("agent stack second ref registry mismatch: got=%q", got)
+	}
+	if got := agent.Stack[1].ProfileSlug; got != MustProfileSlug("mw-observability") {
+		t.Fatalf("agent stack second ref profile mismatch: got=%q", got)
+	}
+}
