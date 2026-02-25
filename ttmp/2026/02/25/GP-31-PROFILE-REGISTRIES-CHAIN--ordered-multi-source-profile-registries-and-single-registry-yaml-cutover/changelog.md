@@ -103,3 +103,38 @@ Follow-up implementation completed remaining near-term GP-31 validation/API beha
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/source_chain_test.go — Duplicate slug rejection test
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go — Cross-registry list/get behavior
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go — API behavior assertions for loaded multi-registry sources
+
+## 2026-02-25
+
+Completed GP-31 Phase 7/8 closeout: parsed-fields coverage, docs hard-cut updates, and multi-source smoke script validation.
+
+### What changed
+
+- Added pinocchio integration coverage for `--print-parsed-fields` with `--profile-registries`.
+- Updated cutover smoke script to:
+  - migrate legacy profile maps,
+  - import bundle output into SQLite,
+  - generate and layer a top runtime YAML registry source,
+  - run web-chat with `--profile-registries <db>,<top-yaml>`,
+  - validate `/chat` runtime metadata and `--print-parsed-fields` source metadata.
+- Updated geppetto and pinocchio docs for hard-cut semantics:
+  - no runtime `profile-file` path in this flow,
+  - no request-time `registry_slug` runtime selector,
+  - `--profile-registries` as canonical source stack input.
+- Documented current CRUD read exposure risk for YAML-backed private registries.
+
+### Validation
+
+- `go test ./cmd/pinocchio ./cmd/web-chat ./pkg/webchat/http -count=1`
+- `go test ./pkg/profiles ./pkg/sections -count=1`
+- `scripts/profile_registry_cutover_smoke.sh --port 18125` (pass)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/pinocchio/main_profile_registries_test.go — Parsed-fields integration coverage for `--profile-registries`
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/scripts/profile_registry_cutover_smoke.sh — Multi-source cutover smoke workflow
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/doc/topics/01-profiles.md — Hard-cut profile registry docs
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md — Migration playbook updates for stack sources
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-profile-registry.md — Web-chat registry behavior and CRUD exposure note
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md — Runtime request contract update
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/README.md — Updated CLI examples and request payload

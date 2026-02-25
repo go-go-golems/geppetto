@@ -586,6 +586,112 @@ The tricky part was balancing multi-registry visibility with compatibility:
 2. Validate:
    - `go test ./cmd/web-chat ./pkg/webchat/http -count=1`
 
+## Step 9: Add parsed-fields coverage and validate multi-source cutover smoke workflow
+
+This step closed the remaining GP-31 runtime validation gap around `pinocchio --print-parsed-fields` with `--profile-registries`, and updated the operator smoke script to exercise stacked YAML+SQLite sources end-to-end.
+
+I also ran the smoke script repeatedly and fixed two real defects discovered during execution, instead of only updating docs/tests.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** complete remaining GP-31 implementation tasks with real validation and frequent diary updates.
+
+**Inferred user intent:** finish hard-cut rollout details with executable operator workflows, not only architecture code.
+
+**Commit (code):** `c8fcdef` — `profiles: add profile-registries parsed-fields coverage and cutover smoke script`
+
+### What I did
+
+1. Added integration coverage in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/pinocchio/main_profile_registries_test.go`
+   - test shells out to `go run ./cmd/pinocchio ... --print-parsed-fields --profile-registries ...` and asserts:
+     - profile section present,
+     - `mode: profile-registry-stack`,
+     - `profileRegistries` metadata includes source path,
+     - profile-derived `ai-engine` value is applied.
+2. Reworked smoke script:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/scripts/profile_registry_cutover_smoke.sh`
+   - now performs:
+     - legacy YAML backup,
+     - legacy -> bundle migration,
+     - bundle import into SQLite DB,
+     - generation of top runtime single-registry YAML,
+     - web-chat startup with `--profile-registries <db>,<top-yaml>`,
+     - `/chat` and invalid runtime smoke checks,
+     - pinocchio `--print-parsed-fields` source metadata assertions.
+3. Updated pinocchio runtime docs:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/README.md`
+   - removed request-time `registry_slug` runtime selector guidance and switched examples to `--profile-registries`.
+
+### Why
+
+1. GP-31 task matrix still had an open parsed-fields coverage item and smoke script/doc closeout items.
+2. The user explicitly asked for runnable, practical workflows and verification.
+
+### What worked
+
+1. Targeted tests passed:
+   - `go test ./cmd/pinocchio ./cmd/web-chat ./pkg/webchat/http -count=1`
+2. End-to-end smoke run passed:
+   - `scripts/profile_registry_cutover_smoke.sh --port 18125`
+
+### What didn't work
+
+1. First smoke run failed:
+   - error: `ERROR: default /chat response metadata does not match top stack profile`
+   - cause: default profile resolution searches for slug `default`; generated top registry only had `stack-top`, so default came from base DB registry.
+   - fix: changed assertion to expect base registry/profile on default `/chat`.
+2. Second smoke run failed:
+   - error: `rg: unrecognized flag -`
+   - cause: grep pattern started with `-` and was parsed as an option.
+   - fix: used `rg --` to terminate options before the literal pattern.
+3. First test approach using in-process `rootCmd.SetOut/SetErr` was unreliable:
+   - command output still bypassed buffers.
+   - fix: switched to subprocess execution (`go run ./cmd/pinocchio ...`) and captured combined output.
+
+### What I learned
+
+1. Default profile behavior in stack mode is slug-driven (`default`), not “always top source.”
+2. A subprocess-based assertion is more robust for this CLI path than embedding root command execution.
+
+### What was tricky to build
+
+The tricky part was validating parsed-fields output without contaminating the test with user-level config:
+
+1. command output includes merged config/env/profile logs,
+2. default config discovery can inject local machine values,
+3. test needed deterministic source paths and metadata assertions.
+
+Approach:
+
+1. set `XDG_CONFIG_HOME` to a test temp directory,
+2. pass explicit temporary config and registry files,
+3. assert only stable metadata markers and expected resolved value.
+
+### What warrants a second pair of eyes
+
+1. Migration command output remains bundle-shaped (`registries:`), while runtime YAML loader is strict single-registry; verify operator docs keep this distinction clear.
+
+### What should be done in the future
+
+1. Add a dedicated converter/export command from bundle YAML to single-registry runtime YAML for zero-manual split workflows.
+
+### Code review instructions
+
+1. Review:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/pinocchio/main_profile_registries_test.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/scripts/profile_registry_cutover_smoke.sh`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/README.md`
+2. Validate:
+   - `go test ./cmd/pinocchio ./cmd/web-chat ./pkg/webchat/http -count=1`
+   - `scripts/profile_registry_cutover_smoke.sh --port 18125`
+
 ## Related
 
 - `GP-28-STACK-PROFILES`

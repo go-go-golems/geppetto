@@ -59,11 +59,11 @@
 - [x] Add unit tests for stack-top-first profile search behavior.
 - [x] Add integration tests for mixed YAML+SQLite chain loading.
 - [x] Add web-chat tests for stack-top-first resolution with runtime registry selector removed.
-- [ ] Add pinocchio `--print-parsed-fields` test coverage with `--profile-registries`.
+- [x] Add pinocchio `--print-parsed-fields` test coverage with `--profile-registries`.
 
 ## Phase 8 - Docs and operator tooling
 
-- [ ] Update geppetto profile docs to single-registry YAML runtime format.
-- [ ] Update pinocchio docs for `--profile-registries` behavior.
-- [ ] Update smoke scripts for multi-source runs.
-- [ ] Document temporary risk of CRUD exposure for YAML-backed private registries.
+- [x] Update geppetto profile docs to single-registry YAML runtime format.
+- [x] Update pinocchio docs for `--profile-registries` behavior.
+- [x] Update smoke scripts for multi-source runs.
+- [x] Document temporary risk of CRUD exposure for YAML-backed private registries.

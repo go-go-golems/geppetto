@@ -11,7 +11,7 @@ Commands:
 - geppetto
 Flags:
 - profile
-- profile-file
+- profile-registries
 IsTopLevel: true
 IsTemplate: false
 ShowPerDefault: true
@@ -157,18 +157,19 @@ If policy rejects an override, resolution returns a policy violation error.
 The runtime model is registry-first and profile-first:
 
 - profiles are stored and resolved through `profiles.Registry`,
+- runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
 - stack composition is resolved in-core (base -> leaf) before runtime composition,
 - profile CRUD is the write path for runtime defaults,
 - middleware configuration is profile-scoped and validated before persistence in API surfaces.
 
 There is no environment-variable toggle for old middleware selection paths.
 There is no overlay abstraction in the runtime composition path.
+There is no runtime registry selector path in request resolution; profile slug lookup uses stack order.
 
 ## Registry YAML Example
 
 ```yaml
 slug: default
-default_profile_slug: agent
 profiles:
   provider-openai:
     slug: provider-openai
@@ -248,8 +249,8 @@ Authoritative behavior:
 Profile selection remains available through:
 
 - config (`profile-settings` section),
-- environment (`PINOCCHIO_PROFILE`, `PINOCCHIO_PROFILE_FILE`),
-- flags (`--profile`, `--profile-file`).
+- environment (`PINOCCHIO_PROFILE`, `PINOCCHIO_PROFILE_REGISTRIES`),
+- flags (`--profile`, `--profile-registries`).
 
 Precedence remains:
 

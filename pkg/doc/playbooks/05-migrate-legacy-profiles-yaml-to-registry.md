@@ -11,7 +11,7 @@ Commands:
   - pinocchio
 Flags:
   - profile
-  - profile-file
+  - profile-registries
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
@@ -33,7 +33,7 @@ agent:
     ai-engine: gpt-4.1
 ```
 
-into canonical registry documents:
+into canonical registry bundle documents:
 
 ```yaml
 registries:
@@ -66,14 +66,15 @@ Legacy shape:
 - top-level keys are profile names (`default`, `agent`, ...),
 - each value is a layer/setting map.
 
-Canonical shape:
+Canonical shapes:
 
-- top-level `registries:` key, or
-- single registry document with `slug`, `profiles`, etc.
+- registry bundle (`registries:`) for migration/export workflows,
+- single-registry runtime YAML (`slug` + `profiles`) for runtime source loading.
 
 ## Step 2: Run the migration command
 
-Pinocchio provides a command that converts legacy map input into canonical registry YAML.
+Pinocchio provides a migration command for legacy map input.
+Current output is a registry bundle (`registries:`); runtime YAML loading is single-registry only.
 
 Dry run first:
 
@@ -102,10 +103,10 @@ pinocchio profiles migrate-legacy \
 
 Check that:
 
-- `registries.default` exists,
-- `default_profile_slug` is set,
-- expected profile slugs are present under `profiles`,
-- each migrated profile has a `runtime.step_settings_patch`.
+- top-level `registries` exists,
+- expected profile slugs are present under `registries.<slug>.profiles`,
+- each migrated profile has a `runtime.step_settings_patch`,
+- output is treated as migration/interchange data (not direct runtime source YAML).
 
 Quick check:
 
@@ -115,18 +116,23 @@ rg -n "registries:|default_profile_slug:|profiles:" ~/.config/pinocchio/profiles
 
 ## Step 4: Point runtime to migrated file
 
-Set profile file in config:
+Use one of these runtime paths:
+
+1. Import bundle output into SQLite and load via `profile-registries: <db path>`.
+2. Split/convert into one-file-one-registry runtime YAML and load those files via `profile-registries`.
+
+Example runtime config:
 
 ```yaml
 profile-settings:
-  profile-file: ~/.config/pinocchio/profiles.registry.yaml
+  profile-registries: ~/.config/pinocchio/profiles.db
   profile: default
 ```
 
 Or via environment:
 
 ```bash
-export PINOCCHIO_PROFILE_FILE=~/.config/pinocchio/profiles.registry.yaml
+export PINOCCHIO_PROFILE_REGISTRIES=~/.config/pinocchio/profiles.db
 export PINOCCHIO_PROFILE=default
 ```
 
@@ -150,7 +156,12 @@ After migration:
 
 ## Optional: Multi-registry setup
 
-If you need separate profile domains (for example `team`, `prod`, `sandbox`), split into multiple entries under `registries:` and set explicit registry selection where your app resolver supports it.
+If you need separate profile domains (for example `team`, `prod`, `sandbox`), keep each registry in its own YAML or SQLite source and stack them in order:
+
+```yaml
+profile-settings:
+  profile-registries: ~/.config/pinocchio/team.yaml,~/.config/pinocchio/private.db
+```
 
 ## Troubleshooting
 
@@ -158,9 +169,9 @@ If you need separate profile domains (for example `team`, `prod`, `sandbox`), sp
 |---|---|---|
 | `invalid profile slug` during migration | legacy top-level key is not a valid slug | rename offending profile key to slug-safe value |
 | output file exists error | command protects existing outputs | pass `--force`, choose a different `--output`, or use `--in-place` |
-| migrated file has no `registries` key | command not run or wrong file inspected | rerun migration with explicit `--input` and `--output` |
-| runtime ignores migrated file | active `profile-file` still points to old path | update `profile-settings.profile-file` or `PINOCCHIO_PROFILE_FILE` |
-| behavior changed unexpectedly | default profile slug differs after conversion | set `default_profile_slug` explicitly and verify selected profile |
+| migrated file still uses legacy map shape | command not run or wrong file inspected | rerun migration with explicit `--input` and `--output` |
+| runtime ignores migrated file | active `profile-registries` points to another source | update `profile-settings.profile-registries` or `PINOCCHIO_PROFILE_REGISTRIES` |
+| runtime startup rejects YAML | file contains top-level `registries:` or `default_profile_slug` | import to SQLite or rewrite into single-registry runtime YAML |
 
 ## See Also
 
