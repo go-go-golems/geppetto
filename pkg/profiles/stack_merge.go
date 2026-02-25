@@ -75,6 +75,17 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 	return result, nil
 }
 
+// MergeProfileStackLayersWithTrace merges base->leaf stack layers and returns
+// middlewarecfg-style path traces for field-level merge provenance.
+func MergeProfileStackLayersWithTrace(layers []ProfileStackLayer) (StackMergeResult, *ProfileStackTrace, error) {
+	merged, err := MergeProfileStackLayers(layers)
+	if err != nil {
+		return StackMergeResult{}, nil, err
+	}
+	trace := BuildProfileStackTrace(layers, merged)
+	return merged, trace, nil
+}
+
 func mergeMiddlewareLayers(base []MiddlewareUse, overlay []MiddlewareUse) []MiddlewareUse {
 	ret := cloneMiddlewares(base)
 	keyIndex := map[string]int{}
