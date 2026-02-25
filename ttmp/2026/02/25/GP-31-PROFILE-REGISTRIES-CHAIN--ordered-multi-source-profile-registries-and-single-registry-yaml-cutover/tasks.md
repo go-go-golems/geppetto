@@ -4,8 +4,10 @@
 
 - [ ] Confirm GP-31 hard-cut scope:
   - single-registry YAML runtime format,
-  - ordered `--profile-registries` chain,
+  - stack-top-first `--profile-registries` chain,
+  - no `default_profile_slug` in runtime YAML sources,
   - no overlay abstraction,
+  - no runtime registry selector path,
   - CRUD read exposure for all registries (temporary),
   - write routing by owner source.
 - [ ] Confirm duplicate registry slug policy (`startup error`).
@@ -14,7 +16,7 @@
 
 - [ ] Add `profile-registries` setting to profile selection chain in geppetto middleware wiring.
 - [ ] Wire env/config/flag precedence for `profile-registries`.
-- [ ] Keep `profile-file` fallback when `profile-registries` is unset.
+- [ ] Remove runtime `profile-file` fallback path from this flow and fail startup when no registry sources are configured.
 
 ## Phase 2 - Source detection and loading
 
@@ -33,15 +35,16 @@
 
 ## Phase 4 - Resolution semantics
 
-- [ ] Implement ordered profile-name resolution when registry is unspecified.
-- [ ] Keep explicit registry selection path for web-chat/API inputs.
+- [ ] Implement stack-top-first profile-name resolution.
+- [ ] Remove runtime registry selector path in CLI/web-chat runtime resolution.
 - [ ] Update CLI runtime resolution to use ordered source-chain lookup.
 
 ## Phase 5 - YAML format hard cut
 
 - [ ] Make runtime YAML loader reject multi-registry bundle format.
 - [ ] Make runtime YAML loader reject legacy profile-map format.
-- [ ] Update migration command defaults/docs for single-registry output.
+- [ ] Make runtime YAML loader reject `default_profile_slug`.
+- [ ] Remove legacy runtime `profile-file` loading path from this flow in wiring/docs.
 
 ## Phase 6 - Web-chat CRUD behavior
 
@@ -53,14 +56,14 @@
 
 - [ ] Add unit tests for source parsing/detection.
 - [ ] Add unit tests for duplicate registry slug detection.
-- [ ] Add unit tests for ordered profile search behavior.
+- [ ] Add unit tests for stack-top-first profile search behavior.
 - [ ] Add integration tests for mixed YAML+SQLite chain loading.
-- [ ] Add web-chat tests for ordered resolution + explicit registry override.
+- [ ] Add web-chat tests for stack-top-first resolution with runtime registry selector removed.
 - [ ] Add pinocchio `--print-parsed-fields` test coverage with `--profile-registries`.
 
 ## Phase 8 - Docs and operator tooling
 
 - [ ] Update geppetto profile docs to single-registry YAML runtime format.
 - [ ] Update pinocchio docs for `--profile-registries` behavior.
-- [ ] Update migration/smoke scripts for multi-source runs.
+- [ ] Update smoke scripts for multi-source runs.
 - [ ] Document temporary risk of CRUD exposure for YAML-backed private registries.

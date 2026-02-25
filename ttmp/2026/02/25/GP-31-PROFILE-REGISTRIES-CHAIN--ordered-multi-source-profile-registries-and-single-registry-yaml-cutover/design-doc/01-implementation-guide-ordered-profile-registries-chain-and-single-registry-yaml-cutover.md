@@ -30,8 +30,8 @@ RelatedFiles:
         Pinocchio middleware chain wiring for CLI profile selection
         CLI settings/middleware chain wiring
 ExternalSources: []
-Summary: Ordered source-chain proposal for loading profile registries from mixed YAML/SQLite inputs with single-registry YAML format and profile-name-first resolution by registry load order.
-LastUpdated: 2026-02-25T16:24:30-05:00
+Summary: Stack-ordered source-chain proposal for loading profile registries from mixed YAML/SQLite inputs with single-registry YAML format, top-of-stack profile precedence, and no runtime registry switching.
+LastUpdated: 2026-02-25T16:31:05-05:00
 WhatFor: Define concrete implementation details for multi-source registry loading and CLI/web-chat resolution behavior.
 WhenToUse: Use when implementing or reviewing GP-31 source-chain registry loading, YAML format cutover, and CLI/web-chat registry resolution.
 ---
@@ -43,7 +43,7 @@ WhenToUse: Use when implementing or reviewing GP-31 source-chain registry loadin
 
 This proposal adds a registry source chain to Pinocchio/Geppetto via `--profile-registries file1,file2,file3`.
 
-Each source is auto-detected as YAML or SQLite. YAML sources are **single-registry only**; SQLite sources can contain multiple registries. Registries are loaded in source order, and profile-name resolution (`--profile <slug>`) searches registries in that exact order.
+Each source is auto-detected as YAML or SQLite. YAML sources are **single-registry only**; SQLite sources can contain multiple registries. Sources form a pure stack; later entries are the top of stack (higher precedence), and profile-name resolution (`--profile <slug>`) searches top -> bottom.
 
 No overlay abstraction is reintroduced. We keep deterministic routing with strict ownership:
 
@@ -58,10 +58,10 @@ For GP-31 scope, CRUD endpoints expose all loaded registries.
 Current behavior does not support the operator workflow requested:
 
 1. mixing multiple registry backends in one run (for example private YAML + shared DB),
-2. selecting profiles by name with deterministic fallback across registry sources,
+2. selecting profiles by name with deterministic ordered resolution across registry sources,
 3. a clean one-file-one-registry YAML model for layering source files.
 
-In addition, runtime CLI profile resolution is currently tied to a default registry path rather than an ordered registry chain.
+In addition, runtime selection currently exposes/assumes registry switching semantics that are not needed for this stack-only model.
 
 ## Proposed Solution
 
@@ -76,8 +76,9 @@ Add a new profile source-chain setting available in config/env/flags:
 Behavior:
 
 1. ordered list semantics are strict and preserved,
-2. if empty, fallback to existing single `--profile-file` behavior (implemented as one YAML source),
-3. if both are set, `profile-registries` wins and `profile-file` is ignored with a warning.
+2. value must be non-empty; startup fails when no registry sources are configured,
+3. `--profile-file`/`PINOCCHIO_PROFILE_FILE` legacy runtime loading path is removed from this flow (hard cut),
+4. runtime registry selector inputs are removed from this flow; source stack order is authoritative.
 
 ### 2. Source entry parsing and auto-detection
 
@@ -100,7 +101,6 @@ Runtime YAML source files must use **single-registry** shape only:
 
 ```yaml
 slug: private-provider
-default_profile_slug: provider-openai
 profiles:
   provider-openai:
     slug: provider-openai
@@ -117,7 +117,8 @@ Hard-cut rules:
 
 1. top-level `registries:` bundle format is rejected for runtime loading,
 2. legacy profile map format is rejected for runtime loading,
-3. migration tooling remains responsible for converting old docs.
+3. `default_profile_slug` is rejected for runtime YAML source files,
+4. runtime startup fails fast with actionable validation errors when old formats are provided.
 
 ### 4. Registry source chain and ownership model
 
@@ -147,16 +148,16 @@ type LoadedRegistryDescriptor struct {
 }
 ```
 
-### 5. Resolution semantics (ordered profile-name search)
+### 5. Resolution semantics (stack-top-first profile search)
 
 When resolving runtime selection:
 
-1. if explicit registry is provided (`registry_slug` in web-chat, future `--registry` in CLI), resolve profile in that registry only,
-2. otherwise, if a profile slug is provided, search registries in chain order and pick first match,
-3. if no profile slug is provided, use first registry in chain and its default profile,
-4. if profile appears in multiple registries, first match wins (deterministic by chain order).
+1. runtime registry switching is not supported,
+2. if a profile slug is provided, search registries from stack top -> bottom and pick first match,
+3. if no profile slug is provided, resolve literal slug `default` using stack top -> bottom search,
+4. if profile appears in multiple registries, top-most match wins.
 
-This directly matches the requested “resolution is done in the order of registries loaded.”
+This directly matches the requested stack behavior (“the one on top is used”).
 
 ### 6. Stack resolution across registries
 
@@ -188,7 +189,7 @@ Keep existing stack provenance and fingerprint contracts unchanged:
 2. `profile.stack.trace`,
 3. `runtime_fingerprint`.
 
-Only root registry/profile selection changes based on chain-order search.
+Only root profile selection changes based on stack-top-first search.
 
 ## Design Decisions
 
@@ -202,9 +203,12 @@ Rationale: prevents ambiguous explicit-registry reads/writes and simplifies CRUD
 Rationale: directly models one file as one source registry and avoids “bundle file as mini database” ambiguity.
 
 4. **Profile-name-first ordered search**
-Rationale: matches requested operator UX (`--profile` only, ordered fallback across registries).
+Rationale: matches requested operator UX (`--profile` only, top-of-stack precedence).
 
-5. **Expose all registries in CRUD for now**
+5. **No runtime registry selector path**
+Rationale: registry chain is a runtime source stack; explicit registry switching is unnecessary complexity.
+
+6. **Expose all registries in CRUD for now**
 Rationale: requested temporary behavior; privacy filtering can be added later as an explicit access policy layer.
 
 ## Alternatives Considered
@@ -218,8 +222,8 @@ Rejected: explicit registry ops and writes become error-prone and non-obvious.
 3. **Reintroduce store overlay merge**
 Rejected: duplicates stack composition semantics and reintroduces unnecessary complexity removed in GP-28.
 
-4. **Require explicit `--registry` always**
-Rejected: does not satisfy requested profile-name-only ordered resolution workflow.
+4. **Keep runtime registry selector (`registry_slug` / `--registry`)**
+Rejected: does not fit the stack-only model and adds avoidable branching semantics.
 
 ## Implementation Plan
 
@@ -227,8 +231,7 @@ Rejected: does not satisfy requested profile-name-only ordered resolution workfl
 
 1. Add `profile-registries` setting to profile selection section wiring.
 2. Add parsing helpers for `PINOCCHIO_PROFILE_REGISTRIES` and CLI flag.
-3. Document precedence:
-   - `--profile-registries` > env > config > `--profile-file` fallback.
+3. Remove legacy runtime profile-file fallback path from this flow and fail startup when no registry sources are configured.
 
 ### Phase 1: Source parsing and loading
 
@@ -250,18 +253,19 @@ Rejected: does not satisfy requested profile-name-only ordered resolution workfl
 ### Phase 3: Resolution behavior changes
 
 1. CLI resolver path:
-   - if registry unspecified, resolve `--profile` by ordered chain search.
+   - resolve `--profile` by stack-top-first search.
 2. web-chat resolver path:
-   - preserve explicit `registry_slug` override,
-   - otherwise use ordered chain search for `runtime_key`.
+   - remove runtime registry selector path from request resolution,
+   - resolve `runtime_key` by stack-top-first search.
 
 ### Phase 4: YAML format hard cut
 
 1. Make runtime YAML loaders reject:
    - top-level `registries` bundles,
-   - legacy profile-map format.
-2. Update migration command defaults to emit single-registry format.
-3. Update docs/examples/scripts to one-file-one-registry.
+   - legacy profile-map format,
+   - `default_profile_slug`.
+2. Remove legacy runtime profile-file loading path from docs/code surface in this flow.
+3. Update docs/examples/scripts to one-file-one-registry + `--profile-registries`.
 
 ### Phase 5: CRUD integration (allow all registries)
 
@@ -286,9 +290,8 @@ Rejected: does not satisfy requested profile-name-only ordered resolution workfl
 
 ### Phase 7: Rollout and tooling
 
-1. Provide one-shot migration utility updates for splitting/rewriting YAML.
-2. Update smoke scripts to accept multiple registry sources.
-3. Publish operator playbook with expected startup failures and remediation.
+1. Update smoke scripts to accept multiple registry sources.
+2. Publish operator playbook with expected startup failures and remediation.
 
 ## Detailed Task Breakdown
 
@@ -299,10 +302,10 @@ Rejected: does not satisfy requested profile-name-only ordered resolution workfl
 5. Implement `ChainedRegistry` (read routing + owner write dispatch).
 6. Refactor CLI profile selection middleware to call chained resolver.
 7. Refactor web-chat startup to accept chain sources and build chained registry service.
-8. Update web-chat resolver to perform ordered profile search when registry absent.
+8. Update web-chat resolver to remove runtime registry selector and use stack-top-first profile search.
 9. Add read-only error mapping for write attempts against YAML sources.
 10. Change runtime YAML decode path to single-registry-only.
-11. Update migration command docs/examples and defaults.
+11. Remove runtime `profile-file` fallback path and runtime registry selector path from this flow (flags/env/config wiring and docs).
 12. Add tests for all above with mixed-source fixtures.
 13. Update smoke automation script to handle multiple `--profile-registries` entries.
 14. Update docs in geppetto + pinocchio for new format and resolution behavior.
