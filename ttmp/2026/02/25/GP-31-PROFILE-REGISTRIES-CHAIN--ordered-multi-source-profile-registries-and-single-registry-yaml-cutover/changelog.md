@@ -123,6 +123,11 @@ Completed GP-31 Phase 7/8 closeout: parsed-fields coverage, docs hard-cut update
   - `--profile-registries` as canonical source stack input.
 - Documented current CRUD read exposure risk for YAML-backed private registries.
 
+### Commits
+
+- `c8fcdef` (pinocchio) — `profiles: add profile-registries parsed-fields coverage and cutover smoke script`
+- `9a172dd` (geppetto) — `docs(gp-31): finalize hard-cut profile-registry docs and close remaining tasks`
+
 ### Validation
 
 - `go test ./cmd/pinocchio ./cmd/web-chat ./pkg/webchat/http -count=1`
