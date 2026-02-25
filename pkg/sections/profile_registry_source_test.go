@@ -3,7 +3,6 @@ package sections
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -14,18 +13,46 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestGatherFlagsFromProfileRegistry_LegacyProfile(t *testing.T) {
+func TestGatherFlagsFromProfileRegistry_StackTopWins(t *testing.T) {
 	tmpDir := t.TempDir()
-	profilePath := filepath.Join(tmpDir, "profiles.yaml")
-	content := `default:
-  ai-chat:
-    ai-engine: default-engine
-agent:
-  ai-chat:
-    ai-engine: profile-engine
+	bottomPath := filepath.Join(tmpDir, "bottom.yaml")
+	topPath := filepath.Join(tmpDir, "top.yaml")
+
+	bottom := `slug: shared
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: shared-default
+  analyst:
+    slug: analyst
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: shared-analyst
 `
-	if err := os.WriteFile(profilePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile returned error: %v", err)
+	top := `slug: private
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: private-default
+  analyst:
+    slug: analyst
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: private-analyst
+`
+	if err := os.WriteFile(bottomPath, []byte(bottom), 0o644); err != nil {
+		t.Fatalf("WriteFile bottom failed: %v", err)
+	}
+	if err := os.WriteFile(topPath, []byte(top), 0o644); err != nil {
+		t.Fatalf("WriteFile top failed: %v", err)
 	}
 
 	schema_ := mustGeppettoSchema(t)
@@ -33,7 +60,7 @@ agent:
 	err := sources.Execute(
 		schema_,
 		parsed,
-		GatherFlagsFromProfileRegistry(profilePath, profilePath, "agent", "default"),
+		GatherFlagsFromProfileRegistry([]string{bottomPath, topPath}, "analyst"),
 		sources.FromDefaults(),
 	)
 	if err != nil {
@@ -44,17 +71,22 @@ agent:
 	if err != nil {
 		t.Fatalf("NewStepSettingsFromParsedValues returned error: %v", err)
 	}
-	if ss.Chat == nil || ss.Chat.Engine == nil || *ss.Chat.Engine != "profile-engine" {
-		t.Fatalf("expected profile engine override, got %#v", ss.Chat)
+	if ss.Chat == nil || ss.Chat.Engine == nil || *ss.Chat.Engine != "private-analyst" {
+		t.Fatalf("expected top-of-stack profile engine override, got %#v", ss.Chat)
 	}
 }
 
-func TestGatherFlagsFromProfileRegistry_DefaultProfileMissingReturnsNil(t *testing.T) {
+func TestGatherFlagsFromProfileRegistry_MissingProfileErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 	profilePath := filepath.Join(tmpDir, "profiles.yaml")
-	content := `agent:
-  ai-chat:
-    ai-engine: profile-engine
+	content := `slug: private
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: default-engine
 `
 	if err := os.WriteFile(profilePath, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
@@ -64,34 +96,11 @@ func TestGatherFlagsFromProfileRegistry_DefaultProfileMissingReturnsNil(t *testi
 	err := sources.Execute(
 		schema_,
 		values.New(),
-		GatherFlagsFromProfileRegistry(profilePath, profilePath, "default", "default"),
-		sources.FromDefaults(),
-	)
-	if err != nil {
-		t.Fatalf("expected nil error for missing default profile, got %v", err)
-	}
-}
-
-func TestGatherFlagsFromProfileRegistry_MissingNonDefaultProfileErrors(t *testing.T) {
-	tmpDir := t.TempDir()
-	profilePath := filepath.Join(tmpDir, "profiles.yaml")
-	content := `default:
-  ai-chat:
-    ai-engine: default-engine
-`
-	if err := os.WriteFile(profilePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile returned error: %v", err)
-	}
-
-	schema_ := mustGeppettoSchema(t)
-	err := sources.Execute(
-		schema_,
-		values.New(),
-		GatherFlagsFromProfileRegistry(profilePath, profilePath, "agent", "default"),
+		GatherFlagsFromProfileRegistry([]string{profilePath}, "agent"),
 		sources.FromDefaults(),
 	)
 	if err == nil {
-		t.Fatalf("expected error for missing non-default profile")
+		t.Fatalf("expected error for missing profile")
 	}
 }
 
@@ -101,27 +110,59 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 
 	tmpDir := t.TempDir()
 	profilePath := filepath.Join(tmpDir, "profiles.yaml")
+	flagProfilePath := filepath.Join(tmpDir, "profiles-flag.yaml")
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
-	profilesYAML := `agent:
-  ai-chat:
-    ai-engine: profile-engine
+	profilesYAML := `slug: private
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: default-engine
+  agent:
+    slug: agent
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: profile-engine
 `
 	if err := os.WriteFile(profilePath, []byte(profilesYAML), 0o644); err != nil {
 		t.Fatalf("WriteFile profiles returned error: %v", err)
 	}
 
+	flagProfilesYAML := `slug: private-flag
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: default-flag-engine
+  agent:
+    slug: agent
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: flag-profile-engine
+`
+	if err := os.WriteFile(flagProfilePath, []byte(flagProfilesYAML), 0o644); err != nil {
+		t.Fatalf("WriteFile flag profiles returned error: %v", err)
+	}
+
 	configYAML := "profile-settings:\n" +
-		"  profile-file: " + profilePath + "\n" +
+		"  profile-registries: " + profilePath + "\n" +
 		"  profile: agent\n" +
 		"ai-chat:\n" +
 		"  ai-engine: config-engine\n"
 	if err := os.WriteFile(configPath, []byte(configYAML), 0o644); err != nil {
 		t.Fatalf("WriteFile config returned error: %v", err)
 	}
+
 	oldEnv, hadEnv := os.LookupEnv("PINOCCHIO_AI_ENGINE")
 	oldProfileEnv, hadProfileEnv := os.LookupEnv("PINOCCHIO_PROFILE")
-	oldProfileFileEnv, hadProfileFileEnv := os.LookupEnv("PINOCCHIO_PROFILE_FILE")
+	oldProfileRegistriesEnv, hadProfileRegistriesEnv := os.LookupEnv("PINOCCHIO_PROFILE_REGISTRIES")
 	defer func() {
 		if hadEnv {
 			_ = os.Setenv("PINOCCHIO_AI_ENGINE", oldEnv)
@@ -133,10 +174,10 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 		} else {
 			_ = os.Unsetenv("PINOCCHIO_PROFILE")
 		}
-		if hadProfileFileEnv {
-			_ = os.Setenv("PINOCCHIO_PROFILE_FILE", oldProfileFileEnv)
+		if hadProfileRegistriesEnv {
+			_ = os.Setenv("PINOCCHIO_PROFILE_REGISTRIES", oldProfileRegistriesEnv)
 		} else {
-			_ = os.Unsetenv("PINOCCHIO_PROFILE_FILE")
+			_ = os.Unsetenv("PINOCCHIO_PROFILE_REGISTRIES")
 		}
 	}()
 
@@ -144,7 +185,7 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 		t.Helper()
 		_ = os.Unsetenv("PINOCCHIO_AI_ENGINE")
 		_ = os.Unsetenv("PINOCCHIO_PROFILE")
-		_ = os.Unsetenv("PINOCCHIO_PROFILE_FILE")
+		_ = os.Unsetenv("PINOCCHIO_PROFILE_REGISTRIES")
 		if envEngine != "" {
 			_ = os.Setenv("PINOCCHIO_AI_ENGINE", envEngine)
 		}
@@ -152,6 +193,7 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 		cmd := &cobra.Command{Use: "test"}
 		schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
 		addSchemaFlagsToCommand(t, schema_, cmd)
+		cmd.Flags().String("profile-registries", "", "profile registry sources")
 		if err := cmd.ParseFlags(args); err != nil {
 			t.Fatalf("ParseFlags returned error: %v", err)
 		}
@@ -190,54 +232,28 @@ func TestGetCobraCommandGeppettoMiddlewares_ProfileOrderingWithRegistryAdapter(t
 	if got := parseEngine(append(baseArgs, "--ai-engine", "flag-engine"), "env-engine"); got != "flag-engine" {
 		t.Fatalf("expected flags to override env/profile/config, got %q", got)
 	}
+	if got := parseEngine(append(baseArgs, "--profile-registries", flagProfilePath), ""); got != "flag-profile-engine" {
+		t.Fatalf("expected profile-registries flag to override config, got %q", got)
+	}
 }
 
-func TestGatherFlagsFromProfileRegistry_RegressionMatchesLegacyGatherFlags(t *testing.T) {
-	tmpDir := t.TempDir()
-	profilePath := filepath.Join(tmpDir, "profiles.yaml")
-	content := `default:
-  ai-chat:
-    ai-engine: default-engine
-    ai-api-type: openai
-  ai-client:
-    timeout: 11
-agent:
-  ai-chat:
-    ai-engine: profile-engine
-    ai-api-type: openai
-  ai-client:
-    timeout: 17
-writer:
-  ai-chat:
-    ai-engine: writer-engine
-`
-	if err := os.WriteFile(profilePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile returned error: %v", err)
+func TestGetCobraCommandGeppettoMiddlewares_RequiresProfileRegistries(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
+	addSchemaFlagsToCommand(t, schema_, cmd)
+	cmd.Flags().String("profile-registries", "", "profile registry sources")
+
+	if err := cmd.ParseFlags(nil); err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
 	}
 
-	schema_ := mustGeppettoSchema(t)
-	cases := []struct {
-		name           string
-		profile        string
-		defaultProfile string
-	}{
-		{name: "default profile", profile: "default", defaultProfile: "default"},
-		{name: "agent override", profile: "agent", defaultProfile: "default"},
-		{name: "writer partial override", profile: "writer", defaultProfile: "default"},
+	parsedCommandSections, err := cli.ParseCommandSettingsSection(cmd)
+	if err != nil {
+		t.Fatalf("ParseCommandSettingsSection returned error: %v", err)
 	}
-
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			legacy := mustStepSettingsFromSource(t, schema_, sources.GatherFlagsFromProfiles(profilePath, profilePath, tc.profile, tc.defaultProfile))
-			registry := mustStepSettingsFromSource(t, schema_, GatherFlagsFromProfileRegistry(profilePath, profilePath, tc.profile, tc.defaultProfile))
-
-			got := projectSettingsForRegression(registry)
-			want := projectSettingsForRegression(legacy)
-			if !reflect.DeepEqual(got, want) {
-				t.Fatalf("registry-backed projection mismatch:\n got: %#v\nwant: %#v", got, want)
-			}
-		})
+	_, err = GetCobraCommandGeppettoMiddlewares(parsedCommandSections, cmd, nil)
+	if err == nil {
+		t.Fatalf("expected error when profile registries are not configured")
 	}
 }
 
@@ -281,46 +297,4 @@ func addSchemaFlagsToCommand(t *testing.T, schema_ *schema.Schema, cmd *cobra.Co
 	if err != nil {
 		t.Fatalf("failed to add schema flags to command: %v", err)
 	}
-}
-
-func mustStepSettingsFromSource(t *testing.T, schema_ *schema.Schema, source sources.Middleware) *settings.StepSettings {
-	t.Helper()
-	parsed := values.New()
-	if err := sources.Execute(schema_, parsed, source, sources.FromDefaults()); err != nil {
-		t.Fatalf("sources.Execute returned error: %v", err)
-	}
-	ss, err := settings.NewStepSettingsFromParsedValues(parsed)
-	if err != nil {
-		t.Fatalf("NewStepSettingsFromParsedValues returned error: %v", err)
-	}
-	return ss
-}
-
-func projectSettingsForRegression(ss *settings.StepSettings) map[string]any {
-	if ss == nil {
-		return map[string]any{}
-	}
-
-	projected := map[string]any{
-		"chat.engine":          "",
-		"chat.api_type":        "",
-		"client.timeout":       "",
-		"metadata.ai-engine":   nil,
-		"metadata.ai-api-type": nil,
-		"metadata.timeout":     nil,
-	}
-	if ss.Chat != nil && ss.Chat.Engine != nil {
-		projected["chat.engine"] = *ss.Chat.Engine
-	}
-	if ss.Chat != nil && ss.Chat.ApiType != nil {
-		projected["chat.api_type"] = string(*ss.Chat.ApiType)
-	}
-	if ss.Client != nil {
-		projected["client.timeout"] = ss.Client.Timeout.String()
-	}
-	metadata := ss.GetMetadata()
-	projected["metadata.ai-engine"] = metadata["ai-engine"]
-	projected["metadata.ai-api-type"] = metadata["ai-api-type"]
-	projected["metadata.timeout"] = metadata["timeout"]
-	return projected
 }

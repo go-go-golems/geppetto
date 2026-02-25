@@ -2,9 +2,7 @@ package sections
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/profiles"
@@ -17,10 +15,8 @@ import (
 // GatherFlagsFromProfileRegistry loads profile flags via the profile registry abstraction.
 // It is drop-in compatible with sources.GatherFlagsFromProfiles for migration use.
 func GatherFlagsFromProfileRegistry(
-	defaultProfileFile string,
-	profileFile string,
+	profileRegistrySources []string,
 	profile string,
-	defaultProfileName string,
 	options ...fields.ParseOption,
 ) sources.Middleware {
 	return func(next sources.HandlerFunc) sources.HandlerFunc {
@@ -30,39 +26,21 @@ func GatherFlagsFromProfileRegistry(
 				return err
 			}
 
-			if defaultProfileName == "" {
-				defaultProfileName = "default"
-			}
 			if strings.TrimSpace(profile) == "" {
-				profile = defaultProfileName
+				profile = "default"
 			}
 
-			_, err = os.Stat(profileFile)
-			if os.IsNotExist(err) {
-				if profileFile != defaultProfileFile {
-					return fmt.Errorf("profile file %s does not exist", profileFile)
-				}
-				if profile != defaultProfileName {
-					return fmt.Errorf("profile file %s does not exist (requested profile %s)", profileFile, profile)
-				}
-				return nil
-			}
+			specs, err := profiles.ParseRegistrySourceSpecs(profileRegistrySources)
 			if err != nil {
 				return err
 			}
-
-			store, err := profiles.NewYAMLFileProfileStore(profileFile, profiles.MustRegistrySlug("default"))
+			registry, err := profiles.NewChainedRegistryFromSourceSpecs(context.Background(), specs)
 			if err != nil {
 				return err
 			}
 			defer func() {
-				_ = store.Close()
+				_ = registry.Close()
 			}()
-
-			registry, err := profiles.NewStoreRegistry(store, profiles.MustRegistrySlug("default"))
-			if err != nil {
-				return err
-			}
 
 			profileSlug, err := profiles.ParseProfileSlug(profile)
 			if err != nil {
@@ -70,16 +48,9 @@ func GatherFlagsFromProfileRegistry(
 			}
 
 			resolved, err := registry.ResolveEffectiveProfile(context.Background(), profiles.ResolveInput{
-				RegistrySlug: profiles.MustRegistrySlug("default"),
-				ProfileSlug:  profileSlug,
+				ProfileSlug: profileSlug,
 			})
 			if err != nil {
-				if errors.Is(err, profiles.ErrProfileNotFound) || errors.Is(err, profiles.ErrRegistryNotFound) {
-					if profile != defaultProfileName {
-						return fmt.Errorf("profile %s not found in %s", profile, profileFile)
-					}
-					return nil
-				}
 				return err
 			}
 
