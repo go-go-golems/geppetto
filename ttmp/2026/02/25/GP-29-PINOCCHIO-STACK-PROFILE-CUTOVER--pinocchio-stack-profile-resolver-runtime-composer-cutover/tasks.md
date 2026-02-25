@@ -23,7 +23,7 @@
 ## Phase 2 - Runtime composer adoption
 
 - [x] Refactor `cmd/web-chat/runtime_composer.go` to consume stack-aware resolved runtime outputs from geppetto resolver.
-- [ ] Remove redundant local runtime override parsers where behavior is now centralized in geppetto.
+- [x] Remove redundant local runtime override parsers where behavior is now centralized in geppetto.
 - [x] Ensure composed runtime fingerprints use resolver-provided lineage-aware fingerprint.
 
 ## Phase 3 - API surface and response metadata

@@ -16,19 +16,30 @@ RelatedFiles:
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
       Note: Updated tests for effective runtime assertions
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
-      Note: Composer now prefers resolved profile fingerprint
+      Note: |-
+        Composer now prefers resolved profile fingerprint
+        Removed local runtime override parser/merge behavior
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer_test.go
+      Note: Updated to resolved-runtime-only semantics
     - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
-      Note: ConversationRuntimeRequest extended with ResolvedProfileFingerprint
+      Note: |-
+        ConversationRuntimeRequest extended with ResolvedProfileFingerprint
+        Removed RuntimeOverrides from runtime compose request
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
+      Note: GetOrCreate no longer passes request overrides into runtime composer
     - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
       Note: Runtime fingerprint propagated from request resolver to submit/stream paths
+    - Path: ../../../../../../../pinocchio/pkg/webchat/stream_hub.go
+      Note: Updated GetOrCreate calls after runtime override contract removal
     - Path: ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md
       Note: Phase tracking for request resolver cutover
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-25T15:15:02-05:00
+LastUpdated: 2026-02-25T15:18:00-05:00
 WhatFor: Chronological implementation log for GP-29 Pinocchio stack-profile cutover.
 WhenToUse: Use when reviewing exactly what changed, why, and how to validate each completed phase.
 ---
+
 
 
 
@@ -229,6 +240,114 @@ The main complexity was cross-layer contract propagation:
 ### Technical details
 
 1. Commit hash: `10b7c8f`.
+
+## Step 3: Remove Runtime Composer Local Override Parsers (Hard-Cut Phase 2B)
+
+This step completed the remaining GP-29 Phase 2 cleanup by removing request-override parser/merge logic from pinocchio runtime composition. After GP-28, geppetto already canonicalizes and policy-gates request overrides and returns an effective runtime spec; leaving parser logic in composer created duplicate behavior and drift risk.
+
+The cut keeps runtime composer focused on:
+1. consuming `ResolvedProfileRuntime`,
+2. resolving middleware config via schema,
+3. composing the engine,
+4. using resolver-owned runtime fingerprint when available.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok continue"
+
+**Assistant interpretation:** proceed with the next open GP-29 implementation task and commit per phase.
+
+**Inferred user intent:** continue strict hard-cut migration work with granular commits and diary updates.
+
+**Commit (code):** `36bedc3` — "web-chat: remove local runtime override parser path"
+
+### Commands run
+
+```bash
+rg -n "override|Override|ResolvedProfileFingerprint|RuntimeFingerprint|parse" cmd/web-chat/runtime_composer.go cmd/web-chat/profile_policy.go pkg/inference/runtime/composer.go pkg/webchat -S
+go test ./cmd/web-chat/... ./pkg/webchat/...
+gofmt -w cmd/web-chat/runtime_composer.go cmd/web-chat/runtime_composer_test.go pkg/inference/runtime/composer.go pkg/webchat/conversation.go pkg/webchat/stream_hub.go
+go test ./cmd/web-chat/... ./pkg/webchat/...
+git add cmd/web-chat/runtime_composer.go cmd/web-chat/runtime_composer_test.go pkg/inference/runtime/composer.go pkg/webchat/conversation.go pkg/webchat/stream_hub.go
+git commit -m "web-chat: remove local runtime override parser path"
+```
+
+### What I did
+
+1. Removed runtime composer request-override parsing/merge code from `cmd/web-chat/runtime_composer.go`:
+   - dropped validation/parsing for `system_prompt`, `middlewares`, `tools`,
+   - removed runtime middleware override merge helpers and request-layer config source path.
+2. Simplified middleware input construction to resolved-profile-only inputs (`runtimeMiddlewareInputsFromProfile`).
+3. Removed `RuntimeOverrides` from `pkg/inference/runtime/composer.go` request contract.
+4. Updated conversation manager/runtime compose boundary to stop forwarding override maps:
+   - `pkg/webchat/conversation.go`,
+   - `pkg/webchat/stream_hub.go`.
+5. Updated runtime composer tests:
+   - removed tests asserting request override application in composer,
+   - replaced with resolved-runtime/default behavior assertions.
+
+### Why
+
+1. Geppetto `ResolveEffectiveProfile` is now the canonical point for override policy enforcement and effective runtime materialization.
+2. Duplicate parser paths in pinocchio risk split behavior and future regressions.
+3. Hard-cut migration explicitly favors removing legacy/duplicate behavior over compatibility shims.
+
+### What worked
+
+1. Targeted suite passed after refactor:
+   - `go test ./cmd/web-chat/... ./pkg/webchat/...`.
+2. Full pre-commit pipeline passed during commit:
+   - `go test ./...`,
+   - `go generate ./...`,
+   - frontend build,
+   - `go build ./...`,
+   - `golangci-lint`,
+   - `go vet`.
+
+### What didn't work
+
+Initial targeted tests failed immediately after code removal because old tests still expected request-override behavior in composer:
+1. `TestWebChatRuntimeComposer_OverridesResolvedRuntimeSpec`,
+2. `TestWebChatRuntimeComposer_UsesResolverPrecedenceForMiddlewareConfig`.
+
+Fix: rewrote tests for resolved-runtime/default semantics and profile-owned middleware config assertions.
+
+### What I learned
+
+1. The old runtime override parser path had become fully redundant after resolver cutover.
+2. The cleanest guarantee against regression is removing the `RuntimeOverrides` field from runtime composer request types, not just ignoring it at runtime.
+
+### What was tricky to build
+
+Ensuring the cleanup remained narrowly scoped:
+1. remove override parsing from runtime composition,
+2. keep queue/idempotency request plumbing untouched for now,
+3. avoid accidental behavior changes outside composition.
+
+### What warrants a second pair of eyes
+
+1. Any integration that still expected runtime composer request-layer middleware overriding should now move fully to resolver-side request overrides.
+2. Remaining `Overrides` fields in higher-level webchat request structs are now primarily for non-composer concerns and may be candidates for later cleanup.
+
+### What should be done in the future
+
+1. Complete GP-29 Phase 3:
+   - expose `profile.stack.lineage` and `profile.stack.trace` through chat/web APIs.
+2. Complete Phase 1 payload hardening:
+   - align request payload naming with registry/runtime key contracts for hard-cut API shape.
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/inference/runtime/composer.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go`
+2. Validate with:
+   - `go test ./cmd/web-chat/... ./pkg/webchat/...` (from `pinocchio` repo root).
+
+### Technical details
+
+1. Commit hash: `36bedc3`.
 
 ## Related
 

@@ -76,3 +76,30 @@ Implemented GP-29 Phase 2A runtime fingerprint propagation (`commit 10b7c8f`).
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer_test.go — Added resolver fingerprint preference test
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go — HTTP request plan/runtime fingerprint pass-through
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go — Conv manager request includes resolved fingerprint
+
+## 2026-02-25
+
+Implemented GP-29 Phase 2B runtime-composer hard cutover cleanup (`commit 36bedc3`).
+
+### What changed
+
+- Removed local runtime-override parser/merge behavior from pinocchio runtime composer:
+  - dropped request-layer system prompt/tool/middleware override parsing in `cmd/web-chat/runtime_composer.go`,
+  - removed request-layer middleware merge helper types/functions and request source payload layer usage.
+- Runtime composition now consumes only resolver-provided `ResolvedProfileRuntime` + middleware schema resolution.
+- Removed stale `RuntimeOverrides` field from `pkg/inference/runtime/composer.go` request contract and from conversation manager runtime-compose call path.
+- Updated tests to reflect hard-cut semantics:
+  - removed request-override parser tests,
+  - replaced override-behavior assertions with resolved-runtime/default behavior assertions,
+  - kept middleware schema validation coverage and resolver fingerprint precedence coverage.
+- Verification:
+  - `go test ./cmd/web-chat/... ./pkg/webchat/...` passed,
+  - full pinocchio pre-commit checks passed (`go test ./...`, `go generate ./...`, frontend build, `go build ./...`, `golangci-lint`, `go vet`).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer.go — Removed local runtime override parser/merge path
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/inference/runtime/composer.go — Removed `RuntimeOverrides` from compose request contract
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go — `GetOrCreate` no longer forwards request override maps into runtime composition
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/stream_hub.go — Updated `GetOrCreate` callsites for new signature
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer_test.go — Updated tests for hard-cut runtime composer semantics
