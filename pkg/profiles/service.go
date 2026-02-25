@@ -136,12 +136,23 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 	if err != nil {
 		return nil, err
 	}
-	profile, err := r.GetProfile(ctx, registrySlug, profileSlug)
+
+	stackLayers, err := r.ExpandProfileStack(ctx, registrySlug, profileSlug, StackResolverOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if len(stackLayers) == 0 {
+		return nil, ErrProfileNotFound
+	}
+	rootLayer := stackLayers[len(stackLayers)-1]
+	profile := rootLayer.Profile
+
+	stackMerge, err := MergeProfileStackLayers(stackLayers)
 	if err != nil {
 		return nil, err
 	}
 
-	effectiveRuntime, err := resolveRuntimeSpec(profile.Runtime, profile.Policy, in.RequestOverrides)
+	effectiveRuntime, err := resolveRuntimeSpec(stackMerge.Runtime, stackMerge.Policy, in.RequestOverrides)
 	if err != nil {
 		return nil, err
 	}

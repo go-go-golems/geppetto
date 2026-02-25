@@ -235,6 +235,175 @@ func TestStoreRegistryResolve_PrecendenceAndPolicy(t *testing.T) {
 	}
 }
 
+func TestStoreRegistryResolve_StackRuntimeAndOverrideIntegration(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("provider"): {
+				Slug: MustProfileSlug("provider"),
+				Runtime: RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine": "provider-engine",
+						},
+					},
+					SystemPrompt: "provider prompt",
+				},
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"tools", "system_prompt", "step_settings_patch"},
+				},
+			},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("provider")},
+				},
+				Runtime: RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"temperature": 0.7,
+						},
+					},
+					Tools: []string{"agent-tool"},
+				},
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"tools", "system_prompt"},
+					DeniedOverrideKeys:  []string{"middlewares"},
+				},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug: MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{
+			"tools": []any{"request-tool"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+	}
+
+	if got := resolved.EffectiveRuntime.SystemPrompt; got != "provider prompt" {
+		t.Fatalf("expected stacked system prompt inheritance, got %q", got)
+	}
+	if got := resolved.EffectiveRuntime.Tools; len(got) != 1 || got[0] != "request-tool" {
+		t.Fatalf("expected request override tools to win, got %#v", got)
+	}
+	if resolved.EffectiveStepSettings == nil || resolved.EffectiveStepSettings.Chat == nil || resolved.EffectiveStepSettings.Chat.Engine == nil {
+		t.Fatalf("expected effective step settings with engine from stacked patch")
+	}
+	if got := *resolved.EffectiveStepSettings.Chat.Engine; got != "provider-engine" {
+		t.Fatalf("expected provider engine from stacked patch, got %q", got)
+	}
+
+	_, err = registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug: MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{
+			"middlewares": []any{map[string]any{"name": "blocked"}},
+		},
+	})
+	if !errors.Is(err, ErrPolicyViolation) {
+		t.Fatalf("expected denied-key policy violation, got %v", err)
+	}
+}
+
+func TestStoreRegistryResolve_StackPolicyRestrictiveMerge(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("base"): {
+				Slug: MustProfileSlug("base"),
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"tools", "system_prompt"},
+				},
+			},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("base")},
+				},
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"system_prompt"},
+					DeniedOverrideKeys:  []string{"tools"},
+				},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+
+	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug:      MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{"tools": []any{"blocked"}},
+	})
+	if !errors.Is(err, ErrPolicyViolation) {
+		t.Fatalf("expected denied-key policy violation, got %v", err)
+	}
+
+	_, err = registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug:      MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{"step_settings_patch": map[string]any{"ai-chat": map[string]any{"ai-engine": "blocked"}}},
+	})
+	if !errors.Is(err, ErrPolicyViolation) {
+		t.Fatalf("expected allow-list policy violation for step_settings_patch, got %v", err)
+	}
+
+	_, err = registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug:      MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{"system_prompt": "ok"},
+	})
+	if err != nil {
+		t.Fatalf("expected system_prompt override to be allowed, got %v", err)
+	}
+}
+
+func TestStoreRegistryResolve_StackPolicyAllowOverridesFalseWins(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("base"): {
+				Slug: MustProfileSlug("base"),
+				Policy: PolicySpec{
+					AllowOverrides: false,
+				},
+			},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("base")},
+				},
+				Policy: PolicySpec{
+					AllowOverrides: true,
+				},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug:      MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{"system_prompt": "blocked"},
+	})
+	if !errors.Is(err, ErrPolicyViolation) {
+		t.Fatalf("expected allow_overrides=false to block overrides, got %v", err)
+	}
+}
+
 func TestStoreRegistryResolve_AllowedAndDeniedOverrideKeys(t *testing.T) {
 	ctx := context.Background()
 	store := NewInMemoryProfileStore()
