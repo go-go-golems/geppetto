@@ -57,7 +57,7 @@ RelatedFiles:
       Note: Linked downstream GP-29 outcomes back to GP-28
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-25T15:38:00-05:00
+LastUpdated: 2026-02-25T16:04:25-05:00
 WhatFor: Chronological implementation log for GP-29 Pinocchio stack-profile cutover.
 WhenToUse: Use when reviewing exactly what changed, why, and how to validate each completed phase.
 ---
@@ -652,6 +652,70 @@ Keeping docs synchronized across two layers:
 ### Technical details
 
 1. Commit hash: `e586ac0`.
+
+## Step 7: Manual Smoke Check and Verification Closure (Phase 4)
+
+This step completed the remaining manual verification phase by running live HTTP smoke checks against a running web-chat instance and validating hard-cut request/response behavior in practice.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead, let me know if there's stuff I should test on my side? How can I specify the profile registry when starting? Also, what about the pinocchio CLI and the pinocchio commands, how can thye now specify the profile and registry"
+
+**Assistant interpretation:** finish the manual smoke run, then provide precise operator guidance for runtime/profile/registry selection.
+
+**Inferred user intent:** confirm production-facing behavior, not just test-suite coverage.
+
+### Commands run
+
+```bash
+go run ./cmd/web-chat web-chat --addr :18080 --profile-registry-db /tmp/pinocchio-gp29-smoke-profiles.db
+curl -sS -X POST http://127.0.0.1:18080/chat -H 'content-type: application/json' -d '{"prompt":"shape check","conv_id":"shape-1"}'
+curl -sS -X POST http://127.0.0.1:18080/chat -H 'content-type: application/json' -d '{"prompt":"shape check","conv_id":"shape-2","runtime_key":"agent"}'
+curl -sS -X POST 'http://127.0.0.1:18080/chat?runtime=agent' -H 'content-type: application/json' -d '{"prompt":"legacy alias","conv_id":"shape-3"}'
+curl -sS -i -X POST http://127.0.0.1:18080/chat -H 'content-type: application/json' -d '{"prompt":"x","conv_id":"err-1","runtime_key":"bad slug!"}'
+curl -sS -i -X POST http://127.0.0.1:18080/chat -H 'content-type: application/json' -d '{"prompt":"x","conv_id":"err-3","registry_slug":"bad registry!"}'
+curl -sS -i -X POST http://127.0.0.1:18080/chat -H 'content-type: application/json' -d '{"prompt":"x","conv_id":"err-2","registry_slug":"missing"}'
+pkill -f 'go run ./cmd/web-chat web-chat --addr :18080 --profile-registry-db /tmp/pinocchio-gp29-smoke-profiles.db'
+```
+
+### What I did
+
+1. Started web-chat with SQLite-backed profile registry.
+2. Validated default and explicit runtime selection behavior.
+3. Validated that removed legacy query alias (`runtime`) is ignored.
+4. Validated error handling for invalid/missing runtime/registry identifiers.
+5. Confirmed `POST /chat` response includes:
+   - `runtime_fingerprint`,
+   - `profile_metadata`,
+   - stack provenance keys (`profile.stack.lineage`, `profile.stack.trace`).
+6. Stopped the smoke server and marked Phase 4 task complete.
+
+### Why
+
+1. Automated tests covered contracts, but the ticket still required live operator-level verification.
+2. User requested practical guidance on what to test and how to drive profile/registry selection.
+
+### What worked
+
+1. Live behavior matches hard-cut contract:
+   - request keys: `runtime_key`, `registry_slug`, `request_overrides`,
+   - response metadata includes stack lineage/trace and runtime fingerprint.
+2. Hard-cut alias removal is effective (`runtime` query does not select profile).
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+1. Registry parameter naming differs by endpoint family:
+   - chat/ws resolver uses `registry_slug`,
+   - profile CRUD API uses `registry` query/body field.
+2. Pinocchio command-line runtime selection is currently profile/profile-file based; registry selection is not yet exposed as a general runtime flag.
+
+### What should be done in the future
+
+1. Optional follow-up: add explicit registry-selection flags to non-web-chat pinocchio commands if/when multi-registry runtime selection is required outside web-chat request APIs.
 
 ## Related
 

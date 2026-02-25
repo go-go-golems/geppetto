@@ -185,3 +185,27 @@ Implemented GP-29 Phase 5 documentation rollout and migration notes (`commit e58
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/README.md — Updated request contract and response metadata documentation
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md — Updated canonical API contract docs
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/24/GP-28-STACK-PROFILES--stack-profiles-provider-model-middleware-layering-with-merge-provenance/changelog.md — Added GP-29 linkage entry
+
+## 2026-02-25
+
+Completed GP-29 Phase 4 manual smoke-check and closed verification backlog.
+
+### What changed
+
+- Ran live `web-chat` smoke checks against a running server with SQLite-backed profile registry:
+  - default request resolves `default` profile metadata/fingerprint,
+  - explicit `runtime_key=agent` resolves agent metadata/fingerprint,
+  - removed legacy query alias `runtime` is ignored (default profile remains selected),
+  - invalid runtime key returns `400 invalid runtime_key: ...`,
+  - invalid registry slug returns `400 invalid registry: ...`,
+  - missing registry returns `404 registry not found`.
+- Confirmed response payload contract on `POST /chat` includes:
+  - `runtime_fingerprint`,
+  - `profile_metadata` with `profile.slug`, `profile.registry`, `profile.stack.lineage`, `profile.stack.trace`.
+- Marked Phase 4 task complete in ticket `tasks.md`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Request resolver hard-cut behavior verified against live server
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go — Chat request/response field contract validated in smoke run
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md — Phase 4 completion recorded

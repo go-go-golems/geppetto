@@ -41,7 +41,7 @@
   - stack profile resolution in web-chat flows,
   - denied/allowed request override behavior,
   - fingerprint and metadata propagation.
-- [ ] Smoke-check CLI/web-chat runtime behavior manually where automated coverage is insufficient.
+- [x] Smoke-check CLI/web-chat runtime behavior manually where automated coverage is insufficient.
 
 ## Phase 5 - Documentation and rollout
 
