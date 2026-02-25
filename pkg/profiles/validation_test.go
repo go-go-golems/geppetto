@@ -2,6 +2,7 @@ package profiles
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -161,6 +162,140 @@ func TestValidateProfile_RejectsNonSerializableExtensionPayload(t *testing.T) {
 		},
 	})
 	requireValidationField(t, err, "profile.extensions[webchat.starter_suggestions@v1]")
+}
+
+func TestValidateProfile_RejectsEmptyStackProfileSlug(t *testing.T) {
+	err := ValidateProfile(&Profile{
+		Slug:  MustProfileSlug("default"),
+		Stack: []ProfileRef{{}},
+	})
+	requireValidationField(t, err, "profile.stack[0].profile_slug")
+}
+
+func TestValidateProfile_RejectsInvalidStackRegistrySlug(t *testing.T) {
+	err := ValidateProfile(&Profile{
+		Slug: MustProfileSlug("default"),
+		Stack: []ProfileRef{
+			{
+				RegistrySlug: RegistrySlug("Invalid Registry"),
+				ProfileSlug:  MustProfileSlug("base"),
+			},
+		},
+	})
+	requireValidationField(t, err, "profile.stack[0].registry_slug")
+}
+
+func TestValidateRegistry_RejectsMissingSameRegistryStackRef(t *testing.T) {
+	err := ValidateRegistry(&ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("provider-openai")},
+				},
+			},
+		},
+	})
+	requireValidationField(t, err, "registry.profiles[agent].stack[0]")
+}
+
+func TestValidateRegistry_RejectsStackCycle(t *testing.T) {
+	err := ValidateRegistry(&ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("a"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("a"): {
+				Slug: MustProfileSlug("a"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("b")},
+				},
+			},
+			MustProfileSlug("b"): {
+				Slug: MustProfileSlug("b"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("a")},
+				},
+			},
+		},
+	})
+	requireValidationField(t, err, "registry.profiles[b].stack[0]")
+	if !strings.Contains(err.Error(), "cycle") {
+		t.Fatalf("expected cycle details in error, got %v", err)
+	}
+}
+
+func TestValidateProfileStackTopology_RejectsDepthOverflow(t *testing.T) {
+	reg := &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("a"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("a"): {
+				Slug:  MustProfileSlug("a"),
+				Stack: []ProfileRef{{ProfileSlug: MustProfileSlug("b")}},
+			},
+			MustProfileSlug("b"): {
+				Slug:  MustProfileSlug("b"),
+				Stack: []ProfileRef{{ProfileSlug: MustProfileSlug("c")}},
+			},
+			MustProfileSlug("c"): {
+				Slug: MustProfileSlug("c"),
+			},
+		},
+	}
+
+	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{MaxDepth: 2})
+	requireValidationField(t, err, "registry.profiles[b].stack[0]")
+	if !strings.Contains(err.Error(), "max_depth=2") {
+		t.Fatalf("expected max_depth details in error, got %v", err)
+	}
+}
+
+func TestValidateProfileStackTopology_RejectsMissingCrossRegistryRef(t *testing.T) {
+	reg := &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{
+						RegistrySlug: MustRegistrySlug("shared"),
+						ProfileSlug:  MustProfileSlug("provider-openai"),
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{})
+	requireValidationField(t, err, "registry.profiles[agent].stack[0]")
+}
+
+func TestValidateProfileStackTopology_AllowsUnresolvedCrossRegistryRefWhenConfigured(t *testing.T) {
+	reg := &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{
+						RegistrySlug: MustRegistrySlug("shared"),
+						ProfileSlug:  MustProfileSlug("provider-openai"),
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{
+		AllowUnresolvedExternalRefs: true,
+	})
+	if err != nil {
+		t.Fatalf("expected unresolved external ref to be allowed, got %v", err)
+	}
 }
 
 func requireValidationField(t *testing.T, err error, field string) {

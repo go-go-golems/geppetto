@@ -3,8 +3,16 @@ package profiles
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
+
+const DefaultProfileStackValidationMaxDepth = 32
+
+type StackValidationOptions struct {
+	MaxDepth                    int
+	AllowUnresolvedExternalRefs bool
+}
 
 func ValidateRegistrySlug(slug RegistrySlug) error {
 	if slug.IsZero() {
@@ -115,6 +123,29 @@ func ValidateProfile(profile *Profile) error {
 	if err := ValidateProfileExtensions(profile.Extensions); err != nil {
 		return err
 	}
+	for i, ref := range profile.Stack {
+		if err := ValidateProfileRef(ref, fmt.Sprintf("profile.stack[%d]", i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ValidateProfileRef(ref ProfileRef, fieldPrefix string) error {
+	if fieldPrefix == "" {
+		fieldPrefix = "profile.stack"
+	}
+	if ref.ProfileSlug.IsZero() {
+		return &ValidationError{Field: fieldPrefix + ".profile_slug", Reason: "must not be empty"}
+	}
+	if _, err := ParseProfileSlug(ref.ProfileSlug.String()); err != nil {
+		return &ValidationError{Field: fieldPrefix + ".profile_slug", Reason: err.Error()}
+	}
+	if !ref.RegistrySlug.IsZero() {
+		if _, err := ParseRegistrySlug(ref.RegistrySlug.String()); err != nil {
+			return &ValidationError{Field: fieldPrefix + ".registry_slug", Reason: err.Error()}
+		}
+	}
 	return nil
 }
 
@@ -175,5 +206,147 @@ func ValidateRegistry(registry *ProfileRegistry) error {
 		}
 	}
 
+	if err := ValidateProfileStackTopology([]*ProfileRegistry{registry}, StackValidationOptions{
+		MaxDepth:                    DefaultProfileStackValidationMaxDepth,
+		AllowUnresolvedExternalRefs: true,
+	}); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+type stackNode struct {
+	registrySlug RegistrySlug
+	profileSlug  ProfileSlug
+}
+
+func (n stackNode) String() string {
+	return fmt.Sprintf("%s/%s", n.registrySlug, n.profileSlug)
+}
+
+func ValidateProfileStackTopology(registries []*ProfileRegistry, opts StackValidationOptions) error {
+	maxDepth := opts.MaxDepth
+	if maxDepth <= 0 {
+		maxDepth = DefaultProfileStackValidationMaxDepth
+	}
+
+	graph := map[stackNode]*Profile{}
+	for _, registry := range registries {
+		if registry == nil {
+			continue
+		}
+		for profileSlug, profile := range registry.Profiles {
+			if profile == nil {
+				continue
+			}
+			node := stackNode{registrySlug: registry.Slug, profileSlug: profileSlug}
+			graph[node] = profile
+		}
+	}
+
+	if len(graph) == 0 {
+		return nil
+	}
+
+	nodes := make([]stackNode, 0, len(graph))
+	for node := range graph {
+		nodes = append(nodes, node)
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].registrySlug != nodes[j].registrySlug {
+			return nodes[i].registrySlug < nodes[j].registrySlug
+		}
+		return nodes[i].profileSlug < nodes[j].profileSlug
+	})
+
+	visited := map[stackNode]bool{}
+	inPath := map[stackNode]int{}
+	path := make([]stackNode, 0, 8)
+
+	var walk func(node stackNode) error
+	walk = func(node stackNode) error {
+		if visited[node] {
+			return nil
+		}
+		inPath[node] = len(path)
+		path = append(path, node)
+
+		profile := graph[node]
+		for i, ref := range profile.Stack {
+			targetRegistry := node.registrySlug
+			if !ref.RegistrySlug.IsZero() {
+				targetRegistry = ref.RegistrySlug
+			}
+			target := stackNode{
+				registrySlug: targetRegistry,
+				profileSlug:  ref.ProfileSlug,
+			}
+
+			field := fmt.Sprintf("registry.profiles[%s].stack[%d]", node.profileSlug, i)
+			if _, ok := graph[target]; !ok {
+				if !ref.RegistrySlug.IsZero() && opts.AllowUnresolvedExternalRefs {
+					continue
+				}
+				return &ValidationError{
+					Field:  field,
+					Reason: fmt.Sprintf("referenced profile %q not found in registry %q", target.profileSlug, target.registrySlug),
+				}
+			}
+
+			if cycleStart, ok := inPath[target]; ok {
+				cycle := append(append([]stackNode(nil), path[cycleStart:]...), target)
+				return &ValidationError{
+					Field:  field,
+					Reason: fmt.Sprintf("stack cycle detected: %s", formatStackCycle(cycle)),
+				}
+			}
+
+			if len(path)+1 > maxDepth {
+				return &ValidationError{
+					Field:  field,
+					Reason: fmt.Sprintf("stack depth exceeds max_depth=%d while traversing %s -> %s", maxDepth, formatStackPath(path), target.String()),
+				}
+			}
+
+			if err := walk(target); err != nil {
+				return err
+			}
+		}
+
+		path = path[:len(path)-1]
+		delete(inPath, node)
+		visited[node] = true
+		return nil
+	}
+
+	for _, node := range nodes {
+		if err := walk(node); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func formatStackPath(path []stackNode) string {
+	if len(path) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(path))
+	for _, node := range path {
+		parts = append(parts, node.String())
+	}
+	return strings.Join(parts, " -> ")
+}
+
+func formatStackCycle(cycle []stackNode) string {
+	if len(cycle) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(cycle))
+	for _, node := range cycle {
+		parts = append(parts, node.String())
+	}
+	return strings.Join(parts, " -> ")
 }
