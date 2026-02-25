@@ -13,3 +13,8 @@ Implement Approach B hydration: in-memory TimelineStore fallback, remove /hydrat
 
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Timeline store selection and /hydrate removal
 
+
+## 2026-02-25
+
+Ticket closed
+

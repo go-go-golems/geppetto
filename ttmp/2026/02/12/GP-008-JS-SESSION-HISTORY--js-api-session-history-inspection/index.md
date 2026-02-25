@@ -1,7 +1,7 @@
 ---
 Title: JS API session history inspection
 Ticket: GP-008-JS-SESSION-HISTORY
-Status: active
+Status: complete
 Topics:
     - geppetto
     - goja
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T11:03:40.373556215-05:00
+LastUpdated: 2026-02-25T17:31:21.180616101-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API session history inspection
 

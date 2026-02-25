@@ -1,7 +1,7 @@
 ---
 Title: Profile Engine Builder
 Ticket: GP-09-PROFILE-ENGINE-BUILDER
-Status: active
+Status: complete
 Topics:
     - architecture
     - backend
@@ -12,11 +12,12 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Design analysis to extract webchat engine/profile policy out of Router behind a request-facing BuildEngineFromReq interface and a ProfileEngineBuilder implementation."
-LastUpdated: 2026-01-23T08:43:28.946417016-05:00
-WhatFor: "Track and document the refactor plan for making webchat engine building a first-class abstraction (not Router glue), with special focus on profile-based engine construction."
-WhenToUse: "Use when implementing GP-09, reviewing engine-builder boundaries, or porting similar patterns across go-go-mento/pinocchio/moments."
+Summary: Design analysis to extract webchat engine/profile policy out of Router behind a request-facing BuildEngineFromReq interface and a ProfileEngineBuilder implementation.
+LastUpdated: 2026-02-25T17:31:30.45797984-05:00
+WhatFor: Track and document the refactor plan for making webchat engine building a first-class abstraction (not Router glue), with special focus on profile-based engine construction.
+WhenToUse: Use when implementing GP-09, reviewing engine-builder boundaries, or porting similar patterns across go-go-mento/pinocchio/moments.
 ---
+
 
 # Profile Engine Builder
 

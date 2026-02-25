@@ -1,7 +1,7 @@
 ---
 Title: Glazed facade migration fixups and finetunes
 Ticket: GP-018-GLAZED-FACADE-FIXUPS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - glazed
@@ -23,10 +23,11 @@ RelatedFiles:
       Note: Outbound URL security hardening for IPv6 zone-literal hosts
 ExternalSources: []
 Summary: Consolidated follow-up fixes and finetunes after the glazed facade migration, including symbol hard-cut, docs refresh, and validation.
-LastUpdated: 2026-02-12T16:55:00-05:00
+LastUpdated: 2026-02-25T17:31:19.218395649-05:00
 WhatFor: Track small but high-impact migration cleanups and ensure both geppetto and pinocchio are stable on sections/values APIs.
 WhenToUse: Use this ticket to review facade migration hard-cut details, supporting commits, and validation evidence.
 ---
+
 
 
 

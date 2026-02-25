@@ -108,3 +108,8 @@ Validation logs captured:
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/pkg/middlewares/agentmode/middleware.go — event metadata and run/session migration
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/pinocchio/cmd/pinocchio/main.go — prompto command removal
 - /home/manuel/workspaces/2026-02-11/geppetto-glazed-bump/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/scripts/glazed_migration_analyzer.go — staticcheck cleanup to restore geppetto lint pass
+
+## 2026-02-25
+
+Ticket closed
+

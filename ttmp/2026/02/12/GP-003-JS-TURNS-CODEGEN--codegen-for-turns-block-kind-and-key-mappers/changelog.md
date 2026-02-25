@@ -47,3 +47,8 @@ Task 4 complete: added generator unit tests, generation hygiene (.generated igno
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/.gitignore — Ignore temporary generated scratch outputs
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/cmd/gen-turns/main_test.go — Generator validation regression tests
 
+
+## 2026-02-25
+
+Ticket closed
+

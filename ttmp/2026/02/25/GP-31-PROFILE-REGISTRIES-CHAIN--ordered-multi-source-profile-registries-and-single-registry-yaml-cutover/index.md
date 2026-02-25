@@ -1,7 +1,7 @@
 ---
 Title: Ordered multi-source profile registries and single-registry YAML cutover
 Ticket: GP-31-PROFILE-REGISTRIES-CHAIN
-Status: active
+Status: complete
 Topics:
     - profile-registry
     - pinocchio
@@ -19,10 +19,11 @@ RelatedFiles:
       Note: web-chat runtime request resolution behavior
 ExternalSources: []
 Summary: Planning ticket for ordered multi-source profile registry loading with single-registry YAML runtime format and stack-top-first profile resolution.
-LastUpdated: 2026-02-25T16:56:00-05:00
+LastUpdated: 2026-02-25T17:31:12.950843885-05:00
 WhatFor: Track design and implementation planning for GP-31 registry source chaining.
 WhenToUse: Use when implementing or reviewing GP-31 registry source chain changes.
 ---
+
 
 # Ordered multi-source profile registries and single-registry YAML cutover
 

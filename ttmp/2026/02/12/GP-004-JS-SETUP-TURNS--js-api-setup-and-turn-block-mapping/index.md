@@ -1,7 +1,7 @@
 ---
 Title: JS API setup and turn/block mapping
 Ticket: GP-004-JS-SETUP-TURNS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - javascript
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T09:59:40.974594407-05:00
+LastUpdated: 2026-02-25T17:31:24.250674711-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API setup and turn/block mapping
 

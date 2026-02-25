@@ -1,7 +1,7 @@
 ---
 Title: JS API help documentation suite
 Ticket: GP-011-JS-HELP-DOCS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - goja
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T11:30:02.810435608-05:00
+LastUpdated: 2026-02-25T17:31:19.898883299-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API help documentation suite
 

@@ -1,7 +1,7 @@
 ---
 Title: Pinocchio stack-profile resolver/runtime composer cutover
 Ticket: GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER
-Status: active
+Status: complete
 Topics:
     - pinocchio
     - profile-registry
@@ -21,10 +21,11 @@ RelatedFiles:
       Note: Upstream core contract this ticket adopts
 ExternalSources: []
 Summary: Downstream Pinocchio adoption ticket for GP-28 stack profile resolver/runtime-composer contracts.
-LastUpdated: 2026-02-25T14:30:20.810915805-05:00
+LastUpdated: 2026-02-25T17:31:13.586863652-05:00
 WhatFor: Track Pinocchio migration to registry-backed stack profile resolution and lineage-aware runtime composition.
 WhenToUse: Use when implementing or reviewing profile/runtime behavior in pinocchio web-chat after GP-28 core changes.
 ---
+
 
 # Pinocchio stack-profile resolver/runtime composer cutover
 

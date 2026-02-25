@@ -1,7 +1,7 @@
 ---
 Title: OpenAI cached-token usage propagation for responses final metadata
 Ticket: GP-019-OPENAI-CACHE-USAGE
-Status: active
+Status: complete
 Topics:
     - geppetto
     - openai
@@ -14,10 +14,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-21T17:57:32.352593423-05:00
+LastUpdated: 2026-02-25T17:31:16.091706771-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # OpenAI cached-token usage propagation for responses final metadata
 

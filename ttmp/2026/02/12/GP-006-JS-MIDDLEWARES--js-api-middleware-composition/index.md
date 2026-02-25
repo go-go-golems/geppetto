@@ -1,7 +1,7 @@
 ---
 Title: JS API middleware composition
 Ticket: GP-006-JS-MIDDLEWARES
-Status: active
+Status: complete
 Topics:
     - geppetto
     - javascript
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T09:59:41.137443851-05:00
+LastUpdated: 2026-02-25T17:31:23.11496254-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API middleware composition
 

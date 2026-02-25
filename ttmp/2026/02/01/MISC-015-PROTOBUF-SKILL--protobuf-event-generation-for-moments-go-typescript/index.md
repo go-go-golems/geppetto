@@ -1,7 +1,7 @@
 ---
 Title: Protobuf event generation for moments (Go + TypeScript)
 Ticket: MISC-015-PROTOBUF-SKILL
-Status: active
+Status: complete
 Topics:
     - events
     - go
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-01T16:35:48.960208216-05:00
+LastUpdated: 2026-02-25T17:31:27.224678458-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Protobuf event generation for moments (Go + TypeScript)
 

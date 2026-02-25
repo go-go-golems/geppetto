@@ -1,7 +1,7 @@
 ---
 Title: Introduce explicit JS plugin descriptor API for runner scripts
 Ticket: CO-07-PLUGIN-DESCRIPTOR-API
-Status: active
+Status: complete
 Topics:
     - javascript
     - architecture
@@ -12,10 +12,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-21T18:59:24.709285378-05:00
+LastUpdated: 2026-02-25T17:31:15.447489587-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 

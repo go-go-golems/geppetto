@@ -1,7 +1,7 @@
 ---
 Title: Fix OpenAI Responses helper context and stream error handling bugs
 Ticket: PI-020-OPENAI-RESPONSES-BUGFIX
-Status: active
+Status: complete
 Topics:
     - backend
     - bugfix
@@ -21,10 +21,11 @@ RelatedFiles:
       Note: Bug 1 regression tests
 ExternalSources: []
 Summary: 'Fixes two regressions in OpenAI Responses handling: assistant context loss before reasoning and streaming failures returning success.'
-LastUpdated: 2026-02-10T18:18:10.370736204-05:00
+LastUpdated: 2026-02-25T17:31:26.535301278-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Fix OpenAI Responses helper context and stream error handling bugs

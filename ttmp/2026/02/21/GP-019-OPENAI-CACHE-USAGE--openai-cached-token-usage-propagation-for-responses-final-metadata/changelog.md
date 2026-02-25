@@ -17,3 +17,8 @@
   - Code commit: `e489ab2c883a601bf6e1c10f0af882530f0e3564`
   - Kept one full decode into `responsesResponse` and parsed `usage` via `json.RawMessage`
   - Added regression test for nested `response.usage` parsing
+
+## 2026-02-25
+
+Ticket closed
+
