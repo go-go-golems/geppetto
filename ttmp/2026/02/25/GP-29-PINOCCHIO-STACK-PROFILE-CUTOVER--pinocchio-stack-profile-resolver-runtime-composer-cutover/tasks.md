@@ -45,6 +45,6 @@
 
 ## Phase 5 - Documentation and rollout
 
-- [ ] Update pinocchio runtime/profile docs for hard-cut stack profile behavior.
-- [ ] Record migration notes for operators (removed legacy paths, required request fields).
-- [ ] Link outcomes back to GP-28 changelog.
+- [x] Update pinocchio runtime/profile docs for hard-cut stack profile behavior.
+- [x] Record migration notes for operators (removed legacy paths, required request fields).
+- [x] Link outcomes back to GP-28 changelog.

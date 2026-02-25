@@ -11,6 +11,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/README.md
+      Note: Documented hard-cut request keys and runtime metadata response fields
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
       Note: |-
         Resolver now delegates to ResolveEffectiveProfile
@@ -27,6 +29,8 @@ RelatedFiles:
       Note: Updated to resolved-runtime-only semantics
     - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx
       Note: Widget payload now emits request_overrides
+    - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-http-chat-setup.md
+      Note: Updated canonical contract docs for hard-cut naming and metadata
     - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
       Note: |-
         ConversationRuntimeRequest extended with ResolvedProfileFingerprint
@@ -49,12 +53,15 @@ RelatedFiles:
       Note: Coverage for stream-hub metadata propagation
     - Path: ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md
       Note: Phase tracking for request resolver cutover
+    - Path: ttmp/2026/02/24/GP-28-STACK-PROFILES--stack-profiles-provider-model-middleware-layering-with-merge-provenance/changelog.md
+      Note: Linked downstream GP-29 outcomes back to GP-28
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-25T15:34:00-05:00
+LastUpdated: 2026-02-25T15:38:00-05:00
 WhatFor: Chronological implementation log for GP-29 Pinocchio stack-profile cutover.
 WhenToUse: Use when reviewing exactly what changed, why, and how to validate each completed phase.
 ---
+
 
 
 
@@ -568,6 +575,83 @@ Avoiding accidental behavior regressions while adding metadata fields required k
 ### Technical details
 
 1. Commit hash: `5d3e90e`.
+
+## Step 6: Documentation Rollout + GP-28 Backlink
+
+This step covered Phase 5 documentation and migration rollout.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok continue"
+
+**Assistant interpretation:** continue remaining ticket phases after metadata propagation.
+
+**Inferred user intent:** finish documentation/migration linkage so downstream users can adopt hard-cut contracts safely.
+
+**Primary commit (code/docs):** `e586ac0` — "docs(web-chat): document hard-cut payload and metadata fields"
+
+### Commands run
+
+```bash
+git add cmd/web-chat/README.md pkg/doc/topics/webchat-http-chat-setup.md
+git commit -m "docs(web-chat): document hard-cut payload and metadata fields"
+```
+
+### What I did
+
+1. Updated `cmd/web-chat/README.md`:
+   - documented canonical request payload keys (`runtime_key`, `registry_slug`, `request_overrides`),
+   - documented removal of legacy aliases,
+   - documented runtime metadata response fields.
+2. Updated `pkg/doc/topics/webchat-http-chat-setup.md`:
+   - updated resolver contract section,
+   - updated request body examples to hard-cut names,
+   - documented response metadata fields (`runtime_fingerprint`, `profile_metadata`).
+3. Linked downstream outcomes back to GP-28 by updating GP-28 changelog with GP-29 cutover summary and references.
+
+### Why
+
+1. Phase 5 requires explicit migration guidance for operators and client integrators.
+2. Without doc updates, clients are likely to keep posting legacy key names and miss new metadata fields.
+
+### What worked
+
+1. Docs-only commit passed pre-commit checks.
+2. Cross-ticket linkage recorded in GP-28 changelog.
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+1. The most actionable migration docs are concise, copy/paste-ready payload examples and explicit "removed aliases" lists.
+
+### What was tricky to build
+
+Keeping docs synchronized across two layers:
+1. command-level README (`cmd/web-chat/README.md`),
+2. shared framework topic docs (`pkg/doc/topics/webchat-http-chat-setup.md`).
+
+### What warrants a second pair of eyes
+
+1. Whether additional docs (outside `web-chat` and shared topic pages) still reference legacy request keys.
+
+### What should be done in the future
+
+1. Complete remaining Phase 4 manual runtime smoke-check (currently the only open GP-29 task item).
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/README.md`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md`
+2. Confirm GP-28 backlink in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/24/GP-28-STACK-PROFILES--stack-profiles-provider-model-middleware-layering-with-merge-provenance/changelog.md`
+
+### Technical details
+
+1. Commit hash: `e586ac0`.
 
 ## Related
 

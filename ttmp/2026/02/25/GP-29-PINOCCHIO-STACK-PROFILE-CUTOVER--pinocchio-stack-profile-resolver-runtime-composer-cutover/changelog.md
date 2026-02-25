@@ -164,3 +164,24 @@ Implemented GP-29 Phase 3 metadata exposure in chat/web runtime paths (`commit 5
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation_service.go — Chat responses now include runtime fingerprint and resolved profile metadata
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go — Conversation state persists resolved profile metadata
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/stream_hub.go — Handles now return resolved profile metadata
+
+## 2026-02-25
+
+Implemented GP-29 Phase 5 documentation rollout and migration notes (`commit e586ac0`, plus GP-28 changelog backlink update).
+
+### What changed
+
+- Updated pinocchio runtime/profile docs for hard-cut stack profile behavior:
+  - `cmd/web-chat/README.md`,
+  - `pkg/doc/topics/webchat-http-chat-setup.md`.
+- Documented operator-facing migration notes:
+  - required request payload keys (`runtime_key`, `registry_slug`, `request_overrides`),
+  - removed legacy resolver aliases (`profile`, `registry`, `overrides`, `runtime` query alias),
+  - runtime metadata fields now exposed in responses (`runtime_fingerprint`, `profile_metadata`).
+- Linked GP-29 downstream outcomes back to GP-28 changelog for cross-ticket traceability.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/README.md — Updated request contract and response metadata documentation
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md — Updated canonical API contract docs
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/24/GP-28-STACK-PROFILES--stack-profiles-provider-model-middleware-layering-with-merge-provenance/changelog.md — Added GP-29 linkage entry

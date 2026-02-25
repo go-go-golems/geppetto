@@ -258,6 +258,24 @@ Implemented GP-28 Phase 7 stack provenance trace model.
 
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/stack_trace.go — Added stack trace model + deterministic payload helpers
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/stack_merge.go — Added merge-with-trace helper
+
+## 2026-02-25
+
+Linked downstream GP-29 pinocchio cutover outcomes back to GP-28 implementation contract.
+
+### What changed
+
+- Recorded downstream adoption status for stack-profile contracts in pinocchio:
+  - resolver hard-cut to geppetto effective profile resolution,
+  - runtime composer hard-cut away from local override parsing,
+  - request payload hard-cut naming (`runtime_key`, `registry_slug`, `request_overrides`),
+  - runtime/profile metadata exposure in chat/web response paths (`runtime_fingerprint`, `profile_metadata` with stack lineage/trace).
+- Captured downstream commit references for traceability.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/changelog.md — Downstream implementation evidence and commit-level details
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md — Downstream task completion state
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/stack_trace_test.go — Added trace determinism and history tests
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/24/GP-28-STACK-PROFILES--stack-profiles-provider-model-middleware-layering-with-merge-provenance/tasks.md — Marked Phase 7 checklist complete
 
