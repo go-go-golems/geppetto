@@ -135,3 +135,32 @@ Implemented GP-29 Phase 1B request payload hard-cut naming (`commits d1ba9b2, 1e
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Resolver now consumes only hard-cut request field/query names
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go — Updated tests for new payload/query key semantics
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx — Chat payload now emits `request_overrides`
+
+## 2026-02-25
+
+Implemented GP-29 Phase 3 metadata exposure in chat/web runtime paths (`commit 5d3e90e`).
+
+### What changed
+
+- Added resolved profile metadata propagation from resolver to runtime/service layers:
+  - resolver now emits resolved metadata payload on request plan,
+  - service/runtime request contracts now carry resolved profile metadata map.
+- Exposed runtime metadata to chat responses:
+  - `runtime_fingerprint`,
+  - `profile_metadata` (including resolver metadata keys such as `profile.stack.lineage` and `profile.stack.trace`).
+- Updated conversation/runtime plumbing to persist and return resolved metadata through `ConversationHandle`.
+- Extended tests to assert:
+  - resolver plans include stack lineage/trace metadata keys,
+  - stream hub returns resolved profile metadata in handles,
+  - submit/queue responses include runtime fingerprint + profile metadata.
+- Verification:
+  - `go test ./cmd/web-chat/... ./pkg/webchat/...` passed,
+  - full pinocchio pre-commit checks passed.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Resolver request plan now includes resolved profile metadata
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go — HTTP handlers now pass metadata through request/service boundaries
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation_service.go — Chat responses now include runtime fingerprint and resolved profile metadata
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go — Conversation state persists resolved profile metadata
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/stream_hub.go — Handles now return resolved profile metadata

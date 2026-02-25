@@ -33,20 +33,29 @@ RelatedFiles:
         Removed RuntimeOverrides from runtime compose request
     - Path: ../../../../../../../pinocchio/pkg/webchat/conversation.go
       Note: GetOrCreate no longer passes request overrides into runtime composer
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation_service.go
+      Note: Submit responses now include runtime_fingerprint and profile_metadata
+    - Path: ../../../../../../../pinocchio/pkg/webchat/conversation_service_test.go
+      Note: Coverage for response metadata enrichment
     - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
       Note: |-
         Runtime fingerprint propagated from request resolver to submit/stream paths
         Chat request contract hard-cut to runtime_key/registry_slug/request_overrides
     - Path: ../../../../../../../pinocchio/pkg/webchat/stream_hub.go
-      Note: Updated GetOrCreate calls after runtime override contract removal
+      Note: |-
+        Updated GetOrCreate calls after runtime override contract removal
+        Conversation handle now includes resolved profile metadata
+    - Path: ../../../../../../../pinocchio/pkg/webchat/stream_hub_test.go
+      Note: Coverage for stream-hub metadata propagation
     - Path: ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md
       Note: Phase tracking for request resolver cutover
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-25T15:27:00-05:00
+LastUpdated: 2026-02-25T15:34:00-05:00
 WhatFor: Chronological implementation log for GP-29 Pinocchio stack-profile cutover.
 WhenToUse: Use when reviewing exactly what changed, why, and how to validate each completed phase.
 ---
+
 
 
 
@@ -462,6 +471,103 @@ Ensuring hard-cut naming without accidentally changing profile-management API se
 ### Technical details
 
 1. Commit hashes: `d1ba9b2`, `1ec381a`.
+
+## Step 5: Expose Resolved Stack Metadata in Runtime Responses
+
+This step implemented Phase 3 metadata propagation: resolver-produced profile metadata (including stack lineage/trace) now flows through request/service/runtime layers and is exposed back to chat clients alongside runtime fingerprint.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok continue"
+
+**Assistant interpretation:** continue with next open GP-29 implementation task after payload hard-cut.
+
+**Inferred user intent:** complete downstream cutover tasks sequentially with commit checkpoints and diary evidence.
+
+**Commit (code):** `5d3e90e` — "web-chat: expose resolved profile metadata in runtime responses"
+
+### Commands run
+
+```bash
+gofmt -w cmd/web-chat/profile_policy.go cmd/web-chat/profile_policy_test.go pkg/webchat/http/api.go pkg/webchat/conversation.go pkg/webchat/stream_hub.go pkg/webchat/conversation_service.go pkg/webchat/conversation_service_test.go pkg/webchat/stream_hub_test.go
+go test ./cmd/web-chat/... ./pkg/webchat/...
+git add cmd/web-chat/profile_policy.go cmd/web-chat/profile_policy_test.go pkg/webchat/http/api.go pkg/webchat/conversation.go pkg/webchat/stream_hub.go pkg/webchat/conversation_service.go pkg/webchat/conversation_service_test.go pkg/webchat/stream_hub_test.go
+git commit -m "web-chat: expose resolved profile metadata in runtime responses"
+```
+
+### What I did
+
+1. Added resolved metadata field propagation in request contracts:
+   - resolver plan includes `ProfileMetadata`,
+   - HTTP handlers pass metadata into service/runtime requests,
+   - conversation runtime/service request structs include `ResolvedProfileMetadata`.
+2. Updated resolver output to include metadata map copy from geppetto `ResolvedProfile.Metadata`.
+3. Updated conversation state/handle wiring:
+   - conversation stores resolved profile metadata,
+   - stream hub returns metadata in `ConversationHandle`.
+4. Added response enrichment in submit flow:
+   - `runtime_fingerprint`,
+   - `profile_metadata`.
+5. Added/updated tests for:
+   - resolver metadata keys (`profile.stack.lineage`, `profile.stack.trace`),
+   - stream hub handle metadata propagation,
+   - submit queue response metadata/fingerprint enrichment.
+
+### Why
+
+1. GP-29 Phase 3 requires profile stack provenance visibility to downstream clients.
+2. Runtime fingerprint alone is not sufficient for explainability/debugging; clients need lineage/trace payloads.
+
+### What worked
+
+1. Targeted validation passed:
+   - `go test ./cmd/web-chat/... ./pkg/webchat/...`.
+2. Full pinocchio pre-commit checks passed on commit:
+   - `go test ./...`,
+   - `go generate ./...`,
+   - frontend build,
+   - `go build ./...`,
+   - `golangci-lint`,
+   - `go vet`.
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+1. The cleanest place to attach metadata for clients is at submit response assembly, where runtime handle data is already available.
+2. Reusing shallow copy helpers is enough for current metadata payload shape (maps/slices already treated as opaque JSON blobs in responses).
+
+### What was tricky to build
+
+Avoiding accidental behavior regressions while adding metadata fields required keeping request/response structs aligned across:
+1. `webchat/http` handler contracts,
+2. `webchat` service/runtime structs,
+3. conversation manager and stream hub handle plumbing.
+
+### What warrants a second pair of eyes
+
+1. Whether websocket hello or other WS events should also include a direct profile metadata envelope for parity with chat HTTP responses.
+2. Whether response key naming (`profile_metadata`) should be flattened in a later API polish pass.
+
+### What should be done in the future
+
+1. Phase 4 manual smoke verification in a live web-chat flow (beyond automated tests).
+2. Phase 5 docs rollout and operator migration notes referencing hard-cut request naming + metadata payload additions.
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation_service.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go`
+2. Validate with:
+   - `go test ./cmd/web-chat/... ./pkg/webchat/...` (from `pinocchio` repo root).
+
+### Technical details
+
+1. Commit hash: `5d3e90e`.
 
 ## Related
 

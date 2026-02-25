@@ -28,11 +28,11 @@
 
 ## Phase 3 - API surface and response metadata
 
-- [ ] Ensure chat/web APIs expose resolved profile metadata needed by clients:
+- [x] Ensure chat/web APIs expose resolved profile metadata needed by clients:
   - `profile.stack.lineage`,
   - `profile.stack.trace`,
   - runtime fingerprint.
-- [ ] Confirm default profile selection and explicit profile selection behavior with multi-registry support.
+- [x] Confirm default profile selection and explicit profile selection behavior with multi-registry support.
 
 ## Phase 4 - Verification
 
