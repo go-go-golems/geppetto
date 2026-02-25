@@ -117,7 +117,6 @@ declare module "geppetto" {
         model?: string;
         apiType?: string;
         provider?: string;
-        profile?: string;
         temperature?: number;
         topP?: number;
         maxTokens?: number;
@@ -125,6 +124,12 @@ declare module "geppetto" {
         timeoutMs?: number;
         apiKey?: string;
         baseURL?: string;
+    }
+
+    export interface ProfileEngineOptions {
+        registrySlug?: string;
+        runtimeKey?: string;
+        requestOverrides?: Record<string, any>;
     }
 
     export interface ToolHookCallInfo {
@@ -319,7 +324,7 @@ declare module "geppetto" {
 
     export const engines: {
         echo(options?: { reply?: string }): Engine;
-        fromProfile(profile?: string, options?: EngineOptions): Engine;
+        fromProfile(profile?: string, options?: ProfileEngineOptions): Engine;
         fromConfig(options: EngineOptions): Engine;
         fromFunction(fn: (turn: Turn) => Turn | void): Engine;
     };
