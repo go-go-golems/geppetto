@@ -5,6 +5,10 @@ import "testing"
 func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	original := &Profile{
 		Slug: MustProfileSlug("agent"),
+		Stack: []ProfileRef{
+			{ProfileSlug: MustProfileSlug("provider-openai")},
+			{RegistrySlug: MustRegistrySlug("team"), ProfileSlug: MustProfileSlug("model-gpt4o")},
+		},
 		Runtime: RuntimeSpec{
 			StepSettingsPatch: map[string]any{
 				"ai-chat": map[string]any{
@@ -67,6 +71,8 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	mwConfig["settings"] = append(mwSettings, "new-entry")
 
 	cloned.Runtime.Tools[0] = "search"
+	cloned.Stack[0].ProfileSlug = MustProfileSlug("provider-anthropic")
+	cloned.Stack[1].RegistrySlug = MustRegistrySlug("ops")
 	cloned.Policy.AllowedOverrideKeys[0] = "tools"
 	cloned.Policy.DeniedOverrideKeys[0] = "middlewares"
 	cloned.Metadata.Tags[0] = "mutated"
@@ -106,6 +112,12 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	}
 	if got := original.Runtime.Tools[0]; got != "calculator" {
 		t.Fatalf("expected original tools unchanged, got %q", got)
+	}
+	if got := original.Stack[0].ProfileSlug; got != MustProfileSlug("provider-openai") {
+		t.Fatalf("expected original first stack ref unchanged, got %q", got)
+	}
+	if got := original.Stack[1].RegistrySlug; got != MustRegistrySlug("team") {
+		t.Fatalf("expected original second stack registry unchanged, got %q", got)
 	}
 	if got := original.Policy.AllowedOverrideKeys[0]; got != "system_prompt" {
 		t.Fatalf("expected original allowed override keys unchanged, got %q", got)
