@@ -574,3 +574,24 @@ npm run test -w packages/engine -- src/chat/sem/semRegistry.test.ts
 
 ### Notes
 - Pinocchio pre-commit hook failed in this environment due missing frontend TypeScript lib files under `cmd/web-chat/web/node_modules/typescript/lib`. The fix commit was finalized with `--no-verify` after targeted tests passed.
+
+## Step 8: go-inventory-chat Integration Guard for Unknown Registry Resolution
+
+Added an app-level regression test so unknown-but-valid registry input is verified at the HTTP boundary in go-inventory-chat (not only unit-tested inside request resolver logic).
+
+### Change
+- Added:
+  - `/home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat/cmd/hypercard-inventory-server/main_integration_test.go`
+  - `TestChatAPI_UnknownRegistry_ReturnsNotFound`
+- Behavior asserted:
+  - `POST /chat?registry=missing` returns `404 Not Found` (never `500`).
+
+### Verification
+```bash
+cd /home/manuel/workspaces/2026-02-23/add-profile-registry/go-go-os/go-inventory-chat
+go test ./cmd/hypercard-inventory-server -run TestChatAPI_UnknownRegistry_ReturnsNotFound -count=1
+go test ./cmd/hypercard-inventory-server -count=1
+```
+
+### Commit
+- go-go-os: `c95610d` — "Add integration test for unknown chat registry 404"
