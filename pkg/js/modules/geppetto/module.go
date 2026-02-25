@@ -7,6 +7,7 @@ import (
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -37,6 +38,9 @@ type Options struct {
 	GoMiddlewareFactories map[string]MiddlewareFactory
 	ProfileRegistry       profiles.RegistryReader
 	ProfileRegistryWriter profiles.RegistryWriter
+	MiddlewareSchemas     middlewarecfg.DefinitionRegistry
+	ExtensionCodecs       profiles.ExtensionCodecRegistry
+	ExtensionSchemas      map[string]map[string]any
 	DefaultEventSinks     []events.EventSink
 	DefaultSnapshotHook   toolloop.SnapshotHook
 	DefaultPersister      enginebuilder.TurnPersister
@@ -68,6 +72,9 @@ type moduleRuntime struct {
 	goMiddlewareFactories map[string]MiddlewareFactory
 	profileRegistry       profiles.RegistryReader
 	profileRegistryWriter profiles.RegistryWriter
+	middlewareSchemas     middlewarecfg.DefinitionRegistry
+	extensionCodecs       profiles.ExtensionCodecRegistry
+	extensionSchemas      map[string]map[string]any
 	defaultEventSinks     []events.EventSink
 	defaultSnapshotHook   toolloop.SnapshotHook
 	defaultPersister      enginebuilder.TurnPersister
@@ -86,6 +93,9 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
 		profileRegistry:       opts.ProfileRegistry,
 		profileRegistryWriter: opts.ProfileRegistryWriter,
+		middlewareSchemas:     opts.MiddlewareSchemas,
+		extensionCodecs:       opts.ExtensionCodecs,
+		extensionSchemas:      cloneNestedStringAnyMap(opts.ExtensionSchemas),
 		defaultEventSinks:     append([]events.EventSink(nil), opts.DefaultEventSinks...),
 		defaultSnapshotHook:   opts.DefaultSnapshotHook,
 		defaultPersister:      opts.DefaultPersister,
@@ -150,6 +160,11 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(profilesObj, "deleteProfile", m.profilesDeleteProfile)
 	m.mustSet(profilesObj, "setDefaultProfile", m.profilesSetDefaultProfile)
 	m.mustSet(exports, "profiles", profilesObj)
+
+	schemasObj := m.vm.NewObject()
+	m.mustSet(schemasObj, "listMiddlewares", m.schemasListMiddlewares)
+	m.mustSet(schemasObj, "listExtensions", m.schemasListExtensions)
+	m.mustSet(exports, "schemas", schemasObj)
 
 	mwsObj := m.vm.NewObject()
 	m.mustSet(mwsObj, "fromJS", m.middlewareFromJS)

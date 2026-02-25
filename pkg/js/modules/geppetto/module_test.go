@@ -10,6 +10,8 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
@@ -746,6 +748,108 @@ func TestProfilesNamespaceCreateRequiresWritableRegistry(t *testing.T) {
 	`)
 }
 
+func TestSchemasNamespaceRequiresConfiguredProviders(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		let middlewareErr = false;
+		try {
+			gp.schemas.listMiddlewares();
+		} catch (e) {
+			middlewareErr = /configured middleware definition registry/i.test(String(e));
+		}
+		if (!middlewareErr) throw new Error("schemas.listMiddlewares should require configured provider");
+
+		let extensionErr = false;
+		try {
+			gp.schemas.listExtensions();
+		} catch (e) {
+			extensionErr = /configured extension schema provider/i.test(String(e));
+		}
+		if (!extensionErr) throw new Error("schemas.listExtensions should require configured provider");
+	`)
+}
+
+func TestSchemasNamespaceListMiddlewaresAndExtensions(t *testing.T) {
+	mwRegistry := middlewarecfg.NewInMemoryDefinitionRegistry()
+	if err := mwRegistry.RegisterDefinition(schemaDefinition{
+		name: "retry",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"maxAttempts": map[string]any{"type": "integer"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register retry schema definition: %v", err)
+	}
+	if err := mwRegistry.RegisterDefinition(schemaDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"mode": map[string]any{"type": "string"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register agentmode schema definition: %v", err)
+	}
+
+	extRegistry, err := gepprofiles.NewInMemoryExtensionCodecRegistry(extensionSchemaCodec{
+		key:         gepprofiles.MustExtensionKey("demo.example@v1"),
+		displayName: "Demo Example",
+		description: "Demo extension schema",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"enabled": map[string]any{"type": "boolean"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create extension codec registry: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{
+		MiddlewareSchemas: mwRegistry,
+		ExtensionCodecs:   extRegistry,
+		ExtensionSchemas: map[string]map[string]any{
+			"host.extra@v1": {
+				"type": "object",
+				"properties": map[string]any{
+					"value": map[string]any{"type": "string"},
+				},
+			},
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const middlewares = gp.schemas.listMiddlewares();
+		if (!Array.isArray(middlewares) || middlewares.length !== 2) throw new Error("middleware schema count mismatch");
+		if (middlewares[0].name !== "agentmode" || middlewares[1].name !== "retry") {
+			throw new Error("middleware schema ordering mismatch");
+		}
+		if (!middlewares[0].schema || middlewares[0].schema.type !== "object") {
+			throw new Error("middleware schema payload missing");
+		}
+
+		const extensions = gp.schemas.listExtensions();
+		if (!Array.isArray(extensions) || extensions.length !== 2) throw new Error("extension schema count mismatch");
+
+		const demo = extensions.find((x) => x.key === "demo.example@v1");
+		if (!demo) throw new Error("missing codec-backed extension schema");
+		if (demo.displayName !== "Demo Example") throw new Error("extension displayName mismatch");
+		if (!demo.schema || demo.schema.type !== "object") throw new Error("extension schema payload missing");
+
+		const host = extensions.find((x) => x.key === "host.extra@v1");
+		if (!host) throw new Error("missing host extension schema");
+		if (!host.schema || host.schema.type !== "object") throw new Error("host extension schema payload missing");
+	`)
+}
+
 func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
 		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
@@ -1043,6 +1147,52 @@ func (r readOnlyProfileRegistry) GetProfile(ctx context.Context, registrySlug ge
 
 func (r readOnlyProfileRegistry) ResolveEffectiveProfile(ctx context.Context, in gepprofiles.ResolveInput) (*gepprofiles.ResolvedProfile, error) {
 	return r.reader.ResolveEffectiveProfile(ctx, in)
+}
+
+type schemaDefinition struct {
+	name   string
+	schema map[string]any
+}
+
+func (d schemaDefinition) Name() string {
+	return d.name
+}
+
+func (d schemaDefinition) ConfigJSONSchema() map[string]any {
+	return cloneJSONMap(d.schema)
+}
+
+func (d schemaDefinition) Build(context.Context, middlewarecfg.BuildDeps, any) (middleware.Middleware, error) {
+	return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+		return next
+	}, nil
+}
+
+type extensionSchemaCodec struct {
+	key         gepprofiles.ExtensionKey
+	schema      map[string]any
+	displayName string
+	description string
+}
+
+func (c extensionSchemaCodec) Key() gepprofiles.ExtensionKey {
+	return c.key
+}
+
+func (c extensionSchemaCodec) Decode(raw any) (any, error) {
+	return cloneJSONValue(raw), nil
+}
+
+func (c extensionSchemaCodec) JSONSchema() map[string]any {
+	return cloneJSONMap(c.schema)
+}
+
+func (c extensionSchemaCodec) ExtensionDisplayName() string {
+	return c.displayName
+}
+
+func (c extensionSchemaCodec) ExtensionDescription() string {
+	return c.description
 }
 
 func mustNewJSGeminiProfileRegistry(t *testing.T) gepprofiles.RegistryReader {

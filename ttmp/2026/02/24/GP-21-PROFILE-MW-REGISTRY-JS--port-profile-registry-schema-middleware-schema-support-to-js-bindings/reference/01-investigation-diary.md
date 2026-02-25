@@ -32,7 +32,7 @@ RelatedFiles:
       Note: Captured runtime API inventory output
 ExternalSources: []
 Summary: Chronological research log for JS parity gap between Go profile/schema capabilities and require("geppetto") bindings.
-LastUpdated: 2026-02-25T17:56:38-05:00
+LastUpdated: 2026-02-25T18:00:01-05:00
 WhatFor: Replayable research trail with commands, findings, and decisions.
 WhenToUse: Use when implementing GP-21 follow-up code or validating assumptions from the analysis.
 ---
@@ -588,6 +588,65 @@ Results:
 
 1. `go generate` succeeded.
 2. JS module test package passed with the new profiles API coverage.
+
+### Step 19: Phase 3 implementation - add `gp.schemas` namespace and schema-provider host wiring
+
+Prompt context:
+
+**User prompt (verbatim):** `ok continue`
+
+**Assistant interpretation:** Continue with the next remaining GP-21 implementation tasks after `gp.profiles`.
+
+**Inferred user intent:** Finish schema-discovery parity and complete missing host injection surfaces now.
+
+Actions:
+
+1. Extended module options/runtime host wiring:
+   - `pkg/js/modules/geppetto/module.go`
+   - added options:
+     - `MiddlewareSchemas` (`middlewarecfg.DefinitionRegistry`)
+     - `ExtensionCodecs` (`profiles.ExtensionCodecRegistry`)
+     - `ExtensionSchemas` (`map[string]map[string]any`)
+   - runtime stores cloned extension-schema maps and exposes new `schemas` namespace in JS exports.
+2. Added schema API implementation:
+   - `pkg/js/modules/geppetto/api_schemas.go`
+   - implemented:
+     - `schemas.listMiddlewares()`
+     - `schemas.listExtensions()`
+   - behavior:
+     - deterministic output order,
+     - explicit dependency errors when providers are not configured,
+     - extension schema rows merged from codec-listed schemas and host-provided static `ExtensionSchemas`.
+3. Added schema API tests:
+   - `pkg/js/modules/geppetto/module_test.go`
+   - coverage for:
+     - missing-provider error behavior,
+     - middleware schema listing payload shape/order,
+     - extension schema listing from codec registry,
+     - extension schema listing from host-injected static schema map.
+4. Updated TypeScript declarations:
+   - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+   - `pkg/doc/types/geppetto.d.ts`
+   - added:
+     - `MiddlewareSchemaEntry`,
+     - `ExtensionSchemaEntry`,
+     - `schemas` namespace signatures.
+5. Updated task checklist:
+   - marked `gp.schemas`, options schema-provider injection, and profile/schema test coverage tasks as complete.
+
+Validation commands:
+
+```bash
+gofmt -w pkg/js/modules/geppetto/module.go pkg/js/modules/geppetto/api_schemas.go pkg/js/modules/geppetto/module_test.go
+go test ./pkg/js/modules/geppetto -count=1
+go generate ./pkg/js/modules/geppetto
+```
+
+Results:
+
+1. Formatting applied cleanly.
+2. JS module tests passed with schema namespace coverage.
+3. Generated JS `.d.ts` artifacts updated without generator errors.
 
 ## Usage Examples
 

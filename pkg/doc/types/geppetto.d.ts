@@ -243,6 +243,21 @@ declare module "geppetto" {
         metadata?: Record<string, any>;
     }
 
+    export interface MiddlewareSchemaEntry {
+        key: string;
+        name: string;
+        displayName?: string;
+        description?: string;
+        schema?: Record<string, any>;
+    }
+
+    export interface ExtensionSchemaEntry {
+        key: string;
+        displayName?: string;
+        description?: string;
+        schema?: Record<string, any>;
+    }
+
     export interface ToolHookCallInfo {
         id: string;
         name: string;
@@ -450,6 +465,11 @@ declare module "geppetto" {
         updateProfile(profileSlug: string, patch: ProfilePatch, options?: ProfileMutationOptions): Profile;
         deleteProfile(profileSlug: string, options?: ProfileMutationOptions): void;
         setDefaultProfile(profileSlug: string, options?: ProfileMutationOptions): void;
+    };
+
+    export const schemas: {
+        listMiddlewares(): MiddlewareSchemaEntry[];
+        listExtensions(): ExtensionSchemaEntry[];
     };
 
     export const middlewares: {
