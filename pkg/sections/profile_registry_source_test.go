@@ -238,6 +238,9 @@ profiles:
 }
 
 func TestGetCobraCommandGeppettoMiddlewares_RequiresProfileRegistries(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+
 	cmd := &cobra.Command{Use: "test"}
 	schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
 	addSchemaFlagsToCommand(t, schema_, cmd)
@@ -254,6 +257,68 @@ func TestGetCobraCommandGeppettoMiddlewares_RequiresProfileRegistries(t *testing
 	_, err = GetCobraCommandGeppettoMiddlewares(parsedCommandSections, cmd, nil)
 	if err == nil {
 		t.Fatalf("expected error when profile registries are not configured")
+	}
+}
+
+func TestGetCobraCommandGeppettoMiddlewares_DefaultsToXDGProfilesYAML(t *testing.T) {
+	xdgConfigHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("PINOCCHIO_PROFILE", "gpt-5")
+	t.Setenv("PINOCCHIO_PROFILE_REGISTRIES", "")
+
+	registryDir := filepath.Join(xdgConfigHome, "pinocchio")
+	if err := os.MkdirAll(registryDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	registryPath := filepath.Join(registryDir, "profiles.yaml")
+	registryYAML := `slug: local
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: default-engine
+  gpt-5:
+    slug: gpt-5
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-5-engine
+`
+	if err := os.WriteFile(registryPath, []byte(registryYAML), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	cmd := &cobra.Command{Use: "test"}
+	schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
+	addSchemaFlagsToCommand(t, schema_, cmd)
+	cmd.Flags().String("profile-registries", "", "profile registry sources")
+	if err := cmd.ParseFlags(nil); err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
+	}
+
+	parsedCommandSections, err := cli.ParseCommandSettingsSection(cmd)
+	if err != nil {
+		t.Fatalf("ParseCommandSettingsSection returned error: %v", err)
+	}
+	middlewares_, err := GetCobraCommandGeppettoMiddlewares(parsedCommandSections, cmd, nil)
+	if err != nil {
+		t.Fatalf("GetCobraCommandGeppettoMiddlewares returned error: %v", err)
+	}
+
+	parsedValues := values.New()
+	if err := sources.Execute(schema_, parsedValues, middlewares_...); err != nil {
+		t.Fatalf("sources.Execute returned error: %v", err)
+	}
+
+	ss, err := settings.NewStepSettingsFromParsedValues(parsedValues)
+	if err != nil {
+		t.Fatalf("NewStepSettingsFromParsedValues returned error: %v", err)
+	}
+	if ss.Chat == nil || ss.Chat.Engine == nil || *ss.Chat.Engine != "gpt-5-engine" {
+		t.Fatalf("expected gpt-5 engine from default XDG profiles.yaml, got %#v", ss.Chat)
 	}
 }
 

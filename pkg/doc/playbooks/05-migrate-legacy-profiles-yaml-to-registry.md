@@ -49,13 +49,17 @@ registries:
 
 Then switch your runtime flows to registry-first profile resolution.
 
+Important runtime detail:
+
+- pinocchio runtime YAML sources must be **single-registry** documents (`slug` + `profiles`).
+- top-level `registries:` bundle docs are for migration/export/import workflows.
+
 ## Before you start
 
 - Keep a backup copy of your current `profiles.yaml`.
 - Ensure your app/runtime can read registry-format profile files (current Geppetto/Pinocchio does).
-- Confirm you know your effective profile path:
-  - typically `~/.config/pinocchio/profiles.yaml`
-  - or `~/.pinocchio/profiles.yaml` in older setups.
+- Confirm your runtime default path:
+  - `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml`.
 
 ## Step 1: Inspect your current file
 
@@ -114,25 +118,50 @@ Quick check:
 rg -n "registries:|default_profile_slug:|profiles:" ~/.config/pinocchio/profiles.registry.yaml
 ```
 
-## Step 4: Point runtime to migrated file
+## Step 4: Produce runtime single-registry YAML
 
-Use one of these runtime paths:
+From the migrated bundle (`registries.<slug>...`), choose one registry for runtime and write it as:
 
-1. Import bundle output into SQLite and load via `profile-registries: <db path>`.
-2. Split/convert into one-file-one-registry runtime YAML and load those files via `profile-registries`.
+```yaml
+slug: default
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-4o-mini
+  gpt-5:
+    slug: gpt-5
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-5
+```
 
-Example runtime config:
+Do not include:
+
+- top-level `registries:`
+- `default_profile_slug`
+
+Write that runtime YAML to:
+
+- `~/.config/pinocchio/profiles.yaml` (or `${XDG_CONFIG_HOME}/pinocchio/profiles.yaml`).
+
+That enables the implicit default source in pinocchio when `profile-registries` is not set.
+
+If you prefer explicit stack wiring, set:
 
 ```yaml
 profile-settings:
-  profile-registries: ~/.config/pinocchio/profiles.db
+  profile-registries: ~/.config/pinocchio/profiles.yaml
   profile: default
 ```
 
-Or via environment:
+or:
 
 ```bash
-export PINOCCHIO_PROFILE_REGISTRIES=~/.config/pinocchio/profiles.db
+export PINOCCHIO_PROFILE_REGISTRIES=~/.config/pinocchio/profiles.yaml
 export PINOCCHIO_PROFILE=default
 ```
 
@@ -171,7 +200,7 @@ profile-settings:
 | output file exists error | command protects existing outputs | pass `--force`, choose a different `--output`, or use `--in-place` |
 | migrated file still uses legacy map shape | command not run or wrong file inspected | rerun migration with explicit `--input` and `--output` |
 | runtime ignores migrated file | active `profile-registries` points to another source | update `profile-settings.profile-registries` or `PINOCCHIO_PROFILE_REGISTRIES` |
-| runtime startup rejects YAML | file contains top-level `registries:` or `default_profile_slug` | import to SQLite or rewrite into single-registry runtime YAML |
+| runtime startup rejects YAML | file contains top-level `registries:` or `default_profile_slug` | rewrite to single-registry runtime YAML (`slug` + `profiles`) |
 
 ## See Also
 

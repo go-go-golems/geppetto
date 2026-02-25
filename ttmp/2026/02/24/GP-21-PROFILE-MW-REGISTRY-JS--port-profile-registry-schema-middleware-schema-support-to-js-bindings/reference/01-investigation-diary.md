@@ -766,6 +766,51 @@ Results:
    - mixed stack precedence,
    - no-registry expected failures.
 
+### Step 22: Align docs with default registry-file loading and legacy conversion path
+
+Prompt context:
+
+**User prompt (verbatim):** `ok, update all the relevant documentation. Also, how does the new pinocchio now load profiles? How do I convert my old profile file, and what's the default location we look at now? I still want to be able to do things like PINOCCHIO_PROFILE=gpt-5 and it would load gpt-5 settings from ~/.config/pinocchio/profiles.yaml`
+
+**Assistant interpretation:** Update canonical docs and runtime to make default profile file loading explicit and operationally verifiable, while keeping hard-cutover semantics.
+
+Actions:
+
+1. Updated runtime loading behavior in `geppetto/pkg/sections/sections.go`:
+   - when `profile-registries` is empty, middleware now auto-uses `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists.
+2. Added regression coverage in `geppetto/pkg/sections/profile_registry_source_test.go`:
+   - new test verifies `PINOCCHIO_PROFILE=gpt-5` resolves from default XDG `profiles.yaml` without passing `--profile-registries`.
+3. Updated profile docs:
+   - `geppetto/pkg/doc/topics/01-profiles.md`
+   - `geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`
+   - clarified source precedence, default path behavior, and runtime YAML shape constraints.
+4. Updated pinocchio user docs:
+   - `pinocchio/README.md` now documents:
+     - profile-registry source stack,
+     - implicit default path behavior,
+     - migration command usage and runtime format requirements.
+5. Removed stale user-facing help references to `--profile-file`:
+   - `geppetto/pkg/steps/ai/settings/flags/chat.yaml`.
+
+Validation commands:
+
+```bash
+cd geppetto
+go test ./pkg/sections ./pkg/steps/ai/settings -count=1
+
+cd ../pinocchio
+go test ./cmd/pinocchio -run ProfileRegistries -count=1
+
+# CLI smoke check with only XDG profiles.yaml + PINOCCHIO_PROFILE set
+PINOCCHIO_PROFILE=gpt-5 XDG_CONFIG_HOME=<tmp-with-pinocchio-profiles.yaml> \
+  go run ./cmd/pinocchio generate-prompt --log-level error --goal smoke --print-parsed-fields
+```
+
+Results:
+
+1. Targeted geppetto and pinocchio tests passed.
+2. CLI smoke run confirmed profile-registry metadata includes default XDG path and resolves `ai-engine: gpt-5-engine` from `PINOCCHIO_PROFILE=gpt-5`.
+
 ## Usage Examples
 
 ### Re-run the export inventory experiment

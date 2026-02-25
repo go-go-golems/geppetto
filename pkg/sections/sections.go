@@ -2,6 +2,9 @@ package sections
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/profiles"
@@ -123,6 +126,19 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 type profileRegistrySettings struct {
 	Profile           string `glazed:"profile"`
 	ProfileRegistries string `glazed:"profile-registries"`
+}
+
+func defaultPinocchioProfileRegistriesIfPresent() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil || strings.TrimSpace(configDir) == "" {
+		return ""
+	}
+	path := filepath.Join(configDir, "pinocchio", "profiles.yaml")
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return ""
+	}
+	return path
 }
 
 func newProfileRegistrySettingsSection() (schema.Section, error) {
@@ -258,6 +274,11 @@ func GetCobraCommandGeppettoMiddlewares(
 	}
 	if profileSettings.Profile == "" {
 		profileSettings.Profile = "default"
+	}
+	if strings.TrimSpace(profileSettings.ProfileRegistries) == "" {
+		if defaultPath := defaultPinocchioProfileRegistriesIfPresent(); defaultPath != "" {
+			profileSettings.ProfileRegistries = defaultPath
+		}
 	}
 	profileRegistrySources, err := profiles.ParseProfileRegistrySourceEntries(profileSettings.ProfileRegistries)
 	if err != nil {

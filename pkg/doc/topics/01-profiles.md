@@ -158,6 +158,7 @@ The runtime model is registry-first and profile-first:
 
 - profiles are stored and resolved through `profiles.Registry`,
 - runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
+- in pinocchio, when `profile-registries` is not set, runtime auto-loads `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists,
 - stack composition is resolved in-core (base -> leaf) before runtime composition,
 - profile CRUD is the write path for runtime defaults,
 - middleware configuration is profile-scoped and validated before persistence in API surfaces.
@@ -251,6 +252,12 @@ Profile selection remains available through:
 - config (`profile-settings` section),
 - environment (`PINOCCHIO_PROFILE`, `PINOCCHIO_PROFILE_REGISTRIES`),
 - flags (`--profile`, `--profile-registries`).
+
+Registry-source selection precedence is:
+
+**`--profile-registries` > `PINOCCHIO_PROFILE_REGISTRIES` > `profile-settings.profile-registries` > `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` (if present)**
+
+This means `PINOCCHIO_PROFILE=gpt-5` works without `PINOCCHIO_PROFILE_REGISTRIES` when that default runtime registry file exists.
 
 Precedence remains:
 

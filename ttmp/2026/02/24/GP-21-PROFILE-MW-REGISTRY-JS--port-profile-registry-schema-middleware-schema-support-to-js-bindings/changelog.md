@@ -2,6 +2,26 @@
 
 ## 2026-02-25
 
+- Updated profile-registry docs and runtime loading notes to reflect current pinocchio behavior:
+  - fallback default source: `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` when present,
+  - explicit source precedence (`flag > env > config > default-file-if-present`),
+  - clarified runtime YAML shape (`slug` + `profiles`, no `registries:` / `default_profile_slug`).
+- Updated user-facing pinocchio README with profile-registry loading and legacy conversion guidance.
+- Updated geppetto AI flag help text to remove legacy `--profile-file` references.
+- Added/validated section middleware fallback behavior enabling:
+  - `PINOCCHIO_PROFILE=<slug>` with default `~/.config/pinocchio/profiles.yaml` runtime registry.
+
+## 2026-02-25
+
+- Rebased GP-21 design/tasks to GP-31 runtime surface:
+  - stack-first profile resolution across `--profile-registries`,
+  - no runtime registry selector path for JS runtime APIs.
+- Updated final design doc to remove runtime `registry`/`registrySlug` selectors from factory/runtime inputs.
+- Added explicit follow-up tasks to remove `registrySlug` from `ProfileEngineOptions` and align cookbook/examples with stack-only runtime selection.
+- Updated index metadata/status to mark GP-21 as implementation-pending but GP-31-aligned.
+
+## 2026-02-25
+
 - Completed deep codebase analysis for profile registry + middleware/extension schema parity against JS bindings.
 - Added unified inference-first final API research document that merges GP-21 findings with OS-09 comprehensive JS API design.
 - Updated the final design to hard cutover mode: removed legacy compatibility recommendation for `engines.fromProfile` and made registry-first behavior mandatory.
@@ -62,4 +82,3 @@ Added comprehensive JS script cookbook document with broad current API coverage 
 ### Related Files
 
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/24/GP-21-PROFILE-MW-REGISTRY-JS--port-profile-registry-schema-middleware-schema-support-to-js-bindings/reference/02-geppetto-js-api-scripts-cookbook-old-and-new.md — Primary cookbook deliverable with 30 example scripts
-
