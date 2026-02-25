@@ -29,6 +29,8 @@ RelatedFiles:
       Note: Updated to resolved-runtime-only semantics
     - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx
       Note: Widget payload now emits request_overrides
+    - Path: ../../../../../../../pinocchio/scripts/profile_registry_cutover_smoke.sh
+      Note: End-to-end backup/migrate/import/web-chat/pinocchio smoke automation script
     - Path: ../../../../../../../pinocchio/pkg/doc/topics/webchat-http-chat-setup.md
       Note: Updated canonical contract docs for hard-cut naming and metadata
     - Path: ../../../../../../../pinocchio/pkg/inference/runtime/composer.go
@@ -57,7 +59,7 @@ RelatedFiles:
       Note: Linked downstream GP-29 outcomes back to GP-28
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-25T16:04:25-05:00
+LastUpdated: 2026-02-25T16:12:15-05:00
 WhatFor: Chronological implementation log for GP-29 Pinocchio stack-profile cutover.
 WhenToUse: Use when reviewing exactly what changed, why, and how to validate each completed phase.
 ---
@@ -716,6 +718,78 @@ N/A
 ### What should be done in the future
 
 1. Optional follow-up: add explicit registry-selection flags to non-web-chat pinocchio commands if/when multi-registry runtime selection is required outside web-chat request APIs.
+
+## Step 8: Automation Script for Backup/Migration/Smoke Validation
+
+This step added a single script to automate the full operator path that was requested:
+1. backup existing profile config,
+2. convert profile YAML to canonical registry YAML,
+3. import into SQLite DB for web-chat,
+4. start web-chat and run smoke checks,
+5. run pinocchio with `--print-parsed-fields` against migrated profile source.
+
+### Prompt Context
+
+**User prompt (verbatim):** "what would --registry do? Can you write a script that backs up and converts the existing pinocchio  profile config file, converts it to a db to be used by web-chat, start webchat and test things, and then test pinocchio against said profile as well). You can also use --print-parsed-fields for debugging"
+
+**Assistant interpretation:** explain intended `--registry` behavior and implement concrete automation to execute backup/migration/web-chat/pinocchio validation end-to-end.
+
+**Inferred user intent:** reduce manual migration toil and make cutover verification repeatable.
+
+**Commit (code):** `21ce15a` — "scripts: add profile registry cutover smoke automation"
+
+### Commands run
+
+```bash
+chmod +x scripts/profile_registry_cutover_smoke.sh
+./scripts/profile_registry_cutover_smoke.sh --profile-file /tmp/pin-smoke-profiles.yaml --work-dir /tmp/pin-profile-registry-cutover-smoke --port 18082
+```
+
+### What I did
+
+1. Added `pinocchio/scripts/profile_registry_cutover_smoke.sh`.
+2. Script behavior:
+   - creates timestamped backup of source `profiles.yaml`,
+   - runs `pinocchio profiles migrate-legacy`,
+   - imports canonical registries into SQLite DB using `geppetto/pkg/profiles`,
+   - starts `go run ./cmd/web-chat web-chat --profile-registry-db ...`,
+   - validates `/api/chat/profiles` and `/chat` runtime metadata behavior,
+   - validates runtime slug error handling (`400 invalid runtime_key`),
+   - runs `pinocchio generate-prompt --print-parsed-fields` with migrated profile source and verifies profile-registry middleware markers.
+3. Included flags for practical operator control:
+   - `--profile-file`,
+   - `--registry`,
+   - `--db`,
+   - `--work-dir`,
+   - `--port`,
+   - `--keep-server`.
+
+### What didn't work
+
+Initial script run failed on the pinocchio parsed-fields step because an empty `--config-file` payload produced:
+1. `expected map[string]interface{}, got <nil>`
+
+Fix:
+1. write `{}` into temp config instead of a zero-byte file before invoking `--config-file`.
+
+### What worked
+
+1. Full smoke flow succeeded after the config-file fix:
+   - backup generated,
+   - canonical YAML generated,
+   - SQLite DB populated,
+   - web-chat smoke checks passed,
+   - pinocchio parsed-fields checks passed.
+
+### Why
+
+1. This creates a reproducible runbook for the migration path users actually need to run.
+2. It directly exercises the hard-cut request contract and profile middleware behavior in one command.
+
+### What I learned
+
+1. For parsed-fields debug runs, supplying an explicit minimal config file (`{}`) avoids accidental config parser edge cases and prevents leaking user-local config values in command output.
+2. End-to-end scripting catches integration details that are easy to miss in isolated tests.
 
 ## Related
 

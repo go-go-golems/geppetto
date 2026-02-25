@@ -209,3 +209,26 @@ Completed GP-29 Phase 4 manual smoke-check and closed verification backlog.
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Request resolver hard-cut behavior verified against live server
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go — Chat request/response field contract validated in smoke run
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/25/GP-29-PINOCCHIO-STACK-PROFILE-CUTOVER--pinocchio-stack-profile-resolver-runtime-composer-cutover/tasks.md — Phase 4 completion recorded
+
+## 2026-02-25
+
+Added an operator automation script for profile migration + end-to-end smoke checks (`commit 21ce15a`).
+
+### What changed
+
+- Added `pinocchio/scripts/profile_registry_cutover_smoke.sh` to automate:
+  - profile YAML backup,
+  - legacy-to-canonical registry conversion (`profiles migrate-legacy`),
+  - canonical registry import into SQLite DB,
+  - web-chat startup on that DB and HTTP smoke checks,
+  - pinocchio `--print-parsed-fields` smoke run against migrated profile source.
+- Script validates hard-cut behavior with concrete checks:
+  - `runtime_key`/`registry_slug` request selection,
+  - runtime fingerprint and profile metadata presence,
+  - invalid runtime slug validation (`400`),
+  - profile middleware load marker (`mode: profile-registry`) in parsed fields.
+- Script writes artifacts (DB/YAML/JSON/logs) into a work directory and prints paths at completion.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/scripts/profile_registry_cutover_smoke.sh — End-to-end backup/migrate/import/web-chat/pinocchio smoke automation
