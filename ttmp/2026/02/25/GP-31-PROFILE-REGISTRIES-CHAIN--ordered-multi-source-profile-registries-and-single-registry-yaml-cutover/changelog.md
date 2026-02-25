@@ -43,3 +43,39 @@ Applied hard-cut scope correction: stack-only registry resolution, no runtime re
 
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/25/GP-31-PROFILE-REGISTRIES-CHAIN--ordered-multi-source-profile-registries-and-single-registry-yaml-cutover/design-doc/01-implementation-guide-ordered-profile-registries-chain-and-single-registry-yaml-cutover.md — Scope corrected to stack-only runtime semantics
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/ttmp/2026/02/25/GP-31-PROFILE-REGISTRIES-CHAIN--ordered-multi-source-profile-registries-and-single-registry-yaml-cutover/tasks.md — Tasks aligned with no-fallback/no-registry-switch model
+
+## 2026-02-25
+
+Implemented GP-31 core runtime behavior across geppetto and pinocchio with phase-by-phase commits.
+
+### What changed
+
+- Geppetto profiles:
+  - added source spec parsing/autodetection and chain loading (`yaml`/`sqlite`/`sqlite-dsn`),
+  - added chained registry routing with owner-based writes and read-only enforcement,
+  - added strict runtime YAML decoder rejecting bundle/legacy/default-profile-slug formats.
+- Geppetto sections:
+  - switched profile bootstrap to `profile-settings.profile-registries`,
+  - removed runtime `profile-file` fallback from middleware wiring.
+- Pinocchio:
+  - added root `--profile-registries` persistent flag for CLI commands,
+  - switched web-chat startup to chained profile registries from `--profile-registries`,
+  - removed request-time runtime registry switching from web-chat resolver,
+  - mapped read-only registry write failures to `403` in profile API.
+
+### Commits
+
+- `c88a1e3` (geppetto) — `profiles: add source-chain registry service and strict runtime YAML loader`
+- `683fc10` (geppetto) — `sections: require profile-registries and load profile stack middleware`
+- `d070241` (geppetto) — `profiles: expose chained registry default slug accessor`
+- `0108628` (pinocchio) — `web-chat: load profile registry chains and remove runtime registry switching`
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/source_chain.go — Chain service, source autodetection, owner write routing
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/codec_yaml_runtime.go — Strict runtime YAML loader
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/sections/sections.go — `profile-registries` bootstrap and hard-cut wiring
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/sections/profile_registry_source.go — Profile middleware now backed by chained registries
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/main.go — Web-chat chain startup from `profile-registries`
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Runtime resolver without registry switching
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go — Read-only write error mapping

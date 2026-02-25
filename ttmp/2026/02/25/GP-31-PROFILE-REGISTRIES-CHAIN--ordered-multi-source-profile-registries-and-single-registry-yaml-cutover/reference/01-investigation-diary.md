@@ -21,7 +21,7 @@ RelatedFiles:
       Note: Existing CRUD registry selection behavior analyzed for GP-31 scope
 ExternalSources: []
 Summary: Diary for scoping and documenting GP-31 ordered source-chain registry loading design.
-LastUpdated: 2026-02-25T16:58:20-05:00
+LastUpdated: 2026-02-25T17:05:00-05:00
 WhatFor: Capture rationale and decisions for GP-31 planning deliverable.
 WhenToUse: Use when reviewing why GP-31 is structured the way it is and what tradeoffs were accepted.
 ---
@@ -218,6 +218,246 @@ N/A
 ### What should be done in the future
 
 1. Keep implementation PR review checklist explicit: no runtime registry selector inputs, no runtime `default_profile_slug`, stack-top-first profile lookup only.
+
+## Step 4: Implement source-chain core in geppetto profiles
+
+This step implemented the GP-31 runtime core inside `geppetto/pkg/profiles`: source parsing/autodetection, strict runtime YAML loading, and chained registry routing. The objective was to make stack-based runtime behavior executable before touching command wiring.
+
+The implementation introduced a dedicated chained registry service that composes existing stack merge/provenance logic with owner-routed writes and source-level read-only policy.
+
+### Prompt Context
+
+**User prompt (verbatim):** "alright, now implement it, task by task, committing as you go, and keeping a diary"
+
+**Assistant interpretation:** execute GP-31 implementation in phased commits and keep a detailed ticket diary.
+
+**Inferred user intent:** move from design docs to production code without batching everything into one opaque change.
+
+**Commit (code):** `c88a1e3` — `profiles: add source-chain registry service and strict runtime YAML loader`
+
+### What I did
+
+1. Added `pkg/profiles/source_chain.go`:
+   - `ParseProfileRegistrySourceEntries`,
+   - `ParseRegistrySourceSpecs`,
+   - autodetection for `yaml`/`sqlite`/`sqlite-dsn`,
+   - `ChainedRegistry` implementing `profiles.Registry`,
+   - top-of-stack profile lookup when registry is not specified,
+   - owner write routing + read-only enforcement.
+2. Added `pkg/profiles/codec_yaml_runtime.go`:
+   - strict runtime YAML decode for single-registry files,
+   - explicit rejection of:
+     - `registries:` bundle format,
+     - legacy profile-map format,
+     - `default_profile_slug`.
+3. Added `pkg/profiles/source_chain_test.go` with parser, strict YAML, mixed-source load, top-precedence, and write-routing assertions.
+
+### Why
+
+1. GP-31 requires deterministic behavior across mixed sources before CLI wiring can be safely migrated.
+2. Implementing routing in one place avoids duplicating merge logic in pinocchio/web-chat code.
+
+### What worked
+
+1. Existing `StoreRegistry` stack resolution was reusable as the chain read engine.
+2. Mixed YAML+SQLite chain behavior was validated end-to-end in one unit/integration-style test.
+
+### What didn't work
+
+1. First commit attempt failed pre-commit lint:
+   - command: `git commit -m "profiles: add source-chain registry service and strict runtime YAML loader"`,
+   - error: `S1011: should replace loop with precedenceTopFirst = append(precedenceTopFirst, owner.registrySlugs...)`.
+2. Fixed by replacing the loop with append-slice form and recommitting.
+
+### What I learned
+
+1. The chain abstraction stays simple if read composition and write ownership are treated as separate concerns.
+
+### What was tricky to build
+
+The hardest part was preserving stack resolution semantics while changing root profile lookup rules:
+
+1. profile stack merge still relies on resolved root registry/profile,
+2. runtime selection needed a new stack-top-first search path when registry is unspecified,
+3. explicit registry operations still needed to work for CRUD/write routing.
+
+### What warrants a second pair of eyes
+
+1. Duplicate registry slug startup error text quality and operator diagnostics.
+2. Edge cases where a source loads zero registries (empty sqlite/yaml files).
+
+### What should be done in the future
+
+1. Add explicit duplicate-slug unit test coverage (task still open).
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/source_chain.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/codec_yaml_runtime.go`
+2. Validate with:
+   - `go test ./pkg/profiles -count=1`
+
+### Technical details
+
+1. Source detection uses extension-first (`.db/.sqlite/.sqlite3`), then SQLite header probe (`SQLite format 3`), then YAML fallback.
+2. Write failures for read-only sources return `ErrReadOnlyStore`.
+
+## Step 5: Cut geppetto middleware over to profile-registry stacks
+
+This step replaced runtime `profile-file` behavior in geppetto section middleware with strict `profile-settings.profile-registries`. The middleware now opens a chain service for profile patch resolution and fails fast when no registry sources are configured.
+
+This completed the geppetto-side hard cut for profile selection input wiring.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** continue phased implementation and commit each completed phase.
+
+**Inferred user intent:** enforce the new runtime contract through actual middleware behavior.
+
+**Commit (code):** `683fc10` — `sections: require profile-registries and load profile stack middleware`
+
+### What I did
+
+1. Updated `pkg/sections/sections.go`:
+   - bootstrap profile settings now parse `profile` + `profile-registries`,
+   - runtime fails when `profile-registries` is empty,
+   - removed runtime `profile-file` fallback path.
+2. Updated `pkg/sections/profile_registry_source.go`:
+   - loader now resolves profile patches from `ChainedRegistry` sources.
+3. Reworked `pkg/sections/profile_registry_source_test.go`:
+   - stack-top precedence tests,
+   - hard-cut missing-source failure test,
+   - middleware precedence test (`config < profile < env < flags`) with `--profile-registries`.
+
+### Why
+
+1. GP-31 changes are not real until command middleware consumes the new setting surface.
+2. Hard-cut behavior should fail early at command parse time instead of silently falling back.
+
+### What worked
+
+1. Bootstrap parse pattern remained valid after changing profile source inputs.
+2. Section tests captured both precedence and hard-cut validation behavior.
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+1. The fastest migration path was adding a dedicated bootstrap section for `profile-registries` while preserving existing command-profile parsing for `profile`.
+
+### What was tricky to build
+
+The tricky part was preserving Glazed middleware precedence while replacing a core input contract:
+
+1. bootstrap parse order had to stay consistent with runtime middleware order,
+2. profile loading must remain between config and defaults in effective precedence.
+
+### What warrants a second pair of eyes
+
+1. Whether any CLI entrypoints outside pinocchio/web-chat still rely on `profile-file` assumptions.
+
+### What should be done in the future
+
+1. Add `--print-parsed-fields` smoke coverage for `--profile-registries` (task still open).
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/sections/sections.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/sections/profile_registry_source.go`
+2. Validate with:
+   - `go test ./pkg/sections -count=1`
+
+### Technical details
+
+1. `profile-settings.profile-registries` is parsed as comma-separated source entries and normalized before chain creation.
+
+## Step 6: Cut pinocchio/web-chat over to chained registries and no runtime registry switching
+
+This step migrated pinocchio runtime surfaces to GP-31 behavior:
+
+1. CLI root now accepts `--profile-registries`,
+2. web-chat bootstraps profile service from chain sources,
+3. request-time registry selection (`registry_slug`) is removed from runtime resolver behavior.
+
+The result aligns web-chat request resolution with stack-only profile selection by slug.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** continue implementation across dependent consumers, not only geppetto core.
+
+**Inferred user intent:** finish end-to-end runtime behavior and not leave pinocchio behind.
+
+**Commit (code):** `0108628` — `web-chat: load profile registry chains and remove runtime registry switching`
+
+### What I did
+
+1. Updated pinocchio CLI root:
+   - added persistent `--profile-registries` flag in `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/pinocchio/main.go`.
+2. Updated web-chat startup:
+   - replaced `profile-registry-dsn/db` bootstrap with `profile-registries` chain loading.
+3. Updated web-chat resolver:
+   - removed runtime registry selector path from request resolution,
+   - resolver now selects by profile slug only and delegates stack search to chain service.
+4. Updated profile API error mapping:
+   - `ErrReadOnlyStore` now returns `403`.
+5. Updated resolver tests:
+   - removed assumptions of runtime registry switching,
+   - added/adjusted tests for stack lookup behavior and ignored registry selector inputs.
+
+### Why
+
+1. GP-31 runtime contract includes no request-time registry switching.
+2. Consumers needed to adopt source-chain loading to avoid split behavior between CLI and web-chat.
+
+### What worked
+
+1. Existing web-chat tests adapted cleanly once fixtures switched to chained registry sources.
+2. Pre-commit full pinocchio test/lint suite passed with the new behavior.
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+1. Runtime selector removal is easiest to enforce by removing the resolution branch entirely, not by keeping parsing and ignoring at call sites.
+
+### What was tricky to build
+
+The tricky part was test fixture migration:
+
+1. old tests used multi-registry in-memory services with explicit registry selection,
+2. new behavior required chain-backed fixtures and revised expectations for `registry_slug` inputs.
+
+### What warrants a second pair of eyes
+
+1. web-chat CRUD/list semantics still default to one registry unless a `registry` selector is provided; verify whether GP-31 should expose aggregate listing in this phase.
+
+### What should be done in the future
+
+1. Decide whether profile API should include an explicit “list registries” endpoint or aggregate profile listing for multi-registry visibility.
+
+### Code review instructions
+
+1. Start in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/main.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go`
+2. Validate with:
+   - `go test ./cmd/pinocchio ./cmd/web-chat ./pkg/webchat/http -count=1`
+
+### Technical details
+
+1. Read-only source writes now fail as `403` through profile API mapping.
+2. Runtime resolver still accepts payloads containing `registry_slug`, but it no longer uses them for profile selection.
 
 ## Related
 
