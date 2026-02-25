@@ -49,3 +49,30 @@ Implemented GP-29 Phase 1A request resolver cutover (`commit 294d6ad`).
 
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Resolver now delegates to geppetto effective profile resolution
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go — Updated assertions for resolver cutover semantics
+
+## 2026-02-25
+
+Implemented GP-29 Phase 2A runtime fingerprint propagation (`commit 10b7c8f`).
+
+### What changed
+
+- Added resolver-owned runtime fingerprint propagation across web-chat request/runtime layers:
+  - `ResolvedConversationRequest.RuntimeFingerprint`,
+  - `ConversationRuntimeRequest.RuntimeFingerprint`,
+  - `SubmitPromptInput.RuntimeFingerprint`,
+  - `infruntime.ConversationRuntimeRequest.ResolvedProfileFingerprint`.
+- Updated `ConvManager.GetOrCreate` and stream hub wiring to pass the resolved fingerprint into runtime composition requests.
+- Updated `cmd/web-chat/runtime_composer.go` to prefer `req.ResolvedProfileFingerprint` when provided, with fallback to local fingerprint builder for non-resolver call paths.
+- Extended tests:
+  - resolver tests now assert runtime fingerprint shape (`sha256:*`),
+  - runtime composer test asserts preference for provided resolved fingerprint.
+- Verification:
+  - `go test ./cmd/web-chat/... ./pkg/webchat/...` passed,
+  - full pinocchio pre-commit checks passed.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer.go — Runtime composer now prefers resolver fingerprint
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/runtime_composer_test.go — Added resolver fingerprint preference test
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/api.go — HTTP request plan/runtime fingerprint pass-through
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/conversation.go — Conv manager request includes resolved fingerprint
