@@ -54,6 +54,27 @@ func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
 	if resolved.Metadata["profile.source"] != "db" {
 		t.Fatalf("metadata profile.source mismatch: %#v", resolved.Metadata)
 	}
+	lineageRaw, ok := resolved.Metadata["profile.stack.lineage"]
+	if !ok {
+		t.Fatalf("expected stack lineage metadata key")
+	}
+	lineage, ok := lineageRaw.([]map[string]any)
+	if !ok {
+		t.Fatalf("expected stack lineage metadata type, got %T", lineageRaw)
+	}
+	if got, want := len(lineage), 1; got != want {
+		t.Fatalf("lineage length mismatch: got=%d want=%d", got, want)
+	}
+	if got := lineage[0]["profile_slug"]; got != "agent" {
+		t.Fatalf("lineage profile slug mismatch: %#v", lineage)
+	}
+	traceRaw, ok := resolved.Metadata["profile.stack.trace"]
+	if !ok {
+		t.Fatalf("expected stack trace metadata key")
+	}
+	if _, ok := traceRaw.(*ProfileTraceDebugPayload); !ok {
+		t.Fatalf("expected stack trace debug payload type, got %T", traceRaw)
+	}
 	if resolved.RuntimeFingerprint == "" {
 		t.Fatalf("runtime fingerprint must be non-empty")
 	}
@@ -232,6 +253,61 @@ func TestStoreRegistryResolve_PrecendenceAndPolicy(t *testing.T) {
 	})
 	if !errors.Is(err, ErrPolicyViolation) {
 		t.Fatalf("expected ErrPolicyViolation for disallowed overrides, got %v", err)
+	}
+}
+
+func TestStoreRegistryResolve_StackMetadataLineageOrder(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("provider"): {
+				Slug: MustProfileSlug("provider"),
+				Runtime: RuntimeSpec{
+					SystemPrompt: "provider",
+				},
+				Metadata: ProfileMetadata{Version: 11},
+			},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("provider")},
+				},
+				Metadata: ProfileMetadata{Version: 12},
+			},
+		},
+	})
+
+	registry := mustNewStoreRegistry(t, store)
+	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+	}
+
+	lineageRaw := resolved.Metadata["profile.stack.lineage"]
+	lineage, ok := lineageRaw.([]map[string]any)
+	if !ok {
+		t.Fatalf("expected lineage slice metadata, got %T", lineageRaw)
+	}
+	if got, want := len(lineage), 2; got != want {
+		t.Fatalf("lineage length mismatch: got=%d want=%d", got, want)
+	}
+	if got := lineage[0]["profile_slug"]; got != "provider" {
+		t.Fatalf("expected provider lineage first, got %#v", lineage)
+	}
+	if got := lineage[1]["profile_slug"]; got != "agent" {
+		t.Fatalf("expected agent lineage last, got %#v", lineage)
+	}
+
+	traceRaw := resolved.Metadata["profile.stack.trace"]
+	trace, ok := traceRaw.(*ProfileTraceDebugPayload)
+	if !ok {
+		t.Fatalf("expected stack trace payload type, got %T", traceRaw)
+	}
+	if len(trace.Paths) == 0 {
+		t.Fatalf("expected non-empty trace paths")
 	}
 }
 

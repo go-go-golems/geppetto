@@ -147,7 +147,7 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 	rootLayer := stackLayers[len(stackLayers)-1]
 	profile := rootLayer.Profile
 
-	stackMerge, err := MergeProfileStackLayers(stackLayers)
+	stackMerge, stackTrace, err := MergeProfileStackLayersWithTrace(stackLayers)
 	if err != nil {
 		return nil, err
 	}
@@ -171,10 +171,12 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 	}
 
 	metadata := map[string]any{
-		"profile.registry": registrySlug.String(),
-		"profile.slug":     profileSlug.String(),
-		"profile.version":  profile.Metadata.Version,
-		"profile.source":   profileMetadataSource(profile, registry),
+		"profile.registry":      registrySlug.String(),
+		"profile.slug":          profileSlug.String(),
+		"profile.version":       profile.Metadata.Version,
+		"profile.source":        profileMetadataSource(profile, registry),
+		"profile.stack.lineage": stackLayerLineage(stackLayers),
+		"profile.stack.trace":   stackTrace.BuildDebugPayload(),
 	}
 
 	return &ResolvedProfile{
@@ -583,27 +585,11 @@ func parseStepSettingsPatchOverrideValue(v any) (map[string]any, error) {
 }
 
 func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec, stepSettings *settings.StepSettings) string {
-	lineage := make([]map[string]any, 0, len(stackLayers))
-	for _, layer := range stackLayers {
-		version := uint64(0)
-		source := ""
-		if layer.Profile != nil {
-			version = layer.Profile.Metadata.Version
-			source = strings.TrimSpace(layer.Profile.Metadata.Source)
-		}
-		lineage = append(lineage, map[string]any{
-			"registry_slug": layer.RegistrySlug.String(),
-			"profile_slug":  layer.ProfileSlug.String(),
-			"version":       version,
-			"source":        source,
-		})
-	}
-
 	payload := map[string]any{
 		"registry_slug":   registrySlug.String(),
 		"profile_slug":    profile.Slug.String(),
 		"profile_version": profile.Metadata.Version,
-		"stack_lineage":   lineage,
+		"stack_lineage":   stackLayerLineage(stackLayers),
 		"runtime": map[string]any{
 			"step_settings_patch": deepCopyStringAnyMap(runtime.StepSettingsPatch),
 			"system_prompt":       runtime.SystemPrompt,
@@ -621,6 +607,25 @@ func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers
 	}
 	sum := sha256.Sum256(b)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func stackLayerLineage(stackLayers []ProfileStackLayer) []map[string]any {
+	lineage := make([]map[string]any, 0, len(stackLayers))
+	for _, layer := range stackLayers {
+		version := uint64(0)
+		source := ""
+		if layer.Profile != nil {
+			version = layer.Profile.Metadata.Version
+			source = strings.TrimSpace(layer.Profile.Metadata.Source)
+		}
+		lineage = append(lineage, map[string]any{
+			"registry_slug": layer.RegistrySlug.String(),
+			"profile_slug":  layer.ProfileSlug.String(),
+			"version":       version,
+			"source":        source,
+		})
+	}
+	return lineage
 }
 
 func cloneMiddlewares(in []MiddlewareUse) []MiddlewareUse {
