@@ -295,6 +295,13 @@ func (c *ChainedRegistry) resolveRegistrySlug(slug RegistrySlug) RegistrySlug {
 	return c.defaultRegistrySlug
 }
 
+func (c *ChainedRegistry) DefaultRegistrySlug() RegistrySlug {
+	if c == nil {
+		return ""
+	}
+	return c.defaultRegistrySlug
+}
+
 func (c *ChainedRegistry) ownerForRegistry(slug RegistrySlug) (*sourceOwner, error) {
 	owner := c.registryOwners[slug]
 	if owner == nil {
