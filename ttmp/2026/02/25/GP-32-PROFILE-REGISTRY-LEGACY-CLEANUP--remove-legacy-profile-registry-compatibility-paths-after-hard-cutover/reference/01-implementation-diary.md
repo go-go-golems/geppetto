@@ -13,7 +13,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Step-by-step implementation diary for GP-32 hard-cut profile cleanup.
-LastUpdated: 2026-02-25T18:47:33.461980462-05:00
+LastUpdated: 2026-02-25T19:05:32.000000000-05:00
 WhatFor: Capture implementation progress, exact commands, and validation evidence while removing legacy profile compatibility paths.
 WhenToUse: Read when reviewing GP-32 implementation decisions, commit boundaries, and test evidence.
 ---
@@ -32,8 +32,8 @@ Runtime behavior is already single-registry YAML + profile-registry stacks, but 
 
 ## Phase Status
 
-1. Phase 1 (migrate command output contract): in progress
-2. Phase 2 (codec/store compatibility removal): pending
+1. Phase 1 (migrate command output contract): completed
+2. Phase 2 (codec/store compatibility removal): completed
 3. Phase 3 (pinocchio legacy helper/CLI cleanup): pending
 4. Phase 4 (script/docs final alignment + validation): pending
 
@@ -41,6 +41,7 @@ Runtime behavior is already single-registry YAML + profile-registry stacks, but 
 
 ```bash
 go test ./cmd/pinocchio/cmds -run MigrateLegacyProfiles -count=1
+go test ./pkg/profiles -count=1
 
 # manual smoke
 go run ./cmd/pinocchio profiles migrate-legacy \
@@ -85,6 +86,39 @@ slug: default
 profiles:
   ...
 ```
+
+## Step 2: Remove codec/store legacy compatibility and enforce runtime YAML hard-cut
+
+Date: 2026-02-25
+
+Files changed:
+
+1. `geppetto/pkg/profiles/codec_yaml.go`
+2. `geppetto/pkg/profiles/codec_yaml_runtime.go`
+3. `geppetto/pkg/profiles/file_store_yaml.go`
+4. `geppetto/pkg/profiles/codec_yaml_test.go`
+5. `geppetto/pkg/profiles/file_store_yaml_test.go`
+6. `geppetto/pkg/profiles/integration_store_parity_test.go`
+
+What changed:
+
+1. Removed legacy and bundle decode behavior from `DecodeYAMLRegistries` by routing through strict runtime decoding.
+2. Removed legacy-map conversion support (`ConvertLegacyProfilesMapToRegistry`) from the codec surface.
+3. Added `EncodeRuntimeYAMLSingleRegistry(...)` and switched compatibility encoding to one-registry-per-file semantics.
+4. Updated `YAMLFileProfileStore` to:
+   - load only runtime single-registry YAML,
+   - persist only one registry,
+   - reject operations against non-default registry slugs.
+5. Replaced codec tests to explicitly assert hard-cut behavior:
+   - reject legacy profile-map YAML,
+   - reject canonical `registries:` bundle YAML,
+   - preserve runtime fields/extensions/stack refs in single-registry roundtrips.
+6. Updated YAML store tests to reject legacy file loading and reject second registry slug writes.
+7. Updated stack-ref parity test backend matrix to run multi-registry parity only on memory/sqlite backends.
+
+Validation:
+
+1. `go test ./pkg/profiles -count=1` passed.
 
 ## Related
 

@@ -60,3 +60,41 @@ func DecodeRuntimeYAMLSingleRegistry(data []byte) (*ProfileRegistry, error) {
 	}
 	return reg, nil
 }
+
+// EncodeRuntimeYAMLSingleRegistry encodes a single registry as runtime YAML.
+// Hard-cut behavior: default_profile_slug is omitted from the serialized document.
+func EncodeRuntimeYAMLSingleRegistry(registry *ProfileRegistry) ([]byte, error) {
+	if registry == nil {
+		return nil, fmt.Errorf("runtime registry is nil")
+	}
+	clone := registry.Clone()
+	if clone == nil {
+		return nil, fmt.Errorf("runtime registry clone is nil")
+	}
+	if err := ValidateRegistry(clone); err != nil {
+		return nil, fmt.Errorf("runtime YAML registry validation failed: %w", err)
+	}
+	for profileSlug, profile := range clone.Profiles {
+		if profile == nil {
+			continue
+		}
+		if profile.Slug.IsZero() {
+			profile.Slug = profileSlug
+		}
+	}
+	type runtimeRegistryYAML struct {
+		Slug        RegistrySlug             `yaml:"slug"`
+		DisplayName string                   `yaml:"display_name,omitempty"`
+		Description string                   `yaml:"description,omitempty"`
+		Profiles    map[ProfileSlug]*Profile `yaml:"profiles,omitempty"`
+		Metadata    RegistryMetadata         `yaml:"metadata,omitempty"`
+	}
+	out := runtimeRegistryYAML{
+		Slug:        clone.Slug,
+		DisplayName: clone.DisplayName,
+		Description: clone.Description,
+		Profiles:    clone.Profiles,
+		Metadata:    clone.Metadata,
+	}
+	return yaml.Marshal(out)
+}

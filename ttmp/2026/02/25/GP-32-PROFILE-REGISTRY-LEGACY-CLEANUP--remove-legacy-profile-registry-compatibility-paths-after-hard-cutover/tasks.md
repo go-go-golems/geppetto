@@ -3,10 +3,10 @@
 ## TODO
 
 - [x] Change `pinocchio profiles migrate-legacy` output to runtime single-registry YAML (`slug` + `profiles`) by default.
-- [ ] Remove bundle-format encode/decode paths from `geppetto/pkg/profiles/codec_yaml.go` (`registries:` document support).
-- [ ] Remove legacy profile-map conversion support from `DecodeYAMLRegistries` / `ConvertLegacyProfilesMapToRegistry`.
-- [ ] Update `YAMLFileProfileStore` to strict single-registry YAML read/write semantics (or remove the store if no runtime caller remains).
-- [ ] Update/replace tests that currently validate legacy map or bundle behavior (`codec_yaml_test.go`, `file_store_yaml_test.go`, migrate-legacy tests).
+- [x] Remove bundle-format encode/decode paths from `geppetto/pkg/profiles/codec_yaml.go` (`registries:` document support).
+- [x] Remove legacy profile-map conversion support from `DecodeYAMLRegistries` / `ConvertLegacyProfilesMapToRegistry`.
+- [x] Update `YAMLFileProfileStore` to strict single-registry YAML read/write semantics (or remove the store if no runtime caller remains).
+- [x] Update/replace tests that currently validate legacy map or bundle behavior (`codec_yaml_test.go`, `file_store_yaml_test.go`, migrate-legacy tests).
 - [ ] Remove old profile-file helper flow in `pinocchio/pkg/cmds/helpers/parse-helpers.go` (`WithProfileFile`, `GatherFlagsFromProfiles` usage).
 - [ ] Remove Clay legacy `profiles` command wiring and `pinocchioInitialProfilesContent` template from `cmd/pinocchio/main.go`.
 - [ ] Remove migration-parity tests against `sources.GatherFlagsFromProfiles` that no longer reflect supported runtime behavior.

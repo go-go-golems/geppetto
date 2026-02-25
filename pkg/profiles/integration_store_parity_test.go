@@ -22,18 +22,6 @@ func TestStoreRegistryLifecycleParityAcrossBackends(t *testing.T) {
 			},
 		},
 		{
-			name: "yaml",
-			build: func(t *testing.T) ProfileStore {
-				t.Helper()
-				path := filepath.Join(t.TempDir(), "profiles.yaml")
-				store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
-				if err != nil {
-					t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
-				}
-				return store
-			},
-		},
-		{
 			name: "sqlite",
 			build: func(t *testing.T) ProfileStore {
 				t.Helper()
@@ -160,18 +148,6 @@ func TestStoreRegistryExtensionParityAcrossBackends(t *testing.T) {
 			},
 		},
 		{
-			name: "yaml",
-			build: func(t *testing.T) ProfileStore {
-				t.Helper()
-				path := filepath.Join(t.TempDir(), "profiles.yaml")
-				store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
-				if err != nil {
-					t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
-				}
-				return store
-			},
-		},
-		{
 			name: "sqlite",
 			build: func(t *testing.T) ProfileStore {
 				t.Helper()
@@ -257,18 +233,6 @@ func TestStoreRegistryStackRefParityAcrossBackends(t *testing.T) {
 			build: func(t *testing.T) ProfileStore {
 				t.Helper()
 				return NewInMemoryProfileStore()
-			},
-		},
-		{
-			name: "yaml",
-			build: func(t *testing.T) ProfileStore {
-				t.Helper()
-				path := filepath.Join(t.TempDir(), "profiles.yaml")
-				store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
-				if err != nil {
-					t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
-				}
-				return store
 			},
 		},
 		{
