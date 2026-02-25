@@ -183,7 +183,7 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		RuntimeKey:            runtimeKey,
 		EffectiveStepSettings: effectiveStepSettings,
 		EffectiveRuntime:      effectiveRuntime,
-		RuntimeFingerprint:    runtimeFingerprint(registrySlug, profile, effectiveRuntime, effectiveStepSettings),
+		RuntimeFingerprint:    runtimeFingerprint(registrySlug, profile, stackLayers, effectiveRuntime, effectiveStepSettings),
 		Metadata:              metadata,
 	}, nil
 }
@@ -582,11 +582,28 @@ func parseStepSettingsPatchOverrideValue(v any) (map[string]any, error) {
 	return out, nil
 }
 
-func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, runtime RuntimeSpec, stepSettings *settings.StepSettings) string {
+func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec, stepSettings *settings.StepSettings) string {
+	lineage := make([]map[string]any, 0, len(stackLayers))
+	for _, layer := range stackLayers {
+		version := uint64(0)
+		source := ""
+		if layer.Profile != nil {
+			version = layer.Profile.Metadata.Version
+			source = strings.TrimSpace(layer.Profile.Metadata.Source)
+		}
+		lineage = append(lineage, map[string]any{
+			"registry_slug": layer.RegistrySlug.String(),
+			"profile_slug":  layer.ProfileSlug.String(),
+			"version":       version,
+			"source":        source,
+		})
+	}
+
 	payload := map[string]any{
 		"registry_slug":   registrySlug.String(),
 		"profile_slug":    profile.Slug.String(),
 		"profile_version": profile.Metadata.Version,
+		"stack_lineage":   lineage,
 		"runtime": map[string]any{
 			"step_settings_patch": deepCopyStringAnyMap(runtime.StepSettingsPatch),
 			"system_prompt":       runtime.SystemPrompt,

@@ -818,6 +818,160 @@ func TestStoreRegistryUpdateProfile_InvalidExtensionKeyFieldPath(t *testing.T) {
 	requireValidationField(t, err, "profile.extensions[bad key]")
 }
 
+func TestResolveEffectiveProfile_FingerprintChangesOnUpstreamLayerVersion(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("provider"): {
+				Slug:     MustProfileSlug("provider"),
+				Metadata: ProfileMetadata{Version: 1},
+			},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("provider")},
+				},
+			},
+		},
+	})
+	registry := mustNewStoreRegistry(t, store)
+
+	first, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile first call failed: %v", err)
+	}
+
+	provider, err := registry.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("provider"))
+	if err != nil {
+		t.Fatalf("GetProfile(provider) failed: %v", err)
+	}
+	provider.Metadata.Version = 2
+	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), provider, SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertProfile(provider) failed: %v", err)
+	}
+
+	second, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile second call failed: %v", err)
+	}
+	if first.RuntimeFingerprint == second.RuntimeFingerprint {
+		t.Fatalf("expected fingerprint change after upstream layer version change")
+	}
+}
+
+func TestResolveEffectiveProfile_FingerprintChangesOnLayerOrder(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("base-a"): {Slug: MustProfileSlug("base-a"), Metadata: ProfileMetadata{Version: 1}},
+			MustProfileSlug("base-b"): {Slug: MustProfileSlug("base-b"), Metadata: ProfileMetadata{Version: 1}},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("base-a")},
+					{ProfileSlug: MustProfileSlug("base-b")},
+				},
+			},
+		},
+	})
+	registry := mustNewStoreRegistry(t, store)
+
+	first, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile first call failed: %v", err)
+	}
+
+	agent, err := registry.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil {
+		t.Fatalf("GetProfile(agent) failed: %v", err)
+	}
+	agent.Stack = []ProfileRef{
+		{ProfileSlug: MustProfileSlug("base-b")},
+		{ProfileSlug: MustProfileSlug("base-a")},
+	}
+	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), agent, SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertProfile(agent) failed: %v", err)
+	}
+
+	second, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile second call failed: %v", err)
+	}
+	if first.RuntimeFingerprint == second.RuntimeFingerprint {
+		t.Fatalf("expected fingerprint change after layer order change")
+	}
+}
+
+func TestResolveEffectiveProfile_FingerprintChangesOnRequestOverride(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Policy: PolicySpec{
+					AllowOverrides:      true,
+					AllowedOverrideKeys: []string{"system_prompt"},
+				},
+			},
+		},
+	})
+	registry := mustNewStoreRegistry(t, store)
+
+	base, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile(base) failed: %v", err)
+	}
+	override, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
+		ProfileSlug:      MustProfileSlug("agent"),
+		RequestOverrides: map[string]any{"system_prompt": "override"},
+	})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile(override) failed: %v", err)
+	}
+	if base.RuntimeFingerprint == override.RuntimeFingerprint {
+		t.Fatalf("expected fingerprint change when request overrides differ")
+	}
+}
+
+func TestResolveEffectiveProfile_FingerprintStableForNonStackProfile(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryProfileStore()
+	mustUpsertRegistry(t, store, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Runtime: RuntimeSpec{
+					SystemPrompt: "stable",
+				},
+			},
+		},
+	})
+	registry := mustNewStoreRegistry(t, store)
+
+	first, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile first call failed: %v", err)
+	}
+	second, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile second call failed: %v", err)
+	}
+	if first.RuntimeFingerprint != second.RuntimeFingerprint {
+		t.Fatalf("expected stable fingerprint for identical non-stack resolves")
+	}
+}
+
 func TestResolveEffectiveProfile_GoldenAgainstGatherFlagsFromProfiles(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()
