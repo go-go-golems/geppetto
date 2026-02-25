@@ -32,7 +32,7 @@ RelatedFiles:
       Note: Captured runtime API inventory output
 ExternalSources: []
 Summary: Chronological research log for JS parity gap between Go profile/schema capabilities and require("geppetto") bindings.
-LastUpdated: 2026-02-25T18:00:01-05:00
+LastUpdated: 2026-02-25T18:01:58-05:00
 WhatFor: Replayable research trail with commands, findings, and decisions.
 WhenToUse: Use when implementing GP-21 follow-up code or validating assumptions from the analysis.
 ---
@@ -647,6 +647,51 @@ Results:
 1. Formatting applied cleanly.
 2. JS module tests passed with schema namespace coverage.
 3. Generated JS `.d.ts` artifacts updated without generator errors.
+
+### Step 20: Phase 4 implementation - update JS API docs for `profiles`/`schemas` and runtime selector cutover
+
+Prompt context:
+
+**User prompt (verbatim):** `ok continue`
+
+**Assistant interpretation:** Continue through remaining open GP-21 tasks and finish implementation/documentation closure.
+
+**Inferred user intent:** Close remaining surface/docs gaps after core code lands.
+
+Actions:
+
+1. Updated API reference doc:
+   - `pkg/doc/topics/13-js-api-reference.md`
+   - changes:
+     - added `profiles` and `schemas` to top-level exports,
+     - corrected `fromProfile` semantics for stack-based registry resolution,
+     - removed `opts.registrySlug` option from `fromProfile` docs,
+     - added explicit migration note for removed runtime selector,
+     - added full `profiles` namespace reference section,
+     - added `schemas` namespace reference section,
+     - expanded troubleshooting with removed `registrySlug` guidance.
+2. Updated user guide doc:
+   - `pkg/doc/topics/14-js-api-user-guide.md`
+   - changes:
+     - updated hard-cutover example to remove `registrySlug`,
+     - corrected override key example to `system_prompt`,
+     - added practical usage sections for `gp.profiles` and `gp.schemas`,
+     - added host wiring requirements for schema APIs,
+     - added troubleshooting row for removed runtime registry selector.
+3. Updated task checklist:
+   - marked `Extend JS type declarations and docs for new namespaces` complete.
+
+Validation commands:
+
+```bash
+go test ./pkg/doc -count=1
+docmgr doctor --ticket GP-21-PROFILE-MW-REGISTRY-JS
+```
+
+Results:
+
+1. `pkg/doc` tests passed.
+2. Ticket doctor reported all checks passing.
 
 ## Usage Examples
 
