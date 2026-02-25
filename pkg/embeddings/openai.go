@@ -31,8 +31,9 @@ func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions in
 
 func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
 	resp, err := p.client.CreateEmbeddings(ctx, openai.EmbeddingRequest{
-		Input: []string{text},
-		Model: p.model,
+		Input:      []string{text},
+		Model:      p.model,
+		Dimensions: p.dimensions,
 	})
 	if err != nil {
 		return nil, err
@@ -53,8 +54,9 @@ func (p *OpenAIProvider) GenerateBatchEmbeddings(ctx context.Context, texts []st
 
 	// OpenAI API has native batch support
 	resp, err := p.client.CreateEmbeddings(ctx, openai.EmbeddingRequest{
-		Input: texts,
-		Model: p.model,
+		Input:      texts,
+		Model:      p.model,
+		Dimensions: p.dimensions,
 	})
 	if err != nil {
 		return nil, err
