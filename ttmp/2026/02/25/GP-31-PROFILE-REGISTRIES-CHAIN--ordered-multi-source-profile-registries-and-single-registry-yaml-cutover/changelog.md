@@ -79,3 +79,27 @@ Implemented GP-31 core runtime behavior across geppetto and pinocchio with phase
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/main.go — Web-chat chain startup from `profile-registries`
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy.go — Runtime resolver without registry switching
 - /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go — Read-only write error mapping
+
+## 2026-02-25
+
+Follow-up implementation completed remaining near-term GP-31 validation/API behavior gaps.
+
+### What changed
+
+- Added explicit duplicate registry slug test coverage for chain startup validation.
+- Updated web-chat profile API to:
+  - list profiles across all loaded registries when `registry` is omitted,
+  - get profile by slug across loaded registries when `registry` is omitted,
+  - preserve existing response contract shape for list items.
+- Updated GP-31 tasks status to mark completed test and list/get coverage items.
+
+### Commits
+
+- `bc338dd` (geppetto) — `profiles: add duplicate registry slug chain test`
+- `10815ea` (pinocchio) — `web-chat: list and get profiles across loaded registries`
+
+### Related Files
+
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/source_chain_test.go — Duplicate slug rejection test
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go — Cross-registry list/get behavior
+- /home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go — API behavior assertions for loaded multi-registry sources

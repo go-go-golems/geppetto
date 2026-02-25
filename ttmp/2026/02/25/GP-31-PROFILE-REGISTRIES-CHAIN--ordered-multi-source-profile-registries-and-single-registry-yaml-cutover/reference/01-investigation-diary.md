@@ -21,7 +21,7 @@ RelatedFiles:
       Note: Existing CRUD registry selection behavior analyzed for GP-31 scope
 ExternalSources: []
 Summary: Diary for scoping and documenting GP-31 ordered source-chain registry loading design.
-LastUpdated: 2026-02-25T17:05:00-05:00
+LastUpdated: 2026-02-25T17:15:00-05:00
 WhatFor: Capture rationale and decisions for GP-31 planning deliverable.
 WhenToUse: Use when reviewing why GP-31 is structured the way it is and what tradeoffs were accepted.
 ---
@@ -458,6 +458,133 @@ The tricky part was test fixture migration:
 
 1. Read-only source writes now fail as `403` through profile API mapping.
 2. Runtime resolver still accepts payloads containing `registry_slug`, but it no longer uses them for profile selection.
+
+## Step 7: Add explicit duplicate-slug chain startup test
+
+This step closed a remaining validation gap by adding focused coverage for duplicate registry slug rejection across source chains.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** keep implementing remaining open checklist items, not only the large architecture pieces.
+
+**Inferred user intent:** ensure the hard-cut runtime model is fully validated by tests.
+
+**Commit (code):** `bc338dd` — `profiles: add duplicate registry slug chain test`
+
+### What I did
+
+1. Added `TestChainedRegistry_RejectsDuplicateRegistrySlugsAcrossSources` in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/source_chain_test.go`.
+2. Marked the corresponding GP-31 task as completed.
+
+### Why
+
+1. Duplicate slug rejection is a critical startup invariant for deterministic routing.
+
+### What worked
+
+1. Coverage now explicitly guards the startup error path that was previously implicit in implementation code.
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+1. Explicit invariant tests prevent accidental “first source wins” regressions in future refactors.
+
+### What was tricky to build
+
+Very low complexity; the only care point was generating two valid runtime YAML source files with identical slugs.
+
+### What warrants a second pair of eyes
+
+1. Error message wording consistency for operator-facing diagnostics across all startup failure paths.
+
+### What should be done in the future
+
+N/A
+
+### Code review instructions
+
+1. Review:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/geppetto/pkg/profiles/source_chain_test.go`
+2. Validate:
+   - `go test ./pkg/profiles -count=1`
+
+### Technical details
+
+1. Test asserts `NewChainedRegistryFromSourceSpecs` error contains `duplicate registry slug`.
+
+## Step 8: Expand web-chat profile API list/get across loaded registries
+
+This step addressed GP-31 CRUD-read scope by making profile list/get work across all loaded registries when callers do not specify a `registry` selector.
+
+The implementation preserved list response shape to avoid contract regressions in existing app-owned integration tests.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** keep closing remaining GP-31 runtime gaps in consumer surfaces.
+
+**Inferred user intent:** make multi-registry runs operational in web-chat without requiring registry selection for read paths.
+
+**Commit (code):** `10815ea` — `web-chat: list and get profiles across loaded registries`
+
+### What I did
+
+1. Updated `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go`:
+   - `/api/chat/profiles` GET now aggregates from all loaded registries when `registry` is absent,
+   - `/api/chat/profiles/{slug}` GET now searches across loaded registries when `registry` is absent.
+2. Added/updated tests in:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go`
+   - `TestProfileAPI_ListAndGetAcrossLoadedRegistriesWhenRegistryUnset`.
+
+### Why
+
+1. Operators should be able to inspect loaded profiles without knowing registry ownership upfront.
+
+### What worked
+
+1. Cross-registry read behavior now works with chain-backed resolver fixtures.
+2. Existing contract-shape guard tests remained green after preserving list item schema.
+
+### What didn't work
+
+1. Initial implementation added a new `registry` field to list items and broke contract tests:
+   - failing test: `TestAppOwnedProfileAPI_CRUDLifecycle_ContractShape`,
+   - error: `unexpected profile API contract key: registry`.
+2. Fixed by keeping list item schema unchanged and returning only slug-scoped entries.
+
+### What I learned
+
+1. GP-31 behavior changes still need to respect established HTTP contract guardrails unless explicitly versioned.
+
+### What was tricky to build
+
+The tricky part was balancing multi-registry visibility with compatibility:
+
+1. needed aggregate behavior for list/get,
+2. could not expand list item schema without failing downstream contract tests.
+
+### What warrants a second pair of eyes
+
+1. Ambiguity for duplicate slugs across registries in list responses (shape intentionally unchanged for now).
+
+### What should be done in the future
+
+1. Consider adding an explicit “list registries” endpoint or versioned list schema with registry identifiers.
+
+### Code review instructions
+
+1. Review:
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/pkg/webchat/http/profile_api.go`
+   - `/home/manuel/workspaces/2026-02-24/geppetto-profile-registry-js/pinocchio/cmd/web-chat/profile_policy_test.go`
+2. Validate:
+   - `go test ./cmd/web-chat ./pkg/webchat/http -count=1`
 
 ## Related
 

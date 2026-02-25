@@ -48,7 +48,7 @@
 
 ## Phase 6 - Web-chat CRUD behavior
 
-- [ ] Ensure list/get include all loaded registries.
+- [x] Ensure list/get include all loaded registries.
 - [x] Ensure create/update/delete/default-set route by registry owner.
 - [x] Ensure write attempts against read-only sources fail consistently.
 
