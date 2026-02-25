@@ -16,7 +16,7 @@
 ## Follow-up Implementation (Not Executed in this research ticket)
 
 - [x] Rebase GP-21 implementation tasks to GP-31 runtime contract (stack-based lookup, no runtime registry selector path).
-- [ ] Implement `gp.profiles` namespace in `pkg/js/modules/geppetto`.
+- [x] Implement `gp.profiles` namespace in `pkg/js/modules/geppetto`.
 - [ ] Implement `gp.schemas` namespace in `pkg/js/modules/geppetto`.
 - [ ] Extend JS module `Options` to inject profile registry and schema providers.
 - [x] Remove runtime registry selector inputs from JS runtime APIs (`engines.fromProfile` options and any factory runtime input registry field).

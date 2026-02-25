@@ -640,6 +640,112 @@ func TestEnginesFromProfileRequiresProfileRegistry(t *testing.T) {
 	`)
 }
 
+func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const registries = gp.profiles.listRegistries();
+		if (!Array.isArray(registries) || registries.length !== 1) throw new Error("expected one registry");
+		if (registries[0].slug !== "default") throw new Error("registry slug mismatch");
+
+		const registry = gp.profiles.getRegistry();
+		if (registry.slug !== "default") throw new Error("getRegistry default mismatch");
+
+		const profiles = gp.profiles.listProfiles("default");
+		if (!Array.isArray(profiles) || profiles.length < 2) throw new Error("listProfiles mismatch");
+
+		const explicit = gp.profiles.getProfile("explicit-model");
+		if (!explicit || explicit.slug !== "explicit-model") throw new Error("getProfile mismatch");
+
+		const resolved = gp.profiles.resolve({
+			profileSlug: "explicit-model",
+			runtimeKeyFallback: "explicit-model-runtime",
+		});
+		if (resolved.registrySlug !== "default") throw new Error("resolve registry mismatch");
+		if (resolved.profileSlug !== "explicit-model") throw new Error("resolve profile mismatch");
+		if (resolved.runtimeKey !== "explicit-model-runtime") throw new Error("resolve runtime key mismatch");
+		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
+			throw new Error("resolve runtime fingerprint missing");
+		}
+		if (!resolved.effectiveRuntime || !resolved.effectiveRuntime.step_settings_patch) {
+			throw new Error("resolve effectiveRuntime payload missing");
+		}
+
+		const created = gp.profiles.createProfile(
+			{
+				slug: "ops",
+				display_name: "Ops",
+				description: "Ops profile",
+				runtime: {
+					system_prompt: "You are operations support",
+				},
+			},
+			{ registrySlug: "default", write: { actor: "test-js", source: "module-test" } },
+		);
+		if (!created || created.slug !== "ops") throw new Error("createProfile mismatch");
+
+		const updated = gp.profiles.updateProfile(
+			"ops",
+			{ description: "Ops profile updated" },
+			{ registrySlug: "default", write: { actor: "test-js", source: "module-test" } },
+		);
+		if (!updated || updated.description !== "Ops profile updated") throw new Error("updateProfile mismatch");
+
+		gp.profiles.setDefaultProfile("ops", {
+			registrySlug: "default",
+			write: { actor: "test-js", source: "module-test" },
+		});
+		const updatedRegistry = gp.profiles.getRegistry("default");
+		if (updatedRegistry.default_profile_slug !== "ops") throw new Error("setDefaultProfile mismatch");
+
+		gp.profiles.deleteProfile("ops", {
+			registrySlug: "default",
+			write: { actor: "test-js", source: "module-test" },
+		});
+		let deleted = false;
+		try {
+			gp.profiles.getProfile("ops", "default");
+		} catch (e) {
+			deleted = /profile not found/i.test(String(e));
+		}
+		if (!deleted) throw new Error("deleteProfile mismatch");
+	`)
+}
+
+func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.profiles.listRegistries();
+		} catch (e) {
+			threw = /configured profile registry/i.test(String(e));
+		}
+		if (!threw) throw new Error("profiles API should require configured registry");
+	`)
+}
+
+func TestProfilesNamespaceCreateRequiresWritableRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: readOnlyProfileRegistry{reader: mustNewJSProfileRegistry(t)},
+	})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.profiles.createProfile({ slug: "ops" });
+		} catch (e) {
+			threw = /writable profile registry/i.test(String(e));
+		}
+		if (!threw) throw new Error("profiles.createProfile should require writable registry");
+	`)
+}
+
 func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
 		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
@@ -913,6 +1019,30 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 		t.Fatalf("NewStoreRegistry failed: %v", err)
 	}
 	return registry
+}
+
+type readOnlyProfileRegistry struct {
+	reader gepprofiles.RegistryReader
+}
+
+func (r readOnlyProfileRegistry) ListRegistries(ctx context.Context) ([]gepprofiles.RegistrySummary, error) {
+	return r.reader.ListRegistries(ctx)
+}
+
+func (r readOnlyProfileRegistry) GetRegistry(ctx context.Context, registrySlug gepprofiles.RegistrySlug) (*gepprofiles.ProfileRegistry, error) {
+	return r.reader.GetRegistry(ctx, registrySlug)
+}
+
+func (r readOnlyProfileRegistry) ListProfiles(ctx context.Context, registrySlug gepprofiles.RegistrySlug) ([]*gepprofiles.Profile, error) {
+	return r.reader.ListProfiles(ctx, registrySlug)
+}
+
+func (r readOnlyProfileRegistry) GetProfile(ctx context.Context, registrySlug gepprofiles.RegistrySlug, profileSlug gepprofiles.ProfileSlug) (*gepprofiles.Profile, error) {
+	return r.reader.GetProfile(ctx, registrySlug, profileSlug)
+}
+
+func (r readOnlyProfileRegistry) ResolveEffectiveProfile(ctx context.Context, in gepprofiles.ResolveInput) (*gepprofiles.ResolvedProfile, error) {
+	return r.reader.ResolveEffectiveProfile(ctx, in)
 }
 
 func mustNewJSGeminiProfileRegistry(t *testing.T) gepprofiles.RegistryReader {

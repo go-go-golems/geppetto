@@ -32,7 +32,7 @@ RelatedFiles:
       Note: Captured runtime API inventory output
 ExternalSources: []
 Summary: Chronological research log for JS parity gap between Go profile/schema capabilities and require("geppetto") bindings.
-LastUpdated: 2026-02-25T17:51:47-05:00
+LastUpdated: 2026-02-25T17:56:38-05:00
 WhatFor: Replayable research trail with commands, findings, and decisions.
 WhenToUse: Use when implementing GP-21 follow-up code or validating assumptions from the analysis.
 ---
@@ -532,6 +532,62 @@ Results:
 
 1. `go generate` completed with no errors.
 2. `go test` passed for `pkg/js/modules/geppetto`.
+
+### Step 18: Phase 2 implementation - add `gp.profiles` namespace with read/resolve/CRUD
+
+Prompt context:
+
+**User prompt (verbatim):** `ok continue`
+
+**Assistant interpretation:** Proceed with next GP-21 implementation task and keep task-by-task commits plus detailed diary.
+
+**Inferred user intent:** Continue directly into the next major API slice after the `fromProfile` cutover step.
+
+Actions:
+
+1. Added new runtime API implementation:
+   - `pkg/js/modules/geppetto/api_profiles.go`
+   - implemented:
+     - `profiles.listRegistries()`
+     - `profiles.getRegistry(registrySlug?)`
+     - `profiles.listProfiles(registrySlug?)`
+     - `profiles.getProfile(profileSlug, registrySlug?)`
+     - `profiles.resolve(input?)`
+     - `profiles.createProfile(profile, opts?)`
+     - `profiles.updateProfile(profileSlug, patch, opts?)`
+     - `profiles.deleteProfile(profileSlug, opts?)`
+     - `profiles.setDefaultProfile(profileSlug, opts?)`
+   - added helper decoding/parsing for slugs, write options, profile payloads, and resolved-profile encoding.
+2. Wired the namespace in module export setup:
+   - `pkg/js/modules/geppetto/module.go`
+   - added `profiles` export object and method bindings.
+3. Extended module options/runtime wiring for mutation support:
+   - added optional `ProfileRegistryWriter` in module options.
+   - default writer fallback: if `ProfileRegistry` also implements `profiles.RegistryWriter`, runtime uses it automatically.
+4. Added focused JS module tests:
+   - `pkg/js/modules/geppetto/module_test.go`
+   - coverage for:
+     - read + resolve + CRUD happy path,
+     - missing configured registry error behavior,
+     - non-writable registry error behavior for create/update/delete/set-default paths.
+5. Updated TypeScript template + generated typings:
+   - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+   - `pkg/doc/types/geppetto.d.ts`
+   - added profile payload interfaces and `profiles` namespace signatures.
+6. Updated GP-21 task checklist:
+   - marked `Implement gp.profiles namespace` as complete.
+
+Validation commands:
+
+```bash
+go generate ./pkg/js/modules/geppetto
+go test ./pkg/js/modules/geppetto -count=1
+```
+
+Results:
+
+1. `go generate` succeeded.
+2. JS module test package passed with the new profiles API coverage.
 
 ## Usage Examples
 

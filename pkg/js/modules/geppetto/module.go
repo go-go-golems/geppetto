@@ -36,6 +36,7 @@ type Options struct {
 	GoToolRegistry        tools.ToolRegistry
 	GoMiddlewareFactories map[string]MiddlewareFactory
 	ProfileRegistry       profiles.RegistryReader
+	ProfileRegistryWriter profiles.RegistryWriter
 	DefaultEventSinks     []events.EventSink
 	DefaultSnapshotHook   toolloop.SnapshotHook
 	DefaultPersister      enginebuilder.TurnPersister
@@ -66,6 +67,7 @@ type moduleRuntime struct {
 	goToolRegistry        tools.ToolRegistry
 	goMiddlewareFactories map[string]MiddlewareFactory
 	profileRegistry       profiles.RegistryReader
+	profileRegistryWriter profiles.RegistryWriter
 	defaultEventSinks     []events.EventSink
 	defaultSnapshotHook   toolloop.SnapshotHook
 	defaultPersister      enginebuilder.TurnPersister
@@ -83,9 +85,15 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		goToolRegistry:        opts.GoToolRegistry,
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
 		profileRegistry:       opts.ProfileRegistry,
+		profileRegistryWriter: opts.ProfileRegistryWriter,
 		defaultEventSinks:     append([]events.EventSink(nil), opts.DefaultEventSinks...),
 		defaultSnapshotHook:   opts.DefaultSnapshotHook,
 		defaultPersister:      opts.DefaultPersister,
+	}
+	if m.profileRegistryWriter == nil {
+		if rw, ok := opts.ProfileRegistry.(profiles.RegistryWriter); ok {
+			m.profileRegistryWriter = rw
+		}
 	}
 	if m.runner != nil {
 		m.bridge = runtimebridge.New(m.runner)
@@ -130,6 +138,18 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(enginesObj, "fromConfig", m.engineFromConfig)
 	m.mustSet(enginesObj, "fromFunction", m.engineFromFunction)
 	m.mustSet(exports, "engines", enginesObj)
+
+	profilesObj := m.vm.NewObject()
+	m.mustSet(profilesObj, "listRegistries", m.profilesListRegistries)
+	m.mustSet(profilesObj, "getRegistry", m.profilesGetRegistry)
+	m.mustSet(profilesObj, "listProfiles", m.profilesListProfiles)
+	m.mustSet(profilesObj, "getProfile", m.profilesGetProfile)
+	m.mustSet(profilesObj, "resolve", m.profilesResolve)
+	m.mustSet(profilesObj, "createProfile", m.profilesCreateProfile)
+	m.mustSet(profilesObj, "updateProfile", m.profilesUpdateProfile)
+	m.mustSet(profilesObj, "deleteProfile", m.profilesDeleteProfile)
+	m.mustSet(profilesObj, "setDefaultProfile", m.profilesSetDefaultProfile)
+	m.mustSet(exports, "profiles", profilesObj)
 
 	mwsObj := m.vm.NewObject()
 	m.mustSet(mwsObj, "fromJS", m.middlewareFromJS)

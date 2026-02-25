@@ -132,6 +132,117 @@ declare module "geppetto" {
         requestOverrides?: Record<string, any>;
     }
 
+    export interface RegistrySummary {
+        slug: string;
+        display_name?: string;
+        default_profile_slug?: string;
+        profile_count: number;
+    }
+
+    export interface ProfileRef {
+        registry_slug?: string;
+        profile_slug: string;
+    }
+
+    export interface MiddlewareUse {
+        name: string;
+        id?: string;
+        enabled?: boolean;
+        config?: any;
+    }
+
+    export interface RuntimeSpec {
+        step_settings_patch?: Record<string, any>;
+        system_prompt?: string;
+        middlewares?: MiddlewareUse[];
+        tools?: string[];
+    }
+
+    export interface PolicySpec {
+        allow_overrides?: boolean;
+        allowed_override_keys?: string[];
+        denied_override_keys?: string[];
+        read_only?: boolean;
+    }
+
+    export interface ProfileMetadata {
+        source?: string;
+        version?: number;
+        created_at_ms?: number;
+        updated_at_ms?: number;
+        created_by?: string;
+        updated_by?: string;
+        tags?: string[];
+    }
+
+    export interface RegistryMetadata {
+        source?: string;
+        version?: number;
+        created_at_ms?: number;
+        updated_at_ms?: number;
+        created_by?: string;
+        updated_by?: string;
+        tags?: string[];
+    }
+
+    export interface Profile {
+        slug: string;
+        display_name?: string;
+        description?: string;
+        stack?: ProfileRef[];
+        runtime?: RuntimeSpec;
+        policy?: PolicySpec;
+        metadata?: ProfileMetadata;
+        extensions?: Record<string, any>;
+    }
+
+    export interface ProfileRegistry {
+        slug: string;
+        display_name?: string;
+        description?: string;
+        default_profile_slug?: string;
+        profiles?: Record<string, Profile>;
+        metadata?: RegistryMetadata;
+    }
+
+    export interface ProfilePatch {
+        display_name?: string;
+        description?: string;
+        runtime?: RuntimeSpec;
+        policy?: PolicySpec;
+        metadata?: ProfileMetadata;
+        extensions?: Record<string, any>;
+    }
+
+    export interface ProfileWriteOptions {
+        expectedVersion?: number;
+        actor?: string;
+        source?: string;
+    }
+
+    export interface ProfileMutationOptions {
+        registrySlug?: string;
+        write?: ProfileWriteOptions;
+    }
+
+    export interface ResolveInput {
+        registrySlug?: string;
+        profileSlug?: string;
+        runtimeKeyFallback?: string;
+        runtimeKey?: string;
+        requestOverrides?: Record<string, any>;
+    }
+
+    export interface ResolvedProfile {
+        registrySlug: string;
+        profileSlug: string;
+        runtimeKey: string;
+        runtimeFingerprint: string;
+        effectiveRuntime: RuntimeSpec;
+        effectiveStepSettings?: Record<string, any>;
+        metadata?: Record<string, any>;
+    }
+
     export interface ToolHookCallInfo {
         id: string;
         name: string;
@@ -327,6 +438,18 @@ declare module "geppetto" {
         fromProfile(profile?: string, options?: ProfileEngineOptions): Engine;
         fromConfig(options: EngineOptions): Engine;
         fromFunction(fn: (turn: Turn) => Turn | void): Engine;
+    };
+
+    export const profiles: {
+        listRegistries(): RegistrySummary[];
+        getRegistry(registrySlug?: string): ProfileRegistry;
+        listProfiles(registrySlug?: string): Profile[];
+        getProfile(profileSlug: string, registrySlug?: string): Profile;
+        resolve(input?: ResolveInput): ResolvedProfile;
+        createProfile(profile: Profile, options?: ProfileMutationOptions): Profile;
+        updateProfile(profileSlug: string, patch: ProfilePatch, options?: ProfileMutationOptions): Profile;
+        deleteProfile(profileSlug: string, options?: ProfileMutationOptions): void;
+        setDefaultProfile(profileSlug: string, options?: ProfileMutationOptions): void;
     };
 
     export const middlewares: {
