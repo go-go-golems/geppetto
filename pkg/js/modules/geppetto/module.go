@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	"github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -34,6 +35,7 @@ type Options struct {
 	Runner                runtimeowner.Runner
 	GoToolRegistry        tools.ToolRegistry
 	GoMiddlewareFactories map[string]MiddlewareFactory
+	ProfileRegistry       profiles.RegistryReader
 	DefaultEventSinks     []events.EventSink
 	DefaultSnapshotHook   toolloop.SnapshotHook
 	DefaultPersister      enginebuilder.TurnPersister
@@ -63,6 +65,7 @@ type moduleRuntime struct {
 
 	goToolRegistry        tools.ToolRegistry
 	goMiddlewareFactories map[string]MiddlewareFactory
+	profileRegistry       profiles.RegistryReader
 	defaultEventSinks     []events.EventSink
 	defaultSnapshotHook   toolloop.SnapshotHook
 	defaultPersister      enginebuilder.TurnPersister
@@ -79,6 +82,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		logger:                lg,
 		goToolRegistry:        opts.GoToolRegistry,
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
+		profileRegistry:       opts.ProfileRegistry,
 		defaultEventSinks:     append([]events.EventSink(nil), opts.DefaultEventSinks...),
 		defaultSnapshotHook:   opts.DefaultSnapshotHook,
 		defaultPersister:      opts.DefaultPersister,

@@ -1,6 +1,7 @@
 package geppetto
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/profiles"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
@@ -230,6 +232,9 @@ func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
 	o := m.vm.NewObject()
 	m.attachRef(o, ref)
 	m.mustSet(o, "name", ref.Name)
+	if len(ref.Metadata) > 0 {
+		m.mustSet(o, "metadata", cloneJSONMap(ref.Metadata))
+	}
 	return o
 }
 
@@ -257,11 +262,108 @@ func (m *moduleRuntime) engineFromProfile(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
 		opts = decodeMap(call.Arguments[1].Export())
 	}
-	ref, err := m.engineFromStepSettings(profile, opts, true)
+	ref, err := m.engineFromResolvedProfile(profile, opts)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
 	return m.newEngineObject(ref)
+}
+
+func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts map[string]any) (*engineRef, error) {
+	if m.profileRegistry == nil {
+		return nil, fmt.Errorf("engines.fromProfile requires a configured profile registry")
+	}
+
+	in := profiles.ResolveInput{}
+	if profile := strings.TrimSpace(explicitProfile); profile != "" {
+		parsedProfileSlug, err := profiles.ParseProfileSlug(profile)
+		if err != nil {
+			return nil, err
+		}
+		in.ProfileSlug = parsedProfileSlug
+	}
+	if opts != nil {
+		if registrySlugRaw := strings.TrimSpace(toString(opts["registrySlug"], "")); registrySlugRaw != "" {
+			parsedRegistrySlug, err := profiles.ParseRegistrySlug(registrySlugRaw)
+			if err != nil {
+				return nil, err
+			}
+			in.RegistrySlug = parsedRegistrySlug
+		}
+		if runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKey"], "")); runtimeKeyRaw != "" {
+			parsedRuntimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
+			if err != nil {
+				return nil, err
+			}
+			in.RuntimeKeyFallback = parsedRuntimeKey
+		}
+		if rawOverrides, ok := opts["requestOverrides"]; ok && rawOverrides != nil {
+			decoded := decodeMap(rawOverrides)
+			if decoded == nil {
+				return nil, fmt.Errorf("requestOverrides must be an object")
+			}
+			in.RequestOverrides = decoded
+		}
+	}
+
+	resolved, err := m.profileRegistry.ResolveEffectiveProfile(context.Background(), in)
+	if err != nil {
+		return nil, err
+	}
+	ss := resolved.EffectiveStepSettings.Clone()
+	ensureStepSettingsAPIKeyFromEnv(ss)
+	eng, err := enginefactory.NewEngineFromStepSettings(ss)
+	if err != nil {
+		return nil, err
+	}
+
+	return &engineRef{
+		Name:   fmt.Sprintf("profile:%s/%s", resolved.RegistrySlug, resolved.ProfileSlug),
+		Engine: eng,
+		Metadata: map[string]any{
+			"profileRegistry":    resolved.RegistrySlug.String(),
+			"profileSlug":        resolved.ProfileSlug.String(),
+			"runtimeFingerprint": resolved.RuntimeFingerprint,
+			"resolvedMetadata":   cloneJSONMap(resolved.Metadata),
+		},
+	}, nil
+}
+
+func ensureStepSettingsAPIKeyFromEnv(ss *aistepssettings.StepSettings) {
+	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
+		return
+	}
+	apiType := *ss.Chat.ApiType
+	key := inferAPIKeyFromEnv(apiType)
+	if strings.TrimSpace(key) == "" {
+		return
+	}
+	if ss.API.APIKeys == nil {
+		ss.API.APIKeys = map[string]string{}
+	}
+
+	switch apiType {
+	case aitypes.ApiTypeOpenAIResponses:
+		if _, ok := ss.API.APIKeys["openai-api-key"]; !ok {
+			ss.API.APIKeys["openai-api-key"] = key
+		}
+		if _, ok := ss.API.APIKeys["openai-responses-api-key"]; !ok {
+			ss.API.APIKeys["openai-responses-api-key"] = key
+		}
+	case aitypes.ApiTypeOpenAI, aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
+		apiKeyName := string(apiType) + "-api-key"
+		if _, ok := ss.API.APIKeys[apiKeyName]; !ok {
+			ss.API.APIKeys[apiKeyName] = key
+		}
+		if _, ok := ss.API.APIKeys["openai-api-key"]; !ok {
+			ss.API.APIKeys["openai-api-key"] = key
+		}
+	case aitypes.ApiTypeGemini, aitypes.ApiTypeClaude, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
+		apiKeyName := string(apiType) + "-api-key"
+		if _, ok := ss.API.APIKeys[apiKeyName]; !ok {
+			ss.API.APIKeys[apiKeyName] = key
+		}
+	}
 }
 
 func (m *moduleRuntime) engineFromConfig(call goja.FunctionCall) goja.Value {

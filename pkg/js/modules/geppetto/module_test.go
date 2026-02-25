@@ -11,6 +11,7 @@ import (
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
@@ -587,30 +588,23 @@ func TestStartWithJSEngineAndMiddleware(t *testing.T) {
 }
 
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
-	t.Setenv("PINOCCHIO_PROFILE", "env-profile-model")
-	rt := newJSRuntime(t, Options{})
+	t.Setenv("OPENAI_API_KEY", "test-openai-key")
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 
-		const explicit = gp.engines.fromProfile("explicit-model", {
-			profile: "opts-model",
-			apiType: "openai",
-			apiKey: "test-openai-key"
-		});
-		if (explicit.name !== "profile:explicit-model") throw new Error("explicit profile precedence mismatch");
+		const explicit = gp.engines.fromProfile("explicit-model");
+		if (explicit.name !== "profile:default/explicit-model") throw new Error("explicit profile resolve mismatch");
 
-		const optsProfile = gp.engines.fromProfile(undefined, {
-			profile: "opts-model",
-			apiType: "openai",
-			apiKey: "test-openai-key"
-		});
-		if (optsProfile.name !== "profile:opts-model") throw new Error("options profile precedence mismatch");
+		const defaultProfile = gp.engines.fromProfile(undefined);
+		if (defaultProfile.name !== "profile:default/default-model") throw new Error("default profile resolve mismatch");
 
-		const envProfile = gp.engines.fromProfile(undefined, {
-			apiType: "openai",
-			apiKey: "test-openai-key"
+		const shared = gp.engines.fromProfile("shared-model", {
+			registrySlug: "shared"
 		});
-		if (envProfile.name !== "profile:env-profile-model") throw new Error("env profile precedence mismatch");
+		if (shared.name !== "profile:shared/shared-model") throw new Error("cross-registry profile resolve mismatch");
 
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
@@ -629,6 +623,20 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	`)
 }
 
+func TestEnginesFromProfileRequiresProfileRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.engines.fromProfile("any");
+		} catch (e) {
+			threw = /profile registry/i.test(String(e));
+		}
+		if (!threw) throw new Error("fromProfile should throw when no profile registry is configured");
+	`)
+}
+
 func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
 		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
@@ -636,13 +644,13 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") == "" {
 		t.Skip("skipping gemini integration test: GEMINI_API_KEY/GOOGLE_API_KEY not set")
 	}
-	rt := newJSRuntime(t, Options{})
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSGeminiProfileRegistry(t),
+	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const s = gp.createSession({
-			engine: gp.engines.fromProfile("gemini-2.5-flash-lite", {
-				apiType: "gemini"
-			})
+			engine: gp.engines.fromProfile("gemini-2.5-flash-lite")
 		});
 		s.append(gp.turns.newTurn({
 			blocks: [gp.turns.newUserBlock("Reply with exactly READY.")]
@@ -856,4 +864,102 @@ func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 		const errE = String(useE.payload && useE.payload.error || "");
 		if (!/beforeToolCall hook/i.test(errE)) throw new Error("scenario E: expected beforeToolCall hook error");
 	`)
+}
+
+func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+	t.Helper()
+	store := gepprofiles.NewInMemoryProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("default"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("default-model"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("default-model"): {
+				Slug: gepprofiles.MustProfileSlug("default-model"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gpt-4o-mini",
+							"ai-api-type": "openai",
+						},
+						"api": map[string]any{
+							"openai-api-key": "test-openai-key",
+						},
+					},
+				},
+			},
+			gepprofiles.MustProfileSlug("explicit-model"): {
+				Slug: gepprofiles.MustProfileSlug("explicit-model"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gpt-4o",
+							"ai-api-type": "openai",
+						},
+						"api": map[string]any{
+							"openai-api-key": "test-openai-key",
+						},
+					},
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(default) failed: %v", err)
+	}
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("shared"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("shared-model"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("shared-model"): {
+				Slug: gepprofiles.MustProfileSlug("shared-model"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gpt-4.1-mini",
+							"ai-api-type": "openai",
+						},
+						"api": map[string]any{
+							"openai-api-key": "test-openai-key",
+						},
+					},
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(shared) failed: %v", err)
+	}
+
+	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	return registry
+}
+
+func mustNewJSGeminiProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+	t.Helper()
+	store := gepprofiles.NewInMemoryProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("default"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"): {
+				Slug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gemini-2.5-flash-lite",
+							"ai-api-type": "gemini",
+						},
+					},
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(default gemini) failed: %v", err)
+	}
+	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	return registry
 }
