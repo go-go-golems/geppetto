@@ -601,10 +601,13 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 		const defaultProfile = gp.engines.fromProfile(undefined);
 		if (defaultProfile.name !== "profile:default/default-model") throw new Error("default profile resolve mismatch");
 
-		const shared = gp.engines.fromProfile("shared-model", {
-			registrySlug: "shared"
-		});
-		if (shared.name !== "profile:shared/shared-model") throw new Error("cross-registry profile resolve mismatch");
+		let threwLegacyRegistry = false;
+		try {
+			gp.engines.fromProfile("default-model", { registrySlug: "shared" });
+		} catch (e) {
+			threwLegacyRegistry = /registryslug has been removed/i.test(String(e));
+		}
+		if (!threwLegacyRegistry) throw new Error("legacy registrySlug option should fail with migration error");
 
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
@@ -905,29 +908,6 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
 		t.Fatalf("UpsertRegistry(default) failed: %v", err)
 	}
-	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
-		Slug:               gepprofiles.MustRegistrySlug("shared"),
-		DefaultProfileSlug: gepprofiles.MustProfileSlug("shared-model"),
-		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
-			gepprofiles.MustProfileSlug("shared-model"): {
-				Slug: gepprofiles.MustProfileSlug("shared-model"),
-				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gpt-4.1-mini",
-							"ai-api-type": "openai",
-						},
-						"api": map[string]any{
-							"openai-api-key": "test-openai-key",
-						},
-					},
-				},
-			},
-		},
-	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
-		t.Fatalf("UpsertRegistry(shared) failed: %v", err)
-	}
-
 	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("NewStoreRegistry failed: %v", err)

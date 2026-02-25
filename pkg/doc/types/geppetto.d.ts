@@ -128,7 +128,6 @@ declare module "geppetto" {
     }
 
     export interface ProfileEngineOptions {
-        registrySlug?: string;
         runtimeKey?: string;
         requestOverrides?: Record<string, any>;
     }

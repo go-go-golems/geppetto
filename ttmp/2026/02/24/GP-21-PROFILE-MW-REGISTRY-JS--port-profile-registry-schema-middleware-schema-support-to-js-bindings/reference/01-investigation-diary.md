@@ -32,7 +32,7 @@ RelatedFiles:
       Note: Captured runtime API inventory output
 ExternalSources: []
 Summary: Chronological research log for JS parity gap between Go profile/schema capabilities and require("geppetto") bindings.
-LastUpdated: 2026-02-25T00:00:00Z
+LastUpdated: 2026-02-25T17:51:47-05:00
 WhatFor: Replayable research trail with commands, findings, and decisions.
 WhenToUse: Use when implementing GP-21 follow-up code or validating assumptions from the analysis.
 ---
@@ -458,6 +458,80 @@ docmgr doc relate --doc <index-doc> --file-note ...
 docmgr changelog update --ticket GP-21-PROFILE-MW-REGISTRY-JS --entry ...
 docmgr doctor --ticket GP-21-PROFILE-MW-REGISTRY-JS --stale-after 30
 ```
+
+### Step 16: Rebase GP-21 ticket surface to GP-31 stack-first runtime contract
+
+Prompt context:
+
+**User prompt (verbatim):** `update GP-21 for the new surface.`
+
+**Assistant interpretation:** Update GP-21 ticket artifacts so JS API design/tasks match the latest runtime surface after GP-31 profile-registry chain hard cutover.
+
+**Inferred user intent:** Ensure GP-21 implementation work starts from the correct API contract (no stale selector/fallback semantics).
+
+Actions:
+
+1. Updated final design doc:
+   - `design-doc/02-unified-final-js-api-design-inference-first.md`
+   - removed runtime registry selector field from factory runtime input design,
+   - removed runtime `registrySlug` selector assumptions for `engines.fromProfile`,
+   - aligned host wiring + phased tasks with GP-31 stack-first runtime semantics.
+2. Updated historical design doc with explicit GP-31 alignment note:
+   - `design-doc/01-profile-registry-middleware-schema-parity-analysis-for-js-bindings.md`
+3. Updated implementation task checklist:
+   - `tasks.md`
+   - added explicit follow-up item to remove `registrySlug` from JS runtime API options/types.
+4. Updated cookbook examples for new surface:
+   - `reference/02-geppetto-js-api-scripts-cookbook-old-and-new.md`
+   - removed runtime registry selector usage from hard-cutover `fromProfile` examples.
+5. Updated index/changelog metadata:
+   - `index.md`
+   - `changelog.md`
+
+Validation commands:
+
+```bash
+docmgr doctor --ticket GP-21-PROFILE-MW-REGISTRY-JS
+```
+
+### Step 17: Phase 1 implementation - remove runtime `registrySlug` selector from `engines.fromProfile`
+
+Prompt context:
+
+**User prompt (verbatim):** `ok, let's get to work. Update the tasks to match the new design if not already, add every missing task too, and then start working, task by task, committing as you go and keeping a detailed frequent diary`
+
+**Assistant interpretation:** Begin code implementation from GP-21 tasks, commit incrementally, and keep detailed diary updates.
+
+**Inferred user intent:** Execute hard-cutover JS API tasks immediately, starting with deterministic runtime-surface changes.
+
+Actions:
+
+1. Updated `pkg/js/modules/geppetto/api_engines.go`:
+   - removed runtime `registrySlug` input support from `engineFromResolvedProfile`,
+   - added explicit migration error if `options.registrySlug` is present.
+2. Updated `pkg/js/modules/geppetto/module_test.go`:
+   - removed cross-registry `fromProfile(..., { registrySlug })` success assertion,
+   - added assertion that legacy `registrySlug` option now throws a migration error.
+   - removed unused secondary test registry fixture setup from `mustNewJSProfileRegistry`.
+3. Updated JS type template:
+   - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+   - removed `registrySlug?: string` from `ProfileEngineOptions`.
+4. Regenerated generated type artifact:
+   - `pkg/doc/types/geppetto.d.ts`.
+5. Updated task tracking:
+   - marked runtime selector removal + `ProfileEngineOptions` cutover tasks complete in `tasks.md`.
+
+Validation commands:
+
+```bash
+go generate ./pkg/js/modules/geppetto
+go test ./pkg/js/modules/geppetto -count=1
+```
+
+Results:
+
+1. `go generate` completed with no errors.
+2. `go test` passed for `pkg/js/modules/geppetto`.
 
 ## Usage Examples
 

@@ -283,12 +283,8 @@ func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts m
 		in.ProfileSlug = parsedProfileSlug
 	}
 	if opts != nil {
-		if registrySlugRaw := strings.TrimSpace(toString(opts["registrySlug"], "")); registrySlugRaw != "" {
-			parsedRegistrySlug, err := profiles.ParseRegistrySlug(registrySlugRaw)
-			if err != nil {
-				return nil, err
-			}
-			in.RegistrySlug = parsedRegistrySlug
+		if _, hasRegistrySlug := opts["registrySlug"]; hasRegistrySlug {
+			return nil, fmt.Errorf("engines.fromProfile options.registrySlug has been removed; load profile registries in stack order and resolve by profile slug")
 		}
 		if runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKey"], "")); runtimeKeyRaw != "" {
 			parsedRuntimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
