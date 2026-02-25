@@ -1,0 +1,33 @@
+slug: team-agent
+display_name: Team profiles
+description: Team-level defaults and role profiles.
+profiles:
+  default:
+    slug: default
+    stack:
+      - registry_slug: provider-openai
+        profile_slug: default
+    runtime:
+      system_prompt: You are the team default assistant.
+  assistant:
+    slug: assistant
+    stack:
+      - profile_slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-4.1-mini
+      middlewares:
+        - name: retry
+          id: team-retry
+          config:
+            maxAttempts: 3
+  analyst:
+    slug: analyst
+    stack:
+      - profile_slug: assistant
+    runtime:
+      system_prompt: You are an analyst.
+      tools:
+        - go_double
+        - go_concat

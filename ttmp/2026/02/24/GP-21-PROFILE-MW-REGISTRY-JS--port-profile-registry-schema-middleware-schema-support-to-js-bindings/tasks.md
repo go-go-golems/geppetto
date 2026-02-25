@@ -24,3 +24,4 @@
 - [x] Extend JS type declarations and docs for new namespaces.
 - [x] Update cookbook examples for stack-only runtime selection (`engines.fromProfile("profile")` without runtime registry selector).
 - [x] Add JS module unit/integration tests for profile/schema APIs.
+- [x] Add runnable example script suite (`examples/js/geppetto/08-18`) and validate against stacked YAML registries, sqlite registries, and mixed stacks.

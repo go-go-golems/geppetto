@@ -32,7 +32,7 @@ RelatedFiles:
       Note: Captured runtime API inventory output
 ExternalSources: []
 Summary: Chronological research log for JS parity gap between Go profile/schema capabilities and require("geppetto") bindings.
-LastUpdated: 2026-02-25T18:01:58-05:00
+LastUpdated: 2026-02-25T18:12:38-05:00
 WhatFor: Replayable research trail with commands, findings, and decisions.
 WhenToUse: Use when implementing GP-21 follow-up code or validating assumptions from the analysis.
 ---
@@ -692,6 +692,79 @@ Results:
 
 1. `pkg/doc` tests passed.
 2. Ticket doctor reported all checks passing.
+
+### Step 21: Add full runnable JS example suite and validate across stacked registry modes
+
+Prompt context:
+
+**User prompt (verbatim):** `yes, please make a whole set of example scripts, and run them against multiple profiles and profile registries and such to make sure it all works as expected.`
+
+**Assistant interpretation:** Build concrete runnable JS examples for old and new surfaces and execute them against multiple registry setups (stacked YAML, sqlite, mixed).
+
+**Inferred user intent:** Move beyond API implementation into practical operator-grade validation scripts with proven execution outcomes.
+
+Actions:
+
+1. Extended JS lab host to support profile-registry experiments:
+   - `cmd/examples/geppetto-js-lab/main.go`
+   - added flags:
+     - `--profile-registries`
+     - `--seed-profile-sqlite`
+   - added runtime loading of chained profile registries via:
+     - `profiles.ParseProfileRegistrySourceEntries`
+     - `profiles.ParseRegistrySourceSpecs`
+     - `profiles.NewChainedRegistryFromSourceSpecs`
+   - wired `gp.Register` options for:
+     - `ProfileRegistry` / `ProfileRegistryWriter`,
+     - `MiddlewareSchemas`,
+     - `ExtensionCodecs`,
+     - `ExtensionSchemas`.
+   - added demo sqlite seed routine for writable registry scenarios.
+2. Added profile fixture registries (runtime YAML, one-file-one-registry):
+   - `examples/js/geppetto/profiles/10-provider-openai.yaml`
+   - `examples/js/geppetto/profiles/20-team-agent.yaml`
+   - `examples/js/geppetto/profiles/30-user-overrides.yaml`
+3. Added runnable JS scripts for profile/schema and cutover behavior:
+   - `examples/js/geppetto/08_profiles_registry_inventory.js`
+   - `examples/js/geppetto/09_profiles_resolve_stack_precedence.js`
+   - `examples/js/geppetto/10_engines_from_profile_metadata.js`
+   - `examples/js/geppetto/11_profiles_resolve_explicit_registry.js`
+   - `examples/js/geppetto/12_profiles_request_overrides_policy.js`
+   - `examples/js/geppetto/13_schemas_middlewares_catalog.js`
+   - `examples/js/geppetto/14_schemas_extensions_catalog.js`
+   - `examples/js/geppetto/15_profiles_crud_sqlite.js`
+   - `examples/js/geppetto/16_mixed_registry_precedence.js`
+   - `examples/js/geppetto/17_from_profile_legacy_registry_option_error.js`
+   - `examples/js/geppetto/18_missing_profile_registry_errors.js`
+4. Added suite runner script:
+   - `examples/js/geppetto/run_profile_registry_examples.sh`
+   - validates:
+     - baseline scripts (01-07),
+     - stacked YAML registries,
+     - sqlite registry CRUD,
+     - mixed YAML + sqlite precedence,
+     - expected error behavior without profile registry wiring.
+5. Added script index/readme:
+   - `examples/js/geppetto/README.md`
+6. Updated task checklist:
+   - marked runnable script-suite task complete.
+
+Validation commands:
+
+```bash
+go test ./cmd/examples/geppetto-js-lab ./pkg/js/modules/geppetto -count=1
+./examples/js/geppetto/run_profile_registry_examples.sh
+```
+
+Results:
+
+1. Host/build tests passed.
+2. Full script suite passed end-to-end after one policy-fixture adjustment (`mutable` profile for override-allowed demonstration).
+3. Verified execution across all required modes:
+   - stacked YAML registries,
+   - writable sqlite registry,
+   - mixed stack precedence,
+   - no-registry expected failures.
 
 ## Usage Examples
 
