@@ -109,17 +109,41 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 |---|---|---|
 | `echo` | `echo({reply?})` | Deterministic local engine |
 | `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
-| `fromProfile` | `fromProfile(profile?, opts?)` | Provider-backed engine from profile |
+| `fromProfile` | `fromProfile(profile?, opts?)` | Registry-backed engine resolution (hard cutover) |
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
-### `fromProfile` precedence
+### `fromProfile` semantics
 
-1. explicit `profile` argument
-2. `opts.profile`
-3. `PINOCCHIO_PROFILE`
-4. default `4o-mini`
+`fromProfile` resolves through `profiles.Registry.ResolveEffectiveProfile`.
 
-### `fromProfile` / `fromConfig` options
+Behavior:
+
+1. `profile` argument selects `ProfileSlug` (optional; falls back to registry default profile).
+2. `opts.registrySlug` selects the registry (optional; falls back to host default registry).
+3. `opts.runtimeKey` sets runtime-key fallback for profile resolution.
+4. `opts.requestOverrides` applies request-time runtime overrides (policy-gated).
+5. Host must configure `Options.ProfileRegistry`; otherwise `fromProfile` throws.
+
+Legacy model/env precedence is removed from `fromProfile`.
+
+### `fromProfile` options
+
+| Option | Type | Description |
+|---|---|---|
+| `registrySlug` | string | target registry slug |
+| `runtimeKey` | string | runtime-key fallback |
+| `requestOverrides` | object | request-time runtime overrides (policy-gated) |
+
+### `fromProfile` engine metadata payload
+
+| Field | Type | Description |
+|---|---|---|
+| `metadata.profileRegistry` | string | resolved registry slug |
+| `metadata.profileSlug` | string | resolved profile slug |
+| `metadata.runtimeFingerprint` | string | lineage-aware runtime fingerprint |
+| `metadata.resolvedMetadata` | object | resolver metadata including stack lineage/trace |
+
+### `fromConfig` options
 
 | Option | Type | Description |
 |---|---|---|
@@ -318,6 +342,7 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | Problem | Cause | Solution |
 |---|---|---|
 | `createSession requires options object with engine` | Missing engine | pass `{ engine: gp.engines.*(...) }` |
+| `engines.fromProfile requires a configured profile registry` | host did not pass `Options.ProfileRegistry` | configure module with a registry before using `fromProfile` |
 | `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
 | `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
 | `runAsync requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |

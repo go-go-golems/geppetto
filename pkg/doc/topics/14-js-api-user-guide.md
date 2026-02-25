@@ -118,6 +118,36 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 
 The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_API_KEY`).
 
+## Registry-Backed `fromProfile` (Hard Cutover)
+
+`gp.engines.fromProfile(...)` is now registry-backed and no longer uses model/env fallback semantics.
+
+Host requirement:
+
+- module registration must include `Options.ProfileRegistry`.
+
+Example:
+
+```javascript
+const gp = require("geppetto");
+
+const engine = gp.engines.fromProfile("assistant", {
+  registrySlug: "default",
+  runtimeKey: "chat",
+  requestOverrides: {
+    systemPrompt: "Answer tersely."
+  }
+});
+
+assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile runtime fingerprint");
+```
+
+`requestOverrides` are still policy-gated by merged profile policy:
+
+- disabled when `allow_overrides` is false,
+- denied for keys listed in `denied_override_keys`,
+- restricted to listed keys when `allowed_override_keys` is set.
+
 ## Recommended Iteration Loop
 
 1. Keep one script per behavior slice.
@@ -152,6 +182,7 @@ These map to the same runtime builder hooks:
 | Problem | Cause | Solution |
 |---|---|---|
 | `module geppetto not found` | host runtime did not register module | use `geppetto-js-lab` or register via `gp.Register(reg, opts)` |
+| `engines.fromProfile requires a configured profile registry` | host module options omitted profile registry | pass `Options.ProfileRegistry` at module registration |
 | `no go tool registry configured` | script calls `useGoTools` in host without Go registry | run with `geppetto-js-lab` or configure `Options.GoToolRegistry` |
 | tool loop does not execute | registry not bound to builder | call `.withTools(reg, { enabled: true })` |
 | recording hooks ignored | non-hook values passed into builder options | pass Go `TurnPersister` / `EventSink` / `SnapshotHook` references |
