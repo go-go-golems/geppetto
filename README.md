@@ -2,45 +2,67 @@
 
 ![Geppetto](geppetto.jpg)
 
-Geppetto is a Go toolkit for building LLM applications with:
+Geppetto is the runtime core for building LLM applications in Go.
+
+Current project direction is:
 
 - provider-agnostic inference engines,
-- tool calling and tool loop orchestration,
+- first-class tool calling and tool-loop orchestration,
 - middleware-based runtime composition,
-- typed turn/block data structures,
-- stackable profile registries (YAML + SQLite),
-- a native JavaScript API (`require("geppetto")`) via Goja.
+- typed turn/block data model,
+- hard-cutover profile registries with stack resolution and provenance,
+- native JavaScript bindings through Goja (`require("geppetto")`).
 
-It is the runtime foundation used by downstream apps such as pinocchio and go-go-os.
+This repository is primarily a library + examples repo. Downstream applications (for example pinocchio and go-go-os) consume Geppetto as runtime infrastructure.
 
-## What Geppetto Focuses On
+## Current Model (Important)
 
-- Runtime correctness over prompt-template sugar.
-- Strongly-typed inference/session/tooling primitives in Go.
-- Profile-first runtime selection with deterministic merge/fingerprint semantics.
-- Scriptable JS bindings for rapid prototyping and host embedding.
+Geppetto now uses a registry-first, profile-first runtime model:
 
-## Core Concepts
+- runtime config is resolved from profile registries (not ad-hoc legacy profile maps),
+- registry sources are stackable (`yaml`, SQLite file, `sqlite-dsn`),
+- top-of-stack precedence is deterministic,
+- request-time overrides are policy-gated,
+- resolved runtime includes stack lineage/trace metadata and runtime fingerprint.
 
-- `Turn` / `Block`: canonical conversation state model.
-- `Engine`: provider-facing inference abstraction.
-- `Session`: orchestration state (history + run lifecycle).
-- `Middleware`: composable runtime behavior around inference.
-- `ToolRegistry` + `toolloop`: tool calling execution and retries.
-- `ProfileRegistry`: durable runtime defaults/policy/provenance.
+There is no overlay abstraction in active runtime composition.
+There is no runtime `registrySlug` selector in `engines.fromProfile(...)`.
 
-## Profile Registries (Current Hard-Cut Model)
+## Core Runtime Building Blocks
 
-Runtime selection is registry-first:
+- `pkg/turns`: canonical conversation model (`Turn`, `Block`, typed keys).
+- `pkg/inference/engine`: provider engine interfaces and implementations.
+- `pkg/inference/toolloop`: orchestration loop for tool calls/results/retries.
+- `pkg/inference/middleware`: inference middleware pipeline.
+- `pkg/inference/session`: session lifecycle and history.
+- `pkg/profiles`: profile registries, stack resolution, policy, storage backends.
+- `pkg/js/modules/geppetto`: JS module exposed through Goja.
 
-- load one or more registry sources via `--profile-registries` (YAML, SQLite file, or sqlite-dsn),
-- choose `--profile` slug,
-- resolve through stack order (top of stack wins on collisions),
-- enforce policy-gated request overrides.
+## Profile Registries
 
-Single YAML file format is **one registry per file** (`slug` + `profiles`).
+Runtime registry sources are loaded via `profile-registries` (CLI flag, env, or config depending on host app).
 
-See:
+Supported source entries:
+
+- `path/to/registry.yaml`
+- `path/to/profiles.db`
+- `sqlite-dsn:file:./profiles.db?...`
+
+Single YAML format is one registry per file:
+
+```yaml
+slug: team
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-api-type: openai
+          ai-engine: gpt-4o-mini
+```
+
+For details:
 
 - [`pkg/doc/topics/01-profiles.md`](pkg/doc/topics/01-profiles.md)
 - [`pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`](pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md)
@@ -48,13 +70,13 @@ See:
 
 ## JavaScript API
 
-Geppetto exposes a native module for Goja:
+Geppetto exposes a native module inside Goja:
 
 ```javascript
 const gp = require("geppetto");
 ```
 
-Key namespaces:
+Main namespaces:
 
 - `gp.turns`
 - `gp.engines`
@@ -63,53 +85,73 @@ Key namespaces:
 - `gp.middlewares`
 - `gp.tools`
 
-Run scripts with the lab harness:
+`gp.profiles` supports both host-injected registries and runtime stack binding:
+
+- `connectStack(sources)`
+- `disconnectStack()`
+- `getConnectedSources()`
+
+Use the JS lab harness:
 
 ```bash
 go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/01_turns_and_blocks.js
 ```
 
-Run the full JS profile/registry suite:
+Run full JS profile/registry examples:
 
 ```bash
 ./examples/js/geppetto/run_profile_registry_examples.sh
 ```
 
-See:
+References:
 
 - [`pkg/doc/topics/13-js-api-reference.md`](pkg/doc/topics/13-js-api-reference.md)
 - [`pkg/doc/topics/14-js-api-user-guide.md`](pkg/doc/topics/14-js-api-user-guide.md)
 - [`examples/js/geppetto/README.md`](examples/js/geppetto/README.md)
 
-## Quick Start (Go Examples)
+## Quick Start: Go Examples
 
 ```bash
-# deterministic local inference
+# simple inference pipeline
 go run ./cmd/examples/simple-inference
 
 # streaming output
 go run ./cmd/examples/simple-streaming-inference
 
-# provider + tools examples
+# middleware + tools examples
+go run ./cmd/examples/middleware-inference
 go run ./cmd/examples/generic-tool-calling
 go run ./cmd/examples/openai-tools
 go run ./cmd/examples/claude-tools
+
+# JS host harness
+go run ./cmd/examples/geppetto-js-lab --list-go-tools
 ```
 
-Explore all example binaries under `cmd/examples/`.
+All runnable examples are under `cmd/examples/`.
+
+## Documentation
+
+Start with:
+
+- [`pkg/doc/topics/00-docs-index.md`](pkg/doc/topics/00-docs-index.md)
+
+High-value pages:
+
+- profiles: [`pkg/doc/topics/01-profiles.md`](pkg/doc/topics/01-profiles.md)
+- engines: [`pkg/doc/topics/06-inference-engines.md`](pkg/doc/topics/06-inference-engines.md)
+- tools: [`pkg/doc/topics/07-tools.md`](pkg/doc/topics/07-tools.md)
+- middlewares: [`pkg/doc/topics/09-middlewares.md`](pkg/doc/topics/09-middlewares.md)
+- sessions: [`pkg/doc/topics/10-sessions.md`](pkg/doc/topics/10-sessions.md)
+- JS API reference: [`pkg/doc/topics/13-js-api-reference.md`](pkg/doc/topics/13-js-api-reference.md)
 
 ## Repository Layout
 
-- `pkg/` core runtime packages (engines, sessions, tools, profiles, JS module)
-- `cmd/examples/` runnable examples and `geppetto-js-lab`
-- `pkg/doc/` help pages, tutorials, and playbooks
-- `examples/js/geppetto/` runnable JS API scripts
-
-## Documentation Index
-
-Start here:
-
-- [`pkg/doc/topics/00-docs-index.md`](pkg/doc/topics/00-docs-index.md)
+- `pkg/` runtime packages
+- `cmd/examples/` runnable binaries
+- `examples/js/geppetto/` JS scripts for API coverage
+- `pkg/doc/` docs, playbooks, tutorials
+- `cmd/gen-meta/` codegen for constants/type artifacts
 
 ## Development
 
@@ -117,7 +159,7 @@ Requirements:
 
 - Go `1.25.7` (see `go.mod`)
 
-Common checks:
+Common commands:
 
 ```bash
 go test ./...
