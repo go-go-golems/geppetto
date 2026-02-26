@@ -463,7 +463,6 @@ console.log(gp.profiles.listRegistries());
 const gp = require("geppetto");
 
 const resolved = gp.profiles.resolve({
-  registrySlug: "default",
   profileSlug: "agent",
   runtimeKeyFallback: "agent",
   requestOverrides: {
@@ -536,7 +535,6 @@ gp.profiles.deleteProfile("ops", {
 const gp = require("geppetto");
 
 const f = gp.factories.createEngineFactory({
-  defaultRegistrySlug: "default",
   defaultProfileSlug: "agent",
 });
 
@@ -559,7 +557,7 @@ console.log({
 // new-25-factory-session-run.js
 const gp = require("geppetto");
 
-const f = gp.factories.createEngineFactory({ defaultRegistrySlug: "default" });
+const f = gp.factories.createEngineFactory({ defaultProfileSlug: "agent" });
 const s = f.createSession({ profile: "agent" });
 
 s.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("hello")]}));
@@ -590,7 +588,7 @@ console.log(patch);
 const gp = require("geppetto");
 
 try {
-  gp.factories.createEngineFactory({ defaultRegistrySlug: "default" }).createSession({
+  gp.factories.createEngineFactory({ defaultProfileSlug: "locked-profile" }).createSession({
     profile: "locked-profile",
     requestOverrides: { system_prompt: "attempt override" },
   });
@@ -609,8 +607,8 @@ try {
 // new-28-from-profile-cutover.js
 const gp = require("geppetto");
 
-// After cutover, this is registry-driven and not model/env fallback.
-const eng = gp.engines.fromProfile("agent", { registry: "default" });
+// After cutover, this is stack-driven and not model/env fallback.
+const eng = gp.engines.fromProfile("agent");
 console.log({ name: eng.name });
 ```
 
@@ -621,7 +619,7 @@ console.log({ name: eng.name });
 const gp = require("geppetto");
 
 try {
-  gp.engines.fromProfile("agent", { registry: "default" });
+  gp.engines.fromProfile("agent");
 } catch (e) {
   console.log({ code: e.code, message: e.message });
 }
@@ -650,13 +648,13 @@ const newEng = gp.engines.fromConfig({ model: "gpt-4o-mini", apiType: "openai", 
 // new-30b-migration-profile-driven.js
 // Old profile-driven shape:
 const gp = require("geppetto");
-const oldProfileEng = gp.engines.fromProfile("agent", { profile: "agent" });
+const oldProfileEng = gp.engines.fromProfile("agent");
 
 // New profile-driven cutover:
 const gp2 = require("geppetto");
 const s = gp2
   .factories
-  .createEngineFactory({ defaultRegistrySlug: "default" })
+  .createEngineFactory({ defaultProfileSlug: "agent" })
   .createSession({ profile: "agent" });
 ```
 

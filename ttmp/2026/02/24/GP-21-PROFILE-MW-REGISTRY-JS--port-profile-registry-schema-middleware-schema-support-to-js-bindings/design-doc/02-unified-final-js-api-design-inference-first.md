@@ -27,7 +27,7 @@ RelatedFiles:
     - Path: pkg/js/modules/geppetto/api_builder_options.go
       Note: Builder option plumbing for tools/hooks/sinks/persister
     - Path: pkg/js/modules/geppetto/api_engines.go
-      Note: Existing fromProfile semantics and step-settings engine creation targeted for hard-cutover replacement
+      Note: fromProfile is registry-backed; GP-21 follow-up removes runtime registry selector inputs from JS surface
     - Path: pkg/js/modules/geppetto/api_middlewares.go
       Note: JS middleware context contract (sessionId/inferenceId/tags/deadline)
     - Path: pkg/js/modules/geppetto/api_sessions.go
@@ -59,8 +59,8 @@ RelatedFiles:
         Runtime evidence for current inference/session API surface
         Runtime evidence of existing inference/session API surface
 ExternalSources: []
-Summary: Merged recommendation that combines GP-21 Go-parity work with the external full JS API proposal, with a hard-cutover inference-first JS API for geppetto bindings.
-LastUpdated: 2026-02-25T00:00:00Z
+Summary: Merged recommendation that combines GP-21 Go-parity work with the external full JS API proposal, rebased to GP-31 stack-first runtime semantics for geppetto JS bindings.
+LastUpdated: 2026-02-25T18:05:00-05:00
 WhatFor: Define the final JS API direction before implementation/commit, with explicit inference-runtime alignment and type-inference strategy.
 WhenToUse: Use as the authoritative design reference before coding GP-21 JS API changes.
 ---
@@ -93,7 +93,8 @@ Final recommendation:
    - preserve current cancellation, tags, deadline, event, and tool-loop semantics.
 4. **Apply a hard cutover for profile APIs**:
    - remove legacy model-centric `engines.fromProfile` semantics,
-   - make profile-based engine composition registry-first only.
+   - make profile-based engine composition registry-first only,
+   - align runtime inputs with GP-31: stack-based profile lookup, no runtime registry selector.
 
 This gives “best of both”: no policy drift from Go runtime contracts, plus a high-level API that is usable for real inference workflows.
 
@@ -182,6 +183,7 @@ Design implication: any new “factory” API must compile down to this exact bu
 2. Do not make runtime overrides default-open; Go policy already defines guardrails (`profiles/service.go:332-378`).
 3. Do not force a separate frontend package structure into this repository.
 4. Do not bypass existing `Session` execution path.
+5. Do not reintroduce runtime registry switching in JS runtime APIs (`registrySlug`/`registry` runtime selectors).
 
 ## Unified Final API (Recommended)
 
@@ -237,7 +239,6 @@ Add a focused factory namespace that composes through existing builder/session r
 ```ts
 type FactoryCreateInput = {
   profile?: string;
-  registry?: string;
   runtimeKeyFallback?: string;
   requestOverrides?: Record<string, any>;
   middlewarePatch?: MiddlewarePatch | ((b: MiddlewarePatchBuilder) => MiddlewarePatchBuilder);
@@ -253,7 +254,6 @@ interface EngineFactory {
 }
 
 factories.createEngineFactory(options?: {
-  defaultRegistrySlug?: string;
   defaultProfileSlug?: string;
   allowRuntimeOverridesByDefault?: boolean;
 }): EngineFactory;
@@ -276,7 +276,8 @@ factories.middlewarePatch(): MiddlewarePatchBuilder;
    - `engines.fromConfig(...)` for direct provider/model construction, or
    - `factories.createEngineFactory(...).createEngine/createSession(...)` for profile-driven runtime composition.
 3. If profile registry is not configured, `engines.fromProfile(...)` throws `PROFILE_REGISTRY_NOT_CONFIGURED`.
-4. The old precedence path (`api_engines.go:81-94`) is removed in cutover implementation.
+4. Runtime registry selector inputs are removed from `fromProfile` options (`registrySlug` is not part of runtime selection).
+5. The old precedence path (`api_engines.go:81-94`) is removed in cutover implementation.
 
 ## Merge and Precedence Model (Final)
 
@@ -292,7 +293,8 @@ For direct `engines.fromProfile(...)` after cutover:
 
 1. resolve profile via `profiles.Registry.ResolveEffectiveProfile(...)`,
 2. construct engine from resolved effective step settings,
-3. no env/model fallback path.
+3. no env/model fallback path,
+4. no runtime registry selector path.
 
 For middleware config sources, preserve canonical source layers from `middlewarecfg/source.go` and reuse `Resolver` trace payloads.
 
@@ -405,8 +407,7 @@ type Options struct {
   MiddlewareDefinitionRegistry middlewarecfg.DefinitionRegistry
   ExtensionCodecRegistry       profiles.ExtensionCodecRegistry
   ExtensionSchemas             map[string]map[string]any
-  // optional defaults for factory
-  DefaultRegistrySlug          profiles.RegistrySlug
+  // optional factory/runtime defaults
   DefaultProfileSlug           profiles.ProfileSlug
 }
 ```
@@ -449,10 +450,10 @@ If a dependency is absent, expose methods but throw explicit deterministic error
 
 ### Phase 4: cutover implementation
 
-1. Replace `api_engines.go` `fromProfile` precedence implementation with registry-backed resolution.
-2. Remove legacy env/model precedence helper for `fromProfile`.
+1. Finalize `api_engines.go` `fromProfile` cutover by removing runtime registry selector inputs from JS API/options.
+2. Keep registry-backed resolution path; remove remaining legacy env/model precedence helpers for `fromProfile`.
 3. Keep `fromConfig` as explicit non-profile escape hatch.
-4. Add explicit migration error messages for common misuses.
+4. Add explicit migration error messages for common misuses (especially removed `registrySlug` runtime option).
 
 ### Phase 5: examples and validation
 
@@ -477,7 +478,8 @@ If a dependency is absent, expose methods but throw explicit deterministic error
    - tags/timeouts preserved into middleware context.
 3. Regression tests:
    - existing non-factory APIs unchanged,
-   - `engines.fromProfile` now fails without registry wiring and no longer uses env/model fallback.
+   - `engines.fromProfile` now fails without registry wiring and no longer uses env/model fallback,
+   - `engines.fromProfile` runtime options no longer accept registry selector input.
 
 ## Risks and Mitigations
 
@@ -485,9 +487,11 @@ If a dependency is absent, expose methods but throw explicit deterministic error
    - Mitigation: always call `profiles.Registry.ResolveEffectiveProfile`.
 2. Risk: hard-cutover breakage in scripts relying on legacy `engines.fromProfile` fallback.
    - Mitigation: explicit migration guide, targeted error messages, and example rewrites.
-3. Risk: factory bypasses existing lifecycle and breaks cancellation/streaming.
+3. Risk: hard-cutover breakage in scripts passing `registrySlug` into `engines.fromProfile`.
+   - Mitigation: document stack-only runtime selection and provide migration examples for `gp.profiles` CRUD/read usage.
+4. Risk: factory bypasses existing lifecycle and breaks cancellation/streaming.
    - Mitigation: factory returns existing `Builder/Session` objects.
-4. Risk: type overpromises for schema inference.
+5. Risk: type overpromises for schema inference.
    - Mitigation: explicit generic map strategy, no automatic schema inference claims.
 
 ## Decision Summary

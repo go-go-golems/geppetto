@@ -24,3 +24,8 @@ Patched OpenAI Responses input builder to preserve reasoning/function_call adjac
 - /home/manuel/workspaces/2026-02-14/hypercard-add-webchat/geppetto/pkg/steps/ai/openai_responses/helpers.go — Bug fix for ordered reasoning preservation
 - /home/manuel/workspaces/2026-02-14/hypercard-add-webchat/geppetto/pkg/steps/ai/openai_responses/helpers_test.go — New test for older reasoning/tool_call chains
 
+
+## 2026-02-25
+
+Ticket closed
+

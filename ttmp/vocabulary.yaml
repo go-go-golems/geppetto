@@ -61,6 +61,12 @@ topics:
       description: Profile stacking/inheritance and layered profile composition semantics
     - slug: merge-provenance
       description: Field-level merge source tracking and deterministic provenance traces
+    - slug: metadata
+      description: Metadata structures, parse logs, and provenance annotations
+    - slug: security
+      description: Security-sensitive behavior, secret handling, and leak prevention
+    - slug: config
+      description: Configuration parsing, mapping, and settings handling
 docTypes:
     - slug: index
       description: Ticket index

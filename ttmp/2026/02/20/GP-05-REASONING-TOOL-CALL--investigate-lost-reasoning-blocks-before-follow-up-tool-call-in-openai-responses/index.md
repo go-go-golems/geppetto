@@ -1,7 +1,7 @@
 ---
 Title: Investigate lost reasoning blocks before follow-up tool call in OpenAI Responses
 Ticket: GP-05-REASONING-TOOL-CALL
-Status: active
+Status: complete
 Topics:
     - backend
     - chat
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-20T16:28:09.944168456-05:00
+LastUpdated: 2026-02-25T18:07:24.715148556-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Investigate lost reasoning blocks before follow-up tool call in OpenAI Responses
 

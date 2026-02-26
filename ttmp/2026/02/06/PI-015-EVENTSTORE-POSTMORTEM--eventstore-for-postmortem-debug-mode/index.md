@@ -1,7 +1,7 @@
 ---
 Title: EventStore for Postmortem Debug Mode
 Ticket: PI-015-EVENTSTORE-POSTMORTEM
-Status: active
+Status: complete
 Topics:
     - backend
     - events
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Design and implementation planning for durable event history to support postmortem debug workflows.
-LastUpdated: 2026-02-07T11:00:00-05:00
+LastUpdated: 2026-02-25T18:07:22.511337286-05:00
 WhatFor: Planning hub for EventStore-backed postmortem mode.
 WhenToUse: Use when implementing persistent event history and postmortem debug UX.
 ---
+
 
 # EventStore for Postmortem Debug Mode
 

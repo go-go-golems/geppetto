@@ -49,6 +49,8 @@ WhenToUse: Use when implementing or reviewing profile/schema parity work in pkg/
 # Profile registry + middleware schema parity analysis for JS bindings
 
 > Note: This document captures the initial parity-first recommendation. The final direction is now hard cutover and is documented in `design-doc/02-unified-final-js-api-design-inference-first.md`.
+>
+> Update (GP-31 alignment): `engines.fromProfile` is now registry-backed in code. Remaining GP-21 implementation gap is the missing `gp.profiles`/`gp.schemas` namespaces and runtime-surface cleanup (remove runtime registry selector inputs from JS runtime APIs).
 
 ## Executive Summary
 

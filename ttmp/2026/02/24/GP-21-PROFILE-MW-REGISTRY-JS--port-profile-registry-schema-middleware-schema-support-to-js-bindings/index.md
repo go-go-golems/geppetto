@@ -29,8 +29,8 @@ RelatedFiles:
     - Path: ttmp/2026/02/24/GP-21-PROFILE-MW-REGISTRY-JS--port-profile-registry-schema-middleware-schema-support-to-js-bindings/scripts/inspect_inference_surface.js
       Note: Inference API inventory experiment script
 ExternalSources: []
-Summary: Research deliverable documenting Go-vs-JS parity gaps for profile registry and schema discovery, with a concrete JS port plan.
-LastUpdated: 2026-02-25T00:00:00Z
+Summary: Research deliverable documenting Go-vs-JS parity gaps for profile registry and schema discovery, updated to GP-31 stack-first runtime semantics for JS port planning.
+LastUpdated: 2026-02-25T18:05:00-05:00
 WhatFor: Track GP-21 research outputs and implementation guidance.
 WhenToUse: Use when planning or reviewing JS parity work for profile/schema APIs.
 ---
@@ -72,7 +72,7 @@ Final recommendation now uses a hard cutover approach (no legacy profile-semanti
 
 ## Status
 
-Current status: **active** (research complete; implementation follow-up pending).
+Current status: **active** (research complete; implementation follow-up pending, rebased to GP-31 runtime surface).
 
 ## Tasks
 
