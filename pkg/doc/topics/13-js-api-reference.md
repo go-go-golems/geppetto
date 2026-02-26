@@ -75,6 +75,12 @@ gp.Register(reg, gp.Options{
 | `middlewares` | namespace | Middleware adapters |
 | `tools` | namespace | Tool registry constructors |
 
+## Plugin Contract Helpers
+
+`geppetto` no longer registers `require("geppetto/plugins")`.
+
+Plugin descriptor helper modules are runtime-owned and should be imported from the host application/runtime package (for example `go-go-gepa` local helper modules).
+
 ## `consts` Namespace
 
 Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.

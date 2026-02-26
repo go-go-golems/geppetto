@@ -233,6 +233,17 @@ These map to the same runtime builder hooks:
 - `withEventSink(...)`
 - `withSnapshotHook(...)`
 
+
+## Writing Plugin Descriptors
+
+`geppetto` no longer provides plugin descriptor helpers via `require("geppetto/plugins")`.
+
+Use the helper module provided by your host runtime/package (for example, `go-go-gepa` local plugin helper files) or export plain descriptor objects consumed by your host loader.
+
+Reference optimizer script:
+
+1. `github.com/gepa-ai/gepa/go-gepa-runner/cmd/gepa-runner/scripts/toy_math_optimizer.js`
+
 ## Troubleshooting
 
 | Problem | Cause | Solution |

@@ -163,6 +163,21 @@ func TestConstsExported(t *testing.T) {
 	`)
 }
 
+func TestPluginContractHelpersModuleRemoved(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		let threw = false;
+		try {
+			require("geppetto/plugins");
+		} catch (e) {
+			threw = true;
+		}
+		if (!threw) {
+			throw new Error("geppetto/plugins should not be registered");
+		}
+	`)
+}
+
 func TestSessionRunWithEchoEngine(t *testing.T) {
 	rt := newJSRuntime(t, Options{})
 	mustRunJS(t, rt, `
