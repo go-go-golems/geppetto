@@ -3,6 +3,8 @@ package embeddings
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -30,11 +32,7 @@ func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions in
 }
 
 func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
-	resp, err := p.client.CreateEmbeddings(ctx, openai.EmbeddingRequest{
-		Input:      []string{text},
-		Model:      p.model,
-		Dimensions: p.dimensions,
-	})
+	resp, err := p.client.CreateEmbeddings(ctx, p.newRequest([]string{text}))
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +51,7 @@ func (p *OpenAIProvider) GenerateBatchEmbeddings(ctx context.Context, texts []st
 	}
 
 	// OpenAI API has native batch support
-	resp, err := p.client.CreateEmbeddings(ctx, openai.EmbeddingRequest{
-		Input:      texts,
-		Model:      p.model,
-		Dimensions: p.dimensions,
-	})
+	resp, err := p.client.CreateEmbeddings(ctx, p.newRequest(texts))
 	if err != nil {
 		return nil, err
 	}
@@ -84,4 +78,20 @@ func (p *OpenAIProvider) GetModel() EmbeddingModel {
 		Name:       string(p.model),
 		Dimensions: p.dimensions,
 	}
+}
+
+func (p *OpenAIProvider) newRequest(input []string) openai.EmbeddingRequest {
+	req := openai.EmbeddingRequest{
+		Input: input,
+		Model: p.model,
+	}
+	if supportsOpenAIDimensionsOverride(p.model) {
+		req.Dimensions = p.dimensions
+	}
+	return req
+}
+
+func supportsOpenAIDimensionsOverride(model openai.EmbeddingModel) bool {
+	// OpenAI currently supports `dimensions` override on the text-embedding-3 family.
+	return strings.HasPrefix(string(model), "text-embedding-3")
 }
