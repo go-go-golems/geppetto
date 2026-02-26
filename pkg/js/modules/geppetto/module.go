@@ -22,9 +22,6 @@ import (
 const (
 	// ModuleName is the name used from JavaScript: require("geppetto").
 	ModuleName = "geppetto"
-	// PluginsModuleName is the name for shared plugin contract helpers:
-	// require("geppetto/plugins").
-	PluginsModuleName = ModuleName + "/plugins"
 	// hiddenRefKey stores Go references on JS objects created by this module.
 	hiddenRefKey = "__geppetto_ref"
 )
@@ -55,7 +52,6 @@ func Register(reg *require.Registry, opts Options) {
 	}
 	mod := &module{opts: opts}
 	reg.RegisterNativeModule(ModuleName, mod.Loader)
-	reg.RegisterNativeModule(PluginsModuleName, mod.pluginsLoader)
 }
 
 type module struct {
