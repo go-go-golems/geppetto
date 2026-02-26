@@ -35,12 +35,12 @@ go run ./cmd/examples/geppetto-js-lab --script <your-script.js>
 
 ```text
 examples/js/geppetto/
-  01_turns_and_blocks.js
-  02_session_echo.js
-  03_middleware_composition.js
-  04_tools_and_toolloop.js
-  05_go_tools_from_js.js
-  06_live_profile_inference.js
+  01-07 core turns/session/tools scripts
+  08-12 profile registry read/resolve scripts
+  13-14 schema catalog scripts
+  15-16 sqlite and mixed-stack scripts
+  17-18 hard-cutover error-contract scripts
+  19_profiles_connect_stack_runtime.js
 ```
 
 You can copy these and branch them into your own scenario files.
@@ -148,6 +148,26 @@ assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile r
 - restricted to listed keys when `allowed_override_keys` is set.
 
 Note: runtime `registrySlug` selection in `engines.fromProfile(...)` is removed. Registry resolution comes from the loaded registry stack.
+
+## Runtime Stack Binding from JS
+
+If the host did not inject `Options.ProfileRegistry`, scripts can bind registry sources directly:
+
+```javascript
+const gp = require("geppetto");
+
+const connected = gp.profiles.connectStack([
+  "examples/js/geppetto/profiles/10-provider-openai.yaml",
+  "examples/js/geppetto/profiles/20-team-agent.yaml",
+]);
+
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+console.log(connected.sources, resolved.registrySlug);
+
+gp.profiles.disconnectStack();
+```
+
+`disconnectStack()` restores host baseline profile-registry wiring when one exists; otherwise it clears runtime-connected sources.
 
 ## Working Directly with `gp.profiles`
 

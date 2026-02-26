@@ -172,12 +172,20 @@ If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
 | `updateProfile` | `updateProfile(profileSlug, patch, opts?)` | Patch profile (requires writable registry) |
 | `deleteProfile` | `deleteProfile(profileSlug, opts?)` | Delete profile (requires writable registry) |
 | `setDefaultProfile` | `setDefaultProfile(profileSlug, opts?)` | Set registry default profile (requires writable registry) |
+| `connectStack` | `connectStack(sources)` | Load/attach runtime registry stack from source list (`string` or `string[]`) |
+| `disconnectStack` | `disconnectStack()` | Detach runtime-connected stack and restore host baseline registry wiring |
+| `getConnectedSources` | `getConnectedSources()` | Inspect currently connected runtime stack source entries |
 
 Mutation options shape:
 
 - `opts.registrySlug` (optional target registry)
 - `opts.write.expectedVersion` (optional optimistic lock)
 - `opts.write.actor`, `opts.write.source` (optional provenance)
+
+`connectStack(sources)` return payload:
+
+- `sources`: normalized source entries used for connection
+- `registries`: loaded registry summaries
 
 ## `schemas` Namespace
 

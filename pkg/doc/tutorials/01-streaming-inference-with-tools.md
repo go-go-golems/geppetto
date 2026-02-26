@@ -75,7 +75,7 @@ Note: Provider engines learn about available tools from the tool registry attach
 
 ## Step 1 — Define the CLI Command
 
-Create a command description with arguments and flags, including a `pinocchio-profile` to load provider layers.
+Create a command description with arguments and flags, including `profile` to load provider layers.
 
 ```go
 // inside NewStreamingCmd()
@@ -89,7 +89,7 @@ desc := cmds.NewCommandDescription(
         fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt")),
     ),
     cmds.WithFlags(
-        fields.New("pinocchio-profile", fields.TypeString, fields.WithDefault("4o-mini")),
+        fields.New("profile", fields.TypeString, fields.WithDefault("4o-mini")),
         fields.New("output-format", fields.TypeString, fields.WithDefault("text")),
         fields.New("with-metadata", fields.TypeBool, fields.WithDefault(false)),
     ),
