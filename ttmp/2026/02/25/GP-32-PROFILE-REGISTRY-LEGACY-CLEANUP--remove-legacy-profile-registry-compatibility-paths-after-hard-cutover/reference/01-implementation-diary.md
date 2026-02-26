@@ -13,7 +13,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Step-by-step implementation diary for GP-32 hard-cut profile cleanup.
-LastUpdated: 2026-02-25T19:05:32.000000000-05:00
+LastUpdated: 2026-02-25T19:07:00.000000000-05:00
 WhatFor: Capture implementation progress, exact commands, and validation evidence while removing legacy profile compatibility paths.
 WhenToUse: Read when reviewing GP-32 implementation decisions, commit boundaries, and test evidence.
 ---
@@ -34,14 +34,17 @@ Runtime behavior is already single-registry YAML + profile-registry stacks, but 
 
 1. Phase 1 (migrate command output contract): completed
 2. Phase 2 (codec/store compatibility removal): completed
-3. Phase 3 (pinocchio legacy helper/CLI cleanup): pending
-4. Phase 4 (script/docs final alignment + validation): pending
+3. Phase 3 (pinocchio legacy helper/CLI cleanup): completed
+4. Phase 4 (script/docs final alignment + validation): completed
 
 ## Commands Used So Far
 
 ```bash
 go test ./cmd/pinocchio/cmds -run MigrateLegacyProfiles -count=1
 go test ./pkg/profiles -count=1
+go test ./cmd/pinocchio -count=1
+go run ./cmd/pinocchio profiles --help
+scripts/profile_registry_cutover_smoke.sh
 
 # manual smoke
 go run ./cmd/pinocchio profiles migrate-legacy \
@@ -119,6 +122,54 @@ What changed:
 Validation:
 
 1. `go test ./pkg/profiles -count=1` passed.
+
+## Step 3: Remove pinocchio legacy helper/profile command wiring
+
+Date: 2026-02-25
+
+Files changed:
+
+1. `pinocchio/pkg/cmds/helpers/parse-helpers.go`
+2. `pinocchio/cmd/pinocchio/main.go`
+3. `pinocchio/scripts/profile_registry_cutover_smoke.sh`
+
+What changed:
+
+1. Removed helper-level legacy profile-file flow (`WithProfileFile`, `sources.GatherFlagsFromProfiles`).
+2. Added helper-level registry-stack parsing using `PINOCCHIO_PROFILE_REGISTRIES` and default `~/.config/pinocchio/profiles.yaml` when present.
+3. Switched helper profile middleware to `GatherFlagsFromProfileRegistry(...)`.
+4. Removed Clay legacy profiles command setup and legacy initial profile template from `cmd/pinocchio/main.go`.
+5. Added a native `profiles` command group and kept `profiles migrate-legacy` under that group.
+6. Updated smoke script to migrate and import runtime single-registry YAML directly.
+
+Validation:
+
+1. `go test ./pkg/cmds/helpers ./cmd/pinocchio ./cmd/pinocchio/cmds -run MigrateLegacyProfiles -count=1` passed.
+2. `go run ./cmd/pinocchio profiles --help` showed expected command surface (`migrate-legacy` only).
+
+## Step 4: Final docs alignment and end-to-end validation
+
+Date: 2026-02-25
+
+Files changed:
+
+1. `geppetto/pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`
+
+What changed:
+
+1. Rewrote migration playbook to hard-cut runtime single-registry output contract.
+2. Removed canonical bundle migration flow language and replaced it with runtime YAML verification/activation steps.
+
+Validation:
+
+1. `scripts/profile_registry_cutover_smoke.sh` passed end-to-end:
+   - legacy migration,
+   - sqlite import,
+   - web-chat profile selection + chat checks,
+   - pinocchio `--print-parsed-fields` registry metadata checks.
+2. Pre-commit validation on changed repos passed:
+   - `go test ./...` in geppetto,
+   - `go test ./...` in pinocchio.
 
 ## Related
 

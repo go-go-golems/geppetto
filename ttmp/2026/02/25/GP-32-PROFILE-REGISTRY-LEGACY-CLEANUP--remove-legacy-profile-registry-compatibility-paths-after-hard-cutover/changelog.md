@@ -21,3 +21,15 @@
   - `YAMLFileProfileStore` now reads/writes runtime single-registry YAML and rejects operations against non-default registry slugs.
   - removed multi-registry YAML expectations from YAML-store tests and updated codec tests to assert strict rejection of legacy/bundle input.
   - adjusted stack-ref parity test matrix to run multi-registry backend parity on memory/sqlite only.
+- Implemented Phase 3 pinocchio hard-cut cleanup:
+  - removed legacy `WithProfileFile`/`GatherFlagsFromProfiles` flow from `pkg/cmds/helpers/parse-helpers.go`.
+  - parse helper now resolves profile registries from `PINOCCHIO_PROFILE_REGISTRIES` (or default `~/.config/pinocchio/profiles.yaml` when present) and uses registry-stack middleware.
+  - removed Clay legacy `profiles` command initialization and the embedded legacy template from `cmd/pinocchio/main.go`.
+  - added native `profiles` command group and kept `profiles migrate-legacy` under it.
+  - updated `scripts/profile_registry_cutover_smoke.sh` to migrate/import runtime single-registry YAML directly (no bundle assumptions).
+- Implemented Phase 4 docs/validation closure:
+  - rewrote `pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md` to hard-cut runtime single-registry semantics.
+  - validation matrix completed:
+    - `go test ./...` in `geppetto` (pre-commit),
+    - `go test ./...` in `pinocchio` (pre-commit),
+    - manual smoke script run: `scripts/profile_registry_cutover_smoke.sh` passed end-to-end.
