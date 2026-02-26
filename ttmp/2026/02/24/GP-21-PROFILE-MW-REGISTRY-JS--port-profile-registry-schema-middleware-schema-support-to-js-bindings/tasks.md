@@ -21,6 +21,7 @@
 - [x] Extend JS module `Options` to inject profile registry and schema providers.
 - [x] Remove runtime registry selector inputs from JS runtime APIs (`engines.fromProfile` options and any factory runtime input registry field).
 - [x] Update `ProfileEngineOptions` type declarations to drop `registrySlug` and align runtime fields with GP-31.
+- [x] Add runtime profile-registry stack connect/disconnect JS APIs for scripts that do not receive host-provided registry wiring.
 - [x] Extend JS type declarations and docs for new namespaces.
 - [x] Update cookbook examples for stack-only runtime selection (`engines.fromProfile("profile")` without runtime registry selector).
 - [x] Add JS module unit/integration tests for profile/schema APIs.

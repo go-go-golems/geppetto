@@ -811,6 +811,59 @@ Results:
 1. Targeted geppetto and pinocchio tests passed.
 2. CLI smoke run confirmed profile-registry metadata includes default XDG path and resolves `ai-engine: gpt-5-engine` from `PINOCCHIO_PROFILE=gpt-5`.
 
+### Step 23: Add runtime `gp.profiles.connectStack` APIs + regression coverage + executable example
+
+Prompt context:
+
+**User prompt (verbatim):** `ok continue`
+
+**Assistant interpretation:** Continue GP-21 implementation by closing the remaining runtime ergonomics gap: allow scripts to bind profile registries dynamically (without host wiring), then validate with tests and runnable examples.
+
+Actions:
+
+1. Extended JS module runtime/profile surface:
+   - `pkg/js/modules/geppetto/module.go`
+   - `pkg/js/modules/geppetto/api_profiles.go`
+   - added:
+     - `gp.profiles.connectStack(sources)`
+     - `gp.profiles.disconnectStack()`
+     - `gp.profiles.getConnectedSources()`
+   - implementation uses `profiles.ParseRegistrySourceSpecs` + `profiles.NewChainedRegistryFromSourceSpecs` and tracks closers for owned chains.
+2. Added JS module regression tests in `pkg/js/modules/geppetto/module_test.go`:
+   - `TestProfilesNamespaceConnectStackLifecycle`:
+     - verifies YAML stack binding,
+     - top-of-stack resolution,
+     - read-only write rejection on YAML sources,
+     - disconnect teardown behavior.
+   - `TestProfilesNamespaceConnectStackSQLiteCrud`:
+     - verifies sqlite-backed runtime connection supports CRUD mutations.
+   - `TestProfilesNamespaceDisconnectStackRestoresHostRegistry`:
+     - verifies `disconnectStack()` restores host-injected profile registry wiring after runtime overrides.
+3. Extended TypeScript declarations:
+   - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+   - generated `pkg/doc/types/geppetto.d.ts`
+   - added `ProfileRegistrySources`, `ConnectedProfileStack`, and new profile-stack function signatures.
+4. Added runnable script example and wired suite:
+   - `examples/js/geppetto/19_profiles_connect_stack_runtime.js`
+   - updated `examples/js/geppetto/README.md`
+   - updated `examples/js/geppetto/run_profile_registry_examples.sh`
+5. Updated ticket bookkeeping:
+   - `tasks.md` now explicitly tracks runtime stack-connect API work as completed.
+
+Validation commands:
+
+```bash
+cd geppetto
+go test ./pkg/js/modules/geppetto -count=1
+./examples/js/geppetto/run_profile_registry_examples.sh
+```
+
+Results:
+
+1. JS module tests passed with new runtime stack API coverage.
+2. Full profile-registry script suite passed, including the new runtime-connect script.
+3. Verified hard-cutover behavior remains intact (`--profile-file` stays removed; scripts now can self-bind stack sources when needed).
+
 ## Usage Examples
 
 ### Re-run the export inventory experiment

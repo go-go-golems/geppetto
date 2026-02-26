@@ -2,6 +2,19 @@
 
 ## 2026-02-25
 
+- Added runtime stack-binding APIs to JS `gp.profiles` namespace:
+  - `connectStack(sources)` for loading profile registries from YAML/SQLite sources at runtime.
+  - `disconnectStack()` for explicit teardown (restores host-provided registry when one was injected in module options).
+  - `getConnectedSources()` for stack inspection/debugging.
+- Added regression tests covering:
+  - YAML stack precedence and lifecycle (`connectStack` -> `resolve` -> `disconnectStack`),
+  - writable sqlite CRUD through runtime-connected stacks.
+- Updated JS type declarations (`geppetto.d.ts`) for new stack APIs and source/result types.
+- Added runnable script example `examples/js/geppetto/19_profiles_connect_stack_runtime.js` and wired it into the profile-registry example suite runner.
+- Re-validated:
+  - `go test ./pkg/js/modules/geppetto -count=1`
+  - `./examples/js/geppetto/run_profile_registry_examples.sh`
+
 - Updated profile-registry docs and runtime loading notes to reflect current pinocchio behavior:
   - fallback default source: `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` when present,
   - explicit source precedence (`flag > env > config > default-file-if-present`),

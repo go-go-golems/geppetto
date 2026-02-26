@@ -379,3 +379,94 @@ func (m *moduleRuntime) profilesSetDefaultProfile(call goja.FunctionCall) goja.V
 	}
 	return goja.Undefined()
 }
+
+func decodeProfileRegistrySources(raw any) ([]string, error) {
+	if raw == nil {
+		return nil, fmt.Errorf("profile registry sources are required")
+	}
+	switch v := raw.(type) {
+	case string:
+		return profiles.ParseProfileRegistrySourceEntries(v)
+	case []string:
+		ret := make([]string, 0, len(v))
+		for i, entry := range v {
+			s := strings.TrimSpace(entry)
+			if s == "" {
+				return nil, fmt.Errorf("profile registry source entry %d is empty", i)
+			}
+			ret = append(ret, s)
+		}
+		return ret, nil
+	case []any:
+		ret := make([]string, 0, len(v))
+		for i, rawEntry := range v {
+			s := strings.TrimSpace(toString(rawEntry, ""))
+			if s == "" {
+				return nil, fmt.Errorf("profile registry source entry %d must be a non-empty string", i)
+			}
+			ret = append(ret, s)
+		}
+		return ret, nil
+	default:
+		return nil, fmt.Errorf("profile registry sources must be a comma-separated string or string array")
+	}
+}
+
+func (m *moduleRuntime) profilesConnectStack(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
+		panic(m.vm.NewTypeError("profiles.connectStack requires profile registry sources"))
+	}
+
+	entries, err := decodeProfileRegistrySources(call.Arguments[0].Export())
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	if len(entries) == 0 {
+		panic(m.vm.NewGoError(fmt.Errorf("profile registry sources must not be empty")))
+	}
+
+	specs, err := profiles.ParseRegistrySourceSpecs(entries)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	chain, err := profiles.NewChainedRegistryFromSourceSpecs(context.Background(), specs)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+
+	// Close previously owned chain to avoid leaking source handles.
+	if m.profileRegistryOwned && m.profileRegistryCloser != nil {
+		_ = m.profileRegistryCloser.Close()
+	}
+
+	m.profileRegistry = chain
+	m.profileRegistryWriter = chain
+	m.profileRegistryCloser = chain
+	m.profileRegistryOwned = true
+	m.profileRegistrySpec = append([]string(nil), entries...)
+
+	rows, err := chain.ListRegistries(context.Background())
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	return m.toJSValue(map[string]any{
+		"sources":    append([]string(nil), m.profileRegistrySpec...),
+		"registries": cloneJSONValue(rows),
+	})
+}
+
+func (m *moduleRuntime) profilesDisconnectStack(call goja.FunctionCall) goja.Value {
+	if m.profileRegistryOwned && m.profileRegistryCloser != nil {
+		_ = m.profileRegistryCloser.Close()
+	}
+	m.profileRegistry = m.baseProfileRegistry
+	m.profileRegistryWriter = m.baseProfileRegistryWriter
+	m.profileRegistryCloser = m.baseProfileRegistryCloser
+	m.profileRegistryOwned = false
+	m.profileRegistrySpec = append([]string(nil), m.baseProfileRegistrySpec...)
+	return goja.Undefined()
+}
+
+func (m *moduleRuntime) profilesGetConnectedSources(call goja.FunctionCall) goja.Value {
+	return m.toJSValue(append([]string(nil), m.profileRegistrySpec...))
+}

@@ -29,6 +29,7 @@ const gp = require("geppetto");
 - `16_mixed_registry_precedence.js`
 - `17_from_profile_legacy_registry_option_error.js`
 - `18_missing_profile_registry_errors.js`
+- `19_profiles_connect_stack_runtime.js`
 
 ## Profile Registry Fixtures
 

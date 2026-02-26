@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -746,6 +747,191 @@ func TestProfilesNamespaceCreateRequiresWritableRegistry(t *testing.T) {
 		}
 		if (!threw) throw new Error("profiles.createProfile should require writable registry");
 	`)
+}
+
+func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "base.yaml")
+	topPath := filepath.Join(tmpDir, "top.yaml")
+
+	if err := os.WriteFile(basePath, []byte(`slug: base
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: base-default
+  helper:
+    slug: helper
+    runtime:
+      system_prompt: base-helper
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile base.yaml failed: %v", err)
+	}
+	if err := os.WriteFile(topPath, []byte(`slug: top
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: top-default
+  analyst:
+    slug: analyst
+    runtime:
+      system_prompt: top-analyst
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile top.yaml failed: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, fmt.Sprintf(`
+		const gp = require("geppetto");
+
+		if (gp.profiles.getConnectedSources().length !== 0) throw new Error("expected empty initial sources");
+
+		const connected = gp.profiles.connectStack([%q, %q]);
+		if (!Array.isArray(connected.sources) || connected.sources.length !== 2) {
+			throw new Error("connectStack sources mismatch");
+		}
+		if (!Array.isArray(connected.registries) || connected.registries.length !== 2) {
+			throw new Error("connectStack registries mismatch");
+		}
+
+		const active = gp.profiles.getConnectedSources();
+		if (active[0] !== %q || active[1] !== %q) throw new Error("getConnectedSources mismatch");
+
+		const topResolved = gp.profiles.resolve({ profileSlug: "default", runtimeKeyFallback: "rk-default" });
+		if (topResolved.registrySlug !== "top") throw new Error("top-of-stack resolution mismatch");
+
+		const baseResolved = gp.profiles.resolve({ profileSlug: "helper", runtimeKeyFallback: "rk-helper" });
+		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
+
+		let readOnlyErr = false;
+		try {
+			gp.profiles.createProfile({ slug: "new-profile", runtime: { system_prompt: "x" } });
+		} catch (e) {
+			readOnlyErr = /read-only|writable profile registry/i.test(String(e));
+		}
+		if (!readOnlyErr) throw new Error("expected read-only write error for yaml-backed stack");
+
+		const switched = gp.profiles.connectStack(%q);
+		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
+			throw new Error("connectStack string source mismatch");
+		}
+
+		gp.profiles.disconnectStack();
+		if (gp.profiles.getConnectedSources().length !== 0) throw new Error("disconnectStack should clear sources");
+
+		let missing = false;
+		try {
+			gp.profiles.listRegistries();
+		} catch (e) {
+			missing = /configured profile registry/i.test(String(e));
+		}
+		if (!missing) throw new Error("disconnectStack should clear profile registry binding");
+	`, basePath, topPath, basePath, topPath, topPath, topPath))
+}
+
+func TestProfilesNamespaceConnectStackSQLiteCrud(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := gepprofiles.SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile failed: %v", err)
+	}
+	store, err := gepprofiles.NewSQLiteProfileStore(dsn, gepprofiles.MustRegistrySlug("workspace"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore failed: %v", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
+	if err := store.UpsertRegistry(ctx, &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("workspace"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("default"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("default"): {
+				Slug: gepprofiles.MustProfileSlug("default"),
+				Runtime: gepprofiles.RuntimeSpec{
+					SystemPrompt: "workspace-default",
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "module-test"}); err != nil {
+		t.Fatalf("UpsertRegistry(workspace) failed: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, fmt.Sprintf(`
+		const gp = require("geppetto");
+		const write = { registrySlug: "workspace", write: { actor: "test-js", source: "module-test" } };
+
+		const connected = gp.profiles.connectStack([%q]);
+		if (!Array.isArray(connected.registries) || !connected.registries.some((x) => x.slug === "workspace")) {
+			throw new Error("workspace registry missing after connectStack");
+		}
+
+		const created = gp.profiles.createProfile(
+			{ slug: "ops", runtime: { system_prompt: "ops prompt" } },
+			write,
+		);
+		if (!created || created.slug !== "ops") throw new Error("createProfile via connectStack failed");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "ops", runtimeKeyFallback: "rk-ops" });
+		if (resolved.registrySlug !== "workspace") throw new Error("resolve after connectStack mismatch");
+
+		const updated = gp.profiles.updateProfile("ops", { description: "Ops updated" }, write);
+		if (!updated || updated.description !== "Ops updated") throw new Error("updateProfile via connectStack failed");
+
+		gp.profiles.deleteProfile("ops", write);
+		let deleted = false;
+		try {
+			gp.profiles.getProfile("ops", "workspace");
+		} catch (e) {
+			deleted = /profile not found/i.test(String(e));
+		}
+		if (!deleted) throw new Error("deleteProfile via connectStack failed");
+	`, dbPath))
+}
+
+func TestProfilesNamespaceDisconnectStackRestoresHostRegistry(t *testing.T) {
+	topPath := filepath.Join(t.TempDir(), "top.yaml")
+	if err := os.WriteFile(topPath, []byte(`slug: top
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: top-default
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile top.yaml failed: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
+	mustRunJS(t, rt, fmt.Sprintf(`
+		const gp = require("geppetto");
+
+		const baseline = gp.profiles.listRegistries();
+		if (!Array.isArray(baseline) || baseline.length !== 1 || baseline[0].slug !== "default") {
+			throw new Error("unexpected baseline registry state");
+		}
+
+		const connected = gp.profiles.connectStack([%q]);
+		if (!Array.isArray(connected.registries) || connected.registries.length !== 1 || connected.registries[0].slug !== "top") {
+			throw new Error("connectStack should switch to top registry");
+		}
+
+		gp.profiles.disconnectStack();
+
+		const restored = gp.profiles.listRegistries();
+		if (!Array.isArray(restored) || restored.length !== 1 || restored[0].slug !== "default") {
+			throw new Error("disconnectStack should restore host-provided registry");
+		}
+
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model", runtimeKeyFallback: "rk-explicit" });
+		if (resolved.registrySlug !== "default") {
+			throw new Error("resolve should use restored host registry after disconnect");
+		}
+	`, topPath))
 }
 
 func TestSchemasNamespaceRequiresConfiguredProviders(t *testing.T) {

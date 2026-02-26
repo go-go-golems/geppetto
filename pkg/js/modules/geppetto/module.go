@@ -2,6 +2,7 @@ package geppetto
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
@@ -68,16 +69,23 @@ type moduleRuntime struct {
 
 	logger zerolog.Logger
 
-	goToolRegistry        tools.ToolRegistry
-	goMiddlewareFactories map[string]MiddlewareFactory
-	profileRegistry       profiles.RegistryReader
-	profileRegistryWriter profiles.RegistryWriter
-	middlewareSchemas     middlewarecfg.DefinitionRegistry
-	extensionCodecs       profiles.ExtensionCodecRegistry
-	extensionSchemas      map[string]map[string]any
-	defaultEventSinks     []events.EventSink
-	defaultSnapshotHook   toolloop.SnapshotHook
-	defaultPersister      enginebuilder.TurnPersister
+	goToolRegistry            tools.ToolRegistry
+	goMiddlewareFactories     map[string]MiddlewareFactory
+	profileRegistry           profiles.RegistryReader
+	profileRegistryWriter     profiles.RegistryWriter
+	profileRegistryCloser     io.Closer
+	profileRegistryOwned      bool
+	profileRegistrySpec       []string
+	baseProfileRegistry       profiles.RegistryReader
+	baseProfileRegistryWriter profiles.RegistryWriter
+	baseProfileRegistryCloser io.Closer
+	baseProfileRegistrySpec   []string
+	middlewareSchemas         middlewarecfg.DefinitionRegistry
+	extensionCodecs           profiles.ExtensionCodecRegistry
+	extensionSchemas          map[string]map[string]any
+	defaultEventSinks         []events.EventSink
+	defaultSnapshotHook       toolloop.SnapshotHook
+	defaultPersister          enginebuilder.TurnPersister
 }
 
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
@@ -100,11 +108,17 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		defaultSnapshotHook:   opts.DefaultSnapshotHook,
 		defaultPersister:      opts.DefaultPersister,
 	}
+	if closer, ok := opts.ProfileRegistry.(io.Closer); ok && closer != nil {
+		m.profileRegistryCloser = closer
+	}
 	if m.profileRegistryWriter == nil {
 		if rw, ok := opts.ProfileRegistry.(profiles.RegistryWriter); ok {
 			m.profileRegistryWriter = rw
 		}
 	}
+	m.baseProfileRegistry = m.profileRegistry
+	m.baseProfileRegistryWriter = m.profileRegistryWriter
+	m.baseProfileRegistryCloser = m.profileRegistryCloser
 	if m.runner != nil {
 		m.bridge = runtimebridge.New(m.runner)
 	}
@@ -159,6 +173,9 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(profilesObj, "updateProfile", m.profilesUpdateProfile)
 	m.mustSet(profilesObj, "deleteProfile", m.profilesDeleteProfile)
 	m.mustSet(profilesObj, "setDefaultProfile", m.profilesSetDefaultProfile)
+	m.mustSet(profilesObj, "connectStack", m.profilesConnectStack)
+	m.mustSet(profilesObj, "disconnectStack", m.profilesDisconnectStack)
+	m.mustSet(profilesObj, "getConnectedSources", m.profilesGetConnectedSources)
 	m.mustSet(exports, "profiles", profilesObj)
 
 	schemasObj := m.vm.NewObject()

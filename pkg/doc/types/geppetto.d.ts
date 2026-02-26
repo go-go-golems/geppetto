@@ -225,6 +225,13 @@ declare module "geppetto" {
         write?: ProfileWriteOptions;
     }
 
+    export type ProfileRegistrySources = string | string[];
+
+    export interface ConnectedProfileStack {
+        sources: string[];
+        registries: RegistrySummary[];
+    }
+
     export interface ResolveInput {
         registrySlug?: string;
         profileSlug?: string;
@@ -465,6 +472,9 @@ declare module "geppetto" {
         updateProfile(profileSlug: string, patch: ProfilePatch, options?: ProfileMutationOptions): Profile;
         deleteProfile(profileSlug: string, options?: ProfileMutationOptions): void;
         setDefaultProfile(profileSlug: string, options?: ProfileMutationOptions): void;
+        connectStack(sources: ProfileRegistrySources): ConnectedProfileStack;
+        disconnectStack(): void;
+        getConnectedSources(): string[];
     };
 
     export const schemas: {
