@@ -236,17 +236,9 @@ These map to the same runtime builder hooks:
 
 ## Writing Plugin Descriptors
 
-For extractor and optimizer plugin scripts, import shared helpers from:
+`geppetto` no longer provides plugin descriptor helpers via `require("geppetto/plugins")`.
 
-```javascript
-const plugins = require("geppetto/plugins");
-```
-
-Use:
-
-1. `plugins.defineExtractorPlugin(...)` for extractor descriptor scripts.
-2. `plugins.wrapExtractorRun(...)` to normalize extractor `run` input.
-3. `plugins.defineOptimizerPlugin(...)` for optimizer evaluator scripts.
+Use the helper module provided by your host runtime/package (for example, `go-go-gepa` local plugin helper files) or export plain descriptor objects consumed by your host loader.
 
 Reference optimizer script:
 

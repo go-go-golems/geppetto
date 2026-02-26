@@ -77,40 +77,9 @@ gp.Register(reg, gp.Options{
 
 ## Plugin Contract Helpers
 
-The shared plugin contract helpers live in a separate module:
+`geppetto` no longer registers `require("geppetto/plugins")`.
 
-```javascript
-const plugins = require("geppetto/plugins");
-```
-
-Exports:
-
-| Export | Type | Purpose |
-|---|---|---|
-| `EXTRACTOR_PLUGIN_API_VERSION` | string | Current extractor plugin API version |
-| `defineExtractorPlugin` | function | Validates/freezes extractor descriptors |
-| `wrapExtractorRun` | function | Normalizes extractor `run(input, options)` input |
-| `OPTIMIZER_PLUGIN_API_VERSION` | string | Current optimizer plugin API version |
-| `defineOptimizerPlugin` | function | Validates/freezes optimizer descriptors |
-
-### Optimizer plugin descriptor shape
-
-```javascript
-const plugins = require("geppetto/plugins");
-
-module.exports = plugins.defineOptimizerPlugin({
-  apiVersion: plugins.OPTIMIZER_PLUGIN_API_VERSION,
-  kind: "optimizer",
-  id: "my.optimizer",
-  name: "My Optimizer",
-  create(ctx) {
-    return {
-      dataset() { return []; }, // optional
-      evaluate(input, options) { return { score: 0.0 }; } // required
-    };
-  }
-});
-```
+Plugin descriptor helper modules are runtime-owned and should be imported from the host application/runtime package (for example `go-go-gepa` local helper modules).
 
 ## `consts` Namespace
 
