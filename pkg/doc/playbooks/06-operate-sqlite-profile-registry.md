@@ -9,8 +9,7 @@ Topics:
 Commands:
   - pinocchio
 Flags:
-  - profile-registry-dsn
-  - profile-registry-db
+  - profile-registries
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
@@ -26,7 +25,7 @@ Run pinocchio/geppetto apps with durable SQLite profile registry storage, verify
 ## Before you start
 
 - Confirm your server is wired to registry CRUD handlers (`/api/chat/profiles...`).
-- Decide whether you configure by DB file path (`--profile-registry-db`) or full DSN (`--profile-registry-dsn`).
+- Decide whether you configure by SQLite file path (`--profile-registries ./data/profiles.db`) or explicit DSN source entry (`--profile-registries sqlite-dsn:<dsn>`).
 - Ensure only the service account can write the DB file and backup artifacts.
 
 ## Step 1: Start with durable profile storage
@@ -34,14 +33,14 @@ Run pinocchio/geppetto apps with durable SQLite profile registry storage, verify
 Preferred file-path form:
 
 ```bash
-pinocchio web-chat --profile-registry-db ./data/profiles.db
+pinocchio web-chat --profile-registries ./data/profiles.db
 ```
 
 Equivalent DSN form:
 
 ```bash
 pinocchio web-chat \
-  --profile-registry-dsn "file:./data/profiles.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+  --profile-registries "sqlite-dsn:file:./data/profiles.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
 ```
 
 ## Step 2: Verify the store is live
@@ -149,7 +148,7 @@ cp ./data/profiles.db.bak.20260223-220000 ./data/profiles.db
 - `GET /api/chat/profiles` returns expected slugs/default.
 - `GET /api/chat/schemas/middlewares` and `GET /api/chat/schemas/extensions` return expected schema catalogs.
 - `PATCH /api/chat/profiles/{slug}` with stale `expected_version` still returns `409`.
-- Chat requests using explicit `profile` or `registry` still resolve correctly.
+- Chat requests using explicit `profile` or `registrySlug` still resolve correctly.
 
 ## Security and permissions
 

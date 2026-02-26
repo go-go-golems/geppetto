@@ -1,7 +1,7 @@
 ---
 Title: RDX Static Diff and Snapshot Tools
 Ticket: RDX-004-DIFF-SNAPSHOT
-Status: active
+Status: complete
 Topics: []
 DocType: index
 Intent: long-term
@@ -11,10 +11,11 @@ RelatedFiles:
       Note: Primary spec doc
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-25T21:23:53.960781054-05:00
+LastUpdated: 2026-02-25T17:35:05.321621548-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # RDX Static Diff and Snapshot Tools

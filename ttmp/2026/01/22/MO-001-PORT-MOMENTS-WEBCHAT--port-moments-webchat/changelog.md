@@ -49,3 +49,8 @@ Step 7: Start implementation: ToolExecutor injection in geppetto toolhelpers; pi
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/router.go — Add ws.hello and ws.ping/pong
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/pinocchio/pkg/webchat/stream_coordinator.go — Consume events in-order and inject cursor fields
 
+
+## 2026-02-25
+
+Ticket closed
+

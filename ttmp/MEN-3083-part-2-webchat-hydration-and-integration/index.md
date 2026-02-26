@@ -1,7 +1,7 @@
 ---
 Title: 'go-go-mento: Webchat/Web hydration and integration reference'
 Ticket: MEN-3083-part-2
-Status: active
+Status: complete
 Topics:
     - frontend
     - conversation
@@ -25,8 +25,11 @@ RelatedFiles:
       Note: version-gated upsert; hydrateTimelineThunk; mapping
 ExternalSources: []
 Summary: ""
-LastUpdated: 2025-11-04T11:18:23.838560327-05:00
+LastUpdated: 2026-02-25T17:34:00.525054302-05:00
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 
 

@@ -16,3 +16,8 @@ Implemented engines.fromProfile/fromConfig with precedence resolution, provider+
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/module.go — Exported engines.fromProfile/fromConfig
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/module_test.go — Added precedence and integration tests
 
+
+## 2026-02-25
+
+Ticket closed
+

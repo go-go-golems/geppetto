@@ -1,7 +1,7 @@
 ---
 Title: RDX Dispatch, Update, Import, Sync
 Ticket: RDX-003-DISPATCH-SYNC
-Status: active
+Status: complete
 Topics: []
 DocType: index
 Intent: long-term
@@ -11,10 +11,11 @@ RelatedFiles:
       Note: Primary spec doc
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-25T21:23:49.759668006-05:00
+LastUpdated: 2026-02-25T17:35:05.895947114-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # RDX Dispatch, Update, Import, Sync

@@ -1,7 +1,7 @@
 ---
 Title: Mechanical split of geppetto JS module api.go
 Ticket: GP-15-JS-API-MECHANICAL-SPLIT
-Status: active
+Status: complete
 Topics:
     - architecture
     - geppetto
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-20T12:04:15.245792199-05:00
+LastUpdated: 2026-02-25T17:31:17.798001989-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Mechanical split of geppetto JS module api.go
 

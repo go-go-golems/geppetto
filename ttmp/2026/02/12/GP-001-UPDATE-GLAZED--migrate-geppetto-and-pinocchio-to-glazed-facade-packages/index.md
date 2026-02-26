@@ -1,7 +1,7 @@
 ---
 Title: Migrate Geppetto and Pinocchio to Glazed Facade Packages
 Ticket: GP-001-UPDATE-GLAZED
-Status: active
+Status: complete
 Topics:
     - migration
     - glazed
@@ -12,11 +12,12 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Workspace for planning and executing migration from legacy glazed APIs to facade packages across geppetto and pinocchio."
-LastUpdated: 2026-02-12T08:19:59.330552859-05:00
-WhatFor: "Central navigation for analysis, diary, tasks, and evidence artifacts for the migration."
-WhenToUse: "Use as the entry point for migration implementation and review."
+Summary: Workspace for planning and executing migration from legacy glazed APIs to facade packages across geppetto and pinocchio.
+LastUpdated: 2026-02-25T17:31:25.980296724-05:00
+WhatFor: Central navigation for analysis, diary, tasks, and evidence artifacts for the migration.
+WhenToUse: Use as the entry point for migration implementation and review.
 ---
+
 
 # Migrate Geppetto and Pinocchio to Glazed Facade Packages
 

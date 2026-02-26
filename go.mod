@@ -12,12 +12,13 @@ require (
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.4.0
-	github.com/go-go-golems/glazed v1.0.1
+	github.com/go-go-golems/glazed v1.0.2
 	github.com/go-go-golems/go-emrichen v0.0.10
 	github.com/go-go-golems/go-go-goja v0.3.0
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.41.1
@@ -70,7 +71,6 @@ require (
 	github.com/jedib0t/go-pretty v4.3.0+incompatible // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect

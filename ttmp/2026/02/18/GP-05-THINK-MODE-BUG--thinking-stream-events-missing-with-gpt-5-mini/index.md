@@ -1,7 +1,7 @@
 ---
 Title: Thinking stream events missing with gpt-5-mini
 Ticket: GP-05-THINK-MODE-BUG
-Status: active
+Status: complete
 Topics:
     - bug
     - inference
@@ -35,10 +35,11 @@ RelatedFiles:
       Note: Trace log artifact
 ExternalSources: []
 Summary: Investigation and fix ticket for missing thinking stream events with gpt-5-mini; includes deterministic/real-API reproductions, implemented code changes, and post-fix validation logs.
-LastUpdated: 2026-02-18T16:19:00-05:00
+LastUpdated: 2026-02-25T17:31:18.471686467-05:00
 WhatFor: Track reproduction, diagnosis, and reporting for missing thinking-stream behavior.
 WhenToUse: Use when debugging missing reasoning/thinking stream events in OpenAI model flows.
 ---
+
 
 
 

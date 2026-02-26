@@ -49,7 +49,7 @@ func TestYAMLFileProfileStore_PersistAndReload(t *testing.T) {
 	}
 }
 
-func TestYAMLFileProfileStore_LoadLegacyFile(t *testing.T) {
+func TestYAMLFileProfileStore_RejectsLegacyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	legacy := []byte(`default:
@@ -63,16 +63,12 @@ agent:
 		t.Fatalf("write legacy fixture failed: %v", err)
 	}
 
-	store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
-	if err != nil {
-		t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+	_, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	if err == nil {
+		t.Fatalf("expected legacy file decode error")
 	}
-	profiles, err := store.ListProfiles(context.Background(), MustRegistrySlug("default"))
-	if err != nil {
-		t.Fatalf("ListProfiles failed: %v", err)
-	}
-	if len(profiles) != 2 {
-		t.Fatalf("expected 2 profiles from legacy file, got %d", len(profiles))
+	if !strings.Contains(err.Error(), "legacy profile-map format is not supported") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -127,12 +123,13 @@ func TestYAMLFileProfileStore_ParseFailureSurfacing(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected parse error for malformed yaml")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "yaml") {
-		t.Fatalf("expected yaml error details, got %v", err)
+	errS := strings.ToLower(err.Error())
+	if !strings.Contains(errS, "yaml") && !strings.Contains(errS, "runtime yaml") {
+		t.Fatalf("expected parse/runtime yaml error details, got %v", err)
 	}
 }
 
-func TestYAMLFileProfileStore_WriteThenReloadParity_MultipleRegistries(t *testing.T) {
+func TestYAMLFileProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	ctx := context.Background()
@@ -158,7 +155,7 @@ func TestYAMLFileProfileStore_WriteThenReloadParity_MultipleRegistries(t *testin
 		t.Fatalf("upsert default registry failed: %v", err)
 	}
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+	err = store.UpsertRegistry(ctx, &ProfileRegistry{
 		Slug:               MustRegistrySlug("team"),
 		DefaultProfileSlug: MustProfileSlug("agent"),
 		Profiles: map[ProfileSlug]*Profile{
@@ -173,8 +170,12 @@ func TestYAMLFileProfileStore_WriteThenReloadParity_MultipleRegistries(t *testin
 				},
 			},
 		},
-	}, SaveOptions{Actor: "test", Source: "yaml"}); err != nil {
-		t.Fatalf("upsert team registry failed: %v", err)
+	}, SaveOptions{Actor: "test", Source: "yaml"})
+	if err == nil {
+		t.Fatalf("expected second registry upsert to fail for single-registry yaml store")
+	}
+	if !strings.Contains(err.Error(), "supports only registry") {
+		t.Fatalf("unexpected second registry upsert error: %v", err)
 	}
 
 	reloaded, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
@@ -186,25 +187,19 @@ func TestYAMLFileProfileStore_WriteThenReloadParity_MultipleRegistries(t *testin
 	if err != nil {
 		t.Fatalf("reloaded ListRegistries failed: %v", err)
 	}
-	if len(registries) != 2 {
-		t.Fatalf("expected 2 registries after reload, got %d", len(registries))
+	if len(registries) != 1 {
+		t.Fatalf("expected 1 registry after reload, got %d", len(registries))
 	}
-	if registries[0].Slug != MustRegistrySlug("default") || registries[1].Slug != MustRegistrySlug("team") {
-		t.Fatalf("unexpected registry ordering after reload: %q, %q", registries[0].Slug, registries[1].Slug)
+	if registries[0].Slug != MustRegistrySlug("default") {
+		t.Fatalf("unexpected registry slug after reload: %q", registries[0].Slug)
 	}
 
-	teamAgent, ok, err := reloaded.GetProfile(ctx, MustRegistrySlug("team"), MustProfileSlug("agent"))
-	if err != nil {
-		t.Fatalf("GetProfile(team/agent) failed: %v", err)
+	_, _, err = reloaded.GetProfile(ctx, MustRegistrySlug("team"), MustProfileSlug("agent"))
+	if err == nil {
+		t.Fatalf("expected non-default registry lookup to fail")
 	}
-	if !ok || teamAgent == nil {
-		t.Fatalf("expected team/agent profile after reload")
-	}
-	if got := teamAgent.DisplayName; got != "Team Agent" {
-		t.Fatalf("display name mismatch after reload: %q", got)
-	}
-	if got := teamAgent.Runtime.Middlewares[0].Config.(map[string]any)["mode"].(string); got != "planner" {
-		t.Fatalf("middleware config mismatch after reload: %q", got)
+	if !strings.Contains(err.Error(), "supports only registry") {
+		t.Fatalf("unexpected non-default registry lookup error: %v", err)
 	}
 }
 

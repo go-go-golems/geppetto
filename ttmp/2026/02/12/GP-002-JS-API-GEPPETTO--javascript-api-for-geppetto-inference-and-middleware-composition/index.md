@@ -1,7 +1,7 @@
 ---
 Title: JavaScript API for Geppetto Inference and Middleware Composition
 Ticket: GP-002-JS-API-GEPPETTO
-Status: active
+Status: complete
 Topics:
     - geppetto
     - javascript
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T08:23:10.587404369-05:00
+LastUpdated: 2026-02-25T17:31:25.397569787-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JavaScript API for Geppetto Inference and Middleware Composition
 

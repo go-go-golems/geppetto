@@ -1,7 +1,7 @@
 ---
 Title: Correlation Contract and Debug UI Migration Plan
 Ticket: PI-014-CORRELATION-CONTRACT-DEBUG-UI
-Status: active
+Status: complete
 Topics:
     - backend
     - middleware
@@ -15,10 +15,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Implement deterministic inference-scoped event-to-snapshot correlation, tracing integration details, endpoint migration to /debug-only APIs, and separate debug app scaffolding.
-LastUpdated: 2026-02-07T11:25:00-05:00
+LastUpdated: 2026-02-25T18:07:23.615615308-05:00
 WhatFor: Planning and execution hub for Critical 1 and associated follow-up decisions from PI-013.
 WhenToUse: Use when implementing debug correlation and tracing architecture or reviewing migration progress.
 ---
+
 
 # Correlation Contract and Debug UI Migration Plan
 

@@ -1,7 +1,7 @@
 ---
 Title: Codegen for turns block kind and key mappers
 Ticket: GP-003-JS-TURNS-CODEGEN
-Status: active
+Status: complete
 Topics:
     - geppetto
     - turns
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T09:25:40.533760342-05:00
+LastUpdated: 2026-02-25T17:31:24.815182245-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Codegen for turns block kind and key mappers
 

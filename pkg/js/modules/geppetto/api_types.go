@@ -18,8 +18,9 @@ import (
 )
 
 type engineRef struct {
-	Name   string
-	Engine engine.Engine
+	Name     string
+	Engine   engine.Engine
+	Metadata map[string]any
 }
 
 type builderRef struct {

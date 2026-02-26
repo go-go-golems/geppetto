@@ -1,178 +1,168 @@
-# Geppetto - go LLM and GPT3 specific prompting framework
+# Geppetto
 
-#![Retro cybernetic puppetmaster controlling a pinocchio puppet that is working on a computer, retro mainframe aesthetic](geppetto.jpg)
+![Geppetto](geppetto.jpg)
 
-Geppetto is a framework to run "actions" against LLMs (Large Language Models).
-It is ultimately meant to become a rich framework to declaratively create 
-chained LLM application, but is currently mostly a wrapper around a simple
-prompting API.
+Geppetto is the runtime core for building LLM applications in Go.
 
-The main abstraction currently presented is the concept of a prompt "command", based
-around the [glazed](https://github.com/go-go-golems/glazed) command abstraction.
+Current project direction is:
 
-The base concept of a command is a function that takes a
-set of input flags and arguments, and outputs structured data.
-Using this as a central abstraction of steps
-inside most LLM prompting applications, we can easily chain them together 
-commands while being able to run them easily on the terminal.
+- provider-agnostic inference engines,
+- first-class tool calling and tool-loop orchestration,
+- middleware-based runtime composition,
+- typed turn/block data model,
+- hard-cutover profile registries with stack resolution and provenance,
+- native JavaScript bindings through Goja (`require("geppetto")`).
 
-## Pinocchio
+This repository is primarily a library + examples repo. Downstream applications (for example pinocchio and go-go-os) consume Geppetto as runtime infrastructure.
 
-It comes with a command line tool called `pinocchio` that can be used to interact 
-with different prompting applications interactively or from the command line.
+## Current Model (Important)
 
-### Installation
+Geppetto now uses a registry-first, profile-first runtime model:
 
-To install the `pinocchio` command line tool with homebrew, run:
+- runtime config is resolved from profile registries (not ad-hoc legacy profile maps),
+- registry sources are stackable (`yaml`, SQLite file, `sqlite-dsn`),
+- top-of-stack precedence is deterministic,
+- request-time overrides are policy-gated,
+- resolved runtime includes stack lineage/trace metadata and runtime fingerprint.
 
-```bash
-brew tap go-go-golems/go-go-go
-brew install go-go-golems/go-go-go/pinocchio
-```
+There is no overlay abstraction in active runtime composition.
+There is no runtime `registrySlug` selector in `engines.fromProfile(...)`.
 
-To install the `pinocchio` command using apt-get, run:
+## Core Runtime Building Blocks
 
-```bash
-echo "deb [trusted=yes] https://apt.fury.io/go-go-golems/ /" >> /etc/apt/sources.list.d/fury.list
-apt-get update
-apt-get install pinocchio
-```
+- `pkg/turns`: canonical conversation model (`Turn`, `Block`, typed keys).
+- `pkg/inference/engine`: provider engine interfaces and implementations.
+- `pkg/inference/toolloop`: orchestration loop for tool calls/results/retries.
+- `pkg/inference/middleware`: inference middleware pipeline.
+- `pkg/inference/session`: session lifecycle and history.
+- `pkg/profiles`: profile registries, stack resolution, policy, storage backends.
+- `pkg/js/modules/geppetto`: JS module exposed through Goja.
 
-To install using `yum`, run:
+## Profile Registries
 
-```bash
-echo "
-[fury]
-name=Gemfury Private Repo
-baseurl=https://yum.fury.io/go-go-golems/
-enabled=1
-gpgcheck=0
-" >> /etc/yum.repos.d/fury.repo
-yum install pinocchio
-```
+Runtime registry sources are loaded via `profile-registries` (CLI flag, env, or config depending on host app).
 
-To install using `go get`, run:
+Supported source entries:
 
-```bash
-go get -u github.com/go-go-golems/geppetto/cmd/pinocchio
-```
+- `path/to/registry.yaml`
+- `path/to/profiles.db`
+- `sqlite-dsn:file:./profiles.db?...`
 
-Finally, install by downloading the binaries straight from [github](https://github.com/go-go-golems/geppetto/releases).
-
-## Usage
-
-Configure pinocchio by storing your OpenAI API key in ~/.pinocchio/config.yaml. Furthermore,
-you can configure one or more locations for geppetto commands.
+Single YAML format is one registry per file:
 
 ```yaml
-openai-api-key: XXXX
-repositories:
-  - /Users/manuel/code/pinocchio
-  - /Users/manuel/.pinocchio/repository
+slug: team
+profiles:
+  default:
+    slug: default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-api-type: openai
+          ai-engine: gpt-4o-mini
 ```
 
-You can then start using `pinocchio`:
+For details:
+
+- [`pkg/doc/topics/01-profiles.md`](pkg/doc/topics/01-profiles.md)
+- [`pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md`](pkg/doc/playbooks/05-migrate-legacy-profiles-yaml-to-registry.md)
+- [`pkg/doc/playbooks/06-operate-sqlite-profile-registry.md`](pkg/doc/playbooks/06-operate-sqlite-profile-registry.md)
+
+## JavaScript API
+
+Geppetto exposes a native module inside Goja:
+
+```javascript
+const gp = require("geppetto");
+```
+
+Main namespaces:
+
+- `gp.turns`
+- `gp.engines`
+- `gp.profiles`
+- `gp.schemas`
+- `gp.middlewares`
+- `gp.tools`
+
+`gp.profiles` supports both host-injected registries and runtime stack binding:
+
+- `connectStack(sources)`
+- `disconnectStack()`
+- `getConnectedSources()`
+
+Use the JS lab harness:
 
 ```bash
-❯ pinocchio examples test --print-prompt
-Pretend you are a scientist. What is the age of you?
-
-❯ pinocchio examples test               
-
-As a scientist, I do not have an age.
-
-❯ pinocchio examples test --pretend "100 year old explorer" --print-prompt
-Pretend you are a 100 year old explorer. What is the age of you?
-
-❯ pinocchio examples test --pretend "100 year old explorer"               
-
-I am 100 years old.
+go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/01_turns_and_blocks.js
 ```
 
-Pinocchio comes with a selection of [demo prompts](https://github.com/go-go-golems/geppetto/tree/main/cmd/pinocchio/prompts/examples)
-as an inspiration.
+Run full JS profile/registry examples:
 
-## Creating your own prompt
-
-Creating your own prompt is easy. Create a yaml file in one of the configure repositories. 
-The directory layout will be mapped to the command verb hierarchy. For example,
-the file `~/.pinocchio/repository/prompts/examples/test.yaml` will be available as the command
-`pinocchio examples test`.
-
-A prompt description is a yaml file with the following structure, as shown for a prompt
-that can be used to rewrite text in a certain style. After a short description, the
-flags and arguments configure how what variables will be used to interpolate the prompt at
-the bottom.
-
-```yaml
-name: command-name
-short: Rewrite text in a certain style
-flags:
-  - name: author
-    type: stringList
-    help: Inspired by authors
-    default:
-      - L. Ron Hubbard
-      - Isaac Asimov
-      - Richard Bandler
-      - Robert Anton Wilson
-  - name: adjective
-    type: stringList
-    help: Style adjectives
-    default:
-      - esoteric
-      - retro
-      - technical
-      - seventies hip
-      - science fiction
-  - name: style
-    type: string
-    help: Style
-    default: in a style reminiscent of seventies and eighties computer manuals
-  - name: instructions
-    type: string
-    help: Additional instructions
-arguments:
-  - name: body
-    type: stringFromFile
-    help: Paragraph to rewrite
-    required: true
-prompt: |
-  Rewrite the following paragraph, 
-  {{ if .style }}in the style of {{ .style }},{{ end }}
-  {{ if .adjective }}so that it sounds {{ .adjective | join ", " }}, {{ end }}
-  {{ if .author }}in the style of {{ .author | join ", " }}. {{ end }}
-  Don't mention any authors names.
-
-  ---
-  {{ .body -}}
-  ---
-
-  {{ if .instructions }} {{ .instructions }} {{ end }}
-
-  ---
+```bash
+./examples/js/geppetto/run_profile_registry_examples.sh
 ```
 
-## Creating aliases
+References:
 
-In addition to prompts, you can define aliases, which are just shortcuts to other commands, with certain flags
-prefilled. The resulting yaml file can be placed alongside other commands in one of the configured repositories.
+- [`pkg/doc/topics/13-js-api-reference.md`](pkg/doc/topics/13-js-api-reference.md)
+- [`pkg/doc/topics/14-js-api-user-guide.md`](pkg/doc/topics/14-js-api-user-guide.md)
+- [`examples/js/geppetto/README.md`](examples/js/geppetto/README.md)
 
-```shell
-❯ pinocchio examples test --pretend "100 year old explorer" --create-alias old-explorer \
-   | tee ~/.pinochio/repository/prompts/examples/old-explorer.yaml
-name: old-explorer
-aliasFor: test
-flags:
-    pretend: 100 year old explorer
+## Quick Start: Go Examples
 
-❯ pinocchio examples old-explorer
-I am 100 years old.
+```bash
+# simple inference pipeline
+go run ./cmd/examples/simple-inference
+
+# streaming output
+go run ./cmd/examples/simple-streaming-inference
+
+# middleware + tools examples
+go run ./cmd/examples/middleware-inference
+go run ./cmd/examples/generic-tool-calling
+go run ./cmd/examples/openai-tools
+go run ./cmd/examples/claude-tools
+
+# JS host harness
+go run ./cmd/examples/geppetto-js-lab --list-go-tools
 ```
 
-## Contributing
+All runnable examples are under `cmd/examples/`.
 
-This is GO GO GOLEMS playground, and GO GO GOLEMS don't accept contributions. 
-The structure of the project will significantly change as we go forward, but
-the core concept of a declarative prompting structure will stay the same,
-and as such, you should be reasonably safe writing YAMLs to be used with pinocchio.
+## Documentation
+
+Start with:
+
+- [`pkg/doc/topics/00-docs-index.md`](pkg/doc/topics/00-docs-index.md)
+
+High-value pages:
+
+- profiles: [`pkg/doc/topics/01-profiles.md`](pkg/doc/topics/01-profiles.md)
+- engines: [`pkg/doc/topics/06-inference-engines.md`](pkg/doc/topics/06-inference-engines.md)
+- tools: [`pkg/doc/topics/07-tools.md`](pkg/doc/topics/07-tools.md)
+- middlewares: [`pkg/doc/topics/09-middlewares.md`](pkg/doc/topics/09-middlewares.md)
+- sessions: [`pkg/doc/topics/10-sessions.md`](pkg/doc/topics/10-sessions.md)
+- JS API reference: [`pkg/doc/topics/13-js-api-reference.md`](pkg/doc/topics/13-js-api-reference.md)
+
+## Repository Layout
+
+- `pkg/` runtime packages
+- `cmd/examples/` runnable binaries
+- `examples/js/geppetto/` JS scripts for API coverage
+- `pkg/doc/` docs, playbooks, tutorials
+- `cmd/gen-meta/` codegen for constants/type artifacts
+
+## Development
+
+Requirements:
+
+- Go `1.25.7` (see `go.mod`)
+
+Common commands:
+
+```bash
+go test ./...
+go generate ./...
+go build ./...
+```

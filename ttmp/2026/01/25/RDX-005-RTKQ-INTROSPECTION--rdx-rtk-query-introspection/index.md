@@ -1,7 +1,7 @@
 ---
 Title: RDX RTK Query Introspection
 Ticket: RDX-005-RTKQ-INTROSPECTION
-Status: active
+Status: complete
 Topics: []
 DocType: index
 Intent: long-term
@@ -11,10 +11,11 @@ RelatedFiles:
       Note: Primary spec doc
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-25T21:24:00.081465698-05:00
+LastUpdated: 2026-02-25T17:35:04.752362295-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # RDX RTK Query Introspection

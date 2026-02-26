@@ -35,3 +35,8 @@ Step 4 (ticket finalization): completed diary with commit hashes (cdf51af, 841a8
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/10/PI-020-OPENAI-RESPONSES-BUGFIX--fix-openai-responses-helper-context-and-stream-error-handling-bugs/reference/01-diary.md — Detailed implementation diary across both bugfixes
 - /home/manuel/workspaces/2025-10-30/implement-openai-responses-api/geppetto/ttmp/2026/02/10/PI-020-OPENAI-RESPONSES-BUGFIX--fix-openai-responses-helper-context-and-stream-error-handling-bugs/tasks.md — All task checkboxes marked complete
 
+
+## 2026-02-25
+
+Ticket closed
+

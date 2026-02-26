@@ -1,7 +1,7 @@
 ---
 Title: RDX RTK CLI
 Ticket: RDX-001-RTK-CLI
-Status: active
+Status: complete
 Topics: []
 DocType: index
 Intent: long-term
@@ -26,10 +26,11 @@ RelatedFiles:
 ExternalSources:
     - local:rtk.md
 Summary: ""
-LastUpdated: 2026-01-25T21:11:43.012441015-05:00
+LastUpdated: 2026-02-25T17:35:06.43715037-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 

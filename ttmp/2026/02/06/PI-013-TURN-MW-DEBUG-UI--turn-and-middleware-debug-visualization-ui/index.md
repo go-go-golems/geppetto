@@ -1,7 +1,7 @@
 ---
 Title: Turn and Middleware Debug Visualization UI
 Ticket: PI-013-TURN-MW-DEBUG-UI
-Status: active
+Status: complete
 Topics:
     - websocket
     - middleware
@@ -15,10 +15,11 @@ RelatedFiles: []
 ExternalSources:
     - local:ui-design-turn.md
 Summary: Build a dedicated debugging UI to visualize turn snapshots, middleware mutations, event flows, structured sink extraction, and timeline projection behavior, including reviewed architecture guidance, post-review design decisions, and a full frontend code review audit.
-LastUpdated: 2026-02-07T12:27:00-05:00
+LastUpdated: 2026-02-25T18:07:24.153384994-05:00
 WhatFor: Central index for PI-013 documentation and handoff artifacts.
 WhenToUse: Use when orienting to this ticket or starting implementation/design work.
 ---
+
 
 
 # Turn and Middleware Debug Visualization UI

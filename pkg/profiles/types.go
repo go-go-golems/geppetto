@@ -26,6 +26,13 @@ type PolicySpec struct {
 	ReadOnly            bool     `json:"read_only" yaml:"read_only"`
 }
 
+// ProfileRef identifies a profile that can be layered via stack composition.
+// Empty RegistrySlug means "same registry as the referencing profile".
+type ProfileRef struct {
+	RegistrySlug RegistrySlug `json:"registry_slug,omitempty" yaml:"registry_slug,omitempty"`
+	ProfileSlug  ProfileSlug  `json:"profile_slug" yaml:"profile_slug"`
+}
+
 // ProfileMetadata stores provenance and version fields.
 type ProfileMetadata struct {
 	Source      string   `json:"source,omitempty" yaml:"source,omitempty"`
@@ -53,6 +60,7 @@ type Profile struct {
 	Slug        ProfileSlug     `json:"slug" yaml:"slug"`
 	DisplayName string          `json:"display_name,omitempty" yaml:"display_name,omitempty"`
 	Description string          `json:"description,omitempty" yaml:"description,omitempty"`
+	Stack       []ProfileRef    `json:"stack,omitempty" yaml:"stack,omitempty"`
 	Runtime     RuntimeSpec     `json:"runtime,omitempty" yaml:"runtime,omitempty"`
 	Policy      PolicySpec      `json:"policy,omitempty" yaml:"policy,omitempty"`
 	Metadata    ProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
@@ -78,6 +86,7 @@ func (p *Profile) Clone() *Profile {
 		Slug:        p.Slug,
 		DisplayName: p.DisplayName,
 		Description: p.Description,
+		Stack:       append([]ProfileRef(nil), p.Stack...),
 		Runtime: RuntimeSpec{
 			StepSettingsPatch: deepCopyStringAnyMap(p.Runtime.StepSettingsPatch),
 			SystemPrompt:      p.Runtime.SystemPrompt,

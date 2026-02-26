@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
@@ -550,30 +554,26 @@ func TestStartWithJSEngineAndMiddleware(t *testing.T) {
 }
 
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
-	t.Setenv("PINOCCHIO_PROFILE", "env-profile-model")
-	rt := newJSRuntime(t, Options{})
+	t.Setenv("OPENAI_API_KEY", "test-openai-key")
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 
-		const explicit = gp.engines.fromProfile("explicit-model", {
-			profile: "opts-model",
-			apiType: "openai",
-			apiKey: "test-openai-key"
-		});
-		if (explicit.name !== "profile:explicit-model") throw new Error("explicit profile precedence mismatch");
+		const explicit = gp.engines.fromProfile("explicit-model");
+		if (explicit.name !== "profile:default/explicit-model") throw new Error("explicit profile resolve mismatch");
 
-		const optsProfile = gp.engines.fromProfile(undefined, {
-			profile: "opts-model",
-			apiType: "openai",
-			apiKey: "test-openai-key"
-		});
-		if (optsProfile.name !== "profile:opts-model") throw new Error("options profile precedence mismatch");
+		const defaultProfile = gp.engines.fromProfile(undefined);
+		if (defaultProfile.name !== "profile:default/default-model") throw new Error("default profile resolve mismatch");
 
-		const envProfile = gp.engines.fromProfile(undefined, {
-			apiType: "openai",
-			apiKey: "test-openai-key"
-		});
-		if (envProfile.name !== "profile:env-profile-model") throw new Error("env profile precedence mismatch");
+		let threwLegacyRegistry = false;
+		try {
+			gp.engines.fromProfile("default-model", { registrySlug: "shared" });
+		} catch (e) {
+			threwLegacyRegistry = /registryslug has been removed/i.test(String(e));
+		}
+		if (!threwLegacyRegistry) throw new Error("legacy registrySlug option should fail with migration error");
 
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
@@ -592,6 +592,413 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	`)
 }
 
+func TestEnginesFromProfileRequiresProfileRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.engines.fromProfile("any");
+		} catch (e) {
+			threw = /profile registry/i.test(String(e));
+		}
+		if (!threw) throw new Error("fromProfile should throw when no profile registry is configured");
+	`)
+}
+
+func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const registries = gp.profiles.listRegistries();
+		if (!Array.isArray(registries) || registries.length !== 1) throw new Error("expected one registry");
+		if (registries[0].slug !== "default") throw new Error("registry slug mismatch");
+
+		const registry = gp.profiles.getRegistry();
+		if (registry.slug !== "default") throw new Error("getRegistry default mismatch");
+
+		const profiles = gp.profiles.listProfiles("default");
+		if (!Array.isArray(profiles) || profiles.length < 2) throw new Error("listProfiles mismatch");
+
+		const explicit = gp.profiles.getProfile("explicit-model");
+		if (!explicit || explicit.slug !== "explicit-model") throw new Error("getProfile mismatch");
+
+		const resolved = gp.profiles.resolve({
+			profileSlug: "explicit-model",
+			runtimeKeyFallback: "explicit-model-runtime",
+		});
+		if (resolved.registrySlug !== "default") throw new Error("resolve registry mismatch");
+		if (resolved.profileSlug !== "explicit-model") throw new Error("resolve profile mismatch");
+		if (resolved.runtimeKey !== "explicit-model-runtime") throw new Error("resolve runtime key mismatch");
+		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
+			throw new Error("resolve runtime fingerprint missing");
+		}
+		if (!resolved.effectiveRuntime || !resolved.effectiveRuntime.step_settings_patch) {
+			throw new Error("resolve effectiveRuntime payload missing");
+		}
+
+		const created = gp.profiles.createProfile(
+			{
+				slug: "ops",
+				display_name: "Ops",
+				description: "Ops profile",
+				runtime: {
+					system_prompt: "You are operations support",
+				},
+			},
+			{ registrySlug: "default", write: { actor: "test-js", source: "module-test" } },
+		);
+		if (!created || created.slug !== "ops") throw new Error("createProfile mismatch");
+
+		const updated = gp.profiles.updateProfile(
+			"ops",
+			{ description: "Ops profile updated" },
+			{ registrySlug: "default", write: { actor: "test-js", source: "module-test" } },
+		);
+		if (!updated || updated.description !== "Ops profile updated") throw new Error("updateProfile mismatch");
+
+		gp.profiles.setDefaultProfile("ops", {
+			registrySlug: "default",
+			write: { actor: "test-js", source: "module-test" },
+		});
+		const updatedRegistry = gp.profiles.getRegistry("default");
+		if (updatedRegistry.default_profile_slug !== "ops") throw new Error("setDefaultProfile mismatch");
+
+		gp.profiles.deleteProfile("ops", {
+			registrySlug: "default",
+			write: { actor: "test-js", source: "module-test" },
+		});
+		let deleted = false;
+		try {
+			gp.profiles.getProfile("ops", "default");
+		} catch (e) {
+			deleted = /profile not found/i.test(String(e));
+		}
+		if (!deleted) throw new Error("deleteProfile mismatch");
+	`)
+}
+
+func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.profiles.listRegistries();
+		} catch (e) {
+			threw = /configured profile registry/i.test(String(e));
+		}
+		if (!threw) throw new Error("profiles API should require configured registry");
+	`)
+}
+
+func TestProfilesNamespaceCreateRequiresWritableRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: readOnlyProfileRegistry{reader: mustNewJSProfileRegistry(t)},
+	})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.profiles.createProfile({ slug: "ops" });
+		} catch (e) {
+			threw = /writable profile registry/i.test(String(e));
+		}
+		if (!threw) throw new Error("profiles.createProfile should require writable registry");
+	`)
+}
+
+func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "base.yaml")
+	topPath := filepath.Join(tmpDir, "top.yaml")
+
+	if err := os.WriteFile(basePath, []byte(`slug: base
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: base-default
+  helper:
+    slug: helper
+    runtime:
+      system_prompt: base-helper
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile base.yaml failed: %v", err)
+	}
+	if err := os.WriteFile(topPath, []byte(`slug: top
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: top-default
+  analyst:
+    slug: analyst
+    runtime:
+      system_prompt: top-analyst
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile top.yaml failed: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, fmt.Sprintf(`
+		const gp = require("geppetto");
+
+		if (gp.profiles.getConnectedSources().length !== 0) throw new Error("expected empty initial sources");
+
+		const connected = gp.profiles.connectStack([%q, %q]);
+		if (!Array.isArray(connected.sources) || connected.sources.length !== 2) {
+			throw new Error("connectStack sources mismatch");
+		}
+		if (!Array.isArray(connected.registries) || connected.registries.length !== 2) {
+			throw new Error("connectStack registries mismatch");
+		}
+
+		const active = gp.profiles.getConnectedSources();
+		if (active[0] !== %q || active[1] !== %q) throw new Error("getConnectedSources mismatch");
+
+		const topResolved = gp.profiles.resolve({ profileSlug: "default", runtimeKeyFallback: "rk-default" });
+		if (topResolved.registrySlug !== "top") throw new Error("top-of-stack resolution mismatch");
+
+		const baseResolved = gp.profiles.resolve({ profileSlug: "helper", runtimeKeyFallback: "rk-helper" });
+		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
+
+		let readOnlyErr = false;
+		try {
+			gp.profiles.createProfile({ slug: "new-profile", runtime: { system_prompt: "x" } });
+		} catch (e) {
+			readOnlyErr = /read-only|writable profile registry/i.test(String(e));
+		}
+		if (!readOnlyErr) throw new Error("expected read-only write error for yaml-backed stack");
+
+		const switched = gp.profiles.connectStack(%q);
+		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
+			throw new Error("connectStack string source mismatch");
+		}
+
+		gp.profiles.disconnectStack();
+		if (gp.profiles.getConnectedSources().length !== 0) throw new Error("disconnectStack should clear sources");
+
+		let missing = false;
+		try {
+			gp.profiles.listRegistries();
+		} catch (e) {
+			missing = /configured profile registry/i.test(String(e));
+		}
+		if (!missing) throw new Error("disconnectStack should clear profile registry binding");
+	`, basePath, topPath, basePath, topPath, topPath, topPath))
+}
+
+func TestProfilesNamespaceConnectStackSQLiteCrud(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := gepprofiles.SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile failed: %v", err)
+	}
+	store, err := gepprofiles.NewSQLiteProfileStore(dsn, gepprofiles.MustRegistrySlug("workspace"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore failed: %v", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
+	if err := store.UpsertRegistry(ctx, &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("workspace"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("default"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("default"): {
+				Slug: gepprofiles.MustProfileSlug("default"),
+				Runtime: gepprofiles.RuntimeSpec{
+					SystemPrompt: "workspace-default",
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "module-test"}); err != nil {
+		t.Fatalf("UpsertRegistry(workspace) failed: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, fmt.Sprintf(`
+		const gp = require("geppetto");
+		const write = { registrySlug: "workspace", write: { actor: "test-js", source: "module-test" } };
+
+		const connected = gp.profiles.connectStack([%q]);
+		if (!Array.isArray(connected.registries) || !connected.registries.some((x) => x.slug === "workspace")) {
+			throw new Error("workspace registry missing after connectStack");
+		}
+
+		const created = gp.profiles.createProfile(
+			{ slug: "ops", runtime: { system_prompt: "ops prompt" } },
+			write,
+		);
+		if (!created || created.slug !== "ops") throw new Error("createProfile via connectStack failed");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "ops", runtimeKeyFallback: "rk-ops" });
+		if (resolved.registrySlug !== "workspace") throw new Error("resolve after connectStack mismatch");
+
+		const updated = gp.profiles.updateProfile("ops", { description: "Ops updated" }, write);
+		if (!updated || updated.description !== "Ops updated") throw new Error("updateProfile via connectStack failed");
+
+		gp.profiles.deleteProfile("ops", write);
+		let deleted = false;
+		try {
+			gp.profiles.getProfile("ops", "workspace");
+		} catch (e) {
+			deleted = /profile not found/i.test(String(e));
+		}
+		if (!deleted) throw new Error("deleteProfile via connectStack failed");
+	`, dbPath))
+}
+
+func TestProfilesNamespaceDisconnectStackRestoresHostRegistry(t *testing.T) {
+	topPath := filepath.Join(t.TempDir(), "top.yaml")
+	if err := os.WriteFile(topPath, []byte(`slug: top
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: top-default
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile top.yaml failed: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
+	mustRunJS(t, rt, fmt.Sprintf(`
+		const gp = require("geppetto");
+
+		const baseline = gp.profiles.listRegistries();
+		if (!Array.isArray(baseline) || baseline.length !== 1 || baseline[0].slug !== "default") {
+			throw new Error("unexpected baseline registry state");
+		}
+
+		const connected = gp.profiles.connectStack([%q]);
+		if (!Array.isArray(connected.registries) || connected.registries.length !== 1 || connected.registries[0].slug !== "top") {
+			throw new Error("connectStack should switch to top registry");
+		}
+
+		gp.profiles.disconnectStack();
+
+		const restored = gp.profiles.listRegistries();
+		if (!Array.isArray(restored) || restored.length !== 1 || restored[0].slug !== "default") {
+			throw new Error("disconnectStack should restore host-provided registry");
+		}
+
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model", runtimeKeyFallback: "rk-explicit" });
+		if (resolved.registrySlug !== "default") {
+			throw new Error("resolve should use restored host registry after disconnect");
+		}
+	`, topPath))
+}
+
+func TestSchemasNamespaceRequiresConfiguredProviders(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		let middlewareErr = false;
+		try {
+			gp.schemas.listMiddlewares();
+		} catch (e) {
+			middlewareErr = /configured middleware definition registry/i.test(String(e));
+		}
+		if (!middlewareErr) throw new Error("schemas.listMiddlewares should require configured provider");
+
+		let extensionErr = false;
+		try {
+			gp.schemas.listExtensions();
+		} catch (e) {
+			extensionErr = /configured extension schema provider/i.test(String(e));
+		}
+		if (!extensionErr) throw new Error("schemas.listExtensions should require configured provider");
+	`)
+}
+
+func TestSchemasNamespaceListMiddlewaresAndExtensions(t *testing.T) {
+	mwRegistry := middlewarecfg.NewInMemoryDefinitionRegistry()
+	if err := mwRegistry.RegisterDefinition(schemaDefinition{
+		name: "retry",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"maxAttempts": map[string]any{"type": "integer"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register retry schema definition: %v", err)
+	}
+	if err := mwRegistry.RegisterDefinition(schemaDefinition{
+		name: "agentmode",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"mode": map[string]any{"type": "string"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register agentmode schema definition: %v", err)
+	}
+
+	extRegistry, err := gepprofiles.NewInMemoryExtensionCodecRegistry(extensionSchemaCodec{
+		key:         gepprofiles.MustExtensionKey("demo.example@v1"),
+		displayName: "Demo Example",
+		description: "Demo extension schema",
+		schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"enabled": map[string]any{"type": "boolean"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create extension codec registry: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{
+		MiddlewareSchemas: mwRegistry,
+		ExtensionCodecs:   extRegistry,
+		ExtensionSchemas: map[string]map[string]any{
+			"host.extra@v1": {
+				"type": "object",
+				"properties": map[string]any{
+					"value": map[string]any{"type": "string"},
+				},
+			},
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const middlewares = gp.schemas.listMiddlewares();
+		if (!Array.isArray(middlewares) || middlewares.length !== 2) throw new Error("middleware schema count mismatch");
+		if (middlewares[0].name !== "agentmode" || middlewares[1].name !== "retry") {
+			throw new Error("middleware schema ordering mismatch");
+		}
+		if (!middlewares[0].schema || middlewares[0].schema.type !== "object") {
+			throw new Error("middleware schema payload missing");
+		}
+
+		const extensions = gp.schemas.listExtensions();
+		if (!Array.isArray(extensions) || extensions.length !== 2) throw new Error("extension schema count mismatch");
+
+		const demo = extensions.find((x) => x.key === "demo.example@v1");
+		if (!demo) throw new Error("missing codec-backed extension schema");
+		if (demo.displayName !== "Demo Example") throw new Error("extension displayName mismatch");
+		if (!demo.schema || demo.schema.type !== "object") throw new Error("extension schema payload missing");
+
+		const host = extensions.find((x) => x.key === "host.extra@v1");
+		if (!host) throw new Error("missing host extension schema");
+		if (!host.schema || host.schema.type !== "object") throw new Error("host extension schema payload missing");
+	`)
+}
+
 func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
 		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
@@ -599,13 +1006,13 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") == "" {
 		t.Skip("skipping gemini integration test: GEMINI_API_KEY/GOOGLE_API_KEY not set")
 	}
-	rt := newJSRuntime(t, Options{})
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSGeminiProfileRegistry(t),
+	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 		const s = gp.createSession({
-			engine: gp.engines.fromProfile("gemini-2.5-flash-lite", {
-				apiType: "gemini"
-			})
+			engine: gp.engines.fromProfile("gemini-2.5-flash-lite")
 		});
 		s.append(gp.turns.newTurn({
 			blocks: [gp.turns.newUserBlock("Reply with exactly READY.")]
@@ -819,4 +1226,149 @@ func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 		const errE = String(useE.payload && useE.payload.error || "");
 		if (!/beforeToolCall hook/i.test(errE)) throw new Error("scenario E: expected beforeToolCall hook error");
 	`)
+}
+
+func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+	t.Helper()
+	store := gepprofiles.NewInMemoryProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("default"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("default-model"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("default-model"): {
+				Slug: gepprofiles.MustProfileSlug("default-model"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gpt-4o-mini",
+							"ai-api-type": "openai",
+						},
+						"api": map[string]any{
+							"openai-api-key": "test-openai-key",
+						},
+					},
+				},
+			},
+			gepprofiles.MustProfileSlug("explicit-model"): {
+				Slug: gepprofiles.MustProfileSlug("explicit-model"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gpt-4o",
+							"ai-api-type": "openai",
+						},
+						"api": map[string]any{
+							"openai-api-key": "test-openai-key",
+						},
+					},
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(default) failed: %v", err)
+	}
+	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	return registry
+}
+
+type readOnlyProfileRegistry struct {
+	reader gepprofiles.RegistryReader
+}
+
+func (r readOnlyProfileRegistry) ListRegistries(ctx context.Context) ([]gepprofiles.RegistrySummary, error) {
+	return r.reader.ListRegistries(ctx)
+}
+
+func (r readOnlyProfileRegistry) GetRegistry(ctx context.Context, registrySlug gepprofiles.RegistrySlug) (*gepprofiles.ProfileRegistry, error) {
+	return r.reader.GetRegistry(ctx, registrySlug)
+}
+
+func (r readOnlyProfileRegistry) ListProfiles(ctx context.Context, registrySlug gepprofiles.RegistrySlug) ([]*gepprofiles.Profile, error) {
+	return r.reader.ListProfiles(ctx, registrySlug)
+}
+
+func (r readOnlyProfileRegistry) GetProfile(ctx context.Context, registrySlug gepprofiles.RegistrySlug, profileSlug gepprofiles.ProfileSlug) (*gepprofiles.Profile, error) {
+	return r.reader.GetProfile(ctx, registrySlug, profileSlug)
+}
+
+func (r readOnlyProfileRegistry) ResolveEffectiveProfile(ctx context.Context, in gepprofiles.ResolveInput) (*gepprofiles.ResolvedProfile, error) {
+	return r.reader.ResolveEffectiveProfile(ctx, in)
+}
+
+type schemaDefinition struct {
+	name   string
+	schema map[string]any
+}
+
+func (d schemaDefinition) Name() string {
+	return d.name
+}
+
+func (d schemaDefinition) ConfigJSONSchema() map[string]any {
+	return cloneJSONMap(d.schema)
+}
+
+func (d schemaDefinition) Build(context.Context, middlewarecfg.BuildDeps, any) (middleware.Middleware, error) {
+	return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+		return next
+	}, nil
+}
+
+type extensionSchemaCodec struct {
+	key         gepprofiles.ExtensionKey
+	schema      map[string]any
+	displayName string
+	description string
+}
+
+func (c extensionSchemaCodec) Key() gepprofiles.ExtensionKey {
+	return c.key
+}
+
+func (c extensionSchemaCodec) Decode(raw any) (any, error) {
+	return cloneJSONValue(raw), nil
+}
+
+func (c extensionSchemaCodec) JSONSchema() map[string]any {
+	return cloneJSONMap(c.schema)
+}
+
+func (c extensionSchemaCodec) ExtensionDisplayName() string {
+	return c.displayName
+}
+
+func (c extensionSchemaCodec) ExtensionDescription() string {
+	return c.description
+}
+
+func mustNewJSGeminiProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+	t.Helper()
+	store := gepprofiles.NewInMemoryProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
+		Slug:               gepprofiles.MustRegistrySlug("default"),
+		DefaultProfileSlug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
+		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
+			gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"): {
+				Slug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "gemini-2.5-flash-lite",
+							"ai-api-type": "gemini",
+						},
+					},
+				},
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(default gemini) failed: %v", err)
+	}
+	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	return registry
 }

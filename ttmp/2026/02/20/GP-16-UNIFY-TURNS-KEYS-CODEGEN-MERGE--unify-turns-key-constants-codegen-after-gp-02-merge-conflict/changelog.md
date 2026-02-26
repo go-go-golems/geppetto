@@ -27,3 +27,8 @@ Implemented unified codegen migration (commit 78dfc79): added cmd/gen-meta + pkg
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/spec/geppetto_codegen.yaml — Authoritative manifest for all key families and JS exports
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/turns/keys_gen.go — Generated turns-owned constants and typed keys
 
+
+## 2026-02-25
+
+Ticket closed
+

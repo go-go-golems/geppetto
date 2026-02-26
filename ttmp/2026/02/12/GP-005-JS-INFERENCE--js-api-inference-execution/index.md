@@ -1,7 +1,7 @@
 ---
 Title: JS API inference execution
 Ticket: GP-005-JS-INFERENCE
-Status: active
+Status: complete
 Topics:
     - geppetto
     - javascript
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T09:59:41.052905836-05:00
+LastUpdated: 2026-02-25T17:31:23.70791954-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API inference execution
 

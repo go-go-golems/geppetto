@@ -1,7 +1,7 @@
 ---
-Title: "Migration playbook: legacy profiles.yaml to registry format"
+Title: "Migration playbook: legacy profiles.yaml to runtime registry YAML"
 Slug: migrate-legacy-profiles-to-registry
-Short: Step-by-step guide to convert legacy profile maps into canonical profile registry YAML and adopt registry-first runtime selection.
+Short: Step-by-step guide to convert legacy profile maps into runtime single-registry YAML and adopt profile-registry stacks.
 Topics:
   - profiles
   - migration
@@ -11,14 +11,14 @@ Commands:
   - pinocchio
 Flags:
   - profile
-  - profile-file
+  - profile-registries
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
 SectionType: Playbook
 ---
 
-# Migration playbook: legacy profiles.yaml to registry format
+# Migration playbook: legacy profiles.yaml to runtime registry YAML
 
 ## Goal
 
@@ -33,60 +33,61 @@ agent:
     ai-engine: gpt-4.1
 ```
 
-into canonical registry documents:
+into runtime single-registry YAML:
 
 ```yaml
-registries:
+slug: default
+profiles:
   default:
     slug: default
-    default_profile_slug: default
-    profiles:
-      default:
-        slug: default
-        runtime:
-          step_settings_patch: ...
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-4o-mini
+  agent:
+    slug: agent
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-4.1
 ```
 
-Then switch your runtime flows to registry-first profile resolution.
+Runtime is hard-cut to one-file-one-registry YAML (`slug` + `profiles`).
 
 ## Before you start
 
 - Keep a backup copy of your current `profiles.yaml`.
-- Ensure your app/runtime can read registry-format profile files (current Geppetto/Pinocchio does).
-- Confirm you know your effective profile path:
-  - typically `~/.config/pinocchio/profiles.yaml`
-  - or `~/.pinocchio/profiles.yaml` in older setups.
+- Confirm your runtime default path:
+  - `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml`.
 
 ## Step 1: Inspect your current file
-
-Check whether the file is legacy or already canonical.
 
 Legacy shape:
 
 - top-level keys are profile names (`default`, `agent`, ...),
-- each value is a layer/setting map.
+- each value is a section/field patch map.
 
-Canonical shape:
+Runtime shape (required):
 
-- top-level `registries:` key, or
-- single registry document with `slug`, `profiles`, etc.
+- top-level `slug`,
+- top-level `profiles`,
+- no top-level `registries:`,
+- no `default_profile_slug`.
 
 ## Step 2: Run the migration command
 
-Pinocchio provides a command that converts legacy map input into canonical registry YAML.
-
-Dry run first:
+Dry run:
 
 ```bash
 pinocchio profiles migrate-legacy --dry-run
 ```
 
-Write to a new output file:
+Write to a new file:
 
 ```bash
 pinocchio profiles migrate-legacy \
   --input ~/.config/pinocchio/profiles.yaml \
-  --output ~/.config/pinocchio/profiles.registry.yaml
+  --output ~/.config/pinocchio/profiles.runtime.yaml
 ```
 
 Overwrite in place with backup:
@@ -102,65 +103,68 @@ pinocchio profiles migrate-legacy \
 
 Check that:
 
-- `registries.default` exists,
-- `default_profile_slug` is set,
-- expected profile slugs are present under `profiles`,
-- each migrated profile has a `runtime.step_settings_patch`.
+- top-level `slug` exists,
+- top-level `profiles` exists,
+- each migrated profile has `runtime.step_settings_patch`,
+- file does **not** contain `registries:` or `default_profile_slug:`.
 
 Quick check:
 
 ```bash
-rg -n "registries:|default_profile_slug:|profiles:" ~/.config/pinocchio/profiles.registry.yaml
+rg -n "slug:|profiles:|step_settings_patch|registries:|default_profile_slug:" ~/.config/pinocchio/profiles.runtime.yaml
 ```
 
-## Step 4: Point runtime to migrated file
+## Step 4: Activate runtime source selection
 
-Set profile file in config:
+Use explicit profile registry stack config:
 
 ```yaml
 profile-settings:
-  profile-file: ~/.config/pinocchio/profiles.registry.yaml
+  profile-registries: ~/.config/pinocchio/profiles.runtime.yaml
   profile: default
 ```
 
-Or via environment:
+or env:
 
 ```bash
-export PINOCCHIO_PROFILE_FILE=~/.config/pinocchio/profiles.registry.yaml
+export PINOCCHIO_PROFILE_REGISTRIES=~/.config/pinocchio/profiles.runtime.yaml
 export PINOCCHIO_PROFILE=default
 ```
 
+If `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` exists, pinocchio can also load it as implicit default source.
+
 ## Step 5: Validate effective settings
 
-Run a representative command with parsed-parameter output:
+Run:
 
 ```bash
 pinocchio --print-parsed-parameters <your-command>
 ```
 
-Verify profile-derived values are still applied as expected.
+Verify:
 
-## Step 6: Adopt registry-first workflow
+- `profile-settings.profile-registries` resolves to your runtime YAML path,
+- `profile-settings.profile` resolves to the expected profile,
+- profile-derived runtime fields appear in parsed output.
 
-After migration:
+## Optional: Multi-registry stack
 
-- Prefer selecting behavior through profiles.
-- Keep direct `--ai-engine` / `--ai-api-type` flags for temporary overrides only.
-- For runtime-editable apps, move to API/SQLite-backed profile registry flows.
+Stack sources in order (later entries are higher precedence):
 
-## Optional: Multi-registry setup
-
-If you need separate profile domains (for example `team`, `prod`, `sandbox`), split into multiple entries under `registries:` and set explicit registry selection where your app resolver supports it.
+```yaml
+profile-settings:
+  profile-registries: ~/.config/pinocchio/provider.yaml,~/.config/pinocchio/private.db
+```
 
 ## Troubleshooting
 
 | Problem | Cause | Solution |
 |---|---|---|
 | `invalid profile slug` during migration | legacy top-level key is not a valid slug | rename offending profile key to slug-safe value |
-| output file exists error | command protects existing outputs | pass `--force`, choose a different `--output`, or use `--in-place` |
-| migrated file has no `registries` key | command not run or wrong file inspected | rerun migration with explicit `--input` and `--output` |
-| runtime ignores migrated file | active `profile-file` still points to old path | update `profile-settings.profile-file` or `PINOCCHIO_PROFILE_FILE` |
-| behavior changed unexpectedly | default profile slug differs after conversion | set `default_profile_slug` explicitly and verify selected profile |
+| output file exists error | command protects existing outputs | pass `--force`, choose another `--output`, or use `--in-place` |
+| runtime rejects YAML | file still has legacy map shape | rerun migration with explicit `--input` and `--output` |
+| runtime rejects YAML with `registries`/`default_profile_slug` | non-runtime YAML format | rewrite to runtime single-registry YAML (`slug` + `profiles`) |
+| runtime ignores expected profile | active stack points elsewhere | check `--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`, and config `profile-settings.profile-registries` |
 
 ## See Also
 

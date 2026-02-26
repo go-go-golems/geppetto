@@ -1,34 +1,35 @@
 ---
 Title: Allow tool configuration in middleware (tool advertisement)
 Ticket: GP-06-ALLOW-TOOL-CONFIGURATION-IN-MW
-Status: active
+Status: complete
 Topics:
-  - geppetto
-  - inference
-  - tools
-  - middleware
-  - openai
-  - claude
+    - geppetto
+    - inference
+    - tools
+    - middleware
+    - openai
+    - claude
 DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
-  - Path: geppetto/pkg/inference/toolcontext/context.go
-    Note: Where tool registry is carried on context
-  - Path: geppetto/pkg/steps/ai/openai/engine_openai.go
-    Note: Builds OpenAI request tools from registry
-  - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
-    Note: Builds Responses request tools from registry
-  - Path: geppetto/pkg/steps/ai/claude/engine_claude.go
-    Note: Builds Claude request tools from registry
-  - Path: geppetto/pkg/inference/toolhelpers/helpers.go
-    Note: Tool loop attaches registry + config at runtime
+    - Path: geppetto/pkg/inference/toolcontext/context.go
+      Note: Where tool registry is carried on context
+    - Path: geppetto/pkg/steps/ai/openai/engine_openai.go
+      Note: Builds OpenAI request tools from registry
+    - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
+      Note: Builds Responses request tools from registry
+    - Path: geppetto/pkg/steps/ai/claude/engine_claude.go
+      Note: Builds Claude request tools from registry
+    - Path: geppetto/pkg/inference/toolhelpers/helpers.go
+      Note: Tool loop attaches registry + config at runtime
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-22T17:40:05-05:00
+LastUpdated: 2026-02-25T17:31:31.104439274-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Allow tool configuration in middleware (tool advertisement)
 

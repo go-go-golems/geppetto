@@ -13,3 +13,8 @@
 - Uploaded guide to reMarkable:
   - Primary upload attempt via `remarquee upload md` failed with TLS protocol error.
   - Fallback upload via `python3 /home/manuel/.local/bin/remarkable_upload.py` succeeded.
+
+## 2026-02-25
+
+Ticket closed
+

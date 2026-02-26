@@ -51,6 +51,22 @@ topics:
       description: go-go-os monorepo and desktop shell architecture work
     - slug: ui
       description: user interface architecture and interaction design
+    - slug: profile-registry
+      description: Profile registry domain and APIs
+    - slug: js-bindings
+      description: JavaScript binding layers and contracts
+    - slug: go-api
+      description: Go application API contracts and wiring
+    - slug: stack-profiles
+      description: Profile stacking/inheritance and layered profile composition semantics
+    - slug: merge-provenance
+      description: Field-level merge source tracking and deterministic provenance traces
+    - slug: metadata
+      description: Metadata structures, parse logs, and provenance annotations
+    - slug: security
+      description: Security-sensitive behavior, secret handling, and leak prevention
+    - slug: config
+      description: Configuration parsing, mapping, and settings handling
 docTypes:
     - slug: index
       description: Ticket index

@@ -1,33 +1,34 @@
 ---
 Title: Go-Go-OS Engine TypeScript React Baseline Typecheck Remediation
 Ticket: GP-03-ENGINE-TS-BASELINE-TYPECHECK
-Status: active
+Status: complete
 Topics:
-  - frontend
-  - infrastructure
-  - chat
+    - frontend
+    - infrastructure
+    - chat
 DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
-  - Path: go-go-os/packages/engine/package.json
-    Note: Added package-local React and React type dev dependencies for strict typecheck visibility.
-  - Path: go-go-os/packages/engine/src/components/widgets/CodeEditorWindow.stories.tsx
-    Note: Added explicit Meta/Story typing to resolve declaration portability.
-  - Path: go-go-os/packages/engine/src/hypercard/editor/editorLaunch.ts
-    Note: Removed direct redux type import and typed dispatch from local action creator return type.
-  - Path: geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/sources/01-baseline-build.log
-    Note: Baseline failing build snapshot.
-  - Path: geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/sources/03-green-build.log
-    Note: Post-fix green build evidence.
-  - Path: geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/sources/04-green-test.log
-    Note: Post-fix green test evidence.
+    - Path: go-go-os/packages/engine/package.json
+      Note: Added package-local React and React type dev dependencies for strict typecheck visibility.
+    - Path: go-go-os/packages/engine/src/components/widgets/CodeEditorWindow.stories.tsx
+      Note: Added explicit Meta/Story typing to resolve declaration portability.
+    - Path: go-go-os/packages/engine/src/hypercard/editor/editorLaunch.ts
+      Note: Removed direct redux type import and typed dispatch from local action creator return type.
+    - Path: geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/sources/01-baseline-build.log
+      Note: Baseline failing build snapshot.
+    - Path: geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/sources/03-green-build.log
+      Note: Post-fix green build evidence.
+    - Path: geppetto/ttmp/2026/02/23/GP-03-ENGINE-TS-BASELINE-TYPECHECK--go-go-os-engine-typescript-react-baseline-typecheck-remediation/sources/04-green-test.log
+      Note: Post-fix green test evidence.
 ExternalSources: []
 Summary: Remediation ticket for @hypercard/engine strict TypeScript baseline failures, now fixed and verified with green build/tests.
-LastUpdated: 2026-02-24T22:52:00-05:00
+LastUpdated: 2026-02-25T17:31:14.148775094-05:00
 WhatFor: Track the full baseline-to-green remediation for TypeScript strict/declaration issues in go-go-os engine.
 WhenToUse: Use when auditing typecheck regressions or verifying the package-level strict type baseline contract.
 ---
+
 
 # Go-Go-OS Engine TypeScript React Baseline Typecheck Remediation
 

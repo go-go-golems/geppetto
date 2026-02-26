@@ -1,7 +1,7 @@
 ---
 Title: Webchat timeline inspection tools
 Ticket: GP-017-WEBCHAT-TIMELINE-TOOLS
-Status: active
+Status: complete
 Topics:
     - webchat
     - backend
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-26T12:26:04.236218288-05:00
+LastUpdated: 2026-02-25T17:31:27.854298122-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Webchat timeline inspection tools
 

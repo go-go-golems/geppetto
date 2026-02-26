@@ -35,12 +35,12 @@ go run ./cmd/examples/geppetto-js-lab --script <your-script.js>
 
 ```text
 examples/js/geppetto/
-  01_turns_and_blocks.js
-  02_session_echo.js
-  03_middleware_composition.js
-  04_tools_and_toolloop.js
-  05_go_tools_from_js.js
-  06_live_profile_inference.js
+  01-07 core turns/session/tools scripts
+  08-12 profile registry read/resolve scripts
+  13-14 schema catalog scripts
+  15-16 sqlite and mixed-stack scripts
+  17-18 hard-cutover error-contract scripts
+  19_profiles_connect_stack_runtime.js
 ```
 
 You can copy these and branch them into your own scenario files.
@@ -118,6 +118,92 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 
 The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_API_KEY`).
 
+## Registry-Backed `fromProfile` (Hard Cutover)
+
+`gp.engines.fromProfile(...)` is now registry-backed and no longer uses model/env fallback semantics.
+
+Host requirement:
+
+- module registration must include `Options.ProfileRegistry`.
+
+Example:
+
+```javascript
+const gp = require("geppetto");
+
+const engine = gp.engines.fromProfile("assistant", {
+  runtimeKey: "chat",
+  requestOverrides: {
+    system_prompt: "Answer tersely."
+  }
+});
+
+assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile runtime fingerprint");
+```
+
+`requestOverrides` are still policy-gated by merged profile policy:
+
+- disabled when `allow_overrides` is false,
+- denied for keys listed in `denied_override_keys`,
+- restricted to listed keys when `allowed_override_keys` is set.
+
+Note: runtime `registrySlug` selection in `engines.fromProfile(...)` is removed. Registry resolution comes from the loaded registry stack.
+
+## Runtime Stack Binding from JS
+
+If the host did not inject `Options.ProfileRegistry`, scripts can bind registry sources directly:
+
+```javascript
+const gp = require("geppetto");
+
+const connected = gp.profiles.connectStack([
+  "examples/js/geppetto/profiles/10-provider-openai.yaml",
+  "examples/js/geppetto/profiles/20-team-agent.yaml",
+]);
+
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+console.log(connected.sources, resolved.registrySlug);
+
+gp.profiles.disconnectStack();
+```
+
+`disconnectStack()` restores host baseline profile-registry wiring when one exists; otherwise it clears runtime-connected sources.
+
+## Working Directly with `gp.profiles`
+
+Use `gp.profiles` when you need registry inspection or CRUD from JS:
+
+```javascript
+const gp = require("geppetto");
+
+const registries = gp.profiles.listRegistries();
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+
+console.log(registries.map((r) => r.slug));
+console.log(resolved.runtimeFingerprint);
+```
+
+For mutations, host wiring must provide writable registry support.
+
+## Working with `gp.schemas`
+
+Use `gp.schemas` to inspect middleware and extension schema catalogs:
+
+```javascript
+const gp = require("geppetto");
+
+const middlewareSchemas = gp.schemas.listMiddlewares();
+const extensionSchemas = gp.schemas.listExtensions();
+
+console.log(middlewareSchemas.map((x) => x.name));
+console.log(extensionSchemas.map((x) => x.key));
+```
+
+Host requirements:
+
+- `listMiddlewares()` requires `Options.MiddlewareSchemas`.
+- `listExtensions()` requires `Options.ExtensionCodecs` and/or `Options.ExtensionSchemas`.
+
 ## Recommended Iteration Loop
 
 1. Keep one script per behavior slice.
@@ -152,6 +238,8 @@ These map to the same runtime builder hooks:
 | Problem | Cause | Solution |
 |---|---|---|
 | `module geppetto not found` | host runtime did not register module | use `geppetto-js-lab` or register via `gp.Register(reg, opts)` |
+| `engines.fromProfile requires a configured profile registry` | host module options omitted profile registry | pass `Options.ProfileRegistry` at module registration |
+| `options.registrySlug has been removed` | script still passes `registrySlug` into `fromProfile` | remove runtime selector; load registries in stack order and resolve by profile slug |
 | `no go tool registry configured` | script calls `useGoTools` in host without Go registry | run with `geppetto-js-lab` or configure `Options.GoToolRegistry` |
 | tool loop does not execute | registry not bound to builder | call `.withTools(reg, { enabled: true })` |
 | recording hooks ignored | non-hook values passed into builder options | pass Go `TurnPersister` / `EventSink` / `SnapshotHook` references |

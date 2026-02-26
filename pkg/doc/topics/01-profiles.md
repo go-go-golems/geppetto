@@ -11,7 +11,7 @@ Commands:
 - geppetto
 Flags:
 - profile
-- profile-file
+- profile-registries
 IsTopLevel: true
 IsTemplate: false
 ShowPerDefault: true
@@ -20,12 +20,13 @@ SectionType: GeneralTopic
 
 # Profile Registry in Geppetto
 
-Geppetto now treats profiles as a first-class domain object (`ProfileRegistry`) instead of a loose map loaded only for flag overlays. This gives you one consistent model for:
+Geppetto now treats profiles as a first-class domain object (`ProfileRegistry`) with stackable profile composition. This gives you one consistent model for:
 
 - selecting runtime defaults by profile slug,
 - storing profiles in memory, YAML, or SQLite,
 - enforcing profile policy (for example read-only or override restrictions),
 - exposing profile CRUD APIs from applications.
+- composing provider/model/middleware defaults through profile stacks.
 
 This page documents the canonical, registry-first model used by current pinocchio and go-go-os integrations.
 
@@ -50,6 +51,7 @@ type Profile struct {
     Slug        ProfileSlug
     DisplayName string
     Description string
+    Stack       []ProfileRef
     Runtime     RuntimeSpec
     Policy      PolicySpec
     Metadata    ProfileMetadata
@@ -61,7 +63,18 @@ type ProfileRegistry struct {
     Profiles           map[ProfileSlug]*Profile
     Metadata           RegistryMetadata
 }
+
+type ProfileRef struct {
+    RegistrySlug RegistrySlug
+    ProfileSlug  ProfileSlug
+}
 ```
+
+`Stack` entries are resolved in declared order and support:
+
+- same-registry references (empty `registry_slug` in serialized form),
+- explicit cross-registry references (non-empty `registry_slug`),
+- recursive expansion with cycle and max-depth validation.
 
 `RuntimeSpec` carries runtime defaults such as:
 
@@ -121,35 +134,64 @@ For storage-backed services, use `profiles.NewStoreRegistry(...)`.
 
 ## Resolution Flow
 
-`ResolveEffectiveProfile` merges profile runtime defaults with optional request overrides and returns canonical output used by runtime composition.
+`ResolveEffectiveProfile` expands and merges the full profile stack, then applies optional request-time overrides, and returns canonical output used by runtime composition.
 
 Resolution output includes:
 
 - selected registry/profile/runtime key
 - effective runtime fields
 - effective step settings
-- fingerprint input metadata
+- stack provenance metadata (`profile.stack.lineage`, `profile.stack.trace`)
+- runtime fingerprint (`runtimeFingerprint`) that includes stack lineage + effective runtime inputs
 
-Request overrides are policy-gated. If a profile denies overrides or marks keys as denied, resolution returns a policy violation error.
+Request overrides are policy-gated by merged `PolicySpec`:
+
+- `allow_overrides=false` in any layer disables request overrides,
+- `denied_override_keys` are always rejected,
+- `allowed_override_keys` acts as an allow-list when present.
+
+If policy rejects an override, resolution returns a policy violation error.
 
 ## Hard-Cutover Model
 
 The runtime model is registry-first and profile-first:
 
 - profiles are stored and resolved through `profiles.Registry`,
+- runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
+- in pinocchio, when `profile-registries` is not set, runtime auto-loads `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists,
+- stack composition is resolved in-core (base -> leaf) before runtime composition,
 - profile CRUD is the write path for runtime defaults,
 - middleware configuration is profile-scoped and validated before persistence in API surfaces.
 
 There is no environment-variable toggle for old middleware selection paths.
+There is no overlay abstraction in the runtime composition path.
+There is no runtime registry selector path in request resolution; profile slug lookup uses stack order.
 
 ## Registry YAML Example
 
 ```yaml
 slug: default
-default_profile_slug: agent
 profiles:
+  provider-openai:
+    slug: provider-openai
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-api-type: openai
+        api:
+          openai-base-url: https://api.openai.com/v1
+  model-gpt-4o-mini:
+    slug: model-gpt-4o-mini
+    stack:
+      - profile_slug: provider-openai
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-engine: gpt-4o-mini
   agent:
     slug: agent
+    stack:
+      - profile_slug: model-gpt-4o-mini
     display_name: Agent
     runtime:
       system_prompt: You are an assistant.
@@ -158,6 +200,16 @@ profiles:
     policy:
       allow_overrides: true
 ```
+
+## Overlay Removal Rationale
+
+Geppetto removed the separate overlay abstraction from active runtime composition because stack profiles now provide the needed composition model directly:
+
+- one deterministic expansion + merge pipeline,
+- one provenance model (`profile.stack.trace`),
+- one fingerprint contract for cache safety.
+
+This avoids duplicated composition semantics and reduces cross-package complexity.
 
 ## Typed Extension Keys
 
@@ -198,8 +250,14 @@ Authoritative behavior:
 Profile selection remains available through:
 
 - config (`profile-settings` section),
-- environment (`PINOCCHIO_PROFILE`, `PINOCCHIO_PROFILE_FILE`),
-- flags (`--profile`, `--profile-file`).
+- environment (`PINOCCHIO_PROFILE`, `PINOCCHIO_PROFILE_REGISTRIES`),
+- flags (`--profile`, `--profile-registries`).
+
+Registry-source selection precedence is:
+
+**`--profile-registries` > `PINOCCHIO_PROFILE_REGISTRIES` > `profile-settings.profile-registries` > `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` (if present)**
+
+This means `PINOCCHIO_PROFILE=gpt-5` works without `PINOCCHIO_PROFILE_REGISTRIES` when that default runtime registry file exists.
 
 Precedence remains:
 

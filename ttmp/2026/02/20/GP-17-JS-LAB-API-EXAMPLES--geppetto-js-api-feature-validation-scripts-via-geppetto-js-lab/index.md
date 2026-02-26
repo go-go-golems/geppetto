@@ -1,7 +1,7 @@
 ---
 Title: Geppetto JS API Feature Validation Scripts via geppetto-js-lab
 Ticket: GP-17-JS-LAB-API-EXAMPLES
-Status: active
+Status: complete
 Topics:
     - geppetto
     - inference
@@ -22,10 +22,11 @@ RelatedFiles:
       Note: Batch runner for all validation scripts
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-20T17:45:22.754657511-05:00
+LastUpdated: 2026-02-25T17:31:16.653689996-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Geppetto JS API Feature Validation Scripts via geppetto-js-lab

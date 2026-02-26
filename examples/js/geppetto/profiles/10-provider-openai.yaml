@@ -1,0 +1,15 @@
+slug: provider-openai
+display_name: Provider defaults
+description: Provider baseline runtime and API settings.
+profiles:
+  default:
+    slug: default
+    display_name: Provider default
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-api-type: openai
+          ai-engine: gpt-4o-mini
+        api:
+          openai-api-key: fixture-openai-key
+          openai-base-url: https://api.openai.com/v1

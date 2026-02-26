@@ -70,6 +70,8 @@ gp.Register(reg, gp.Options{
 | `consts` | namespace | Generated string constants (tool loop, block kinds, keys, event types) |
 | `turns` | namespace | Turn and block helpers |
 | `engines` | namespace | Engine constructors |
+| `profiles` | namespace | Profile registry read/resolve/CRUD API |
+| `schemas` | namespace | Middleware/extension schema catalog API |
 | `middlewares` | namespace | Middleware adapters |
 | `tools` | namespace | Tool registry constructors |
 
@@ -109,17 +111,42 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 |---|---|---|
 | `echo` | `echo({reply?})` | Deterministic local engine |
 | `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
-| `fromProfile` | `fromProfile(profile?, opts?)` | Provider-backed engine from profile |
+| `fromProfile` | `fromProfile(profile?, opts?)` | Registry-backed engine resolution (hard cutover) |
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
-### `fromProfile` precedence
+### `fromProfile` semantics
 
-1. explicit `profile` argument
-2. `opts.profile`
-3. `PINOCCHIO_PROFILE`
-4. default `4o-mini`
+`fromProfile` resolves through `profiles.Registry.ResolveEffectiveProfile`.
 
-### `fromProfile` / `fromConfig` options
+Behavior:
+
+1. `profile` argument selects `ProfileSlug` (optional; falls back to registry default profile).
+2. `opts.runtimeKey` sets runtime-key fallback for profile resolution.
+3. `opts.requestOverrides` applies request-time runtime overrides (policy-gated).
+4. Host must configure `Options.ProfileRegistry`; otherwise `fromProfile` throws.
+5. Runtime registry selection via `opts.registrySlug` is removed; registry choice is resolved by loaded registry stack.
+
+Legacy model/env precedence is removed from `fromProfile`.
+
+### `fromProfile` options
+
+| Option | Type | Description |
+|---|---|---|
+| `runtimeKey` | string | runtime-key fallback |
+| `requestOverrides` | object | request-time runtime overrides (policy-gated) |
+
+If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
+
+### `fromProfile` engine metadata payload
+
+| Field | Type | Description |
+|---|---|---|
+| `metadata.profileRegistry` | string | resolved registry slug |
+| `metadata.profileSlug` | string | resolved profile slug |
+| `metadata.runtimeFingerprint` | string | lineage-aware runtime fingerprint |
+| `metadata.resolvedMetadata` | object | resolver metadata including stack lineage/trace |
+
+### `fromConfig` options
 
 | Option | Type | Description |
 |---|---|---|
@@ -131,6 +158,46 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 | `topP` | number | top-p |
 | `maxTokens` | number | max response tokens |
 | `timeoutSeconds` / `timeoutMs` | number | timeout override |
+
+## `profiles` Namespace
+
+| Function | Signature | Notes |
+|---|---|---|
+| `listRegistries` | `listRegistries()` | List registry summaries |
+| `getRegistry` | `getRegistry(registrySlug?)` | Fetch one registry (defaults to host default) |
+| `listProfiles` | `listProfiles(registrySlug?)` | List profiles in one registry |
+| `getProfile` | `getProfile(profileSlug, registrySlug?)` | Fetch one profile |
+| `resolve` | `resolve(input?)` | Resolve effective profile/runtime metadata |
+| `createProfile` | `createProfile(profile, opts?)` | Create profile (requires writable registry) |
+| `updateProfile` | `updateProfile(profileSlug, patch, opts?)` | Patch profile (requires writable registry) |
+| `deleteProfile` | `deleteProfile(profileSlug, opts?)` | Delete profile (requires writable registry) |
+| `setDefaultProfile` | `setDefaultProfile(profileSlug, opts?)` | Set registry default profile (requires writable registry) |
+| `connectStack` | `connectStack(sources)` | Load/attach runtime registry stack from source list (`string` or `string[]`) |
+| `disconnectStack` | `disconnectStack()` | Detach runtime-connected stack and restore host baseline registry wiring |
+| `getConnectedSources` | `getConnectedSources()` | Inspect currently connected runtime stack source entries |
+
+Mutation options shape:
+
+- `opts.registrySlug` (optional target registry)
+- `opts.write.expectedVersion` (optional optimistic lock)
+- `opts.write.actor`, `opts.write.source` (optional provenance)
+
+`connectStack(sources)` return payload:
+
+- `sources`: normalized source entries used for connection
+- `registries`: loaded registry summaries
+
+## `schemas` Namespace
+
+| Function | Signature | Notes |
+|---|---|---|
+| `listMiddlewares` | `listMiddlewares()` | Lists middleware definitions + config JSON schemas |
+| `listExtensions` | `listExtensions()` | Lists extension schema entries from codec registry and host-provided extension schema map |
+
+Host requirements:
+
+- `schemas.listMiddlewares()` requires `Options.MiddlewareSchemas`.
+- `schemas.listExtensions()` requires `Options.ExtensionCodecs` and/or `Options.ExtensionSchemas`.
 
 ## Sessions and Builder
 
@@ -318,6 +385,8 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | Problem | Cause | Solution |
 |---|---|---|
 | `createSession requires options object with engine` | Missing engine | pass `{ engine: gp.engines.*(...) }` |
+| `engines.fromProfile requires a configured profile registry` | host did not pass `Options.ProfileRegistry` | configure module with a registry before using `fromProfile` |
+| `options.registrySlug has been removed` | script still passes runtime registry selector to `engines.fromProfile` | remove `registrySlug`; load profile registries in stack order and resolve by profile slug |
 | `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
 | `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
 | `runAsync requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |

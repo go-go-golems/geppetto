@@ -51,7 +51,11 @@ func (s *YAMLFileProfileStore) GetRegistry(ctx context.Context, registrySlug Reg
 	if err := s.ensureOpen(); err != nil {
 		return nil, false, err
 	}
-	return s.store.GetRegistry(ctx, registrySlug)
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return nil, false, err
+	}
+	return s.store.GetRegistry(ctx, resolved)
 }
 
 func (s *YAMLFileProfileStore) ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error) {
@@ -60,7 +64,11 @@ func (s *YAMLFileProfileStore) ListProfiles(ctx context.Context, registrySlug Re
 	if err := s.ensureOpen(); err != nil {
 		return nil, err
 	}
-	return s.store.ListProfiles(ctx, registrySlug)
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return nil, err
+	}
+	return s.store.ListProfiles(ctx, resolved)
 }
 
 func (s *YAMLFileProfileStore) GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, bool, error) {
@@ -69,7 +77,11 @@ func (s *YAMLFileProfileStore) GetProfile(ctx context.Context, registrySlug Regi
 	if err := s.ensureOpen(); err != nil {
 		return nil, false, err
 	}
-	return s.store.GetProfile(ctx, registrySlug, profileSlug)
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return nil, false, err
+	}
+	return s.store.GetProfile(ctx, resolved, profileSlug)
 }
 
 func (s *YAMLFileProfileStore) UpsertRegistry(ctx context.Context, registry *ProfileRegistry, opts SaveOptions) error {
@@ -78,7 +90,16 @@ func (s *YAMLFileProfileStore) UpsertRegistry(ctx context.Context, registry *Pro
 	if err := s.ensureOpen(); err != nil {
 		return err
 	}
-	if err := s.store.UpsertRegistry(ctx, registry, opts); err != nil {
+	if registry == nil {
+		return fmt.Errorf("registry is required")
+	}
+	resolved, err := s.resolveRegistrySlug(registry.Slug)
+	if err != nil {
+		return err
+	}
+	cloned := registry.Clone()
+	cloned.Slug = resolved
+	if err := s.store.UpsertRegistry(ctx, cloned, opts); err != nil {
 		return err
 	}
 	return s.persistLocked(ctx)
@@ -90,7 +111,11 @@ func (s *YAMLFileProfileStore) DeleteRegistry(ctx context.Context, registrySlug 
 	if err := s.ensureOpen(); err != nil {
 		return err
 	}
-	if err := s.store.DeleteRegistry(ctx, registrySlug, opts); err != nil {
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteRegistry(ctx, resolved, opts); err != nil {
 		return err
 	}
 	return s.persistLocked(ctx)
@@ -102,7 +127,11 @@ func (s *YAMLFileProfileStore) UpsertProfile(ctx context.Context, registrySlug R
 	if err := s.ensureOpen(); err != nil {
 		return err
 	}
-	if err := s.store.UpsertProfile(ctx, registrySlug, profile, opts); err != nil {
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return err
+	}
+	if err := s.store.UpsertProfile(ctx, resolved, profile, opts); err != nil {
 		return err
 	}
 	return s.persistLocked(ctx)
@@ -114,7 +143,11 @@ func (s *YAMLFileProfileStore) DeleteProfile(ctx context.Context, registrySlug R
 	if err := s.ensureOpen(); err != nil {
 		return err
 	}
-	if err := s.store.DeleteProfile(ctx, registrySlug, profileSlug, opts); err != nil {
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteProfile(ctx, resolved, profileSlug, opts); err != nil {
 		return err
 	}
 	return s.persistLocked(ctx)
@@ -126,7 +159,11 @@ func (s *YAMLFileProfileStore) SetDefaultProfile(ctx context.Context, registrySl
 	if err := s.ensureOpen(); err != nil {
 		return err
 	}
-	if err := s.store.SetDefaultProfile(ctx, registrySlug, profileSlug, opts); err != nil {
+	resolved, err := s.resolveRegistrySlug(registrySlug)
+	if err != nil {
+		return err
+	}
+	if err := s.store.SetDefaultProfile(ctx, resolved, profileSlug, opts); err != nil {
 		return err
 	}
 	return s.persistLocked(ctx)
@@ -148,28 +185,32 @@ func (s *YAMLFileProfileStore) loadFromDisk() error {
 		return err
 	}
 
-	registries, err := DecodeYAMLRegistries(b, s.defaultRegistrySlug)
+	registry, err := DecodeRuntimeYAMLSingleRegistry(b)
 	if err != nil {
 		return err
 	}
 
 	s.store = NewInMemoryProfileStore()
 	s.store.registries = map[RegistrySlug]*ProfileRegistry{}
-	for _, registry := range registries {
-		if registry == nil {
-			continue
-		}
+	if registry != nil {
+		s.defaultRegistrySlug = registry.Slug
 		s.store.registries[registry.Slug] = registry.Clone()
 	}
 	return nil
 }
 
 func (s *YAMLFileProfileStore) persistLocked(ctx context.Context) error {
-	registries, err := s.store.ListRegistries(ctx)
+	registry, ok, err := s.store.GetRegistry(ctx, s.defaultRegistrySlug)
 	if err != nil {
 		return err
 	}
-	b, err := EncodeYAMLRegistries(registries)
+	if !ok || registry == nil {
+		if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	b, err := EncodeRuntimeYAMLSingleRegistry(registry)
 	if err != nil {
 		return err
 	}
@@ -188,4 +229,18 @@ func (s *YAMLFileProfileStore) ensureOpen() error {
 		return fmt.Errorf("yaml profile store closed")
 	}
 	return nil
+}
+
+func (s *YAMLFileProfileStore) resolveRegistrySlug(registrySlug RegistrySlug) (RegistrySlug, error) {
+	resolved := registrySlug
+	if resolved.IsZero() {
+		resolved = s.defaultRegistrySlug
+	}
+	if resolved.IsZero() {
+		return "", fmt.Errorf("yaml profile store default registry slug is not set")
+	}
+	if resolved != s.defaultRegistrySlug {
+		return "", fmt.Errorf("yaml profile store %q supports only registry %q (got %q)", s.path, s.defaultRegistrySlug, resolved)
+	}
+	return resolved, nil
 }

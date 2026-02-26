@@ -73,3 +73,8 @@ Implemented fixes (auto-route gpt-5/o* to Responses + reasoning_text SSE handlin
 - /home/manuel/workspaces/2026-02-18/thinking-mode-broken/geppetto/pkg/steps/ai/openai_responses/engine_test.go — reasoning_text streaming regression test
 - /home/manuel/workspaces/2026-02-18/thinking-mode-broken/geppetto/ttmp/2026/02/18/GP-05-THINK-MODE-BUG--thinking-stream-events-missing-with-gpt-5-mini/sources/real_api_after_fix_gpt5mini_openai.trace.log — Post-fix real API evidence
 
+
+## 2026-02-25
+
+Ticket closed
+

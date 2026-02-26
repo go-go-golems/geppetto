@@ -16,3 +16,8 @@ Implemented JS session history APIs (turns/turnCount/getTurn/turnsRange), added 
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/api.go — Exposed history methods on JS session wrapper
 - /home/manuel/workspaces/2026-02-12/geppetto-js/geppetto/pkg/js/modules/geppetto/module_test.go — Added history inspection and immutability test
 
+
+## 2026-02-25
+
+Ticket closed
+

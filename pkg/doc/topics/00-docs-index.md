@@ -15,21 +15,24 @@ SectionType: GeneralTopic
 
 # Geppetto Documentation Index
 
-Geppetto is a Go library for building AI-powered applications. It provides:
+Geppetto is a Go toolkit for building AI-powered applications. It provides:
 
 - **Streaming inference** with real-time token delivery
 - **Tool calling** that works across providers (OpenAI, Claude, Gemini, Ollama)
 - **Provider-agnostic architecture** — write once, switch providers via config
 - **Event-driven design** for building responsive UIs and debugging
+- **Profile registry stack resolution** (YAML + SQLite sources, policy-gated request overrides)
+- **Native JS API** (`require("geppetto")`) for scripting and host embedding
 
 ## Start Here (New Users)
 
 If you're new to Geppetto, read these docs in order:
 
 1. **[Turns and Blocks](08-turns.md)** — The core data model. Understand this first.
-2. **[Inference Engines](06-inference-engines.md)** — How to run inference against AI providers.
-3. **[JS API Getting Started](../tutorials/05-js-api-getting-started.md)** — Step-by-step tutorial for the JavaScript API.
-4. **[Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md)** — Build your first streaming command.
+2. **[Inference Engines](06-inference-engines.md)** — How inference is executed across providers.
+3. **[Profiles](01-profiles.md)** — Registry-first runtime selection and stack resolution.
+4. **[JS API Getting Started](../tutorials/05-js-api-getting-started.md)** — Step-by-step tutorial for the JavaScript API.
+5. **[Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md)** — Build your first streaming command.
 
 After that, explore based on what you need:
 
@@ -97,7 +100,7 @@ Find examples in: `geppetto/cmd/examples/`
 
 ## Prerequisites
 
-- **Go 1.24+**
+- **Go 1.25+** (repository currently uses `go 1.25.7`)
 - **API keys** for your chosen provider(s):
   - OpenAI: `OPENAI_API_KEY`
   - Claude: `ANTHROPIC_API_KEY`

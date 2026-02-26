@@ -2,15 +2,18 @@ package geppetto
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	"github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -31,6 +34,11 @@ type Options struct {
 	Runner                runtimeowner.Runner
 	GoToolRegistry        tools.ToolRegistry
 	GoMiddlewareFactories map[string]MiddlewareFactory
+	ProfileRegistry       profiles.RegistryReader
+	ProfileRegistryWriter profiles.RegistryWriter
+	MiddlewareSchemas     middlewarecfg.DefinitionRegistry
+	ExtensionCodecs       profiles.ExtensionCodecRegistry
+	ExtensionSchemas      map[string]map[string]any
 	DefaultEventSinks     []events.EventSink
 	DefaultSnapshotHook   toolloop.SnapshotHook
 	DefaultPersister      enginebuilder.TurnPersister
@@ -57,11 +65,23 @@ type moduleRuntime struct {
 
 	logger zerolog.Logger
 
-	goToolRegistry        tools.ToolRegistry
-	goMiddlewareFactories map[string]MiddlewareFactory
-	defaultEventSinks     []events.EventSink
-	defaultSnapshotHook   toolloop.SnapshotHook
-	defaultPersister      enginebuilder.TurnPersister
+	goToolRegistry            tools.ToolRegistry
+	goMiddlewareFactories     map[string]MiddlewareFactory
+	profileRegistry           profiles.RegistryReader
+	profileRegistryWriter     profiles.RegistryWriter
+	profileRegistryCloser     io.Closer
+	profileRegistryOwned      bool
+	profileRegistrySpec       []string
+	baseProfileRegistry       profiles.RegistryReader
+	baseProfileRegistryWriter profiles.RegistryWriter
+	baseProfileRegistryCloser io.Closer
+	baseProfileRegistrySpec   []string
+	middlewareSchemas         middlewarecfg.DefinitionRegistry
+	extensionCodecs           profiles.ExtensionCodecRegistry
+	extensionSchemas          map[string]map[string]any
+	defaultEventSinks         []events.EventSink
+	defaultSnapshotHook       toolloop.SnapshotHook
+	defaultPersister          enginebuilder.TurnPersister
 }
 
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
@@ -75,10 +95,26 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		logger:                lg,
 		goToolRegistry:        opts.GoToolRegistry,
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
+		profileRegistry:       opts.ProfileRegistry,
+		profileRegistryWriter: opts.ProfileRegistryWriter,
+		middlewareSchemas:     opts.MiddlewareSchemas,
+		extensionCodecs:       opts.ExtensionCodecs,
+		extensionSchemas:      cloneNestedStringAnyMap(opts.ExtensionSchemas),
 		defaultEventSinks:     append([]events.EventSink(nil), opts.DefaultEventSinks...),
 		defaultSnapshotHook:   opts.DefaultSnapshotHook,
 		defaultPersister:      opts.DefaultPersister,
 	}
+	if closer, ok := opts.ProfileRegistry.(io.Closer); ok && closer != nil {
+		m.profileRegistryCloser = closer
+	}
+	if m.profileRegistryWriter == nil {
+		if rw, ok := opts.ProfileRegistry.(profiles.RegistryWriter); ok {
+			m.profileRegistryWriter = rw
+		}
+	}
+	m.baseProfileRegistry = m.profileRegistry
+	m.baseProfileRegistryWriter = m.profileRegistryWriter
+	m.baseProfileRegistryCloser = m.profileRegistryCloser
 	if m.runner != nil {
 		m.bridge = runtimebridge.New(m.runner)
 	}
@@ -122,6 +158,26 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(enginesObj, "fromConfig", m.engineFromConfig)
 	m.mustSet(enginesObj, "fromFunction", m.engineFromFunction)
 	m.mustSet(exports, "engines", enginesObj)
+
+	profilesObj := m.vm.NewObject()
+	m.mustSet(profilesObj, "listRegistries", m.profilesListRegistries)
+	m.mustSet(profilesObj, "getRegistry", m.profilesGetRegistry)
+	m.mustSet(profilesObj, "listProfiles", m.profilesListProfiles)
+	m.mustSet(profilesObj, "getProfile", m.profilesGetProfile)
+	m.mustSet(profilesObj, "resolve", m.profilesResolve)
+	m.mustSet(profilesObj, "createProfile", m.profilesCreateProfile)
+	m.mustSet(profilesObj, "updateProfile", m.profilesUpdateProfile)
+	m.mustSet(profilesObj, "deleteProfile", m.profilesDeleteProfile)
+	m.mustSet(profilesObj, "setDefaultProfile", m.profilesSetDefaultProfile)
+	m.mustSet(profilesObj, "connectStack", m.profilesConnectStack)
+	m.mustSet(profilesObj, "disconnectStack", m.profilesDisconnectStack)
+	m.mustSet(profilesObj, "getConnectedSources", m.profilesGetConnectedSources)
+	m.mustSet(exports, "profiles", profilesObj)
+
+	schemasObj := m.vm.NewObject()
+	m.mustSet(schemasObj, "listMiddlewares", m.schemasListMiddlewares)
+	m.mustSet(schemasObj, "listExtensions", m.schemasListExtensions)
+	m.mustSet(exports, "schemas", schemasObj)
 
 	mwsObj := m.vm.NewObject()
 	m.mustSet(mwsObj, "fromJS", m.middlewareFromJS)

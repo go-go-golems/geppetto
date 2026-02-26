@@ -1,7 +1,7 @@
 ---
 Title: JS API toolloop lifecycle hooks
 Ticket: GP-010-JS-TOOLLOOP-HOOKS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - goja
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-12T11:03:40.572119732-05:00
+LastUpdated: 2026-02-25T17:31:20.553981733-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # JS API toolloop lifecycle hooks
 

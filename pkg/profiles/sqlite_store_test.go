@@ -84,6 +84,101 @@ func TestSQLiteProfileStore_RegistryRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSQLiteProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "profiles.db")
+	dsn, err := SQLiteProfileDSNForFile(dbPath)
+	if err != nil {
+		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
+	}
+
+	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+	}
+
+	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+		Slug:               MustRegistrySlug("shared"),
+		DefaultProfileSlug: MustProfileSlug("mw-observability"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("mw-observability"): {
+				Slug: MustProfileSlug("mw-observability"),
+			},
+		},
+	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertRegistry(shared) returned error: %v", err)
+	}
+
+	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("provider-openai"): {
+				Slug: MustProfileSlug("provider-openai"),
+			},
+			MustProfileSlug("model-gpt4o"): {
+				Slug: MustProfileSlug("model-gpt4o"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("provider-openai")},
+				},
+			},
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{ProfileSlug: MustProfileSlug("model-gpt4o")},
+					{RegistrySlug: MustRegistrySlug("shared"), ProfileSlug: MustProfileSlug("mw-observability")},
+				},
+			},
+		},
+	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
+		t.Fatalf("UpsertRegistry(default) returned error: %v", err)
+	}
+
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+
+	reopened, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("reopen NewSQLiteProfileStore returned error: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	model, ok, err := reopened.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("model-gpt4o"))
+	if err != nil {
+		t.Fatalf("GetProfile(default/model-gpt4o) returned error: %v", err)
+	}
+	if !ok || model == nil {
+		t.Fatalf("expected default/model-gpt4o profile after reload")
+	}
+	if got, want := len(model.Stack), 1; got != want {
+		t.Fatalf("model stack length mismatch: got=%d want=%d", got, want)
+	}
+	if got := model.Stack[0].ProfileSlug; got != MustProfileSlug("provider-openai") {
+		t.Fatalf("model stack profile mismatch: got=%q", got)
+	}
+	if got := model.Stack[0].RegistrySlug; got != "" {
+		t.Fatalf("model stack registry should be empty for same-registry ref, got=%q", got)
+	}
+
+	agent, ok, err := reopened.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	if err != nil {
+		t.Fatalf("GetProfile(default/agent) returned error: %v", err)
+	}
+	if !ok || agent == nil {
+		t.Fatalf("expected default/agent profile after reload")
+	}
+	if got, want := len(agent.Stack), 2; got != want {
+		t.Fatalf("agent stack length mismatch: got=%d want=%d", got, want)
+	}
+	if got := agent.Stack[1].RegistrySlug; got != MustRegistrySlug("shared") {
+		t.Fatalf("agent stack second registry mismatch: got=%q", got)
+	}
+	if got := agent.Stack[1].ProfileSlug; got != MustProfileSlug("mw-observability") {
+		t.Fatalf("agent stack second profile mismatch: got=%q", got)
+	}
+}
+
 func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")

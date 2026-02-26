@@ -111,13 +111,13 @@ declare module "geppetto" {
 
     export interface Engine {
         name: string;
+        metadata?: Record<string, any>;
     }
 
     export interface EngineOptions {
         model?: string;
         apiType?: string;
         provider?: string;
-        profile?: string;
         temperature?: number;
         topP?: number;
         maxTokens?: number;
@@ -125,6 +125,144 @@ declare module "geppetto" {
         timeoutMs?: number;
         apiKey?: string;
         baseURL?: string;
+    }
+
+    export interface ProfileEngineOptions {
+        runtimeKey?: string;
+        requestOverrides?: Record<string, any>;
+    }
+
+    export interface RegistrySummary {
+        slug: string;
+        display_name?: string;
+        default_profile_slug?: string;
+        profile_count: number;
+    }
+
+    export interface ProfileRef {
+        registry_slug?: string;
+        profile_slug: string;
+    }
+
+    export interface MiddlewareUse {
+        name: string;
+        id?: string;
+        enabled?: boolean;
+        config?: any;
+    }
+
+    export interface RuntimeSpec {
+        step_settings_patch?: Record<string, any>;
+        system_prompt?: string;
+        middlewares?: MiddlewareUse[];
+        tools?: string[];
+    }
+
+    export interface PolicySpec {
+        allow_overrides?: boolean;
+        allowed_override_keys?: string[];
+        denied_override_keys?: string[];
+        read_only?: boolean;
+    }
+
+    export interface ProfileMetadata {
+        source?: string;
+        version?: number;
+        created_at_ms?: number;
+        updated_at_ms?: number;
+        created_by?: string;
+        updated_by?: string;
+        tags?: string[];
+    }
+
+    export interface RegistryMetadata {
+        source?: string;
+        version?: number;
+        created_at_ms?: number;
+        updated_at_ms?: number;
+        created_by?: string;
+        updated_by?: string;
+        tags?: string[];
+    }
+
+    export interface Profile {
+        slug: string;
+        display_name?: string;
+        description?: string;
+        stack?: ProfileRef[];
+        runtime?: RuntimeSpec;
+        policy?: PolicySpec;
+        metadata?: ProfileMetadata;
+        extensions?: Record<string, any>;
+    }
+
+    export interface ProfileRegistry {
+        slug: string;
+        display_name?: string;
+        description?: string;
+        default_profile_slug?: string;
+        profiles?: Record<string, Profile>;
+        metadata?: RegistryMetadata;
+    }
+
+    export interface ProfilePatch {
+        display_name?: string;
+        description?: string;
+        runtime?: RuntimeSpec;
+        policy?: PolicySpec;
+        metadata?: ProfileMetadata;
+        extensions?: Record<string, any>;
+    }
+
+    export interface ProfileWriteOptions {
+        expectedVersion?: number;
+        actor?: string;
+        source?: string;
+    }
+
+    export interface ProfileMutationOptions {
+        registrySlug?: string;
+        write?: ProfileWriteOptions;
+    }
+
+    export type ProfileRegistrySources = string | string[];
+
+    export interface ConnectedProfileStack {
+        sources: string[];
+        registries: RegistrySummary[];
+    }
+
+    export interface ResolveInput {
+        registrySlug?: string;
+        profileSlug?: string;
+        runtimeKeyFallback?: string;
+        runtimeKey?: string;
+        requestOverrides?: Record<string, any>;
+    }
+
+    export interface ResolvedProfile {
+        registrySlug: string;
+        profileSlug: string;
+        runtimeKey: string;
+        runtimeFingerprint: string;
+        effectiveRuntime: RuntimeSpec;
+        effectiveStepSettings?: Record<string, any>;
+        metadata?: Record<string, any>;
+    }
+
+    export interface MiddlewareSchemaEntry {
+        key: string;
+        name: string;
+        displayName?: string;
+        description?: string;
+        schema?: Record<string, any>;
+    }
+
+    export interface ExtensionSchemaEntry {
+        key: string;
+        displayName?: string;
+        description?: string;
+        schema?: Record<string, any>;
     }
 
     export interface ToolHookCallInfo {
@@ -319,9 +457,29 @@ declare module "geppetto" {
 
     export const engines: {
         echo(options?: { reply?: string }): Engine;
-        fromProfile(profile?: string, options?: EngineOptions): Engine;
+        fromProfile(profile?: string, options?: ProfileEngineOptions): Engine;
         fromConfig(options: EngineOptions): Engine;
         fromFunction(fn: (turn: Turn) => Turn | void): Engine;
+    };
+
+    export const profiles: {
+        listRegistries(): RegistrySummary[];
+        getRegistry(registrySlug?: string): ProfileRegistry;
+        listProfiles(registrySlug?: string): Profile[];
+        getProfile(profileSlug: string, registrySlug?: string): Profile;
+        resolve(input?: ResolveInput): ResolvedProfile;
+        createProfile(profile: Profile, options?: ProfileMutationOptions): Profile;
+        updateProfile(profileSlug: string, patch: ProfilePatch, options?: ProfileMutationOptions): Profile;
+        deleteProfile(profileSlug: string, options?: ProfileMutationOptions): void;
+        setDefaultProfile(profileSlug: string, options?: ProfileMutationOptions): void;
+        connectStack(sources: ProfileRegistrySources): ConnectedProfileStack;
+        disconnectStack(): void;
+        getConnectedSources(): string[];
+    };
+
+    export const schemas: {
+        listMiddlewares(): MiddlewareSchemaEntry[];
+        listExtensions(): ExtensionSchemaEntry[];
     };
 
     export const middlewares: {

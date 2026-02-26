@@ -1,7 +1,7 @@
 ---
 Title: Webchat hydration not rendering + duplicate user messages
 Ticket: GP-013-WEBCHAT-HYDRATION-RENDERING
-Status: active
+Status: complete
 Topics:
     - bug
     - frontend
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-01-25T14:31:38.628673444-05:00
+LastUpdated: 2026-02-25T17:34:03.134716198-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Webchat hydration not rendering + duplicate user messages
 
