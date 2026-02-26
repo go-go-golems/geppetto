@@ -2,41 +2,42 @@
 
 ## Phase 0 - Scope lock and baseline
 
-- [ ] Confirm hard-cut migration target against GP-28:
+- [x] Confirm hard-cut migration target against GP-28:
   - registry-backed profile resolution,
   - stack lineage/trace metadata propagation,
   - lineage-aware runtime fingerprint usage.
-- [ ] Capture baseline behavior/tests in:
+- [x] Capture baseline behavior/tests in:
   - `internal/pinoweb/request_resolver_test.go`,
   - `internal/pinoweb/runtime_composer_test.go`,
   - `cmd/go-go-os-launcher/main_integration_test.go`.
 
 ## Phase 1 - Request resolver adoption
 
-- [ ] Refactor `internal/pinoweb/request_resolver.go` to pass through:
-  - `registrySlug`,
-  - `runtimeKey`,
-  - policy-gated `requestOverrides`.
-- [ ] Remove local override policy duplication in favor of geppetto resolver outcomes.
+- [x] Refactor `internal/pinoweb/request_resolver.go` to resolve runtime with:
+  - `runtime_key` selection inputs,
+  - policy-gated `request_overrides`,
+  - `ResolveEffectiveProfile(...)` as source of truth.
+- [x] Remove local override policy duplication in favor of geppetto resolver outcomes.
 
 ## Phase 2 - Runtime composer adoption
 
-- [ ] Refactor `internal/pinoweb/runtime_composer.go` to consume stack-aware resolved runtime outputs.
+- [x] Refactor `internal/pinoweb/runtime_composer.go` to consume stack-aware resolved runtime outputs.
 - [ ] Replace local fingerprint input shaping with resolver-provided runtime fingerprint where possible.
-- [ ] Ensure middleware/tool/system prompt composition respects already-merged stack runtime.
+- [x] Ensure middleware/tool/system prompt composition respects already-merged stack runtime.
 
 ## Phase 3 - API/integration surface
 
-- [ ] Confirm web API payloads and launcher integration support multi-registry profile selection.
+- [x] Confirm web API payloads and launcher integration use `runtime_key` request selection and ignore request-time `registry_slug` selectors.
 - [ ] Ensure response metadata includes stack lineage/trace and runtime fingerprint where clients need diagnostics/caching.
 
 ## Phase 4 - Verification
 
-- [ ] Run: `go test ./go-inventory-chat/...`.
-- [ ] Add/adjust tests for:
+- [x] Run: `go test ./go-inventory-chat/...`.
+- [x] Add/adjust tests for:
   - stack profile selection and defaulting,
   - request override policy enforcement,
-  - fingerprint stability/sensitivity in launcher runtime flows.
+  - registry selector ignore semantics in chat resolver.
+- [ ] Add fingerprint handoff coverage once pinocchio runtime request exposes resolver fingerprint for go-go-os.
 
 ## Phase 5 - Documentation and rollout
 
