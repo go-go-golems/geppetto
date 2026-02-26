@@ -12,7 +12,7 @@ require (
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
 	github.com/go-go-golems/clay v0.4.0
-	github.com/go-go-golems/glazed v1.0.2
+	github.com/go-go-golems/glazed v1.0.4
 	github.com/go-go-golems/go-emrichen v0.0.10
 	github.com/go-go-golems/go-go-goja v0.3.0
 	github.com/google/generative-ai-go v0.20.1
@@ -149,7 +149,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
