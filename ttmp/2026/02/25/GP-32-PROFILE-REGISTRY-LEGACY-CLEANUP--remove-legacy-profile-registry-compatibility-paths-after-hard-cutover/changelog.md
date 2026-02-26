@@ -33,3 +33,7 @@
     - `go test ./...` in `geppetto` (pre-commit),
     - `go test ./...` in `pinocchio` (pre-commit),
     - manual smoke script run: `scripts/profile_registry_cutover_smoke.sh` passed end-to-end.
+- Follow-up hard-cut cleanup:
+  - removed Glazed profile settings layer wiring (`cli.WithProfileSettingsSection`) from pinocchio and geppetto example command setup.
+  - moved profile flag ownership to geppetto sections (`profile` + `profile-registries`) and ensured legacy `profile-file` is not exposed.
+  - added regression coverage for flag surface (`--profile` / `--profile-registries` present, `--profile-file` absent).

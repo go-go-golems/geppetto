@@ -110,6 +110,11 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
+	profileSettingsSection, err := newProfileRegistrySettingsSection()
+	if err != nil {
+		return nil, err
+	}
+
 	// Assemble sections
 	result := []schema.Section{
 		chatSection,
@@ -119,6 +124,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		openaiSection,
 		embeddingsSection,
 		inferenceSection,
+		profileSettingsSection,
 	}
 	return result, nil
 }
@@ -127,6 +133,8 @@ type profileRegistrySettings struct {
 	Profile           string `glazed:"profile"`
 	ProfileRegistries string `glazed:"profile-registries"`
 }
+
+const profileSettingsSectionSlug = "profile-settings"
 
 func defaultPinocchioProfileRegistriesIfPresent() string {
 	configDir, err := os.UserConfigDir()
@@ -143,7 +151,7 @@ func defaultPinocchioProfileRegistriesIfPresent() string {
 
 func newProfileRegistrySettingsSection() (schema.Section, error) {
 	return schema.NewSection(
-		cli.ProfileSettingsSlug,
+		profileSettingsSectionSlug,
 		"Profile settings",
 		schema.WithFields(
 			fields.New(
@@ -265,12 +273,12 @@ func GetCobraCommandGeppettoMiddlewares(
 	if err != nil {
 		return nil, err
 	}
-	if err := bootstrapProfileParsed.DecodeSectionInto(cli.ProfileSettingsSlug, profileSettings); err != nil {
+	if err := bootstrapProfileParsed.DecodeSectionInto(profileSettingsSectionSlug, profileSettings); err != nil {
 		return nil, err
 	}
 	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsed command settings.
 	if profileSettings.Profile == "" && parsedCommandSections != nil {
-		_ = parsedCommandSections.DecodeSectionInto(cli.ProfileSettingsSlug, profileSettings)
+		_ = parsedCommandSections.DecodeSectionInto(profileSettingsSectionSlug, profileSettings)
 	}
 	if profileSettings.Profile == "" {
 		profileSettings.Profile = "default"
@@ -312,7 +320,7 @@ func GetCobraCommandGeppettoMiddlewares(
 				claude.ClaudeChatSlug,
 				gemini.GeminiChatSlug,
 				embeddingsconfig.EmbeddingsSlug,
-				cli.ProfileSettingsSlug,
+				profileSettingsSectionSlug,
 			},
 			sources.FromEnv("PINOCCHIO",
 				fields.WithSource("env"),

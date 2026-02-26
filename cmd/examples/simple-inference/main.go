@@ -178,7 +178,6 @@ func main() {
 
 	command, err := cli.BuildCobraCommand(simpleCmd,
 		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
-		cli.WithProfileSettingsSection(),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

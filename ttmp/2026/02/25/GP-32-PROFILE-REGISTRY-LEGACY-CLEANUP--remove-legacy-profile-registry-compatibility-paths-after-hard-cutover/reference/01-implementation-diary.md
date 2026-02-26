@@ -13,7 +13,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Step-by-step implementation diary for GP-32 hard-cut profile cleanup.
-LastUpdated: 2026-02-25T19:07:00.000000000-05:00
+LastUpdated: 2026-02-25T19:18:00.000000000-05:00
 WhatFor: Capture implementation progress, exact commands, and validation evidence while removing legacy profile compatibility paths.
 WhenToUse: Read when reviewing GP-32 implementation decisions, commit boundaries, and test evidence.
 ---
@@ -170,6 +170,37 @@ Validation:
 2. Pre-commit validation on changed repos passed:
    - `go test ./...` in geppetto,
    - `go test ./...` in pinocchio.
+
+## Step 5: Remove Glazed profile-settings flag injection (`profile-file`) and own profile flags in geppetto section
+
+Date: 2026-02-25
+
+Files changed:
+
+1. `geppetto/pkg/sections/sections.go`
+2. `geppetto/pkg/sections/profile_registry_source_test.go`
+3. `geppetto/cmd/examples/simple-inference/main.go`
+4. `pinocchio/cmd/pinocchio/main.go`
+5. `pinocchio/cmd/pinocchio/main_profile_registries_test.go`
+
+What changed:
+
+1. Added profile section ownership directly in `CreateGeppettoSections()` by appending custom `profile-settings` with fields:
+   - `profile`
+   - `profile-registries`
+2. Removed command wiring that injected Glazed profile section (`cli.WithProfileSettingsSection()`), which was introducing legacy `--profile-file`.
+3. Switched geppetto section internals to local `profile-settings` slug constant, decoupling from Glazed profile section constants.
+4. Updated section tests to avoid adding `cli.NewProfileSettingsSection()` and added explicit regression assertion:
+   - `--profile` and `--profile-registries` exist,
+   - `--profile-file` does not exist.
+5. Added pinocchio regression test to assert `--profile-file` fails as unknown flag.
+
+Validation:
+
+1. `go test ./pkg/sections ./cmd/examples/simple-inference -count=1` in geppetto passed.
+2. `go test ./cmd/pinocchio -count=1` in pinocchio passed.
+3. Manual CLI check:
+   - `go run ./cmd/pinocchio code professional --profile-file ...` now fails with `unknown flag: --profile-file`.
 
 ## Related
 

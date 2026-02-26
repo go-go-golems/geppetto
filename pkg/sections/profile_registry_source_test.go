@@ -193,7 +193,6 @@ profiles:
 		cmd := &cobra.Command{Use: "test"}
 		schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
 		addSchemaFlagsToCommand(t, schema_, cmd)
-		cmd.Flags().String("profile-registries", "", "profile registry sources")
 		if err := cmd.ParseFlags(args); err != nil {
 			t.Fatalf("ParseFlags returned error: %v", err)
 		}
@@ -244,8 +243,6 @@ func TestGetCobraCommandGeppettoMiddlewares_RequiresProfileRegistries(t *testing
 	cmd := &cobra.Command{Use: "test"}
 	schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
 	addSchemaFlagsToCommand(t, schema_, cmd)
-	cmd.Flags().String("profile-registries", "", "profile registry sources")
-
 	if err := cmd.ParseFlags(nil); err != nil {
 		t.Fatalf("ParseFlags returned error: %v", err)
 	}
@@ -294,7 +291,6 @@ profiles:
 	cmd := &cobra.Command{Use: "test"}
 	schema_ := mustGeppettoSchemaWithCommandAndProfile(t)
 	addSchemaFlagsToCommand(t, schema_, cmd)
-	cmd.Flags().String("profile-registries", "", "profile registry sources")
 	if err := cmd.ParseFlags(nil); err != nil {
 		t.Fatalf("ParseFlags returned error: %v", err)
 	}
@@ -322,6 +318,22 @@ profiles:
 	}
 }
 
+func TestCreateGeppettoSections_ExposesProfileRegistryFlagsWithoutProfileFile(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	schema_ := mustGeppettoSchema(t)
+	addSchemaFlagsToCommand(t, schema_, cmd)
+
+	if cmd.Flags().Lookup("profile") == nil {
+		t.Fatalf("expected --profile flag to be present")
+	}
+	if cmd.Flags().Lookup("profile-registries") == nil {
+		t.Fatalf("expected --profile-registries flag to be present")
+	}
+	if cmd.Flags().Lookup("profile-file") != nil {
+		t.Fatalf("did not expect legacy --profile-file flag to be present")
+	}
+}
+
 func mustGeppettoSchema(t *testing.T) *schema.Schema {
 	t.Helper()
 	sections, err := CreateGeppettoSections()
@@ -341,12 +353,8 @@ func mustGeppettoSchemaWithCommandAndProfile(t *testing.T) *schema.Schema {
 	if err != nil {
 		t.Fatalf("NewCommandSettingsSection returned error: %v", err)
 	}
-	profileSection, err := cli.NewProfileSettingsSection()
-	if err != nil {
-		t.Fatalf("NewProfileSettingsSection returned error: %v", err)
-	}
 	allSections := append([]schema.Section{}, sections...)
-	allSections = append(allSections, commandSection, profileSection)
+	allSections = append(allSections, commandSection)
 	return schema.NewSchema(schema.WithSections(allSections...))
 }
 
