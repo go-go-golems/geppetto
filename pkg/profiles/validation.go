@@ -232,10 +232,12 @@ func ValidateProfileStackTopology(registries []*ProfileRegistry, opts StackValid
 	}
 
 	graph := map[stackNode]*Profile{}
+	knownRegistries := map[RegistrySlug]struct{}{}
 	for _, registry := range registries {
 		if registry == nil {
 			continue
 		}
+		knownRegistries[registry.Slug] = struct{}{}
 		for profileSlug, profile := range registry.Profiles {
 			if profile == nil {
 				continue
@@ -286,7 +288,11 @@ func ValidateProfileStackTopology(registries []*ProfileRegistry, opts StackValid
 			field := fmt.Sprintf("registry.profiles[%s].stack[%d]", node.profileSlug, i)
 			if _, ok := graph[target]; !ok {
 				if !ref.RegistrySlug.IsZero() && opts.AllowUnresolvedExternalRefs {
-					continue
+					// Only bypass unresolved refs that point to registries outside
+					// the validated registry set.
+					if _, isKnownRegistry := knownRegistries[ref.RegistrySlug]; !isKnownRegistry {
+						continue
+					}
 				}
 				return &ValidationError{
 					Field:  field,

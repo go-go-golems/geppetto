@@ -298,6 +298,29 @@ func TestValidateProfileStackTopology_AllowsUnresolvedCrossRegistryRefWhenConfig
 	}
 }
 
+func TestValidateProfileStackTopology_DoesNotBypassMissingRefInKnownRegistry(t *testing.T) {
+	reg := &ProfileRegistry{
+		Slug:               MustRegistrySlug("default"),
+		DefaultProfileSlug: MustProfileSlug("agent"),
+		Profiles: map[ProfileSlug]*Profile{
+			MustProfileSlug("agent"): {
+				Slug: MustProfileSlug("agent"),
+				Stack: []ProfileRef{
+					{
+						RegistrySlug: MustRegistrySlug("default"),
+						ProfileSlug:  MustProfileSlug("missing-local"),
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{
+		AllowUnresolvedExternalRefs: true,
+	})
+	requireValidationField(t, err, "registry.profiles[agent].stack[0]")
+}
+
 func requireValidationField(t *testing.T, err error, field string) {
 	t.Helper()
 	if err == nil {

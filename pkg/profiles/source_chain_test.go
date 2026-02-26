@@ -247,6 +247,61 @@ profiles:
 	}
 }
 
+func TestChainedRegistry_ResolveDefaultUsesTopRegistryDefaultProfile(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	sharedPath := filepath.Join(tmpDir, "shared.yaml")
+	privatePath := filepath.Join(tmpDir, "private.yaml")
+
+	if err := os.WriteFile(sharedPath, []byte(`slug: shared
+profiles:
+  default:
+    slug: default
+    runtime:
+      system_prompt: shared-default
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile shared.yaml failed: %v", err)
+	}
+
+	// No profile named "default" here; decoder infers default_profile_slug from available profiles.
+	if err := os.WriteFile(privatePath, []byte(`slug: private
+profiles:
+  assistant:
+    slug: assistant
+    runtime:
+      system_prompt: private-assistant
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile private.yaml failed: %v", err)
+	}
+
+	specs, err := ParseRegistrySourceSpecs([]string{sharedPath, privatePath})
+	if err != nil {
+		t.Fatalf("ParseRegistrySourceSpecs failed: %v", err)
+	}
+	chain, err := NewChainedRegistryFromSourceSpecs(ctx, specs)
+	if err != nil {
+		t.Fatalf("NewChainedRegistryFromSourceSpecs failed: %v", err)
+	}
+	defer func() {
+		_ = chain.Close()
+	}()
+
+	resolved, err := chain.ResolveEffectiveProfile(ctx, ResolveInput{})
+	if err != nil {
+		t.Fatalf("ResolveEffectiveProfile default failed: %v", err)
+	}
+	if got, want := resolved.RegistrySlug, MustRegistrySlug("private"); got != want {
+		t.Fatalf("default registry mismatch: got=%q want=%q", got, want)
+	}
+	if got, want := resolved.ProfileSlug, MustProfileSlug("assistant"); got != want {
+		t.Fatalf("default profile mismatch: got=%q want=%q", got, want)
+	}
+	if got, want := resolved.EffectiveRuntime.SystemPrompt, "private-assistant"; got != want {
+		t.Fatalf("default prompt mismatch: got=%q want=%q", got, want)
+	}
+}
+
 func ptrString(s string) *string {
 	return &s
 }

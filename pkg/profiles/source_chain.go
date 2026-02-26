@@ -205,11 +205,13 @@ func (c *ChainedRegistry) ResolveEffectiveProfile(ctx context.Context, in Resolv
 	}
 
 	next := in
-	if next.RegistrySlug.IsZero() {
+	// If neither registry nor profile is specified, resolve against the top-of-stack
+	// default registry and let StoreRegistry apply that registry's default profile slug.
+	if next.RegistrySlug.IsZero() && next.ProfileSlug.IsZero() {
+		next.RegistrySlug = c.defaultRegistrySlug
+	}
+	if next.RegistrySlug.IsZero() && !next.ProfileSlug.IsZero() {
 		lookupSlug := next.ProfileSlug
-		if lookupSlug.IsZero() {
-			lookupSlug = MustProfileSlug("default")
-		}
 		registrySlug, err := c.findRegistrySlugForProfile(ctx, lookupSlug)
 		if err != nil {
 			return nil, err
