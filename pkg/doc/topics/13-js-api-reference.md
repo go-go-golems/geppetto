@@ -43,20 +43,21 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 
 ## Host Wiring Requirement
 
-For async APIs (`runAsync`, `start`), register the module with `Options.Runner`:
+For async APIs (`runAsync`, `start`), use the shared runtime bootstrap so `Options.Runner` is wired automatically to the owned VM:
 
 ```go
-loop := eventloop.NewEventLoop()
-go loop.Start()
-runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
-    Name:          "my-app",
-    RecoverPanics: true,
+rt, err := jsruntime.NewRuntime(context.Background(), jsruntime.Options{
+    ModuleOptions: gp.Options{
+        // GoToolRegistry: ...
+    },
+    RuntimeInitializers: []gojengine.RuntimeInitializer{
+        myHostBindingsInitializer{},
+    },
 })
-
-gp.Register(reg, gp.Options{
-    Runner: runner,
-    // GoToolRegistry: ...
-})
+if err != nil {
+    return err
+}
+defer rt.Close(context.Background())
 ```
 
 ## Top-Level Exports

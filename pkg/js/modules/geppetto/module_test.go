@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
+	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
@@ -25,23 +25,24 @@ type jsRuntime struct {
 
 func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
 	t.Helper()
-	loop := eventloop.NewEventLoop()
-	go loop.Start()
-	t.Cleanup(func() {
-		_ = loop.Stop()
-	})
-
-	vm := goja.New()
-	opts.Runner = runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
-		Name:          "geppetto-js-module-test",
-		RecoverPanics: true,
-	})
+	factory, err := gojengine.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("failed creating go-go-goja factory: %v", err)
+	}
+	rt, err := factory.NewRuntime(context.Background())
+	if err != nil {
+		t.Fatalf("failed creating go-go-goja runtime: %v", err)
+	}
+	opts.Runner = rt.Owner
 	reg := require.NewRegistry()
 	Register(reg, opts)
-	reg.Enable(vm)
+	reg.Enable(rt.VM)
+	t.Cleanup(func() {
+		_ = rt.Close(context.Background())
+	})
 	return &jsRuntime{
-		vm:     vm,
-		runner: opts.Runner,
+		vm:     rt.VM,
+		runner: rt.Owner,
 	}
 }
 
