@@ -203,11 +203,7 @@ func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, op
 			}
 		}
 	}
-	if apiType == aitypes.ApiTypeClaude {
-		if _, ok := ss.API.BaseUrls["claude-base-url"]; !ok {
-			ss.API.BaseUrls["claude-base-url"] = "https://api.anthropic.com"
-		}
-	}
+	ensureStepSettingsProviderDefaults(ss)
 
 	return ss, resolvedProfile, nil
 }
@@ -308,6 +304,7 @@ func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts m
 	}
 	ss := resolved.EffectiveStepSettings.Clone()
 	ensureStepSettingsAPIKeyFromEnv(ss)
+	ensureStepSettingsProviderDefaults(ss)
 	eng, err := enginefactory.NewEngineFromStepSettings(ss)
 	if err != nil {
 		return nil, err
@@ -358,6 +355,20 @@ func ensureStepSettingsAPIKeyFromEnv(ss *aistepssettings.StepSettings) {
 		apiKeyName := string(apiType) + "-api-key"
 		if _, ok := ss.API.APIKeys[apiKeyName]; !ok {
 			ss.API.APIKeys[apiKeyName] = key
+		}
+	}
+}
+
+func ensureStepSettingsProviderDefaults(ss *aistepssettings.StepSettings) {
+	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
+		return
+	}
+	if ss.API.BaseUrls == nil {
+		ss.API.BaseUrls = map[string]string{}
+	}
+	if *ss.Chat.ApiType == aitypes.ApiTypeClaude {
+		if _, ok := ss.API.BaseUrls["claude-base-url"]; !ok {
+			ss.API.BaseUrls["claude-base-url"] = "https://api.anthropic.com"
 		}
 	}
 }

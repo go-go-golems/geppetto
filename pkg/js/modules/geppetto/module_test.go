@@ -571,6 +571,7 @@ func TestStartWithJSEngineAndMiddleware(t *testing.T) {
 
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-openai-key")
+	t.Setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
 	rt := newJSRuntime(t, Options{
 		ProfileRegistry: mustNewJSProfileRegistry(t),
 	})
@@ -582,6 +583,9 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 
 		const defaultProfile = gp.engines.fromProfile(undefined);
 		if (defaultProfile.name !== "profile:default/default-model") throw new Error("default profile resolve mismatch");
+
+		const claudeWithoutBaseURL = gp.engines.fromProfile("claude-no-base-url");
+		if (claudeWithoutBaseURL.name !== "profile:default/claude-no-base-url") throw new Error("claude profile resolve mismatch");
 
 		let threwLegacyRegistry = false;
 		try {
@@ -1275,6 +1279,20 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 						},
 						"api": map[string]any{
 							"openai-api-key": "test-openai-key",
+						},
+					},
+				},
+			},
+			gepprofiles.MustProfileSlug("claude-no-base-url"): {
+				Slug: gepprofiles.MustProfileSlug("claude-no-base-url"),
+				Runtime: gepprofiles.RuntimeSpec{
+					StepSettingsPatch: map[string]any{
+						"ai-chat": map[string]any{
+							"ai-engine":   "claude-haiku-4-5",
+							"ai-api-type": "claude",
+						},
+						"api": map[string]any{
+							"claude-api-key": "test-anthropic-key",
 						},
 					},
 				},
