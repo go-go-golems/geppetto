@@ -74,6 +74,7 @@ defer rt.Close(context.Background())
 | `profiles` | namespace | Profile registry read/resolve/CRUD API |
 | `schemas` | namespace | Middleware/extension schema catalog API |
 | `middlewares` | namespace | Middleware adapters |
+| `events` | namespace | Event sink helpers |
 | `tools` | namespace | Tool registry constructors |
 
 ## Plugin Contract Helpers
@@ -238,6 +239,31 @@ Host requirements:
 | `withEventSink` | `withEventSink(eventSink)` | Append an event sink hook |
 | `withSnapshotHook` | `withSnapshotHook(snapshotHook)` | Attach a snapshot hook |
 | `buildSession` | `buildSession()` | Materialize session |
+
+## `events` Namespace
+
+| Function | Signature | Notes |
+|---|---|---|
+| `collector` | `collector()` | Build a JS-native event sink that can be passed into `withEventSink(...)`, `eventSink`, or `eventSinks` |
+
+Collector methods:
+
+- `on(eventType, callback)` subscribes and returns the same collector for chaining.
+- `clear(eventType?)` removes listeners for one type or all listeners.
+- `close()` disables the collector and drops listeners.
+
+Example:
+
+```javascript
+const sink = gp.events.collector()
+  .on("*", (ev) => console.log("event", ev.type))
+  .on("tool-call-execute", (ev) => console.log("tool", ev.toolCall && ev.toolCall.name));
+
+const session = gp.createBuilder()
+  .withEngine(engine)
+  .withEventSink(sink)
+  .buildSession();
+```
 
 ## `middlewares` Namespace
 
