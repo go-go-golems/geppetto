@@ -114,8 +114,8 @@ github.com/go-go-golems/glazed v1.0.4 h1:QOrPFq3RnL36I3yYkbc/frMsGDyWIZnwpQyNAQP
 github.com/go-go-golems/glazed v1.0.4/go.mod h1:k+KwcIT68nAam+p1JTGbCtT4Pr20sCwYPKr1FFHIazo=
 github.com/go-go-golems/go-emrichen v0.0.10 h1:y6RzGopArsUSuHfWHh3dqPnOJwIlftPkdfyJxRZboGU=
 github.com/go-go-golems/go-emrichen v0.0.10/go.mod h1:XjfFqbY7l9cYqMX9jrlbgVdjRtMHdXGIBf92F3hezVM=
-github.com/go-go-golems/go-go-goja v0.3.0 h1:hsQqPAQxXkXl0tzgi1sQFJRltqUWRleBEtZeHWGRFho=
-github.com/go-go-golems/go-go-goja v0.3.0/go.mod h1:oBDrZqxdjrfJnVWRn/MliybokXf8gsBANNiWKOSXfZY=
+github.com/go-go-golems/go-go-goja v0.4.0 h1:ZsryOWZR8pBsDjyh+lI6NPNtwafD3mrP0Ki/c2X3CWg=
+github.com/go-go-golems/go-go-goja v0.4.0/go.mod h1:oBDrZqxdjrfJnVWRn/MliybokXf8gsBANNiWKOSXfZY=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=

@@ -12,14 +12,14 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
+	jsruntime "github.com/go-go-golems/geppetto/pkg/js/runtime"
 	"github.com/go-go-golems/geppetto/pkg/profiles"
-	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
+	gojengine "github.com/go-go-golems/go-go-goja/engine"
 )
 
 func main() {
@@ -61,18 +61,6 @@ func main() {
 		fatalf("failed to read script %q: %v", *scriptPath, err)
 	}
 
-	loop := eventloop.NewEventLoop()
-	go loop.Start()
-	defer loop.Stop()
-
-	vm := goja.New()
-	runner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
-		Name:          "geppetto-js-lab",
-		RecoverPanics: true,
-	})
-	installConsole(vm)
-	installHelpers(vm)
-
 	profileRegistry, profileRegistryWriter, closer, err := loadProfileRegistryStack(*profileRegistries)
 	if err != nil {
 		fatalf("failed to load profile registries: %v", err)
@@ -87,20 +75,37 @@ func main() {
 	if err != nil {
 		fatalf("failed to build schema providers: %v", err)
 	}
-
-	reg := require.NewRegistry()
-	gp.Register(reg, gp.Options{
-		Runner:                runner,
-		GoToolRegistry:        goRegistry,
-		ProfileRegistry:       profileRegistry,
-		ProfileRegistryWriter: profileRegistryWriter,
-		MiddlewareSchemas:     middlewareSchemas,
-		ExtensionCodecs:       extensionCodecs,
-		ExtensionSchemas:      extensionSchemas,
+	scriptDir := filepath.Dir(*scriptPath)
+	runtimeInit := runtimeInitializerFunc{
+		id: "geppetto-js-lab-helpers",
+		fn: func(ctx *gojengine.RuntimeContext) error {
+			installConsole(ctx.VM)
+			installHelpers(ctx.VM)
+			return nil
+		},
+	}
+	rt, err := jsruntime.NewRuntime(context.Background(), jsruntime.Options{
+		ModuleOptions: gp.Options{
+			GoToolRegistry:        goRegistry,
+			ProfileRegistry:       profileRegistry,
+			ProfileRegistryWriter: profileRegistryWriter,
+			MiddlewareSchemas:     middlewareSchemas,
+			ExtensionCodecs:       extensionCodecs,
+			ExtensionSchemas:      extensionSchemas,
+		},
+		RequireOptions: []require.Option{
+			require.WithGlobalFolders(scriptDir, filepath.Join(scriptDir, "node_modules")),
+		},
+		RuntimeInitializers: []gojengine.RuntimeInitializer{runtimeInit},
 	})
-	reg.Enable(vm)
+	if err != nil {
+		fatalf("failed to initialize js runtime: %v", err)
+	}
+	defer func() {
+		_ = rt.Close(context.Background())
+	}()
 
-	result, err := vm.RunScript(filepath.Base(*scriptPath), string(scriptBytes))
+	result, err := rt.VM.RunScript(filepath.Base(*scriptPath), string(scriptBytes))
 	if err != nil {
 		fatalf("js execution failed (%s): %v", *scriptPath, err)
 	}
@@ -386,6 +391,20 @@ func cloneSchemaMap(in map[string]any) map[string]any {
 		return in
 	}
 	return out
+}
+
+type runtimeInitializerFunc struct {
+	id string
+	fn func(ctx *gojengine.RuntimeContext) error
+}
+
+func (f runtimeInitializerFunc) ID() string { return f.id }
+
+func (f runtimeInitializerFunc) InitRuntime(ctx *gojengine.RuntimeContext) error {
+	if f.fn == nil {
+		return nil
+	}
+	return f.fn(ctx)
 }
 
 func installHelpers(vm *goja.Runtime) {

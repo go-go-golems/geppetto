@@ -570,19 +570,21 @@ func (sr *sessionRef) start(seed *turns.Turn, opts runOptions) goja.Value {
 
 func (sr *sessionRef) buildRunContext(opts runOptions) (context.Context, context.CancelFunc, error) {
 	ctx := context.Background()
-	cancel := func() {}
 	if opts.timeoutMs < 0 {
 		return nil, nil, fmt.Errorf("timeoutMs must be >= 0")
 	}
 	if opts.timeoutMs > 0 {
-		var timeoutCancel context.CancelFunc
-		ctx, timeoutCancel = context.WithTimeout(ctx, time.Duration(opts.timeoutMs)*time.Millisecond)
-		cancel = timeoutCancel
+		// #nosec G118 -- timeout cancel is returned to callers (runSync/start) and invoked there.
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, time.Duration(opts.timeoutMs)*time.Millisecond)
+		if len(opts.tags) > 0 {
+			ctxWithTimeout = session.WithRunTags(ctxWithTimeout, opts.tags)
+		}
+		return ctxWithTimeout, timeoutCancel, nil
 	}
 	if len(opts.tags) > 0 {
 		ctx = session.WithRunTags(ctx, opts.tags)
 	}
-	return ctx, cancel, nil
+	return ctx, func() {}, nil
 }
 
 func (m *moduleRuntime) parseRunOptions(args []goja.Value, idx int) (runOptions, error) {

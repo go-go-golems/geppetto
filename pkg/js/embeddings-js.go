@@ -3,6 +3,7 @@ package js
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
@@ -130,11 +131,32 @@ func (w *JSEmbeddingsWrapper) generateEmbeddingWithCallbacks(call goja.FunctionC
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	var (
+		cancelMu sync.Mutex
+		cancelFn context.CancelFunc
+	)
+	setCancel := func(fn context.CancelFunc) {
+		cancelMu.Lock()
+		cancelFn = fn
+		cancelMu.Unlock()
+	}
+	invokeCancel := func() {
+		cancelMu.Lock()
+		fn := cancelFn
+		cancelMu.Unlock()
+		if fn != nil {
+			fn()
+		}
+	}
 
 	w.loop.RunOnLoop(func(*goja.Runtime) {
 		go func() {
-			defer cancel()
+			ctx, cancel := context.WithCancel(context.Background())
+			setCancel(cancel)
+			defer func() {
+				cancel()
+				setCancel(nil)
+			}()
 
 			embedding, err := w.provider.GenerateEmbedding(ctx, text)
 			if err != nil {
@@ -168,7 +190,7 @@ func (w *JSEmbeddingsWrapper) generateEmbeddingWithCallbacks(call goja.FunctionC
 
 	// Return cancel function
 	return w.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		cancel()
+		invokeCancel()
 		return goja.Undefined()
 	})
 }

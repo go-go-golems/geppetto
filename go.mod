@@ -14,7 +14,7 @@ require (
 	github.com/go-go-golems/clay v0.4.0
 	github.com/go-go-golems/glazed v1.0.4
 	github.com/go-go-golems/go-emrichen v0.0.10
-	github.com/go-go-golems/go-go-goja v0.3.0
+	github.com/go-go-golems/go-go-goja v0.4.0
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
