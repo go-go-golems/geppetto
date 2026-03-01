@@ -184,6 +184,10 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(mwsObj, "go", m.middlewareFromGo)
 	m.mustSet(exports, "middlewares", mwsObj)
 
+	eventsObj := m.vm.NewObject()
+	m.mustSet(eventsObj, "collector", m.eventsCollector)
+	m.mustSet(exports, "events", eventsObj)
+
 	toolsObj := m.vm.NewObject()
 	m.mustSet(toolsObj, "createRegistry", m.toolsCreateRegistry)
 	m.mustSet(exports, "tools", toolsObj)

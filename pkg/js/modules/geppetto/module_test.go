@@ -569,6 +569,125 @@ func TestStartWithJSEngineAndMiddleware(t *testing.T) {
 	}
 }
 
+func TestEventsCollectorWithBuilderAndToolLoop(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "echo_args",
+			description: "echo tool input",
+			handler: ({ value }) => ({ value })
+		});
+
+		const makeEngine = () => gp.engines.fromFunction((turn) => {
+			const hasToolUse = turn.blocks.some((b) => b.kind === "tool_use");
+			if (!hasToolUse) {
+				turn.blocks.push(gp.turns.newToolCallBlock("call-1", "echo_args", { value: "x" }));
+				return turn;
+			}
+			turn.blocks.push(gp.turns.newAssistantBlock("done"));
+			return turn;
+		});
+
+		const sink = gp.events.collector();
+		if (!sink || typeof sink !== "object") throw new Error("collector() should return an object");
+		if (typeof sink.on !== "function") throw new Error("collector.on() missing");
+		if (typeof sink.clear !== "function") throw new Error("collector.clear() missing");
+		if (typeof sink.close !== "function") throw new Error("collector.close() missing");
+
+		let allCount = 0;
+		let executeCount = 0;
+		let resultCount = 0;
+
+		sink.on("*", (ev) => {
+			allCount++;
+			if (ev && ev.type === "tool-call-execution-result") {
+				resultCount++;
+			}
+		});
+		sink.on("tool-call-execute", () => {
+			executeCount++;
+		});
+
+		const session = gp.createBuilder()
+			.withEngine(makeEngine())
+			.withTools(reg, { enabled: true, maxIterations: 3, toolErrorHandling: "continue" })
+			.withEventSink(sink)
+			.buildSession();
+
+		session.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("hello")] }));
+		const out = session.run();
+		if (!out || !Array.isArray(out.blocks) || out.blocks.length < 2) {
+			throw new Error("expected output turn with assistant response");
+		}
+
+		if (allCount < 2) throw new Error("expected collector wildcard callbacks to run");
+		if (executeCount < 1) throw new Error("expected tool-call-execute event callback");
+		if (resultCount < 1) throw new Error("expected tool-call-execution-result event callback");
+
+		const failingSink = gp.events.collector()
+			.on("*", () => {
+				throw new Error("sink callback should not abort run");
+			});
+		const sessionWithFailingSink = gp.createBuilder()
+			.withEngine(makeEngine())
+			.withTools(reg, { enabled: true, maxIterations: 3, toolErrorHandling: "continue" })
+			.withEventSink(failingSink)
+			.buildSession();
+		sessionWithFailingSink.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("second")] }));
+		const out2 = sessionWithFailingSink.run();
+		const last2 = out2.blocks[out2.blocks.length - 1];
+		if (!last2 || last2.kind !== "llm_text") {
+			throw new Error("expected run to complete despite sink callback exception");
+		}
+	`)
+}
+
+func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "echo_args",
+			description: "echo tool input",
+			handler: ({ value }) => ({ value })
+		});
+
+		const eng = gp.engines.fromFunction((turn) => {
+			const hasToolUse = turn.blocks.some((b) => b.kind === "tool_use");
+			if (!hasToolUse) {
+				turn.blocks.push(gp.turns.newToolCallBlock("call-1", "echo_args", { value: "x" }));
+				return turn;
+			}
+			turn.blocks.push(gp.turns.newAssistantBlock("done"));
+			return turn;
+		});
+
+		let sinkACount = 0;
+		let sinkBCount = 0;
+		const sinkA = gp.events.collector().on("*", () => { sinkACount++; });
+		const sinkB = gp.events.collector().on("*", () => { sinkBCount++; });
+
+		const session = gp.createSession({
+			engine: eng,
+			tools: reg,
+			toolLoop: { enabled: true, maxIterations: 3, toolErrorHandling: "continue" },
+			eventSink: sinkA,
+			eventSinks: [sinkB]
+		});
+		session.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("hello")] }));
+		const out = session.run();
+		const last = out.blocks[out.blocks.length - 1];
+		if (!last || last.kind !== "llm_text") throw new Error("createSession run failed");
+		if (sinkACount < 1) throw new Error("eventSink option collector did not receive events");
+		if (sinkBCount < 1) throw new Error("eventSinks option collector did not receive events");
+	`)
+}
+
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-openai-key")
 	t.Setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
