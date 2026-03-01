@@ -183,6 +183,7 @@ func (f *FilteringSink) getState(meta events.EventMetadata) *streamState {
 	st, ok := f.byStreamID[meta.ID]
 	if !ok {
 		st = &streamState{id: meta.ID}
+		// #nosec G118 -- stream context is canceled in deleteState when the stream finalizes.
 		st.ctx, st.cancel = context.WithCancel(f.baseCtx)
 		f.byStreamID[meta.ID] = st
 	}
@@ -357,6 +358,7 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 							st.itemCancel()
 							st.itemCancel = nil
 						}
+						// #nosec G118 -- item context is canceled on close tag, malformed flush, or stream teardown.
 						st.itemCtx, st.itemCancel = context.WithCancel(st.ctx)
 						st.session = ex.NewSession(st.itemCtx, meta, itemID(meta.ID, st.seq))
 						if f.opts.Debug {
