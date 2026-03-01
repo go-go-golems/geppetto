@@ -1,8 +1,9 @@
-.PHONY: all test build lint lintmax docker-lint golangci-lint-install gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool gen-dts check-dts
 
 all: test build
 
 VERSION=v0.1.14
+DTS_SCHEMA ?= pkg/spec/geppetto_codegen.yaml
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
 GOLANGCI_LINT_BIN ?= $(CURDIR)/.bin/golangci-lint
 GOLANGCI_LINT_ARGS ?= --timeout=5m ./cmd/... ./pkg/...
@@ -50,6 +51,12 @@ test:
 build:
 	go generate ./...
 	go build ./...
+
+gen-dts:
+	go run ./cmd/gen-dts --schema $(DTS_SCHEMA)
+
+check-dts:
+	go run ./cmd/gen-dts --schema $(DTS_SCHEMA) --check
 
 #goreleaser:
 # .goreleaser release --skip=sign --snapshot --clean

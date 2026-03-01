@@ -180,3 +180,12 @@ go test ./...
 go generate ./...
 go build ./...
 ```
+
+TypeScript declaration generation/check for `require("geppetto")`:
+
+```bash
+make gen-dts
+make check-dts
+```
+
+`make check-dts` exits non-zero when `pkg/doc/types/geppetto.d.ts` is out of sync with the generator/template inputs, so it is suitable for CI drift checks.
