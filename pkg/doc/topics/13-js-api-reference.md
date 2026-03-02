@@ -167,6 +167,9 @@ If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
 | `maxTokens` | number | max response tokens |
 | `timeoutSeconds` / `timeoutMs` | number | timeout override |
 
+`fromConfig` does not read provider API keys from process environment variables.
+Pass keys explicitly via `opts.apiKey` or resolve through `fromProfile` with keys in profile `step_settings_patch` (for example `openai-chat.openai-api-key`, `claude-chat.claude-api-key`).
+
 ## `profiles` Namespace
 
 | Function | Signature | Notes |

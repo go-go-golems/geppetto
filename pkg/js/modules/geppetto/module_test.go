@@ -726,8 +726,6 @@ func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T)
 }
 
 func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "test-openai-key")
-	t.Setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
 	rt := newJSRuntime(t, Options{
 		ProfileRegistry: mustNewJSProfileRegistry(t),
 	})
@@ -1419,7 +1417,7 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 							"ai-engine":   "gpt-4o-mini",
 							"ai-api-type": "openai",
 						},
-						"api": map[string]any{
+						"openai-chat": map[string]any{
 							"openai-api-key": "test-openai-key",
 						},
 					},
@@ -1433,7 +1431,7 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 							"ai-engine":   "gpt-4o",
 							"ai-api-type": "openai",
 						},
-						"api": map[string]any{
+						"openai-chat": map[string]any{
 							"openai-api-key": "test-openai-key",
 						},
 					},
@@ -1447,7 +1445,7 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 							"ai-engine":   "claude-haiku-4-5",
 							"ai-api-type": "claude",
 						},
-						"api": map[string]any{
+						"claude-chat": map[string]any{
 							"claude-api-key": "test-anthropic-key",
 						},
 					},

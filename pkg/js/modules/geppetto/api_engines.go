@@ -3,7 +3,6 @@ package geppetto
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -54,32 +53,6 @@ func inferAPIType(model string) aitypes.ApiType {
 	}
 }
 
-func inferAPIKeyFromEnv(apiType aitypes.ApiType) string {
-	switch apiType {
-	case aitypes.ApiTypeOpenAI, aitypes.ApiTypeOpenAIResponses, aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
-		return strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
-	case aitypes.ApiTypeOllama:
-		return strings.TrimSpace(os.Getenv("OLLAMA_API_KEY"))
-	case aitypes.ApiTypeMistral:
-		return strings.TrimSpace(os.Getenv("MISTRAL_API_KEY"))
-	case aitypes.ApiTypePerplexity:
-		return strings.TrimSpace(os.Getenv("PERPLEXITY_API_KEY"))
-	case aitypes.ApiTypeCohere:
-		return strings.TrimSpace(os.Getenv("COHERE_API_KEY"))
-	case aitypes.ApiTypeGemini:
-		if v := strings.TrimSpace(os.Getenv("GEMINI_API_KEY")); v != "" {
-			return v
-		}
-		if v := strings.TrimSpace(os.Getenv("GOOGLE_API_KEY")); v != "" {
-			return v
-		}
-		return ""
-	case aitypes.ApiTypeClaude:
-		return strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
-	}
-	return ""
-}
-
 func profileFromPrecedence(explicitProfile string, opts map[string]any) string {
 	if p := strings.TrimSpace(explicitProfile); p != "" {
 		return p
@@ -88,9 +61,6 @@ func profileFromPrecedence(explicitProfile string, opts map[string]any) string {
 		if p := strings.TrimSpace(toString(opts["profile"], "")); p != "" {
 			return p
 		}
-	}
-	if p := strings.TrimSpace(os.Getenv("PINOCCHIO_PROFILE")); p != "" {
-		return p
 	}
 	return "4o-mini"
 }
@@ -172,9 +142,6 @@ func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, op
 	key := ""
 	if opts != nil {
 		key = strings.TrimSpace(toString(opts["apiKey"], ""))
-	}
-	if key == "" {
-		key = inferAPIKeyFromEnv(apiType)
 	}
 
 	// Keep OpenAI key alias populated for responses engine and OpenAI-compatible providers.
@@ -303,7 +270,6 @@ func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts m
 		return nil, err
 	}
 	ss := resolved.EffectiveStepSettings.Clone()
-	ensureStepSettingsAPIKeyFromEnv(ss)
 	ensureStepSettingsProviderDefaults(ss)
 	eng, err := enginefactory.NewEngineFromStepSettings(ss)
 	if err != nil {
@@ -320,43 +286,6 @@ func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts m
 			"resolvedMetadata":   cloneJSONMap(resolved.Metadata),
 		},
 	}, nil
-}
-
-func ensureStepSettingsAPIKeyFromEnv(ss *aistepssettings.StepSettings) {
-	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
-		return
-	}
-	apiType := *ss.Chat.ApiType
-	key := inferAPIKeyFromEnv(apiType)
-	if strings.TrimSpace(key) == "" {
-		return
-	}
-	if ss.API.APIKeys == nil {
-		ss.API.APIKeys = map[string]string{}
-	}
-
-	switch apiType {
-	case aitypes.ApiTypeOpenAIResponses:
-		if _, ok := ss.API.APIKeys["openai-api-key"]; !ok {
-			ss.API.APIKeys["openai-api-key"] = key
-		}
-		if _, ok := ss.API.APIKeys["openai-responses-api-key"]; !ok {
-			ss.API.APIKeys["openai-responses-api-key"] = key
-		}
-	case aitypes.ApiTypeOpenAI, aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
-		apiKeyName := string(apiType) + "-api-key"
-		if _, ok := ss.API.APIKeys[apiKeyName]; !ok {
-			ss.API.APIKeys[apiKeyName] = key
-		}
-		if _, ok := ss.API.APIKeys["openai-api-key"]; !ok {
-			ss.API.APIKeys["openai-api-key"] = key
-		}
-	case aitypes.ApiTypeGemini, aitypes.ApiTypeClaude, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
-		apiKeyName := string(apiType) + "-api-key"
-		if _, ok := ss.API.APIKeys[apiKeyName]; !ok {
-			ss.API.APIKeys[apiKeyName] = key
-		}
-	}
 }
 
 func ensureStepSettingsProviderDefaults(ss *aistepssettings.StepSettings) {
