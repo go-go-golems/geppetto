@@ -23,11 +23,17 @@ func InferenceUsageFromEventUsage(u *events.Usage) *turns.InferenceUsage {
 
 // BuildInferenceResultFromEventMetadata maps final event metadata to canonical inference_result.
 func BuildInferenceResultFromEventMetadata(metadata events.EventMetadata, provider string, hasToolCalls bool) InferenceResult {
+	var maxTokens *int
+	if metadata.MaxTokens != nil {
+		v := *metadata.MaxTokens
+		maxTokens = &v
+	}
+
 	ret := InferenceResult{
 		Provider:   strings.TrimSpace(provider),
 		Model:      strings.TrimSpace(metadata.Model),
 		Usage:      InferenceUsageFromEventUsage(metadata.Usage),
-		MaxTokens:  metadata.MaxTokens,
+		MaxTokens:  maxTokens,
 		DurationMs: metadata.DurationMs,
 	}
 	if metadata.StopReason != nil {
