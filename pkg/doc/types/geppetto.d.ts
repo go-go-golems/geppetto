@@ -55,6 +55,7 @@ declare module "geppetto" {
             readonly USAGE: "usage";
             readonly STOP_REASON: "stop_reason";
             readonly MODEL: "model";
+            readonly INFERENCE_RESULT: "inference_result";
         };
         /** Canonical Block.Metadata value keys */
         BlockMetadataKeys: {

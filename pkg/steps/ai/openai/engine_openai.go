@@ -379,6 +379,10 @@ streamingComplete:
 		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
 		turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
 	}
+	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai", len(mergedToolCalls) > 0)
+	if err := engine.PersistInferenceResult(t, result); err != nil {
+		log.Warn().Err(err).Msg("OpenAI: failed to persist canonical inference_result")
+	}
 
 	// Publish final event for streaming
 	log.Debug().

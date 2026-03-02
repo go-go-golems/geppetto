@@ -120,6 +120,21 @@ type Engine interface {
 }
 ```
 
+### Canonical Inference Result Metadata
+
+`RunInference` remains the core provider contract. In addition, Geppetto now exposes a compatibility helper that returns a normalized inference outcome and persists it on the turn:
+
+```go
+out, result, err := engine.RunInferenceWithResult(ctx, eng, turn)
+if err != nil {
+    return err
+}
+_ = out
+fmt.Println(result.StopReason, result.FinishClass, result.Truncated)
+```
+
+The helper guarantees a canonical metadata envelope on `Turn.Metadata` (`turns.KeyTurnMetaInferenceResult`) and keeps legacy scalar projections (`stop_reason`, `model`, `provider`, `usage`) mirrored during migration.
+
 ### Engine Responsibilities
 
 Engines focus solely on API communication:

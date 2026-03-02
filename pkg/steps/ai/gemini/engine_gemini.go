@@ -363,20 +363,14 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 
 	// Populate turn metadata + event metadata (best-effort).
 	if strings.TrimSpace(finalStopReason) != "" {
-		if t != nil {
-			if err := turns.KeyTurnMetaStopReason.Set(&t.Metadata, finalStopReason); err != nil {
-				log.Warn().Err(err).Msg("failed to set turn stop reason metadata")
-			}
-		}
 		metadata.StopReason = &finalStopReason
 	}
 	if finalUsage != nil {
-		if t != nil {
-			if err := turns.KeyTurnMetaUsage.Set(&t.Metadata, finalUsage); err != nil {
-				log.Warn().Err(err).Msg("failed to set turn usage metadata")
-			}
-		}
 		metadata.Usage = finalUsage
+	}
+	result := engine.BuildInferenceResultFromEventMetadata(metadata, "gemini", len(pendingCalls) > 0)
+	if err := engine.PersistInferenceResult(t, result); err != nil {
+		log.Warn().Err(err).Msg("Gemini: failed to persist canonical inference_result")
 	}
 
 	if strings.TrimSpace(finalStopReason) != "" || finalUsage != nil {

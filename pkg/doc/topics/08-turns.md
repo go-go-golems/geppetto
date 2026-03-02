@@ -168,6 +168,23 @@ config, ok := engine.KeyToolConfig.Get(turn.Data)
 
 `KeyToolConfig` is actively consumed in inference paths today. `KeyStructuredOutputConfig` is available as a typed key and intended for per-turn overrides as provider wiring expands.
 
+### Canonical Inference Result On Turn Metadata
+
+Inference completion metadata is persisted on turns through `turns.KeyTurnMetaInferenceResult`.
+This is the canonical durable result contract for stop semantics and usage across providers.
+
+```go
+res, ok, err := turns.KeyTurnMetaInferenceResult.Get(turn.Metadata)
+if err != nil {
+    return err
+}
+if ok {
+    fmt.Println(res.StopReason, res.FinishClass, res.Truncated)
+}
+```
+
+`InferenceResult` also mirrors migration-era scalar keys (`turns.KeyTurnMetaStopReason`, `turns.KeyTurnMetaUsage`, `turns.KeyTurnMetaModel`, `turns.KeyTurnMetaProvider`) so older consumers continue to work.
+
 ## Working with Turns
 
 ### Creating Blocks

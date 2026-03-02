@@ -30,14 +30,15 @@ var (
 		turns.ResponsesServerToolsValueKey:  turns.TurnDataKey(turns.KeyResponsesServerTools.String()),
 	}
 	turnMetaShortToID = map[string]turns.TurnMetadataKey{
-		turns.TurnMetaProviderValueKey:    turns.TurnMetadataKey(turns.KeyTurnMetaProvider.String()),
-		turns.TurnMetaRuntimeValueKey:     turns.TurnMetadataKey(turns.KeyTurnMetaRuntime.String()),
-		turns.TurnMetaSessionIDValueKey:   turns.TurnMetadataKey(turns.KeyTurnMetaSessionID.String()),
-		turns.TurnMetaInferenceIDValueKey: turns.TurnMetadataKey(turns.KeyTurnMetaInferenceID.String()),
-		turns.TurnMetaTraceIDValueKey:     turns.TurnMetadataKey(turns.KeyTurnMetaTraceID.String()),
-		turns.TurnMetaUsageValueKey:       turns.TurnMetadataKey(turns.KeyTurnMetaUsage.String()),
-		turns.TurnMetaStopReasonValueKey:  turns.TurnMetadataKey(turns.KeyTurnMetaStopReason.String()),
-		turns.TurnMetaModelValueKey:       turns.TurnMetadataKey(turns.KeyTurnMetaModel.String()),
+		turns.TurnMetaProviderValueKey:        turns.TurnMetadataKey(turns.KeyTurnMetaProvider.String()),
+		turns.TurnMetaRuntimeValueKey:         turns.TurnMetadataKey(turns.KeyTurnMetaRuntime.String()),
+		turns.TurnMetaSessionIDValueKey:       turns.TurnMetadataKey(turns.KeyTurnMetaSessionID.String()),
+		turns.TurnMetaInferenceIDValueKey:     turns.TurnMetadataKey(turns.KeyTurnMetaInferenceID.String()),
+		turns.TurnMetaTraceIDValueKey:         turns.TurnMetadataKey(turns.KeyTurnMetaTraceID.String()),
+		turns.TurnMetaUsageValueKey:           turns.TurnMetadataKey(turns.KeyTurnMetaUsage.String()),
+		turns.TurnMetaStopReasonValueKey:      turns.TurnMetadataKey(turns.KeyTurnMetaStopReason.String()),
+		turns.TurnMetaModelValueKey:           turns.TurnMetadataKey(turns.KeyTurnMetaModel.String()),
+		turns.TurnMetaInferenceResultValueKey: turns.TurnMetadataKey(turns.KeyTurnMetaInferenceResult.String()),
 	}
 	blockMetaShortToID = map[string]turns.BlockMetadataKey{
 		turns.BlockMetaClaudeOriginalContentValueKey: turns.BlockMetadataKey(turns.KeyBlockMetaClaudeOriginalContent.String()),
