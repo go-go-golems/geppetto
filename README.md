@@ -83,6 +83,7 @@ Main namespaces:
 - `gp.profiles`
 - `gp.schemas`
 - `gp.middlewares`
+- `gp.events`
 - `gp.tools`
 
 `gp.profiles` supports both host-injected registries and runtime stack binding:

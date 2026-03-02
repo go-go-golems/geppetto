@@ -106,6 +106,29 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/05_go_tools_from_js.js
 ```
 
+## Workflow 5b: Attach JS-Native Event Sinks
+
+Goal: observe inference/tool-loop events from JS without host-provided sink objects.
+
+Run:
+
+```bash
+go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/20_events_collector_sink.js
+```
+
+Pattern:
+
+```javascript
+const sink = gp.events.collector()
+  .on("*", (ev) => console.log(ev.type))
+  .on("tool-call-execute", (ev) => console.log(ev.toolCall));
+
+const session = gp.createBuilder()
+  .withEngine(engine)
+  .withEventSink(sink)
+  .buildSession();
+```
+
 ## Workflow 6: Optional Live Provider Inference
 
 Goal: final external smoke check after deterministic scripts pass.

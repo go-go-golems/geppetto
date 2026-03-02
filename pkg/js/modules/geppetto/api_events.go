@@ -16,6 +16,44 @@ func newJSEventCollector(api *moduleRuntime) *jsEventCollector {
 	}
 }
 
+func (m *moduleRuntime) eventsCollector(goja.FunctionCall) goja.Value {
+	if _, err := m.requireBridge("events.collector"); err != nil {
+		panic(m.vm.NewTypeError(err.Error()))
+	}
+	collector := newJSEventCollector(m)
+	obj := m.vm.NewObject()
+	m.attachRef(obj, collector)
+
+	m.mustSet(obj, "on", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(m.vm.NewTypeError("collector.on(eventType, callback) requires 2 arguments"))
+		}
+		eventType := call.Arguments[0].String()
+		cb, ok := goja.AssertFunction(call.Arguments[1])
+		if !ok {
+			panic(m.vm.NewTypeError("collector.on() callback must be a function"))
+		}
+		collector.subscribe(eventType, cb)
+		return obj
+	})
+
+	m.mustSet(obj, "clear", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) > 0 && call.Arguments[0] != nil && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
+			collector.clear(call.Arguments[0].String())
+		} else {
+			collector.clear("*")
+		}
+		return obj
+	})
+
+	m.mustSet(obj, "close", func(goja.FunctionCall) goja.Value {
+		collector.close()
+		return goja.Undefined()
+	})
+
+	return obj
+}
+
 var _ events.EventSink = (*jsEventCollector)(nil)
 
 func (c *jsEventCollector) subscribe(eventType string, fn goja.Callable) {
@@ -42,6 +80,28 @@ func (c *jsEventCollector) close() {
 	c.closed = true
 	c.listeners = nil
 	c.mu.Unlock()
+}
+
+func (c *jsEventCollector) clear(eventType string) {
+	if c == nil {
+		return
+	}
+	eventType = strings.TrimSpace(eventType)
+	if eventType == "" || eventType == "*" {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.closed {
+			return
+		}
+		c.listeners = map[string][]goja.Callable{}
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
+	delete(c.listeners, eventType)
 }
 
 func (c *jsEventCollector) PublishEvent(ev events.Event) error {
