@@ -34,6 +34,7 @@ export declare const TurnMetaTraceIDValueKey: "trace_id";
 export declare const TurnMetaUsageValueKey: "usage";
 export declare const TurnMetaStopReasonValueKey: "stop_reason";
 export declare const TurnMetaModelValueKey: "model";
+export declare const TurnMetaInferenceResultValueKey: "inference_result";
 export declare const BlockMetaClaudeOriginalContentValueKey: "claude_original_content";
 export declare const BlockMetaToolCallsValueKey: "tool_calls";
 export declare const BlockMetaMiddlewareValueKey: "middleware";

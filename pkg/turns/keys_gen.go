@@ -36,14 +36,15 @@ const (
 	ResponsesServerToolsValueKey   = "responses_server_tools"
 
 	// Turn.Metadata
-	TurnMetaProviderValueKey    = "provider"
-	TurnMetaRuntimeValueKey     = "runtime"
-	TurnMetaSessionIDValueKey   = "session_id"
-	TurnMetaInferenceIDValueKey = "inference_id"
-	TurnMetaTraceIDValueKey     = "trace_id"
-	TurnMetaUsageValueKey       = "usage"
-	TurnMetaStopReasonValueKey  = "stop_reason"
-	TurnMetaModelValueKey       = "model"
+	TurnMetaProviderValueKey        = "provider"
+	TurnMetaRuntimeValueKey         = "runtime"
+	TurnMetaSessionIDValueKey       = "session_id"
+	TurnMetaInferenceIDValueKey     = "inference_id"
+	TurnMetaTraceIDValueKey         = "trace_id"
+	TurnMetaUsageValueKey           = "usage"
+	TurnMetaStopReasonValueKey      = "stop_reason"
+	TurnMetaModelValueKey           = "model"
+	TurnMetaInferenceResultValueKey = "inference_result"
 
 	// Block.Metadata
 	BlockMetaClaudeOriginalContentValueKey = "claude_original_content"
@@ -62,14 +63,15 @@ var (
 
 // Typed keys for Turn.Metadata owned by turns package.
 var (
-	KeyTurnMetaProvider    = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaProviderValueKey, 1)
-	KeyTurnMetaRuntime     = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaRuntimeValueKey, 1)
-	KeyTurnMetaSessionID   = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaSessionIDValueKey, 1)
-	KeyTurnMetaInferenceID = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaInferenceIDValueKey, 1)
-	KeyTurnMetaTraceID     = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaTraceIDValueKey, 1)
-	KeyTurnMetaUsage       = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaUsageValueKey, 1)
-	KeyTurnMetaStopReason  = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaStopReasonValueKey, 1)
-	KeyTurnMetaModel       = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaModelValueKey, 1)
+	KeyTurnMetaProvider        = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaProviderValueKey, 1)
+	KeyTurnMetaRuntime         = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaRuntimeValueKey, 1)
+	KeyTurnMetaSessionID       = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaSessionIDValueKey, 1)
+	KeyTurnMetaInferenceID     = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaInferenceIDValueKey, 1)
+	KeyTurnMetaTraceID         = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaTraceIDValueKey, 1)
+	KeyTurnMetaUsage           = TurnMetaK[any](GeppettoNamespaceKey, TurnMetaUsageValueKey, 1)
+	KeyTurnMetaStopReason      = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaStopReasonValueKey, 1)
+	KeyTurnMetaModel           = TurnMetaK[string](GeppettoNamespaceKey, TurnMetaModelValueKey, 1)
+	KeyTurnMetaInferenceResult = TurnMetaK[InferenceResult](GeppettoNamespaceKey, TurnMetaInferenceResultValueKey, 1)
 )
 
 // Typed keys for Block.Metadata owned by turns package.

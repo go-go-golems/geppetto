@@ -172,6 +172,8 @@ assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile r
 
 Note: runtime `registrySlug` selection in `engines.fromProfile(...)` is removed. Registry resolution comes from the loaded registry stack.
 
+Provider keys should be supplied in profile runtime step settings patches (for example `openai-chat.openai-api-key`, `claude-chat.claude-api-key`). The JS engine helpers no longer read provider keys from process environment variables.
+
 ## Runtime Stack Binding from JS
 
 If the host did not inject `Options.ProfileRegistry`, scripts can bind registry sources directly:

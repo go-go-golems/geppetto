@@ -721,3 +721,95 @@ func TestParseUsageTotalsFromResponse_NestedResponseUsage(t *testing.T) {
 		)
 	}
 }
+
+func TestRunInference_StreamingPersistsCanonicalInferenceResultMetadata(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/v1/responses" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"Hello"}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"stop_reason":"max_tokens","usage":{"input_tokens":9,"output_tokens":2}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.StepSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-4o-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Hello"),
+	}}
+	out, err := eng.RunInference(context.Background(), turn)
+	if err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+	if out == nil {
+		t.Fatalf("expected output turn")
+	}
+
+	res, ok, err := turns.KeyTurnMetaInferenceResult.Get(out.Metadata)
+	if err != nil {
+		t.Fatalf("get inference_result metadata: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected canonical inference_result metadata")
+	}
+	if res.Provider != "openai_responses" {
+		t.Fatalf("expected provider=openai_responses, got %q", res.Provider)
+	}
+	if res.Model != "gpt-4o-mini" {
+		t.Fatalf("expected model=gpt-4o-mini, got %q", res.Model)
+	}
+	if res.StopReason != "max_tokens" {
+		t.Fatalf("expected stop_reason=max_tokens, got %q", res.StopReason)
+	}
+	if !res.Truncated {
+		t.Fatalf("expected truncated=true")
+	}
+	if res.FinishClass != turns.InferenceFinishClassMaxTokens {
+		t.Fatalf("expected finish_class=%q, got %q", turns.InferenceFinishClassMaxTokens, res.FinishClass)
+	}
+	if res.Usage == nil || res.Usage.InputTokens != 9 || res.Usage.OutputTokens != 2 {
+		t.Fatalf("expected usage 9/2, got %+v", res.Usage)
+	}
+
+	legacyStopReason, ok, err := turns.KeyTurnMetaStopReason.Get(out.Metadata)
+	if err != nil {
+		t.Fatalf("get legacy stop_reason metadata: %v", err)
+	}
+	if !ok || legacyStopReason != "max_tokens" {
+		t.Fatalf("expected mirrored stop_reason=max_tokens, got %q (ok=%v)", legacyStopReason, ok)
+	}
+}

@@ -869,6 +869,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 			turns.AppendBlock(t, b)
 		}
+		result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai_responses", len(finalCalls) > 0)
+		if err := engine.PersistInferenceResult(t, result); err != nil {
+			log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
+		}
 		e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 		return t, nil
 	}
@@ -960,6 +964,10 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	d := time.Since(startTime).Milliseconds()
 	dm := int64(d)
 	metadata.DurationMs = &dm
+	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai_responses", false)
+	if err := engine.PersistInferenceResult(t, result); err != nil {
+		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
+	}
 	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 	return t, nil
 }

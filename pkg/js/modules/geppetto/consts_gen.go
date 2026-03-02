@@ -46,6 +46,7 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 		m.mustSet(o, "USAGE", "usage")
 		m.mustSet(o, "STOP_REASON", "stop_reason")
 		m.mustSet(o, "MODEL", "model")
+		m.mustSet(o, "INFERENCE_RESULT", "inference_result")
 		m.mustSet(constsObj, "TurnMetadataKeys", o)
 	}
 

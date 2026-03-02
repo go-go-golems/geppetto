@@ -114,6 +114,11 @@ key_families:
       typed_key: KeyTurnMetaModel
       type_expr: string
       typed_owner: turns
+    - value_const: TurnMetaInferenceResultValueKey
+      value: inference_result
+      typed_key: KeyTurnMetaInferenceResult
+      type_expr: InferenceResult
+      typed_owner: turns
 
   block_meta:
     - value_const: BlockMetaClaudeOriginalContentValueKey
