@@ -46,6 +46,29 @@ func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
 	}
 }
 
+func newJSRuntimeWithoutRunner(t *testing.T, opts Options) *jsRuntime {
+	t.Helper()
+	factory, err := gojengine.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("failed creating go-go-goja factory: %v", err)
+	}
+	rt, err := factory.NewRuntime(context.Background())
+	if err != nil {
+		t.Fatalf("failed creating go-go-goja runtime: %v", err)
+	}
+	opts.Runner = nil
+	reg := require.NewRegistry()
+	Register(reg, opts)
+	reg.Enable(rt.VM)
+	t.Cleanup(func() {
+		_ = rt.Close(context.Background())
+	})
+	return &jsRuntime{
+		vm:     rt.VM,
+		runner: rt.Owner,
+	}
+}
+
 func mustRunJS(t *testing.T, rt *jsRuntime, src string) goja.Value {
 	t.Helper()
 	v, err := rt.vm.RunString(src)
@@ -642,6 +665,20 @@ func TestEventsCollectorWithBuilderAndToolLoop(t *testing.T) {
 		if (!last2 || last2.kind !== "llm_text") {
 			throw new Error("expected run to complete despite sink callback exception");
 		}
+	`)
+}
+
+func TestEventsCollectorRequiresRunner(t *testing.T) {
+	rt := newJSRuntimeWithoutRunner(t, Options{})
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.events.collector();
+		} catch (e) {
+			threw = /events\.collector requires module options runner to be configured/i.test(String(e));
+		}
+		if (!threw) throw new Error("events.collector should fail when module options Runner is not configured");
 	`)
 }
 

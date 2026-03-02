@@ -17,6 +17,9 @@ func newJSEventCollector(api *moduleRuntime) *jsEventCollector {
 }
 
 func (m *moduleRuntime) eventsCollector(goja.FunctionCall) goja.Value {
+	if _, err := m.requireBridge("events.collector"); err != nil {
+		panic(m.vm.NewTypeError(err.Error()))
+	}
 	collector := newJSEventCollector(m)
 	obj := m.vm.NewObject()
 	m.attachRef(obj, collector)
