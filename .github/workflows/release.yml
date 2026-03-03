@@ -30,7 +30,7 @@ jobs:
           echo "ENABLE_OSXCROSS=1" >> $GITHUB_ENV
       - name: Import GPG key
         id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.GO_GO_GOLEMS_SIGN_KEY }}
           passphrase: ${{ secrets.GO_GO_GOLEMS_SIGN_PASSPHRASE }}
