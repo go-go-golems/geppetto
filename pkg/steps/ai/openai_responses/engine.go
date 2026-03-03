@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
@@ -195,6 +196,13 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		metadata.TurnID = t.ID
 	}
+	if metadata.Extra == nil {
+		metadata.Extra = map[string]any{}
+	}
+	if e.settings != nil {
+		metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+	}
+	runtimeattrib.AttachToExtra(metadata.Extra, t)
 	log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
 	e.publishEvent(ctx, events.NewStartEvent(metadata))
 

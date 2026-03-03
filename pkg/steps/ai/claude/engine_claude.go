@@ -10,6 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
@@ -130,6 +131,7 @@ func (e *ClaudeEngine) RunInference(
 		metadata.Extra = map[string]interface{}{}
 	}
 	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+	runtimeattrib.AttachToExtra(metadata.Extra, t)
 
 	// Non-streaming mode removed. We always use streaming.
 
