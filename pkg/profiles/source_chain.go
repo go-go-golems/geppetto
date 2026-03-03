@@ -359,6 +359,17 @@ func parseRegistrySourceSpec(raw string) (RegistrySourceSpec, error) {
 		return RegistrySourceSpec{}, fmt.Errorf("empty profile registry source")
 	}
 
+	// NOTE: We support both `yaml:PATH` (kind prefix) and `yaml://PATH` (URL-ish form)
+	// because older docs/scripts sometimes used `yaml://...`. Without this special-case,
+	// `yaml://./relative.yaml` would be parsed as `yaml:` with the remaining path
+	// `//./relative.yaml`, which changes semantics on Unix-like systems.
+	if rest, ok := strings.CutPrefix(entry, "yaml://"); ok {
+		path := strings.TrimSpace(rest)
+		if path == "" {
+			return RegistrySourceSpec{}, fmt.Errorf("yaml profile registry source path is empty")
+		}
+		return RegistrySourceSpec{Raw: entry, Kind: RegistrySourceKindYAML, Path: path}, nil
+	}
 	if rest, ok := strings.CutPrefix(entry, "yaml:"); ok {
 		path := strings.TrimSpace(rest)
 		if path == "" {
