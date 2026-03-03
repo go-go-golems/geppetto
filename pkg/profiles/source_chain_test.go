@@ -32,6 +32,7 @@ func TestParseRegistrySourceSpecs_AutodetectAndPrefixes(t *testing.T) {
 	_ = store.Close()
 
 	specs, err := ParseRegistrySourceSpecs([]string{
+		"yaml://" + filepath.Join(tmpDir, "profiles-urlish.yaml"),
 		"yaml:" + filepath.Join(tmpDir, "profiles.yaml"),
 		sqlitePath,
 		"sqlite-dsn:file:test.db?_journal_mode=WAL",
@@ -39,17 +40,39 @@ func TestParseRegistrySourceSpecs_AutodetectAndPrefixes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseRegistrySourceSpecs failed: %v", err)
 	}
-	if got, want := len(specs), 3; got != want {
+	if got, want := len(specs), 4; got != want {
 		t.Fatalf("spec count mismatch: got=%d want=%d", got, want)
 	}
 	if specs[0].Kind != RegistrySourceKindYAML {
 		t.Fatalf("spec[0] kind mismatch: %q", specs[0].Kind)
 	}
-	if specs[1].Kind != RegistrySourceKindSQLite {
+	if specs[1].Kind != RegistrySourceKindYAML {
 		t.Fatalf("spec[1] kind mismatch: %q", specs[1].Kind)
 	}
-	if specs[2].Kind != RegistrySourceKindSQLiteDSN {
+	if specs[2].Kind != RegistrySourceKindSQLite {
 		t.Fatalf("spec[2] kind mismatch: %q", specs[2].Kind)
+	}
+	if specs[3].Kind != RegistrySourceKindSQLiteDSN {
+		t.Fatalf("spec[3] kind mismatch: %q", specs[3].Kind)
+	}
+}
+
+func TestParseRegistrySourceSpecs_YAMLURLishRelativePathDoesNotProduceDoubleSlash(t *testing.T) {
+	specs, err := ParseRegistrySourceSpecs([]string{"yaml://./profile-registry.yaml"})
+	if err != nil {
+		t.Fatalf("ParseRegistrySourceSpecs failed: %v", err)
+	}
+	if got, want := len(specs), 1; got != want {
+		t.Fatalf("spec count mismatch: got=%d want=%d", got, want)
+	}
+	if specs[0].Kind != RegistrySourceKindYAML {
+		t.Fatalf("spec kind mismatch: %q", specs[0].Kind)
+	}
+	if specs[0].Path != "./profile-registry.yaml" {
+		t.Fatalf("unexpected yaml path: %q", specs[0].Path)
+	}
+	if strings.HasPrefix(specs[0].Path, "//") {
+		t.Fatalf("unexpected double-slash path: %q", specs[0].Path)
 	}
 }
 
