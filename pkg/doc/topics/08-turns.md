@@ -185,6 +185,26 @@ if ok {
 
 `InferenceResult` also mirrors migration-era scalar keys (`turns.KeyTurnMetaStopReason`, `turns.KeyTurnMetaUsage`, `turns.KeyTurnMetaModel`, `turns.KeyTurnMetaProvider`) so older consumers continue to work.
 
+### Generated-block inference metadata projection
+
+When `RunInferenceWithResult` finalizes a canonical `InferenceResult`, geppetto also projects that metadata onto generated output blocks via `turns.KeyBlockMetaInferenceResult` (`geppetto.inference_result@v1`).
+
+This projection exists for block-centric consumers (for example Inspector-style UIs) that render block lists and need per-generated-block inference details.
+
+```go
+for i := range turn.Blocks {
+    block := &turn.Blocks[i]
+    if block.Role == turns.RoleAssistant || block.Kind == turns.BlockKindToolCall {
+        _ = turns.KeyBlockMetaInferenceResult.Set(&block.Metadata, result)
+    }
+}
+```
+
+Use this rule when reading metadata:
+
+- **Turn-level** `KeyTurnMetaInferenceResult`: canonical run/turn inference outcome.
+- **Block-level** `KeyBlockMetaInferenceResult`: display-oriented projection on generated blocks.
+
 ## Working with Turns
 
 ### Creating Blocks
