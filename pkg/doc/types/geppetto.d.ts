@@ -64,6 +64,7 @@ declare module "geppetto" {
             readonly MIDDLEWARE: "middleware";
             readonly AGENTMODE_TAG: "agentmode_tag";
             readonly AGENTMODE: "agentmode";
+            readonly INFERENCE_RESULT: "inference_result";
         };
         /** Canonical Run.Metadata value keys */
         RunMetadataKeys: {

@@ -40,6 +40,7 @@ export declare const BlockMetaToolCallsValueKey: "tool_calls";
 export declare const BlockMetaMiddlewareValueKey: "middleware";
 export declare const BlockMetaAgentModeTagValueKey: "agentmode_tag";
 export declare const BlockMetaAgentModeValueKey: "agentmode";
+export declare const BlockMetaInferenceResultValueKey: "inference_result";
 export declare const RunMetaKeyTraceID: "trace_id";
 export declare const PayloadKeyText: "text";
 export declare const PayloadKeyID: "id";
