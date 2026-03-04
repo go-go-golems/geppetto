@@ -146,6 +146,11 @@ key_families:
       typed_key: KeyBlockMetaAgentMode
       type_expr: string
       typed_owner: turns
+    - value_const: BlockMetaInferenceResultValueKey
+      value: inference_result
+      typed_key: KeyBlockMetaInferenceResult
+      type_expr: InferenceResult
+      typed_owner: turns
 
   run_meta:
     - value_const: RunMetaKeyTraceID
