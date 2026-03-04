@@ -117,6 +117,8 @@ router.AddHandler("chat", "chat", events.StepPrinterFunc("", os.Stdout))
 sink := middleware.NewWatermillSink(router.Publisher, "chat")
 ```
 
+**Important:** `events.NewEventRouter()` defaults to Watermill’s in-memory `gochannel` with `BlockPublishUntilSubscriberAck=true` and no output buffering. For streaming UIs or high-rate handlers, prefer configuring the pub/sub explicitly as shown in `glaze help geppetto-events-streaming-watermill` (section “in-memory router defaults can block streaming”).
+
 Why this matters: the sink ties your engine and helpers to the router so that tokens and tool activity can be streamed and printed as they happen.
 
 ## Step 3 — Create the Engine (Streaming Enabled)
