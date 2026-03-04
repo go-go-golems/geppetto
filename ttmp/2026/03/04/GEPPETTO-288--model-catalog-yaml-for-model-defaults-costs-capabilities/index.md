@@ -1,6 +1,6 @@
 ---
 Title: Model catalog (YAML) for model defaults/costs/capabilities
-Ticket: GEPPETTO-2026-03-04-MODEL-CATALOG
+Ticket: GEPPETTO-288--model-catalog-yaml-for-model-defaults-costs-capabilities
 Status: active
 Topics:
     - geppetto

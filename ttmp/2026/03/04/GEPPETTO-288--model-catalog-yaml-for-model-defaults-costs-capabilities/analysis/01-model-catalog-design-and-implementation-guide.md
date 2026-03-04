@@ -1,6 +1,6 @@
 ---
 Title: 'Model catalog: design and implementation guide'
-Ticket: GEPPETTO-2026-03-04-MODEL-CATALOG
+Ticket: GEPPETTO-288--model-catalog-yaml-for-model-defaults-costs-capabilities
 Status: active
 Topics:
     - geppetto
@@ -63,9 +63,11 @@ This section is intentionally concrete: you should be able to open each file and
 ### 1.1 StepSettings is the “runtime configuration object”
 
 Core file:
+
 - `pkg/steps/ai/settings/settings-step.go`
 
 Key types:
+
 - `settings.StepSettings`
 - `settings.ChatSettings`
 - `engine.InferenceConfig` (defaults + per-turn overrides)
@@ -92,6 +94,7 @@ type ChatSettings struct {
 ```
 
 Where defaults come from:
+
 - the `flags/*.yaml` embedded “ValueSection” defaults (Glazed schema)
   - `pkg/steps/ai/settings/flags/chat.yaml` (defaults: engine=`gpt-4`, api-type=`openai`)
   - `pkg/steps/ai/settings/openai/chat.yaml` (defaults for OpenAI flags, including `openai-reasoning-effort`)
@@ -100,11 +103,13 @@ Where defaults come from:
 ### 1.2 Profiles can set StepSettings patches (profile-first is preferred)
 
 Core files:
+
 - `pkg/profiles/service.go` (resolves profile stack and applies step-settings patches)
 - `pkg/profiles/runtime_settings_patch_resolver.go` (applies `runtime.step_settings_patch`)
 - documentation: `pkg/doc/topics/01-profiles.md`
 
 How it works:
+
 - profiles store a `runtime.step_settings_patch` map like:
 
 ```yaml
@@ -124,9 +129,11 @@ Then `profiles.StoreRegistry.ResolveEffectiveProfile(...)` merges the stack and 
 ### 1.3 Engine selection uses ApiType, then model heuristics
 
 Core file:
+
 - `pkg/inference/engine/factory/factory.go`
 
 Today:
+
 - provider is selected from `settings.Chat.ApiType`
 - if provider is `openai` *and* the model looks like a reasoning model (prefix match), Geppetto logs a warning suggesting `openai-responses`.
 
@@ -163,6 +170,7 @@ These files matter because “defaults” and “capabilities” must match what
 ### 1.5 Per-turn inference overrides already exist
 
 Core file:
+
 - `pkg/inference/engine/inference_config.go`
 
 Resolution order:
@@ -273,6 +281,7 @@ models:
 ```
 
 Notes:
+
 - Many fields can be optional (pointers) so overrides can be partial.
 - “context window” and “max output” are separate; we often only need “max output”.
 - The catalog is designed to support pricing, even if v1 only uses it for reporting.
@@ -280,6 +289,7 @@ Notes:
 ### 3.3 Merge rules (built-in + local override)
 
 We want a deterministic merge that supports:
+
 - adding new model slugs,
 - overriding specific fields for existing slugs.
 
@@ -336,6 +346,7 @@ Add a function that:
 - applies defaults only when the user didn’t set explicit values
 
 Recommended file:
+
 - `pkg/models/normalize.go` (or `pkg/steps/ai/settings/normalize.go`, but keep model logic out of settings if possible)
 
 What it should do:
@@ -420,6 +431,7 @@ type Catalog interface {
 ```
 
 This enables:
+
 - CLI commands: `geppetto models list`, `geppetto models show <slug>`
 - UI usage: show max tokens, thinking levels, recommended provider
 - runtime behavior: validate user overrides
@@ -427,9 +439,11 @@ This enables:
 ### 4.4 (Optional v1) Cost computation hook
 
 Geppetto already reports token usage in:
+
 - `pkg/events/metadata.go` (`events.Usage`)
 
 Where to compute cost:
+
 - At “inference complete” time, we have `model` and `usage` in event metadata.
 - Add a helper:
 
@@ -438,6 +452,7 @@ func ComputeCostUSD(spec ModelSpec, usage events.Usage) (float64, bool)
 ```
 
 Then attach:
+
 - `metadata.Extra["cost_usd"] = ...` (or add a typed field later).
 
 This is optional for v1, but design the YAML schema so it’s easy later.
@@ -449,6 +464,7 @@ This is optional for v1, but design the YAML schema so it’s easy later.
 ### Step A: Add the new package and types
 
 Files to add:
+
 - `pkg/models/types.go`
 - `pkg/models/catalog_loader.go`
 - `pkg/models/merge.go`
@@ -476,12 +492,14 @@ type ModelSpec struct {
 ```
 
 Implementation detail:
+
 - Prefer pointers inside structs so “not specified” merges cleanly.
 - After YAML load, set `ModelSpec.Slug` from the map key (canonical slug).
 
 ### Step B: Embed the built-in YAML catalog
 
 Pattern to copy:
+
 - `pkg/steps/ai/settings/openai/settings.go` embeds `chat.yaml` via `//go:embed`.
 
 Add:
@@ -500,6 +518,7 @@ func LoadDefaultCatalog(ctx context.Context) (*Catalog, error)
 ```
 
 Suggested behavior:
+
 - load built-in
 - if env var `GEPPETTO_MODEL_CATALOG` is set → load that YAML and merge
 - else if `${XDG_CONFIG_HOME:-~/.config}/pinocchio/models.yaml` exists → load and merge
@@ -509,13 +528,16 @@ Be explicit about precedence in docs and tests.
 ### Step D: Normalize StepSettings before engine creation
 
 Edit:
+
 - `pkg/inference/engine/factory/helpers.go` or `pkg/inference/engine/factory/factory.go`
 
 Recommended approach:
+
 - in `NewEngineFromStepSettings`, call:
   - `models.NormalizeStepSettings(stepSettings, models.DefaultCatalog())`
 
 This ensures:
+
 - CLI usage,
 - profile resolution usage,
 - JS module usage,
@@ -526,6 +548,7 @@ all get consistent defaults.
 To safely support “model chooses provider”, introduce a sentinel `ai-api-type=auto`.
 
 Changes:
+
 - `pkg/steps/ai/types/types.go`: add `ApiTypeAuto ApiType = "auto"`
 - `pkg/steps/ai/settings/flags/chat.yaml`: include `"auto"` in choices and set default to `"auto"`
   - This is a behavior change, but `auto` should resolve to `openai` for most models, so it’s backward-safe.
@@ -543,11 +566,13 @@ This reduces regressions when users use a new model slug not in catalog yet.
 ### Step G: Add tests
 
 Suggested test files:
+
 - `pkg/models/catalog_loader_test.go`
 - `pkg/models/merge_test.go`
 - `pkg/models/normalize_test.go`
 
 Test cases:
+
 - loading built-in only
 - override adds a new model
 - override patches an existing model’s `max_response_tokens`
@@ -555,6 +580,7 @@ Test cases:
 - unknown model keeps fallback behavior
 
 Also consider updating:
+
 - `pkg/sections/profile_registry_source_test.go` and/or engine factory tests if defaults change.
 
 ---
