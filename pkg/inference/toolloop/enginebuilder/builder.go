@@ -187,6 +187,7 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		updated *turns.Turn
 		err     error
 	)
+	preInferenceBlockCount := len(t.Blocks)
 	if r.registry == nil {
 		updated, _, err = engine.RunInferenceWithResult(runCtx, r.eng, t)
 	} else {
@@ -211,7 +212,7 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		// can render per-block inference badges.
 		if err == nil && updated != nil {
 			if result, ok, getErr := engine.ExtractInferenceResult(updated); getErr == nil && ok {
-				_ = engine.StampInferenceResultOnGeneratedBlocks(updated, result)
+				_ = engine.StampInferenceResultOnGeneratedBlocksFromIndex(updated, result, preInferenceBlockCount)
 			}
 		}
 	}
