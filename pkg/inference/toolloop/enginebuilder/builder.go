@@ -187,8 +187,9 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		updated *turns.Turn
 		err     error
 	)
+	preInferenceBlockCount := len(t.Blocks)
 	if r.registry == nil {
-		updated, err = r.eng.RunInference(runCtx, t)
+		updated, _, err = engine.RunInferenceWithResult(runCtx, r.eng, t)
 	} else {
 		opts := []toolloop.Option{
 			toolloop.WithEngine(r.eng),
@@ -205,6 +206,15 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		loop := toolloop.New(opts...)
 		updated, err = loop.RunLoop(runCtx, t)
+		// The tool loop calls eng.RunInference per iteration but does not
+		// stamp block-level inference metadata. Extract from turn metadata
+		// and project onto generated blocks so downstream consumers (UI)
+		// can render per-block inference badges.
+		if err == nil && updated != nil {
+			if result, ok, getErr := engine.ExtractInferenceResult(updated); getErr == nil && ok {
+				_ = engine.StampInferenceResultOnGeneratedBlocksFromIndex(updated, result, preInferenceBlockCount)
+			}
+		}
 	}
 
 	if updated != nil && r.sessionID != "" {

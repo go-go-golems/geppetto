@@ -58,6 +58,7 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 		m.mustSet(o, "MIDDLEWARE", "middleware")
 		m.mustSet(o, "AGENTMODE_TAG", "agentmode_tag")
 		m.mustSet(o, "AGENTMODE", "agentmode")
+		m.mustSet(o, "INFERENCE_RESULT", "inference_result")
 		m.mustSet(constsObj, "BlockMetadataKeys", o)
 	}
 

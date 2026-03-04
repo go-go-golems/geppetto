@@ -60,9 +60,21 @@ type ExtractorSession interface {
 	OnCompleted(ctx context.Context, raw []byte, success bool, err error) []events.Event
 }
 
-// FilteringSink wraps a downstream EventSink and filters structured data blocks
-// marked with <$name:$dtype> ```yaml ... ``` </$name:$dtype> from text streams,
-// while emitting per-extractor typed events via the same downstream sink.
+// FilteringSink wraps a downstream EventSink and does two things for streaming text:
+//
+//  1. Filters recognized structured blocks out of the user-visible completion text
+//     (so the UI does not show tags/fences).
+//  2. Emits additional typed events derived from those structured blocks via registered
+//     Extractors (ExtractorSession callbacks: OnStart/OnRaw/OnCompleted).
+//
+// Important boundary:
+// FilteringSink is primarily a UX/telemetry tool. It is great for "progressive extraction"
+// and live previews while the model is still streaming, but applications should avoid
+// committing durable domain state based on these streaming callbacks.
+//
+// Prefer validating and persisting at a clear RunInference boundary (e.g. after the final
+// completion is known or after RunInference returns), treating any streaming-derived
+// extraction output as transient.
 type FilteringSink struct {
 	next       events.EventSink
 	opts       Options

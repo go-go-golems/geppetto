@@ -42,6 +42,10 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	preInferenceBlockCount := 0
+	if t != nil {
+		preInferenceBlockCount = len(t.Blocks)
+	}
 
 	if withResult, ok := eng.(EngineWithResult); ok {
 		out, result, err := withResult.RunInferenceWithResult(ctx, t)
@@ -64,6 +68,9 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 			return out, result, errors.Wrap(setErr, "set canonical inference_result")
 		}
 		if setErr := MirrorLegacyInferenceKeys(out, *result); setErr != nil {
+			return out, result, setErr
+		}
+		if setErr := StampInferenceResultOnGeneratedBlocksFromIndex(out, *result, preInferenceBlockCount); setErr != nil {
 			return out, result, setErr
 		}
 		return out, result, nil
@@ -96,7 +103,40 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 	if setErr := MirrorLegacyInferenceKeys(out, result); setErr != nil {
 		return out, nil, setErr
 	}
+	if setErr := StampInferenceResultOnGeneratedBlocksFromIndex(out, result, preInferenceBlockCount); setErr != nil {
+		return out, nil, setErr
+	}
 	return out, &result, nil
+}
+
+// StampInferenceResultOnGeneratedBlocks projects canonical inference metadata
+// onto generated output blocks so downstream consumers can render per-block metadata.
+func StampInferenceResultOnGeneratedBlocks(t *turns.Turn, result InferenceResult) error {
+	return StampInferenceResultOnGeneratedBlocksFromIndex(t, result, 0)
+}
+
+// StampInferenceResultOnGeneratedBlocksFromIndex projects canonical inference metadata
+// onto generated output blocks starting at startIndex.
+func StampInferenceResultOnGeneratedBlocksFromIndex(t *turns.Turn, result InferenceResult, startIndex int) error {
+	if t == nil {
+		return nil
+	}
+	if startIndex < 0 {
+		startIndex = 0
+	}
+	if startIndex > len(t.Blocks) {
+		startIndex = len(t.Blocks)
+	}
+	for i := startIndex; i < len(t.Blocks); i++ {
+		block := &t.Blocks[i]
+		if block.Role != turns.RoleAssistant && block.Kind != turns.BlockKindToolCall {
+			continue
+		}
+		if err := turns.KeyBlockMetaInferenceResult.Set(&block.Metadata, result); err != nil {
+			return errors.Wrapf(err, "set block inference_result index=%d", i)
+		}
+	}
+	return nil
 }
 
 // ExtractInferenceResult returns canonical inference_result when present.
