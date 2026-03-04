@@ -237,7 +237,7 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	if temperaturePtr != nil && topPPtr != nil {
 		return nil, errors.New("both temperature and top_p are set to non-default values; Claude models require only one to be specified")
 	}
-	maxTokens := 1024
+	maxTokens := 4096
 	if chatSettings.MaxResponseTokens != nil && *chatSettings.MaxResponseTokens > 0 {
 		maxTokens = *chatSettings.MaxResponseTokens
 	}
