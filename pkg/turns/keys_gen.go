@@ -52,6 +52,7 @@ const (
 	BlockMetaMiddlewareValueKey            = "middleware"
 	BlockMetaAgentModeTagValueKey          = "agentmode_tag"
 	BlockMetaAgentModeValueKey             = "agentmode"
+	BlockMetaInferenceResultValueKey       = "inference_result"
 )
 
 // Typed keys for Turn.Data owned by turns package.
@@ -81,4 +82,5 @@ var (
 	KeyBlockMetaMiddleware            = BlockMetaK[string](GeppettoNamespaceKey, BlockMetaMiddlewareValueKey, 1)
 	KeyBlockMetaAgentModeTag          = BlockMetaK[string](GeppettoNamespaceKey, BlockMetaAgentModeTagValueKey, 1)
 	KeyBlockMetaAgentMode             = BlockMetaK[string](GeppettoNamespaceKey, BlockMetaAgentModeValueKey, 1)
+	KeyBlockMetaInferenceResult       = BlockMetaK[InferenceResult](GeppettoNamespaceKey, BlockMetaInferenceResultValueKey, 1)
 )

@@ -39,6 +39,27 @@ func (directResultEngine) RunInferenceWithResult(_ context.Context, t *turns.Tur
 	return t, res, nil
 }
 
+type stampingResultEngine struct{}
+
+func (stampingResultEngine) RunInference(_ context.Context, t *turns.Turn) (*turns.Turn, error) {
+	return t, nil
+}
+
+func (stampingResultEngine) RunInferenceWithResult(_ context.Context, t *turns.Turn) (*turns.Turn, *InferenceResult, error) {
+	if t == nil {
+		t = &turns.Turn{}
+	}
+	turns.AppendBlock(t, turns.NewUserTextBlock("hello"))
+	turns.AppendBlock(t, turns.NewAssistantTextBlock("ok"))
+	turns.AppendBlock(t, turns.NewToolCallBlock("call-1", "lookup", map[string]any{"x": 1}))
+	res := &InferenceResult{
+		Provider:   "direct",
+		Model:      "direct-model",
+		StopReason: "end_turn",
+	}
+	return t, res, nil
+}
+
 func TestRunInferenceWithResult_LegacyEngineSynthesizesCanonicalResult(t *testing.T) {
 	turn := &turns.Turn{}
 	out, res, err := RunInferenceWithResult(context.Background(), legacyEngine{}, turn)
@@ -119,5 +140,48 @@ func TestSynthesizeInferenceResult_PrefersToolCallsPending(t *testing.T) {
 	}
 	if !res.Truncated {
 		t.Fatalf("expected truncated=true for max_tokens")
+	}
+}
+
+func TestRunInferenceWithResult_StampsGeneratedBlocksOnly(t *testing.T) {
+	out, res, err := RunInferenceWithResult(context.Background(), stampingResultEngine{}, &turns.Turn{})
+	if err != nil {
+		t.Fatalf("RunInferenceWithResult: %v", err)
+	}
+	if out == nil || res == nil {
+		t.Fatalf("expected output and result")
+	}
+	if len(out.Blocks) != 3 {
+		t.Fatalf("expected 3 blocks, got %d", len(out.Blocks))
+	}
+
+	userMeta, ok, err := turns.KeyBlockMetaInferenceResult.Get(out.Blocks[0].Metadata)
+	if err != nil {
+		t.Fatalf("get user block inference metadata: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected no inference metadata on user block, got %+v", userMeta)
+	}
+
+	assistantMeta, ok, err := turns.KeyBlockMetaInferenceResult.Get(out.Blocks[1].Metadata)
+	if err != nil {
+		t.Fatalf("get assistant block inference metadata: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected inference metadata on assistant block")
+	}
+	if assistantMeta.Model != "direct-model" {
+		t.Fatalf("expected assistant block model direct-model, got %q", assistantMeta.Model)
+	}
+
+	toolCallMeta, ok, err := turns.KeyBlockMetaInferenceResult.Get(out.Blocks[2].Metadata)
+	if err != nil {
+		t.Fatalf("get tool_call block inference metadata: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected inference metadata on tool_call block")
+	}
+	if toolCallMeta.StopReason != "end_turn" {
+		t.Fatalf("expected tool_call stop_reason=end_turn, got %q", toolCallMeta.StopReason)
 	}
 }

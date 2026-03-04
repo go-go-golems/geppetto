@@ -66,6 +66,9 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 		if setErr := MirrorLegacyInferenceKeys(out, *result); setErr != nil {
 			return out, result, setErr
 		}
+		if setErr := StampInferenceResultOnGeneratedBlocks(out, *result); setErr != nil {
+			return out, result, setErr
+		}
 		return out, result, nil
 	}
 
@@ -96,7 +99,28 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 	if setErr := MirrorLegacyInferenceKeys(out, result); setErr != nil {
 		return out, nil, setErr
 	}
+	if setErr := StampInferenceResultOnGeneratedBlocks(out, result); setErr != nil {
+		return out, nil, setErr
+	}
 	return out, &result, nil
+}
+
+// StampInferenceResultOnGeneratedBlocks projects canonical inference metadata
+// onto generated output blocks so downstream consumers can render per-block metadata.
+func StampInferenceResultOnGeneratedBlocks(t *turns.Turn, result InferenceResult) error {
+	if t == nil {
+		return nil
+	}
+	for i := range t.Blocks {
+		block := &t.Blocks[i]
+		if block.Role != turns.RoleAssistant && block.Kind != turns.BlockKindToolCall {
+			continue
+		}
+		if err := turns.KeyBlockMetaInferenceResult.Set(&block.Metadata, result); err != nil {
+			return errors.Wrapf(err, "set block inference_result index=%d", i)
+		}
+	}
+	return nil
 }
 
 // ExtractInferenceResult returns canonical inference_result when present.
