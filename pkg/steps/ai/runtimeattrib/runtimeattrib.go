@@ -1,12 +1,13 @@
 package runtimeattrib
 
 import (
+	"math"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-// AttachToExtra copies runtime/profile attribution from Turn metadata into an EventMetadata.Extra map.
+// AddRuntimeAttributionToExtra copies runtime/profile attribution from Turn metadata into an EventMetadata.Extra map.
 //
 // Expected Turn.Metadata source:
 // - turns.KeyTurnMetaRuntime may be either:
@@ -24,7 +25,7 @@ import (
 // - profile.slug
 // - profile.registry
 // - profile.version
-func AttachToExtra(extra map[string]any, t *turns.Turn) {
+func AddRuntimeAttributionToExtra(extra map[string]any, t *turns.Turn) {
 	if extra == nil || t == nil {
 		return
 	}
@@ -62,14 +63,10 @@ func AttachToExtra(extra map[string]any, t *turns.Turn) {
 		} else if s := trimString(rt["registry_slug"]); s != "" {
 			extra["profile.registry"] = s
 		}
-		if n, ok := rt["profile.version"].(uint64); ok && n > 0 {
+		if n, ok := positiveUint64(rt["profile.version"]); ok {
 			extra["profile.version"] = n
-		} else if n, ok := rt["profile_version"].(uint64); ok && n > 0 {
+		} else if n, ok := positiveUint64(rt["profile_version"]); ok {
 			extra["profile.version"] = n
-		} else if n, ok := rt["profile_version"].(int64); ok && n > 0 {
-			extra["profile.version"] = uint64(n)
-		} else if n, ok := rt["profile_version"].(int); ok && n > 0 {
-			extra["profile.version"] = uint64(n)
 		}
 	}
 }
@@ -80,4 +77,49 @@ func trimString(v any) string {
 		return ""
 	}
 	return strings.TrimSpace(s)
+}
+
+func positiveUint64(v any) (uint64, bool) {
+	switch n := v.(type) {
+	case uint64:
+		return n, n > 0
+	case uint32:
+		return uint64(n), n > 0
+	case uint16:
+		return uint64(n), n > 0
+	case uint8:
+		return uint64(n), n > 0
+	case uint:
+		return uint64(n), n > 0
+	case int64:
+		if n > 0 {
+			return uint64(n), true
+		}
+	case int32:
+		if n > 0 {
+			return uint64(n), true
+		}
+	case int16:
+		if n > 0 {
+			return uint64(n), true
+		}
+	case int8:
+		if n > 0 {
+			return uint64(n), true
+		}
+	case int:
+		if n > 0 {
+			return uint64(n), true
+		}
+	case float64:
+		if n > 0 && n == math.Trunc(n) && n <= float64(^uint64(0)) {
+			return uint64(n), true
+		}
+	case float32:
+		f := float64(n)
+		if f > 0 && f == math.Trunc(f) && f <= float64(^uint64(0)) {
+			return uint64(f), true
+		}
+	}
+	return 0, false
 }

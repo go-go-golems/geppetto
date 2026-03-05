@@ -206,7 +206,7 @@ func (e *OpenAIEngine) RunInference(
 		metadata.Extra = map[string]interface{}{}
 	}
 	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
-	runtimeattrib.AttachToExtra(metadata.Extra, t)
+	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
 
 	// Publish start event
 	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
