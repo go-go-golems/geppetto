@@ -72,6 +72,13 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 	}
 }
 
+func (c *Client) SetHTTPClient(httpClient *http.Client) {
+	if httpClient == nil {
+		return
+	}
+	c.httpClient = httpClient
+}
+
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("x-api-key", c.apiKey)
