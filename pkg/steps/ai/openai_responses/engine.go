@@ -60,58 +60,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	if err != nil {
 		return nil, err
 	}
-
-	// Attach tools to Responses request when present
-	if t != nil {
-		var engineTools []engine.ToolDefinition
-		if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
-			for _, td := range reg.ListTools() {
-				engineTools = append(engineTools, engine.ToolDefinition{
-					Name:        td.Name,
-					Description: td.Description,
-					Parameters:  td.Parameters,
-					Examples:    []engine.ToolExample{},
-					Tags:        td.Tags,
-					Version:     td.Version,
-				})
-			}
-		}
-
-		var toolCfg engine.ToolConfig
-		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {
-			return nil, errors.Wrap(err, "get tool config")
-		} else if ok {
-			toolCfg = cfg
-		}
-
-		if len(engineTools) > 0 && toolCfg.Enabled {
-			converted, err := e.PrepareToolsForResponses(engineTools, toolCfg)
-			if err != nil {
-				return nil, err
-			}
-			if arr, ok := converted.([]any); ok && len(arr) > 0 {
-				reqBody.Tools = arr
-				// Responses API: omit tool_choice for function tools to allow model selection
-				reqBody.ToolChoice = nil
-				// parallel_tool_calls preference
-				if toolCfg.MaxParallelTools > 1 {
-					b := true
-					reqBody.ParallelToolCalls = &b
-				} else if toolCfg.MaxParallelTools == 1 {
-					b := false
-					reqBody.ParallelToolCalls = &b
-				}
-				log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
-			}
-		}
-		// Optionally include server-side tools (Responses built-ins) when provided on the Turn
-		if builtins, ok, err := turns.KeyResponsesServerTools.Get(t.Data); err != nil {
-			return nil, errors.Wrap(err, "get responses server tools")
-		} else if ok && len(builtins) > 0 {
-			// Append alongside function tools
-			reqBody.Tools = append(reqBody.Tools, builtins...)
-			log.Debug().Int("builtin_tool_count", len(builtins)).Msg("Responses: server-side tools attached to request")
-		}
+	if err := e.attachToolsToResponsesRequest(ctx, t, &reqBody); err != nil {
+		return nil, err
 	}
 	// Debug: succinct preview of input items and tool blocks present on Turn
 	if t != nil {
@@ -978,6 +928,62 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
 	return t, nil
+}
+
+func (e *Engine) attachToolsToResponsesRequest(ctx context.Context, t *turns.Turn, reqBody *responsesRequest) error {
+	if t == nil || reqBody == nil {
+		return nil
+	}
+
+	var engineTools []engine.ToolDefinition
+	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
+		for _, td := range reg.ListTools() {
+			engineTools = append(engineTools, engine.ToolDefinition{
+				Name:        td.Name,
+				Description: td.Description,
+				Parameters:  td.Parameters,
+				Examples:    []engine.ToolExample{},
+				Tags:        td.Tags,
+				Version:     td.Version,
+			})
+		}
+	}
+
+	var toolCfg engine.ToolConfig
+	if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {
+		return errors.Wrap(err, "get tool config")
+	} else if ok {
+		toolCfg = cfg
+	}
+
+	if len(engineTools) > 0 && toolCfg.Enabled {
+		converted, err := e.PrepareToolsForResponses(engineTools, toolCfg)
+		if err != nil {
+			return err
+		}
+		if arr, ok := converted.([]any); ok && len(arr) > 0 {
+			reqBody.Tools = arr
+			// Responses API: omit tool_choice for function tools to allow model selection
+			reqBody.ToolChoice = nil
+			if toolCfg.MaxParallelTools > 1 {
+				b := true
+				reqBody.ParallelToolCalls = &b
+			} else if toolCfg.MaxParallelTools == 1 {
+				b := false
+				reqBody.ParallelToolCalls = &b
+			}
+			log.Debug().Int("tool_count", len(arr)).Interface("tool_choice", reqBody.ToolChoice).Msg("Responses: tools attached to request")
+		}
+	}
+
+	if builtins, ok, err := turns.KeyResponsesServerTools.Get(t.Data); err != nil {
+		return errors.Wrap(err, "get responses server tools")
+	} else if ok && len(builtins) > 0 {
+		reqBody.Tools = append(reqBody.Tools, builtins...)
+		log.Debug().Int("builtin_tool_count", len(builtins)).Msg("Responses: server-side tools attached to request")
+	}
+
+	return nil
 }
 
 func mustMarshalJSON(v any) []byte {

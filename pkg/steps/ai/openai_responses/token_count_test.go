@@ -9,11 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
+	inferencetools "github.com/go-go-golems/geppetto/pkg/inference/tools"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openaisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	types2 "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/invopop/jsonschema"
 )
 
 type rewriteTransport struct {
@@ -126,5 +129,85 @@ func TestParseOpenAIInputTokensZeroResponse(t *testing.T) {
 	}
 	if got != 0 {
 		t.Fatalf("expected 0, got %d", got)
+	}
+}
+
+func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
+	model := "gpt-4o-mini"
+	apiType := types2.ApiTypeOpenAIResponses
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		payload := string(body)
+		if !strings.Contains(payload, `"name":"lookup_weather"`) {
+			t.Fatalf("request missing tool definition: %s", payload)
+		}
+		if !strings.Contains(payload, `"parallel_tool_calls":false`) {
+			t.Fatalf("request missing parallel tool setting: %s", payload)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"input_tokens":8}`))
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server URL: %v", err)
+	}
+
+	httpClient := server.Client()
+	httpClient.Transport = &rewriteTransport{
+		base:   httpClient.Transport,
+		target: targetURL,
+		host:   "api.openai.com",
+		scheme: "https",
+	}
+
+	ss := &aisettings.StepSettings{
+		API: &aisettings.APISettings{
+			APIKeys: map[string]string{"openai-api-key": "test-key"},
+			BaseUrls: map[string]string{
+				"openai-base-url": "https://api.openai.com/v1",
+			},
+		},
+		Client: &aisettings.ClientSettings{
+			HTTPClient: httpClient,
+		},
+		Chat: &aisettings.ChatSettings{
+			Engine:  &model,
+			ApiType: &apiType,
+			Stream:  true,
+		},
+		OpenAI: &openaisettings.Settings{},
+	}
+
+	registry := inferencetools.NewInMemoryToolRegistry()
+	if err := registry.RegisterTool("lookup_weather", inferencetools.ToolDefinition{
+		Name:        "lookup_weather",
+		Description: "Look up weather",
+		Parameters:  &jsonschema.Schema{Type: "object"},
+	}); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
+	}
+
+	turn := &turns.Turn{
+		Blocks: []turns.Block{turns.NewUserTextBlock("hello")},
+	}
+	if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
+		Enabled:          true,
+		MaxParallelTools: 1,
+	}); err != nil {
+		t.Fatalf("set tool config: %v", err)
+	}
+
+	counter := NewTokenCounter(ss)
+	res, err := counter.CountTurn(inferencetools.WithRegistry(context.Background(), registry), turn)
+	if err != nil {
+		t.Fatalf("CountTurn returned error: %v", err)
+	}
+	if res.InputTokens != 8 {
+		t.Fatalf("expected 8 input tokens, got %d", res.InputTokens)
 	}
 }

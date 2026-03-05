@@ -22,12 +22,13 @@ type TokenCounter struct {
 }
 
 type inputTokensRequest struct {
-	Model      string           `json:"model"`
-	Input      []responsesInput `json:"input"`
-	Text       *responsesText   `json:"text,omitempty"`
-	Reasoning  *reasoningParam  `json:"reasoning,omitempty"`
-	Tools      []any            `json:"tools,omitempty"`
-	ToolChoice any              `json:"tool_choice,omitempty"`
+	Model             string           `json:"model"`
+	Input             []responsesInput `json:"input"`
+	Text              *responsesText   `json:"text,omitempty"`
+	Reasoning         *reasoningParam  `json:"reasoning,omitempty"`
+	Tools             []any            `json:"tools,omitempty"`
+	ToolChoice        any              `json:"tool_choice,omitempty"`
+	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
 }
 
 func NewTokenCounter(s *settings.StepSettings) *TokenCounter {
@@ -44,14 +45,18 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 	if err != nil {
 		return nil, err
 	}
+	if err := engine.attachToolsToResponsesRequest(ctx, t, &reqBody); err != nil {
+		return nil, err
+	}
 
 	countReq := inputTokensRequest{
-		Model:      reqBody.Model,
-		Input:      reqBody.Input,
-		Text:       reqBody.Text,
-		Reasoning:  reqBody.Reasoning,
-		Tools:      reqBody.Tools,
-		ToolChoice: reqBody.ToolChoice,
+		Model:             reqBody.Model,
+		Input:             reqBody.Input,
+		Text:              reqBody.Text,
+		Reasoning:         reqBody.Reasoning,
+		Tools:             reqBody.Tools,
+		ToolChoice:        reqBody.ToolChoice,
+		ParallelToolCalls: reqBody.ParallelToolCalls,
 	}
 
 	payload, err := json.Marshal(countReq)

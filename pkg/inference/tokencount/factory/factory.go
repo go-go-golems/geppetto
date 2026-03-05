@@ -25,7 +25,7 @@ func NewFromStepSettings(ss *settings.StepSettings) (tokencount.Counter, error) 
 	}
 
 	switch provider {
-	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses):
+	case string(types.ApiTypeOpenAIResponses):
 		return openai_responses.NewTokenCounter(ss), nil
 	case string(types.ApiTypeClaude), "anthropic":
 		return claude.NewTokenCounter(ss), nil
