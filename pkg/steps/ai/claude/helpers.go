@@ -14,6 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type messageProjection struct {
+	System   string
+	Messages []api.Message
+}
+
 // Removed obsolete messageToClaudeMessage (conversation-based)
 
 // MakeMessageRequest builds a Claude MessageRequest from settings and a conversation
@@ -40,177 +45,10 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 		return nil, errors.New("no engine specified")
 	}
 
-	msgs := []api.Message{}
-	// Buffer messages that must come after a tool_use → tool_result pair
-	delayedMsgs := []api.Message{}
-	toolPhaseActive := false
-	flushDelayed := func() {
-		if len(delayedMsgs) > 0 {
-			msgs = append(msgs, delayedMsgs...)
-			delayedMsgs = nil
-		}
+	projection, err := e.buildMessageProjectionFromTurn(t)
+	if err != nil {
+		return nil, err
 	}
-	systemPrompt := ""
-	hasSystemPrompt := false
-	if t != nil {
-		for _, b := range t.Blocks {
-			switch b.Kind {
-			case turns.BlockKindSystem:
-				text := ""
-				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
-					if s, ok2 := v.(string); ok2 {
-						text = s
-					} else if bb, err := json.Marshal(v); err == nil {
-						text = string(bb)
-					}
-				}
-				if !hasSystemPrompt {
-					systemPrompt = text
-					hasSystemPrompt = true
-				} else if text != "" {
-					msg := api.Message{Role: RoleUser, Content: []api.Content{api.NewTextContent(text)}}
-					if toolPhaseActive {
-						delayedMsgs = append(delayedMsgs, msg)
-					} else {
-						msgs = append(msgs, msg)
-					}
-				}
-			case turns.BlockKindUser:
-				// If preserved Claude content is present, pass through directly
-				if orig, ok, err := turns.KeyBlockMetaClaudeOriginalContent.Get(b.Metadata); err != nil {
-					return nil, errors.Wrap(err, "get claude original content (user block)")
-				} else if ok && orig != nil {
-					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
-						msg := api.Message{Role: RoleUser, Content: arr}
-						if toolPhaseActive {
-							delayedMsgs = append(delayedMsgs, msg)
-						} else {
-							msgs = append(msgs, msg)
-						}
-						break
-					}
-				}
-				text := ""
-				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
-					if s, ok2 := v.(string); ok2 {
-						text = s
-					} else if bb, err := json.Marshal(v); err == nil {
-						text = string(bb)
-					}
-				}
-				parts := []api.Content{}
-				if text != "" {
-					parts = append(parts, api.NewTextContent(text))
-				}
-				// optional images from payload
-				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
-					for _, img := range imgs {
-						mediaType, _ := img["media_type"].(string)
-						if raw, ok := img["content"]; ok && raw != nil {
-							var base64Content string
-							switch rv := raw.(type) {
-							case []byte:
-								base64Content = base64.StdEncoding.EncodeToString(rv)
-							case string:
-								base64Content = rv
-							}
-							if base64Content != "" {
-								parts = append(parts, api.NewImageContent(mediaType, base64Content))
-							}
-						}
-					}
-				}
-				if len(parts) > 0 {
-					msg := api.Message{Role: RoleUser, Content: parts}
-					if toolPhaseActive {
-						delayedMsgs = append(delayedMsgs, msg)
-					} else {
-						msgs = append(msgs, msg)
-					}
-				}
-			case turns.BlockKindLLMText:
-				// Allow preserved Claude content on assistant blocks too
-				if orig, ok, err := turns.KeyBlockMetaClaudeOriginalContent.Get(b.Metadata); err != nil {
-					return nil, errors.Wrap(err, "get claude original content (assistant block)")
-				} else if ok && orig != nil {
-					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
-						msg := api.Message{Role: RoleAssistant, Content: arr}
-						if toolPhaseActive {
-							delayedMsgs = append(delayedMsgs, msg)
-						} else {
-							msgs = append(msgs, msg)
-						}
-						break
-					}
-				}
-				text := ""
-				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
-					if s, ok2 := v.(string); ok2 {
-						text = s
-					} else if bb, err := json.Marshal(v); err == nil {
-						text = string(bb)
-					}
-				}
-				if text != "" {
-					msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewTextContent(text)}}
-					if toolPhaseActive {
-						delayedMsgs = append(delayedMsgs, msg)
-					} else {
-						msgs = append(msgs, msg)
-					}
-				}
-			case turns.BlockKindReasoning:
-				// Reasoning blocks are not part of Claude's message protocol yet; skip.
-				continue
-			case turns.BlockKindToolCall:
-				name := ""
-				if v, ok := b.Payload[turns.PayloadKeyName]; ok {
-					_ = assignString(&name, v)
-				}
-				toolID := ""
-				if v, ok := b.Payload[turns.PayloadKeyID]; ok {
-					_ = assignString(&toolID, v)
-				}
-				argsStr := "{}"
-				if v, ok := b.Payload[turns.PayloadKeyArgs]; ok && v != nil {
-					switch tv := v.(type) {
-					case string:
-						argsStr = tv
-					case json.RawMessage:
-						argsStr = string(tv)
-					default:
-						if bb, err := json.Marshal(v); err == nil {
-							argsStr = string(bb)
-						}
-					}
-				}
-				msgs = append(msgs, api.Message{Role: RoleAssistant, Content: []api.Content{api.NewToolUseContent(toolID, name, argsStr)}})
-				toolPhaseActive = true
-			case turns.BlockKindToolUse:
-				toolID := ""
-				_ = assignString(&toolID, b.Payload[turns.PayloadKeyID])
-				result := toolUsePayloadToJSONString(b.Payload)
-				msgs = append(msgs, api.Message{Role: RoleUser, Content: []api.Content{api.NewToolResultContent(toolID, result)}})
-				// After emitting tool_result, flush any delayed messages and end phase
-				flushDelayed()
-				toolPhaseActive = false
-			case turns.BlockKindOther:
-				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
-					if s, ok2 := v.(string); ok2 && s != "" {
-						msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewTextContent(s)}}
-						if toolPhaseActive {
-							delayedMsgs = append(delayedMsgs, msg)
-						} else {
-							msgs = append(msgs, msg)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// If we ended without a tool_result, append any delayed messages to avoid dropping content
-	flushDelayed()
 
 	// Determine effective sampling settings while respecting Claude constraint:
 	// temperature and top_p cannot both be specified for some models.
@@ -244,12 +82,12 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 
 	req := &api.MessageRequest{
 		Model:         engine,
-		Messages:      msgs,
+		Messages:      projection.Messages,
 		MaxTokens:     maxTokens,
 		Metadata:      nil,
 		StopSequences: chatSettings.Stop,
 		Stream:        chatSettings.Stream,
-		System:        systemPrompt,
+		System:        projection.System,
 		Temperature:   temperaturePtr,
 		Tools:         nil,
 		TopK:          nil,
@@ -332,6 +170,177 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	}
 
 	return req, nil
+}
+
+func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messageProjection, error) {
+	msgs := []api.Message{}
+	delayedMsgs := []api.Message{}
+	toolPhaseActive := false
+	flushDelayed := func() {
+		if len(delayedMsgs) > 0 {
+			msgs = append(msgs, delayedMsgs...)
+			delayedMsgs = nil
+		}
+	}
+	systemPrompt := ""
+	hasSystemPrompt := false
+	if t != nil {
+		for _, b := range t.Blocks {
+			switch b.Kind {
+			case turns.BlockKindSystem:
+				text := ""
+				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
+					if s, ok2 := v.(string); ok2 {
+						text = s
+					} else if bb, err := json.Marshal(v); err == nil {
+						text = string(bb)
+					}
+				}
+				if !hasSystemPrompt {
+					systemPrompt = text
+					hasSystemPrompt = true
+				} else if text != "" {
+					msg := api.Message{Role: RoleUser, Content: []api.Content{api.NewTextContent(text)}}
+					if toolPhaseActive {
+						delayedMsgs = append(delayedMsgs, msg)
+					} else {
+						msgs = append(msgs, msg)
+					}
+				}
+			case turns.BlockKindUser:
+				if orig, ok, err := turns.KeyBlockMetaClaudeOriginalContent.Get(b.Metadata); err != nil {
+					return nil, errors.Wrap(err, "get claude original content (user block)")
+				} else if ok && orig != nil {
+					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
+						msg := api.Message{Role: RoleUser, Content: arr}
+						if toolPhaseActive {
+							delayedMsgs = append(delayedMsgs, msg)
+						} else {
+							msgs = append(msgs, msg)
+						}
+						break
+					}
+				}
+				text := ""
+				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
+					if s, ok2 := v.(string); ok2 {
+						text = s
+					} else if bb, err := json.Marshal(v); err == nil {
+						text = string(bb)
+					}
+				}
+				parts := []api.Content{}
+				if text != "" {
+					parts = append(parts, api.NewTextContent(text))
+				}
+				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
+					for _, img := range imgs {
+						mediaType, _ := img["media_type"].(string)
+						if raw, ok := img["content"]; ok && raw != nil {
+							var base64Content string
+							switch rv := raw.(type) {
+							case []byte:
+								base64Content = base64.StdEncoding.EncodeToString(rv)
+							case string:
+								base64Content = rv
+							}
+							if base64Content != "" {
+								parts = append(parts, api.NewImageContent(mediaType, base64Content))
+							}
+						}
+					}
+				}
+				if len(parts) > 0 {
+					msg := api.Message{Role: RoleUser, Content: parts}
+					if toolPhaseActive {
+						delayedMsgs = append(delayedMsgs, msg)
+					} else {
+						msgs = append(msgs, msg)
+					}
+				}
+			case turns.BlockKindLLMText:
+				if orig, ok, err := turns.KeyBlockMetaClaudeOriginalContent.Get(b.Metadata); err != nil {
+					return nil, errors.Wrap(err, "get claude original content (assistant block)")
+				} else if ok && orig != nil {
+					if arr, ok2 := orig.([]api.Content); ok2 && len(arr) > 0 {
+						msg := api.Message{Role: RoleAssistant, Content: arr}
+						if toolPhaseActive {
+							delayedMsgs = append(delayedMsgs, msg)
+						} else {
+							msgs = append(msgs, msg)
+						}
+						break
+					}
+				}
+				text := ""
+				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
+					if s, ok2 := v.(string); ok2 {
+						text = s
+					} else if bb, err := json.Marshal(v); err == nil {
+						text = string(bb)
+					}
+				}
+				if text != "" {
+					msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewTextContent(text)}}
+					if toolPhaseActive {
+						delayedMsgs = append(delayedMsgs, msg)
+					} else {
+						msgs = append(msgs, msg)
+					}
+				}
+			case turns.BlockKindReasoning:
+				continue
+			case turns.BlockKindToolCall:
+				name := ""
+				if v, ok := b.Payload[turns.PayloadKeyName]; ok {
+					_ = assignString(&name, v)
+				}
+				toolID := ""
+				if v, ok := b.Payload[turns.PayloadKeyID]; ok {
+					_ = assignString(&toolID, v)
+				}
+				argsStr := "{}"
+				if v, ok := b.Payload[turns.PayloadKeyArgs]; ok && v != nil {
+					switch tv := v.(type) {
+					case string:
+						argsStr = tv
+					case json.RawMessage:
+						argsStr = string(tv)
+					default:
+						if bb, err := json.Marshal(v); err == nil {
+							argsStr = string(bb)
+						}
+					}
+				}
+				msgs = append(msgs, api.Message{Role: RoleAssistant, Content: []api.Content{api.NewToolUseContent(toolID, name, argsStr)}})
+				toolPhaseActive = true
+			case turns.BlockKindToolUse:
+				toolID := ""
+				_ = assignString(&toolID, b.Payload[turns.PayloadKeyID])
+				result := toolUsePayloadToJSONString(b.Payload)
+				msgs = append(msgs, api.Message{Role: RoleUser, Content: []api.Content{api.NewToolResultContent(toolID, result)}})
+				flushDelayed()
+				toolPhaseActive = false
+			case turns.BlockKindOther:
+				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
+					if s, ok2 := v.(string); ok2 && s != "" {
+						msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewTextContent(s)}}
+						if toolPhaseActive {
+							delayedMsgs = append(delayedMsgs, msg)
+						} else {
+							msgs = append(msgs, msg)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	flushDelayed()
+	return &messageProjection{
+		System:   systemPrompt,
+		Messages: msgs,
+	}, nil
 }
 
 // assignString writes a string representation of v into out when possible.

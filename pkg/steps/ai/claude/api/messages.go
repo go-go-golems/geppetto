@@ -93,6 +93,19 @@ type MessageResponse struct {
 	Usage        Usage     `json:"usage"`
 }
 
+type MessageCountTokensRequest struct {
+	Model    string         `json:"model"`
+	Messages []Message      `json:"messages"`
+	System   string         `json:"system,omitempty"`
+	Metadata *Metadata      `json:"metadata,omitempty"`
+	Thinking *ThinkingParam `json:"thinking,omitempty"`
+	Tools    []Tool         `json:"tools,omitempty"`
+}
+
+type MessageCountTokensResponse struct {
+	InputTokens int `json:"input_tokens"`
+}
+
 var _ zerolog.LogObjectMarshaler = MessageResponse{}
 
 func (s MessageResponse) MarshalZerologObject(e *zerolog.Event) {
@@ -264,6 +277,51 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	}()
 
 	return events, nil
+}
+
+func (c *Client) CountTokens(ctx context.Context, req *MessageCountTokensRequest) (*MessageCountTokensResponse, error) {
+	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages/count_tokens"
+	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
+		AllowHTTP: false,
+	}); err != nil {
+		return nil, fmt.Errorf("invalid claude count tokens URL: %w", err)
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	c.setHeaders(httpReq)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		var errorResp ErrorResponse
+		respBody, _ := io.ReadAll(resp.Body)
+		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
+			return nil, unmarshalErr
+		}
+		return nil, fmt.Errorf("claude count tokens API error: %s", errorResp.Error.Message)
+	}
+
+	var countResp MessageCountTokensResponse
+	respBody, _ := io.ReadAll(resp.Body)
+	if unmarshalErr := json.Unmarshal(respBody, &countResp); unmarshalErr != nil {
+		return nil, unmarshalErr
+	}
+
+	return &countResp, nil
 }
 
 func (m *MessageResponse) UnmarshalJSON(data []byte) error {
