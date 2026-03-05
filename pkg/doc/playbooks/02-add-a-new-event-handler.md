@@ -91,6 +91,36 @@ func myCustomHandler(msg *message.Message) error {
 }
 ```
 
+#### Context and blocking work (important)
+
+Watermill handlers run on the router’s goroutines. If you block a handler (DB writes, HTTP calls, heavy JSON processing), you can unintentionally stall the entire event pipeline — which is especially noticeable during **streaming inference** (many partial events).
+
+Rules of thumb:
+
+- Keep handlers **fast** and **best-effort** when they are driving UI updates or telemetry.
+- Always `Ack()` messages. If you forget, some transports will stall and/or re-deliver.
+- Avoid using `msg.Context()` as the context for durable side-effects (DB writes). It is scoped to message delivery and can be canceled unexpectedly relative to your persistence needs.
+- If a handler must do I/O, use a **bounded derived context** and consider offloading work to another goroutine/queue:
+
+```go
+func persistSomething(ctx context.Context, payload []byte) error {
+    // do DB work / network I/O
+    return nil
+}
+
+func myHandler(msg *message.Message) error {
+    defer msg.Ack()
+
+    ioCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()
+
+    _ = persistSomething(ioCtx, msg.Payload) // best-effort
+    return nil
+}
+```
+
+If you are using the default in-memory router (`events.NewEventRouter()`), also see the warning in [Events](../topics/04-events.md) about `gochannel` configuration for streaming apps.
+
 ### Step 3: Register the Handler
 
 Add your handler to the router with a unique name and topic:

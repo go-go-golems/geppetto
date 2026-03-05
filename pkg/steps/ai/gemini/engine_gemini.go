@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	genai "github.com/google/generative-ai-go/genai"
@@ -265,6 +266,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		metadata.Extra = map[string]interface{}{}
 	}
 	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
 
 	// Publish start event
 	e.publishEvent(ctx, events.NewStartEvent(metadata))

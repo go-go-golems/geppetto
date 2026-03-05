@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -205,6 +206,7 @@ func (e *OpenAIEngine) RunInference(
 		metadata.Extra = map[string]interface{}{}
 	}
 	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
 
 	// Publish start event
 	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")

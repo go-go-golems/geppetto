@@ -519,6 +519,8 @@ func completeToolCallingExample(ctx context.Context, parsedValues *values.Values
 }
 ```
 
+**Important:** `events.NewEventRouter()` defaults to an in-memory `gochannel` pub/sub with publish→ACK blocking. For streaming UIs (many partial events) or slow handlers (DB/UI), you may need to configure buffering and disable publish blocking (see `glaze help geppetto-events-streaming-watermill`), or use an external transport.
+
 ## Complete Runtime Flow
 
 The sections above describe individual components. Here is how they connect into a single request flow, from user prompt to final response, in a multi-turn application:

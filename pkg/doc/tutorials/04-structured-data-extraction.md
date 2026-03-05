@@ -434,6 +434,8 @@ func main() {
 }
 ```
 
+**Important:** The default in-memory `events.NewEventRouter()` can block or stall streaming if handlers are slow (see `glaze help geppetto-events-streaming-watermill`). If your extractor/handler does any I/O (files/DB/network), use bounded contexts and consider configuring `gochannel` buffering or using an external transport.
+
 ## Sample Output
 
 **Console (tags stripped):**

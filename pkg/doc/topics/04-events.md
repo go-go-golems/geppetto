@@ -203,6 +203,42 @@ eg.Go(func() error {
 _ = eg.Wait()
 ```
 
+### Important: in-memory router defaults can block streaming
+
+`events.NewEventRouter()` defaults to Watermill’s in-memory `gochannel` pub/sub with:
+
+- `BlockPublishUntilSubscriberAck: true`
+- an **unbuffered** output channel (Watermill default)
+
+This is a reasonable default for simple “single handler prints to stdout” demos, but it can deadlock or stall **streaming inference** when:
+
+- any handler is slow (UI rendering, DB writes, network I/O),
+- a handler is registered but not actively draining yet,
+- you publish many partial events quickly (token streaming).
+
+For streaming UIs (or any high-rate event stream), explicitly configure the pub/sub and pass it into the router:
+
+```go
+import (
+    "github.com/ThreeDotsLabs/watermill"
+    "github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+    "github.com/go-go-golems/geppetto/pkg/events"
+)
+
+goPubSub := gochannel.NewGoChannel(gochannel.Config{
+    OutputChannelBuffer:            256,
+    BlockPublishUntilSubscriberAck: false,
+}, watermill.NopLogger{})
+
+router, _ := events.NewEventRouter(
+    events.WithPublisher(goPubSub),
+    events.WithSubscriber(goPubSub),
+)
+defer router.Close()
+```
+
+If you are using a durable transport (Redis Streams, NATS, Kafka), the details differ, but the rule of thumb stays the same: **do not let slow consumers block the inference publisher**.
+
 ## Client-side Consumption Patterns
 
 ### 1) Console Streaming Printer
@@ -537,6 +573,7 @@ Use `OnRaw` to feed bytes and emit "best-so-far" events, then `OnCompleted` to p
 | Missing tool events | Sink not on context | Use `events.WithEventSinks(ctx, sink)` |
 | Dropped events | Wrong topic | Match topic in `NewWatermillSink` and `AddHandler` |
 | Events stop mid-stream | Context cancelled | Check for deadline or explicit cancellation |
+| Streaming stalls / hangs | In-memory `gochannel` publish blocks on ACK or no buffering | Configure pub/sub (`OutputChannelBuffer`, `BlockPublishUntilSubscriberAck=false`) and keep handlers fast |
 
 ## Packages
 

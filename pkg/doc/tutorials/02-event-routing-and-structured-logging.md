@@ -118,6 +118,8 @@ func run() error {
 }
 ```
 
+**Important:** The default in-memory router can block streaming if a handler is slow or not draining yet (see `glaze help geppetto-events-streaming-watermill`). For production or UI streaming, consider an external transport (Redis Streams) or explicitly configure `gochannel` buffering and disable publish→ACK blocking.
+
 ## Step 3: Add the Console Text Printer
 
 The built-in `StepPrinterFunc` streams text deltas to stdout:
