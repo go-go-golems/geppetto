@@ -14,4 +14,6 @@
 - [x] Update `cmd/web-chat` help text and docs to stop advertising deprecated top-level timeline and turn routes.
 - [x] Refactor `web-agent-example` to the modern `glazed` facade packages and handler-first `pinocchio/pkg/webchat` API so it builds again.
 - [x] Validate the `web-agent-example` port with `go build ./...` and note any remaining follow-up cleanup such as dead `RegisterMiddleware` usage or SEM package moves.
+- [x] Remove the dead `webchat` middleware registration API (`MiddlewareBuilder`, `mwFactories`, `RegisterMiddleware`) now that runtime composition lives in the runtime composer.
+- [x] Re-run workspace grep plus focused `pinocchio` tests after deleting the dead middleware registration surface.
 - [ ] Write the follow-up extraction note mapping the tightened `pinocchio` backend surface into the broader OS chat-service architecture.

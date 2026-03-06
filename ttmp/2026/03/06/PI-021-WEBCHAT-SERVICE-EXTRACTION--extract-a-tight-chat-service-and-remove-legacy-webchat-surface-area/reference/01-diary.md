@@ -673,3 +673,112 @@ pkg/discodialogue/sem.go:6:2: no required module provides package github.com/go-
 go build ./...
 go test ./... -count=1
 ```
+
+## Step 8: Remove The Dead Middleware Registration Surface
+
+This step removed the last obvious runtime-composition relic from `pinocchio/pkg/webchat`: the middleware registration API. After the earlier migration work and the `web-agent-example` port, the remaining `RegisterMiddleware` path was no longer just underused; it was fully disconnected from runtime execution.
+
+The point of this slice was to turn that observation into an actual deletion. The result is a smaller and more honest API surface: tools are still registered through `ConversationService`, but middleware composition now lives exclusively in the runtime composer where the running code already expects it.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes go ahead. Add tasks to the ticket and continue. The less cruft the better."
+
+**Assistant interpretation:** Add a tracked cleanup slice for the dead middleware registration API, remove it from `pinocchio/pkg/webchat`, validate the deletion, and continue the ticket work.
+
+**Inferred user intent:** Keep stripping unused compatibility and legacy surfaces from `webchat` so the package reflects the actual runtime architecture.
+
+**Commit (code):** `e1ae8056fe397d5c9f8e9022a34550eb7df1a004` — `refactor: remove dead webchat middleware registration api`
+
+### What I did
+
+- Added two explicit middleware-registration cleanup tasks to `tasks.md`.
+- Removed `MiddlewareBuilder` from `pinocchio/pkg/webchat/types.go`.
+- Removed `mwFactories` from the `Router` state in `pinocchio/pkg/webchat/types.go`.
+- Removed the dead router initialization of `mwFactories` in `pinocchio/pkg/webchat/router.go`.
+- Deleted:
+  - `Router.RegisterMiddleware(...)`
+  - `Server.RegisterMiddleware(...)`
+- Ran:
+  - `gofmt -w pinocchio/pkg/webchat/types.go pinocchio/pkg/webchat/router.go pinocchio/pkg/webchat/server.go`
+  - `rg -n "RegisterMiddleware\\(|MiddlewareBuilder|mwFactories" /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio -g'*.go' -g'!**/ttmp/**'`
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+- Committed the code change.
+
+### Why
+
+- The runtime composer now owns middleware assembly.
+- Unlike `toolFactories`, which still flow into `ConversationService`, the middleware registry had no remaining read path anywhere in the live package.
+- Keeping that API around implied a supported extension seam that no longer existed.
+
+### What worked
+
+- The deletion was small and fully local to `pkg/webchat`.
+- The workspace grep after the patch returned no remaining references to:
+  - `RegisterMiddleware(`
+  - `MiddlewareBuilder`
+  - `mwFactories`
+- Focused `webchat` and `cmd/web-chat` tests passed immediately.
+- The repository pre-commit hook also passed, including the broad `go test ./...`, `go generate ./...`, `go build ./...`, `golangci-lint`, and `go vet` stages.
+
+### What didn't work
+
+- There was no functional blocker, but the `pinocchio` pre-commit hook again ran the full repository validation pipeline, including frontend install/build and repo-wide test/lint/vet. That makes even tiny cleanup commits relatively expensive in wall-clock time.
+
+### What I learned
+
+- The package has now converged more clearly on one composition story:
+  - request policy via resolver
+  - runtime composition via runtime composer
+  - tool registration via tool registrars
+- Anything outside that flow is now easier to spot as either debug surface, optional utility surface, or dead legacy surface.
+
+### What was tricky to build
+
+- The subtle part was proving absence rather than presence. It is easy to see that `RegisterMiddleware` still exists, but the important engineering question was whether any runtime path still consulted the registry. The right proof was a combination of:
+  - call-site grep
+  - state-field grep
+  - comparison with `toolFactories`, which *does* still flow into `ConversationService`
+- Once that contrast was explicit, the deletion was straightforward.
+
+### What warrants a second pair of eyes
+
+- The remaining follow-up note should capture the now-cleaner split between runtime composition and service transport so future refactors do not reintroduce hidden registries.
+- If there are external consumers outside this workspace that still expected `RegisterMiddleware`, this is the kind of removal that would show up only after updating them. In-workspace evidence says there are none.
+
+### What should be done in the future
+
+- Finish the remaining PI-021 extraction note, incorporating the fact that middleware composition is now solely a runtime-composer concern.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/pkg/webchat/types.go`
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/pkg/webchat/router.go`
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/pkg/webchat/server.go`
+- Verify the absence of the removed API with:
+
+```bash
+rg -n "RegisterMiddleware\\(|MiddlewareBuilder|mwFactories" /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio -g'*.go' -g'!**/ttmp/**'
+```
+
+- Re-run:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+
+### Technical details
+
+- The live-vs-dead contrast that motivated the deletion was:
+  - `mwFactories` had write paths only
+  - `toolFactories` still flowed into `ConversationServiceConfig` and runtime tool registration
+
+- Commit-time validation again included:
+
+```bash
+go test ./...
+go generate ./...
+go build ./...
+golangci-lint run -v --max-same-issues=100
+go vet -vettool=/tmp/geppetto-lint ./...
+```
