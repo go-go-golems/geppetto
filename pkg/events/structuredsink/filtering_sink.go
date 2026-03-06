@@ -2,13 +2,13 @@ package structuredsink
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -467,23 +467,19 @@ func (f *FilteringSink) scanAndFilter(meta events.EventMetadata, st *streamState
 
 func flushMalformed(f *FilteringSink, meta events.EventMetadata, st *streamState, out *strings.Builder, typed *[]events.Event) {
 	policy := f.opts.resolveMalformedPolicy()
+	reconstructed := "<" + st.tagPackage + ":" + st.tagType + ":" + st.tagVersion + ">" + st.payloadBuf.String() + string(st.lagBuf.buf)
 	switch policy {
 	case MalformedIgnore:
 		// drop everything captured so far
 	case MalformedReconstructText:
 		// reconstruct a best-effort raw block (not byte-identical)
-		out.WriteString("<" + st.tagPackage + ":" + st.tagType + ":" + st.tagVersion + ">")
-		out.WriteString(st.payloadBuf.String())
-		if len(st.lagBuf.buf) > 0 {
-			out.WriteString(string(st.lagBuf.buf))
-		}
+		out.WriteString(reconstructed)
 	case MalformedErrorEvents:
 		// fall through to emit error event below
 	}
 	if st.session != nil {
-		// include lagBuf bytes that were held back from payload
-		finalRaw := append([]byte(st.payloadBuf.String()), st.lagBuf.buf...)
-		*typed = append(*typed, st.session.OnCompleted(st.itemCtx, finalRaw, false, errors.New("malformed structured block"))...)
+		err := fmt.Errorf("malformed structured block: stream ended before closing tag %s", st.expectedClose)
+		*typed = append(*typed, st.session.OnCompleted(st.itemCtx, []byte(reconstructed), false, err)...)
 	}
 	// reset state
 	st.state = stateIdle

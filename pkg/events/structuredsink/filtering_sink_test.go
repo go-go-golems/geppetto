@@ -47,6 +47,7 @@ type testSession struct {
 	rawChunks []string
 	completed bool
 	finalRaw  string
+	finalErr  string
 	success   bool
 }
 
@@ -64,6 +65,9 @@ func (s *testSession) OnCompleted(ctx context.Context, raw []byte, success bool,
 	s.completed = true
 	s.finalRaw = string(raw)
 	s.success = success
+	if err != nil {
+		s.finalErr = err.Error()
+	}
 	return nil
 }
 
@@ -204,8 +208,8 @@ func TestFilteringSink_MalformedAtFinal_DefaultErrorEvents(t *testing.T) {
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
 	assert.False(t, ex.last.success)
-	// final raw should include all captured bytes (payload + any withheld lag bytes)
-	assert.Equal(t, "abc", ex.last.finalRaw)
+	assert.Equal(t, "<core:x:v1>abc", ex.last.finalRaw)
+	assert.Equal(t, "malformed structured block: stream ended before closing tag </core:x:v1>", ex.last.finalErr)
 
 	_, final := collectTextParts(col.list)
 	// default policy should not reinsert malformed block text
@@ -526,6 +530,8 @@ func TestFilteringSink_MalformedPolicy_ErrorEvents(t *testing.T) {
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
 	assert.False(t, ex.last.success)
+	assert.Equal(t, "<core:x:v1>payload", ex.last.finalRaw)
+	assert.Equal(t, "malformed structured block: stream ended before closing tag </core:x:v1>", ex.last.finalErr)
 
 	_, final := collectTextParts(col.list)
 	assert.Equal(t, "before ", final)
@@ -543,6 +549,8 @@ func TestFilteringSink_MalformedPolicy_ForwardRaw(t *testing.T) {
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
 	assert.False(t, ex.last.success)
+	assert.Equal(t, "<core:x:v1>payload", ex.last.finalRaw)
+	assert.Equal(t, "malformed structured block: stream ended before closing tag </core:x:v1>", ex.last.finalErr)
 
 	_, final := collectTextParts(col.list)
 	assert.Contains(t, final, "before")
@@ -561,6 +569,8 @@ func TestFilteringSink_MalformedPolicy_Ignore(t *testing.T) {
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
 	assert.False(t, ex.last.success)
+	assert.Equal(t, "<core:x:v1>payload", ex.last.finalRaw)
+	assert.Equal(t, "malformed structured block: stream ended before closing tag </core:x:v1>", ex.last.finalErr)
 
 	_, final := collectTextParts(col.list)
 	assert.Equal(t, "before ", final)
@@ -599,6 +609,8 @@ func TestFilteringSink_FinalOnly_Malformed(t *testing.T) {
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
 	assert.False(t, ex.last.success)
+	assert.Equal(t, "<core:x:v1>abc", ex.last.finalRaw)
+	assert.Equal(t, "malformed structured block: stream ended before closing tag </core:x:v1>", ex.last.finalErr)
 
 	_, final := collectTextParts(col.list)
 	assert.Equal(t, "before ", final)
