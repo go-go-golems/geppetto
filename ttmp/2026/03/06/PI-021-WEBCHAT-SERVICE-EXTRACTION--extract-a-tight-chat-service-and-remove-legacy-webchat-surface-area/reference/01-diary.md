@@ -119,3 +119,108 @@ func NewChatServiceFromConversation(svc *ConversationService) *ConversationServi
     return svc
 }
 ```
+
+## Step 2: Collapse The ChatService Wrapper
+
+This step implemented the first actual cleanup in `pinocchio/pkg/webchat`. The change deliberately avoided semantic churn: `ChatService` still exists as a public name, but it no longer wraps `ConversationService` in a separate forwarding object. Instead, it is now a zero-cost compatibility alias, and the router stores the concrete service directly.
+
+The important result is that the package now has one fewer fake layer. The chat submission path still behaves the same from the handler perspective, but the construction path is simpler and closer to the actual implementation.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Start the migration itself, using the task list from the ticket, and commit small slices with diary updates.
+
+**Inferred user intent:** Make the cleanup real, not just documented, while keeping the work reviewable and traceable.
+
+**Commit (code):** `10caa7e88a65eec4c7751e009997ecb83e0d506a` — `refactor: collapse webchat chat service wrapper`
+
+### What I did
+
+- Replaced the forwarding implementation in `pinocchio/pkg/webchat/chat_service.go` with:
+  - `type ChatService = ConversationService`
+  - `NewChatService(...)` forwarding directly to `NewConversationService(...)`
+  - `NewChatServiceFromConversation(...)` returning the input service unchanged
+- Updated `pinocchio/pkg/webchat/types.go` so the router stores `*ConversationService` directly.
+- Updated `pinocchio/pkg/webchat/router.go` so router construction sets `r.chatService = svc` instead of creating a wrapper.
+- Updated `pinocchio/pkg/webchat/server.go` and `Router.ChatService()` to return `*ConversationService`.
+- Ran `gofmt -w` on the touched files.
+- Ran focused tests:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+- Committed the code change.
+
+### Why
+
+- The earlier investigation showed that `ChatService` was not a real service boundary yet; it was just a forwarding object.
+- Removing the wrapper behavior is the safest way to reduce indirection without changing the external `/chat` and `/ws` handler contract.
+
+### What worked
+
+- The change compiled cleanly with only a small set of edits.
+- The focused tests passed immediately.
+- The repository pre-commit hook also passed after running a much broader validation set than the targeted commands.
+
+### What didn't work
+
+- The `pinocchio` pre-commit hook was more expensive than expected. After `git commit`, it ran:
+  - `go test ./...`
+  - `go generate ./...`
+  - a frontend `npm install` and `vite build`
+  - `go build ./...`
+  - `golangci-lint run -v --max-same-issues=100`
+  - `go vet -vettool=/tmp/geppetto-lint ./...`
+- The hook output included frontend warnings such as:
+  - `"<script src=\"./app-config.js\"> in \"/index.html\" can't be bundled without type=\"module\" attribute"`
+  - bundle-size warnings from Vite
+- These were warnings, not failures, but they significantly increased the time-to-commit.
+
+### What I learned
+
+- The wrapper removal is a genuinely low-risk cleanup: the public name can remain while the extra object disappears.
+- `pinocchio`’s git hooks should be treated as part of the validation plan, not as a trivial postscript, because they can run broad repository-wide checks.
+
+### What was tricky to build
+
+- The subtle part was reducing the wrapper without accidentally turning the change into a rename campaign. The safest approach was to preserve the public `ChatService` label while collapsing the implementation to the concrete `ConversationService` type. That keeps the diff small and avoids forcing unrelated call-site changes into the same step.
+
+### What warrants a second pair of eyes
+
+- Returning `*ConversationService` from `Server.ChatService()` and `Router.ChatService()` is safe because the old `ChatService` name is now a type alias, but this is exactly the kind of compatibility assumption that deserves a quick reviewer sanity check.
+- The alias-only subpackages still compile and still exist; they are now even more obviously compatibility residue and should be revisited next.
+
+### What should be done in the future
+
+- Move to the next planned cleanup step: remove `Server.NewFromRouter` and update any docs or tests that still preserve that older construction seam.
+
+### Code review instructions
+
+- Start with `pinocchio/pkg/webchat/chat_service.go` and confirm the wrapper object is gone.
+- Then inspect:
+  - `pinocchio/pkg/webchat/types.go`
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/server.go`
+- Re-run:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+- If you want the exact commit gate, inspect the `pinocchio` pre-commit hook output for commit `10caa7e`.
+
+### Technical details
+
+- Focused validation commands:
+
+```bash
+go test ./pkg/webchat/... -count=1
+go test ./cmd/web-chat/... -count=1
+```
+
+- Commit-time validation triggered by the repository hook:
+
+```bash
+go test ./...
+go generate ./...
+go build ./...
+golangci-lint run -v --max-same-issues=100
+go vet -vettool=/tmp/geppetto-lint ./...
+```
