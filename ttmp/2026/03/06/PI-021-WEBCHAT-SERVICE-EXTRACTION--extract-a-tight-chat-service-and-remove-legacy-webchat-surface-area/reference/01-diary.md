@@ -557,3 +557,119 @@ This is a smaller change than the API removals, but it matters because command h
 ```bash
 rg -n 'enables GET /timeline|enables GET /turns' /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/cmd/web-chat /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/pkg/doc -g '*.go' -g '*.md'
 ```
+
+## Step 7: Port Web-Agent-Example To The Modern Webchat API
+
+This step turned the compatibility investigation into an external proof point. `web-agent-example` was still pinned to the pre-refactor `webchat` shape, so compiling it after the `pinocchio` cleanup surfaced exactly which old seams had really gone away and which modern seams replaced them. The goal was not to make the example feature-richer; it was to make it build again with the current runtime contract.
+
+The result is that `web-agent-example` now follows the same handler-first pattern as `pinocchio/cmd/web-chat`, but in a deliberately smaller form: one default runtime, one request resolver, one runtime composer, no profile registry, and updated custom timeline emitters that target `TimelineEntityV2`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add tasks to the ticket to refactor web-agent-example to build. then do it."
+
+**Assistant interpretation:** Add a tracked migration slice to PI-021, then port `web-agent-example` to the current `glazed` and `pinocchio/pkg/webchat` APIs until it compiles cleanly.
+
+**Inferred user intent:** Use `web-agent-example` as a real consumer test for the tightened webchat surface and prove that the modern API is still practical for external apps.
+
+**Commit (code):** `bcec87158b4d8dd10f18e176d37b92050147ee00` — `refactor: port web-agent-example to modern webchat api`
+
+### What I did
+
+- Added two explicit `web-agent-example` migration tasks to `tasks.md`.
+- Replaced the old command facade imports in `web-agent-example/cmd/web-agent-example/main.go` with:
+  - `geppetto/pkg/sections`
+  - `glazed/pkg/cmds/fields`
+  - `glazed/pkg/cmds/values`
+- Replaced the old `NewRouter + WithEngineFromReqBuilder + AddProfile + Handler + NewFromRouter` path with:
+  - `webchat.NewServer(...)`
+  - `webhttp.NewChatHandler(...)`
+  - `webhttp.NewWSHandler(...)`
+  - `webhttp.NewTimelineHandler(...)`
+  - app-owned mux mounting
+- Deleted `cmd/web-agent-example/engine_from_req.go`.
+- Added:
+  - `cmd/web-agent-example/request_resolver.go`
+  - `cmd/web-agent-example/runtime_composer.go`
+- Simplified `sink_wrapper.go` to the current `EventSinkWrapper` signature.
+- Updated `pkg/discodialogue/*` and `pkg/thinkingmode/*` to use the generated protobuf package under `pinocchio/cmd/web-chat/thinkingmode/pb` instead of the removed legacy `pkg/sem/pb/proto/sem/middleware` package.
+- Updated the custom timeline handlers to emit `timelinepb.TimelineEntityV2` props maps instead of the removed `TimelineEntityV1` snapshots.
+- Ran:
+  - `gofmt -w ...`
+  - `go build ./...`
+  - `go test ./... -count=1`
+- Committed the code change.
+
+### Why
+
+- The cleanup in `pinocchio/pkg/webchat` is only convincing if a real downstream consumer can be ported without heroic rewrites.
+- `web-agent-example` was a good candidate because it uses custom middleware, structured SEM extraction, and custom timeline projection, but only needs one runtime profile in practice.
+
+### What worked
+
+- The modern `ConversationRequestResolver` plus `RuntimeBuilder` seam was sufficient for the example app; no backwards shim was needed.
+- The example compiled after replacing the old request/engine seam and old profile API with a tiny static resolver/composer pair.
+- The package tests also passed after the protobuf and timeline updates.
+
+### What didn't work
+
+- The first build after the main port failed with missing old timeline transport types:
+
+```text
+pkg/thinkingmode/timeline.go:42:24: undefined: timelinepb.TimelineEntityV1
+pkg/discodialogue/timeline.go:67:24: undefined: timelinepb.TimelineEntityV1
+```
+
+- That failure showed the custom timeline code was still targeting the removed V1 snapshot model and had to be moved to `TimelineEntityV2` props maps.
+
+### What I learned
+
+- The modern `pinocchio` API is still adequate for external apps, but the extension point is now explicit:
+  - request policy lives in a resolver
+  - engine/middleware composition lives in a runtime composer
+- `webchat.Server.RegisterMiddleware(...)` is no longer the real runtime composition path for this model. The practical path is to build the middleware chain inside the runtime composer.
+
+### What was tricky to build
+
+- The sharp edge was that `web-agent-example` was depending on two different generations of extension contracts at once: old request/engine selection and old timeline transport. Fixing only one layer did not get the example compiling. The clean solution was to move both layers fully to the modern contract instead of trying to keep a hybrid shape.
+
+### What warrants a second pair of eyes
+
+- `RegisterMiddleware` still exists on `webchat.Server`, but the current runtime-composer flow does not consume that registry. That is now more clearly legacy surface area and should either be wired back into a deliberate abstraction or removed in a future cleanup slice.
+- `web-agent-example` now imports generated protobuf code from `pinocchio/cmd/web-chat/thinkingmode/pb`. That is acceptable for a local workspace example, but it is a coupling worth revisiting if the example is meant to be a stable standalone module.
+
+### What should be done in the future
+
+- Fold the `RegisterMiddleware` finding into the remaining extraction note for PI-021.
+- Decide whether `web-agent-example` should keep depending on `pinocchio`’s generated thinking/disco protobuf package or should own/shared-extract those message definitions.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/web-agent-example/cmd/web-agent-example/main.go`
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/web-agent-example/cmd/web-agent-example/request_resolver.go`
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/web-agent-example/cmd/web-agent-example/runtime_composer.go`
+- Then inspect the SEM/timeline migration in:
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/web-agent-example/pkg/discodialogue/timeline.go`
+  - `/home/manuel/workspaces/2026-03-02/os-openai-app-server/web-agent-example/pkg/thinkingmode/timeline.go`
+- Re-run:
+  - `go build ./...`
+  - `go test ./... -count=1`
+
+### Technical details
+
+- The first compile failures before the port were:
+
+```text
+cmd/web-agent-example/main.go:11:2: no required module provides package github.com/go-go-golems/geppetto/pkg/layers
+cmd/web-agent-example/main.go:14:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/layers
+cmd/web-agent-example/main.go:16:2: no required module provides package github.com/go-go-golems/glazed/pkg/cmds/parameters
+pkg/discodialogue/sem.go:6:2: no required module provides package github.com/go-go-golems/pinocchio/pkg/sem/pb/proto/sem/middleware
+```
+
+- Validation commands:
+
+```bash
+go build ./...
+go test ./... -count=1
+```
