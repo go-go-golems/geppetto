@@ -312,3 +312,91 @@ go build ./...
 golangci-lint run -v --max-same-issues=100
 go vet -vettool=/tmp/geppetto-lint ./...
 ```
+
+## Step 4: Remove Alias-Only Webchat Subpackages
+
+This step removed the alias-only `pkg/webchat/{chat,stream,timeline,bootstrap}` packages from `pinocchio`. Those packages contained only type aliases and constructor aliases back to the root `pkg/webchat` package, and a workspace-wide importer sweep found no live Go imports outside historical ticket notes.
+
+This is a meaningful cleanup because it reduces public API clutter in a way that is visible immediately to readers and maintainers. After the earlier two slices, these subpackages had become the clearest remaining “shape-preserving but behavior-free” leftovers.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue the migration by removing obviously legacy webchat surface area in committed slices.
+
+**Inferred user intent:** Turn the earlier review findings into real deletions where local evidence says the compatibility layer is dead.
+
+**Commit (code):** `51053f0b3f729de4f45a0a27f5d38434a104c5af` — `refactor: remove webchat alias subpackages`
+
+### What I did
+
+- Ran a workspace-wide import search:
+
+```bash
+rg -n '"github.com/go-go-golems/pinocchio/pkg/webchat/(chat|stream|timeline|bootstrap)"' /home/manuel/workspaces/2026-03-02/os-openai-app-server -g '*.go' -g '!**/ttmp/**' -g '!**/node_modules/**'
+```
+
+- Confirmed there were no live Go importers in the visible workspace.
+- Deleted:
+  - `pinocchio/pkg/webchat/chat/api.go`
+  - `pinocchio/pkg/webchat/stream/api.go`
+  - `pinocchio/pkg/webchat/timeline/api.go`
+  - `pinocchio/pkg/webchat/bootstrap/api.go`
+- Ran focused validation:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+- Committed the change.
+
+### Why
+
+- These packages no longer provided unique behavior.
+- Keeping them around increased search noise and implied that `webchat` had a stronger subpackage architecture than it really does.
+
+### What worked
+
+- The importer sweep came back empty.
+- The focused tests stayed green after the deletions.
+- The repository pre-commit suite also passed.
+
+### What didn't work
+
+- As with the earlier `pinocchio` commits, the pre-commit hook remained broad and expensive, including frontend install/build and repository-wide lint/vet work. That is acceptable, but it means even tiny cleanup commits should budget for a non-trivial validation window.
+
+### What I learned
+
+- The visible workspace had already fully converged on the root `pkg/webchat` package paths.
+- Once the wrapper and constructor cleanups were done, the alias packages were easy to justify deleting because no active code path depended on them.
+
+### What was tricky to build
+
+- The main risk was not the deletion itself; it was the confidence threshold. Alias packages are easy to remove mechanically, but because they are public import paths, the important part was doing the wider importer sweep before deleting them. The local evidence is strong, but the remaining uncertainty is external consumers outside this workspace.
+
+### What warrants a second pair of eyes
+
+- A reviewer should decide whether the absence of in-workspace importers is enough to justify permanent deletion, or whether a release-note/deprecation note is still needed for external consumers.
+- The next likely cleanup target, router utility mux methods, may have trickier usage patterns than these alias packages did.
+
+### What should be done in the future
+
+- Move to the next unresolved cleanup: audit `Router.Mount`, `Router.Handle`, `Router.HandleFunc`, and `Router.Handler` against real consumers and decide whether they stay exported.
+
+### Code review instructions
+
+- Confirm the four alias package files are gone from `pinocchio/pkg/webchat`.
+- Re-run:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+- Re-run the importer sweep command above to confirm there are still no live imports.
+
+### Technical details
+
+- Commit-time hook validation remained the same as in Steps 2 and 3:
+
+```bash
+go test ./...
+go generate ./...
+go build ./...
+golangci-lint run -v --max-same-issues=100
+go vet -vettool=/tmp/geppetto-lint ./...
+```
