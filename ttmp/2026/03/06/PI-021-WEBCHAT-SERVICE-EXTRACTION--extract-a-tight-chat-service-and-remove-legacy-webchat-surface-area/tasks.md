@@ -6,8 +6,8 @@
 - [x] Collapse `pkg/webchat/chat_service.go` from a forwarding wrapper into a zero-cost compatibility layer over `ConversationService`.
 - [x] Validate the wrapper-collapse change with focused `pkg/webchat` and `cmd/web-chat` tests.
 - [x] Record the wrapper-collapse step in the diary and changelog, then commit the code change.
-- [ ] Remove `Server.NewFromRouter` and update any remaining docs or tests that preserve the old construction seam.
-- [ ] Validate the `NewFromRouter` removal with repo-wide grep and targeted tests.
+- [x] Remove `Server.NewFromRouter` and update any remaining docs or tests that preserve the old construction seam.
+- [x] Validate the `NewFromRouter` removal with repo-wide grep and targeted tests.
 - [ ] Remove or deprecate the alias-only subpackages under `pkg/webchat/{chat,stream,timeline,bootstrap}`.
 - [ ] Re-run repo-wide import searches and broad `pinocchio` tests after alias cleanup.
 - [ ] Audit `Router.Mount`, `Router.Handle`, `Router.HandleFunc`, and `Router.Handler` for real consumers and decide whether to delete, deprecate, or move them.

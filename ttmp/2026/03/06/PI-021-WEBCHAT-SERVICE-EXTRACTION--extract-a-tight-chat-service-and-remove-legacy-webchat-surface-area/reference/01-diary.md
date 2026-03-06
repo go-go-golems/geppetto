@@ -224,3 +224,91 @@ go build ./...
 golangci-lint run -v --max-same-issues=100
 go vet -vettool=/tmp/geppetto-lint ./...
 ```
+
+## Step 3: Remove NewFromRouter
+
+This step removed the orphaned `webchat.NewFromRouter` constructor from `pinocchio/pkg/webchat/server.go`. The function no longer matched the documented construction model, and an in-repo search showed no remaining Go call sites outside old ticket notes.
+
+This was a good second cleanup slice because it was both low-risk and clarifying: after the wrapper collapse, the next most obvious legacy seam was the older “assemble a server from an existing router and `http.Server`” path. Deleting it reduces the number of ways a new engineer thinks they are supposed to build webchat.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue executing the migration plan in small committed slices.
+
+**Inferred user intent:** Keep chipping away at clearly legacy `webchat` surface area instead of stopping after one safe cleanup.
+
+**Commit (code):** `8221fece57dcc608459532c3c91e3eaa9a66da35` — `refactor: remove webchat newfromrouter constructor`
+
+### What I did
+
+- Searched `pinocchio` for `NewFromRouter(` across Go and Markdown files.
+- Confirmed the only live Go definition was in `pinocchio/pkg/webchat/server.go`; the remaining mentions were in old ticket notes under `ttmp/`.
+- Deleted the `NewFromRouter` function from `pinocchio/pkg/webchat/server.go`.
+- Ran:
+  - `gofmt -w pinocchio/pkg/webchat/server.go`
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+  - `rg -n 'NewFromRouter\\(' /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio -g '*.go' -g '!ttmp/**'`
+- Committed the change.
+
+### Why
+
+- `NewFromRouter` preserved an older construction path that the current documentation no longer recommends.
+- Keeping it exported increased the apparent complexity of `webchat` without giving active integrations a real capability they use.
+
+### What worked
+
+- The in-repo grep confirmed there were no remaining Go call sites before removal.
+- The focused tests passed immediately after deleting the function.
+- The repository pre-commit suite passed again for the commit.
+
+### What didn't work
+
+- The `pinocchio` pre-commit hook repeated the same broad validation pattern as in Step 2, including frontend install/build and repository-wide linting. This is not a correctness problem, but it is operationally expensive and worth recording for future commit planning.
+
+### What I learned
+
+- Some of the safest cleanup work in `webchat` is simply making the exported surface match the already-documented construction story.
+- Old tickets under `ttmp/` are useful historical references, but they can create false positives when doing broad text searches; grep filters need to exclude `ttmp/**` when the goal is “live code” usage.
+
+### What was tricky to build
+
+- The main subtlety was proving absence convincingly enough before deletion. The implementation itself was trivial, but the confidence came from combining:
+  - repo-wide grep for live call sites,
+  - existing docs already pointing away from the older constructor,
+  - focused tests on the current construction path.
+
+### What warrants a second pair of eyes
+
+- Reviewers should sanity-check whether any downstream repositories outside this workspace still use `NewFromRouter`, because that risk cannot be fully ruled out from the local tree alone.
+- The next cleanup step, alias-package removal, has a higher external-compatibility risk than this one and should be treated more carefully.
+
+### What should be done in the future
+
+- Evaluate `pkg/webchat/{chat,stream,timeline,bootstrap}` next and decide whether to remove them outright or add a short deprecation window first.
+
+### Code review instructions
+
+- Confirm `pinocchio/pkg/webchat/server.go` no longer exports `NewFromRouter`.
+- Re-run:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+- Re-run the live-code grep:
+
+```bash
+rg -n 'NewFromRouter\(' /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio -g '*.go' -g '!ttmp/**'
+```
+
+### Technical details
+
+- The commit-time hook again ran the broader validation stack:
+
+```bash
+go test ./...
+go generate ./...
+go build ./...
+golangci-lint run -v --max-same-issues=100
+go vet -vettool=/tmp/geppetto-lint ./...
+```
