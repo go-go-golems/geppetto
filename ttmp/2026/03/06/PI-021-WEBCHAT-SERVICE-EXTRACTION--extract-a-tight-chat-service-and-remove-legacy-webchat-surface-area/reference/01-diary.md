@@ -400,3 +400,160 @@ go build ./...
 golangci-lint run -v --max-same-issues=100
 go vet -vettool=/tmp/geppetto-lint ./...
 ```
+
+## Step 5: Remove The Router Utility Mux API
+
+This step removed `Router.Mount`, `Router.Handle`, `Router.HandleFunc`, and `Router.Handler` from `pinocchio/pkg/webchat`. The audit showed no live production consumers in the visible workspace; only the dedicated mount test still exercised that convenience surface.
+
+This cleanup matters because it removes one more misleading hint that the router utility mux is a preferred integration seam. After this change, the package surface aligns more closely with the handler-first model that the docs and active app wiring already use.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Keep executing the migration plan and remove legacy webchat API surface where local usage evidence is strong.
+
+**Inferred user intent:** End up with a package whose exported surface reflects the actual architecture instead of historical convenience layers.
+
+**Commit (code):** `7ab4beb92063a3bbbce60bc821ddcebc8242b72f` — `refactor: remove webchat router utility mux api`
+
+### What I did
+
+- Searched the workspace for live uses of:
+  - `Router.Mount`
+  - `Router.Handle`
+  - `Router.HandleFunc`
+  - `Router.Handler`
+- Confirmed there were no live production consumers outside the dedicated test.
+- Removed those methods from `pinocchio/pkg/webchat/router.go`.
+- Deleted `pinocchio/pkg/webchat/router_mount_test.go`.
+- Updated `pinocchio/pkg/webchat/doc.go` so the package comment no longer advertises the removed helpers.
+- Ran:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+  - a post-change grep to confirm the old convenience API was no longer used
+- Committed the change.
+
+### Why
+
+- The removed methods were convenience APIs around `r.mux`, not part of the canonical transport contract.
+- Keeping them exported suggested an older router-centric composition model that active integrations no longer follow.
+
+### What worked
+
+- The consumer audit was clean.
+- Removing the methods did not disturb the focused test suites.
+- The package comment update made the cleanup visible at the API-documentation level immediately.
+
+### What didn't work
+
+- As with earlier `pinocchio` commits, the repository pre-commit hook remained much broader than the code slice itself, so the time-to-commit stayed dominated by repo-wide checks rather than local complexity.
+
+### What I learned
+
+- `APIHandler()` and `UIHandler()` still have active call sites, but the router utility mux methods did not.
+- The correct cleanup line was therefore narrower than “remove all UI/API helpers” and broader than “just deprecate them in comments.”
+
+### What was tricky to build
+
+- The subtlety was avoiding over-cleanup. The user’s broader direction is to tighten the shared backend surface, but `cmd/web-chat` still legitimately uses `APIHandler()` and `UIHandler()`. The right slice here was to remove only the evidence-backed dead convenience API, not to force the static-UI question prematurely.
+
+### What warrants a second pair of eyes
+
+- Reviewers should sanity-check whether any external repositories still use the removed router utility methods, because that cannot be proven from the local workspace alone.
+- The remaining long-term question is still what to do with static UI helpers once `cmd/web-chat` is no longer the reference shape for downstream apps.
+
+### What should be done in the future
+
+- Finish the remaining cleanup/documentation work and then write the follow-up extraction note tying the tightened `pinocchio` backend surface back into the OS chat-service plan.
+
+### Code review instructions
+
+- Start with:
+  - `pinocchio/pkg/webchat/router.go`
+  - `pinocchio/pkg/webchat/doc.go`
+- Confirm `pinocchio/pkg/webchat/router_mount_test.go` is gone.
+- Re-run:
+  - `go test ./pkg/webchat/... -count=1`
+  - `go test ./cmd/web-chat/... -count=1`
+
+### Technical details
+
+- The focused audit command was of the form:
+
+```bash
+rg -n '\.(Mount|HandleFunc|Handle|Handler)\(' /home/manuel/workspaces/2026-03-02/os-openai-app-server -g '*.go' -g '!**/ttmp/**' -g '!**/node_modules/**'
+```
+
+## Step 6: Fix Stale Route Help Text
+
+This step cleaned up the last obvious documentation drift in executable code: `cmd/web-chat/main.go` still described timeline and turn persistence flags as enabling `GET /timeline` and `GET /turns`, even though the current canonical routes are `/api/timeline` and `/api/debug/turns`.
+
+This is a smaller change than the API removals, but it matters because command help is often the first thing an engineer sees. Leaving stale route names there undermines the migration work everywhere else.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue the cleanup through the remaining low-risk drift items after the structural removals.
+
+**Inferred user intent:** Make the package and its tooling tell one consistent story about the current webchat transport contract.
+
+**Commit (code):** `a091f2d46fbda7d83f34f8bb7112395edf99495b` — `docs: update webchat route help text`
+
+### What I did
+
+- Updated the four help strings in `pinocchio/cmd/web-chat/main.go`:
+  - `timeline-dsn`
+  - `timeline-db`
+  - `turns-dsn`
+  - `turns-db`
+- Replaced the stale top-level paths with:
+  - `GET /api/timeline`
+  - `GET /api/debug/turns`
+- Ran:
+  - `gofmt -w pinocchio/cmd/web-chat/main.go`
+  - `go test ./cmd/web-chat/... -count=1`
+  - a grep confirming `enables GET /timeline` and `enables GET /turns` were gone from the live command/docs path
+- Committed the change.
+
+### Why
+
+- Command help text is part of the public interface.
+- The older route names were already contradicted by the package docs and the actual route wiring.
+
+### What worked
+
+- The change was trivial and the focused CLI tests stayed green.
+- The old stale strings disappeared from the live `cmd/web-chat` code path.
+
+### What didn't work
+
+- The `pinocchio` pre-commit hook again ran the full repository validation stack even for a documentation-only code edit. This is operationally expensive but still acceptable because it keeps the history uniformly checked.
+
+### What I learned
+
+- By this point, most of the remaining cleanup in `webchat` is no longer structural duplication; it is drift between old onboarding/help surfaces and the newer handler-first contract.
+
+### What was tricky to build
+
+- The only real subtlety was scoping the grep results correctly. The repository still contains historical ticket notes and generated-code comments mentioning older route names. The right goal here was to clean the live command/help path, not to churn old archival material or generated protobuf comments.
+
+### What warrants a second pair of eyes
+
+- If you want a fully polished documentation sweep, there are still archival and generated references to `/timeline` and `/turns` elsewhere in the repo that are not live product surfaces.
+
+### What should be done in the future
+
+- Write the remaining follow-up extraction note in PI-021, then decide whether any broader docs sweep beyond the command help is worth doing in a separate ticket.
+
+### Code review instructions
+
+- Check `pinocchio/cmd/web-chat/main.go` around the route-related flag help text.
+- Re-run:
+  - `go test ./cmd/web-chat/... -count=1`
+- Re-run a scoped grep such as:
+
+```bash
+rg -n 'enables GET /timeline|enables GET /turns' /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/cmd/web-chat /home/manuel/workspaces/2026-03-02/os-openai-app-server/pinocchio/pkg/doc -g '*.go' -g '*.md'
+```
