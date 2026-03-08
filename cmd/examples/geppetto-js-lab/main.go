@@ -207,8 +207,9 @@ func seedDemoProfileSQLite(path string) error {
 							"ai-api-type": "openai",
 							"ai-engine":   "gpt-4o-mini",
 						},
-						"api": map[string]any{
-							"openai-api-key": "seed-openai-key",
+						"openai-chat": map[string]any{
+							"openai-api-key":  "seed-openai-key",
+							"openai-base-url": "https://api.openai.com/v1",
 						},
 					},
 					SystemPrompt: "You are the workspace default assistant.",
