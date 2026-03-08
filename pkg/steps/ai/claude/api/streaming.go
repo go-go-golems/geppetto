@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -139,10 +140,10 @@ func streamEvents(ctx context.Context, resp *http.Response, events chan Streamin
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
-			if err != io.EOF && err != context.Canceled {
-				// Handle the error if needed
+			if !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 				log.Error().Err(err).Msg("Unexpected error reading streaming response")
-				panic("Not implemented")
+			} else {
+				log.Warn().Err(err).Msg("Streaming response ended before completion")
 			}
 			log.Trace().Err(err).Int("total_events_processed", eventCount).Msg("Streaming reader finished")
 			break
