@@ -81,7 +81,6 @@ func NewStepSettings() (*StepSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &StepSettings{
 		Chat:       chatSettings,
 		OpenAI:     openaiSettings,

@@ -599,6 +599,8 @@ api:
 
 The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `openai-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas.
 
+These examples use direct `--ai-*` flags because this page documents the low-level engine surface. In profile-first applications, prefer registry-backed profiles and bootstrap final runtime settings through the [defaults/config/registries/profile playbook](../playbooks/08-bootstrap-binary-step-settings-from-defaults-config-registries-profile.md).
+
 Key notes:
 - Use `--ai-api-type=openai-responses` and a reasoning-capable model (e.g., `o4-mini`).
 - The engine omits `temperature` and `top_p` for `o3/o4` families (these models reject sampling params).
@@ -630,6 +632,8 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 ### Structured Output Schema (OpenAI + Claude + OpenAI Responses)
 
 The structured-output setting is intentionally owned by **chat settings** (`--ai-structured-output-*`) because provider request-shaping belongs at the engine layer, not in prompt text.
+
+Again, these flags are the explicit engine interface. Application binaries that want a smaller public CLI should resolve them through config plus profile registries and pass the resulting `StepSettings` into engine construction.
 
 Configuration surface:
 
