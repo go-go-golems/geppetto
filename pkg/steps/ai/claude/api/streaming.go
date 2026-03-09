@@ -140,10 +140,15 @@ func streamEvents(ctx context.Context, resp *http.Response, events chan Streamin
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-				log.Error().Err(err).Msg("Unexpected error reading streaming response")
-			} else {
+			switch {
+			case errors.Is(err, io.EOF) && len(eventLines) == 0:
+				log.Trace().Err(err).Msg("Streaming response ended cleanly")
+			case errors.Is(err, io.EOF):
 				log.Warn().Err(err).Msg("Streaming response ended before completion")
+			case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+				log.Warn().Err(err).Msg("Streaming response ended before completion")
+			default:
+				log.Error().Err(err).Msg("Unexpected error reading streaming response")
 			}
 			log.Trace().Err(err).Int("total_events_processed", eventCount).Msg("Streaming reader finished")
 			break
