@@ -1,6 +1,6 @@
 module github.com/go-go-golems/geppetto
 
-go 1.25.7
+go 1.25.8
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.1
