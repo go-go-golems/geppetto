@@ -1,11 +1,17 @@
-.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool
+.PHONY: all test build lint lintmax docker-lint golangci-lint-install gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool
 
 all: test build
 
 VERSION=v0.1.14
+GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
+GOLANGCI_LINT_BIN ?= $(CURDIR)/.bin/golangci-lint
 
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.1.0 golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run -v
+
+golangci-lint-install:
+	mkdir -p $(dir $(GOLANGCI_LINT_BIN))
+	GOBIN=$(dir $(GOLANGCI_LINT_BIN)) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 LINTTOOL_BIN ?= /tmp/geppetto-lint
 LINT_PKGS := $(shell go list ./... | grep -v '/ttmp/')
@@ -17,12 +23,12 @@ linttool:
 	$(MAKE) linttool-build
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
 
-lint: build linttool-build
-	golangci-lint run -v
+lint: build linttool-build golangci-lint-install
+	$(GOLANGCI_LINT_BIN) run -v
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
 
-lintmax: build linttool-build
-	golangci-lint run -v --max-same-issues=100
+lintmax: build linttool-build golangci-lint-install
+	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
