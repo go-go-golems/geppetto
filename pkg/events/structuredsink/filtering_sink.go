@@ -267,7 +267,7 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 
 	st := f.getState(meta)
 	if f.opts.Debug {
-		log.Debug().Str("stream", meta.ID.String()).Str("event", "partial").Str("delta", delta).Msg("incoming")
+		log.Trace().Str("stream", meta.ID.String()).Str("event", "partial").Str("delta", delta).Msg("incoming")
 	}
 	st.rawSeen.WriteString(delta)
 
@@ -280,7 +280,7 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 
 	if len(filteredDelta) == 0 {
 		if f.opts.Debug {
-			log.Debug().Str("stream", meta.ID.String()).Str("event", "partial").Msg("filtered delta empty; skipping forward")
+			log.Trace().Str("stream", meta.ID.String()).Str("event", "partial").Msg("filtered delta empty; skipping forward")
 		}
 		return nil
 	}
