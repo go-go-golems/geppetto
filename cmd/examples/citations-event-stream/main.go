@@ -554,7 +554,7 @@ func (m model) View() string {
 		if seg.active {
 			status = fmt.Sprintf(" [%s streaming]", spinner2)
 		}
-		citationsContent.WriteString(fmt.Sprintf("Block %d%s\n", blockNum, status))
+		_, _ = fmt.Fprintf(&citationsContent, "Block %d%s\n", blockNum, status)
 		if len(seg.entries) == 0 {
 			if seg.active {
 				citationsContent.WriteString("  (waiting...)\n")
@@ -563,9 +563,9 @@ func (m model) View() string {
 			}
 		} else {
 			for i, c := range seg.entries {
-				citationsContent.WriteString(fmt.Sprintf("  %d. %s\n", i+1, c.Title))
+				_, _ = fmt.Fprintf(&citationsContent, "  %d. %s\n", i+1, c.Title)
 				if len(c.Authors) > 0 {
-					citationsContent.WriteString(fmt.Sprintf("     Authors: %s\n", strings.Join(c.Authors, ", ")))
+					_, _ = fmt.Fprintf(&citationsContent, "     Authors: %s\n", strings.Join(c.Authors, ", "))
 				}
 			}
 		}
