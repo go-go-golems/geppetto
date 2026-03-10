@@ -649,9 +649,9 @@ func (m model) View() string {
 				}
 			} else {
 				for i, c := range seg.entries {
-					segBuf.WriteString(fmt.Sprintf("%d. %s\n", i+1, c.Title))
+					fmt.Fprintf(&segBuf, "%d. %s\n", i+1, c.Title)
 					if len(c.Authors) > 0 {
-						segBuf.WriteString(fmt.Sprintf("   Authors: %s\n", strings.Join(c.Authors, ", ")))
+						fmt.Fprintf(&segBuf, "   Authors: %s\n", strings.Join(c.Authors, ", "))
 					}
 				}
 				if seg.active {
@@ -697,7 +697,7 @@ func formatEventList(events []string, maxRecent int) string {
 	}
 	var b strings.Builder
 	for i := start; i < len(events); i++ {
-		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, events[i]))
+		fmt.Fprintf(&b, "%d. %s\n", i+1, events[i])
 	}
 	return b.String()
 }
