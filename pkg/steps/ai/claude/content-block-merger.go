@@ -170,7 +170,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 
 		cbm.updateUsage(event)
 
-		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
+		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.Text())}, nil
 
 	case api.MessageStopType:
 		if cbm.response == nil {
@@ -197,7 +197,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		d := time.Since(cbm.startTime).Milliseconds()
 		dm := int64(d)
 		cbm.metadata.DurationMs = &dm
-		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.response.FullText())}, nil
+		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.Text())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
@@ -236,7 +236,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.TextDeltaType:
 			delta = event.Delta.Text
 			cb.Text += event.Delta.Text
-			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.response.FullText()+cb.Text)}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.Text())}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
 			// Append to existing input string for tool use
@@ -262,7 +262,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.ContentTypeText:
 			cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
 			// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
-			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.response.FullText())}, nil
+			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.Text())}, nil
 
 		case api.ContentTypeToolUse:
 			// Convert Input to string for API compatibility

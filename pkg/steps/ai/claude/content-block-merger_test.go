@@ -12,7 +12,6 @@ import (
 
 func TestContentBlockMerger(t *testing.T) {
 	toolCallResult := "{\"operation\": \"add\", \"a\": 5, \"b\": 3}"
-	finalToolCallText := "Here's the result: Tool Call: calculator\nID: tool_1\n" + toolCallResult + " is the sum."
 	tests := []struct {
 		name           string
 		events         []api.StreamingEvent
@@ -198,9 +197,9 @@ func TestContentBlockMerger(t *testing.T) {
 					Name:  "calculator",
 					Input: toolCallResult,
 				}),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, " is the sum.", finalToolCallText),
-				events.NewPartialCompletionEvent(events.EventMetadata{}, "", finalToolCallText),
-				events.NewFinalEvent(events.EventMetadata{}, finalToolCallText),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, " is the sum.", "Here's the result:  is the sum."),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", "Here's the result:  is the sum."),
+				events.NewFinalEvent(events.EventMetadata{}, "Here's the result:  is the sum."),
 			},
 			checkResponse: func(t *testing.T, response *api.MessageResponse) {
 				assert.Len(t, response.Content, 3)

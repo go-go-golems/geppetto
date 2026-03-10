@@ -299,9 +299,9 @@ func BuildReport(outDir string) (string, error) {
 	var b strings.Builder
 	b.WriteString("# E2E Responses Report\n\n")
 	if model != "" {
-		b.WriteString(fmt.Sprintf("- Model: %s\n", model))
+		fmt.Fprintf(&b, "- Model: %s\n", model)
 	}
-	b.WriteString(fmt.Sprintf("- Generated: %s\n\n", time.Now().Format(time.RFC3339)))
+	fmt.Fprintf(&b, "- Generated: %s\n\n", time.Now().Format(time.RFC3339))
 	b.WriteString("## Input Turn (YAML)\n\n")
 	if inputYAML != "" {
 		b.WriteString("```yaml\n" + inputYAML + "\n```\n\n")
@@ -322,7 +322,7 @@ func BuildReport(outDir string) (string, error) {
 	}
 	b.WriteString("## Event Timeline\n\n")
 	for _, l := range lines {
-		b.WriteString(fmt.Sprintf("- %s @ %d\n", l.Type, l.Ts))
+		fmt.Fprintf(&b, "- %s @ %d\n", l.Type, l.Ts)
 	}
 	if err := os.WriteFile(reportPath, []byte(b.String()), 0644); err != nil {
 		return "", err
