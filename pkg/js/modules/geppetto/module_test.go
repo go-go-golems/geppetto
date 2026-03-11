@@ -158,7 +158,14 @@ func TestTurnsCodecAndHelpers(t *testing.T) {
 				trace_id: "trace-1"
 			},
 			data: {
-				tool_config: { enabled: true }
+				tool_config: { enabled: true },
+				tool_definitions: [
+					{
+						name: "echo",
+						description: "Echo text",
+						parameters: { type: "object", properties: { text: { type: "string" } } }
+					}
+				]
 			}
 		});
 		if (t.id !== "turn-1") throw new Error("turn id mismatch");
@@ -166,6 +173,7 @@ func TestTurnsCodecAndHelpers(t *testing.T) {
 		if (t.blocks[0].kind !== "user") throw new Error("expected first block kind user");
 		if (!t.metadata || t.metadata.session_id !== "s-1") throw new Error("session_id metadata missing");
 		if (!t.data || !t.data.tool_config) throw new Error("tool_config data missing");
+		if (!Array.isArray(t.data.tool_definitions) || t.data.tool_definitions[0].name !== "echo") throw new Error("tool_definitions data missing");
 	`)
 }
 
@@ -180,6 +188,7 @@ func TestConstsExported(t *testing.T) {
 		if (gp.consts.BlockKind.TOOL_USE !== "tool_use") throw new Error("BlockKind.TOOL_USE mismatch");
 		if (gp.consts.TurnMetadataKeys.SESSION_ID !== "session_id") throw new Error("TurnMetadataKeys.SESSION_ID mismatch");
 		if (gp.consts.TurnDataKeys.TOOL_CONFIG !== "tool_config") throw new Error("TurnDataKeys.TOOL_CONFIG mismatch");
+		if (gp.consts.TurnDataKeys.TOOL_DEFINITIONS !== "tool_definitions") throw new Error("TurnDataKeys.TOOL_DEFINITIONS mismatch");
 		if (gp.consts.BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT !== "claude_original_content") throw new Error("BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT mismatch");
 		if (gp.consts.RunMetadataKeys.TRACE_ID !== "trace_id") throw new Error("RunMetadataKeys.TRACE_ID mismatch");
 		if (gp.consts.PayloadKeys.ENCRYPTED_CONTENT !== "encrypted_content") throw new Error("PayloadKeys.ENCRYPTED_CONTENT mismatch");

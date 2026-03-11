@@ -206,6 +206,36 @@ Commit boundary:
 
 - This slice is intended to become Commit 3: authority-boundary non-regression tests.
 
+### 2026-03-10 23:19 America/New_York
+
+Completed the final cleanup slice: JS codec exposure and ticket documentation now match the implemented behavior.
+
+Changes made:
+
+- Added `tool_definitions` to the Goja short-key codec map in `pkg/js/modules/geppetto/codec.go`.
+- Extended `pkg/js/modules/geppetto/module_test.go` so JS callers can set and read `tool_definitions`, and so the generated `TurnDataKeys.TOOL_DEFINITIONS` constant is asserted.
+- Marked Task 7 complete in the ticket task list.
+- Updated the ticket index/changelog/design doc to reflect the shipped shape:
+  - inspection-only persisted snapshots
+  - `ToolDefinitionSnapshot.Parameters map[string]any`
+  - runtime advertisement still sourced from the live context registry
+
+Commands run:
+
+```bash
+go test ./pkg/js/modules/geppetto
+docmgr doctor --root geppetto/ttmp --ticket GP-32-TURN-TOOL-DEFINITIONS --stale-after 30
+```
+
+Verification note:
+
+- I first ran the `docmgr` commands from inside `geppetto/` with the wrong root/path combination and got a file-not-found error against `.../temporal-relationships/ttmp/...`.
+- I reran the validation from the workspace root with `--root geppetto/ttmp`, which succeeded.
+
+Commit boundary:
+
+- This slice is intended to become Commit 4: JS/docs cleanup.
+
 ## Related
 
 - `GP-32-TURN-TOOL-DEFINITIONS` index and design doc

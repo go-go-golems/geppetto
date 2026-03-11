@@ -26,7 +26,7 @@
   - Scope: `pkg/inference/tools/context.go`, `pkg/inference/toolloop/loop.go`, execution paths.
   - Acceptance criteria: tool execution still depends on the live registry in context; persisted definitions remain inspection-only metadata.
 
-- [ ] Task 7: update docs and JS codec surface for the new turn key
+- [x] Task 7: update docs and JS codec surface for the new turn key
   - Scope: `pkg/js/modules/geppetto/codec.go`, generated docs/types, and relevant tutorials/topics.
   - Acceptance criteria: JS callers and docs can refer to the new turn-data key by name, and the turns/tools docs explain that persisted definitions are for inspection while the runtime registry remains authoritative for provider advertisement and execution.
 
@@ -35,4 +35,4 @@
 - [x] Complete Tasks 1 and 2 in one commit because the new key depends on the persisted payload type.
 - [x] Complete Tasks 3 and 4 in one commit because the stamping path needs direct regression coverage.
 - [x] Complete Tasks 5 and 6 in one commit because they are authority-boundary non-regression tests.
-- [ ] Complete Task 7 in a final cleanup/docs commit once the runtime behavior is locked.
+- [x] Complete Task 7 in a final cleanup/docs commit once the runtime behavior is locked.
