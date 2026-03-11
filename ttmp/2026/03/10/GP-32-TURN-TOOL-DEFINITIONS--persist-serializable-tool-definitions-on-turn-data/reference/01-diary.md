@@ -236,6 +236,32 @@ Commit boundary:
 
 - This slice is intended to become Commit 4: JS/docs cleanup.
 
+### 2026-03-10 23:33 America/New_York
+
+Addressed a follow-up review comment in `pkg/inference/toolloop/loop.go`: persisted example payloads could still break `engine.KeyToolDefinitions.Set(...)` before inference started.
+
+Issue:
+
+- `persistedToolDefinitions` copied `def.Examples` directly into the persisted snapshot.
+- `ToolDefinitions.Set(...)` validates JSON serializability, so any non-JSON example value such as a function or error would abort the whole loop.
+
+Fix:
+
+- Added `sanitizeJSONValue` in `toolloop` and now JSON-round-trip sanitizes example `Input` and `Output` before persisting.
+- Invalid example payloads are dropped instead of aborting the run.
+- Added a regression test proving a tool with one valid example and one invalid example still runs, and only the valid example survives in persisted `tool_definitions`.
+
+Commands run:
+
+```bash
+gofmt -w pkg/inference/toolloop/loop.go pkg/inference/toolloop/loop_test.go
+go test ./pkg/inference/toolloop
+```
+
+Commit boundary:
+
+- Follow-up fix commit for review feedback on persisted tool example sanitization.
+
 ## Related
 
 - `GP-32-TURN-TOOL-DEFINITIONS` index and design doc

@@ -197,9 +197,22 @@ func persistedToolDefinitions(defs []tools.ToolDefinition) engine.ToolDefinition
 	for _, def := range defs {
 		examples := make([]engine.ToolExample, 0, len(def.Examples))
 		for _, example := range def.Examples {
+			input, ok := sanitizeJSONValue(example.Input)
+			if !ok {
+				continue
+			}
+			output, ok := sanitizeJSONValue(example.Output)
+			if !ok {
+				continue
+			}
+
+			inputMap, ok := input.(map[string]any)
+			if !ok {
+				continue
+			}
 			examples = append(examples, engine.ToolExample{
-				Input:       example.Input,
-				Output:      example.Output,
+				Input:       inputMap,
+				Output:      output,
 				Description: example.Description,
 			})
 		}
@@ -234,6 +247,21 @@ func schemaToMap(schema any) map[string]any {
 		return nil
 	}
 	return out
+}
+
+func sanitizeJSONValue(v any) (any, bool) {
+	if v == nil {
+		return nil, true
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, false
+	}
+	var out any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 type toolResult struct {

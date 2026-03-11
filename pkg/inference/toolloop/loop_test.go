@@ -221,3 +221,60 @@ func TestLoop_executeToolsRequiresContextRegistry(t *testing.T) {
 		t.Fatalf("expected missing registry error, got %q", results[0].Error)
 	}
 }
+
+func TestLoop_RunLoopDropsNonSerializableToolExamples(t *testing.T) {
+	t.Parallel()
+
+	reg := tools.NewInMemoryToolRegistry()
+	type echoIn struct {
+		Text string `json:"text"`
+	}
+	echoTool, err := tools.NewToolFromFunc("echo", "Echo back the provided text", func(in echoIn) (map[string]any, error) {
+		return map[string]any{"echo": in.Text}, nil
+	})
+	if err != nil {
+		t.Fatalf("NewToolFromFunc: %v", err)
+	}
+	echoTool.Examples = []tools.ToolExample{
+		{
+			Input:       map[string]any{"text": "hello"},
+			Output:      map[string]any{"echo": "hello"},
+			Description: "valid example",
+		},
+		{
+			Input:       map[string]any{"text": "bad"},
+			Output:      func() {},
+			Description: "invalid example",
+		},
+	}
+	if err := reg.RegisterTool("echo", *echoTool); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
+	}
+
+	eng := &toolCallingFakeEngine{}
+	loop := New(
+		WithEngine(eng),
+		WithRegistry(reg),
+		WithLoopConfig(NewLoopConfig().WithMaxIterations(2)),
+		WithToolConfig(tools.DefaultToolConfig()),
+	)
+
+	initial := &turns.Turn{}
+	turns.AppendBlock(initial, turns.NewUserTextBlock("please echo"))
+
+	if _, err := loop.RunLoop(context.Background(), initial); err != nil {
+		t.Fatalf("RunLoop should ignore non-serializable examples, got %v", err)
+	}
+	if !eng.sawToolDefinitions {
+		t.Fatalf("expected tool definitions to be persisted before inference")
+	}
+	if len(eng.seenToolDefinitions) != 1 {
+		t.Fatalf("expected one persisted tool definition, got %d", len(eng.seenToolDefinitions))
+	}
+	if len(eng.seenToolDefinitions[0].Examples) != 1 {
+		t.Fatalf("expected invalid examples to be dropped, got %#v", eng.seenToolDefinitions[0].Examples)
+	}
+	if eng.seenToolDefinitions[0].Examples[0].Description != "valid example" {
+		t.Fatalf("expected valid example to survive sanitization, got %#v", eng.seenToolDefinitions[0].Examples[0])
+	}
+}

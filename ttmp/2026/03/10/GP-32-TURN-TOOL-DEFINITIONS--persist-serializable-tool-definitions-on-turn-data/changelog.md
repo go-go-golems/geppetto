@@ -11,3 +11,4 @@
 - Stamped persisted tool definitions in the tool loop and added serde regression coverage
 - Added runtime authority-boundary tests for advertisement and execution, and introduced a shared context-only helper for advertised tool definitions
 - Updated the JS codec/tests so the short `tool_definitions` key round-trips in the Goja module surface
+- Sanitized persisted tool examples so invalid inspection-only example payloads are dropped instead of aborting the tool loop
