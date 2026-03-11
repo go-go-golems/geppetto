@@ -37,6 +37,11 @@ key_families:
       typed_key: KeyToolConfig
       type_expr: ToolConfig
       typed_owner: engine
+    - value_const: ToolDefinitionsValueKey
+      value: tool_definitions
+      typed_key: KeyToolDefinitions
+      type_expr: ToolDefinitions
+      typed_owner: engine
     - value_const: StructuredOutputConfigValueKey
       value: structured_output_config
       typed_key: KeyStructuredOutputConfig

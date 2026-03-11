@@ -7,6 +7,7 @@ import "github.com/go-go-golems/geppetto/pkg/turns"
 // Typed turn keys owned by inference/engine package.
 var (
 	KeyToolConfig             = turns.DataK[ToolConfig](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
+	KeyToolDefinitions        = turns.DataK[ToolDefinitions](turns.GeppettoNamespaceKey, turns.ToolDefinitionsValueKey, 1)
 	KeyStructuredOutputConfig = turns.DataK[StructuredOutputConfig](turns.GeppettoNamespaceKey, turns.StructuredOutputConfigValueKey, 1)
 	KeyInferenceConfig        = turns.DataK[InferenceConfig](turns.GeppettoNamespaceKey, turns.InferenceConfigValueKey, 1)
 	KeyClaudeInferenceConfig  = turns.DataK[ClaudeInferenceConfig](turns.GeppettoNamespaceKey, turns.ClaudeInferenceConfigValueKey, 1)

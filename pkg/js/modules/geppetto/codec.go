@@ -25,6 +25,7 @@ var (
 
 	turnDataShortToID = map[string]turns.TurnDataKey{
 		turns.ToolConfigValueKey:            turns.TurnDataKey(engine.KeyToolConfig.String()),
+		turns.ToolDefinitionsValueKey:       turns.TurnDataKey(engine.KeyToolDefinitions.String()),
 		turns.AgentModeAllowedToolsValueKey: turns.TurnDataKey(turns.KeyAgentModeAllowedTools.String()),
 		turns.AgentModeValueKey:             turns.TurnDataKey(turns.KeyAgentMode.String()),
 		turns.ResponsesServerToolsValueKey:  turns.TurnDataKey(turns.KeyResponsesServerTools.String()),

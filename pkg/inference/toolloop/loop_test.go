@@ -8,16 +8,33 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 )
 
 type toolCallingFakeEngine struct {
-	calls atomic.Int64
+	calls               atomic.Int64
+	sawToolConfig       bool
+	seenToolConfig      engine.ToolConfig
+	sawToolDefinitions  bool
+	seenToolDefinitions engine.ToolDefinitions
 }
 
 func (e *toolCallingFakeEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	e.calls.Add(1)
+	callNum := e.calls.Add(1)
+
+	if callNum == 1 && t != nil {
+		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err == nil && ok {
+			e.sawToolConfig = true
+			e.seenToolConfig = cfg
+		}
+		if defs, ok, err := engine.KeyToolDefinitions.Get(t.Data); err == nil && ok {
+			e.sawToolDefinitions = true
+			e.seenToolDefinitions = defs
+		}
+	}
 
 	out := &turns.Turn{}
 	if t != nil {
@@ -108,6 +125,30 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	if eng.calls.Load() < 2 {
 		t.Fatalf("expected engine to be called at least twice, got %d", eng.calls.Load())
 	}
+	if !eng.sawToolConfig {
+		t.Fatalf("expected engine to see tool_config on the first inference turn")
+	}
+	if !eng.seenToolConfig.Enabled {
+		t.Fatalf("expected tool_config.enabled to be true on the first inference turn")
+	}
+	if !eng.sawToolDefinitions {
+		t.Fatalf("expected engine to see tool_definitions on the first inference turn")
+	}
+	if len(eng.seenToolDefinitions) != 1 {
+		t.Fatalf("expected one persisted tool definition, got %d", len(eng.seenToolDefinitions))
+	}
+	if eng.seenToolDefinitions[0].Name != "echo" {
+		t.Fatalf("expected persisted tool definition for echo, got %q", eng.seenToolDefinitions[0].Name)
+	}
+	if eng.seenToolDefinitions[0].Description == "" {
+		t.Fatalf("expected persisted tool definition description to be present")
+	}
+	if eng.seenToolDefinitions[0].Parameters == nil {
+		t.Fatalf("expected persisted tool definition parameters to be present")
+	}
+	if gotType, _ := eng.seenToolDefinitions[0].Parameters["type"].(string); gotType != "object" {
+		t.Fatalf("expected persisted tool definition parameters.type to be object, got %q", gotType)
+	}
 
 	foundUse := false
 	foundResult := ""
@@ -153,5 +194,87 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	}
 	if pauseCount < 1 {
 		t.Fatalf("expected at least one debugger.pause event, got %d", pauseCount)
+	}
+}
+
+func TestLoop_executeToolsRequiresContextRegistry(t *testing.T) {
+	t.Parallel()
+
+	loop := New(WithToolConfig(tools.DefaultToolConfig()))
+	results := loop.executeTools(context.Background(), []toolblocks.ToolCall{
+		{
+			ID:   "call-1",
+			Name: "echo",
+			Arguments: map[string]any{
+				"text": "hello",
+			},
+		},
+	})
+
+	if len(results) != 1 {
+		t.Fatalf("expected one tool execution result, got %d", len(results))
+	}
+	if results[0].Error == nil {
+		t.Fatalf("expected missing live registry to fail execution")
+	}
+	if !strings.Contains(results[0].Error.Error(), "no tool registry in context") {
+		t.Fatalf("expected missing registry error, got %q", results[0].Error)
+	}
+}
+
+func TestLoop_RunLoopDropsNonSerializableToolExamples(t *testing.T) {
+	t.Parallel()
+
+	reg := tools.NewInMemoryToolRegistry()
+	type echoIn struct {
+		Text string `json:"text"`
+	}
+	echoTool, err := tools.NewToolFromFunc("echo", "Echo back the provided text", func(in echoIn) (map[string]any, error) {
+		return map[string]any{"echo": in.Text}, nil
+	})
+	if err != nil {
+		t.Fatalf("NewToolFromFunc: %v", err)
+	}
+	echoTool.Examples = []tools.ToolExample{
+		{
+			Input:       map[string]any{"text": "hello"},
+			Output:      map[string]any{"echo": "hello"},
+			Description: "valid example",
+		},
+		{
+			Input:       map[string]any{"text": "bad"},
+			Output:      func() {},
+			Description: "invalid example",
+		},
+	}
+	if err := reg.RegisterTool("echo", *echoTool); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
+	}
+
+	eng := &toolCallingFakeEngine{}
+	loop := New(
+		WithEngine(eng),
+		WithRegistry(reg),
+		WithLoopConfig(NewLoopConfig().WithMaxIterations(2)),
+		WithToolConfig(tools.DefaultToolConfig()),
+	)
+
+	initial := &turns.Turn{}
+	turns.AppendBlock(initial, turns.NewUserTextBlock("please echo"))
+
+	if _, err := loop.RunLoop(context.Background(), initial); err != nil {
+		t.Fatalf("RunLoop should ignore non-serializable examples, got %v", err)
+	}
+	if !eng.sawToolDefinitions {
+		t.Fatalf("expected tool definitions to be persisted before inference")
+	}
+	if len(eng.seenToolDefinitions) != 1 {
+		t.Fatalf("expected one persisted tool definition, got %d", len(eng.seenToolDefinitions))
+	}
+	if len(eng.seenToolDefinitions[0].Examples) != 1 {
+		t.Fatalf("expected invalid examples to be dropped, got %#v", eng.seenToolDefinitions[0].Examples)
+	}
+	if eng.seenToolDefinitions[0].Examples[0].Description != "valid example" {
+		t.Fatalf("expected valid example to survive sanitization, got %#v", eng.seenToolDefinitions[0].Examples[0])
 	}
 }

@@ -19,6 +19,7 @@ export type BlockKind =
     | "other"
     ;
 export declare const ToolConfigValueKey: "tool_config";
+export declare const ToolDefinitionsValueKey: "tool_definitions";
 export declare const StructuredOutputConfigValueKey: "structured_output_config";
 export declare const InferenceConfigValueKey: "inference_config";
 export declare const ClaudeInferenceConfigValueKey: "claude_inference_config";

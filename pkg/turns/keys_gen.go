@@ -27,6 +27,7 @@ const (
 const (
 	// Turn.Data
 	ToolConfigValueKey             = "tool_config"
+	ToolDefinitionsValueKey        = "tool_definitions"
 	StructuredOutputConfigValueKey = "structured_output_config"
 	InferenceConfigValueKey        = "inference_config"
 	ClaudeInferenceConfigValueKey  = "claude_inference_config"

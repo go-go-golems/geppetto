@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	inferencetools "github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -108,6 +110,86 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 	if finalEvents != 0 {
 		t.Fatalf("did not expect final success event on streaming failure, got %d", finalEvents)
+	}
+}
+
+func TestAttachToolsToResponsesRequest_IgnoresPersistedToolDefinitionsWithoutRuntimeRegistry(t *testing.T) {
+	eng := &Engine{}
+	turn := &turns.Turn{}
+	if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true}); err != nil {
+		t.Fatalf("set tool config: %v", err)
+	}
+	if err := engine.KeyToolDefinitions.Set(&turn.Data, engine.ToolDefinitions{
+		{
+			Name:        "persisted_only",
+			Description: "Should not be advertised from turn data",
+			Parameters: map[string]any{
+				"type": "object",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("set tool definitions: %v", err)
+	}
+
+	reqBody := &responsesRequest{}
+	if err := eng.attachToolsToResponsesRequest(context.Background(), turn, reqBody); err != nil {
+		t.Fatalf("attachToolsToResponsesRequest: %v", err)
+	}
+	if len(reqBody.Tools) != 0 {
+		t.Fatalf("expected no advertised tools without a live registry, got %#v", reqBody.Tools)
+	}
+}
+
+func TestAttachToolsToResponsesRequest_UsesRuntimeRegistryInsteadOfPersistedSnapshots(t *testing.T) {
+	eng := &Engine{}
+	turn := &turns.Turn{}
+	if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true}); err != nil {
+		t.Fatalf("set tool config: %v", err)
+	}
+	if err := engine.KeyToolDefinitions.Set(&turn.Data, engine.ToolDefinitions{
+		{
+			Name:        "persisted_only",
+			Description: "Should not be advertised from turn data",
+			Parameters: map[string]any{
+				"type": "object",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("set tool definitions: %v", err)
+	}
+
+	reg := inferencetools.NewInMemoryToolRegistry()
+	type runtimeIn struct {
+		Text string `json:"text"`
+	}
+	runtimeTool, err := inferencetools.NewToolFromFunc("runtime_echo", "Echo runtime text", func(in runtimeIn) (map[string]any, error) {
+		return map[string]any{"echo": in.Text}, nil
+	})
+	if err != nil {
+		t.Fatalf("NewToolFromFunc: %v", err)
+	}
+	if err := reg.RegisterTool("runtime_echo", *runtimeTool); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
+	}
+
+	reqBody := &responsesRequest{}
+	ctx := inferencetools.WithRegistry(context.Background(), reg)
+	if err := eng.attachToolsToResponsesRequest(ctx, turn, reqBody); err != nil {
+		t.Fatalf("attachToolsToResponsesRequest: %v", err)
+	}
+	if len(reqBody.Tools) != 1 {
+		t.Fatalf("expected one advertised runtime tool, got %#v", reqBody.Tools)
+	}
+
+	toolMap, ok := reqBody.Tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected tool payload as map, got %T", reqBody.Tools[0])
+	}
+	if toolMap["name"] != "runtime_echo" {
+		t.Fatalf("expected runtime registry tool name, got %#v", toolMap["name"])
+	}
+	if toolMap["name"] == "persisted_only" {
+		t.Fatalf("unexpected persisted turn snapshot in advertised tools")
 	}
 }
 

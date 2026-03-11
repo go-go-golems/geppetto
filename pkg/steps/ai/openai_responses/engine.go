@@ -935,19 +935,7 @@ func (e *Engine) attachToolsToResponsesRequest(ctx context.Context, t *turns.Tur
 		return nil
 	}
 
-	var engineTools []engine.ToolDefinition
-	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
-		for _, td := range reg.ListTools() {
-			engineTools = append(engineTools, engine.ToolDefinition{
-				Name:        td.Name,
-				Description: td.Description,
-				Parameters:  td.Parameters,
-				Examples:    []engine.ToolExample{},
-				Tags:        td.Tags,
-				Version:     td.Version,
-			})
-		}
-	}
+	engineTools := tools.AdvertisedToolDefinitionsFromContext(ctx)
 
 	var toolCfg engine.ToolConfig
 	if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {

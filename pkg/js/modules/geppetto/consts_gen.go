@@ -25,6 +25,7 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 	{
 		o := m.vm.NewObject()
 		m.mustSet(o, "TOOL_CONFIG", "tool_config")
+		m.mustSet(o, "TOOL_DEFINITIONS", "tool_definitions")
 		m.mustSet(o, "STRUCTURED_OUTPUT_CONFIG", "structured_output_config")
 		m.mustSet(o, "INFERENCE_CONFIG", "inference_config")
 		m.mustSet(o, "CLAUDE_INFERENCE_CONFIG", "claude_inference_config")

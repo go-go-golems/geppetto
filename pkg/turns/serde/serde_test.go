@@ -1,10 +1,12 @@
 package serde
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/invopop/jsonschema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +32,27 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	require.NoError(t, turns.KeyTurnMetaStopReason.Set(&turn.Metadata, "stop"))
 	// also exercise engine-owned typed key (ToolConfig)
 	require.NoError(t, engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true}))
+	type toolParams struct {
+		Text string `json:"text"`
+	}
+	reflector := &jsonschema.Reflector{DoNotReference: true}
+	params := reflector.Reflect(toolParams{})
+	require.NoError(t, engine.KeyToolDefinitions.Set(&turn.Data, engine.ToolDefinitions{
+		{
+			Name:        "echo",
+			Description: "Echoes text",
+			Parameters:  schemaToMapForTest(t, params),
+			Examples: []engine.ToolExample{
+				{
+					Input:       map[string]any{"text": "hello"},
+					Output:      map[string]any{"echo": "hello"},
+					Description: "Simple echo example",
+				},
+			},
+			Tags:    []string{"debug"},
+			Version: "v1",
+		},
+	}))
 
 	require.NoError(t, turns.KeyBlockMetaMiddleware.Set(&turn.Blocks[0].Metadata, "test-middleware"))
 	// Help Go inference pick T=any (key is BlockMetaKey[any]) rather than T=[]any (from the literal).
@@ -76,6 +99,19 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	cfgMap, ok := rawCfg.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, true, cfgMap["enabled"], "ToolConfig.enabled should match")
+
+	toolDefs, ok, err := engine.KeyToolDefinitions.Get(roundTripTurn.Data)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Len(t, toolDefs, 1)
+	assert.Equal(t, "echo", toolDefs[0].Name, "ToolDefinitions[0].name should match")
+	assert.Equal(t, "Echoes text", toolDefs[0].Description, "ToolDefinitions[0].description should match")
+	require.NotNil(t, toolDefs[0].Parameters, "ToolDefinitions[0].parameters should be present")
+	assert.Equal(t, "object", toolDefs[0].Parameters["type"], "ToolDefinitions[0].parameters.type should match")
+	assert.Equal(t, []string{"debug"}, toolDefs[0].Tags, "ToolDefinitions[0].tags should match")
+	assert.Equal(t, "v1", toolDefs[0].Version, "ToolDefinitions[0].version should match")
+	require.Len(t, toolDefs[0].Examples, 1)
+	assert.Equal(t, "Simple echo example", toolDefs[0].Examples[0].Description, "ToolDefinitions[0].examples[0].description should match")
 
 	// Verify Metadata contents
 	gotModel, ok, err := turns.KeyTurnMetaModel.Get(roundTripTurn.Metadata)
@@ -129,4 +165,15 @@ func TestYAMLRoundTripEmptyMaps(t *testing.T) {
 	assert.Equal(t, 0, roundTripTurn.Metadata.Len(), "Metadata should be empty")
 	require.Len(t, roundTripTurn.Blocks, 1, "Should have one block")
 	assert.Equal(t, 0, roundTripTurn.Blocks[0].Metadata.Len(), "Block Metadata should be empty")
+}
+
+func schemaToMapForTest(t *testing.T, schema *jsonschema.Schema) map[string]any {
+	t.Helper()
+
+	b, err := json.Marshal(schema)
+	require.NoError(t, err)
+
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(b, &out))
+	return out
 }

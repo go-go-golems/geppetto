@@ -37,6 +37,7 @@ declare module "geppetto" {
         /** Canonical Turn.Data value keys */
         TurnDataKeys: {
             readonly TOOL_CONFIG: "tool_config";
+            readonly TOOL_DEFINITIONS: "tool_definitions";
             readonly STRUCTURED_OUTPUT_CONFIG: "structured_output_config";
             readonly INFERENCE_CONFIG: "inference_config";
             readonly CLAUDE_INFERENCE_CONFIG: "claude_inference_config";
