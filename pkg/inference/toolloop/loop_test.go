@@ -8,16 +8,32 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 type toolCallingFakeEngine struct {
-	calls atomic.Int64
+	calls               atomic.Int64
+	sawToolConfig       bool
+	seenToolConfig      engine.ToolConfig
+	sawToolDefinitions  bool
+	seenToolDefinitions engine.ToolDefinitions
 }
 
 func (e *toolCallingFakeEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	e.calls.Add(1)
+	callNum := e.calls.Add(1)
+
+	if callNum == 1 && t != nil {
+		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err == nil && ok {
+			e.sawToolConfig = true
+			e.seenToolConfig = cfg
+		}
+		if defs, ok, err := engine.KeyToolDefinitions.Get(t.Data); err == nil && ok {
+			e.sawToolDefinitions = true
+			e.seenToolDefinitions = defs
+		}
+	}
 
 	out := &turns.Turn{}
 	if t != nil {
@@ -107,6 +123,30 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	}
 	if eng.calls.Load() < 2 {
 		t.Fatalf("expected engine to be called at least twice, got %d", eng.calls.Load())
+	}
+	if !eng.sawToolConfig {
+		t.Fatalf("expected engine to see tool_config on the first inference turn")
+	}
+	if !eng.seenToolConfig.Enabled {
+		t.Fatalf("expected tool_config.enabled to be true on the first inference turn")
+	}
+	if !eng.sawToolDefinitions {
+		t.Fatalf("expected engine to see tool_definitions on the first inference turn")
+	}
+	if len(eng.seenToolDefinitions) != 1 {
+		t.Fatalf("expected one persisted tool definition, got %d", len(eng.seenToolDefinitions))
+	}
+	if eng.seenToolDefinitions[0].Name != "echo" {
+		t.Fatalf("expected persisted tool definition for echo, got %q", eng.seenToolDefinitions[0].Name)
+	}
+	if eng.seenToolDefinitions[0].Description == "" {
+		t.Fatalf("expected persisted tool definition description to be present")
+	}
+	if eng.seenToolDefinitions[0].Parameters == nil {
+		t.Fatalf("expected persisted tool definition parameters to be present")
+	}
+	if gotType, _ := eng.seenToolDefinitions[0].Parameters["type"].(string); gotType != "object" {
+		t.Fatalf("expected persisted tool definition parameters.type to be object, got %q", gotType)
 	}
 
 	foundUse := false

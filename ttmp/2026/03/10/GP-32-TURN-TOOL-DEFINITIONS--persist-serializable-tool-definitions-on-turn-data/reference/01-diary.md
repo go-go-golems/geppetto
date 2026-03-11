@@ -118,6 +118,48 @@ Commit boundary:
 
 - This slice is intended to become Commit 1: key + payload type.
 
+### 2026-03-10 22:46 America/New_York
+
+Completed the second implementation slice: the tool loop now stamps persisted tool definitions, and the round-trip tests prove they survive turn serialization.
+
+Changes made:
+
+- Updated `pkg/inference/toolloop/loop.go` to write `engine.KeyToolDefinitions` onto `Turn.Data` before the first inference call.
+- Added deterministic sorting by tool name so persisted snapshots do not depend on Go map iteration order inside the registry.
+- Added a conversion helper that turns runtime `tools.ToolDefinition` values into persisted snapshots.
+- Added a `toolloop` regression test proving the engine sees both `tool_config` and `tool_definitions` on the first inference turn.
+- Extended `pkg/turns/serde/serde_test.go` to round-trip persisted tool definitions through YAML.
+
+Important correction discovered during implementation:
+
+- The original persisted type was `engine.ToolDefinitions []engine.ToolDefinition`.
+- That looked convenient, but it broke YAML round-trip decoding because `*jsonschema.Schema` contains `json.Number` fields that re-enter the typed-map decode path as invalid empty-string numbers.
+- I changed the persisted representation to an explicit `ToolDefinitionSnapshot` with `Parameters map[string]any`.
+- This keeps the persisted data JSON-safe and inspection-friendly while leaving runtime provider advertisement on `engine.ToolDefinition` sourced from the live registry.
+
+Commands run:
+
+```bash
+gofmt -w pkg/inference/toolloop/loop.go pkg/inference/toolloop/loop_test.go pkg/turns/serde/serde_test.go
+go test ./pkg/inference/toolloop ./pkg/turns/serde
+```
+
+Failure encountered and resolved:
+
+- Initial serde test failed with:
+  - `json: invalid number literal, trying to unmarshal "\"\"" into Number`
+- Root cause was the persisted use of `*jsonschema.Schema`.
+- Resolution was to persist `parameters` as a plain JSON object map in the snapshot type and to convert schemas through `json.Marshal`/`json.Unmarshal` during stamping.
+
+Verification result:
+
+- `pkg/inference/toolloop` passed.
+- `pkg/turns/serde` passed after the persisted payload correction.
+
+Commit boundary:
+
+- This slice is intended to become Commit 2: tool loop stamping + serde/tests.
+
 ## Related
 
 - `GP-32-TURN-TOOL-DEFINITIONS` index and design doc

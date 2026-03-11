@@ -19,9 +19,19 @@ type ToolDefinition struct {
 	Version     string             `json:"version,omitempty"`
 }
 
-// ToolDefinitions is the persisted, per-turn snapshot of advertised tools.
+// ToolDefinitionSnapshot is the persisted, JSON-safe view of an advertised tool.
 // It is inspection metadata only; runtime advertisement and execution still use the live registry.
-type ToolDefinitions []ToolDefinition
+type ToolDefinitionSnapshot struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters,omitempty"`
+	Examples    []ToolExample  `json:"examples,omitempty"`
+	Tags        []string       `json:"tags,omitempty"`
+	Version     string         `json:"version,omitempty"`
+}
+
+// ToolDefinitions is the persisted, per-turn snapshot of advertised tools.
+type ToolDefinitions []ToolDefinitionSnapshot
 
 // ToolExample represents an example of tool usage
 type ToolExample struct {

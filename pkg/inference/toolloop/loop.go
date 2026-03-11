@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -119,6 +120,9 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 	if err := engine.KeyToolConfig.Set(&t.Data, engineToolConfig(maxIterations, l.toolCfg)); err != nil {
 		return nil, errors.Wrap(err, "set tool config")
 	}
+	if err := engine.KeyToolDefinitions.Set(&t.Data, persistedToolDefinitions(l.registry.ListTools())); err != nil {
+		return nil, errors.Wrap(err, "set tool definitions")
+	}
 
 	for i := 0; i < maxIterations; i++ {
 		log.Debug().Int("iteration", i+1).Msg("toolloop: engine inference step")
@@ -186,6 +190,50 @@ func engineToolConfig(maxIterations int, cfg tools.ToolConfig) engine.ToolConfig
 			BackoffFactor: cfg.RetryConfig.BackoffFactor,
 		},
 	}
+}
+
+func persistedToolDefinitions(defs []tools.ToolDefinition) engine.ToolDefinitions {
+	out := make(engine.ToolDefinitions, 0, len(defs))
+	for _, def := range defs {
+		examples := make([]engine.ToolExample, 0, len(def.Examples))
+		for _, example := range def.Examples {
+			examples = append(examples, engine.ToolExample{
+				Input:       example.Input,
+				Output:      example.Output,
+				Description: example.Description,
+			})
+		}
+
+		out = append(out, engine.ToolDefinitionSnapshot{
+			Name:        def.Name,
+			Description: def.Description,
+			Parameters:  schemaToMap(def.Parameters),
+			Examples:    examples,
+			Tags:        append([]string(nil), def.Tags...),
+			Version:     def.Version,
+		})
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+
+	return out
+}
+
+func schemaToMap(schema any) map[string]any {
+	if schema == nil {
+		return nil
+	}
+	b, err := json.Marshal(schema)
+	if err != nil {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 type toolResult struct {
