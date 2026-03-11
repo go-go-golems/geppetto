@@ -160,6 +160,52 @@ Commit boundary:
 
 - This slice is intended to become Commit 2: tool loop stamping + serde/tests.
 
+### 2026-03-10 23:07 America/New_York
+
+Completed the third implementation slice: runtime advertisement and execution boundaries now have explicit non-regression coverage.
+
+Changes made:
+
+- Added `pkg/inference/tools/advertisement.go` with `AdvertisedToolDefinitionsFromContext(ctx)`.
+- The helper is intentionally context-only and cannot read persisted turn snapshots.
+- Updated OpenAI and OpenAI Responses request-building paths to use that helper instead of rebuilding runtime tool definitions inline.
+- Added unit tests for the helper proving:
+  - a live registry produces advertised runtime definitions
+  - no live registry produces no advertised definitions
+- Added OpenAI Responses integration tests proving:
+  - persisted `tool_definitions` on the turn do not advertise tools by themselves
+  - when persisted snapshots and the live registry disagree, the runtime registry wins
+- Added a `toolloop` execution-path test proving `executeTools` still fails without a context-carried registry.
+
+Commands run:
+
+```bash
+gofmt -w pkg/inference/tools/advertisement.go pkg/inference/tools/advertisement_test.go pkg/inference/toolloop/loop_test.go pkg/steps/ai/openai/engine_openai.go pkg/steps/ai/openai_responses/engine.go pkg/steps/ai/openai_responses/engine_test.go
+go test ./pkg/inference/tools ./pkg/inference/toolloop ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses
+```
+
+One implementation slip:
+
+- The first test run failed because the new `toolloop` test used `toolblocks.ToolCall` without importing the package.
+- After adding the missing import, the focused package test run passed.
+
+Why this matters:
+
+- The persisted `tool_definitions` snapshot is now clearly inspection-only.
+- Request-building code that already used `engine.ToolDefinition` is anchored to a helper that only consults the live context registry.
+- Execution remains impossible without the live registry, so persisted snapshots cannot accidentally become an executable fallback.
+
+Verification result:
+
+- `pkg/inference/tools` passed
+- `pkg/inference/toolloop` passed
+- `pkg/steps/ai/openai` passed
+- `pkg/steps/ai/openai_responses` passed
+
+Commit boundary:
+
+- This slice is intended to become Commit 3: authority-boundary non-regression tests.
+
 ## Related
 
 - `GP-32-TURN-TOOL-DEFINITIONS` index and design doc

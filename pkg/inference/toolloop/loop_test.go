@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 )
 
 type toolCallingFakeEngine struct {
@@ -193,5 +194,30 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	}
 	if pauseCount < 1 {
 		t.Fatalf("expected at least one debugger.pause event, got %d", pauseCount)
+	}
+}
+
+func TestLoop_executeToolsRequiresContextRegistry(t *testing.T) {
+	t.Parallel()
+
+	loop := New(WithToolConfig(tools.DefaultToolConfig()))
+	results := loop.executeTools(context.Background(), []toolblocks.ToolCall{
+		{
+			ID:   "call-1",
+			Name: "echo",
+			Arguments: map[string]any{
+				"text": "hello",
+			},
+		},
+	})
+
+	if len(results) != 1 {
+		t.Fatalf("expected one tool execution result, got %d", len(results))
+	}
+	if results[0].Error == nil {
+		t.Fatalf("expected missing live registry to fail execution")
+	}
+	if !strings.Contains(results[0].Error.Error(), "no tool registry in context") {
+		t.Fatalf("expected missing registry error, got %q", results[0].Error)
 	}
 }

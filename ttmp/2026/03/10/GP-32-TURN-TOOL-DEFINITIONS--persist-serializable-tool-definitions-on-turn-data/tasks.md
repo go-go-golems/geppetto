@@ -18,11 +18,11 @@
   - Scope: `pkg/turns/serde/*`, tool loop tests, and focused turn-data round-trip tests.
   - Acceptance criteria: YAML/JSON round-trip preserves `tool_definitions`, and tool loop tests verify that persisted definitions are stamped alongside `tool_config`.
 
-- [ ] Task 5: preserve provider advertisement from the live runtime registry
+- [x] Task 5: preserve provider advertisement from the live runtime registry
   - Scope: `pkg/steps/ai/openai/*`, `pkg/steps/ai/openai_responses/*`, `pkg/steps/ai/claude/*`, `pkg/steps/ai/gemini/*`.
   - Acceptance criteria: the implementation does not change engines to advertise from persisted `Turn.Data.tool_definitions`; the new turn key is documented and tested as informational/inspection data only.
 
-- [ ] Task 6: preserve runtime execution via context-carried registry only
+- [x] Task 6: preserve runtime execution via context-carried registry only
   - Scope: `pkg/inference/tools/context.go`, `pkg/inference/toolloop/loop.go`, execution paths.
   - Acceptance criteria: tool execution still depends on the live registry in context; persisted definitions remain inspection-only metadata.
 
@@ -34,5 +34,5 @@
 
 - [x] Complete Tasks 1 and 2 in one commit because the new key depends on the persisted payload type.
 - [x] Complete Tasks 3 and 4 in one commit because the stamping path needs direct regression coverage.
-- [ ] Complete Tasks 5 and 6 in one commit because they are authority-boundary non-regression tests.
+- [x] Complete Tasks 5 and 6 in one commit because they are authority-boundary non-regression tests.
 - [ ] Complete Task 7 in a final cleanup/docs commit once the runtime behavior is locked.

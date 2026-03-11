@@ -103,19 +103,7 @@ func (e *OpenAIEngine) RunInference(
 	}
 
 	// Add tools to the request if present in context (no Turn.Data registry).
-	var engineTools []engine.ToolDefinition
-	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
-		for _, td := range reg.ListTools() {
-			engineTools = append(engineTools, engine.ToolDefinition{
-				Name:        td.Name,
-				Description: td.Description,
-				Parameters:  td.Parameters,
-				Examples:    []engine.ToolExample{},
-				Tags:        td.Tags,
-				Version:     td.Version,
-			})
-		}
-	}
+	engineTools := tools.AdvertisedToolDefinitionsFromContext(ctx)
 
 	var toolCfg engine.ToolConfig
 	if t != nil {
