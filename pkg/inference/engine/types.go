@@ -19,6 +19,10 @@ type ToolDefinition struct {
 	Version     string             `json:"version,omitempty"`
 }
 
+// ToolDefinitions is the persisted, per-turn snapshot of advertised tools.
+// It is inspection metadata only; runtime advertisement and execution still use the live registry.
+type ToolDefinitions []ToolDefinition
+
 // ToolExample represents an example of tool usage
 type ToolExample struct {
 	Input       map[string]interface{} `json:"input"`
