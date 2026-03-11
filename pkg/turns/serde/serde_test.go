@@ -3,6 +3,7 @@ package serde
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -31,7 +32,20 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	require.NoError(t, turns.KeyTurnMetaProvider.Set(&turn.Metadata, "test-provider"))
 	require.NoError(t, turns.KeyTurnMetaStopReason.Set(&turn.Metadata, "stop"))
 	// also exercise engine-owned typed key (ToolConfig)
-	require.NoError(t, engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true}))
+	require.NoError(t, engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{
+		Enabled:           true,
+		ToolChoice:        engine.ToolChoiceAuto,
+		MaxIterations:     4,
+		ExecutionTimeout:  30 * time.Second,
+		MaxParallelTools:  2,
+		AllowedTools:      []string{"echo"},
+		ToolErrorHandling: engine.ToolErrorRetry,
+		RetryConfig: engine.RetryConfig{
+			MaxRetries:    3,
+			BackoffBase:   2 * time.Second,
+			BackoffFactor: 2,
+		},
+	}))
 	type toolParams struct {
 		Text string `json:"text"`
 	}
@@ -91,6 +105,15 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.True(t, toolCfg.Enabled, "ToolConfig.enabled should match")
+	assert.Equal(t, engine.ToolChoiceAuto, toolCfg.ToolChoice, "ToolConfig.tool_choice should match")
+	assert.Equal(t, 4, toolCfg.MaxIterations, "ToolConfig.max_iterations should match")
+	assert.Equal(t, 30*time.Second, toolCfg.ExecutionTimeout, "ToolConfig.execution_timeout should match")
+	assert.Equal(t, 2, toolCfg.MaxParallelTools, "ToolConfig.max_parallel_tools should match")
+	assert.Equal(t, []string{"echo"}, toolCfg.AllowedTools, "ToolConfig.allowed_tools should match")
+	assert.Equal(t, engine.ToolErrorRetry, toolCfg.ToolErrorHandling, "ToolConfig.tool_error_handling should match")
+	assert.Equal(t, 3, toolCfg.RetryConfig.MaxRetries, "ToolConfig.retry_config.max_retries should match")
+	assert.Equal(t, 2*time.Second, toolCfg.RetryConfig.BackoffBase, "ToolConfig.retry_config.backoff_base should match")
+	assert.Equal(t, 2.0, toolCfg.RetryConfig.BackoffFactor, "ToolConfig.retry_config.backoff_factor should match")
 	// Assert the decoded map form is present and has the expected fields.
 	rawToolCfgKey := turns.DataK[any](turns.GeppettoNamespaceKey, turns.ToolConfigValueKey, 1)
 	rawCfg, ok, err := rawToolCfgKey.Get(roundTripTurn.Data)
@@ -99,6 +122,7 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	cfgMap, ok := rawCfg.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, true, cfgMap["enabled"], "ToolConfig.enabled should match")
+	assert.Equal(t, "auto", cfgMap["tool_choice"], "ToolConfig.tool_choice should use stable YAML field names")
 
 	toolDefs, ok, err := engine.KeyToolDefinitions.Get(roundTripTurn.Data)
 	require.NoError(t, err)
