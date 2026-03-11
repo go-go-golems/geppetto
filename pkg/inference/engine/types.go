@@ -10,24 +10,24 @@ import (
 
 // ToolDefinition represents a tool that can be called by AI models
 type ToolDefinition struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Parameters  *jsonschema.Schema `json:"parameters"`
+	Name        string             `json:"name" yaml:"name"`
+	Description string             `json:"description" yaml:"description"`
+	Parameters  *jsonschema.Schema `json:"parameters" yaml:"parameters"`
 	Function    interface{}        `json:"-"` // Function to execute
-	Examples    []ToolExample      `json:"examples,omitempty"`
-	Tags        []string           `json:"tags,omitempty"`
-	Version     string             `json:"version,omitempty"`
+	Examples    []ToolExample      `json:"examples,omitempty" yaml:"examples,omitempty"`
+	Tags        []string           `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Version     string             `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // ToolDefinitionSnapshot is the persisted, JSON-safe view of an advertised tool.
 // It is inspection metadata only; runtime advertisement and execution still use the live registry.
 type ToolDefinitionSnapshot struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters,omitempty"`
-	Examples    []ToolExample  `json:"examples,omitempty"`
-	Tags        []string       `json:"tags,omitempty"`
-	Version     string         `json:"version,omitempty"`
+	Name        string         `json:"name" yaml:"name"`
+	Description string         `json:"description" yaml:"description"`
+	Parameters  map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	Examples    []ToolExample  `json:"examples,omitempty" yaml:"examples,omitempty"`
+	Tags        []string       `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Version     string         `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // ToolDefinitions is the persisted, per-turn snapshot of advertised tools.
@@ -35,21 +35,21 @@ type ToolDefinitions []ToolDefinitionSnapshot
 
 // ToolExample represents an example of tool usage
 type ToolExample struct {
-	Input       map[string]interface{} `json:"input"`
-	Output      interface{}            `json:"output"`
-	Description string                 `json:"description"`
+	Input       map[string]interface{} `json:"input" yaml:"input"`
+	Output      interface{}            `json:"output" yaml:"output"`
+	Description string                 `json:"description" yaml:"description"`
 }
 
 // ToolConfig specifies how tools should be used during inference
 type ToolConfig struct {
-	Enabled           bool              `json:"enabled"`
-	ToolChoice        ToolChoice        `json:"tool_choice"`
-	MaxIterations     int               `json:"max_iterations"`
-	ExecutionTimeout  time.Duration     `json:"execution_timeout"`
-	MaxParallelTools  int               `json:"max_parallel_tools"`
-	AllowedTools      []string          `json:"allowed_tools"`
-	ToolErrorHandling ToolErrorHandling `json:"tool_error_handling"`
-	RetryConfig       RetryConfig       `json:"retry_config"`
+	Enabled           bool              `json:"enabled" yaml:"enabled"`
+	ToolChoice        ToolChoice        `json:"tool_choice" yaml:"tool_choice"`
+	MaxIterations     int               `json:"max_iterations" yaml:"max_iterations"`
+	ExecutionTimeout  time.Duration     `json:"execution_timeout" yaml:"execution_timeout"`
+	MaxParallelTools  int               `json:"max_parallel_tools" yaml:"max_parallel_tools"`
+	AllowedTools      []string          `json:"allowed_tools" yaml:"allowed_tools"`
+	ToolErrorHandling ToolErrorHandling `json:"tool_error_handling" yaml:"tool_error_handling"`
+	RetryConfig       RetryConfig       `json:"retry_config" yaml:"retry_config"`
 }
 
 func unmarshalJSONDuration(raw json.RawMessage) (time.Duration, error) {
@@ -119,9 +119,9 @@ func (c *ToolConfig) UnmarshalJSON(b []byte) error {
 
 // RetryConfig defines retry behavior for tool execution
 type RetryConfig struct {
-	MaxRetries    int           `json:"max_retries"`
-	BackoffBase   time.Duration `json:"backoff_base"`
-	BackoffFactor float64       `json:"backoff_factor"`
+	MaxRetries    int           `json:"max_retries" yaml:"max_retries"`
+	BackoffBase   time.Duration `json:"backoff_base" yaml:"backoff_base"`
+	BackoffFactor float64       `json:"backoff_factor" yaml:"backoff_factor"`
 }
 
 func (c *RetryConfig) UnmarshalJSON(b []byte) error {
