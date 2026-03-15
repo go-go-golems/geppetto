@@ -20,8 +20,8 @@ type QueryOptions struct {
 }
 
 type QueryInput struct {
-	SQL    string `json:"sql" jsonschema:"description=Single SELECT or WITH query only against allowed scope tables/views. Prefer ? placeholders plus params instead of inline literal values.,required"`
-	Params []any  `json:"params,omitempty" jsonschema:"description=Optional bind parameters. Prefer these over inline literal values in SQL."`
+	SQL    string   `json:"sql" jsonschema:"description=Single SELECT or WITH query only against allowed scope tables/views. Prefer ? placeholders plus params instead of inline literal values.,required"`
+	Params []string `json:"params,omitempty" jsonschema:"description=Optional bind parameters as strings. Prefer these over inline literal values in SQL."`
 }
 
 type QueryOutput struct {
@@ -129,7 +129,11 @@ func (r *QueryRunner) Run(ctx context.Context, in QueryInput) (QueryOutput, erro
 		return QueryOutput{Error: err.Error()}, nil
 	}
 
-	rows, err := conn.QueryContext(qctx, sqlText, in.Params...)
+	args := make([]any, 0, len(in.Params))
+	for _, param := range in.Params {
+		args = append(args, param)
+	}
+	rows, err := conn.QueryContext(qctx, sqlText, args...)
 	if err != nil {
 		return QueryOutput{Error: err.Error()}, nil
 	}

@@ -105,3 +105,49 @@ CREATE TABLE items(id TEXT PRIMARY KEY, value TEXT);
 		t.Fatalf("unexpected lazy query output: %#v", out)
 	}
 }
+
+func TestRegisterPrebuiltProducesProviderSafeParamsSchema(t *testing.T) {
+	spec := DatasetSpec[struct{}, struct{}]{
+		SchemaLabel:    "schema",
+		SchemaSQL:      `CREATE TABLE items(id TEXT PRIMARY KEY, value TEXT);`,
+		AllowedObjects: []string{"items"},
+		Tool: ToolDefinitionSpec{
+			Name: "query_items",
+			Description: ToolDescription{
+				Summary: "Query items from a scoped database",
+			},
+		},
+		DefaultQuery: DefaultQueryOptions(),
+		Materialize: func(ctx context.Context, dst *sql.DB, _ struct{}) (struct{}, error) {
+			return struct{}{}, nil
+		},
+	}
+
+	buildResult, err := BuildInMemory(context.Background(), spec, struct{}{})
+	if err != nil {
+		t.Fatalf("BuildInMemory failed: %v", err)
+	}
+	defer func() { _ = buildResult.Cleanup() }()
+
+	reg := tools.NewInMemoryToolRegistry()
+	if err := RegisterPrebuilt(reg, spec, buildResult.DB, spec.DefaultQuery); err != nil {
+		t.Fatalf("RegisterPrebuilt failed: %v", err)
+	}
+	def, err := reg.GetTool("query_items")
+	if err != nil {
+		t.Fatalf("GetTool failed: %v", err)
+	}
+	paramsSchema, ok := def.Parameters.Properties.Get("params")
+	if !ok || paramsSchema == nil {
+		t.Fatalf("expected params schema")
+	}
+	if paramsSchema.Type != "array" {
+		t.Fatalf("expected params type array, got %q", paramsSchema.Type)
+	}
+	if paramsSchema.Items == nil {
+		t.Fatalf("expected params items schema")
+	}
+	if paramsSchema.Items.Type != "string" {
+		t.Fatalf("expected params items type string, got %q", paramsSchema.Items.Type)
+	}
+}

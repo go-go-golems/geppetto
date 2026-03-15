@@ -71,3 +71,23 @@ func TestQueryRunnerRequireOrderBy(t *testing.T) {
 		t.Fatalf("expected ORDER BY validation error")
 	}
 }
+
+func TestQueryRunnerSupportsStringBindParams(t *testing.T) {
+	runner := seedQueryRunnerDB(t)
+	out, err := runner.Run(context.Background(), QueryInput{
+		SQL:    `SELECT id, value FROM items WHERE id = ? ORDER BY id ASC`,
+		Params: []string{"item-2"},
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if out.Error != "" {
+		t.Fatalf("expected empty error, got %q", out.Error)
+	}
+	if out.Count != 1 {
+		t.Fatalf("expected 1 row, got %d", out.Count)
+	}
+	if got := out.Rows[0]["id"]; got != "item-2" {
+		t.Fatalf("expected item-2, got %v", got)
+	}
+}
