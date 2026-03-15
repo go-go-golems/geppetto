@@ -211,6 +211,7 @@ var fromJoinObjectRe = regexp.MustCompile(`(?i)\b(from|join)\s+([a-zA-Z_][a-zA-Z
 
 func referencedObjects(sqlText string) []string {
 	matches := fromJoinObjectRe.FindAllStringSubmatch(sqlText, -1)
+	cteAliases := referencedCTEAliases(sqlText)
 	out := make([]string, 0, len(matches))
 	seen := map[string]struct{}{}
 	for _, match := range matches {
@@ -219,6 +220,9 @@ func referencedObjects(sqlText string) []string {
 		}
 		obj := normalizeExtractedObject(match[2])
 		if obj == "" {
+			continue
+		}
+		if _, ok := cteAliases[NormalizeObjectName(obj)]; ok {
 			continue
 		}
 		if _, ok := seen[obj]; ok {
@@ -240,6 +244,120 @@ func normalizeExtractedObject(v string) string {
 		t = t[dot+1:]
 	}
 	return strings.TrimSpace(t)
+}
+
+func referencedCTEAliases(sqlText string) map[string]struct{} {
+	lower := strings.ToLower(strings.TrimSpace(sqlText))
+	if !strings.HasPrefix(lower, "with ") {
+		return nil
+	}
+
+	i := len("with")
+	for i < len(sqlText) && isSQLSpace(sqlText[i]) {
+		i++
+	}
+	if strings.HasPrefix(strings.ToLower(sqlText[i:]), "recursive") {
+		i += len("recursive")
+	}
+
+	ret := map[string]struct{}{}
+	for i < len(sqlText) {
+		for i < len(sqlText) && isSQLSpace(sqlText[i]) {
+			i++
+		}
+
+		start := i
+		for i < len(sqlText) && isSQLIdentifierChar(sqlText[i], i == start) {
+			i++
+		}
+		if start == i {
+			return ret
+		}
+
+		name := NormalizeObjectName(sqlText[start:i])
+		if name != "" {
+			ret[name] = struct{}{}
+		}
+
+		for i < len(sqlText) && isSQLSpace(sqlText[i]) {
+			i++
+		}
+		if i < len(sqlText) && sqlText[i] == '(' {
+			end, ok := consumeBalancedParens(sqlText, i)
+			if !ok {
+				return ret
+			}
+			i = end
+		}
+
+		for i < len(sqlText) && isSQLSpace(sqlText[i]) {
+			i++
+		}
+		if !strings.HasPrefix(strings.ToLower(sqlText[i:]), "as") {
+			return ret
+		}
+		i += len("as")
+		for i < len(sqlText) && isSQLSpace(sqlText[i]) {
+			i++
+		}
+		if i >= len(sqlText) || sqlText[i] != '(' {
+			return ret
+		}
+
+		end, ok := consumeBalancedParens(sqlText, i)
+		if !ok {
+			return ret
+		}
+		i = end
+
+		for i < len(sqlText) && isSQLSpace(sqlText[i]) {
+			i++
+		}
+		if i >= len(sqlText) || sqlText[i] != ',' {
+			return ret
+		}
+		i++
+	}
+
+	return ret
+}
+
+func isSQLSpace(b byte) bool {
+	switch b {
+	case ' ', '\t', '\n', '\r', '\f':
+		return true
+	default:
+		return false
+	}
+}
+
+func isSQLIdentifierChar(b byte, first bool) bool {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b == '_' {
+		return true
+	}
+	if !first && b >= '0' && b <= '9' {
+		return true
+	}
+	return false
+}
+
+func consumeBalancedParens(sqlText string, start int) (int, bool) {
+	if start >= len(sqlText) || sqlText[start] != '(' {
+		return start, false
+	}
+	depth := 0
+	for i := start; i < len(sqlText); i++ {
+		switch sqlText[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+	}
+	return len(sqlText), false
 }
 
 func stripSQLLiteralsAndComments(sqlText string) string {
@@ -396,13 +514,11 @@ func newToolDBAuthorizer(allowedObjects map[string]struct{}) func(int, string, s
 		case sqlite3.SQLITE_SELECT:
 			return sqlite3.SQLITE_OK
 		case sqlite3.SQLITE_READ:
-			if len(allowedObjects) == 0 {
-				return sqlite3.SQLITE_OK
-			}
-			if _, ok := allowedObjects[NormalizeObjectName(arg1)]; ok {
-				return sqlite3.SQLITE_OK
-			}
-			return sqlite3.SQLITE_DENY
+			// Object allow-listing happens in validateQuery by inspecting the SQL text.
+			// The go-sqlite3 authorizer callback does not expose SQLite's source object
+			// (for example the view name that triggered a base-table read), so denying
+			// reads here would incorrectly reject queries against allowed views.
+			return sqlite3.SQLITE_OK
 		case sqlite3.SQLITE_INSERT,
 			sqlite3.SQLITE_UPDATE,
 			sqlite3.SQLITE_DELETE,
