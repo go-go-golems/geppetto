@@ -162,3 +162,49 @@ Notes:
 ### Outcome
 
 The package now has a stable type-and-description layer that can be committed independently. The next slice should use this foundation to implement runtime construction, bootstrap loading, owned evaluation, and promise handling.
+
+## 2026-03-16 Slice 2 Checkpoint
+
+### Goal
+
+Implement the actual runtime build and eval path so `scopedjs` is no longer only a design skeleton.
+
+### Main implementation decisions
+
+- `BuildRuntime(...)` now builds directly on `go-go-goja/engine.NewBuilder()` rather than the higher-level Geppetto runtime wrapper.
+- Builder-owned custom modules are converted into `engine.ModuleSpec` adapters.
+- Builder-owned globals are installed via generated runtime initializers.
+- Bootstrap scripts are loaded after runtime construction on the runtime owner thread.
+- `RunEval(...)` executes user code by wrapping it in an async function body, then waiting for returned promises to settle.
+- Promise waiting logic was adapted from `go-go-goja/pkg/repl/evaluators/javascript/evaluator.go`.
+
+### Important API correction
+
+During implementation, `GlobalBinding` had to change shape. The earlier first-slice type accepted `func(context.Context, *gojengine.Runtime) error`, but that was awkward because globals are installed during runtime initialization when the code naturally has a `*gojengine.RuntimeContext`, not a fully wrapped `*gojengine.Runtime`. The type is now aligned with that reality and takes `*gojengine.RuntimeContext`.
+
+### Files added in this slice
+
+- `geppetto/pkg/inference/tools/scopedjs/runtime.go`
+- `geppetto/pkg/inference/tools/scopedjs/eval.go`
+- `geppetto/pkg/inference/tools/scopedjs/runtime_test.go`
+
+### Verification
+
+I verified the runtime slice with:
+
+```bash
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go test ./pkg/inference/tools/scopedjs
+```
+
+Coverage in this checkpoint includes:
+
+- runtime build with native module + global + bootstrap source + bootstrap file,
+- eval returning structured objects,
+- console capture,
+- async promise fulfillment,
+- promise rejection surfaced in `EvalOutput.Error`,
+- timeout surfaced in `EvalOutput.Error`.
+
+### Outcome
+
+`scopedjs` now has a working runtime/eval core. The next slice should wire this into the Geppetto tool registry with `RegisterPrebuilt(...)` and `NewLazyRegistrar(...)`, then add provider-schema tests and app-facing examples.

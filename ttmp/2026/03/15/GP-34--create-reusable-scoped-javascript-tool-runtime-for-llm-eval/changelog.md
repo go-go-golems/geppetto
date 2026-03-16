@@ -14,3 +14,4 @@
 - Documented the recommended package API, lifecycle modes, description-building strategy, execution flow, implementation phases, test matrix, and open questions.
 - Uploaded the ticket bundle to reMarkable as `GP-34 scoped javascript eval tools guide` under `/ai/2026/03/16/GP-34`.
 - Implemented the initial `pkg/inference/tools/scopedjs` package skeleton with core types, builder/manifest collection, description rendering, and focused unit tests.
+- Implemented runtime construction and eval execution for `scopedjs`, including engine module-spec conversion, global bindings as runtime initializers, bootstrap loading, promise settlement, console capture, and targeted runtime tests.

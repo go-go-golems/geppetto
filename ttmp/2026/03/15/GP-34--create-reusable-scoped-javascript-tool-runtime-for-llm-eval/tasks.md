@@ -22,14 +22,14 @@
 
 ### Slice 2: runtime construction and eval execution
 
-- [ ] Implement runtime build path on top of `go-go-goja/engine`.
-- [ ] Convert builder module entries into engine module specs.
-- [ ] Convert builder global bindings into runtime initializers.
-- [ ] Implement bootstrap source/file loading on the runtime owner thread.
-- [ ] Implement `EvalInput` and `EvalOutput`.
-- [ ] Reuse or adapt owned-runtime promise-settling logic from the go-go-goja JavaScript evaluator.
-- [ ] Implement console capture and output truncation behavior.
-- [ ] Add unit tests for runtime creation, bootstrap loading, promise fulfillment/rejection, and timeout handling.
+- [x] Implement runtime build path on top of `go-go-goja/engine`.
+- [x] Convert builder module entries into engine module specs.
+- [x] Convert builder global bindings into runtime initializers.
+- [x] Implement bootstrap source/file loading on the runtime owner thread.
+- [x] Implement `EvalInput` and `EvalOutput`.
+- [x] Reuse or adapt owned-runtime promise-settling logic from the go-go-goja JavaScript evaluator.
+- [x] Implement console capture and output truncation behavior.
+- [x] Add unit tests for runtime creation, bootstrap loading, promise fulfillment/rejection, and timeout handling.
 
 ### Slice 3: tool registration and integration
 

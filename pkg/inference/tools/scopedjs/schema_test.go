@@ -71,7 +71,7 @@ func TestBuilderValidationAndManifest(t *testing.T) {
 	if err := b.AddNativeModule(testNativeModule{}); err != nil {
 		t.Fatalf("AddNativeModule failed: %v", err)
 	}
-	if err := b.AddGlobal("db", func(context.Context, *gojengine.Runtime) error { return nil }, GlobalDoc{
+	if err := b.AddGlobal("db", func(*gojengine.RuntimeContext) error { return nil }, GlobalDoc{
 		Type:        "DatabaseClient",
 		Description: "Scoped DB handle",
 	}); err != nil {

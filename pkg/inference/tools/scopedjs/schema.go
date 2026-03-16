@@ -106,7 +106,7 @@ type EnvironmentManifest struct {
 
 type ModuleRegistrar func(*require.Registry) error
 
-type GlobalBinding func(ctx context.Context, rt *gojengine.Runtime) error
+type GlobalBinding func(ctx *gojengine.RuntimeContext) error
 
 type moduleEntry struct {
 	name     string
