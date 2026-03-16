@@ -15,3 +15,4 @@
 - Uploaded the ticket bundle to reMarkable as `GP-34 scoped javascript eval tools guide` under `/ai/2026/03/16/GP-34`.
 - Implemented the initial `pkg/inference/tools/scopedjs` package skeleton with core types, builder/manifest collection, description rendering, and focused unit tests.
 - Implemented runtime construction and eval execution for `scopedjs`, including engine module-spec conversion, global bindings as runtime initializers, bootstrap loading, promise settlement, console capture, and targeted runtime tests.
+- Implemented `RegisterPrebuilt(...)` and `NewLazyRegistrar(...)`, added registration tests for provider-facing eval schema and lazy fresh-runtime behavior, and committed the first two code checkpoints (`6221675`, `e4253c5`).

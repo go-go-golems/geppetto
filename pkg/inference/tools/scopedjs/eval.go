@@ -232,6 +232,30 @@ func applyEvalDefaults(opts EvalOptions) EvalOptions {
 	return opts
 }
 
+func resolveEvalOptions(base EvalOptions, override EvalOptions) EvalOptions {
+	if base == (EvalOptions{}) {
+		base = DefaultEvalOptions()
+	} else {
+		base = applyEvalDefaults(base)
+	}
+	if override == (EvalOptions{}) {
+		return base
+	}
+	if override.Timeout > 0 {
+		base.Timeout = override.Timeout
+	}
+	if override.MaxOutputChars > 0 {
+		base.MaxOutputChars = override.MaxOutputChars
+	}
+	if override.StateMode != "" {
+		base.StateMode = override.StateMode
+	}
+	if override.CaptureConsole {
+		base.CaptureConsole = true
+	}
+	return base
+}
+
 type consoleCapture struct {
 	mu       sync.Mutex
 	lines    []ConsoleLine
