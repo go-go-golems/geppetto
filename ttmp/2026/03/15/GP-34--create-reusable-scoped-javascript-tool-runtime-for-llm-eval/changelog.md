@@ -16,3 +16,5 @@
 - Implemented the initial `pkg/inference/tools/scopedjs` package skeleton with core types, builder/manifest collection, description rendering, and focused unit tests.
 - Implemented runtime construction and eval execution for `scopedjs`, including engine module-spec conversion, global bindings as runtime initializers, bootstrap loading, promise settlement, console capture, and targeted runtime tests.
 - Implemented `RegisterPrebuilt(...)` and `NewLazyRegistrar(...)`, added registration tests for provider-facing eval schema and lazy fresh-runtime behavior, and committed the first two code checkpoints (`6221675`, `e4253c5`).
+- Added runnable adoption examples for both the minimal `fs + workspaceRoot` case and the motivating composed `db + webserver + obsidian + fs` runtime shape.
+- Added a new playbook at `pkg/doc/playbooks/09-adopt-scopedjs-eval-tools.md` describing how applications should define, build, and register `scopedjs` environments.

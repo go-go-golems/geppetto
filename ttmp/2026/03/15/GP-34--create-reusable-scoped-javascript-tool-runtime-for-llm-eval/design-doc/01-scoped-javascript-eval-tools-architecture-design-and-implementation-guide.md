@@ -89,6 +89,11 @@ WhenToUse: Use when implementing GP-34, reviewing the design, or onboarding to t
 
 This ticket proposes a new reusable Geppetto package for exposing a prepared goja runtime as one LLM-facing tool such as `eval_dbserver`. The immediate precedent is the reusable scoped database package in `geppetto/pkg/inference/tools/scopeddb`, which extracted a repeated application pattern into a shared package while keeping the application-owned data-loading logic local to the application. GP-34 should do the same for JavaScript runtime tools.
 
+As of the 2026-03-16 implementation checkpoints, the package has landed at `geppetto/pkg/inference/tools/scopedjs`. The public package name is `scopedjs`, and the runnable adoption examples live under:
+
+- `geppetto/cmd/examples/scopedjs-tool`
+- `geppetto/cmd/examples/scopedjs-dbserver`
+
 Today the lower-level building blocks already exist:
 
 - Geppetto already knows how to define and register tools through `ToolDefinition`, `ToolRegistry`, and `tools.NewToolFromFunc`.

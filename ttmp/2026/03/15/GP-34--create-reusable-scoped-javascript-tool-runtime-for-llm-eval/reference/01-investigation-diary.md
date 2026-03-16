@@ -249,3 +249,50 @@ The registration tests cover:
 - `e4253c5` — `feat(scopedjs): add runtime build and eval execution`
 
 Both commits required `--no-verify` because the repo's pre-commit hook currently trips over an unrelated workspace-level `go.work` version mismatch with sibling modules (`pinocchio` and `jesus` requiring `go 1.26.1` while the workspace still declares `1.26`).
+
+## 2026-03-16 Slice 4 Checkpoint
+
+### Goal
+
+Finish the adoption material so GP-34 is not just an implementation package but also leaves behind runnable examples and app-facing onboarding documentation.
+
+### Files added in this slice
+
+- `geppetto/cmd/examples/scopedjs-tool/main.go`
+- `geppetto/cmd/examples/scopedjs-dbserver/main.go`
+- `geppetto/pkg/doc/playbooks/09-adopt-scopedjs-eval-tools.md`
+
+### What was added
+
+- A small runnable example showing the simplest useful environment:
+  - `fs`,
+  - a scoped `workspaceRoot` global,
+  - one bootstrap helper,
+  - and registration through `RegisterPrebuilt(...)`.
+- A second runnable example showing the motivating composition shape with fake/test-double modules:
+  - `fs`,
+  - `webserver`,
+  - `obsidian`,
+  - a scoped `db` global,
+  - and one composed eval call that writes a preview file, creates note metadata, and registers a route.
+- A playbook in `pkg/doc/playbooks` showing how an application should:
+  - define `EnvironmentSpec`,
+  - add modules/globals/bootstrap code,
+  - choose prebuilt vs lazy registration,
+  - and scale from the minimal example to the `eval_dbserver` shape.
+
+### Verification
+
+I verified the final slice with:
+
+```bash
+gofmt -w cmd/examples/scopedjs-tool/main.go cmd/examples/scopedjs-dbserver/main.go
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go build ./cmd/examples/scopedjs-tool
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go build ./cmd/examples/scopedjs-dbserver
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go test ./pkg/inference/tools/scopedjs
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go run ./cmd/examples/scopedjs-tool
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go run ./cmd/examples/scopedjs-dbserver
+docmgr doctor --root ttmp --ticket GP-34 --stale-after 30
+```
+
+Both example binaries ran successfully and returned structured `scopedjs.EvalOutput` results through the normal Geppetto tool execution path.

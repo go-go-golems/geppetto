@@ -37,13 +37,13 @@
 - [x] Implement `NewLazyRegistrar`.
 - [x] Add tests proving provider-safe JSON schema generation for eval input.
 - [x] Add tests proving lazy scope resolution and cleanup behavior.
-- [ ] Decide and document the package location and public naming in the design doc if implementation deviates.
+- [x] Decide and document the package location and public naming in the design doc if implementation deviates.
 
 ### Slice 4: examples, docs, and finish
 
-- [ ] Add an example covering `fs` plus a simple scoped global.
-- [ ] Add an example for the motivating `db + webserver + obsidian + fs` composition shape, even if some pieces are fake/test doubles.
-- [ ] Add a playbook or topic doc showing how an app should adopt `scopedjs`.
+- [x] Add an example covering `fs` plus a simple scoped global.
+- [x] Add an example for the motivating `db + webserver + obsidian + fs` composition shape, even if some pieces are fake/test doubles.
+- [x] Add a playbook or topic doc showing how an app should adopt `scopedjs`.
 - [x] Update the GP-34 changelog and diary with implementation checkpoints and exact commands.
 - [x] Run targeted tests for the new package and any affected JS runtime packages.
 - [x] Commit the work in small logical checkpoints.
