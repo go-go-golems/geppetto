@@ -21,5 +21,6 @@
 - Reduced the Geppetto JS profile namespace to a read-only surface while keeping stack-connect helpers available.
 - Validated the Geppetto slice with focused package tests, `make lint`, and full `go test ./...`.
 - Updated Pinocchio and committed `6f28f1d` (`make webchat profile APIs read-only`), reducing the shared webchat profile API to list/get/current-profile routes only, deleting request-override handling from the request resolver path, and removing writable/profile-policy tests.
+- Added a small Pinocchio follow-up commit `ec06d8d` (`clean up read-only profile api lint fallout`) after `make lintmax` surfaced dead helpers and formatting drift left behind by the large profile API deletion.
 - Updated GEC-RAG and committed `3115931` (`remove request overrides from coinvault webchat`), deleting request-override plumbing from CoinVault request resolution, runner payloads, and test doubles.
 - Confirmed focused downstream validation with `go test ./pkg/webchat/... ./cmd/web-chat/...` in Pinocchio and `go test ./internal/webchat/...` in GEC-RAG.

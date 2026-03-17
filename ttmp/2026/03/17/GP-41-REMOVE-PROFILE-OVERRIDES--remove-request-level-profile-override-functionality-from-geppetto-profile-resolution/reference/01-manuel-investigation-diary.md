@@ -682,6 +682,7 @@ I treated this as one conceptual slice even though it resulted in two commits, b
 **Commits (code):**
 
 - `6f28f1d` — `make webchat profile APIs read-only` (Pinocchio)
+- `ec06d8d` — `clean up read-only profile api lint fallout` (Pinocchio)
 - `3115931` — `remove request overrides from coinvault webchat` (GEC-RAG)
 
 ### What I did
@@ -716,6 +717,7 @@ I treated this as one conceptual slice even though it resulted in two commits, b
 - Focused downstream tests were enough to drive the cleanup:
   - `go test ./pkg/webchat/... ./cmd/web-chat/...` in Pinocchio
   - `go test ./internal/webchat/...` in GEC-RAG
+- A follow-up `make lintmax` run in Pinocchio was useful after the first commit because it caught dead read-only-profile helper functions that were no longer referenced once the CRUD tests disappeared.
 - The frontend-facing reusable widget contract also became clearer after dropping `buildOverrides`; the submit payload is now just the stable chat fields again.
 
 ### What didn't work
@@ -752,6 +754,7 @@ cd 2026-03-16--gec-rag && go test ./internal/webchat/...
 
 ```bash
 go test ./pkg/webchat/... ./cmd/web-chat/...
+make lintmax
 ```
 
 - GEC-RAG:
