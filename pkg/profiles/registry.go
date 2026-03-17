@@ -38,7 +38,6 @@ type ResolveInput struct {
 	RuntimeKeyFallback RuntimeKey
 
 	BaseStepSettings *settings.StepSettings
-	RequestOverrides map[string]any
 }
 
 // ResolvedProfile is the canonical result of profile resolution.

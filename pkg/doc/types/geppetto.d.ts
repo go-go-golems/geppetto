@@ -132,7 +132,6 @@ declare module "geppetto" {
 
     export interface ProfileEngineOptions {
         runtimeKey?: string;
-        requestOverrides?: Record<string, any>;
     }
 
     export interface RegistrySummary {
@@ -240,7 +239,6 @@ declare module "geppetto" {
         profileSlug?: string;
         runtimeKeyFallback?: string;
         runtimeKey?: string;
-        requestOverrides?: Record<string, any>;
     }
 
     export interface ResolvedProfile {

@@ -12,13 +12,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 )
 
-const (
-	overrideKeySystemPrompt      = "system_prompt"
-	overrideKeyMiddlewares       = "middlewares"
-	overrideKeyTools             = "tools"
-	overrideKeyStepSettingsPatch = "step_settings_patch"
-)
-
 var _ Registry = (*StoreRegistry)(nil)
 
 // StoreRegistry is the default Registry implementation backed by a ProfileStore.
@@ -152,7 +145,7 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		return nil, err
 	}
 
-	effectiveRuntime, err := resolveRuntimeSpec(stackMerge.Runtime, stackMerge.Policy, in.RequestOverrides)
+	effectiveRuntime, err := resolveRuntimeSpec(stackMerge.Runtime)
 	if err != nil {
 		return nil, err
 	}
@@ -342,107 +335,8 @@ func resolveProfileSlugInput(slug ProfileSlug) (ProfileSlug, error) {
 	return parsed, nil
 }
 
-func resolveRuntimeSpec(base RuntimeSpec, policy PolicySpec, requestOverrides map[string]any) (RuntimeSpec, error) {
-	ret := cloneRuntimeSpec(base)
-	if len(requestOverrides) == 0 {
-		return ret, nil
-	}
-
-	normalized, err := normalizeOverrideMap(requestOverrides)
-	if err != nil {
-		return RuntimeSpec{}, err
-	}
-	if err := enforceOverridePolicy(policy, normalized); err != nil {
-		return RuntimeSpec{}, err
-	}
-
-	for key, value := range normalized {
-		switch key {
-		case overrideKeySystemPrompt:
-			s, ok := value.(string)
-			if !ok {
-				return RuntimeSpec{}, &ValidationError{Field: "request_overrides.system_prompt", Reason: "must be a string"}
-			}
-			ret.SystemPrompt = s
-		case overrideKeyMiddlewares:
-			mws, err := parseMiddlewareOverrideValue(value)
-			if err != nil {
-				return RuntimeSpec{}, err
-			}
-			ret.Middlewares = mws
-		case overrideKeyTools:
-			tools, err := parseToolOverrideValue(value)
-			if err != nil {
-				return RuntimeSpec{}, err
-			}
-			ret.Tools = tools
-		case overrideKeyStepSettingsPatch:
-			overlayPatch, err := parseStepSettingsPatchOverrideValue(value)
-			if err != nil {
-				return RuntimeSpec{}, err
-			}
-			merged, err := MergeRuntimeStepSettingsPatches(ret.StepSettingsPatch, overlayPatch)
-			if err != nil {
-				return RuntimeSpec{}, err
-			}
-			ret.StepSettingsPatch = merged
-		default:
-			return RuntimeSpec{}, &ValidationError{Field: fmt.Sprintf("request_overrides.%s", key), Reason: "unsupported override key"}
-		}
-	}
-
-	return ret, nil
-}
-
-func normalizeOverrideMap(overrides map[string]any) (map[string]any, error) {
-	if len(overrides) == 0 {
-		return nil, nil
-	}
-	out := map[string]any{}
-	for rawKey, value := range overrides {
-		key := canonicalOverrideKey(rawKey)
-		if key == "" {
-			return nil, &ValidationError{Field: "request_overrides", Reason: "override keys must not be empty"}
-		}
-		if _, exists := out[key]; exists {
-			return nil, &ValidationError{
-				Field:  fmt.Sprintf("request_overrides.%s", key),
-				Reason: "duplicate override key after canonicalization",
-			}
-		}
-		out[key] = value
-	}
-	return out, nil
-}
-
-func enforceOverridePolicy(policy PolicySpec, overrides map[string]any) error {
-	if len(overrides) == 0 {
-		return nil
-	}
-	if !policy.AllowOverrides {
-		return &PolicyViolationError{Reason: "request overrides are disabled for this profile"}
-	}
-
-	allowed := map[string]struct{}{}
-	for _, key := range policy.AllowedOverrideKeys {
-		allowed[canonicalOverrideKey(key)] = struct{}{}
-	}
-	denied := map[string]struct{}{}
-	for _, key := range policy.DeniedOverrideKeys {
-		denied[canonicalOverrideKey(key)] = struct{}{}
-	}
-
-	for key := range overrides {
-		if _, deniedKey := denied[key]; deniedKey {
-			return &PolicyViolationError{Reason: fmt.Sprintf("override key %q is denied", key)}
-		}
-		if len(allowed) > 0 {
-			if _, allowedKey := allowed[key]; !allowedKey {
-				return &PolicyViolationError{Reason: fmt.Sprintf("override key %q is not allowed", key)}
-			}
-		}
-	}
-	return nil
+func resolveRuntimeSpec(base RuntimeSpec) (RuntimeSpec, error) {
+	return cloneRuntimeSpec(base), nil
 }
 
 func canonicalOverrideKey(raw string) string {
@@ -468,120 +362,6 @@ func camelToSnake(s string) string {
 		out = append(out, r)
 	}
 	return string(out)
-}
-
-func parseMiddlewareOverrideValue(v any) ([]MiddlewareUse, error) {
-	switch typed := v.(type) {
-	case []MiddlewareUse:
-		ret := make([]MiddlewareUse, 0, len(typed))
-		for i := range typed {
-			name := strings.TrimSpace(typed[i].Name)
-			if name == "" {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].name", i), Reason: "must not be empty"}
-			}
-			id := strings.TrimSpace(typed[i].ID)
-			if typed[i].ID != "" && id == "" {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].id", i), Reason: "must not be empty"}
-			}
-			ret = append(ret, MiddlewareUse{
-				Name:    name,
-				ID:      id,
-				Enabled: cloneBoolPtr(typed[i].Enabled),
-				Config:  deepCopyAny(typed[i].Config),
-			})
-		}
-		if err := validateMiddlewareUses(ret, "request_overrides.middlewares"); err != nil {
-			return nil, err
-		}
-		return ret, nil
-	case []any:
-		ret := make([]MiddlewareUse, 0, len(typed))
-		for i, raw := range typed {
-			obj, ok := toStringAnyMap(raw)
-			if !ok {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d]", i), Reason: "must be an object"}
-			}
-			name, _ := obj["name"].(string)
-			name = strings.TrimSpace(name)
-			if name == "" {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].name", i), Reason: "must not be empty"}
-			}
-			id, _ := obj["id"].(string)
-			id = strings.TrimSpace(id)
-			if obj["id"] != nil && id == "" {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].id", i), Reason: "must not be empty"}
-			}
-
-			var enabled *bool
-			if rawEnabled, exists := obj["enabled"]; exists && rawEnabled != nil {
-				typedEnabled, ok := rawEnabled.(bool)
-				if !ok {
-					return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.middlewares[%d].enabled", i), Reason: "must be a boolean"}
-				}
-				enabled = &typedEnabled
-			}
-
-			ret = append(ret, MiddlewareUse{
-				Name:    name,
-				ID:      id,
-				Enabled: enabled,
-				Config:  deepCopyAny(obj["config"]),
-			})
-		}
-		if err := validateMiddlewareUses(ret, "request_overrides.middlewares"); err != nil {
-			return nil, err
-		}
-		return ret, nil
-	default:
-		return nil, &ValidationError{Field: "request_overrides.middlewares", Reason: "must be an array"}
-	}
-}
-
-func parseToolOverrideValue(v any) ([]string, error) {
-	switch typed := v.(type) {
-	case []string:
-		ret := make([]string, 0, len(typed))
-		for i, tool := range typed {
-			normalized := strings.TrimSpace(tool)
-			if normalized == "" {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.tools[%d]", i), Reason: "must not be empty"}
-			}
-			ret = append(ret, normalized)
-		}
-		return ret, nil
-	case []any:
-		ret := make([]string, 0, len(typed))
-		for i, raw := range typed {
-			tool, ok := raw.(string)
-			if !ok {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.tools[%d]", i), Reason: "must be a string"}
-			}
-			normalized := strings.TrimSpace(tool)
-			if normalized == "" {
-				return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.tools[%d]", i), Reason: "must not be empty"}
-			}
-			ret = append(ret, normalized)
-		}
-		return ret, nil
-	default:
-		return nil, &ValidationError{Field: "request_overrides.tools", Reason: "must be an array"}
-	}
-}
-
-func parseStepSettingsPatchOverrideValue(v any) (map[string]any, error) {
-	obj, ok := toStringAnyMap(v)
-	if !ok {
-		return nil, &ValidationError{Field: "request_overrides.step_settings_patch", Reason: "must be an object"}
-	}
-	out := map[string]any{}
-	for sectionSlug, rawSection := range obj {
-		sectionMap, ok := toStringAnyMap(rawSection)
-		if !ok {
-			return nil, &ValidationError{Field: fmt.Sprintf("request_overrides.step_settings_patch.%s", sectionSlug), Reason: "must be an object"}
-		}
-		out[sectionSlug] = deepCopyStringAnyMap(sectionMap)
-	}
-	return out, nil
 }
 
 func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec, stepSettings *settings.StepSettings) string {
