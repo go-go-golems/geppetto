@@ -807,3 +807,65 @@ cd 2026-03-16--gec-rag && go test ./internal/webchat/...
 cd pinocchio && LEFTHOOK=0 git commit -m "make webchat profile APIs read-only"
 cd 2026-03-16--gec-rag && git commit -m "remove request overrides from coinvault webchat"
 ```
+
+## Step: Remove remaining resolved-profile compatibility seams from Geppetto JS
+
+### What I changed
+
+- Removed compatibility-only handling from the Geppetto JS profile API:
+  - `profiles.resolve(...)` now reads only the canonical `runtimeKeyFallback` input for resolved-profile runtime-key injection.
+  - Deleted the explicit runtime errors that only existed to shout about removed `requestOverrides` on `profiles.resolve(...)` and `engines.fromProfile(...)`.
+- Updated the generated and templated TypeScript declarations so `ResolveInput` no longer advertises the old `runtimeKey` alias.
+- Rewrote the stale JS example scripts:
+  - `12_profiles_request_overrides_policy.js` became `12_profiles_resolve_runtime_key.js`
+  - `15_profiles_crud_sqlite.js` became `15_profiles_sqlite_inventory.js`
+- Updated the checked-in JS docs so they stop describing:
+  - `requestOverrides` on `engines.fromProfile(...)`
+  - JS profile CRUD methods on `gp.profiles`
+
+### Why
+
+- After the GP-41 hard cut, keeping explicit “removed option” logic in the resolved-profile JS path was just a compatibility seam with no product value.
+- The checked-in example suite had become misleading: it still taught override and CRUD flows that the live JS module no longer supported.
+- The JS TypeScript surface should match the canonical resolve contract, not preserve aliasing indefinitely.
+
+### What worked
+
+- The Go module test coverage around `pkg/js/modules/geppetto` was enough to validate the alias removal.
+- The rewritten example scripts validated cleanly against local fixtures:
+  - stacked YAML runtime resolution
+  - seeded sqlite registry inventory
+
+### What didn't work
+
+- My first rewrite of `12_profiles_resolve_runtime_key.js` assumed the stacked `assistant` profile resolved to the team prompt, but the actual top-of-stack result is the user-override prompt from `30-user-overrides.yaml`.
+
+The failing run looked like this:
+
+```text
+js execution failed (examples/js/geppetto/12_profiles_resolve_runtime_key.js): Error: resolve should return the profile runtime at assert (<eval>:4:11(12))
+```
+
+### How I fixed it
+
+- Re-read the stacked YAML fixtures under `examples/js/geppetto/profiles/` and corrected the expected prompt to `User override assistant profile.`.
+
+### Validation
+
+```bash
+cd geppetto && go test ./pkg/js/modules/geppetto -count=1
+cd geppetto && go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/12_profiles_resolve_runtime_key.js --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml
+cd geppetto && tmpdir=$(mktemp -d) && db="$tmpdir/workspace.db" && go run ./cmd/examples/geppetto-js-lab --seed-profile-sqlite "$db" && go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/15_profiles_sqlite_inventory.js --profile-registries "$db" && rm -rf "$tmpdir"
+```
+
+All three passed after the fixture expectation fix.
+
+### What I learned
+
+- The easiest way to keep a hard cut honest is to remove the compatibility error branches too; otherwise the codebase still carries old API knowledge around indefinitely.
+- The JS example suite is a useful backstop for these profile-surface changes because it catches fixture assumptions quickly.
+
+### What should be done next
+
+- Finish the remaining Slice 5 doc cleanup in Pinocchio and the remaining Geppetto playbooks that still mention request overrides or writable registries.
+- Re-run `docmgr doctor` and refresh the GP-41 reMarkable bundle once the broader doc sweep is complete.

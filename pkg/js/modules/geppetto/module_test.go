@@ -824,6 +824,14 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 			throw new Error("resolve effectiveRuntime payload missing");
 		}
 
+		const ignoredLegacyAlias = gp.profiles.resolve({
+			profileSlug: "explicit-model",
+			runtimeKey: "legacy-alias-should-not-apply",
+		});
+		if (ignoredLegacyAlias.runtimeKey !== "explicit-model") {
+			throw new Error("legacy runtimeKey alias should no longer affect resolve()");
+		}
+
 	`)
 }
 

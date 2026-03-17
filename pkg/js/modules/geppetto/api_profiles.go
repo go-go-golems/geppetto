@@ -159,16 +159,13 @@ func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
 			}
 			in.ProfileSlug = profileSlug
 		}
-		runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKeyFallback"], strings.TrimSpace(toString(opts["runtimeKey"], ""))))
+		runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKeyFallback"], ""))
 		if runtimeKeyRaw != "" {
 			runtimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
 			if err != nil {
 				panic(m.vm.NewGoError(err))
 			}
 			in.RuntimeKeyFallback = runtimeKey
-		}
-		if rawOverrides, ok := opts["requestOverrides"]; ok && rawOverrides != nil {
-			panic(m.vm.NewTypeError("profiles.resolve requestOverrides has been removed"))
 		}
 	}
 

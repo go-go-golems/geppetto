@@ -155,20 +155,11 @@ Example:
 const gp = require("geppetto");
 
 const engine = gp.engines.fromProfile("assistant", {
-  runtimeKey: "chat",
-  requestOverrides: {
-    system_prompt: "Answer tersely."
-  }
+  runtimeKey: "chat"
 });
 
 assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile runtime fingerprint");
 ```
-
-`requestOverrides` are still policy-gated by merged profile policy:
-
-- disabled when `allow_overrides` is false,
-- denied for keys listed in `denied_override_keys`,
-- restricted to listed keys when `allowed_override_keys` is set.
 
 Note: runtime `registrySlug` selection in `engines.fromProfile(...)` is removed. Registry resolution comes from the loaded registry stack.
 
@@ -196,7 +187,7 @@ gp.profiles.disconnectStack();
 
 ## Working Directly with `gp.profiles`
 
-Use `gp.profiles` when you need registry inspection or CRUD from JS:
+Use `gp.profiles` when you need registry inspection or resolution from JS:
 
 ```javascript
 const gp = require("geppetto");
@@ -207,8 +198,6 @@ const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
 console.log(registries.map((r) => r.slug));
 console.log(resolved.runtimeFingerprint);
 ```
-
-For mutations, host wiring must provide writable registry support.
 
 ## Working with `gp.schemas`
 

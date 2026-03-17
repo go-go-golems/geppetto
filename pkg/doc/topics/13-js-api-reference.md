@@ -130,9 +130,8 @@ Behavior:
 
 1. `profile` argument selects `ProfileSlug` (optional; falls back to registry default profile).
 2. `opts.runtimeKey` sets runtime-key fallback for profile resolution.
-3. `opts.requestOverrides` applies request-time runtime overrides (policy-gated).
-4. Host must configure `Options.ProfileRegistry`; otherwise `fromProfile` throws.
-5. Runtime registry selection via `opts.registrySlug` is removed; registry choice is resolved by loaded registry stack.
+3. Host must configure `Options.ProfileRegistry`; otherwise `fromProfile` throws.
+4. Runtime registry selection via `opts.registrySlug` is removed; registry choice is resolved by loaded registry stack.
 
 Legacy model/env precedence is removed from `fromProfile`.
 
@@ -141,7 +140,6 @@ Legacy model/env precedence is removed from `fromProfile`.
 | Option | Type | Description |
 |---|---|---|
 | `runtimeKey` | string | runtime-key fallback |
-| `requestOverrides` | object | request-time runtime overrides (policy-gated) |
 
 If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
 
@@ -179,19 +177,9 @@ Pass keys explicitly via `opts.apiKey` or resolve through `fromProfile` with key
 | `listProfiles` | `listProfiles(registrySlug?)` | List profiles in one registry |
 | `getProfile` | `getProfile(profileSlug, registrySlug?)` | Fetch one profile |
 | `resolve` | `resolve(input?)` | Resolve effective profile/runtime metadata |
-| `createProfile` | `createProfile(profile, opts?)` | Create profile (requires writable registry) |
-| `updateProfile` | `updateProfile(profileSlug, patch, opts?)` | Patch profile (requires writable registry) |
-| `deleteProfile` | `deleteProfile(profileSlug, opts?)` | Delete profile (requires writable registry) |
-| `setDefaultProfile` | `setDefaultProfile(profileSlug, opts?)` | Set registry default profile (requires writable registry) |
 | `connectStack` | `connectStack(sources)` | Load/attach runtime registry stack from source list (`string` or `string[]`) |
 | `disconnectStack` | `disconnectStack()` | Detach runtime-connected stack and restore host baseline registry wiring |
 | `getConnectedSources` | `getConnectedSources()` | Inspect currently connected runtime stack source entries |
-
-Mutation options shape:
-
-- `opts.registrySlug` (optional target registry)
-- `opts.write.expectedVersion` (optional optimistic lock)
-- `opts.write.actor`, `opts.write.source` (optional provenance)
 
 `connectStack(sources)` return payload:
 

@@ -36,13 +36,13 @@ run_script "examples/js/geppetto/08_profiles_registry_inventory.js" --profile-re
 run_script "examples/js/geppetto/09_profiles_resolve_stack_precedence.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/10_engines_from_profile_metadata.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/11_profiles_resolve_explicit_registry.js" --profile-registries "${STACK_REGISTRIES}"
-run_script "examples/js/geppetto/12_profiles_request_overrides_policy.js" --profile-registries "${STACK_REGISTRIES}"
+run_script "examples/js/geppetto/12_profiles_resolve_runtime_key.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/13_schemas_middlewares_catalog.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/14_schemas_extensions_catalog.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/17_from_profile_legacy_registry_option_error.js" --profile-registries "${STACK_REGISTRIES}"
 
-echo "==> Running profile CRUD script against sqlite registry"
-run_script "examples/js/geppetto/15_profiles_crud_sqlite.js" --profile-registries "${SQLITE_PATH}"
+echo "==> Running sqlite registry inventory script"
+run_script "examples/js/geppetto/15_profiles_sqlite_inventory.js" --profile-registries "${SQLITE_PATH}"
 
 echo "==> Running mixed stack precedence script (YAML + sqlite)"
 run_script "examples/js/geppetto/16_mixed_registry_precedence.js" --profile-registries "${STACK_REGISTRIES},${SQLITE_PATH}"

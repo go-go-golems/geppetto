@@ -210,7 +210,6 @@ declare module "geppetto" {
         registrySlug?: string;
         profileSlug?: string;
         runtimeKeyFallback?: string;
-        runtimeKey?: string;
     }
 
     export interface ResolvedProfile {

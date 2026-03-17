@@ -24,3 +24,5 @@
 - Added a small Pinocchio follow-up commit `ec06d8d` (`clean up read-only profile api lint fallout`) after `make lintmax` surfaced dead helpers and formatting drift left behind by the large profile API deletion.
 - Updated GEC-RAG and committed `3115931` (`remove request overrides from coinvault webchat`), deleting request-override plumbing from CoinVault request resolution, runner payloads, and test doubles.
 - Confirmed focused downstream validation with `go test ./pkg/webchat/... ./cmd/web-chat/...` in Pinocchio and `go test ./internal/webchat/...` in GEC-RAG.
+- Removed the remaining Geppetto JS resolved-profile compatibility seams by dropping the `profiles.resolve` `runtimeKey` alias, deleting the explicit `requestOverrides has been removed` checks in profile-backed JS calls, and updating module coverage to lock the hard-cut behavior.
+- Replaced stale Geppetto JS example scripts that still exercised request overrides or profile CRUD with read-only runtime-key and sqlite-inventory examples, and updated the checked-in JS reference docs to stop advertising removed profile mutation/override behavior.
