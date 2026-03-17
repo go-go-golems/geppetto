@@ -176,6 +176,121 @@ func createEngine(parsedValues *values.Values) (engine.Engine, error) {
 }
 ```
 
+### Programmatic Engine Creation (without CLI)
+
+If you are building a library, a test harness, or an embedded tool and do not want the full CLI framework (clay, glazed, cobra), use `factory.NewEngineFromStepSettings` with a manually constructed `StepSettings`:
+
+```go
+import (
+    "context"
+    "os"
+
+    "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+    "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+    "github.com/go-go-golems/geppetto/pkg/turns"
+)
+
+func programmaticInference(ctx context.Context, prompt string) error {
+    apiType := types.ApiTypeOpenAI
+    model := "gpt-4o-mini"
+    temp := 0.7
+
+    stepSettings, err := settings.NewStepSettings()
+    if err != nil {
+        return err
+    }
+
+    stepSettings.Chat.ApiType = &apiType
+    stepSettings.Chat.Engine = &model
+    stepSettings.Chat.Temperature = &temp
+    stepSettings.Chat.APIKeys = map[string]string{
+        "openai-api-key": os.Getenv("OPENAI_API_KEY"),
+    }
+
+    eng, err := factory.NewEngineFromStepSettings(stepSettings)
+    if err != nil {
+        return err
+    }
+
+    seed := &turns.Turn{}
+    turns.AppendBlock(seed, turns.NewSystemTextBlock("You are a helpful assistant."))
+    turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
+
+    result, err := eng.RunInference(ctx, seed)
+    if err != nil {
+        return err
+    }
+
+    for _, block := range result.Blocks {
+        if block.Kind == turns.BlockKindLLMText {
+            if text, ok := block.Payload[turns.PayloadKeyText].(string); ok {
+                fmt.Println(text)
+            }
+        }
+    }
+    return nil
+}
+```
+
+#### `StepSettings` Reference
+
+`StepSettings` is the central configuration object. It carries all provider-specific settings:
+
+```go
+type StepSettings struct {
+    API        *APISettings              // API keys and base URLs for all providers
+    Chat       *ChatSettings             // Provider type, model, temperature, top-p, stop sequences
+    OpenAI     *openai.Settings          // OpenAI-specific: frequency/presence penalty, logit bias, reasoning
+    Client     *ClientSettings           // HTTP client: timeout, user agent
+    Claude     *claude.Settings          // Claude-specific: top-k, user ID
+    Gemini     *gemini.Settings          // Gemini-specific settings
+    Ollama     *ollama.Settings          // Ollama-specific settings
+    Embeddings *config.EmbeddingsConfig  // Embeddings provider config
+    Inference  *engine.InferenceConfig   // Per-turn overrides: thinking budget, reasoning effort
+}
+```
+
+The most important fields for basic usage:
+
+- `Chat.ApiType` — which provider to use: `"openai"`, `"openai-responses"`, `"claude"`, `"gemini"` (see `types.ApiType*` constants)
+- `Chat.Engine` — the model name, e.g. `"gpt-4o-mini"`, `"claude-sonnet-4-20250514"`, `"gemini-pro"`
+- `Chat.Temperature` — sampling temperature
+- `Chat.APIKeys` — map of API keys, keyed by provider prefix: `"openai-api-key"`, `"claude-api-key"`, `"gemini-api-key"`
+
+You can also load settings from YAML:
+
+```go
+f, _ := os.Open("settings.yaml")
+stepSettings, err := settings.NewStepSettingsFromYAML(f)
+```
+
+#### Provider Examples
+
+Claude:
+
+```go
+apiType := types.ApiTypeClaude
+model := "claude-sonnet-4-20250514"
+stepSettings.Chat.ApiType = &apiType
+stepSettings.Chat.Engine = &model
+stepSettings.Chat.APIKeys = map[string]string{
+    "claude-api-key": os.Getenv("ANTHROPIC_API_KEY"),
+}
+```
+
+Gemini:
+
+```go
+apiType := types.ApiTypeGemini
+model := "gemini-pro"
+stepSettings.Chat.ApiType = &apiType
+stepSettings.Chat.Engine = &model
+stepSettings.Chat.APIKeys = map[string]string{
+    "gemini-api-key": os.Getenv("GOOGLE_API_KEY"),
+}
+```
+
 ### Engine Options
 
 Provider engines are created without options. Event sinks are attached to the runtime

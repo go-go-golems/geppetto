@@ -1,0 +1,4 @@
+=== RUN   TestDatasetGenerateStreamCLIOutput
+--- PASS: TestDatasetGenerateStreamCLIOutput (0.35s)
+PASS
+ok  	github.com/go-go-golems/go-go-gepa/cmd/gepa-runner	0.436s

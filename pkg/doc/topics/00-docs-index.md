@@ -69,6 +69,7 @@ After that, explore based on what you need:
 | [Embeddings Workflows](../tutorials/03-embeddings-workflows.md) | Semantic search with caching and batch processing. |
 | [Structured Data Extraction](../tutorials/04-structured-data-extraction.md) | Extract structured data from streaming output in real-time. |
 | [JS API Getting Started](../tutorials/05-js-api-getting-started.md) | End-to-end walkthrough of turns, sessions, tools, and hooks from JavaScript. |
+| [Build Scoped JavaScript Eval Tools](../tutorials/07-build-scopedjs-eval-tools.md) | Detailed intern-friendly guide to `pkg/inference/tools/scopedjs`, runtime wiring, registration, and debugging. |
 
 ## Playbooks
 
