@@ -13,7 +13,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: "Design and implementation ticket for deleting RuntimeSpec.StepSettingsPatch, removing EffectiveStepSettings/BaseStepSettings and RuntimeKeyFallback from Geppetto profile resolution, and pushing final runtime resolution to callers."
-LastUpdated: 2026-03-17T15:25:00-04:00
+LastUpdated: 2026-03-17T23:35:00-04:00
 WhatFor: "Use this ticket to understand why StepSettingsPatch and RuntimeKeyFallback should be deleted, what surfaces depend on them today, and how to migrate Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships to caller-owned final runtime resolution."
 WhenToUse: "Use when implementing or reviewing removal of StepSettingsPatch, EffectiveStepSettings, BaseStepSettings, and RuntimeKeyFallback from the profile-resolution path."
 ---
@@ -47,7 +47,7 @@ The target end state is:
 
 Current status: **active**
 
-Analysis and planning are complete. Implementation has not started.
+The hard cut is implemented across Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships. Remaining ticket work is bookkeeping validation plus reMarkable refresh.
 
 ## Topics
 
