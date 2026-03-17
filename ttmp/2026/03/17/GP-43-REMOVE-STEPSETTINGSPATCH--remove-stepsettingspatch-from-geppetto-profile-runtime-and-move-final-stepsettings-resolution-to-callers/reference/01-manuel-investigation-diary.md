@@ -21,20 +21,29 @@ RelatedFiles:
       Note: First GP-43 implementation slice removing caller-side RuntimeKeyFallback population
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
       Note: Representative downstream consumer applying profile patch data
+    - Path: pkg/js/modules/geppetto/api_engines.go
+      Note: JS engines.fromProfile now hard-fails on removed runtimeKey option
+    - Path: pkg/js/modules/geppetto/api_profiles.go
+      Note: JS profiles.resolve no longer accepts runtimeKeyFallback
+    - Path: pkg/profiles/registry.go
+      Note: RuntimeKeyFallback removed from ResolveInput as part of GP-43 Step 5
     - Path: pkg/profiles/runtime_settings_patch_resolver.go
       Note: Patch helper file targeted for deletion
     - Path: pkg/profiles/service.go
-      Note: Main Geppetto profile-resolution implementation currently applying StepSettingsPatch
+      Note: |-
+        Main Geppetto profile-resolution implementation currently applying StepSettingsPatch
+        ResolveEffectiveProfile now always derives runtime key from profile slug
     - Path: ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/design-doc/01-remove-stepsettingspatch-and-move-final-stepsettings-resolution-to-callers-design-and-implementation-guide.md
       Note: Primary GP-43 design document
     - Path: ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/scripts/01-stepsettingspatch-surface-inventory.sh
       Note: Ticket-local inventory helper
 ExternalSources: []
 Summary: Chronological GP-43 diary covering ticket creation, surface inventory, design decisions, and planning for StepSettingsPatch removal.
-LastUpdated: 2026-03-17T19:08:00-04:00
+LastUpdated: 2026-03-17T19:26:00-04:00
 WhatFor: Use this diary to understand how the StepSettingsPatch removal plan was formed and what evidence supports the recommended caller-owned final StepSettings boundary.
 WhenToUse: Use when reviewing the GP-43 design, validating its evidence, or continuing implementation later.
 ---
+
 
 
 # Manuel investigation diary
@@ -360,3 +369,103 @@ cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
 
 - Pinocchio now derives the runtime key from `resolved.ProfileSlug` instead of using `ResolveInput.RuntimeKeyFallback`.
 - GEC-RAG tool filtering now consumes `payload.Runtime.ResolvedProfileRuntime.Tools` directly when constructing the tool registry for the loop.
+
+## Step 5: Remove RuntimeKeyFallback from Geppetto core and JS surfaces
+
+With the live webchat callers migrated, the next slice was the actual Geppetto hard cut for runtime-key fallback. This removed the fallback field from `profiles.ResolveInput`, deleted the fallback branch in `ResolveEffectiveProfile`, and updated the JS APIs, types, tests, examples, and docs so the resolved runtime key is always derived from the selected profile slug.
+
+I kept this slice separate from `StepSettingsPatch` deletion because it materially simplifies the later work without yet forcing the larger caller-owned `StepSettings` migration. It also closes the loop on the earlier design decision: runtime identity is now consistently treated as app-owned and profile-slug-derived, not as something Geppetto synthesizes from an override input.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue GP-43 slice-by-slice, removing the next piece of the old profile-resolution contract after the caller-side groundwork landed.
+
+**Inferred user intent:** Shrink the Geppetto profile API toward the target architecture in reviewable steps instead of attempting one large destructive edit.
+
+**Commit (code):** `1f1a9f5` — "remove runtime key fallback from profile resolution"
+
+### What I did
+
+- Removed `RuntimeKeyFallback` from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/registry.go`
+- Removed fallback synthesis from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+- Removed the JS `profiles.resolve({... runtimeKeyFallback })` input handling from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go`
+- Turned `gp.engines.fromProfile(..., { runtimeKey })` into an explicit hard-cut migration error in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go`
+- Updated:
+  - generated JS typings,
+  - JS module tests,
+  - the runtime-key example script,
+  - the JS user guide,
+  - the bootstrap playbook.
+- Ran:
+
+```bash
+gofmt -w geppetto/pkg/profiles/registry.go \
+  geppetto/pkg/profiles/service.go \
+  geppetto/pkg/js/modules/geppetto/api_profiles.go \
+  geppetto/pkg/js/modules/geppetto/api_engines.go \
+  geppetto/pkg/js/modules/geppetto/module_test.go
+
+cd geppetto && go test ./pkg/profiles ./pkg/js/modules/geppetto ./pkg/sections -count=1
+cd geppetto && rg -n "RuntimeKeyFallback|runtimeKeyFallback" geppetto pinocchio 2026-03-16--gec-rag temporal-relationships --glob '!**/ttmp/**'
+```
+
+### Why
+
+- The earlier caller-side migration made this a low-risk core cleanup with clear semantics.
+- Removing `RuntimeKeyFallback` now prevents new code from depending on it while the larger `StepSettingsPatch` removal is still in flight.
+- The JS module surface needed to move in lockstep with the Go API so the hard cut is consistent.
+
+### What worked
+
+- Focused tests in `pkg/profiles`, `pkg/js/modules/geppetto`, and `pkg/sections` passed.
+- Geppetto’s pre-commit hook passed full repo test and lint validation.
+- A workspace-wide grep showed zero remaining non-ticket references to `RuntimeKeyFallback` or `runtimeKeyFallback`.
+
+### What didn't work
+
+- N/A in this slice. The caller-side cleanup from Step 4 removed the main source of risk beforehand.
+
+### What I learned
+
+- `RuntimeKeyFallback` was easier to remove than `StepSettingsPatch` because it had a cleaner contract boundary and almost no real semantic value once callers owned runtime identity.
+- The JS `engines.fromProfile` API benefits from an explicit migration error for removed options, while `profiles.resolve` can simply stop accepting the field and derive the runtime key deterministically.
+
+### What was tricky to build
+
+The main tricky part was deciding how hard the JS cut should be. For `profiles.resolve`, silently deriving the runtime key from the profile slug is the only remaining meaningful behavior, so removing the field is enough. For `engines.fromProfile`, I kept an explicit error when `options.runtimeKey` is passed because the old option implies control over runtime identity that the API no longer offers. That gives a sharper failure for the one place users might still think the option does something.
+
+### What warrants a second pair of eyes
+
+- Whether the explicit `engines.fromProfile(..., { runtimeKey })` migration error is the desired long-term UX or whether the option should simply become ignored later.
+- Whether any external consumer outside this workspace expects `ResolvedProfile.runtimeKey` to differ from `profileSlug`.
+
+### What should be done in the future
+
+- Start the next GP-43 slice by removing `StepSettingsPatch` use from downstream runtime composers while `ResolvedProfile.EffectiveStepSettings` still exists.
+- After that, delete `StepSettingsPatch`, `BaseStepSettings`, and `EffectiveStepSettings` from Geppetto core in one harder cut.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/registry.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+- Then review the JS/API surface:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/module_test.go`
+- Validate with:
+
+```bash
+cd geppetto && go test ./pkg/profiles ./pkg/js/modules/geppetto ./pkg/sections -count=1
+```
+
+### Technical details
+
+- `ResolvedProfile.RuntimeKey` now always comes from `ParseRuntimeKey(profileSlug.String())`.
+- There are no remaining live code references to `RuntimeKeyFallback` or `runtimeKeyFallback` outside ticket materials under `ttmp/`.

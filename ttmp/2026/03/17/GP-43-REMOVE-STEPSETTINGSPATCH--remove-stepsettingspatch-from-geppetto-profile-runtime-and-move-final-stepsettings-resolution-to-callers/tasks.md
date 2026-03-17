@@ -14,10 +14,10 @@
 
 - [ ] Remove `StepSettingsPatch` from `geppetto/pkg/profiles.RuntimeSpec`.
 - [ ] Remove `BaseStepSettings` from `geppetto/pkg/profiles.ResolveInput`.
-- [ ] Remove `RuntimeKeyFallback` from `geppetto/pkg/profiles.ResolveInput`.
+- [x] Remove `RuntimeKeyFallback` from `geppetto/pkg/profiles.ResolveInput`.
 - [ ] Remove `EffectiveStepSettings` from `geppetto/pkg/profiles.ResolvedProfile`.
 - [ ] Delete `geppetto/pkg/profiles/runtime_settings_patch_resolver.go` after all consumers are migrated.
-- [ ] Delete runtime-key fallback synthesis from `ResolveEffectiveProfile`.
+- [x] Delete runtime-key fallback synthesis from `ResolveEffectiveProfile`.
 - [ ] Remove stack merge and stack trace handling for `/runtime/step_settings_patch`.
 - [ ] Update validation and clone logic that still references `StepSettingsPatch`.
 
@@ -37,13 +37,13 @@
 - [ ] Pinocchio: update profile switch, TUI helpers, and scripts that currently rely on `resolved.EffectiveStepSettings` or Geppetto-owned runtime keys.
 - [ ] GEC-RAG: move final `StepSettings` resolution and runtime identity into resolver/app code and stop applying `ResolvedProfileRuntime.StepSettingsPatch` in runtime composition.
 - [ ] Temporal Relationships: move final `StepSettings` resolution and runtime identity into command/runtime setup and stop applying profile patch data during run-chat runtime composition.
-- [ ] Audit any remaining external helper code that still calls `ResolveEffectiveProfile(... BaseStepSettings: ...)` or depends on `RuntimeKeyFallback`.
+- [x] Audit any remaining external helper code that still calls `ResolveEffectiveProfile(... BaseStepSettings: ...)` or depends on `RuntimeKeyFallback`.
 
 ## Phase 5: Migration and persistence/documentation cleanup
 
 - [ ] Update legacy profile migration code so it no longer writes `runtime.step_settings_patch`.
 - [ ] Decide how to handle existing YAML files containing `step_settings_patch`: hard error, soft warning, or one-shot migration.
-- [ ] Decide how to handle existing callers or scripts that still pass `runtimeKeyFallback`: hard error or immediate compile/runtime break.
+- [x] Decide how to handle existing callers or scripts that still pass `runtimeKeyFallback`: hard error or immediate compile/runtime break.
 - [ ] Update README files, topic docs, and playbooks across Geppetto and Pinocchio.
 - [ ] Update tests and fixtures that assert merged effective step settings from profile patches or Geppetto-owned runtime key synthesis.
 
