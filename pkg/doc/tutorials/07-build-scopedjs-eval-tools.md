@@ -115,6 +115,25 @@ The key design principle is separation of concerns:
 - your application decides what the runtime contains
 - `scopedjs` decides how to host and expose that runtime consistently
 
+## Prerequisites and Imports
+
+Your Go file will need these imports to build a scopedjs tool:
+
+```go
+import (
+    "context"
+
+    gojengine "github.com/go-go-golems/go-go-goja/engine"
+    ggjmodules "github.com/go-go-golems/go-go-goja/modules"
+    _ "github.com/go-go-golems/go-go-goja/modules/fs"  // side-effect import: registers the fs module
+
+    "github.com/go-go-golems/geppetto/pkg/inference/tools"
+    "github.com/go-go-golems/geppetto/pkg/inference/tools/scopedjs"
+)
+```
+
+Important: the blank import `_ "github.com/go-go-golems/go-go-goja/modules/fs"` is required for the `fs` module to be available via `ggjmodules.GetModule("fs")`. Without it, `GetModule` returns nil. Add similar blank imports for any other go-go-goja modules you want to use.
+
 ## Step 1: Decide the Runtime Boundary
 
 Before you write code, decide what one eval tool is allowed to mean. This is the most important design step because a good runtime boundary keeps the tool understandable for both the model and the next developer.
@@ -193,9 +212,18 @@ type EnvironmentSpec[Scope any, Meta any] struct {
     RuntimeLabel string
     Tool         ToolDefinitionSpec
     DefaultEval  EvalOptions
+    Describe     func() (EnvironmentManifest, error)   // optional
     Configure    func(ctx context.Context, b *Builder, scope Scope) (Meta, error)
 }
 ```
+
+What each field does:
+
+- `RuntimeLabel` — human-readable label for logs and error messages
+- `Tool` — model-facing tool metadata (name, description, starter snippets)
+- `DefaultEval` — default eval options (timeout, etc.); use `DefaultEvalOptions()` for sensible defaults
+- `Describe` — optional callback that returns a static `EnvironmentManifest` describing available modules, globals, helpers, and bootstrap files. When provided, this manifest is used for the tool description instead of (or merged with) what the builder collects during `Configure`. Useful when the manifest is known statically and you want to separate description from runtime wiring. If omitted, the manifest is built entirely from builder method calls inside `Configure`.
+- `Configure` — callback that receives a `*Builder` and populates it with modules, globals, bootstrap code, and helper docs. This is where the runtime is actually wired.
 
 A minimal spec looks like this:
 
@@ -279,6 +307,8 @@ if err := b.AddGlobal("workspaceRoot", func(ctx *gojengine.RuntimeContext) error
     return DemoMeta{}, err
 }
 ```
+
+Note: `GlobalDoc` also has a `Name` field, but `AddGlobal(...)` populates it automatically from the first argument. You only need to set `Type` and `Description`.
 
 Use globals for data that is naturally ambient to the runtime:
 
@@ -415,7 +445,7 @@ if err != nil {
 defer handle.Cleanup()
 
 registry := tools.NewInMemoryToolRegistry()
-if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptions{}); err != nil {
+if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionOverrides{}); err != nil {
     return err
 }
 ```
@@ -455,7 +485,7 @@ registrar := scopedjs.NewLazyRegistrar(spec, func(ctx context.Context) (DemoScop
         return DemoScope{}, fmt.Errorf("missing scope")
     }
     return scope, nil
-}, scopedjs.EvalOptions{})
+}, scopedjs.EvalOptionOverrides{})
 
 if err := registrar(registry); err != nil {
     return err
@@ -497,7 +527,7 @@ type EvalOutput struct {
 What this means in practice:
 
 - `Code` is the JavaScript body the model writes
-- `Input` is optional structured data passed in as `input`
+- `Input` is optional structured data. It is available inside the JavaScript execution context as the global variable `input`. For example, if the caller passes `Input: map[string]any{"path": "/tmp/file.txt"}`, the JS code can access `input.path`.
 - the model should use `return` to provide the final result
 - `console.log(...)` output is captured separately
 - runtime failures are returned in `Error`
@@ -508,6 +538,37 @@ The JavaScript is wrapped in an async function in `eval.go`, so `await` works na
 const rows = db.query("SELECT * FROM notes");
 console.log("loaded", rows.length);
 return rows;
+```
+
+On the wire, the model sends JSON like:
+
+```json
+{
+  "code": "const rows = await db.query(\"SELECT * FROM users\"); return rows;",
+  "input": {
+    "limit": 10
+  }
+}
+```
+
+And receives:
+
+```json
+{
+  "result": [{ "id": 1, "name": "Ada" }],
+  "console": [{ "level": "log", "text": "loaded users" }],
+  "durationMs": 12
+}
+```
+
+On rejection or timeout, the tool still returns a structured payload:
+
+```json
+{
+  "error": "Promise rejected: boom",
+  "console": [],
+  "durationMs": 4
+}
 ```
 
 Why this contract is useful:
@@ -560,7 +621,7 @@ if err != nil {
 defer handle.Cleanup()
 
 registry := tools.NewInMemoryToolRegistry()
-if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptions{}); err != nil {
+if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionOverrides{}); err != nil {
     return err
 }
 ```
@@ -573,7 +634,66 @@ The important lesson is not the `fs` module itself. The lesson is the pattern:
 - build runtime
 - register tool
 
-## Step 9: Know Where Description Text Comes From
+Run the examples from the repo root with:
+
+```bash
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go run ./cmd/examples/scopedjs-tool
+env GOWORK=off GOCACHE=/tmp/geppetto-go-build go run ./cmd/examples/scopedjs-dbserver
+```
+
+## Step 9: Scaling Up — the Composed dbserver Shape
+
+The minimal example above uses a single module and global. A real application may compose several capabilities into one runtime. The intended pattern for a larger tool looks like this:
+
+```text
+eval_dbserver runtime
+  - require("fs")
+  - require("webserver")
+  - require("obsidian")
+  - global db
+  - bootstrap sql_helpers.js
+  - bootstrap routes.js
+```
+
+Pseudocode:
+
+```go
+Configure: func(ctx context.Context, b *scopedjs.Builder, scope ServerScope) (Meta, error) {
+    b.AddNativeModule(fsModule)
+    b.AddNativeModule(webserverModule)
+    b.AddNativeModule(obsidianModule)
+
+    b.AddGlobal("db", func(ctx *gojengine.RuntimeContext) error {
+        return ctx.VM.Set("db", NewScopedDBFacade(scope.DB))
+    }, scopedjs.GlobalDoc{
+        Type: "ScopedDBFacade",
+        Description: "Database facade for the current scoped server environment.",
+    })
+
+    b.AddBootstrapFile("bootstrap/sql_helpers.js")
+    b.AddBootstrapFile("bootstrap/routes.js")
+
+    return Meta{}, nil
+}
+```
+
+Then the model can write code like:
+
+```js
+const rows = await db.query("SELECT id, title FROM notes ORDER BY id");
+const server = require("webserver");
+
+server.get("/notes", () => rows);
+
+return {
+  route: "/notes",
+  count: rows.length
+};
+```
+
+See `cmd/examples/scopedjs-dbserver/main.go` for the full runnable version of this pattern.
+
+## Step 10: Know Where Description Text Comes From
 
 Many developers assume the tool description is only whatever they put in `ToolDescription.Summary`. That is not true.
 
@@ -589,7 +709,7 @@ Many developers assume the tool description is only whatever they put in `ToolDe
 
 This is why documentation must be added at registration time, not retrofitted later. If you expose a capability but do not document it through the builder or `ToolDescription`, the model gets a runtime it cannot fully understand.
 
-## Step 10: Test the Right Things
+## Step 11: Test the Right Things
 
 A good `scopedjs` tool should have tests at three levels.
 
@@ -666,9 +786,23 @@ This table covers the failures you are most likely to hit when building your fir
 | result output is hard to understand | the JS returns ad hoc shapes | return a concise structured object with stable keys |
 | error text is generic after promise rejection | rejection formatting may have lost JS error details | inspect `pkg/inference/tools/scopedjs/eval.go` and verify current runtime behavior with a direct eval test |
 
+## Operational Notes
+
+- Treat every module/global as a capability grant. If you expose a powerful object, the model has that power.
+- Prefer the lazy registration path first if you need a fresh runtime per request. Use prebuilt registration only when shared runtime reuse is intentional.
+- Keep helper bootstrap files small and well-documented. They become part of the tool contract.
+- Use the builder docs intentionally. The tool description is the model's API reference.
+
+## Recommended Adoption Order
+
+1. Start with one prebuilt runtime and one small module/global pair.
+2. Verify `RunEval(...)` directly in tests.
+3. Register the tool through `RegisterPrebuilt(...)`.
+4. Only then add lazy context-derived scope and more modules.
+5. Only then introduce larger app-specific compositions such as dbserver or obsidian automation.
+
 ## See Also
 
-- [Adopt Scoped JavaScript Eval Tools](../playbooks/09-adopt-scopedjs-eval-tools.md) for the shorter operational playbook version
 - [Tools](../topics/07-tools.md) for the wider Geppetto tool model
 - [Using Scoped Tool Databases](06-using-scoped-tool-databases.md) for the analogous `scopeddb` pattern
 - `cmd/examples/scopedjs-tool/main.go` for the smallest runnable example
