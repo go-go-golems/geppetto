@@ -31,4 +31,4 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version-file: .golangci-lint-version
-          args: --timeout=5m
+          args: --timeout=5m ./cmd/... ./pkg/...

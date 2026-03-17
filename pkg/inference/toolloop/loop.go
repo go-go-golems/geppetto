@@ -182,7 +182,6 @@ func engineToolConfig(maxIterations int, cfg tools.ToolConfig) engine.ToolConfig
 		MaxIterations:     maxIterations,
 		ExecutionTimeout:  cfg.ExecutionTimeout,
 		MaxParallelTools:  cfg.MaxParallelTools,
-		AllowedTools:      cfg.AllowedTools,
 		ToolErrorHandling: engine.ToolErrorHandling(cfg.ToolErrorHandling),
 		RetryConfig: engine.RetryConfig{
 			MaxRetries:    cfg.RetryConfig.MaxRetries,

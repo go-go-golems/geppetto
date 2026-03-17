@@ -9,7 +9,6 @@ type ToolConfig struct {
 	MaxIterations     int               `json:"max_iterations"`
 	ExecutionTimeout  time.Duration     `json:"execution_timeout"`
 	MaxParallelTools  int               `json:"max_parallel_tools"`
-	AllowedTools      []string          `json:"allowed_tools"`
 	ToolErrorHandling ToolErrorHandling `json:"tool_error_handling"`
 	RetryConfig       RetryConfig       `json:"retry_config"`
 }
@@ -22,7 +21,6 @@ func DefaultToolConfig() ToolConfig {
 		MaxIterations:     5,
 		ExecutionTimeout:  30 * time.Second,
 		MaxParallelTools:  3,
-		AllowedTools:      nil, // nil means all tools are allowed
 		ToolErrorHandling: ToolErrorContinue,
 		RetryConfig: RetryConfig{
 			MaxRetries:    2,
@@ -54,11 +52,6 @@ func (tc ToolConfig) WithExecutionTimeout(timeout time.Duration) ToolConfig {
 
 func (tc ToolConfig) WithMaxParallelTools(maxParallel int) ToolConfig {
 	tc.MaxParallelTools = maxParallel
-	return tc
-}
-
-func (tc ToolConfig) WithAllowedTools(toolNames []string) ToolConfig {
-	tc.AllowedTools = toolNames
 	return tc
 }
 
@@ -96,34 +89,3 @@ const (
 	ToolErrorAbort    ToolErrorHandling = "abort"    // Stop inference on tool error
 	ToolErrorRetry    ToolErrorHandling = "retry"    // Retry with exponential backoff
 )
-
-// IsToolAllowed checks if a tool is allowed based on the configuration
-func (tc *ToolConfig) IsToolAllowed(toolName string) bool {
-	if tc.AllowedTools == nil {
-		return true // All tools allowed
-	}
-
-	for _, allowed := range tc.AllowedTools {
-		if allowed == toolName {
-			return true
-		}
-	}
-
-	return false
-}
-
-// FilterTools returns only the tools that are allowed by this configuration
-func (tc *ToolConfig) FilterTools(tools []ToolDefinition) []ToolDefinition {
-	if tc.AllowedTools == nil {
-		return tools // All tools allowed
-	}
-
-	filtered := make([]ToolDefinition, 0, len(tools))
-	for _, tool := range tools {
-		if tc.IsToolAllowed(tool.Name) {
-			filtered = append(filtered, tool)
-		}
-	}
-
-	return filtered
-}
