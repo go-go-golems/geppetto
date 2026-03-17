@@ -24,3 +24,14 @@
 - Verified the slice with:
   - `go test ./pkg/inference/tools/scopedjs ./cmd/examples/scopedjs-tool ./cmd/examples/scopedjs-dbserver ./pkg/doc/...` in `geppetto`
   - `go test ./cmd/examples/scopedjs-tui-demo` in `pinocchio`
+- Added `pinocchio/cmd/examples/internal/tuidemo` to hold the shared profile-resolution, tool-loop runner, and status-bar scaffolding used by both TUI demos.
+- Added `pinocchio/cmd/examples/internal/demorender` to hold the shared markdown renderer factories and presentation helpers used by both demo timelines.
+- Cut `cmd/examples/scopeddb-tui-demo/main.go` and `cmd/examples/scopedjs-tui-demo/main.go` over to the shared shell helpers.
+- Cut both demo renderer files over to the shared renderer plumbing so they now mostly keep only domain-specific markdown formatting.
+- Decided not to extract the fake `webserver` and `obsidian` modules into `geppetto/pkg/inference/tools/scopedjs/scopedjstest` in this pass:
+  - the demo modules still mix example-specific behavior with runtime fixtures
+  - the shell and renderer duplication was the more urgent maintenance problem
+  - the fake-module extraction can happen later once a second non-demo consumer wants the same support layer
+- Verified the Pinocchio refactor slice with:
+  - `go test ./cmd/examples/scopeddb-tui-demo ./cmd/examples/scopedjs-tui-demo ./cmd/examples/internal/...`
+  - `go run ./cmd/examples/scopedjs-tui-demo --list-workspaces`

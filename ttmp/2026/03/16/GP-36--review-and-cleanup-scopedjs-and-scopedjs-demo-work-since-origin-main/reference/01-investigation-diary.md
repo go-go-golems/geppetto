@@ -453,6 +453,99 @@ Result:
 - `pinocchio` focused demo tests passed
 - the new lazy-description assertions and override-semantics assertions passed
 
+### 21. Extracted the shared Pinocchio demo shell package
+
+Goal:
+
+- stop carrying duplicate profile-resolution and tool-loop runner wiring in both demo `main.go` files
+
+Files added:
+
+- `pinocchio/cmd/examples/internal/tuidemo/profile.go`
+- `pinocchio/cmd/examples/internal/tuidemo/runner.go`
+- `pinocchio/cmd/examples/internal/tuidemo/statusbar.go`
+
+Files changed:
+
+- `pinocchio/cmd/examples/scopeddb-tui-demo/main.go`
+- `pinocchio/cmd/examples/scopedjs-tui-demo/main.go`
+
+What moved:
+
+- profile and registry resolution moved into `ResolveStepSettings(...)`
+- shared router plus Bubble Tea startup moved into `RunToolLoopDemo(...)`
+- repeated status-bar style setup moved into `NewStatusBarView(...)`
+
+Why this was enough:
+
+- the demos still keep their own log fields, titles, prompts, and registry-building logic
+- the repetitive shell plumbing is now in one place instead of two near-identical `main.go` files
+
+### 22. Extracted the shared Pinocchio renderer plumbing
+
+Goal:
+
+- remove duplicate model and factory scaffolding from the two demo renderer files while keeping their domain-specific formatting logic local
+
+Files added:
+
+- `pinocchio/cmd/examples/internal/demorender/common.go`
+
+Files changed:
+
+- `pinocchio/cmd/examples/scopeddb-tui-demo/renderers.go`
+- `pinocchio/cmd/examples/scopedjs-tui-demo/renderers.go`
+
+What moved:
+
+- base timeline renderer registration
+- generic tool-call and tool-result model/factory plumbing
+- markdown rendering helpers
+- shared terminal and string utilities used by both demos
+
+What stayed local:
+
+- SQL tool-call formatting
+- scopeddb result-table formatting
+- scopedjs eval-call formatting
+- scopedjs structured result summarization
+
+Result:
+
+- the example files are now much closer to "formatting logic only"
+- the shared timeline plumbing has one home
+
+### 23. Made the fake-module extraction decision for this pass
+
+Decision:
+
+- do **not** extract the fake `webserver` and `obsidian` modules yet
+
+Reasoning:
+
+- the current modules still encode demo-specific behavior tightly coupled to the scopedjs workspace fixtures
+- extracting them immediately would create a reusable package before there is a second real consumer
+- the bigger maintenance problem was duplicated shell and renderer infrastructure, which is now addressed
+
+Follow-up rule:
+
+- revisit fake-module extraction once a second example or test support layer wants the same behavior without the current demo fixture coupling
+
+### 24. Re-ran focused tests after the Pinocchio refactor
+
+Commands:
+
+```bash
+go test ./cmd/examples/scopeddb-tui-demo ./cmd/examples/scopedjs-tui-demo ./cmd/examples/internal/...
+go run ./cmd/examples/scopedjs-tui-demo --list-workspaces
+```
+
+Result:
+
+- both demo packages passed after the extraction
+- the internal helper packages compiled cleanly
+- the runnable demo still listed the expected workspaces: `apollo`, `mercury`
+
 ## Key Findings Summary
 
 ### Finding A: `StateMode` currently over-promises
