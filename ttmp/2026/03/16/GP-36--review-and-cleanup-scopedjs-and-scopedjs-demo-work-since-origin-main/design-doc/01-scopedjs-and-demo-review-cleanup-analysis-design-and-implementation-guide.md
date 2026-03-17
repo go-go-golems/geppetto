@@ -12,26 +12,33 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/geppetto/pkg/inference/tools/scopedjs/schema.go
-      Note: Core public API surface for scopedjs
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/geppetto/pkg/inference/tools/scopedjs/tool.go
-      Note: Registration behavior and one of the main lifecycle mismatches
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/geppetto/pkg/inference/tools/scopedjs/eval.go
+    - Path: geppetto/pkg/inference/tools/scopedjs/eval.go
       Note: Eval contract, option merging, and rejection handling behavior
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopedjs-tui-demo/main.go
-      Note: TUI demo shell with heavy duplication from scopeddb demo
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopedjs-tui-demo/renderers.go
-      Note: TUI demo renderer layer with shared helper duplication
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopeddb-tui-demo/main.go
-      Note: Comparison baseline for duplicated demo shell logic
-    - Path: /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopeddb-tui-demo/renderers.go
+    - Path: geppetto/pkg/inference/tools/scopedjs/schema.go
+      Note: Core public API surface for scopedjs
+    - Path: geppetto/pkg/inference/tools/scopedjs/tool.go
+      Note: Registration behavior and one of the main lifecycle mismatches
+    - Path: pinocchio/cmd/examples/internal/tuidemo/cli.go
+      Note: Shared Cobra and engine bootstrap helper extracted during the real Pinocchio cleanup slice
+    - Path: pinocchio/cmd/examples/scopeddb-tui-demo/main.go
+      Note: |-
+        Comparison baseline for duplicated demo shell logic
+        Scopeddb demo now uses the shared CLI shell helper
+    - Path: pinocchio/cmd/examples/scopeddb-tui-demo/renderers.go
       Note: Comparison baseline for duplicated renderer helper logic
+    - Path: pinocchio/cmd/examples/scopedjs-tui-demo/main.go
+      Note: |-
+        TUI demo shell with heavy duplication from scopeddb demo
+        Scopedjs demo now uses the shared CLI shell helper
+    - Path: pinocchio/cmd/examples/scopedjs-tui-demo/renderers.go
+      Note: TUI demo renderer layer with shared helper duplication
 ExternalSources: []
 Summary: Thorough review of the scopedjs package and scopedjs demo work since origin/main, with findings, cleanup strategy, and an intern-oriented architecture guide.
 LastUpdated: 2026-03-16T22:12:00-04:00
 WhatFor: Help a new engineer understand what landed since origin/main, what is solid, what is fuzzy, and how to simplify or harden the design without breaking the useful parts.
 WhenToUse: Use when reviewing scopedjs, planning cleanup work, or onboarding an intern to the scopedjs and scopedjs-demo code paths.
 ---
+
 
 # Scopedjs and demo review cleanup analysis design and implementation guide
 
@@ -733,6 +740,20 @@ Keep direct smoke tests for:
 ### Demo-level tests
 
 Keep focused renderer tests, but move generic renderer plumbing tests into shared helper packages once extracted.
+
+## Implementation Update
+
+One additional cleanup slice has now been carried through on the current branch after the original review:
+
+- added `pinocchio/cmd/examples/internal/tuidemo/cli.go`
+- extracted the duplicated Cobra plus engine bootstrap shell from the two Pinocchio demo `main.go` files
+- cut both demo binaries over in Pinocchio commit `54d3fe7`
+
+That follow-through slightly refines the original review:
+
+- the review finding about demo shell duplication was still correct and has now been addressed
+- the review finding about renderer duplication remains directionally useful, but the current branch already had the meaningful shared renderer layer in `pinocchio/cmd/examples/internal/demorender/common.go`
+- after re-review, no further renderer extraction was justified in this slice because the remaining code is mostly domain-specific formatting rather than duplicated plumbing
 
 ## Open Questions
 

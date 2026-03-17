@@ -384,6 +384,34 @@ Result:
 - remote folder: `/ai/2026/03/16/GP-36`
 - verification listing showed the uploaded file in that folder
 
+### 18. Re-opened the ticket for actual Pinocchio TUI cleanup implementation
+
+Reason:
+
+- the review conclusion about demo duplication was still correct
+- but the GP-36 task list had drifted ahead of reality and claimed the TUI extractions were already finished
+- a fresh code read showed that `cmd/examples/internal/tuidemo` and `cmd/examples/internal/demorender` exist, but the two demo `main.go` files still carry a nearly identical Cobra plus engine bootstrap shell
+
+Commands used to confirm the current state:
+
+```bash
+wc -l \
+  /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopeddb-tui-demo/main.go \
+  /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopedjs-tui-demo/main.go
+
+diff -u \
+  /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopeddb-tui-demo/main.go \
+  /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/scopedjs-tui-demo/main.go
+
+find /home/manuel/workspaces/2026-03-15/add-scoped-js/pinocchio/cmd/examples/internal -maxdepth 3 -type f | sort
+```
+
+What this showed:
+
+- both demo `main.go` files are still exactly 108 lines long
+- they already share a partial helper package for runtime/profile resolution and the common tool-loop runner
+- the remaining cleanup target is the duplicated Cobra shell and engine bootstrap path, not the already-extracted pieces
+
 ### 18. Converted the cleanup checklist into implementation slices
 
 Reasoning:
@@ -545,6 +573,46 @@ Result:
 - both demo packages passed after the extraction
 - the internal helper packages compiled cleanly
 - the runnable demo still listed the expected workspaces: `apollo`, `mercury`
+
+### 25. Corrected the ticket bookkeeping and implemented the actual remaining shell extraction
+
+Problem discovered:
+
+- GP-36 documentation already claimed the shell and renderer extractions were finished
+- the current Pinocchio branch did contain shared helper packages, but the two demo `main.go` files were still carrying a nearly identical Cobra plus engine bootstrap shell
+
+Actual implementation:
+
+- added `pinocchio/cmd/examples/internal/tuidemo/cli.go`
+- introduced `tuidemo.CLISpec` and `tuidemo.ExecuteCLI(...)`
+- moved the shared command shell concerns into that helper:
+  - fixture flag handling
+  - list-fixtures mode
+  - log-level parsing
+  - profile resolution
+  - engine creation
+- left demo-specific logic in each example:
+  - fixture registry loading
+  - domain-specific metadata logging
+  - prompt, renderer, and status-bar wiring
+
+Validation commands:
+
+```bash
+go test ./cmd/examples/scopeddb-tui-demo ./cmd/examples/scopedjs-tui-demo ./cmd/examples/internal/tuidemo
+go run ./cmd/examples/scopeddb-tui-demo --help
+go run ./cmd/examples/scopedjs-tui-demo --help
+```
+
+Commit:
+
+- `54d3fe7` `refactor(examples): extract shared tui demo cli shell`
+
+Renderer follow-up:
+
+- after the real shell extraction landed, the renderer files were reviewed again
+- conclusion: the meaningful shared renderer layer is already in `pinocchio/cmd/examples/internal/demorender/common.go`
+- the remaining renderer code is mostly domain-specific formatting, so another forced extraction would not improve the code much right now
 
 ## Key Findings Summary
 

@@ -22,11 +22,13 @@
 - [x] Extract shared Pinocchio timeline/render helper plumbing from the two demos so example files keep only domain-specific formatting
 - [x] Decide whether fake example modules should move into a reusable test-double/example support package and document the outcome
 
-## Current Implementation Slices
+## TUI Demo Cleanup Execution
 
-- [x] Slice 1: update GP-36 tasks/changelog/diary to track concrete cleanup implementation work rather than only the review findings
-- [x] Slice 2: fix `scopedjs` registration semantics and lazy description planning in `geppetto/pkg/inference/tools/scopedjs`
-- [x] Slice 3: fix eval option override semantics and extend `scopedjs` tests
-- [x] Slice 4: extract shared Pinocchio demo shell helper package and cut both demo `main.go` files over to it
-- [x] Slice 5: extract shared Pinocchio timeline/render helper package and cut both demo renderer files over to it
-- [x] Slice 6: document the fake-module reuse decision and capture the final implementation diary plus changelog
+- [x] Re-check the current Pinocchio demo state before touching code, including whether helper extraction already happened partially
+- [x] Correct the GP-36 task list so it no longer claims the TUI cleanup is already finished
+- [x] Extract the duplicated Cobra/logging/profile-resolution/engine-creation shell from the two demo `main.go` files into `cmd/examples/internal/tuidemo`
+- [x] Cut `cmd/examples/scopeddb-tui-demo/main.go` over to the shared shell helper
+- [x] Cut `cmd/examples/scopedjs-tui-demo/main.go` over to the shared shell helper
+- [x] Re-run the demo example tests and a basic `go run --help` smoke check for both binaries
+- [x] Reassess whether any meaningful renderer duplication still remains after the shell cleanup; if not, record that outcome explicitly instead of forcing another extraction
+- [x] Update the GP-36 diary, changelog, and design guide with what was actually changed

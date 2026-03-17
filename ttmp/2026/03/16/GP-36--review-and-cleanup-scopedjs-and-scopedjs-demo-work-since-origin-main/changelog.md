@@ -16,6 +16,7 @@
 - Added a diary recording commands, evidence, and findings
 - Validated the ticket with `docmgr doctor --ticket GP-36`
 - Uploaded the ticket bundle to reMarkable at `/ai/2026/03/16/GP-36`
+- Re-opened the ticket for implementation follow-through after confirming the Pinocchio demo cleanup bookkeeping was ahead of the actual code state
 - Started the first cleanup implementation slice in `geppetto/pkg/inference/tools/scopedjs`.
 - Replaced description-time `StateMode` prose with registration-driven runtime reuse notes so prebuilt tools now advertise shared-runtime reuse and lazy tools advertise fresh-per-call runtime construction.
 - Added `EnvironmentSpec.Describe` as a static manifest-planning hook and taught `NewLazyRegistrar(...)` to build model-facing descriptions from that manifest instead of `EnvironmentManifest{}`.
@@ -35,3 +36,13 @@
 - Verified the Pinocchio refactor slice with:
   - `go test ./cmd/examples/scopeddb-tui-demo ./cmd/examples/scopedjs-tui-demo ./cmd/examples/internal/...`
   - `go run ./cmd/examples/scopedjs-tui-demo --list-workspaces`
+- Re-verified the real current branch state and corrected the GP-36 task list after noticing the ticket bookkeeping had drifted ahead of the actual Pinocchio code
+- Implemented the remaining real Pinocchio shell cleanup in commit `54d3fe7`:
+  - added `cmd/examples/internal/tuidemo/cli.go`
+  - moved shared Cobra/logging/profile-resolution/engine-creation flow there
+  - cut both demo `main.go` files over to the shared helper
+- Re-ran focused validation for the new shell extraction:
+  - `go test ./cmd/examples/scopeddb-tui-demo ./cmd/examples/scopedjs-tui-demo ./cmd/examples/internal/tuidemo`
+  - `go run ./cmd/examples/scopeddb-tui-demo --help`
+  - `go run ./cmd/examples/scopedjs-tui-demo --help`
+- Reassessed renderer duplication and recorded that the meaningful shared renderer layer was already centralized in `cmd/examples/internal/demorender`, so no additional renderer extraction was forced in this slice
