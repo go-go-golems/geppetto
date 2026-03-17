@@ -32,10 +32,10 @@
 ## Phase 4: Downstream caller migration
 
 - [x] Pinocchio and GEC-RAG: stop populating `RuntimeKeyFallback` in live webchat resolvers and derive runtime keys directly in app code.
-- [ ] Pinocchio: introduce an app-owned resolved runtime object that includes final `StepSettings`, runtime key, and runtime fingerprint.
-- [ ] Pinocchio: replace profile patch application in `cmd/web-chat/runtime_composer.go` with caller-owned final `StepSettings` resolution.
+- [x] Pinocchio: introduce an app-owned resolved runtime object that includes final `StepSettings`, runtime key, and runtime fingerprint.
+- [x] Pinocchio: replace profile patch application in `cmd/web-chat/runtime_composer.go` with caller-owned final `StepSettings` resolution.
 - [ ] Pinocchio: update profile switch, TUI helpers, and scripts that currently rely on `resolved.EffectiveStepSettings` or Geppetto-owned runtime keys.
-- [ ] GEC-RAG: move final `StepSettings` resolution and runtime identity into resolver/app code and stop applying `ResolvedProfileRuntime.StepSettingsPatch` in runtime composition.
+- [x] GEC-RAG: move final `StepSettings` resolution and runtime identity into resolver/app code and stop applying `ResolvedProfileRuntime.StepSettingsPatch` in runtime composition.
 - [ ] Temporal Relationships: move final `StepSettings` resolution and runtime identity into command/runtime setup and stop applying profile patch data during run-chat runtime composition.
 - [x] Audit any remaining external helper code that still calls `ResolveEffectiveProfile(... BaseStepSettings: ...)` or depends on `RuntimeKeyFallback`.
 

@@ -16,11 +16,21 @@ RelatedFiles:
         Tool filtering moved higher up to the resolved runtime request after AllowedTools contract removal
         Tool registry filtering now derives from resolved runtime request instead of composed runtime artifacts
     - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/resolver.go
-      Note: GEC-RAG resolver updated to own runtime-key selection without RuntimeKeyFallback
+      Note: |-
+        GEC-RAG resolver updated to own runtime-key selection without RuntimeKeyFallback
+        CoinVault request resolver now owns final StepSettings resolution
+    - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/runtime.go
+      Note: CoinVault runtime composer no longer applies StepSettingsPatch
     - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
-      Note: First GP-43 implementation slice removing caller-side RuntimeKeyFallback population
+      Note: |-
+        First GP-43 implementation slice removing caller-side RuntimeKeyFallback population
+        Webchat request resolution now carries resolved StepSettings into the runtime request
     - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
-      Note: Representative downstream consumer applying profile patch data
+      Note: |-
+        Representative downstream consumer applying profile patch data
+        Runtime composer now consumes caller-owned StepSettings instead of applying StepSettingsPatch
+    - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
+      Note: Shared webchat HTTP contract now carries ResolvedStepSettings
     - Path: pkg/js/modules/geppetto/api_engines.go
       Note: JS engines.fromProfile now hard-fails on removed runtimeKey option
     - Path: pkg/js/modules/geppetto/api_profiles.go
@@ -39,10 +49,11 @@ RelatedFiles:
       Note: Ticket-local inventory helper
 ExternalSources: []
 Summary: Chronological GP-43 diary covering ticket creation, surface inventory, design decisions, and planning for StepSettingsPatch removal.
-LastUpdated: 2026-03-17T19:26:00-04:00
+LastUpdated: 2026-03-17T20:02:00-04:00
 WhatFor: Use this diary to understand how the StepSettingsPatch removal plan was formed and what evidence supports the recommended caller-owned final StepSettings boundary.
 WhenToUse: Use when reviewing the GP-43 design, validating its evidence, or continuing implementation later.
 ---
+
 
 
 
@@ -469,3 +480,127 @@ cd geppetto && go test ./pkg/profiles ./pkg/js/modules/geppetto ./pkg/sections -
 
 - `ResolvedProfile.RuntimeKey` now always comes from `ParseRuntimeKey(profileSlug.String())`.
 - There are no remaining live code references to `RuntimeKeyFallback` or `runtimeKeyFallback` outside ticket materials under `ttmp/`.
+
+## Step 6: Move final StepSettings resolution above Pinocchio and GEC-RAG runtime composers
+
+This slice changed the most important runtime boundary in the live webchat path. Instead of passing raw profile runtime plus `StepSettingsPatch` down to the composer and letting the composer mutate a base config, the request resolver now passes fully resolved `StepSettings` alongside the resolved runtime metadata. The composer only consumes those final settings.
+
+That is the first concrete implementation of the target GP-43 architecture in real app code. The webchat runtime boundary is now much closer to the ideal model: app code resolves profile plus settings, and the lower inference/runtime layer just builds the engine from already-resolved inputs.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue GP-43 task-by-task, pushing the architecture downward until app code owns final runtime resolution instead of relying on patch application inside runtime composers.
+
+**Inferred user intent:** Turn the design into real code by moving final engine settings resolution out of Geppetto-style runtime patching and into the callers that actually own request policy.
+
+**Commit (code):** `ba2027e` — "move webchat step settings resolution above runtime composer"
+
+**Commit (code):** `c7926fd` — "move webchat step settings resolution above runtime composer"
+
+### What I did
+
+- Added `ResolvedStepSettings` to the shared runtime request contracts:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/api.go`
+- Threaded the new field through conversation lifecycle code:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/stream_hub.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/llm_state.go`
+- Updated Pinocchio request resolution to pass caller-owned final settings from `resolved.EffectiveStepSettings`:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go`
+- Removed `StepSettingsPatch` application from Pinocchio runtime composition:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/runtime_composer.go`
+- Updated Pinocchio tests to assert `ResolvedStepSettings` behavior instead of patch application:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/llm_delta_projection_harness_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/timeline_js_runtime_loader_test.go`
+- Did the same move in GEC-RAG:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime_request.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/server_bootstrap.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver_test.go`
+- Ran:
+
+```bash
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Why
+
+- This removes the highest-value downstream consumers before touching the Geppetto core `StepSettingsPatch` API.
+- The webchat runtime composer is the wrong layer to understand or apply patch semantics. It should receive final settings, not patch instructions.
+- GEC-RAG’s request resolver already owns application/inference profile composition, so it is the natural place to carry final `StepSettings` too.
+
+### What worked
+
+- Pinocchio webchat tests passed after the contract change.
+- GEC-RAG webchat tests passed after updating the resolver and runtime request mapping.
+- The runtime composer tests are now phrased in terms of resolved settings, which is much closer to the intended architecture and easier to reason about.
+
+### What didn't work
+
+- The first GEC-RAG rerun failed because `resolver_test.go` still constructed `NewProfileRequestResolver(...)` with the old signature:
+
+```text
+internal/webchat/resolver_test.go:66:3: not enough arguments in call to NewProfileRequestResolver
+	have (*fakeProfileRegistry, profiles.RegistrySlug, string, *appprofiles.Store, string)
+	want (profiles.Registry, profiles.RegistrySlug, string, *appprofiles.Store, string, *settings.StepSettings)
+```
+
+- That test also still asserted that `StepSettingsPatch` survived into the resolved runtime, which is no longer the right behavior for the path under test.
+
+### What I learned
+
+- The app-side migration is tractable when staged through request contracts: once the resolved HTTP/runtime request carries final settings, most downstream code barely changes.
+- `ResolvedRuntime` still has utility for system prompt, tools, and middleware metadata even after final `StepSettings` moves out of the patch path.
+
+### What was tricky to build
+
+The tricky part was choosing where to carry the new `ResolvedStepSettings` field. It had to move through three layers at once:
+
+- the HTTP request-resolution output,
+- the webchat service/runtime request contract,
+- and the lower runtime composer input.
+
+If any one of those layers kept reconstructing its own runtime input, the change would have collapsed back into implicit patching. The fix was to thread the resolved settings all the way through and clone them at ownership boundaries.
+
+### What warrants a second pair of eyes
+
+- Whether `ResolvedRuntime` should keep carrying any engine-shaping fields once `StepSettingsPatch` is fully deleted from Geppetto core.
+- Whether the `Conversation` object should eventually store a more explicit app-owned resolved-runtime struct instead of parallel fields like `resolvedRuntime`, `resolvedStepSettings`, `RuntimeKey`, and `RuntimeFingerprint`.
+
+### What should be done in the future
+
+- Delete `StepSettingsPatch`, `BaseStepSettings`, and `EffectiveStepSettings` from Geppetto core now that the biggest live downstream callers have moved off runtime-composer patch application.
+- Then clean up remaining Pinocchio/TUI/helper surfaces that still read `resolved.EffectiveStepSettings` directly.
+
+### Code review instructions
+
+- Start with the runtime contract changes:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/conversation_service.go`
+- Then review the two caller-side resolver/composer paths:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+- Validate with:
+
+```bash
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Technical details
+
+- Pinocchio and GEC-RAG now pass `resolved.EffectiveStepSettings.Clone()` through their request-resolution layers instead of reapplying `StepSettingsPatch` inside runtime composition.
+- The runtime composers still receive `ResolvedProfileRuntime` for prompt/tool/middleware metadata, but no longer use it to mutate step settings.

@@ -10,3 +10,4 @@
 - Completed the first implementation slice in downstream callers: Pinocchio and GEC-RAG no longer populate `RuntimeKeyFallback` in their live webchat resolver paths.
 - Removed stale GEC-RAG runtime-composition dependence on `ComposedRuntime.AllowedTools`; tool registry filtering now reads directly from the incoming resolved runtime request instead of from composed engine artifacts.
 - Completed the second implementation slice in Geppetto core and JS surfaces: `RuntimeKeyFallback` is removed from `profiles.ResolveInput`, profile resolution always derives `runtimeKey` from `profileSlug`, and the JS profile/engine APIs plus examples/docs were updated to match the hard cut.
+- Completed the third implementation slice in downstream callers: Pinocchio webchat and GEC-RAG now carry fully resolved `StepSettings` through request/runtime contracts, and their runtime composers no longer apply `StepSettingsPatch` themselves.
