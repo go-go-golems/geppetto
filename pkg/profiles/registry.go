@@ -16,9 +16,8 @@ type RegistrySummary struct {
 
 // ResolveInput contains all inputs needed to compute an effective runtime profile.
 type ResolveInput struct {
-	RegistrySlug       RegistrySlug
-	ProfileSlug        ProfileSlug
-	RuntimeKeyFallback RuntimeKey
+	RegistrySlug RegistrySlug
+	ProfileSlug  ProfileSlug
 
 	BaseStepSettings *settings.StepSettings
 }

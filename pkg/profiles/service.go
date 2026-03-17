@@ -155,12 +155,9 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		return nil, err
 	}
 
-	runtimeKey := in.RuntimeKeyFallback
-	if runtimeKey.IsZero() {
-		runtimeKey, err = ParseRuntimeKey(profileSlug.String())
-		if err != nil {
-			return nil, err
-		}
+	runtimeKey, err := ParseRuntimeKey(profileSlug.String())
+	if err != nil {
+		return nil, err
 	}
 
 	metadata := map[string]any{

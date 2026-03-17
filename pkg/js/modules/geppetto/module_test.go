@@ -758,6 +758,14 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 		}
 		if (!threwLegacyRegistry) throw new Error("legacy registrySlug option should fail with migration error");
 
+		let threwLegacyRuntimeKey = false;
+		try {
+			gp.engines.fromProfile("default-model", { runtimeKey: "chat" });
+		} catch (e) {
+			threwLegacyRuntimeKey = /runtimekey has been removed/i.test(String(e));
+		}
+		if (!threwLegacyRuntimeKey) throw new Error("legacy runtimeKey option should fail with migration error");
+
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
 			model: "gpt-4o-mini",
@@ -812,11 +820,10 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 
 		const resolved = gp.profiles.resolve({
 			profileSlug: "explicit-model",
-			runtimeKeyFallback: "explicit-model-runtime",
 		});
 		if (resolved.registrySlug !== "default") throw new Error("resolve registry mismatch");
 		if (resolved.profileSlug !== "explicit-model") throw new Error("resolve profile mismatch");
-		if (resolved.runtimeKey !== "explicit-model-runtime") throw new Error("resolve runtime key mismatch");
+		if (resolved.runtimeKey !== "explicit-model") throw new Error("resolve runtime key mismatch");
 		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
 			throw new Error("resolve runtime fingerprint missing");
 		}
@@ -898,11 +905,13 @@ profiles:
 		const active = gp.profiles.getConnectedSources();
 		if (active[0] !== %q || active[1] !== %q) throw new Error("getConnectedSources mismatch");
 
-		const topResolved = gp.profiles.resolve({ profileSlug: "default", runtimeKeyFallback: "rk-default" });
+		const topResolved = gp.profiles.resolve({ profileSlug: "default" });
 		if (topResolved.registrySlug !== "top") throw new Error("top-of-stack resolution mismatch");
+		if (topResolved.runtimeKey !== "default") throw new Error("top runtime key mismatch");
 
-		const baseResolved = gp.profiles.resolve({ profileSlug: "helper", runtimeKeyFallback: "rk-helper" });
+		const baseResolved = gp.profiles.resolve({ profileSlug: "helper" });
 		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
+		if (baseResolved.runtimeKey !== "helper") throw new Error("base runtime key mismatch");
 
 		const switched = gp.profiles.connectStack(%q);
 		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
@@ -957,9 +966,12 @@ profiles:
 			throw new Error("disconnectStack should restore host-provided registry");
 		}
 
-		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model", runtimeKeyFallback: "rk-explicit" });
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
 		if (resolved.registrySlug !== "default") {
 			throw new Error("resolve should use restored host registry after disconnect");
+		}
+		if (resolved.runtimeKey !== "explicit-model") {
+			throw new Error("resolve should derive runtime key from profile slug");
 		}
 	`, topPath))
 }

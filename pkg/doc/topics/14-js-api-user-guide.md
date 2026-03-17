@@ -154,9 +154,7 @@ Example:
 ```javascript
 const gp = require("geppetto");
 
-const engine = gp.engines.fromProfile("assistant", {
-  runtimeKey: "chat"
-});
+const engine = gp.engines.fromProfile("assistant");
 
 assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile runtime fingerprint");
 ```

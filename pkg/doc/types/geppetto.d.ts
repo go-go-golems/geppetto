@@ -209,7 +209,6 @@ declare module "geppetto" {
     export interface ResolveInput {
         registrySlug?: string;
         profileSlug?: string;
-        runtimeKeyFallback?: string;
     }
 
     export interface ResolvedProfile {

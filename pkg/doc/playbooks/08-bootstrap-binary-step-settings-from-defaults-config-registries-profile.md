@@ -212,10 +212,9 @@ This is the key step. Do not manually reimplement patch layering if you can avoi
 
 ```go
 resolved, err := registry.ResolveEffectiveProfile(ctx, profiles.ResolveInput{
-	RegistrySlug:       selectedRegistrySlug,
-	ProfileSlug:        selectedProfileSlug,
-	BaseStepSettings:   baseStepSettings,
-	RuntimeKeyFallback: profiles.MustRuntimeKey("default"),
+	RegistrySlug:     selectedRegistrySlug,
+	ProfileSlug:      selectedProfileSlug,
+	BaseStepSettings: baseStepSettings,
 })
 if err != nil {
 	return err
@@ -311,7 +310,6 @@ func buildEffectiveStepSettings(
 	resolved, err := registry.ResolveEffectiveProfile(ctx, profiles.ResolveInput{
 		ProfileSlug:       selectedProfile,
 		BaseStepSettings:  baseStepSettings,
-		RuntimeKeyFallback: profiles.MustRuntimeKey("default"),
 	})
 	if err != nil {
 		return nil, err

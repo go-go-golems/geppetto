@@ -159,14 +159,6 @@ func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
 			}
 			in.ProfileSlug = profileSlug
 		}
-		runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKeyFallback"], ""))
-		if runtimeKeyRaw != "" {
-			runtimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
-			if err != nil {
-				panic(m.vm.NewGoError(err))
-			}
-			in.RuntimeKeyFallback = runtimeKey
-		}
 	}
 
 	resolved, err := registry.ResolveEffectiveProfile(context.Background(), in)

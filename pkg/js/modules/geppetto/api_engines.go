@@ -250,11 +250,7 @@ func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts m
 			return nil, fmt.Errorf("engines.fromProfile options.registrySlug has been removed; load profile registries in stack order and resolve by profile slug")
 		}
 		if runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKey"], "")); runtimeKeyRaw != "" {
-			parsedRuntimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
-			if err != nil {
-				return nil, err
-			}
-			in.RuntimeKeyFallback = parsedRuntimeKey
+			return nil, fmt.Errorf("engines.fromProfile options.runtimeKey has been removed; runtime identity is owned by the caller")
 		}
 	}
 
