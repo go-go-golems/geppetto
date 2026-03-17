@@ -19,19 +19,24 @@ RelatedFiles:
       Note: Minimal reproducible example used in the GitHub issue
 ExternalSources:
     - https://github.com/go-go-golems/geppetto/issues/302
-Summary: GitHub bug report plus local repro material for scopedjs losing JavaScript Error messages and returning Promise rejected: map[].
-LastUpdated: 2026-03-16T21:17:17.370109399-04:00
-WhatFor: Track the scopedjs rejection-message bug from discovery through GitHub issue filing, including the exact repro command and the code paths most likely involved.
-WhenToUse: Use when fixing or reviewing promise rejection handling in scopedjs, especially around JavaScript Error objects.
+Summary: Tracks the scopedjs JavaScript Error export bug from repro and issue filing through the local fix that now preserves JS error text for rejected, thrown, returned, and console-logged Error values.
+LastUpdated: 2026-03-16T22:08:46-04:00
+WhatFor: Track the scopedjs JavaScript Error formatting bug, the upstream GitHub issue, the local code fix, and the regression coverage for future reviewers.
+WhenToUse: Use when fixing or reviewing JavaScript Error handling in scopedjs, especially around rejected promises and exported goja values.
 ---
 
 # Preserve JavaScript Error messages in scopedjs promise rejections
 
 ## Overview
 
-This ticket captures a bug in `scopedjs` promise rejection handling. String rejections survive, but real JavaScript `Error` objects lose their message and end up surfaced to callers as `Promise rejected: map[]`.
+This ticket captures a bug in `scopedjs` JavaScript Error handling. String rejections survived, but real JavaScript `Error` objects lost their message and ended up surfaced to callers as `Promise rejected: map[]`.
 
-The GitHub issue is filed as `go-go-golems/geppetto#302`, and this workspace contains the exact repro script and issue body used to open it.
+The GitHub issue is filed as `go-go-golems/geppetto#302`, and this workspace now contains both the original repro material and the local implementation fix. The fix preserves useful text for:
+
+- `await Promise.reject(new Error("boom"))`
+- `throw new Error("boom")`
+- `return new Error("boom")`
+- `console.error(new Error("boom"))`
 
 ## Key Links
 
@@ -44,6 +49,12 @@ The GitHub issue is filed as `go-go-golems/geppetto#302`, and this workspace con
 ## Status
 
 Current status: **active**
+
+Local state:
+
+- GitHub issue filed upstream
+- local `scopedjs` fix implemented
+- regression tests added and passing
 
 ## Topics
 

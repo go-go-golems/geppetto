@@ -1,0 +1,6 @@
+=== RUN   TestJSTimelineRuntime_ReducerCreatesEntityAndConsumesEvent
+--- PASS: TestJSTimelineRuntime_ReducerCreatesEntityAndConsumesEvent (0.00s)
+=== RUN   TestJSTimelineRuntime_NonConsumingReducerAllowsBuiltinProjection
+--- PASS: TestJSTimelineRuntime_NonConsumingReducerAllowsBuiltinProjection (0.00s)
+PASS
+ok  	github.com/go-go-golems/pinocchio/pkg/webchat	0.009s

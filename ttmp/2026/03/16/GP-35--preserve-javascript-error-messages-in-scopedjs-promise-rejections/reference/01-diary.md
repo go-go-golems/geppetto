@@ -166,3 +166,45 @@ Observed output:
 GitHub issue:
 
 - `go-go-golems/geppetto#302`
+
+## Step 2: Implement and Verify the Local Fix
+
+After filing the GitHub issue, the local branch was updated to fix the bug in `pkg/inference/tools/scopedjs/eval.go`.
+
+### What I did
+
+- Changed promise-state snapshots to keep the raw `goja.Value` rejection result instead of exporting it too early.
+- Formatted rejected promises using the JavaScript string form of the rejection value.
+- Extended `exportValue(...)` so JavaScript `Error` objects preserve their text when returned as normal values.
+- Extended console capture formatting so `console.error(new Error("boom"))` no longer degrades to `map[]`.
+- Added regression tests in `pkg/inference/tools/scopedjs/runtime_test.go` for:
+  - `await Promise.reject(new Error("boom"))`
+  - `throw new Error("boom")`
+  - `return new Error("boom")`
+  - `console.error(new Error("boom"))`
+- Ran:
+
+```bash
+go test ./pkg/inference/tools/scopedjs
+```
+
+### Why
+
+- The original issue was broader than promise rejection alone. The same lossy `Export()` path also affected returned and console-logged JavaScript `Error` values.
+- `go-go-goja/pkg/jsverbs/runtime.go` already uses a safer rejected-promise formatting pattern based on the raw `goja.Value`, so aligning `scopedjs` with that approach reduced risk.
+
+### What worked
+
+- The focused fix landed entirely in `pkg/inference/tools/scopedjs/eval.go`.
+- The new tests passed on the first run.
+- The fix now preserves the actual `boom` text across rejection, throw, return, and console cases.
+
+### What I learned
+
+- The real bug was not just in error construction. It was in exporting JS `Error` values into Go too early.
+- Keeping the raw `goja.Value` until the formatting boundary is the important design change.
+
+### What should be done in the future
+
+- Decide whether the long-term contract should expose only `value.String()` or a richer structured `{ name, message, stack }` payload for JavaScript errors.
+- Consider whether stack preservation belongs in `EvalOutput.Error` or in a future structured diagnostics field.

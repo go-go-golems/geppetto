@@ -1,0 +1,10 @@
+slug: gepa06-local
+profiles:
+  gpt-5-nano:
+    slug: gpt-5-nano
+    display_name: GPT-5 Nano (GEPA-06)
+    runtime:
+      step_settings_patch:
+        ai-chat:
+          ai-api-type: openai-responses
+          ai-engine: gpt-5-nano

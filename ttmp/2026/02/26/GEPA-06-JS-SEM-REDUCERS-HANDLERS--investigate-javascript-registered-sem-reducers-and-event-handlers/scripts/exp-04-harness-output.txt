@@ -1,0 +1,57 @@
+GEPA-06 exp-04 llm.delta projection harness
+date: 2026-02-26T20:04:18-05:00
+command: go test ./cmd/web-chat -run 'LLMDeltaProjectionHarness' -v
+
+=== RUN   TestLLMDeltaProjectionHarness_NonConsumingReducerAddsSideProjection
+{"level":"info","scripts":["/tmp/TestLLMDeltaProjectionHarness_NonConsumingReducerAddsSideProject835516388/001/timeline-harness.js"],"time":"2026-02-26T20:03:52-05:00","message":"loaded JS timeline runtime scripts"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /static/ asset handler"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /assets/ handler for built dist assets"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /static/ asset handler"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /assets/ handler for built dist assets"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-nonconsume","time":"2026-02-26T20:03:52-05:00","message":"stream coordinator: started"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-nonconsume","session_id":"6f4364e2-72a8-451f-9267-7b1e7bb67164","idempotency_key":"11754ad4-59ba-4e6d-873d-e35194518081","time":"2026-02-26T20:03:52-05:00","message":"starting inference loop"}
+{"level":"debug","iteration":1,"time":"2026-02-26T20:03:52-05:00","message":"toolloop: engine inference step"}
+{"level":"trace","component":"events.context","event_type":"start","sink_count":1,"time":"2026-02-26T20:03:52-05:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","component":"web_forwarder","event_type":"*events.EventPartialCompletionStart","event_id":"3031cb11-1fc3-49ea-a305-17c3a3ec1b76","session_id":"","inference_id":"","turn_id":"","time":"2026-02-26T20:03:52-05:00","message":"received event (SEM)"}
+{"level":"trace","topic":"chat:conv-llm-delta-nonconsume","event_type":"start","time":"2026-02-26T20:03:52-05:00","message":"Published event to watermill"}
+{"level":"trace","component":"events.context","event_type":"partial","sink_count":1,"time":"2026-02-26T20:03:52-05:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","component":"web_forwarder","event_type":"*events.EventPartialCompletion","event_id":"3031cb11-1fc3-49ea-a305-17c3a3ec1b76","session_id":"","inference_id":"","turn_id":"","time":"2026-02-26T20:03:52-05:00","message":"received event (SEM)"}
+{"level":"trace","topic":"chat:conv-llm-delta-nonconsume","event_type":"partial","time":"2026-02-26T20:03:52-05:00","message":"Published event to watermill"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-nonconsume","session_id":"6f4364e2-72a8-451f-9267-7b1e7bb67164","inference_id":"26f70359-c159-4f2a-b380-8c32e360773d","time":"2026-02-26T20:03:52-05:00","message":"inference loop finished"}
+--- PASS: TestLLMDeltaProjectionHarness_NonConsumingReducerAddsSideProjection (0.00s)
+=== RUN   TestLLMDeltaProjectionHarness_ConsumingReducerSuppressesBuiltinDeltaProjection
+{"level":"info","scripts":["/tmp/TestLLMDeltaProjectionHarness_ConsumingReducerSuppressesBuiltinD1355711823/001/timeline-harness.js"],"time":"2026-02-26T20:03:52-05:00","message":"loaded JS timeline runtime scripts"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /static/ asset handler"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /assets/ handler for built dist assets"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /static/ asset handler"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /assets/ handler for built dist assets"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-consume","time":"2026-02-26T20:03:52-05:00","message":"stream coordinator: started"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-consume","session_id":"940b4c55-3c86-4f67-9b6d-b062f7c769fd","idempotency_key":"7618972c-5f51-499a-b62f-a87e19eb2588","time":"2026-02-26T20:03:52-05:00","message":"starting inference loop"}
+{"level":"debug","iteration":1,"time":"2026-02-26T20:03:52-05:00","message":"toolloop: engine inference step"}
+{"level":"trace","component":"events.context","event_type":"start","sink_count":1,"time":"2026-02-26T20:03:52-05:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","component":"web_forwarder","event_type":"*events.EventPartialCompletionStart","event_id":"543613f8-1f00-4358-82fc-d4b0725f8d9b","session_id":"","inference_id":"","turn_id":"","time":"2026-02-26T20:03:52-05:00","message":"received event (SEM)"}
+{"level":"trace","topic":"chat:conv-llm-delta-consume","event_type":"start","time":"2026-02-26T20:03:52-05:00","message":"Published event to watermill"}
+{"level":"trace","component":"events.context","event_type":"partial","sink_count":1,"time":"2026-02-26T20:03:52-05:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","component":"web_forwarder","event_type":"*events.EventPartialCompletion","event_id":"543613f8-1f00-4358-82fc-d4b0725f8d9b","session_id":"","inference_id":"","turn_id":"","time":"2026-02-26T20:03:52-05:00","message":"received event (SEM)"}
+{"level":"trace","topic":"chat:conv-llm-delta-consume","event_type":"partial","time":"2026-02-26T20:03:52-05:00","message":"Published event to watermill"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-consume","session_id":"940b4c55-3c86-4f67-9b6d-b062f7c769fd","inference_id":"df72bfc4-b041-4e59-9d96-19d1ce6bcee7","time":"2026-02-26T20:03:52-05:00","message":"inference loop finished"}
+--- PASS: TestLLMDeltaProjectionHarness_ConsumingReducerSuppressesBuiltinDeltaProjection (0.00s)
+=== RUN   TestLLMDeltaProjectionHarness_HandlerRunsBeforeReducer
+{"level":"info","scripts":["/tmp/TestLLMDeltaProjectionHarness_HandlerRunsBeforeReducer2663106878/001/timeline-harness.js"],"time":"2026-02-26T20:03:52-05:00","message":"loaded JS timeline runtime scripts"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /static/ asset handler"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /assets/ handler for built dist assets"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /static/ asset handler"}
+{"level":"info","component":"webchat","time":"2026-02-26T20:03:52-05:00","message":"mounted /assets/ handler for built dist assets"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-handler-order","time":"2026-02-26T20:03:52-05:00","message":"stream coordinator: started"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-handler-order","session_id":"076e4ffe-e8fc-46a3-a19b-e7b24459bf02","idempotency_key":"b1d30bb9-2817-4de7-9a58-d490eb588052","time":"2026-02-26T20:03:52-05:00","message":"starting inference loop"}
+{"level":"debug","iteration":1,"time":"2026-02-26T20:03:52-05:00","message":"toolloop: engine inference step"}
+{"level":"trace","component":"events.context","event_type":"start","sink_count":1,"time":"2026-02-26T20:03:52-05:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","component":"web_forwarder","event_type":"*events.EventPartialCompletionStart","event_id":"219775a6-1866-40d7-84f1-2d08d9035b2c","session_id":"","inference_id":"","turn_id":"","time":"2026-02-26T20:03:52-05:00","message":"received event (SEM)"}
+{"level":"trace","topic":"chat:conv-llm-delta-handler-order","event_type":"start","time":"2026-02-26T20:03:52-05:00","message":"Published event to watermill"}
+{"level":"trace","component":"events.context","event_type":"partial","sink_count":1,"time":"2026-02-26T20:03:52-05:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","component":"web_forwarder","event_type":"*events.EventPartialCompletion","event_id":"219775a6-1866-40d7-84f1-2d08d9035b2c","session_id":"","inference_id":"","turn_id":"","time":"2026-02-26T20:03:52-05:00","message":"received event (SEM)"}
+{"level":"trace","topic":"chat:conv-llm-delta-handler-order","event_type":"partial","time":"2026-02-26T20:03:52-05:00","message":"Published event to watermill"}
+{"level":"info","component":"webchat","conv_id":"conv-llm-delta-handler-order","session_id":"076e4ffe-e8fc-46a3-a19b-e7b24459bf02","inference_id":"2e8d0f54-7bb6-4462-94f2-d780e038f4de","time":"2026-02-26T20:03:52-05:00","message":"inference loop finished"}
+--- PASS: TestLLMDeltaProjectionHarness_HandlerRunsBeforeReducer (0.05s)
+PASS
+ok  	github.com/go-go-golems/pinocchio/cmd/web-chat	(cached)

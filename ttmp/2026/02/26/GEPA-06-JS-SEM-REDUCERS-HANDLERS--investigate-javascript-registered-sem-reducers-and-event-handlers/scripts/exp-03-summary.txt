@@ -1,0 +1,61 @@
+GEPA-06 Option C Task 3 validation
+date: 2026-02-26T19:02:56-05:00
+ticket: /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/go-go-gepa/ttmp/2026/02/26/GEPA-06-JS-SEM-REDUCERS-HANDLERS--investigate-javascript-registered-sem-reducers-and-event-handlers
+
+1) Pinocchio cmd/web-chat loader tests (includes gpt-5-nano profile resolver)
+=== RUN   TestWebChatProfileResolver_WS_DefaultProfile
+--- PASS: TestWebChatProfileResolver_WS_DefaultProfile (0.01s)
+=== RUN   TestWebChatProfileResolver_Chat_OverridePolicy
+--- PASS: TestWebChatProfileResolver_Chat_OverridePolicy (0.01s)
+=== RUN   TestWebChatProfileResolver_Chat_BodyRuntimeKeyAcrossStack
+--- PASS: TestWebChatProfileResolver_Chat_BodyRuntimeKeyAcrossStack (0.01s)
+=== RUN   TestWebChatProfileResolver_WS_QueryRuntimeKeyAcrossStack
+--- PASS: TestWebChatProfileResolver_WS_QueryRuntimeKeyAcrossStack (0.01s)
+=== RUN   TestWebChatProfileResolver_Chat_InvalidRegistryInBodyIsIgnored
+--- PASS: TestWebChatProfileResolver_Chat_InvalidRegistryInBodyIsIgnored (0.00s)
+=== RUN   TestWebChatProfileResolver_Chat_UnknownRegistryQueryIsIgnored
+--- PASS: TestWebChatProfileResolver_Chat_UnknownRegistryQueryIsIgnored (0.00s)
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence/path_wins
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence/body_wins_over_query_and_cookie
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence/runtime_key_query_wins_over_cookie
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence/runtime_key_query_wins_over_cookie_with_runtime_value
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence/cookie_wins_over_default
+=== RUN   TestWebChatProfileResolver_ProfilePrecedence/default_fallback
+--- PASS: TestWebChatProfileResolver_ProfilePrecedence (0.03s)
+    --- PASS: TestWebChatProfileResolver_ProfilePrecedence/path_wins (0.00s)
+    --- PASS: TestWebChatProfileResolver_ProfilePrecedence/body_wins_over_query_and_cookie (0.01s)
+    --- PASS: TestWebChatProfileResolver_ProfilePrecedence/runtime_key_query_wins_over_cookie (0.01s)
+    --- PASS: TestWebChatProfileResolver_ProfilePrecedence/runtime_key_query_wins_over_cookie_with_runtime_value (0.01s)
+    --- PASS: TestWebChatProfileResolver_ProfilePrecedence/cookie_wins_over_default (0.01s)
+    --- PASS: TestWebChatProfileResolver_ProfilePrecedence/default_fallback (0.01s)
+=== RUN   TestWebChatProfileResolver_RegistrySlugInputsDoNotAffectResolution
+--- PASS: TestWebChatProfileResolver_RegistrySlugInputsDoNotAffectResolution (0.01s)
+=== RUN   TestNormalizeTimelineJSScriptPaths
+--- PASS: TestNormalizeTimelineJSScriptPaths (0.00s)
+=== RUN   TestConfigureTimelineJSScripts_LoadsRuntimeAndProjectsEvents
+{"level":"info","scripts":["/tmp/TestConfigureTimelineJSScripts_LoadsRuntimeAndProjectsEvents3143538053/001/loader.js"],"time":"2026-02-26T19:02:58-05:00","message":"loaded JS timeline runtime scripts"}
+--- PASS: TestConfigureTimelineJSScripts_LoadsRuntimeAndProjectsEvents (0.00s)
+=== RUN   TestConfigureTimelineJSScripts_ReturnsHelpfulErrorForMissingScript
+--- PASS: TestConfigureTimelineJSScripts_ReturnsHelpfulErrorForMissingScript (0.00s)
+=== RUN   TestProfileResolver_GPT5NanoProfileIsResolvedForChatRequest
+--- PASS: TestProfileResolver_GPT5NanoProfileIsResolvedForChatRequest (0.01s)
+PASS
+ok  	github.com/go-go-golems/pinocchio/cmd/web-chat	0.117s
+
+2) Pinocchio JS timeline runtime tests (llm.delta semantics)
+=== RUN   TestJSTimelineRuntime_ReducerCreatesEntityAndConsumesEvent
+--- PASS: TestJSTimelineRuntime_ReducerCreatesEntityAndConsumesEvent (0.00s)
+=== RUN   TestJSTimelineRuntime_NonConsumingReducerAllowsBuiltinProjection
+--- PASS: TestJSTimelineRuntime_NonConsumingReducerAllowsBuiltinProjection (0.00s)
+PASS
+ok  	github.com/go-go-golems/pinocchio/pkg/webchat	0.009s
+
+3) go-go-gepa streaming CLI integration (gpt-5-nano profile)
+=== RUN   TestDatasetGenerateStreamCLIOutput
+--- PASS: TestDatasetGenerateStreamCLIOutput (0.35s)
+PASS
+ok  	github.com/go-go-golems/go-go-gepa/cmd/gepa-runner	0.436s
+
+Validation completed successfully.
+Summary: /home/manuel/workspaces/2026-02-22/add-gepa-optimizer/go-go-gepa/ttmp/2026/02/26/GEPA-06-JS-SEM-REDUCERS-HANDLERS--investigate-javascript-registered-sem-reducers-and-event-handlers/scripts/exp-03-summary.txt
