@@ -399,14 +399,17 @@ The return type is:
 
 ```go
 type BuildResult[Meta any] struct {
-    Runtime  *gojengine.Runtime
-    Meta     Meta
-    Manifest EnvironmentManifest
-    Cleanup  func() error
+    Runtime   *gojengine.Runtime
+    Executor  *scopedjs.RuntimeExecutor
+    Meta      Meta
+    Manifest  EnvironmentManifest
+    Cleanup   func() error
 }
 ```
 
 Why `Manifest` matters: this is how your builder docs become part of the generated model-facing description. If you forget to register docs when you register capabilities, the runtime works but the tool description becomes weaker.
+
+Why `Executor` matters: `Runtime` is still the raw runtime handle, but `Executor` is the safe wrapper for reused-runtime evaluation. It serializes one full eval call on that runtime, which matters for prebuilt shared runtimes because one eval spans multiple phases internally.
 
 ## Step 6: Choose Prebuilt vs Lazy Registration
 
@@ -449,6 +452,8 @@ if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionO
     return err
 }
 ```
+
+Important detail: `RegisterPrebuilt(...)` now uses `handle.Executor` internally, not the raw runtime directly. If you ever execute evals manually against a reused runtime, prefer `handle.Executor.RunEval(...)` over calling `scopedjs.RunEval(...)` on `handle.Runtime` yourself.
 
 ### Lazy: `NewLazyRegistrar(...)`
 

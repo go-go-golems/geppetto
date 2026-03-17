@@ -84,6 +84,7 @@ func BuildRuntime[Scope any, Meta any](ctx context.Context, spec EnvironmentSpec
 
 	return &BuildResult[Meta]{
 		Runtime:  rt,
+		Executor: NewRuntimeExecutor(rt),
 		Meta:     meta,
 		Manifest: builder.Manifest(),
 		Cleanup: func() error {

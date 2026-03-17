@@ -16,11 +16,15 @@ func RegisterPrebuilt[Scope any, Meta any](reg tools.ToolRegistry, spec Environm
 		return fmt.Errorf("build result runtime is nil")
 	}
 	evalOpts := resolveEvalOptions(spec.DefaultEval, opts)
+	executor := executorFromBuildResult(handle)
+	if executor == nil {
+		return fmt.Errorf("build result executor is nil")
+	}
 	def, err := tools.NewToolFromFunc(
 		spec.Tool.Name,
 		BuildDescription(spec.Tool.Description, handle.Manifest, "Calls reuse one prebuilt runtime instance, so runtime state can persist across calls."),
 		func(ctx context.Context, in EvalInput) (EvalOutput, error) {
-			return RunEval(ctx, handle.Runtime, in, evalOpts)
+			return executor.RunEval(ctx, in, evalOpts)
 		},
 	)
 	if err != nil {
@@ -64,7 +68,11 @@ func NewLazyRegistrar[Scope any, Meta any](spec EnvironmentSpec[Scope, Meta], re
 						_ = handle.Cleanup()
 					}
 				}()
-				return RunEval(ctx, handle.Runtime, in, evalOpts)
+				executor := executorFromBuildResult(handle)
+				if executor == nil {
+					return EvalOutput{Error: "build result executor is nil"}, nil
+				}
+				return executor.RunEval(ctx, in, evalOpts)
 			},
 		)
 		if err != nil {

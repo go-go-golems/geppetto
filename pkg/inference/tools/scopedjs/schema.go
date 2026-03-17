@@ -54,6 +54,7 @@ type EnvironmentSpec[Scope any, Meta any] struct {
 
 type BuildResult[Meta any] struct {
 	Runtime  *gojengine.Runtime
+	Executor *RuntimeExecutor
 	Meta     Meta
 	Manifest EnvironmentManifest
 	Cleanup  func() error

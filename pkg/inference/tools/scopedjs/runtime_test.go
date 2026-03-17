@@ -67,6 +67,9 @@ func TestBuildRuntimeLoadsGlobalsAndBootstrap(t *testing.T) {
 	if handle.Meta != "ready" {
 		t.Fatalf("expected meta ready, got %q", handle.Meta)
 	}
+	if handle.Executor == nil {
+		t.Fatalf("expected executor to be populated")
+	}
 	if len(handle.Manifest.Modules) != 1 || handle.Manifest.Modules[0].Name != "mathx" {
 		t.Fatalf("unexpected manifest modules: %#v", handle.Manifest.Modules)
 	}
