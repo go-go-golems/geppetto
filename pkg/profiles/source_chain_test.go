@@ -2,7 +2,6 @@ package profiles
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,30 +211,6 @@ profiles:
 		t.Fatalf("default prompt mismatch: got=%q want=%q", got, want)
 	}
 
-	_, err = chain.UpdateProfile(ctx, MustRegistrySlug("private"), MustProfileSlug("default"), ProfilePatch{
-		DisplayName: ptrString("updated"),
-	}, WriteOptions{Actor: "tests", Source: "tests"})
-	if !errors.Is(err, ErrReadOnlyStore) {
-		t.Fatalf("expected ErrReadOnlyStore for yaml write, got: %v", err)
-	}
-
-	updated, err := chain.UpdateProfile(ctx, MustRegistrySlug("shared"), MustProfileSlug("default"), ProfilePatch{
-		DisplayName: ptrString("shared-updated"),
-	}, WriteOptions{Actor: "tests", Source: "tests"})
-	if err != nil {
-		t.Fatalf("UpdateProfile shared failed: %v", err)
-	}
-	if got, want := updated.DisplayName, "shared-updated"; got != want {
-		t.Fatalf("updated display name mismatch: got=%q want=%q", got, want)
-	}
-
-	getUpdated, err := chain.GetProfile(ctx, MustRegistrySlug("shared"), MustProfileSlug("default"))
-	if err != nil {
-		t.Fatalf("GetProfile shared/default failed: %v", err)
-	}
-	if got, want := getUpdated.DisplayName, "shared-updated"; got != want {
-		t.Fatalf("aggregate store not refreshed after write: got=%q want=%q", got, want)
-	}
 }
 
 func TestChainedRegistry_RejectsDuplicateRegistrySlugsAcrossSources(t *testing.T) {
@@ -323,8 +298,4 @@ profiles:
 	if got, want := resolved.EffectiveRuntime.SystemPrompt, "private-assistant"; got != want {
 		t.Fatalf("default prompt mismatch: got=%q want=%q", got, want)
 	}
-}
-
-func ptrString(s string) *string {
-	return &s
 }

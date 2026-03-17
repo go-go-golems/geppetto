@@ -33,11 +33,6 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 			},
 			Tools: []string{"calculator"},
 		},
-		Policy: PolicySpec{
-			AllowOverrides:      true,
-			AllowedOverrideKeys: []string{"system_prompt"},
-			DeniedOverrideKeys:  []string{"tools"},
-		},
 		Metadata: ProfileMetadata{
 			Tags: []string{"stable"},
 		},
@@ -73,8 +68,6 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	cloned.Runtime.Tools[0] = "search"
 	cloned.Stack[0].ProfileSlug = MustProfileSlug("provider-anthropic")
 	cloned.Stack[1].RegistrySlug = MustRegistrySlug("ops")
-	cloned.Policy.AllowedOverrideKeys[0] = "tools"
-	cloned.Policy.DeniedOverrideKeys[0] = "middlewares"
 	cloned.Metadata.Tags[0] = "mutated"
 	clonedExtensions := cloned.Extensions["webchat.starter_suggestions@v1"].(map[string]any)
 	clonedItems := clonedExtensions["items"].([]any)
@@ -118,12 +111,6 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	}
 	if got := original.Stack[1].RegistrySlug; got != MustRegistrySlug("team") {
 		t.Fatalf("expected original second stack registry unchanged, got %q", got)
-	}
-	if got := original.Policy.AllowedOverrideKeys[0]; got != "system_prompt" {
-		t.Fatalf("expected original allowed override keys unchanged, got %q", got)
-	}
-	if got := original.Policy.DeniedOverrideKeys[0]; got != "tools" {
-		t.Fatalf("expected original denied override keys unchanged, got %q", got)
 	}
 	if got := original.Metadata.Tags[0]; got != "stable" {
 		t.Fatalf("expected original metadata tags unchanged, got %q", got)

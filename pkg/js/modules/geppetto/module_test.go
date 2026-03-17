@@ -824,44 +824,6 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 			throw new Error("resolve effectiveRuntime payload missing");
 		}
 
-		const created = gp.profiles.createProfile(
-			{
-				slug: "ops",
-				display_name: "Ops",
-				description: "Ops profile",
-				runtime: {
-					system_prompt: "You are operations support",
-				},
-			},
-			{ registrySlug: "default", write: { actor: "test-js", source: "module-test" } },
-		);
-		if (!created || created.slug !== "ops") throw new Error("createProfile mismatch");
-
-		const updated = gp.profiles.updateProfile(
-			"ops",
-			{ description: "Ops profile updated" },
-			{ registrySlug: "default", write: { actor: "test-js", source: "module-test" } },
-		);
-		if (!updated || updated.description !== "Ops profile updated") throw new Error("updateProfile mismatch");
-
-		gp.profiles.setDefaultProfile("ops", {
-			registrySlug: "default",
-			write: { actor: "test-js", source: "module-test" },
-		});
-		const updatedRegistry = gp.profiles.getRegistry("default");
-		if (updatedRegistry.default_profile_slug !== "ops") throw new Error("setDefaultProfile mismatch");
-
-		gp.profiles.deleteProfile("ops", {
-			registrySlug: "default",
-			write: { actor: "test-js", source: "module-test" },
-		});
-		let deleted = false;
-		try {
-			gp.profiles.getProfile("ops", "default");
-		} catch (e) {
-			deleted = /profile not found/i.test(String(e));
-		}
-		if (!deleted) throw new Error("deleteProfile mismatch");
 	`)
 }
 
@@ -876,22 +838,6 @@ func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 			threw = /configured profile registry/i.test(String(e));
 		}
 		if (!threw) throw new Error("profiles API should require configured registry");
-	`)
-}
-
-func TestProfilesNamespaceCreateRequiresWritableRegistry(t *testing.T) {
-	rt := newJSRuntime(t, Options{
-		ProfileRegistry: readOnlyProfileRegistry{reader: mustNewJSProfileRegistry(t)},
-	})
-	mustRunJS(t, rt, `
-		const gp = require("geppetto");
-		let threw = false;
-		try {
-			gp.profiles.createProfile({ slug: "ops" });
-		} catch (e) {
-			threw = /writable profile registry/i.test(String(e));
-		}
-		if (!threw) throw new Error("profiles.createProfile should require writable registry");
 	`)
 }
 
@@ -950,14 +896,6 @@ profiles:
 		const baseResolved = gp.profiles.resolve({ profileSlug: "helper", runtimeKeyFallback: "rk-helper" });
 		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
 
-		let readOnlyErr = false;
-		try {
-			gp.profiles.createProfile({ slug: "new-profile", runtime: { system_prompt: "x" } });
-		} catch (e) {
-			readOnlyErr = /read-only|writable profile registry/i.test(String(e));
-		}
-		if (!readOnlyErr) throw new Error("expected read-only write error for yaml-backed stack");
-
 		const switched = gp.profiles.connectStack(%q);
 		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
 			throw new Error("connectStack string source mismatch");
@@ -974,68 +912,6 @@ profiles:
 		}
 		if (!missing) throw new Error("disconnectStack should clear profile registry binding");
 	`, basePath, topPath, basePath, topPath, topPath, topPath))
-}
-
-func TestProfilesNamespaceConnectStackSQLiteCrud(t *testing.T) {
-	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "profiles.db")
-	dsn, err := gepprofiles.SQLiteProfileDSNForFile(dbPath)
-	if err != nil {
-		t.Fatalf("SQLiteProfileDSNForFile failed: %v", err)
-	}
-	store, err := gepprofiles.NewSQLiteProfileStore(dsn, gepprofiles.MustRegistrySlug("workspace"))
-	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore failed: %v", err)
-	}
-	defer func() {
-		_ = store.Close()
-	}()
-	if err := store.UpsertRegistry(ctx, &gepprofiles.ProfileRegistry{
-		Slug:               gepprofiles.MustRegistrySlug("workspace"),
-		DefaultProfileSlug: gepprofiles.MustProfileSlug("default"),
-		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
-			gepprofiles.MustProfileSlug("default"): {
-				Slug: gepprofiles.MustProfileSlug("default"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "workspace-default",
-				},
-			},
-		},
-	}, gepprofiles.SaveOptions{Actor: "test", Source: "module-test"}); err != nil {
-		t.Fatalf("UpsertRegistry(workspace) failed: %v", err)
-	}
-
-	rt := newJSRuntime(t, Options{})
-	mustRunJS(t, rt, fmt.Sprintf(`
-		const gp = require("geppetto");
-		const write = { registrySlug: "workspace", write: { actor: "test-js", source: "module-test" } };
-
-		const connected = gp.profiles.connectStack([%q]);
-		if (!Array.isArray(connected.registries) || !connected.registries.some((x) => x.slug === "workspace")) {
-			throw new Error("workspace registry missing after connectStack");
-		}
-
-		const created = gp.profiles.createProfile(
-			{ slug: "ops", runtime: { system_prompt: "ops prompt" } },
-			write,
-		);
-		if (!created || created.slug !== "ops") throw new Error("createProfile via connectStack failed");
-
-		const resolved = gp.profiles.resolve({ profileSlug: "ops", runtimeKeyFallback: "rk-ops" });
-		if (resolved.registrySlug !== "workspace") throw new Error("resolve after connectStack mismatch");
-
-		const updated = gp.profiles.updateProfile("ops", { description: "Ops updated" }, write);
-		if (!updated || updated.description !== "Ops updated") throw new Error("updateProfile via connectStack failed");
-
-		gp.profiles.deleteProfile("ops", write);
-		let deleted = false;
-		try {
-			gp.profiles.getProfile("ops", "workspace");
-		} catch (e) {
-			deleted = /profile not found/i.test(String(e));
-		}
-		if (!deleted) throw new Error("deleteProfile via connectStack failed");
-	`, dbPath))
 }
 
 func TestProfilesNamespaceDisconnectStackRestoresHostRegistry(t *testing.T) {
@@ -1469,30 +1345,6 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 		t.Fatalf("NewStoreRegistry failed: %v", err)
 	}
 	return registry
-}
-
-type readOnlyProfileRegistry struct {
-	reader gepprofiles.RegistryReader
-}
-
-func (r readOnlyProfileRegistry) ListRegistries(ctx context.Context) ([]gepprofiles.RegistrySummary, error) {
-	return r.reader.ListRegistries(ctx)
-}
-
-func (r readOnlyProfileRegistry) GetRegistry(ctx context.Context, registrySlug gepprofiles.RegistrySlug) (*gepprofiles.ProfileRegistry, error) {
-	return r.reader.GetRegistry(ctx, registrySlug)
-}
-
-func (r readOnlyProfileRegistry) ListProfiles(ctx context.Context, registrySlug gepprofiles.RegistrySlug) ([]*gepprofiles.Profile, error) {
-	return r.reader.ListProfiles(ctx, registrySlug)
-}
-
-func (r readOnlyProfileRegistry) GetProfile(ctx context.Context, registrySlug gepprofiles.RegistrySlug, profileSlug gepprofiles.ProfileSlug) (*gepprofiles.Profile, error) {
-	return r.reader.GetProfile(ctx, registrySlug, profileSlug)
-}
-
-func (r readOnlyProfileRegistry) ResolveEffectiveProfile(ctx context.Context, in gepprofiles.ResolveInput) (*gepprofiles.ResolvedProfile, error) {
-	return r.reader.ResolveEffectiveProfile(ctx, in)
 }
 
 type schemaDefinition struct {

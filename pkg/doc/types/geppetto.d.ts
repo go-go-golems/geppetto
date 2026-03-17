@@ -160,13 +160,6 @@ declare module "geppetto" {
         tools?: string[];
     }
 
-    export interface PolicySpec {
-        allow_overrides?: boolean;
-        allowed_override_keys?: string[];
-        denied_override_keys?: string[];
-        read_only?: boolean;
-    }
-
     export interface ProfileMetadata {
         source?: string;
         version?: number;
@@ -193,7 +186,6 @@ declare module "geppetto" {
         description?: string;
         stack?: ProfileRef[];
         runtime?: RuntimeSpec;
-        policy?: PolicySpec;
         metadata?: ProfileMetadata;
         extensions?: Record<string, any>;
     }
@@ -205,26 +197,6 @@ declare module "geppetto" {
         default_profile_slug?: string;
         profiles?: Record<string, Profile>;
         metadata?: RegistryMetadata;
-    }
-
-    export interface ProfilePatch {
-        display_name?: string;
-        description?: string;
-        runtime?: RuntimeSpec;
-        policy?: PolicySpec;
-        metadata?: ProfileMetadata;
-        extensions?: Record<string, any>;
-    }
-
-    export interface ProfileWriteOptions {
-        expectedVersion?: number;
-        actor?: string;
-        source?: string;
-    }
-
-    export interface ProfileMutationOptions {
-        registrySlug?: string;
-        write?: ProfileWriteOptions;
     }
 
     export type ProfileRegistrySources = string | string[];
@@ -469,10 +441,6 @@ declare module "geppetto" {
         listProfiles(registrySlug?: string): Profile[];
         getProfile(profileSlug: string, registrySlug?: string): Profile;
         resolve(input?: ResolveInput): ResolvedProfile;
-        createProfile(profile: Profile, options?: ProfileMutationOptions): Profile;
-        updateProfile(profileSlug: string, patch: ProfilePatch, options?: ProfileMutationOptions): Profile;
-        deleteProfile(profileSlug: string, options?: ProfileMutationOptions): void;
-        setDefaultProfile(profileSlug: string, options?: ProfileMutationOptions): void;
         connectStack(sources: ProfileRegistrySources): ConnectedProfileStack;
         disconnectStack(): void;
         getConnectedSources(): string[];

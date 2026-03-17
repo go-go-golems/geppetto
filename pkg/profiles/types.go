@@ -18,14 +18,6 @@ type RuntimeSpec struct {
 	Tools             []string        `json:"tools,omitempty" yaml:"tools,omitempty"`
 }
 
-// PolicySpec controls mutability and override behavior for a profile.
-type PolicySpec struct {
-	AllowOverrides      bool     `json:"allow_overrides" yaml:"allow_overrides"`
-	AllowedOverrideKeys []string `json:"allowed_override_keys,omitempty" yaml:"allowed_override_keys,omitempty"`
-	DeniedOverrideKeys  []string `json:"denied_override_keys,omitempty" yaml:"denied_override_keys,omitempty"`
-	ReadOnly            bool     `json:"read_only" yaml:"read_only"`
-}
-
 // ProfileRef identifies a profile that can be layered via stack composition.
 // Empty RegistrySlug means "same registry as the referencing profile".
 type ProfileRef struct {
@@ -55,14 +47,13 @@ type RegistryMetadata struct {
 	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
-// Profile is a named runtime preset with policy and metadata.
+// Profile is a named runtime preset with runtime settings and metadata.
 type Profile struct {
 	Slug        ProfileSlug     `json:"slug" yaml:"slug"`
 	DisplayName string          `json:"display_name,omitempty" yaml:"display_name,omitempty"`
 	Description string          `json:"description,omitempty" yaml:"description,omitempty"`
 	Stack       []ProfileRef    `json:"stack,omitempty" yaml:"stack,omitempty"`
 	Runtime     RuntimeSpec     `json:"runtime,omitempty" yaml:"runtime,omitempty"`
-	Policy      PolicySpec      `json:"policy,omitempty" yaml:"policy,omitempty"`
 	Metadata    ProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Extensions  map[string]any  `json:"extensions,omitempty" yaml:"extensions,omitempty"`
 }
@@ -92,12 +83,6 @@ func (p *Profile) Clone() *Profile {
 			SystemPrompt:      p.Runtime.SystemPrompt,
 			Middlewares:       append([]MiddlewareUse(nil), p.Runtime.Middlewares...),
 			Tools:             append([]string(nil), p.Runtime.Tools...),
-		},
-		Policy: PolicySpec{
-			AllowOverrides:      p.Policy.AllowOverrides,
-			AllowedOverrideKeys: append([]string(nil), p.Policy.AllowedOverrideKeys...),
-			DeniedOverrideKeys:  append([]string(nil), p.Policy.DeniedOverrideKeys...),
-			ReadOnly:            p.Policy.ReadOnly,
 		},
 		Metadata: ProfileMetadata{
 			Source:      p.Metadata.Source,

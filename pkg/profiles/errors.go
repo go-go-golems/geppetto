@@ -9,7 +9,6 @@ var (
 	ErrRegistryNotFound = errors.New("registry not found")
 	ErrProfileNotFound  = errors.New("profile not found")
 	ErrVersionConflict  = errors.New("version conflict")
-	ErrPolicyViolation  = errors.New("policy violation")
 	ErrValidation       = errors.New("validation error")
 	ErrReadOnlyStore    = errors.New("store is read-only")
 )
@@ -30,24 +29,6 @@ func (e *VersionConflictError) Error() string {
 }
 
 func (e *VersionConflictError) Is(target error) bool { return target == ErrVersionConflict }
-
-// PolicyViolationError reports attempts to mutate/use profiles against policy.
-type PolicyViolationError struct {
-	ProfileSlug ProfileSlug
-	Reason      string
-}
-
-func (e *PolicyViolationError) Error() string {
-	if e == nil {
-		return ErrPolicyViolation.Error()
-	}
-	if e.ProfileSlug.IsZero() {
-		return fmt.Sprintf("%s: %s", ErrPolicyViolation, e.Reason)
-	}
-	return fmt.Sprintf("%s for profile %q: %s", ErrPolicyViolation, e.ProfileSlug, e.Reason)
-}
-
-func (e *PolicyViolationError) Is(target error) bool { return target == ErrPolicyViolation }
 
 // ValidationError reports invalid domain data.
 type ValidationError struct {

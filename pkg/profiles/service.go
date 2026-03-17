@@ -183,124 +183,6 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 	}, nil
 }
 
-func (r *StoreRegistry) CreateProfile(ctx context.Context, registrySlug RegistrySlug, profile *Profile, opts WriteOptions) (*Profile, error) {
-	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
-	if _, err := r.GetRegistry(ctx, resolvedRegistrySlug); err != nil {
-		return nil, err
-	}
-
-	next, err := r.normalizeAndValidateProfile(profile)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok, err := r.store.GetProfile(ctx, resolvedRegistrySlug, next.Slug); err != nil {
-		return nil, err
-	} else if ok {
-		return nil, &VersionConflictError{
-			Resource: "profile",
-			Slug:     next.Slug.String(),
-			Expected: 0,
-			Actual:   next.Metadata.Version,
-		}
-	}
-
-	if err := r.store.UpsertProfile(ctx, resolvedRegistrySlug, next, toSaveOptions(opts)); err != nil {
-		return nil, err
-	}
-	return r.GetProfile(ctx, resolvedRegistrySlug, next.Slug)
-}
-
-func (r *StoreRegistry) UpdateProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, patch ProfilePatch, opts WriteOptions) (*Profile, error) {
-	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
-	resolvedProfileSlug, err := resolveProfileSlugInput(profileSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	current, err := r.GetProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug)
-	if err != nil {
-		return nil, err
-	}
-	if current.Policy.ReadOnly {
-		return nil, &PolicyViolationError{ProfileSlug: resolvedProfileSlug, Reason: "profile is read-only"}
-	}
-
-	next := current.Clone()
-	if patch.DisplayName != nil {
-		next.DisplayName = strings.TrimSpace(*patch.DisplayName)
-	}
-	if patch.Description != nil {
-		next.Description = strings.TrimSpace(*patch.Description)
-	}
-	if patch.Runtime != nil {
-		next.Runtime = cloneRuntimeSpec(*patch.Runtime)
-	}
-	if patch.Policy != nil {
-		next.Policy = clonePolicySpec(*patch.Policy)
-	}
-	if patch.Metadata != nil {
-		next.Metadata = mergeProfileMetadata(next.Metadata, *patch.Metadata)
-	}
-	if patch.Extensions != nil {
-		next.Extensions = deepCopyStringAnyMap(*patch.Extensions)
-	}
-
-	next, err = r.normalizeAndValidateProfile(next)
-	if err != nil {
-		return nil, err
-	}
-	if err := r.store.UpsertProfile(ctx, resolvedRegistrySlug, next, toSaveOptions(opts)); err != nil {
-		return nil, err
-	}
-	return r.GetProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug)
-}
-
-func (r *StoreRegistry) DeleteProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts WriteOptions) error {
-	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
-	resolvedProfileSlug, err := resolveProfileSlugInput(profileSlug)
-	if err != nil {
-		return err
-	}
-
-	current, err := r.GetProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug)
-	if err != nil {
-		return err
-	}
-	if current.Policy.ReadOnly {
-		return &PolicyViolationError{ProfileSlug: resolvedProfileSlug, Reason: "profile is read-only"}
-	}
-
-	return r.store.DeleteProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug, toSaveOptions(opts))
-}
-
-func (r *StoreRegistry) SetDefaultProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts WriteOptions) error {
-	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
-	resolvedProfileSlug, err := resolveProfileSlugInput(profileSlug)
-	if err != nil {
-		return err
-	}
-	if _, err := r.GetProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug); err != nil {
-		return err
-	}
-	return r.store.SetDefaultProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug, toSaveOptions(opts))
-}
-
-func (r *StoreRegistry) normalizeAndValidateProfile(profile *Profile) (*Profile, error) {
-	if profile == nil {
-		return nil, &ValidationError{Field: "profile", Reason: "must not be nil"}
-	}
-	next := profile.Clone()
-	normalizedExtensions, err := NormalizeProfileExtensions(next.Extensions, r.extensionCodecs)
-	if err != nil {
-		return nil, err
-	}
-	next.Extensions = normalizedExtensions
-	if err := ValidateProfile(next); err != nil {
-		return nil, err
-	}
-	return next, nil
-}
-
 func (r *StoreRegistry) resolveRegistrySlug(slug RegistrySlug) RegistrySlug {
 	if !slug.IsZero() {
 		return slug
@@ -337,31 +219,6 @@ func resolveProfileSlugInput(slug ProfileSlug) (ProfileSlug, error) {
 
 func resolveRuntimeSpec(base RuntimeSpec) (RuntimeSpec, error) {
 	return cloneRuntimeSpec(base), nil
-}
-
-func canonicalOverrideKey(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return ""
-	}
-	trimmed = camelToSnake(trimmed)
-	trimmed = strings.ToLower(trimmed)
-	trimmed = strings.ReplaceAll(trimmed, "-", "_")
-	return trimmed
-}
-
-func camelToSnake(s string) string {
-	if s == "" {
-		return s
-	}
-	out := make([]rune, 0, len(s)+4)
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			out = append(out, '_')
-		}
-		out = append(out, r)
-	}
-	return string(out)
 }
 
 func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec, stepSettings *settings.StepSettings) string {
@@ -433,41 +290,6 @@ func cloneRuntimeSpec(in RuntimeSpec) RuntimeSpec {
 	}
 }
 
-func clonePolicySpec(in PolicySpec) PolicySpec {
-	return PolicySpec{
-		AllowOverrides:      in.AllowOverrides,
-		AllowedOverrideKeys: append([]string(nil), in.AllowedOverrideKeys...),
-		DeniedOverrideKeys:  append([]string(nil), in.DeniedOverrideKeys...),
-		ReadOnly:            in.ReadOnly,
-	}
-}
-
-func mergeProfileMetadata(base ProfileMetadata, patch ProfileMetadata) ProfileMetadata {
-	ret := base
-	if patch.Source != "" {
-		ret.Source = patch.Source
-	}
-	if patch.CreatedBy != "" {
-		ret.CreatedBy = patch.CreatedBy
-	}
-	if patch.UpdatedBy != "" {
-		ret.UpdatedBy = patch.UpdatedBy
-	}
-	if patch.CreatedAtMs != 0 {
-		ret.CreatedAtMs = patch.CreatedAtMs
-	}
-	if patch.UpdatedAtMs != 0 {
-		ret.UpdatedAtMs = patch.UpdatedAtMs
-	}
-	if patch.Version != 0 {
-		ret.Version = patch.Version
-	}
-	if patch.Tags != nil {
-		ret.Tags = append([]string(nil), patch.Tags...)
-	}
-	return ret
-}
-
 func profileMetadataSource(profile *Profile, registry *ProfileRegistry) string {
 	if profile != nil && strings.TrimSpace(profile.Metadata.Source) != "" {
 		return profile.Metadata.Source
@@ -476,8 +298,4 @@ func profileMetadataSource(profile *Profile, registry *ProfileRegistry) string {
 		return registry.Metadata.Source
 	}
 	return ""
-}
-
-func toSaveOptions(opts WriteOptions) SaveOptions {
-	return SaveOptions(opts)
 }

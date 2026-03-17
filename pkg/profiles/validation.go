@@ -81,32 +81,6 @@ func validateMiddlewareUses(middlewares []MiddlewareUse, fieldPrefix string) err
 	return nil
 }
 
-func ValidatePolicySpec(policy PolicySpec) error {
-	allow := map[string]struct{}{}
-	for i, key := range policy.AllowedOverrideKeys {
-		normalized := strings.TrimSpace(key)
-		if normalized == "" {
-			return &ValidationError{Field: fmt.Sprintf("policy.allowed_override_keys[%d]", i), Reason: "must not be empty"}
-		}
-		allow[normalized] = struct{}{}
-	}
-
-	deny := map[string]struct{}{}
-	for i, key := range policy.DeniedOverrideKeys {
-		normalized := strings.TrimSpace(key)
-		if normalized == "" {
-			return &ValidationError{Field: fmt.Sprintf("policy.denied_override_keys[%d]", i), Reason: "must not be empty"}
-		}
-		if _, ok := allow[normalized]; ok {
-			return &ValidationError{Field: "policy.override_keys", Reason: fmt.Sprintf("key %q appears in both allow and deny lists", normalized)}
-		}
-		deny[normalized] = struct{}{}
-	}
-
-	_ = deny
-	return nil
-}
-
 func ValidateProfile(profile *Profile) error {
 	if profile == nil {
 		return &ValidationError{Field: "profile", Reason: "must not be nil"}
@@ -115,9 +89,6 @@ func ValidateProfile(profile *Profile) error {
 		return err
 	}
 	if err := ValidateRuntimeSpec(profile.Runtime); err != nil {
-		return err
-	}
-	if err := ValidatePolicySpec(profile.Policy); err != nil {
 		return err
 	}
 	if err := ValidateProfileExtensions(profile.Extensions); err != nil {

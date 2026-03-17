@@ -35,7 +35,6 @@ type Options struct {
 	GoToolRegistry        tools.ToolRegistry
 	GoMiddlewareFactories map[string]MiddlewareFactory
 	ProfileRegistry       profiles.RegistryReader
-	ProfileRegistryWriter profiles.RegistryWriter
 	MiddlewareSchemas     middlewarecfg.DefinitionRegistry
 	ExtensionCodecs       profiles.ExtensionCodecRegistry
 	ExtensionSchemas      map[string]map[string]any
@@ -68,12 +67,10 @@ type moduleRuntime struct {
 	goToolRegistry            tools.ToolRegistry
 	goMiddlewareFactories     map[string]MiddlewareFactory
 	profileRegistry           profiles.RegistryReader
-	profileRegistryWriter     profiles.RegistryWriter
 	profileRegistryCloser     io.Closer
 	profileRegistryOwned      bool
 	profileRegistrySpec       []string
 	baseProfileRegistry       profiles.RegistryReader
-	baseProfileRegistryWriter profiles.RegistryWriter
 	baseProfileRegistryCloser io.Closer
 	baseProfileRegistrySpec   []string
 	middlewareSchemas         middlewarecfg.DefinitionRegistry
@@ -96,7 +93,6 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		goToolRegistry:        opts.GoToolRegistry,
 		goMiddlewareFactories: map[string]MiddlewareFactory{},
 		profileRegistry:       opts.ProfileRegistry,
-		profileRegistryWriter: opts.ProfileRegistryWriter,
 		middlewareSchemas:     opts.MiddlewareSchemas,
 		extensionCodecs:       opts.ExtensionCodecs,
 		extensionSchemas:      cloneNestedStringAnyMap(opts.ExtensionSchemas),
@@ -107,13 +103,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 	if closer, ok := opts.ProfileRegistry.(io.Closer); ok && closer != nil {
 		m.profileRegistryCloser = closer
 	}
-	if m.profileRegistryWriter == nil {
-		if rw, ok := opts.ProfileRegistry.(profiles.RegistryWriter); ok {
-			m.profileRegistryWriter = rw
-		}
-	}
 	m.baseProfileRegistry = m.profileRegistry
-	m.baseProfileRegistryWriter = m.profileRegistryWriter
 	m.baseProfileRegistryCloser = m.profileRegistryCloser
 	if m.runner != nil {
 		m.bridge = runtimebridge.New(m.runner)
@@ -165,10 +155,6 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(profilesObj, "listProfiles", m.profilesListProfiles)
 	m.mustSet(profilesObj, "getProfile", m.profilesGetProfile)
 	m.mustSet(profilesObj, "resolve", m.profilesResolve)
-	m.mustSet(profilesObj, "createProfile", m.profilesCreateProfile)
-	m.mustSet(profilesObj, "updateProfile", m.profilesUpdateProfile)
-	m.mustSet(profilesObj, "deleteProfile", m.profilesDeleteProfile)
-	m.mustSet(profilesObj, "setDefaultProfile", m.profilesSetDefaultProfile)
 	m.mustSet(profilesObj, "connectStack", m.profilesConnectStack)
 	m.mustSet(profilesObj, "disconnectStack", m.profilesDisconnectStack)
 	m.mustSet(profilesObj, "getConnectedSources", m.profilesGetConnectedSources)

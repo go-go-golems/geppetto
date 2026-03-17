@@ -14,23 +14,6 @@ type RegistrySummary struct {
 	ProfileCount       int          `json:"profile_count" yaml:"profile_count"`
 }
 
-// ProfilePatch describes partial updates to profile fields.
-type ProfilePatch struct {
-	DisplayName *string          `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Description *string          `json:"description,omitempty" yaml:"description,omitempty"`
-	Runtime     *RuntimeSpec     `json:"runtime,omitempty" yaml:"runtime,omitempty"`
-	Policy      *PolicySpec      `json:"policy,omitempty" yaml:"policy,omitempty"`
-	Metadata    *ProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	Extensions  *map[string]any  `json:"extensions,omitempty" yaml:"extensions,omitempty"`
-}
-
-// WriteOptions carries mutation context for registry service APIs.
-type WriteOptions struct {
-	ExpectedVersion uint64
-	Actor           string
-	Source          string
-}
-
 // ResolveInput contains all inputs needed to compute an effective runtime profile.
 type ResolveInput struct {
 	RegistrySlug       RegistrySlug
@@ -62,16 +45,7 @@ type RegistryReader interface {
 	ResolveEffectiveProfile(ctx context.Context, in ResolveInput) (*ResolvedProfile, error)
 }
 
-// RegistryWriter provides mutation operations for profile registry services.
-type RegistryWriter interface {
-	CreateProfile(ctx context.Context, registrySlug RegistrySlug, profile *Profile, opts WriteOptions) (*Profile, error)
-	UpdateProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, patch ProfilePatch, opts WriteOptions) (*Profile, error)
-	DeleteProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts WriteOptions) error
-	SetDefaultProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts WriteOptions) error
-}
-
 // Registry is the unified profile registry service abstraction.
 type Registry interface {
 	RegistryReader
-	RegistryWriter
 }

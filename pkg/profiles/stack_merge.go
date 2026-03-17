@@ -2,13 +2,11 @@ package profiles
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
 type StackMergeResult struct {
 	Runtime    RuntimeSpec
-	Policy     PolicySpec
 	Extensions map[string]any
 }
 
@@ -21,13 +19,9 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 			Middlewares:       nil,
 			Tools:             nil,
 		},
-		Policy: PolicySpec{
-			AllowOverrides: false,
-		},
 		Extensions: map[string]any{},
 	}
 
-	policies := make([]PolicySpec, 0, len(layers))
 	mergedMiddlewares := make([]MiddlewareUse, 0, 8)
 
 	for _, layer := range layers {
@@ -60,8 +54,6 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 			}
 			result.Extensions[extensionKey] = mergeExtensionValue(existing, extensionValue)
 		}
-
-		policies = append(policies, clonePolicySpec(profile.Policy))
 	}
 
 	if len(mergedMiddlewares) > 0 {
@@ -70,7 +62,6 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 	if len(result.Extensions) == 0 {
 		result.Extensions = nil
 	}
-	result.Policy = mergePolicyLayersRestrictive(policies)
 
 	return result, nil
 }
@@ -135,81 +126,5 @@ func mergeExtensionValue(base any, overlay any) any {
 		}
 		ret[key] = deepCopyAny(overlayValue)
 	}
-	return ret
-}
-
-func mergePolicyLayersRestrictive(layers []PolicySpec) PolicySpec {
-	if len(layers) == 0 {
-		return PolicySpec{}
-	}
-
-	result := PolicySpec{
-		AllowOverrides: true,
-		ReadOnly:       false,
-	}
-
-	var allowedIntersection map[string]struct{}
-	deniedUnion := map[string]struct{}{}
-
-	for _, layer := range layers {
-		result.AllowOverrides = result.AllowOverrides && layer.AllowOverrides
-		result.ReadOnly = result.ReadOnly || layer.ReadOnly
-
-		layerAllowed := normalizePolicyKeys(layer.AllowedOverrideKeys)
-		if len(layerAllowed) > 0 {
-			if allowedIntersection == nil {
-				allowedIntersection = map[string]struct{}{}
-				for key := range layerAllowed {
-					allowedIntersection[key] = struct{}{}
-				}
-			} else {
-				for key := range allowedIntersection {
-					if _, ok := layerAllowed[key]; !ok {
-						delete(allowedIntersection, key)
-					}
-				}
-			}
-		}
-
-		layerDenied := normalizePolicyKeys(layer.DeniedOverrideKeys)
-		for key := range layerDenied {
-			deniedUnion[key] = struct{}{}
-		}
-	}
-
-	for key := range deniedUnion {
-		if allowedIntersection != nil {
-			delete(allowedIntersection, key)
-		}
-	}
-
-	result.DeniedOverrideKeys = sortedPolicyKeys(deniedUnion)
-	if allowedIntersection != nil {
-		result.AllowedOverrideKeys = sortedPolicyKeys(allowedIntersection)
-	}
-	return result
-}
-
-func normalizePolicyKeys(keys []string) map[string]struct{} {
-	ret := map[string]struct{}{}
-	for _, key := range keys {
-		normalized := canonicalOverrideKey(key)
-		if normalized == "" {
-			continue
-		}
-		ret[normalized] = struct{}{}
-	}
-	return ret
-}
-
-func sortedPolicyKeys(set map[string]struct{}) []string {
-	if len(set) == 0 {
-		return nil
-	}
-	ret := make([]string, 0, len(set))
-	for key := range set {
-		ret = append(ret, key)
-	}
-	sort.Strings(ret)
 	return ret
 }
