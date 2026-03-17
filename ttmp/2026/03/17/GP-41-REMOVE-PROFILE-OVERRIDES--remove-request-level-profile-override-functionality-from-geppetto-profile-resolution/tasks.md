@@ -35,8 +35,8 @@
 - [x] Slice 4: remove downstream uses of `PolicyViolationError`, `RegistryWriter`, and mutation-only fake registries in Pinocchio and GEC-RAG tests.
 - [x] Slice 5A: remove stale Geppetto JS resolved-profile compatibility handling (`requestOverrides` rejection path and `runtimeKey` alias on `profiles.resolve`).
 - [x] Slice 5A: replace stale Geppetto JS examples that still exercised request overrides or profile CRUD with read-only registry examples.
-- [ ] Slice 5: remove stale JS examples, docs, and API references that still describe profile CRUD, profile policy, or request overrides.
-- [ ] Slice 5: run focused validation in Geppetto, Pinocchio, and GEC-RAG once the read-only registry pivot is fully implemented.
+- [x] Slice 5: remove stale Geppetto and Pinocchio docs/API references that still described profile CRUD, profile policy, or request overrides.
+- [x] Slice 5: run focused validation in Geppetto and Pinocchio for the read-only registry doc sweep.
 
 ## Superseded Tasks
 

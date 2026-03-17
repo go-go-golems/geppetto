@@ -869,3 +869,81 @@ All three passed after the fixture expectation fix.
 
 - Finish the remaining Slice 5 doc cleanup in Pinocchio and the remaining Geppetto playbooks that still mention request overrides or writable registries.
 - Re-run `docmgr doctor` and refresh the GP-41 reMarkable bundle once the broader doc sweep is complete.
+
+## Step: Finish the GP-41 stale-doc sweep across Geppetto and Pinocchio
+
+This step closed the remaining GP-41 drift after the code work was already done. The docs still described a mixed world where profiles had policy structs, request-time overrides, and writable shared APIs, even though the runtime surface had already been hard-cut to read-only resolution.
+
+I treated this as a single cleanup slice across both repos instead of piecemeal edits. That kept the public narrative consistent: Geppetto docs now describe registry resolution without policy/mutation semantics, and Pinocchio docs now describe read-only shared profile APIs plus app-owned request selection without override payloads.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead."
+
+**Assistant interpretation:** Continue GP-41 by finishing the remaining stale documentation cleanup and record the result in the ticket.
+
+**Inferred user intent:** Complete the read-only profile-registry pivot cleanly so the checked-in docs match the new architecture and no longer teach removed override or CRUD paths.
+
+### What I did
+
+- Cleaned Geppetto docs:
+  - removed `PolicySpec`, request-override, and writable-registry language from:
+    - `pkg/doc/topics/00-docs-index.md`
+    - `pkg/doc/topics/01-profiles.md`
+    - `pkg/doc/playbooks/08-bootstrap-binary-step-settings-from-defaults-config-registries-profile.md`
+- Cleaned Pinocchio docs and README examples:
+  - removed `request_overrides` request examples,
+  - converted shared profile API docs from CRUD to read-only list/get/current-profile semantics,
+  - replaced “runtime/profile policy” wording with “request/profile selection” wording where appropriate.
+- Re-ran a repo-wide grep over Geppetto and Pinocchio docs to confirm the stale terms were gone.
+- Validated docs with:
+  - `go test ./pkg/doc/...` in Geppetto
+  - `go test ./pkg/doc/...` in Pinocchio
+  - `docmgr doctor --ticket GP-41-REMOVE-PROFILE-OVERRIDES --stale-after 30`
+
+### Why
+
+- Leaving the docs in a mixed state would have recreated the same ambiguity the code cleanup was supposed to remove.
+- GP-41 is not just a code deletion ticket; it is also an architecture simplification ticket. The docs need to teach the simplified model directly.
+
+### What worked
+
+- A simple grep over the high-signal stale terms was enough to isolate the remaining drift.
+- The broadest Pinocchio cleanup turned out to be `webchat-profile-registry.md`; once that page reflected a read-only model, the smaller pages became straightforward edits.
+
+### What didn't work
+
+- The first pass still left one stale `request_overrides` mention in `pkg/doc/tutorials/05-building-standalone-webchat-ui.md`, which only showed up in the second grep pass.
+
+### What I learned
+
+- The doc drift was more about terminology than missing examples. Phrases like “policy,” “CRUD,” and “override payload” were carrying outdated architecture assumptions across multiple pages.
+- Doing the grep after editing, not before only, is important for this kind of hard-cut cleanup.
+
+### What warrants a second pair of eyes
+
+- `pinocchio/pkg/doc/topics/webchat-profile-registry.md` because it had the largest conceptual rewrite from mutable CRUD docs to read-only API docs.
+- `geppetto/pkg/doc/topics/01-profiles.md` because it is the top-level profile topic and now defines the simplified model for future readers.
+
+### What should be done in the future
+
+- Refresh the GP-41 reMarkable bundle so the portable ticket copy matches the final cleaned state.
+- Revisit GP-43 next, since several remaining docs now clearly expose that `step_settings_patch` is the next big simplification target.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/01-profiles.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Then spot-check:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/doc/topics/webchat-http-chat-setup.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/playbooks/08-bootstrap-binary-step-settings-from-defaults-config-registries-profile.md`
+- Validation commands:
+  - `rg -n "request_overrides|requestOverrides|createProfile|updateProfile|deleteProfile|setDefaultProfile|writable registry|policy-gated|profile policy|allow_overrides|allowed_override_keys|denied_override_keys|PolicySpec|read_only" geppetto/pkg/doc pinocchio/pkg/doc pinocchio/README.md pinocchio/cmd/web-chat/README.md`
+  - `cd geppetto && go test ./pkg/doc/...`
+  - `cd pinocchio && go test ./pkg/doc/...`
+  - `cd geppetto && docmgr doctor --ticket GP-41-REMOVE-PROFILE-OVERRIDES --stale-after 30`
+
+### Technical details
+
+- Final grep result exited with code `1`, which is the expected “no matches found” signal for the stale-term query.

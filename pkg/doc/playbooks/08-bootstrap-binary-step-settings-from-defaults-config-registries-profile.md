@@ -212,10 +212,9 @@ This is the key step. Do not manually reimplement patch layering if you can avoi
 
 ```go
 resolved, err := registry.ResolveEffectiveProfile(ctx, profiles.ResolveInput{
-	RegistrySlug:      selectedRegistrySlug,
-	ProfileSlug:       selectedProfileSlug,
-	BaseStepSettings:  baseStepSettings,
-	RequestOverrides:  requestOverrides,
+	RegistrySlug:       selectedRegistrySlug,
+	ProfileSlug:        selectedProfileSlug,
+	BaseStepSettings:   baseStepSettings,
 	RuntimeKeyFallback: profiles.MustRuntimeKey("default"),
 })
 if err != nil {
@@ -229,8 +228,7 @@ This gives you a final `StepSettings` with the correct layering:
 
 - base defaults/config/env already applied,
 - profile stack already expanded,
-- profile `runtime.step_settings_patch` already merged,
-- request override policy already enforced.
+- profile `runtime.step_settings_patch` already merged.
 
 ## Step 7: Use `resolved.EffectiveStepSettings` as the only runtime truth
 
@@ -330,11 +328,9 @@ func buildEffectiveStepSettings(
 - **Applying profile patches manually after `ResolveEffectiveProfile`**
   The registry service already did that merge.
 - **Building engines from raw parsed values after profile resolution**
-  This skips policy-gated overrides and stack merge behavior.
+  This skips stack merge behavior.
 - **Mixing legacy flat config keys with layered section config**
   `openai-api-key: ...` at top level is not the same as `openai-chat.openai-api-key`.
-- **Letting env bypass profile policy accidentally**
-  Env should shape the base settings, not silently override resolved profile policy afterward.
 
 ## Troubleshooting
 

@@ -26,3 +26,5 @@
 - Confirmed focused downstream validation with `go test ./pkg/webchat/... ./cmd/web-chat/...` in Pinocchio and `go test ./internal/webchat/...` in GEC-RAG.
 - Removed the remaining Geppetto JS resolved-profile compatibility seams by dropping the `profiles.resolve` `runtimeKey` alias, deleting the explicit `requestOverrides has been removed` checks in profile-backed JS calls, and updating module coverage to lock the hard-cut behavior.
 - Replaced stale Geppetto JS example scripts that still exercised request overrides or profile CRUD with read-only runtime-key and sqlite-inventory examples, and updated the checked-in JS reference docs to stop advertising removed profile mutation/override behavior.
+- Completed the broader Slice 5 docs sweep across Geppetto and Pinocchio, removing stale references to `PolicySpec`, request overrides, and writable profile APIs from the checked-in profile/webchat docs and READMEs.
+- Re-validated the cleaned docs with a repo-wide grep, `go test ./pkg/doc/...` in Geppetto and Pinocchio, and `docmgr doctor --ticket GP-41-REMOVE-PROFILE-OVERRIDES --stale-after 30`.
