@@ -5,11 +5,12 @@ all: test build
 VERSION=v0.1.14
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
 GOLANGCI_LINT_BIN ?= $(CURDIR)/.bin/golangci-lint
+GOLANGCI_LINT_ARGS ?= --timeout=5m ./cmd/... ./pkg/...
 LINT_DIRS := $(shell git ls-files '*.go' | grep -vE '(^|/)ttmp/|(^|/)testdata/' | xargs -r -n1 dirname | sed 's#^#./#' | sort -u)
 GOSEC_EXCLUDE_DIRS := -exclude-dir=.history -exclude-dir=testdata -exclude-dir=ttmp
 
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run -v $(LINT_DIRS)
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint config verify && golangci-lint run -v $(GOLANGCI_LINT_ARGS)
 
 golangci-lint-install:
 	mkdir -p $(dir $(GOLANGCI_LINT_BIN))
@@ -25,11 +26,13 @@ linttool:
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 lint: linttool-build golangci-lint-install
-	$(GOLANGCI_LINT_BIN) run -v $(LINT_DIRS)
+	$(GOLANGCI_LINT_BIN) config verify
+	$(GOLANGCI_LINT_BIN) run -v $(GOLANGCI_LINT_ARGS)
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 lintmax: linttool-build golangci-lint-install
-	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100 $(LINT_DIRS)
+	$(GOLANGCI_LINT_BIN) config verify
+	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100 $(GOLANGCI_LINT_ARGS)
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
