@@ -13,26 +13,9 @@ func TestValidateProfile_OK(t *testing.T) {
 			Middlewares: []MiddlewareUse{{Name: "agentmode"}},
 			Tools:       []string{"calculator"},
 		},
-		Policy: PolicySpec{
-			AllowOverrides:      true,
-			AllowedOverrideKeys: []string{"system_prompt"},
-		},
 	}
 	if err := ValidateProfile(p); err != nil {
 		t.Fatalf("ValidateProfile failed: %v", err)
-	}
-}
-
-func TestValidatePolicySpec_OverlapFails(t *testing.T) {
-	err := ValidatePolicySpec(PolicySpec{
-		AllowedOverrideKeys: []string{"system_prompt"},
-		DeniedOverrideKeys:  []string{"system_prompt"},
-	})
-	if err == nil {
-		t.Fatalf("expected overlap error")
-	}
-	if !errors.Is(err, ErrValidation) {
-		t.Fatalf("expected validation error, got: %v", err)
 	}
 }
 

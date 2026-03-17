@@ -1,7 +1,7 @@
 ---
 Title: Profile Registry in Geppetto
 Slug: profiles
-Short: Registry-first profile model for selecting runtime defaults, policy, and persistence across apps.
+Short: Registry-first profile model for selecting runtime defaults and composing stack-based runtime data across apps.
 Topics:
 - configuration
 - profiles
@@ -24,8 +24,6 @@ Geppetto now treats profiles as a first-class domain object (`ProfileRegistry`) 
 
 - selecting runtime defaults by profile slug,
 - storing profiles in memory, YAML, or SQLite,
-- enforcing profile policy (for example read-only or override restrictions),
-- exposing profile CRUD APIs from applications.
 - composing provider/model/middleware defaults through profile stacks.
 
 This page documents the canonical, registry-first model used by current pinocchio and go-go-os integrations.
@@ -36,11 +34,11 @@ Registry-first profiles make profile state explicit and reusable across CLI flow
 
 Key benefits:
 
-- **Reusable domain model**: `Profile`, `ProfileRegistry`, `RuntimeSpec`, `PolicySpec`.
+- **Reusable domain model**: `Profile`, `ProfileRegistry`, `RuntimeSpec`.
 - **Typed slugs**: `RegistrySlug`, `ProfileSlug`, `RuntimeKey` reduce stringly-typed errors.
 - **Store abstraction**: same service API over in-memory, YAML file, or SQLite stores.
-- **Policy + versioning**: profile metadata and optimistic concurrency are built in.
-- **Application integration**: pinocchio/go-go-os can list, select, create, and update profiles through APIs.
+- **Metadata + provenance**: profile metadata and stack trace data are carried through resolution.
+- **Application integration**: pinocchio/go-go-os can list, inspect, and resolve profiles through APIs.
 
 ## Core Data Model
 
@@ -53,7 +51,6 @@ type Profile struct {
     Description string
     Stack       []ProfileRef
     Runtime     RuntimeSpec
-    Policy      PolicySpec
     Metadata    ProfileMetadata
 }
 
@@ -82,13 +79,6 @@ type ProfileRef struct {
 - `middlewares`
 - `tools`
 - `step_settings_patch`
-
-`PolicySpec` controls profile mutability and request override behavior:
-
-- `allow_overrides`
-- `allowed_override_keys`
-- `denied_override_keys`
-- `read_only`
 
 ## Slug Types and Validation
 
@@ -125,16 +115,12 @@ Applications typically use the `profiles.Registry` service interface:
 - `ListProfiles`
 - `GetProfile`
 - `ResolveEffectiveProfile`
-- `CreateProfile`
-- `UpdateProfile`
-- `DeleteProfile`
-- `SetDefaultProfile`
 
 For storage-backed services, use `profiles.NewStoreRegistry(...)`.
 
 ## Resolution Flow
 
-`ResolveEffectiveProfile` expands and merges the full profile stack, then applies optional request-time overrides, and returns canonical output used by runtime composition.
+`ResolveEffectiveProfile` expands and merges the full profile stack and returns canonical output used by runtime composition.
 
 Resolution output includes:
 
@@ -144,14 +130,6 @@ Resolution output includes:
 - stack provenance metadata (`profile.stack.lineage`, `profile.stack.trace`)
 - runtime fingerprint (`runtimeFingerprint`) that includes stack lineage + effective runtime inputs
 
-Request overrides are policy-gated by merged `PolicySpec`:
-
-- `allow_overrides=false` in any layer disables request overrides,
-- `denied_override_keys` are always rejected,
-- `allowed_override_keys` acts as an allow-list when present.
-
-If policy rejects an override, resolution returns a policy violation error.
-
 ## Hard-Cutover Model
 
 The runtime model is registry-first and profile-first:
@@ -160,8 +138,7 @@ The runtime model is registry-first and profile-first:
 - runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
 - in pinocchio, when `profile-registries` is not set, runtime auto-loads `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists,
 - stack composition is resolved in-core (base -> leaf) before runtime composition,
-- profile CRUD is the write path for runtime defaults,
-- middleware configuration is profile-scoped and validated before persistence in API surfaces.
+- middleware configuration is profile-scoped and validated by the caller before persistence when apps expose editing surfaces.
 
 There is no environment-variable toggle for old middleware selection paths.
 There is no overlay abstraction in the runtime composition path.
@@ -197,8 +174,6 @@ profiles:
       system_prompt: You are an assistant.
       tools:
         - calculator
-    policy:
-      allow_overrides: true
 ```
 
 ## Overlay Removal Rationale

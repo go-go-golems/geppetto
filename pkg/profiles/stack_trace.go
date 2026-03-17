@@ -78,10 +78,6 @@ func BuildProfileStackTrace(layers []ProfileStackLayer, merged StackMergeResult)
 			}
 		}
 
-		trace.recordStep("/policy/allow_overrides", layer.Profile.Policy.AllowOverrides, layer, i)
-		trace.recordStep("/policy/read_only", layer.Profile.Policy.ReadOnly, layer, i)
-		trace.recordStep("/policy/allowed_override_keys", append([]string(nil), layer.Profile.Policy.AllowedOverrideKeys...), layer, i)
-		trace.recordStep("/policy/denied_override_keys", append([]string(nil), layer.Profile.Policy.DeniedOverrideKeys...), layer, i)
 	}
 
 	for _, write := range collectTraceWrites("/runtime/step_settings_patch", merged.Runtime.StepSettingsPatch) {
@@ -104,10 +100,6 @@ func BuildProfileStackTrace(layers []ProfileStackLayer, merged StackMergeResult)
 		}
 	}
 
-	trace.setFinal("/policy/allow_overrides", merged.Policy.AllowOverrides)
-	trace.setFinal("/policy/read_only", merged.Policy.ReadOnly)
-	trace.setFinal("/policy/allowed_override_keys", append([]string(nil), merged.Policy.AllowedOverrideKeys...))
-	trace.setFinal("/policy/denied_override_keys", append([]string(nil), merged.Policy.DeniedOverrideKeys...))
 	trace.rebuildOrderedPaths()
 	return trace
 }

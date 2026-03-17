@@ -132,7 +132,6 @@ declare module "geppetto" {
 
     export interface ProfileEngineOptions {
         runtimeKey?: string;
-        requestOverrides?: Record<string, any>;
     }
 
     export interface RegistrySummary {
@@ -161,13 +160,6 @@ declare module "geppetto" {
         tools?: string[];
     }
 
-    export interface PolicySpec {
-        allow_overrides?: boolean;
-        allowed_override_keys?: string[];
-        denied_override_keys?: string[];
-        read_only?: boolean;
-    }
-
     export interface ProfileMetadata {
         source?: string;
         version?: number;
@@ -194,7 +186,6 @@ declare module "geppetto" {
         description?: string;
         stack?: ProfileRef[];
         runtime?: RuntimeSpec;
-        policy?: PolicySpec;
         metadata?: ProfileMetadata;
         extensions?: Record<string, any>;
     }
@@ -208,26 +199,6 @@ declare module "geppetto" {
         metadata?: RegistryMetadata;
     }
 
-    export interface ProfilePatch {
-        display_name?: string;
-        description?: string;
-        runtime?: RuntimeSpec;
-        policy?: PolicySpec;
-        metadata?: ProfileMetadata;
-        extensions?: Record<string, any>;
-    }
-
-    export interface ProfileWriteOptions {
-        expectedVersion?: number;
-        actor?: string;
-        source?: string;
-    }
-
-    export interface ProfileMutationOptions {
-        registrySlug?: string;
-        write?: ProfileWriteOptions;
-    }
-
     export type ProfileRegistrySources = string | string[];
 
     export interface ConnectedProfileStack {
@@ -239,8 +210,6 @@ declare module "geppetto" {
         registrySlug?: string;
         profileSlug?: string;
         runtimeKeyFallback?: string;
-        runtimeKey?: string;
-        requestOverrides?: Record<string, any>;
     }
 
     export interface ResolvedProfile {
@@ -471,10 +440,6 @@ declare module "geppetto" {
         listProfiles(registrySlug?: string): Profile[];
         getProfile(profileSlug: string, registrySlug?: string): Profile;
         resolve(input?: ResolveInput): ResolvedProfile;
-        createProfile(profile: Profile, options?: ProfileMutationOptions): Profile;
-        updateProfile(profileSlug: string, patch: ProfilePatch, options?: ProfileMutationOptions): Profile;
-        deleteProfile(profileSlug: string, options?: ProfileMutationOptions): void;
-        setDefaultProfile(profileSlug: string, options?: ProfileMutationOptions): void;
         connectStack(sources: ProfileRegistrySources): ConnectedProfileStack;
         disconnectStack(): void;
         getConnectedSources(): string[];

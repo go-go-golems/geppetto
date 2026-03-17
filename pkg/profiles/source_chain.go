@@ -29,13 +29,12 @@ type RegistrySourceSpec struct {
 type sourceOwner struct {
 	spec          RegistrySourceSpec
 	label         string
-	writable      bool
 	service       *StoreRegistry
 	registrySlugs []RegistrySlug
 	closer        io.Closer
 }
 
-// ChainedRegistry routes reads over all loaded registries and writes to owner sources.
+// ChainedRegistry routes reads over all loaded registries.
 // It resolves profile slugs by stack precedence when no explicit registry is provided.
 type ChainedRegistry struct {
 	aggregate           *StoreRegistry
@@ -222,74 +221,6 @@ func (c *ChainedRegistry) ResolveEffectiveProfile(ctx context.Context, in Resolv
 	return c.aggregate.ResolveEffectiveProfile(ctx, next)
 }
 
-func (c *ChainedRegistry) CreateProfile(ctx context.Context, registrySlug RegistrySlug, profile *Profile, opts WriteOptions) (*Profile, error) {
-	resolvedRegistrySlug := c.resolveRegistrySlug(registrySlug)
-	owner, err := c.ownerForRegistry(resolvedRegistrySlug)
-	if err != nil {
-		return nil, err
-	}
-	if !owner.writable {
-		return nil, c.readOnlyRegistryWriteError(resolvedRegistrySlug, owner)
-	}
-	created, err := owner.service.CreateProfile(ctx, resolvedRegistrySlug, profile, opts)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.refreshRegistryFromOwner(ctx, resolvedRegistrySlug, owner); err != nil {
-		return nil, err
-	}
-	return created, nil
-}
-
-func (c *ChainedRegistry) UpdateProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, patch ProfilePatch, opts WriteOptions) (*Profile, error) {
-	resolvedRegistrySlug := c.resolveRegistrySlug(registrySlug)
-	owner, err := c.ownerForRegistry(resolvedRegistrySlug)
-	if err != nil {
-		return nil, err
-	}
-	if !owner.writable {
-		return nil, c.readOnlyRegistryWriteError(resolvedRegistrySlug, owner)
-	}
-	updated, err := owner.service.UpdateProfile(ctx, resolvedRegistrySlug, profileSlug, patch, opts)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.refreshRegistryFromOwner(ctx, resolvedRegistrySlug, owner); err != nil {
-		return nil, err
-	}
-	return updated, nil
-}
-
-func (c *ChainedRegistry) DeleteProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts WriteOptions) error {
-	resolvedRegistrySlug := c.resolveRegistrySlug(registrySlug)
-	owner, err := c.ownerForRegistry(resolvedRegistrySlug)
-	if err != nil {
-		return err
-	}
-	if !owner.writable {
-		return c.readOnlyRegistryWriteError(resolvedRegistrySlug, owner)
-	}
-	if err := owner.service.DeleteProfile(ctx, resolvedRegistrySlug, profileSlug, opts); err != nil {
-		return err
-	}
-	return c.refreshRegistryFromOwner(ctx, resolvedRegistrySlug, owner)
-}
-
-func (c *ChainedRegistry) SetDefaultProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts WriteOptions) error {
-	resolvedRegistrySlug := c.resolveRegistrySlug(registrySlug)
-	owner, err := c.ownerForRegistry(resolvedRegistrySlug)
-	if err != nil {
-		return err
-	}
-	if !owner.writable {
-		return c.readOnlyRegistryWriteError(resolvedRegistrySlug, owner)
-	}
-	if err := owner.service.SetDefaultProfile(ctx, resolvedRegistrySlug, profileSlug, opts); err != nil {
-		return err
-	}
-	return c.refreshRegistryFromOwner(ctx, resolvedRegistrySlug, owner)
-}
-
 func (c *ChainedRegistry) resolveRegistrySlug(slug RegistrySlug) RegistrySlug {
 	if !slug.IsZero() {
 		return slug
@@ -302,38 +233,6 @@ func (c *ChainedRegistry) DefaultRegistrySlug() RegistrySlug {
 		return ""
 	}
 	return c.defaultRegistrySlug
-}
-
-func (c *ChainedRegistry) ownerForRegistry(slug RegistrySlug) (*sourceOwner, error) {
-	owner := c.registryOwners[slug]
-	if owner == nil {
-		return nil, ErrRegistryNotFound
-	}
-	return owner, nil
-}
-
-func (c *ChainedRegistry) refreshRegistryFromOwner(ctx context.Context, registrySlug RegistrySlug, owner *sourceOwner) error {
-	if c == nil || c.aggregateStore == nil || owner == nil || owner.service == nil {
-		return nil
-	}
-	reg, err := owner.service.GetRegistry(ctx, registrySlug)
-	if err != nil {
-		return err
-	}
-	c.aggregateStore.registries[registrySlug] = reg.Clone()
-	return nil
-}
-
-func (c *ChainedRegistry) readOnlyRegistryWriteError(slug RegistrySlug, owner *sourceOwner) error {
-	label := "source"
-	if owner != nil {
-		if owner.label != "" {
-			label = owner.label
-		} else if owner.spec.Raw != "" {
-			label = owner.spec.Raw
-		}
-	}
-	return fmt.Errorf("%w: registry %q is backed by read-only %s", ErrReadOnlyStore, slug, label)
 }
 
 func (c *ChainedRegistry) findRegistrySlugForProfile(ctx context.Context, profileSlug ProfileSlug) (RegistrySlug, error) {
@@ -453,10 +352,9 @@ func openRegistrySource(ctx context.Context, spec RegistrySourceSpec) (*sourceOw
 			return nil, nil, err
 		}
 		ret := &sourceOwner{
-			spec:     spec,
-			label:    spec.Path,
-			writable: false,
-			service:  svc,
+			spec:    spec,
+			label:   spec.Path,
+			service: svc,
 		}
 		return ret, registries, nil
 	case RegistrySourceKindSQLite:
@@ -497,11 +395,10 @@ func openSQLiteSource(ctx context.Context, spec RegistrySourceSpec, dsn string) 
 		return regs[i].Slug < regs[j].Slug
 	})
 	ret := &sourceOwner{
-		spec:     spec,
-		label:    dsn,
-		writable: true,
-		service:  svc,
-		closer:   store,
+		spec:    spec,
+		label:   dsn,
+		service: svc,
+		closer:  store,
 	}
 	return ret, regs, nil
 }

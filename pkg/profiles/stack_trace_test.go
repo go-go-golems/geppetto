@@ -20,9 +20,6 @@ func TestMergeProfileStackLayersWithTrace_PathHistoryAndFinalWinner(t *testing.T
 						},
 					},
 				},
-				Policy: PolicySpec{
-					AllowOverrides: false,
-				},
 				Metadata: ProfileMetadata{
 					Source:  "provider-source",
 					Version: 1,
@@ -37,9 +34,6 @@ func TestMergeProfileStackLayersWithTrace_PathHistoryAndFinalWinner(t *testing.T
 				Runtime: RuntimeSpec{
 					SystemPrompt: "agent prompt",
 				},
-				Policy: PolicySpec{
-					AllowOverrides: true,
-				},
 				Metadata: ProfileMetadata{
 					Source:  "agent-source",
 					Version: 2,
@@ -48,7 +42,7 @@ func TestMergeProfileStackLayersWithTrace_PathHistoryAndFinalWinner(t *testing.T
 		},
 	}
 
-	merged, trace, err := MergeProfileStackLayersWithTrace(layers)
+	_, trace, err := MergeProfileStackLayersWithTrace(layers)
 	if err != nil {
 		t.Fatalf("MergeProfileStackLayersWithTrace failed: %v", err)
 	}
@@ -66,12 +60,6 @@ func TestMergeProfileStackLayersWithTrace_PathHistoryAndFinalWinner(t *testing.T
 
 	if got, ok := trace.LatestValue("/runtime/system_prompt"); !ok || got.(string) != "agent prompt" {
 		t.Fatalf("system_prompt latest value mismatch: ok=%v got=%#v", ok, got)
-	}
-	if got, ok := trace.LatestValue("/policy/allow_overrides"); !ok || got.(bool) != false {
-		t.Fatalf("policy allow_overrides latest value mismatch: ok=%v got=%#v", ok, got)
-	}
-	if merged.Policy.AllowOverrides {
-		t.Fatalf("expected restrictive merged policy to keep allow_overrides=false")
 	}
 }
 

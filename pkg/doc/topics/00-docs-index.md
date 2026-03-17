@@ -21,7 +21,7 @@ Geppetto is a Go toolkit for building AI-powered applications. It provides:
 - **Tool calling** that works across providers (OpenAI, Claude, Gemini, Ollama)
 - **Provider-agnostic architecture** — write once, switch providers via config
 - **Event-driven design** for building responsive UIs and debugging
-- **Profile registry stack resolution** (YAML + SQLite sources, policy-gated request overrides)
+- **Profile registry stack resolution** (YAML + SQLite sources with read-only registry resolution)
 - **Native JS API** (`require("geppetto")`) for scripting and host embedding
 
 ## Start Here (New Users)

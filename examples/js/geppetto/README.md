@@ -22,10 +22,10 @@ const gp = require("geppetto");
 - `09_profiles_resolve_stack_precedence.js`
 - `10_engines_from_profile_metadata.js`
 - `11_profiles_resolve_explicit_registry.js`
-- `12_profiles_request_overrides_policy.js`
+- `12_profiles_resolve_runtime_key.js`
 - `13_schemas_middlewares_catalog.js`
 - `14_schemas_extensions_catalog.js`
-- `15_profiles_crud_sqlite.js`
+- `15_profiles_sqlite_inventory.js`
 - `16_mixed_registry_precedence.js`
 - `17_from_profile_legacy_registry_option_error.js`
 - `18_missing_profile_registry_errors.js`

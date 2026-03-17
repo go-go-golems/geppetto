@@ -61,7 +61,7 @@ func main() {
 		fatalf("failed to read script %q: %v", *scriptPath, err)
 	}
 
-	profileRegistry, profileRegistryWriter, closer, err := loadProfileRegistryStack(*profileRegistries)
+	profileRegistry, closer, err := loadProfileRegistryStack(*profileRegistries)
 	if err != nil {
 		fatalf("failed to load profile registries: %v", err)
 	}
@@ -86,12 +86,11 @@ func main() {
 	}
 	rt, err := jsruntime.NewRuntime(context.Background(), jsruntime.Options{
 		ModuleOptions: gp.Options{
-			GoToolRegistry:        goRegistry,
-			ProfileRegistry:       profileRegistry,
-			ProfileRegistryWriter: profileRegistryWriter,
-			MiddlewareSchemas:     middlewareSchemas,
-			ExtensionCodecs:       extensionCodecs,
-			ExtensionSchemas:      extensionSchemas,
+			GoToolRegistry:    goRegistry,
+			ProfileRegistry:   profileRegistry,
+			MiddlewareSchemas: middlewareSchemas,
+			ExtensionCodecs:   extensionCodecs,
+			ExtensionSchemas:  extensionSchemas,
 		},
 		RequireOptions: []require.Option{
 			require.WithGlobalFolders(scriptDir, filepath.Join(scriptDir, "node_modules")),
@@ -162,23 +161,23 @@ func buildGoToolRegistry() (tools.ToolRegistry, error) {
 	return reg, nil
 }
 
-func loadProfileRegistryStack(raw string) (profiles.RegistryReader, profiles.RegistryWriter, io.Closer, error) {
+func loadProfileRegistryStack(raw string) (profiles.RegistryReader, io.Closer, error) {
 	entries, err := profiles.ParseProfileRegistrySourceEntries(raw)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	if len(entries) == 0 {
-		return nil, nil, nil, nil
+		return nil, nil, nil
 	}
 	specs, err := profiles.ParseRegistrySourceSpecs(entries)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	chain, err := profiles.NewChainedRegistryFromSourceSpecs(context.Background(), specs)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return chain, chain, chain, nil
+	return chain, chain, nil
 }
 
 func seedDemoProfileSQLite(path string) error {
@@ -213,9 +212,6 @@ func seedDemoProfileSQLite(path string) error {
 						},
 					},
 					SystemPrompt: "You are the workspace default assistant.",
-				},
-				Policy: profiles.PolicySpec{
-					AllowOverrides: true,
 				},
 			},
 			profiles.MustProfileSlug("assistant"): {

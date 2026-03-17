@@ -256,13 +256,6 @@ func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts m
 			}
 			in.RuntimeKeyFallback = parsedRuntimeKey
 		}
-		if rawOverrides, ok := opts["requestOverrides"]; ok && rawOverrides != nil {
-			decoded := decodeMap(rawOverrides)
-			if decoded == nil {
-				return nil, fmt.Errorf("requestOverrides must be an object")
-			}
-			in.RequestOverrides = decoded
-		}
 	}
 
 	resolved, err := m.profileRegistry.ResolveEffectiveProfile(context.Background(), in)
