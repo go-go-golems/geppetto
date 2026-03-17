@@ -16,6 +16,7 @@ func TestAddDocToHelpSystem_LoadsJSEntries(t *testing.T) {
 		"geppetto-js-api-reference",
 		"geppetto-js-api-user-guide",
 		"geppetto-js-api-getting-started",
+		"geppetto-build-scopedjs-eval-tools",
 	}
 
 	for _, slug := range slugs {

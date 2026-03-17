@@ -69,6 +69,7 @@ After that, explore based on what you need:
 | [Embeddings Workflows](../tutorials/03-embeddings-workflows.md) | Semantic search with caching and batch processing. |
 | [Structured Data Extraction](../tutorials/04-structured-data-extraction.md) | Extract structured data from streaming output in real-time. |
 | [JS API Getting Started](../tutorials/05-js-api-getting-started.md) | End-to-end walkthrough of turns, sessions, tools, and hooks from JavaScript. |
+| [Build Scoped JavaScript Eval Tools](../tutorials/07-build-scopedjs-eval-tools.md) | Detailed intern-friendly guide to `pkg/inference/tools/scopedjs`, runtime wiring, registration, and debugging. |
 
 ## Playbooks
 
@@ -82,6 +83,7 @@ Operational step-by-step guides for common tasks:
 | [Migrate to Session API](../playbooks/04-migrate-to-session-api.md) | Migrate from legacy lifecycle APIs to `session.Session` + `ExecutionHandle`. |
 | [Migrate legacy profiles.yaml to registry](../playbooks/05-migrate-legacy-profiles-yaml-to-registry.md) | Convert legacy profile maps to canonical registry YAML and switch to registry-first profile workflows. |
 | [Operate SQLite-backed profile registry](../playbooks/06-operate-sqlite-profile-registry.md) | Run profile registry with SQLite storage, plus backup/recovery and permissions guidance. |
+| [Adopt Scoped JavaScript Eval Tools](../playbooks/09-adopt-scopedjs-eval-tools.md) | Package a prepared goja runtime as one `eval_xxx` tool using `scopedjs`. |
 | [Bootstrap binary StepSettings from defaults, config, registries, and profile](../playbooks/08-bootstrap-binary-step-settings-from-defaults-config-registries-profile.md) | Build final runtime settings by separating hidden base parsing from profile resolution. |
 
 ## Example Programs

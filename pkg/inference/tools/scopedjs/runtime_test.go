@@ -153,7 +153,7 @@ func TestRunEvalReturnsStructuredErrorForRejectionAndTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunEval failed: %v", err)
 	}
-	if rejected.Error == "" || !strings.Contains(rejected.Error, "Promise rejected: boom") {
+	if rejected.Error == "" || !strings.Contains(rejected.Error, "promise rejected: boom") {
 		t.Fatalf("expected promise rejection in output, got %#v", rejected)
 	}
 

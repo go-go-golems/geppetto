@@ -1,0 +1,119 @@
+## Summary
+
+`pkg/inference/tools/scopedjs.RunEval` preserves string promise rejections, but loses the message for real JavaScript `Error` objects. In those cases the returned `EvalOutput.Error` becomes `Promise rejected: map[]`.
+
+This means:
+
+- `await Promise.reject("boom")` returns `Promise rejected: boom`
+- `await Promise.reject(new Error("boom"))` returns `Promise rejected: map[]`
+- `throw new Error("boom")` also returns `Promise rejected: map[]`
+
+That is the wrong surface for LLM-facing tools because a normal JS `Error` object is exactly what the model or bootstrap code is likely to throw.
+
+## Repro
+
+From the Geppetto repo root:
+
+```bash
+go run ./ttmp/2026/03/16/GP-35--preserve-javascript-error-messages-in-scopedjs-promise-rejections/scripts/repro_scopedjs_js_error_rejection.go
+```
+
+Observed output:
+
+```json
+== string rejection ==
+{
+  "error": "Promise rejected: boom"
+}
+
+== error rejection ==
+{
+  "error": "Promise rejected: map[]"
+}
+
+== throw error ==
+{
+  "error": "Promise rejected: map[]"
+}
+```
+
+## Expected behavior
+
+Both JavaScript `Error` cases should preserve the message, for example:
+
+```json
+{
+  "error": "Promise rejected: boom"
+}
+```
+
+or at least something with the original error text, such as:
+
+```json
+{
+  "error": "Promise rejected: Error: boom"
+}
+```
+
+The important part is that the original JS message survives.
+
+## Why this matters
+
+This surfaced while building a Pinocchio demo on top of `scopedjs`. The demo asked the model to handle a missing file and the timeline showed a generic error block:
+
+```text
+Promise rejected: map[]
+```
+
+The assistant could sometimes still infer what happened from surrounding context, but the tool result itself had already lost the useful message.
+
+## Suspected cause
+
+`waitForPromise(...)` in `pkg/inference/tools/scopedjs/eval.go` currently snapshots the rejected promise result via:
+
+```go
+Result: exportValue(promise.Result())
+```
+
+and then formats the final error with:
+
+```go
+fmt.Errorf("Promise rejected: %v", snap.Result)
+```
+
+For a JS `Error` object, `exportValue(...)` appears to collapse to an empty map-like Go value, which then formats as `map[]`.
+
+Relevant code:
+
+- `pkg/inference/tools/scopedjs/eval.go`
+- `pkg/inference/tools/scopedjs/runtime_test.go`
+
+## Existing coverage gap
+
+`pkg/inference/tools/scopedjs/runtime_test.go` currently verifies the string case:
+
+```go
+Code: `await Promise.reject("boom")`
+```
+
+There does not appear to be coverage for:
+
+- `await Promise.reject(new Error("boom"))`
+- `throw new Error("boom")`
+
+## Suggested fix direction
+
+Before exporting the rejection value generically, detect JS error objects and preserve one of:
+
+- the `.message`
+- `String(error)`
+- a structured `{ name, message, stack }` representation
+
+The simplest contract improvement would be: if the rejection value is a JS `Error`, return its string/message instead of `map[]`.
+
+## Acceptance criteria
+
+- `await Promise.reject(new Error("boom"))` returns a non-empty error string containing `boom`
+- `throw new Error("boom")` returns a non-empty error string containing `boom`
+- existing string rejection behavior remains unchanged
+- a regression test covers both JS `Error` paths

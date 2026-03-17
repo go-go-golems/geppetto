@@ -162,7 +162,7 @@ func waitForPromise(ctx context.Context, rt *gojengine.Runtime, promise *goja.Pr
 		case goja.PromiseStatePending:
 			time.Sleep(5 * time.Millisecond)
 		case goja.PromiseStateRejected:
-			return nil, fmt.Errorf("Promise rejected: %v", snap.Result)
+			return nil, fmt.Errorf("promise rejected: %v", snap.Result)
 		case goja.PromiseStateFulfilled:
 			return snap.Result, nil
 		default:
@@ -197,25 +197,25 @@ func stringifyConsoleArgs(args []goja.Value) string {
 	return strings.Join(parts, " ")
 }
 
-func truncateResult(v any, max int) any {
-	if max <= 0 {
+func truncateResult(v any, maxLen int) any {
+	if maxLen <= 0 {
 		return v
 	}
 	s, ok := v.(string)
 	if !ok {
 		return v
 	}
-	return truncateString(s, max)
+	return truncateString(s, maxLen)
 }
 
-func truncateString(v string, max int) string {
-	if max <= 0 || len(v) <= max {
+func truncateString(v string, maxLen int) string {
+	if maxLen <= 0 || len(v) <= maxLen {
 		return v
 	}
-	if max <= 3 {
-		return v[:max]
+	if maxLen <= 3 {
+		return v[:maxLen]
 	}
-	return v[:max-3] + "..."
+	return v[:maxLen-3] + "..."
 }
 
 func applyEvalDefaults(opts EvalOptions) EvalOptions {

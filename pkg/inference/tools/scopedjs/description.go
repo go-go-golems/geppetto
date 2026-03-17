@@ -30,12 +30,12 @@ func BuildDescription(desc ToolDescription, manifest EnvironmentManifest, opts E
 	parts = append(parts, "Use return to provide the final result.")
 
 	switch opts.StateMode {
+	case StatePerCall:
+		parts = append(parts, "Each call uses a fresh runtime.")
 	case StatePerSession:
 		parts = append(parts, "Runtime state persists within the current session.")
 	case StateShared:
 		parts = append(parts, "Runtime state may be shared across calls.")
-	default:
-		parts = append(parts, "Each call uses a fresh runtime.")
 	}
 
 	for _, note := range desc.Notes {
