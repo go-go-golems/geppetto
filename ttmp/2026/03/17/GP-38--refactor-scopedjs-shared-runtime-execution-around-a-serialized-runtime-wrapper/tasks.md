@@ -30,4 +30,4 @@
 - [x] Run `go test ./pkg/inference/tools/scopedjs`
 - [x] Run `go test ./pkg/doc`
 - [x] Run `docmgr doctor --root geppetto/ttmp --ticket GP-38 --stale-after 30`
-- [ ] Commit the cleanup slice with a focused message
+- [x] Commit the cleanup slice with a focused message

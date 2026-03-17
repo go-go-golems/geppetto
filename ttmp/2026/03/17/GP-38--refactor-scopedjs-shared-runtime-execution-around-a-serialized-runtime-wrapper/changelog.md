@@ -13,3 +13,4 @@
   - `go test ./pkg/inference/tools/scopedjs`
   - `go test ./pkg/doc`
   - `docmgr doctor --root geppetto/ttmp --ticket GP-38 --stale-after 30`
+- Committed the slice as `6f620b2` (`refactor(scopedjs): add serialized runtime executor`).

@@ -146,6 +146,12 @@ Results:
 - both passed
 - ticket validation passed
 
+### 8. Recorded the final commit
+
+The implementation landed as:
+
+- `6f620b2` `refactor(scopedjs): add serialized runtime executor`
+
 ## Related
 
 - Design guide: [../design-doc/01-serialized-shared-runtime-executor-cleanup-plan.md](../design-doc/01-serialized-shared-runtime-executor-cleanup-plan.md)
