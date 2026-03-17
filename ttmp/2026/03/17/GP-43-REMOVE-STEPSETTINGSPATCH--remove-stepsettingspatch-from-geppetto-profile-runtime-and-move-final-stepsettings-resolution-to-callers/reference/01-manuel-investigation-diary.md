@@ -11,22 +11,31 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/profiles/service.go
-      Note: Main Geppetto profile-resolution implementation currently applying StepSettingsPatch
-    - Path: geppetto/pkg/profiles/runtime_settings_patch_resolver.go
-      Note: Patch helper file targeted for deletion
-    - Path: pinocchio/cmd/web-chat/runtime_composer.go
+    - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go
+      Note: |-
+        Tool filtering moved higher up to the resolved runtime request after AllowedTools contract removal
+        Tool registry filtering now derives from resolved runtime request instead of composed runtime artifacts
+    - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/resolver.go
+      Note: GEC-RAG resolver updated to own runtime-key selection without RuntimeKeyFallback
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
+      Note: First GP-43 implementation slice removing caller-side RuntimeKeyFallback population
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
       Note: Representative downstream consumer applying profile patch data
-    - Path: geppetto/ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/design-doc/01-remove-stepsettingspatch-and-move-final-stepsettings-resolution-to-callers-design-and-implementation-guide.md
+    - Path: pkg/profiles/runtime_settings_patch_resolver.go
+      Note: Patch helper file targeted for deletion
+    - Path: pkg/profiles/service.go
+      Note: Main Geppetto profile-resolution implementation currently applying StepSettingsPatch
+    - Path: ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/design-doc/01-remove-stepsettingspatch-and-move-final-stepsettings-resolution-to-callers-design-and-implementation-guide.md
       Note: Primary GP-43 design document
-    - Path: geppetto/ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/scripts/01-stepsettingspatch-surface-inventory.sh
+    - Path: ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/scripts/01-stepsettingspatch-surface-inventory.sh
       Note: Ticket-local inventory helper
 ExternalSources: []
 Summary: Chronological GP-43 diary covering ticket creation, surface inventory, design decisions, and planning for StepSettingsPatch removal.
-LastUpdated: 2026-03-17T15:25:00-04:00
+LastUpdated: 2026-03-17T19:08:00-04:00
 WhatFor: Use this diary to understand how the StepSettingsPatch removal plan was formed and what evidence supports the recommended caller-owned final StepSettings boundary.
 WhenToUse: Use when reviewing the GP-43 design, validating its evidence, or continuing implementation later.
 ---
+
 
 # Manuel investigation diary
 
@@ -247,3 +256,107 @@ The tricky part was making the design specific enough to guide implementation wi
 ### Technical details
 
 - The new document intentionally treats GP-45’s `RuntimeKeyFallback` concern as part of GP-43 implementation, not as an independent API design axis.
+
+## Step 4: Start the hard cut by removing caller-side RuntimeKeyFallback usage
+
+The first implementation slice was chosen to make the later Geppetto hard cut smaller before touching core APIs. Instead of deleting `RuntimeKeyFallback` from Geppetto immediately, I removed the live caller-side population of that field in Pinocchio and GEC-RAG webchat resolution so runtime keys are derived in app code where they belong.
+
+That slice also exposed stale GEC-RAG cleanup from the earlier `AllowedTools` removal. The runtime composer was still trying to return tool-filtering policy as part of composed engine artifacts, which is exactly the wrong layer. I fixed that at the same time by moving tool filtering to the incoming resolved runtime request.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add the ticket, then work on it task by task, commit as you go, and keep a diary."
+
+**Assistant interpretation:** Start GP-43 implementation immediately, execute it in small validated slices, commit each slice, and keep the ticket diary current while work progresses.
+
+**Inferred user intent:** Make GP-43 a real implementation effort rather than a planning-only ticket, with enough process discipline that the work can be reviewed and continued cleanly.
+
+**Commit (code):** `9b70c73` — "own webchat runtime keys in app resolver"
+
+**Commit (code):** `42ba1f0` — "own runtime keys in webchat resolver"
+
+### What I did
+
+- Removed caller-side `RuntimeKeyFallback` population from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+- Added app-side runtime-key derivation in Pinocchio from the resolved profile slug instead of from Geppetto fallback synthesis.
+- Removed stale GEC-RAG use of `ComposedRuntime.AllowedTools` from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go`
+- Updated the affected GEC-RAG unit test:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_test.go`
+- Ran:
+
+```bash
+gofmt -w pinocchio/cmd/web-chat/profile_policy.go \
+  2026-03-16--gec-rag/internal/webchat/resolver.go \
+  2026-03-16--gec-rag/internal/webchat/runtime.go \
+  2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go \
+  2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_test.go
+
+cd pinocchio && go test ./cmd/web-chat/... -count=1
+cd pinocchio && go test ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Why
+
+- Deleting caller-side `RuntimeKeyFallback` usage first makes the later Geppetto API deletion smaller and easier to reason about.
+- Runtime identity is app-owned metadata. The live callers should stop treating Geppetto profile resolution as the source of truth for synthesizing it.
+- GEC-RAG’s `AllowedTools` fallout was a useful signal that tool filtering still belonged too low in the stack.
+
+### What worked
+
+- Pinocchio webchat tests passed after the change.
+- GEC-RAG webchat tests passed after removing the stale `AllowedTools` dependency.
+- The resulting code is closer to the target architecture: runtime key selection and tool policy are now clearly above composed engine artifacts.
+
+### What didn't work
+
+- The first focused GEC-RAG test run failed before the cleanup because two files still assumed the old `ComposedRuntime.AllowedTools` contract:
+
+```text
+internal/webchat/configurable_loop_runner_prepare.go:100:62: runtime.AllowedTools undefined (type "github.com/go-go-golems/pinocchio/pkg/inference/runtime".ComposedRuntime has no field or method AllowedTools)
+internal/webchat/runtime.go:206:3: unknown field AllowedTools in struct literal of type "github.com/go-go-golems/pinocchio/pkg/inference/runtime".ComposedRuntime
+```
+
+- Pinocchio’s commit took longer than expected because the repo pre-commit hook ran full test and lint flows, including a frontend build and `make lintmax`.
+
+### What I learned
+
+- Removing `RuntimeKeyFallback` cleanly is easier to stage from the callers inward than from Geppetto outward.
+- The old `AllowedTools` data flow was another example of runtime-composition structs accumulating app policy that should stay above the engine boundary.
+
+### What was tricky to build
+
+The tricky part was separating GP-43 work from stale fallout caused by earlier tickets. The compile failure in GEC-RAG was not created by the new runtime-key changes, but it blocked validation. I treated that as part of the same slice because it represented the exact same architectural direction: composed engine artifacts should not carry higher-level tool selection policy.
+
+### What warrants a second pair of eyes
+
+- Whether Pinocchio’s temporary runtime-key derivation from resolved profile slug is the right permanent shape once the app-owned resolved runtime object exists.
+- Whether any non-webchat callers still depend on `RuntimeKeyFallback` and should be migrated before the Geppetto core field is deleted.
+
+### What should be done in the future
+
+- Remove `RuntimeKeyFallback` from Geppetto core APIs now that the live webchat callers no longer populate it.
+- Start the next GP-43 slice by replacing `StepSettingsPatch` application in Pinocchio and GEC-RAG runtime composition with caller-owned final `StepSettings`.
+
+### Code review instructions
+
+- Start with `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`.
+- Then review:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go`
+- Validate with:
+
+```bash
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Technical details
+
+- Pinocchio now derives the runtime key from `resolved.ProfileSlug` instead of using `ResolveInput.RuntimeKeyFallback`.
+- GEC-RAG tool filtering now consumes `payload.Runtime.ResolvedProfileRuntime.Tools` directly when constructing the tool registry for the loop.
