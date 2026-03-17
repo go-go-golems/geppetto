@@ -734,37 +734,20 @@ func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T)
 	`)
 }
 
-func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
+func TestEnginesFromProfileIsRemovedAndFromConfigStillWorks(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		ProfileRegistry: mustNewJSProfileRegistry(t),
 	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 
-		const explicit = gp.engines.fromProfile("explicit-model");
-		if (explicit.name !== "profile:default/explicit-model") throw new Error("explicit profile resolve mismatch");
-
-		const defaultProfile = gp.engines.fromProfile(undefined);
-		if (defaultProfile.name !== "profile:default/default-model") throw new Error("default profile resolve mismatch");
-
-		const claudeWithoutBaseURL = gp.engines.fromProfile("claude-no-base-url");
-		if (claudeWithoutBaseURL.name !== "profile:default/claude-no-base-url") throw new Error("claude profile resolve mismatch");
-
-		let threwLegacyRegistry = false;
+		let threwRemoved = false;
 		try {
-			gp.engines.fromProfile("default-model", { registrySlug: "shared" });
+			gp.engines.fromProfile("default-model");
 		} catch (e) {
-			threwLegacyRegistry = /registryslug has been removed/i.test(String(e));
+			threwRemoved = /engines\.fromprofile has been removed/i.test(String(e));
 		}
-		if (!threwLegacyRegistry) throw new Error("legacy registrySlug option should fail with migration error");
-
-		let threwLegacyRuntimeKey = false;
-		try {
-			gp.engines.fromProfile("default-model", { runtimeKey: "chat" });
-		} catch (e) {
-			threwLegacyRuntimeKey = /runtimekey has been removed/i.test(String(e));
-		}
-		if (!threwLegacyRuntimeKey) throw new Error("legacy runtimeKey option should fail with migration error");
+		if (!threwRemoved) throw new Error("fromProfile should fail with hard-cut error");
 
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
@@ -783,7 +766,7 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 	`)
 }
 
-func TestEnginesFromProfileRequiresProfileRegistry(t *testing.T) {
+func TestEnginesFromProfileReportsRemovalWithoutRegistry(t *testing.T) {
 	rt := newJSRuntime(t, Options{})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
@@ -791,9 +774,9 @@ func TestEnginesFromProfileRequiresProfileRegistry(t *testing.T) {
 		try {
 			gp.engines.fromProfile("any");
 		} catch (e) {
-			threw = /profile registry/i.test(String(e));
+			threw = /engines\.fromprofile has been removed/i.test(String(e));
 		}
-		if (!threw) throw new Error("fromProfile should throw when no profile registry is configured");
+		if (!threw) throw new Error("fromProfile should throw removed-api error");
 	`)
 }
 
@@ -827,7 +810,7 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
 			throw new Error("resolve runtime fingerprint missing");
 		}
-		if (!resolved.effectiveRuntime || !resolved.effectiveRuntime.step_settings_patch) {
+		if (!resolved.effectiveRuntime || resolved.effectiveRuntime.system_prompt !== "explicit prompt") {
 			throw new Error("resolve effectiveRuntime payload missing");
 		}
 
@@ -1078,20 +1061,26 @@ func TestSchemasNamespaceListMiddlewaresAndExtensions(t *testing.T) {
 	`)
 }
 
-func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
+func TestEngineFromConfigInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
 		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
 	}
 	if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") == "" {
 		t.Skip("skipping gemini integration test: GEMINI_API_KEY/GOOGLE_API_KEY not set")
 	}
-	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSGeminiProfileRegistry(t),
-	})
-	mustRunJS(t, rt, `
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		key = os.Getenv("GOOGLE_API_KEY")
+	}
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, fmt.Sprintf(`
 		const gp = require("geppetto");
 		const s = gp.createSession({
-			engine: gp.engines.fromProfile("gemini-2.5-flash-lite")
+			engine: gp.engines.fromConfig({
+				apiType: "gemini",
+				model: "gemini-2.5-flash-lite",
+				apiKey: %q
+			})
 		});
 		s.append(gp.turns.newTurn({
 			blocks: [gp.turns.newUserBlock("Reply with exactly READY.")]
@@ -1100,7 +1089,7 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 		if (!out || !Array.isArray(out.blocks) || out.blocks.length < 2) {
 			throw new Error("expected output turn with model response blocks");
 		}
-	`)
+	`, key))
 }
 
 func TestOpaqueRefHidden(t *testing.T) {
@@ -1317,43 +1306,22 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 			gepprofiles.MustProfileSlug("default-model"): {
 				Slug: gepprofiles.MustProfileSlug("default-model"),
 				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gpt-4o-mini",
-							"ai-api-type": "openai",
-						},
-						"openai-chat": map[string]any{
-							"openai-api-key": "test-openai-key",
-						},
-					},
+					SystemPrompt: "default prompt",
+					Tools:        []string{"calculator"},
 				},
 			},
 			gepprofiles.MustProfileSlug("explicit-model"): {
 				Slug: gepprofiles.MustProfileSlug("explicit-model"),
 				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gpt-4o",
-							"ai-api-type": "openai",
-						},
-						"openai-chat": map[string]any{
-							"openai-api-key": "test-openai-key",
-						},
-					},
+					SystemPrompt: "explicit prompt",
+					Tools:        []string{"search"},
 				},
 			},
 			gepprofiles.MustProfileSlug("claude-no-base-url"): {
 				Slug: gepprofiles.MustProfileSlug("claude-no-base-url"),
 				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "claude-haiku-4-5",
-							"ai-api-type": "claude",
-						},
-						"claude-chat": map[string]any{
-							"claude-api-key": "test-anthropic-key",
-						},
-					},
+					SystemPrompt: "claude prompt",
+					Tools:        []string{"summarize"},
 				},
 			},
 		},
@@ -1411,33 +1379,4 @@ func (c extensionSchemaCodec) ExtensionDisplayName() string {
 
 func (c extensionSchemaCodec) ExtensionDescription() string {
 	return c.description
-}
-
-func mustNewJSGeminiProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
-	t.Helper()
-	store := gepprofiles.NewInMemoryProfileStore()
-	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
-		Slug:               gepprofiles.MustRegistrySlug("default"),
-		DefaultProfileSlug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
-		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
-			gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"): {
-				Slug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
-				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gemini-2.5-flash-lite",
-							"ai-api-type": "gemini",
-						},
-					},
-				},
-			},
-		},
-	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
-		t.Fatalf("UpsertRegistry(default gemini) failed: %v", err)
-	}
-	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
-	if err != nil {
-		t.Fatalf("NewStoreRegistry failed: %v", err)
-	}
-	return registry
 }

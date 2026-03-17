@@ -23,10 +23,11 @@ Geppetto now uses a registry-first, profile-first runtime model:
 - registry sources are stackable (`yaml`, SQLite file, `sqlite-dsn`),
 - top-of-stack precedence is deterministic,
 - request-time overrides are policy-gated,
+- profile runtime now carries prompt/tool/middleware metadata only,
 - resolved runtime includes stack lineage/trace metadata and runtime fingerprint.
 
 There is no overlay abstraction in active runtime composition.
-There is no runtime `registrySlug` selector in `engines.fromProfile(...)`.
+Profiles do not configure engine/provider credentials. Applications own final `StepSettings` and pass explicit engine config into Geppetto.
 
 ## Core Runtime Building Blocks
 
@@ -56,10 +57,9 @@ profiles:
   default:
     slug: default
     runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-api-type: openai
-          ai-engine: gpt-4o-mini
+      system_prompt: You are the team default assistant.
+      tools:
+        - search
 ```
 
 For details:

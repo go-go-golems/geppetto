@@ -78,7 +78,6 @@ type ProfileRef struct {
 - `system_prompt`
 - `middlewares`
 - `tools`
-- `step_settings_patch`
 
 ## Slug Types and Validation
 
@@ -126,7 +125,6 @@ Resolution output includes:
 
 - selected registry/profile/runtime key
 - effective runtime fields
-- effective step settings
 - stack provenance metadata (`profile.stack.lineage`, `profile.stack.trace`)
 - runtime fingerprint (`runtimeFingerprint`) that includes stack lineage + effective runtime inputs
 
@@ -138,7 +136,8 @@ The runtime model is registry-first and profile-first:
 - runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
 - in pinocchio, when `profile-registries` is not set, runtime auto-loads `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists,
 - stack composition is resolved in-core (base -> leaf) before runtime composition,
-- middleware configuration is profile-scoped and validated by the caller before persistence when apps expose editing surfaces.
+- middleware configuration is profile-scoped and validated by the caller before persistence when apps expose editing surfaces,
+- applications own final engine settings and credentials outside the profile registry.
 
 There is no environment-variable toggle for old middleware selection paths.
 There is no overlay abstraction in the runtime composition path.
@@ -149,26 +148,8 @@ There is no runtime registry selector path in request resolution; profile slug l
 ```yaml
 slug: default
 profiles:
-  provider-openai:
-    slug: provider-openai
-    runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-api-type: openai
-        api:
-          openai-base-url: https://api.openai.com/v1
-  model-gpt-4o-mini:
-    slug: model-gpt-4o-mini
-    stack:
-      - profile_slug: provider-openai
-    runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-engine: gpt-4o-mini
   agent:
     slug: agent
-    stack:
-      - profile_slug: model-gpt-4o-mini
     display_name: Agent
     runtime:
       system_prompt: You are an assistant.

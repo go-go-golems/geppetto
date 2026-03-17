@@ -9,11 +9,8 @@ assert(typeof resolved.runtimeFingerprint === "string" && resolved.runtimeFinger
 
 const runtime = resolved.effectiveRuntime || {};
 assert(runtime.system_prompt === "User override assistant profile.", "resolved system prompt mismatch");
-
-const patch = runtime.step_settings_patch || {};
-const aiChat = patch["ai-chat"] || {};
-assert(aiChat["ai-engine"] === "gpt-4.1-nano", "ai-engine should come from top profile layer");
-assert(aiChat["ai-api-type"] === "openai", "ai-api-type should come from provider layer");
+assert(Array.isArray(runtime.tools), "resolved tools payload missing");
+assert(runtime.tools.includes("go_concat"), "tool inheritance mismatch");
 
 console.log("resolved:", JSON.stringify({
   registrySlug: resolved.registrySlug,

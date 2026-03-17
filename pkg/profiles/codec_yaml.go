@@ -68,11 +68,3 @@ func looksLikeSingleRegistry(raw map[string]any) bool {
 	_, hasDefault := raw["default_profile_slug"]
 	return hasProfiles || hasSlug || hasDefault
 }
-
-func toStringAnyMap(v any) (map[string]any, bool) {
-	m, ok := v.(map[string]any)
-	if ok {
-		return m, true
-	}
-	return nil, false
-}

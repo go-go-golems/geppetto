@@ -3,13 +3,7 @@ package profiles
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
-
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/glazed/pkg/cmds/sources"
-	"github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
 func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
@@ -22,9 +16,9 @@ func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
 		Profiles: map[ProfileSlug]*Profile{
 			MustProfileSlug("agent"): {
 				Slug: MustProfileSlug("agent"),
-				Runtime: RuntimeSpec{StepSettingsPatch: map[string]any{
-					"ai-chat": map[string]any{"ai-engine": "gpt-4.1-mini"},
-				}},
+				Runtime: RuntimeSpec{
+					SystemPrompt: "hello",
+				},
 				Metadata: ProfileMetadata{Version: 3, Source: "db"},
 			},
 		},
@@ -78,11 +72,8 @@ func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
 	if resolved.RuntimeFingerprint == "" {
 		t.Fatalf("runtime fingerprint must be non-empty")
 	}
-	if resolved.EffectiveStepSettings == nil || resolved.EffectiveStepSettings.Chat == nil || resolved.EffectiveStepSettings.Chat.Engine == nil {
-		t.Fatalf("expected resolved step settings with chat engine")
-	}
-	if *resolved.EffectiveStepSettings.Chat.Engine != "gpt-4.1-mini" {
-		t.Fatalf("expected engine from profile patch, got %q", *resolved.EffectiveStepSettings.Chat.Engine)
+	if got := resolved.EffectiveRuntime.SystemPrompt; got != "hello" {
+		t.Fatalf("expected system prompt, got %q", got)
 	}
 }
 
@@ -113,8 +104,6 @@ func TestStoreRegistryResolve_UnknownMapping(t *testing.T) {
 func TestStoreRegistryResolve_EmptyProfileFallbackToDefaultSlug(t *testing.T) {
 	ctx := context.Background()
 	store := NewInMemoryProfileStore()
-	// Build an intentionally invalid in-memory registry state (no default_profile_slug)
-	// to assert fallback behavior in resolveProfileSlugForRegistry.
 	store.registries[MustRegistrySlug("default")] = (&ProfileRegistry{
 		Slug: MustRegistrySlug("default"),
 		Profiles: map[ProfileSlug]*Profile{
@@ -140,8 +129,6 @@ func TestStoreRegistryResolve_EmptyProfileFallbackToDefaultSlug(t *testing.T) {
 func TestStoreRegistryResolve_EmptyProfileWithoutDefaultReturnsValidation(t *testing.T) {
 	ctx := context.Background()
 	store := NewInMemoryProfileStore()
-	// Build an intentionally invalid in-memory registry state (no default_profile_slug)
-	// to assert validation behavior when neither default_profile_slug nor "default" exists.
 	store.registries[MustRegistrySlug("default")] = (&ProfileRegistry{
 		Slug: MustRegistrySlug("default"),
 		Profiles: map[ProfileSlug]*Profile{
@@ -176,11 +163,6 @@ func TestStoreRegistryResolve_ProfileRuntimeIntegration(t *testing.T) {
 			MustProfileSlug("default"): {
 				Slug: MustProfileSlug("default"),
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine": "profile-engine",
-						},
-					},
 					SystemPrompt: "profile prompt",
 					Middlewares:  []MiddlewareUse{{Name: "profile-mw"}},
 					Tools:        []string{"profile-tool"},
@@ -190,15 +172,7 @@ func TestStoreRegistryResolve_ProfileRuntimeIntegration(t *testing.T) {
 	})
 
 	registry := mustNewStoreRegistry(t, store)
-	base, err := settings.NewStepSettings()
-	if err != nil {
-		t.Fatalf("NewStepSettings returned error: %v", err)
-	}
-	base.Chat.Engine = stringPtr("base-engine")
-
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
-		BaseStepSettings: base,
-	})
+	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
 	if err != nil {
 		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
 	}
@@ -211,12 +185,6 @@ func TestStoreRegistryResolve_ProfileRuntimeIntegration(t *testing.T) {
 	}
 	if got := resolved.EffectiveRuntime.Tools[0]; got != "profile-tool" {
 		t.Fatalf("expected profile tool, got %q", got)
-	}
-	if resolved.EffectiveStepSettings == nil || resolved.EffectiveStepSettings.Chat == nil || resolved.EffectiveStepSettings.Chat.Engine == nil {
-		t.Fatalf("expected effective step settings with chat engine")
-	}
-	if got := *resolved.EffectiveStepSettings.Chat.Engine; got != "profile-engine" {
-		t.Fatalf("expected profile engine to be applied, got %q", got)
 	}
 }
 
@@ -264,15 +232,6 @@ func TestStoreRegistryResolve_StackMetadataLineageOrder(t *testing.T) {
 	if got := lineage[1]["profile_slug"]; got != "agent" {
 		t.Fatalf("expected agent lineage last, got %#v", lineage)
 	}
-
-	traceRaw := resolved.Metadata["profile.stack.trace"]
-	trace, ok := traceRaw.(*ProfileTraceDebugPayload)
-	if !ok {
-		t.Fatalf("expected stack trace payload type, got %T", traceRaw)
-	}
-	if len(trace.Paths) == 0 {
-		t.Fatalf("expected non-empty trace paths")
-	}
 }
 
 func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
@@ -285,12 +244,8 @@ func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 			MustProfileSlug("provider"): {
 				Slug: MustProfileSlug("provider"),
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine": "provider-engine",
-						},
-					},
 					SystemPrompt: "provider prompt",
+					Middlewares:  []MiddlewareUse{{Name: "provider-mw"}},
 				},
 			},
 			MustProfileSlug("agent"): {
@@ -299,11 +254,6 @@ func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 					{ProfileSlug: MustProfileSlug("provider")},
 				},
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"temperature": 0.7,
-						},
-					},
 					Tools: []string{"agent-tool"},
 				},
 			},
@@ -311,9 +261,7 @@ func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 	})
 
 	registry := mustNewStoreRegistry(t, store)
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{
-		ProfileSlug: MustProfileSlug("agent"),
-	})
+	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
 	if err != nil {
 		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
 	}
@@ -324,11 +272,8 @@ func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 	if got := resolved.EffectiveRuntime.Tools; len(got) != 1 || got[0] != "agent-tool" {
 		t.Fatalf("expected leaf tools to win, got %#v", got)
 	}
-	if resolved.EffectiveStepSettings == nil || resolved.EffectiveStepSettings.Chat == nil || resolved.EffectiveStepSettings.Chat.Engine == nil {
-		t.Fatalf("expected effective step settings with engine from stacked patch")
-	}
-	if got := *resolved.EffectiveStepSettings.Chat.Engine; got != "provider-engine" {
-		t.Fatalf("expected provider engine from stacked patch, got %q", got)
+	if got := resolved.EffectiveRuntime.Middlewares[0].Name; got != "provider-mw" {
+		t.Fatalf("expected provider middleware inheritance, got %q", got)
 	}
 }
 
@@ -486,93 +431,6 @@ func TestResolveEffectiveProfile_FingerprintStableForNonStackProfile(t *testing.
 	}
 }
 
-func TestResolveEffectiveProfile_GoldenAgainstGatherFlagsFromProfiles(t *testing.T) {
-	ctx := context.Background()
-	tmpDir := t.TempDir()
-	profilePath := filepath.Join(tmpDir, "profiles.yaml")
-
-	legacyYAML := `default:
-  ai-chat:
-    ai-engine: default-engine
-agent:
-  ai-chat:
-    ai-engine: profile-engine
-    ai-api-type: openai
-  ai-client:
-    timeout: 17
-`
-	if err := os.WriteFile(profilePath, []byte(legacyYAML), 0o644); err != nil {
-		t.Fatalf("WriteFile returned error: %v", err)
-	}
-
-	legacyStepSettings := runGatherFlagsStepSettings(t, profilePath, "agent")
-
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Runtime: RuntimeSpec{StepSettingsPatch: map[string]any{
-					"ai-chat": map[string]any{
-						"ai-engine":   "profile-engine",
-						"ai-api-type": "openai",
-					},
-					"ai-client": map[string]any{
-						"timeout": 17,
-					},
-				}},
-			},
-		},
-	})
-	registry := mustNewStoreRegistry(t, store)
-
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
-	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
-	}
-	if resolved.EffectiveStepSettings == nil {
-		t.Fatalf("expected effective step settings")
-	}
-
-	if got, want := mustStringPtrValue(resolved.EffectiveStepSettings.Chat.Engine), mustStringPtrValue(legacyStepSettings.Chat.Engine); got != want {
-		t.Fatalf("chat engine mismatch: got=%q want=%q", got, want)
-	}
-	if got, want := mustStringPtrValue((*string)(resolved.EffectiveStepSettings.Chat.ApiType)), mustStringPtrValue((*string)(legacyStepSettings.Chat.ApiType)); got != want {
-		t.Fatalf("api type mismatch: got=%q want=%q", got, want)
-	}
-	if got, want := resolved.EffectiveStepSettings.Client.Timeout.String(), legacyStepSettings.Client.Timeout.String(); got != want {
-		t.Fatalf("client timeout mismatch: got=%q want=%q", got, want)
-	}
-	if got, want := resolved.EffectiveStepSettings.GetMetadata()["ai-engine"], legacyStepSettings.GetMetadata()["ai-engine"]; got != want {
-		t.Fatalf("metadata ai-engine mismatch: got=%v want=%v", got, want)
-	}
-}
-
-func runGatherFlagsStepSettings(t *testing.T, profilePath, profileSlug string) *settings.StepSettings {
-	t.Helper()
-
-	schema_, err := newRuntimeStepSettingsSchema()
-	if err != nil {
-		t.Fatalf("newRuntimeStepSettingsSchema returned error: %v", err)
-	}
-	parsed := values.New()
-	if err := sources.Execute(
-		schema_,
-		parsed,
-		sources.GatherFlagsFromProfiles(profilePath, profilePath, profileSlug, "default"),
-		sources.FromDefaults(),
-	); err != nil {
-		t.Fatalf("sources.Execute returned error: %v", err)
-	}
-	stepSettings, err := settings.NewStepSettingsFromParsedValues(parsed)
-	if err != nil {
-		t.Fatalf("NewStepSettingsFromParsedValues returned error: %v", err)
-	}
-	return stepSettings
-}
-
 func mustNewStoreRegistry(t *testing.T, store ProfileStore) *StoreRegistry {
 	t.Helper()
 	registry, err := NewStoreRegistry(store, MustRegistrySlug("default"))
@@ -587,13 +445,4 @@ func mustUpsertRegistry(t *testing.T, store *InMemoryProfileStore, registry *Pro
 	if err := store.UpsertRegistry(context.Background(), registry, SaveOptions{Actor: "test", Source: "test"}); err != nil {
 		t.Fatalf("UpsertRegistry returned error: %v", err)
 	}
-}
-
-func stringPtr(s string) *string { return &s }
-
-func mustStringPtrValue(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }

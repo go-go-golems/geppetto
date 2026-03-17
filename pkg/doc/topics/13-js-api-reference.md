@@ -119,38 +119,9 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 |---|---|---|
 | `echo` | `echo({reply?})` | Deterministic local engine |
 | `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
-| `fromProfile` | `fromProfile(profile?, opts?)` | Registry-backed engine resolution (hard cutover) |
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
-### `fromProfile` semantics
-
-`fromProfile` resolves through `profiles.Registry.ResolveEffectiveProfile`.
-
-Behavior:
-
-1. `profile` argument selects `ProfileSlug` (optional; falls back to registry default profile).
-2. `opts.runtimeKey` sets runtime-key fallback for profile resolution.
-3. Host must configure `Options.ProfileRegistry`; otherwise `fromProfile` throws.
-4. Runtime registry selection via `opts.registrySlug` is removed; registry choice is resolved by loaded registry stack.
-
-Legacy model/env precedence is removed from `fromProfile`.
-
-### `fromProfile` options
-
-| Option | Type | Description |
-|---|---|---|
-| `runtimeKey` | string | runtime-key fallback |
-
-If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
-
-### `fromProfile` engine metadata payload
-
-| Field | Type | Description |
-|---|---|---|
-| `metadata.profileRegistry` | string | resolved registry slug |
-| `metadata.profileSlug` | string | resolved profile slug |
-| `metadata.runtimeFingerprint` | string | lineage-aware runtime fingerprint |
-| `metadata.resolvedMetadata` | object | resolver metadata including stack lineage/trace |
+`engines.fromProfile(...)` has been removed. Resolve runtime metadata with `gp.profiles.resolve(...)`, then build engines explicitly with `gp.engines.fromConfig(...)`.
 
 ### `fromConfig` options
 
@@ -166,7 +137,7 @@ If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
 | `timeoutSeconds` / `timeoutMs` | number | timeout override |
 
 `fromConfig` does not read provider API keys from process environment variables.
-Pass keys explicitly via `opts.apiKey` or resolve through `fromProfile` with keys in profile `step_settings_patch` (for example `openai-chat.openai-api-key`, `claude-chat.claude-api-key`).
+Pass keys explicitly via `opts.apiKey`.
 
 ## `profiles` Namespace
 

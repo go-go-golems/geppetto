@@ -2,10 +2,10 @@ const gp = require("geppetto");
 
 let threw = false;
 try {
-  gp.engines.fromProfile("assistant", { registrySlug: "team-agent" });
+  gp.engines.fromProfile("assistant");
 } catch (e) {
-  threw = /registryslug has been removed/i.test(String(e));
+  threw = /engines\.fromprofile has been removed/i.test(String(e));
 }
 
-assert(threw, "legacy engines.fromProfile registrySlug option should throw migration error");
-console.log("legacy registrySlug migration error: PASS");
+assert(threw, "engines.fromProfile should throw hard-cut removal error");
+console.log("engines.fromProfile removal error: PASS");

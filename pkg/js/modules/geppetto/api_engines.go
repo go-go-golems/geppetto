@@ -1,7 +1,6 @@
 package geppetto
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
@@ -217,64 +215,7 @@ func (m *moduleRuntime) engineEcho(call goja.FunctionCall) goja.Value {
 }
 
 func (m *moduleRuntime) engineFromProfile(call goja.FunctionCall) goja.Value {
-	profile := ""
-	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
-		profile = call.Arguments[0].String()
-	}
-	var opts map[string]any
-	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
-		opts = decodeMap(call.Arguments[1].Export())
-	}
-	ref, err := m.engineFromResolvedProfile(profile, opts)
-	if err != nil {
-		panic(m.vm.NewGoError(err))
-	}
-	return m.newEngineObject(ref)
-}
-
-func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts map[string]any) (*engineRef, error) {
-	if m.profileRegistry == nil {
-		return nil, fmt.Errorf("engines.fromProfile requires a configured profile registry")
-	}
-
-	in := profiles.ResolveInput{}
-	if profile := strings.TrimSpace(explicitProfile); profile != "" {
-		parsedProfileSlug, err := profiles.ParseProfileSlug(profile)
-		if err != nil {
-			return nil, err
-		}
-		in.ProfileSlug = parsedProfileSlug
-	}
-	if opts != nil {
-		if _, hasRegistrySlug := opts["registrySlug"]; hasRegistrySlug {
-			return nil, fmt.Errorf("engines.fromProfile options.registrySlug has been removed; load profile registries in stack order and resolve by profile slug")
-		}
-		if runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKey"], "")); runtimeKeyRaw != "" {
-			return nil, fmt.Errorf("engines.fromProfile options.runtimeKey has been removed; runtime identity is owned by the caller")
-		}
-	}
-
-	resolved, err := m.profileRegistry.ResolveEffectiveProfile(context.Background(), in)
-	if err != nil {
-		return nil, err
-	}
-	ss := resolved.EffectiveStepSettings.Clone()
-	ensureStepSettingsProviderDefaults(ss)
-	eng, err := enginefactory.NewEngineFromStepSettings(ss)
-	if err != nil {
-		return nil, err
-	}
-
-	return &engineRef{
-		Name:   fmt.Sprintf("profile:%s/%s", resolved.RegistrySlug, resolved.ProfileSlug),
-		Engine: eng,
-		Metadata: map[string]any{
-			"profileRegistry":    resolved.RegistrySlug.String(),
-			"profileSlug":        resolved.ProfileSlug.String(),
-			"runtimeFingerprint": resolved.RuntimeFingerprint,
-			"resolvedMetadata":   cloneJSONMap(resolved.Metadata),
-		},
-	}, nil
+	panic(m.vm.NewGoError(fmt.Errorf("engines.fromProfile has been removed; resolve profiles in app code and pass explicit step settings to engines.fromConfig")))
 }
 
 func ensureStepSettingsProviderDefaults(ss *aistepssettings.StepSettings) {

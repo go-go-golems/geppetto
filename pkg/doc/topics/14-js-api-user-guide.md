@@ -141,27 +141,29 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 
 The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_API_KEY`).
 
-## Registry-Backed `fromProfile` (Hard Cutover)
+## Explicit Engine Construction
 
-`gp.engines.fromProfile(...)` is now registry-backed and no longer uses model/env fallback semantics.
+`gp.engines.fromProfile(...)` has been removed. The JS layer now follows the same boundary as the Go apps:
 
-Host requirement:
-
-- module registration must include `Options.ProfileRegistry`.
+- resolve profile/runtime metadata with `gp.profiles.resolve(...)`
+- build engines explicitly with `gp.engines.fromConfig(...)`
 
 Example:
 
 ```javascript
 const gp = require("geppetto");
 
-const engine = gp.engines.fromProfile("assistant");
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+const engine = gp.engines.fromConfig({
+  apiType: "openai",
+  model: "gpt-4.1-mini",
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-assert(engine.metadata && engine.metadata.runtimeFingerprint, "missing profile runtime fingerprint");
+console.log(resolved.runtimeFingerprint, engine.name);
 ```
 
-Note: runtime `registrySlug` selection in `engines.fromProfile(...)` is removed. Registry resolution comes from the loaded registry stack.
-
-Provider keys should be supplied in profile runtime step settings patches (for example `openai-chat.openai-api-key`, `claude-chat.claude-api-key`). The JS engine helpers no longer read provider keys from process environment variables.
+Provider keys must be passed explicitly to `fromConfig`. The JS helpers do not read provider credentials from process environment variables or profile registries.
 
 ## Runtime Stack Binding from JS
 

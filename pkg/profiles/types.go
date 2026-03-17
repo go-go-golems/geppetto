@@ -12,10 +12,9 @@ type MiddlewareUse struct {
 
 // RuntimeSpec describes runtime-level defaults and patches provided by a profile.
 type RuntimeSpec struct {
-	StepSettingsPatch map[string]any  `json:"step_settings_patch,omitempty" yaml:"step_settings_patch,omitempty"`
-	SystemPrompt      string          `json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
-	Middlewares       []MiddlewareUse `json:"middlewares,omitempty" yaml:"middlewares,omitempty"`
-	Tools             []string        `json:"tools,omitempty" yaml:"tools,omitempty"`
+	SystemPrompt string          `json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
+	Middlewares  []MiddlewareUse `json:"middlewares,omitempty" yaml:"middlewares,omitempty"`
+	Tools        []string        `json:"tools,omitempty" yaml:"tools,omitempty"`
 }
 
 // ProfileRef identifies a profile that can be layered via stack composition.
@@ -79,10 +78,9 @@ func (p *Profile) Clone() *Profile {
 		Description: p.Description,
 		Stack:       append([]ProfileRef(nil), p.Stack...),
 		Runtime: RuntimeSpec{
-			StepSettingsPatch: deepCopyStringAnyMap(p.Runtime.StepSettingsPatch),
-			SystemPrompt:      p.Runtime.SystemPrompt,
-			Middlewares:       append([]MiddlewareUse(nil), p.Runtime.Middlewares...),
-			Tools:             append([]string(nil), p.Runtime.Tools...),
+			SystemPrompt: p.Runtime.SystemPrompt,
+			Middlewares:  append([]MiddlewareUse(nil), p.Runtime.Middlewares...),
+			Tools:        append([]string(nil), p.Runtime.Tools...),
 		},
 		Metadata: ProfileMetadata{
 			Source:      p.Metadata.Source,

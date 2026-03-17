@@ -130,10 +130,6 @@ declare module "geppetto" {
         baseURL?: string;
     }
 
-    export interface ProfileEngineOptions {
-        runtimeKey?: string;
-    }
-
     export interface RegistrySummary {
         slug: string;
         display_name?: string;
@@ -154,7 +150,6 @@ declare module "geppetto" {
     }
 
     export interface RuntimeSpec {
-        step_settings_patch?: Record<string, any>;
         system_prompt?: string;
         middlewares?: MiddlewareUse[];
         tools?: string[];
@@ -217,7 +212,6 @@ declare module "geppetto" {
         runtimeKey: string;
         runtimeFingerprint: string;
         effectiveRuntime: RuntimeSpec;
-        effectiveStepSettings?: Record<string, any>;
         metadata?: Record<string, any>;
     }
 
@@ -428,7 +422,6 @@ declare module "geppetto" {
 
     export const engines: {
         echo(options?: { reply?: string }): Engine;
-        fromProfile(profile?: string, options?: ProfileEngineOptions): Engine;
         fromConfig(options: EngineOptions): Engine;
         fromFunction(fn: (turn: Turn) => Turn | void): Engine;
     };

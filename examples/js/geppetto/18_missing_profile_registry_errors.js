@@ -12,8 +12,8 @@ let fromProfileErr = false;
 try {
   gp.engines.fromProfile("assistant");
 } catch (e) {
-  fromProfileErr = /configured profile registry/i.test(String(e));
+  fromProfileErr = /engines\.fromprofile has been removed/i.test(String(e));
 }
-assert(fromProfileErr, "engines.fromProfile should require configured profile registry");
+assert(fromProfileErr, "engines.fromProfile should report the hard-cut removal");
 
 console.log("missing profile registry errors: PASS");

@@ -43,9 +43,6 @@ func encodeResolvedProfile(resolved *profiles.ResolvedProfile) map[string]any {
 		"runtimeFingerprint": resolved.RuntimeFingerprint,
 		"effectiveRuntime":   cloneJSONValue(resolved.EffectiveRuntime),
 	}
-	if resolved.EffectiveStepSettings != nil {
-		out["effectiveStepSettings"] = cloneJSONValue(resolved.EffectiveStepSettings)
-	}
 	if len(resolved.Metadata) > 0 {
 		out["metadata"] = cloneJSONMap(resolved.Metadata)
 	}

@@ -8,20 +8,10 @@ profiles:
       - registry_slug: provider-openai
         profile_slug: default
     runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-engine: gpt-4.1-nano
       system_prompt: User override assistant profile.
-    policy:
-      allow_overrides: true
-      allowed_override_keys:
-        - system_prompt
-        - tools
+      tools:
+        - go_concat
   mutable:
     slug: mutable
     runtime:
       system_prompt: Mutable profile baseline.
-    policy:
-      allow_overrides: true
-      allowed_override_keys:
-        - system_prompt

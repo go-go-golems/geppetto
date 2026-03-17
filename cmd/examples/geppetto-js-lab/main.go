@@ -201,16 +201,6 @@ func seedDemoProfileSQLite(path string) error {
 				Slug:        profiles.MustProfileSlug("default"),
 				DisplayName: "Workspace default",
 				Runtime: profiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-api-type": "openai",
-							"ai-engine":   "gpt-4o-mini",
-						},
-						"openai-chat": map[string]any{
-							"openai-api-key":  "seed-openai-key",
-							"openai-base-url": "https://api.openai.com/v1",
-						},
-					},
 					SystemPrompt: "You are the workspace default assistant.",
 				},
 			},
@@ -220,11 +210,6 @@ func seedDemoProfileSQLite(path string) error {
 					{ProfileSlug: profiles.MustProfileSlug("default")},
 				},
 				Runtime: profiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine": "gpt-4.1-nano",
-						},
-					},
 					SystemPrompt: "You are the workspace assistant profile.",
 				},
 			},

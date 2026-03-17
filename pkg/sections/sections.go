@@ -328,29 +328,10 @@ func GetCobraCommandGeppettoMiddlewares(
 		),
 	)
 
-	// Profile loading:
-	// - profile-settings are resolved via a bootstrap parse above (defaults + config + env + flags)
-	// - profile values are then loaded at the correct precedence level (above defaults, below config/env/flags)
-	profileMiddleware := GatherFlagsFromProfileRegistry(
-		profileRegistrySources,
-		profileSettings.Profile,
-		fields.WithSource("profiles"),
-		fields.WithMetadata(map[string]interface{}{
-			"profileRegistries": profileRegistrySources,
-			"profile":           profileSettings.Profile,
-			"mode":              "profile-registry-stack",
-		}),
-	)
-	middlewares_ = append(middlewares_,
-		profileMiddleware,
-	)
-
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
 	//
-	// NOTE: This is intentionally placed AFTER the profiles middleware in the slice ordering.
-	// Most Glazed "value-setting" middlewares call next(...) first and then update parsedValues,
-	// so later middlewares in the slice apply earlier. By placing config after profiles here,
-	// config is applied BEFORE profiles, ensuring profiles override config (while env/flags still override both).
+	// NOTE: Profiles no longer contribute step-setting overlays. Engine settings now come
+	// entirely from defaults, config, env, and flags.
 	middlewares_ = append(middlewares_, sources.FromFiles(
 		configFiles,
 		sources.WithConfigFileMapper(configMapper),
