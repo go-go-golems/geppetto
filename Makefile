@@ -5,31 +5,32 @@ all: test build
 VERSION=v0.1.14
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
 GOLANGCI_LINT_BIN ?= $(CURDIR)/.bin/golangci-lint
+LINT_DIRS := $(shell git ls-files '*.go' | grep -vE '(^|/)ttmp/|(^|/)testdata/' | xargs -r -n1 dirname | sed 's#^#./#' | sort -u)
+GOSEC_EXCLUDE_DIRS := -exclude-dir=.history -exclude-dir=testdata -exclude-dir=ttmp
 
 docker-lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run -v $(LINT_DIRS)
 
 golangci-lint-install:
 	mkdir -p $(dir $(GOLANGCI_LINT_BIN))
 	GOBIN=$(dir $(GOLANGCI_LINT_BIN)) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 LINTTOOL_BIN ?= /tmp/geppetto-lint
-LINT_PKGS := $(shell go list ./... | grep -v '/ttmp/')
 
 linttool-build:
 	go build -o $(LINTTOOL_BIN) ./cmd/geppetto-lint
 
 linttool:
 	$(MAKE) linttool-build
-	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
-lint: build linttool-build golangci-lint-install
-	$(GOLANGCI_LINT_BIN) run -v
-	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
+lint: linttool-build golangci-lint-install
+	$(GOLANGCI_LINT_BIN) run -v $(LINT_DIRS)
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
-lintmax: build linttool-build golangci-lint-install
-	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100
-	go vet -vettool=$(LINTTOOL_BIN) $(LINT_PKGS)
+lintmax: linttool-build golangci-lint-install
+	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100 $(LINT_DIRS)
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 
@@ -38,7 +39,7 @@ turnsdatalint-build:
 
 turnsdatalint:
 	$(MAKE) turnsdatalint-build
-	go vet -vettool=$(TURNSDATALINT_BIN) $(LINT_PKGS)
+	go vet -vettool=$(TURNSDATALINT_BIN) $(LINT_DIRS)
 
 test:
 	go test ./...
@@ -71,7 +72,7 @@ bump-glazed:
 
 gosec:
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=testdata -exclude-dir=ttmp ./...
+	gosec -exclude=G101,G304,G301,G306,G204 $(GOSEC_EXCLUDE_DIRS) $(LINT_DIRS)
 
 govulncheck:
 	go install golang.org/x/vuln/cmd/govulncheck@latest

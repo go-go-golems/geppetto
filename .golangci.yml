@@ -6,6 +6,12 @@
 # The only possible value is "2".
 version: "2"
 
+run:
+  # Ticket workspaces under `ttmp/` can contain sketches, mixed-package experiments,
+  # and non-buildable snippets; they should never participate in repo lint gates.
+  skip-dirs:
+    - ttmp
+
 # Linters configuration
 linters:
   # Default set of linters.
