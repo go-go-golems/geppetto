@@ -15,3 +15,11 @@
 - Updated Geppetto JS bindings to reject `requestOverrides` at runtime and removed the stale `requestOverrides` fields from the generated TypeScript declaration surface.
 - Recorded a GP-41 implementation pivot: the target architecture is now a read-only profile registry service, not just override removal plus a smaller `PolicySpec`.
 - Added a dedicated implementation-plan document for the read-only registry pivot and rewrote the task board around the new slice structure.
+- Implemented the first read-only-registry code slice in Geppetto core and committed it as `afa1ca8` (`make profile registries read-only`).
+- Removed writable registry abstractions and service methods from Geppetto, including `RegistryWriter`, `WriteOptions`, `ProfilePatch`, and the service-level profile CRUD/default APIs.
+- Deleted `PolicySpec`, `Profile.Policy`, policy-specific errors, and the corresponding stack merge, trace, validation, JS surface, and test coverage that only existed for mutable or override-gated profile behavior.
+- Reduced the Geppetto JS profile namespace to a read-only surface while keeping stack-connect helpers available.
+- Validated the Geppetto slice with focused package tests, `make lint`, and full `go test ./...`.
+- Updated Pinocchio and committed `6f28f1d` (`make webchat profile APIs read-only`), reducing the shared webchat profile API to list/get/current-profile routes only, deleting request-override handling from the request resolver path, and removing writable/profile-policy tests.
+- Updated GEC-RAG and committed `3115931` (`remove request overrides from coinvault webchat`), deleting request-override plumbing from CoinVault request resolution, runner payloads, and test doubles.
+- Confirmed focused downstream validation with `go test ./pkg/webchat/... ./cmd/web-chat/...` in Pinocchio and `go test ./internal/webchat/...` in GEC-RAG.
