@@ -513,6 +513,21 @@ type EvalInput struct {
 }
 ```
 
+- `Code` — the JavaScript source the model (or caller) writes. It is wrapped in an async function, so `await` and `return` work naturally.
+- `Input` — optional structured data passed alongside the code. Inside the JavaScript execution context, it is available as the global variable `input`. For example, if the tool call includes `"input": {"path": "/tmp/file.txt", "limit": 10}`, the JS code can access `input.path` and `input.limit`. This lets the model separate data from logic: the code is the algorithm, the input is the parameters.
+
+When calling the tool directly from Go (e.g. in tests), you provide `Input` as a `map[string]any`:
+
+```go
+args, _ := json.Marshal(scopedjs.EvalInput{
+    Code: `const fs = require("fs"); return fs.readFileSync(input.path);`,
+    Input: map[string]any{
+        "path": "/tmp/hello.txt",
+    },
+})
+result, err := def.Function.ExecuteWithContext(ctx, args)
+```
+
 Output:
 
 ```go
@@ -524,15 +539,12 @@ type EvalOutput struct {
 }
 ```
 
-What this means in practice:
+- `Result` — the value from `return` in the JavaScript code. Can be any JSON-serializable value.
+- `Console` — captured `console.log(...)`, `console.error(...)`, etc. Each entry has `Level` and `Text`.
+- `Error` — non-empty when the script threw, rejected a promise, or timed out. The model sees this as a normal tool result, not a crash.
+- `DurationMs` — wall-clock execution time in milliseconds.
 
-- `Code` is the JavaScript body the model writes
-- `Input` is optional structured data. It is available inside the JavaScript execution context as the global variable `input`. For example, if the caller passes `Input: map[string]any{"path": "/tmp/file.txt"}`, the JS code can access `input.path`.
-- the model should use `return` to provide the final result
-- `console.log(...)` output is captured separately
-- runtime failures are returned in `Error`
-
-The JavaScript is wrapped in an async function in `eval.go`, so `await` works naturally:
+The JavaScript is wrapped in an async function, so `await` and `return` work naturally:
 
 ```js
 const rows = db.query("SELECT * FROM notes");
