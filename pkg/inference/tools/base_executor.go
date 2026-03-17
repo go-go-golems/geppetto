@@ -32,7 +32,7 @@ type ToolExecutorExt interface {
 	// PreExecute may mutate the call (e.g., inject auth) or reject it.
 	PreExecute(ctx context.Context, call ToolCall, registry ToolRegistry) (ToolCall, error)
 
-	// IsAllowed adds authorization beyond AllowedTools/IsToolAllowed in config.
+	// IsAllowed adds authorization beyond the default registry-based behavior.
 	IsAllowed(ctx context.Context, call ToolCall) bool
 
 	// MaskArguments returns a compact and masked JSON string for event payloads.
@@ -70,7 +70,8 @@ func (b *BaseToolExecutor) PreExecute(ctx context.Context, call ToolCall, _ Tool
 }
 
 func (b *BaseToolExecutor) IsAllowed(_ context.Context, call ToolCall) bool {
-	return b.config.IsToolAllowed(call.Name)
+	_ = call
+	return true
 }
 
 func (b *BaseToolExecutor) MaskArguments(_ context.Context, call ToolCall) string {

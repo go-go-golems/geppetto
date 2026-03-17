@@ -38,7 +38,6 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 		MaxIterations:     4,
 		ExecutionTimeout:  30 * time.Second,
 		MaxParallelTools:  2,
-		AllowedTools:      []string{"echo"},
 		ToolErrorHandling: engine.ToolErrorRetry,
 		RetryConfig: engine.RetryConfig{
 			MaxRetries:    3,
@@ -109,7 +108,6 @@ func TestYAMLRoundTripTypedMaps(t *testing.T) {
 	assert.Equal(t, 4, toolCfg.MaxIterations, "ToolConfig.max_iterations should match")
 	assert.Equal(t, 30*time.Second, toolCfg.ExecutionTimeout, "ToolConfig.execution_timeout should match")
 	assert.Equal(t, 2, toolCfg.MaxParallelTools, "ToolConfig.max_parallel_tools should match")
-	assert.Equal(t, []string{"echo"}, toolCfg.AllowedTools, "ToolConfig.allowed_tools should match")
 	assert.Equal(t, engine.ToolErrorRetry, toolCfg.ToolErrorHandling, "ToolConfig.tool_error_handling should match")
 	assert.Equal(t, 3, toolCfg.RetryConfig.MaxRetries, "ToolConfig.retry_config.max_retries should match")
 	assert.Equal(t, 2*time.Second, toolCfg.RetryConfig.BackoffBase, "ToolConfig.retry_config.backoff_base should match")

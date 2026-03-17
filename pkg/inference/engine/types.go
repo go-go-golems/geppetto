@@ -47,7 +47,6 @@ type ToolConfig struct {
 	MaxIterations     int               `json:"max_iterations" yaml:"max_iterations"`
 	ExecutionTimeout  time.Duration     `json:"execution_timeout" yaml:"execution_timeout"`
 	MaxParallelTools  int               `json:"max_parallel_tools" yaml:"max_parallel_tools"`
-	AllowedTools      []string          `json:"allowed_tools" yaml:"allowed_tools"`
 	ToolErrorHandling ToolErrorHandling `json:"tool_error_handling" yaml:"tool_error_handling"`
 	RetryConfig       RetryConfig       `json:"retry_config" yaml:"retry_config"`
 }
@@ -89,7 +88,6 @@ func (c *ToolConfig) UnmarshalJSON(b []byte) error {
 		MaxIterations     int               `json:"max_iterations"`
 		ExecutionTimeout  json.RawMessage   `json:"execution_timeout"`
 		MaxParallelTools  int               `json:"max_parallel_tools"`
-		AllowedTools      []string          `json:"allowed_tools"`
 		ToolErrorHandling ToolErrorHandling `json:"tool_error_handling"`
 		RetryConfig       RetryConfig       `json:"retry_config"`
 	}
@@ -104,7 +102,6 @@ func (c *ToolConfig) UnmarshalJSON(b []byte) error {
 		ToolChoice:        tmp.ToolChoice,
 		MaxIterations:     tmp.MaxIterations,
 		MaxParallelTools:  tmp.MaxParallelTools,
-		AllowedTools:      tmp.AllowedTools,
 		ToolErrorHandling: tmp.ToolErrorHandling,
 		RetryConfig:       tmp.RetryConfig,
 	}

@@ -230,15 +230,6 @@ func (m *moduleRuntime) applyToolLoopSettings(b *builderRef, cfg map[string]any,
 	if backoffFactor := toFloat64(cfg["retryBackoffFactor"], toolCfg.RetryConfig.BackoffFactor); backoffFactor > 0 {
 		toolCfg.RetryConfig.BackoffFactor = backoffFactor
 	}
-	if allowed := decodeSlice(cfg["allowedTools"]); len(allowed) > 0 {
-		names := make([]string, 0, len(allowed))
-		for _, n := range allowed {
-			if s, ok := n.(string); ok && s != "" {
-				names = append(names, s)
-			}
-		}
-		toolCfg.AllowedTools = names
-	}
 	b.toolCfg = &toolCfg
 
 	var hooksRaw goja.Value

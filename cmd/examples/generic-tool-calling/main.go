@@ -406,7 +406,6 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedVal
 		WithExecutionTimeout(30 * time.Second).
 		WithMaxParallelTools(s.MaxParallelTools).
 		WithToolChoice(toolChoice).
-		WithAllowedTools(nil). // Allow all tools
 		WithToolErrorHandling(tools.ToolErrorContinue)
 
 	log.Info().Msg("Created simplified tool helper configuration")

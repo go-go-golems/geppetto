@@ -444,22 +444,9 @@ func (e *OpenAIEngine) PrepareToolsForRequest(toolDefs []engine.ToolDefinition, 
 		convertedTools = append(convertedTools, converted)
 	}
 
-	// Filter tools based on config
-	toolConfig := tools.ToolConfig{
-		Enabled:           config.Enabled,
-		ToolChoice:        tools.ToolChoice(config.ToolChoice),
-		MaxIterations:     config.MaxIterations,
-		ExecutionTimeout:  config.ExecutionTimeout,
-		MaxParallelTools:  config.MaxParallelTools,
-		AllowedTools:      config.AllowedTools,
-		ToolErrorHandling: tools.ToolErrorHandling(config.ToolErrorHandling),
-		RetryConfig:       tools.RetryConfig(config.RetryConfig),
-	}
-	filteredTools := toolConfig.FilterTools(convertedTools)
-
 	// Convert to OpenAI format
 	var openaiTools []interface{}
-	for _, tool := range filteredTools {
+	for _, tool := range convertedTools {
 		converted, err := e.toolAdapter.ConvertToProviderFormat(tool)
 		if err != nil {
 			return nil, err
