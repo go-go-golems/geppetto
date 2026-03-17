@@ -21,7 +21,7 @@ type evalSnapshot struct {
 
 type promiseStateSnapshot struct {
 	State  goja.PromiseState
-	Result any
+	Result goja.Value
 }
 
 func RunEval(ctx context.Context, rt *gojengine.Runtime, in EvalInput, opts EvalOptions) (EvalOutput, error) {
@@ -148,7 +148,7 @@ func waitForPromise(ctx context.Context, rt *gojengine.Runtime, promise *goja.Pr
 		ret, err := rt.Owner.Call(ctx, "scopedjs.promise-state", func(_ context.Context, vm *goja.Runtime) (any, error) {
 			return promiseStateSnapshot{
 				State:  promise.State(),
-				Result: exportValue(promise.Result()),
+				Result: promise.Result(),
 			}, nil
 		})
 		if err != nil {
@@ -162,9 +162,9 @@ func waitForPromise(ctx context.Context, rt *gojengine.Runtime, promise *goja.Pr
 		case goja.PromiseStatePending:
 			time.Sleep(5 * time.Millisecond)
 		case goja.PromiseStateRejected:
-			return nil, fmt.Errorf("promise rejected: %v", snap.Result)
+			return nil, fmt.Errorf("promise rejected: %s", valueString(snap.Result))
 		case goja.PromiseStateFulfilled:
-			return snap.Result, nil
+			return exportValue(snap.Result), nil
 		default:
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -179,7 +179,31 @@ func exportValue(v goja.Value) any {
 	if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
 		return nil
 	}
+	if isJSErrorValue(v) {
+		return valueString(v)
+	}
 	return v.Export()
+}
+
+func valueString(v goja.Value) string {
+	if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+		return "undefined"
+	}
+	return v.String()
+}
+
+func isJSErrorValue(v goja.Value) bool {
+	obj, ok := v.(*goja.Object)
+	if !ok {
+		return false
+	}
+	className := strings.TrimSpace(obj.ClassName())
+	if strings.HasSuffix(className, "Error") {
+		return true
+	}
+	name := strings.TrimSpace(valueString(obj.Get("name")))
+	message := strings.TrimSpace(valueString(obj.Get("message")))
+	return strings.HasSuffix(name, "Error") && message != "" && message != "undefined"
 }
 
 func stringifyConsoleArgs(args []goja.Value) string {
@@ -190,6 +214,10 @@ func stringifyConsoleArgs(args []goja.Value) string {
 	for _, arg := range args {
 		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
 			parts = append(parts, "undefined")
+			continue
+		}
+		if isJSErrorValue(arg) {
+			parts = append(parts, valueString(arg))
 			continue
 		}
 		parts = append(parts, fmt.Sprint(arg.Export()))
@@ -226,32 +254,26 @@ func applyEvalDefaults(opts EvalOptions) EvalOptions {
 	if opts.MaxOutputChars <= 0 {
 		opts.MaxOutputChars = def.MaxOutputChars
 	}
-	if opts.StateMode == "" {
-		opts.StateMode = def.StateMode
-	}
 	return opts
 }
 
-func resolveEvalOptions(base EvalOptions, override EvalOptions) EvalOptions {
+func resolveEvalOptions(base EvalOptions, override EvalOptionOverrides) EvalOptions {
 	if base == (EvalOptions{}) {
 		base = DefaultEvalOptions()
 	} else {
 		base = applyEvalDefaults(base)
 	}
-	if override == (EvalOptions{}) {
+	if override == (EvalOptionOverrides{}) {
 		return base
 	}
-	if override.Timeout > 0 {
-		base.Timeout = override.Timeout
+	if override.Timeout != nil && *override.Timeout > 0 {
+		base.Timeout = *override.Timeout
 	}
-	if override.MaxOutputChars > 0 {
-		base.MaxOutputChars = override.MaxOutputChars
+	if override.MaxOutputChars != nil && *override.MaxOutputChars > 0 {
+		base.MaxOutputChars = *override.MaxOutputChars
 	}
-	if override.StateMode != "" {
-		base.StateMode = override.StateMode
-	}
-	if override.CaptureConsole {
-		base.CaptureConsole = true
+	if override.CaptureConsole != nil {
+		base.CaptureConsole = *override.CaptureConsole
 	}
 	return base
 }

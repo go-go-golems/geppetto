@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func BuildDescription(desc ToolDescription, manifest EnvironmentManifest, opts EvalOptions) string {
+func BuildDescription(desc ToolDescription, manifest EnvironmentManifest, runtimeSemantics string) string {
 	parts := make([]string, 0, 8)
 
 	summary := strings.TrimSpace(desc.Summary)
@@ -28,14 +28,8 @@ func BuildDescription(desc ToolDescription, manifest EnvironmentManifest, opts E
 	}
 
 	parts = append(parts, "Use return to provide the final result.")
-
-	switch opts.StateMode {
-	case StatePerCall:
-		parts = append(parts, "Each call uses a fresh runtime.")
-	case StatePerSession:
-		parts = append(parts, "Runtime state persists within the current session.")
-	case StateShared:
-		parts = append(parts, "Runtime state may be shared across calls.")
+	if runtimeSemantics = strings.TrimSpace(runtimeSemantics); runtimeSemantics != "" {
+		parts = append(parts, ensureSentence(runtimeSemantics))
 	}
 
 	for _, note := range desc.Notes {

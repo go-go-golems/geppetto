@@ -53,6 +53,13 @@ func main() {
 			Tags: []string{"javascript", "fs", "example"},
 		},
 		DefaultEval: scopedjs.DefaultEvalOptions(),
+		Describe: func() (scopedjs.EnvironmentManifest, error) {
+			return scopedjs.EnvironmentManifest{
+				Modules:        []scopedjs.ModuleDoc{{Name: "fs"}},
+				Globals:        []scopedjs.GlobalDoc{{Name: "workspaceRoot", Type: "string"}},
+				BootstrapFiles: []string{"helpers.js"},
+			}, nil
+		},
 		Configure: func(ctx context.Context, b *scopedjs.Builder, root string) (struct{}, error) {
 			if err := b.AddNativeModule(fsModule); err != nil {
 				return struct{}{}, err
@@ -85,7 +92,7 @@ function joinPath(a, b) {
 	}()
 
 	registry := tools.NewInMemoryToolRegistry()
-	if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptions{}); err != nil {
+	if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionOverrides{}); err != nil {
 		log.Fatalf("register tool: %v", err)
 	}
 

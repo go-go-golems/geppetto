@@ -3,6 +3,7 @@ package scopedjs
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -28,6 +29,13 @@ func TestRegisterPrebuiltAndLazyRegistrar(t *testing.T) {
 			Version: "v1",
 		},
 		DefaultEval: DefaultEvalOptions(),
+		Describe: func() (EnvironmentManifest, error) {
+			return EnvironmentManifest{
+				Modules:        []ModuleDoc{{Name: "mathx"}},
+				Globals:        []GlobalDoc{{Name: "prefix", Type: "string"}},
+				BootstrapFiles: []string{"state.js"},
+			}, nil
+		},
 		Configure: func(ctx context.Context, b *Builder, s scope) (struct{}, error) {
 			buildCount++
 			if err := b.AddNativeModule(mathModule{}); err != nil {
@@ -52,7 +60,7 @@ func TestRegisterPrebuiltAndLazyRegistrar(t *testing.T) {
 	defer func() { _ = handle.Cleanup() }()
 
 	reg := tools.NewInMemoryToolRegistry()
-	if err := RegisterPrebuilt(reg, spec, handle, EvalOptions{}); err != nil {
+	if err := RegisterPrebuilt(reg, spec, handle, EvalOptionOverrides{}); err != nil {
 		t.Fatalf("RegisterPrebuilt failed: %v", err)
 	}
 	def, err := reg.GetTool("eval_dbserver")
@@ -68,6 +76,12 @@ func TestRegisterPrebuiltAndLazyRegistrar(t *testing.T) {
 	}
 	if !reg.HasTool("eval_dbserver") {
 		t.Fatalf("expected eval_dbserver to be registered")
+	}
+	if !strings.Contains(def.Description, "runtime state can persist across calls") {
+		t.Fatalf("expected prebuilt description to describe shared runtime reuse, got %q", def.Description)
+	}
+	if !strings.Contains(def.Description, "Available modules: mathx.") {
+		t.Fatalf("expected prebuilt description to include manifest modules, got %q", def.Description)
 	}
 
 	result, err := def.Function.ExecuteWithContext(context.Background(), []byte(`{"code":"const math = require(\"mathx\"); globalThis.counter += 1; console.log(prefix); return { sum: math.add(1, 2), prefix, counter: globalThis.counter }; "}`))
@@ -96,13 +110,25 @@ func TestRegisterPrebuiltAndLazyRegistrar(t *testing.T) {
 	registrar := NewLazyRegistrar(spec, func(ctx context.Context) (scope, error) {
 		v, _ := ctx.Value(scopeKey{}).(scope)
 		return v, nil
-	}, EvalOptions{})
+	}, EvalOptionOverrides{})
 	if err := registrar(lazyReg); err != nil {
 		t.Fatalf("NewLazyRegistrar failed: %v", err)
 	}
 	lazyDef, err := lazyReg.GetTool("eval_dbserver")
 	if err != nil {
 		t.Fatalf("lazy GetTool failed: %v", err)
+	}
+	if !strings.Contains(lazyDef.Description, "Each call builds a fresh runtime from the resolved scope.") {
+		t.Fatalf("expected lazy description to describe per-call runtime builds, got %q", lazyDef.Description)
+	}
+	for _, fragment := range []string{
+		"Available modules: mathx.",
+		"Available globals: prefix (string).",
+		"Preloaded bootstrap files: state.js.",
+	} {
+		if !strings.Contains(lazyDef.Description, fragment) {
+			t.Fatalf("expected lazy description to contain %q, got %q", fragment, lazyDef.Description)
+		}
 	}
 
 	for _, tc := range []scope{{Prefix: "lazy-a"}, {Prefix: "lazy-b"}} {

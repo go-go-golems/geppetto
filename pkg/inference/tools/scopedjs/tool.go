@@ -3,11 +3,12 @@ package scopedjs
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 )
 
-func RegisterPrebuilt[Scope any, Meta any](reg tools.ToolRegistry, spec EnvironmentSpec[Scope, Meta], handle *BuildResult[Meta], opts EvalOptions) error {
+func RegisterPrebuilt[Scope any, Meta any](reg tools.ToolRegistry, spec EnvironmentSpec[Scope, Meta], handle *BuildResult[Meta], opts EvalOptionOverrides) error {
 	if reg == nil {
 		return fmt.Errorf("tool registry is nil")
 	}
@@ -17,7 +18,7 @@ func RegisterPrebuilt[Scope any, Meta any](reg tools.ToolRegistry, spec Environm
 	evalOpts := resolveEvalOptions(spec.DefaultEval, opts)
 	def, err := tools.NewToolFromFunc(
 		spec.Tool.Name,
-		BuildDescription(spec.Tool.Description, handle.Manifest, evalOpts),
+		BuildDescription(spec.Tool.Description, handle.Manifest, "Calls reuse one prebuilt runtime instance, so runtime state can persist across calls."),
 		func(ctx context.Context, in EvalInput) (EvalOutput, error) {
 			return RunEval(ctx, handle.Runtime, in, evalOpts)
 		},
@@ -33,7 +34,7 @@ func RegisterPrebuilt[Scope any, Meta any](reg tools.ToolRegistry, spec Environm
 	return nil
 }
 
-func NewLazyRegistrar[Scope any, Meta any](spec EnvironmentSpec[Scope, Meta], resolve ScopeResolver[Scope], opts EvalOptions) func(reg tools.ToolRegistry) error {
+func NewLazyRegistrar[Scope any, Meta any](spec EnvironmentSpec[Scope, Meta], resolve ScopeResolver[Scope], opts EvalOptionOverrides) func(reg tools.ToolRegistry) error {
 	return func(reg tools.ToolRegistry) error {
 		if reg == nil {
 			return fmt.Errorf("tool registry is nil")
@@ -42,9 +43,13 @@ func NewLazyRegistrar[Scope any, Meta any](spec EnvironmentSpec[Scope, Meta], re
 			return fmt.Errorf("scope resolver is nil")
 		}
 		evalOpts := resolveEvalOptions(spec.DefaultEval, opts)
+		manifest, err := describeManifest(spec)
+		if err != nil {
+			return fmt.Errorf("describe %s tool: %w", spec.Tool.Name, err)
+		}
 		def, err := tools.NewToolFromFunc(
 			spec.Tool.Name,
-			BuildDescription(spec.Tool.Description, EnvironmentManifest{}, evalOpts),
+			BuildDescription(spec.Tool.Description, manifest, "Each call builds a fresh runtime from the resolved scope."),
 			func(ctx context.Context, in EvalInput) (EvalOutput, error) {
 				scope, err := resolve(ctx)
 				if err != nil {
@@ -72,4 +77,36 @@ func NewLazyRegistrar[Scope any, Meta any](spec EnvironmentSpec[Scope, Meta], re
 		}
 		return nil
 	}
+}
+
+func describeManifest[Scope any, Meta any](spec EnvironmentSpec[Scope, Meta]) (EnvironmentManifest, error) {
+	if spec.Describe == nil {
+		return EnvironmentManifest{}, nil
+	}
+	manifest, err := spec.Describe()
+	if err != nil {
+		return EnvironmentManifest{}, err
+	}
+	return normalizeManifest(manifest), nil
+}
+
+func normalizeManifest(in EnvironmentManifest) EnvironmentManifest {
+	out := cloneManifest(in)
+	for i := range out.Modules {
+		out.Modules[i].Name = strings.TrimSpace(out.Modules[i].Name)
+		out.Modules[i].Description = strings.TrimSpace(out.Modules[i].Description)
+		out.Modules[i].Exports = NormalizeNonEmptyStrings(out.Modules[i].Exports)
+	}
+	for i := range out.Globals {
+		out.Globals[i].Name = strings.TrimSpace(out.Globals[i].Name)
+		out.Globals[i].Type = strings.TrimSpace(out.Globals[i].Type)
+		out.Globals[i].Description = strings.TrimSpace(out.Globals[i].Description)
+	}
+	for i := range out.Helpers {
+		out.Helpers[i].Name = strings.TrimSpace(out.Helpers[i].Name)
+		out.Helpers[i].Signature = strings.TrimSpace(out.Helpers[i].Signature)
+		out.Helpers[i].Description = strings.TrimSpace(out.Helpers[i].Description)
+	}
+	out.BootstrapFiles = NormalizeNonEmptyStrings(out.BootstrapFiles)
+	return out
 }

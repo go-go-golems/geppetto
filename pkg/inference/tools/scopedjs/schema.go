@@ -22,19 +22,16 @@ type ToolDefinitionSpec struct {
 	Version     string
 }
 
-type StateMode string
-
-const (
-	StatePerCall    StateMode = "per_call"
-	StatePerSession StateMode = "per_session"
-	StateShared     StateMode = "shared"
-)
-
 type EvalOptions struct {
 	Timeout        time.Duration
 	MaxOutputChars int
 	CaptureConsole bool
-	StateMode      StateMode
+}
+
+type EvalOptionOverrides struct {
+	Timeout        *time.Duration
+	MaxOutputChars *int
+	CaptureConsole *bool
 }
 
 func DefaultEvalOptions() EvalOptions {
@@ -42,7 +39,6 @@ func DefaultEvalOptions() EvalOptions {
 		Timeout:        5 * time.Second,
 		MaxOutputChars: 16_000,
 		CaptureConsole: true,
-		StateMode:      StatePerCall,
 	}
 }
 
@@ -52,6 +48,7 @@ type EnvironmentSpec[Scope any, Meta any] struct {
 	RuntimeLabel string
 	Tool         ToolDefinitionSpec
 	DefaultEval  EvalOptions
+	Describe     func() (EnvironmentManifest, error)
 	Configure    func(ctx context.Context, b *Builder, scope Scope) (Meta, error)
 }
 

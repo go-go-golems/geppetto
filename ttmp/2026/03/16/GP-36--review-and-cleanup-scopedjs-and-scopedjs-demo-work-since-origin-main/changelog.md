@@ -16,3 +16,11 @@
 - Added a diary recording commands, evidence, and findings
 - Validated the ticket with `docmgr doctor --ticket GP-36`
 - Uploaded the ticket bundle to reMarkable at `/ai/2026/03/16/GP-36`
+- Started the first cleanup implementation slice in `geppetto/pkg/inference/tools/scopedjs`.
+- Replaced description-time `StateMode` prose with registration-driven runtime reuse notes so prebuilt tools now advertise shared-runtime reuse and lazy tools advertise fresh-per-call runtime construction.
+- Added `EnvironmentSpec.Describe` as a static manifest-planning hook and taught `NewLazyRegistrar(...)` to build model-facing descriptions from that manifest instead of `EnvironmentManifest{}`.
+- Replaced registration override inputs with `EvalOptionOverrides`, using pointer-backed tri-state fields so boolean settings such as `CaptureConsole` can now be overridden explicitly in both directions.
+- Updated the runnable `scopedjs` examples and the Pinocchio scopedjs demo environment to provide static manifests for richer lazy/prebuilt descriptions.
+- Verified the slice with:
+  - `go test ./pkg/inference/tools/scopedjs ./cmd/examples/scopedjs-tool ./cmd/examples/scopedjs-dbserver ./pkg/doc/...` in `geppetto`
+  - `go test ./cmd/examples/scopedjs-tui-demo` in `pinocchio`

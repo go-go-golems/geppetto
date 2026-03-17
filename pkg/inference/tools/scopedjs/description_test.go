@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestBuildDescriptionIncludesManifestAndStateMode(t *testing.T) {
+func TestBuildDescriptionIncludesManifestAndRuntimeSemantics(t *testing.T) {
 	desc := BuildDescription(ToolDescription{
 		Summary: "Execute application automation code against the scoped dbserver runtime",
 		Notes: []string{
@@ -26,9 +26,7 @@ func TestBuildDescriptionIncludesManifestAndStateMode(t *testing.T) {
 			{Name: "serve", Signature: "serve(port)"},
 		},
 		BootstrapFiles: []string{"bootstrap/router.js"},
-	}, EvalOptions{
-		StateMode: StatePerSession,
-	})
+	}, "Calls reuse one prebuilt runtime instance, so runtime state can persist across calls.")
 
 	for _, fragment := range []string{
 		"Available modules:",
@@ -36,7 +34,7 @@ func TestBuildDescriptionIncludesManifestAndStateMode(t *testing.T) {
 		"Available globals: db (DatabaseClient).",
 		"Helpers: serve(port).",
 		"Preloaded bootstrap files: bootstrap/router.js.",
-		"Runtime state persists within the current session.",
+		"Calls reuse one prebuilt runtime instance, so runtime state can persist across calls.",
 		"Prefer structured return values",
 		"Starter snippets:",
 	} {
@@ -46,12 +44,12 @@ func TestBuildDescriptionIncludesManifestAndStateMode(t *testing.T) {
 	}
 }
 
-func TestBuildDescriptionDefaultsAndFreshStateNote(t *testing.T) {
-	desc := BuildDescription(ToolDescription{}, EnvironmentManifest{}, DefaultEvalOptions())
+func TestBuildDescriptionDefaultsAndRuntimeNote(t *testing.T) {
+	desc := BuildDescription(ToolDescription{}, EnvironmentManifest{}, "Each call builds a fresh runtime from the resolved scope.")
 	for _, fragment := range []string{
 		"Execute JavaScript inside a prepared scoped runtime.",
 		"Use return to provide the final result.",
-		"Each call uses a fresh runtime.",
+		"Each call builds a fresh runtime from the resolved scope.",
 	} {
 		if !strings.Contains(desc, fragment) {
 			t.Fatalf("expected description to contain %q, got %q", fragment, desc)

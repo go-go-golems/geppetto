@@ -137,7 +137,7 @@ if err != nil {
 defer handle.Cleanup()
 
 registry := tools.NewInMemoryToolRegistry()
-if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptions{}); err != nil {
+if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionOverrides{}); err != nil {
     return err
 }
 ```
@@ -153,7 +153,7 @@ registrar := scopedjs.NewLazyRegistrar(spec, func(ctx context.Context) (Scope, e
         return Scope{}, fmt.Errorf("missing scope")
     }
     return scope, nil
-}, scopedjs.EvalOptions{})
+}, scopedjs.EvalOptionOverrides{})
 
 registry := tools.NewInMemoryToolRegistry()
 if err := registrar(registry); err != nil {
@@ -278,7 +278,7 @@ return {
 
 ## Operational Notes
 
-- Prefer `StatePerCall` first. It keeps runtime state bounded and makes debugging simpler.
+- Prefer the lazy registration path first if you need a fresh runtime per request. Use prebuilt registration only when shared runtime reuse is intentional.
 - Treat every module/global as a capability grant. If you expose a powerful object, the model has that power.
 - Keep helper bootstrap files small and well-documented. They become part of the tool contract.
 - Use the builder docs intentionally. The tool description is the model's API reference.

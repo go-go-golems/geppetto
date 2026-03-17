@@ -3,6 +3,7 @@ package scopedjs
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
@@ -28,14 +29,38 @@ var _ ggjmodules.NativeModule = (*testNativeModule)(nil)
 
 func TestDefaultEvalOptions(t *testing.T) {
 	opts := DefaultEvalOptions()
-	if opts.StateMode != StatePerCall {
-		t.Fatalf("expected per-call state mode, got %q", opts.StateMode)
-	}
 	if !opts.CaptureConsole {
 		t.Fatalf("expected console capture to be enabled")
 	}
 	if opts.Timeout <= 0 {
 		t.Fatalf("expected positive timeout")
+	}
+}
+
+func TestResolveEvalOptionsSupportsExplicitFalseOverrides(t *testing.T) {
+	base := EvalOptions{
+		Timeout:        5 * time.Second,
+		MaxOutputChars: 100,
+		CaptureConsole: true,
+	}
+	timeout := 2 * time.Second
+	maxOutput := 42
+	captureConsole := false
+
+	got := resolveEvalOptions(base, EvalOptionOverrides{
+		Timeout:        &timeout,
+		MaxOutputChars: &maxOutput,
+		CaptureConsole: &captureConsole,
+	})
+
+	if got.Timeout != timeout {
+		t.Fatalf("expected timeout %v, got %v", timeout, got.Timeout)
+	}
+	if got.MaxOutputChars != maxOutput {
+		t.Fatalf("expected max output %d, got %d", maxOutput, got.MaxOutputChars)
+	}
+	if got.CaptureConsole {
+		t.Fatalf("expected captureConsole override to force false")
 	}
 }
 
@@ -114,6 +139,11 @@ func TestEnvironmentSpecCarriesConfigure(t *testing.T) {
 			Name: "eval_dbserver",
 		},
 		DefaultEval: DefaultEvalOptions(),
+		Describe: func() (EnvironmentManifest, error) {
+			return EnvironmentManifest{
+				Helpers: []HelperDoc{{Name: "hello", Signature: "hello()"}},
+			}, nil
+		},
 		Configure: func(ctx context.Context, b *Builder, s scope) (meta, error) {
 			if err := b.AddHelper("hello", "hello()", "demo"); err != nil {
 				return meta{}, err
@@ -132,5 +162,12 @@ func TestEnvironmentSpecCarriesConfigure(t *testing.T) {
 	}
 	if len(b.Manifest().Helpers) != 1 {
 		t.Fatalf("expected helper to be recorded")
+	}
+	manifest, err := spec.Describe()
+	if err != nil {
+		t.Fatalf("Describe failed: %v", err)
+	}
+	if len(manifest.Helpers) != 1 {
+		t.Fatalf("expected describe helper to be recorded")
 	}
 }

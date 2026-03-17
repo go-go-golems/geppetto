@@ -96,6 +96,23 @@ func main() {
 			Tags: []string{"javascript", "db", "webserver", "obsidian", "example"},
 		},
 		DefaultEval: scopedjs.DefaultEvalOptions(),
+		Describe: func() (scopedjs.EnvironmentManifest, error) {
+			return scopedjs.EnvironmentManifest{
+				Modules: []scopedjs.ModuleDoc{
+					{Name: "fs"},
+					{Name: "webserver", Exports: []string{"get", "routes"}},
+					{Name: "obsidian", Exports: []string{"createNote"}},
+				},
+				Globals: []scopedjs.GlobalDoc{
+					{Name: "workspaceRoot", Type: "string"},
+					{Name: "db", Type: "object"},
+				},
+				Helpers: []scopedjs.HelperDoc{
+					{Name: "joinPath", Signature: "joinPath(a, b)"},
+				},
+				BootstrapFiles: []string{"helpers.js"},
+			}, nil
+		},
 		Configure: func(ctx context.Context, b *scopedjs.Builder, root string) (struct{}, error) {
 			if err := b.AddNativeModule(fsModule); err != nil {
 				return struct{}{}, err
@@ -152,7 +169,7 @@ function joinPath(a, b) {
 	}()
 
 	registry := tools.NewInMemoryToolRegistry()
-	if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptions{}); err != nil {
+	if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionOverrides{}); err != nil {
 		log.Fatalf("register tool: %v", err)
 	}
 

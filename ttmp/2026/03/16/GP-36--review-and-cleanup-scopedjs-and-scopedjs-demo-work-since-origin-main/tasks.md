@@ -15,9 +15,18 @@
 
 ## Follow-Up Work Suggested By This Review
 
-- [ ] Replace or remove misleading `StateMode` lifecycle modes
-- [ ] Introduce a static manifest-planning path so lazy and prebuilt tools expose the same capability description
-- [ ] Replace `EvalOptions` boolean override merging with an explicit tri-state override model
-- [ ] Extract shared Pinocchio example shell wiring from `scopeddb` and `scopedjs` demos
-- [ ] Extract shared Pinocchio timeline/render helper plumbing from the two demos
-- [ ] Decide whether fake example modules should move into a reusable test-double/example support package
+- [x] Clarify `scopedjs` runtime reuse semantics so tool descriptions reflect registration behavior instead of the current misleading `StateMode` story
+- [x] Introduce a static manifest-planning path so lazy and prebuilt tools expose the same capability description
+- [x] Replace `EvalOptions` boolean override merging with an explicit tri-state override model and add focused tests
+- [ ] Extract shared Pinocchio example shell wiring from `scopeddb` and `scopedjs` demos into a small internal helper package
+- [ ] Extract shared Pinocchio timeline/render helper plumbing from the two demos so example files keep only domain-specific formatting
+- [ ] Decide whether fake example modules should move into a reusable test-double/example support package and document the outcome
+
+## Current Implementation Slices
+
+- [x] Slice 1: update GP-36 tasks/changelog/diary to track concrete cleanup implementation work rather than only the review findings
+- [x] Slice 2: fix `scopedjs` registration semantics and lazy description planning in `geppetto/pkg/inference/tools/scopedjs`
+- [x] Slice 3: fix eval option override semantics and extend `scopedjs` tests
+- [ ] Slice 4: extract shared Pinocchio demo shell helper package and cut both demo `main.go` files over to it
+- [ ] Slice 5: extract shared Pinocchio timeline/render helper package and cut both demo renderer files over to it
+- [ ] Slice 6: document the fake-module reuse decision and capture the final implementation diary plus changelog

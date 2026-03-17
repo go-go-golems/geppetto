@@ -384,6 +384,75 @@ Result:
 - remote folder: `/ai/2026/03/16/GP-36`
 - verification listing showed the uploaded file in that folder
 
+### 18. Converted the cleanup checklist into implementation slices
+
+Reasoning:
+
+- the original ticket captured review findings, but not a concrete execution order
+- before changing code, the task list needed to reflect implementable slices with checkpoints and tests
+
+Files updated:
+
+- `ttmp/2026/03/16/GP-36--review-and-cleanup-scopedjs-and-scopedjs-demo-work-since-origin-main/tasks.md`
+
+Result:
+
+- the ticket now distinguishes the high-level follow-up items from the concrete implementation slices
+- the first three slices were scoped entirely to `geppetto/pkg/inference/tools/scopedjs`
+
+### 19. Implemented the first `scopedjs` cleanup slice
+
+Goal:
+
+- fix the misleading runtime lifecycle description
+- give lazy registrations a static capability-planning path
+- replace the one-way boolean override merge
+
+Files changed:
+
+- `geppetto/pkg/inference/tools/scopedjs/schema.go`
+- `geppetto/pkg/inference/tools/scopedjs/description.go`
+- `geppetto/pkg/inference/tools/scopedjs/eval.go`
+- `geppetto/pkg/inference/tools/scopedjs/tool.go`
+- `geppetto/pkg/inference/tools/scopedjs/description_test.go`
+- `geppetto/pkg/inference/tools/scopedjs/schema_test.go`
+- `geppetto/pkg/inference/tools/scopedjs/tool_test.go`
+- `geppetto/pkg/inference/tools/scopedjs/runtime_test.go`
+- `geppetto/cmd/examples/scopedjs-tool/main.go`
+- `geppetto/cmd/examples/scopedjs-dbserver/main.go`
+- `pinocchio/cmd/examples/scopedjs-tui-demo/environment.go`
+- `geppetto/pkg/doc/playbooks/09-adopt-scopedjs-eval-tools.md`
+
+Key design decisions:
+
+- removed `StateMode` from `EvalOptions` instead of keeping a public enum that still did not control runtime reuse
+- made `BuildDescription(...)` describe registration-driven runtime behavior directly:
+  - prebuilt registration advertises shared runtime reuse
+  - lazy registration advertises fresh runtime construction per call
+- added `EnvironmentSpec.Describe` as a static manifest hook for lazy description generation
+- introduced `EvalOptionOverrides` with pointer-backed fields so `CaptureConsole` can now be overridden explicitly to either `true` or `false`
+
+Why this shape was chosen:
+
+- lazy registration needs a description before any request scope exists
+- trying to call `Configure(...)` with a fake or zero-value scope would be brittle and misleading
+- pointer-backed overrides are the smallest honest fix for the boolean merge problem
+
+### 20. Re-ran focused tests for the first slice
+
+Commands:
+
+```bash
+go test ./pkg/inference/tools/scopedjs ./cmd/examples/scopedjs-tool ./cmd/examples/scopedjs-dbserver ./pkg/doc/...
+go test ./cmd/examples/scopedjs-tui-demo
+```
+
+Result:
+
+- `geppetto` focused tests passed
+- `pinocchio` focused demo tests passed
+- the new lazy-description assertions and override-semantics assertions passed
+
 ## Key Findings Summary
 
 ### Finding A: `StateMode` currently over-promises

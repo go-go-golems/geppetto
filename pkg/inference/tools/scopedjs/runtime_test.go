@@ -157,6 +157,26 @@ func TestRunEvalReturnsStructuredErrorForRejectionAndTimeout(t *testing.T) {
 		t.Fatalf("expected promise rejection in output, got %#v", rejected)
 	}
 
+	jsRejected, err := RunEval(context.Background(), handle.Runtime, EvalInput{
+		Code: `await Promise.reject(new Error("boom"))`,
+	}, DefaultEvalOptions())
+	if err != nil {
+		t.Fatalf("RunEval failed: %v", err)
+	}
+	if jsRejected.Error == "" || !strings.Contains(jsRejected.Error, "boom") || strings.Contains(jsRejected.Error, "map[]") {
+		t.Fatalf("expected javascript error rejection text, got %#v", jsRejected)
+	}
+
+	thrown, err := RunEval(context.Background(), handle.Runtime, EvalInput{
+		Code: `throw new Error("boom")`,
+	}, DefaultEvalOptions())
+	if err != nil {
+		t.Fatalf("RunEval failed: %v", err)
+	}
+	if thrown.Error == "" || !strings.Contains(thrown.Error, "boom") || strings.Contains(thrown.Error, "map[]") {
+		t.Fatalf("expected thrown javascript error text, got %#v", thrown)
+	}
+
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	timedOut, err := RunEval(timeoutCtx, handle.Runtime, EvalInput{
@@ -165,12 +185,57 @@ func TestRunEvalReturnsStructuredErrorForRejectionAndTimeout(t *testing.T) {
 		Timeout:        100 * time.Millisecond,
 		MaxOutputChars: 512,
 		CaptureConsole: true,
-		StateMode:      StatePerCall,
 	})
 	if err != nil {
 		t.Fatalf("RunEval failed: %v", err)
 	}
 	if timedOut.Error == "" || !strings.Contains(timedOut.Error, context.DeadlineExceeded.Error()) {
 		t.Fatalf("expected timeout error, got %#v", timedOut)
+	}
+}
+
+func TestRunEvalPreservesReturnedAndConsoleLoggedJavaScriptErrors(t *testing.T) {
+	spec := EnvironmentSpec[struct{}, struct{}]{
+		RuntimeLabel: "demo",
+		Tool:         ToolDefinitionSpec{Name: "eval_demo"},
+		DefaultEval:  DefaultEvalOptions(),
+		Configure: func(ctx context.Context, b *Builder, _ struct{}) (struct{}, error) {
+			return struct{}{}, nil
+		},
+	}
+
+	handle, err := BuildRuntime(context.Background(), spec, struct{}{})
+	if err != nil {
+		t.Fatalf("BuildRuntime failed: %v", err)
+	}
+	defer func() { _ = handle.Cleanup() }()
+
+	returned, err := RunEval(context.Background(), handle.Runtime, EvalInput{
+		Code: `return new Error("boom")`,
+	}, DefaultEvalOptions())
+	if err != nil {
+		t.Fatalf("RunEval failed: %v", err)
+	}
+	if returned.Error != "" {
+		t.Fatalf("unexpected eval error: %#v", returned)
+	}
+	if got := fmt.Sprint(returned.Result); !strings.Contains(got, "boom") || strings.Contains(got, "map[]") {
+		t.Fatalf("expected returned javascript error text, got %#v", returned)
+	}
+
+	logged, err := RunEval(context.Background(), handle.Runtime, EvalInput{
+		Code: `
+console.error(new Error("boom"));
+return 1;
+`,
+	}, DefaultEvalOptions())
+	if err != nil {
+		t.Fatalf("RunEval failed: %v", err)
+	}
+	if logged.Error != "" {
+		t.Fatalf("unexpected eval error: %#v", logged)
+	}
+	if len(logged.Console) != 1 || !strings.Contains(logged.Console[0].Text, "boom") || strings.Contains(logged.Console[0].Text, "map[]") {
+		t.Fatalf("expected console-captured javascript error text, got %#v", logged.Console)
 	}
 }
