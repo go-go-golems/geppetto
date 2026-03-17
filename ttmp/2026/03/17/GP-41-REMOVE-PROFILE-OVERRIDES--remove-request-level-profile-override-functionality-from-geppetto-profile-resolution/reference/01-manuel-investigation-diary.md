@@ -21,7 +21,7 @@ RelatedFiles:
       Note: Ticket-local inventory helper created during investigation
 ExternalSources: []
 Summary: Chronological investigation diary for GP-41 covering ticket creation, evidence gathering, document authoring, runtime glossary additions, validation, and reMarkable delivery.
-LastUpdated: 2026-03-17T17:07:00-04:00
+LastUpdated: 2026-03-17T15:55:00-04:00
 WhatFor: Use this diary to understand how the GP-41 analysis and glossary were produced, what evidence shaped the conclusions, and how to continue the work.
 WhenToUse: Use when reviewing the analysis process, validating claims, onboarding into the runtime-related code paths, or continuing implementation later.
 ---
@@ -422,6 +422,73 @@ After the documentation and glossary work, I started the first actual code-remov
 
 ```bash
 go test ./pkg/profiles/... ./pkg/js/modules/geppetto/...
+```
+
+## Step 5: Record the architectural pivot toward read-only registries
+
+While working through the next GP-41 phase, the user pushed the design one step further: do not just remove request overrides and shrink `PolicySpec`; remove writable registry behavior from the registry abstraction entirely. The key insight was that `read_only` only existed because mutation existed. Once the registry surface becomes read-only, the policy object loses its last real job.
+
+### Prompt Context
+
+**User prompt (verbatim):** "remove UpdateProfile/CreateProfile/DeleteProfile/SetDefaultProfile and all that complexity from the set of profile registries out. If we want  mutable registry, we can add that on top, but noone needs that kind of functionality right now (not the JS either)."
+
+**Assistant interpretation:** Stop treating writable profile editing as part of the default Geppetto registry abstraction. Treat mutability as a future optional layer above lower-level store primitives.
+
+**Inferred user intent:** Make the profile system match the actual product shape: load registries, resolve profiles, and run inference, without carrying a lot of underused editing complexity through core APIs and JS.
+
+**Commit (code):** Not yet committed for this step. I paused to document the pivot before continuing code changes.
+
+### What I did
+
+- Re-scanned all remaining `PolicySpec`, `RegistryWriter`, `WriteOptions`, and profile CRUD/default references across Geppetto, Pinocchio, and GEC-RAG.
+- Confirmed that the writable behavior lives in several layers:
+  - Geppetto `StoreRegistry`
+  - Geppetto `ChainedRegistry`
+  - Geppetto JS `profiles` namespace
+  - Pinocchio profile HTTP API
+  - downstream fake registries in tests
+- Added a dedicated implementation-plan document for the pivot:
+  - `design-doc/03-read-only-profile-registry-pivot-implementation-plan.md`
+- Rewrote the GP-41 task board so the remaining work is tracked as a read-only registry migration rather than a smaller policy cleanup.
+
+### Why
+
+- The original Phase 2 plan was now wrong in spirit. Shrinking `PolicySpec` to `read_only` would preserve a concept whose only remaining job was to defend write paths that the user no longer wants in the registry layer.
+- Recording the pivot early prevents the next commits from looking ad hoc or inconsistent with the ticket’s intent.
+- This new plan also creates cleaner commit boundaries: read-only registry surface first, domain model cleanup second, JS cleanup third, downstream API cleanup fourth.
+
+### What worked
+
+- The grep sweep showed a consistent story: most remaining profile complexity after Phase 1 is mutation-related, not resolution-related.
+- The new plan clarified that store primitives can stay temporarily while the public registry abstraction becomes read-only.
+
+### What changed in the plan
+
+Old direction:
+
+- remove request overrides
+- shrink `PolicySpec`
+- clean downstream request contracts
+
+New direction:
+
+- remove request overrides
+- remove registry mutation APIs from the registry abstraction
+- delete `PolicySpec` entirely
+- remove JS mutation APIs
+- remove downstream writable profile HTTP surfaces
+
+### What warrants a second pair of eyes
+
+- Whether Pinocchio should keep any read-only profile metadata endpoints after the writable endpoints are removed, or whether the whole profile API should narrow further.
+- Whether any external scripts rely on the Geppetto JS profile CRUD methods and need a migration note.
+
+### Technical details
+
+- Main search used to map the pivot surface:
+
+```bash
+rg -n "CreateProfile\\(|UpdateProfile\\(|DeleteProfile\\(|SetDefaultProfile\\(|RegistryWriter|WriteOptions|ProfilePatch|PolicySpec|read_only|ErrPolicyViolation" geppetto pinocchio 2026-03-16--gec-rag --glob '!**/ttmp/**'
 ```
 
 ### What didn't work

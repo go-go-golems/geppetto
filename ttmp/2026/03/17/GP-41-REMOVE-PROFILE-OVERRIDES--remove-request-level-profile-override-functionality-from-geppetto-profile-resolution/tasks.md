@@ -20,11 +20,23 @@
 - [x] Phase 1: remove override-specific merge logic from `resolveRuntimeSpec` in `geppetto/pkg/profiles/service.go`.
 - [x] Phase 1: remove override-specific validation and helper parsing from Geppetto profile service tests.
 - [x] Phase 1: make Geppetto JS bindings and generated type definitions reject or stop advertising `requestOverrides`.
-- [ ] Phase 2: remove override-specific policy fields or hard-deprecate them in `PolicySpec`.
-- [ ] Phase 2: update stack merge / stack trace tests and docs that still mention allowed or denied override keys.
-- [ ] Phase 3: remove request override support from Geppetto JS bindings and JS examples.
-- [ ] Phase 3: remove `request_overrides` from Pinocchio web chat HTTP request contracts and resolution logic.
-- [ ] Phase 3: remove `request_overrides` from GEC-RAG chat request contracts and resolution logic.
-- [ ] Phase 3: confirm Temporal Relationships stays unaffected because it already does not expose request overrides on its HTTP surface.
-- [ ] Phase 4: update tests, README files, API docs, and playbooks that still describe override behavior.
-- [ ] Phase 4: run focused validation in Geppetto, Pinocchio, and GEC-RAG once the override path is fully removed.
+
+## Pivot
+
+- [x] Record the GP-41 pivot toward a read-only registry architecture in a dedicated implementation-plan document.
+- [ ] Slice 1: remove `ProfilePatch`, `WriteOptions`, and `RegistryWriter` from Geppetto `pkg/profiles`.
+- [ ] Slice 1: remove `CreateProfile`, `UpdateProfile`, `DeleteProfile`, and `SetDefaultProfile` from `StoreRegistry` and `ChainedRegistry`.
+- [ ] Slice 1: remove mutation-specific Geppetto tests that exercise writable registry service behavior.
+- [ ] Slice 2: remove `PolicySpec`, `Profile.Policy`, and policy-related stack merge / trace / validation code.
+- [ ] Slice 2: remove policy-specific errors that only existed for writable or override-gated registry behavior.
+- [ ] Slice 3: remove Geppetto JS profile mutation APIs and mutation-related TypeScript declarations.
+- [ ] Slice 3: keep JS stack-connect helpers, but make them operate against read-only registries only.
+- [ ] Slice 4: remove Pinocchio profile CRUD/default HTTP endpoints or reduce the profile API to a read-only surface.
+- [ ] Slice 4: remove downstream uses of `PolicyViolationError`, `RegistryWriter`, and mutation-only fake registries in Pinocchio and GEC-RAG tests.
+- [ ] Slice 5: remove stale JS examples, docs, and API references that still describe profile CRUD, profile policy, or request overrides.
+- [ ] Slice 5: run focused validation in Geppetto, Pinocchio, and GEC-RAG once the read-only registry pivot is fully implemented.
+
+## Superseded Tasks
+
+- [ ] Old Phase 2 policy-shrink plan is superseded by deleting `PolicySpec` entirely.
+- [ ] Old Phase 3 downstream cleanup plan is superseded by the larger read-only registry pivot.
