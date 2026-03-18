@@ -12,15 +12,15 @@ import (
 
 var _ Registry = (*StoreRegistry)(nil)
 
-// StoreRegistry is the default Registry implementation backed by a ProfileStore.
+// StoreRegistry is the default Registry implementation backed by a EngineProfileStore.
 type StoreRegistry struct {
-	store               ProfileStore
+	store               EngineProfileStore
 	defaultRegistrySlug RegistrySlug
 }
 
 type StoreRegistryOption func(*StoreRegistry) error
 
-func NewStoreRegistry(store ProfileStore, defaultRegistrySlug RegistrySlug, options ...StoreRegistryOption) (*StoreRegistry, error) {
+func NewStoreRegistry(store EngineProfileStore, defaultRegistrySlug RegistrySlug, options ...StoreRegistryOption) (*StoreRegistry, error) {
 	if store == nil {
 		return nil, fmt.Errorf("profile store is required")
 	}
@@ -50,17 +50,17 @@ func (r *StoreRegistry) ListRegistries(ctx context.Context) ([]RegistrySummary, 
 			continue
 		}
 		out = append(out, RegistrySummary{
-			Slug:               reg.Slug,
-			DisplayName:        reg.DisplayName,
-			DefaultProfileSlug: reg.DefaultProfileSlug,
-			ProfileCount:       len(reg.Profiles),
+			Slug:                     reg.Slug,
+			DisplayName:              reg.DisplayName,
+			DefaultEngineProfileSlug: reg.DefaultEngineProfileSlug,
+			EngineProfileCount:       len(reg.Profiles),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Slug < out[j].Slug })
 	return out, nil
 }
 
-func (r *StoreRegistry) GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*ProfileRegistry, error) {
+func (r *StoreRegistry) GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*EngineProfileRegistry, error) {
 	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
 	reg, ok, err := r.store.GetRegistry(ctx, resolvedRegistrySlug)
 	if err != nil {
@@ -72,21 +72,21 @@ func (r *StoreRegistry) GetRegistry(ctx context.Context, registrySlug RegistrySl
 	return reg, nil
 }
 
-func (r *StoreRegistry) ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error) {
+func (r *StoreRegistry) ListEngineProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*EngineProfile, error) {
 	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
 	if _, err := r.GetRegistry(ctx, resolvedRegistrySlug); err != nil {
 		return nil, err
 	}
-	profiles, err := r.store.ListProfiles(ctx, resolvedRegistrySlug)
+	profiles, err := r.store.ListEngineProfiles(ctx, resolvedRegistrySlug)
 	if err != nil {
 		return nil, err
 	}
 	return profiles, nil
 }
 
-func (r *StoreRegistry) GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, error) {
+func (r *StoreRegistry) GetEngineProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug) (*EngineProfile, error) {
 	resolvedRegistrySlug := r.resolveRegistrySlug(registrySlug)
-	resolvedProfileSlug, err := resolveProfileSlugInput(profileSlug)
+	resolvedEngineProfileSlug, err := resolveEngineProfileSlugInput(profileSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (r *StoreRegistry) GetProfile(ctx context.Context, registrySlug RegistrySlu
 		return nil, err
 	}
 
-	profile, ok, err := r.store.GetProfile(ctx, resolvedRegistrySlug, resolvedProfileSlug)
+	profile, ok, err := r.store.GetEngineProfile(ctx, resolvedRegistrySlug, resolvedEngineProfileSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -105,19 +105,19 @@ func (r *StoreRegistry) GetProfile(ctx context.Context, registrySlug RegistrySlu
 	return profile, nil
 }
 
-func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveInput) (*ResolvedProfile, error) {
+func (r *StoreRegistry) ResolveEngineProfile(ctx context.Context, in ResolveInput) (*ResolvedEngineProfile, error) {
 	registrySlug := r.resolveRegistrySlug(in.RegistrySlug)
 	registry, err := r.GetRegistry(ctx, registrySlug)
 	if err != nil {
 		return nil, err
 	}
 
-	profileSlug, err := r.resolveProfileSlugForRegistry(in.ProfileSlug, registry)
+	profileSlug, err := r.resolveEngineProfileSlugForRegistry(in.EngineProfileSlug, registry)
 	if err != nil {
 		return nil, err
 	}
 
-	stackLayers, err := r.ExpandProfileStack(ctx, registrySlug, profileSlug, StackResolverOptions{})
+	stackLayers, err := r.ExpandEngineProfileStack(ctx, registrySlug, profileSlug, StackResolverOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +125,9 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		return nil, ErrProfileNotFound
 	}
 	rootLayer := stackLayers[len(stackLayers)-1]
-	profile := rootLayer.Profile
+	profile := rootLayer.EngineProfile
 
-	stackMerge, stackTrace, err := MergeProfileStackLayersWithTrace(stackLayers)
+	stackMerge, stackTrace, err := MergeEngineProfileStackLayersWithTrace(stackLayers)
 	if err != nil {
 		return nil, err
 	}
@@ -151,9 +151,9 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		"profile.stack.trace":   stackTrace.BuildDebugPayload(),
 	}
 
-	return &ResolvedProfile{
+	return &ResolvedEngineProfile{
 		RegistrySlug:       registrySlug,
-		ProfileSlug:        profileSlug,
+		EngineProfileSlug:  profileSlug,
 		RuntimeKey:         runtimeKey,
 		EffectiveRuntime:   effectiveRuntime,
 		RuntimeFingerprint: runtimeFingerprint(registrySlug, profile, stackLayers, effectiveRuntime),
@@ -168,27 +168,27 @@ func (r *StoreRegistry) resolveRegistrySlug(slug RegistrySlug) RegistrySlug {
 	return r.defaultRegistrySlug
 }
 
-func (r *StoreRegistry) resolveProfileSlugForRegistry(input ProfileSlug, registry *ProfileRegistry) (ProfileSlug, error) {
+func (r *StoreRegistry) resolveEngineProfileSlugForRegistry(input EngineProfileSlug, registry *EngineProfileRegistry) (EngineProfileSlug, error) {
 	if registry == nil {
 		return "", ErrRegistryNotFound
 	}
 	if !input.IsZero() {
-		return resolveProfileSlugInput(input)
+		return resolveEngineProfileSlugInput(input)
 	}
-	if !registry.DefaultProfileSlug.IsZero() {
-		return registry.DefaultProfileSlug, nil
+	if !registry.DefaultEngineProfileSlug.IsZero() {
+		return registry.DefaultEngineProfileSlug, nil
 	}
-	if _, ok := registry.Profiles[MustProfileSlug("default")]; ok {
-		return MustProfileSlug("default"), nil
+	if _, ok := registry.Profiles[MustEngineProfileSlug("default")]; ok {
+		return MustEngineProfileSlug("default"), nil
 	}
 	return "", &ValidationError{Field: "profile.slug", Reason: "profile slug is required and registry has no default"}
 }
 
-func resolveProfileSlugInput(slug ProfileSlug) (ProfileSlug, error) {
+func resolveEngineProfileSlugInput(slug EngineProfileSlug) (EngineProfileSlug, error) {
 	if slug.IsZero() {
 		return "", &ValidationError{Field: "profile.slug", Reason: "must not be empty"}
 	}
-	parsed, err := ParseProfileSlug(slug.String())
+	parsed, err := ParseEngineProfileSlug(slug.String())
 	if err != nil {
 		return "", &ValidationError{Field: "profile.slug", Reason: err.Error()}
 	}
@@ -199,7 +199,7 @@ func resolveRuntimeSpec(base RuntimeSpec) (RuntimeSpec, error) {
 	return cloneRuntimeSpec(base), nil
 }
 
-func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec) string {
+func runtimeFingerprint(registrySlug RegistrySlug, profile *EngineProfile, stackLayers []EngineProfileStackLayer, runtime RuntimeSpec) string {
 	payload := map[string]any{
 		"registry_slug":   registrySlug.String(),
 		"profile_slug":    profile.Slug.String(),
@@ -220,18 +220,18 @@ func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-func stackLayerLineage(stackLayers []ProfileStackLayer) []map[string]any {
+func stackLayerLineage(stackLayers []EngineProfileStackLayer) []map[string]any {
 	lineage := make([]map[string]any, 0, len(stackLayers))
 	for _, layer := range stackLayers {
 		version := uint64(0)
 		source := ""
-		if layer.Profile != nil {
-			version = layer.Profile.Metadata.Version
-			source = strings.TrimSpace(layer.Profile.Metadata.Source)
+		if layer.EngineProfile != nil {
+			version = layer.EngineProfile.Metadata.Version
+			source = strings.TrimSpace(layer.EngineProfile.Metadata.Source)
 		}
 		lineage = append(lineage, map[string]any{
 			"registry_slug": layer.RegistrySlug.String(),
-			"profile_slug":  layer.ProfileSlug.String(),
+			"profile_slug":  layer.EngineProfileSlug.String(),
 			"version":       version,
 			"source":        source,
 		})
@@ -263,7 +263,7 @@ func cloneRuntimeSpec(in RuntimeSpec) RuntimeSpec {
 	}
 }
 
-func profileMetadataSource(profile *Profile, registry *ProfileRegistry) string {
+func profileMetadataSource(profile *EngineProfile, registry *EngineProfileRegistry) string {
 	if profile != nil && strings.TrimSpace(profile.Metadata.Source) != "" {
 		return profile.Metadata.Source
 	}

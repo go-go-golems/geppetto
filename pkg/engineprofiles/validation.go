@@ -24,11 +24,11 @@ func ValidateRegistrySlug(slug RegistrySlug) error {
 	return nil
 }
 
-func ValidateProfileSlug(slug ProfileSlug) error {
+func ValidateEngineProfileSlug(slug EngineProfileSlug) error {
 	if slug.IsZero() {
 		return &ValidationError{Field: "profile.slug", Reason: "must not be empty"}
 	}
-	if _, err := ParseProfileSlug(slug.String()); err != nil {
+	if _, err := ParseEngineProfileSlug(slug.String()); err != nil {
 		return &ValidationError{Field: "profile.slug", Reason: err.Error()}
 	}
 	return nil
@@ -81,11 +81,11 @@ func validateMiddlewareUses(middlewares []MiddlewareUse, fieldPrefix string) err
 	return nil
 }
 
-func ValidateProfile(profile *Profile) error {
+func ValidateEngineProfile(profile *EngineProfile) error {
 	if profile == nil {
 		return &ValidationError{Field: "profile", Reason: "must not be nil"}
 	}
-	if err := ValidateProfileSlug(profile.Slug); err != nil {
+	if err := ValidateEngineProfileSlug(profile.Slug); err != nil {
 		return err
 	}
 	if err := ValidateRuntimeSpec(profile.Runtime); err != nil {
@@ -95,21 +95,21 @@ func ValidateProfile(profile *Profile) error {
 		return err
 	}
 	for i, ref := range profile.Stack {
-		if err := ValidateProfileRef(ref, fmt.Sprintf("profile.stack[%d]", i)); err != nil {
+		if err := ValidateEngineProfileRef(ref, fmt.Sprintf("profile.stack[%d]", i)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func ValidateProfileRef(ref ProfileRef, fieldPrefix string) error {
+func ValidateEngineProfileRef(ref EngineProfileRef, fieldPrefix string) error {
 	if fieldPrefix == "" {
 		fieldPrefix = "profile.stack"
 	}
-	if ref.ProfileSlug.IsZero() {
+	if ref.EngineProfileSlug.IsZero() {
 		return &ValidationError{Field: fieldPrefix + ".profile_slug", Reason: "must not be empty"}
 	}
-	if _, err := ParseProfileSlug(ref.ProfileSlug.String()); err != nil {
+	if _, err := ParseEngineProfileSlug(ref.EngineProfileSlug.String()); err != nil {
 		return &ValidationError{Field: fieldPrefix + ".profile_slug", Reason: err.Error()}
 	}
 	if !ref.RegistrySlug.IsZero() {
@@ -139,7 +139,7 @@ func ValidateProfileExtensions(extensions map[string]any) error {
 	return nil
 }
 
-func ValidateRegistry(registry *ProfileRegistry) error {
+func ValidateRegistry(registry *EngineProfileRegistry) error {
 	if registry == nil {
 		return &ValidationError{Field: "registry", Reason: "must not be nil"}
 	}
@@ -147,18 +147,18 @@ func ValidateRegistry(registry *ProfileRegistry) error {
 		return err
 	}
 
-	if len(registry.Profiles) > 0 && registry.DefaultProfileSlug.IsZero() {
+	if len(registry.Profiles) > 0 && registry.DefaultEngineProfileSlug.IsZero() {
 		return &ValidationError{Field: "registry.default_profile_slug", Reason: "must be set when profiles are present"}
 	}
 
 	for slug, profile := range registry.Profiles {
-		if err := ValidateProfileSlug(slug); err != nil {
+		if err := ValidateEngineProfileSlug(slug); err != nil {
 			return err
 		}
 		if profile == nil {
 			return &ValidationError{Field: fmt.Sprintf("registry.profiles[%s]", slug), Reason: "must not be nil"}
 		}
-		if err := ValidateProfile(profile); err != nil {
+		if err := ValidateEngineProfile(profile); err != nil {
 			return err
 		}
 		if profile.Slug != slug {
@@ -166,18 +166,18 @@ func ValidateRegistry(registry *ProfileRegistry) error {
 		}
 	}
 
-	if !registry.DefaultProfileSlug.IsZero() {
-		if err := ValidateProfileSlug(registry.DefaultProfileSlug); err != nil {
+	if !registry.DefaultEngineProfileSlug.IsZero() {
+		if err := ValidateEngineProfileSlug(registry.DefaultEngineProfileSlug); err != nil {
 			return err
 		}
 		if len(registry.Profiles) > 0 {
-			if _, ok := registry.Profiles[registry.DefaultProfileSlug]; !ok {
+			if _, ok := registry.Profiles[registry.DefaultEngineProfileSlug]; !ok {
 				return &ValidationError{Field: "registry.default_profile_slug", Reason: "default profile does not exist in registry"}
 			}
 		}
 	}
 
-	if err := ValidateProfileStackTopology([]*ProfileRegistry{registry}, StackValidationOptions{
+	if err := ValidateProfileStackTopology([]*EngineProfileRegistry{registry}, StackValidationOptions{
 		MaxDepth:                    DefaultProfileStackValidationMaxDepth,
 		AllowUnresolvedExternalRefs: true,
 	}); err != nil {
@@ -189,20 +189,20 @@ func ValidateRegistry(registry *ProfileRegistry) error {
 
 type stackNode struct {
 	registrySlug RegistrySlug
-	profileSlug  ProfileSlug
+	profileSlug  EngineProfileSlug
 }
 
 func (n stackNode) String() string {
 	return fmt.Sprintf("%s/%s", n.registrySlug, n.profileSlug)
 }
 
-func ValidateProfileStackTopology(registries []*ProfileRegistry, opts StackValidationOptions) error {
+func ValidateProfileStackTopology(registries []*EngineProfileRegistry, opts StackValidationOptions) error {
 	maxDepth := opts.MaxDepth
 	if maxDepth <= 0 {
 		maxDepth = DefaultProfileStackValidationMaxDepth
 	}
 
-	graph := map[stackNode]*Profile{}
+	graph := map[stackNode]*EngineProfile{}
 	knownRegistries := map[RegistrySlug]struct{}{}
 	for _, registry := range registries {
 		if registry == nil {
@@ -253,7 +253,7 @@ func ValidateProfileStackTopology(registries []*ProfileRegistry, opts StackValid
 			}
 			target := stackNode{
 				registrySlug: targetRegistry,
-				profileSlug:  ref.ProfileSlug,
+				profileSlug:  ref.EngineProfileSlug,
 			}
 
 			field := fmt.Sprintf("registry.profiles[%s].stack[%d]", node.profileSlug, i)

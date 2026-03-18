@@ -19,21 +19,21 @@ CREATE TABLE IF NOT EXISTS profile_registries (
 );
 `
 
-// SQLiteProfileStore persists registries in a SQLite database.
+// SQLiteEngineProfileStore persists registries in a SQLite database.
 //
 // Storage format intentionally keeps one JSON payload per registry row so the
 // domain schema can evolve without SQL column churn while still using durable
 // SQLite persistence and migration/versioning controls.
-type SQLiteProfileStore struct {
+type SQLiteEngineProfileStore struct {
 	mu                  sync.RWMutex
 	dsn                 string
 	defaultRegistrySlug RegistrySlug
-	store               *InMemoryProfileStore
+	store               *InMemoryEngineProfileStore
 	db                  *sql.DB
 	closed              bool
 }
 
-func NewSQLiteProfileStore(dsn string, defaultRegistrySlug RegistrySlug) (*SQLiteProfileStore, error) {
+func NewSQLiteEngineProfileStore(dsn string, defaultRegistrySlug RegistrySlug) (*SQLiteEngineProfileStore, error) {
 	if dsn == "" {
 		return nil, fmt.Errorf("sqlite profile store: empty dsn")
 	}
@@ -46,10 +46,10 @@ func NewSQLiteProfileStore(dsn string, defaultRegistrySlug RegistrySlug) (*SQLit
 		return nil, err
 	}
 
-	s := &SQLiteProfileStore{
+	s := &SQLiteEngineProfileStore{
 		dsn:                 dsn,
 		defaultRegistrySlug: defaultRegistrySlug,
-		store:               NewInMemoryProfileStore(),
+		store:               NewInMemoryEngineProfileStore(),
 		db:                  db,
 	}
 	if err := s.migrate(); err != nil {
@@ -63,7 +63,7 @@ func NewSQLiteProfileStore(dsn string, defaultRegistrySlug RegistrySlug) (*SQLit
 	return s, nil
 }
 
-func (s *SQLiteProfileStore) ListRegistries(ctx context.Context) ([]*ProfileRegistry, error) {
+func (s *SQLiteEngineProfileStore) ListRegistries(ctx context.Context) ([]*EngineProfileRegistry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if err := s.ensureOpen(); err != nil {
@@ -72,7 +72,7 @@ func (s *SQLiteProfileStore) ListRegistries(ctx context.Context) ([]*ProfileRegi
 	return s.store.ListRegistries(ctx)
 }
 
-func (s *SQLiteProfileStore) GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*ProfileRegistry, bool, error) {
+func (s *SQLiteEngineProfileStore) GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*EngineProfileRegistry, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if err := s.ensureOpen(); err != nil {
@@ -81,25 +81,25 @@ func (s *SQLiteProfileStore) GetRegistry(ctx context.Context, registrySlug Regis
 	return s.store.GetRegistry(ctx, registrySlug)
 }
 
-func (s *SQLiteProfileStore) ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error) {
+func (s *SQLiteEngineProfileStore) ListEngineProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*EngineProfile, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if err := s.ensureOpen(); err != nil {
 		return nil, err
 	}
-	return s.store.ListProfiles(ctx, registrySlug)
+	return s.store.ListEngineProfiles(ctx, registrySlug)
 }
 
-func (s *SQLiteProfileStore) GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, bool, error) {
+func (s *SQLiteEngineProfileStore) GetEngineProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug) (*EngineProfile, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if err := s.ensureOpen(); err != nil {
 		return nil, false, err
 	}
-	return s.store.GetProfile(ctx, registrySlug, profileSlug)
+	return s.store.GetEngineProfile(ctx, registrySlug, profileSlug)
 }
 
-func (s *SQLiteProfileStore) UpsertRegistry(ctx context.Context, registry *ProfileRegistry, opts SaveOptions) error {
+func (s *SQLiteEngineProfileStore) UpsertRegistry(ctx context.Context, registry *EngineProfileRegistry, opts SaveOptions) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensureOpen(); err != nil {
@@ -111,7 +111,7 @@ func (s *SQLiteProfileStore) UpsertRegistry(ctx context.Context, registry *Profi
 	return s.persistRegistryLocked(ctx, registry.Slug)
 }
 
-func (s *SQLiteProfileStore) DeleteRegistry(ctx context.Context, registrySlug RegistrySlug, opts SaveOptions) error {
+func (s *SQLiteEngineProfileStore) DeleteRegistry(ctx context.Context, registrySlug RegistrySlug, opts SaveOptions) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensureOpen(); err != nil {
@@ -123,19 +123,19 @@ func (s *SQLiteProfileStore) DeleteRegistry(ctx context.Context, registrySlug Re
 	return s.deleteRegistryLocked(ctx, registrySlug)
 }
 
-func (s *SQLiteProfileStore) UpsertProfile(ctx context.Context, registrySlug RegistrySlug, profile *Profile, opts SaveOptions) error {
+func (s *SQLiteEngineProfileStore) UpsertEngineProfile(ctx context.Context, registrySlug RegistrySlug, profile *EngineProfile, opts SaveOptions) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensureOpen(); err != nil {
 		return err
 	}
-	if err := s.store.UpsertProfile(ctx, registrySlug, profile, opts); err != nil {
+	if err := s.store.UpsertEngineProfile(ctx, registrySlug, profile, opts); err != nil {
 		return err
 	}
 	return s.persistRegistryLocked(ctx, registrySlug)
 }
 
-func (s *SQLiteProfileStore) Close() error {
+func (s *SQLiteEngineProfileStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -148,7 +148,7 @@ func (s *SQLiteProfileStore) Close() error {
 	return nil
 }
 
-func (s *SQLiteProfileStore) migrate() error {
+func (s *SQLiteEngineProfileStore) migrate() error {
 	if s.db == nil {
 		return fmt.Errorf("sqlite profile store: db is nil")
 	}
@@ -161,7 +161,7 @@ func (s *SQLiteProfileStore) migrate() error {
 	return nil
 }
 
-func (s *SQLiteProfileStore) loadFromDB() error {
+func (s *SQLiteEngineProfileStore) loadFromDB() error {
 	if s.db == nil {
 		return fmt.Errorf("sqlite profile store: db is nil")
 	}
@@ -173,8 +173,8 @@ func (s *SQLiteProfileStore) loadFromDB() error {
 		_ = rows.Close()
 	}()
 
-	s.store = NewInMemoryProfileStore()
-	s.store.registries = map[RegistrySlug]*ProfileRegistry{}
+	s.store = NewInMemoryEngineProfileStore()
+	s.store.registries = map[RegistrySlug]*EngineProfileRegistry{}
 
 	for rows.Next() {
 		var rawSlug string
@@ -183,7 +183,7 @@ func (s *SQLiteProfileStore) loadFromDB() error {
 			return err
 		}
 
-		registry := &ProfileRegistry{}
+		registry := &EngineProfileRegistry{}
 		if err := json.Unmarshal([]byte(payload), registry); err != nil {
 			return err
 		}
@@ -199,7 +199,7 @@ func (s *SQLiteProfileStore) loadFromDB() error {
 			return fmt.Errorf("sqlite profile store: slug mismatch payload=%q row=%q", registry.Slug, parsedSlug)
 		}
 		if registry.Profiles == nil {
-			registry.Profiles = map[ProfileSlug]*Profile{}
+			registry.Profiles = map[EngineProfileSlug]*EngineProfile{}
 		}
 		if err := ValidateRegistry(registry); err != nil {
 			return err
@@ -209,7 +209,7 @@ func (s *SQLiteProfileStore) loadFromDB() error {
 	return rows.Err()
 }
 
-func (s *SQLiteProfileStore) persistRegistryLocked(ctx context.Context, registrySlug RegistrySlug) error {
+func (s *SQLiteEngineProfileStore) persistRegistryLocked(ctx context.Context, registrySlug RegistrySlug) error {
 	registry, ok, err := s.store.GetRegistry(ctx, registrySlug)
 	if err != nil {
 		return err
@@ -233,12 +233,12 @@ ON CONFLICT(slug) DO UPDATE SET payload_json = excluded.payload_json, updated_at
 	return err
 }
 
-func (s *SQLiteProfileStore) deleteRegistryLocked(ctx context.Context, registrySlug RegistrySlug) error {
+func (s *SQLiteEngineProfileStore) deleteRegistryLocked(ctx context.Context, registrySlug RegistrySlug) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM profile_registries WHERE slug = ?`, registrySlug.String())
 	return err
 }
 
-func (s *SQLiteProfileStore) ensureOpen() error {
+func (s *SQLiteEngineProfileStore) ensureOpen() error {
 	if s.closed {
 		return fmt.Errorf("sqlite profile store closed")
 	}

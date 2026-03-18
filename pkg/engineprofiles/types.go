@@ -17,15 +17,15 @@ type RuntimeSpec struct {
 	Tools        []string        `json:"tools,omitempty" yaml:"tools,omitempty"`
 }
 
-// ProfileRef identifies a profile that can be layered via stack composition.
+// EngineProfileRef identifies a profile that can be layered via stack composition.
 // Empty RegistrySlug means "same registry as the referencing profile".
-type ProfileRef struct {
-	RegistrySlug RegistrySlug `json:"registry_slug,omitempty" yaml:"registry_slug,omitempty"`
-	ProfileSlug  ProfileSlug  `json:"profile_slug" yaml:"profile_slug"`
+type EngineProfileRef struct {
+	RegistrySlug      RegistrySlug      `json:"registry_slug,omitempty" yaml:"registry_slug,omitempty"`
+	EngineProfileSlug EngineProfileSlug `json:"profile_slug" yaml:"profile_slug"`
 }
 
-// ProfileMetadata stores provenance and version fields.
-type ProfileMetadata struct {
+// EngineProfileMetadata stores provenance and version fields.
+type EngineProfileMetadata struct {
 	Source      string   `json:"source,omitempty" yaml:"source,omitempty"`
 	Version     uint64   `json:"version,omitempty" yaml:"version,omitempty"`
 	CreatedAtMs int64    `json:"created_at_ms,omitempty" yaml:"created_at_ms,omitempty"`
@@ -46,43 +46,43 @@ type RegistryMetadata struct {
 	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
-// Profile is a named runtime preset with runtime settings and metadata.
-type Profile struct {
-	Slug        ProfileSlug     `json:"slug" yaml:"slug"`
-	DisplayName string          `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Description string          `json:"description,omitempty" yaml:"description,omitempty"`
-	Stack       []ProfileRef    `json:"stack,omitempty" yaml:"stack,omitempty"`
-	Runtime     RuntimeSpec     `json:"runtime,omitempty" yaml:"runtime,omitempty"`
-	Metadata    ProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	Extensions  map[string]any  `json:"extensions,omitempty" yaml:"extensions,omitempty"`
+// EngineProfile is a named runtime preset with runtime settings and metadata.
+type EngineProfile struct {
+	Slug        EngineProfileSlug     `json:"slug" yaml:"slug"`
+	DisplayName string                `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Description string                `json:"description,omitempty" yaml:"description,omitempty"`
+	Stack       []EngineProfileRef    `json:"stack,omitempty" yaml:"stack,omitempty"`
+	Runtime     RuntimeSpec           `json:"runtime,omitempty" yaml:"runtime,omitempty"`
+	Metadata    EngineProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Extensions  map[string]any        `json:"extensions,omitempty" yaml:"extensions,omitempty"`
 }
 
-// ProfileRegistry is a set of profiles with a default profile selector.
-type ProfileRegistry struct {
-	Slug               RegistrySlug             `json:"slug" yaml:"slug"`
-	DisplayName        string                   `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Description        string                   `json:"description,omitempty" yaml:"description,omitempty"`
-	DefaultProfileSlug ProfileSlug              `json:"default_profile_slug,omitempty" yaml:"default_profile_slug,omitempty"`
-	Profiles           map[ProfileSlug]*Profile `json:"profiles,omitempty" yaml:"profiles,omitempty"`
-	Metadata           RegistryMetadata         `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+// EngineProfileRegistry is a set of profiles with a default profile selector.
+type EngineProfileRegistry struct {
+	Slug                     RegistrySlug                         `json:"slug" yaml:"slug"`
+	DisplayName              string                               `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Description              string                               `json:"description,omitempty" yaml:"description,omitempty"`
+	DefaultEngineProfileSlug EngineProfileSlug                    `json:"default_profile_slug,omitempty" yaml:"default_profile_slug,omitempty"`
+	Profiles                 map[EngineProfileSlug]*EngineProfile `json:"profiles,omitempty" yaml:"profiles,omitempty"`
+	Metadata                 RegistryMetadata                     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
-func (p *Profile) Clone() *Profile {
+func (p *EngineProfile) Clone() *EngineProfile {
 	if p == nil {
 		return nil
 	}
 
-	ret := &Profile{
+	ret := &EngineProfile{
 		Slug:        p.Slug,
 		DisplayName: p.DisplayName,
 		Description: p.Description,
-		Stack:       append([]ProfileRef(nil), p.Stack...),
+		Stack:       append([]EngineProfileRef(nil), p.Stack...),
 		Runtime: RuntimeSpec{
 			SystemPrompt: p.Runtime.SystemPrompt,
 			Middlewares:  append([]MiddlewareUse(nil), p.Runtime.Middlewares...),
 			Tools:        append([]string(nil), p.Runtime.Tools...),
 		},
-		Metadata: ProfileMetadata{
+		Metadata: EngineProfileMetadata{
 			Source:      p.Metadata.Source,
 			Version:     p.Metadata.Version,
 			CreatedAtMs: p.Metadata.CreatedAtMs,
@@ -103,17 +103,17 @@ func (p *Profile) Clone() *Profile {
 	return ret
 }
 
-func (r *ProfileRegistry) Clone() *ProfileRegistry {
+func (r *EngineProfileRegistry) Clone() *EngineProfileRegistry {
 	if r == nil {
 		return nil
 	}
 
-	ret := &ProfileRegistry{
-		Slug:               r.Slug,
-		DisplayName:        r.DisplayName,
-		Description:        r.Description,
-		DefaultProfileSlug: r.DefaultProfileSlug,
-		Profiles:           make(map[ProfileSlug]*Profile, len(r.Profiles)),
+	ret := &EngineProfileRegistry{
+		Slug:                     r.Slug,
+		DisplayName:              r.DisplayName,
+		Description:              r.Description,
+		DefaultEngineProfileSlug: r.DefaultEngineProfileSlug,
+		Profiles:                 make(map[EngineProfileSlug]*EngineProfile, len(r.Profiles)),
 		Metadata: RegistryMetadata{
 			Source:      r.Metadata.Source,
 			Version:     r.Metadata.Version,

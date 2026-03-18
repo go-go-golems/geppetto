@@ -43,7 +43,7 @@ type ChainedRegistry struct {
 
 var _ Registry = (*ChainedRegistry)(nil)
 
-func ParseProfileRegistrySourceEntries(raw string) ([]string, error) {
+func ParseEngineProfileRegistrySourceEntries(raw string) ([]string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return nil, nil
@@ -88,8 +88,8 @@ func NewChainedRegistryFromSourceSpecs(ctx context.Context, specs []RegistrySour
 		}
 	}
 
-	aggregateStore := NewInMemoryProfileStore()
-	aggregateStore.registries = map[RegistrySlug]*ProfileRegistry{}
+	aggregateStore := NewInMemoryEngineProfileStore()
+	aggregateStore.registries = map[RegistrySlug]*EngineProfileRegistry{}
 	ownerByRegistry := map[RegistrySlug]*sourceOwner{}
 
 	for _, spec := range specs {
@@ -180,19 +180,19 @@ func (c *ChainedRegistry) ListRegistries(ctx context.Context) ([]RegistrySummary
 	return c.aggregate.ListRegistries(ctx)
 }
 
-func (c *ChainedRegistry) GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*ProfileRegistry, error) {
+func (c *ChainedRegistry) GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*EngineProfileRegistry, error) {
 	return c.aggregate.GetRegistry(ctx, c.resolveRegistrySlug(registrySlug))
 }
 
-func (c *ChainedRegistry) ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error) {
-	return c.aggregate.ListProfiles(ctx, c.resolveRegistrySlug(registrySlug))
+func (c *ChainedRegistry) ListEngineProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*EngineProfile, error) {
+	return c.aggregate.ListEngineProfiles(ctx, c.resolveRegistrySlug(registrySlug))
 }
 
-func (c *ChainedRegistry) GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, error) {
-	return c.aggregate.GetProfile(ctx, c.resolveRegistrySlug(registrySlug), profileSlug)
+func (c *ChainedRegistry) GetEngineProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug) (*EngineProfile, error) {
+	return c.aggregate.GetEngineProfile(ctx, c.resolveRegistrySlug(registrySlug), profileSlug)
 }
 
-func (c *ChainedRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveInput) (*ResolvedProfile, error) {
+func (c *ChainedRegistry) ResolveEngineProfile(ctx context.Context, in ResolveInput) (*ResolvedEngineProfile, error) {
 	if c == nil || c.aggregate == nil {
 		return nil, fmt.Errorf("profile registry chain is not initialized")
 	}
@@ -200,19 +200,19 @@ func (c *ChainedRegistry) ResolveEffectiveProfile(ctx context.Context, in Resolv
 	next := in
 	// If neither registry nor profile is specified, resolve against the top-of-stack
 	// default registry and let StoreRegistry apply that registry's default profile slug.
-	if next.RegistrySlug.IsZero() && next.ProfileSlug.IsZero() {
+	if next.RegistrySlug.IsZero() && next.EngineProfileSlug.IsZero() {
 		next.RegistrySlug = c.defaultRegistrySlug
 	}
-	if next.RegistrySlug.IsZero() && !next.ProfileSlug.IsZero() {
-		lookupSlug := next.ProfileSlug
+	if next.RegistrySlug.IsZero() && !next.EngineProfileSlug.IsZero() {
+		lookupSlug := next.EngineProfileSlug
 		registrySlug, err := c.findRegistrySlugForProfile(ctx, lookupSlug)
 		if err != nil {
 			return nil, err
 		}
 		next.RegistrySlug = registrySlug
-		next.ProfileSlug = lookupSlug
+		next.EngineProfileSlug = lookupSlug
 	}
-	return c.aggregate.ResolveEffectiveProfile(ctx, next)
+	return c.aggregate.ResolveEngineProfile(ctx, next)
 }
 
 func (c *ChainedRegistry) resolveRegistrySlug(slug RegistrySlug) RegistrySlug {
@@ -229,9 +229,9 @@ func (c *ChainedRegistry) DefaultRegistrySlug() RegistrySlug {
 	return c.defaultRegistrySlug
 }
 
-func (c *ChainedRegistry) findRegistrySlugForProfile(ctx context.Context, profileSlug ProfileSlug) (RegistrySlug, error) {
+func (c *ChainedRegistry) findRegistrySlugForProfile(ctx context.Context, profileSlug EngineProfileSlug) (RegistrySlug, error) {
 	for _, registrySlug := range c.precedenceTopFirst {
-		_, err := c.aggregate.GetProfile(ctx, registrySlug, profileSlug)
+		_, err := c.aggregate.GetEngineProfile(ctx, registrySlug, profileSlug)
 		if err == nil {
 			return registrySlug, nil
 		}
@@ -324,7 +324,7 @@ func fileHasSQLiteHeader(path string) (bool, error) {
 	return string(buf[:15]) == "SQLite format 3", nil
 }
 
-func openRegistrySource(ctx context.Context, spec RegistrySourceSpec) (*sourceOwner, []*ProfileRegistry, error) {
+func openRegistrySource(ctx context.Context, spec RegistrySourceSpec) (*sourceOwner, []*EngineProfileRegistry, error) {
 	switch spec.Kind {
 	case RegistrySourceKindYAML:
 		registries, err := loadRuntimeYAMLSource(spec.Path)
@@ -351,8 +351,8 @@ func openRegistrySource(ctx context.Context, spec RegistrySourceSpec) (*sourceOw
 	}
 }
 
-func openSQLiteSource(ctx context.Context, spec RegistrySourceSpec, dsn string) (*sourceOwner, []*ProfileRegistry, error) {
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+func openSQLiteSource(ctx context.Context, spec RegistrySourceSpec, dsn string) (*sourceOwner, []*EngineProfileRegistry, error) {
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -377,7 +377,7 @@ func openSQLiteSource(ctx context.Context, spec RegistrySourceSpec, dsn string) 
 	return ret, regs, nil
 }
 
-func loadRuntimeYAMLSource(path string) ([]*ProfileRegistry, error) {
+func loadRuntimeYAMLSource(path string) ([]*EngineProfileRegistry, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -389,5 +389,5 @@ func loadRuntimeYAMLSource(path string) ([]*ProfileRegistry, error) {
 	if reg == nil {
 		return nil, nil
 	}
-	return []*ProfileRegistry{reg}, nil
+	return []*EngineProfileRegistry{reg}, nil
 }

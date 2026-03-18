@@ -85,7 +85,7 @@ func TestProfileExtensionKey_GetSetDecode(t *testing.T) {
 		t.Fatalf("NewProfileExtensionKey returned error: %v", err)
 	}
 
-	profile := &Profile{Slug: MustProfileSlug("default")}
+	profile := &EngineProfile{Slug: MustEngineProfileSlug("default")}
 	if _, ok, err := key.Get(profile); err != nil || ok {
 		t.Fatalf("expected missing extension without error, got ok=%v err=%v", ok, err)
 	}

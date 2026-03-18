@@ -110,7 +110,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	profileSettingsSection, err := newProfileRegistrySettingsSection()
+	profileSettingsSection, err := newEngineProfileRegistrySettingsSection()
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func defaultPinocchioProfileRegistriesIfPresent() string {
 	return path
 }
 
-func newProfileRegistrySettingsSection() (schema.Section, error) {
+func newEngineProfileRegistrySettingsSection() (schema.Section, error) {
 	return schema.NewSection(
 		profileSettingsSectionSlug,
 		"Profile settings",
@@ -252,7 +252,7 @@ func GetCobraCommandGeppettoMiddlewares(
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
 	profileSettings := &profileRegistrySettings{}
-	profileSettingsLayer, err := newProfileRegistrySettingsSection()
+	profileSettingsLayer, err := newEngineProfileRegistrySettingsSection()
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func GetCobraCommandGeppettoMiddlewares(
 			profileSettings.ProfileRegistries = defaultPath
 		}
 	}
-	profileRegistrySources, err := profiles.ParseProfileRegistrySourceEntries(profileSettings.ProfileRegistries)
+	profileRegistrySources, err := profiles.ParseEngineProfileRegistrySourceEntries(profileSettings.ProfileRegistries)
 	if err != nil {
 		return nil, err
 	}

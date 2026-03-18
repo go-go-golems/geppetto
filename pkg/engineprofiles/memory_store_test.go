@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-func TestInMemoryProfileStore_RegistryLifecycle(t *testing.T) {
+func TestInMemoryEngineProfileStore_RegistryLifecycle(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
+	store := NewInMemoryEngineProfileStore()
 
-	registry := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	registry := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	if err := store.UpsertRegistry(ctx, registry, SaveOptions{Actor: "test", Source: "unit"}); err != nil {
@@ -42,54 +42,54 @@ func TestInMemoryProfileStore_RegistryLifecycle(t *testing.T) {
 	}
 }
 
-func TestInMemoryProfileStore_ProfileLifecycle(t *testing.T) {
+func TestInMemoryEngineProfileStore_ProfileLifecycle(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
+	store := NewInMemoryEngineProfileStore()
 
-	registry := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	registry := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	if err := store.UpsertRegistry(ctx, registry, SaveOptions{}); err != nil {
 		t.Fatalf("UpsertRegistry failed: %v", err)
 	}
 
-	profile := &Profile{
-		Slug:        MustProfileSlug("agent"),
+	profile := &EngineProfile{
+		Slug:        MustEngineProfileSlug("agent"),
 		DisplayName: "Agent",
 	}
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), profile, SaveOptions{Actor: "test"}); err != nil {
-		t.Fatalf("UpsertProfile failed: %v", err)
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), profile, SaveOptions{Actor: "test"}); err != nil {
+		t.Fatalf("UpsertEngineProfile failed: %v", err)
 	}
 
-	list, err := store.ListProfiles(ctx, MustRegistrySlug("default"))
+	list, err := store.ListEngineProfiles(ctx, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("ListProfiles failed: %v", err)
+		t.Fatalf("ListEngineProfiles failed: %v", err)
 	}
 	if len(list) != 2 {
 		t.Fatalf("expected 2 profiles, got %d", len(list))
 	}
-	got, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	got, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil {
-		t.Fatalf("GetProfile failed: %v", err)
+		t.Fatalf("GetEngineProfile failed: %v", err)
 	}
 	if !ok || got == nil {
 		t.Fatalf("expected profile to be readable after upsert")
 	}
 }
 
-func TestInMemoryProfileStore_VersionConflict(t *testing.T) {
+func TestInMemoryEngineProfileStore_VersionConflict(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
+	store := NewInMemoryEngineProfileStore()
 
-	registry := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	registry := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	if err := store.UpsertRegistry(ctx, registry, SaveOptions{Actor: "test"}); err != nil {
@@ -105,9 +105,9 @@ func TestInMemoryProfileStore_VersionConflict(t *testing.T) {
 	}
 }
 
-func TestInMemoryProfileStore_Close(t *testing.T) {
+func TestInMemoryEngineProfileStore_Close(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
+	store := NewInMemoryEngineProfileStore()
 	if err := store.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -116,16 +116,16 @@ func TestInMemoryProfileStore_Close(t *testing.T) {
 	}
 }
 
-func TestInMemoryProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T) {
+func TestInMemoryEngineProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
+	store := NewInMemoryEngineProfileStore()
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
-			MustProfileSlug("agent"):   {Slug: MustProfileSlug("agent")},
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
+			MustEngineProfileSlug("agent"):   {Slug: MustEngineProfileSlug("agent")},
 		},
 	}, SaveOptions{Actor: "alice", Source: "seed"}); err != nil {
 		t.Fatalf("UpsertRegistry(create) failed: %v", err)
@@ -149,7 +149,7 @@ func TestInMemoryProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T
 	}
 
 	regPatch := regV1.Clone()
-	regPatch.DefaultProfileSlug = MustProfileSlug("agent")
+	regPatch.DefaultEngineProfileSlug = MustEngineProfileSlug("agent")
 	if err := store.UpsertRegistry(ctx, regPatch, SaveOptions{
 		ExpectedVersion: regV1.Metadata.Version,
 		Actor:           "bob",
@@ -161,8 +161,8 @@ func TestInMemoryProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T
 	if err != nil || !ok || regV2 == nil {
 		t.Fatalf("GetRegistry(v2) failed: ok=%v err=%v", ok, err)
 	}
-	if regV2.DefaultProfileSlug != MustProfileSlug("agent") {
-		t.Fatalf("expected default profile agent, got %q", regV2.DefaultProfileSlug)
+	if regV2.DefaultEngineProfileSlug != MustEngineProfileSlug("agent") {
+		t.Fatalf("expected default profile agent, got %q", regV2.DefaultEngineProfileSlug)
 	}
 	if regV2.Metadata.Version != regV1.Metadata.Version+1 {
 		t.Fatalf("expected registry version increment on registry update, got v1=%d v2=%d", regV1.Metadata.Version, regV2.Metadata.Version)
@@ -210,29 +210,29 @@ func TestInMemoryProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T
 	}
 }
 
-func TestInMemoryProfileStore_ProfileMetadataVersionAndAttribution(t *testing.T) {
+func TestInMemoryEngineProfileStore_EngineProfileMetadataVersionAndAttribution(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
+	store := NewInMemoryEngineProfileStore()
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}, SaveOptions{Actor: "setup", Source: "seed"}); err != nil {
 		t.Fatalf("UpsertRegistry failed: %v", err)
 	}
 
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
-		Slug:        MustProfileSlug("agent"),
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{
+		Slug:        MustEngineProfileSlug("agent"),
 		DisplayName: "Agent v1",
 	}, SaveOptions{Actor: "alice", Source: "seed"}); err != nil {
-		t.Fatalf("UpsertProfile(create) failed: %v", err)
+		t.Fatalf("UpsertEngineProfile(create) failed: %v", err)
 	}
-	pV1, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	pV1, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil || !ok || pV1 == nil {
-		t.Fatalf("GetProfile(v1) failed: ok=%v err=%v", ok, err)
+		t.Fatalf("GetEngineProfile(v1) failed: ok=%v err=%v", ok, err)
 	}
 	if pV1.Metadata.Version != 1 {
 		t.Fatalf("expected profile version=1, got %d", pV1.Metadata.Version)
@@ -249,16 +249,16 @@ func TestInMemoryProfileStore_ProfileMetadataVersionAndAttribution(t *testing.T)
 
 	pPatch := pV1.Clone()
 	pPatch.DisplayName = "Agent v2"
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), pPatch, SaveOptions{
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), pPatch, SaveOptions{
 		ExpectedVersion: pV1.Metadata.Version,
 		Actor:           "bob",
 		Source:          "api",
 	}); err != nil {
-		t.Fatalf("UpsertProfile(update1) failed: %v", err)
+		t.Fatalf("UpsertEngineProfile(update1) failed: %v", err)
 	}
-	pV2, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	pV2, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil || !ok || pV2 == nil {
-		t.Fatalf("GetProfile(v2) failed: ok=%v err=%v", ok, err)
+		t.Fatalf("GetEngineProfile(v2) failed: ok=%v err=%v", ok, err)
 	}
 	if pV2.Metadata.Version != pV1.Metadata.Version+1 {
 		t.Fatalf("expected profile version increment on update1, got v1=%d v2=%d", pV1.Metadata.Version, pV2.Metadata.Version)
@@ -278,16 +278,16 @@ func TestInMemoryProfileStore_ProfileMetadataVersionAndAttribution(t *testing.T)
 
 	pPatch2 := pV2.Clone()
 	pPatch2.DisplayName = "Agent v3"
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), pPatch2, SaveOptions{
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), pPatch2, SaveOptions{
 		ExpectedVersion: pV2.Metadata.Version,
 		Actor:           "carol",
 		Source:          "cli",
 	}); err != nil {
-		t.Fatalf("UpsertProfile(update2) failed: %v", err)
+		t.Fatalf("UpsertEngineProfile(update2) failed: %v", err)
 	}
-	pV3, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	pV3, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil || !ok || pV3 == nil {
-		t.Fatalf("GetProfile(v3) failed: ok=%v err=%v", ok, err)
+		t.Fatalf("GetEngineProfile(v3) failed: ok=%v err=%v", ok, err)
 	}
 	if pV3.Metadata.Version != pV2.Metadata.Version+1 {
 		t.Fatalf("expected profile version increment on update2, got v2=%d v3=%d", pV2.Metadata.Version, pV3.Metadata.Version)

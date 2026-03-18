@@ -7,20 +7,20 @@ import (
 	"sync"
 )
 
-// InMemoryProfileStore is a thread-safe ProfileStore implementation.
-type InMemoryProfileStore struct {
+// InMemoryEngineProfileStore is a thread-safe EngineProfileStore implementation.
+type InMemoryEngineProfileStore struct {
 	mu         sync.RWMutex
-	registries map[RegistrySlug]*ProfileRegistry
+	registries map[RegistrySlug]*EngineProfileRegistry
 	closed     bool
 }
 
-func NewInMemoryProfileStore() *InMemoryProfileStore {
-	return &InMemoryProfileStore{
-		registries: map[RegistrySlug]*ProfileRegistry{},
+func NewInMemoryEngineProfileStore() *InMemoryEngineProfileStore {
+	return &InMemoryEngineProfileStore{
+		registries: map[RegistrySlug]*EngineProfileRegistry{},
 	}
 }
 
-func (s *InMemoryProfileStore) ListRegistries(_ context.Context) ([]*ProfileRegistry, error) {
+func (s *InMemoryEngineProfileStore) ListRegistries(_ context.Context) ([]*EngineProfileRegistry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if err := s.ensureOpen(); err != nil {
@@ -33,14 +33,14 @@ func (s *InMemoryProfileStore) ListRegistries(_ context.Context) ([]*ProfileRegi
 	}
 	sort.Slice(slugs, func(i, j int) bool { return slugs[i] < slugs[j] })
 
-	out := make([]*ProfileRegistry, 0, len(slugs))
+	out := make([]*EngineProfileRegistry, 0, len(slugs))
 	for _, slug := range slugs {
 		out = append(out, s.registries[slug].Clone())
 	}
 	return out, nil
 }
 
-func (s *InMemoryProfileStore) GetRegistry(_ context.Context, registrySlug RegistrySlug) (*ProfileRegistry, bool, error) {
+func (s *InMemoryEngineProfileStore) GetRegistry(_ context.Context, registrySlug RegistrySlug) (*EngineProfileRegistry, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if err := s.ensureOpen(); err != nil {
@@ -54,7 +54,7 @@ func (s *InMemoryProfileStore) GetRegistry(_ context.Context, registrySlug Regis
 	return reg.Clone(), true, nil
 }
 
-func (s *InMemoryProfileStore) ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error) {
+func (s *InMemoryEngineProfileStore) ListEngineProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*EngineProfile, error) {
 	reg, ok, err := s.GetRegistry(ctx, registrySlug)
 	if err != nil {
 		return nil, err
@@ -63,20 +63,20 @@ func (s *InMemoryProfileStore) ListProfiles(ctx context.Context, registrySlug Re
 		return nil, nil
 	}
 
-	slugs := make([]ProfileSlug, 0, len(reg.Profiles))
+	slugs := make([]EngineProfileSlug, 0, len(reg.Profiles))
 	for slug := range reg.Profiles {
 		slugs = append(slugs, slug)
 	}
 	sort.Slice(slugs, func(i, j int) bool { return slugs[i] < slugs[j] })
 
-	out := make([]*Profile, 0, len(slugs))
+	out := make([]*EngineProfile, 0, len(slugs))
 	for _, slug := range slugs {
 		out = append(out, reg.Profiles[slug].Clone())
 	}
 	return out, nil
 }
 
-func (s *InMemoryProfileStore) GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, bool, error) {
+func (s *InMemoryEngineProfileStore) GetEngineProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug) (*EngineProfile, bool, error) {
 	reg, ok, err := s.GetRegistry(ctx, registrySlug)
 	if err != nil {
 		return nil, false, err
@@ -91,7 +91,7 @@ func (s *InMemoryProfileStore) GetProfile(ctx context.Context, registrySlug Regi
 	return profile.Clone(), true, nil
 }
 
-func (s *InMemoryProfileStore) UpsertRegistry(_ context.Context, registry *ProfileRegistry, opts SaveOptions) error {
+func (s *InMemoryEngineProfileStore) UpsertRegistry(_ context.Context, registry *EngineProfileRegistry, opts SaveOptions) error {
 	if err := ValidateRegistry(registry); err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (s *InMemoryProfileStore) UpsertRegistry(_ context.Context, registry *Profi
 
 	clone := registry.Clone()
 	if clone.Profiles == nil {
-		clone.Profiles = map[ProfileSlug]*Profile{}
+		clone.Profiles = map[EngineProfileSlug]*EngineProfile{}
 	}
 
 	existing, ok := s.registries[clone.Slug]
@@ -113,8 +113,8 @@ func (s *InMemoryProfileStore) UpsertRegistry(_ context.Context, registry *Profi
 			return err
 		}
 		clone.Metadata = existing.Metadata
-		if clone.DefaultProfileSlug.IsZero() {
-			clone.DefaultProfileSlug = existing.DefaultProfileSlug
+		if clone.DefaultEngineProfileSlug.IsZero() {
+			clone.DefaultEngineProfileSlug = existing.DefaultEngineProfileSlug
 		}
 	} else {
 		if err := assertExpectedVersion("registry", clone.Slug.String(), opts.ExpectedVersion, 0); err != nil {
@@ -126,7 +126,7 @@ func (s *InMemoryProfileStore) UpsertRegistry(_ context.Context, registry *Profi
 	return nil
 }
 
-func (s *InMemoryProfileStore) DeleteRegistry(_ context.Context, registrySlug RegistrySlug, opts SaveOptions) error {
+func (s *InMemoryEngineProfileStore) DeleteRegistry(_ context.Context, registrySlug RegistrySlug, opts SaveOptions) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensureOpen(); err != nil {
@@ -144,8 +144,8 @@ func (s *InMemoryProfileStore) DeleteRegistry(_ context.Context, registrySlug Re
 	return nil
 }
 
-func (s *InMemoryProfileStore) UpsertProfile(_ context.Context, registrySlug RegistrySlug, profile *Profile, opts SaveOptions) error {
-	if err := ValidateProfile(profile); err != nil {
+func (s *InMemoryEngineProfileStore) UpsertEngineProfile(_ context.Context, registrySlug RegistrySlug, profile *EngineProfile, opts SaveOptions) error {
+	if err := ValidateEngineProfile(profile); err != nil {
 		return err
 	}
 
@@ -160,7 +160,7 @@ func (s *InMemoryProfileStore) UpsertProfile(_ context.Context, registrySlug Reg
 		return ErrRegistryNotFound
 	}
 	if registry.Profiles == nil {
-		registry.Profiles = map[ProfileSlug]*Profile{}
+		registry.Profiles = map[EngineProfileSlug]*EngineProfile{}
 	}
 
 	clone := profile.Clone()
@@ -175,20 +175,20 @@ func (s *InMemoryProfileStore) UpsertProfile(_ context.Context, registrySlug Reg
 			return err
 		}
 	}
-	TouchProfileMetadata(&clone.Metadata, opts, 0)
+	TouchEngineProfileMetadata(&clone.Metadata, opts, 0)
 	registry.Profiles[clone.Slug] = clone
 	TouchRegistryMetadata(&registry.Metadata, opts, 0)
 	return nil
 }
 
-func (s *InMemoryProfileStore) Close() error {
+func (s *InMemoryEngineProfileStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.closed = true
 	return nil
 }
 
-func (s *InMemoryProfileStore) ensureOpen() error {
+func (s *InMemoryEngineProfileStore) ensureOpen() error {
 	if s.closed {
 		return fmt.Errorf("in-memory profile store closed")
 	}

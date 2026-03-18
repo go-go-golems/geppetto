@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
-	layers := []ProfileStackLayer{
+func TestMergeEngineProfileStackLayers_RuntimeMergeRules(t *testing.T) {
+	layers := []EngineProfileStackLayer{
 		{
-			RegistrySlug: MustRegistrySlug("default"),
-			ProfileSlug:  MustProfileSlug("base"),
-			Profile: &Profile{
-				Slug: MustProfileSlug("base"),
+			RegistrySlug:      MustRegistrySlug("default"),
+			EngineProfileSlug: MustEngineProfileSlug("base"),
+			EngineProfile: &EngineProfile{
+				Slug: MustEngineProfileSlug("base"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "base prompt",
 					Tools:        []string{"calculator"},
@@ -23,10 +23,10 @@ func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 			},
 		},
 		{
-			RegistrySlug: MustRegistrySlug("default"),
-			ProfileSlug:  MustProfileSlug("leaf"),
-			Profile: &Profile{
-				Slug: MustProfileSlug("leaf"),
+			RegistrySlug:      MustRegistrySlug("default"),
+			EngineProfileSlug: MustEngineProfileSlug("leaf"),
+			EngineProfile: &EngineProfile{
+				Slug: MustEngineProfileSlug("leaf"),
 				Runtime: RuntimeSpec{
 					Tools: []string{"search"},
 					Middlewares: []MiddlewareUse{
@@ -39,9 +39,9 @@ func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 		},
 	}
 
-	merged, err := MergeProfileStackLayers(layers)
+	merged, err := MergeEngineProfileStackLayers(layers)
 	if err != nil {
-		t.Fatalf("MergeProfileStackLayers failed: %v", err)
+		t.Fatalf("MergeEngineProfileStackLayers failed: %v", err)
 	}
 
 	if got := merged.Runtime.SystemPrompt; got != "base prompt" {
@@ -64,11 +64,11 @@ func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 	}
 }
 
-func TestMergeProfileStackLayers_ExtensionMergeRules(t *testing.T) {
-	layers := []ProfileStackLayer{
+func TestMergeEngineProfileStackLayers_ExtensionMergeRules(t *testing.T) {
+	layers := []EngineProfileStackLayer{
 		{
-			Profile: &Profile{
-				Slug: MustProfileSlug("base"),
+			EngineProfile: &EngineProfile{
+				Slug: MustEngineProfileSlug("base"),
 				Extensions: map[string]any{
 					"custom.config@v1": map[string]any{
 						"scalar": "base",
@@ -83,8 +83,8 @@ func TestMergeProfileStackLayers_ExtensionMergeRules(t *testing.T) {
 			},
 		},
 		{
-			Profile: &Profile{
-				Slug: MustProfileSlug("leaf"),
+			EngineProfile: &EngineProfile{
+				Slug: MustEngineProfileSlug("leaf"),
 				Extensions: map[string]any{
 					"custom.config@v1": map[string]any{
 						"nested": map[string]any{
@@ -99,9 +99,9 @@ func TestMergeProfileStackLayers_ExtensionMergeRules(t *testing.T) {
 		},
 	}
 
-	merged, err := MergeProfileStackLayers(layers)
+	merged, err := MergeEngineProfileStackLayers(layers)
 	if err != nil {
-		t.Fatalf("MergeProfileStackLayers failed: %v", err)
+		t.Fatalf("MergeEngineProfileStackLayers failed: %v", err)
 	}
 
 	config := merged.Extensions["custom.config@v1"].(map[string]any)

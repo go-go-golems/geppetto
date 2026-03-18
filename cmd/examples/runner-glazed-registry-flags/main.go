@@ -52,7 +52,7 @@ func profileRegistrySettingsSection() (schema.Section, error) {
 				"profile-registries",
 				fields.TypeString,
 				fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
-				fields.WithDefault(runnerexample.ExampleProfileRegistryPath()),
+				fields.WithDefault(runnerexample.ExampleEngineProfileRegistryPath()),
 			),
 		),
 	)

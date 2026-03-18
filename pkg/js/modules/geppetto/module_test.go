@@ -737,7 +737,7 @@ func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T)
 
 func TestEnginesFromConfigStillWorks(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
@@ -761,7 +761,7 @@ func TestEnginesFromConfigStillWorks(t *testing.T) {
 
 func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 
 	mustRunJS(t, rt, `
@@ -806,10 +806,10 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 
 func TestProfilesResolveUsesHostDefaultSelection(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry:          mustNewJSProfileRegistry(t),
+		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
 		UseDefaultProfileResolve: true,
 		DefaultProfileResolve: gepprofiles.ResolveInput{
-			ProfileSlug: gepprofiles.MustProfileSlug("explicit-model"),
+			EngineProfileSlug: gepprofiles.MustEngineProfileSlug("explicit-model"),
 		},
 	})
 
@@ -836,10 +836,10 @@ func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 	`)
 }
 
-func TestResolvedProfileMaterializesMiddlewareAndRuntimeMetadata(t *testing.T) {
+func TestResolvedEngineProfileMaterializesMiddlewareAndRuntimeMetadata(t *testing.T) {
 	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 		GoMiddlewareFactories: map[string]MiddlewareFactory{
 			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
 				marker := toString(options["marker"], "")
@@ -888,7 +888,7 @@ func TestResolvedProfileMaterializesMiddlewareAndRuntimeMetadata(t *testing.T) {
 				});
 			}))
 			.withTools(reg, { enabled: true, maxIterations: 2 })
-			.useResolvedProfile(resolved)
+			.useResolvedEngineProfile(resolved)
 			.buildSession();
 
 		const out = session.run(gp.turns.newTurn({
@@ -908,9 +908,9 @@ func TestResolvedProfileMaterializesMiddlewareAndRuntimeMetadata(t *testing.T) {
 	`)
 }
 
-func TestResolvedProfileFiltersExecutionRegistry(t *testing.T) {
+func TestResolvedEngineProfileFiltersExecutionRegistry(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 		GoMiddlewareFactories: map[string]MiddlewareFactory{
 			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
 				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
@@ -948,7 +948,7 @@ func TestResolvedProfileFiltersExecutionRegistry(t *testing.T) {
 
 func TestRunnerResolveRuntimeFromProfile(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 
 	mustRunJS(t, rt, `
@@ -980,7 +980,7 @@ func TestRunnerResolveRuntimeFromProfile(t *testing.T) {
 
 func TestRunnerResolveRuntimeUsesHostDefaultProfile(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry:          mustNewJSProfileRegistry(t),
+		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
 		UseDefaultProfileResolve: true,
 	})
 
@@ -998,7 +998,7 @@ func TestRunnerResolveRuntimeUsesHostDefaultProfile(t *testing.T) {
 
 func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 
 	mustRunJS(t, rt, `
@@ -1035,7 +1035,7 @@ func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 func TestRunnerPrepareBuildsPreparedRunFromResolvedRuntime(t *testing.T) {
 	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 		GoMiddlewareFactories: map[string]MiddlewareFactory{
 			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
 				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
@@ -1327,7 +1327,7 @@ profiles:
 	}
 
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 	mustRunJS(t, rt, fmt.Sprintf(`
 		const gp = require("geppetto");
@@ -1696,22 +1696,22 @@ func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 	`)
 }
 
-func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 	t.Helper()
-	store := gepprofiles.NewInMemoryProfileStore()
-	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
-		Slug:               gepprofiles.MustRegistrySlug("default"),
-		DefaultProfileSlug: gepprofiles.MustProfileSlug("default-model"),
-		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
-			gepprofiles.MustProfileSlug("default-model"): {
-				Slug: gepprofiles.MustProfileSlug("default-model"),
+	store := gepprofiles.NewInMemoryEngineProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
+		Slug:                     gepprofiles.MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("default-model"),
+		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
+			gepprofiles.MustEngineProfileSlug("default-model"): {
+				Slug: gepprofiles.MustEngineProfileSlug("default-model"),
 				Runtime: gepprofiles.RuntimeSpec{
 					SystemPrompt: "default prompt",
 					Tools:        []string{"calculator"},
 				},
 			},
-			gepprofiles.MustProfileSlug("explicit-model"): {
-				Slug: gepprofiles.MustProfileSlug("explicit-model"),
+			gepprofiles.MustEngineProfileSlug("explicit-model"): {
+				Slug: gepprofiles.MustEngineProfileSlug("explicit-model"),
 				Runtime: gepprofiles.RuntimeSpec{
 					SystemPrompt: "explicit prompt",
 					Middlewares: []gepprofiles.MiddlewareUse{{
@@ -1720,10 +1720,10 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 					}},
 					Tools: []string{"search"},
 				},
-				Metadata: gepprofiles.ProfileMetadata{Version: 7},
+				Metadata: gepprofiles.EngineProfileMetadata{Version: 7},
 			},
-			gepprofiles.MustProfileSlug("claude-no-base-url"): {
-				Slug: gepprofiles.MustProfileSlug("claude-no-base-url"),
+			gepprofiles.MustEngineProfileSlug("claude-no-base-url"): {
+				Slug: gepprofiles.MustEngineProfileSlug("claude-no-base-url"),
 				Runtime: gepprofiles.RuntimeSpec{
 					SystemPrompt: "claude prompt",
 					Tools:        []string{"summarize"},

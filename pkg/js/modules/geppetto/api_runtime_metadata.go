@@ -17,11 +17,11 @@ type resolvedRuntimeMaterialization struct {
 	RuntimeMetadata map[string]any
 }
 
-func (m *moduleRuntime) newResolvedProfileObject(resolved *profiles.ResolvedProfile) *goja.Object {
+func (m *moduleRuntime) newResolvedEngineProfileObject(resolved *profiles.ResolvedEngineProfile) *goja.Object {
 	out := m.vm.NewObject()
-	m.attachRef(out, &resolvedProfileRef{Resolved: cloneResolvedProfile(resolved)})
+	m.attachRef(out, &resolvedEngineProfileRef{Resolved: cloneResolvedEngineProfile(resolved)})
 	m.mustSet(out, "registrySlug", resolved.RegistrySlug.String())
-	m.mustSet(out, "profileSlug", resolved.ProfileSlug.String())
+	m.mustSet(out, "profileSlug", resolved.EngineProfileSlug.String())
 	m.mustSet(out, "runtimeKey", resolved.RuntimeKey.String())
 	m.mustSet(out, "runtimeFingerprint", resolved.RuntimeFingerprint)
 	m.mustSet(out, "effectiveRuntime", cloneJSONValue(resolved.EffectiveRuntime))
@@ -31,13 +31,13 @@ func (m *moduleRuntime) newResolvedProfileObject(resolved *profiles.ResolvedProf
 	return out
 }
 
-func cloneResolvedProfile(in *profiles.ResolvedProfile) *profiles.ResolvedProfile {
+func cloneResolvedEngineProfile(in *profiles.ResolvedEngineProfile) *profiles.ResolvedEngineProfile {
 	if in == nil {
 		return nil
 	}
-	out := &profiles.ResolvedProfile{
+	out := &profiles.ResolvedEngineProfile{
 		RegistrySlug:       in.RegistrySlug,
-		ProfileSlug:        in.ProfileSlug,
+		EngineProfileSlug:  in.EngineProfileSlug,
 		RuntimeKey:         in.RuntimeKey,
 		EffectiveRuntime:   cloneRuntimeSpec(in.EffectiveRuntime),
 		RuntimeFingerprint: in.RuntimeFingerprint,
@@ -69,13 +69,13 @@ func cloneRuntimeSpec(in profiles.RuntimeSpec) profiles.RuntimeSpec {
 	return out
 }
 
-func (m *moduleRuntime) requireResolvedProfile(v goja.Value) (*profiles.ResolvedProfile, error) {
+func (m *moduleRuntime) requireResolvedEngineProfile(v goja.Value) (*profiles.ResolvedEngineProfile, error) {
 	ref := m.getRef(v)
 	switch x := ref.(type) {
-	case *resolvedProfileRef:
-		return cloneResolvedProfile(x.Resolved), nil
-	case *profiles.ResolvedProfile:
-		return cloneResolvedProfile(x), nil
+	case *resolvedEngineProfileRef:
+		return cloneResolvedEngineProfile(x.Resolved), nil
+	case *profiles.ResolvedEngineProfile:
+		return cloneResolvedEngineProfile(x), nil
 	}
 
 	raw := decodeMap(v.Export())
@@ -83,10 +83,10 @@ func (m *moduleRuntime) requireResolvedProfile(v goja.Value) (*profiles.Resolved
 		return nil, fmt.Errorf("resolved profile must be an object")
 	}
 
-	return decodeResolvedProfile(raw)
+	return decodeResolvedEngineProfile(raw)
 }
 
-func decodeResolvedProfile(raw map[string]any) (*profiles.ResolvedProfile, error) {
+func decodeResolvedEngineProfile(raw map[string]any) (*profiles.ResolvedEngineProfile, error) {
 	if raw == nil {
 		return nil, fmt.Errorf("resolved profile must not be nil")
 	}
@@ -95,7 +95,7 @@ func decodeResolvedProfile(raw map[string]any) (*profiles.ResolvedProfile, error
 	if err != nil {
 		return nil, fmt.Errorf("decode registrySlug: %w", err)
 	}
-	profileSlug, err := parseRequiredProfileSlug(raw["profileSlug"], "profileSlug")
+	profileSlug, err := parseRequiredEngineProfileSlug(raw["profileSlug"], "profileSlug")
 	if err != nil {
 		return nil, fmt.Errorf("decode profileSlug: %w", err)
 	}
@@ -112,9 +112,9 @@ func decodeResolvedProfile(raw map[string]any) (*profiles.ResolvedProfile, error
 		return nil, fmt.Errorf("decode effectiveRuntime: %w", err)
 	}
 
-	return &profiles.ResolvedProfile{
+	return &profiles.ResolvedEngineProfile{
 		RegistrySlug:       registrySlug,
-		ProfileSlug:        profileSlug,
+		EngineProfileSlug:  profileSlug,
 		RuntimeKey:         runtimeKey,
 		EffectiveRuntime:   effectiveRuntime,
 		RuntimeFingerprint: strings.TrimSpace(toString(raw["runtimeFingerprint"], "")),
@@ -187,7 +187,7 @@ func decodePositiveUint64(v any) (uint64, bool) {
 	return 0, false
 }
 
-func (m *moduleRuntime) materializeResolvedProfile(resolved *profiles.ResolvedProfile) (*resolvedRuntimeMaterialization, error) {
+func (m *moduleRuntime) materializeResolvedEngineProfile(resolved *profiles.ResolvedEngineProfile) (*resolvedRuntimeMaterialization, error) {
 	if resolved == nil {
 		return nil, fmt.Errorf("resolved profile must not be nil")
 	}
@@ -223,7 +223,7 @@ func (m *moduleRuntime) materializeResolvedProfile(resolved *profiles.ResolvedPr
 	if fingerprint := strings.TrimSpace(resolved.RuntimeFingerprint); fingerprint != "" {
 		out.RuntimeMetadata["runtime_fingerprint"] = fingerprint
 	}
-	if profileSlug := strings.TrimSpace(resolved.ProfileSlug.String()); profileSlug != "" {
+	if profileSlug := strings.TrimSpace(resolved.EngineProfileSlug.String()); profileSlug != "" {
 		out.RuntimeMetadata["profile.slug"] = profileSlug
 	}
 	if registrySlug := strings.TrimSpace(resolved.RegistrySlug.String()); registrySlug != "" {
@@ -293,8 +293,8 @@ func materializeToolRegistry(base tools.ToolRegistry, toolNames []string) (tools
 	return filtered, nil
 }
 
-func (m *moduleRuntime) applyResolvedProfile(b *builderRef, resolved *profiles.ResolvedProfile) error {
-	mat, err := m.materializeResolvedProfile(resolved)
+func (m *moduleRuntime) applyResolvedEngineProfile(b *builderRef, resolved *profiles.ResolvedEngineProfile) error {
+	mat, err := m.materializeResolvedEngineProfile(resolved)
 	if err != nil {
 		return err
 	}

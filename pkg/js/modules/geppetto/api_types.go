@@ -71,8 +71,8 @@ type goMiddlewareRef struct {
 	Options map[string]any
 }
 
-type resolvedProfileRef struct {
-	Resolved *profiles.ResolvedProfile
+type resolvedEngineProfileRef struct {
+	Resolved *profiles.ResolvedEngineProfile
 }
 
 type runnerResolvedRuntimeRef struct {

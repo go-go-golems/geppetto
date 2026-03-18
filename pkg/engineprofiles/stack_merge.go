@@ -10,8 +10,8 @@ type StackMergeResult struct {
 	Extensions map[string]any
 }
 
-// MergeProfileStackLayers merges base->leaf stack layers deterministically.
-func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, error) {
+// MergeEngineProfileStackLayers merges base->leaf stack layers deterministically.
+func MergeEngineProfileStackLayers(layers []EngineProfileStackLayer) (StackMergeResult, error) {
 	result := StackMergeResult{
 		Runtime: RuntimeSpec{
 			SystemPrompt: "",
@@ -24,10 +24,10 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 	mergedMiddlewares := make([]MiddlewareUse, 0, 8)
 
 	for _, layer := range layers {
-		if layer.Profile == nil {
+		if layer.EngineProfile == nil {
 			continue
 		}
-		profile := layer.Profile
+		profile := layer.EngineProfile
 
 		if strings.TrimSpace(profile.Runtime.SystemPrompt) != "" {
 			result.Runtime.SystemPrompt = profile.Runtime.SystemPrompt
@@ -59,10 +59,10 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 	return result, nil
 }
 
-// MergeProfileStackLayersWithTrace merges base->leaf stack layers and returns
+// MergeEngineProfileStackLayersWithTrace merges base->leaf stack layers and returns
 // middlewarecfg-style path traces for field-level merge provenance.
-func MergeProfileStackLayersWithTrace(layers []ProfileStackLayer) (StackMergeResult, *ProfileStackTrace, error) {
-	merged, err := MergeProfileStackLayers(layers)
+func MergeEngineProfileStackLayersWithTrace(layers []EngineProfileStackLayer) (StackMergeResult, *ProfileStackTrace, error) {
+	merged, err := MergeEngineProfileStackLayers(layers)
 	if err != nil {
 		return StackMergeResult{}, nil, err
 	}

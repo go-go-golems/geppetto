@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-func TestParseProfileRegistrySourceEntries(t *testing.T) {
-	entries, err := ParseProfileRegistrySourceEntries(" a.yaml, b.db ,sqlite-dsn:file:test.db ")
+func TestParseEngineProfileRegistrySourceEntries(t *testing.T) {
+	entries, err := ParseEngineProfileRegistrySourceEntries(" a.yaml, b.db ,sqlite-dsn:file:test.db ")
 	if err != nil {
-		t.Fatalf("ParseProfileRegistrySourceEntries failed: %v", err)
+		t.Fatalf("ParseEngineProfileRegistrySourceEntries failed: %v", err)
 	}
 	if got, want := len(entries), 3; got != want {
 		t.Fatalf("entry count mismatch: got=%d want=%d", got, want)
@@ -24,9 +24,9 @@ func TestParseProfileRegistrySourceEntries(t *testing.T) {
 func TestParseRegistrySourceSpecs_AutodetectAndPrefixes(t *testing.T) {
 	tmpDir := t.TempDir()
 	sqlitePath := filepath.Join(tmpDir, "profiles.db")
-	store, err := NewSQLiteProfileStore("file:"+sqlitePath+"?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on", MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore("file:"+sqlitePath+"?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on", MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore failed: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore failed: %v", err)
 	}
 	_ = store.Close()
 
@@ -118,8 +118,8 @@ profiles:
 	if reg.Slug != MustRegistrySlug("private") {
 		t.Fatalf("registry slug mismatch: %q", reg.Slug)
 	}
-	if reg.DefaultProfileSlug != MustProfileSlug("default") {
-		t.Fatalf("default profile slug mismatch: %q", reg.DefaultProfileSlug)
+	if reg.DefaultEngineProfileSlug != MustEngineProfileSlug("default") {
+		t.Fatalf("default profile slug mismatch: %q", reg.DefaultEngineProfileSlug)
 	}
 }
 
@@ -147,26 +147,26 @@ profiles:
 	if err != nil {
 		t.Fatalf("SQLiteProfileDSNForFile failed: %v", err)
 	}
-	sqliteStore, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	sqliteStore, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore failed: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore failed: %v", err)
 	}
 	defer func() {
 		_ = sqliteStore.Close()
 	}()
 
-	shared := &ProfileRegistry{
-		Slug:               MustRegistrySlug("shared"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("default"),
+	shared := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("shared"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("default"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "shared-default",
 				},
 			},
-			MustProfileSlug("analyst"): {
-				Slug: MustProfileSlug("analyst"),
+			MustEngineProfileSlug("analyst"): {
+				Slug: MustEngineProfileSlug("analyst"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "shared-analyst",
 				},
@@ -189,9 +189,9 @@ profiles:
 		_ = chain.Close()
 	}()
 
-	resolvedAnalyst, err := chain.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("analyst")})
+	resolvedAnalyst, err := chain.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("analyst")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile analyst failed: %v", err)
+		t.Fatalf("ResolveEngineProfile analyst failed: %v", err)
 	}
 	if got, want := resolvedAnalyst.RegistrySlug, MustRegistrySlug("private"); got != want {
 		t.Fatalf("analyst registry mismatch: got=%q want=%q", got, want)
@@ -200,9 +200,9 @@ profiles:
 		t.Fatalf("analyst prompt mismatch: got=%q want=%q", got, want)
 	}
 
-	resolvedDefault, err := chain.ResolveEffectiveProfile(ctx, ResolveInput{})
+	resolvedDefault, err := chain.ResolveEngineProfile(ctx, ResolveInput{})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile default failed: %v", err)
+		t.Fatalf("ResolveEngineProfile default failed: %v", err)
 	}
 	if got, want := resolvedDefault.RegistrySlug, MustRegistrySlug("private"); got != want {
 		t.Fatalf("default registry mismatch: got=%q want=%q", got, want)
@@ -285,14 +285,14 @@ profiles:
 		_ = chain.Close()
 	}()
 
-	resolved, err := chain.ResolveEffectiveProfile(ctx, ResolveInput{})
+	resolved, err := chain.ResolveEngineProfile(ctx, ResolveInput{})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile default failed: %v", err)
+		t.Fatalf("ResolveEngineProfile default failed: %v", err)
 	}
 	if got, want := resolved.RegistrySlug, MustRegistrySlug("private"); got != want {
 		t.Fatalf("default registry mismatch: got=%q want=%q", got, want)
 	}
-	if got, want := resolved.ProfileSlug, MustProfileSlug("assistant"); got != want {
+	if got, want := resolved.EngineProfileSlug, MustEngineProfileSlug("assistant"); got != want {
 		t.Fatalf("default profile mismatch: got=%q want=%q", got, want)
 	}
 	if got, want := resolved.EffectiveRuntime.SystemPrompt, "private-assistant"; got != want {

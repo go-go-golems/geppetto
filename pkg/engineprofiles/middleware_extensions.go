@@ -186,7 +186,7 @@ func middlewareConfigPayloadFromExtensions(
 	extensions map[string]any,
 	key ProfileExtensionKey[MiddlewareConfigExtensionPayload],
 ) (MiddlewareConfigExtensionPayload, bool, error) {
-	profile := &Profile{Extensions: deepCopyStringAnyMap(extensions)}
+	profile := &EngineProfile{Extensions: deepCopyStringAnyMap(extensions)}
 	payload, ok, err := key.Get(profile)
 	if err != nil {
 		return MiddlewareConfigExtensionPayload{}, false, err

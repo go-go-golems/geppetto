@@ -16,7 +16,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: "Chronological record of the GP-49 analysis that led to the EngineProfile plus InferenceSettings split and the Glazed migration playbook."
-LastUpdated: 2026-03-18T20:05:00-04:00
+LastUpdated: 2026-03-18T21:05:00-04:00
 WhatFor: "Use this diary to understand how the GP-49 architecture direction was derived, which files were inspected, and why engine-only profiles are now preferred over mixed runtime profiles."
 WhenToUse: "Use when reviewing the ticket, validating the rationale for EngineProfile plus InferenceSettings, or reconstructing the analysis and documentation work."
 ---
@@ -328,6 +328,64 @@ Validation for this slice was intentionally broad:
 All of these passed.
 
 One operational note: the rename touched a large amount of historical `ttmp/` material. I deliberately left those files unstaged because they are not part of the live code slice and would create a noisy commit. The live-code rename itself is validated and ready for separate commits.
+
+## 2026-03-18 20:10 - 21:05: Slice 3 implementation - engine-profile API rename
+
+This slice renamed the public resolution surface inside the newly moved package. The goal was to make the live API match the architecture language from the ticket before deleting the remaining mixed runtime payload in Slice 4.
+
+Core symbols changed in [pkg/engineprofiles](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles):
+
+- `Profile` -> `EngineProfile`
+- `ProfileRegistry` -> `EngineProfileRegistry`
+- `ResolvedProfile` -> `ResolvedEngineProfile`
+- `ProfileSlug` -> `EngineProfileSlug`
+- `ProfileRef` -> `EngineProfileRef`
+- `ResolveEffectiveProfile(...)` -> `ResolveEngineProfile(...)`
+- `ListProfiles(...)` -> `ListEngineProfiles(...)`
+- `GetProfile(...)` -> `GetEngineProfile(...)`
+- parsing helpers such as `ParseProfileSlug(...)` -> `ParseEngineProfileSlug(...)`
+
+I used a broad mechanical rename pass inside the Geppetto package first, then cleaned the fallout manually. The main failure mode was doubled names like `ParseEngineEngineProfileSlug`, which I corrected by hand before validating the package in isolation.
+
+The first safe inner-ring validation for this slice was:
+
+- `cd geppetto && go test ./pkg/engineprofiles -count=1`
+- `cd geppetto && go test ./pkg/sections ./pkg/js/modules/geppetto ./cmd/examples/internal/runnerexample -count=1`
+
+After the core package compiled again, I updated the downstream callers.
+
+Pinocchio fixes:
+
+- aligned [js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go) with `gp.Options.EngineProfileRegistry`
+- updated helper and webchat code to use `ResolveInput.EngineProfileSlug` and `ResolveEngineProfile(...)`
+- fixed the legacy migration command to use Pinocchio's own default config path convention rather than a removed Geppetto helper
+
+GEC-RAG fixes:
+
+- updated the webchat resolver and tests in [resolver.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go) and [resolver_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver_test.go)
+- renamed the registry-loading helper calls in [profiles.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/profiles.go)
+
+Temporal Relationships fixes:
+
+- updated run-chat and gorunner registry resolution to use `ParseEngineProfileRegistrySourceEntries(...)`, `ParseEngineProfileSlug(...)`, and `ResolveEngineProfile(...)`
+- fixed resolved-profile field access such as `resolved.EngineProfileSlug`
+
+I also cleaned the remaining Geppetto example fallout:
+
+- [geppetto-js-lab/main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/cmd/examples/geppetto-js-lab/main.go)
+- [runner-registry/main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/cmd/examples/runner-registry/main.go)
+- [runner-glazed-registry-flags/main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/cmd/examples/runner-glazed-registry-flags/main.go)
+
+Broad validation for Slice 3:
+
+- `cd geppetto && go test ./cmd/... ./pkg/...`
+- `cd pinocchio && go test ./pkg/ui/profileswitch ./pkg/webchat/http ./cmd/web-chat ./cmd/pinocchio/cmds ./pkg/cmds/helpers ./scripts/... -count=1`
+- `cd 2026-03-16--gec-rag && go test ./internal/...`
+- `cd temporal-relationships && go test ./internal/...`
+
+All of these passed.
+
+This leaves the package/API terminology aligned for the next structural cut. The remaining conceptual mismatch is that `EngineProfile` still carries `RuntimeSpec`, `EffectiveRuntime`, and runtime fingerprinting. Slice 4 is now the point where that mixed-model payload finally gets removed.
 
 ## Quick Reference
 

@@ -8,48 +8,48 @@ import (
 	"testing"
 )
 
-func TestYAMLFileProfileStore_PersistAndReload(t *testing.T) {
+func TestYAMLFileEngineProfileStore_PersistAndReload(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 
-	store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	store, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+		t.Fatalf("NewYAMLFileEngineProfileStore failed: %v", err)
 	}
 	ctx := context.Background()
 
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	if err := store.UpsertRegistry(ctx, reg, SaveOptions{Actor: "test", Source: "file"}); err != nil {
 		t.Fatalf("UpsertRegistry failed: %v", err)
 	}
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{Slug: MustProfileSlug("agent")}, SaveOptions{Actor: "test"}); err != nil {
-		t.Fatalf("UpsertProfile failed: %v", err)
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{Slug: MustEngineProfileSlug("agent")}, SaveOptions{Actor: "test"}); err != nil {
+		t.Fatalf("UpsertEngineProfile failed: %v", err)
 	}
 
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected yaml file to exist: %v", err)
 	}
 
-	reloaded, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	reloaded, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("reloaded store init failed: %v", err)
 	}
-	profiles, err := reloaded.ListProfiles(ctx, MustRegistrySlug("default"))
+	profiles, err := reloaded.ListEngineProfiles(ctx, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("ListProfiles failed: %v", err)
+		t.Fatalf("ListEngineProfiles failed: %v", err)
 	}
 	if len(profiles) != 2 {
 		t.Fatalf("expected 2 profiles after reload, got %d", len(profiles))
 	}
 }
 
-func TestYAMLFileProfileStore_RejectsLegacyFile(t *testing.T) {
+func TestYAMLFileEngineProfileStore_RejectsLegacyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	legacy := []byte(`default:
@@ -63,7 +63,7 @@ agent:
 		t.Fatalf("write legacy fixture failed: %v", err)
 	}
 
-	_, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	_, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err == nil {
 		t.Fatalf("expected legacy file decode error")
 	}
@@ -72,16 +72,16 @@ agent:
 	}
 }
 
-func TestYAMLFileProfileStore_MissingFileInitialization(t *testing.T) {
+func TestYAMLFileEngineProfileStore_MissingFileInitialization(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "missing", "profiles.yaml")
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("expected file to be missing before init")
 	}
 
-	store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	store, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+		t.Fatalf("NewYAMLFileEngineProfileStore failed: %v", err)
 	}
 	ctx := context.Background()
 
@@ -97,11 +97,11 @@ func TestYAMLFileProfileStore_MissingFileInitialization(t *testing.T) {
 		t.Fatalf("expected file to still be missing until first write")
 	}
 
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	if err := store.UpsertRegistry(ctx, reg, SaveOptions{Actor: "test", Source: "yaml"}); err != nil {
@@ -112,14 +112,14 @@ func TestYAMLFileProfileStore_MissingFileInitialization(t *testing.T) {
 	}
 }
 
-func TestYAMLFileProfileStore_ParseFailureSurfacing(t *testing.T) {
+func TestYAMLFileEngineProfileStore_ParseFailureSurfacing(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	if err := os.WriteFile(path, []byte("registries:\n  : bad"), 0o644); err != nil {
 		t.Fatalf("write malformed yaml failed: %v", err)
 	}
 
-	_, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	_, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err == nil {
 		t.Fatalf("expected parse error for malformed yaml")
 	}
@@ -129,22 +129,22 @@ func TestYAMLFileProfileStore_ParseFailureSurfacing(t *testing.T) {
 	}
 }
 
-func TestYAMLFileProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
+func TestYAMLFileEngineProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	ctx := context.Background()
 
-	store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	store, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+		t.Fatalf("NewYAMLFileEngineProfileStore failed: %v", err)
 	}
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("default"),
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("default"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "default profile",
 					Tools:        []string{"calculator"},
@@ -155,12 +155,12 @@ func TestYAMLFileProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 		t.Fatalf("upsert default registry failed: %v", err)
 	}
 
-	err = store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("team"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug:        MustProfileSlug("agent"),
+	err = store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("team"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug:        MustEngineProfileSlug("agent"),
 				DisplayName: "Team Agent",
 				Runtime: RuntimeSpec{
 					SystemPrompt: "team profile",
@@ -178,7 +178,7 @@ func TestYAMLFileProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 		t.Fatalf("unexpected second registry upsert error: %v", err)
 	}
 
-	reloaded, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	reloaded, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("reloaded store init failed: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestYAMLFileProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 		t.Fatalf("unexpected registry slug after reload: %q", registries[0].Slug)
 	}
 
-	_, _, err = reloaded.GetProfile(ctx, MustRegistrySlug("team"), MustProfileSlug("agent"))
+	_, _, err = reloaded.GetEngineProfile(ctx, MustRegistrySlug("team"), MustEngineProfileSlug("agent"))
 	if err == nil {
 		t.Fatalf("expected non-default registry lookup to fail")
 	}
@@ -203,21 +203,21 @@ func TestYAMLFileProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 	}
 }
 
-func TestYAMLFileProfileStore_AtomicTempRenameBehavior(t *testing.T) {
+func TestYAMLFileEngineProfileStore_AtomicTempRenameBehavior(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	ctx := context.Background()
 
-	store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	store, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+		t.Fatalf("NewYAMLFileEngineProfileStore failed: %v", err)
 	}
 
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	if err := store.UpsertRegistry(ctx, reg, SaveOptions{Actor: "test", Source: "yaml"}); err != nil {
@@ -227,10 +227,10 @@ func TestYAMLFileProfileStore_AtomicTempRenameBehavior(t *testing.T) {
 		t.Fatalf("expected no tmp file residue after write")
 	}
 
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
-		Slug: MustProfileSlug("agent"),
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{
+		Slug: MustEngineProfileSlug("agent"),
 	}, SaveOptions{Actor: "test", Source: "yaml"}); err != nil {
-		t.Fatalf("UpsertProfile failed: %v", err)
+		t.Fatalf("UpsertEngineProfile failed: %v", err)
 	}
 	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
 		t.Fatalf("expected no tmp file residue after second write")
@@ -245,14 +245,14 @@ func TestYAMLFileProfileStore_AtomicTempRenameBehavior(t *testing.T) {
 	}
 }
 
-func TestYAMLFileProfileStore_CloseStateGuards(t *testing.T) {
+func TestYAMLFileEngineProfileStore_CloseStateGuards(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "profiles.yaml")
 	ctx := context.Background()
 
-	store, err := NewYAMLFileProfileStore(path, MustRegistrySlug("default"))
+	store, err := NewYAMLFileEngineProfileStore(path, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewYAMLFileProfileStore failed: %v", err)
+		t.Fatalf("NewYAMLFileEngineProfileStore failed: %v", err)
 	}
 	if err := store.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
@@ -272,14 +272,14 @@ func TestYAMLFileProfileStore_CloseStateGuards(t *testing.T) {
 	assertClosedErr(err)
 	_, _, err = store.GetRegistry(ctx, MustRegistrySlug("default"))
 	assertClosedErr(err)
-	_, err = store.ListProfiles(ctx, MustRegistrySlug("default"))
+	_, err = store.ListEngineProfiles(ctx, MustRegistrySlug("default"))
 	assertClosedErr(err)
-	_, _, err = store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"))
+	_, _, err = store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("default"))
 	assertClosedErr(err)
-	err = store.UpsertRegistry(ctx, &ProfileRegistry{Slug: MustRegistrySlug("default")}, SaveOptions{})
+	err = store.UpsertRegistry(ctx, &EngineProfileRegistry{Slug: MustRegistrySlug("default")}, SaveOptions{})
 	assertClosedErr(err)
 	err = store.DeleteRegistry(ctx, MustRegistrySlug("default"), SaveOptions{})
 	assertClosedErr(err)
-	err = store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{Slug: MustProfileSlug("default")}, SaveOptions{})
+	err = store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{Slug: MustEngineProfileSlug("default")}, SaveOptions{})
 	assertClosedErr(err)
 }

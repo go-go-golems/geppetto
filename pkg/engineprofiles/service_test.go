@@ -8,30 +8,30 @@ import (
 
 func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Metadata:           RegistryMetadata{Source: "file"},
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Metadata:                 RegistryMetadata{Source: "file"},
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "hello",
 				},
-				Metadata: ProfileMetadata{Version: 3, Source: "db"},
+				Metadata: EngineProfileMetadata{Version: 3, Source: "db"},
 			},
 		},
 	})
 
 	registry := mustNewStoreRegistry(t, store)
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
+	resolved, err := registry.ResolveEngineProfile(ctx, ResolveInput{})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+		t.Fatalf("ResolveEngineProfile returned error: %v", err)
 	}
 
-	if resolved.ProfileSlug != MustProfileSlug("agent") {
-		t.Fatalf("expected fallback profile=agent, got %q", resolved.ProfileSlug)
+	if resolved.EngineProfileSlug != MustEngineProfileSlug("agent") {
+		t.Fatalf("expected fallback profile=agent, got %q", resolved.EngineProfileSlug)
 	}
 	if resolved.RuntimeKey != MustRuntimeKey("agent") {
 		t.Fatalf("expected runtime key=agent, got %q", resolved.RuntimeKey)
@@ -79,23 +79,23 @@ func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
 
 func TestStoreRegistryResolve_UnknownMapping(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	})
 
 	registry := mustNewStoreRegistry(t, store)
 
-	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{RegistrySlug: MustRegistrySlug("missing")})
+	_, err := registry.ResolveEngineProfile(ctx, ResolveInput{RegistrySlug: MustRegistrySlug("missing")})
 	if !errors.Is(err, ErrRegistryNotFound) {
 		t.Fatalf("expected ErrRegistryNotFound, got %v", err)
 	}
 
-	_, err = registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("missing")})
+	_, err = registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("missing")})
 	if !errors.Is(err, ErrProfileNotFound) {
 		t.Fatalf("expected ErrProfileNotFound, got %v", err)
 	}
@@ -103,12 +103,12 @@ func TestStoreRegistryResolve_UnknownMapping(t *testing.T) {
 
 func TestStoreRegistryResolve_EmptyProfileFallbackToDefaultSlug(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	store.registries[MustRegistrySlug("default")] = (&ProfileRegistry{
+	store := NewInMemoryEngineProfileStore()
+	store.registries[MustRegistrySlug("default")] = (&EngineProfileRegistry{
 		Slug: MustRegistrySlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("default"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "fallback profile",
 				},
@@ -117,27 +117,27 @@ func TestStoreRegistryResolve_EmptyProfileFallbackToDefaultSlug(t *testing.T) {
 	}).Clone()
 
 	registry := mustNewStoreRegistry(t, store)
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
+	resolved, err := registry.ResolveEngineProfile(ctx, ResolveInput{})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+		t.Fatalf("ResolveEngineProfile returned error: %v", err)
 	}
-	if got := resolved.ProfileSlug; got != MustProfileSlug("default") {
+	if got := resolved.EngineProfileSlug; got != MustEngineProfileSlug("default") {
 		t.Fatalf("expected fallback profile slug=default, got %q", got)
 	}
 }
 
 func TestStoreRegistryResolve_EmptyProfileWithoutDefaultReturnsValidation(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	store.registries[MustRegistrySlug("default")] = (&ProfileRegistry{
+	store := NewInMemoryEngineProfileStore()
+	store.registries[MustRegistrySlug("default")] = (&EngineProfileRegistry{
 		Slug: MustRegistrySlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {Slug: MustEngineProfileSlug("agent")},
 		},
 	}).Clone()
 
 	registry := mustNewStoreRegistry(t, store)
-	_, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
+	_, err := registry.ResolveEngineProfile(ctx, ResolveInput{})
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -155,13 +155,13 @@ func TestStoreRegistryResolve_EmptyProfileWithoutDefaultReturnsValidation(t *tes
 
 func TestStoreRegistryResolve_ProfileRuntimeIntegration(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("default"),
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("default"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "profile prompt",
 					Middlewares:  []MiddlewareUse{{Name: "profile-mw"}},
@@ -172,9 +172,9 @@ func TestStoreRegistryResolve_ProfileRuntimeIntegration(t *testing.T) {
 	})
 
 	registry := mustNewStoreRegistry(t, store)
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{})
+	resolved, err := registry.ResolveEngineProfile(ctx, ResolveInput{})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+		t.Fatalf("ResolveEngineProfile returned error: %v", err)
 	}
 
 	if got := resolved.EffectiveRuntime.SystemPrompt; got != "profile prompt" {
@@ -190,32 +190,32 @@ func TestStoreRegistryResolve_ProfileRuntimeIntegration(t *testing.T) {
 
 func TestStoreRegistryResolve_StackMetadataLineageOrder(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("provider"): {
-				Slug: MustProfileSlug("provider"),
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("provider"): {
+				Slug: MustEngineProfileSlug("provider"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "provider",
 				},
-				Metadata: ProfileMetadata{Version: 11},
+				Metadata: EngineProfileMetadata{Version: 11},
 			},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider")},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider")},
 				},
-				Metadata: ProfileMetadata{Version: 12},
+				Metadata: EngineProfileMetadata{Version: 12},
 			},
 		},
 	})
 
 	registry := mustNewStoreRegistry(t, store)
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	resolved, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+		t.Fatalf("ResolveEngineProfile returned error: %v", err)
 	}
 
 	lineageRaw := resolved.Metadata["profile.stack.lineage"]
@@ -236,22 +236,22 @@ func TestStoreRegistryResolve_StackMetadataLineageOrder(t *testing.T) {
 
 func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("provider"): {
-				Slug: MustProfileSlug("provider"),
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("provider"): {
+				Slug: MustEngineProfileSlug("provider"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "provider prompt",
 					Middlewares:  []MiddlewareUse{{Name: "provider-mw"}},
 				},
 			},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider")},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider")},
 				},
 				Runtime: RuntimeSpec{
 					Tools: []string{"agent-tool"},
@@ -261,9 +261,9 @@ func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 	})
 
 	registry := mustNewStoreRegistry(t, store)
-	resolved, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	resolved, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile returned error: %v", err)
+		t.Fatalf("ResolveEngineProfile returned error: %v", err)
 	}
 
 	if got := resolved.EffectiveRuntime.SystemPrompt; got != "provider prompt" {
@@ -279,19 +279,19 @@ func TestStoreRegistryResolve_StackRuntimeIntegration(t *testing.T) {
 
 func TestStoreRegistryListRegistries_DeterministicOrdering(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("zeta"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("zeta"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	})
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("alpha"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("alpha"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	})
 
@@ -311,105 +311,105 @@ func TestStoreRegistryListRegistries_DeterministicOrdering(t *testing.T) {
 	}
 }
 
-func TestResolveEffectiveProfile_FingerprintChangesOnUpstreamLayerVersion(t *testing.T) {
+func TestResolveEngineProfile_FingerprintChangesOnUpstreamLayerVersion(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("provider"): {
-				Slug:     MustProfileSlug("provider"),
-				Metadata: ProfileMetadata{Version: 1},
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("provider"): {
+				Slug:     MustEngineProfileSlug("provider"),
+				Metadata: EngineProfileMetadata{Version: 1},
 			},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider")},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider")},
 				},
 			},
 		},
 	})
 	registry := mustNewStoreRegistry(t, store)
 
-	first, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	first, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile first call failed: %v", err)
+		t.Fatalf("ResolveEngineProfile first call failed: %v", err)
 	}
 
-	provider, err := registry.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("provider"))
+	provider, err := registry.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("provider"))
 	if err != nil {
-		t.Fatalf("GetProfile(provider) failed: %v", err)
+		t.Fatalf("GetEngineProfile(provider) failed: %v", err)
 	}
 	provider.Metadata.Version = 2
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), provider, SaveOptions{Actor: "test", Source: "test"}); err != nil {
-		t.Fatalf("UpsertProfile(provider) failed: %v", err)
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), provider, SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertEngineProfile(provider) failed: %v", err)
 	}
 
-	second, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	second, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile second call failed: %v", err)
+		t.Fatalf("ResolveEngineProfile second call failed: %v", err)
 	}
 	if first.RuntimeFingerprint == second.RuntimeFingerprint {
 		t.Fatalf("expected fingerprint change after upstream layer version change")
 	}
 }
 
-func TestResolveEffectiveProfile_FingerprintChangesOnLayerOrder(t *testing.T) {
+func TestResolveEngineProfile_FingerprintChangesOnLayerOrder(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("base-a"): {Slug: MustProfileSlug("base-a"), Metadata: ProfileMetadata{Version: 1}},
-			MustProfileSlug("base-b"): {Slug: MustProfileSlug("base-b"), Metadata: ProfileMetadata{Version: 1}},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("base-a")},
-					{ProfileSlug: MustProfileSlug("base-b")},
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("base-a"): {Slug: MustEngineProfileSlug("base-a"), Metadata: EngineProfileMetadata{Version: 1}},
+			MustEngineProfileSlug("base-b"): {Slug: MustEngineProfileSlug("base-b"), Metadata: EngineProfileMetadata{Version: 1}},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("base-a")},
+					{EngineProfileSlug: MustEngineProfileSlug("base-b")},
 				},
 			},
 		},
 	})
 	registry := mustNewStoreRegistry(t, store)
 
-	first, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	first, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile first call failed: %v", err)
+		t.Fatalf("ResolveEngineProfile first call failed: %v", err)
 	}
 
-	agent, err := registry.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	agent, err := registry.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil {
-		t.Fatalf("GetProfile(agent) failed: %v", err)
+		t.Fatalf("GetEngineProfile(agent) failed: %v", err)
 	}
-	agent.Stack = []ProfileRef{
-		{ProfileSlug: MustProfileSlug("base-b")},
-		{ProfileSlug: MustProfileSlug("base-a")},
+	agent.Stack = []EngineProfileRef{
+		{EngineProfileSlug: MustEngineProfileSlug("base-b")},
+		{EngineProfileSlug: MustEngineProfileSlug("base-a")},
 	}
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), agent, SaveOptions{Actor: "test", Source: "test"}); err != nil {
-		t.Fatalf("UpsertProfile(agent) failed: %v", err)
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), agent, SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertEngineProfile(agent) failed: %v", err)
 	}
 
-	second, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	second, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile second call failed: %v", err)
+		t.Fatalf("ResolveEngineProfile second call failed: %v", err)
 	}
 	if first.RuntimeFingerprint == second.RuntimeFingerprint {
 		t.Fatalf("expected fingerprint change after layer order change")
 	}
 }
 
-func TestResolveEffectiveProfile_FingerprintStableForNonStackProfile(t *testing.T) {
+func TestResolveEngineProfile_FingerprintStableForNonStackProfile(t *testing.T) {
 	ctx := context.Background()
-	store := NewInMemoryProfileStore()
-	mustUpsertRegistry(t, store, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
+	store := NewInMemoryEngineProfileStore()
+	mustUpsertRegistry(t, store, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "stable",
 				},
@@ -418,20 +418,20 @@ func TestResolveEffectiveProfile_FingerprintStableForNonStackProfile(t *testing.
 	})
 	registry := mustNewStoreRegistry(t, store)
 
-	first, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	first, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile first call failed: %v", err)
+		t.Fatalf("ResolveEngineProfile first call failed: %v", err)
 	}
-	second, err := registry.ResolveEffectiveProfile(ctx, ResolveInput{ProfileSlug: MustProfileSlug("agent")})
+	second, err := registry.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("agent")})
 	if err != nil {
-		t.Fatalf("ResolveEffectiveProfile second call failed: %v", err)
+		t.Fatalf("ResolveEngineProfile second call failed: %v", err)
 	}
 	if first.RuntimeFingerprint != second.RuntimeFingerprint {
 		t.Fatalf("expected stable fingerprint for identical non-stack resolves")
 	}
 }
 
-func mustNewStoreRegistry(t *testing.T, store ProfileStore) *StoreRegistry {
+func mustNewStoreRegistry(t *testing.T, store EngineProfileStore) *StoreRegistry {
 	t.Helper()
 	registry, err := NewStoreRegistry(store, MustRegistrySlug("default"))
 	if err != nil {
@@ -440,7 +440,7 @@ func mustNewStoreRegistry(t *testing.T, store ProfileStore) *StoreRegistry {
 	return registry
 }
 
-func mustUpsertRegistry(t *testing.T, store *InMemoryProfileStore, registry *ProfileRegistry) {
+func mustUpsertRegistry(t *testing.T, store *InMemoryEngineProfileStore, registry *EngineProfileRegistry) {
 	t.Helper()
 	if err := store.UpsertRegistry(context.Background(), registry, SaveOptions{Actor: "test", Source: "test"}); err != nil {
 		t.Fatalf("UpsertRegistry returned error: %v", err)

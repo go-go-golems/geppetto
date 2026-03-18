@@ -7,25 +7,25 @@ import (
 )
 
 func TestValidateProfile_OK(t *testing.T) {
-	p := &Profile{
-		Slug: MustProfileSlug("default"),
+	p := &EngineProfile{
+		Slug: MustEngineProfileSlug("default"),
 		Runtime: RuntimeSpec{
 			Middlewares: []MiddlewareUse{{Name: "agentmode"}},
 			Tools:       []string{"calculator"},
 		},
 	}
-	if err := ValidateProfile(p); err != nil {
-		t.Fatalf("ValidateProfile failed: %v", err)
+	if err := ValidateEngineProfile(p); err != nil {
+		t.Fatalf("ValidateEngineProfile failed: %v", err)
 	}
 }
 
 func TestValidateRegistry_DefaultMustExist(t *testing.T) {
-	r := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("default"),
+	r := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("default"),
 			},
 		},
 	}
@@ -37,12 +37,12 @@ func TestValidateRegistry_DefaultMustExist(t *testing.T) {
 }
 
 func TestValidateRegistry_ProfileMapKeyMustMatch(t *testing.T) {
-	r := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("agent"),
+	r := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("agent"),
 			},
 		},
 	}
@@ -54,31 +54,31 @@ func TestValidateRegistry_ProfileMapKeyMustMatch(t *testing.T) {
 }
 
 func TestValidateRegistry_EmptySlugFieldPath(t *testing.T) {
-	err := ValidateRegistry(&ProfileRegistry{})
+	err := ValidateRegistry(&EngineProfileRegistry{})
 	requireValidationField(t, err, "registry.slug")
 }
 
 func TestValidateProfile_EmptySlugFieldPath(t *testing.T) {
-	err := ValidateProfile(&Profile{})
+	err := ValidateEngineProfile(&EngineProfile{})
 	requireValidationField(t, err, "profile.slug")
 }
 
 func TestValidateRegistry_DefaultProfileRequiredWhenProfilesPresent(t *testing.T) {
-	err := ValidateRegistry(&ProfileRegistry{
+	err := ValidateRegistry(&EngineProfileRegistry{
 		Slug: MustRegistrySlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	})
 	requireValidationField(t, err, "registry.default_profile_slug")
 }
 
 func TestValidateRegistry_NilProfileEntry(t *testing.T) {
-	err := ValidateRegistry(&ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): nil,
+	err := ValidateRegistry(&EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): nil,
 		},
 	})
 	requireValidationField(t, err, "registry.profiles[default]")
@@ -128,8 +128,8 @@ func TestValidateRuntimeSpec_RejectsWhitespaceToolName(t *testing.T) {
 }
 
 func TestValidateProfile_RejectsInvalidExtensionKeyFieldPath(t *testing.T) {
-	err := ValidateProfile(&Profile{
-		Slug: MustProfileSlug("default"),
+	err := ValidateEngineProfile(&EngineProfile{
+		Slug: MustEngineProfileSlug("default"),
 		Extensions: map[string]any{
 			"bad key": map[string]any{"foo": "bar"},
 		},
@@ -138,8 +138,8 @@ func TestValidateProfile_RejectsInvalidExtensionKeyFieldPath(t *testing.T) {
 }
 
 func TestValidateProfile_RejectsNonSerializableExtensionPayload(t *testing.T) {
-	err := ValidateProfile(&Profile{
-		Slug: MustProfileSlug("default"),
+	err := ValidateEngineProfile(&EngineProfile{
+		Slug: MustEngineProfileSlug("default"),
 		Extensions: map[string]any{
 			"webchat.starter_suggestions@v1": func() {},
 		},
@@ -147,21 +147,21 @@ func TestValidateProfile_RejectsNonSerializableExtensionPayload(t *testing.T) {
 	requireValidationField(t, err, "profile.extensions[webchat.starter_suggestions@v1]")
 }
 
-func TestValidateProfile_RejectsEmptyStackProfileSlug(t *testing.T) {
-	err := ValidateProfile(&Profile{
-		Slug:  MustProfileSlug("default"),
-		Stack: []ProfileRef{{}},
+func TestValidateProfile_RejectsEmptyStackEngineProfileSlug(t *testing.T) {
+	err := ValidateEngineProfile(&EngineProfile{
+		Slug:  MustEngineProfileSlug("default"),
+		Stack: []EngineProfileRef{{}},
 	})
 	requireValidationField(t, err, "profile.stack[0].profile_slug")
 }
 
 func TestValidateProfile_RejectsInvalidStackRegistrySlug(t *testing.T) {
-	err := ValidateProfile(&Profile{
-		Slug: MustProfileSlug("default"),
-		Stack: []ProfileRef{
+	err := ValidateEngineProfile(&EngineProfile{
+		Slug: MustEngineProfileSlug("default"),
+		Stack: []EngineProfileRef{
 			{
-				RegistrySlug: RegistrySlug("Invalid Registry"),
-				ProfileSlug:  MustProfileSlug("base"),
+				RegistrySlug:      RegistrySlug("Invalid Registry"),
+				EngineProfileSlug: MustEngineProfileSlug("base"),
 			},
 		},
 	})
@@ -169,14 +169,14 @@ func TestValidateProfile_RejectsInvalidStackRegistrySlug(t *testing.T) {
 }
 
 func TestValidateRegistry_RejectsMissingSameRegistryStackRef(t *testing.T) {
-	err := ValidateRegistry(&ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+	err := ValidateRegistry(&EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
 		},
@@ -185,20 +185,20 @@ func TestValidateRegistry_RejectsMissingSameRegistryStackRef(t *testing.T) {
 }
 
 func TestValidateRegistry_RejectsStackCycle(t *testing.T) {
-	err := ValidateRegistry(&ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("a"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("a"): {
-				Slug: MustProfileSlug("a"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("b")},
+	err := ValidateRegistry(&EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("a"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("a"): {
+				Slug: MustEngineProfileSlug("a"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("b")},
 				},
 			},
-			MustProfileSlug("b"): {
-				Slug: MustProfileSlug("b"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("a")},
+			MustEngineProfileSlug("b"): {
+				Slug: MustEngineProfileSlug("b"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("a")},
 				},
 			},
 		},
@@ -210,25 +210,25 @@ func TestValidateRegistry_RejectsStackCycle(t *testing.T) {
 }
 
 func TestValidateProfileStackTopology_RejectsDepthOverflow(t *testing.T) {
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("a"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("a"): {
-				Slug:  MustProfileSlug("a"),
-				Stack: []ProfileRef{{ProfileSlug: MustProfileSlug("b")}},
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("a"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("a"): {
+				Slug:  MustEngineProfileSlug("a"),
+				Stack: []EngineProfileRef{{EngineProfileSlug: MustEngineProfileSlug("b")}},
 			},
-			MustProfileSlug("b"): {
-				Slug:  MustProfileSlug("b"),
-				Stack: []ProfileRef{{ProfileSlug: MustProfileSlug("c")}},
+			MustEngineProfileSlug("b"): {
+				Slug:  MustEngineProfileSlug("b"),
+				Stack: []EngineProfileRef{{EngineProfileSlug: MustEngineProfileSlug("c")}},
 			},
-			MustProfileSlug("c"): {
-				Slug: MustProfileSlug("c"),
+			MustEngineProfileSlug("c"): {
+				Slug: MustEngineProfileSlug("c"),
 			},
 		},
 	}
 
-	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{MaxDepth: 2})
+	err := ValidateProfileStackTopology([]*EngineProfileRegistry{reg}, StackValidationOptions{MaxDepth: 2})
 	requireValidationField(t, err, "registry.profiles[b].stack[0]")
 	if !strings.Contains(err.Error(), "max_depth=2") {
 		t.Fatalf("expected max_depth details in error, got %v", err)
@@ -236,44 +236,44 @@ func TestValidateProfileStackTopology_RejectsDepthOverflow(t *testing.T) {
 }
 
 func TestValidateProfileStackTopology_RejectsMissingCrossRegistryRef(t *testing.T) {
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
 					{
-						RegistrySlug: MustRegistrySlug("shared"),
-						ProfileSlug:  MustProfileSlug("provider-openai"),
+						RegistrySlug:      MustRegistrySlug("shared"),
+						EngineProfileSlug: MustEngineProfileSlug("provider-openai"),
 					},
 				},
 			},
 		},
 	}
 
-	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{})
+	err := ValidateProfileStackTopology([]*EngineProfileRegistry{reg}, StackValidationOptions{})
 	requireValidationField(t, err, "registry.profiles[agent].stack[0]")
 }
 
 func TestValidateProfileStackTopology_AllowsUnresolvedCrossRegistryRefWhenConfigured(t *testing.T) {
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
 					{
-						RegistrySlug: MustRegistrySlug("shared"),
-						ProfileSlug:  MustProfileSlug("provider-openai"),
+						RegistrySlug:      MustRegistrySlug("shared"),
+						EngineProfileSlug: MustEngineProfileSlug("provider-openai"),
 					},
 				},
 			},
 		},
 	}
 
-	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{
+	err := ValidateProfileStackTopology([]*EngineProfileRegistry{reg}, StackValidationOptions{
 		AllowUnresolvedExternalRefs: true,
 	})
 	if err != nil {
@@ -282,23 +282,23 @@ func TestValidateProfileStackTopology_AllowsUnresolvedCrossRegistryRefWhenConfig
 }
 
 func TestValidateProfileStackTopology_DoesNotBypassMissingRefInKnownRegistry(t *testing.T) {
-	reg := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
+	reg := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
 					{
-						RegistrySlug: MustRegistrySlug("default"),
-						ProfileSlug:  MustProfileSlug("missing-local"),
+						RegistrySlug:      MustRegistrySlug("default"),
+						EngineProfileSlug: MustEngineProfileSlug("missing-local"),
 					},
 				},
 			},
 		},
 	}
 
-	err := ValidateProfileStackTopology([]*ProfileRegistry{reg}, StackValidationOptions{
+	err := ValidateProfileStackTopology([]*EngineProfileRegistry{reg}, StackValidationOptions{
 		AllowUnresolvedExternalRefs: true,
 	})
 	requireValidationField(t, err, "registry.profiles[agent].stack[0]")

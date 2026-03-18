@@ -19,13 +19,13 @@ type ProfilePathTrace struct {
 }
 
 type ProfileStackTraceStep struct {
-	RegistrySlug   RegistrySlug `json:"registry_slug"`
-	ProfileSlug    ProfileSlug  `json:"profile_slug"`
-	ProfileSource  string       `json:"profile_source,omitempty"`
-	ProfileVersion uint64       `json:"profile_version,omitempty"`
-	LayerIndex     int          `json:"layer_index"`
-	Path           string       `json:"path"`
-	Value          any          `json:"value"`
+	RegistrySlug      RegistrySlug      `json:"registry_slug"`
+	EngineProfileSlug EngineProfileSlug `json:"profile_slug"`
+	ProfileSource     string            `json:"profile_source,omitempty"`
+	ProfileVersion    uint64            `json:"profile_version,omitempty"`
+	LayerIndex        int               `json:"layer_index"`
+	Path              string            `json:"path"`
+	Value             any               `json:"value"`
 }
 
 type ProfileDebugPathTrace struct {
@@ -45,32 +45,32 @@ func NewProfileStackTrace() *ProfileStackTrace {
 	}
 }
 
-func BuildProfileStackTrace(layers []ProfileStackLayer, merged StackMergeResult) *ProfileStackTrace {
+func BuildProfileStackTrace(layers []EngineProfileStackLayer, merged StackMergeResult) *ProfileStackTrace {
 	trace := NewProfileStackTrace()
 	for i, layer := range layers {
-		if layer.Profile == nil {
+		if layer.EngineProfile == nil {
 			continue
 		}
 
-		if strings.TrimSpace(layer.Profile.Runtime.SystemPrompt) != "" {
-			trace.recordStep("/runtime/system_prompt", layer.Profile.Runtime.SystemPrompt, layer, i)
+		if strings.TrimSpace(layer.EngineProfile.Runtime.SystemPrompt) != "" {
+			trace.recordStep("/runtime/system_prompt", layer.EngineProfile.Runtime.SystemPrompt, layer, i)
 		}
-		if layer.Profile.Runtime.Tools != nil {
-			trace.recordStep("/runtime/tools", append([]string(nil), layer.Profile.Runtime.Tools...), layer, i)
+		if layer.EngineProfile.Runtime.Tools != nil {
+			trace.recordStep("/runtime/tools", append([]string(nil), layer.EngineProfile.Runtime.Tools...), layer, i)
 		}
-		for mwIndex, middleware := range layer.Profile.Runtime.Middlewares {
+		for mwIndex, middleware := range layer.EngineProfile.Runtime.Middlewares {
 			key := middlewareMergeKey(middleware, mwIndex)
 			trace.recordStep("/runtime/middlewares/"+escapeJSONPointerToken(key), deepCopyAny(middleware), layer, i)
 		}
 
-		keys := make([]string, 0, len(layer.Profile.Extensions))
-		for key := range layer.Profile.Extensions {
+		keys := make([]string, 0, len(layer.EngineProfile.Extensions))
+		for key := range layer.EngineProfile.Extensions {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
 		for _, key := range keys {
 			base := "/extensions/" + escapeJSONPointerToken(key)
-			for _, write := range collectTraceWrites(base, layer.Profile.Extensions[key]) {
+			for _, write := range collectTraceWrites(base, layer.EngineProfile.Extensions[key]) {
 				trace.recordStep(write.path, write.value, layer, i)
 			}
 		}
@@ -120,13 +120,13 @@ func (t *ProfileStackTrace) History(path string) []ProfileStackTraceStep {
 	ret := make([]ProfileStackTraceStep, 0, len(pathTrace.Steps))
 	for _, step := range pathTrace.Steps {
 		ret = append(ret, ProfileStackTraceStep{
-			RegistrySlug:   step.RegistrySlug,
-			ProfileSlug:    step.ProfileSlug,
-			ProfileSource:  step.ProfileSource,
-			ProfileVersion: step.ProfileVersion,
-			LayerIndex:     step.LayerIndex,
-			Path:           step.Path,
-			Value:          deepCopyAny(step.Value),
+			RegistrySlug:      step.RegistrySlug,
+			EngineProfileSlug: step.EngineProfileSlug,
+			ProfileSource:     step.ProfileSource,
+			ProfileVersion:    step.ProfileVersion,
+			LayerIndex:        step.LayerIndex,
+			Path:              step.Path,
+			Value:             deepCopyAny(step.Value),
 		})
 	}
 	return ret
@@ -165,7 +165,7 @@ func (t *ProfileStackTrace) MarshalDebugPayload() ([]byte, error) {
 	return json.Marshal(t.BuildDebugPayload())
 }
 
-func (t *ProfileStackTrace) recordStep(path string, value any, layer ProfileStackLayer, layerIndex int) {
+func (t *ProfileStackTrace) recordStep(path string, value any, layer EngineProfileStackLayer, layerIndex int) {
 	if t == nil || strings.TrimSpace(path) == "" {
 		return
 	}
@@ -181,13 +181,13 @@ func (t *ProfileStackTrace) recordStep(path string, value any, layer ProfileStac
 	pathTrace.Path = path
 	pathTrace.Value = deepCopyAny(value)
 	pathTrace.Steps = append(pathTrace.Steps, ProfileStackTraceStep{
-		RegistrySlug:   layer.RegistrySlug,
-		ProfileSlug:    layer.ProfileSlug,
-		ProfileSource:  strings.TrimSpace(layer.Profile.Metadata.Source),
-		ProfileVersion: layer.Profile.Metadata.Version,
-		LayerIndex:     layerIndex,
-		Path:           path,
-		Value:          deepCopyAny(value),
+		RegistrySlug:      layer.RegistrySlug,
+		EngineProfileSlug: layer.EngineProfileSlug,
+		ProfileSource:     strings.TrimSpace(layer.EngineProfile.Metadata.Source),
+		ProfileVersion:    layer.EngineProfile.Metadata.Version,
+		LayerIndex:        layerIndex,
+		Path:              path,
+		Value:             deepCopyAny(value),
 	})
 	t.Trace[path] = pathTrace
 	t.PathValues[path] = deepCopyAny(pathTrace.Value)

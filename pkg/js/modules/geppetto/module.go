@@ -34,7 +34,7 @@ type Options struct {
 	Runner                   runtimeowner.Runner
 	GoToolRegistry           tools.ToolRegistry
 	GoMiddlewareFactories    map[string]MiddlewareFactory
-	ProfileRegistry          profiles.RegistryReader
+	EngineProfileRegistry    profiles.RegistryReader
 	UseDefaultProfileResolve bool
 	DefaultProfileResolve    profiles.ResolveInput
 	MiddlewareSchemas        middlewarecfg.DefinitionRegistry
@@ -66,23 +66,23 @@ type moduleRuntime struct {
 
 	logger zerolog.Logger
 
-	goToolRegistry            tools.ToolRegistry
-	goMiddlewareFactories     map[string]MiddlewareFactory
-	profileRegistry           profiles.RegistryReader
-	profileRegistryCloser     io.Closer
-	profileRegistryOwned      bool
-	profileRegistrySpec       []string
-	baseProfileRegistry       profiles.RegistryReader
-	baseProfileRegistryCloser io.Closer
-	baseProfileRegistrySpec   []string
-	useDefaultProfileResolve  bool
-	defaultProfileResolve     profiles.ResolveInput
-	middlewareSchemas         middlewarecfg.DefinitionRegistry
-	extensionCodecs           profiles.ExtensionCodecRegistry
-	extensionSchemas          map[string]map[string]any
-	defaultEventSinks         []events.EventSink
-	defaultSnapshotHook       toolloop.SnapshotHook
-	defaultPersister          enginebuilder.TurnPersister
+	goToolRegistry                  tools.ToolRegistry
+	goMiddlewareFactories           map[string]MiddlewareFactory
+	profileRegistry                 profiles.RegistryReader
+	profileRegistryCloser           io.Closer
+	profileRegistryOwned            bool
+	profileRegistrySpec             []string
+	baseEngineProfileRegistry       profiles.RegistryReader
+	baseEngineProfileRegistryCloser io.Closer
+	baseEngineProfileRegistrySpec   []string
+	useDefaultProfileResolve        bool
+	defaultProfileResolve           profiles.ResolveInput
+	middlewareSchemas               middlewarecfg.DefinitionRegistry
+	extensionCodecs                 profiles.ExtensionCodecRegistry
+	extensionSchemas                map[string]map[string]any
+	defaultEventSinks               []events.EventSink
+	defaultSnapshotHook             toolloop.SnapshotHook
+	defaultPersister                enginebuilder.TurnPersister
 }
 
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
@@ -96,7 +96,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		logger:                   lg,
 		goToolRegistry:           opts.GoToolRegistry,
 		goMiddlewareFactories:    map[string]MiddlewareFactory{},
-		profileRegistry:          opts.ProfileRegistry,
+		profileRegistry:          opts.EngineProfileRegistry,
 		useDefaultProfileResolve: opts.UseDefaultProfileResolve,
 		defaultProfileResolve:    opts.DefaultProfileResolve,
 		middlewareSchemas:        opts.MiddlewareSchemas,
@@ -106,11 +106,11 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		defaultSnapshotHook:      opts.DefaultSnapshotHook,
 		defaultPersister:         opts.DefaultPersister,
 	}
-	if closer, ok := opts.ProfileRegistry.(io.Closer); ok && closer != nil {
+	if closer, ok := opts.EngineProfileRegistry.(io.Closer); ok && closer != nil {
 		m.profileRegistryCloser = closer
 	}
-	m.baseProfileRegistry = m.profileRegistry
-	m.baseProfileRegistryCloser = m.profileRegistryCloser
+	m.baseEngineProfileRegistry = m.profileRegistry
+	m.baseEngineProfileRegistryCloser = m.profileRegistryCloser
 	if m.runner != nil {
 		m.bridge = runtimebridge.New(m.runner)
 	}
@@ -157,8 +157,8 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	profilesObj := m.vm.NewObject()
 	m.mustSet(profilesObj, "listRegistries", m.profilesListRegistries)
 	m.mustSet(profilesObj, "getRegistry", m.profilesGetRegistry)
-	m.mustSet(profilesObj, "listProfiles", m.profilesListProfiles)
-	m.mustSet(profilesObj, "getProfile", m.profilesGetProfile)
+	m.mustSet(profilesObj, "listProfiles", m.profilesListEngineProfiles)
+	m.mustSet(profilesObj, "getProfile", m.profilesGetEngineProfile)
 	m.mustSet(profilesObj, "resolve", m.profilesResolve)
 	m.mustSet(profilesObj, "connectStack", m.profilesConnectStack)
 	m.mustSet(profilesObj, "disconnectStack", m.profilesDisconnectStack)

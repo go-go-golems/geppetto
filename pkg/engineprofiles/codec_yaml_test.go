@@ -60,21 +60,21 @@ profiles:
 	if got, want := regs[0].Slug, MustRegistrySlug("default"); got != want {
 		t.Fatalf("registry slug mismatch: got=%q want=%q", got, want)
 	}
-	if got, want := regs[0].DefaultProfileSlug, MustProfileSlug("default"); got != want {
+	if got, want := regs[0].DefaultEngineProfileSlug, MustEngineProfileSlug("default"); got != want {
 		t.Fatalf("default profile mismatch: got=%q want=%q", got, want)
 	}
-	if got := regs[0].Profiles[MustProfileSlug("default")].Runtime.SystemPrompt; got != "hello" {
+	if got := regs[0].Profiles[MustEngineProfileSlug("default")].Runtime.SystemPrompt; got != "hello" {
 		t.Fatalf("system prompt mismatch: got=%q", got)
 	}
 }
 
 func TestEncodeDecodeYAMLRoundTrip_SingleRegistry(t *testing.T) {
-	in := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug: MustProfileSlug("default"),
+	in := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug: MustEngineProfileSlug("default"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "hello",
 					Tools:        []string{"search"},
@@ -91,7 +91,7 @@ func TestEncodeDecodeYAMLRoundTrip_SingleRegistry(t *testing.T) {
 		},
 	}
 
-	b, err := EncodeYAMLRegistries([]*ProfileRegistry{in})
+	b, err := EncodeYAMLRegistries([]*EngineProfileRegistry{in})
 	if err != nil {
 		t.Fatalf("EncodeYAMLRegistries failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestEncodeDecodeYAMLRoundTrip_SingleRegistry(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected 1 registry, got %d", len(out))
 	}
-	profile := out[0].Profiles[MustProfileSlug("default")]
+	profile := out[0].Profiles[MustEngineProfileSlug("default")]
 	if profile == nil {
 		t.Fatalf("missing default profile after roundtrip")
 	}
@@ -126,7 +126,7 @@ func TestEncodeDecodeYAMLRoundTrip_SingleRegistry(t *testing.T) {
 }
 
 func TestEncodeYAMLRegistries_RejectsMultipleRegistries(t *testing.T) {
-	_, err := EncodeYAMLRegistries([]*ProfileRegistry{
+	_, err := EncodeYAMLRegistries([]*EngineProfileRegistry{
 		{Slug: MustRegistrySlug("a")},
 		{Slug: MustRegistrySlug("b")},
 	})

@@ -27,3 +27,9 @@
   - updated call sites across Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships
   - cleaned remaining user-facing `step settings` terminology from live code
   - validated with full `go test ./...` in Geppetto plus broad downstream test sweeps
+- Completed Slice 3:
+  - hard-renamed the profile-resolution surface to engine-profile terminology
+  - updated Geppetto core API names such as `EngineProfile`, `EngineProfileRegistry`, `ResolvedEngineProfile`, and `ResolveEngineProfile(...)`
+  - updated downstream call sites in Pinocchio, GEC-RAG, and Temporal Relationships
+  - cleaned the example and JS-lab call sites that still used the old profile API names
+  - validated with broad cross-repo test sweeps in Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships

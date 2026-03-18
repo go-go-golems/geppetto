@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestSQLiteProfileStore_RegistryRoundTrip(t *testing.T) {
+func TestSQLiteEngineProfileStore_RegistryRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
@@ -18,17 +18,17 @@ func TestSQLiteProfileStore_RegistryRoundTrip(t *testing.T) {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 
-	registry := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug:        MustProfileSlug("default"),
+	registry := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug:        MustEngineProfileSlug("default"),
 				DisplayName: "Default",
 				Runtime: RuntimeSpec{
 					SystemPrompt: "You are default",
@@ -51,10 +51,10 @@ func TestSQLiteProfileStore_RegistryRoundTrip(t *testing.T) {
 	if got.Metadata.Version == 0 {
 		t.Fatalf("expected registry metadata version > 0")
 	}
-	if got.DefaultProfileSlug != MustProfileSlug("default") {
-		t.Fatalf("unexpected default profile slug: %s", got.DefaultProfileSlug)
+	if got.DefaultEngineProfileSlug != MustEngineProfileSlug("default") {
+		t.Fatalf("unexpected default profile slug: %s", got.DefaultEngineProfileSlug)
 	}
-	if _, ok := got.Profiles[MustProfileSlug("default")]; !ok {
+	if _, ok := got.Profiles[MustEngineProfileSlug("default")]; !ok {
 		t.Fatalf("expected default profile in registry")
 	}
 
@@ -62,9 +62,9 @@ func TestSQLiteProfileStore_RegistryRoundTrip(t *testing.T) {
 		t.Fatalf("Close returned error: %v", err)
 	}
 
-	reopened, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	reopened, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("reopen NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("reopen NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 	defer func() { _ = reopened.Close() }()
 
@@ -75,15 +75,15 @@ func TestSQLiteProfileStore_RegistryRoundTrip(t *testing.T) {
 	if !ok || reloaded == nil {
 		t.Fatalf("reloaded registry expected to exist")
 	}
-	if reloaded.DefaultProfileSlug != MustProfileSlug("default") {
-		t.Fatalf("reloaded default profile slug mismatch: %s", reloaded.DefaultProfileSlug)
+	if reloaded.DefaultEngineProfileSlug != MustEngineProfileSlug("default") {
+		t.Fatalf("reloaded default profile slug mismatch: %s", reloaded.DefaultEngineProfileSlug)
 	}
-	if reloaded.Profiles[MustProfileSlug("default")] == nil {
+	if reloaded.Profiles[MustEngineProfileSlug("default")] == nil {
 		t.Fatalf("reloaded default profile missing")
 	}
 }
 
-func TestSQLiteProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
+func TestSQLiteEngineProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
@@ -91,41 +91,41 @@ func TestSQLiteProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("shared"),
-		DefaultProfileSlug: MustProfileSlug("mw-observability"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("mw-observability"): {
-				Slug: MustProfileSlug("mw-observability"),
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("shared"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("mw-observability"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("mw-observability"): {
+				Slug: MustEngineProfileSlug("mw-observability"),
 			},
 		},
 	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
 		t.Fatalf("UpsertRegistry(shared) returned error: %v", err)
 	}
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("provider-openai"): {
-				Slug: MustProfileSlug("provider-openai"),
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("provider-openai"): {
+				Slug: MustEngineProfileSlug("provider-openai"),
 			},
-			MustProfileSlug("model-gpt4o"): {
-				Slug: MustProfileSlug("model-gpt4o"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+			MustEngineProfileSlug("model-gpt4o"): {
+				Slug: MustEngineProfileSlug("model-gpt4o"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("model-gpt4o")},
-					{RegistrySlug: MustRegistrySlug("shared"), ProfileSlug: MustProfileSlug("mw-observability")},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("model-gpt4o")},
+					{RegistrySlug: MustRegistrySlug("shared"), EngineProfileSlug: MustEngineProfileSlug("mw-observability")},
 				},
 			},
 		},
@@ -137,15 +137,15 @@ func TestSQLiteProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
 		t.Fatalf("Close returned error: %v", err)
 	}
 
-	reopened, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	reopened, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("reopen NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("reopen NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 	defer func() { _ = reopened.Close() }()
 
-	model, ok, err := reopened.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("model-gpt4o"))
+	model, ok, err := reopened.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("model-gpt4o"))
 	if err != nil {
-		t.Fatalf("GetProfile(default/model-gpt4o) returned error: %v", err)
+		t.Fatalf("GetEngineProfile(default/model-gpt4o) returned error: %v", err)
 	}
 	if !ok || model == nil {
 		t.Fatalf("expected default/model-gpt4o profile after reload")
@@ -153,16 +153,16 @@ func TestSQLiteProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
 	if got, want := len(model.Stack), 1; got != want {
 		t.Fatalf("model stack length mismatch: got=%d want=%d", got, want)
 	}
-	if got := model.Stack[0].ProfileSlug; got != MustProfileSlug("provider-openai") {
+	if got := model.Stack[0].EngineProfileSlug; got != MustEngineProfileSlug("provider-openai") {
 		t.Fatalf("model stack profile mismatch: got=%q", got)
 	}
 	if got := model.Stack[0].RegistrySlug; got != "" {
 		t.Fatalf("model stack registry should be empty for same-registry ref, got=%q", got)
 	}
 
-	agent, ok, err := reopened.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	agent, ok, err := reopened.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil {
-		t.Fatalf("GetProfile(default/agent) returned error: %v", err)
+		t.Fatalf("GetEngineProfile(default/agent) returned error: %v", err)
 	}
 	if !ok || agent == nil {
 		t.Fatalf("expected default/agent profile after reload")
@@ -173,12 +173,12 @@ func TestSQLiteProfileStore_RegistryRoundTrip_PreservesStackRefs(t *testing.T) {
 	if got := agent.Stack[1].RegistrySlug; got != MustRegistrySlug("shared") {
 		t.Fatalf("agent stack second registry mismatch: got=%q", got)
 	}
-	if got := agent.Stack[1].ProfileSlug; got != MustProfileSlug("mw-observability") {
+	if got := agent.Stack[1].EngineProfileSlug; got != MustEngineProfileSlug("mw-observability") {
 		t.Fatalf("agent stack second profile mismatch: got=%q", got)
 	}
 }
 
-func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
+func TestSQLiteEngineProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
@@ -186,18 +186,18 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 	defer func() { _ = store.Close() }()
 
-	registry := &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {
-				Slug:    MustProfileSlug("default"),
+	registry := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {
+				Slug:    MustEngineProfileSlug("default"),
 				Runtime: RuntimeSpec{SystemPrompt: "You are default"},
 			},
 		},
@@ -206,19 +206,19 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 		t.Fatalf("UpsertRegistry returned error: %v", err)
 	}
 
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
-		Slug:        MustProfileSlug("analyst"),
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{
+		Slug:        MustEngineProfileSlug("analyst"),
 		DisplayName: "Analyst",
 		Runtime: RuntimeSpec{
 			SystemPrompt: "You are analyst",
 		},
 	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
-		t.Fatalf("UpsertProfile create returned error: %v", err)
+		t.Fatalf("UpsertEngineProfile create returned error: %v", err)
 	}
 
-	analyst, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"))
+	analyst, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("analyst"))
 	if err != nil {
-		t.Fatalf("GetProfile returned error: %v", err)
+		t.Fatalf("GetEngineProfile returned error: %v", err)
 	}
 	if !ok || analyst == nil {
 		t.Fatalf("expected analyst profile")
@@ -229,17 +229,17 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 
 	analystUpdate := analyst.Clone()
 	analystUpdate.DisplayName = "Analyst v2"
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), analystUpdate, SaveOptions{
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), analystUpdate, SaveOptions{
 		ExpectedVersion: analyst.Metadata.Version,
 		Actor:           "test",
 		Source:          "sqlite",
 	}); err != nil {
-		t.Fatalf("UpsertProfile update returned error: %v", err)
+		t.Fatalf("UpsertEngineProfile update returned error: %v", err)
 	}
 
-	analystV2, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"))
+	analystV2, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("analyst"))
 	if err != nil {
-		t.Fatalf("GetProfile after update returned error: %v", err)
+		t.Fatalf("GetEngineProfile after update returned error: %v", err)
 	}
 	if !ok || analystV2 == nil {
 		t.Fatalf("expected analyst profile after update")
@@ -249,7 +249,7 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 	}
 
 	// Stale expected-version should fail.
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), analystV2, SaveOptions{
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), analystV2, SaveOptions{
 		ExpectedVersion: 1,
 		Actor:           "test",
 		Source:          "sqlite",
@@ -266,7 +266,7 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 	}
 
 	regPatch := reg.Clone()
-	regPatch.DefaultProfileSlug = MustProfileSlug("analyst")
+	regPatch.DefaultEngineProfileSlug = MustEngineProfileSlug("analyst")
 	if err := store.UpsertRegistry(ctx, regPatch, SaveOptions{
 		ExpectedVersion: reg.Metadata.Version + 100,
 		Actor:           "test",
@@ -290,24 +290,24 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 	if !ok || regAfterDefault == nil {
 		t.Fatalf("expected registry after default-profile update")
 	}
-	if regAfterDefault.DefaultProfileSlug != MustProfileSlug("analyst") {
-		t.Fatalf("expected default profile analyst, got=%s", regAfterDefault.DefaultProfileSlug)
+	if regAfterDefault.DefaultEngineProfileSlug != MustEngineProfileSlug("analyst") {
+		t.Fatalf("expected default profile analyst, got=%s", regAfterDefault.DefaultEngineProfileSlug)
 	}
 	if regAfterDefault.Metadata.Version <= reg.Metadata.Version {
 		t.Fatalf("expected registry version increment after default-profile update")
 	}
 }
 
-func TestSQLiteProfileStore_SchemaMigrationIdempotency(t *testing.T) {
+func TestSQLiteEngineProfileStore_SchemaMigrationIdempotency(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
 	if err != nil {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 	defer func() { _ = store.Close() }()
 
@@ -319,7 +319,7 @@ func TestSQLiteProfileStore_SchemaMigrationIdempotency(t *testing.T) {
 	}
 }
 
-func TestSQLiteProfileStore_MalformedPayloadRowHandling(t *testing.T) {
+func TestSQLiteEngineProfileStore_MalformedPayloadRowHandling(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
 	if err != nil {
@@ -343,7 +343,7 @@ func TestSQLiteProfileStore_MalformedPayloadRowHandling(t *testing.T) {
 	}
 	_ = db.Close()
 
-	_, err = NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	_, err = NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err == nil {
 		t.Fatalf("expected load error for malformed payload JSON")
 	}
@@ -353,18 +353,18 @@ func TestSQLiteProfileStore_MalformedPayloadRowHandling(t *testing.T) {
 	}
 }
 
-func TestSQLiteProfileStore_RowSlugPayloadSlugMismatch(t *testing.T) {
+func TestSQLiteEngineProfileStore_RowSlugPayloadSlugMismatch(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
 	if err != nil {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	registry := &ProfileRegistry{
-		Slug:               MustRegistrySlug("other"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	registry := &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("other"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}
 	payload, err := json.Marshal(registry)
@@ -389,7 +389,7 @@ func TestSQLiteProfileStore_RowSlugPayloadSlugMismatch(t *testing.T) {
 	}
 	_ = db.Close()
 
-	_, err = NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	_, err = NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err == nil {
 		t.Fatalf("expected slug mismatch error")
 	}
@@ -398,7 +398,7 @@ func TestSQLiteProfileStore_RowSlugPayloadSlugMismatch(t *testing.T) {
 	}
 }
 
-func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
+func TestSQLiteEngineProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
@@ -406,44 +406,44 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
 		t.Fatalf("UpsertRegistry failed: %v", err)
 	}
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
-		Slug:        MustProfileSlug("agent"),
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{
+		Slug:        MustEngineProfileSlug("agent"),
 		DisplayName: "Agent v1",
 	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
-		t.Fatalf("UpsertProfile create failed: %v", err)
+		t.Fatalf("UpsertEngineProfile create failed: %v", err)
 	}
-	agent, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	agent, ok, err := store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil || !ok || agent == nil {
 		t.Fatalf("expected created profile, ok=%v err=%v", ok, err)
 	}
 	updated := agent.Clone()
 	updated.DisplayName = "Agent v2"
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), updated, SaveOptions{
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), updated, SaveOptions{
 		ExpectedVersion: agent.Metadata.Version,
 		Actor:           "test",
 		Source:          "sqlite",
 	}); err != nil {
-		t.Fatalf("UpsertProfile update failed: %v", err)
+		t.Fatalf("UpsertEngineProfile update failed: %v", err)
 	}
 	reg, ok, err := store.GetRegistry(ctx, MustRegistrySlug("default"))
 	if err != nil || !ok || reg == nil {
 		t.Fatalf("expected registry before default update, ok=%v err=%v", ok, err)
 	}
-	reg.DefaultProfileSlug = MustProfileSlug("agent")
+	reg.DefaultEngineProfileSlug = MustEngineProfileSlug("agent")
 	if err := store.UpsertRegistry(ctx, reg, SaveOptions{
 		ExpectedVersion: reg.Metadata.Version,
 		Actor:           "test",
@@ -455,7 +455,7 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 		t.Fatalf("Close failed: %v", err)
 	}
 
-	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	reloaded, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("reopen store failed: %v", err)
 	}
@@ -465,10 +465,10 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 	if err != nil || !ok || reg == nil {
 		t.Fatalf("expected registry after reopen, ok=%v err=%v", ok, err)
 	}
-	if got := reg.DefaultProfileSlug; got != MustProfileSlug("agent") {
+	if got := reg.DefaultEngineProfileSlug; got != MustEngineProfileSlug("agent") {
 		t.Fatalf("default profile mismatch after reopen: %q", got)
 	}
-	reloadedAgent, ok, err := reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	reloadedAgent, ok, err := reloaded.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil || !ok || reloadedAgent == nil {
 		t.Fatalf("expected profile after reopen, ok=%v err=%v", ok, err)
 	}
@@ -477,7 +477,7 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 	}
 }
 
-func TestSQLiteProfileStore_ExtensionsRoundTrip(t *testing.T) {
+func TestSQLiteEngineProfileStore_ExtensionsRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
@@ -485,21 +485,21 @@ func TestSQLiteProfileStore_ExtensionsRoundTrip(t *testing.T) {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("default"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("default"): {Slug: MustProfileSlug("default")},
+	if err := store.UpsertRegistry(ctx, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("default"): {Slug: MustEngineProfileSlug("default")},
 		},
 	}, SaveOptions{Actor: "bootstrap", Source: "sqlite"}); err != nil {
 		t.Fatalf("UpsertRegistry failed: %v", err)
 	}
-	if err := store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{
-		Slug: MustProfileSlug("agent"),
+	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{
+		Slug: MustEngineProfileSlug("agent"),
 		Extensions: map[string]any{
 			"app.custom@v1": map[string]any{
 				"items": []any{
@@ -509,19 +509,19 @@ func TestSQLiteProfileStore_ExtensionsRoundTrip(t *testing.T) {
 			},
 		},
 	}, SaveOptions{Actor: "create", Source: "sqlite"}); err != nil {
-		t.Fatalf("UpsertProfile failed: %v", err)
+		t.Fatalf("UpsertEngineProfile failed: %v", err)
 	}
 	if err := store.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
 
-	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	reloaded, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("reopen store failed: %v", err)
 	}
 	defer func() { _ = reloaded.Close() }()
 
-	profile, ok, err := reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	profile, ok, err := reloaded.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("agent"))
 	if err != nil || !ok || profile == nil {
 		t.Fatalf("expected profile after reopen, ok=%v err=%v", ok, err)
 	}
@@ -535,7 +535,7 @@ func TestSQLiteProfileStore_ExtensionsRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSQLiteProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
+func TestSQLiteEngineProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "profiles.db")
 	dsn, err := SQLiteProfileDSNForFile(dbPath)
@@ -543,9 +543,9 @@ func TestSQLiteProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
 		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
 	}
 
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
+	store, err := NewSQLiteEngineProfileStore(dsn, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
+		t.Fatalf("NewSQLiteEngineProfileStore returned error: %v", err)
 	}
 
 	if err := store.Close(); err != nil {
@@ -569,14 +569,14 @@ func TestSQLiteProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
 	assertClosedErr(err)
 	_, _, err = store.GetRegistry(ctx, MustRegistrySlug("default"))
 	assertClosedErr(err)
-	_, err = store.ListProfiles(ctx, MustRegistrySlug("default"))
+	_, err = store.ListEngineProfiles(ctx, MustRegistrySlug("default"))
 	assertClosedErr(err)
-	_, _, err = store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"))
+	_, _, err = store.GetEngineProfile(ctx, MustRegistrySlug("default"), MustEngineProfileSlug("default"))
 	assertClosedErr(err)
-	err = store.UpsertRegistry(ctx, &ProfileRegistry{Slug: MustRegistrySlug("default")}, SaveOptions{})
+	err = store.UpsertRegistry(ctx, &EngineProfileRegistry{Slug: MustRegistrySlug("default")}, SaveOptions{})
 	assertClosedErr(err)
 	err = store.DeleteRegistry(ctx, MustRegistrySlug("default"), SaveOptions{})
 	assertClosedErr(err)
-	err = store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{Slug: MustProfileSlug("default")}, SaveOptions{})
+	err = store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{Slug: MustEngineProfileSlug("default")}, SaveOptions{})
 	assertClosedErr(err)
 }

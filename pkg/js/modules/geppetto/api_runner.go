@@ -259,7 +259,7 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 		if profileInput == nil {
 			return nil, fmt.Errorf("runner.resolveRuntime profile must be an object")
 		}
-		registry, err := m.requireProfileRegistryReader("runner.resolveRuntime")
+		registry, err := m.requireEngineProfileRegistryReader("runner.resolveRuntime")
 		if err != nil {
 			return nil, err
 		}
@@ -269,28 +269,28 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 		} else {
 			in.RegistrySlug = registrySlug
 		}
-		if rawProfileSlug := strings.TrimSpace(toString(profileInput["profileSlug"], "")); rawProfileSlug != "" {
-			profileSlug, err := profiles.ParseProfileSlug(rawProfileSlug)
+		if rawEngineProfileSlug := strings.TrimSpace(toString(profileInput["profileSlug"], "")); rawEngineProfileSlug != "" {
+			profileSlug, err := profiles.ParseEngineProfileSlug(rawEngineProfileSlug)
 			if err != nil {
 				return nil, err
 			}
-			in.ProfileSlug = profileSlug
+			in.EngineProfileSlug = profileSlug
 		}
-		resolved, err := registry.ResolveEffectiveProfile(context.Background(), in)
+		resolved, err := registry.ResolveEngineProfile(context.Background(), in)
 		if err != nil {
 			return nil, err
 		}
-		out = buildRunnerRuntimeFromResolvedProfile(resolved)
+		out = buildRunnerRuntimeFromResolvedEngineProfile(resolved)
 	} else if m.useDefaultProfileResolve {
-		registry, err := m.requireProfileRegistryReader("runner.resolveRuntime")
+		registry, err := m.requireEngineProfileRegistryReader("runner.resolveRuntime")
 		if err != nil {
 			return nil, err
 		}
-		resolved, err := registry.ResolveEffectiveProfile(context.Background(), m.defaultProfileResolve)
+		resolved, err := registry.ResolveEngineProfile(context.Background(), m.defaultProfileResolve)
 		if err != nil {
 			return nil, err
 		}
-		out = buildRunnerRuntimeFromResolvedProfile(resolved)
+		out = buildRunnerRuntimeFromResolvedEngineProfile(resolved)
 	}
 
 	if systemPrompt := strings.TrimSpace(toString(input["systemPrompt"], "")); systemPrompt != "" {
@@ -330,7 +330,7 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 	return out, nil
 }
 
-func buildRunnerRuntimeFromResolvedProfile(resolved *profiles.ResolvedProfile) *runnerResolvedRuntimeRef {
+func buildRunnerRuntimeFromResolvedEngineProfile(resolved *profiles.ResolvedEngineProfile) *runnerResolvedRuntimeRef {
 	out := &runnerResolvedRuntimeRef{
 		RuntimeMetadata: map[string]any{},
 		Metadata:        map[string]any{},
@@ -347,7 +347,7 @@ func buildRunnerRuntimeFromResolvedProfile(resolved *profiles.ResolvedProfile) *
 	if fingerprint := strings.TrimSpace(resolved.RuntimeFingerprint); fingerprint != "" {
 		out.RuntimeMetadata["runtime_fingerprint"] = fingerprint
 	}
-	if profileSlug := strings.TrimSpace(resolved.ProfileSlug.String()); profileSlug != "" {
+	if profileSlug := strings.TrimSpace(resolved.EngineProfileSlug.String()); profileSlug != "" {
 		out.RuntimeMetadata["profile.slug"] = profileSlug
 	}
 	if registrySlug := strings.TrimSpace(resolved.RegistrySlug.String()); registrySlug != "" {

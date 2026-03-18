@@ -67,8 +67,8 @@ func BaseInferenceSettingsFromDefaults() (*settings.InferenceSettings, error) {
 	return settings.NewInferenceSettingsFromParsedValues(parsedValues)
 }
 
-// ExampleProfileRegistryPath returns the bundled sample profile registry path.
-func ExampleProfileRegistryPath() string {
+// ExampleEngineProfileRegistryPath returns the bundled sample profile registry path.
+func ExampleEngineProfileRegistryPath() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		return "cmd/examples/internal/runnerexample/profiles/basic.yaml"
@@ -87,7 +87,7 @@ func ResolveRuntimeFromRegistry(
 	if stepSettings == nil {
 		return runner.Runtime{}, nil, fmt.Errorf("inference settings are required")
 	}
-	entries, err := profiles.ParseProfileRegistrySourceEntries(rawSources)
+	entries, err := profiles.ParseEngineProfileRegistrySourceEntries(rawSources)
 	if err != nil {
 		return runner.Runtime{}, nil, err
 	}
@@ -102,15 +102,15 @@ func ResolveRuntimeFromRegistry(
 
 	in := profiles.ResolveInput{}
 	if strings.TrimSpace(profileSlug) != "" {
-		parsed, err := profiles.ParseProfileSlug(profileSlug)
+		parsed, err := profiles.ParseEngineProfileSlug(profileSlug)
 		if err != nil {
 			_ = chain.Close()
 			return runner.Runtime{}, nil, err
 		}
-		in.ProfileSlug = parsed
+		in.EngineProfileSlug = parsed
 	}
 
-	resolved, err := chain.ResolveEffectiveProfile(ctx, in)
+	resolved, err := chain.ResolveEngineProfile(ctx, in)
 	if err != nil {
 		_ = chain.Close()
 		return runner.Runtime{}, nil, err

@@ -6,23 +6,23 @@ import (
 
 // RegistrySummary gives lightweight metadata for list endpoints.
 type RegistrySummary struct {
-	Slug               RegistrySlug `json:"slug" yaml:"slug"`
-	DisplayName        string       `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	DefaultProfileSlug ProfileSlug  `json:"default_profile_slug,omitempty" yaml:"default_profile_slug,omitempty"`
-	ProfileCount       int          `json:"profile_count" yaml:"profile_count"`
+	Slug                     RegistrySlug      `json:"slug" yaml:"slug"`
+	DisplayName              string            `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	DefaultEngineProfileSlug EngineProfileSlug `json:"default_profile_slug,omitempty" yaml:"default_profile_slug,omitempty"`
+	EngineProfileCount       int               `json:"profile_count" yaml:"profile_count"`
 }
 
 // ResolveInput contains all inputs needed to compute an effective runtime profile.
 type ResolveInput struct {
-	RegistrySlug RegistrySlug
-	ProfileSlug  ProfileSlug
+	RegistrySlug      RegistrySlug
+	EngineProfileSlug EngineProfileSlug
 }
 
-// ResolvedProfile is the canonical result of profile resolution.
-type ResolvedProfile struct {
-	RegistrySlug RegistrySlug
-	ProfileSlug  ProfileSlug
-	RuntimeKey   RuntimeKey
+// ResolvedEngineProfile is the canonical result of profile resolution.
+type ResolvedEngineProfile struct {
+	RegistrySlug      RegistrySlug
+	EngineProfileSlug EngineProfileSlug
+	RuntimeKey        RuntimeKey
 
 	EffectiveRuntime   RuntimeSpec
 	RuntimeFingerprint string
@@ -33,10 +33,10 @@ type ResolvedProfile struct {
 // RegistryReader provides read/query operations for profile registry services.
 type RegistryReader interface {
 	ListRegistries(ctx context.Context) ([]RegistrySummary, error)
-	GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*ProfileRegistry, error)
-	ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error)
-	GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, error)
-	ResolveEffectiveProfile(ctx context.Context, in ResolveInput) (*ResolvedProfile, error)
+	GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*EngineProfileRegistry, error)
+	ListEngineProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*EngineProfile, error)
+	GetEngineProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug) (*EngineProfile, error)
+	ResolveEngineProfile(ctx context.Context, in ResolveInput) (*ResolvedEngineProfile, error)
 }
 
 // Registry is the unified profile registry service abstraction.

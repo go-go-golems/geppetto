@@ -35,7 +35,7 @@
   - rename engine factory helpers that still mention step settings
   - update imports and call sites in all downstream repos
   - update docs/examples/tests that still teach `StepSettings`
-- [ ] Slice 3: rename profile-resolution surface to engine-profile terminology
+- [x] Slice 3: rename profile-resolution surface to engine-profile terminology
   - `Profile` -> `EngineProfile`
   - `ProfileRegistry` -> `EngineProfileRegistry`
   - `ResolvedProfile` -> `ResolvedEngineProfile`
@@ -67,5 +67,5 @@
 - [x] Pinocchio focused tests or compile smoke pass after cross-repo rename slices
 - [x] GEC-RAG focused tests or compile smoke pass after cross-repo rename slices
 - [x] Temporal Relationships focused tests or compile smoke pass after cross-repo rename slices
-- [ ] `docmgr doctor --ticket GP-49-ENGINE-PROFILES --stale-after 30` passes after each documentation update
+- [x] `docmgr doctor --ticket GP-49-ENGINE-PROFILES --stale-after 30` passes after each documentation update
 - [ ] Commit each completed slice separately and record it in the diary and changelog

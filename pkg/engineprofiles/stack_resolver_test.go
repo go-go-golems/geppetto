@@ -6,32 +6,32 @@ import (
 	"testing"
 )
 
-func TestExpandProfileStack_LinearStack(t *testing.T) {
-	registry := mustNewStackTestRegistry(t, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("provider-openai"): {
-				Slug: MustProfileSlug("provider-openai"),
+func TestExpandEngineProfileStack_LinearStack(t *testing.T) {
+	registry := mustNewStackTestRegistry(t, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("provider-openai"): {
+				Slug: MustEngineProfileSlug("provider-openai"),
 			},
-			MustProfileSlug("model-gpt4o"): {
-				Slug: MustProfileSlug("model-gpt4o"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+			MustEngineProfileSlug("model-gpt4o"): {
+				Slug: MustEngineProfileSlug("model-gpt4o"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("model-gpt4o")},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("model-gpt4o")},
 				},
 			},
 		},
 	})
 
-	layers, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("agent"), StackResolverOptions{})
+	layers, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("agent"), StackResolverOptions{})
 	if err != nil {
-		t.Fatalf("ExpandProfileStack failed: %v", err)
+		t.Fatalf("ExpandEngineProfileStack failed: %v", err)
 	}
 
 	assertStackLayerOrder(t, layers,
@@ -41,40 +41,40 @@ func TestExpandProfileStack_LinearStack(t *testing.T) {
 	)
 }
 
-func TestExpandProfileStack_FanInDedupesByFirstOccurrence(t *testing.T) {
-	registry := mustNewStackTestRegistry(t, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("provider-openai"): {
-				Slug: MustProfileSlug("provider-openai"),
+func TestExpandEngineProfileStack_FanInDedupesByFirstOccurrence(t *testing.T) {
+	registry := mustNewStackTestRegistry(t, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("provider-openai"): {
+				Slug: MustEngineProfileSlug("provider-openai"),
 			},
-			MustProfileSlug("model-a"): {
-				Slug: MustProfileSlug("model-a"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+			MustEngineProfileSlug("model-a"): {
+				Slug: MustEngineProfileSlug("model-a"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
-			MustProfileSlug("model-b"): {
-				Slug: MustProfileSlug("model-b"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+			MustEngineProfileSlug("model-b"): {
+				Slug: MustEngineProfileSlug("model-b"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("model-a")},
-					{ProfileSlug: MustProfileSlug("model-b")},
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("model-a")},
+					{EngineProfileSlug: MustEngineProfileSlug("model-b")},
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
 		},
 	})
 
-	layers, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("agent"), StackResolverOptions{})
+	layers, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("agent"), StackResolverOptions{})
 	if err != nil {
-		t.Fatalf("ExpandProfileStack failed: %v", err)
+		t.Fatalf("ExpandEngineProfileStack failed: %v", err)
 	}
 
 	assertStackLayerOrder(t, layers,
@@ -85,34 +85,34 @@ func TestExpandProfileStack_FanInDedupesByFirstOccurrence(t *testing.T) {
 	)
 }
 
-func TestExpandProfileStack_CrossRegistryRefs(t *testing.T) {
+func TestExpandEngineProfileStack_CrossRegistryRefs(t *testing.T) {
 	registry := mustNewStackTestRegistry(t,
-		&ProfileRegistry{
-			Slug:               MustRegistrySlug("shared"),
-			DefaultProfileSlug: MustProfileSlug("provider-openai"),
-			Profiles: map[ProfileSlug]*Profile{
-				MustProfileSlug("provider-openai"): {
-					Slug: MustProfileSlug("provider-openai"),
+		&EngineProfileRegistry{
+			Slug:                     MustRegistrySlug("shared"),
+			DefaultEngineProfileSlug: MustEngineProfileSlug("provider-openai"),
+			Profiles: map[EngineProfileSlug]*EngineProfile{
+				MustEngineProfileSlug("provider-openai"): {
+					Slug: MustEngineProfileSlug("provider-openai"),
 				},
 			},
 		},
-		&ProfileRegistry{
-			Slug:               MustRegistrySlug("default"),
-			DefaultProfileSlug: MustProfileSlug("agent"),
-			Profiles: map[ProfileSlug]*Profile{
-				MustProfileSlug("agent"): {
-					Slug: MustProfileSlug("agent"),
-					Stack: []ProfileRef{
-						{RegistrySlug: MustRegistrySlug("shared"), ProfileSlug: MustProfileSlug("provider-openai")},
+		&EngineProfileRegistry{
+			Slug:                     MustRegistrySlug("default"),
+			DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+			Profiles: map[EngineProfileSlug]*EngineProfile{
+				MustEngineProfileSlug("agent"): {
+					Slug: MustEngineProfileSlug("agent"),
+					Stack: []EngineProfileRef{
+						{RegistrySlug: MustRegistrySlug("shared"), EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 					},
 				},
 			},
 		},
 	)
 
-	layers, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("agent"), StackResolverOptions{})
+	layers, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("agent"), StackResolverOptions{})
 	if err != nil {
-		t.Fatalf("ExpandProfileStack failed: %v", err)
+		t.Fatalf("ExpandEngineProfileStack failed: %v", err)
 	}
 
 	assertStackLayerOrder(t, layers,
@@ -121,105 +121,105 @@ func TestExpandProfileStack_CrossRegistryRefs(t *testing.T) {
 	)
 }
 
-func TestExpandProfileStack_RejectsCycleWithExplicitChain(t *testing.T) {
-	registry := mustNewStackTestRegistry(t, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("a"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("a"): {
-				Slug: MustProfileSlug("a"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("b")},
+func TestExpandEngineProfileStack_RejectsCycleWithExplicitChain(t *testing.T) {
+	registry := mustNewStackTestRegistry(t, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("a"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("a"): {
+				Slug: MustEngineProfileSlug("a"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("b")},
 				},
 			},
-			MustProfileSlug("b"): {
-				Slug: MustProfileSlug("b"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("a")},
+			MustEngineProfileSlug("b"): {
+				Slug: MustEngineProfileSlug("b"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("a")},
 				},
 			},
 		},
 	})
 
-	_, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("a"), StackResolverOptions{})
+	_, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("a"), StackResolverOptions{})
 	requireValidationField(t, err, "registry.profiles[b].stack[0]")
 	if !strings.Contains(err.Error(), "default/a -> default/b -> default/a") {
 		t.Fatalf("expected explicit cycle chain in error, got %v", err)
 	}
 }
 
-func TestExpandProfileStack_RejectsMissingRegistry(t *testing.T) {
-	registry := mustNewStackTestRegistry(t, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{RegistrySlug: MustRegistrySlug("missing"), ProfileSlug: MustProfileSlug("provider-openai")},
+func TestExpandEngineProfileStack_RejectsMissingRegistry(t *testing.T) {
+	registry := mustNewStackTestRegistry(t, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{RegistrySlug: MustRegistrySlug("missing"), EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
 		},
 	})
 
-	_, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("agent"), StackResolverOptions{})
+	_, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("agent"), StackResolverOptions{})
 	requireValidationField(t, err, "registry.profiles[agent].stack[0]")
 	if !strings.Contains(err.Error(), `referenced registry "missing" not found`) {
 		t.Fatalf("expected missing registry details, got %v", err)
 	}
 }
 
-func TestExpandProfileStack_RejectsMissingProfile(t *testing.T) {
-	registry := mustNewStackTestRegistry(t, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {
-				Slug: MustProfileSlug("agent"),
-				Stack: []ProfileRef{
-					{ProfileSlug: MustProfileSlug("provider-openai")},
+func TestExpandEngineProfileStack_RejectsMissingProfile(t *testing.T) {
+	registry := mustNewStackTestRegistry(t, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("agent"): {
+				Slug: MustEngineProfileSlug("agent"),
+				Stack: []EngineProfileRef{
+					{EngineProfileSlug: MustEngineProfileSlug("provider-openai")},
 				},
 			},
 		},
 	})
 
-	_, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("agent"), StackResolverOptions{})
+	_, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("agent"), StackResolverOptions{})
 	requireValidationField(t, err, "registry.profiles[agent].stack[0]")
 	if !strings.Contains(err.Error(), `referenced profile "provider-openai" not found in registry "default"`) {
 		t.Fatalf("expected missing profile details, got %v", err)
 	}
 }
 
-func TestExpandProfileStack_RejectsMaxDepthBreach(t *testing.T) {
-	registry := mustNewStackTestRegistry(t, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("a"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("a"): {
-				Slug:  MustProfileSlug("a"),
-				Stack: []ProfileRef{{ProfileSlug: MustProfileSlug("b")}},
+func TestExpandEngineProfileStack_RejectsMaxDepthBreach(t *testing.T) {
+	registry := mustNewStackTestRegistry(t, &EngineProfileRegistry{
+		Slug:                     MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: MustEngineProfileSlug("a"),
+		Profiles: map[EngineProfileSlug]*EngineProfile{
+			MustEngineProfileSlug("a"): {
+				Slug:  MustEngineProfileSlug("a"),
+				Stack: []EngineProfileRef{{EngineProfileSlug: MustEngineProfileSlug("b")}},
 			},
-			MustProfileSlug("b"): {
-				Slug:  MustProfileSlug("b"),
-				Stack: []ProfileRef{{ProfileSlug: MustProfileSlug("c")}},
+			MustEngineProfileSlug("b"): {
+				Slug:  MustEngineProfileSlug("b"),
+				Stack: []EngineProfileRef{{EngineProfileSlug: MustEngineProfileSlug("c")}},
 			},
-			MustProfileSlug("c"): {
-				Slug: MustProfileSlug("c"),
+			MustEngineProfileSlug("c"): {
+				Slug: MustEngineProfileSlug("c"),
 			},
 		},
 	})
 
-	_, err := registry.ExpandProfileStack(context.Background(), MustRegistrySlug("default"), MustProfileSlug("a"), StackResolverOptions{MaxDepth: 2})
+	_, err := registry.ExpandEngineProfileStack(context.Background(), MustRegistrySlug("default"), MustEngineProfileSlug("a"), StackResolverOptions{MaxDepth: 2})
 	requireValidationField(t, err, "registry.profiles[b].stack[0]")
 	if !strings.Contains(err.Error(), "max_depth=2") {
 		t.Fatalf("expected max depth details, got %v", err)
 	}
 }
 
-func mustNewStackTestRegistry(t *testing.T, registries ...*ProfileRegistry) *StoreRegistry {
+func mustNewStackTestRegistry(t *testing.T, registries ...*EngineProfileRegistry) *StoreRegistry {
 	t.Helper()
-	store := NewInMemoryProfileStore()
-	store.registries = map[RegistrySlug]*ProfileRegistry{}
+	store := NewInMemoryEngineProfileStore()
+	store.registries = map[RegistrySlug]*EngineProfileRegistry{}
 	for _, registry := range registries {
 		store.registries[registry.Slug] = registry.Clone()
 	}
@@ -230,13 +230,13 @@ func mustNewStackTestRegistry(t *testing.T, registries ...*ProfileRegistry) *Sto
 	return ret
 }
 
-func assertStackLayerOrder(t *testing.T, layers []ProfileStackLayer, want ...string) {
+func assertStackLayerOrder(t *testing.T, layers []EngineProfileStackLayer, want ...string) {
 	t.Helper()
 	if got, expected := len(layers), len(want); got != expected {
 		t.Fatalf("unexpected layer length: got=%d want=%d", got, expected)
 	}
 	for i, layer := range layers {
-		got := layer.RegistrySlug.String() + "/" + layer.ProfileSlug.String()
+		got := layer.RegistrySlug.String() + "/" + layer.EngineProfileSlug.String()
 		if got != want[i] {
 			t.Fatalf("layer order mismatch at %d: got=%q want=%q", i, got, want[i])
 		}

@@ -30,8 +30,8 @@ func TouchRegistryMetadata(meta *RegistryMetadata, opts SaveOptions, now int64) 
 	meta.Version++
 }
 
-// TouchProfileMetadata updates version/provenance fields for a profile mutation.
-func TouchProfileMetadata(meta *ProfileMetadata, opts SaveOptions, now int64) {
+// TouchEngineProfileMetadata updates version/provenance fields for a profile mutation.
+func TouchEngineProfileMetadata(meta *EngineProfileMetadata, opts SaveOptions, now int64) {
 	if meta == nil {
 		return
 	}

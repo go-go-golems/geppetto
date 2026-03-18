@@ -17,8 +17,8 @@ func TestParseRegistrySlug_Normalizes(t *testing.T) {
 	}
 }
 
-func TestParseProfileSlug_RejectsInvalid(t *testing.T) {
-	_, err := ParseProfileSlug("bad slug")
+func TestParseEngineProfileSlug_RejectsInvalid(t *testing.T) {
+	_, err := ParseEngineProfileSlug("bad slug")
 	if err == nil {
 		t.Fatalf("expected invalid slug error")
 	}
@@ -33,14 +33,14 @@ func TestParseRuntimeKey_RejectsEmpty(t *testing.T) {
 
 func TestSlugJSONRoundTrip(t *testing.T) {
 	type payload struct {
-		Registry RegistrySlug `json:"registry"`
-		Profile  ProfileSlug  `json:"profile"`
-		Runtime  RuntimeKey   `json:"runtime"`
+		Registry      RegistrySlug      `json:"registry"`
+		EngineProfile EngineProfileSlug `json:"profile"`
+		Runtime       RuntimeKey        `json:"runtime"`
 	}
 	in := payload{
-		Registry: MustRegistrySlug("Default"),
-		Profile:  MustProfileSlug("Agent"),
-		Runtime:  MustRuntimeKey("Agent"),
+		Registry:      MustRegistrySlug("Default"),
+		EngineProfile: MustEngineProfileSlug("Agent"),
+		Runtime:       MustRuntimeKey("Agent"),
 	}
 
 	b, err := json.Marshal(in)
@@ -56,8 +56,8 @@ func TestSlugJSONRoundTrip(t *testing.T) {
 	if out.Registry != "default" {
 		t.Fatalf("registry mismatch: %q", out.Registry)
 	}
-	if out.Profile != "agent" {
-		t.Fatalf("profile mismatch: %q", out.Profile)
+	if out.EngineProfile != "agent" {
+		t.Fatalf("profile mismatch: %q", out.EngineProfile)
 	}
 	if out.Runtime != "agent" {
 		t.Fatalf("runtime mismatch: %q", out.Runtime)
@@ -66,14 +66,14 @@ func TestSlugJSONRoundTrip(t *testing.T) {
 
 func TestSlugYAMLRoundTrip(t *testing.T) {
 	type payload struct {
-		Registry RegistrySlug `yaml:"registry"`
-		Profile  ProfileSlug  `yaml:"profile"`
-		Runtime  RuntimeKey   `yaml:"runtime"`
+		Registry      RegistrySlug      `yaml:"registry"`
+		EngineProfile EngineProfileSlug `yaml:"profile"`
+		Runtime       RuntimeKey        `yaml:"runtime"`
 	}
 	in := payload{
-		Registry: MustRegistrySlug("Work"),
-		Profile:  MustProfileSlug("assistant-v2"),
-		Runtime:  MustRuntimeKey("assistant-v2"),
+		Registry:      MustRegistrySlug("Work"),
+		EngineProfile: MustEngineProfileSlug("assistant-v2"),
+		Runtime:       MustRuntimeKey("assistant-v2"),
 	}
 
 	b, err := yaml.Marshal(in)
@@ -89,8 +89,8 @@ func TestSlugYAMLRoundTrip(t *testing.T) {
 	if out.Registry != "work" {
 		t.Fatalf("registry mismatch: %q", out.Registry)
 	}
-	if out.Profile != "assistant-v2" {
-		t.Fatalf("profile mismatch: %q", out.Profile)
+	if out.EngineProfile != "assistant-v2" {
+		t.Fatalf("profile mismatch: %q", out.EngineProfile)
 	}
 	if out.Runtime != "assistant-v2" {
 		t.Fatalf("runtime mismatch: %q", out.Runtime)
@@ -99,7 +99,7 @@ func TestSlugYAMLRoundTrip(t *testing.T) {
 
 func TestSlugJSONRejectsInvalid(t *testing.T) {
 	type payload struct {
-		Profile ProfileSlug `json:"profile"`
+		EngineProfile EngineProfileSlug `json:"profile"`
 	}
 
 	var out payload
@@ -123,12 +123,12 @@ func TestSlugTextRoundTrip(t *testing.T) {
 		t.Fatalf("registry text round-trip mismatch: %q", registryOut)
 	}
 
-	profileIn := MustProfileSlug("agent")
+	profileIn := MustEngineProfileSlug("agent")
 	profileText, err := profileIn.MarshalText()
 	if err != nil {
 		t.Fatalf("profile MarshalText failed: %v", err)
 	}
-	var profileOut ProfileSlug
+	var profileOut EngineProfileSlug
 	if err := profileOut.UnmarshalText(profileText); err != nil {
 		t.Fatalf("profile UnmarshalText failed: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSlugTextRoundTrip(t *testing.T) {
 }
 
 func TestSlugTextRejectsInvalid(t *testing.T) {
-	var profile ProfileSlug
+	var profile EngineProfileSlug
 	if err := profile.UnmarshalText([]byte("bad slug")); err == nil {
 		t.Fatalf("expected invalid profile text error")
 	}

@@ -99,7 +99,7 @@ func (k ProfileExtensionKey[T]) Decode(raw any) (T, error) {
 	return *ptr, nil
 }
 
-func (k ProfileExtensionKey[T]) Get(profile *Profile) (T, bool, error) {
+func (k ProfileExtensionKey[T]) Get(profile *EngineProfile) (T, bool, error) {
 	var zero T
 	if profile == nil || len(profile.Extensions) == 0 {
 		return zero, false, nil
@@ -115,7 +115,7 @@ func (k ProfileExtensionKey[T]) Get(profile *Profile) (T, bool, error) {
 	return typed, true, nil
 }
 
-func (k ProfileExtensionKey[T]) Set(profile *Profile, value T) error {
+func (k ProfileExtensionKey[T]) Set(profile *EngineProfile, value T) error {
 	if profile == nil {
 		return fmt.Errorf("profile is required")
 	}
@@ -129,7 +129,7 @@ func (k ProfileExtensionKey[T]) Set(profile *Profile, value T) error {
 	return nil
 }
 
-func (k ProfileExtensionKey[T]) Delete(profile *Profile) {
+func (k ProfileExtensionKey[T]) Delete(profile *EngineProfile) {
 	if profile == nil || profile.Extensions == nil {
 		return
 	}

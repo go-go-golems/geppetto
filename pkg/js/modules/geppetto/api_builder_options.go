@@ -28,11 +28,11 @@ func (m *moduleRuntime) applyBuilderOptions(b *builderRef, v goja.Value) error {
 		b.base = ref.Engine
 	}
 	if profileVal := obj.Get("resolvedProfile"); profileVal != nil && !goja.IsUndefined(profileVal) && !goja.IsNull(profileVal) {
-		resolved, err := m.requireResolvedProfile(profileVal)
+		resolved, err := m.requireResolvedEngineProfile(profileVal)
 		if err != nil {
 			return err
 		}
-		if err := m.applyResolvedProfile(b, resolved); err != nil {
+		if err := m.applyResolvedEngineProfile(b, resolved); err != nil {
 			return err
 		}
 	}

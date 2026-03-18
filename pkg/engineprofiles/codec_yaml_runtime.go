@@ -10,7 +10,7 @@ import (
 
 // DecodeRuntimeYAMLSingleRegistry decodes the runtime YAML source format.
 // Runtime YAML is hard-cut to one-file-one-registry and rejects both bundle and legacy formats.
-func DecodeRuntimeYAMLSingleRegistry(data []byte) (*ProfileRegistry, error) {
+func DecodeRuntimeYAMLSingleRegistry(data []byte) (*EngineProfileRegistry, error) {
 	trimmed := strings.TrimSpace(string(data))
 	if trimmed == "" {
 		return nil, nil
@@ -41,17 +41,17 @@ func DecodeRuntimeYAMLSingleRegistry(data []byte) (*ProfileRegistry, error) {
 	if reg.Slug.IsZero() {
 		return nil, &ValidationError{Field: "registry.slug", Reason: "must be set for runtime YAML sources"}
 	}
-	if len(reg.Profiles) > 0 && reg.DefaultProfileSlug.IsZero() {
-		if _, ok := reg.Profiles[MustProfileSlug("default")]; ok {
-			reg.DefaultProfileSlug = MustProfileSlug("default")
+	if len(reg.Profiles) > 0 && reg.DefaultEngineProfileSlug.IsZero() {
+		if _, ok := reg.Profiles[MustEngineProfileSlug("default")]; ok {
+			reg.DefaultEngineProfileSlug = MustEngineProfileSlug("default")
 		} else {
-			slugs := make([]ProfileSlug, 0, len(reg.Profiles))
+			slugs := make([]EngineProfileSlug, 0, len(reg.Profiles))
 			for slug := range reg.Profiles {
 				slugs = append(slugs, slug)
 			}
 			sort.Slice(slugs, func(i, j int) bool { return slugs[i] < slugs[j] })
 			if len(slugs) > 0 {
-				reg.DefaultProfileSlug = slugs[0]
+				reg.DefaultEngineProfileSlug = slugs[0]
 			}
 		}
 	}
@@ -63,7 +63,7 @@ func DecodeRuntimeYAMLSingleRegistry(data []byte) (*ProfileRegistry, error) {
 
 // EncodeRuntimeYAMLSingleRegistry encodes a single registry as runtime YAML.
 // Hard-cut behavior: default_profile_slug is omitted from the serialized document.
-func EncodeRuntimeYAMLSingleRegistry(registry *ProfileRegistry) ([]byte, error) {
+func EncodeRuntimeYAMLSingleRegistry(registry *EngineProfileRegistry) ([]byte, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("runtime registry is nil")
 	}
@@ -83,11 +83,11 @@ func EncodeRuntimeYAMLSingleRegistry(registry *ProfileRegistry) ([]byte, error) 
 		}
 	}
 	type runtimeRegistryYAML struct {
-		Slug        RegistrySlug             `yaml:"slug"`
-		DisplayName string                   `yaml:"display_name,omitempty"`
-		Description string                   `yaml:"description,omitempty"`
-		Profiles    map[ProfileSlug]*Profile `yaml:"profiles,omitempty"`
-		Metadata    RegistryMetadata         `yaml:"metadata,omitempty"`
+		Slug        RegistrySlug                         `yaml:"slug"`
+		DisplayName string                               `yaml:"display_name,omitempty"`
+		Description string                               `yaml:"description,omitempty"`
+		Profiles    map[EngineProfileSlug]*EngineProfile `yaml:"profiles,omitempty"`
+		Metadata    RegistryMetadata                     `yaml:"metadata,omitempty"`
 	}
 	out := runtimeRegistryYAML{
 		Slug:        clone.Slug,

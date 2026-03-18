@@ -11,24 +11,24 @@ type StackResolverOptions struct {
 	MaxDepth int
 }
 
-type ProfileStackLayer struct {
-	RegistrySlug RegistrySlug
-	ProfileSlug  ProfileSlug
-	Profile      *Profile
+type EngineProfileStackLayer struct {
+	RegistrySlug      RegistrySlug
+	EngineProfileSlug EngineProfileSlug
+	EngineProfile     *EngineProfile
 }
 
 type stackResolverIdentity struct {
 	registrySlug RegistrySlug
-	profileSlug  ProfileSlug
+	profileSlug  EngineProfileSlug
 }
 
 func (i stackResolverIdentity) String() string {
 	return fmt.Sprintf("%s/%s", i.registrySlug, i.profileSlug)
 }
 
-// ExpandProfileStack resolves a profile's stack into deterministic base->leaf layers.
+// ExpandEngineProfileStack resolves a profile's stack into deterministic base->leaf layers.
 // The result always includes the root profile as the final layer.
-func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts StackResolverOptions) ([]ProfileStackLayer, error) {
+func (r *StoreRegistry) ExpandEngineProfileStack(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug, opts StackResolverOptions) ([]EngineProfileStackLayer, error) {
 	if r == nil {
 		return nil, fmt.Errorf("store registry is nil")
 	}
@@ -38,7 +38,7 @@ func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug Reg
 	if err != nil {
 		return nil, err
 	}
-	resolvedProfileSlug, err := r.resolveProfileSlugForRegistry(profileSlug, registry)
+	resolvedEngineProfileSlug, err := r.resolveEngineProfileSlugForRegistry(profileSlug, registry)
 	if err != nil {
 		return nil, err
 	}
@@ -50,15 +50,15 @@ func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug Reg
 
 	root := stackResolverIdentity{
 		registrySlug: resolvedRegistrySlug,
-		profileSlug:  resolvedProfileSlug,
+		profileSlug:  resolvedEngineProfileSlug,
 	}
 
-	profileCache := map[stackResolverIdentity]*Profile{}
-	loadProfile := func(identity stackResolverIdentity) (*Profile, error) {
+	profileCache := map[stackResolverIdentity]*EngineProfile{}
+	loadProfile := func(identity stackResolverIdentity) (*EngineProfile, error) {
 		if profile, ok := profileCache[identity]; ok {
 			return profile, nil
 		}
-		profile, err := r.GetProfile(ctx, identity.registrySlug, identity.profileSlug)
+		profile, err := r.GetEngineProfile(ctx, identity.registrySlug, identity.profileSlug)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug Reg
 	visited := map[stackResolverIdentity]bool{}
 	inPath := map[stackResolverIdentity]int{}
 	path := make([]stackResolverIdentity, 0, 8)
-	layers := make([]ProfileStackLayer, 0, 8)
+	layers := make([]EngineProfileStackLayer, 0, 8)
 
 	var walk func(current stackResolverIdentity) error
 	walk = func(current stackResolverIdentity) error {
@@ -91,7 +91,7 @@ func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug Reg
 
 		for i, ref := range currentProfile.Stack {
 			field := fmt.Sprintf("registry.profiles[%s].stack[%d]", current.profileSlug, i)
-			if err := ValidateProfileRef(ref, field); err != nil {
+			if err := ValidateEngineProfileRef(ref, field); err != nil {
 				return err
 			}
 
@@ -101,7 +101,7 @@ func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug Reg
 			}
 			target := stackResolverIdentity{
 				registrySlug: targetRegistry,
-				profileSlug:  ref.ProfileSlug,
+				profileSlug:  ref.EngineProfileSlug,
 			}
 
 			if len(path)+1 > maxDepth {
@@ -144,10 +144,10 @@ func (r *StoreRegistry) ExpandProfileStack(ctx context.Context, registrySlug Reg
 		path = path[:len(path)-1]
 		delete(inPath, current)
 		visited[current] = true
-		layers = append(layers, ProfileStackLayer{
-			RegistrySlug: current.registrySlug,
-			ProfileSlug:  current.profileSlug,
-			Profile:      currentProfile.Clone(),
+		layers = append(layers, EngineProfileStackLayer{
+			RegistrySlug:      current.registrySlug,
+			EngineProfileSlug: current.profileSlug,
+			EngineProfile:     currentProfile.Clone(),
 		})
 		return nil
 	}

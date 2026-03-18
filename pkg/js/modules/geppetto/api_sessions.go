@@ -122,15 +122,15 @@ func (m *moduleRuntime) newBuilderObject(b *builderRef) goja.Value {
 		b.middlewares = append(b.middlewares, mw)
 		return o
 	})
-	m.mustSet(o, "useResolvedProfile", func(call goja.FunctionCall) goja.Value {
+	m.mustSet(o, "useResolvedEngineProfile", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
-			panic(m.vm.NewTypeError("useResolvedProfile requires resolved profile argument"))
+			panic(m.vm.NewTypeError("useResolvedEngineProfile requires resolved profile argument"))
 		}
-		resolved, err := m.requireResolvedProfile(call.Arguments[0])
+		resolved, err := m.requireResolvedEngineProfile(call.Arguments[0])
 		if err != nil {
 			panic(m.vm.NewGoError(err))
 		}
-		if err := m.applyResolvedProfile(b, resolved); err != nil {
+		if err := m.applyResolvedEngineProfile(b, resolved); err != nil {
 			panic(m.vm.NewGoError(err))
 		}
 		return o

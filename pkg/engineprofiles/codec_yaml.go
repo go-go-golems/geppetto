@@ -8,7 +8,7 @@ import (
 
 // DecodeYAMLRegistries is a compatibility wrapper around runtime YAML decoding.
 // Hard-cut behavior: only one-file-one-registry runtime YAML is accepted.
-func DecodeYAMLRegistries(data []byte, _ RegistrySlug) ([]*ProfileRegistry, error) {
+func DecodeYAMLRegistries(data []byte, _ RegistrySlug) ([]*EngineProfileRegistry, error) {
 	reg, err := DecodeRuntimeYAMLSingleRegistry(data)
 	if err != nil {
 		return nil, err
@@ -16,20 +16,20 @@ func DecodeYAMLRegistries(data []byte, _ RegistrySlug) ([]*ProfileRegistry, erro
 	if reg == nil {
 		return nil, nil
 	}
-	return []*ProfileRegistry{reg}, nil
+	return []*EngineProfileRegistry{reg}, nil
 }
 
-func decodeSingleRegistry(raw map[string]any) (*ProfileRegistry, error) {
+func decodeSingleRegistry(raw map[string]any) (*EngineProfileRegistry, error) {
 	b, err := yaml.Marshal(raw)
 	if err != nil {
 		return nil, err
 	}
-	reg := &ProfileRegistry{}
+	reg := &EngineProfileRegistry{}
 	if err := yaml.Unmarshal(b, reg); err != nil {
 		return nil, err
 	}
 	if reg.Profiles == nil {
-		reg.Profiles = map[ProfileSlug]*Profile{}
+		reg.Profiles = map[EngineProfileSlug]*EngineProfile{}
 	}
 	for slug, profile := range reg.Profiles {
 		if profile == nil {
@@ -44,8 +44,8 @@ func decodeSingleRegistry(raw map[string]any) (*ProfileRegistry, error) {
 
 // EncodeYAMLRegistries is a compatibility wrapper around runtime YAML encoding.
 // Hard-cut behavior: exactly one non-nil registry may be encoded.
-func EncodeYAMLRegistries(registries []*ProfileRegistry) ([]byte, error) {
-	nonNil := make([]*ProfileRegistry, 0, len(registries))
+func EncodeYAMLRegistries(registries []*EngineProfileRegistry) ([]byte, error) {
+	nonNil := make([]*EngineProfileRegistry, 0, len(registries))
 	for _, reg := range registries {
 		if reg == nil {
 			continue

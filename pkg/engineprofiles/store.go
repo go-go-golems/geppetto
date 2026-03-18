@@ -9,24 +9,24 @@ type SaveOptions struct {
 	Source          string
 }
 
-// ProfileStoreReader provides read operations over profile registries.
-type ProfileStoreReader interface {
-	ListRegistries(ctx context.Context) ([]*ProfileRegistry, error)
-	GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*ProfileRegistry, bool, error)
-	ListProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*Profile, error)
-	GetProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug) (*Profile, bool, error)
+// EngineProfileStoreReader provides read operations over profile registries.
+type EngineProfileStoreReader interface {
+	ListRegistries(ctx context.Context) ([]*EngineProfileRegistry, error)
+	GetRegistry(ctx context.Context, registrySlug RegistrySlug) (*EngineProfileRegistry, bool, error)
+	ListEngineProfiles(ctx context.Context, registrySlug RegistrySlug) ([]*EngineProfile, error)
+	GetEngineProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug EngineProfileSlug) (*EngineProfile, bool, error)
 }
 
-// ProfileStoreWriter provides write operations over profile registries.
-type ProfileStoreWriter interface {
-	UpsertRegistry(ctx context.Context, registry *ProfileRegistry, opts SaveOptions) error
+// EngineProfileStoreWriter provides write operations over profile registries.
+type EngineProfileStoreWriter interface {
+	UpsertRegistry(ctx context.Context, registry *EngineProfileRegistry, opts SaveOptions) error
 	DeleteRegistry(ctx context.Context, registrySlug RegistrySlug, opts SaveOptions) error
-	UpsertProfile(ctx context.Context, registrySlug RegistrySlug, profile *Profile, opts SaveOptions) error
+	UpsertEngineProfile(ctx context.Context, registrySlug RegistrySlug, profile *EngineProfile, opts SaveOptions) error
 	Close() error
 }
 
-// ProfileStore is the primary persistence abstraction used by profile registry services.
-type ProfileStore interface {
-	ProfileStoreReader
-	ProfileStoreWriter
+// EngineProfileStore is the primary persistence abstraction used by profile registry services.
+type EngineProfileStore interface {
+	EngineProfileStoreReader
+	EngineProfileStoreWriter
 }
