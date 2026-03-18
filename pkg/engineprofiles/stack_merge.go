@@ -50,6 +50,9 @@ func mergeExtensionValue(base any, overlay any) any {
 	}
 
 	ret := deepCopyStringAnyMap(baseMap)
+	if ret == nil {
+		ret = map[string]any{}
+	}
 	for key, overlayValue := range overlayMap {
 		if existingValue, ok := ret[key]; ok {
 			ret[key] = mergeExtensionValue(existingValue, overlayValue)

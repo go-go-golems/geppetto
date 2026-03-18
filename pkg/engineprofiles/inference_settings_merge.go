@@ -17,6 +17,14 @@ func cloneInferenceSettings(in *aistepssettings.InferenceSettings) *aistepssetti
 	return in.Clone()
 }
 
+// MergeInferenceSettings overlays engine profile inference settings onto a base
+// settings object using the same merge semantics used for engine profile stack
+// resolution. Overlay wins for conflicting scalar values while nested maps merge
+// recursively.
+func MergeInferenceSettings(base *aistepssettings.InferenceSettings, overlay *aistepssettings.InferenceSettings) (*aistepssettings.InferenceSettings, error) {
+	return mergeInferenceSettings(base, overlay)
+}
+
 func mergeInferenceSettings(base *aistepssettings.InferenceSettings, overlay *aistepssettings.InferenceSettings) (*aistepssettings.InferenceSettings, error) {
 	if base == nil {
 		return cloneInferenceSettings(overlay), nil
