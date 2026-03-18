@@ -100,7 +100,7 @@ These working examples are the source of truth for patterns. Run them to see Gep
 | `runner-streaming/` | `pkg/inference/runner` async/event-sink example. |
 | `runner-registry/` | `pkg/inference/runner` example that resolves runtime prompt metadata from a profile registry. |
 | `runner-glazed-full-flags/` | `pkg/inference/runner` example driven by full Geppetto sections and Glazed parsing. |
-| `runner-glazed-registry-flags/` | `pkg/inference/runner` example driven only by Glazed profile-registry flags. |
+| `runner-glazed-registry-flags/` | `pkg/inference/runner` example where only Glazed profile-registry flags are public and base `StepSettings` stay app-owned. |
 | `advanced/generic-tool-calling/` | Provider-agnostic low-level tool calling example. |
 | `advanced/openai-tools/` | Low-level OpenAI native function-calling example. |
 | `advanced/claude-tools/` | Low-level Claude native tool_use example. |

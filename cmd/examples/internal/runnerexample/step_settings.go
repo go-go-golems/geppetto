@@ -10,8 +10,13 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
 	"github.com/go-go-golems/geppetto/pkg/profiles"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
+	"github.com/go-go-golems/glazed/pkg/cmds/sources"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
 // OpenAIStepSettingsFromEnv returns basic OpenAI-backed step settings suitable
@@ -38,6 +43,28 @@ func OpenAIStepSettingsFromEnv(model string, stream bool) (*settings.StepSetting
 	ss.API.APIKeys["openai-api-key"] = apiKey
 
 	return ss, nil
+}
+
+// BaseStepSettingsFromDefaults mirrors the Pinocchio pattern of resolving hidden
+// base settings from Geppetto sections, but only from section defaults.
+//
+// Small apps can replace this with their own hidden bootstrap from config files,
+// secrets, or deployment defaults without exposing the full Geppetto flag surface.
+func BaseStepSettingsFromDefaults() (*settings.StepSettings, error) {
+	sections_, err := geppettosections.CreateGeppettoSections()
+	if err != nil {
+		return nil, err
+	}
+	schema_ := schema.NewSchema(schema.WithSections(sections_...))
+	parsedValues := values.New()
+	if err := sources.Execute(
+		schema_,
+		parsedValues,
+		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
+	); err != nil {
+		return nil, err
+	}
+	return settings.NewStepSettingsFromParsedValues(parsedValues)
 }
 
 // ExampleProfileRegistryPath returns the bundled sample profile registry path.

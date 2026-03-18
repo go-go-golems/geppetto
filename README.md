@@ -22,7 +22,6 @@ Geppetto now uses a registry-first, profile-first runtime model:
 - runtime config is resolved from profile registries (not ad-hoc legacy profile maps),
 - registry sources are stackable (`yaml`, SQLite file, `sqlite-dsn`),
 - top-of-stack precedence is deterministic,
-- request-time overrides are policy-gated,
 - profile runtime now carries prompt/tool/middleware metadata only,
 - resolved runtime includes stack lineage/trace metadata and runtime fingerprint.
 
@@ -139,6 +138,11 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 
 All runnable examples are under `cmd/examples/`.
 See [`cmd/examples/README.md`](cmd/examples/README.md) for the simple-vs-advanced split.
+
+The two Glazed examples intentionally show different boundaries:
+
+- `runner-glazed-full-flags` exposes full Geppetto runtime sections and builds `StepSettings` directly from parsed Glazed values.
+- `runner-glazed-registry-flags` exposes only `profile` and `profile-registries`; base `StepSettings` stay app-owned and hidden, which is the preferred small-CLI pattern.
 
 ## Documentation
 

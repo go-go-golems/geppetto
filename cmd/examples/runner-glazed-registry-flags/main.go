@@ -38,7 +38,6 @@ var _ cmds.WriterCommand = (*registryFlagsCommand)(nil)
 
 type registryFlagsSettings struct {
 	Prompt            string `glazed:"prompt"`
-	Model             string `glazed:"model"`
 	Profile           string `glazed:"profile"`
 	ProfileRegistries string `glazed:"profile-registries"`
 }
@@ -67,12 +66,9 @@ func newRegistryFlagsCommand() (*registryFlagsCommand, error) {
 
 	description := cmds.NewCommandDescription(
 		"runner-glazed-registry-flags",
-		cmds.WithShort("Run inference via pkg/inference/runner with registry selection exposed through Glazed"),
+		cmds.WithShort("Run inference via pkg/inference/runner with only registry selection exposed through Glazed"),
 		cmds.WithArguments(
 			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt to run")),
-		),
-		cmds.WithFlags(
-			fields.New("model", fields.TypeString, fields.WithHelp("Model name for app-owned StepSettings"), fields.WithDefault("gpt-4o-mini")),
 		),
 		cmds.WithSections(profileSection),
 	)
@@ -89,7 +85,9 @@ func (c *registryFlagsCommand) RunIntoWriter(ctx context.Context, parsedValues *
 		return err
 	}
 
-	stepSettings, err := runnerexample.OpenAIStepSettingsFromEnv(s.Model, true)
+	// This is the small-CLI pattern: keep engine bootstrap app-owned and hidden,
+	// while exposing only profile registry selection through Glazed.
+	stepSettings, err := runnerexample.BaseStepSettingsFromDefaults()
 	if err != nil {
 		return err
 	}
