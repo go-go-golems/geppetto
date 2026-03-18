@@ -229,19 +229,3 @@ func TestNormalizeProfileExtensions_UnknownPassThroughAndDeepCopy(t *testing.T) 
 		t.Fatalf("expected original unknown payload to remain unchanged")
 	}
 }
-
-func TestNewStoreRegistry_WithExtensionCodecRegistryOption(t *testing.T) {
-	store := NewInMemoryProfileStore()
-	codecRegistry, err := NewInMemoryExtensionCodecRegistry()
-	if err != nil {
-		t.Fatalf("NewInMemoryExtensionCodecRegistry returned error: %v", err)
-	}
-
-	svc, err := NewStoreRegistry(store, MustRegistrySlug("default"), WithExtensionCodecRegistry(codecRegistry))
-	if err != nil {
-		t.Fatalf("NewStoreRegistry returned error: %v", err)
-	}
-	if svc.extensionCodecs != codecRegistry {
-		t.Fatalf("expected extension codec registry to be wired on service")
-	}
-}

@@ -16,20 +16,9 @@ var _ Registry = (*StoreRegistry)(nil)
 type StoreRegistry struct {
 	store               ProfileStore
 	defaultRegistrySlug RegistrySlug
-	extensionCodecs     ExtensionCodecRegistry
 }
 
 type StoreRegistryOption func(*StoreRegistry) error
-
-func WithExtensionCodecRegistry(registry ExtensionCodecRegistry) StoreRegistryOption {
-	return func(sr *StoreRegistry) error {
-		if sr == nil {
-			return fmt.Errorf("store registry is nil")
-		}
-		sr.extensionCodecs = registry
-		return nil
-	}
-}
 
 func NewStoreRegistry(store ProfileStore, defaultRegistrySlug RegistrySlug, options ...StoreRegistryOption) (*StoreRegistry, error) {
 	if store == nil {
