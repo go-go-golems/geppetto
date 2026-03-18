@@ -145,8 +145,9 @@ The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_AP
 
 The JS engine surface only supports explicit engine construction. The JS layer now follows the same boundary as the Go apps:
 
-- resolve profile/runtime metadata with `gp.profiles.resolve(...)`
+- resolve profile/runtime metadata with `gp.profiles.resolve(...)` when you need it
 - build engines explicitly with `gp.engines.fromConfig(...)`
+- pass the resolved profile into session assembly so Geppetto can materialize runtime metadata for execution
 
 Example:
 
@@ -160,10 +161,27 @@ const engine = gp.engines.fromConfig({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-console.log(resolved.runtimeFingerprint, engine.name);
+const registry = gp.tools.createRegistry().useGoTools(["go_concat"]);
+
+const session = gp.createSession({
+  engine,
+  resolvedProfile: resolved,
+  tools: registry,
+  toolLoop: { enabled: true, maxIterations: 3 },
+});
+
+console.log(resolved.runtimeFingerprint, session.turnCount());
 ```
 
 Provider keys must be passed explicitly to `fromConfig`. The JS helpers do not read provider credentials from process environment variables or profile registries.
+
+The important behavioral change is that callers no longer need to manually translate:
+
+- `effectiveRuntime.system_prompt` into `gp.middlewares.go("systemPrompt", ...)`
+- `effectiveRuntime.middlewares` into explicit middleware instances
+- `effectiveRuntime.tools` into a separately filtered registry
+
+Passing `resolvedProfile` into `createSession(...)`, `createBuilder(...)`, or `runInference(...)` handles that translation centrally.
 
 ## Runtime Stack Binding from JS
 
@@ -187,7 +205,7 @@ gp.profiles.disconnectStack();
 
 ## Working Directly with `gp.profiles`
 
-Use `gp.profiles` when you need registry inspection or resolution from JS:
+Use `gp.profiles` when you need registry inspection or advanced resolution from JS:
 
 ```javascript
 const gp = require("geppetto");
@@ -197,6 +215,26 @@ const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
 
 console.log(registries.map((r) => r.slug));
 console.log(resolved.runtimeFingerprint);
+```
+
+For normal execution assembly, treat `resolved` as an input object and hand it back to the module:
+
+```javascript
+const session = gp.createBuilder({
+  engine,
+  resolvedProfile: resolved,
+  tools: registry,
+}).buildSession();
+```
+
+or:
+
+```javascript
+const session = gp.createBuilder()
+  .withEngine(engine)
+  .withTools(registry, { enabled: true })
+  .useResolvedProfile(resolved)
+  .buildSession();
 ```
 
 ## Working with `gp.schemas`

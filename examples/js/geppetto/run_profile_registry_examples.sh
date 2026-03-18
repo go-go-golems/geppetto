@@ -49,5 +49,6 @@ run_script "examples/js/geppetto/16_mixed_registry_precedence.js" --profile-regi
 echo "==> Running expected error script without profile registries"
 run_script "examples/js/geppetto/18_missing_profile_registry_errors.js"
 run_script "examples/js/geppetto/19_profiles_connect_stack_runtime.js"
+run_script "examples/js/geppetto/21_resolved_profile_session.js" --profile-registries "${STACK_REGISTRIES}"
 
 echo "All geppetto JS profile/registry scripts passed."

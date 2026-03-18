@@ -121,7 +121,8 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 | `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
-Resolve runtime metadata with `gp.profiles.resolve(...)`, then build engines explicitly with `gp.engines.fromConfig(...)`.
+Build engines explicitly with `gp.engines.fromConfig(...)`.
+If you resolve a profile first, pass the resulting object into session assembly via `resolvedProfile` or `useResolvedProfile(...)` so the JS module can materialize system prompts, Go middlewares, tool filtering, and runtime metadata stamping for you.
 
 ### `fromConfig` options
 
@@ -192,6 +193,7 @@ Host requirements:
 | Method | Signature | Notes |
 |---|---|---|
 | `withEngine` | `withEngine(engine)` | Set base engine |
+| `useResolvedProfile` | `useResolvedProfile(resolvedProfile)` | Materialize resolved runtime metadata into middlewares, tool filtering, and stamped turn metadata |
 | `useMiddleware` | `useMiddleware(mw)` | Attach middleware object |
 | `useGoMiddleware` | `useGoMiddleware(name, opts?)` | Attach built-in Go middleware |
 | `withTools` | `withTools(registry, toolLoopOpts?)` | Attach tools + loop config |
@@ -201,6 +203,15 @@ Host requirements:
 | `withEventSink` | `withEventSink(eventSink)` | Append an event sink hook |
 | `withSnapshotHook` | `withSnapshotHook(snapshotHook)` | Attach a snapshot hook |
 | `buildSession` | `buildSession()` | Materialize session |
+
+`BuilderOptions` also accepts `resolvedProfile`.
+
+When `resolvedProfile` is provided:
+
+- `effectiveRuntime.system_prompt` is turned into the built-in `systemPrompt` middleware
+- `effectiveRuntime.middlewares` are materialized through configured Go middleware factories
+- `effectiveRuntime.tools` filters the execution registry and fails early if required tools are missing
+- `runtimeKey`, `runtimeFingerprint`, `profile.slug`, `profile.registry`, and `profile.version` are stamped onto appended/run seed turns as `turn.metadata.runtime`
 
 ## `events` Namespace
 

@@ -351,6 +351,7 @@ declare module "geppetto" {
 
     export interface BuilderOptions {
         engine?: Engine;
+        resolvedProfile?: ResolvedProfile;
         middlewares?: Array<MiddlewareRef | MiddlewareFn>;
         tools?: ToolRegistry;
         toolLoop?: ToolLoopSettings;
@@ -359,6 +360,7 @@ declare module "geppetto" {
 
     export interface Builder {
         withEngine(engine: Engine): Builder;
+        useResolvedProfile(profile: ResolvedProfile): Builder;
         useMiddleware(middleware: MiddlewareRef | MiddlewareFn): Builder;
         useGoMiddleware(name: string, options?: Record<string, any>): Builder;
         withTools(registry: ToolRegistry, loopSettings?: ToolLoopSettings): Builder;
