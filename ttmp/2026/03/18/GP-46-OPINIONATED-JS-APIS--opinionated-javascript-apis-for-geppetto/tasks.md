@@ -71,9 +71,9 @@
 
 ## Phase 6: Ticket Closeout
 
-- [ ] Update the GP-46 diary with implementation steps, exact commands, failures, and review notes
-- [ ] Update the GP-46 changelog with landed commits and rationale
-- [ ] Run `docmgr doc relate` for new implementation files and examples
-- [ ] Run `docmgr doctor --ticket GP-46-OPINIONATED-JS-APIS --stale-after 30`
-- [ ] Upload the refreshed GP-46 bundle to reMarkable
-- [ ] Mark the ticket complete if all slices land cleanly
+- [x] Update the GP-46 diary with implementation steps, exact commands, failures, and review notes
+- [x] Update the GP-46 changelog with landed commits and rationale
+- [x] Run `docmgr doc relate` for new implementation files and examples
+- [x] Run `docmgr doctor --ticket GP-46-OPINIONATED-JS-APIS --stale-after 30`
+- [x] Upload the refreshed GP-46 bundle to reMarkable
+- [x] Mark the ticket complete if all slices land cleanly

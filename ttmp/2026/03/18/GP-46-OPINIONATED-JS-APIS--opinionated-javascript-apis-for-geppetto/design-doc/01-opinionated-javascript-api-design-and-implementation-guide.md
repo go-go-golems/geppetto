@@ -12,10 +12,20 @@ Owners: []
 RelatedFiles:
     - Path: examples/js/geppetto/20_events_collector_sink.js
       Note: Representative current streaming example
+    - Path: examples/js/geppetto/22_runner_run.js
+      Note: Simple blocking runner example
+    - Path: examples/js/geppetto/23_runner_profile_run.js
+      Note: Profile-driven runner example
+    - Path: examples/js/geppetto/24_runner_start_handle.js
+      Note: Top-level runner.start handle example
     - Path: pkg/doc/topics/13-js-api-reference.md
-      Note: Current JS API contract documentation
+      Note: |-
+        Current JS API contract documentation
+        Reference docs now teach gp.runner as the default API
     - Path: pkg/doc/topics/14-js-api-user-guide.md
-      Note: Current user-facing JS composition guidance
+      Note: |-
+        Current user-facing JS composition guidance
+        User guide now teaches runner-first workflow
     - Path: pkg/js/modules/geppetto/api_builder_options.go
       Note: Dense low-level builder options that motivate a higher-level runner API
     - Path: pkg/js/modules/geppetto/api_engines.go
@@ -26,22 +36,29 @@ RelatedFiles:
       Note: Go and JS middleware materialization gap
     - Path: pkg/js/modules/geppetto/api_profiles.go
       Note: Profile resolution and runtime stack binding
+    - Path: pkg/js/modules/geppetto/api_runner.go
+      Note: Implementation of the new gp.runner namespace and runtime/prepared-run assembly
     - Path: pkg/js/modules/geppetto/api_sessions.go
       Note: Current session and builder assembly path
     - Path: pkg/js/modules/geppetto/api_tools_registry.go
       Note: Current tool registry behavior and future filter point
     - Path: pkg/js/modules/geppetto/module.go
-      Note: Top-level JS module exports and namespace boundaries
+      Note: |-
+        Top-level JS module exports and namespace boundaries
+        Top-level JS export surface now includes gp.runner
     - Path: pkg/js/modules/geppetto/module_test.go
       Note: Current JS module behavior coverage
     - Path: pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl
-      Note: Current generated JS typing surface
+      Note: |-
+        Current generated JS typing surface
+        TypeScript template updated with runner contracts
 ExternalSources: []
 Summary: Design-first guide for adding an additive opinionated JS runner layer above Geppetto's current low-level builder/session module.
 LastUpdated: 2026-03-18T10:30:00-04:00
 WhatFor: Explain the current JS module architecture, identify the gaps, and propose a concrete opinionated JS API with a phased implementation plan.
 WhenToUse: Use when designing or implementing a higher-level JavaScript API on top of require("geppetto").
 ---
+
 
 
 # Opinionated JavaScript API design and implementation guide

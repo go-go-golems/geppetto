@@ -292,6 +292,26 @@ This step turned the new API from “implemented” into “discoverable.” Bef
   - `runner.resolveRuntime / prepare / run / start`
 - Check that the examples line up with the documentation order and that the README points people at runner examples before the advanced builder/session examples.
 
+## Step 6: Close out the ticket
+
+This step was straightforward but important. The implementation was already done; the remaining work was to make the ticket auditable and publish the final bundle.
+
+### What I did
+- Related the new implementation files and examples to the main design doc with `docmgr doc relate`.
+- Ran `docmgr doctor --ticket GP-46-OPINIONATED-JS-APIS --stale-after 30`.
+- Uploaded the refreshed bundle to reMarkable as `GP-46 Opinionated JavaScript API Analysis v2`.
+- Marked the ticket complete in the index and task board.
+
+### Commands
+- `docmgr doc relate --doc .../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md --file-note ...`
+- `docmgr doctor --ticket GP-46-OPINIONATED-JS-APIS --stale-after 30`
+- `remarquee upload bundle <index.md> <design-doc> <diary> --name "GP-46 Opinionated JavaScript API Analysis v2" --remote-dir "/ai/2026/03/18/GP-46-OPINIONATED-JS-APIS" --toc-depth 2`
+- `remarquee cloud ls /ai/2026/03/18/GP-46-OPINIONATED-JS-APIS --long --non-interactive`
+
+### Result
+- The ticket is complete.
+- The code, examples, docs, typings, diary, and reMarkable bundle are aligned.
+
 ## Related
 
 - [../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md](../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md)

@@ -23,6 +23,7 @@
   - focused `go test` for `pkg/js/modules/geppetto` and `pkg/doc`
   - focused `golangci-lint`
   - direct `geppetto-js-lab` execution of the new runner examples
+- Related the final implementation files and examples into the ticket, ran `docmgr doctor`, uploaded the refreshed `v2` bundle to reMarkable, and marked GP-46 complete.
 - Fixed two early implementation bugs during the prepared-run slice:
   - `runner.prepare` initially panicked on missing `prompt` / `sessionId` because the code called methods on undefined goja properties without guarding them first.
   - direct `systemPrompt` on `runner.resolveRuntime(...)` initially updated only the metadata string and did not materialize the corresponding `systemPrompt` middleware, so `runner.run(...)` ignored the prompt until the helper was corrected.

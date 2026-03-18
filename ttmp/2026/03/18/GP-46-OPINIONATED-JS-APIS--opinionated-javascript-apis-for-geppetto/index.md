@@ -1,7 +1,7 @@
 ---
 Title: Opinionated JavaScript APIs for Geppetto
 Ticket: GP-46-OPINIONATED-JS-APIS
-Status: active
+Status: completed
 Topics:
     - geppetto
     - javascript
@@ -38,7 +38,7 @@ That low-level surface is appropriate for advanced hosts and deterministic test 
 
 ## Status
 
-Current status: **active**
+Current status: **completed**
 
 Implemented so far:
 
