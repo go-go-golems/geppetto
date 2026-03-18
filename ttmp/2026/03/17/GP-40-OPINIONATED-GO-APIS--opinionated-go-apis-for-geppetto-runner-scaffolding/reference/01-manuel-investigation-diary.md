@@ -526,6 +526,102 @@ I fixed both helpers by returning `echoOutput(in)` instead of rebuilding the sam
 - Additional focused lint after fixing the failed commit attempt:
   - `./.bin/golangci-lint run ./pkg/inference/runner`
 
+## Step 8: Pull middleware and engine assembly into the runner package
+
+The third implementation slice moved the core engine-composition helper into Geppetto’s new runner package. This is where the package first starts to look like a real runner rather than only a bundle of public types and tool helpers. The scope stayed intentionally narrow: direct middlewares, middleware-use resolution through `middlewarecfg`, system-prompt injection, reorder middleware insertion, and engine wrapping. It still did not include session preparation or execution flow.
+
+### Prompt Context
+
+**User prompt (verbatim):** same GP-40 implementation request as earlier steps.
+
+**Assistant interpretation:** Continue through the task board in order and keep each slice separately testable and reviewable.
+
+**Inferred user intent:** Pull the repeated runtime-composition logic down into Geppetto without dragging profile resolution or app-specific policy back into core.
+
+**Commit (code):** Pending at this diary step. This entry records the middleware and engine-assembly slice before the commit is created.
+
+### What I did
+
+- Added:
+  - `geppetto/pkg/inference/runner/middleware.go`
+  - `geppetto/pkg/inference/runner/middleware_test.go`
+- Implemented:
+  - `(*Runner).resolveMiddlewares(...)`
+  - `(*Runner).buildEngine(...)`
+  - `(*Runner).buildEngineFromBase(...)`
+- Reused the existing Geppetto pieces instead of inventing a parallel stack:
+  - `factory.NewEngineFromStepSettings(...)`
+  - `middlewarecfg.NewResolver(...)`
+  - `middlewarecfg.BuildChain(...)`
+  - `enginebuilder.Builder`
+- Preserved the Pinocchio composition policy in one central place:
+  - prepend `NewToolResultReorderMiddleware()`
+  - append the resolved direct/configured middlewares
+  - append `NewSystemPromptMiddleware(...)` when a system prompt exists
+
+### Why
+
+- This slice removes one of the main reasons apps like Pinocchio had to keep their own runtime-engine helper.
+- It also proves that the runner package can consume resolved runtime input directly without reintroducing profile-aware composition in Geppetto core.
+
+### What worked
+
+- The existing `middlewarecfg` package already had the right contracts, so the runner only needed a small fixed-payload source adapter and a lightweight config normalizer.
+- Using `enginebuilder.Builder.Build(...)` to wrap the base engine kept the composition path consistent with the rest of Geppetto.
+- The focused tests covered the two key paths:
+  - direct middleware list
+  - middleware-use resolution through a definition registry
+
+### What didn't work
+
+- The first version of the tests assumed `turns.Metadata` was a raw `map[string]any`. The build error made it clear that `turns.Metadata` is an opaque wrapper:
+
+```text
+invalid operation: t.Metadata == nil (mismatched types turns.Metadata and untyped nil)
+cannot index t.Metadata (variable of struct type turns.Metadata)
+```
+
+I fixed the tests and fake middleware by using typed turn metadata keys instead of indexing the metadata structure directly. After that adjustment, focused tests and focused lint both passed.
+
+### What I learned
+
+- The `turns.Metadata` wrapper is a good reminder that the runner package should lean on the typed key helpers instead of reaching into metadata storage directly.
+- The composition policy from `pinocchio/pkg/inference/runtime/engine.go` ports cleanly into Geppetto when the boundary is already “resolved runtime in.”
+
+### What was tricky to build
+
+- The tricky part was testing middleware behavior without requiring live provider setup or engine credentials. The underlying cause is that `factory.NewEngineFromStepSettings(...)` eventually wants real provider configuration. I avoided that by splitting the logic into `buildEngineFromBase(...)` and using a fake engine in tests, while keeping `buildEngine(...)` as the real step-settings path.
+
+### What warrants a second pair of eyes
+
+- Whether the reorder middleware should remain unconditional in the runner package or eventually become an explicit option. Right now it matches Pinocchio’s composition helper, which is probably the right default, but it is still a policy decision worth reviewing.
+
+### What should be done in the future
+
+- Commit this slice.
+- Then implement `Prepare(...)`, which is the first place the package will assemble sessions, registries, sinks, and the `enginebuilder.Builder` together.
+
+### Code review instructions
+
+- Review:
+  - `geppetto/pkg/inference/runner/middleware.go`
+  - `geppetto/pkg/inference/runner/middleware_test.go`
+- Recheck the earlier boundary and tool slices because this slice now depends on them:
+  - `geppetto/pkg/inference/runner/types.go`
+  - `geppetto/pkg/inference/runner/options.go`
+  - `geppetto/pkg/inference/runner/tools.go`
+- Validate with:
+  - `go test ./pkg/inference/runner -count=1`
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
+### Technical details
+
+- Formatting command run:
+  - `gofmt -w pkg/inference/runner/*.go`
+- Validation commands run:
+  - `go test ./pkg/inference/runner -count=1`
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
 ### Code review instructions
 
 - Review the updated sections in:

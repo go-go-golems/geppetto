@@ -58,13 +58,13 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 
 ### Slice 3: Middleware Resolution And Engine Assembly
 
-- [ ] Add `middleware.go`
-- [ ] Resolve direct `Runtime.Middlewares` first
-- [ ] Resolve `Runtime.MiddlewareUses` through `middlewarecfg` when direct middlewares are absent
-- [ ] Inject system-prompt middleware in one consistent place
-- [ ] Build the base engine from final `StepSettings`
-- [ ] Wrap the engine with the resolved middleware chain
-- [ ] Add tests covering direct middleware, middleware-use resolution, and prompt injection
+- [x] Add `middleware.go`
+- [x] Resolve direct `Runtime.Middlewares` first
+- [x] Resolve `Runtime.MiddlewareUses` through `middlewarecfg` when direct middlewares are absent
+- [x] Inject system-prompt middleware in one consistent place
+- [x] Build the base engine from final `StepSettings`
+- [x] Wrap the engine with the resolved middleware chain
+- [x] Add tests covering direct middleware, middleware-use resolution, and prompt injection
 - [ ] Commit the middleware and engine-assembly slice
 
 ### Slice 4: Prepare
