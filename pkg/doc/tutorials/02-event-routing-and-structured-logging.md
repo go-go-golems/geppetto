@@ -411,4 +411,4 @@ Now events flow through Redis and can be consumed by any connected service.
 - [Events](../topics/04-events.md) — Full events reference
 - [Streaming Tutorial](01-streaming-inference-with-tools.md) — Basic streaming
 - [Add Event Handler Playbook](../playbooks/02-add-a-new-event-handler.md) — Step-by-step guide
-- Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`
+- Example: `geppetto/cmd/examples/streaming-inference/main.go`

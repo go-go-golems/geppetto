@@ -6,7 +6,7 @@ VERSION=v0.1.14
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
 GOLANGCI_LINT_BIN ?= $(CURDIR)/.bin/golangci-lint
 GOLANGCI_LINT_ARGS ?= --timeout=5m ./cmd/... ./pkg/...
-LINT_DIRS := $(shell git ls-files '*.go' | grep -vE '(^|/)ttmp/|(^|/)testdata/' | xargs -r -n1 dirname | sed 's#^#./#' | sort -u)
+LINT_DIRS := $(shell git ls-files '*.go' | grep -vE '(^|/)ttmp/|(^|/)testdata/' | xargs -r -n1 dirname | sort -u | while read -r dir; do [ -d "$$dir" ] && printf './%s\n' "$$dir"; done)
 GOSEC_EXCLUDE_DIRS := -exclude-dir=.history -exclude-dir=testdata -exclude-dir=ttmp
 
 docker-lint:

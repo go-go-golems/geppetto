@@ -327,4 +327,4 @@ router.AddHandler("debug", "chat", router.DumpRawEvents)
 
 - [Events](../topics/04-events.md) — Full events reference
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete streaming example
-- Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`
+- Example: `geppetto/cmd/examples/streaming-inference/main.go`

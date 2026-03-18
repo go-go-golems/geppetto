@@ -725,7 +725,7 @@ Key notes:
 Example (tools):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai-responses \
   --ai-engine=o4-mini \
   --mode=tools \
@@ -736,7 +736,7 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 Example (thinking only):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai-responses \
   --ai-engine=o4-mini \
   --mode=thinking \
@@ -784,7 +784,7 @@ Turn-level note:
 Example (OpenAI Chat Completions):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai \
   --ai-engine=gpt-4o-mini \
   --ai-structured-output-mode=json_schema \
@@ -796,7 +796,7 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 Example (OpenAI Responses):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai-responses \
   --ai-engine=o4-mini \
   --ai-structured-output-mode=json_schema \
@@ -808,7 +808,7 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 Example (Claude):
 
 ```bash
-go run ./cmd/examples/claude-tools main \
+go run ./cmd/examples/advanced/claude-tools main \
   --ai-api-type=claude \
   --ai-engine=claude-sonnet-4-20250514 \
   --ai-structured-output-mode=json_schema \
@@ -977,4 +977,4 @@ The combination of engines, tool loop, factories, and middleware provides all th
 - [Middlewares](09-middlewares.md) — Adding cross-cutting behavior; see "Middleware as Composable Prompting"
 - [Structured Sinks](11-structured-sinks.md) — Extracting structured data from LLM text streams
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete working example
-- Examples: `geppetto/cmd/examples/simple-streaming-inference/`, `geppetto/cmd/examples/generic-tool-calling/`
+- Examples: `geppetto/cmd/examples/streaming-inference/`, `geppetto/cmd/examples/advanced/generic-tool-calling/`

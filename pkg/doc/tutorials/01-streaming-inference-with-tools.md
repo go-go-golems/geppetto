@@ -240,9 +240,9 @@ assistant: It’s about 22°C in Paris right now.
 - [Middlewares](../topics/09-middlewares.md) — Alternative to helper-based tool execution
 
 **Working example programs:**
-- `geppetto/cmd/examples/simple-streaming-inference/main.go`
-- `geppetto/cmd/examples/openai-tools/main.go`
-- `geppetto/cmd/examples/claude-tools/main.go`
-- `geppetto/cmd/examples/generic-tool-calling/main.go`
+- `geppetto/cmd/examples/streaming-inference/main.go`
+- `geppetto/cmd/examples/advanced/openai-tools/main.go`
+- `geppetto/cmd/examples/advanced/claude-tools/main.go`
+- `geppetto/cmd/examples/advanced/generic-tool-calling/main.go`
 
 If you need a full, copy-paste command, use the example apps above as a reference implementation and adapt the snippets here to your project structure.

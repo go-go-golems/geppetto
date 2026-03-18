@@ -114,16 +114,21 @@ References:
 
 ```bash
 # simple inference pipeline
-go run ./cmd/examples/simple-inference
+go run ./cmd/examples/inference
 
 # streaming output
-go run ./cmd/examples/simple-streaming-inference
+go run ./cmd/examples/streaming-inference
 
-# middleware + tools examples
-go run ./cmd/examples/middleware-inference
-go run ./cmd/examples/generic-tool-calling
-go run ./cmd/examples/openai-tools
-go run ./cmd/examples/claude-tools
+# opinionated runner examples
+go run ./cmd/examples/runner-simple
+go run ./cmd/examples/runner-tools
+go run ./cmd/examples/runner-streaming
+
+# advanced low-level examples
+go run ./cmd/examples/advanced/middleware-inference
+go run ./cmd/examples/advanced/generic-tool-calling
+go run ./cmd/examples/advanced/openai-tools
+go run ./cmd/examples/advanced/claude-tools
 
 # JS host harness
 go run ./cmd/examples/geppetto-js-lab --list-go-tools

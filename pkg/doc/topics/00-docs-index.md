@@ -93,14 +93,15 @@ These working examples are the source of truth for patterns. Run them to see Gep
 
 | Example | Description |
 |---------|-------------|
-| `simple-streaming-inference/` | Basic streaming inference without tools. Start here. |
+| `inference/` | Basic blocking inference without tools. |
+| `streaming-inference/` | Basic streaming inference without tools. |
 | `runner-simple/` | Smallest `pkg/inference/runner` blocking example. |
 | `runner-tools/` | `pkg/inference/runner` example with a function tool and tool-name filtering. |
 | `runner-streaming/` | `pkg/inference/runner` async/event-sink example. |
-| `generic-tool-calling/` | Provider-agnostic tool calling (works with any AI backend). |
-| `openai-tools/` | Tool calling using OpenAI's native function calling. |
-| `claude-tools/` | Tool calling using Claude's native tool_use format. |
-| `middleware-inference/` | Using middlewares for logging and tool execution. |
+| `advanced/generic-tool-calling/` | Provider-agnostic low-level tool calling example. |
+| `advanced/openai-tools/` | Low-level OpenAI native function-calling example. |
+| `advanced/claude-tools/` | Low-level Claude native tool_use example. |
+| `advanced/middleware-inference/` | Low-level middleware and tool execution example. |
 | `citations-event-stream/` | Structured data extraction from streaming output. |
 
 Find examples in: `geppetto/cmd/examples/`
