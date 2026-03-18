@@ -91,10 +91,10 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 
 ### Slice 6: First-Party Examples And Package Documentation
 
-- [ ] Add or migrate one minimal CLI example to the new runner
-- [ ] Add or migrate one tools example to the new runner
-- [ ] Add or migrate one event-driven example to the new runner
-- [ ] Update Geppetto docs so `pkg/inference/runner` is the recommended entry point for new apps
+- [x] Add or migrate one minimal CLI example to the new runner
+- [x] Add or migrate one tools example to the new runner
+- [x] Add or migrate one event-driven example to the new runner
+- [x] Update Geppetto docs so `pkg/inference/runner` is the recommended entry point for new apps
 - [ ] Commit the examples and docs slice
 
 ### Slice 7: Validation And Ticket Close-Out

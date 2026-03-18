@@ -622,6 +622,96 @@ I fixed the tests and fake middleware by using typed turn metadata keys instead 
   - `go test ./pkg/inference/runner -count=1`
   - `./.bin/golangci-lint run ./pkg/inference/runner`
 
+## Step 11: Add focused runner examples and a public docs entry
+
+With the core runner package implemented, the next important step was to make the package visible and teachable from first-party code, not only from tests and the GP-40 ticket. I deliberately did not rewrite the older large example programs in place. Instead, I added three small focused examples that each demonstrate one part of the new runner surface cleanly.
+
+### Prompt Context
+
+**User prompt (verbatim):** same GP-40 implementation request as earlier steps.
+
+**Assistant interpretation:** Finish the implementation workboard, including first-party examples and documentation updates, rather than stopping at the internal package tests.
+
+**Inferred user intent:** Make the new runner package discoverable and practical for future engineers by leaving clear examples and docs in the codebase itself.
+
+**Commit (code):** Pending at this diary step. This entry records the example/documentation slice before the commit is created.
+
+### What I did
+
+- Added a tiny shared example helper:
+  - `cmd/examples/internal/runnerexample/step_settings.go`
+- Added three focused runner examples:
+  - `cmd/examples/runner-simple/main.go`
+  - `cmd/examples/runner-tools/main.go`
+  - `cmd/examples/runner-streaming/main.go`
+- Added a new public docs page:
+  - `pkg/doc/topics/10-runner.md`
+- Updated the main docs index:
+  - `pkg/doc/topics/00-docs-index.md`
+
+### Why
+
+- The older Geppetto examples are useful, but many of them are intentionally broader than the new runner API. They are not the right place to start if the goal is “how do I use `pkg/inference/runner` in a small program?”
+- Three focused examples are enough to demonstrate the intended public story:
+  - blocking CLI-style path
+  - tools path
+  - async/event-sink path
+
+### What worked
+
+- The new examples stayed small because the runner package already absorbs most of the session and builder boilerplate.
+- The new docs page was enough to make the package visible from the docs index without reopening larger documentation systems or tutorials in this slice.
+- Focused compile/lint checks for the new examples and docs passed cleanly.
+
+### What didn't work
+
+- I accidentally ran `gofmt` against Markdown docs the first time:
+
+```text
+.../pkg/doc/topics/00-docs-index.md:1:1: expected 'package', found '--'
+.../pkg/doc/topics/10-runner.md:1:1: expected 'package', found '--'
+```
+
+That was just a bad formatting target list, not a content problem. I reran `gofmt` only on Go files, then finished the intended `go test` and `golangci-lint` checks.
+
+### What I learned
+
+- Adding new focused examples is a better first move than refactoring the older heavyweight demos. It gives the new package a crisp public story without conflating runner adoption with broader example cleanup.
+
+### What was tricky to build
+
+- The tricky part was deciding whether the docs slice should be a full tutorial rewrite or a smaller docs-index update. The underlying issue is that Geppetto already has a lot of tutorial material. I chose the smaller, clearer path: one dedicated runner topic plus index updates, and leave larger tutorial rewrites for later if needed.
+
+### What warrants a second pair of eyes
+
+- Whether the new runner examples should eventually replace the older `simple-inference` and `simple-streaming-inference` examples as the main “start here” demos, or simply live alongside them.
+
+### What should be done in the future
+
+- Commit this slice.
+- Then run the full ticket close-out validation: docs doctor, task-board completion, and a refreshed reMarkable upload if desired.
+
+### Code review instructions
+
+- Review:
+  - `cmd/examples/internal/runnerexample/step_settings.go`
+  - `cmd/examples/runner-simple/main.go`
+  - `cmd/examples/runner-tools/main.go`
+  - `cmd/examples/runner-streaming/main.go`
+  - `pkg/doc/topics/10-runner.md`
+  - `pkg/doc/topics/00-docs-index.md`
+- Validate with:
+  - `go test ./cmd/examples/runner-simple ./cmd/examples/runner-tools ./cmd/examples/runner-streaming ./cmd/examples/internal/runnerexample ./pkg/doc -count=1`
+  - `./.bin/golangci-lint run ./cmd/examples/runner-simple ./cmd/examples/runner-tools ./cmd/examples/runner-streaming ./cmd/examples/internal/runnerexample ./pkg/doc`
+
+### Technical details
+
+- Formatting command run:
+  - `gofmt -w cmd/examples/internal/runnerexample/step_settings.go cmd/examples/runner-simple/main.go cmd/examples/runner-tools/main.go cmd/examples/runner-streaming/main.go`
+- Validation commands run:
+  - `go test ./cmd/examples/runner-simple ./cmd/examples/runner-tools ./cmd/examples/runner-streaming ./cmd/examples/internal/runnerexample ./pkg/doc -count=1`
+  - `./.bin/golangci-lint run ./cmd/examples/runner-simple ./cmd/examples/runner-tools ./cmd/examples/runner-streaming ./cmd/examples/internal/runnerexample ./pkg/doc`
+
 ## Step 9: Add `Prepare(...)` and make the runner assemble real sessions
 
 The fourth implementation slice added `Prepare(...)`, which is the first point where the new package becomes practically useful for applications. Before this slice, the runner package could describe runtime input, register tools, and wrap an engine with middleware, but it still did not assemble a usable session. `Prepare(...)` closes that gap by building the session, attaching the standard `enginebuilder.Builder`, wiring sinks and persistence hooks, and seeding the first turn.
