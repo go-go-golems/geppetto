@@ -38,8 +38,6 @@ type sourceOwner struct {
 // It resolves profile slugs by stack precedence when no explicit registry is provided.
 type ChainedRegistry struct {
 	aggregate           *StoreRegistry
-	aggregateStore      *InMemoryProfileStore
-	registryOwners      map[RegistrySlug]*sourceOwner
 	precedenceTopFirst  []RegistrySlug
 	defaultRegistrySlug RegistrySlug
 	sources             []*sourceOwner
@@ -154,8 +152,6 @@ func NewChainedRegistryFromSourceSpecs(ctx context.Context, specs []RegistrySour
 
 	return &ChainedRegistry{
 		aggregate:           aggregate,
-		aggregateStore:      aggregateStore,
-		registryOwners:      ownerByRegistry,
 		precedenceTopFirst:  precedenceTopFirst,
 		defaultRegistrySlug: defaultRegistrySlug,
 		sources:             owners,
