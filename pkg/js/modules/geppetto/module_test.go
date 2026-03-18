@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
@@ -817,6 +818,116 @@ func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 	`)
 }
 
+func TestResolvedProfileMaterializesMiddlewareAndRuntimeMetadata(t *testing.T) {
+	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+		GoMiddlewareFactories: map[string]MiddlewareFactory{
+			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
+				marker := toString(options["marker"], "")
+				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+					return func(ctx context.Context, turn *turns.Turn) (*turns.Turn, error) {
+						if turn == nil {
+							turn = &turns.Turn{}
+						}
+						if err := profileMarkerKey.Set(&turn.Metadata, marker); err != nil {
+							return nil, err
+						}
+						return next(ctx, turn)
+					}
+				}, nil
+			},
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "search",
+			description: "search tool",
+			handler: () => ({ ok: true }),
+		});
+
+		const session = gp.createBuilder()
+			.withEngine(gp.engines.fromFunction((turn) => {
+				const runtime = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							profileMarker: turn.metadata["test.profile_marker@v1"],
+							runtimeKey: runtime.runtime_key,
+							runtimeFingerprint: runtime.runtime_fingerprint,
+							profileSlug: runtime["profile.slug"],
+							registrySlug: runtime["profile.registry"],
+							profileVersion: runtime["profile.version"],
+						}))
+					]
+				});
+			}))
+			.withTools(reg, { enabled: true, maxIterations: 2 })
+			.useResolvedProfile(resolved)
+			.buildSession();
+
+		const out = session.run(gp.turns.newTurn({
+			blocks: [gp.turns.newUserBlock("hello")]
+		}));
+		const payload = JSON.parse(out.blocks[0].payload.text);
+		if (payload.firstKind !== "system") throw new Error("system prompt middleware did not prepend system block");
+		if (payload.firstText !== "explicit prompt") throw new Error("system prompt text mismatch");
+		if (payload.profileMarker !== "profile-applied") throw new Error("profile middleware did not materialize");
+		if (payload.runtimeKey !== "explicit-model") throw new Error("runtime key not stamped");
+		if (typeof payload.runtimeFingerprint !== "string" || payload.runtimeFingerprint.length < 8) {
+			throw new Error("runtime fingerprint not stamped");
+		}
+		if (payload.profileSlug !== "explicit-model") throw new Error("profile slug not stamped");
+		if (payload.registrySlug !== "default") throw new Error("registry slug not stamped");
+		if (payload.profileVersion !== 7) throw new Error("profile version not stamped");
+	`)
+}
+
+func TestResolvedProfileFiltersExecutionRegistry(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+		GoMiddlewareFactories: map[string]MiddlewareFactory{
+			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
+				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+					return next
+				}, nil
+			},
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "blocked",
+			description: "blocked tool",
+			handler: () => ({ ok: true }),
+		});
+
+		let blocked = false;
+		try {
+			gp.createSession({
+				engine: gp.engines.echo({ reply: "ok" }),
+				resolvedProfile: resolved,
+				tools: reg,
+				toolLoop: { enabled: true, maxIterations: 2, toolErrorHandling: "abort" },
+			});
+		} catch (e) {
+			blocked = /search/.test(String(e)) && /registry/i.test(String(e));
+		}
+		if (!blocked) throw new Error("resolved profile tool filter should validate runtime.tools against the execution registry");
+	`)
+}
+
 func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "base.yaml")
@@ -1292,8 +1403,13 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 				Slug: gepprofiles.MustProfileSlug("explicit-model"),
 				Runtime: gepprofiles.RuntimeSpec{
 					SystemPrompt: "explicit prompt",
-					Tools:        []string{"search"},
+					Middlewares: []gepprofiles.MiddlewareUse{{
+						Name:   "profileMarker",
+						Config: map[string]any{"marker": "profile-applied"},
+					}},
+					Tools: []string{"search"},
 				},
+				Metadata: gepprofiles.ProfileMetadata{Version: 7},
 			},
 			gepprofiles.MustProfileSlug("claude-no-base-url"): {
 				Slug: gepprofiles.MustProfileSlug("claude-no-base-url"),

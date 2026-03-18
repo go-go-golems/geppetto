@@ -122,6 +122,19 @@ func (m *moduleRuntime) newBuilderObject(b *builderRef) goja.Value {
 		b.middlewares = append(b.middlewares, mw)
 		return o
 	})
+	m.mustSet(o, "useResolvedProfile", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
+			panic(m.vm.NewTypeError("useResolvedProfile requires resolved profile argument"))
+		}
+		resolved, err := m.requireResolvedProfile(call.Arguments[0])
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		if err := m.applyResolvedProfile(b, resolved); err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		return o
+	})
 	m.mustSet(o, "withTools", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
 			panic(m.vm.NewTypeError("withTools requires registry argument"))
@@ -209,14 +222,18 @@ func (b *builderRef) buildSession() (*sessionRef, error) {
 	if b.base == nil {
 		return nil, fmt.Errorf("builder has no engine configured")
 	}
+	registry, err := materializeToolRegistry(b.registry, b.runtimeToolNames)
+	if err != nil {
+		return nil, err
+	}
 	opts := []enginebuilder.Option{
 		enginebuilder.WithBase(b.base),
 	}
 	if len(b.middlewares) > 0 {
 		opts = append(opts, enginebuilder.WithMiddlewares(b.middlewares...))
 	}
-	if b.registry != nil {
-		opts = append(opts, enginebuilder.WithToolRegistry(b.registry))
+	if registry != nil {
+		opts = append(opts, enginebuilder.WithToolRegistry(registry))
 	}
 	if b.loopCfg != nil {
 		opts = append(opts, enginebuilder.WithLoopConfig(*b.loopCfg))
@@ -239,8 +256,9 @@ func (b *builderRef) buildSession() (*sessionRef, error) {
 	s := session.NewSession()
 	s.Builder = enginebuilder.New(opts...)
 	return &sessionRef{
-		api:     b.api,
-		session: s,
+		api:             b.api,
+		session:         s,
+		runtimeMetadata: cloneJSONMap(b.runtimeMetadata),
 	}, nil
 }
 
@@ -294,6 +312,7 @@ func (m *moduleRuntime) newSessionObject(sr *sessionRef) goja.Value {
 		if err != nil {
 			panic(m.vm.NewGoError(err))
 		}
+		stampTurnRuntimeMetadata(t, sr.runtimeMetadata)
 		sr.session.Append(t)
 		v, err := m.encodeTurnValue(t)
 		if err != nil {
@@ -428,6 +447,7 @@ func (m *moduleRuntime) newSessionObject(sr *sessionRef) goja.Value {
 
 func (sr *sessionRef) runSync(seed *turns.Turn, opts runOptions) (*turns.Turn, error) {
 	if seed != nil {
+		stampTurnRuntimeMetadata(seed, sr.runtimeMetadata)
 		sr.session.Append(seed)
 	}
 	ctx, cancel, err := sr.buildRunContext(opts)
@@ -515,6 +535,7 @@ func (sr *sessionRef) start(seed *turns.Turn, opts runOptions) goja.Value {
 
 	go func() {
 		if seed != nil {
+			stampTurnRuntimeMetadata(seed, sr.runtimeMetadata)
 			sr.session.Append(seed)
 		}
 		ctx, cancel, err := sr.buildRunContext(opts)

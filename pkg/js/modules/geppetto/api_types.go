@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -29,19 +30,22 @@ type builderRef struct {
 	base        engine.Engine
 	middlewares []middleware.Middleware
 
-	registry     tools.ToolRegistry
-	loopCfg      *toolloop.LoopConfig
-	toolCfg      *tools.ToolConfig
-	toolExecutor tools.ToolExecutor
-	toolHooks    *jsToolHooks
-	eventSinks   []events.EventSink
-	snapshotHook toolloop.SnapshotHook
-	persister    enginebuilder.TurnPersister
+	registry         tools.ToolRegistry
+	runtimeToolNames []string
+	runtimeMetadata  map[string]any
+	loopCfg          *toolloop.LoopConfig
+	toolCfg          *tools.ToolConfig
+	toolExecutor     tools.ToolExecutor
+	toolHooks        *jsToolHooks
+	eventSinks       []events.EventSink
+	snapshotHook     toolloop.SnapshotHook
+	persister        enginebuilder.TurnPersister
 }
 
 type sessionRef struct {
-	api     *moduleRuntime
-	session *session.Session
+	api             *moduleRuntime
+	session         *session.Session
+	runtimeMetadata map[string]any
 }
 
 type runOptions struct {
@@ -65,6 +69,10 @@ type jsMiddlewareRef struct {
 type goMiddlewareRef struct {
 	Name    string
 	Options map[string]any
+}
+
+type resolvedProfileRef struct {
+	Resolved *profiles.ResolvedProfile
 }
 
 type toolRegistryRef struct {

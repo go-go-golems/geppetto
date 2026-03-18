@@ -32,23 +32,6 @@ func parseRequiredProfileSlug(raw any, field string) (profiles.ProfileSlug, erro
 	return profiles.ParseProfileSlug(rawSlug)
 }
 
-func encodeResolvedProfile(resolved *profiles.ResolvedProfile) map[string]any {
-	if resolved == nil {
-		return nil
-	}
-	out := map[string]any{
-		"registrySlug":       resolved.RegistrySlug.String(),
-		"profileSlug":        resolved.ProfileSlug.String(),
-		"runtimeKey":         resolved.RuntimeKey.String(),
-		"runtimeFingerprint": resolved.RuntimeFingerprint,
-		"effectiveRuntime":   cloneJSONValue(resolved.EffectiveRuntime),
-	}
-	if len(resolved.Metadata) > 0 {
-		out["metadata"] = cloneJSONMap(resolved.Metadata)
-	}
-	return out
-}
-
 func (m *moduleRuntime) profilesListRegistries(call goja.FunctionCall) goja.Value {
 	registry, err := m.requireProfileRegistryReader("profiles.listRegistries")
 	if err != nil {
@@ -162,7 +145,7 @@ func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
-	return m.toJSValue(encodeResolvedProfile(resolved))
+	return m.newResolvedProfileObject(resolved)
 }
 
 func decodeProfileRegistrySources(raw any) ([]string, error) {
