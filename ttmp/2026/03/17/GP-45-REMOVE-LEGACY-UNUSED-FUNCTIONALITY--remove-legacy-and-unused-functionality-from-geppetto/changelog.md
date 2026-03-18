@@ -44,6 +44,9 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
 - Landed `geppetto` `70aa268` `remove dead store registry codec hook`:
   - removed the unused `StoreRegistry.extensionCodecs` field and `WithExtensionCodecRegistry(...)` option,
   - removed the now-dead test that only asserted service-level codec wiring.
+- Landed `geppetto` `a68c313` `remove dead normalize profile extensions helper`:
+  - removed `NormalizeProfileExtensions(...)` from `pkg/profiles/extensions.go`,
+  - removed the dedicated tests that only exercised that dead normalization/codec-decode path.
 - Confirmed that the inference/runtime metadata compatibility paths are not dead yet:
   - `MirrorLegacyInferenceKeys` is still part of active engine persistence flow,
   - `AddRuntimeAttributionToExtra` is still used by provider engines,

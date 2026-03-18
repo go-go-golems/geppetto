@@ -33,7 +33,7 @@ RelatedFiles:
         Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T01:49:00-04:00
+LastUpdated: 2026-03-18T01:56:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -608,3 +608,75 @@ The tricky part was resisting the temptation to delete more than the evidence su
 
 - The service-layer extension codec hook is now gone.
 - The live extension schema path still depends on `ExtensionCodecLister`, not on `StoreRegistry`.
+
+## Step 7: Delete the dead NormalizeProfileExtensions helper instead of keeping a private codec-decode path alive
+
+After removing the service-level extension codec hook, the next obvious dead piece was `NormalizeProfileExtensions(...)`. A repo-wide search showed it had no remaining live callers at all. The only references left were the function itself and its dedicated tests. That made it a clean GP-45 hard cut.
+
+I deliberately did not widen this into a full extension-interface redesign. The codec registry and `ExtensionCodecLister` path are still used by schema listing in Pinocchio and the JS module. The dead helper was the right deletion boundary here.
+
+### Prompt Context
+
+**User prompt (verbatim):** "kill it."
+
+**Assistant interpretation:** Remove `NormalizeProfileExtensions(...)` completely rather than leaving it as dead utility code.
+
+**Inferred user intent:** Keep stripping obviously unused profile machinery instead of preserving helpers that no longer participate in any runtime flow.
+
+**Commit (code):** `a68c313` — `remove dead normalize profile extensions helper`
+
+### What I did
+
+- Verified that `NormalizeProfileExtensions(...)` had no live callers outside its own tests.
+- Removed the helper from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions.go`
+- Removed the dedicated tests that only exercised that helper from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions_test.go`
+- Left the broader codec-registry interface alone for now, because Pinocchio still has a test shape representing a registry without lister support.
+- Validated with:
+
+```bash
+cd geppetto && go test ./pkg/profiles -count=1
+cd geppetto && ./.bin/golangci-lint run ./pkg/profiles
+```
+
+### Why
+
+- Dead utility functions create false architectural weight and invite future callers to rebuild abandoned flows.
+- This helper no longer participated in profile resolution, validation, or schema serving.
+
+### What worked
+
+- The removal stayed local to `pkg/profiles`.
+- Focused tests and lint passed immediately after deletion.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The extension subsystem still needs a narrower follow-up review, but dead helper functions inside it can be removed independently.
+
+### What was tricky to build
+
+The tricky part was deciding whether to also remove the codec `Lookup(...)` path at the same time. I chose not to, because the current `ExtensionCodecRegistry` type is still used as a shape boundary in live code and tests, even if one of its methods is now suspicious. Removing the dead helper first keeps the cut small and reviewable.
+
+### What warrants a second pair of eyes
+
+- Whether the remaining `Lookup(...)` method should also be removed in the next extension-focused slice.
+
+### What should be done in the future
+
+- Revisit the extension codec interfaces with the narrower question: do we still need a decode-oriented registry at all, or only a lister/schema surface?
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions_test.go`
+- Validate with the commands shown above.
+
+### Technical details
+
+- This slice removes only the dead normalization helper and its tests; it does not change schema listing behavior.
