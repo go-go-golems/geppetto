@@ -71,7 +71,7 @@ defer rt.Close(context.Background())
 | `consts` | namespace | Generated string constants (tool loop, block kinds, keys, event types) |
 | `turns` | namespace | Turn and block helpers |
 | `engines` | namespace | Engine constructors |
-| `profiles` | namespace | Profile registry read/resolve/CRUD API |
+| `profiles` | namespace | Profile registry read/resolve API |
 | `schemas` | namespace | Middleware/extension schema catalog API |
 | `middlewares` | namespace | Middleware adapters |
 | `events` | namespace | Event sink helpers |
@@ -273,7 +273,6 @@ JS tool spec fields:
 | `toolChoice` | string | `auto` / `none` / `required` (or `gp.consts.ToolChoice.*`) |
 | `maxParallelTools` | number | Max parallel tool calls |
 | `executionTimeoutMs` | number | Per-tool timeout |
-| `allowedTools` | string[] | Tool allowlist |
 | `toolErrorHandling` | string | `continue` / `abort` / `retry` (or `gp.consts.ToolErrorHandling.*`) |
 | `retryMaxRetries` | number | Retry count |
 | `retryBackoffMs` | number | Retry backoff base |

@@ -1,7 +1,7 @@
 ---
 Title: "Operate SQLite-backed profile registry"
 Slug: operate-sqlite-profile-registry
-Short: Runbook for operating, backing up, and recovering SQLite-backed profile registry storage.
+Short: Runbook for operating, inspecting, backing up, and recovering SQLite-backed profile registry storage.
 Topics:
   - profiles
   - persistence
@@ -20,11 +20,11 @@ SectionType: Playbook
 
 ## Goal
 
-Run pinocchio/geppetto apps with durable SQLite profile registry storage, verify schema discovery endpoints, and keep safe backup/recovery procedures for profile mutations.
+Run pinocchio/geppetto apps with durable SQLite profile registry storage, verify read and schema discovery endpoints, and keep safe backup/recovery procedures.
 
 ## Before you start
 
-- Confirm your server is wired to registry CRUD handlers (`/api/chat/profiles...`).
+- Confirm your server is wired to profile registry read endpoints (`/api/chat/profiles...`).
 - Decide whether you configure by SQLite file path (`--profile-registries ./data/profiles.db`) or explicit DSN source entry (`--profile-registries sqlite-dsn:<dsn>`).
 - Ensure only the service account can write the DB file and backup artifacts.
 
@@ -75,46 +75,29 @@ Expected:
 - middleware schema items expose `name`, `version`, `display_name`, `description`, and `schema`,
 - extension schema keys use typed-key format (for example `middleware.agentmode_config@v1`).
 
-## Step 3: Validate write-time middleware checks
+## Step 3: Inspect middleware and extension schema shape
 
-Unknown middleware names should hard-fail:
+Middleware config is described through the schema endpoints, even when the app keeps registries read-only.
 
-```bash
-curl -s -X POST http://localhost:8080/api/chat/profiles \
-  -H 'content-type: application/json' \
-  -d '{"slug":"bad-mw","runtime":{"middlewares":[{"name":"does_not_exist"}]}}'
-```
-
-Expect HTTP `400` with a `validation error` mentioning `runtime.middlewares[0].name`.
-
-Schema-invalid middleware payloads should also hard-fail:
+Quick middleware schema check:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/chat/profiles \
-  -H 'content-type: application/json' \
-  -d '{"slug":"bad-config","runtime":{"middlewares":[{"name":"agentmode","config":{"unknown":"x"}}]}}'
+curl -s http://localhost:8080/api/chat/schemas/middlewares \
+  | jq '.[] | select(.name == "agentmode") | {name,version,schema}'
 ```
 
-Expect HTTP `400` with a `validation error` mentioning `runtime.middlewares[0].config`.
-
-## Step 3b: Verify typed-key middleware payload write shape (hard cutover)
-
-Middleware config is persisted in profile `extensions` under middleware typed keys.
-There is no migration command or fallback route in this flow.
+Quick extension schema check:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/chat/profiles \
-  -H 'content-type: application/json' \
-  -d '{
-    "slug":"analyst",
-    "runtime":{"middlewares":[{"name":"agentmode","id":"default","enabled":true}]},
-    "extensions":{
-      "middleware.agentmode_config@v1":{
-        "instances":{"id:default":{"default_mode":"financial_analyst"}}
-      }
-    }
-  }' | jq .
+curl -s http://localhost:8080/api/chat/schemas/extensions \
+  | jq 'map(select(.key | startswith("middleware.")))'
 ```
+
+Expected:
+
+- middleware schema entries describe the runtime middleware contract,
+- extension schema keys use typed-key format such as `middleware.agentmode_config@v1`,
+- applications that allow editing can validate payloads against these schemas before persistence.
 
 ## Step 4: Back up before risky changes
 
@@ -147,13 +130,12 @@ cp ./data/profiles.db.bak.20260223-220000 ./data/profiles.db
 
 - `GET /api/chat/profiles` returns expected slugs/default.
 - `GET /api/chat/schemas/middlewares` and `GET /api/chat/schemas/extensions` return expected schema catalogs.
-- `PATCH /api/chat/profiles/{slug}` with stale `expected_version` still returns `409`.
-- Chat requests using explicit `profile` or `registrySlug` still resolve correctly.
+- Chat requests using explicit `profile` still resolve correctly.
 
 ## Security and permissions
 
 - Restrict DB file write permission to the app service user.
-- Treat DB backups as sensitive artifacts because prompts/policy can include internal instructions.
+- Treat DB backups as sensitive artifacts because prompts and runtime metadata can include internal instructions.
 - Keep retention bounded and documented.
 
 ## Troubleshooting
@@ -164,8 +146,7 @@ cp ./data/profiles.db.bak.20260223-220000 ./data/profiles.db
 | writes fail with busy/lock errors | concurrent writers and missing timeout/WAL settings | use DSN with WAL + busy timeout and avoid external long-running transactions |
 | restored DB loads but profiles seem stale | restored snapshot older than expected | verify backup timestamp and repeat restore with newer snapshot |
 | API returns 500 after restore | payload/schema corruption in DB row | inspect `payload_json`, restore cleaner snapshot, then reapply desired changes |
-| `validation error (runtime.middlewares[*].name)` on create/update | middleware name not registered in app runtime | check middleware definition registry wiring at server bootstrap |
-| `validation error (runtime.middlewares[*].config)` on create/update | config payload does not satisfy middleware schema | fetch schema from `/api/chat/schemas/middlewares` and correct payload |
+| middleware schemas endpoint unexpectedly empty | app did not register middleware definitions or extension codecs | check runtime bootstrap wiring for schema catalogs |
 
 ## See Also
 

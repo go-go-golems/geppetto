@@ -180,7 +180,7 @@ Examples:
 - `webchat.starter_suggestions@v1`
 - `inventory.starter_suggestions@v1`
 
-Keys are normalized and validated; malformed keys fail profile create/update.
+Keys are normalized and validated; malformed keys fail profile construction or app-side validation.
 
 ## Middleware Config Ownership and Validation Timing
 
@@ -219,7 +219,7 @@ Precedence remains:
 
 **flags > env > config > profiles > defaults**
 
-Profile-first selection is the recommended path. Direct engine/provider flags (`--ai-engine`, `--ai-api-type`) are migration escape hatches, not the default operator workflow.
+Profile-first selection is the recommended path. Direct engine/provider flags (`--ai-engine`, `--ai-api-type`) are advanced overrides and not the default operator workflow.
 
 Registry-backed middleware resolution is now the only path; there is no environment toggle for legacy middleware switching.
 
@@ -231,7 +231,6 @@ Use this baseline in apps:
 2. Build a `profiles.Registry` service.
 3. Resolve request profile selection through the service.
 4. Feed resolved runtime and profile version into runtime composition.
-5. Optionally mount profile CRUD HTTP endpoints.
 
 This keeps profile logic centralized and avoids app-specific shadow profile structures.
 
@@ -290,7 +289,7 @@ For extension discovery, the merge order is deterministic:
    - `ExtensionCodecLister` (registry supports listing codecs),
    - `ExtensionSchemaCodec` (codec exposes `JSONSchema()`).
 
-This keeps the endpoint extensible without hardcoding all extension keys in app code. Profile mutations still go through profile CRUD endpoints.
+This keeps the endpoint extensible without hardcoding all extension keys in app code.
 
 ## Typed-Key Middleware Config Examples
 
@@ -340,8 +339,6 @@ extensions:
 |---|---|---|
 | `profile not found` | Unknown slug or wrong registry | Verify selected profile and registry slugs; check default profile on registry |
 | `registry not found` | Store missing bootstrap registry | Ensure bootstrap upsert runs before service start |
-| policy violation on update/delete | Profile is read-only or blocked by policy | Adjust policy intentionally or mutate a writable profile |
-| stale update conflict | `expected_version` does not match latest | Re-fetch profile, then retry update with current version |
 | `validation error (runtime.middlewares[*].name)` | Unknown middleware definition | Fix middleware name or register definition in application runtime |
 | `validation error (runtime.middlewares[*].config)` | Middleware payload fails schema validation | Correct payload shape/types based on middleware schema endpoint |
 | runtime did not switch after profile change | Resolver/composer not using profile version/fingerprint inputs | Ensure request plan includes `ProfileVersion` and runtime composer fingerprint includes version-sensitive inputs |

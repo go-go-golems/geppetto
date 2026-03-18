@@ -290,7 +290,6 @@ declare module "geppetto" {
         retryMaxRetries?: number;
         retryBackoffMs?: number;
         retryBackoffFactor?: number;
-        allowedTools?: string[];
         hooks?: ToolHooks;
     }
 

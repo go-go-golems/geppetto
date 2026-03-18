@@ -309,7 +309,7 @@ Important behavior:
 - extension schema discovery can include middleware-derived keys and codec-discovered keys,
 - explicit app-provided extension schemas win on duplicate keys.
 
-Frontend editors can use these endpoints to build profile forms and validate payloads before sending CRUD writes.
+Frontend editors can use these endpoints to build profile forms and validate payloads before app-owned persistence or registry export/import flows.
 
 ---
 
