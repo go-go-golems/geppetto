@@ -67,7 +67,8 @@ type Runner struct {
 	loopConfig toolloop.LoopConfig
 	toolConfig geptools.ToolConfig
 
-	toolExecutor geptools.ToolExecutor
+	toolExecutor   geptools.ToolExecutor
+	toolRegistrars []ToolRegistrar
 
 	eventSinks       []events.EventSink
 	snapshotHook     toolloop.SnapshotHook

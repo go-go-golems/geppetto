@@ -49,11 +49,11 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 
 ### Slice 2: Tool Registration Helpers
 
-- [ ] Add `tools.go`
-- [ ] Implement `FuncTool(...)` and `MustFuncTool(...)`
-- [ ] Implement registry construction from tool registrars
-- [ ] Implement registry filtering from `Runtime.ToolNames`
-- [ ] Add tests covering nil registrars, duplicate tools, and name filtering
+- [x] Add `tools.go`
+- [x] Implement `FuncTool(...)` and `MustFuncTool(...)`
+- [x] Implement registry construction from tool registrars
+- [x] Implement registry filtering from `Runtime.ToolNames`
+- [x] Add tests covering nil registrars, duplicate tools, and name filtering
 - [ ] Commit the tool-registration slice
 
 ### Slice 3: Middleware Resolution And Engine Assembly

@@ -57,6 +57,16 @@ func WithToolExecutor(exec geptools.ToolExecutor) Option {
 	}
 }
 
+func WithToolRegistrars(registrars ...ToolRegistrar) Option {
+	return func(r *Runner) {
+		r.toolRegistrars = append(r.toolRegistrars, registrars...)
+	}
+}
+
+func WithFuncTool(name, description string, fn any) Option {
+	return WithToolRegistrars(FuncTool(name, description, fn))
+}
+
 func WithEventSinks(sinks ...events.EventSink) Option {
 	return func(r *Runner) {
 		r.eventSinks = append(r.eventSinks, sinks...)

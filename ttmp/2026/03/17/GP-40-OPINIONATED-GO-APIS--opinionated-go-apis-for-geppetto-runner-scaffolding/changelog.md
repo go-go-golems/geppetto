@@ -13,4 +13,5 @@
 - Added a concrete package-level implementation plan for `pkg/inference/runner`, including a phased build sequence, public API boundary, package layout, test plan, and recommended commit order.
 - Replaced the old retrospective task checklist with a live implementation workboard that can track the runner build slice by slice.
 - Added the initial `pkg/inference/runner` package skeleton with public runtime/request/result types, constructor options, package docs, and package-scoped validation errors.
+- Added the first behavior slice for the runner package: function-tool registration helpers, runner-level default tool registrars, registry construction, registry filtering, and focused tests for the new helpers.
 - Validated the authored docs, related key evidence files, and uploaded the final bundle to reMarkable

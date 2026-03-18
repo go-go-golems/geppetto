@@ -439,6 +439,93 @@ With the implementation plan and workboard in place, I started the actual code w
 - Formatting command run:
   - `gofmt -w pkg/inference/runner/*.go`
 
+## Step 7: Add ergonomic tool registration and registry filtering
+
+The second implementation slice added the first real behavior to the runner package: a better tool-registration path. This slice matters because most of the value of the opinionated API disappears if every caller still has to manually create a registry, translate functions to `ToolDefinition`, register them one by one, and then write a separate allowlist/filter step by hand.
+
+### Prompt Context
+
+**User prompt (verbatim):** same GP-40 implementation request as Step 6.
+
+**Assistant interpretation:** Continue through the task board in order, keep the slice reviewable, and update the ticket as the implementation progresses.
+
+**Inferred user intent:** Build the runner as a sequence of small, coherent commits rather than as one large feature branch.
+
+**Commit (code):** Pending at this diary step. This entry records the second code slice before the commit is created.
+
+### What I did
+
+- Added `geppetto/pkg/inference/runner/tools.go`
+- Implemented:
+  - `FuncTool(...)`
+  - `MustFuncTool(...)`
+  - `WithToolRegistrars(...)`
+  - `WithFuncTool(...)`
+  - `buildRegistry(...)`
+  - `filterRegistry(...)`
+- Extended `Runner` so it can carry default tool registrars added through options.
+- Added focused tests in:
+  - `geppetto/pkg/inference/runner/tools_test.go`
+
+### Why
+
+- Tool registration is one of the clearest sources of repeated boilerplate in existing Geppetto callers.
+- The package needed a simple way to say "this Go function should become a tool" without forcing every application to repeat `NewToolFromFunc(...)` and `RegisterTool(...)`.
+- Registry filtering belongs in this layer because it is the bridge between app-owned tool selection and Geppetto’s existing tool-loop machinery.
+
+### What worked
+
+- The existing `tools.NewToolFromFunc(...)` helper made the runner-side `FuncTool(...)` wrapper very small.
+- The registry model in `pkg/inference/tools` was already clean enough that the runner could build on it without additional abstractions.
+- Focused tests were enough to lock down the expected behavior of the new helpers before any session or engine work landed.
+
+### What didn't work
+
+- The first commit attempt for this slice failed in `golangci-lint` because `staticcheck` flagged two test helpers for redundant struct literals:
+
+```text
+pkg/inference/runner/tools_test.go:18:9: S1016: should convert in (type echoInput) to echoOutput instead of using struct literal
+pkg/inference/runner/tools_test.go:22:9: S1016: should convert in (type echoInput) to echoOutput instead of using struct literal
+```
+
+I fixed both helpers by returning `echoOutput(in)` instead of rebuilding the same fields manually, then reran focused lint and tests successfully.
+
+### What I learned
+
+- A runner-level `WithToolRegistrars(...)` option is useful even before `Prepare(...)` exists. It gives the package a clean split between runner defaults and per-runtime tool lists.
+
+### What was tricky to build
+
+- The subtle part was deciding what `buildRegistry(...)` should return when no tools are configured. The underlying issue is that `enginebuilder.Builder` uses `nil` registry as the signal for single-pass inference. I kept that behavior: no tool registrars means `nil` registry, not an empty registry object.
+
+### What warrants a second pair of eyes
+
+- Whether later execution slices should merge runner-level default registrars and runtime-request registrars in that exact order, or whether runtime-request registrars should replace runner defaults when present.
+
+### What should be done in the future
+
+- Commit this tool-registration slice.
+- Then implement middleware resolution and engine assembly.
+
+### Code review instructions
+
+- Review:
+  - `geppetto/pkg/inference/runner/tools.go`
+  - `geppetto/pkg/inference/runner/tools_test.go`
+  - `geppetto/pkg/inference/runner/options.go`
+  - `geppetto/pkg/inference/runner/types.go`
+- Validate with:
+  - `go test ./pkg/inference/runner -count=1`
+
+### Technical details
+
+- Formatting command run:
+  - `gofmt -w pkg/inference/runner/*.go`
+- Validation command run:
+  - `go test ./pkg/inference/runner -count=1`
+- Additional focused lint after fixing the failed commit attempt:
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
 ### Code review instructions
 
 - Review the updated sections in:
