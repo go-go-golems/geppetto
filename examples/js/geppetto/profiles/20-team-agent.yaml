@@ -14,9 +14,7 @@ profiles:
     stack:
       - profile_slug: default
     runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-engine: gpt-4.1-mini
+      system_prompt: You are the team assistant.
       middlewares:
         - name: retry
           id: team-retry

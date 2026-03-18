@@ -2,8 +2,6 @@ package profiles
 
 import (
 	"context"
-
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 )
 
 // RegistrySummary gives lightweight metadata for list endpoints.
@@ -16,11 +14,8 @@ type RegistrySummary struct {
 
 // ResolveInput contains all inputs needed to compute an effective runtime profile.
 type ResolveInput struct {
-	RegistrySlug       RegistrySlug
-	ProfileSlug        ProfileSlug
-	RuntimeKeyFallback RuntimeKey
-
-	BaseStepSettings *settings.StepSettings
+	RegistrySlug RegistrySlug
+	ProfileSlug  ProfileSlug
 }
 
 // ResolvedProfile is the canonical result of profile resolution.
@@ -29,9 +24,8 @@ type ResolvedProfile struct {
 	ProfileSlug  ProfileSlug
 	RuntimeKey   RuntimeKey
 
-	EffectiveStepSettings *settings.StepSettings
-	EffectiveRuntime      RuntimeSpec
-	RuntimeFingerprint    string
+	EffectiveRuntime   RuntimeSpec
+	RuntimeFingerprint string
 
 	Metadata map[string]any
 }

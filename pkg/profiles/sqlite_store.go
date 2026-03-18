@@ -135,30 +135,6 @@ func (s *SQLiteProfileStore) UpsertProfile(ctx context.Context, registrySlug Reg
 	return s.persistRegistryLocked(ctx, registrySlug)
 }
 
-func (s *SQLiteProfileStore) DeleteProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensureOpen(); err != nil {
-		return err
-	}
-	if err := s.store.DeleteProfile(ctx, registrySlug, profileSlug, opts); err != nil {
-		return err
-	}
-	return s.persistRegistryLocked(ctx, registrySlug)
-}
-
-func (s *SQLiteProfileStore) SetDefaultProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensureOpen(); err != nil {
-		return err
-	}
-	if err := s.store.SetDefaultProfile(ctx, registrySlug, profileSlug, opts); err != nil {
-		return err
-	}
-	return s.persistRegistryLocked(ctx, registrySlug)
-}
-
 func (s *SQLiteProfileStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

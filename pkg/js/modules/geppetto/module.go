@@ -144,7 +144,6 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 
 	enginesObj := m.vm.NewObject()
 	m.mustSet(enginesObj, "echo", m.engineEcho)
-	m.mustSet(enginesObj, "fromProfile", m.engineFromProfile)
 	m.mustSet(enginesObj, "fromConfig", m.engineFromConfig)
 	m.mustSet(enginesObj, "fromFunction", m.engineFromFunction)
 	m.mustSet(exports, "engines", enginesObj)

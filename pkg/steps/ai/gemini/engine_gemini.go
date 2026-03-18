@@ -123,15 +123,6 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 
 	modelName := *e.settings.Chat.Engine
 	model := client.GenerativeModel(modelName)
-	// Make sure Turn metadata has the basic provider/model identity for downstream debugging.
-	if t != nil {
-		if err := turns.KeyTurnMetaProvider.Set(&t.Metadata, "gemini"); err != nil {
-			log.Warn().Err(err).Msg("failed to set turn provider metadata")
-		}
-		if err := turns.KeyTurnMetaModel.Set(&t.Metadata, modelName); err != nil {
-			log.Warn().Err(err).Msg("failed to set turn model metadata")
-		}
-	}
 
 	// Configure generation if present
 	if e.settings.Chat.Temperature != nil || e.settings.Chat.TopP != nil || e.settings.Chat.MaxResponseTokens != nil {

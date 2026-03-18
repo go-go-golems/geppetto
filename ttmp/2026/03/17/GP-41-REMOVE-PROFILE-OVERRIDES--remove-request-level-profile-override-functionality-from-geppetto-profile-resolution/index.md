@@ -1,7 +1,7 @@
 ---
 Title: Remove request-level profile override functionality from Geppetto profile resolution
 Ticket: GP-41-REMOVE-PROFILE-OVERRIDES
-Status: active
+Status: complete
 Topics:
     - geppetto
     - profile-registry
@@ -38,7 +38,7 @@ The primary deliverables are the detailed intern-oriented design guides in `desi
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 Analysis and delivery are complete, and implementation is now following a broader read-only registry pivot. The ticket now contains the original removal guide, runtime glossary, a dedicated pivot implementation plan, the diary, an updated task board, reMarkable-ready bundle inputs, and the first round of concrete code changes that remove `RequestOverrides` from the Geppetto resolution path.
 

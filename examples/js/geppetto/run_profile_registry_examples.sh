@@ -39,7 +39,6 @@ run_script "examples/js/geppetto/11_profiles_resolve_explicit_registry.js" --pro
 run_script "examples/js/geppetto/12_profiles_resolve_runtime_key.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/13_schemas_middlewares_catalog.js" --profile-registries "${STACK_REGISTRIES}"
 run_script "examples/js/geppetto/14_schemas_extensions_catalog.js" --profile-registries "${STACK_REGISTRIES}"
-run_script "examples/js/geppetto/17_from_profile_legacy_registry_option_error.js" --profile-registries "${STACK_REGISTRIES}"
 
 echo "==> Running sqlite registry inventory script"
 run_script "examples/js/geppetto/15_profiles_sqlite_inventory.js" --profile-registries "${SQLITE_PATH}"

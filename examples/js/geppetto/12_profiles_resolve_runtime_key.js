@@ -1,12 +1,11 @@
 const gp = require("geppetto");
 
 const resolved = gp.profiles.resolve({
-  profileSlug: "assistant",
-  runtimeKeyFallback: "assistant-runtime"
+  profileSlug: "assistant"
 });
 assert(
-  resolved.runtimeKey === "assistant-runtime",
-  "runtimeKeyFallback should set the resolved runtime key"
+  resolved.runtimeKey === "assistant",
+  "profiles.resolve should derive runtimeKey from profileSlug"
 );
 assert(
   resolved.effectiveRuntime.system_prompt === "User override assistant profile.",
@@ -22,4 +21,4 @@ assert(
   "legacy runtimeKey alias should no longer affect profiles.resolve"
 );
 
-console.log("profiles.resolve runtime key checks: PASS");
+console.log("profiles.resolve derived runtime key checks: PASS");

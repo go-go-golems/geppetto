@@ -181,55 +181,6 @@ func (s *InMemoryProfileStore) UpsertProfile(_ context.Context, registrySlug Reg
 	return nil
 }
 
-func (s *InMemoryProfileStore) DeleteProfile(_ context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensureOpen(); err != nil {
-		return err
-	}
-
-	registry, ok := s.registries[registrySlug]
-	if !ok || registry == nil {
-		return ErrRegistryNotFound
-	}
-	profile, ok := registry.Profiles[profileSlug]
-	if !ok || profile == nil {
-		return nil
-	}
-	if err := assertExpectedVersion("profile", profileSlug.String(), opts.ExpectedVersion, profile.Metadata.Version); err != nil {
-		return err
-	}
-
-	delete(registry.Profiles, profileSlug)
-	if registry.DefaultProfileSlug == profileSlug {
-		registry.DefaultProfileSlug = ""
-	}
-	TouchRegistryMetadata(&registry.Metadata, opts, 0)
-	return nil
-}
-
-func (s *InMemoryProfileStore) SetDefaultProfile(_ context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensureOpen(); err != nil {
-		return err
-	}
-
-	registry, ok := s.registries[registrySlug]
-	if !ok || registry == nil {
-		return ErrRegistryNotFound
-	}
-	if _, ok := registry.Profiles[profileSlug]; !ok {
-		return ErrProfileNotFound
-	}
-	if err := assertExpectedVersion("registry", registrySlug.String(), opts.ExpectedVersion, registry.Metadata.Version); err != nil {
-		return err
-	}
-	registry.DefaultProfileSlug = profileSlug
-	TouchRegistryMetadata(&registry.Metadata, opts, 0)
-	return nil
-}
-
 func (s *InMemoryProfileStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

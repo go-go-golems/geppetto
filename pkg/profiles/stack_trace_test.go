@@ -14,11 +14,6 @@ func TestMergeProfileStackLayersWithTrace_PathHistoryAndFinalWinner(t *testing.T
 				Slug: MustProfileSlug("provider"),
 				Runtime: RuntimeSpec{
 					SystemPrompt: "provider prompt",
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine": "provider-engine",
-						},
-					},
 				},
 				Metadata: ProfileMetadata{
 					Source:  "provider-source",
@@ -71,11 +66,15 @@ func TestMergeProfileStackLayersWithTrace_StableOrderingAndDeterministicPayload(
 			Profile: &Profile{
 				Slug: MustProfileSlug("base"),
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"nested": map[string]any{
-							"z": "last",
-							"a": "first",
-						},
+					Middlewares: []MiddlewareUse{
+						{Name: "zeta"},
+						{Name: "alpha"},
+					},
+				},
+				Extensions: map[string]any{
+					"custom.trace@v1": map[string]any{
+						"z": "last",
+						"a": "first",
 					},
 				},
 			},

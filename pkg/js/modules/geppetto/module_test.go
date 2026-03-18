@@ -734,29 +734,12 @@ func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T)
 	`)
 }
 
-func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
+func TestEnginesFromConfigStillWorks(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		ProfileRegistry: mustNewJSProfileRegistry(t),
 	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
-
-		const explicit = gp.engines.fromProfile("explicit-model");
-		if (explicit.name !== "profile:default/explicit-model") throw new Error("explicit profile resolve mismatch");
-
-		const defaultProfile = gp.engines.fromProfile(undefined);
-		if (defaultProfile.name !== "profile:default/default-model") throw new Error("default profile resolve mismatch");
-
-		const claudeWithoutBaseURL = gp.engines.fromProfile("claude-no-base-url");
-		if (claudeWithoutBaseURL.name !== "profile:default/claude-no-base-url") throw new Error("claude profile resolve mismatch");
-
-		let threwLegacyRegistry = false;
-		try {
-			gp.engines.fromProfile("default-model", { registrySlug: "shared" });
-		} catch (e) {
-			threwLegacyRegistry = /registryslug has been removed/i.test(String(e));
-		}
-		if (!threwLegacyRegistry) throw new Error("legacy registrySlug option should fail with migration error");
 
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
@@ -772,20 +755,6 @@ func TestEnginesFromProfileAndFromConfigResolution(t *testing.T) {
 			threw = true;
 		}
 		if (!threw) throw new Error("fromConfig should throw for unknown provider");
-	`)
-}
-
-func TestEnginesFromProfileRequiresProfileRegistry(t *testing.T) {
-	rt := newJSRuntime(t, Options{})
-	mustRunJS(t, rt, `
-		const gp = require("geppetto");
-		let threw = false;
-		try {
-			gp.engines.fromProfile("any");
-		} catch (e) {
-			threw = /profile registry/i.test(String(e));
-		}
-		if (!threw) throw new Error("fromProfile should throw when no profile registry is configured");
 	`)
 }
 
@@ -812,15 +781,14 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 
 		const resolved = gp.profiles.resolve({
 			profileSlug: "explicit-model",
-			runtimeKeyFallback: "explicit-model-runtime",
 		});
 		if (resolved.registrySlug !== "default") throw new Error("resolve registry mismatch");
 		if (resolved.profileSlug !== "explicit-model") throw new Error("resolve profile mismatch");
-		if (resolved.runtimeKey !== "explicit-model-runtime") throw new Error("resolve runtime key mismatch");
+		if (resolved.runtimeKey !== "explicit-model") throw new Error("resolve runtime key mismatch");
 		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
 			throw new Error("resolve runtime fingerprint missing");
 		}
-		if (!resolved.effectiveRuntime || !resolved.effectiveRuntime.step_settings_patch) {
+		if (!resolved.effectiveRuntime || resolved.effectiveRuntime.system_prompt !== "explicit prompt") {
 			throw new Error("resolve effectiveRuntime payload missing");
 		}
 
@@ -898,11 +866,13 @@ profiles:
 		const active = gp.profiles.getConnectedSources();
 		if (active[0] !== %q || active[1] !== %q) throw new Error("getConnectedSources mismatch");
 
-		const topResolved = gp.profiles.resolve({ profileSlug: "default", runtimeKeyFallback: "rk-default" });
+		const topResolved = gp.profiles.resolve({ profileSlug: "default" });
 		if (topResolved.registrySlug !== "top") throw new Error("top-of-stack resolution mismatch");
+		if (topResolved.runtimeKey !== "default") throw new Error("top runtime key mismatch");
 
-		const baseResolved = gp.profiles.resolve({ profileSlug: "helper", runtimeKeyFallback: "rk-helper" });
+		const baseResolved = gp.profiles.resolve({ profileSlug: "helper" });
 		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
+		if (baseResolved.runtimeKey !== "helper") throw new Error("base runtime key mismatch");
 
 		const switched = gp.profiles.connectStack(%q);
 		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
@@ -957,9 +927,12 @@ profiles:
 			throw new Error("disconnectStack should restore host-provided registry");
 		}
 
-		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model", runtimeKeyFallback: "rk-explicit" });
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
 		if (resolved.registrySlug !== "default") {
 			throw new Error("resolve should use restored host registry after disconnect");
+		}
+		if (resolved.runtimeKey !== "explicit-model") {
+			throw new Error("resolve should derive runtime key from profile slug");
 		}
 	`, topPath))
 }
@@ -1066,20 +1039,26 @@ func TestSchemasNamespaceListMiddlewaresAndExtensions(t *testing.T) {
 	`)
 }
 
-func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
+func TestEngineFromConfigInferenceIntegration_Gemini(t *testing.T) {
 	if os.Getenv("GEPPETTO_LIVE_INFERENCE_TESTS") != "1" {
 		t.Skip("skipping live inference integration test (set GEPPETTO_LIVE_INFERENCE_TESTS=1 to enable)")
 	}
 	if os.Getenv("GEMINI_API_KEY") == "" && os.Getenv("GOOGLE_API_KEY") == "" {
 		t.Skip("skipping gemini integration test: GEMINI_API_KEY/GOOGLE_API_KEY not set")
 	}
-	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSGeminiProfileRegistry(t),
-	})
-	mustRunJS(t, rt, `
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		key = os.Getenv("GOOGLE_API_KEY")
+	}
+	rt := newJSRuntime(t, Options{})
+	mustRunJS(t, rt, fmt.Sprintf(`
 		const gp = require("geppetto");
 		const s = gp.createSession({
-			engine: gp.engines.fromProfile("gemini-2.5-flash-lite")
+			engine: gp.engines.fromConfig({
+				apiType: "gemini",
+				model: "gemini-2.5-flash-lite",
+				apiKey: %q
+			})
 		});
 		s.append(gp.turns.newTurn({
 			blocks: [gp.turns.newUserBlock("Reply with exactly READY.")]
@@ -1088,7 +1067,7 @@ func TestEngineFromProfileInferenceIntegration_Gemini(t *testing.T) {
 		if (!out || !Array.isArray(out.blocks) || out.blocks.length < 2) {
 			throw new Error("expected output turn with model response blocks");
 		}
-	`)
+	`, key))
 }
 
 func TestOpaqueRefHidden(t *testing.T) {
@@ -1305,43 +1284,22 @@ func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 			gepprofiles.MustProfileSlug("default-model"): {
 				Slug: gepprofiles.MustProfileSlug("default-model"),
 				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gpt-4o-mini",
-							"ai-api-type": "openai",
-						},
-						"openai-chat": map[string]any{
-							"openai-api-key": "test-openai-key",
-						},
-					},
+					SystemPrompt: "default prompt",
+					Tools:        []string{"calculator"},
 				},
 			},
 			gepprofiles.MustProfileSlug("explicit-model"): {
 				Slug: gepprofiles.MustProfileSlug("explicit-model"),
 				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gpt-4o",
-							"ai-api-type": "openai",
-						},
-						"openai-chat": map[string]any{
-							"openai-api-key": "test-openai-key",
-						},
-					},
+					SystemPrompt: "explicit prompt",
+					Tools:        []string{"search"},
 				},
 			},
 			gepprofiles.MustProfileSlug("claude-no-base-url"): {
 				Slug: gepprofiles.MustProfileSlug("claude-no-base-url"),
 				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "claude-haiku-4-5",
-							"ai-api-type": "claude",
-						},
-						"claude-chat": map[string]any{
-							"claude-api-key": "test-anthropic-key",
-						},
-					},
+					SystemPrompt: "claude prompt",
+					Tools:        []string{"summarize"},
 				},
 			},
 		},
@@ -1399,33 +1357,4 @@ func (c extensionSchemaCodec) ExtensionDisplayName() string {
 
 func (c extensionSchemaCodec) ExtensionDescription() string {
 	return c.description
-}
-
-func mustNewJSGeminiProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
-	t.Helper()
-	store := gepprofiles.NewInMemoryProfileStore()
-	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
-		Slug:               gepprofiles.MustRegistrySlug("default"),
-		DefaultProfileSlug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
-		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
-			gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"): {
-				Slug: gepprofiles.MustProfileSlug("gemini-2.5-flash-lite"),
-				Runtime: gepprofiles.RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gemini-2.5-flash-lite",
-							"ai-api-type": "gemini",
-						},
-					},
-				},
-			},
-		},
-	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
-		t.Fatalf("UpsertRegistry(default gemini) failed: %v", err)
-	}
-	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
-	if err != nil {
-		t.Fatalf("NewStoreRegistry failed: %v", err)
-	}
-	return registry
 }

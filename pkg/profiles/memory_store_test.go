@@ -72,27 +72,12 @@ func TestInMemoryProfileStore_ProfileLifecycle(t *testing.T) {
 	if len(list) != 2 {
 		t.Fatalf("expected 2 profiles, got %d", len(list))
 	}
-
-	if err := store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{}); err != nil {
-		t.Fatalf("SetDefaultProfile failed: %v", err)
-	}
-	reg, ok, err := store.GetRegistry(ctx, MustRegistrySlug("default"))
-	if err != nil || !ok {
-		t.Fatalf("GetRegistry failed: ok=%v err=%v", ok, err)
-	}
-	if reg.DefaultProfileSlug != MustProfileSlug("agent") {
-		t.Fatalf("expected default profile=agent, got %q", reg.DefaultProfileSlug)
-	}
-
-	if err := store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{}); err != nil {
-		t.Fatalf("DeleteProfile failed: %v", err)
-	}
-	_, ok, err = store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
+	got, ok, err := store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
 	if err != nil {
 		t.Fatalf("GetProfile failed: %v", err)
 	}
-	if ok {
-		t.Fatalf("expected profile to be deleted")
+	if !ok || got == nil {
+		t.Fatalf("expected profile to be readable after upsert")
 	}
 }
 
@@ -163,19 +148,24 @@ func TestInMemoryProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T
 		t.Fatalf("expected non-zero timestamps on v1")
 	}
 
-	if err := store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{
+	regPatch := regV1.Clone()
+	regPatch.DefaultProfileSlug = MustProfileSlug("agent")
+	if err := store.UpsertRegistry(ctx, regPatch, SaveOptions{
 		ExpectedVersion: regV1.Metadata.Version,
 		Actor:           "bob",
 		Source:          "api",
 	}); err != nil {
-		t.Fatalf("SetDefaultProfile failed: %v", err)
+		t.Fatalf("UpsertRegistry(update-default) failed: %v", err)
 	}
 	regV2, ok, err := store.GetRegistry(ctx, MustRegistrySlug("default"))
 	if err != nil || !ok || regV2 == nil {
 		t.Fatalf("GetRegistry(v2) failed: ok=%v err=%v", ok, err)
 	}
+	if regV2.DefaultProfileSlug != MustProfileSlug("agent") {
+		t.Fatalf("expected default profile agent, got %q", regV2.DefaultProfileSlug)
+	}
 	if regV2.Metadata.Version != regV1.Metadata.Version+1 {
-		t.Fatalf("expected registry version increment on default set, got v1=%d v2=%d", regV1.Metadata.Version, regV2.Metadata.Version)
+		t.Fatalf("expected registry version increment on registry update, got v1=%d v2=%d", regV1.Metadata.Version, regV2.Metadata.Version)
 	}
 	if regV2.Metadata.CreatedAtMs != regV1.Metadata.CreatedAtMs {
 		t.Fatalf("expected registry CreatedAtMs to remain immutable")
@@ -190,7 +180,7 @@ func TestInMemoryProfileStore_RegistryMetadataVersionAndAttribution(t *testing.T
 		t.Fatalf("unexpected source on v2: %+v", regV2.Metadata)
 	}
 
-	regPatch := regV2.Clone()
+	regPatch = regV2.Clone()
 	regPatch.DisplayName = "Registry v3"
 	if err := store.UpsertRegistry(ctx, regPatch, SaveOptions{
 		ExpectedVersion: regV2.Metadata.Version,

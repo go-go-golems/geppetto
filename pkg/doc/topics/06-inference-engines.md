@@ -122,7 +122,7 @@ type Engine interface {
 
 ### Canonical Inference Result Metadata
 
-`RunInference` remains the core provider contract. In addition, Geppetto now exposes a compatibility helper that returns a normalized inference outcome and persists it on the turn:
+`RunInference` remains the core provider contract. In addition, Geppetto exposes a helper that returns a normalized inference outcome and persists it on the turn:
 
 ```go
 out, result, err := engine.RunInferenceWithResult(ctx, eng, turn)
@@ -133,7 +133,7 @@ _ = out
 fmt.Println(result.StopReason, result.FinishClass, result.Truncated)
 ```
 
-The helper guarantees a canonical metadata envelope on `Turn.Metadata` (`turns.KeyTurnMetaInferenceResult`) and keeps legacy scalar projections (`stop_reason`, `model`, `provider`, `usage`) mirrored during migration.
+The helper guarantees a canonical metadata envelope on `Turn.Metadata` via `turns.KeyTurnMetaInferenceResult`. Engines that already persist canonical inference metadata keep their metadata normalized; bare custom engines that do not will still get a minimal synthesized result.
 
 ### Engine Responsibilities
 
@@ -725,7 +725,7 @@ Key notes:
 Example (tools):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai-responses \
   --ai-engine=o4-mini \
   --mode=tools \
@@ -736,7 +736,7 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 Example (thinking only):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai-responses \
   --ai-engine=o4-mini \
   --mode=thinking \
@@ -784,7 +784,7 @@ Turn-level note:
 Example (OpenAI Chat Completions):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai \
   --ai-engine=gpt-4o-mini \
   --ai-structured-output-mode=json_schema \
@@ -796,7 +796,7 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 Example (OpenAI Responses):
 
 ```bash
-go run ./cmd/examples/openai-tools test-openai-tools \
+go run ./cmd/examples/advanced/openai-tools test-openai-tools \
   --ai-api-type=openai-responses \
   --ai-engine=o4-mini \
   --ai-structured-output-mode=json_schema \
@@ -808,7 +808,7 @@ go run ./cmd/examples/openai-tools test-openai-tools \
 Example (Claude):
 
 ```bash
-go run ./cmd/examples/claude-tools main \
+go run ./cmd/examples/advanced/claude-tools main \
   --ai-api-type=claude \
   --ai-engine=claude-sonnet-4-20250514 \
   --ai-structured-output-mode=json_schema \
@@ -977,4 +977,4 @@ The combination of engines, tool loop, factories, and middleware provides all th
 - [Middlewares](09-middlewares.md) — Adding cross-cutting behavior; see "Middleware as Composable Prompting"
 - [Structured Sinks](11-structured-sinks.md) — Extracting structured data from LLM text streams
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete working example
-- Examples: `geppetto/cmd/examples/simple-streaming-inference/`, `geppetto/cmd/examples/generic-tool-calling/`
+- Examples: `geppetto/cmd/examples/streaming-inference/`, `geppetto/cmd/examples/advanced/generic-tool-calling/`

@@ -13,12 +13,6 @@ func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 			Profile: &Profile{
 				Slug: MustProfileSlug("base"),
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"ai-engine":   "gpt-4o-mini",
-							"temperature": 0.2,
-						},
-					},
 					SystemPrompt: "base prompt",
 					Tools:        []string{"calculator"},
 					Middlewares: []MiddlewareUse{
@@ -34,16 +28,7 @@ func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 			Profile: &Profile{
 				Slug: MustProfileSlug("leaf"),
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{
-							"temperature": 0.8,
-						},
-						"summarize": map[string]any{
-							"max-tokens": 256,
-						},
-					},
-					SystemPrompt: "",
-					Tools:        []string{"search"},
+					Tools: []string{"search"},
 					Middlewares: []MiddlewareUse{
 						{Name: "agentmode", ID: "planner", Config: map[string]any{"mode": "act"}},
 						{Name: "logger", Config: map[string]any{"level": "debug"}},
@@ -59,16 +44,6 @@ func TestMergeProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 		t.Fatalf("MergeProfileStackLayers failed: %v", err)
 	}
 
-	aiChat := merged.Runtime.StepSettingsPatch["ai-chat"].(map[string]any)
-	if got := aiChat["ai-engine"].(string); got != "gpt-4o-mini" {
-		t.Fatalf("expected ai-engine to be preserved, got %q", got)
-	}
-	if got := aiChat["temperature"].(float64); got != 0.8 {
-		t.Fatalf("expected temperature override, got %v", got)
-	}
-	if _, ok := merged.Runtime.StepSettingsPatch["summarize"]; !ok {
-		t.Fatalf("expected summarize section from leaf layer")
-	}
 	if got := merged.Runtime.SystemPrompt; got != "base prompt" {
 		t.Fatalf("expected last non-empty system prompt, got %q", got)
 	}

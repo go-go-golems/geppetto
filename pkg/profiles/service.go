@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 )
 
 var _ Registry = (*StoreRegistry)(nil)
@@ -18,20 +16,9 @@ var _ Registry = (*StoreRegistry)(nil)
 type StoreRegistry struct {
 	store               ProfileStore
 	defaultRegistrySlug RegistrySlug
-	extensionCodecs     ExtensionCodecRegistry
 }
 
 type StoreRegistryOption func(*StoreRegistry) error
-
-func WithExtensionCodecRegistry(registry ExtensionCodecRegistry) StoreRegistryOption {
-	return func(sr *StoreRegistry) error {
-		if sr == nil {
-			return fmt.Errorf("store registry is nil")
-		}
-		sr.extensionCodecs = registry
-		return nil
-	}
-}
 
 func NewStoreRegistry(store ProfileStore, defaultRegistrySlug RegistrySlug, options ...StoreRegistryOption) (*StoreRegistry, error) {
 	if store == nil {
@@ -150,17 +137,9 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 		return nil, err
 	}
 
-	effectiveStepSettings, err := ApplyRuntimeStepSettingsPatch(in.BaseStepSettings, effectiveRuntime.StepSettingsPatch)
+	runtimeKey, err := ParseRuntimeKey(profileSlug.String())
 	if err != nil {
 		return nil, err
-	}
-
-	runtimeKey := in.RuntimeKeyFallback
-	if runtimeKey.IsZero() {
-		runtimeKey, err = ParseRuntimeKey(profileSlug.String())
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	metadata := map[string]any{
@@ -173,13 +152,12 @@ func (r *StoreRegistry) ResolveEffectiveProfile(ctx context.Context, in ResolveI
 	}
 
 	return &ResolvedProfile{
-		RegistrySlug:          registrySlug,
-		ProfileSlug:           profileSlug,
-		RuntimeKey:            runtimeKey,
-		EffectiveStepSettings: effectiveStepSettings,
-		EffectiveRuntime:      effectiveRuntime,
-		RuntimeFingerprint:    runtimeFingerprint(registrySlug, profile, stackLayers, effectiveRuntime, effectiveStepSettings),
-		Metadata:              metadata,
+		RegistrySlug:       registrySlug,
+		ProfileSlug:        profileSlug,
+		RuntimeKey:         runtimeKey,
+		EffectiveRuntime:   effectiveRuntime,
+		RuntimeFingerprint: runtimeFingerprint(registrySlug, profile, stackLayers, effectiveRuntime),
+		Metadata:           metadata,
 	}, nil
 }
 
@@ -221,21 +199,17 @@ func resolveRuntimeSpec(base RuntimeSpec) (RuntimeSpec, error) {
 	return cloneRuntimeSpec(base), nil
 }
 
-func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec, stepSettings *settings.StepSettings) string {
+func runtimeFingerprint(registrySlug RegistrySlug, profile *Profile, stackLayers []ProfileStackLayer, runtime RuntimeSpec) string {
 	payload := map[string]any{
 		"registry_slug":   registrySlug.String(),
 		"profile_slug":    profile.Slug.String(),
 		"profile_version": profile.Metadata.Version,
 		"stack_lineage":   stackLayerLineage(stackLayers),
 		"runtime": map[string]any{
-			"step_settings_patch": deepCopyStringAnyMap(runtime.StepSettingsPatch),
-			"system_prompt":       runtime.SystemPrompt,
-			"middlewares":         cloneMiddlewares(runtime.Middlewares),
-			"tools":               append([]string(nil), runtime.Tools...),
+			"system_prompt": runtime.SystemPrompt,
+			"middlewares":   cloneMiddlewares(runtime.Middlewares),
+			"tools":         append([]string(nil), runtime.Tools...),
 		},
-	}
-	if stepSettings != nil {
-		payload["step_metadata"] = stepSettings.GetMetadata()
 	}
 
 	b, err := json.Marshal(payload)
@@ -283,10 +257,9 @@ func cloneMiddlewares(in []MiddlewareUse) []MiddlewareUse {
 
 func cloneRuntimeSpec(in RuntimeSpec) RuntimeSpec {
 	return RuntimeSpec{
-		StepSettingsPatch: deepCopyStringAnyMap(in.StepSettingsPatch),
-		SystemPrompt:      in.SystemPrompt,
-		Middlewares:       cloneMiddlewares(in.Middlewares),
-		Tools:             append([]string(nil), in.Tools...),
+		SystemPrompt: in.SystemPrompt,
+		Middlewares:  cloneMiddlewares(in.Middlewares),
+		Tools:        append([]string(nil), in.Tools...),
 	}
 }
 

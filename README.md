@@ -22,11 +22,11 @@ Geppetto now uses a registry-first, profile-first runtime model:
 - runtime config is resolved from profile registries (not ad-hoc legacy profile maps),
 - registry sources are stackable (`yaml`, SQLite file, `sqlite-dsn`),
 - top-of-stack precedence is deterministic,
-- request-time overrides are policy-gated,
+- profile runtime now carries prompt/tool/middleware metadata only,
 - resolved runtime includes stack lineage/trace metadata and runtime fingerprint.
 
 There is no overlay abstraction in active runtime composition.
-There is no runtime `registrySlug` selector in `engines.fromProfile(...)`.
+Profiles do not configure engine/provider credentials. Applications own final `StepSettings` and pass explicit engine config into Geppetto.
 
 ## Core Runtime Building Blocks
 
@@ -56,10 +56,9 @@ profiles:
   default:
     slug: default
     runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-api-type: openai
-          ai-engine: gpt-4o-mini
+      system_prompt: You are the team default assistant.
+      tools:
+        - search
 ```
 
 For details:
@@ -114,22 +113,36 @@ References:
 
 ```bash
 # simple inference pipeline
-go run ./cmd/examples/simple-inference
+go run ./cmd/examples/inference
 
 # streaming output
-go run ./cmd/examples/simple-streaming-inference
+go run ./cmd/examples/streaming-inference
 
-# middleware + tools examples
-go run ./cmd/examples/middleware-inference
-go run ./cmd/examples/generic-tool-calling
-go run ./cmd/examples/openai-tools
-go run ./cmd/examples/claude-tools
+# opinionated runner examples
+go run ./cmd/examples/runner-simple
+go run ./cmd/examples/runner-tools
+go run ./cmd/examples/runner-streaming
+go run ./cmd/examples/runner-registry
+go run ./cmd/examples/runner-glazed-full-flags
+go run ./cmd/examples/runner-glazed-registry-flags
+
+# advanced low-level examples
+go run ./cmd/examples/advanced/middleware-inference
+go run ./cmd/examples/advanced/generic-tool-calling
+go run ./cmd/examples/advanced/openai-tools
+go run ./cmd/examples/advanced/claude-tools
 
 # JS host harness
 go run ./cmd/examples/geppetto-js-lab --list-go-tools
 ```
 
 All runnable examples are under `cmd/examples/`.
+See [`cmd/examples/README.md`](cmd/examples/README.md) for the simple-vs-advanced split.
+
+The two Glazed examples intentionally show different boundaries:
+
+- `runner-glazed-full-flags` exposes full Geppetto runtime sections and builds `StepSettings` directly from parsed Glazed values.
+- `runner-glazed-registry-flags` exposes only `profile` and `profile-registries`; base `StepSettings` stay app-owned and hidden, which is the preferred small-CLI pattern.
 
 ## Documentation
 

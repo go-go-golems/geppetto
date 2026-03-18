@@ -665,4 +665,4 @@ For a complete walkthrough, see [Adding a New Event Type End-to-End](../../../..
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete example
 - [Adding a New Event Type (pinocchio)](../../../../pinocchio/pkg/doc/topics/webchat-adding-event-types.md) — End-to-end tutorial for custom event types in webchat
 - Implementation: `geppetto/pkg/events/structuredsink/filtering_sink.go` — The FilteringSink that extracts structured payloads from text streams
-- Example: `geppetto/cmd/examples/simple-streaming-inference/main.go`
+- Example: `geppetto/cmd/examples/streaming-inference/main.go`

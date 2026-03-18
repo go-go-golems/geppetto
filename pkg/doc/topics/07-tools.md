@@ -301,7 +301,7 @@ func (a *AuthorizedExecutor) MaskArguments(ctx context.Context, call tools.ToolC
 
 Available hooks on `BaseToolExecutor`:
 - `PreExecute` mutate or reject calls before lookup
-- `IsAllowed` add authorization beyond `ToolConfig.AllowedTools`
+- `IsAllowed` add executor-specific authorization checks before execution
 - `MaskArguments`, `PublishStart`, `PublishResult` tune event payloads
 - `ShouldRetry` implement bespoke retry policies
 - `MaxParallel` override concurrency control per batch

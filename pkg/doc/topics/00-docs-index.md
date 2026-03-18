@@ -29,10 +29,11 @@ Geppetto is a Go toolkit for building AI-powered applications. It provides:
 If you're new to Geppetto, read these docs in order:
 
 1. **[Turns and Blocks](08-turns.md)** — The core data model. Understand this first.
-2. **[Inference Engines](06-inference-engines.md)** — How inference is executed across providers.
-3. **[Profiles](01-profiles.md)** — Registry-first runtime selection and stack resolution.
-4. **[JS API Getting Started](../tutorials/05-js-api-getting-started.md)** — Step-by-step tutorial for the JavaScript API.
-5. **[Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md)** — Build your first streaming command.
+2. **[Opinionated Runner API](10-runner.md)** — Recommended app-facing entry point for new Go applications.
+3. **[Inference Engines](06-inference-engines.md)** — How inference is executed across providers.
+4. **[Profiles](01-profiles.md)** — Registry-first runtime selection and stack resolution.
+5. **[JS API Getting Started](../tutorials/05-js-api-getting-started.md)** — Step-by-step tutorial for the JavaScript API.
+6. **[Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md)** — Build your first streaming command.
 
 After that, explore based on what you need:
 
@@ -45,6 +46,7 @@ After that, explore based on what you need:
 | Doc | What It Covers |
 |-----|----------------|
 | [Turns and Blocks](08-turns.md) | The Turn data model: `Run` → `Turn` → `Block`. How conversations are represented. |
+| [Opinionated Runner API](10-runner.md) | The recommended `pkg/inference/runner` surface for new Go apps that already have resolved runtime input. |
 | [Inference Engines](06-inference-engines.md) | The `Engine` interface, factory pattern, and provider implementations. |
 | [Tools](07-tools.md) | Defining tools, registering them, and executing tool calls. |
 | [Events and Streaming](04-events.md) | Real-time event delivery, Watermill routing, and printers. |
@@ -56,7 +58,7 @@ After that, explore based on what you need:
 
 | Doc | What It Covers |
 |-----|----------------|
-| [Profiles](01-profiles.md) | Registry-first profile model, persistence, policy, and migration from legacy profile maps. |
+| [Profiles](01-profiles.md) | Registry-first profile model, read-only resolution flow, and migration from legacy profile maps. |
 | [Embeddings](06-embeddings.md) | Vector embeddings for semantic search, including caching. |
 | [Linting (turnsdatalint)](12-turnsdatalint.md) | Custom linter for Turn data key hygiene. |
 
@@ -70,6 +72,7 @@ After that, explore based on what you need:
 | [Structured Data Extraction](../tutorials/04-structured-data-extraction.md) | Extract structured data from streaming output in real-time. |
 | [JS API Getting Started](../tutorials/05-js-api-getting-started.md) | End-to-end walkthrough of turns, sessions, tools, and hooks from JavaScript. |
 | [Build Scoped JavaScript Eval Tools](../tutorials/07-build-scopedjs-eval-tools.md) | Detailed intern-friendly guide to `pkg/inference/tools/scopedjs`, runtime wiring, registration, and debugging. |
+| [Build a Streaming Tool-Loop Agent with Glazed Flags](../tutorials/08-build-streaming-tool-loop-agent-with-glazed-flags.md) | Build a small Glazed CLI that streams events, runs a tool loop, and keeps engine settings hidden in app bootstrap. |
 
 ## Playbooks
 
@@ -91,11 +94,18 @@ These working examples are the source of truth for patterns. Run them to see Gep
 
 | Example | Description |
 |---------|-------------|
-| `simple-streaming-inference/` | Basic streaming inference without tools. Start here. |
-| `generic-tool-calling/` | Provider-agnostic tool calling (works with any AI backend). |
-| `openai-tools/` | Tool calling using OpenAI's native function calling. |
-| `claude-tools/` | Tool calling using Claude's native tool_use format. |
-| `middleware-inference/` | Using middlewares for logging and tool execution. |
+| `inference/` | Basic blocking inference without tools. |
+| `streaming-inference/` | Basic streaming inference without tools. |
+| `runner-simple/` | Smallest `pkg/inference/runner` blocking example. |
+| `runner-tools/` | `pkg/inference/runner` example with a function tool and tool-name filtering. |
+| `runner-streaming/` | `pkg/inference/runner` async/event-sink example. |
+| `runner-registry/` | `pkg/inference/runner` example that resolves runtime prompt metadata from a profile registry. |
+| `runner-glazed-full-flags/` | `pkg/inference/runner` example driven by full Geppetto sections and Glazed parsing. |
+| `runner-glazed-registry-flags/` | `pkg/inference/runner` example where only Glazed profile-registry flags are public and base `StepSettings` stay app-owned. |
+| `advanced/generic-tool-calling/` | Provider-agnostic low-level tool calling example. |
+| `advanced/openai-tools/` | Low-level OpenAI native function-calling example. |
+| `advanced/claude-tools/` | Low-level Claude native tool_use example. |
+| `advanced/middleware-inference/` | Low-level middleware and tool execution example. |
 | `citations-event-stream/` | Structured data extraction from streaming output. |
 
 Find examples in: `geppetto/cmd/examples/`

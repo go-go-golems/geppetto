@@ -40,5 +40,5 @@
 
 ## Superseded Tasks
 
-- [ ] Old Phase 2 policy-shrink plan is superseded by deleting `PolicySpec` entirely.
-- [ ] Old Phase 3 downstream cleanup plan is superseded by the larger read-only registry pivot.
+- [X] Old Phase 2 policy-shrink plan is superseded by deleting `PolicySpec` entirely.
+- [X] Old Phase 3 downstream cleanup plan is superseded by the larger read-only registry pivot.

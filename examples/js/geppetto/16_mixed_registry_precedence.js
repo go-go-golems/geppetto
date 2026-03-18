@@ -5,12 +5,9 @@ assert(
   resolved.registrySlug === "workspace-db",
   "assistant should resolve from top sqlite registry in mixed stack"
 );
-
-const engine = gp.engines.fromProfile("assistant");
-assert(engine.name === "profile:workspace-db/assistant", "engine should resolve to sqlite registry assistant profile");
-assert(engine.metadata.profileRegistry === "workspace-db", "engine metadata should reflect sqlite registry");
+assert(resolved.effectiveRuntime.system_prompt === "You are the workspace assistant profile.", "runtime payload mismatch");
 
 console.log("mixed precedence:", JSON.stringify({
   registrySlug: resolved.registrySlug,
-  engineName: engine.name
+  runtimeKey: resolved.runtimeKey
 }));

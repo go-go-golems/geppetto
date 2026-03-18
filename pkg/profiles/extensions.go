@@ -158,14 +158,8 @@ type ExtensionCodecMetadataProvider interface {
 	ExtensionDescription() string
 }
 
-// ExtensionCodecRegistry resolves codecs for extension keys.
+// ExtensionCodecRegistry enumerates extension codecs in deterministic order.
 type ExtensionCodecRegistry interface {
-	Lookup(key ExtensionKey) (ExtensionCodec, bool)
-}
-
-// ExtensionCodecLister is an optional capability for registries that can enumerate
-// all registered codecs in deterministic order.
-type ExtensionCodecLister interface {
 	ListCodecs() []ExtensionCodec
 }
 
@@ -184,14 +178,6 @@ func NewInMemoryExtensionCodecRegistry(codecs ...ExtensionCodec) (*InMemoryExten
 		}
 	}
 	return ret, nil
-}
-
-func (r *InMemoryExtensionCodecRegistry) Lookup(key ExtensionKey) (ExtensionCodec, bool) {
-	if r == nil || len(r.codecs) == 0 {
-		return nil, false
-	}
-	codec, ok := r.codecs[key]
-	return codec, ok
 }
 
 func (r *InMemoryExtensionCodecRegistry) Register(codec ExtensionCodec) error {
@@ -237,37 +223,4 @@ func (r *InMemoryExtensionCodecRegistry) ListCodecs() []ExtensionCodec {
 		return nil
 	}
 	return out
-}
-
-// NormalizeProfileExtensions canonicalizes extension keys and applies registered
-// codec decode/normalization where available. Unknown keys are preserved.
-func NormalizeProfileExtensions(raw map[string]any, registry ExtensionCodecRegistry) (map[string]any, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	out := make(map[string]any, len(raw))
-	for rawKey, rawValue := range raw {
-		key, err := ParseExtensionKey(rawKey)
-		if err != nil {
-			return nil, &ValidationError{
-				Field:  fmt.Sprintf("profile.extensions[%s]", strings.TrimSpace(rawKey)),
-				Reason: err.Error(),
-			}
-		}
-		if registry != nil {
-			if codec, ok := registry.Lookup(key); ok {
-				decoded, err := codec.Decode(deepCopyAny(rawValue))
-				if err != nil {
-					return nil, &ValidationError{
-						Field:  fmt.Sprintf("profile.extensions[%s]", key),
-						Reason: fmt.Sprintf("decode failed: %v", err),
-					}
-				}
-				out[key.String()] = deepCopyAny(decoded)
-				continue
-			}
-		}
-		out[key.String()] = deepCopyAny(rawValue)
-	}
-	return out, nil
 }

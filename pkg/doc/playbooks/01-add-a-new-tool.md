@@ -261,4 +261,4 @@ func main() {
 - [Tools](../topics/07-tools.md) — Full tools reference
 - [Turns and Blocks](../topics/08-turns.md) — Turn data model
 - [Streaming Tutorial](../tutorials/01-streaming-inference-with-tools.md) — Complete streaming example
-- Example: `geppetto/cmd/examples/generic-tool-calling/main.go`
+- Example: `geppetto/cmd/examples/advanced/generic-tool-calling/main.go`

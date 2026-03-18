@@ -10,14 +10,6 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 			{RegistrySlug: MustRegistrySlug("team"), ProfileSlug: MustProfileSlug("model-gpt4o")},
 		},
 		Runtime: RuntimeSpec{
-			StepSettingsPatch: map[string]any{
-				"ai-chat": map[string]any{
-					"providers": []any{
-						"openai",
-						map[string]any{"model": "gpt-4o-mini"},
-					},
-				},
-			},
 			Middlewares: []MiddlewareUse{
 				{
 					Name:    "agentmode",
@@ -51,12 +43,6 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 		t.Fatalf("expected clone")
 	}
 
-	chatPatch := cloned.Runtime.StepSettingsPatch["ai-chat"].(map[string]any)
-	providers := chatPatch["providers"].([]any)
-	providers[0] = "anthropic"
-	providers[1].(map[string]any)["model"] = "claude-3-5-sonnet"
-	chatPatch["new_flag"] = true
-
 	cloned.Runtime.Middlewares[0].Name = "updated-mw"
 	cloned.Runtime.Middlewares[0].ID = "agent-secondary"
 	*cloned.Runtime.Middlewares[0].Enabled = false
@@ -76,17 +62,6 @@ func TestProfileClone_DeepCopyMutableFields(t *testing.T) {
 	clonedExtensions["items"] = append(clonedItems, "new suggestion")
 	clonedExtensions["new_flag"] = true
 
-	originalChatPatch := original.Runtime.StepSettingsPatch["ai-chat"].(map[string]any)
-	originalProviders := originalChatPatch["providers"].([]any)
-	if got := originalProviders[0].(string); got != "openai" {
-		t.Fatalf("expected original provider unchanged, got %q", got)
-	}
-	if got := originalProviders[1].(map[string]any)["model"].(string); got != "gpt-4o-mini" {
-		t.Fatalf("expected original provider model unchanged, got %q", got)
-	}
-	if _, ok := originalChatPatch["new_flag"]; ok {
-		t.Fatalf("expected original step settings patch unchanged")
-	}
 	if got := original.Runtime.Middlewares[0].Name; got != "agentmode" {
 		t.Fatalf("expected original middleware name unchanged, got %q", got)
 	}
@@ -139,9 +114,7 @@ func TestProfileRegistryClone_DeepCopyProfilesMapAndNestedPayloads(t *testing.T)
 			MustProfileSlug("default"): {
 				Slug: MustProfileSlug("default"),
 				Runtime: RuntimeSpec{
-					StepSettingsPatch: map[string]any{
-						"ai-chat": map[string]any{"ai-engine": "gpt-4o-mini"},
-					},
+					SystemPrompt: "hello",
 				},
 				Extensions: map[string]any{
 					"app.note@v1": map[string]any{"enabled": true},

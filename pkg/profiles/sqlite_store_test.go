@@ -265,59 +265,36 @@ func TestSQLiteProfileStore_ProfileLifecycleAndVersionConflicts(t *testing.T) {
 		t.Fatalf("expected registry")
 	}
 
-	// Stale expected-version should fail for default-profile update.
-	if err := store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"), SaveOptions{
+	regPatch := reg.Clone()
+	regPatch.DefaultProfileSlug = MustProfileSlug("analyst")
+	if err := store.UpsertRegistry(ctx, regPatch, SaveOptions{
 		ExpectedVersion: reg.Metadata.Version + 100,
 		Actor:           "test",
 		Source:          "sqlite",
 	}); !errors.Is(err, ErrVersionConflict) {
-		t.Fatalf("expected ErrVersionConflict from SetDefaultProfile, got=%v", err)
+		t.Fatalf("expected ErrVersionConflict from UpsertRegistry default-profile update, got=%v", err)
 	}
 
-	if err := store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"), SaveOptions{
+	if err := store.UpsertRegistry(ctx, regPatch, SaveOptions{
 		ExpectedVersion: reg.Metadata.Version,
 		Actor:           "test",
 		Source:          "sqlite",
 	}); err != nil {
-		t.Fatalf("SetDefaultProfile returned error: %v", err)
+		t.Fatalf("UpsertRegistry default-profile update returned error: %v", err)
 	}
 
 	regAfterDefault, ok, err := store.GetRegistry(ctx, MustRegistrySlug("default"))
 	if err != nil {
-		t.Fatalf("GetRegistry after SetDefaultProfile returned error: %v", err)
+		t.Fatalf("GetRegistry after default-profile update returned error: %v", err)
 	}
 	if !ok || regAfterDefault == nil {
-		t.Fatalf("expected registry after SetDefaultProfile")
+		t.Fatalf("expected registry after default-profile update")
 	}
 	if regAfterDefault.DefaultProfileSlug != MustProfileSlug("analyst") {
 		t.Fatalf("expected default profile analyst, got=%s", regAfterDefault.DefaultProfileSlug)
 	}
 	if regAfterDefault.Metadata.Version <= reg.Metadata.Version {
-		t.Fatalf("expected registry version increment after SetDefaultProfile")
-	}
-
-	if err := store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"), SaveOptions{
-		ExpectedVersion: analystV2.Metadata.Version + 100,
-		Actor:           "test",
-		Source:          "sqlite",
-	}); !errors.Is(err, ErrVersionConflict) {
-		t.Fatalf("expected ErrVersionConflict from DeleteProfile, got=%v", err)
-	}
-
-	if err := store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"), SaveOptions{
-		ExpectedVersion: analystV2.Metadata.Version,
-		Actor:           "test",
-		Source:          "sqlite",
-	}); err != nil {
-		t.Fatalf("DeleteProfile returned error: %v", err)
-	}
-
-	_, ok, err = store.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("analyst"))
-	if err != nil {
-		t.Fatalf("GetProfile after delete returned error: %v", err)
-	}
-	if ok {
-		t.Fatalf("expected analyst profile to be deleted")
+		t.Fatalf("expected registry version increment after default-profile update")
 	}
 }
 
@@ -462,11 +439,17 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertProfile update failed: %v", err)
 	}
-	if err := store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{
-		Actor:  "test",
-		Source: "sqlite",
+	reg, ok, err := store.GetRegistry(ctx, MustRegistrySlug("default"))
+	if err != nil || !ok || reg == nil {
+		t.Fatalf("expected registry before default update, ok=%v err=%v", ok, err)
+	}
+	reg.DefaultProfileSlug = MustProfileSlug("agent")
+	if err := store.UpsertRegistry(ctx, reg, SaveOptions{
+		ExpectedVersion: reg.Metadata.Version,
+		Actor:           "test",
+		Source:          "sqlite",
 	}); err != nil {
-		t.Fatalf("SetDefaultProfile failed: %v", err)
+		t.Fatalf("UpsertRegistry default-profile update failed: %v", err)
 	}
 	if err := store.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
@@ -478,7 +461,7 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 	}
 	defer func() { _ = reloaded.Close() }()
 
-	reg, ok, err := reloaded.GetRegistry(ctx, MustRegistrySlug("default"))
+	reg, ok, err = reloaded.GetRegistry(ctx, MustRegistrySlug("default"))
 	if err != nil || !ok || reg == nil {
 		t.Fatalf("expected registry after reopen, ok=%v err=%v", ok, err)
 	}
@@ -491,59 +474,6 @@ func TestSQLiteProfileStore_PersistenceAfterProfileCRUD(t *testing.T) {
 	}
 	if got := reloadedAgent.DisplayName; got != "Agent v2" {
 		t.Fatalf("updated profile mismatch after reopen: %q", got)
-	}
-}
-
-func TestSQLiteProfileStore_DeleteProfilePersistsRegistryRowUpdate(t *testing.T) {
-	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "profiles.db")
-	dsn, err := SQLiteProfileDSNForFile(dbPath)
-	if err != nil {
-		t.Fatalf("SQLiteProfileDSNForFile returned error: %v", err)
-	}
-
-	store, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
-	if err != nil {
-		t.Fatalf("NewSQLiteProfileStore returned error: %v", err)
-	}
-	defer func() { _ = store.Close() }()
-
-	if err := store.UpsertRegistry(ctx, &ProfileRegistry{
-		Slug:               MustRegistrySlug("default"),
-		DefaultProfileSlug: MustProfileSlug("agent"),
-		Profiles: map[ProfileSlug]*Profile{
-			MustProfileSlug("agent"): {Slug: MustProfileSlug("agent")},
-		},
-	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
-		t.Fatalf("UpsertRegistry failed: %v", err)
-	}
-
-	if err := store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"), SaveOptions{
-		Actor:  "test",
-		Source: "sqlite",
-	}); err != nil {
-		t.Fatalf("DeleteProfile failed: %v", err)
-	}
-
-	reloaded, err := NewSQLiteProfileStore(dsn, MustRegistrySlug("default"))
-	if err != nil {
-		t.Fatalf("reopen store failed: %v", err)
-	}
-	defer func() { _ = reloaded.Close() }()
-
-	reg, ok, err := reloaded.GetRegistry(ctx, MustRegistrySlug("default"))
-	if err != nil || !ok || reg == nil {
-		t.Fatalf("expected registry after reopen, ok=%v err=%v", ok, err)
-	}
-	if got := reg.DefaultProfileSlug; got != "" {
-		t.Fatalf("expected cleared default profile after deletion, got %q", got)
-	}
-	_, ok, err = reloaded.GetProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("agent"))
-	if err != nil {
-		t.Fatalf("GetProfile after reopen failed: %v", err)
-	}
-	if ok {
-		t.Fatalf("expected deleted profile to remain absent after reopen")
 	}
 }
 
@@ -648,9 +578,5 @@ func TestSQLiteProfileStore_CloseIdempotencyAndPostCloseGuards(t *testing.T) {
 	err = store.DeleteRegistry(ctx, MustRegistrySlug("default"), SaveOptions{})
 	assertClosedErr(err)
 	err = store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{Slug: MustProfileSlug("default")}, SaveOptions{})
-	assertClosedErr(err)
-	err = store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"), SaveOptions{})
-	assertClosedErr(err)
-	err = store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"), SaveOptions{})
 	assertClosedErr(err)
 }

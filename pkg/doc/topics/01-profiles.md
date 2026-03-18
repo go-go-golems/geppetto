@@ -78,7 +78,6 @@ type ProfileRef struct {
 - `system_prompt`
 - `middlewares`
 - `tools`
-- `step_settings_patch`
 
 ## Slug Types and Validation
 
@@ -126,7 +125,6 @@ Resolution output includes:
 
 - selected registry/profile/runtime key
 - effective runtime fields
-- effective step settings
 - stack provenance metadata (`profile.stack.lineage`, `profile.stack.trace`)
 - runtime fingerprint (`runtimeFingerprint`) that includes stack lineage + effective runtime inputs
 
@@ -138,7 +136,8 @@ The runtime model is registry-first and profile-first:
 - runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
 - in pinocchio, when `profile-registries` is not set, runtime auto-loads `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists,
 - stack composition is resolved in-core (base -> leaf) before runtime composition,
-- middleware configuration is profile-scoped and validated by the caller before persistence when apps expose editing surfaces.
+- middleware configuration is profile-scoped and validated by the caller before persistence when apps expose editing surfaces,
+- applications own final engine settings and credentials outside the profile registry.
 
 There is no environment-variable toggle for old middleware selection paths.
 There is no overlay abstraction in the runtime composition path.
@@ -149,26 +148,8 @@ There is no runtime registry selector path in request resolution; profile slug l
 ```yaml
 slug: default
 profiles:
-  provider-openai:
-    slug: provider-openai
-    runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-api-type: openai
-        api:
-          openai-base-url: https://api.openai.com/v1
-  model-gpt-4o-mini:
-    slug: model-gpt-4o-mini
-    stack:
-      - profile_slug: provider-openai
-    runtime:
-      step_settings_patch:
-        ai-chat:
-          ai-engine: gpt-4o-mini
   agent:
     slug: agent
-    stack:
-      - profile_slug: model-gpt-4o-mini
     display_name: Agent
     runtime:
       system_prompt: You are an assistant.
@@ -199,7 +180,7 @@ Examples:
 - `webchat.starter_suggestions@v1`
 - `inventory.starter_suggestions@v1`
 
-Keys are normalized and validated; malformed keys fail profile create/update.
+Keys are normalized and validated; malformed keys fail profile construction or app-side validation.
 
 ## Middleware Config Ownership and Validation Timing
 
@@ -238,7 +219,7 @@ Precedence remains:
 
 **flags > env > config > profiles > defaults**
 
-Profile-first selection is the recommended path. Direct engine/provider flags (`--ai-engine`, `--ai-api-type`) are migration escape hatches, not the default operator workflow.
+Profile-first selection is the recommended path. Direct engine/provider flags (`--ai-engine`, `--ai-api-type`) are advanced overrides and not the default operator workflow.
 
 Registry-backed middleware resolution is now the only path; there is no environment toggle for legacy middleware switching.
 
@@ -250,7 +231,6 @@ Use this baseline in apps:
 2. Build a `profiles.Registry` service.
 3. Resolve request profile selection through the service.
 4. Feed resolved runtime and profile version into runtime composition.
-5. Optionally mount profile CRUD HTTP endpoints.
 
 This keeps profile logic centralized and avoids app-specific shadow profile structures.
 
@@ -305,11 +285,9 @@ For extension discovery, the merge order is deterministic:
 
 1. explicit extension schema docs supplied by the application,
 2. middleware-derived extension schemas (`middleware.<name>_config@v1`),
-3. codec-discovered schemas from `ExtensionCodecRegistry` entries that implement:
-   - `ExtensionCodecLister` (registry supports listing codecs),
-   - `ExtensionSchemaCodec` (codec exposes `JSONSchema()`).
+3. codec-discovered schemas from `ExtensionCodecRegistry` entries whose codecs implement `ExtensionSchemaCodec` (`JSONSchema()`).
 
-This keeps the endpoint extensible without hardcoding all extension keys in app code. Profile mutations still go through profile CRUD endpoints.
+This keeps the endpoint extensible without hardcoding all extension keys in app code.
 
 ## Typed-Key Middleware Config Examples
 
@@ -359,8 +337,6 @@ extensions:
 |---|---|---|
 | `profile not found` | Unknown slug or wrong registry | Verify selected profile and registry slugs; check default profile on registry |
 | `registry not found` | Store missing bootstrap registry | Ensure bootstrap upsert runs before service start |
-| policy violation on update/delete | Profile is read-only or blocked by policy | Adjust policy intentionally or mutate a writable profile |
-| stale update conflict | `expected_version` does not match latest | Re-fetch profile, then retry update with current version |
 | `validation error (runtime.middlewares[*].name)` | Unknown middleware definition | Fix middleware name or register definition in application runtime |
 | `validation error (runtime.middlewares[*].config)` | Middleware payload fails schema validation | Correct payload shape/types based on middleware schema endpoint |
 | runtime did not switch after profile change | Resolver/composer not using profile version/fingerprint inputs | Ensure request plan includes `ProfileVersion` and runtime composer fingerprint includes version-sensitive inputs |

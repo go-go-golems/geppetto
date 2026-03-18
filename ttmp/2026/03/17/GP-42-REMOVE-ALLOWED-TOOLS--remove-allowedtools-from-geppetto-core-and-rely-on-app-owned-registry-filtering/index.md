@@ -1,7 +1,7 @@
 ---
 Title: Remove AllowedTools from Geppetto core and rely on app-owned registry filtering
 Ticket: GP-42-REMOVE-ALLOWED-TOOLS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - architecture
@@ -41,7 +41,7 @@ The primary deliverable is the detailed intern-oriented design and implementatio
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 Analysis and delivery are complete. The ticket now contains a full removal guide, evidence inventory, diary, task list, and reMarkable-ready bundle inputs.
 

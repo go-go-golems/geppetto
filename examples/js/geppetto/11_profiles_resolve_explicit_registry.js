@@ -9,10 +9,7 @@ assert(resolved.registrySlug === "team-agent", "explicit registry resolve mismat
 assert(resolved.profileSlug === "assistant", "explicit profile resolve mismatch");
 
 const runtime = resolved.effectiveRuntime || {};
-const patch = runtime.step_settings_patch || {};
-const aiChat = patch["ai-chat"] || {};
-assert(aiChat["ai-engine"] === "gpt-4.1-mini", "team assistant model should be gpt-4.1-mini");
-assert(aiChat["ai-api-type"] === "openai", "team assistant should inherit openai api type from provider layer");
+assert(runtime.system_prompt === "You are the team assistant.", "team assistant system prompt mismatch");
 
 const middlewares = runtime.middlewares || [];
 assert(middlewares.some((mw) => mw.name === "retry"), "team assistant should include retry middleware");

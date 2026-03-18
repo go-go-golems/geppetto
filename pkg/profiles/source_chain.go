@@ -28,8 +28,6 @@ type RegistrySourceSpec struct {
 
 type sourceOwner struct {
 	spec          RegistrySourceSpec
-	label         string
-	service       *StoreRegistry
 	registrySlugs []RegistrySlug
 	closer        io.Closer
 }
@@ -38,8 +36,6 @@ type sourceOwner struct {
 // It resolves profile slugs by stack precedence when no explicit registry is provided.
 type ChainedRegistry struct {
 	aggregate           *StoreRegistry
-	aggregateStore      *InMemoryProfileStore
-	registryOwners      map[RegistrySlug]*sourceOwner
 	precedenceTopFirst  []RegistrySlug
 	defaultRegistrySlug RegistrySlug
 	sources             []*sourceOwner
@@ -154,8 +150,6 @@ func NewChainedRegistryFromSourceSpecs(ctx context.Context, specs []RegistrySour
 
 	return &ChainedRegistry{
 		aggregate:           aggregate,
-		aggregateStore:      aggregateStore,
-		registryOwners:      ownerByRegistry,
 		precedenceTopFirst:  precedenceTopFirst,
 		defaultRegistrySlug: defaultRegistrySlug,
 		sources:             owners,
@@ -340,21 +334,8 @@ func openRegistrySource(ctx context.Context, spec RegistrySourceSpec) (*sourceOw
 		if len(registries) == 0 {
 			return nil, nil, fmt.Errorf("yaml profile registry source %q did not contain a registry", spec.Path)
 		}
-		store := NewInMemoryProfileStore()
-		for _, reg := range registries {
-			if reg == nil {
-				continue
-			}
-			store.registries[reg.Slug] = reg.Clone()
-		}
-		svc, err := NewStoreRegistry(store, registries[0].Slug)
-		if err != nil {
-			return nil, nil, err
-		}
 		ret := &sourceOwner{
-			spec:    spec,
-			label:   spec.Path,
-			service: svc,
+			spec: spec,
 		}
 		return ret, registries, nil
 	case RegistrySourceKindSQLite:
@@ -375,11 +356,6 @@ func openSQLiteSource(ctx context.Context, spec RegistrySourceSpec, dsn string) 
 	if err != nil {
 		return nil, nil, err
 	}
-	svc, err := NewStoreRegistry(store, MustRegistrySlug("default"))
-	if err != nil {
-		_ = store.Close()
-		return nil, nil, err
-	}
 	regs, err := store.ListRegistries(ctx)
 	if err != nil {
 		_ = store.Close()
@@ -395,10 +371,8 @@ func openSQLiteSource(ctx context.Context, spec RegistrySourceSpec, dsn string) 
 		return regs[i].Slug < regs[j].Slug
 	})
 	ret := &sourceOwner{
-		spec:    spec,
-		label:   dsn,
-		service: svc,
-		closer:  store,
+		spec:   spec,
+		closer: store,
 	}
 	return ret, regs, nil
 }

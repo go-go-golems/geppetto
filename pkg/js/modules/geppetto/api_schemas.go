@@ -67,11 +67,7 @@ func (m *moduleRuntime) schemasListExtensions(call goja.FunctionCall) goja.Value
 	byKey := map[string]extensionRow{}
 
 	if m.extensionCodecs != nil {
-		lister, ok := m.extensionCodecs.(profiles.ExtensionCodecLister)
-		if !ok {
-			panic(m.vm.NewGoError(fmt.Errorf("configured extension codec registry does not support listing codecs")))
-		}
-		for _, codec := range lister.ListCodecs() {
+		for _, codec := range m.extensionCodecs.ListCodecs() {
 			if codec == nil {
 				continue
 			}

@@ -43,9 +43,6 @@ func encodeResolvedProfile(resolved *profiles.ResolvedProfile) map[string]any {
 		"runtimeFingerprint": resolved.RuntimeFingerprint,
 		"effectiveRuntime":   cloneJSONValue(resolved.EffectiveRuntime),
 	}
-	if resolved.EffectiveStepSettings != nil {
-		out["effectiveStepSettings"] = cloneJSONValue(resolved.EffectiveStepSettings)
-	}
 	if len(resolved.Metadata) > 0 {
 		out["metadata"] = cloneJSONMap(resolved.Metadata)
 	}
@@ -158,14 +155,6 @@ func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
 				panic(m.vm.NewGoError(err))
 			}
 			in.ProfileSlug = profileSlug
-		}
-		runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKeyFallback"], ""))
-		if runtimeKeyRaw != "" {
-			runtimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
-			if err != nil {
-				panic(m.vm.NewGoError(err))
-			}
-			in.RuntimeKeyFallback = runtimeKey
 		}
 	}
 

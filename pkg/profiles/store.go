@@ -22,8 +22,6 @@ type ProfileStoreWriter interface {
 	UpsertRegistry(ctx context.Context, registry *ProfileRegistry, opts SaveOptions) error
 	DeleteRegistry(ctx context.Context, registrySlug RegistrySlug, opts SaveOptions) error
 	UpsertProfile(ctx context.Context, registrySlug RegistrySlug, profile *Profile, opts SaveOptions) error
-	DeleteProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error
-	SetDefaultProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error
 	Close() error
 }
 

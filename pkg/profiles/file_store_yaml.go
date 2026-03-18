@@ -137,38 +137,6 @@ func (s *YAMLFileProfileStore) UpsertProfile(ctx context.Context, registrySlug R
 	return s.persistLocked(ctx)
 }
 
-func (s *YAMLFileProfileStore) DeleteProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensureOpen(); err != nil {
-		return err
-	}
-	resolved, err := s.resolveRegistrySlug(registrySlug)
-	if err != nil {
-		return err
-	}
-	if err := s.store.DeleteProfile(ctx, resolved, profileSlug, opts); err != nil {
-		return err
-	}
-	return s.persistLocked(ctx)
-}
-
-func (s *YAMLFileProfileStore) SetDefaultProfile(ctx context.Context, registrySlug RegistrySlug, profileSlug ProfileSlug, opts SaveOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensureOpen(); err != nil {
-		return err
-	}
-	resolved, err := s.resolveRegistrySlug(registrySlug)
-	if err != nil {
-		return err
-	}
-	if err := s.store.SetDefaultProfile(ctx, resolved, profileSlug, opts); err != nil {
-		return err
-	}
-	return s.persistLocked(ctx)
-}
-
 func (s *YAMLFileProfileStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

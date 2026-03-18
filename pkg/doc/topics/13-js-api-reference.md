@@ -71,7 +71,7 @@ defer rt.Close(context.Background())
 | `consts` | namespace | Generated string constants (tool loop, block kinds, keys, event types) |
 | `turns` | namespace | Turn and block helpers |
 | `engines` | namespace | Engine constructors |
-| `profiles` | namespace | Profile registry read/resolve/CRUD API |
+| `profiles` | namespace | Profile registry read/resolve API |
 | `schemas` | namespace | Middleware/extension schema catalog API |
 | `middlewares` | namespace | Middleware adapters |
 | `events` | namespace | Event sink helpers |
@@ -119,38 +119,9 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 |---|---|---|
 | `echo` | `echo({reply?})` | Deterministic local engine |
 | `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
-| `fromProfile` | `fromProfile(profile?, opts?)` | Registry-backed engine resolution (hard cutover) |
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
-### `fromProfile` semantics
-
-`fromProfile` resolves through `profiles.Registry.ResolveEffectiveProfile`.
-
-Behavior:
-
-1. `profile` argument selects `ProfileSlug` (optional; falls back to registry default profile).
-2. `opts.runtimeKey` sets runtime-key fallback for profile resolution.
-3. Host must configure `Options.ProfileRegistry`; otherwise `fromProfile` throws.
-4. Runtime registry selection via `opts.registrySlug` is removed; registry choice is resolved by loaded registry stack.
-
-Legacy model/env precedence is removed from `fromProfile`.
-
-### `fromProfile` options
-
-| Option | Type | Description |
-|---|---|---|
-| `runtimeKey` | string | runtime-key fallback |
-
-If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
-
-### `fromProfile` engine metadata payload
-
-| Field | Type | Description |
-|---|---|---|
-| `metadata.profileRegistry` | string | resolved registry slug |
-| `metadata.profileSlug` | string | resolved profile slug |
-| `metadata.runtimeFingerprint` | string | lineage-aware runtime fingerprint |
-| `metadata.resolvedMetadata` | object | resolver metadata including stack lineage/trace |
+Resolve runtime metadata with `gp.profiles.resolve(...)`, then build engines explicitly with `gp.engines.fromConfig(...)`.
 
 ### `fromConfig` options
 
@@ -166,7 +137,7 @@ If `opts.registrySlug` is passed, `fromProfile` throws a migration error.
 | `timeoutSeconds` / `timeoutMs` | number | timeout override |
 
 `fromConfig` does not read provider API keys from process environment variables.
-Pass keys explicitly via `opts.apiKey` or resolve through `fromProfile` with keys in profile `step_settings_patch` (for example `openai-chat.openai-api-key`, `claude-chat.claude-api-key`).
+Pass keys explicitly via `opts.apiKey`.
 
 ## `profiles` Namespace
 
@@ -302,7 +273,6 @@ JS tool spec fields:
 | `toolChoice` | string | `auto` / `none` / `required` (or `gp.consts.ToolChoice.*`) |
 | `maxParallelTools` | number | Max parallel tool calls |
 | `executionTimeoutMs` | number | Per-tool timeout |
-| `allowedTools` | string[] | Tool allowlist |
 | `toolErrorHandling` | string | `continue` / `abort` / `retry` (or `gp.consts.ToolErrorHandling.*`) |
 | `retryMaxRetries` | number | Retry count |
 | `retryBackoffMs` | number | Retry backoff base |
@@ -409,8 +379,6 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | Problem | Cause | Solution |
 |---|---|---|
 | `createSession requires options object with engine` | Missing engine | pass `{ engine: gp.engines.*(...) }` |
-| `engines.fromProfile requires a configured profile registry` | host did not pass `Options.ProfileRegistry` | configure module with a registry before using `fromProfile` |
-| `options.registrySlug has been removed` | script still passes runtime registry selector to `engines.fromProfile` | remove `registrySlug`; load profile registries in stack order and resolve by profile slug |
 | `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
 | `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
 | `runAsync requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |

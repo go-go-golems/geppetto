@@ -27,7 +27,6 @@ const gp = require("geppetto");
 - `14_schemas_extensions_catalog.js`
 - `15_profiles_sqlite_inventory.js`
 - `16_mixed_registry_precedence.js`
-- `17_from_profile_legacy_registry_option_error.js`
 - `18_missing_profile_registry_errors.js`
 - `19_profiles_connect_stack_runtime.js`
 - `20_events_collector_sink.js`

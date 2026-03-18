@@ -52,9 +52,6 @@ func BuildProfileStackTrace(layers []ProfileStackLayer, merged StackMergeResult)
 			continue
 		}
 
-		for _, write := range collectTraceWrites("/runtime/step_settings_patch", layer.Profile.Runtime.StepSettingsPatch) {
-			trace.recordStep(write.path, write.value, layer, i)
-		}
 		if strings.TrimSpace(layer.Profile.Runtime.SystemPrompt) != "" {
 			trace.recordStep("/runtime/system_prompt", layer.Profile.Runtime.SystemPrompt, layer, i)
 		}
@@ -80,9 +77,6 @@ func BuildProfileStackTrace(layers []ProfileStackLayer, merged StackMergeResult)
 
 	}
 
-	for _, write := range collectTraceWrites("/runtime/step_settings_patch", merged.Runtime.StepSettingsPatch) {
-		trace.setFinal(write.path, write.value)
-	}
 	if strings.TrimSpace(merged.Runtime.SystemPrompt) != "" {
 		trace.setFinal("/runtime/system_prompt", merged.Runtime.SystemPrompt)
 	}

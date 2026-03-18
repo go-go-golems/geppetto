@@ -14,10 +14,9 @@ type StackMergeResult struct {
 func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, error) {
 	result := StackMergeResult{
 		Runtime: RuntimeSpec{
-			StepSettingsPatch: nil,
-			SystemPrompt:      "",
-			Middlewares:       nil,
-			Tools:             nil,
+			SystemPrompt: "",
+			Middlewares:  nil,
+			Tools:        nil,
 		},
 		Extensions: map[string]any{},
 	}
@@ -29,12 +28,6 @@ func MergeProfileStackLayers(layers []ProfileStackLayer) (StackMergeResult, erro
 			continue
 		}
 		profile := layer.Profile
-
-		mergedPatch, err := MergeRuntimeStepSettingsPatches(result.Runtime.StepSettingsPatch, profile.Runtime.StepSettingsPatch)
-		if err != nil {
-			return StackMergeResult{}, err
-		}
-		result.Runtime.StepSettingsPatch = mergedPatch
 
 		if strings.TrimSpace(profile.Runtime.SystemPrompt) != "" {
 			result.Runtime.SystemPrompt = profile.Runtime.SystemPrompt

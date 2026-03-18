@@ -220,9 +220,9 @@ After all callers are migrated:
 
 - `go test ./... -count=1` in `geppetto/` and downstream repos
 - run real-world examples that stream events + tools:
-  - `geppetto/cmd/examples/simple-streaming-inference`
-  - `geppetto/cmd/examples/generic-tool-calling`
-  - `geppetto/cmd/examples/openai-tools` (Responses thinking)
+  - `geppetto/cmd/examples/streaming-inference`
+  - `geppetto/cmd/examples/advanced/generic-tool-calling`
+  - `geppetto/cmd/examples/advanced/openai-tools` (Responses thinking)
 - if you have a TUI/webchat, do at least a 2-turn interaction and verify:
   - second prompt runs (no “stuck generating”)
   - cancellation returns to input state

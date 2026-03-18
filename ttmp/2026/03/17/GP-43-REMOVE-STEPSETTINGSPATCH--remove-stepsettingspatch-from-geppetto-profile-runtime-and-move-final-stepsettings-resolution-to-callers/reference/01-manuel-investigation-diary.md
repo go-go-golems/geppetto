@@ -1,0 +1,902 @@
+---
+Title: Manuel investigation diary
+Ticket: GP-43-REMOVE-STEPSETTINGSPATCH
+Status: active
+Topics:
+    - geppetto
+    - profile-registry
+    - architecture
+    - config
+DocType: reference
+Intent: long-term
+Owners: []
+RelatedFiles:
+    - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go
+      Note: |-
+        Tool filtering moved higher up to the resolved runtime request after AllowedTools contract removal
+        Tool registry filtering now derives from resolved runtime request instead of composed runtime artifacts
+    - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/resolver.go
+      Note: |-
+        GEC-RAG resolver updated to own runtime-key selection without RuntimeKeyFallback
+        CoinVault request resolver now owns final StepSettings resolution
+    - Path: ../../../../../../../2026-03-16--gec-rag/internal/webchat/runtime.go
+      Note: CoinVault runtime composer no longer applies StepSettingsPatch
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy.go
+      Note: |-
+        First GP-43 implementation slice removing caller-side RuntimeKeyFallback population
+        Webchat request resolution now carries resolved StepSettings into the runtime request
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/runtime_composer.go
+      Note: |-
+        Representative downstream consumer applying profile patch data
+        Runtime composer now consumes caller-owned StepSettings instead of applying StepSettingsPatch
+    - Path: ../../../../../../../pinocchio/pkg/webchat/http/api.go
+      Note: Shared webchat HTTP contract now carries ResolvedStepSettings
+    - Path: pkg/js/modules/geppetto/api_engines.go
+      Note: JS engines.fromProfile now hard-fails on removed runtimeKey option
+    - Path: pkg/js/modules/geppetto/api_profiles.go
+      Note: JS profiles.resolve no longer accepts runtimeKeyFallback
+    - Path: pkg/profiles/registry.go
+      Note: RuntimeKeyFallback removed from ResolveInput as part of GP-43 Step 5
+    - Path: pkg/profiles/runtime_settings_patch_resolver.go
+      Note: Patch helper file targeted for deletion
+    - Path: pkg/profiles/service.go
+      Note: |-
+        Main Geppetto profile-resolution implementation currently applying StepSettingsPatch
+        ResolveEffectiveProfile now always derives runtime key from profile slug
+    - Path: ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/design-doc/01-remove-stepsettingspatch-and-move-final-stepsettings-resolution-to-callers-design-and-implementation-guide.md
+      Note: Primary GP-43 design document
+    - Path: ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/scripts/01-stepsettingspatch-surface-inventory.sh
+      Note: Ticket-local inventory helper
+ExternalSources: []
+Summary: Chronological GP-43 diary covering ticket creation, surface inventory, design decisions, and planning for StepSettingsPatch removal.
+LastUpdated: 2026-03-17T23:35:00-04:00
+WhatFor: Use this diary to understand how the StepSettingsPatch removal plan was formed and what evidence supports the recommended caller-owned final StepSettings boundary.
+WhenToUse: Use when reviewing the GP-43 design, validating its evidence, or continuing implementation later.
+---
+
+
+
+
+# Manuel investigation diary
+
+## Goal
+
+Record the analysis behind GP-43, including the reason for deleting `StepSettingsPatch`, the observed surface area, and the implementation planning work.
+
+## Step 1: Create the ticket and inventory the current StepSettingsPatch surface
+
+The first task was to separate this cleanup from GP-41. GP-41 removes request-level overrides. This new ticket removes `StepSettingsPatch` itself and the associated `BaseStepSettings` plus `EffectiveStepSettings` flow. The user’s architecture direction was clear: final engine configuration should be resolved and cached by callers rather than being partially merged inside Geppetto profile resolution.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, create a new ticket to do that, we should delete StepSettingsPatch entirely. Add an implementation plan and detailed implementation tasks to the new ticket. Then let's plan out the removal of overrides from the main path"
+
+**Assistant interpretation:** Create a dedicated Geppetto ticket for full `StepSettingsPatch` deletion, add an implementation guide and detailed tasks, and then use that work to inform planning for the GP-41 override-removal path.
+
+**Inferred user intent:** Finish drawing the architectural boundary: profile runtime should no longer participate in final engine settings construction.
+
+**Commit (code):** N/A — documentation-only ticket work
+
+### What I did
+
+- Created the new ticket:
+
+```bash
+docmgr ticket create-ticket \
+  --ticket GP-43-REMOVE-STEPSETTINGSPATCH \
+  --title "Remove StepSettingsPatch from Geppetto profile runtime and move final StepSettings resolution to callers" \
+  --topics geppetto,profile-registry,architecture,settings
+```
+
+- Added the main design doc and this diary with `docmgr doc add`.
+- Ran a focused `rg` inventory for:
+  - `StepSettingsPatch`
+  - `step_settings_patch`
+  - `ApplyRuntimeStepSettingsPatch`
+  - `MergeRuntimeStepSettingsPatches`
+  - `EffectiveStepSettings`
+  - `BaseStepSettings`
+
+### Why
+
+- The surface is larger than GP-41 and deserves its own ticket.
+- The `rg` pass was necessary to understand the full removal blast radius before writing tasks.
+
+### What worked
+
+- The inventory clearly showed the expected structure:
+  - Geppetto core APIs and helpers,
+  - Pinocchio web chat and helper layers,
+  - GEC-RAG runtime composition,
+  - Temporal Relationships runtime composition,
+  - docs/examples/tests/migration code.
+
+### What didn't work
+
+- N/A in this step. The surface was easy to identify once the right search terms were chosen.
+
+### What I learned
+
+- `StepSettingsPatch` is not a minor implementation detail. It is still part of public profile semantics, caller helpers, and documentation.
+- The strongest signal for the removal direction is that final engine creation already happens from concrete `*settings.StepSettings`, while profile code only exists to derive those settings indirectly.
+
+### What was tricky to build
+
+The main judgment call was deciding whether this ticket should also propose removing `SystemPrompt`, `Middlewares`, or `Tools` from `RuntimeSpec`. I kept the ticket narrower. The architectural problem here is specifically partial engine configuration through patching.
+
+### What warrants a second pair of eyes
+
+- Whether any external users depend on `effectiveStepSettings` in the JS API or profile-resolution outputs.
+- Whether legacy profile migration should be handled in the same implementation series or in a follow-up cleanup ticket.
+
+### What should be done in the future
+
+- Execute GP-43 after GP-41 planning is clear so the two removals can be staged cleanly rather than colliding.
+
+### Code review instructions
+
+- Start with the main design doc.
+- Re-run the inventory script to see all live references.
+
+### Technical details
+
+- Key inventory command:
+
+```bash
+rg -n "StepSettingsPatch|step_settings_patch|ApplyRuntimeStepSettingsPatch|MergeRuntimeStepSettingsPatches|EffectiveStepSettings|BaseStepSettings" \
+  geppetto pinocchio 2026-03-16--gec-rag temporal-relationships \
+  --glob '!**/ttmp/**'
+```
+
+## Step 2: Turn the inventory into a phased implementation plan
+
+After the inventory, I wrote the design doc and task list around one central principle: Geppetto profile resolution should stop returning final engine settings. Instead, callers should resolve and cache final `*settings.StepSettings`, then use Geppetto only for engine creation and inference execution.
+
+### What I did
+
+- Wrote the main design doc with:
+  - a current-state summary,
+  - the target architecture,
+  - a phased implementation plan,
+  - pseudocode for before/after flows,
+  - risks and open questions.
+- Replaced the placeholder `tasks.md` with a detailed phase-by-phase checklist.
+- Added `scripts/01-stepsettingspatch-surface-inventory.sh` for future continuation.
+
+### Why
+
+- The ticket needed to be implementation-ready, not just an opinion dump.
+- The task list should be specific enough that another engineer can pick up Phase 2 or Phase 4 without redoing the investigation.
+
+### What worked
+
+- The phases were easy to structure:
+  1. contract decisions,
+  2. Geppetto core removal,
+  3. caller-facing cleanup,
+  4. downstream migration,
+  5. docs and migration cleanup,
+  6. validation.
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- The most important deletion is not just `StepSettingsPatch`; it is the entire trio:
+  - `StepSettingsPatch`
+  - `BaseStepSettings`
+  - `EffectiveStepSettings`
+
+### What was tricky to build
+
+The main tricky point was making the plan detailed without over-prescribing the exact app-side resolver API. Different apps may want different resolver shapes, and the ticket should not force a new over-general abstraction.
+
+### What warrants a second pair of eyes
+
+- Whether a short-lived compatibility adapter outside Geppetto core would reduce migration pain.
+- Whether GP-43 should be implemented before or after GP-41’s main-path override removal.
+
+## Step 3: Freeze the ideal API and fold RuntimeKeyFallback into the same hard cut
+
+After the initial GP-43 planning, the next task was to answer the open API question directly: what should the ideal app-facing boundary actually look like if we were not trying to preserve old behavior? The conclusion is that the application should own the entire resolved runtime object, including final `StepSettings` and runtime identity. That makes `RuntimeKeyFallback` part of the same architectural mistake as `StepSettingsPatch`, not a separate cleanup.
+
+### Prompt Context
+
+**User prompt (verbatim):** "alright, so let's write a document for this ideal API and to implement it, and document all the implementation steps necessary to get there. We don't need to keep backwards compatibility so we can do a hard cut. Add the implementation document to the ticket and upload to remarkable. Update the previous document accordingly. You can also cut off runtimekeyfallback in the same go i think (see GP-45)."
+
+**Assistant interpretation:** Add a new GP-43 implementation document that defines the ideal API and a detailed hard-cut implementation plan, update the earlier GP-43 material to match, and treat `RuntimeKeyFallback` removal as part of the same change series.
+
+**Inferred user intent:** Stop treating GP-43 as only a patch-format deletion and instead make it the explicit architecture ticket for the cleaner app-owned runtime boundary.
+
+**Commit (code):** N/A — ticket documentation work
+
+### What I did
+
+- Added a new design document:
+  - `design-doc/02-ideal-app-facing-api-and-hard-cut-implementation-plan.md`
+- Updated:
+  - `index.md`
+  - `design-doc/01-remove-stepsettingspatch-and-move-final-stepsettings-resolution-to-callers-design-and-implementation-guide.md`
+  - `tasks.md`
+  - `changelog.md`
+- Reframed GP-43 around one hard cut:
+  - remove `StepSettingsPatch`
+  - remove `BaseStepSettings`
+  - remove `EffectiveStepSettings`
+  - remove `RuntimeKeyFallback`
+  - no temporary compatibility adapter in Geppetto core
+
+### Why
+
+- The original GP-43 plan still left some architectural questions open, especially around whether a compatibility adapter should exist and whether `RuntimeKeyFallback` should wait for a separate later ticket.
+- The user’s direction was clearer than the earlier draft: define the elegant API and optimize the implementation plan for that end state rather than for incremental compatibility.
+
+### What worked
+
+- The current Pinocchio webchat flow made the right target boundary easy to explain:
+  - app resolves request and runtime,
+  - app builds final `StepSettings`,
+  - app builds engine and filtered tool registry,
+  - Geppetto runs the concrete engine/session/toolloop.
+- Once that boundary was explicit, it became obvious that `RuntimeKeyFallback` belongs on the app side too.
+
+### What didn't work
+
+- The original GP-43 task list was too tentative in Phase 1. It treated the API shape and migration strategy as open questions rather than as a design decision to lock before implementation starts.
+
+### What I learned
+
+- `RuntimeKeyFallback` is not just a convenience field. It is another symptom of Geppetto still owning more of runtime resolution than it should.
+- The elegant API is not “Geppetto returns better resolved profile objects.” The elegant API is “the app resolves a concrete runtime and Geppetto only consumes it.”
+
+### What was tricky to build
+
+The tricky part was making the design specific enough to guide implementation without accidentally inventing another shared “universal runtime resolver” abstraction. The right answer is to standardize the boundary, not the exact app-side helper struct. So the new doc specifies the boundary precisely but leaves room for Pinocchio, GEC-RAG, and Temporal Relationships to each have app-specific resolved-runtime structs.
+
+### What warrants a second pair of eyes
+
+- Whether Geppetto should gain a tiny convenience helper like `BuildEngine(ctx, EngineSpec)` or whether existing engine-construction helpers are already sufficient.
+- Whether the legacy profile migration path should hard-error on `step_settings_patch` immediately or receive a one-shot migration helper outside core runtime resolution.
+
+### What should be done in the future
+
+- Refresh the GP-43 bundle on reMarkable so the portable ticket copy reflects the new hard-cut plan.
+- Use this updated GP-43 plan as the basis for implementation ordering before touching GP-45 separately.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/design-doc/02-ideal-app-facing-api-and-hard-cut-implementation-plan.md`
+- Then compare the updated framing in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/design-doc/01-remove-stepsettingspatch-and-move-final-stepsettings-resolution-to-callers-design-and-implementation-guide.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/17/GP-43-REMOVE-STEPSETTINGSPATCH--remove-stepsettingspatch-from-geppetto-profile-runtime-and-move-final-stepsettings-resolution-to-callers/tasks.md`
+
+### Technical details
+
+- The new document intentionally treats GP-45’s `RuntimeKeyFallback` concern as part of GP-43 implementation, not as an independent API design axis.
+
+## Step 4: Start the hard cut by removing caller-side RuntimeKeyFallback usage
+
+The first implementation slice was chosen to make the later Geppetto hard cut smaller before touching core APIs. Instead of deleting `RuntimeKeyFallback` from Geppetto immediately, I removed the live caller-side population of that field in Pinocchio and GEC-RAG webchat resolution so runtime keys are derived in app code where they belong.
+
+That slice also exposed stale GEC-RAG cleanup from the earlier `AllowedTools` removal. The runtime composer was still trying to return tool-filtering policy as part of composed engine artifacts, which is exactly the wrong layer. I fixed that at the same time by moving tool filtering to the incoming resolved runtime request.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add the ticket, then work on it task by task, commit as you go, and keep a diary."
+
+**Assistant interpretation:** Start GP-43 implementation immediately, execute it in small validated slices, commit each slice, and keep the ticket diary current while work progresses.
+
+**Inferred user intent:** Make GP-43 a real implementation effort rather than a planning-only ticket, with enough process discipline that the work can be reviewed and continued cleanly.
+
+**Commit (code):** `9b70c73` — "own webchat runtime keys in app resolver"
+
+**Commit (code):** `42ba1f0` — "own runtime keys in webchat resolver"
+
+### What I did
+
+- Removed caller-side `RuntimeKeyFallback` population from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+- Added app-side runtime-key derivation in Pinocchio from the resolved profile slug instead of from Geppetto fallback synthesis.
+- Removed stale GEC-RAG use of `ComposedRuntime.AllowedTools` from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go`
+- Updated the affected GEC-RAG unit test:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_test.go`
+- Ran:
+
+```bash
+gofmt -w pinocchio/cmd/web-chat/profile_policy.go \
+  2026-03-16--gec-rag/internal/webchat/resolver.go \
+  2026-03-16--gec-rag/internal/webchat/runtime.go \
+  2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go \
+  2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_test.go
+
+cd pinocchio && go test ./cmd/web-chat/... -count=1
+cd pinocchio && go test ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Why
+
+- Deleting caller-side `RuntimeKeyFallback` usage first makes the later Geppetto API deletion smaller and easier to reason about.
+- Runtime identity is app-owned metadata. The live callers should stop treating Geppetto profile resolution as the source of truth for synthesizing it.
+- GEC-RAG’s `AllowedTools` fallout was a useful signal that tool filtering still belonged too low in the stack.
+
+### What worked
+
+- Pinocchio webchat tests passed after the change.
+- GEC-RAG webchat tests passed after removing the stale `AllowedTools` dependency.
+- The resulting code is closer to the target architecture: runtime key selection and tool policy are now clearly above composed engine artifacts.
+
+### What didn't work
+
+- The first focused GEC-RAG test run failed before the cleanup because two files still assumed the old `ComposedRuntime.AllowedTools` contract:
+
+```text
+internal/webchat/configurable_loop_runner_prepare.go:100:62: runtime.AllowedTools undefined (type "github.com/go-go-golems/pinocchio/pkg/inference/runtime".ComposedRuntime has no field or method AllowedTools)
+internal/webchat/runtime.go:206:3: unknown field AllowedTools in struct literal of type "github.com/go-go-golems/pinocchio/pkg/inference/runtime".ComposedRuntime
+```
+
+- Pinocchio’s commit took longer than expected because the repo pre-commit hook ran full test and lint flows, including a frontend build and `make lintmax`.
+
+### What I learned
+
+- Removing `RuntimeKeyFallback` cleanly is easier to stage from the callers inward than from Geppetto outward.
+- The old `AllowedTools` data flow was another example of runtime-composition structs accumulating app policy that should stay above the engine boundary.
+
+### What was tricky to build
+
+The tricky part was separating GP-43 work from stale fallout caused by earlier tickets. The compile failure in GEC-RAG was not created by the new runtime-key changes, but it blocked validation. I treated that as part of the same slice because it represented the exact same architectural direction: composed engine artifacts should not carry higher-level tool selection policy.
+
+### What warrants a second pair of eyes
+
+- Whether Pinocchio’s temporary runtime-key derivation from resolved profile slug is the right permanent shape once the app-owned resolved runtime object exists.
+- Whether any non-webchat callers still depend on `RuntimeKeyFallback` and should be migrated before the Geppetto core field is deleted.
+
+### What should be done in the future
+
+- Remove `RuntimeKeyFallback` from Geppetto core APIs now that the live webchat callers no longer populate it.
+- Start the next GP-43 slice by replacing `StepSettingsPatch` application in Pinocchio and GEC-RAG runtime composition with caller-owned final `StepSettings`.
+
+### Code review instructions
+
+- Start with `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`.
+- Then review:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/configurable_loop_runner_prepare.go`
+- Validate with:
+
+```bash
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Technical details
+
+- Pinocchio now derives the runtime key from `resolved.ProfileSlug` instead of using `ResolveInput.RuntimeKeyFallback`.
+- GEC-RAG tool filtering now consumes `payload.Runtime.ResolvedProfileRuntime.Tools` directly when constructing the tool registry for the loop.
+
+## Step 5: Remove RuntimeKeyFallback from Geppetto core and JS surfaces
+
+With the live webchat callers migrated, the next slice was the actual Geppetto hard cut for runtime-key fallback. This removed the fallback field from `profiles.ResolveInput`, deleted the fallback branch in `ResolveEffectiveProfile`, and updated the JS APIs, types, tests, examples, and docs so the resolved runtime key is always derived from the selected profile slug.
+
+I kept this slice separate from `StepSettingsPatch` deletion because it materially simplifies the later work without yet forcing the larger caller-owned `StepSettings` migration. It also closes the loop on the earlier design decision: runtime identity is now consistently treated as app-owned and profile-slug-derived, not as something Geppetto synthesizes from an override input.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue GP-43 slice-by-slice, removing the next piece of the old profile-resolution contract after the caller-side groundwork landed.
+
+**Inferred user intent:** Shrink the Geppetto profile API toward the target architecture in reviewable steps instead of attempting one large destructive edit.
+
+**Commit (code):** `1f1a9f5` — "remove runtime key fallback from profile resolution"
+
+### What I did
+
+- Removed `RuntimeKeyFallback` from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/registry.go`
+- Removed fallback synthesis from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+- Removed the JS `profiles.resolve({... runtimeKeyFallback })` input handling from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go`
+- Turned `gp.engines.fromProfile(..., { runtimeKey })` into an explicit hard-cut migration error in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go`
+- Updated:
+  - generated JS typings,
+  - JS module tests,
+  - the runtime-key example script,
+  - the JS user guide,
+  - the bootstrap playbook.
+- Ran:
+
+```bash
+gofmt -w geppetto/pkg/profiles/registry.go \
+  geppetto/pkg/profiles/service.go \
+  geppetto/pkg/js/modules/geppetto/api_profiles.go \
+  geppetto/pkg/js/modules/geppetto/api_engines.go \
+  geppetto/pkg/js/modules/geppetto/module_test.go
+
+cd geppetto && go test ./pkg/profiles ./pkg/js/modules/geppetto ./pkg/sections -count=1
+cd geppetto && rg -n "RuntimeKeyFallback|runtimeKeyFallback" geppetto pinocchio 2026-03-16--gec-rag temporal-relationships --glob '!**/ttmp/**'
+```
+
+### Why
+
+- The earlier caller-side migration made this a low-risk core cleanup with clear semantics.
+- Removing `RuntimeKeyFallback` now prevents new code from depending on it while the larger `StepSettingsPatch` removal is still in flight.
+- The JS module surface needed to move in lockstep with the Go API so the hard cut is consistent.
+
+### What worked
+
+- Focused tests in `pkg/profiles`, `pkg/js/modules/geppetto`, and `pkg/sections` passed.
+- Geppetto’s pre-commit hook passed full repo test and lint validation.
+- A workspace-wide grep showed zero remaining non-ticket references to `RuntimeKeyFallback` or `runtimeKeyFallback`.
+
+### What didn't work
+
+- N/A in this slice. The caller-side cleanup from Step 4 removed the main source of risk beforehand.
+
+### What I learned
+
+- `RuntimeKeyFallback` was easier to remove than `StepSettingsPatch` because it had a cleaner contract boundary and almost no real semantic value once callers owned runtime identity.
+- The JS `engines.fromProfile` API benefits from an explicit migration error for removed options, while `profiles.resolve` can simply stop accepting the field and derive the runtime key deterministically.
+
+### What was tricky to build
+
+The main tricky part was deciding how hard the JS cut should be. For `profiles.resolve`, silently deriving the runtime key from the profile slug is the only remaining meaningful behavior, so removing the field is enough. For `engines.fromProfile`, I kept an explicit error when `options.runtimeKey` is passed because the old option implies control over runtime identity that the API no longer offers. That gives a sharper failure for the one place users might still think the option does something.
+
+### What warrants a second pair of eyes
+
+- Whether the explicit `engines.fromProfile(..., { runtimeKey })` migration error is the desired long-term UX or whether the option should simply become ignored later.
+- Whether any external consumer outside this workspace expects `ResolvedProfile.runtimeKey` to differ from `profileSlug`.
+
+### What should be done in the future
+
+- Start the next GP-43 slice by removing `StepSettingsPatch` use from downstream runtime composers while `ResolvedProfile.EffectiveStepSettings` still exists.
+- After that, delete `StepSettingsPatch`, `BaseStepSettings`, and `EffectiveStepSettings` from Geppetto core in one harder cut.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/registry.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+- Then review the JS/API surface:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/module_test.go`
+- Validate with:
+
+```bash
+cd geppetto && go test ./pkg/profiles ./pkg/js/modules/geppetto ./pkg/sections -count=1
+```
+
+### Technical details
+
+- `ResolvedProfile.RuntimeKey` now always comes from `ParseRuntimeKey(profileSlug.String())`.
+- There are no remaining live code references to `RuntimeKeyFallback` or `runtimeKeyFallback` outside ticket materials under `ttmp/`.
+
+## Step 6: Move final StepSettings resolution above Pinocchio and GEC-RAG runtime composers
+
+This slice changed the most important runtime boundary in the live webchat path. Instead of passing raw profile runtime plus `StepSettingsPatch` down to the composer and letting the composer mutate a base config, the request resolver now passes fully resolved `StepSettings` alongside the resolved runtime metadata. The composer only consumes those final settings.
+
+That is the first concrete implementation of the target GP-43 architecture in real app code. The webchat runtime boundary is now much closer to the ideal model: app code resolves profile plus settings, and the lower inference/runtime layer just builds the engine from already-resolved inputs.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue GP-43 task-by-task, pushing the architecture downward until app code owns final runtime resolution instead of relying on patch application inside runtime composers.
+
+**Inferred user intent:** Turn the design into real code by moving final engine settings resolution out of Geppetto-style runtime patching and into the callers that actually own request policy.
+
+**Commit (code):** `ba2027e` — "move webchat step settings resolution above runtime composer"
+
+**Commit (code):** `c7926fd` — "move webchat step settings resolution above runtime composer"
+
+### What I did
+
+- Added `ResolvedStepSettings` to the shared runtime request contracts:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/conversation_service.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/api.go`
+- Threaded the new field through conversation lifecycle code:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/conversation.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/stream_hub.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/llm_state.go`
+- Updated Pinocchio request resolution to pass caller-owned final settings from `resolved.EffectiveStepSettings`:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go`
+- Removed `StepSettingsPatch` application from Pinocchio runtime composition:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/runtime_composer.go`
+- Updated Pinocchio tests to assert `ResolvedStepSettings` behavior instead of patch application:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/runtime_composer_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/app_owned_chat_integration_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/llm_delta_projection_harness_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/timeline_js_runtime_loader_test.go`
+- Did the same move in GEC-RAG:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime_request.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/server_bootstrap.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver_test.go`
+- Ran:
+
+```bash
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Why
+
+- This removes the highest-value downstream consumers before touching the Geppetto core `StepSettingsPatch` API.
+- The webchat runtime composer is the wrong layer to understand or apply patch semantics. It should receive final settings, not patch instructions.
+- GEC-RAG’s request resolver already owns application/inference profile composition, so it is the natural place to carry final `StepSettings` too.
+
+### What worked
+
+- Pinocchio webchat tests passed after the contract change.
+- GEC-RAG webchat tests passed after updating the resolver and runtime request mapping.
+- The runtime composer tests are now phrased in terms of resolved settings, which is much closer to the intended architecture and easier to reason about.
+
+### What didn't work
+
+- The first GEC-RAG rerun failed because `resolver_test.go` still constructed `NewProfileRequestResolver(...)` with the old signature:
+
+```text
+internal/webchat/resolver_test.go:66:3: not enough arguments in call to NewProfileRequestResolver
+	have (*fakeProfileRegistry, profiles.RegistrySlug, string, *appprofiles.Store, string)
+	want (profiles.Registry, profiles.RegistrySlug, string, *appprofiles.Store, string, *settings.StepSettings)
+```
+
+- That test also still asserted that `StepSettingsPatch` survived into the resolved runtime, which is no longer the right behavior for the path under test.
+
+### What I learned
+
+- The app-side migration is tractable when staged through request contracts: once the resolved HTTP/runtime request carries final settings, most downstream code barely changes.
+- `ResolvedRuntime` still has utility for system prompt, tools, and middleware metadata even after final `StepSettings` moves out of the patch path.
+
+### What was tricky to build
+
+The tricky part was choosing where to carry the new `ResolvedStepSettings` field. It had to move through three layers at once:
+
+- the HTTP request-resolution output,
+- the webchat service/runtime request contract,
+- and the lower runtime composer input.
+
+If any one of those layers kept reconstructing its own runtime input, the change would have collapsed back into implicit patching. The fix was to thread the resolved settings all the way through and clone them at ownership boundaries.
+
+### What warrants a second pair of eyes
+
+- Whether `ResolvedRuntime` should keep carrying any engine-shaping fields once `StepSettingsPatch` is fully deleted from Geppetto core.
+- Whether the `Conversation` object should eventually store a more explicit app-owned resolved-runtime struct instead of parallel fields like `resolvedRuntime`, `resolvedStepSettings`, `RuntimeKey`, and `RuntimeFingerprint`.
+
+### What should be done in the future
+
+- Delete `StepSettingsPatch`, `BaseStepSettings`, and `EffectiveStepSettings` from Geppetto core now that the biggest live downstream callers have moved off runtime-composer patch application.
+- Then clean up remaining Pinocchio/TUI/helper surfaces that still read `resolved.EffectiveStepSettings` directly.
+
+### Code review instructions
+
+- Start with the runtime contract changes:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/inference/runtime/composer.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/api.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/conversation_service.go`
+- Then review the two caller-side resolver/composer paths:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/runtime_composer.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/runtime.go`
+- Validate with:
+
+```bash
+cd pinocchio && go test ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+```
+
+### Technical details
+
+- Pinocchio and GEC-RAG now pass `resolved.EffectiveStepSettings.Clone()` through their request-resolution layers instead of reapplying `StepSettingsPatch` inside runtime composition.
+- The runtime composers still receive `ResolvedProfileRuntime` for prompt/tool/middleware metadata, but no longer use it to mutate step settings.
+
+## Step 7: Remove the last live downstream expectations of profile-resolved step settings
+
+With the main webchat request contracts already carrying resolved settings, the next step was to eliminate the remaining helper and command surfaces that still assumed Geppetto profile resolution could return final engine settings. This was the final downstream preparation before deleting the core patch API.
+
+The concrete target was simple: Pinocchio helpers, Temporal Relationships command/runtime setup, and GEC-RAG support code should all either compute base settings locally or clone caller-owned settings, never ask Geppetto to synthesize `EffectiveStepSettings`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add the ticket, then work on it task by task, commit as you go, and keep a diary."
+
+**Assistant interpretation:** Implement GP-43 incrementally, commit each coherent slice, and keep the ticket diary synchronized with the actual work.
+
+**Inferred user intent:** Make the hard cut reviewable and resumable instead of batching it into one opaque refactor.
+
+**Commit (code):** Multiple commits
+
+### What I did
+
+- Updated Pinocchio helper and app surfaces so they no longer rely on `resolved.EffectiveStepSettings`:
+  - `64d2f39` `own runtime step settings outside profile resolution`
+  - `602d6a9` `remove effective-step-settings naming from profile switch`
+- Updated GEC-RAG resolver flow to stop expecting profile-resolved settings:
+  - `722f41d` `stop expecting profile-resolved step settings`
+- Updated Temporal Relationships command/runtime setup to build engines from app settings:
+  - `94b0c8a` `build extractor engines from app settings`
+- Ran focused downstream tests:
+
+```bash
+cd pinocchio && go test ./pkg/cmds/helpers ./pkg/ui/profileswitch ./cmd/agents/simple-chat-agent ./cmd/examples/internal/tuidemo ./cmd/web-chat/... ./pkg/webchat/... -count=1
+cd 2026-03-16--gec-rag && go test ./internal/webchat/... -count=1
+cd temporal-relationships && go test ./internal/extractor/gorunner ./internal/extractor/httpapi/... -count=1
+```
+
+### Why
+
+- Deleting the core Geppetto API first would have created a noisy multi-repo break.
+- These helper paths were the last real consumers of the old mental model that “profile resolution returns final engine settings.”
+
+### What worked
+
+- The helper-layer changes were much smaller than the main webchat changes because the new rule is simpler: clone base settings on the app side and use profile resolution only for runtime metadata.
+- Temporal Relationships fit the same pattern as Pinocchio and GEC-RAG once the config bootstrap path was made explicit.
+
+### What didn't work
+
+- N/A for this step. The downstream prep changes went through without new logic failures once the remaining helper signatures were aligned.
+
+### What I learned
+
+- The strongest confirmation that GP-43 is the right cut is that every downstream caller became simpler when it stopped waiting for Geppetto to return “effective” settings.
+- `BaseStepSettings` is still a useful app concept, but only on the app side as an input to local runtime resolution.
+
+### What was tricky to build
+
+The tricky part was separating legitimate “base step settings” helpers from the obsolete Geppetto API contract. Search hits for `BaseStepSettings` after the migration are not necessarily bugs. In Pinocchio and Temporal Relationships they now mean “load the app’s configured base provider/model settings,” which is still correct. The sharp edge was making sure none of those helpers still passed `BaseStepSettings` into `profiles.ResolveEffectiveProfile(...)`.
+
+### What warrants a second pair of eyes
+
+- The remaining naming in helper functions like `ResolveBaseStepSettings(...)` is intentional, but reviewers should confirm it is now purely app-side and no longer tied to profile patch application.
+
+### What should be done in the future
+
+- Hard-cut the Geppetto profile API itself now that no live caller depends on `EffectiveStepSettings`.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/ui/profileswitch/manager.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/2026-03-16--gec-rag/internal/webchat/resolver.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/extractor/gorunner/config.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/extractor/httpapi/run_chat_transport.go`
+- Re-run the focused tests shown above.
+
+### Technical details
+
+- The invariant after this step is: all live callers either pass their own resolved `*settings.StepSettings` or clone locally loaded base settings; none rely on `ResolvedProfile.EffectiveStepSettings`.
+
+## Step 8: Hard-cut StepSettingsPatch from Geppetto core and JS surfaces
+
+Once all live callers were off the old contract, the core Geppetto removal became mostly mechanical: delete the patch fields, delete the helper file, delete the merge/trace behavior, and rewrite all tests and docs so the remaining profile model is explicitly runtime-metadata-only.
+
+This was the largest GP-43 slice. It touched profile types, resolution, JS bindings, sections glue, examples, generated types, tests, and migration docs. The goal was not to preserve compatibility, but to make the new shape obvious and difficult to misuse.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 7)
+
+**Assistant interpretation:** Continue the GP-43 implementation in coherent slices, commit the real code changes, and keep the diary accurate.
+
+**Inferred user intent:** Finish the architectural cut cleanly instead of leaving mixed old/new concepts in Geppetto core.
+
+**Commit (code):** `6aecbcc` — `remove profile step settings patches`
+
+### What I did
+
+- Removed patch-driven profile API pieces from Geppetto core:
+  - `pkg/profiles/types.go`
+  - `pkg/profiles/registry.go`
+  - `pkg/profiles/service.go`
+  - `pkg/profiles/stack_merge.go`
+  - `pkg/profiles/stack_trace.go`
+  - deleted `pkg/profiles/runtime_settings_patch_resolver.go`
+- Simplified profile-to-section glue in:
+  - `pkg/sections/profile_registry_source.go`
+  - `pkg/sections/sections.go`
+- Hard-cut JS/profile engine surfaces in:
+  - `pkg/js/modules/geppetto/api_profiles.go`
+  - `pkg/js/modules/geppetto/api_engines.go`
+  - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+  - `pkg/doc/types/geppetto.d.ts`
+- Rewrote relevant tests and examples:
+  - `pkg/profiles/*_test.go`
+  - `pkg/sections/profile_registry_source_test.go`
+  - `pkg/js/modules/geppetto/module_test.go`
+  - `cmd/examples/geppetto-js-lab/main.go`
+  - `examples/js/geppetto/*`
+- Updated documentation and playbooks to teach the hard cut.
+- Ran the repo hook validation indirectly through commit:
+
+```bash
+cd geppetto
+git commit -m "remove profile step settings patches"
+```
+
+The hook reran:
+
+```bash
+go test ./...
+golangci-lint config verify
+golangci-lint run -v --max-same-issues=100 --timeout=5m ./cmd/... ./pkg/...
+go vet -vettool=/tmp/geppetto-lint ...
+```
+
+### Why
+
+- The design is only real if Geppetto core itself stops advertising or returning patch-based engine settings.
+- Keeping deleted concepts alive in JS bindings or docs would have made the migration look partial even after the Go APIs were cut.
+
+### What worked
+
+- Once the downstream prep was done, the core removal was straightforward and the hook validation passed cleanly after a small formatting/dead-code cleanup.
+- Rewriting the JS surface to hard-fail `engines.fromProfile(...)` made the new boundary explicit.
+
+### What didn't work
+
+- The first commit attempt failed the hook because of small cleanup leftovers:
+
+```text
+pkg/profiles/service.go:11:1: File is not properly formatted (gofmt)
+pkg/profiles/codec_yaml.go:72:6: func toStringAnyMap is unused (unused)
+```
+
+- The fix was:
+
+```bash
+gofmt -w pkg/profiles/service.go pkg/profiles/codec_yaml.go
+```
+
+and removal of the unused helper in `pkg/profiles/codec_yaml.go`.
+
+### What I learned
+
+- The hardest part of these hard cuts is not the type deletion. It is rewriting every “teaching surface” so the old architecture stops sounding plausible.
+- `profiles.ResolveEffectiveProfile(...)` still has a useful job after GP-43, but it is much narrower: resolve runtime metadata, not engine settings.
+
+### What was tricky to build
+
+The sharp edge was avoiding half-migrated JS semantics. Removing the Go fields without removing `effectiveStepSettings` and `fromProfile(...)` would have left a split-brain API where the JS side still implied that profile resolution could create engines. The hard cut had to be holistic: Go types, JS bindings, generated `.d.ts`, examples, docs, and tests all had to move together.
+
+### What warrants a second pair of eyes
+
+- `pkg/js/modules/geppetto/api_engines.go` because it now hard-errors a previously supported path.
+- `pkg/sections/sections.go` because the profile-registry source hook no longer participates in step-settings overlay.
+
+### What should be done in the future
+
+- Finish the last downstream fallout cleanup so legacy migration commands and example registries stop implying that patch-based profiles are still acceptable inputs.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/registry.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/types.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_registry_source.go`
+- Validate with:
+
+```bash
+cd geppetto && go test ./pkg/profiles ./pkg/sections ./pkg/js/modules/geppetto -count=1
+cd geppetto && go test ./cmd/examples/geppetto-js-lab ./pkg/profiles ./pkg/sections ./pkg/js/modules/geppetto -count=1
+```
+
+### Technical details
+
+- The remaining profile runtime payload is now prompt/tools/middlewares plus metadata.
+- `GatherFlagsFromProfileRegistry(...)` is now effectively a no-op compatibility shim.
+- `engines.fromProfile(...)` is retained only to emit a hard removal error pointing callers to explicit step-settings-based engine creation.
+
+## Step 9: Clean downstream fallout, record the final state, and package the ticket
+
+After the Geppetto hard cut, the remaining work was cleanup rather than design: make the legacy profile migration command reject removed patch semantics explicitly, update downstream fixtures and docs so they teach runtime-metadata-only profiles, and then synchronize the GP-43 ticket bookkeeping with the actual implementation trail.
+
+This final step is where the ticket becomes usable for someone else. Without the changelog, tasks, diary, validation record, and reMarkable bundle refresh, the code would be landed but the handoff would still be poor.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 7)
+
+**Assistant interpretation:** Finish the ticket in a way that is auditable: code committed, docs synchronized, validation captured, and portable ticket bundle refreshed.
+
+**Inferred user intent:** Leave GP-43 in a state where another engineer can review or continue it without reconstructing context from terminal history.
+
+**Commit (code):** `b75c069` — `drop legacy profile patch assumptions`
+
+### What I did
+
+- Updated Pinocchio legacy migration and fallout surfaces:
+  - `cmd/pinocchio/cmds/profiles_migrate_legacy.go`
+  - `cmd/pinocchio/cmds/profiles_migrate_legacy_test.go`
+  - `cmd/pinocchio/main_profile_registries_test.go`
+  - `cmd/web-chat/timeline_js_runtime_loader_test.go`
+  - `pkg/ui/profileswitch/manager_test.go`
+  - `scripts/profile_registry_cutover_smoke.sh`
+  - `README.md`
+- Updated downstream fixtures/docs:
+  - `temporal-relationships` `d5ac736` `update runtime profile fixtures`
+  - `2026-03-16--gec-rag` `b444744` `document runtime metadata-only profiles`
+- Recorded the GP-43 final state in:
+  - `tasks.md`
+  - `changelog.md`
+  - `index.md`
+  - this diary
+
+### Why
+
+- The hard cut needs an explicit failure mode for removed legacy inputs.
+- The ticket docs should describe the final architecture and exact implementation trail, not just the original plan.
+
+### What worked
+
+- Pinocchio’s legacy migration path now fails fast with a direct explanation instead of pretending old `step_settings_patch` payloads can still be translated.
+- The remaining search hits for `step_settings_patch` are now intentional removal/error docs, not live configuration paths.
+
+### What didn't work
+
+- The first Pinocchio commit attempt failed its lint hook because two clone helpers became unused after the migration hard error path:
+
+```text
+cmd/pinocchio/cmds/profiles_migrate_legacy.go:409:6: func cloneStringAnyMap is unused (unused)
+cmd/pinocchio/cmds/profiles_migrate_legacy.go:420:6: func cloneAny is unused (unused)
+```
+
+- The fix was to delete those helpers and rerun the commit hook. The final commit then passed:
+
+```bash
+cd pinocchio
+git commit -m "drop legacy profile patch assumptions"
+```
+
+### What I learned
+
+- The migration code is a good pressure test for whether a hard cut is honest. If the migration command still silently preserves removed semantics, the architecture has not really changed.
+- Ticket quality matters most after the code lands, because this is the point where reviewers and future contributors will rely on it instead of on the live coding context.
+
+### What was tricky to build
+
+The tricky part was keeping the ticket bookkeeping isolated from unrelated `ttmp/` dirt in the Geppetto worktree. I had to update only the GP-43 files and ignore unrelated GP-41/GP-40/GP-44/GP-45 artifacts already present in `ttmp/`. That matters because the documentation commit should represent GP-43 state only, not accidental workspace noise.
+
+### What warrants a second pair of eyes
+
+- The remaining intentional error/documentation references to `step_settings_patch` should be reviewed once more to ensure they are clearly framed as removed behavior, not as live examples.
+
+### What should be done in the future
+
+- N/A
+
+### Code review instructions
+
+- Review the legacy hard-error path in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/profiles_migrate_legacy_test.go`
+- Confirm the remaining search hits are intentional:
+
+```bash
+cd geppetto && rg -n "step_settings_patch|StepSettingsPatch|EffectiveStepSettings|BaseStepSettings|RuntimeKeyFallback|runtimeKeyFallback" . --glob '!**/ttmp/**'
+cd pinocchio && rg -n "step_settings_patch|StepSettingsPatch|EffectiveStepSettings|BaseStepSettings|RuntimeKeyFallback|runtimeKeyFallback" . --glob '!**/ttmp/**'
+cd 2026-03-16--gec-rag && rg -n "step_settings_patch|StepSettingsPatch|EffectiveStepSettings|BaseStepSettings|RuntimeKeyFallback|runtimeKeyFallback" . --glob '!**/ttmp/**'
+cd temporal-relationships && rg -n "step_settings_patch|StepSettingsPatch|EffectiveStepSettings|BaseStepSettings|RuntimeKeyFallback|runtimeKeyFallback" . --glob '!**/ttmp/**'
+```
+
+### Technical details
+
+- After Step 9, the only remaining `step_settings_patch` references in the checked-in repos are intentional removal docs/errors.

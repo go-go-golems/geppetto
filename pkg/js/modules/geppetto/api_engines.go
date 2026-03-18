@@ -1,7 +1,6 @@
 package geppetto
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
@@ -53,10 +51,7 @@ func inferAPIType(model string) aitypes.ApiType {
 	}
 }
 
-func profileFromPrecedence(explicitProfile string, opts map[string]any) string {
-	if p := strings.TrimSpace(explicitProfile); p != "" {
-		return p
-	}
+func profileFromOptions(opts map[string]any) string {
 	if opts != nil {
 		if p := strings.TrimSpace(toString(opts["profile"], "")); p != "" {
 			return p
@@ -65,15 +60,15 @@ func profileFromPrecedence(explicitProfile string, opts map[string]any) string {
 	return "4o-mini"
 }
 
-func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, opts map[string]any) (*aistepssettings.StepSettings, string, error) {
+func (m *moduleRuntime) stepSettingsFromEngineOptions(opts map[string]any) (*aistepssettings.StepSettings, string, error) {
 	ss, err := aistepssettings.NewStepSettings()
 	if err != nil {
 		return nil, "", err
 	}
 
-	resolvedProfile := profileFromPrecedence(explicitProfile, opts)
+	resolvedProfile := profileFromOptions(opts)
 	model := resolvedProfile
-	if opts != nil && strings.TrimSpace(explicitProfile) == "" {
+	if opts != nil {
 		if override := strings.TrimSpace(toString(opts["model"], "")); override != "" {
 			model = override
 		}
@@ -175,8 +170,8 @@ func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, op
 	return ss, resolvedProfile, nil
 }
 
-func (m *moduleRuntime) engineFromStepSettings(explicitProfile string, opts map[string]any, fromProfile bool) (*engineRef, error) {
-	ss, resolvedProfile, err := m.stepSettingsFromEngineOptions(explicitProfile, opts)
+func (m *moduleRuntime) engineFromStepSettings(opts map[string]any) (*engineRef, error) {
+	ss, resolvedProfile, err := m.stepSettingsFromEngineOptions(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -184,11 +179,8 @@ func (m *moduleRuntime) engineFromStepSettings(explicitProfile string, opts map[
 	if err != nil {
 		return nil, err
 	}
-	name := "config"
-	if fromProfile {
-		name = "profile:" + resolvedProfile
-	}
-	return &engineRef{Name: name, Engine: eng}, nil
+	_ = resolvedProfile
+	return &engineRef{Name: "config", Engine: eng}, nil
 }
 
 func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
@@ -216,71 +208,6 @@ func (m *moduleRuntime) engineEcho(call goja.FunctionCall) goja.Value {
 	return m.newEngineObject(ref)
 }
 
-func (m *moduleRuntime) engineFromProfile(call goja.FunctionCall) goja.Value {
-	profile := ""
-	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
-		profile = call.Arguments[0].String()
-	}
-	var opts map[string]any
-	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
-		opts = decodeMap(call.Arguments[1].Export())
-	}
-	ref, err := m.engineFromResolvedProfile(profile, opts)
-	if err != nil {
-		panic(m.vm.NewGoError(err))
-	}
-	return m.newEngineObject(ref)
-}
-
-func (m *moduleRuntime) engineFromResolvedProfile(explicitProfile string, opts map[string]any) (*engineRef, error) {
-	if m.profileRegistry == nil {
-		return nil, fmt.Errorf("engines.fromProfile requires a configured profile registry")
-	}
-
-	in := profiles.ResolveInput{}
-	if profile := strings.TrimSpace(explicitProfile); profile != "" {
-		parsedProfileSlug, err := profiles.ParseProfileSlug(profile)
-		if err != nil {
-			return nil, err
-		}
-		in.ProfileSlug = parsedProfileSlug
-	}
-	if opts != nil {
-		if _, hasRegistrySlug := opts["registrySlug"]; hasRegistrySlug {
-			return nil, fmt.Errorf("engines.fromProfile options.registrySlug has been removed; load profile registries in stack order and resolve by profile slug")
-		}
-		if runtimeKeyRaw := strings.TrimSpace(toString(opts["runtimeKey"], "")); runtimeKeyRaw != "" {
-			parsedRuntimeKey, err := profiles.ParseRuntimeKey(runtimeKeyRaw)
-			if err != nil {
-				return nil, err
-			}
-			in.RuntimeKeyFallback = parsedRuntimeKey
-		}
-	}
-
-	resolved, err := m.profileRegistry.ResolveEffectiveProfile(context.Background(), in)
-	if err != nil {
-		return nil, err
-	}
-	ss := resolved.EffectiveStepSettings.Clone()
-	ensureStepSettingsProviderDefaults(ss)
-	eng, err := enginefactory.NewEngineFromStepSettings(ss)
-	if err != nil {
-		return nil, err
-	}
-
-	return &engineRef{
-		Name:   fmt.Sprintf("profile:%s/%s", resolved.RegistrySlug, resolved.ProfileSlug),
-		Engine: eng,
-		Metadata: map[string]any{
-			"profileRegistry":    resolved.RegistrySlug.String(),
-			"profileSlug":        resolved.ProfileSlug.String(),
-			"runtimeFingerprint": resolved.RuntimeFingerprint,
-			"resolvedMetadata":   cloneJSONMap(resolved.Metadata),
-		},
-	}, nil
-}
-
 func ensureStepSettingsProviderDefaults(ss *aistepssettings.StepSettings) {
 	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
 		return
@@ -303,7 +230,7 @@ func (m *moduleRuntime) engineFromConfig(call goja.FunctionCall) goja.Value {
 	if opts == nil {
 		panic(m.vm.NewTypeError("fromConfig requires options object"))
 	}
-	ref, err := m.engineFromStepSettings("", opts, false)
+	ref, err := m.engineFromStepSettings(opts)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}

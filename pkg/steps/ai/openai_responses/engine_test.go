@@ -887,11 +887,4 @@ func TestRunInference_StreamingPersistsCanonicalInferenceResultMetadata(t *testi
 		t.Fatalf("expected usage 9/2, got %+v", res.Usage)
 	}
 
-	legacyStopReason, ok, err := turns.KeyTurnMetaStopReason.Get(out.Metadata)
-	if err != nil {
-		t.Fatalf("get legacy stop_reason metadata: %v", err)
-	}
-	if !ok || legacyStopReason != "max_tokens" {
-		t.Fatalf("expected mirrored stop_reason=max_tokens, got %q (ok=%v)", legacyStopReason, ok)
-	}
 }
