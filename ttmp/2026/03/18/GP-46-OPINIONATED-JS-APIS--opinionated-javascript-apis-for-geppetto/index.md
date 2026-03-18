@@ -11,7 +11,7 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: "Design and implementation ticket for adding a high-level gp.runner namespace above Geppetto's low-level JavaScript builder/session API."
+Summary: "Design and implementation ticket for adding a high-level gp.runner namespace above Geppetto's low-level JavaScript builder/session API. The first implementation slices now include runtime resolution, prepared runs, and blocking execution."
 LastUpdated: 2026-03-18T11:03:00-04:00
 WhatFor: "Track the implementation of the opinionated JavaScript runner layer that mirrors the new Go runner boundary."
 WhenToUse: "Use when implementing or reviewing the gp.runner namespace, or when updating JS docs/examples to make the new runner the default path."
@@ -39,6 +39,20 @@ That low-level surface is appropriate for advanced hosts and deterministic test 
 ## Status
 
 Current status: **active**
+
+Implemented so far:
+
+- `gp.runner.resolveRuntime(...)`
+- `gp.runner.prepare(...)`
+- prepared-run handles with `session`, `turn`, `runtime`, `run()`, and `start()`
+- blocking `gp.runner.run(...)`
+
+Still to do:
+
+- top-level `gp.runner.start(...)`
+- public type surface updates
+- example scripts and doc rewrites that make `gp.runner` the default JS path
+- ticket closeout and refreshed reMarkable upload
 
 ## Topics
 

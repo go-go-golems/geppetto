@@ -139,6 +139,87 @@ Use this diary when continuing GP-46:
 - update the next step with exact commands and errors if implementation begins,
 - treat the “What warrants a second pair of eyes” section as the current risk register.
 
+## Step 2: Add `gp.runner.resolveRuntime(...)`
+
+This step started the implementation proper. The goal was to introduce the new `gp.runner` namespace without yet touching execution. I wanted the first code slice to prove the runtime-boundary shape before taking on session assembly.
+
+### What I did
+- Updated `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/module.go` to export a new `gp.runner` namespace.
+- Added `runnerResolvedRuntimeRef` in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_types.go`.
+- Added `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go`.
+- Refactored `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_middlewares.go` so middleware refs can be decoded and re-materialized cleanly instead of having ad-hoc one-way conversions.
+- Implemented `gp.runner.resolveRuntime(...)` with support for:
+  - profile-driven runtime resolution,
+  - direct `systemPrompt`,
+  - direct middleware additions,
+  - direct tool-name overrides,
+  - direct runtime identity metadata.
+- Added focused tests in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/module_test.go`.
+
+### Commands
+- `go test ./pkg/js/modules/geppetto -count=1`
+- `./.bin/golangci-lint run ./pkg/js/modules/geppetto`
+
+### What went wrong
+- I first wrote the middleware-array export using `mwArray.Set(int64(i), v)`. Goja object property setting here wants string keys, so that had to become `fmt.Sprintf("%d", i)`.
+- I also had a nil-guard issue in the runtime builder path where I touched metadata before verifying it existed.
+
+### Why this slice matters
+- It proves that the new `gp.runner` namespace can sit above the low-level module without redesigning the underlying session/builder APIs.
+- It establishes a JS-native runtime object that can be passed into later `prepare`, `run`, and `start` calls.
+
+## Step 3: Add prepared runs and blocking execution
+
+This step built the first real execution layer. The design goal was to make `gp.runner.prepare(...)` thin: it should reuse the existing `sessionRef` path instead of building a second execution subsystem inside the JS module.
+
+### What I did
+- Added `preparedRunRef` in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_types.go`.
+- Extended `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go` with:
+  - `gp.runner.prepare(...)`
+  - `gp.runner.run(...)`
+  - internal runtime application into the existing `builderRef`
+  - prepared-turn cloning and runtime metadata stamping
+  - JS prepared-run objects exposing:
+    - `session`
+    - `turn`
+    - `runtime`
+    - `run()`
+    - `start()`
+- Added focused tests for:
+  - profile-driven prepared runs,
+  - blocking `runner.run(...)`,
+  - runtime metadata stamping on prepared turns,
+  - tool-loop execution flowing through the prepared-run path.
+
+### Commands
+- `gofmt -w pkg/js/modules/geppetto/api_types.go pkg/js/modules/geppetto/module.go pkg/js/modules/geppetto/api_runner.go pkg/js/modules/geppetto/module_test.go`
+- `go test ./pkg/js/modules/geppetto -count=1`
+
+### Failures and fixes
+- First failure:
+  - error: `cannot use func(turn *turns.Turn) (*turns.Turn, error) as middleware.HandlerFunc`
+  - cause: I copied the wrong middleware signature into the new test. The JS module middleware path expects `func(ctx context.Context, turn *turns.Turn) (*turns.Turn, error)`.
+  - fix: changed the test middleware to the real handler signature and reused the typed metadata helper key.
+- Second failure:
+  - panic from `buildPreparedTurn` because I called `.String()` on `obj.Get("prompt")` when the property was undefined.
+  - fix: guard goja property access before calling `.Export()` or `.String()`.
+- Third failure:
+  - panic from `prepareRunnerOptions` because I called `.Export()` on an undefined `sessionId`.
+  - fix: the same guard pattern as above.
+- Fourth failure:
+  - `runner.run` ignored a direct `systemPrompt`.
+  - cause: `resolveRuntime` was recording `SystemPrompt` but not rebuilding the corresponding `systemPrompt` middleware ref.
+  - fix: added a `setRunnerSystemPrompt(...)` helper that rewrites the middleware spec list consistently for both profile-derived and direct prompt values.
+
+### Review guidance
+- Start with `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go`.
+- Verify that `prepareRunnerOptions(...)` uses the existing `applyBuilderOptions(...)` and `sessionRef` execution flow instead of duplicating session logic.
+- Confirm that `buildPreparedTurn(...)` mirrors the Go runner behavior:
+  - clone the seed turn,
+  - clear the historical id,
+  - append prompt text if needed,
+  - stamp runtime metadata before execution.
+
 ## Related
 
 - [../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md](../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md)

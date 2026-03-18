@@ -161,6 +161,8 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 
 	runnerObj := m.vm.NewObject()
 	m.mustSet(runnerObj, "resolveRuntime", m.runnerResolveRuntime)
+	m.mustSet(runnerObj, "prepare", m.runnerPrepare)
+	m.mustSet(runnerObj, "run", m.runnerRun)
 	m.mustSet(exports, "runner", runnerObj)
 
 	schemasObj := m.vm.NewObject()

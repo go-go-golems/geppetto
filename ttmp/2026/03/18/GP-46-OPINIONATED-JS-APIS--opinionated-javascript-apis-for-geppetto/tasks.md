@@ -12,41 +12,41 @@
 
 ## Phase 1: Ticket Baseline and Tasking
 
-- [ ] Rewrite the task board into concrete build slices that reflect the post-GP-47 substrate
-- [ ] Update the GP-46 changelog to record the implementation kickoff
-- [ ] Commit the GP-46 ticket baseline before code work starts
+- [x] Rewrite the task board into concrete build slices that reflect the post-GP-47 substrate
+- [x] Update the GP-46 changelog to record the implementation kickoff
+- [x] Commit the GP-46 ticket baseline before code work starts
 
 ## Phase 2: Runner Namespace and Runtime Resolution
 
-- [ ] Add a new `gp.runner` namespace to the JS module exports in `module.go`
-- [ ] Add internal runner ref/types in the JS module for resolved runtime and prepared runs
-- [ ] Implement `gp.runner.resolveRuntime(...)` with support for:
+- [x] Add a new `gp.runner` namespace to the JS module exports in `module.go`
+- [x] Add internal runner ref/types in the JS module for resolved runtime and prepared runs
+- [x] Implement `gp.runner.resolveRuntime(...)` with support for:
   - profile-driven runtime resolution
   - direct `systemPrompt` override/addition
   - direct `middlewares` addition
   - direct `toolNames` override/addition
   - direct runtime identity metadata (`runtimeKey`, `runtimeFingerprint`, `profileVersion`)
-- [ ] Reuse the GP-47 runtime-metadata helper layer instead of duplicating translation logic
-- [ ] Add focused tests for `gp.runner.resolveRuntime(...)`
-- [ ] Commit the namespace + resolveRuntime slice
+- [x] Reuse the GP-47 runtime-metadata helper layer instead of duplicating translation logic
+- [x] Add focused tests for `gp.runner.resolveRuntime(...)`
+- [x] Commit the namespace + resolveRuntime slice
 
 ## Phase 3: Prepared Runs and Blocking Execution
 
-- [ ] Implement `gp.runner.prepare(...)` to:
+- [x] Implement `gp.runner.prepare(...)` to:
   - require an explicit engine
   - consume `runtime` from `gp.runner.resolveRuntime(...)`
   - build a session via the existing builder/session substrate
   - append or clone the seed turn
   - expose the prepared session and turn
-- [ ] Add a JS-facing prepared-run handle with:
+- [x] Add a JS-facing prepared-run handle with:
   - `session`
   - `turn`
   - `runtime`
   - `run()`
   - `start()`
-- [ ] Implement `gp.runner.run(...)` as the blocking wrapper around `prepare(...)`
-- [ ] Add focused tests for `prepare(...)` and `run(...)`
-- [ ] Commit the prepared-run slice
+- [x] Implement `gp.runner.run(...)` as the blocking wrapper around `prepare(...)`
+- [x] Add focused tests for `prepare(...)` and `run(...)`
+- [x] Commit the prepared-run slice
 
 ## Phase 4: Streaming and Async Start
 

@@ -83,6 +83,13 @@ type runnerResolvedRuntimeRef struct {
 	Metadata        map[string]any
 }
 
+type preparedRunRef struct {
+	api     *moduleRuntime
+	session *sessionRef
+	turn    *turns.Turn
+	runtime *runnerResolvedRuntimeRef
+}
+
 type toolRegistryRef struct {
 	api *moduleRuntime
 

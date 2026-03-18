@@ -996,6 +996,130 @@ func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 	`)
 }
 
+func TestRunnerPrepareBuildsPreparedRunFromResolvedRuntime(t *testing.T) {
+	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+		GoMiddlewareFactories: map[string]MiddlewareFactory{
+			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
+				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+					return func(ctx context.Context, turn *turns.Turn) (*turns.Turn, error) {
+						if turn == nil {
+							turn = &turns.Turn{}
+						}
+						if err := profileMarkerKey.Set(&turn.Metadata, "profile-applied"); err != nil {
+							return nil, err
+						}
+						return next(ctx, turn)
+					}
+				}, nil
+			},
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			profile: { profileSlug: "explicit-model" },
+		});
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "search",
+			description: "search tool",
+			handler: () => ({ ok: true }),
+		});
+
+		const prepared = gp.runner.prepare({
+			engine: gp.engines.fromFunction((turn) => {
+				const hasToolUse = turn.blocks.some((b) => b.kind === "tool_use");
+				if (!hasToolUse) {
+					turn.blocks.push(gp.turns.newToolCallBlock("call-1", "search", { q: "hello" }));
+					return turn;
+				}
+				const runtimeMeta = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							profileMarker: turn.metadata["test.profile_marker@v1"],
+							runtimeKey: runtimeMeta.runtime_key,
+							profileVersion: runtimeMeta["profile.version"],
+						}))
+					]
+				});
+			}),
+			runtime,
+			tools: reg,
+			toolLoop: { enabled: true, maxIterations: 3, toolErrorHandling: "continue" },
+			seedTurn: gp.turns.newTurn({
+				id: "seed-1",
+				blocks: [gp.turns.newUserBlock("hello from runner")],
+			}),
+			sessionId: "runner-session",
+		});
+
+		if (!prepared || typeof prepared !== "object") throw new Error("runner.prepare should return object");
+		if (!prepared.session || prepared.session.turnCount() !== 1) throw new Error("prepared session should contain one seed turn");
+		if (prepared.session.latest().metadata.runtime.runtime_key !== "explicit-model") {
+			throw new Error("prepared turn should be stamped with runtime metadata");
+		}
+		if (prepared.turn.id === "seed-1") throw new Error("prepared turn should not reuse historical ids");
+		if (prepared.runtime.runtimeKey !== "explicit-model") throw new Error("prepared runtime missing");
+
+		const out = prepared.run();
+		const payload = JSON.parse(out.blocks[0].payload.text);
+		if (payload.firstKind !== "system") throw new Error("prepared.run should apply system prompt middleware");
+		if (payload.firstText !== "explicit prompt") throw new Error("prepared.run system prompt mismatch");
+		if (payload.profileMarker !== "profile-applied") throw new Error("prepared.run should materialize profile middleware");
+		if (payload.runtimeKey !== "explicit-model") throw new Error("prepared.run should stamp runtime key");
+		if (payload.profileVersion !== 7) throw new Error("prepared.run should stamp profile version");
+	`)
+}
+
+func TestRunnerRunBlocksOnPreparedExecution(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "be terse",
+			runtimeKey: "direct-runtime",
+			runtimeFingerprint: "fp-direct",
+			profileVersion: 5,
+		});
+
+		const out = gp.runner.run({
+			engine: gp.engines.fromFunction((turn) => {
+				const runtimeMeta = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							runtimeKey: runtimeMeta.runtime_key,
+							runtimeFingerprint: runtimeMeta.runtime_fingerprint,
+							profileVersion: runtimeMeta["profile.version"],
+						}))
+					]
+				});
+			}),
+			runtime,
+			prompt: "hello",
+		});
+
+		const payload = JSON.parse(out.blocks[0].payload.text);
+		if (payload.firstKind !== "system") throw new Error("runner.run should prepend direct systemPrompt");
+		if (payload.firstText !== "be terse") throw new Error("runner.run systemPrompt mismatch");
+		if (payload.runtimeKey !== "direct-runtime") throw new Error("runner.run runtimeKey mismatch");
+		if (payload.runtimeFingerprint !== "fp-direct") throw new Error("runner.run runtimeFingerprint mismatch");
+		if (payload.profileVersion !== 5) throw new Error("runner.run profileVersion mismatch");
+	`)
+}
+
 func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "base.yaml")

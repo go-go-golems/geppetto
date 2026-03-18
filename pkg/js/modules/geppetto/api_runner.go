@@ -7,6 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/profiles"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 func (m *moduleRuntime) runnerResolveRuntime(call goja.FunctionCall) goja.Value {
@@ -32,6 +33,194 @@ func (m *moduleRuntime) runnerResolveRuntime(call goja.FunctionCall) goja.Value 
 		panic(m.vm.NewGoError(err))
 	}
 	return m.newRunnerResolvedRuntimeObject(runtime)
+}
+
+func (m *moduleRuntime) runnerPrepare(call goja.FunctionCall) goja.Value {
+	prepared, err := m.prepareRunnerCall(call)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	return m.newPreparedRunObject(prepared)
+}
+
+func (m *moduleRuntime) runnerRun(call goja.FunctionCall) goja.Value {
+	prepared, err := m.prepareRunnerCall(call)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	opts, err := m.parseRunOptions(call.Arguments, 1)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	out, err := prepared.session.runSync(nil, opts)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	v, err := m.encodeTurnValue(out)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	return v
+}
+
+func (m *moduleRuntime) prepareRunnerCall(call goja.FunctionCall) (*preparedRunRef, error) {
+	if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
+		return nil, fmt.Errorf("runner.prepare requires options object with engine")
+	}
+	return m.prepareRunnerOptions(call.Arguments[0])
+}
+
+func (m *moduleRuntime) prepareRunnerOptions(v goja.Value) (*preparedRunRef, error) {
+	obj := v.ToObject(m.vm)
+	if obj == nil {
+		return nil, fmt.Errorf("runner options must be an object")
+	}
+
+	b := m.newBuilderRef()
+	if err := m.applyBuilderOptions(b, v); err != nil {
+		return nil, err
+	}
+
+	runtimeVal := obj.Get("runtime")
+	var runtimeRef *runnerResolvedRuntimeRef
+	if runtimeVal != nil && !goja.IsUndefined(runtimeVal) && !goja.IsNull(runtimeVal) {
+		var err error
+		runtimeRef, err = m.requireRunnerResolvedRuntime(runtimeVal)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.applyRunnerResolvedRuntime(b, runtimeRef); err != nil {
+			return nil, err
+		}
+	}
+
+	sr, err := b.buildSession()
+	if err != nil {
+		return nil, err
+	}
+	if sessionIDVal := obj.Get("sessionId"); sessionIDVal != nil && !goja.IsUndefined(sessionIDVal) && !goja.IsNull(sessionIDVal) {
+		if sessionID := strings.TrimSpace(toString(sessionIDVal.Export(), "")); sessionID != "" {
+			sr.session.SessionID = sessionID
+		}
+	}
+
+	turn, err := m.buildPreparedTurn(obj, sr.runtimeMetadata)
+	if err != nil {
+		return nil, err
+	}
+	sr.session.Append(turn)
+
+	return &preparedRunRef{
+		api:     m,
+		session: sr,
+		turn:    turn,
+		runtime: cloneRunnerResolvedRuntimeRef(runtimeRef),
+	}, nil
+}
+
+func (m *moduleRuntime) requireRunnerResolvedRuntime(v goja.Value) (*runnerResolvedRuntimeRef, error) {
+	ref := m.getRef(v)
+	switch x := ref.(type) {
+	case *runnerResolvedRuntimeRef:
+		return cloneRunnerResolvedRuntimeRef(x), nil
+	}
+
+	obj := v.ToObject(m.vm)
+	if obj == nil {
+		return nil, fmt.Errorf("runner runtime must be an object")
+	}
+	input := decodeMap(obj.Export())
+	if input == nil {
+		input = map[string]any{}
+	}
+	return m.resolveRunnerRuntime(obj, input)
+}
+
+func (m *moduleRuntime) applyRunnerResolvedRuntime(b *builderRef, runtime *runnerResolvedRuntimeRef) error {
+	if runtime == nil {
+		return nil
+	}
+	for idx, spec := range runtime.MiddlewareRefs {
+		mw, err := m.materializeMiddlewareSpec(spec)
+		if err != nil {
+			return fmt.Errorf("runner runtime middleware %d: %w", idx, err)
+		}
+		b.middlewares = append(b.middlewares, mw)
+	}
+	if len(runtime.ToolNames) > 0 {
+		b.runtimeToolNames = append([]string(nil), runtime.ToolNames...)
+	}
+	b.runtimeMetadata = mergeRuntimeMetadata(b.runtimeMetadata, runtime.RuntimeMetadata)
+	return nil
+}
+
+func (m *moduleRuntime) buildPreparedTurn(obj *goja.Object, runtimeMetadata map[string]any) (*turns.Turn, error) {
+	var seed *turns.Turn
+	seedVal := obj.Get("seedTurn")
+	if seedVal != nil && !goja.IsUndefined(seedVal) && !goja.IsNull(seedVal) {
+		var err error
+		seed, err = m.decodeTurnValue(seedVal)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var prompt string
+	if promptVal := obj.Get("prompt"); promptVal != nil && !goja.IsUndefined(promptVal) && !goja.IsNull(promptVal) {
+		prompt = strings.TrimSpace(toString(promptVal.Export(), ""))
+	}
+	if seed == nil && prompt == "" {
+		return nil, fmt.Errorf("runner requires prompt or seedTurn")
+	}
+	if seed == nil {
+		seed = &turns.Turn{}
+	}
+	seed = seed.Clone()
+	if seed == nil {
+		seed = &turns.Turn{}
+	}
+	seed.ID = ""
+	if prompt != "" {
+		turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
+	}
+	stampTurnRuntimeMetadata(seed, runtimeMetadata)
+	return seed, nil
+}
+
+func (m *moduleRuntime) newPreparedRunObject(prepared *preparedRunRef) goja.Value {
+	o := m.vm.NewObject()
+	m.attachRef(o, prepared)
+	if prepared == nil {
+		return o
+	}
+	m.mustSet(o, "session", m.newSessionObject(prepared.session))
+	turnValue, err := m.encodeTurnValue(prepared.turn)
+	if err == nil {
+		m.mustSet(o, "turn", turnValue)
+	}
+	m.mustSet(o, "runtime", m.newRunnerResolvedRuntimeObject(prepared.runtime))
+	m.mustSet(o, "run", func(call goja.FunctionCall) goja.Value {
+		opts, err := m.parseRunOptions(call.Arguments, 0)
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		out, err := prepared.session.runSync(nil, opts)
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		v, err := m.encodeTurnValue(out)
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		return v
+	})
+	m.mustSet(o, "start", func(call goja.FunctionCall) goja.Value {
+		opts, err := m.parseRunOptions(call.Arguments, 0)
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		return prepared.session.start(nil, opts)
+	})
+	return o
 }
 
 func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]any) (*runnerResolvedRuntimeRef, error) {
@@ -70,7 +259,7 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 	}
 
 	if systemPrompt := strings.TrimSpace(toString(input["systemPrompt"], "")); systemPrompt != "" {
-		out.SystemPrompt = systemPrompt
+		setRunnerSystemPrompt(out, systemPrompt)
 	}
 
 	if rawMws, ok := input["middlewares"]; ok && rawMws != nil {
@@ -134,10 +323,7 @@ func buildRunnerRuntimeFromResolvedProfile(resolved *profiles.ResolvedProfile) *
 		out.RuntimeMetadata["profile.version"] = version
 	}
 	if out.SystemPrompt != "" {
-		out.MiddlewareRefs = append(out.MiddlewareRefs, &goMiddlewareRef{
-			Name:    "systemPrompt",
-			Options: map[string]any{"prompt": out.SystemPrompt},
-		})
+		setRunnerSystemPrompt(out, out.SystemPrompt)
 	}
 	for _, use := range resolved.EffectiveRuntime.Middlewares {
 		if use.Enabled != nil && !*use.Enabled {
@@ -254,4 +440,27 @@ func decodeStringArray(raw any) []string {
 		return nil
 	}
 	return out
+}
+
+func setRunnerSystemPrompt(out *runnerResolvedRuntimeRef, prompt string) {
+	if out == nil {
+		return
+	}
+	out.SystemPrompt = strings.TrimSpace(prompt)
+	filtered := make([]any, 0, len(out.MiddlewareRefs))
+	for _, spec := range out.MiddlewareRefs {
+		goRef, ok := spec.(*goMiddlewareRef)
+		if ok && strings.TrimSpace(goRef.Name) == "systemPrompt" {
+			continue
+		}
+		filtered = append(filtered, spec)
+	}
+	out.MiddlewareRefs = filtered
+	if out.SystemPrompt == "" {
+		return
+	}
+	out.MiddlewareRefs = append([]any{&goMiddlewareRef{
+		Name:    "systemPrompt",
+		Options: map[string]any{"prompt": out.SystemPrompt},
+	}}, out.MiddlewareRefs...)
 }
