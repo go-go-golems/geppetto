@@ -1,0 +1,17 @@
+slug: demo
+default_profile_slug: concise
+profiles:
+  concise:
+    slug: concise
+    display_name: Concise
+    runtime:
+      system_prompt: You are a concise assistant. Answer in at most two short sentences.
+    metadata:
+      version: 1
+  teacher:
+    slug: teacher
+    display_name: Teacher
+    runtime:
+      system_prompt: You are a patient teacher. Explain clearly and include one short example.
+    metadata:
+      version: 1

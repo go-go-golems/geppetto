@@ -123,6 +123,8 @@ go run ./cmd/examples/streaming-inference
 go run ./cmd/examples/runner-simple
 go run ./cmd/examples/runner-tools
 go run ./cmd/examples/runner-streaming
+go run ./cmd/examples/runner-registry
+go run ./cmd/examples/runner-glazed
 
 # advanced low-level examples
 go run ./cmd/examples/advanced/middleware-inference
@@ -135,6 +137,7 @@ go run ./cmd/examples/geppetto-js-lab --list-go-tools
 ```
 
 All runnable examples are under `cmd/examples/`.
+See [`cmd/examples/README.md`](cmd/examples/README.md) for the simple-vs-advanced split.
 
 ## Documentation
 

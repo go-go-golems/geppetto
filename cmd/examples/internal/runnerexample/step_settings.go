@@ -1,10 +1,15 @@
 package runnerexample
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/inference/runner"
+	"github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
@@ -33,4 +38,71 @@ func OpenAIStepSettingsFromEnv(model string, stream bool) (*settings.StepSetting
 	ss.API.APIKeys["openai-api-key"] = apiKey
 
 	return ss, nil
+}
+
+// ExampleProfileRegistryPath returns the bundled sample profile registry path.
+func ExampleProfileRegistryPath() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "cmd/examples/internal/runnerexample/profiles/basic.yaml"
+	}
+	return filepath.Join(filepath.Dir(file), "profiles", "basic.yaml")
+}
+
+// ResolveRuntimeFromRegistry loads a chained registry, resolves one profile, and
+// returns runner.Runtime plus the registry closer.
+func ResolveRuntimeFromRegistry(
+	ctx context.Context,
+	stepSettings *settings.StepSettings,
+	rawSources string,
+	profileSlug string,
+) (runner.Runtime, func() error, error) {
+	if stepSettings == nil {
+		return runner.Runtime{}, nil, fmt.Errorf("step settings are required")
+	}
+	entries, err := profiles.ParseProfileRegistrySourceEntries(rawSources)
+	if err != nil {
+		return runner.Runtime{}, nil, err
+	}
+	specs, err := profiles.ParseRegistrySourceSpecs(entries)
+	if err != nil {
+		return runner.Runtime{}, nil, err
+	}
+	chain, err := profiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
+	if err != nil {
+		return runner.Runtime{}, nil, err
+	}
+
+	in := profiles.ResolveInput{}
+	if strings.TrimSpace(profileSlug) != "" {
+		parsed, err := profiles.ParseProfileSlug(profileSlug)
+		if err != nil {
+			_ = chain.Close()
+			return runner.Runtime{}, nil, err
+		}
+		in.ProfileSlug = parsed
+	}
+
+	resolved, err := chain.ResolveEffectiveProfile(ctx, in)
+	if err != nil {
+		_ = chain.Close()
+		return runner.Runtime{}, nil, err
+	}
+
+	profileVersion := uint64(0)
+	if resolved.Metadata != nil {
+		if v, ok := resolved.Metadata["profile.version"].(uint64); ok {
+			profileVersion = v
+		}
+	}
+
+	return runner.Runtime{
+		StepSettings:       stepSettings,
+		SystemPrompt:       resolved.EffectiveRuntime.SystemPrompt,
+		MiddlewareUses:     resolved.EffectiveRuntime.Middlewares,
+		ToolNames:          append([]string(nil), resolved.EffectiveRuntime.Tools...),
+		RuntimeKey:         resolved.RuntimeKey.String(),
+		RuntimeFingerprint: resolved.RuntimeFingerprint,
+		ProfileVersion:     profileVersion,
+	}, chain.Close, nil
 }

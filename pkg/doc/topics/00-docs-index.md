@@ -98,6 +98,8 @@ These working examples are the source of truth for patterns. Run them to see Gep
 | `runner-simple/` | Smallest `pkg/inference/runner` blocking example. |
 | `runner-tools/` | `pkg/inference/runner` example with a function tool and tool-name filtering. |
 | `runner-streaming/` | `pkg/inference/runner` async/event-sink example. |
+| `runner-registry/` | `pkg/inference/runner` example that resolves runtime prompt metadata from a profile registry. |
+| `runner-glazed/` | `pkg/inference/runner` example driven by Geppetto sections and Glazed parsing. |
 | `advanced/generic-tool-calling/` | Provider-agnostic low-level tool calling example. |
 | `advanced/openai-tools/` | Low-level OpenAI native function-calling example. |
 | `advanced/claude-tools/` | Low-level Claude native tool_use example. |

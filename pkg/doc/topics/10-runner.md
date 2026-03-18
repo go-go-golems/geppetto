@@ -74,3 +74,5 @@ See the focused example programs in:
 - `cmd/examples/runner-simple/`
 - `cmd/examples/runner-tools/`
 - `cmd/examples/runner-streaming/`
+- `cmd/examples/runner-registry/`
+- `cmd/examples/runner-glazed/`
