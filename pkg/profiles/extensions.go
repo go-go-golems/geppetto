@@ -238,36 +238,3 @@ func (r *InMemoryExtensionCodecRegistry) ListCodecs() []ExtensionCodec {
 	}
 	return out
 }
-
-// NormalizeProfileExtensions canonicalizes extension keys and applies registered
-// codec decode/normalization where available. Unknown keys are preserved.
-func NormalizeProfileExtensions(raw map[string]any, registry ExtensionCodecRegistry) (map[string]any, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	out := make(map[string]any, len(raw))
-	for rawKey, rawValue := range raw {
-		key, err := ParseExtensionKey(rawKey)
-		if err != nil {
-			return nil, &ValidationError{
-				Field:  fmt.Sprintf("profile.extensions[%s]", strings.TrimSpace(rawKey)),
-				Reason: err.Error(),
-			}
-		}
-		if registry != nil {
-			if codec, ok := registry.Lookup(key); ok {
-				decoded, err := codec.Decode(deepCopyAny(rawValue))
-				if err != nil {
-					return nil, &ValidationError{
-						Field:  fmt.Sprintf("profile.extensions[%s]", key),
-						Reason: fmt.Sprintf("decode failed: %v", err),
-					}
-				}
-				out[key.String()] = deepCopyAny(decoded)
-				continue
-			}
-		}
-		out[key.String()] = deepCopyAny(rawValue)
-	}
-	return out, nil
-}
