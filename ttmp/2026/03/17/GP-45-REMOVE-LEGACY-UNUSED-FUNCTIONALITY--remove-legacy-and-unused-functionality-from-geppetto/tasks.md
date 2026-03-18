@@ -22,8 +22,9 @@
 - [x] If safe, remove `DeleteProfile` and `SetDefaultProfile` from `ProfileStore`, memory/sqlite/yaml implementations, and tests.
 - [x] Evaluate whether `MirrorLegacyInferenceKeys` in `pkg/inference/engine/run_with_result.go` still has active consumers.
 - [x] Evaluate whether `runtimeattrib.AddRuntimeAttributionToExtra` still needs to accept multiple legacy input shapes (`string`, `key`, `slug`, underscore variants).
-- [ ] If no active consumers remain, simplify both paths to one canonical metadata envelope.
-- [ ] Add or update tests to lock in the canonical shape only.
+- [x] Remove legacy scalar inference metadata mirroring and downstream fallback readers now that no older inference-result readers remain.
+- [x] Add or update tests to lock in canonical `KeyTurnMetaInferenceResult` behavior only.
+- [ ] If no active consumers remain, simplify runtime attribution to one canonical metadata envelope.
 
 ## Phase 3: Migration-shim cleanup
 
@@ -33,7 +34,7 @@
 ## Phase 4: Over-complex or lightly integrated machinery
 
 - [x] Confirm whether `StoreRegistry.extensionCodecs` is actually used in runtime code or can be removed.
-- [ ] Confirm whether `NormalizeProfileExtensions` has any production callers outside tests.
+- [x] Confirm whether `NormalizeProfileExtensions` has any production callers outside tests.
 - [ ] Confirm whether `ProjectRuntimeMiddlewareConfigsToExtensions` and `MiddlewareConfigFromExtensions` are used outside tests and docs.
 - [ ] If extension/middleware-extension machinery is still desired, document the real supported flow; otherwise stage removal.
 - [ ] Evaluate whether always-on `profile.stack.trace` generation should become opt-in debug output.

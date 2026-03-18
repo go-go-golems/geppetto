@@ -33,7 +33,7 @@ RelatedFiles:
         Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T02:10:00-04:00
+LastUpdated: 2026-03-18T02:34:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -765,3 +765,98 @@ The main judgment call was whether to keep a compatibility shape for "registry w
 
 - The extension registry contract is now lister-only.
 - The old "registry without lister" branch is gone from Pinocchio’s schema helper and tests.
+
+## Step 9: Remove legacy scalar inference metadata mirroring and the last fallback reader
+
+Once the extension cleanup was out of the way, I returned to the metadata compatibility path. Earlier I had stopped short because `MirrorLegacyInferenceKeys(...)` still had active readers and writers. The user then made the intended policy explicit: there are no older readers left, so the scalar stop-reason/model/provider/usage projection should be removed outright.
+
+That changed the cleanup decision. Instead of preserving migration glue because it was still wired into the runtime, I treated the runtime wiring itself as the next deletion target and cut both sides together: Geppetto stopped writing the legacy scalar keys, and Temporal Relationships stopped reading them as fallback.
+
+### Prompt Context
+
+**User prompt (verbatim):** "kill it, we have no older reader"
+
+**Assistant interpretation:** Remove the legacy scalar inference metadata projection path instead of merely documenting it, and update the remaining downstream reader that still relied on a fallback.
+
+**Inferred user intent:** Complete the hard cut to canonical `KeyTurnMetaInferenceResult` instead of carrying migration-era duplication indefinitely.
+
+**Commit (code):** `43341a8` — `remove legacy scalar inference metadata`
+
+### What I did
+
+- Removed `MirrorLegacyInferenceKeys(...)` from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/inference/engine/run_with_result.go`
+- Simplified `RunInferenceWithResult(...)` so it now:
+  - prefers engine-returned structured results,
+  - otherwise reads canonical `KeyTurnMetaInferenceResult`,
+  - otherwise synthesizes a minimal result from turn shape only.
+- Simplified `PersistInferenceResult(...)` in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/inference/engine/inference_result_metadata.go`
+  so it writes only canonical `KeyTurnMetaInferenceResult`.
+- Removed the Gemini scalar provider/model writes from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Updated Geppetto tests:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/inference/engine/run_with_result_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/openai_responses/engine_test.go`
+- Removed the last fallback reader and test echo-engine writer in Temporal Relationships:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/extractor/gorunner/loop.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/extractor/gorunner/run.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/extractor/gorunner/run_test.go`
+- Updated the Geppetto docs to describe canonical inference metadata only:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/06-inference-engines.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/08-turns.md`
+
+### Why
+
+- The user explicitly confirmed that no older reader needs the scalar compatibility projection.
+- All live provider engines already persist canonical inference metadata.
+- The remaining scalar path was adding duplicate write logic, fallback reads, and misleading docs without providing actual product value.
+
+### What worked
+
+- The focused checks validated the intended boundary cleanly:
+
+```bash
+cd geppetto && go test ./pkg/inference/engine ./pkg/steps/ai/openai_responses ./pkg/steps/ai/gemini -count=1
+cd temporal-relationships && go test ./internal/extractor/gorunner/... -count=1
+```
+
+- The grep after the cut showed no remaining runtime writes or readers for the legacy scalar inference keys outside serde tests and generic metadata docs/examples.
+
+### What didn't work
+
+- My first patch attempt assumed the exact tail shape of `run_with_result.go` and failed to apply because I had remembered the legacy usage decoder slightly incorrectly. I had to re-read the full file and re-apply the cut more surgically.
+
+### What I learned
+
+- The live provider engines were already in the right place. The real remaining debt was in helper code and one downstream fallback reader, not in the providers themselves.
+- Keeping a minimal synthesis path for custom bare `RunInference` engines is still useful even after removing the legacy scalar metadata path.
+
+### What was tricky to build
+
+- The trickiest design choice was deciding whether to delete `SynthesizeInferenceResult(...)` entirely. I kept it, but reduced it to turn-shape synthesis only, so custom test or toy engines still get a canonical result without preserving old scalar metadata semantics.
+
+### What warrants a second pair of eyes
+
+- Review the updated `run_with_result.go` carefully. The contract is cleaner now, but the fallback semantics changed: engines that do not persist canonical metadata no longer get provider/model/usage synthesized from old scalar keys because those writes are gone.
+
+### What should be done in the future
+
+- Finish the other remaining compatibility cut in `runtimeattrib.AddRuntimeAttributionToExtra(...)`, which still accepts multiple historical input shapes.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/inference/engine/run_with_result.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/inference/engine/inference_result_metadata.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/extractor/gorunner/loop.go`
+- Verify the focused test commands above.
+- Re-run a search for:
+
+```bash
+rg -n "MirrorLegacyInferenceKeys|KeyTurnMetaStopReason\\.Get|KeyTurnMetaStopReason\\.Set|KeyTurnMetaProvider\\.Set|KeyTurnMetaModel\\.Set|KeyTurnMetaUsage\\.Set" geppetto temporal-relationships --glob '!**/ttmp/**'
+```
+
+### Technical details
+
+- After this step, canonical inference metadata is written once via `KeyTurnMetaInferenceResult` and then projected to generated blocks. The migration-era scalar metadata projection path is gone.

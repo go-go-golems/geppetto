@@ -53,7 +53,15 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
 - Landed downstream follow-up `pinocchio` `29e25c7` `simplify extension schema registry contract`:
   - removed the old "registry without lister" test shape,
   - simplified the profile API schema listing path to the same lister-only contract.
-- Confirmed that the inference/runtime metadata compatibility paths are not dead yet:
-  - `MirrorLegacyInferenceKeys` is still part of active engine persistence flow,
+- Confirmed that the runtime attribution compatibility path still needs a separate cut, but the inference-result scalar mirror no longer does:
   - `AddRuntimeAttributionToExtra` is still used by provider engines,
   - Pinocchio still reads older runtime metadata variants in persistence code.
+- Landed `geppetto` `43341a8` `remove legacy scalar inference metadata`:
+  - removed `MirrorLegacyInferenceKeys(...)` from `pkg/inference/engine/run_with_result.go`,
+  - stopped `PersistInferenceResult(...)` from writing legacy scalar projections,
+  - simplified `RunInferenceWithResult(...)` to canonical metadata plus minimal synthesis for bare custom engines,
+  - removed the Gemini provider/model scalar writes and updated inference-result docs/tests.
+- Landed downstream follow-up `temporal-relationships` `5ee3281` `drop legacy stop reason fallback`:
+  - removed the legacy stop-reason fallback reader from `gorunner/loop.go`,
+  - switched the echo test engine to write canonical `KeyTurnMetaInferenceResult`,
+  - updated tests to lock in canonical inference-result reading only.
