@@ -32,7 +32,7 @@
 
 ## Phase 4: Over-complex or lightly integrated machinery
 
-- [ ] Confirm whether `StoreRegistry.extensionCodecs` is actually used in runtime code or can be removed.
+- [x] Confirm whether `StoreRegistry.extensionCodecs` is actually used in runtime code or can be removed.
 - [ ] Confirm whether `NormalizeProfileExtensions` has any production callers outside tests.
 - [ ] Confirm whether `ProjectRuntimeMiddlewareConfigsToExtensions` and `MiddlewareConfigFromExtensions` are used outside tests and docs.
 - [ ] If extension/middleware-extension machinery is still desired, document the real supported flow; otherwise stage removal.

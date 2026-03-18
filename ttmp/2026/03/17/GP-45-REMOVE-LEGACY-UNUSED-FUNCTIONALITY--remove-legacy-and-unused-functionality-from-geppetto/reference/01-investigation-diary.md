@@ -33,7 +33,7 @@ RelatedFiles:
         Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T01:38:00-04:00
+LastUpdated: 2026-03-18T01:49:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -527,3 +527,84 @@ The only tricky part was separating real fallout from unrelated validation noise
   - `5ec524f` — `remove dead chained registry fields`
   - `6f08791` — `remove dead source owner scaffolding`
 - The YAML and SQLite source openers no longer build throwaway `StoreRegistry` values solely to populate unused `sourceOwner` fields.
+
+## Step 6: Remove the dead service-level extension codec hook without touching the live schema path
+
+The broader extension subsystem is not ready for blind deletion because the schema-listing path is still live in Pinocchio and the JS module. But one part of it was clearly dead: `StoreRegistry.extensionCodecs` and `WithExtensionCodecRegistry(...)`. A repo-wide search showed they were only referenced in `service.go` itself and in one test that existed purely to assert the field got wired.
+
+That made this a good GP-45 slice: remove the dead hook from the service layer while leaving the still-live `ExtensionCodecLister` and schema-listing flow alone until a later decision pass.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 5)
+
+**Assistant interpretation:** Keep moving through the next GP-45 cleanup candidates, but make a narrower cut where the broader extension API still has live consumers.
+
+**Inferred user intent:** Remove obviously dead hooks first and avoid mixing them with larger, more ambiguous extension-system decisions.
+
+**Commit (code):** `70aa268` — `remove dead store registry codec hook`
+
+### What I did
+
+- Verified that `StoreRegistry.extensionCodecs` and `WithExtensionCodecRegistry(...)` had no live in-repo callers outside their own test.
+- Left the schema-listing side alone because `ExtensionCodecLister` is still used by:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/profile_api.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_schemas.go`
+- Removed the dead service hook from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+- Removed the now-dead option test from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions_test.go`
+- Validated with:
+
+```bash
+cd geppetto && rg -n "WithExtensionCodecRegistry\\(|extensionCodecs\\b" pkg/profiles --glob '!**/ttmp/**'
+cd geppetto && go test ./pkg/profiles -count=1
+cd geppetto && ./.bin/golangci-lint run ./pkg/profiles
+```
+
+### Why
+
+- The service-layer codec hook no longer influenced profile resolution or validation.
+- Keeping it suggested that `StoreRegistry` still participated in extension decoding or schema wiring when it no longer does.
+- This cut was safer than trying to remove the whole extension-registry API in one go.
+
+### What worked
+
+- The search evidence was clean and local.
+- Focused `pkg/profiles` validation passed immediately.
+- The full pre-commit hook also passed, so this slice did not inherit the earlier flaky JS test issue.
+
+### What didn't work
+
+- The first patch attempt for the ticket docs afterward failed because I accidentally used the wrong ticket path while updating `index.md`. That was a patching mistake, not a code issue.
+
+### What I learned
+
+- The extension subsystem is split cleanly enough that dead service hooks can be removed independently of live schema-discovery code.
+- The next extension-related GP-45 step should be framed around actual surviving responsibilities, not the assumption that all extension machinery is dead together.
+
+### What was tricky to build
+
+The tricky part was resisting the temptation to delete more than the evidence supported. `NormalizeProfileExtensions(...)` and the codec `Lookup(...)` path still look suspicious, but the schema-listing side is demonstrably live. The right cut here was the dead service-level wiring only.
+
+### What warrants a second pair of eyes
+
+- The remaining extension-codec API should get a dedicated grep-first review before any further removal.
+- `ErrReadOnlyStore` also looks increasingly suspicious now that registry services are read-only by construction, but it needs its own downstream usage check before deletion.
+
+### What should be done in the future
+
+- Decide whether `NormalizeProfileExtensions(...)` and codec `Lookup(...)` are still worth keeping now that the service hook is gone.
+- Continue GP-45 with either that narrower extension follow-up or the metadata compatibility cleanup.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/service.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions_test.go`
+- Validate with the commands shown above.
+
+### Technical details
+
+- The service-layer extension codec hook is now gone.
+- The live extension schema path still depends on `ExtensionCodecLister`, not on `StoreRegistry`.

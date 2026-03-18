@@ -41,6 +41,9 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
 - Landed `geppetto` `6f08791` `remove dead source owner scaffolding`:
   - removed the unused `label` and `service` fields from `sourceOwner`,
   - removed the now-dead `StoreRegistry` construction from YAML and SQLite source opening paths.
+- Landed `geppetto` `70aa268` `remove dead store registry codec hook`:
+  - removed the unused `StoreRegistry.extensionCodecs` field and `WithExtensionCodecRegistry(...)` option,
+  - removed the now-dead test that only asserted service-level codec wiring.
 - Confirmed that the inference/runtime metadata compatibility paths are not dead yet:
   - `MirrorLegacyInferenceKeys` is still part of active engine persistence flow,
   - `AddRuntimeAttributionToExtra` is still used by provider engines,
