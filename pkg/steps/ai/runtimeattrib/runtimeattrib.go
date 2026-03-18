@@ -7,17 +7,16 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-// AddRuntimeAttributionToExtra copies runtime/profile attribution from Turn metadata into an EventMetadata.Extra map.
+// AddRuntimeAttributionToExtra copies runtime/profile attribution from Turn metadata
+// into an EventMetadata.Extra map.
 //
 // Expected Turn.Metadata source:
-// - turns.KeyTurnMetaRuntime may be either:
-//   - string (runtime key), or
-//   - map[string]any (recommended) with keys like:
+// - turns.KeyTurnMetaRuntime as map[string]any with canonical keys:
 //   - runtime_key
 //   - runtime_fingerprint
-//   - profile_slug
-//   - registry_slug
-//   - profile_version
+//   - profile.slug
+//   - profile.registry
+//   - profile.version
 //
 // Target keys written into extra (when available):
 // - runtime_key
@@ -35,39 +34,24 @@ func AddRuntimeAttributionToExtra(extra map[string]any, t *turns.Turn) {
 		return
 	}
 
-	switch rt := v.(type) {
-	case string:
-		if s := strings.TrimSpace(rt); s != "" {
-			extra["runtime_key"] = s
-		}
-	case map[string]any:
-		if s := trimString(rt["runtime_key"]); s != "" {
-			extra["runtime_key"] = s
-		} else if s := trimString(rt["key"]); s != "" {
-			extra["runtime_key"] = s
-		} else if s := trimString(rt["slug"]); s != "" {
-			extra["runtime_key"] = s
-		}
-		if s := trimString(rt["runtime_fingerprint"]); s != "" {
-			extra["runtime_fingerprint"] = s
-		}
-
-		// Normalize profile/registry naming into dotted keys used by persistence.
-		if s := trimString(rt["profile.slug"]); s != "" {
-			extra["profile.slug"] = s
-		} else if s := trimString(rt["profile_slug"]); s != "" {
-			extra["profile.slug"] = s
-		}
-		if s := trimString(rt["profile.registry"]); s != "" {
-			extra["profile.registry"] = s
-		} else if s := trimString(rt["registry_slug"]); s != "" {
-			extra["profile.registry"] = s
-		}
-		if n, ok := positiveUint64(rt["profile.version"]); ok {
-			extra["profile.version"] = n
-		} else if n, ok := positiveUint64(rt["profile_version"]); ok {
-			extra["profile.version"] = n
-		}
+	rt, ok := v.(map[string]any)
+	if !ok {
+		return
+	}
+	if s := trimString(rt["runtime_key"]); s != "" {
+		extra["runtime_key"] = s
+	}
+	if s := trimString(rt["runtime_fingerprint"]); s != "" {
+		extra["runtime_fingerprint"] = s
+	}
+	if s := trimString(rt["profile.slug"]); s != "" {
+		extra["profile.slug"] = s
+	}
+	if s := trimString(rt["profile.registry"]); s != "" {
+		extra["profile.registry"] = s
+	}
+	if n, ok := positiveUint64(rt["profile.version"]); ok {
+		extra["profile.version"] = n
 	}
 }
 

@@ -32,18 +32,6 @@ func TestAttachToExtraProfileVersionNormalization(t *testing.T) {
 			wantSeen: true,
 		},
 		{
-			name:     "underscored int still supported",
-			runtime:  map[string]any{"profile_version": int(6)},
-			want:     6,
-			wantSeen: true,
-		},
-		{
-			name:     "dotted takes precedence over underscored",
-			runtime:  map[string]any{"profile.version": int64(7), "profile_version": int64(8)},
-			want:     7,
-			wantSeen: true,
-		},
-		{
 			name:     "non-integer float ignored",
 			runtime:  map[string]any{"profile.version": 1.5},
 			wantSeen: false,
@@ -84,6 +72,67 @@ func TestAttachToExtraProfileVersionNormalization(t *testing.T) {
 			}
 			if gotU64 != tt.want {
 				t.Fatalf("profile.version mismatch: got %d want %d", gotU64, tt.want)
+			}
+		})
+	}
+}
+
+func TestAddRuntimeAttributionToExtra_RequiresCanonicalRuntimeMap(t *testing.T) {
+	tests := []struct {
+		name    string
+		runtime any
+		want    map[string]any
+	}{
+		{
+			name: "canonical map",
+			runtime: map[string]any{
+				"runtime_key":         "planner",
+				"runtime_fingerprint": "sha256:123",
+				"profile.slug":        "planner",
+				"profile.registry":    "default",
+				"profile.version":     uint64(3),
+			},
+			want: map[string]any{
+				"runtime_key":         "planner",
+				"runtime_fingerprint": "sha256:123",
+				"profile.slug":        "planner",
+				"profile.registry":    "default",
+				"profile.version":     uint64(3),
+			},
+		},
+		{
+			name:    "string runtime no longer supported",
+			runtime: "planner",
+			want:    map[string]any{},
+		},
+		{
+			name: "underscored aliases ignored",
+			runtime: map[string]any{
+				"profile_slug":    "planner",
+				"registry_slug":   "default",
+				"profile_version": uint64(4),
+				"slug":            "planner",
+			},
+			want: map[string]any{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			turn := &turns.Turn{}
+			if err := turns.KeyTurnMetaRuntime.Set(&turn.Metadata, tt.runtime); err != nil {
+				t.Fatalf("set runtime metadata: %v", err)
+			}
+
+			extra := map[string]any{}
+			AddRuntimeAttributionToExtra(extra, turn)
+			if len(extra) != len(tt.want) {
+				t.Fatalf("extra length mismatch: got %d want %d (%#v)", len(extra), len(tt.want), extra)
+			}
+			for k, want := range tt.want {
+				if got := extra[k]; got != want {
+					t.Fatalf("extra[%q] mismatch: got %#v want %#v", k, got, want)
+				}
 			}
 		})
 	}
