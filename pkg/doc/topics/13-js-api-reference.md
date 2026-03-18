@@ -121,7 +121,7 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 | `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
-`engines.fromProfile(...)` has been removed. Resolve runtime metadata with `gp.profiles.resolve(...)`, then build engines explicitly with `gp.engines.fromConfig(...)`.
+Resolve runtime metadata with `gp.profiles.resolve(...)`, then build engines explicitly with `gp.engines.fromConfig(...)`.
 
 ### `fromConfig` options
 
@@ -380,8 +380,6 @@ go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_prof
 | Problem | Cause | Solution |
 |---|---|---|
 | `createSession requires options object with engine` | Missing engine | pass `{ engine: gp.engines.*(...) }` |
-| `engines.fromProfile requires a configured profile registry` | host did not pass `Options.ProfileRegistry` | configure module with a registry before using `fromProfile` |
-| `options.registrySlug has been removed` | script still passes runtime registry selector to `engines.fromProfile` | remove `registrySlug`; load profile registries in stack order and resolve by profile slug |
 | `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
 | `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
 | `runAsync requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |

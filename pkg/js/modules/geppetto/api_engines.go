@@ -51,10 +51,7 @@ func inferAPIType(model string) aitypes.ApiType {
 	}
 }
 
-func profileFromPrecedence(explicitProfile string, opts map[string]any) string {
-	if p := strings.TrimSpace(explicitProfile); p != "" {
-		return p
-	}
+func profileFromOptions(opts map[string]any) string {
 	if opts != nil {
 		if p := strings.TrimSpace(toString(opts["profile"], "")); p != "" {
 			return p
@@ -63,15 +60,15 @@ func profileFromPrecedence(explicitProfile string, opts map[string]any) string {
 	return "4o-mini"
 }
 
-func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, opts map[string]any) (*aistepssettings.StepSettings, string, error) {
+func (m *moduleRuntime) stepSettingsFromEngineOptions(opts map[string]any) (*aistepssettings.StepSettings, string, error) {
 	ss, err := aistepssettings.NewStepSettings()
 	if err != nil {
 		return nil, "", err
 	}
 
-	resolvedProfile := profileFromPrecedence(explicitProfile, opts)
+	resolvedProfile := profileFromOptions(opts)
 	model := resolvedProfile
-	if opts != nil && strings.TrimSpace(explicitProfile) == "" {
+	if opts != nil {
 		if override := strings.TrimSpace(toString(opts["model"], "")); override != "" {
 			model = override
 		}
@@ -173,8 +170,8 @@ func (m *moduleRuntime) stepSettingsFromEngineOptions(explicitProfile string, op
 	return ss, resolvedProfile, nil
 }
 
-func (m *moduleRuntime) engineFromStepSettings(explicitProfile string, opts map[string]any, fromProfile bool) (*engineRef, error) {
-	ss, resolvedProfile, err := m.stepSettingsFromEngineOptions(explicitProfile, opts)
+func (m *moduleRuntime) engineFromStepSettings(opts map[string]any) (*engineRef, error) {
+	ss, resolvedProfile, err := m.stepSettingsFromEngineOptions(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -182,11 +179,8 @@ func (m *moduleRuntime) engineFromStepSettings(explicitProfile string, opts map[
 	if err != nil {
 		return nil, err
 	}
-	name := "config"
-	if fromProfile {
-		name = "profile:" + resolvedProfile
-	}
-	return &engineRef{Name: name, Engine: eng}, nil
+	_ = resolvedProfile
+	return &engineRef{Name: "config", Engine: eng}, nil
 }
 
 func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
@@ -214,10 +208,6 @@ func (m *moduleRuntime) engineEcho(call goja.FunctionCall) goja.Value {
 	return m.newEngineObject(ref)
 }
 
-func (m *moduleRuntime) engineFromProfile(call goja.FunctionCall) goja.Value {
-	panic(m.vm.NewGoError(fmt.Errorf("engines.fromProfile has been removed; resolve profiles in app code and pass explicit step settings to engines.fromConfig")))
-}
-
 func ensureStepSettingsProviderDefaults(ss *aistepssettings.StepSettings) {
 	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
 		return
@@ -240,7 +230,7 @@ func (m *moduleRuntime) engineFromConfig(call goja.FunctionCall) goja.Value {
 	if opts == nil {
 		panic(m.vm.NewTypeError("fromConfig requires options object"))
 	}
-	ref, err := m.engineFromStepSettings("", opts, false)
+	ref, err := m.engineFromStepSettings(opts)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}

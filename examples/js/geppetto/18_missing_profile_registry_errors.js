@@ -8,12 +8,4 @@ try {
 }
 assert(profilesErr, "profiles namespace should require configured profile registry");
 
-let fromProfileErr = false;
-try {
-  gp.engines.fromProfile("assistant");
-} catch (e) {
-  fromProfileErr = /engines\.fromprofile has been removed/i.test(String(e));
-}
-assert(fromProfileErr, "engines.fromProfile should report the hard-cut removal");
-
 console.log("missing profile registry errors: PASS");

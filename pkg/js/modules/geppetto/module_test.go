@@ -734,20 +734,12 @@ func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T)
 	`)
 }
 
-func TestEnginesFromProfileIsRemovedAndFromConfigStillWorks(t *testing.T) {
+func TestEnginesFromConfigStillWorks(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		ProfileRegistry: mustNewJSProfileRegistry(t),
 	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
-
-		let threwRemoved = false;
-		try {
-			gp.engines.fromProfile("default-model");
-		} catch (e) {
-			threwRemoved = /engines\.fromprofile has been removed/i.test(String(e));
-		}
-		if (!threwRemoved) throw new Error("fromProfile should fail with hard-cut error");
 
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
@@ -763,20 +755,6 @@ func TestEnginesFromProfileIsRemovedAndFromConfigStillWorks(t *testing.T) {
 			threw = true;
 		}
 		if (!threw) throw new Error("fromConfig should throw for unknown provider");
-	`)
-}
-
-func TestEnginesFromProfileReportsRemovalWithoutRegistry(t *testing.T) {
-	rt := newJSRuntime(t, Options{})
-	mustRunJS(t, rt, `
-		const gp = require("geppetto");
-		let threw = false;
-		try {
-			gp.engines.fromProfile("any");
-		} catch (e) {
-			threw = /engines\.fromprofile has been removed/i.test(String(e));
-		}
-		if (!threw) throw new Error("fromProfile should throw removed-api error");
 	`)
 }
 
