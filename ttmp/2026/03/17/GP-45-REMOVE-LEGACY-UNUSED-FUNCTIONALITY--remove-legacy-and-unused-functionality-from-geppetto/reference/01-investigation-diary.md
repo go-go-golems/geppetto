@@ -33,7 +33,7 @@ RelatedFiles:
         Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T01:21:00-04:00
+LastUpdated: 2026-03-18T01:38:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -426,3 +426,104 @@ The tricky part was deciding whether the remaining grep hit for "mutable registr
 - The Geppetto commit for this slice is `c37f952` — `clean gp-45 stale docs and js typings`.
 - The downstream fallout repair is `82bf805` — `drop dead profile flag bridge call`.
 - The only remaining grep hit for the "mutable registry" phrase is the JS tool registry API, which is intentional current behavior and not part of the removed profile-registry mutation model.
+
+## Step 5: Trim dead source-chain scaffolding instead of leaving unused construction state behind
+
+After the stale-doc sweep, the next GP-45 candidate in `pkg/profiles/source_chain.go` was straightforward: `ChainedRegistry` still carried `aggregateStore` and `registryOwners`, and `sourceOwner` still carried `label` and `service`. A grep showed those fields were only written during construction and never read anywhere in Geppetto or downstream repos.
+
+I treated that as two tiny structural cleanup commits rather than one larger refactor. The first commit removed the dead fields themselves. The second commit removed the now-unused `StoreRegistry` constructions and `sourceOwner` scaffolding that only existed to populate those fields.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue"
+
+**Assistant interpretation:** Keep working through the next GP-45 tasks and land the next reviewable cleanup slices instead of stopping after the stale-doc pass.
+
+**Inferred user intent:** Continue reducing low-value legacy scaffolding in small, well-documented commits until the remaining work is only the genuinely risky compatibility paths.
+
+**Commit (code):** `6f08791` — `remove dead source owner scaffolding`
+
+### What I did
+
+- Verified that the following fields had no live readers:
+  - `ChainedRegistry.aggregateStore`
+  - `ChainedRegistry.registryOwners`
+  - `sourceOwner.label`
+  - `sourceOwner.service`
+- Removed the first pair in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/source_chain.go`
+- Committed that field-only slice as:
+  - `geppetto` `5ec524f` — `remove dead chained registry fields`
+- Then removed the follow-on dead scaffolding in the same file:
+  - dropped `sourceOwner.label` and `sourceOwner.service`,
+  - removed the no-longer-needed `NewStoreRegistry(...)` construction in YAML and SQLite source openers.
+- Committed that follow-on slice as:
+  - `geppetto` `6f08791` — `remove dead source owner scaffolding`
+- Validated with:
+
+```bash
+cd geppetto && rg -n "aggregateStore|registryOwners|service\\s+\\*StoreRegistry|\\.service\\b|label\\s+string|\\.label\\b" pkg/profiles --glob '!**/ttmp/**'
+cd geppetto && go test ./pkg/profiles -run TestChainedRegistry -count=1
+cd geppetto && go test ./pkg/profiles -count=1
+cd geppetto && ./.bin/golangci-lint run ./pkg/profiles
+```
+
+### Why
+
+- Carrying construction-only state inside `ChainedRegistry` and `sourceOwner` made the source-loading path look more complex than it really is.
+- Once GP-45 proved the fields had no readers, keeping them would only preserve misleading structure for future maintainers.
+
+### What worked
+
+- The grep-based evidence was clean and local.
+- `pkg/profiles` focused tests and lint passed immediately after each cleanup.
+- The second commit also simplified the source-opening paths by removing now-dead `StoreRegistry` setup.
+
+### What didn't work
+
+- The first attempt to commit `5ec524f` hit an unrelated flaky full-repo pre-commit test:
+
+```text
+--- FAIL: TestStartWithJSEngineAndMiddleware (0.00s)
+    module_test.go:583: failed to inspect promise "__startHandle.promise": ReferenceError: __startHandle is not defined at <eval>:1:1(0)
+```
+
+- I re-ran the specific failing test:
+
+```bash
+cd geppetto && go test ./pkg/js/modules/geppetto -run TestStartWithJSEngineAndMiddleware -count=1
+```
+
+- That passed immediately, and the retried commit hook then passed end to end. The failure was unrelated to `pkg/profiles/source_chain.go`.
+
+### What I learned
+
+- `source_chain.go` had more dead scaffolding than the first grep suggested. Removing one unused field pair exposed a second layer of unused setup cleanly.
+- Small structure-only cleanup commits are still worth making when they reduce false complexity in a core configuration path.
+
+### What was tricky to build
+
+The only tricky part was separating real fallout from unrelated validation noise. The flaky JS-module test appeared during the first commit hook, but the failing symbol and file path were completely outside the changed area. Verifying that test in isolation before retrying the commit kept the cleanup honest without overreacting to unrelated instability.
+
+### What warrants a second pair of eyes
+
+- The remaining `profile.stack.trace` and runtime metadata compatibility path still needs a deliberate product/API decision before deletion.
+- The next extension-codec cleanup slice should get the same grep-first treatment, because that part of the codebase is much less obviously dead than `source_chain.go`.
+
+### What should be done in the future
+
+- Continue GP-45 with the extension/middleware-extension usage audit or the Pinocchio auto-discovery decision.
+- Keep calling out flaky unrelated tests in the diary when they appear during cleanup work, so later reviewers do not attribute them to the wrong change.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/source_chain.go`
+- Validate with the commands shown above.
+
+### Technical details
+
+- The two commits for this slice are:
+  - `5ec524f` — `remove dead chained registry fields`
+  - `6f08791` — `remove dead source owner scaffolding`
+- The YAML and SQLite source openers no longer build throwaway `StoreRegistry` values solely to populate unused `sourceOwner` fields.

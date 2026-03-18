@@ -35,6 +35,12 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
   - removed stale profile-mutation and migration-escape-hatch wording from docs and help text,
   - removed the dead `allowedTools` option from JS typings and API reference docs,
   - clarified the SQLite playbook around read-only registry operation and schema inspection.
+- Landed `geppetto` `5ec524f` `remove dead chained registry fields`:
+  - removed the unused `aggregateStore` and `registryOwners` fields from `ChainedRegistry`,
+  - confirmed the fields were construction-only bookkeeping with no live readers.
+- Landed `geppetto` `6f08791` `remove dead source owner scaffolding`:
+  - removed the unused `label` and `service` fields from `sourceOwner`,
+  - removed the now-dead `StoreRegistry` construction from YAML and SQLite source opening paths.
 - Confirmed that the inference/runtime metadata compatibility paths are not dead yet:
   - `MirrorLegacyInferenceKeys` is still part of active engine persistence flow,
   - `AddRuntimeAttributionToExtra` is still used by provider engines,

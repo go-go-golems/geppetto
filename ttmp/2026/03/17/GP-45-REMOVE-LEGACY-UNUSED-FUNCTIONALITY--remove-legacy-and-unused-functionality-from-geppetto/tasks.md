@@ -37,11 +37,11 @@
 - [ ] Confirm whether `ProjectRuntimeMiddlewareConfigsToExtensions` and `MiddlewareConfigFromExtensions` are used outside tests and docs.
 - [ ] If extension/middleware-extension machinery is still desired, document the real supported flow; otherwise stage removal.
 - [ ] Evaluate whether always-on `profile.stack.trace` generation should become opt-in debug output.
-- [ ] Evaluate whether unused `ChainedRegistry` fields (`aggregateStore`, `registryOwners`) should be removed.
+- [x] Evaluate whether unused `ChainedRegistry` fields (`aggregateStore`, `registryOwners`) should be removed.
 
 ## Review Checklist
 
 - [x] Each deletion candidate is backed by a grep-based usage check.
 - [x] Each remaining compatibility shim has an explicitly stated downstream owner.
 - [x] Docs are brought back into sync with actual code behavior.
-- [ ] Cleanup is split into reviewable phases rather than one large risky change.
+- [x] Cleanup is split into reviewable phases rather than one large risky change.
