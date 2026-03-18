@@ -1,7 +1,7 @@
 ---
 Title: Opinionated Go APIs for Geppetto Runner Scaffolding
 Ticket: GP-40-OPINIONATED-GO-APIS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - pinocchio
@@ -41,7 +41,7 @@ Important collaboration note: there is already a separate GP-40 ticket directory
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

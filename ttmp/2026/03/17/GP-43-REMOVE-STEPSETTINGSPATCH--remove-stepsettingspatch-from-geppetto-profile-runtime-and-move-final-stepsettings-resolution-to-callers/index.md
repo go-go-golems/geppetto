@@ -1,7 +1,7 @@
 ---
 Title: Remove StepSettingsPatch from Geppetto profile runtime and move final StepSettings resolution to callers
 Ticket: GP-43-REMOVE-STEPSETTINGSPATCH
-Status: active
+Status: complete
 Topics:
     - geppetto
     - profile-registry
@@ -45,7 +45,7 @@ The target end state is:
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 The hard cut is implemented across Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships. Remaining ticket work is bookkeeping validation plus reMarkable refresh.
 

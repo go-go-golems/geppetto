@@ -1,7 +1,7 @@
 ``---
 Title: GP-40 Implementation Tasks
 Ticket: GP-40-OPINIONATED-GO-APIS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - go-api
@@ -104,4 +104,4 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Update GP-40 changelog with the implementation sequence and commit ids
 - [x] Update the GP-40 diary with exact commands, failures, and review guidance
 - [x] Re-upload the refreshed GP-40 bundle to reMarkable and verify the remote listing
-- [ ] Mark the ticket complete once code and docs are aligned
+- [x] Mark the ticket complete once code and docs are aligned
