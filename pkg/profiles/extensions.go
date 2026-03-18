@@ -158,14 +158,8 @@ type ExtensionCodecMetadataProvider interface {
 	ExtensionDescription() string
 }
 
-// ExtensionCodecRegistry resolves codecs for extension keys.
+// ExtensionCodecRegistry enumerates extension codecs in deterministic order.
 type ExtensionCodecRegistry interface {
-	Lookup(key ExtensionKey) (ExtensionCodec, bool)
-}
-
-// ExtensionCodecLister is an optional capability for registries that can enumerate
-// all registered codecs in deterministic order.
-type ExtensionCodecLister interface {
 	ListCodecs() []ExtensionCodec
 }
 
@@ -184,14 +178,6 @@ func NewInMemoryExtensionCodecRegistry(codecs ...ExtensionCodec) (*InMemoryExten
 		}
 	}
 	return ret, nil
-}
-
-func (r *InMemoryExtensionCodecRegistry) Lookup(key ExtensionKey) (ExtensionCodec, bool) {
-	if r == nil || len(r.codecs) == 0 {
-		return nil, false
-	}
-	codec, ok := r.codecs[key]
-	return codec, ok
 }
 
 func (r *InMemoryExtensionCodecRegistry) Register(codec ExtensionCodec) error {

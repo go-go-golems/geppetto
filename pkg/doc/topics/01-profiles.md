@@ -285,9 +285,7 @@ For extension discovery, the merge order is deterministic:
 
 1. explicit extension schema docs supplied by the application,
 2. middleware-derived extension schemas (`middleware.<name>_config@v1`),
-3. codec-discovered schemas from `ExtensionCodecRegistry` entries that implement:
-   - `ExtensionCodecLister` (registry supports listing codecs),
-   - `ExtensionSchemaCodec` (codec exposes `JSONSchema()`).
+3. codec-discovered schemas from `ExtensionCodecRegistry` entries whose codecs implement `ExtensionSchemaCodec` (`JSONSchema()`).
 
 This keeps the endpoint extensible without hardcoding all extension keys in app code.
 
