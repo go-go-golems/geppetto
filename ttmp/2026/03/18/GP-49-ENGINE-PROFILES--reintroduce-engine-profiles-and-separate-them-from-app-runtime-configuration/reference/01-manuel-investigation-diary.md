@@ -16,7 +16,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: "Chronological record of the GP-49 analysis that led to the EngineProfile plus InferenceSettings split and the Glazed migration playbook."
-LastUpdated: 2026-03-18T18:05:00-04:00
+LastUpdated: 2026-03-18T20:05:00-04:00
 WhatFor: "Use this diary to understand how the GP-49 architecture direction was derived, which files were inspected, and why engine-only profiles are now preferred over mixed runtime profiles."
 WhenToUse: "Use when reviewing the ticket, validating the rationale for EngineProfile plus InferenceSettings, or reconstructing the analysis and documentation work."
 ---
@@ -278,6 +278,56 @@ Ticket maintenance after the rename:
 - updated related file paths from `pkg/profiles/...` to `pkg/engineprofiles/...`
 - marked Slice 1 done in the task board
 - prepared the ticket for the next slice: `StepSettings` to `InferenceSettings`
+
+## 2026-03-18 19:05 - 20:05: Slice 2 implementation - `StepSettings` to `InferenceSettings`
+
+The second slice was the hard naming cut. The goal was to remove `StepSettings` from the live codebase, not just add a new alias that would keep the old term around.
+
+I started by moving the main Geppetto settings file:
+
+- [settings-step.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/settings/settings-step.go) -> [settings-inference.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/settings/settings-inference.go)
+
+Then I hard-renamed the primary symbols:
+
+- `StepSettings` -> `InferenceSettings`
+- `NewStepSettings` -> `NewInferenceSettings`
+- `NewStepSettingsFromYAML` -> `NewInferenceSettingsFromYAML`
+- `NewStepSettingsFromParsedValues` -> `NewInferenceSettingsFromParsedValues`
+- `NewEngineFromStepSettings` -> `NewEngineFromSettings`
+
+The first real compile break after the broad rename pass was inside the settings package itself. The file move had left the inference section helper absent. I restored that directly in [settings-inference.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/settings/settings-inference.go):
+
+- embedded `flags/inference.yaml`
+- reintroduced `InferenceValueSection`
+- restored `AiInferenceSlug`
+- reintroduced `NewInferenceValueSection(...)`
+
+That gave me a stable inner compile ring:
+
+- `cd geppetto && go test ./pkg/steps/ai/settings ./pkg/inference/engine/factory ./pkg/inference/runner ./pkg/sections -count=1`
+
+Once that passed, I cleaned the remaining rename fallout in the application repos:
+
+- Pinocchio bootstrap errors, comments, and tests
+- GEC-RAG bootstrap and resolver wording
+- Temporal Relationships bootstrap wording
+- example helper files and filenames that still used `step_settings.go`
+
+I also renamed live helper filenames that still encoded the legacy term:
+
+- [cmd/examples/internal/runnerexample/inference_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/cmd/examples/internal/runnerexample/inference_settings.go)
+- [internal/cmdruntime/inference_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/temporal-relationships/internal/cmdruntime/inference_settings.go)
+
+Validation for this slice was intentionally broad:
+
+- `cd geppetto && go test ./...`
+- `cd pinocchio && go test ./cmd/pinocchio/... ./cmd/web-chat/... ./pkg/... ./scripts/...`
+- `cd 2026-03-16--gec-rag && go test ./internal/...`
+- `cd temporal-relationships && go test ./internal/...`
+
+All of these passed.
+
+One operational note: the rename touched a large amount of historical `ttmp/` material. I deliberately left those files unstaged because they are not part of the live code slice and would create a noisy commit. The live-code rename itself is validated and ready for separate commits.
 
 ## Quick Reference
 

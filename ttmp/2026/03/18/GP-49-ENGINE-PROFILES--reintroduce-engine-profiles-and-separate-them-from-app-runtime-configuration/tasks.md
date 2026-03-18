@@ -29,7 +29,7 @@
   - update imports in geppetto, pinocchio, gec-rag, and temporal-relationships
   - keep behavior unchanged in this slice
   - validate with focused package tests plus cross-repo compile/test smoke
-- [ ] Slice 2: hard-rename `StepSettings` to `InferenceSettings`
+- [x] Slice 2: hard-rename `StepSettings` to `InferenceSettings`
   - rename the core type in Geppetto
   - rename constructors such as `NewStepSettings` and `NewStepSettingsFromParsedValues`
   - rename engine factory helpers that still mention step settings
@@ -63,9 +63,9 @@
 
 ## Validation Requirements
 
-- [ ] Geppetto unit tests pass after each slice
-- [ ] Pinocchio focused tests or compile smoke pass after cross-repo rename slices
-- [ ] GEC-RAG focused tests or compile smoke pass after cross-repo rename slices
-- [ ] Temporal Relationships focused tests or compile smoke pass after cross-repo rename slices
+- [x] Geppetto unit tests pass after each slice
+- [x] Pinocchio focused tests or compile smoke pass after cross-repo rename slices
+- [x] GEC-RAG focused tests or compile smoke pass after cross-repo rename slices
+- [x] Temporal Relationships focused tests or compile smoke pass after cross-repo rename slices
 - [ ] `docmgr doctor --ticket GP-49-ENGINE-PROFILES --stale-after 30` passes after each documentation update
 - [ ] Commit each completed slice separately and record it in the diary and changelog

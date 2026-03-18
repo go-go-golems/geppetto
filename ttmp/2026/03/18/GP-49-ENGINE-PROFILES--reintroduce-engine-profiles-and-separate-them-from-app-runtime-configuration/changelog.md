@@ -21,3 +21,9 @@
   - renamed the Go package clause to `engineprofiles`
   - updated imports across Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships
   - validated with focused tests in all four repos
+- Completed Slice 2:
+  - hard-renamed `StepSettings` to `InferenceSettings`
+  - renamed constructors and engine-factory helpers to inference-oriented names
+  - updated call sites across Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships
+  - cleaned remaining user-facing `step settings` terminology from live code
+  - validated with full `go test ./...` in Geppetto plus broad downstream test sweeps
