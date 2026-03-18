@@ -712,6 +712,95 @@ That was just a bad formatting target list, not a content problem. I reran `gofm
   - `go test ./cmd/examples/runner-simple ./cmd/examples/runner-tools ./cmd/examples/runner-streaming ./cmd/examples/internal/runnerexample ./pkg/doc -count=1`
   - `./.bin/golangci-lint run ./cmd/examples/runner-simple ./cmd/examples/runner-tools ./cmd/examples/runner-streaming ./cmd/examples/internal/runnerexample ./pkg/doc`
 
+## Step 12: Close out GP-40 validation and delivery
+
+After the last example slice landed, the remaining work was ticket hygiene and delivery: run the final `docmgr` checks on the ticket docs, verify the repo was clean apart from unrelated parallel-ticket dirt, and upload a final reMarkable bundle that reflects the implemented runner rather than only the design.
+
+### Prompt Context
+
+**User prompt (verbatim):** same GP-40 implementation request as earlier steps.
+
+**Assistant interpretation:** Finish the ticket end to end instead of stopping at the last code commit.
+
+**Inferred user intent:** Leave GP-40 in a state where another engineer can review both the implementation and the documentation bundle without rerunning the whole investigation.
+
+**Commit (code):** Pending at this diary step. This final diary entry records the close-out work before the final ticket-bookkeeping commit is created.
+
+### What I did
+
+- Collected the implementation commit sequence:
+  - `7a49066` `add runner package skeleton`
+  - `f72fa02` `add runner tool registration helpers`
+  - `c4e621c` `add runner middleware assembly`
+  - `0ac4846` `add runner prepare flow`
+  - `4d73bf2` `add runner start and run methods`
+  - `484fc13` `add runner example programs`
+- Ran `docmgr doctor` against the GP-40 index, both design docs, the diary, and the task board.
+- Re-uploaded the GP-40 bundle as `GP-40 Opinionated Geppetto Runner Analysis v5`.
+- Verified the remote listing under `/ai/2026/03/17/GP-40-OPINIONATED-GO-APIS`.
+
+### Why
+
+- The ticket is part of the deliverable. If the docs, task board, and reMarkable bundle do not reflect the implemented state, the code work is harder to review and hand off.
+
+### What worked
+
+- All targeted `docmgr doctor` checks passed with `--stale-after 30`.
+- The reMarkable upload completed cleanly and the remote listing showed `v5` alongside the earlier GP-40 bundle revisions.
+
+### What didn't work
+
+- Nothing failed in the close-out slice. The only remaining local dirt in `geppetto` is unrelated parallel-ticket work and pre-existing changes outside Manuel’s GP-40 workspace.
+
+### What I learned
+
+- The staged GP-40 approach worked well: design first, then small code slices, then examples, then ticket close-out. The ticket now reads like an implementation record instead of only a proposal.
+
+### What was tricky to build
+
+- The only tricky part in close-out was making sure the final status summary did not accidentally imply that the unrelated GP-41 dirt or the colleague GP-40 workspace had been cleaned up. They were intentionally left untouched.
+
+### What warrants a second pair of eyes
+
+- Whether the ticket should remain `active` because of the parallel GP-40 workspace, or whether a later consolidation step should mark one GP-40 workspace as canonical and archive the other.
+
+### What should be done in the future
+
+- If the team wants, the next follow-up would be downstream adoption:
+  - migrate Pinocchio to the runner package where it meaningfully reduces duplication,
+  - then evaluate whether older large examples should be rewritten on top of the runner as well.
+
+### Code review instructions
+
+- Review the implementation commits in order:
+  1. `7a49066`
+  2. `f72fa02`
+  3. `c4e621c`
+  4. `0ac4846`
+  5. `4d73bf2`
+  6. `484fc13`
+- Validate ticket docs with:
+  - `docmgr doctor --doc .../index.md --stale-after 30`
+  - `docmgr doctor --doc .../design-doc/01-opinionated-geppetto-runner-design-and-implementation-guide.md --stale-after 30`
+  - `docmgr doctor --doc .../design-doc/02-concrete-runner-implementation-plan.md --stale-after 30`
+  - `docmgr doctor --doc .../reference/01-manuel-investigation-diary.md --stale-after 30`
+  - `docmgr doctor --doc .../tasks.md --stale-after 30`
+- Verify the final reMarkable upload with:
+  - `remarquee cloud ls /ai/2026/03/17/GP-40-OPINIONATED-GO-APIS --long --non-interactive`
+
+### Technical details
+
+- Final ticket-doc validation commands run:
+  - `docmgr doctor --doc .../index.md --stale-after 30`
+  - `docmgr doctor --doc .../design-doc/01-opinionated-geppetto-runner-design-and-implementation-guide.md --stale-after 30`
+  - `docmgr doctor --doc .../design-doc/02-concrete-runner-implementation-plan.md --stale-after 30`
+  - `docmgr doctor --doc .../reference/01-manuel-investigation-diary.md --stale-after 30`
+  - `docmgr doctor --doc .../tasks.md --stale-after 30`
+- Final upload result:
+  - `OK: uploaded GP-40 Opinionated Geppetto Runner Analysis v5.pdf -> /ai/2026/03/17/GP-40-OPINIONATED-GO-APIS`
+- Final remote verification result includes:
+  - `GP-40 Opinionated Geppetto Runner Analysis v5`
+
 ## Step 9: Add `Prepare(...)` and make the runner assemble real sessions
 
 The fourth implementation slice added `Prepare(...)`, which is the first point where the new package becomes practically useful for applications. Before this slice, the runner package could describe runtime input, register tools, and wrap an engine with middleware, but it still did not assemble a usable session. `Prepare(...)` closes that gap by building the session, attaching the standard `enginebuilder.Builder`, wiring sinks and persistence hooks, and seeding the first turn.

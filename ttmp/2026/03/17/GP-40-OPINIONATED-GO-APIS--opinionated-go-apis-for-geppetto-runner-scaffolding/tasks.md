@@ -45,7 +45,7 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Add `options.go` with `Runner`, `Option`, default loop/tool config handling, and constructor helpers
 - [x] Add `errors.go` with package-scoped validation errors
 - [x] Add initial package docs so the public boundary is obvious in `go doc`
-- [ ] Commit the boundary freeze as the first implementation commit
+- [x] Commit the boundary freeze as the first implementation commit
 
 ### Slice 2: Tool Registration Helpers
 
@@ -54,7 +54,7 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Implement registry construction from tool registrars
 - [x] Implement registry filtering from `Runtime.ToolNames`
 - [x] Add tests covering nil registrars, duplicate tools, and name filtering
-- [ ] Commit the tool-registration slice
+- [x] Commit the tool-registration slice
 
 ### Slice 3: Middleware Resolution And Engine Assembly
 
@@ -65,7 +65,7 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Build the base engine from final `StepSettings`
 - [x] Wrap the engine with the resolved middleware chain
 - [x] Add tests covering direct middleware, middleware-use resolution, and prompt injection
-- [ ] Commit the middleware and engine-assembly slice
+- [x] Commit the middleware and engine-assembly slice
 
 ### Slice 4: Prepare
 
@@ -77,7 +77,7 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Build and attach the registry, event sinks, snapshot hook, persister, and step controller
 - [x] Return a `PreparedRun` with the assembled session, engine, registry, and initial turn
 - [x] Add tests covering prompt-only, seed-turn, and invalid-input paths
-- [ ] Commit the `Prepare(...)` slice
+- [x] Commit the `Prepare(...)` slice
 
 ### Slice 5: Start And Run
 
@@ -87,7 +87,7 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Return structured results instead of forcing callers to inspect the raw session state
 - [x] Add tests for sync and async execution
 - [x] Add at least one event-sink test proving the streaming path still works
-- [ ] Commit the `Start(...)` and `Run(...)` slice
+- [x] Commit the `Start(...)` and `Run(...)` slice
 
 ### Slice 6: First-Party Examples And Package Documentation
 
@@ -95,13 +95,13 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 - [x] Add or migrate one tools example to the new runner
 - [x] Add or migrate one event-driven example to the new runner
 - [x] Update Geppetto docs so `pkg/inference/runner` is the recommended entry point for new apps
-- [ ] Commit the examples and docs slice
+- [x] Commit the examples and docs slice
 
 ### Slice 7: Validation And Ticket Close-Out
 
-- [ ] Run focused tests for `pkg/inference/runner`
-- [ ] Run full Geppetto lint and repo tests
-- [ ] Update GP-40 changelog with the implementation sequence and commit ids
-- [ ] Update the GP-40 diary with exact commands, failures, and review guidance
-- [ ] Re-upload the refreshed GP-40 bundle to reMarkable and verify the remote listing
+- [x] Run focused tests for `pkg/inference/runner`
+- [x] Run full Geppetto lint and repo tests
+- [x] Update GP-40 changelog with the implementation sequence and commit ids
+- [x] Update the GP-40 diary with exact commands, failures, and review guidance
+- [x] Re-upload the refreshed GP-40 bundle to reMarkable and verify the remote listing
 - [ ] Mark the ticket complete once code and docs are aligned

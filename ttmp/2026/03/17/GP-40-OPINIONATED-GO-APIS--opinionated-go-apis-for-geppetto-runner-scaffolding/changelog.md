@@ -18,4 +18,5 @@
 - Added `Prepare(...)` to assemble sessions, builders, registries, sinks, snapshot hooks, and seed turns from resolved runtime input, plus focused tests covering prompt-only, seed-turn, and invalid-input paths.
 - Added `Start(...)` and `Run(...)` on top of `Prepare(...)`, plus focused tests proving the async handle path, sync wait path, and event-sink propagation still work.
 - Added focused first-party runner examples (`runner-simple`, `runner-tools`, `runner-streaming`) plus a new runner topic doc and index updates so `pkg/inference/runner` is now documented as the recommended entry point for new Go apps.
+- Implementation commits: `7a49066` (skeleton), `f72fa02` (tool helpers), `c4e621c` (middleware assembly), `0ac4846` (`Prepare(...)`), `4d73bf2` (`Start(...)`/`Run(...)`), `484fc13` (examples and docs)
 - Validated the authored docs, related key evidence files, and uploaded the final bundle to reMarkable
