@@ -183,7 +183,7 @@ if ok {
 }
 ```
 
-`InferenceResult` also mirrors migration-era scalar keys (`turns.KeyTurnMetaStopReason`, `turns.KeyTurnMetaUsage`, `turns.KeyTurnMetaModel`, `turns.KeyTurnMetaProvider`) so older consumers continue to work.
+`InferenceResult` is the only canonical inference metadata contract. Provider/model/stop-reason/usage compatibility scalars are no longer mirrored onto turn metadata.
 
 ### Generated-block inference metadata projection
 
@@ -450,12 +450,17 @@ Engines handle this mapping internally — your code just works with Turns.
 ### Turn-Level Metadata
 
 ```go
-// Using typed keys (new API)
-err := turns.KeyTurnMetaModel.Set(&turn.Metadata, "gpt-4-turbo")
-model, ok := turns.KeyTurnMetaModel.Get(turn.Metadata)
+// Canonical inference metadata
+res, ok, err := turns.KeyTurnMetaInferenceResult.Get(turn.Metadata)
+if err != nil {
+    return err
+}
+if ok {
+    fmt.Println(res.Provider, res.Model, res.StopReason)
+}
 ```
 
-Common keys: `KeyTurnMetaProvider`, `KeyTurnMetaRuntime`, `KeyTurnMetaTraceID`, `KeyTurnMetaUsage`, `KeyTurnMetaStopReason`, `KeyTurnMetaModel`
+Common keys: `KeyTurnMetaInferenceResult`, `KeyTurnMetaRuntime`, `KeyTurnMetaTraceID`
 
 Session correlation key: `KeyTurnMetaSessionID` (stored as `geppetto.session_id@v1` in YAML).
 

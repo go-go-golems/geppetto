@@ -50,13 +50,10 @@ func BuildInferenceResultFromEventMetadata(metadata events.EventMetadata, provid
 	return ret
 }
 
-// PersistInferenceResult stores canonical and legacy metadata fields on the turn.
+// PersistInferenceResult stores canonical inference metadata on the turn.
 func PersistInferenceResult(t *turns.Turn, result InferenceResult) error {
 	if t == nil {
 		return nil
 	}
-	if err := turns.KeyTurnMetaInferenceResult.Set(&t.Metadata, result); err != nil {
-		return err
-	}
-	return MirrorLegacyInferenceKeys(t, result)
+	return turns.KeyTurnMetaInferenceResult.Set(&t.Metadata, result)
 }

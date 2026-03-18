@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -32,9 +31,10 @@ type EngineWithResult interface {
 
 // RunInferenceWithResult runs inference and returns a normalized canonical inference result.
 //
-// Backward compatibility path:
+// Preferred path:
 // - Prefer EngineWithResult when implemented by the engine.
-// - Otherwise call RunInference and derive result from turn metadata.
+// - Otherwise call RunInference and read canonical inference_result from turn metadata.
+// - If an engine returns no canonical metadata, synthesize a minimal result from turn shape.
 func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*turns.Turn, *InferenceResult, error) {
 	if eng == nil {
 		return nil, nil, ErrEngineNil
@@ -67,9 +67,6 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 		if setErr := turns.KeyTurnMetaInferenceResult.Set(&out.Metadata, *result); setErr != nil {
 			return out, result, errors.Wrap(setErr, "set canonical inference_result")
 		}
-		if setErr := MirrorLegacyInferenceKeys(out, *result); setErr != nil {
-			return out, result, setErr
-		}
 		if setErr := StampInferenceResultOnGeneratedBlocksFromIndex(out, *result, preInferenceBlockCount); setErr != nil {
 			return out, result, setErr
 		}
@@ -99,9 +96,6 @@ func RunInferenceWithResult(ctx context.Context, eng Engine, t *turns.Turn) (*tu
 
 	if setErr := turns.KeyTurnMetaInferenceResult.Set(&out.Metadata, result); setErr != nil {
 		return out, nil, errors.Wrap(setErr, "set canonical inference_result")
-	}
-	if setErr := MirrorLegacyInferenceKeys(out, result); setErr != nil {
-		return out, nil, setErr
 	}
 	if setErr := StampInferenceResultOnGeneratedBlocksFromIndex(out, result, preInferenceBlockCount); setErr != nil {
 		return out, nil, setErr
@@ -151,25 +145,13 @@ func ExtractInferenceResult(t *turns.Turn) (InferenceResult, bool, error) {
 	return res, ok, nil
 }
 
-// SynthesizeInferenceResult derives an inference result from legacy scalar metadata.
+// SynthesizeInferenceResult derives a minimal inference result when an engine
+// returns no canonical inference_result metadata.
 func SynthesizeInferenceResult(t *turns.Turn) InferenceResult {
 	if t == nil {
 		return InferenceResult{FinishClass: InferenceFinishClassUnknown}
 	}
 	result := InferenceResult{}
-	if v, ok, err := turns.KeyTurnMetaProvider.Get(t.Metadata); err == nil && ok {
-		result.Provider = strings.TrimSpace(v)
-	}
-	if v, ok, err := turns.KeyTurnMetaModel.Get(t.Metadata); err == nil && ok {
-		result.Model = strings.TrimSpace(v)
-	}
-	if v, ok, err := turns.KeyTurnMetaStopReason.Get(t.Metadata); err == nil && ok {
-		result.StopReason = strings.TrimSpace(v)
-	}
-	if v, ok, err := turns.KeyTurnMetaUsage.Get(t.Metadata); err == nil && ok {
-		result.Usage = decodeLegacyUsage(v)
-	}
-
 	hasToolCalls := false
 	for _, b := range t.Blocks {
 		if b.Kind == turns.BlockKindToolCall {
@@ -180,34 +162,6 @@ func SynthesizeInferenceResult(t *turns.Turn) InferenceResult {
 	result.FinishClass = InferFinishClass(result.StopReason, hasToolCalls)
 	result.Truncated = isTruncatedStopReason(result.StopReason)
 	return result
-}
-
-// MirrorLegacyInferenceKeys keeps legacy scalar metadata in sync during migration.
-func MirrorLegacyInferenceKeys(t *turns.Turn, r InferenceResult) error {
-	if t == nil {
-		return nil
-	}
-	if strings.TrimSpace(r.Provider) != "" {
-		if err := turns.KeyTurnMetaProvider.Set(&t.Metadata, strings.TrimSpace(r.Provider)); err != nil {
-			return errors.Wrap(err, "set turn provider")
-		}
-	}
-	if strings.TrimSpace(r.Model) != "" {
-		if err := turns.KeyTurnMetaModel.Set(&t.Metadata, strings.TrimSpace(r.Model)); err != nil {
-			return errors.Wrap(err, "set turn model")
-		}
-	}
-	if strings.TrimSpace(r.StopReason) != "" {
-		if err := turns.KeyTurnMetaStopReason.Set(&t.Metadata, strings.TrimSpace(r.StopReason)); err != nil {
-			return errors.Wrap(err, "set turn stop reason")
-		}
-	}
-	if r.Usage != nil {
-		if err := turns.KeyTurnMetaUsage.Set(&t.Metadata, r.Usage); err != nil {
-			return errors.Wrap(err, "set turn usage")
-		}
-	}
-	return nil
 }
 
 func InferFinishClass(stopReason string, hasToolCalls bool) InferenceFinishClass {
@@ -232,13 +186,6 @@ func InferFinishClass(stopReason string, hasToolCalls bool) InferenceFinishClass
 func normalizeInferenceResult(result *InferenceResult, t *turns.Turn) {
 	if result == nil {
 		return
-	}
-	if strings.TrimSpace(result.StopReason) == "" {
-		if t != nil {
-			if reason, ok, err := turns.KeyTurnMetaStopReason.Get(t.Metadata); err == nil && ok {
-				result.StopReason = strings.TrimSpace(reason)
-			}
-		}
 	}
 
 	hasToolCalls := false
@@ -265,26 +212,4 @@ func isTruncatedStopReason(stopReason string) bool {
 	default:
 		return false
 	}
-}
-
-func decodeLegacyUsage(v any) *turns.InferenceUsage {
-	if v == nil {
-		return nil
-	}
-	if usage, ok := v.(*turns.InferenceUsage); ok {
-		return usage
-	}
-	if usage, ok := v.(turns.InferenceUsage); ok {
-		u := usage
-		return &u
-	}
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil
-	}
-	var usage turns.InferenceUsage
-	if err := json.Unmarshal(b, &usage); err != nil {
-		return nil
-	}
-	return &usage
 }
