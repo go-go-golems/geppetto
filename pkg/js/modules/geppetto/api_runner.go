@@ -281,6 +281,16 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 			return nil, err
 		}
 		out = buildRunnerRuntimeFromResolvedProfile(resolved)
+	} else if m.useDefaultProfileResolve {
+		registry, err := m.requireProfileRegistryReader("runner.resolveRuntime")
+		if err != nil {
+			return nil, err
+		}
+		resolved, err := registry.ResolveEffectiveProfile(context.Background(), m.defaultProfileResolve)
+		if err != nil {
+			return nil, err
+		}
+		out = buildRunnerRuntimeFromResolvedProfile(resolved)
 	}
 
 	if systemPrompt := strings.TrimSpace(toString(input["systemPrompt"], "")); systemPrompt != "" {
@@ -317,7 +327,6 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 	if metadata := cloneJSONMap(decodeMap(input["metadata"])); len(metadata) > 0 {
 		out.Metadata = mergeRuntimeMetadata(out.Metadata, metadata)
 	}
-
 	return out, nil
 }
 

@@ -122,6 +122,12 @@ func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
 	}
 
 	in := profiles.ResolveInput{}
+	if m.defaultProfileResolve.RegistrySlug != "" {
+		in.RegistrySlug = m.defaultProfileResolve.RegistrySlug
+	}
+	if m.defaultProfileResolve.ProfileSlug != "" {
+		in.ProfileSlug = m.defaultProfileResolve.ProfileSlug
+	}
 	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
 		opts := decodeMap(call.Arguments[0].Export())
 		if opts == nil {

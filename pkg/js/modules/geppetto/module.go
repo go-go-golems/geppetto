@@ -31,17 +31,19 @@ type MiddlewareFactory func(options map[string]any) (middleware.Middleware, erro
 
 // Options configures module behavior for a specific runtime.
 type Options struct {
-	Runner                runtimeowner.Runner
-	GoToolRegistry        tools.ToolRegistry
-	GoMiddlewareFactories map[string]MiddlewareFactory
-	ProfileRegistry       profiles.RegistryReader
-	MiddlewareSchemas     middlewarecfg.DefinitionRegistry
-	ExtensionCodecs       profiles.ExtensionCodecRegistry
-	ExtensionSchemas      map[string]map[string]any
-	DefaultEventSinks     []events.EventSink
-	DefaultSnapshotHook   toolloop.SnapshotHook
-	DefaultPersister      enginebuilder.TurnPersister
-	Logger                zerolog.Logger
+	Runner                   runtimeowner.Runner
+	GoToolRegistry           tools.ToolRegistry
+	GoMiddlewareFactories    map[string]MiddlewareFactory
+	ProfileRegistry          profiles.RegistryReader
+	UseDefaultProfileResolve bool
+	DefaultProfileResolve    profiles.ResolveInput
+	MiddlewareSchemas        middlewarecfg.DefinitionRegistry
+	ExtensionCodecs          profiles.ExtensionCodecRegistry
+	ExtensionSchemas         map[string]map[string]any
+	DefaultEventSinks        []events.EventSink
+	DefaultSnapshotHook      toolloop.SnapshotHook
+	DefaultPersister         enginebuilder.TurnPersister
+	Logger                   zerolog.Logger
 }
 
 // Register registers the geppetto native module on a require registry.
@@ -73,6 +75,8 @@ type moduleRuntime struct {
 	baseProfileRegistry       profiles.RegistryReader
 	baseProfileRegistryCloser io.Closer
 	baseProfileRegistrySpec   []string
+	useDefaultProfileResolve  bool
+	defaultProfileResolve     profiles.ResolveInput
 	middlewareSchemas         middlewarecfg.DefinitionRegistry
 	extensionCodecs           profiles.ExtensionCodecRegistry
 	extensionSchemas          map[string]map[string]any
@@ -87,18 +91,20 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		lg = log.Logger
 	}
 	m := &moduleRuntime{
-		vm:                    vm,
-		runner:                opts.Runner,
-		logger:                lg,
-		goToolRegistry:        opts.GoToolRegistry,
-		goMiddlewareFactories: map[string]MiddlewareFactory{},
-		profileRegistry:       opts.ProfileRegistry,
-		middlewareSchemas:     opts.MiddlewareSchemas,
-		extensionCodecs:       opts.ExtensionCodecs,
-		extensionSchemas:      cloneNestedStringAnyMap(opts.ExtensionSchemas),
-		defaultEventSinks:     append([]events.EventSink(nil), opts.DefaultEventSinks...),
-		defaultSnapshotHook:   opts.DefaultSnapshotHook,
-		defaultPersister:      opts.DefaultPersister,
+		vm:                       vm,
+		runner:                   opts.Runner,
+		logger:                   lg,
+		goToolRegistry:           opts.GoToolRegistry,
+		goMiddlewareFactories:    map[string]MiddlewareFactory{},
+		profileRegistry:          opts.ProfileRegistry,
+		useDefaultProfileResolve: opts.UseDefaultProfileResolve,
+		defaultProfileResolve:    opts.DefaultProfileResolve,
+		middlewareSchemas:        opts.MiddlewareSchemas,
+		extensionCodecs:          opts.ExtensionCodecs,
+		extensionSchemas:         cloneNestedStringAnyMap(opts.ExtensionSchemas),
+		defaultEventSinks:        append([]events.EventSink(nil), opts.DefaultEventSinks...),
+		defaultSnapshotHook:      opts.DefaultSnapshotHook,
+		defaultPersister:         opts.DefaultPersister,
 	}
 	if closer, ok := opts.ProfileRegistry.(io.Closer); ok && closer != nil {
 		m.profileRegistryCloser = closer

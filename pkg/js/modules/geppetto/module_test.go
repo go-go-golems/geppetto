@@ -804,6 +804,24 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 	`)
 }
 
+func TestProfilesResolveUsesHostDefaultSelection(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry:          mustNewJSProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+		DefaultProfileResolve: gepprofiles.ResolveInput{
+			ProfileSlug: gepprofiles.MustProfileSlug("explicit-model"),
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({});
+		if (resolved.profileSlug !== "explicit-model") throw new Error("host default profile selection not applied");
+		if (resolved.runtimeKey !== "explicit-model") throw new Error("host default runtime key mismatch");
+	`)
+}
+
 func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 	rt := newJSRuntime(t, Options{})
 	mustRunJS(t, rt, `
@@ -956,6 +974,24 @@ func TestRunnerResolveRuntimeFromProfile(t *testing.T) {
 		if (runtime.profileVersion !== 7) throw new Error("runner.resolveRuntime profileVersion mismatch");
 		if (!runtime.metadata || runtime.metadata["profile.slug"] !== "explicit-model") {
 			throw new Error("runner.resolveRuntime metadata missing");
+		}
+	`)
+}
+
+func TestRunnerResolveRuntimeUsesHostDefaultProfile(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry:          mustNewJSProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({});
+		if (runtime.runtimeKey !== "default-model") throw new Error("runner.resolveRuntime should use registry default profile");
+		if (runtime.systemPrompt !== "default prompt") throw new Error("runner.resolveRuntime should materialize default profile prompt");
+		if (!Array.isArray(runtime.toolNames) || runtime.toolNames[0] !== "calculator") {
+			throw new Error("runner.resolveRuntime should materialize default profile tools");
 		}
 	`)
 }
