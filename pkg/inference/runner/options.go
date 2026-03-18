@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
@@ -16,8 +17,9 @@ type Option func(*Runner)
 // New constructs a Runner with sensible defaults.
 func New(opts ...Option) *Runner {
 	r := &Runner{
-		loopConfig: toolloop.DefaultLoopConfig(),
-		toolConfig: geptools.DefaultToolConfig(),
+		loopConfig:    toolloop.DefaultLoopConfig(),
+		toolConfig:    geptools.DefaultToolConfig(),
+		engineFactory: factory.NewEngineFromStepSettings,
 	}
 	for _, opt := range opts {
 		if opt != nil {

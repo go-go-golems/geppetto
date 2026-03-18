@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
@@ -18,7 +17,11 @@ func (r *Runner) buildEngine(ctx context.Context, runtime Runtime) (engine.Engin
 	if runtime.StepSettings == nil {
 		return nil, nil, ErrRuntimeStepSettingsNil
 	}
-	base, err := factory.NewEngineFromStepSettings(runtime.StepSettings)
+	engineFactory := r.engineFactory
+	if engineFactory == nil {
+		return nil, nil, fmt.Errorf("build engine: engine factory is nil")
+	}
+	base, err := engineFactory(runtime.StepSettings)
 	if err != nil {
 		return nil, nil, err
 	}

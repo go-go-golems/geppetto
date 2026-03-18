@@ -81,12 +81,12 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 
 ### Slice 5: Start And Run
 
-- [ ] Add `run.go`
-- [ ] Implement `Start(...)` on top of `Prepare(...)`
-- [ ] Implement `Run(...)` as sync prepare-start-wait flow
-- [ ] Return structured results instead of forcing callers to inspect the raw session state
-- [ ] Add tests for sync and async execution
-- [ ] Add at least one event-sink test proving the streaming path still works
+- [x] Add `run.go`
+- [x] Implement `Start(...)` on top of `Prepare(...)`
+- [x] Implement `Run(...)` as sync prepare-start-wait flow
+- [x] Return structured results instead of forcing callers to inspect the raw session state
+- [x] Add tests for sync and async execution
+- [x] Add at least one event-sink test proving the streaming path still works
 - [ ] Commit the `Start(...)` and `Run(...)` slice
 
 ### Slice 6: First-Party Examples And Package Documentation

@@ -711,6 +711,92 @@ The fourth implementation slice added `Prepare(...)`, which is the first point w
   - `go test ./pkg/inference/runner -count=1`
   - `./.bin/golangci-lint run ./pkg/inference/runner`
 
+## Step 10: Add `Start(...)` and `Run(...)` and prove event-sink propagation
+
+The fifth implementation slice completed the first usable public runner surface. `Prepare(...)` was already enough for advanced callers, but the GP-40 design also promised a simple sync path and a simple async path. This slice adds those methods directly on top of `Prepare(...)` and proves that event-driven behavior still works by wiring a sink through a fake engine that publishes an event to the run context.
+
+### Prompt Context
+
+**User prompt (verbatim):** same GP-40 implementation request as earlier steps.
+
+**Assistant interpretation:** Continue through the implementation slices, keep the runner package practical for both simple CLIs and event-driven applications, and keep the ticket diary current with the exact work and validation.
+
+**Inferred user intent:** Reach the first version of the opinionated API that an app can actually call in one or two lines: `Start(...)` or `Run(...)`.
+
+**Commit (code):** Pending at this diary step. This entry records the `Start(...)` / `Run(...)` slice before the commit is created.
+
+### What I did
+
+- Added:
+  - `geppetto/pkg/inference/runner/run.go`
+  - `geppetto/pkg/inference/runner/run_test.go`
+- Implemented:
+  - `(*Runner).Start(...)`
+  - `(*Runner).Run(...)`
+- Added one small internal test seam:
+  - a private `engineFactory` field on `Runner`
+  - defaulted to the real `factory.NewEngineFromStepSettings(...)`
+  - overridden only from same-package tests so execution flow can be exercised without real provider engines
+- Added focused tests covering:
+  - async `Start(...)` plus `ExecutionHandle.Wait()`
+  - sync `Run(...)`
+  - event publication to a request-scoped sink
+
+### Why
+
+- Without `Start(...)` and `Run(...)`, the new package still feels like plumbing. These two methods are the main public pay-off of the earlier assembly work.
+- The event-sink test matters because one of the big concerns in GP-40 was preserving streaming and event-driven usage rather than collapsing everything into a blocking convenience wrapper.
+
+### What worked
+
+- `Start(...)` was a thin and correct wrapper around `Prepare(...)` plus `Session.StartInference(...)`.
+- The event-sink propagation test worked with a fake engine that publishes `events.NewInfoEvent(...)` into the context, which proves the sink path survives the new runner layer.
+- The private engine-factory seam stayed internal. It improves testability without altering the public API boundary.
+
+### What didn't work
+
+- Nothing failed materially in this slice after the internal engine-factory seam was added. The main design choice was deciding whether to add a public engine-construction override option. I intentionally did not do that. The seam is private and exists only to keep tests realistic.
+
+### What I learned
+
+- The new runner package can preserve the event-driven path cleanly:
+  - `Run(...)` is the simple blocking path
+  - `Start(...)` keeps async and streaming/event-sink flows available
+
+### What was tricky to build
+
+- The tricky part was proving event propagation without using a real streaming provider engine. The underlying issue is that provider engines are what normally emit most events. I solved that by making the fake engine explicitly publish an info event to the context, which tests the runner-side sink plumbing directly instead of pretending to test a provider integration.
+
+### What warrants a second pair of eyes
+
+- Whether `Run(...)` should eventually return a small structured result type instead of `(*PreparedRun, *turns.Turn, error)`. The current form is practical and keeps review small, but a dedicated result type may read better once examples are migrated.
+
+### What should be done in the future
+
+- Commit this slice.
+- Then migrate first-party Geppetto examples so the new package is exercised from real user-facing entry points instead of only unit tests.
+
+### Code review instructions
+
+- Review:
+  - `geppetto/pkg/inference/runner/run.go`
+  - `geppetto/pkg/inference/runner/run_test.go`
+- Recheck the new private factory seam in:
+  - `geppetto/pkg/inference/runner/types.go`
+  - `geppetto/pkg/inference/runner/options.go`
+  - `geppetto/pkg/inference/runner/middleware.go`
+- Validate with:
+  - `go test ./pkg/inference/runner -count=1`
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
+### Technical details
+
+- Formatting command run:
+  - `gofmt -w pkg/inference/runner/*.go`
+- Validation commands run:
+  - `go test ./pkg/inference/runner -count=1`
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
 ### Code review instructions
 
 - Review the updated sections in:

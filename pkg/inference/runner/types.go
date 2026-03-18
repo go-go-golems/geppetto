@@ -67,6 +67,7 @@ type Runner struct {
 	loopConfig toolloop.LoopConfig
 	toolConfig geptools.ToolConfig
 
+	engineFactory  func(*settings.StepSettings) (engine.Engine, error)
 	toolExecutor   geptools.ToolExecutor
 	toolRegistrars []ToolRegistrar
 
