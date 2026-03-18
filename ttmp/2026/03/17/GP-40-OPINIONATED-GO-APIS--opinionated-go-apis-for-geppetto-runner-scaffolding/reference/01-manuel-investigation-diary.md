@@ -622,6 +622,95 @@ I fixed the tests and fake middleware by using typed turn metadata keys instead 
   - `go test ./pkg/inference/runner -count=1`
   - `./.bin/golangci-lint run ./pkg/inference/runner`
 
+## Step 9: Add `Prepare(...)` and make the runner assemble real sessions
+
+The fourth implementation slice added `Prepare(...)`, which is the first point where the new package becomes practically useful for applications. Before this slice, the runner package could describe runtime input, register tools, and wrap an engine with middleware, but it still did not assemble a usable session. `Prepare(...)` closes that gap by building the session, attaching the standard `enginebuilder.Builder`, wiring sinks and persistence hooks, and seeding the first turn.
+
+### Prompt Context
+
+**User prompt (verbatim):** same GP-40 implementation request as earlier steps.
+
+**Assistant interpretation:** Continue down the implementation workboard in order and keep recording concrete validation and behavior decisions in the ticket.
+
+**Inferred user intent:** Reach a point where the opinionated runner package can actually prepare a runnable inference session, not just define pieces in isolation.
+
+**Commit (code):** Pending at this diary step. This entry records the `Prepare(...)` slice before the commit is created.
+
+### What I did
+
+- Added:
+  - `geppetto/pkg/inference/runner/prepare.go`
+  - `geppetto/pkg/inference/runner/prepare_test.go`
+- Implemented:
+  - `(*Runner).Prepare(...)`
+  - helper functions for:
+    - seed-turn creation and cloning,
+    - session creation,
+    - sink merging,
+    - default-vs-override snapshot hook and persister selection,
+    - loop/tool config pointer cloning,
+    - runner-level plus runtime-level tool registrar merging.
+- Kept the design rule intact:
+  - the caller still supplies resolved runtime input,
+  - the runner only assembles execution primitives from that input.
+
+### Why
+
+- `Prepare(...)` is the critical advanced path in the GP-40 design. It is what allows a simple `Run(...)` API later while still supporting streaming servers, custom outer loops, and applications that need to inspect the prepared session before inference starts.
+
+### What worked
+
+- The existing `session.Session` and `enginebuilder.Builder` types fit the new API cleanly once the runner owned the assembly logic.
+- I was able to test the real step-settings path by creating a normal `StepSettings` value and adding a dummy `openai-api-key`, which is enough for engine construction without making network calls.
+- The tests now exercise:
+  - prompt-only preparation,
+  - cloned seed-turn preparation,
+  - invalid-input rejection.
+
+### What didn't work
+
+- I initially expected I might need a private test seam to avoid real engine creation during `Prepare(...)` tests. A quick probe showed that was unnecessary: `factory.NewEngineFromStepSettings(...)` succeeds with a normal `StepSettings` plus a placeholder API key, because the provider engine is constructed eagerly but does not call the remote service until inference time.
+
+### What I learned
+
+- The real factory path is testable locally as long as the settings validation rules are satisfied. That is a better result than introducing a fake engine factory seam too early, because it keeps the runner tests closer to the real public behavior.
+
+### What was tricky to build
+
+- The subtle part was deciding how `Prepare(...)` should treat `SeedTurn` plus `Prompt`. The underlying problem is that some callers want to continue from an explicit seed turn while still appending a fresh user prompt. I chose the practical behavior: clone the provided seed turn, append the prompt if one exists, and then append that cloned turn into the new session.
+
+### What warrants a second pair of eyes
+
+- Whether a future slice should let `StartRequest` accept an existing `*session.Session` directly in addition to `SessionID`. Right now `Prepare(...)` always creates a new session and seeds it, which is fine for the first cut, but advanced callers may eventually want more control.
+
+### What should be done in the future
+
+- Commit this slice.
+- Then add `Start(...)` and `Run(...)`, which will turn `Prepare(...)` into the public sync and async entry points.
+
+### Code review instructions
+
+- Review:
+  - `geppetto/pkg/inference/runner/prepare.go`
+  - `geppetto/pkg/inference/runner/prepare_test.go`
+- Recheck the earlier slices because `Prepare(...)` depends on them:
+  - `geppetto/pkg/inference/runner/middleware.go`
+  - `geppetto/pkg/inference/runner/tools.go`
+  - `geppetto/pkg/inference/runner/types.go`
+- Validate with:
+  - `go test ./pkg/inference/runner -count=1`
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
+### Technical details
+
+- Probe command used to verify real engine construction was possible in tests:
+  - `go run /tmp/gp40-step-test.go`
+- Formatting command run:
+  - `gofmt -w pkg/inference/runner/*.go`
+- Validation commands run:
+  - `go test ./pkg/inference/runner -count=1`
+  - `./.bin/golangci-lint run ./pkg/inference/runner`
+
 ### Code review instructions
 
 - Review the updated sections in:

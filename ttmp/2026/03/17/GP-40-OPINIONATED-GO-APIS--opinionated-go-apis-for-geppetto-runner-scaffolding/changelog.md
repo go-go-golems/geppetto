@@ -15,4 +15,5 @@
 - Added the initial `pkg/inference/runner` package skeleton with public runtime/request/result types, constructor options, package docs, and package-scoped validation errors.
 - Added the first behavior slice for the runner package: function-tool registration helpers, runner-level default tool registrars, registry construction, registry filtering, and focused tests for the new helpers.
 - Added the middleware and engine-assembly slice for the runner package: direct middleware handling, `middlewarecfg`-driven middleware-use resolution, system-prompt injection, reorder middleware insertion, and focused engine-wrapping tests.
+- Added `Prepare(...)` to assemble sessions, builders, registries, sinks, snapshot hooks, and seed turns from resolved runtime input, plus focused tests covering prompt-only, seed-turn, and invalid-input paths.
 - Validated the authored docs, related key evidence files, and uploaded the final bundle to reMarkable

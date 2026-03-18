@@ -69,14 +69,14 @@ WhenToUse: Use when tracking or reviewing runner implementation progress.
 
 ### Slice 4: Prepare
 
-- [ ] Add `prepare.go`
-- [ ] Validate request shape and final runtime input
-- [ ] Create or attach a session
-- [ ] Append the seed prompt or provided seed turn
-- [ ] Build the `enginebuilder.Builder`
-- [ ] Build and attach the registry, event sinks, snapshot hook, persister, and step controller
-- [ ] Return a `PreparedRun` with the assembled session, engine, registry, and initial turn
-- [ ] Add tests covering prompt-only, seed-turn, and invalid-input paths
+- [x] Add `prepare.go`
+- [x] Validate request shape and final runtime input
+- [x] Create or attach a session
+- [x] Append the seed prompt or provided seed turn
+- [x] Build the `enginebuilder.Builder`
+- [x] Build and attach the registry, event sinks, snapshot hook, persister, and step controller
+- [x] Return a `PreparedRun` with the assembled session, engine, registry, and initial turn
+- [x] Add tests covering prompt-only, seed-turn, and invalid-input paths
 - [ ] Commit the `Prepare(...)` slice
 
 ### Slice 5: Start And Run
