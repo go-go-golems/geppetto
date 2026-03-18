@@ -27,9 +27,13 @@ RelatedFiles:
       Note: |-
         Investigated for legacy-shape support.
         Diary evidence for legacy runtime metadata support
+    - Path: /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/parse-helpers.go
+      Note: |-
+        Downstream fallout fix after removing the dead Geppetto profile flag bridge.
+        Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T00:25:00-04:00
+LastUpdated: 2026-03-18T01:21:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -319,3 +323,106 @@ The subtle part was deciding whether removing these methods would accidentally e
   - `AddRuntimeAttributionToExtra(...)` is still called by the OpenAI, OpenAI Responses, Claude, and Gemini engines.
   - `MirrorLegacyInferenceKeys(...)` is still wired through `PersistInferenceResult(...)` and `RunInferenceWithResult(...)`.
   - Pinocchio still reads older runtime metadata variants in chat persistence code.
+
+## Step 4: Finish the low-risk sweep and repair the first downstream fallout immediately
+
+The next GP-45 slice was the last low-risk cleanup item: remove stale documentation and JS typings that still taught removed profile-mutation or migration-era configuration knobs. At the same time, the first real downstream fallout appeared: Pinocchio still called the deleted `GatherFlagsFromProfileRegistry` bridge, so `go build ./...` broke there.
+
+I treated that as part of the same cleanup step rather than a separate surprise. Once a Geppetto migration shim is removed, fixing the direct downstream compile break is part of finishing the cut properly, not optional cleanup.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go build ./...
+# github.com/go-go-golems/pinocchio/pkg/cmds/helpers
+pkg/cmds/helpers/parse-helpers.go:88:22: undefined: geppetto_sections.GatherFlagsFromProfileRegistry
+
+btw"
+
+**Assistant interpretation:** Repair the first downstream compile failure caused by GP-45, then finish the remaining low-risk stale-doc and dead-typing cleanup in Geppetto.
+
+**Inferred user intent:** Keep the cleanup moving without leaving the monorepo broken or the public docs/types teaching options that no longer exist.
+
+**Commit (code):** `c37f952` — `clean gp-45 stale docs and js typings`
+
+### What I did
+
+- Fixed the downstream Pinocchio compile break in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/parse-helpers.go`
+- Committed the downstream repair as:
+  - `pinocchio` `82bf805` — `drop dead profile flag bridge call`
+- Removed stale doc/help text and dead JS typings from:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/00-docs-index.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/01-profiles.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/07-tools.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/09-middlewares.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/13-js-api-reference.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/types/geppetto.d.ts`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/settings/flags/chat.yaml`
+- Removed the dead JS `allowedTools` type/documentation field, which no longer had runtime support after the core `AllowedTools` removal.
+- Validated with:
+
+```bash
+cd pinocchio && go test ./pkg/cmds/helpers -count=1
+cd pinocchio && go build ./...
+cd geppetto && rg -n "allowedTools\\?: string\\[\\]|ToolConfig\\.AllowedTools|Tool allowlist|GatherFlagsFromProfileRegistry|fromProfile|PolicySpec|RuntimeKeyFallback|request_overrides|writable registry|mutable registry" pkg/doc pkg/js examples pkg/steps/ai/settings --glob '!**/ttmp/**'
+cd geppetto && go test ./pkg/js/modules/geppetto ./pkg/doc/... -count=1
+```
+
+### Why
+
+- A hard cut is not finished until the direct downstream consumer break is repaired.
+- Leaving stale docs and typings behind would keep removed configuration concepts alive even after the runtime paths were gone.
+- The dead `allowedTools` JS type was exactly the kind of migration residue GP-45 is meant to remove.
+
+### What worked
+
+- Pinocchio only had one remaining caller of the removed bridge, so the downstream repair was localized and safe.
+- The stale-term grep dropped to a single intentional hit: `tools.createRegistry()` still returns a mutable tool registry object, which is real and unrelated to profile-registry cleanup.
+- Focused Geppetto tests passed immediately once the docs/types were updated.
+
+### What didn't work
+
+- The failure itself was the signal that one downstream usage had been missed in the original removal pass:
+
+```text
+pkg/cmds/helpers/parse-helpers.go:88:22: undefined: geppetto_sections.GatherFlagsFromProfileRegistry
+```
+
+- The Pinocchio commit hook was noisier than expected because it rebuilt frontend assets and reran the full lint pipeline, which made a one-line removal look larger operationally than it was.
+
+### What I learned
+
+- Removing a dead symbol in Geppetto is not enough; I need an immediate downstream grep or build pass in Pinocchio for the first consumer layer.
+- JS typings and docs can retain dead product vocabulary long after the runtime code has been simplified, so they need to be treated as first-class cleanup targets.
+
+### What was tricky to build
+
+The tricky part was deciding whether the remaining grep hit for "mutable registry" meant the stale-doc sweep was incomplete. It did not. That hit is the JS tool registry, which is intentionally mutable and not part of the removed profile-registry mutation model. The right move was to distinguish real remaining debt from valid current behavior instead of over-cleaning the docs.
+
+### What warrants a second pair of eyes
+
+- The remaining Phase 2 metadata compatibility path still deserves a deliberate cross-repo removal plan before touching it.
+- The JS API reference should be regenerated or re-reviewed if the builder/tool-loop surface changes again, because dead options can linger there quietly.
+
+### What should be done in the future
+
+- Add a targeted downstream build/grep checklist for future Geppetto hard cuts so the first Pinocchio consumer layer is checked immediately.
+- Continue GP-45 with the metadata compatibility decision pass rather than more broad doc work.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/parse-helpers.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/13-js-api-reference.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/playbooks/06-operate-sqlite-profile-registry.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/settings/flags/chat.yaml`
+- Validate with the commands shown above.
+
+### Technical details
+
+- The Geppetto commit for this slice is `c37f952` — `clean gp-45 stale docs and js typings`.
+- The downstream fallout repair is `82bf805` — `drop dead profile flag bridge call`.
+- The only remaining grep hit for the "mutable registry" phrase is the JS tool registry API, which is intentional current behavior and not part of the removed profile-registry mutation model.

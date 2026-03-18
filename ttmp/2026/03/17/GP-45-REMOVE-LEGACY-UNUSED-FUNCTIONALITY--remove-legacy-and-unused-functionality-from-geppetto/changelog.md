@@ -28,6 +28,13 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
   - removed `DeleteProfile` and `SetDefaultProfile` from `ProfileStore`,
   - removed those methods from memory/sqlite/yaml store implementations,
   - rewrote the affected store tests around explicit registry upserts instead of hidden mutation helpers.
+- Landed downstream fallout fix `pinocchio` `82bf805` `drop dead profile flag bridge call`:
+  - removed the leftover `GatherFlagsFromProfileRegistry` call from Pinocchio command helpers after the Geppetto bridge deletion,
+  - revalidated `go build ./...` in Pinocchio.
+- Landed `geppetto` `c37f952` `clean gp-45 stale docs and js typings`:
+  - removed stale profile-mutation and migration-escape-hatch wording from docs and help text,
+  - removed the dead `allowedTools` option from JS typings and API reference docs,
+  - clarified the SQLite playbook around read-only registry operation and schema inspection.
 - Confirmed that the inference/runtime metadata compatibility paths are not dead yet:
   - `MirrorLegacyInferenceKeys` is still part of active engine persistence flow,
   - `AddRuntimeAttributionToExtra` is still used by provider engines,

@@ -14,7 +14,7 @@
 - [x] Remove all remaining references to `GatherFlagsFromProfileRegistry` and update any comments/docs that still frame it as a migration bridge.
 - [x] Remove `engines.fromProfile` entirely from the JS module surface, generated types, tests, examples, and docs.
 - [x] Remove `pkg/profiles/adapters.go` and its tests now that no in-repo callers use the wrapper helpers.
-- [ ] Remove stale docs that still describe request overrides, old policy fields, or `runtimeKey` resolver options as live behavior.
+- [x] Remove stale docs that still describe request overrides, old policy fields, or `runtimeKey` resolver options as live behavior.
 
 ## Phase 2: Compatibility cleanup with focused validation
 
@@ -27,7 +27,7 @@
 
 ## Phase 3: Migration-shim cleanup
 
-- [ ] Remove bootstrap comments and help text that still frame direct flags as migration escape hatches if that migration is effectively complete.
+- [x] Remove bootstrap comments and help text that still frame direct flags as migration escape hatches if that migration is effectively complete.
 - [ ] Decide whether the default pinocchio profile-registry auto-discovery path should remain or move to app-owned bootstrapping.
 
 ## Phase 4: Over-complex or lightly integrated machinery
@@ -43,5 +43,5 @@
 
 - [x] Each deletion candidate is backed by a grep-based usage check.
 - [x] Each remaining compatibility shim has an explicitly stated downstream owner.
-- [ ] Docs are brought back into sync with actual code behavior.
+- [x] Docs are brought back into sync with actual code behavior.
 - [ ] Cleanup is split into reviewable phases rather than one large risky change.

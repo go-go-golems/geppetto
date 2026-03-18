@@ -27,7 +27,7 @@ RelatedFiles:
       Note: Always-on stack trace payload generation for debug metadata.
 ExternalSources: []
 Summary: Broad cleanup ticket that inventories legacy support paths, unused machinery, and complexity hotspots in geppetto, then turns them into a phased removal plan with evidence and intern-friendly system explanations.
-LastUpdated: 2026-03-18T00:25:00-04:00
+LastUpdated: 2026-03-18T01:21:00-04:00
 WhatFor: Use this ticket to plan and stage the removal of low-value compatibility layers and underused machinery from geppetto.
 WhenToUse: Use when deciding what cleanup work to pursue after RuntimeKeyFallback removal or when onboarding an engineer into geppetto cleanup work.
 ---
@@ -56,7 +56,7 @@ The design doc is intentionally detailed for a new intern. It explains the relev
 
 Current status: **active**
 
-The first two implementation slices are landed. GP-45 has already removed the dead no-op profile flag bridge, the dead JS `engines.fromProfile` surface, the unused profile adapter helpers, and the leftover `DeleteProfile` / `SetDefaultProfile` store API. The remaining work is the compatibility-heavy metadata cleanup plus a final stale-doc sweep.
+The low-risk hard cuts are now landed. GP-45 has removed the dead no-op profile flag bridge, the dead JS `engines.fromProfile` surface, the unused profile adapter helpers, the leftover `DeleteProfile` / `SetDefaultProfile` store API, and the stale docs/JS typings that still taught removed configuration knobs. The remaining work is the compatibility-heavy metadata cleanup plus the higher-risk extension and provenance review.
 
 ## Scope
 
