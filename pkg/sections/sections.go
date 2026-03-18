@@ -24,29 +24,29 @@ import (
 // CreateOption configures behavior of CreateGeppettoSections.
 type CreateOption func(*createOptions)
 type createOptions struct {
-	stepSettings *settings.StepSettings
+	stepSettings *settings.InferenceSettings
 }
 
-// WithDefaultsFromStepSettings uses the given StepSettings for layer defaults.
-func WithDefaultsFromStepSettings(s *settings.StepSettings) CreateOption {
+// WithDefaultsFromInferenceSettings uses the given InferenceSettings for layer defaults.
+func WithDefaultsFromInferenceSettings(s *settings.InferenceSettings) CreateOption {
 	return func(o *createOptions) {
 		o.stepSettings = s
 	}
 }
 
 // CreateGeppettoSections returns settings sections for Geppetto AI settings.
-// If no StepSettings are provided via WithStepSettings, default settings.NewStepSettings() is used.
+// If no InferenceSettings are provided via WithInferenceSettings, default settings.NewInferenceSettings() is used.
 func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	// Apply options
 	var co createOptions
 	for _, opt := range opts {
 		opt(&co)
 	}
-	// Determine StepSettings
-	var ss *settings.StepSettings
+	// Determine InferenceSettings
+	var ss *settings.InferenceSettings
 	if co.stepSettings == nil {
 		var err error
-		ss, err = settings.NewStepSettings()
+		ss, err = settings.NewInferenceSettings()
 		if err != nil {
 			return nil, err
 		}

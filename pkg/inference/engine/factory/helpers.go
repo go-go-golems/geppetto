@@ -6,31 +6,31 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
-// NewEngineFromStepSettings creates an engine directly from step settings.
+// NewEngineFromSettings creates an engine directly from inference settings.
 // This is a convenience function that creates a StandardEngineFactory and uses it to create an engine.
-func NewEngineFromStepSettings(stepSettings *settings.StepSettings) (engine.Engine, error) {
+func NewEngineFromSettings(stepSettings *settings.InferenceSettings) (engine.Engine, error) {
 	factory := NewStandardEngineFactory()
 	return factory.CreateEngine(stepSettings)
 }
 
 // NewEngineFromParsedValues creates an engine from parsed values.
 // This is a convenience function that:
-// 1. Creates new step settings
+// 1. Creates new inference settings
 // 2. Updates them from parsed values
 // 3. Creates and returns an engine
 func NewEngineFromParsedValues(parsedValues *values.Values) (engine.Engine, error) {
-	// Create step settings
-	stepSettings, err := settings.NewStepSettings()
+	// Create inference settings
+	stepSettings, err := settings.NewInferenceSettings()
 	if err != nil {
 		return nil, err
 	}
 
-	// Update step settings from parsed values
+	// Update inference settings from parsed values
 	err = stepSettings.UpdateFromParsedValues(parsedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create engine using step settings
-	return NewEngineFromStepSettings(stepSettings)
+	// Create engine using inference settings
+	return NewEngineFromSettings(stepSettings)
 }

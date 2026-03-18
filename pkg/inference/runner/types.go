@@ -22,8 +22,8 @@ type ToolRegistrar func(ctx context.Context, reg geptools.ToolRegistry) error
 
 // Runtime is fully resolved application-owned runtime input consumed by the runner.
 type Runtime struct {
-	StepSettings *settings.StepSettings
-	SystemPrompt string
+	InferenceSettings *settings.InferenceSettings
+	SystemPrompt      string
 
 	MiddlewareUses []gepprofiles.MiddlewareUse
 	Middlewares    []gepmiddleware.Middleware
@@ -67,7 +67,7 @@ type Runner struct {
 	loopConfig toolloop.LoopConfig
 	toolConfig geptools.ToolConfig
 
-	engineFactory  func(*settings.StepSettings) (engine.Engine, error)
+	engineFactory  func(*settings.InferenceSettings) (engine.Engine, error)
 	toolExecutor   geptools.ToolExecutor
 	toolRegistrars []ToolRegistrar
 

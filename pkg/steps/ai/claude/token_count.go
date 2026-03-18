@@ -14,10 +14,10 @@ import (
 )
 
 type TokenCounter struct {
-	settings *settings.StepSettings
+	settings *settings.InferenceSettings
 }
 
-func NewTokenCounter(s *settings.StepSettings) *TokenCounter {
+func NewTokenCounter(s *settings.InferenceSettings) *TokenCounter {
 	return &TokenCounter{settings: s}
 }
 

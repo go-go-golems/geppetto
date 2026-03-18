@@ -477,7 +477,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		}
 	}
 
-	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	// Apply per-turn InferenceConfig overrides (Turn.Data > InferenceSettings.Inference).
 	// ResolveInferenceConfig performs field-level merge: turn fields override engine defaults.
 	if infCfg := infengine.ResolveInferenceConfig(t, settings.Inference); infCfg != nil {
 		reasoning := isReasoningModel(engine)

@@ -14,14 +14,14 @@ import (
 )
 
 func (r *Runner) buildEngine(ctx context.Context, runtime Runtime) (engine.Engine, []gepmiddleware.Middleware, error) {
-	if runtime.StepSettings == nil {
-		return nil, nil, ErrRuntimeStepSettingsNil
+	if runtime.InferenceSettings == nil {
+		return nil, nil, ErrRuntimeInferenceSettingsNil
 	}
 	engineFactory := r.engineFactory
 	if engineFactory == nil {
 		return nil, nil, fmt.Errorf("build engine: engine factory is nil")
 	}
-	base, err := engineFactory(runtime.StepSettings)
+	base, err := engineFactory(runtime.InferenceSettings)
 	if err != nil {
 		return nil, nil, err
 	}

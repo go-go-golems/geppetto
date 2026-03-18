@@ -93,7 +93,7 @@ func (c *RunCommand) Run(ctx context.Context, parsed *values.Values) error {
 
 	// Engine settings
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	st := &settings.StepSettings{
+	st := &settings.InferenceSettings{
 		API:    &settings.APISettings{APIKeys: map[string]string{"openai-api-key": apiKey}, BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"}},
 		Chat:   &settings.ChatSettings{Engine: &s.Model, Stream: s.Stream},
 		OpenAI: &openaisettings.Settings{ReasoningEffort: strPtr("medium"), ReasoningSummary: strPtr("detailed")},

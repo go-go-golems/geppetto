@@ -155,10 +155,10 @@ func TestResolveMiddlewaresBuildsChainFromMiddlewareUses(t *testing.T) {
 	}
 }
 
-func TestBuildEngineRequiresStepSettings(t *testing.T) {
+func TestBuildEngineRequiresInferenceSettings(t *testing.T) {
 	r := New()
 	_, _, err := r.buildEngine(context.Background(), Runtime{})
-	if !errors.Is(err, ErrRuntimeStepSettingsNil) {
-		t.Fatalf("expected ErrRuntimeStepSettingsNil, got %v", err)
+	if !errors.Is(err, ErrRuntimeInferenceSettingsNil) {
+		t.Fatalf("expected ErrRuntimeInferenceSettingsNil, got %v", err)
 	}
 }

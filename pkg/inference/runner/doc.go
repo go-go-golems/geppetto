@@ -5,7 +5,7 @@
 // not resolve profiles, merge patches, or own application policy. Callers are
 // expected to decide:
 //
-//   - final StepSettings
+//   - final InferenceSettings
 //   - final system prompt
 //   - middleware uses or concrete middlewares
 //   - tool registrars and registry filtering policy

@@ -11,13 +11,13 @@ import (
 
 func boolPtr(v bool) *bool { return &v }
 
-func newTestEngine(st *aisettings.StepSettings) *OpenAIEngine {
+func newTestEngine(st *aisettings.InferenceSettings) *OpenAIEngine {
 	return &OpenAIEngine{settings: st}
 }
 
 func TestMakeCompletionRequestFromTurnStructuredOutput(t *testing.T) {
 	engine := "gpt-4o-mini"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		OpenAI: &aisettingsopenai.Settings{},
 		Chat: &aisettings.ChatSettings{
@@ -50,7 +50,7 @@ func TestMakeCompletionRequestFromTurnStructuredOutput(t *testing.T) {
 
 func TestMakeCompletionRequestFromTurnStructuredOutputInvalidSchemaIgnoredWhenNotRequired(t *testing.T) {
 	engine := "gpt-4o-mini"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		OpenAI: &aisettingsopenai.Settings{},
 		Chat: &aisettings.ChatSettings{
@@ -79,7 +79,7 @@ func TestMakeCompletionRequestFromTurnReasoningModelSanitizesPenalties(t *testin
 	engine := "o3-mini"
 	pp := 0.5
 	fp := 0.3
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		OpenAI: &aisettingsopenai.Settings{
 			PresencePenalty:  &pp,
@@ -112,7 +112,7 @@ func TestMakeCompletionRequestFromTurnReasoningModelSanitizesPenalties(t *testin
 
 func TestMakeCompletionRequestFromTurnInferenceEmptyStopClearsChatStop(t *testing.T) {
 	engine := "gpt-4o-mini"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		OpenAI: &aisettingsopenai.Settings{},
 		Chat: &aisettings.ChatSettings{

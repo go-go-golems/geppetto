@@ -111,7 +111,7 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 		}
 	}
 
-	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	// Apply per-turn InferenceConfig overrides (Turn.Data > InferenceSettings.Inference).
 	infCfg := infengine.ResolveInferenceConfig(t, s.Inference)
 	if infCfg != nil {
 		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {

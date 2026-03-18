@@ -75,7 +75,7 @@ func TestClaudeTokenCounterCountTurn(t *testing.T) {
 		scheme: "https",
 	}
 
-	ss := &aisettings.StepSettings{
+	ss := &aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
 			APIKeys: map[string]string{"claude-api-key": "test-key"},
 			BaseUrls: map[string]string{

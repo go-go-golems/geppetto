@@ -14,12 +14,12 @@ func TestHelperFunctionsExist(t *testing.T) {
 	// Test that the helper functions exist and can be called
 	// This is a basic smoke test without requiring API keys
 
-	// Create basic step settings
-	stepSettings, err := settings.NewStepSettings()
+	// Create basic inference settings
+	stepSettings, err := settings.NewInferenceSettings()
 	require.NoError(t, err)
 
-	// Test NewEngineFromStepSettings function exists (will fail due to missing API key, but that's expected)
-	_, err = NewEngineFromStepSettings(stepSettings)
+	// Test NewEngineFromSettings function exists (will fail due to missing API key, but that's expected)
+	_, err = NewEngineFromSettings(stepSettings)
 	assert.Error(t, err)                              // Expected to fail due to missing API key
 	assert.Contains(t, err.Error(), "openai-api-key") // Should mention the missing API key
 
@@ -33,13 +33,13 @@ func TestHelperFunctionSignatures(t *testing.T) {
 	// Test that the function signatures are correct by checking they compile
 	// and can accept the expected parameters
 
-	stepSettings, err := settings.NewStepSettings()
+	stepSettings, err := settings.NewInferenceSettings()
 	require.NoError(t, err)
 
 	parsedValues := values.New()
 
 	// These should compile but will fail at runtime due to missing config
-	_ = func() (engine.Engine, error) { return NewEngineFromStepSettings(stepSettings) }
+	_ = func() (engine.Engine, error) { return NewEngineFromSettings(stepSettings) }
 	_ = func() (engine.Engine, error) { return NewEngineFromParsedValues(parsedValues) }
 
 	// If we get here, the function signatures are correct

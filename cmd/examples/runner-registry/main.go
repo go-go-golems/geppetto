@@ -20,7 +20,7 @@ func main() {
 	)
 	flag.Parse()
 
-	stepSettings, err := runnerexample.OpenAIStepSettingsFromEnv(*model, true)
+	stepSettings, err := runnerexample.OpenAIInferenceSettingsFromEnv(*model, true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

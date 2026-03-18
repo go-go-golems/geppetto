@@ -19,10 +19,10 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 )
 
-// OpenAIStepSettingsFromEnv returns basic OpenAI-backed step settings suitable
+// OpenAIInferenceSettingsFromEnv returns basic OpenAI-backed inference settings suitable
 // for example programs.
-func OpenAIStepSettingsFromEnv(model string, stream bool) (*settings.StepSettings, error) {
-	ss, err := settings.NewStepSettings()
+func OpenAIInferenceSettingsFromEnv(model string, stream bool) (*settings.InferenceSettings, error) {
+	ss, err := settings.NewInferenceSettings()
 	if err != nil {
 		return nil, err
 	}
@@ -45,12 +45,12 @@ func OpenAIStepSettingsFromEnv(model string, stream bool) (*settings.StepSetting
 	return ss, nil
 }
 
-// BaseStepSettingsFromDefaults mirrors the Pinocchio pattern of resolving hidden
+// BaseInferenceSettingsFromDefaults mirrors the Pinocchio pattern of resolving hidden
 // base settings from Geppetto sections, but only from section defaults.
 //
 // Small apps can replace this with their own hidden bootstrap from config files,
 // secrets, or deployment defaults without exposing the full Geppetto flag surface.
-func BaseStepSettingsFromDefaults() (*settings.StepSettings, error) {
+func BaseInferenceSettingsFromDefaults() (*settings.InferenceSettings, error) {
 	sections_, err := geppettosections.CreateGeppettoSections()
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func BaseStepSettingsFromDefaults() (*settings.StepSettings, error) {
 	); err != nil {
 		return nil, err
 	}
-	return settings.NewStepSettingsFromParsedValues(parsedValues)
+	return settings.NewInferenceSettingsFromParsedValues(parsedValues)
 }
 
 // ExampleProfileRegistryPath returns the bundled sample profile registry path.
@@ -80,12 +80,12 @@ func ExampleProfileRegistryPath() string {
 // returns runner.Runtime plus the registry closer.
 func ResolveRuntimeFromRegistry(
 	ctx context.Context,
-	stepSettings *settings.StepSettings,
+	stepSettings *settings.InferenceSettings,
 	rawSources string,
 	profileSlug string,
 ) (runner.Runtime, func() error, error) {
 	if stepSettings == nil {
-		return runner.Runtime{}, nil, fmt.Errorf("step settings are required")
+		return runner.Runtime{}, nil, fmt.Errorf("inference settings are required")
 	}
 	entries, err := profiles.ParseProfileRegistrySourceEntries(rawSources)
 	if err != nil {
@@ -124,7 +124,7 @@ func ResolveRuntimeFromRegistry(
 	}
 
 	return runner.Runtime{
-		StepSettings:       stepSettings,
+		InferenceSettings:  stepSettings,
 		SystemPrompt:       resolved.EffectiveRuntime.SystemPrompt,
 		MiddlewareUses:     resolved.EffectiveRuntime.Middlewares,
 		ToolNames:          append([]string(nil), resolved.EffectiveRuntime.Tools...),

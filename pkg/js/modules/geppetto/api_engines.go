@@ -60,8 +60,8 @@ func profileFromOptions(opts map[string]any) string {
 	return "4o-mini"
 }
 
-func (m *moduleRuntime) stepSettingsFromEngineOptions(opts map[string]any) (*aistepssettings.StepSettings, string, error) {
-	ss, err := aistepssettings.NewStepSettings()
+func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) (*aistepssettings.InferenceSettings, string, error) {
+	ss, err := aistepssettings.NewInferenceSettings()
 	if err != nil {
 		return nil, "", err
 	}
@@ -165,17 +165,17 @@ func (m *moduleRuntime) stepSettingsFromEngineOptions(opts map[string]any) (*ais
 			}
 		}
 	}
-	ensureStepSettingsProviderDefaults(ss)
+	ensureInferenceSettingsProviderDefaults(ss)
 
 	return ss, resolvedProfile, nil
 }
 
-func (m *moduleRuntime) engineFromStepSettings(opts map[string]any) (*engineRef, error) {
-	ss, resolvedProfile, err := m.stepSettingsFromEngineOptions(opts)
+func (m *moduleRuntime) engineFromInferenceSettings(opts map[string]any) (*engineRef, error) {
+	ss, resolvedProfile, err := m.inferenceSettingsFromEngineOptions(opts)
 	if err != nil {
 		return nil, err
 	}
-	eng, err := enginefactory.NewEngineFromStepSettings(ss)
+	eng, err := enginefactory.NewEngineFromSettings(ss)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (m *moduleRuntime) engineEcho(call goja.FunctionCall) goja.Value {
 	return m.newEngineObject(ref)
 }
 
-func ensureStepSettingsProviderDefaults(ss *aistepssettings.StepSettings) {
+func ensureInferenceSettingsProviderDefaults(ss *aistepssettings.InferenceSettings) {
 	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
 		return
 	}
@@ -230,7 +230,7 @@ func (m *moduleRuntime) engineFromConfig(call goja.FunctionCall) goja.Value {
 	if opts == nil {
 		panic(m.vm.NewTypeError("fromConfig requires options object"))
 	}
-	ref, err := m.engineFromStepSettings(opts)
+	ref, err := m.engineFromInferenceSettings(opts)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}

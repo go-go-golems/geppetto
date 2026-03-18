@@ -66,7 +66,7 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -242,7 +242,7 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -374,7 +374,7 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -460,7 +460,7 @@ func TestRunInference_StreamingOutputItemDoneDoesNotDuplicateStreamedText(t *tes
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -542,7 +542,7 @@ func TestRunInference_StreamingOutputItemDoneBackfillsMissingTail(t *testing.T) 
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -633,7 +633,7 @@ func TestRunInference_StreamingPreservesWhitespaceOnlyDelta(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -721,7 +721,7 @@ func TestRunInference_NonStreamingUsageIncludesCachedTokens(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -835,7 +835,7 @@ func TestRunInference_StreamingPersistsCanonicalInferenceResultMetadata(t *testi
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},

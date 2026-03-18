@@ -22,12 +22,12 @@ import (
 // ClaudeEngine implements the Engine interface for Claude (Anthropic) API calls.
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
-	settings    *settings.StepSettings
+	settings    *settings.InferenceSettings
 	toolAdapter *tools.ClaudeToolAdapter
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.StepSettings) (*ClaudeEngine, error) {
+func NewClaudeEngine(settings *settings.InferenceSettings) (*ClaudeEngine, error) {
 	return &ClaudeEngine{
 		settings:    settings,
 		toolAdapter: tools.NewClaudeToolAdapter(),

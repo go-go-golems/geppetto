@@ -22,7 +22,7 @@ type EngineFactory interface {
 	// CreateEngine creates an Engine instance based on the provided settings.
 	// The actual provider is determined from settings.Chat.ApiType.
 	// Returns an error if the provider is unsupported or configuration is invalid.
-	CreateEngine(settings *settings.StepSettings) (engine.Engine, error)
+	CreateEngine(settings *settings.InferenceSettings) (engine.Engine, error)
 
 	// SupportedProviders returns a list of provider names this factory supports.
 	// Provider names match the ApiType constants (e.g., "openai", "claude", "gemini").
@@ -47,7 +47,7 @@ func NewStandardEngineFactory() *StandardEngineFactory {
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
 // If no ApiType is specified, defaults to OpenAI.
 // Supported providers: openai, anyscale, fireworks, claude, anthropic, gemini.
-func (f *StandardEngineFactory) CreateEngine(settings *settings.StepSettings) (engine.Engine, error) {
+func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSettings) (engine.Engine, error) {
 	if settings == nil {
 		return nil, errors.New("settings cannot be nil")
 	}
@@ -119,7 +119,7 @@ func (f *StandardEngineFactory) DefaultProvider() string {
 }
 
 // validateSettings performs basic validation of settings for the specified provider.
-func (f *StandardEngineFactory) validateSettings(settings *settings.StepSettings, provider string) error {
+func (f *StandardEngineFactory) validateSettings(settings *settings.InferenceSettings, provider string) error {
 	if settings.Chat == nil {
 		return errors.New("chat settings cannot be nil")
 	}
@@ -145,7 +145,7 @@ func (f *StandardEngineFactory) validateSettings(settings *settings.StepSettings
 }
 
 // validateOpenAISettings validates settings required for OpenAI-compatible providers.
-func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.StepSettings, provider string) error {
+func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.InferenceSettings, provider string) error {
 	// Check for API key
 	apiKeyName := provider + "-api-key"
 	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
@@ -172,7 +172,7 @@ func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.StepSe
 }
 
 // validateClaudeSettings validates settings required for Claude/Anthropic provider.
-func (f *StandardEngineFactory) validateClaudeSettings(settings *settings.StepSettings, provider string) error {
+func (f *StandardEngineFactory) validateClaudeSettings(settings *settings.InferenceSettings, provider string) error {
 	// Claude uses "claude" as the key regardless of "anthropic" alias
 	actualProvider := string(types.ApiTypeClaude)
 
@@ -202,7 +202,7 @@ func (f *StandardEngineFactory) validateClaudeSettings(settings *settings.StepSe
 }
 
 // validateGeminiSettings validates settings required for Gemini provider.
-func (f *StandardEngineFactory) validateGeminiSettings(settings *settings.StepSettings, provider string) error {
+func (f *StandardEngineFactory) validateGeminiSettings(settings *settings.InferenceSettings, provider string) error {
 	// Check for API key
 	apiKeyName := provider + "-api-key"
 	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {

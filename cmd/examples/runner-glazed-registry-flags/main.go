@@ -87,7 +87,7 @@ func (c *registryFlagsCommand) RunIntoWriter(ctx context.Context, parsedValues *
 
 	// This is the small-CLI pattern: keep engine bootstrap app-owned and hidden,
 	// while exposing only profile registry selection through Glazed.
-	stepSettings, err := runnerexample.BaseStepSettingsFromDefaults()
+	stepSettings, err := runnerexample.BaseInferenceSettingsFromDefaults()
 	if err != nil {
 		return err
 	}

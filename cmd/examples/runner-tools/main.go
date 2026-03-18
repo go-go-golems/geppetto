@@ -47,7 +47,7 @@ func main() {
 	)
 	flag.Parse()
 
-	stepSettings, err := runnerexample.OpenAIStepSettingsFromEnv(*model, true)
+	stepSettings, err := runnerexample.OpenAIInferenceSettingsFromEnv(*model, true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -59,9 +59,9 @@ func main() {
 	_, out, err := r.Run(context.Background(), runner.StartRequest{
 		Prompt: *prompt,
 		Runtime: runner.Runtime{
-			StepSettings: stepSettings,
-			SystemPrompt: "You are a concise assistant that uses tools when needed.",
-			ToolNames:    []string{"calculator"},
+			InferenceSettings: stepSettings,
+			SystemPrompt:      "You are a concise assistant that uses tools when needed.",
+			ToolNames:         []string{"calculator"},
 		},
 	})
 	if err != nil {

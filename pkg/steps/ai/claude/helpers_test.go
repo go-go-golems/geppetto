@@ -9,13 +9,13 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func newTestEngine(st *aisettings.StepSettings) *ClaudeEngine {
+func newTestEngine(st *aisettings.InferenceSettings) *ClaudeEngine {
 	return &ClaudeEngine{settings: st}
 }
 
 func TestMakeMessageRequestFromTurnStructuredOutput(t *testing.T) {
 	engine := "claude-sonnet-4-20250514"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		Claude: &claudesettings.Settings{},
 		Chat: &aisettings.ChatSettings{
@@ -48,7 +48,7 @@ func TestMakeMessageRequestFromTurnStructuredOutput(t *testing.T) {
 
 func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaRequireValid(t *testing.T) {
 	engine := "claude-sonnet-4-20250514"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		Claude: &claudesettings.Settings{},
 		Chat: &aisettings.ChatSettings{
@@ -72,7 +72,7 @@ func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaRequireValid(t *
 
 func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaIgnoredWhenNotRequired(t *testing.T) {
 	engine := "claude-sonnet-4-20250514"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		Claude: &claudesettings.Settings{},
 		Chat: &aisettings.ChatSettings{
@@ -100,7 +100,7 @@ func TestMakeMessageRequestFromTurnStructuredOutputInvalidSchemaIgnoredWhenNotRe
 
 func TestMakeMessageRequestFromTurnInferenceEmptyStopClearsChatStop(t *testing.T) {
 	engine := "claude-sonnet-4-20250514"
-	st := &aisettings.StepSettings{
+	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
 		Claude: &claudesettings.Settings{},
 		Chat: &aisettings.ChatSettings{

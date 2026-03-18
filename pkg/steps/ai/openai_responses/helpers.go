@@ -168,7 +168,7 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 			}
 		}
 	}
-	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	// Apply per-turn InferenceConfig overrides (Turn.Data > InferenceSettings.Inference).
 	var engineInference *engine.InferenceConfig
 	if s != nil {
 		engineInference = s.Inference
