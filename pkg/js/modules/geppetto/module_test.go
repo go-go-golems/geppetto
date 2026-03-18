@@ -928,6 +928,74 @@ func TestResolvedProfileFiltersExecutionRegistry(t *testing.T) {
 	`)
 }
 
+func TestRunnerResolveRuntimeFromProfile(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			profile: { profileSlug: "explicit-model" },
+		});
+
+		if (runtime.systemPrompt !== "explicit prompt") throw new Error("runner.resolveRuntime systemPrompt mismatch");
+		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 2) {
+			throw new Error("runner.resolveRuntime middleware count mismatch");
+		}
+		if (runtime.middlewares[0].name !== "systemPrompt") throw new Error("systemPrompt middleware missing");
+		if (runtime.middlewares[1].name !== "profileMarker") throw new Error("profile middleware missing");
+		if (!Array.isArray(runtime.toolNames) || runtime.toolNames.length !== 1 || runtime.toolNames[0] !== "search") {
+			throw new Error("runner.resolveRuntime toolNames mismatch");
+		}
+		if (runtime.runtimeKey !== "explicit-model") throw new Error("runner.resolveRuntime runtimeKey mismatch");
+		if (typeof runtime.runtimeFingerprint !== "string" || runtime.runtimeFingerprint.length < 8) {
+			throw new Error("runner.resolveRuntime runtimeFingerprint missing");
+		}
+		if (runtime.profileVersion !== 7) throw new Error("runner.resolveRuntime profileVersion mismatch");
+		if (!runtime.metadata || runtime.metadata["profile.slug"] !== "explicit-model") {
+			throw new Error("runner.resolveRuntime metadata missing");
+		}
+	`)
+}
+
+func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		ProfileRegistry: mustNewJSProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const customMw = gp.middlewares.go("reorderToolResults");
+		const runtime = gp.runner.resolveRuntime({
+			profile: { profileSlug: "explicit-model" },
+			systemPrompt: "override prompt",
+			middlewares: [customMw, gp.middlewares.fromJS((turn, next) => next(turn), "custom-js")],
+			toolNames: ["custom_tool"],
+			runtimeKey: "custom-runtime",
+			runtimeFingerprint: "fp-custom",
+			profileVersion: 11,
+			metadata: { custom: true },
+		});
+
+		if (runtime.systemPrompt !== "override prompt") throw new Error("direct systemPrompt override missing");
+		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 4) {
+			throw new Error("direct middlewares should append to profile-derived middleware refs");
+		}
+		if (runtime.middlewares[2].name !== "reorderToolResults") throw new Error("go middleware append mismatch");
+		if (runtime.middlewares[3].name !== "custom-js") throw new Error("js middleware append mismatch");
+		if (!Array.isArray(runtime.toolNames) || runtime.toolNames[0] !== "custom_tool") {
+			throw new Error("direct toolNames override missing");
+		}
+		if (runtime.runtimeKey !== "custom-runtime") throw new Error("direct runtimeKey override missing");
+		if (runtime.runtimeFingerprint !== "fp-custom") throw new Error("direct runtimeFingerprint override missing");
+		if (runtime.profileVersion !== 11) throw new Error("direct profileVersion override missing");
+		if (!runtime.metadata || runtime.metadata.custom !== true) throw new Error("direct metadata merge missing");
+	`)
+}
+
 func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "base.yaml")

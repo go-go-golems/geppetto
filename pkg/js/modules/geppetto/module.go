@@ -159,6 +159,10 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(profilesObj, "getConnectedSources", m.profilesGetConnectedSources)
 	m.mustSet(exports, "profiles", profilesObj)
 
+	runnerObj := m.vm.NewObject()
+	m.mustSet(runnerObj, "resolveRuntime", m.runnerResolveRuntime)
+	m.mustSet(exports, "runner", runnerObj)
+
 	schemasObj := m.vm.NewObject()
 	m.mustSet(schemasObj, "listMiddlewares", m.schemasListMiddlewares)
 	m.mustSet(schemasObj, "listExtensions", m.schemasListExtensions)

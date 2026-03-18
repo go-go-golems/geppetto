@@ -75,6 +75,14 @@ type resolvedProfileRef struct {
 	Resolved *profiles.ResolvedProfile
 }
 
+type runnerResolvedRuntimeRef struct {
+	SystemPrompt    string
+	MiddlewareRefs  []any
+	ToolNames       []string
+	RuntimeMetadata map[string]any
+	Metadata        map[string]any
+}
+
 type toolRegistryRef struct {
 	api *moduleRuntime
 
