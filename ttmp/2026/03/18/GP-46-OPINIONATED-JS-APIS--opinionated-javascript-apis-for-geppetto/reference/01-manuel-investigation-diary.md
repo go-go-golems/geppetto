@@ -253,6 +253,45 @@ This step finished the core execution surface. The design decision here was to r
 - Check that `attachPreparedRunToHandle(...)` is not mutating any semantics of the existing start handle beyond adding non-conflicting fields.
 - Check that the top-level runner handle remains safe to use with the current owner-thread model, since all handle augmentation still happens synchronously on the JS owner thread before the background run settles.
 
+## Step 5: Update the public type surface, examples, and docs
+
+This step turned the new API from “implemented” into “discoverable.” Before this pass, the code supported `gp.runner`, but the public docs and typings still taught the older builder/session-first workflow.
+
+### What I did
+- Updated the JS type template in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`.
+- Updated the generated published typings in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/types/geppetto.d.ts`.
+- Added three new example scripts:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/22_runner_run.js`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/23_runner_profile_run.js`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/24_runner_start_handle.js`
+- Updated `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/README.md`.
+- Updated `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/run_profile_registry_examples.sh`.
+- Rewrote the main user docs:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/13-js-api-reference.md`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/14-js-api-user-guide.md`
+
+### Commands
+- `go test ./pkg/js/modules/geppetto ./pkg/doc -count=1`
+- `OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/22_runner_run.js`
+- `OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/24_runner_start_handle.js`
+- `OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/23_runner_profile_run.js --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml`
+- `./.bin/golangci-lint run ./pkg/js/modules/geppetto ./pkg/doc ./cmd/examples/geppetto-js-lab`
+
+### What worked
+- The new examples validated the intended learning path well:
+  - direct runtime + blocking run
+  - profile-driven runtime + blocking run
+  - start-handle wiring for event-driven hosts
+- The docs now match the codebase’s post-GP-47 / GP-46 architecture instead of teaching `resolvedProfile + createSession` as the default.
+
+### What to look at in review
+- Confirm the TypeScript contracts describe the actual JS shapes:
+  - `RunnerResolvedRuntime`
+  - `PreparedRun`
+  - `RunnerStartHandle`
+  - `runner.resolveRuntime / prepare / run / start`
+- Check that the examples line up with the documentation order and that the README points people at runner examples before the advanced builder/session examples.
+
 ## Related
 
 - [../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md](../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md)

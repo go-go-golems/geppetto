@@ -16,7 +16,13 @@ const gp = require("geppetto");
 - `06_live_profile_inference.js`
 - `07_context_and_constants.js`
 
-## Profile/Schema Surface (New)
+## Opinionated Runner Surface
+
+- `22_runner_run.js`
+- `23_runner_profile_run.js`
+- `24_runner_start_handle.js`
+
+## Profile/Schema Surface
 
 - `08_profiles_registry_inventory.js`
 - `09_profiles_resolve_stack_precedence.js`
@@ -44,7 +50,7 @@ const gp = require("geppetto");
 
 ```bash
 go run ./cmd/examples/geppetto-js-lab \
-  --script examples/js/geppetto/08_profiles_registry_inventory.js \
+  --script examples/js/geppetto/23_runner_profile_run.js \
   --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml
 ```
 
@@ -56,6 +62,7 @@ go run ./cmd/examples/geppetto-js-lab \
 
 The suite seeds a temporary sqlite profile registry and runs scripts against:
 
+- the opinionated runner examples,
 - stacked YAML registries,
 - sqlite registry,
 - mixed YAML + sqlite stack,

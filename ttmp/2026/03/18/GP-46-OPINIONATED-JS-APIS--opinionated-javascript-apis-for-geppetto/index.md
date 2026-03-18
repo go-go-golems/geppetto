@@ -50,8 +50,6 @@ Implemented so far:
 
 Still to do:
 
-- public type surface updates
-- example scripts and doc rewrites that make `gp.runner` the default JS path
 - ticket closeout and refreshed reMarkable upload
 
 ## Topics

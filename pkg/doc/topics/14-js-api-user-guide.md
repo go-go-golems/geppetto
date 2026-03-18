@@ -1,7 +1,7 @@
 ---
 Title: Geppetto JavaScript API User Guide
 Slug: geppetto-js-api-user-guide
-Short: Practical guide to composing engines, middlewares, tools, and sessions from JavaScript.
+Short: Practical guide to composing engines, runtimes, tools, and sessions from JavaScript.
 Topics:
 - geppetto
 - javascript
@@ -30,6 +30,35 @@ go run ./cmd/examples/geppetto-js-lab --script <your-script.js>
 ```
 
 4. Treat non-zero exit as failure and fix the script or pipeline setup.
+
+## Default Path: `gp.runner`
+
+For most scripts, the default path is now:
+
+1. build an explicit engine with `gp.engines.*`
+2. build or resolve a runtime with `gp.runner.resolveRuntime(...)`
+3. call `gp.runner.run(...)` for blocking work or `gp.runner.start(...)` for streaming
+
+Small blocking example:
+
+```javascript
+const gp = require("geppetto");
+
+const runtime = gp.runner.resolveRuntime({
+  systemPrompt: "Answer in one short line.",
+  runtimeKey: "demo",
+});
+
+const out = gp.runner.run({
+  engine: gp.engines.echo({ reply: "READY" }),
+  runtime,
+  prompt: "hello",
+});
+
+console.log(out.blocks[out.blocks.length - 1].payload.text);
+```
+
+Use `gp.runner.prepare(...)` when you want to inspect the assembled session/turn before execution starts.
 
 ## Suggested Project Layout
 
@@ -147,30 +176,29 @@ The JS engine surface only supports explicit engine construction. The JS layer n
 
 - resolve profile/runtime metadata with `gp.profiles.resolve(...)` when you need it
 - build engines explicitly with `gp.engines.fromConfig(...)`
-- pass the resolved profile into session assembly so Geppetto can materialize runtime metadata for execution
+- hand the engine plus runtime into `gp.runner`
 
 Example:
 
 ```javascript
 const gp = require("geppetto");
 
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+const runtime = gp.runner.resolveRuntime({
+  profile: { profileSlug: "assistant" },
+});
 const engine = gp.engines.fromConfig({
   apiType: "openai",
   model: "gpt-4.1-mini",
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const registry = gp.tools.createRegistry().useGoTools(["go_concat"]);
-
-const session = gp.createSession({
+const out = gp.runner.run({
   engine,
-  resolvedProfile: resolved,
-  tools: registry,
-  toolLoop: { enabled: true, maxIterations: 3 },
+  runtime,
+  prompt: "Say hello",
 });
 
-console.log(resolved.runtimeFingerprint, session.turnCount());
+console.log(runtime.runtimeFingerprint, out.blocks[out.blocks.length - 1].kind);
 ```
 
 Provider keys must be passed explicitly to `fromConfig`. The JS helpers do not read provider credentials from process environment variables or profile registries.
@@ -181,7 +209,7 @@ The important behavioral change is that callers no longer need to manually trans
 - `effectiveRuntime.middlewares` into explicit middleware instances
 - `effectiveRuntime.tools` into a separately filtered registry
 
-Passing `resolvedProfile` into `createSession(...)`, `createBuilder(...)`, or `runInference(...)` handles that translation centrally.
+Passing a `runtime` object into `gp.runner.*(...)` handles that translation centrally.
 
 ## Runtime Stack Binding from JS
 
@@ -217,25 +245,21 @@ console.log(registries.map((r) => r.slug));
 console.log(resolved.runtimeFingerprint);
 ```
 
-For normal execution assembly, treat `resolved` as an input object and hand it back to the module:
+For normal execution assembly, prefer converting profile input into a runtime object and then handing that runtime back to the module:
 
 ```javascript
-const session = gp.createBuilder({
+const runtime = gp.runner.resolveRuntime({
+  profile: { profileSlug: "assistant" },
+});
+
+const out = gp.runner.run({
   engine,
-  resolvedProfile: resolved,
-  tools: registry,
-}).buildSession();
+  runtime,
+  prompt: "hello",
+});
 ```
 
-or:
-
-```javascript
-const session = gp.createBuilder()
-  .withEngine(engine)
-  .withTools(registry, { enabled: true })
-  .useResolvedProfile(resolved)
-  .buildSession();
-```
+Keep `createBuilder(...)`, `createSession(...)`, and `useResolvedProfile(...)` for advanced cases where you want low-level session control.
 
 ## Working with `gp.schemas`
 
@@ -255,6 +279,28 @@ Host requirements:
 
 - `listMiddlewares()` requires `Options.MiddlewareSchemas`.
 - `listExtensions()` requires `Options.ExtensionCodecs` and/or `Options.ExtensionSchemas`.
+
+## Advanced: Drop Down to Builders and Sessions
+
+The older builder/session surface is still useful when you need:
+
+- manual session mutation across multiple runs,
+- custom event sinks wired directly into a reusable session,
+- custom ordering of middleware and tool-loop setup,
+- tests that want to inspect session history after each append.
+
+Example:
+
+```javascript
+const session = gp.createBuilder()
+  .withEngine(engine)
+  .withTools(registry, { enabled: true })
+  .useResolvedProfile(gp.profiles.resolve({ profileSlug: "assistant" }))
+  .buildSession();
+
+session.append(gp.turns.newTurn({ blocks: [gp.turns.newUserBlock("hello")] }));
+const out = session.run();
+```
 
 ## Recommended Iteration Loop
 

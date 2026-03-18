@@ -215,6 +215,27 @@ declare module "geppetto" {
         metadata?: Record<string, any>;
     }
 
+    export interface RunnerResolvedRuntime {
+        systemPrompt?: string;
+        middlewares: MiddlewareRef[];
+        toolNames?: string[];
+        runtimeKey?: string;
+        runtimeFingerprint?: string;
+        profileVersion?: number;
+        metadata?: Record<string, any>;
+    }
+
+    export interface RunnerResolveInput {
+        profile?: ResolveInput;
+        systemPrompt?: string;
+        middlewares?: Array<MiddlewareRef | MiddlewareFn>;
+        toolNames?: string[];
+        runtimeKey?: string;
+        runtimeFingerprint?: string;
+        profileVersion?: number;
+        metadata?: Record<string, any>;
+    }
+
     export interface MiddlewareSchemaEntry {
         key: string;
         name: string;
@@ -410,6 +431,27 @@ declare module "geppetto" {
         on(eventType: string, callback: (event: StreamEvent) => void): RunHandle;
     }
 
+    export interface RunnerStartHandle extends RunHandle {
+        session: Session;
+        turn: Turn;
+        runtime: RunnerResolvedRuntime;
+    }
+
+    export interface RunnerOptions extends BuilderOptions {
+        runtime?: RunnerResolvedRuntime;
+        prompt?: string;
+        seedTurn?: Turn;
+        sessionId?: string;
+    }
+
+    export interface PreparedRun {
+        session: Session;
+        turn: Turn;
+        runtime: RunnerResolvedRuntime;
+        run(options?: RunOptions): Turn;
+        start(options?: RunOptions): RunnerStartHandle;
+    }
+
     export const turns: {
         normalize(turn: Turn): Turn;
         newTurn(data?: Partial<Turn>): Turn;
@@ -436,6 +478,13 @@ declare module "geppetto" {
         connectStack(sources: ProfileRegistrySources): ConnectedProfileStack;
         disconnectStack(): void;
         getConnectedSources(): string[];
+    };
+
+    export const runner: {
+        resolveRuntime(input?: RunnerResolveInput): RunnerResolvedRuntime;
+        prepare(options: RunnerOptions): PreparedRun;
+        run(options: RunnerOptions, runOptions?: RunOptions): Turn;
+        start(options: RunnerOptions, runOptions?: RunOptions): RunnerStartHandle;
     };
 
     export const schemas: {

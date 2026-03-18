@@ -59,15 +59,15 @@
 
 ## Phase 5: Type Surface, Examples, and Docs
 
-- [ ] Extend `geppetto.d.ts.tmpl` and generated `geppetto.d.ts` with `gp.runner` contracts
-- [ ] Add example scripts that demonstrate:
+- [x] Extend `geppetto.d.ts.tmpl` and generated `geppetto.d.ts` with `gp.runner` contracts
+- [x] Add example scripts that demonstrate:
   - simple `gp.runner.run(...)`
   - profile-driven runtime assembly
   - streaming `gp.runner.start(...)`
-- [ ] Update the JS API reference to make `gp.runner` the default path
-- [ ] Update the JS user guide to demote `createBuilder` / `createSession` to advanced usage
-- [ ] Run focused validation for JS module tests, docs, and examples
-- [ ] Commit the public-surface/docs slice
+- [x] Update the JS API reference to make `gp.runner` the default path
+- [x] Update the JS user guide to demote `createBuilder` / `createSession` to advanced usage
+- [x] Run focused validation for JS module tests, docs, and examples
+- [x] Commit the public-surface/docs slice
 
 ## Phase 6: Ticket Closeout
 

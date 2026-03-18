@@ -72,6 +72,7 @@ defer rt.Close(context.Background())
 | `turns` | namespace | Turn and block helpers |
 | `engines` | namespace | Engine constructors |
 | `profiles` | namespace | Profile registry read/resolve API |
+| `runner` | namespace | Opinionated runtime assembly and execution API |
 | `schemas` | namespace | Middleware/extension schema catalog API |
 | `middlewares` | namespace | Middleware adapters |
 | `events` | namespace | Event sink helpers |
@@ -122,7 +123,8 @@ Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
 | `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
 
 Build engines explicitly with `gp.engines.fromConfig(...)`.
-If you resolve a profile first, pass the resulting object into session assembly via `resolvedProfile` or `useResolvedProfile(...)` so the JS module can materialize system prompts, Go middlewares, tool filtering, and runtime metadata stamping for you.
+For the default path, hand the engine to `gp.runner.run(...)`, `gp.runner.prepare(...)`, or `gp.runner.start(...)`.
+If you need the lower-level builder/session path, you can still pass resolved profile objects into `resolvedProfile` or `useResolvedProfile(...)`.
 
 ### `fromConfig` options
 
@@ -158,6 +160,92 @@ Pass keys explicitly via `opts.apiKey`.
 - `sources`: normalized source entries used for connection
 - `registries`: loaded registry summaries
 
+## `runner` Namespace
+
+This is the recommended JS entry point for real scripts.
+
+| Function | Signature | Notes |
+|---|---|---|
+| `resolveRuntime` | `resolveRuntime(input?)` | Build a reusable runtime object from direct values and/or profile input |
+| `prepare` | `prepare(options)` | Build a prepared session and seed turn without starting inference |
+| `run` | `run(options, runOptions?)` | Blocking helper for the common path |
+| `start` | `start(options, runOptions?)` | Async/event-driven helper returning a run handle |
+
+### `resolveRuntime`
+
+Use `resolveRuntime(...)` when you want to:
+
+- resolve a profile to executable runtime metadata,
+- override the system prompt or runtime identity explicitly,
+- append JS/Go middleware refs,
+- choose tool names that should be enforced against the execution registry.
+
+Example:
+
+```javascript
+const runtime = gp.runner.resolveRuntime({
+  profile: { profileSlug: "assistant" },
+  systemPrompt: "Be terse.",
+  middlewares: [gp.middlewares.go("reorderToolResults")],
+  runtimeKey: "assistant-terse",
+});
+```
+
+### `prepare`
+
+`prepare(...)` gives you a prepared object with:
+
+- `session`
+- `turn`
+- `runtime`
+- `run(options?)`
+- `start(options?)`
+
+This is the right API when you want to inspect or persist the assembled seed turn before execution starts.
+
+```javascript
+const prepared = gp.runner.prepare({
+  engine,
+  runtime,
+  prompt: "hello",
+});
+
+console.log(prepared.session.turnCount());
+const out = prepared.run();
+```
+
+### `run` and `start`
+
+`run(...)` is the blocking path:
+
+```javascript
+const out = gp.runner.run({
+  engine,
+  runtime,
+  prompt: "hello",
+});
+```
+
+`start(...)` is the event-driven path. The returned handle reuses the normal run-handle contract:
+
+- `promise`
+- `cancel()`
+- `on(eventType, callback)`
+
+and also exposes the prepared `session`, `turn`, and `runtime`.
+
+```javascript
+const handle = gp.runner.start({
+  engine,
+  runtime,
+  tools: registry,
+  toolLoop: { enabled: true, maxIterations: 3 },
+  prompt: "hello",
+});
+
+handle.on("*", (ev) => console.log(ev.type));
+```
+
 ## `schemas` Namespace
 
 | Function | Signature | Notes |
@@ -170,7 +258,9 @@ Host requirements:
 - `schemas.listMiddlewares()` requires `Options.MiddlewareSchemas`.
 - `schemas.listExtensions()` requires `Options.ExtensionCodecs` and/or `Options.ExtensionSchemas`.
 
-## Sessions and Builder
+## Advanced: Sessions and Builder
+
+The builder/session surface is still supported. Use it when you need low-level lifecycle control, custom session mutation, or you want to interleave manual session edits with repeated runs. For most scripts, prefer `gp.runner`.
 
 ### Session methods
 

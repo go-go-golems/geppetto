@@ -13,6 +13,16 @@
 - Landed the third JS runner slice: top-level `gp.runner.start(...)` with the same `promise` / `cancel` / `on` contract as session start, plus attached `session`, `turn`, and `runtime` metadata from the prepared run.
 - Added focused JS module tests that cover runtime resolution, prepared-run assembly, runtime metadata stamping, and blocking execution.
 - Added focused JS module tests that cover streaming start handles, async completion, and event subscription on the new runner surface.
+- Extended the public TypeScript surface with runner contracts in both the template and the generated `geppetto.d.ts`.
+- Added new runnable JS examples for:
+  - blocking `gp.runner.run(...)`
+  - profile-driven runtime assembly
+  - top-level `gp.runner.start(...)`
+- Rewrote the JS API reference and user guide so `gp.runner` is the default path and `createBuilder` / `createSession` are explicitly described as advanced.
+- Validated the new public surface with:
+  - focused `go test` for `pkg/js/modules/geppetto` and `pkg/doc`
+  - focused `golangci-lint`
+  - direct `geppetto-js-lab` execution of the new runner examples
 - Fixed two early implementation bugs during the prepared-run slice:
   - `runner.prepare` initially panicked on missing `prompt` / `sessionId` because the code called methods on undefined goja properties without guarding them first.
   - direct `systemPrompt` on `runner.resolveRuntime(...)` initially updated only the metadata string and did not materialize the corresponding `systemPrompt` middleware, so `runner.run(...)` ignored the prompt until the helper was corrected.
