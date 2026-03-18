@@ -47,6 +47,12 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
 - Landed `geppetto` `a68c313` `remove dead normalize profile extensions helper`:
   - removed `NormalizeProfileExtensions(...)` from `pkg/profiles/extensions.go`,
   - removed the dedicated tests that only exercised that dead normalization/codec-decode path.
+- Landed `geppetto` `a1f2f56` `simplify extension codec registry to lister`:
+  - removed the dead `Lookup(...)` method from `ExtensionCodecRegistry`,
+  - collapsed the Geppetto schema-listing path onto the lister-only contract.
+- Landed downstream follow-up `pinocchio` `29e25c7` `simplify extension schema registry contract`:
+  - removed the old "registry without lister" test shape,
+  - simplified the profile API schema listing path to the same lister-only contract.
 - Confirmed that the inference/runtime metadata compatibility paths are not dead yet:
   - `MirrorLegacyInferenceKeys` is still part of active engine persistence flow,
   - `AddRuntimeAttributionToExtra` is still used by provider engines,

@@ -27,7 +27,7 @@ RelatedFiles:
       Note: Always-on stack trace payload generation for debug metadata.
 ExternalSources: []
 Summary: Broad cleanup ticket that inventories legacy support paths, unused machinery, and complexity hotspots in geppetto, then turns them into a phased removal plan with evidence and intern-friendly system explanations.
-LastUpdated: 2026-03-18T01:56:00-04:00
+LastUpdated: 2026-03-18T02:10:00-04:00
 WhatFor: Use this ticket to plan and stage the removal of low-value compatibility layers and underused machinery from geppetto.
 WhenToUse: Use when deciding what cleanup work to pursue after RuntimeKeyFallback removal or when onboarding an engineer into geppetto cleanup work.
 ---
@@ -56,7 +56,7 @@ The design doc is intentionally detailed for a new intern. It explains the relev
 
 Current status: **active**
 
-The low-risk hard cuts are now landed and the first structural simplifications inside `source_chain.go`, `StoreRegistry`, and the extension helpers are done. GP-45 has removed the dead no-op profile flag bridge, the dead JS `engines.fromProfile` surface, the unused profile adapter helpers, the leftover `DeleteProfile` / `SetDefaultProfile` store API, the stale docs/JS typings that still taught removed configuration knobs, the unused `ChainedRegistry` / `sourceOwner` bookkeeping scaffolding, the dead service-level extension codec hook, and the dead `NormalizeProfileExtensions(...)` helper. The remaining work is the compatibility-heavy metadata cleanup plus the broader extension and provenance review.
+The low-risk hard cuts are now landed and the first structural simplifications inside `source_chain.go`, `StoreRegistry`, and the extension helpers are done. GP-45 has removed the dead no-op profile flag bridge, the dead JS `engines.fromProfile` surface, the unused profile adapter helpers, the leftover `DeleteProfile` / `SetDefaultProfile` store API, the stale docs/JS typings that still taught removed configuration knobs, the unused `ChainedRegistry` / `sourceOwner` bookkeeping scaffolding, the dead service-level extension codec hook, the dead `NormalizeProfileExtensions(...)` helper, and the old decode-oriented `Lookup(...)` branch in the extension registry contract. The remaining work is the compatibility-heavy metadata cleanup plus the broader extension and provenance review.
 
 ## Scope
 

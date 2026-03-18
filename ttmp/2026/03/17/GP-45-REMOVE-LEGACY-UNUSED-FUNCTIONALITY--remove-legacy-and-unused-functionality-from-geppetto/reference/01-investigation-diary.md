@@ -33,7 +33,7 @@ RelatedFiles:
         Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T01:56:00-04:00
+LastUpdated: 2026-03-18T02:10:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -680,3 +680,88 @@ The tricky part was deciding whether to also remove the codec `Lookup(...)` path
 ### Technical details
 
 - This slice removes only the dead normalization helper and its tests; it does not change schema listing behavior.
+
+## Step 8: Collapse the extension registry contract onto the one capability we still actually use
+
+After deleting `NormalizeProfileExtensions(...)`, the remaining awkward bit in the extension subsystem was the interface itself. `ExtensionCodecRegistry` still exposed `Lookup(...)`, but the only live behavior left was schema listing through `ListCodecs()`. That made the contract misleading: the type still looked decode-oriented even though all surviving callers were lister-oriented.
+
+I cleaned that up in two small commits. The Geppetto side removed `Lookup(...)` and simplified the JS schema path. The Pinocchio side followed by removing the now-obsolete "registry without lister" test shape and matching the API helper to the lister-only contract.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead"
+
+**Assistant interpretation:** Continue with the next logical extension cleanup slice after removing the dead normalization helper.
+
+**Inferred user intent:** Keep shrinking the extension surface until it matches the responsibilities that still exist in real runtime code.
+
+**Commit (code):** `a1f2f56` — `simplify extension codec registry to lister`
+
+### What I did
+
+- Removed `Lookup(...)` from `ExtensionCodecRegistry` in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions.go`
+- Removed the dead `Lookup(...)` implementation from `InMemoryExtensionCodecRegistry` in the same file.
+- Simplified Geppetto JS schema listing to call `ListCodecs()` directly in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_schemas.go`
+- Updated Geppetto docs in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/01-profiles.md`
+- Landed that as:
+  - `geppetto` `a1f2f56` — `simplify extension codec registry to lister`
+- Updated Pinocchio’s HTTP schema listing helper and test/docs:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/profile_api.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/profile_api_test.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/doc/topics/webchat-profile-registry.md`
+- Landed that as:
+  - `pinocchio` `29e25c7` — `simplify extension schema registry contract`
+- Validated with:
+
+```bash
+cd geppetto && go test ./pkg/profiles ./pkg/js/modules/geppetto -count=1
+cd geppetto && ./.bin/golangci-lint run ./pkg/profiles ./pkg/js/modules/geppetto
+cd pinocchio && go test ./pkg/webchat/http -count=1
+```
+
+### Why
+
+- The interface should reflect the only remaining supported behavior.
+- Keeping `Lookup(...)` after removing the normalize helper would preserve a fake decode-time story that no longer exists.
+
+### What worked
+
+- The simplification stayed tight and mechanical.
+- Both repos’ focused validations passed before commit.
+- The full commit hooks passed in both repos.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The extension subsystem is now much easier to explain: schema-discovery codecs are lister-based, not decode-registry based.
+
+### What was tricky to build
+
+The main judgment call was whether to keep a compatibility shape for "registry without lister." That path no longer had product value once the decode-oriented behavior was gone, so removing it was cleaner than preserving a special case only tests still modeled.
+
+### What warrants a second pair of eyes
+
+- The remaining extension subsystem still deserves one more look, especially whether any other decode-oriented helper or naming survives from the older shape.
+
+### What should be done in the future
+
+- Continue GP-45 with the metadata compatibility path, or do one more narrow extension pass if you want to finish that subsystem before switching topics.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/profiles/extensions.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_schemas.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/webchat/http/profile_api.go`
+- Validate with the commands shown above.
+
+### Technical details
+
+- The extension registry contract is now lister-only.
+- The old "registry without lister" branch is gone from Pinocchio’s schema helper and tests.
