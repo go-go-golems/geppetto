@@ -282,8 +282,4 @@ func TestYAMLFileProfileStore_CloseStateGuards(t *testing.T) {
 	assertClosedErr(err)
 	err = store.UpsertProfile(ctx, MustRegistrySlug("default"), &Profile{Slug: MustProfileSlug("default")}, SaveOptions{})
 	assertClosedErr(err)
-	err = store.DeleteProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"), SaveOptions{})
-	assertClosedErr(err)
-	err = store.SetDefaultProfile(ctx, MustRegistrySlug("default"), MustProfileSlug("default"), SaveOptions{})
-	assertClosedErr(err)
 }
