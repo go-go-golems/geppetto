@@ -72,6 +72,7 @@ After that, explore based on what you need:
 | [Structured Data Extraction](../tutorials/04-structured-data-extraction.md) | Extract structured data from streaming output in real-time. |
 | [JS API Getting Started](../tutorials/05-js-api-getting-started.md) | End-to-end walkthrough of turns, sessions, tools, and hooks from JavaScript. |
 | [Build Scoped JavaScript Eval Tools](../tutorials/07-build-scopedjs-eval-tools.md) | Detailed intern-friendly guide to `pkg/inference/tools/scopedjs`, runtime wiring, registration, and debugging. |
+| [Build a Streaming Tool-Loop Agent with Glazed Flags](../tutorials/08-build-streaming-tool-loop-agent-with-glazed-flags.md) | Build a small Glazed CLI that streams events, runs a tool loop, and keeps engine settings hidden in app bootstrap. |
 
 ## Playbooks
 
