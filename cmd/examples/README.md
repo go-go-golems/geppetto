@@ -10,7 +10,8 @@ These are the smallest examples that match the current recommended API surface:
 - `runner-tools/`: same runner API with one function tool
 - `runner-streaming/`: same runner API with event sinks
 - `runner-registry/`: runner API with profile-registry runtime selection
-- `runner-glazed/`: runner API driven by Glazed/Cobra parsing
+- `runner-glazed-full-flags/`: runner API driven by full Geppetto sections and Glazed/Cobra parsing
+- `runner-glazed-registry-flags/`: runner API driven by Glazed profile-registry flags only
 - `inference/`: direct engine/session blocking example
 - `streaming-inference/`: direct engine/session streaming example
 

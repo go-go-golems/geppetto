@@ -124,7 +124,8 @@ go run ./cmd/examples/runner-simple
 go run ./cmd/examples/runner-tools
 go run ./cmd/examples/runner-streaming
 go run ./cmd/examples/runner-registry
-go run ./cmd/examples/runner-glazed
+go run ./cmd/examples/runner-glazed-full-flags
+go run ./cmd/examples/runner-glazed-registry-flags
 
 # advanced low-level examples
 go run ./cmd/examples/advanced/middleware-inference

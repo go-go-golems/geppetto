@@ -75,4 +75,5 @@ See the focused example programs in:
 - `cmd/examples/runner-tools/`
 - `cmd/examples/runner-streaming/`
 - `cmd/examples/runner-registry/`
-- `cmd/examples/runner-glazed/`
+- `cmd/examples/runner-glazed-full-flags/`
+- `cmd/examples/runner-glazed-registry-flags/`

@@ -23,8 +23,8 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "runner-glazed",
-	Short: "Minimal Glazed-driven runner example",
+	Use:   "runner-glazed-full-flags",
+	Short: "Glazed-driven runner example with full Geppetto runtime flags",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return logging.InitLoggerFromCobra(cmd)
 	},
@@ -48,8 +48,8 @@ func newRunnerGlazedCommand() (*runnerGlazedCommand, error) {
 	}
 
 	description := cmds.NewCommandDescription(
-		"runner-glazed",
-		cmds.WithShort("Run inference via pkg/inference/runner using Glazed-parsed settings"),
+		"runner-glazed-full-flags",
+		cmds.WithShort("Run inference via pkg/inference/runner using full Geppetto sections"),
 		cmds.WithArguments(
 			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt to run")),
 		),
