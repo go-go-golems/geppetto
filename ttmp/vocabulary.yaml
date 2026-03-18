@@ -69,6 +69,8 @@ topics:
       description: Security-sensitive behavior, secret handling, and leak prevention
     - slug: config
       description: Configuration parsing, mapping, and settings handling
+    - slug: cleanup
+      description: Codebase cleanup, deletion of low-value compatibility layers, and simplification work.
 docTypes:
     - slug: index
       description: Ticket index
