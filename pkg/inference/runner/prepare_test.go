@@ -66,7 +66,7 @@ func TestPreparePromptOnlyBuildsSessionAndRegistry(t *testing.T) {
 func TestPrepareClonesSeedTurnAndAppendsPrompt(t *testing.T) {
 	r := New()
 
-	seed := &turns.Turn{}
+	seed := &turns.Turn{ID: "existing-turn-id"}
 	turns.AppendBlock(seed, turns.NewUserTextBlock("seed"))
 
 	prepared, err := r.Prepare(context.Background(), StartRequest{
@@ -90,8 +90,87 @@ func TestPrepareClonesSeedTurnAndAppendsPrompt(t *testing.T) {
 	if len(prepared.Turn.Blocks) != 2 {
 		t.Fatalf("expected cloned turn to contain original and appended prompt, got %d blocks", len(prepared.Turn.Blocks))
 	}
+	if prepared.Turn.ID != "" {
+		t.Fatalf("expected prepared turn id to be cleared, got %q", prepared.Turn.ID)
+	}
+	if seed.ID != "existing-turn-id" {
+		t.Fatalf("expected original seed id to stay unchanged, got %q", seed.ID)
+	}
 	if sid, ok, err := turns.KeyTurnMetaSessionID.Get(prepared.Turn.Metadata); err != nil || !ok || sid != "seeded" {
 		t.Fatalf("expected session metadata on prepared turn, got sid=%q ok=%v err=%v", sid, ok, err)
+	}
+}
+
+func TestPrepareStampsRuntimeMetadataOnPreparedTurn(t *testing.T) {
+	r := New()
+
+	prepared, err := r.Prepare(context.Background(), StartRequest{
+		Prompt: "hello",
+		Runtime: Runtime{
+			StepSettings:       newTestStepSettings(t),
+			RuntimeKey:         "assistant@v1",
+			RuntimeFingerprint: "fp-123",
+			ProfileVersion:     7,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	raw, ok, err := turns.KeyTurnMetaRuntime.Get(prepared.Turn.Metadata)
+	if err != nil || !ok {
+		t.Fatalf("expected runtime metadata, got ok=%v err=%v", ok, err)
+	}
+	attrib, ok := raw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected runtime metadata map, got %T", raw)
+	}
+	if got := attrib["runtime_key"]; got != "assistant@v1" {
+		t.Fatalf("unexpected runtime_key: %#v", got)
+	}
+	if got := attrib["runtime_fingerprint"]; got != "fp-123" {
+		t.Fatalf("unexpected runtime_fingerprint: %#v", got)
+	}
+	if got := attrib["profile.version"]; got != uint64(7) {
+		t.Fatalf("unexpected profile.version: %#v", got)
+	}
+}
+
+func TestPreparePreservesExistingRuntimeMetadataFields(t *testing.T) {
+	r := New()
+
+	seed := &turns.Turn{}
+	_ = turns.KeyTurnMetaRuntime.Set(&seed.Metadata, map[string]any{
+		"profile.slug":     "assistant",
+		"profile.registry": "team",
+	})
+	turns.AppendBlock(seed, turns.NewUserTextBlock("seed"))
+
+	prepared, err := r.Prepare(context.Background(), StartRequest{
+		SeedTurn: seed,
+		Runtime: Runtime{
+			StepSettings:       newTestStepSettings(t),
+			RuntimeKey:         "assistant@v1",
+			RuntimeFingerprint: "fp-123",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	raw, ok, err := turns.KeyTurnMetaRuntime.Get(prepared.Turn.Metadata)
+	if err != nil || !ok {
+		t.Fatalf("expected runtime metadata, got ok=%v err=%v", ok, err)
+	}
+	attrib := raw.(map[string]any)
+	if got := attrib["profile.slug"]; got != "assistant" {
+		t.Fatalf("unexpected profile.slug: %#v", got)
+	}
+	if got := attrib["profile.registry"]; got != "team" {
+		t.Fatalf("unexpected profile.registry: %#v", got)
+	}
+	if got := attrib["runtime_key"]; got != "assistant@v1" {
+		t.Fatalf("unexpected runtime_key: %#v", got)
 	}
 }
 

@@ -56,6 +56,7 @@ func (r *Runner) Prepare(ctx context.Context, req StartRequest) (*PreparedRun, e
 	if err != nil {
 		return nil, err
 	}
+	applyRuntimeMetadata(turn, req.Runtime)
 
 	return &PreparedRun{
 		Runtime:  req.Runtime,
@@ -75,11 +76,44 @@ func appendSeedTurn(sess *session.Session, req StartRequest) (*turns.Turn, error
 	if seed == nil {
 		seed = &turns.Turn{}
 	}
+	// A prepared run always owns a fresh turn identity. Reusing a historical
+	// Turn.ID risks overwriting persisted snapshots keyed by turn id.
+	seed.ID = ""
 	if strings.TrimSpace(req.Prompt) != "" {
 		turns.AppendBlock(seed, turns.NewUserTextBlock(req.Prompt))
 	}
 	sess.Append(seed)
 	return seed, nil
+}
+
+func applyRuntimeMetadata(t *turns.Turn, runtime Runtime) {
+	if t == nil {
+		return
+	}
+
+	attrib := map[string]any{}
+	if existing, ok, err := turns.KeyTurnMetaRuntime.Get(t.Metadata); err == nil && ok {
+		if m, ok := existing.(map[string]any); ok {
+			for k, v := range m {
+				attrib[k] = v
+			}
+		}
+	}
+
+	if runtimeKey := strings.TrimSpace(runtime.RuntimeKey); runtimeKey != "" {
+		attrib["runtime_key"] = runtimeKey
+	}
+	if fingerprint := strings.TrimSpace(runtime.RuntimeFingerprint); fingerprint != "" {
+		attrib["runtime_fingerprint"] = fingerprint
+	}
+	if runtime.ProfileVersion > 0 {
+		attrib["profile.version"] = runtime.ProfileVersion
+	}
+	if len(attrib) == 0 {
+		return
+	}
+
+	_ = turns.KeyTurnMetaRuntime.Set(&t.Metadata, attrib)
 }
 
 func appendToolRegistrars(a []ToolRegistrar, b []ToolRegistrar) []ToolRegistrar {
