@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"

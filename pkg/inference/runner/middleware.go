@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 )
 
 func (r *Runner) buildEngine(ctx context.Context, runtime Runtime) (engine.Engine, []gepmiddleware.Middleware, error) {

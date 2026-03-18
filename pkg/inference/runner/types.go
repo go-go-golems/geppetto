@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
@@ -12,7 +13,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	geptools "github.com/go-go-golems/geppetto/pkg/inference/tools"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )

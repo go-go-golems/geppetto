@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 )
 
 // SourceLayer identifies a source precedence bucket for middleware configuration.

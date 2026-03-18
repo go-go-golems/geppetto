@@ -10,10 +10,10 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"

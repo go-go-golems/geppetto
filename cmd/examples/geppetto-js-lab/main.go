@@ -13,12 +13,12 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	jsruntime "github.com/go-go-golems/geppetto/pkg/js/runtime"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 )
 

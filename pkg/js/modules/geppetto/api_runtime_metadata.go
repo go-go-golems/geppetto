@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 

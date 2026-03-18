@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 )
 
 type chainTestDefinition struct {

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/rs/zerolog/log"
 )
 

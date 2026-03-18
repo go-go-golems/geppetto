@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
@@ -13,7 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

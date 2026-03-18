@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 )
 
 // ResolvedInstance binds one middleware use to its resolved config and definition.

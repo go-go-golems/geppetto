@@ -42,7 +42,7 @@ Key benefits:
 
 ## Core Data Model
 
-The registry domain lives in `geppetto/pkg/profiles`.
+The registry domain lives in `geppetto/pkg/engineprofiles`.
 
 ```go
 type Profile struct {
@@ -347,4 +347,4 @@ extensions:
 - [Operate SQLite-backed profile registry](../playbooks/06-operate-sqlite-profile-registry.md)
 - [Middlewares](09-middlewares.md)
 - [Session Management in Geppetto](10-sessions.md)
-- `geppetto/pkg/profiles/*` (implementation package)
+- `geppetto/pkg/engineprofiles/*` (implementation package)

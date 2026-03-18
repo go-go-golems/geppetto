@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"strings"
 
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"

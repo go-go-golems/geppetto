@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 )
 
 func (m *moduleRuntime) requireProfileRegistryReader(method string) (profiles.RegistryReader, error) {
