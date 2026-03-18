@@ -24,7 +24,7 @@
 - [x] Evaluate whether `runtimeattrib.AddRuntimeAttributionToExtra` still needs to accept multiple legacy input shapes (`string`, `key`, `slug`, underscore variants).
 - [x] Remove legacy scalar inference metadata mirroring and downstream fallback readers now that no older inference-result readers remain.
 - [x] Add or update tests to lock in canonical `KeyTurnMetaInferenceResult` behavior only.
-- [ ] If no active consumers remain, simplify runtime attribution to one canonical metadata envelope.
+- [x] Simplify runtime attribution to one canonical metadata envelope.
 
 ## Phase 3: Migration-shim cleanup
 

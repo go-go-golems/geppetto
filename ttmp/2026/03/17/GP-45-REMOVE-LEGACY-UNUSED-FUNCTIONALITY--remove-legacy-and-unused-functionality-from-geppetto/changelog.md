@@ -65,3 +65,11 @@ Added broad legacy and unused functionality cleanup analysis, phased task plan, 
   - removed the legacy stop-reason fallback reader from `gorunner/loop.go`,
   - switched the echo test engine to write canonical `KeyTurnMetaInferenceResult`,
   - updated tests to lock in canonical inference-result reading only.
+- Landed `geppetto` `c2567b6` `simplify runtime attribution shape`:
+  - reduced `pkg/steps/ai/runtimeattrib` to the canonical runtime map shape only,
+  - removed string and alias-key support from runtime attribution normalization,
+  - updated runtime attribution tests to reject underscored and alias-shaped input.
+- Landed downstream follow-up `pinocchio` `bff0e8f` `use canonical runtime attribution map`:
+  - switched turn runtime metadata writers to dotted canonical keys,
+  - simplified runtime-key extraction in persistence helpers to read only the canonical map,
+  - updated the SQLite backfill test to expect the canonical runtime metadata shape.

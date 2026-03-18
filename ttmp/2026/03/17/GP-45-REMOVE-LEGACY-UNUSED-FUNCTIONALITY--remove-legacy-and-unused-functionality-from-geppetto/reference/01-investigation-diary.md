@@ -33,7 +33,7 @@ RelatedFiles:
         Diary evidence for Pinocchio build repair tied to GP-45 cleanup
 ExternalSources: []
 Summary: Chronological record of the broader geppetto legacy and unused functionality audit.
-LastUpdated: 2026-03-18T02:34:00-04:00
+LastUpdated: 2026-03-18T03:02:00-04:00
 WhatFor: Use this diary to understand how the broader cleanup candidates were identified and classified.
 WhenToUse: Use when continuing GP-45 or reviewing whether a cleanup candidate is truly legacy, unused, or just under-documented.
 ---
@@ -860,3 +860,98 @@ rg -n "MirrorLegacyInferenceKeys|KeyTurnMetaStopReason\\.Get|KeyTurnMetaStopReas
 ### Technical details
 
 - After this step, canonical inference metadata is written once via `KeyTurnMetaInferenceResult` and then projected to generated blocks. The migration-era scalar metadata projection path is gone.
+
+## Step 10: Collapse runtime attribution onto the canonical dotted map shape
+
+With the scalar inference-result compatibility path gone, the next obvious migration shim was `runtimeattrib.AddRuntimeAttributionToExtra(...)`. That helper still accepted multiple historical input shapes for `turns.KeyTurnMetaRuntime`: a bare string, alias fields like `key` and `slug`, and underscored profile fields like `profile_slug` and `registry_slug`. The app-facing code had already moved toward the dotted canonical shape, so the remaining work was mostly deleting compatibility handling and aligning the last Pinocchio writers and readers.
+
+This was a good GP-45 slice because the responsibilities were still crisp: Geppetto provider engines only need one normalized runtime-attribution map, and Pinocchio owns the turn metadata writers and persistence extractors that feed it.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead"
+
+**Assistant interpretation:** Continue GP-45 by executing the next planned runtime-attribution simplification slice.
+
+**Inferred user intent:** Finish the remaining metadata compatibility cleanup instead of leaving `runtimeattrib` as a mixed old/new normalization layer.
+
+**Commit (code):** `c2567b6` — `simplify runtime attribution shape`
+
+### What I did
+
+- Simplified `AddRuntimeAttributionToExtra(...)` in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/runtimeattrib/runtimeattrib.go`
+  so it now accepts only `map[string]any` with canonical keys:
+  - `runtime_key`
+  - `runtime_fingerprint`
+  - `profile.slug`
+  - `profile.registry`
+  - `profile.version`
+- Updated `runtimeattrib` tests in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/runtimeattrib/runtimeattrib_test.go`
+  to reject string runtime metadata and underscored alias keys.
+- Switched Pinocchio turn runtime writers to the canonical dotted map shape:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/ui/profileswitch/backend.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/scripts/profile-infer-once.go`
+- Simplified Pinocchio persistence extraction so runtime keys come only from the canonical runtime map:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/switch-profiles-tui/persistence.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go`
+- Updated the backfill test in:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/persistence/chatstore/turn_store_sqlite_test.go`
+  so it expects the canonical nested runtime metadata shape.
+
+### Why
+
+- Provider engines only need one runtime attribution contract.
+- The alias-heavy normalization made it harder to reason about which shape was actually authoritative.
+- Pinocchio already stores and surfaces the dotted canonical event extra fields, so keeping underscored and string-shaped runtime metadata on turns was just leftover migration debt.
+
+### What worked
+
+- Focused validation passed cleanly:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/runtimeattrib ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/steps/ai/claude ./pkg/steps/ai/gemini -count=1
+cd geppetto && ./.bin/golangci-lint run ./pkg/steps/ai/runtimeattrib ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/steps/ai/claude ./pkg/steps/ai/gemini
+cd pinocchio && go test ./pkg/persistence/chatstore ./pkg/ui/... ./cmd/switch-profiles-tui/... -count=1
+```
+
+- The post-change grep on the runtime-attribution hot spots showed only the intentional negative tests mentioning `profile_slug` / `registry_slug`, not live runtime readers/writers.
+
+### What didn't work
+
+- There was no dedicated `cmd/switch-profiles-tui` persistence test file, so the safest validation path was to rely on the broader `pkg/persistence/chatstore` and `pkg/ui` tests instead of adding a new tiny helper test immediately.
+
+### What I learned
+
+- The actual canonical boundary is narrower than it first appears: Geppetto providers only care about event-extra normalization, while Pinocchio owns almost all of the turn/runtime metadata authoring.
+- Once the legacy scalar inference-result path was removed, the remaining multi-shape runtime attribution logic stood out more clearly as the next compatibility shim to delete.
+
+### What was tricky to build
+
+- The only subtle part was separating runtime-key extraction from generic string extraction in Pinocchio’s SQLite store. `inference_id` still needs a permissive string reader, while `runtime_key` should now come only from the canonical nested runtime map.
+
+### What warrants a second pair of eyes
+
+- Review `runtimeKeyFromTurnMetadata(...)` and `runtimeKeyFromTurnMetadataMap(...)` in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go` carefully. That is where the hard cut from mixed metadata shapes to canonical runtime maps is enforced.
+
+### What should be done in the future
+
+- Finish GP-45 by deciding whether the remaining middleware-extension helpers and always-on stack-trace/provenance payloads still justify their complexity.
+
+### Code review instructions
+
+- Start with:
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/runtimeattrib/runtimeattrib.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/ui/profileswitch/backend.go`
+  - `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/persistence/chatstore/turn_store_sqlite.go`
+- Verify the focused commands above.
+- Re-run:
+
+```bash
+rg -n "profile_slug|registry_slug|profile_version|\"key\"|\"slug\"|profile_key" geppetto/pkg/steps/ai/runtimeattrib pinocchio/pkg/ui/profileswitch pinocchio/pkg/persistence/chatstore pinocchio/cmd/switch-profiles-tui pinocchio/scripts/profile-infer-once.go --glob '!**/ttmp/**'
+```
+
+### Technical details
+
+- After this step, `turns.KeyTurnMetaRuntime` is treated as a canonical dotted-key map contract rather than a compatibility bucket for multiple historical shapes.
