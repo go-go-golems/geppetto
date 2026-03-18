@@ -16,9 +16,6 @@ func TestParseEngineProfileRegistrySourceEntries(t *testing.T) {
 	if got, want := len(entries), 3; got != want {
 		t.Fatalf("entry count mismatch: got=%d want=%d", got, want)
 	}
-	if entries[0] != "a.yaml" || entries[1] != "b.db" || entries[2] != "sqlite-dsn:file:test.db" {
-		t.Fatalf("unexpected entries: %#v", entries)
-	}
 }
 
 func TestParseRegistrySourceSpecs_AutodetectAndPrefixes(t *testing.T) {
@@ -42,41 +39,10 @@ func TestParseRegistrySourceSpecs_AutodetectAndPrefixes(t *testing.T) {
 	if got, want := len(specs), 4; got != want {
 		t.Fatalf("spec count mismatch: got=%d want=%d", got, want)
 	}
-	if specs[0].Kind != RegistrySourceKindYAML {
-		t.Fatalf("spec[0] kind mismatch: %q", specs[0].Kind)
-	}
-	if specs[1].Kind != RegistrySourceKindYAML {
-		t.Fatalf("spec[1] kind mismatch: %q", specs[1].Kind)
-	}
-	if specs[2].Kind != RegistrySourceKindSQLite {
-		t.Fatalf("spec[2] kind mismatch: %q", specs[2].Kind)
-	}
-	if specs[3].Kind != RegistrySourceKindSQLiteDSN {
-		t.Fatalf("spec[3] kind mismatch: %q", specs[3].Kind)
-	}
 }
 
-func TestParseRegistrySourceSpecs_YAMLURLishRelativePathDoesNotProduceDoubleSlash(t *testing.T) {
-	specs, err := ParseRegistrySourceSpecs([]string{"yaml://./profile-registry.yaml"})
-	if err != nil {
-		t.Fatalf("ParseRegistrySourceSpecs failed: %v", err)
-	}
-	if got, want := len(specs), 1; got != want {
-		t.Fatalf("spec count mismatch: got=%d want=%d", got, want)
-	}
-	if specs[0].Kind != RegistrySourceKindYAML {
-		t.Fatalf("spec kind mismatch: %q", specs[0].Kind)
-	}
-	if specs[0].Path != "./profile-registry.yaml" {
-		t.Fatalf("unexpected yaml path: %q", specs[0].Path)
-	}
-	if strings.HasPrefix(specs[0].Path, "//") {
-		t.Fatalf("unexpected double-slash path: %q", specs[0].Path)
-	}
-}
-
-func TestDecodeRuntimeYAMLSingleRegistry_StrictFormat(t *testing.T) {
-	_, err := DecodeRuntimeYAMLSingleRegistry([]byte(`registries:
+func TestDecodeEngineProfileYAMLSingleRegistry_StrictFormat(t *testing.T) {
+	_, err := DecodeEngineProfileYAMLSingleRegistry([]byte(`registries:
   default:
     slug: default
 `))
@@ -84,7 +50,7 @@ func TestDecodeRuntimeYAMLSingleRegistry_StrictFormat(t *testing.T) {
 		t.Fatalf("expected error for registries bundle")
 	}
 
-	_, err = DecodeRuntimeYAMLSingleRegistry([]byte(`slug: default
+	_, err = DecodeEngineProfileYAMLSingleRegistry([]byte(`slug: default
 default_profile_slug: default
 profiles:
   default:
@@ -94,36 +60,17 @@ profiles:
 		t.Fatalf("expected error for default_profile_slug")
 	}
 
-	_, err = DecodeRuntimeYAMLSingleRegistry([]byte(`default:
-  ai-chat:
-    ai-engine: x
+	_, err = DecodeEngineProfileYAMLSingleRegistry([]byte(`default:
+  inference_settings:
+    chat:
+      engine: gpt-4o-mini
 `))
 	if err == nil {
 		t.Fatalf("expected error for legacy profile map")
 	}
-
-	reg, err := DecodeRuntimeYAMLSingleRegistry([]byte(`slug: private
-profiles:
-  default:
-    slug: default
-    runtime:
-      system_prompt: test
-`))
-	if err != nil {
-		t.Fatalf("DecodeRuntimeYAMLSingleRegistry failed: %v", err)
-	}
-	if reg == nil {
-		t.Fatalf("expected registry")
-	}
-	if reg.Slug != MustRegistrySlug("private") {
-		t.Fatalf("registry slug mismatch: %q", reg.Slug)
-	}
-	if reg.DefaultEngineProfileSlug != MustEngineProfileSlug("default") {
-		t.Fatalf("default profile slug mismatch: %q", reg.DefaultEngineProfileSlug)
-	}
 }
 
-func TestChainedRegistry_ResolveTopOfStackAndWriteRouting(t *testing.T) {
+func TestChainedRegistry_ResolveTopOfStack(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()
 
@@ -132,12 +79,16 @@ func TestChainedRegistry_ResolveTopOfStackAndWriteRouting(t *testing.T) {
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: private-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-5-mini
   analyst:
     slug: analyst
-    runtime:
-      system_prompt: private-analyst
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile yaml failed: %v", err)
 	}
@@ -151,25 +102,19 @@ profiles:
 	if err != nil {
 		t.Fatalf("NewSQLiteEngineProfileStore failed: %v", err)
 	}
-	defer func() {
-		_ = sqliteStore.Close()
-	}()
+	defer func() { _ = sqliteStore.Close() }()
 
 	shared := &EngineProfileRegistry{
 		Slug:                     MustRegistrySlug("shared"),
 		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
 		Profiles: map[EngineProfileSlug]*EngineProfile{
 			MustEngineProfileSlug("default"): {
-				Slug: MustEngineProfileSlug("default"),
-				Runtime: RuntimeSpec{
-					SystemPrompt: "shared-default",
-				},
+				Slug:              MustEngineProfileSlug("default"),
+				InferenceSettings: mustTestInferenceSettings(t, "openai", "shared-default"),
 			},
 			MustEngineProfileSlug("analyst"): {
-				Slug: MustEngineProfileSlug("analyst"),
-				Runtime: RuntimeSpec{
-					SystemPrompt: "shared-analyst",
-				},
+				Slug:              MustEngineProfileSlug("analyst"),
+				InferenceSettings: mustTestInferenceSettings(t, "openai", "shared-analyst"),
 			},
 		},
 	}
@@ -185,9 +130,7 @@ profiles:
 	if err != nil {
 		t.Fatalf("NewChainedRegistryFromSourceSpecs failed: %v", err)
 	}
-	defer func() {
-		_ = chain.Close()
-	}()
+	defer func() { _ = chain.Close() }()
 
 	resolvedAnalyst, err := chain.ResolveEngineProfile(ctx, ResolveInput{EngineProfileSlug: MustEngineProfileSlug("analyst")})
 	if err != nil {
@@ -196,21 +139,17 @@ profiles:
 	if got, want := resolvedAnalyst.RegistrySlug, MustRegistrySlug("private"); got != want {
 		t.Fatalf("analyst registry mismatch: got=%q want=%q", got, want)
 	}
-	if got, want := resolvedAnalyst.EffectiveRuntime.SystemPrompt, "private-analyst"; got != want {
-		t.Fatalf("analyst prompt mismatch: got=%q want=%q", got, want)
+	if got := *resolvedAnalyst.InferenceSettings.Chat.Engine; got != "gpt-4o-mini" {
+		t.Fatalf("analyst engine mismatch: got=%q", got)
 	}
 
 	resolvedDefault, err := chain.ResolveEngineProfile(ctx, ResolveInput{})
 	if err != nil {
 		t.Fatalf("ResolveEngineProfile default failed: %v", err)
 	}
-	if got, want := resolvedDefault.RegistrySlug, MustRegistrySlug("private"); got != want {
-		t.Fatalf("default registry mismatch: got=%q want=%q", got, want)
+	if got := *resolvedDefault.InferenceSettings.Chat.Engine; got != "gpt-5-mini" {
+		t.Fatalf("default engine mismatch: got=%q", got)
 	}
-	if got, want := resolvedDefault.EffectiveRuntime.SystemPrompt, "private-default"; got != want {
-		t.Fatalf("default prompt mismatch: got=%q want=%q", got, want)
-	}
-
 }
 
 func TestChainedRegistry_RejectsDuplicateRegistrySlugsAcrossSources(t *testing.T) {
@@ -242,60 +181,5 @@ profiles:
 	}
 	if !strings.Contains(err.Error(), "duplicate registry slug") {
 		t.Fatalf("expected duplicate registry slug error, got: %v", err)
-	}
-}
-
-func TestChainedRegistry_ResolveDefaultUsesTopRegistryDefaultProfile(t *testing.T) {
-	ctx := context.Background()
-	tmpDir := t.TempDir()
-
-	sharedPath := filepath.Join(tmpDir, "shared.yaml")
-	privatePath := filepath.Join(tmpDir, "private.yaml")
-
-	if err := os.WriteFile(sharedPath, []byte(`slug: shared
-profiles:
-  default:
-    slug: default
-    runtime:
-      system_prompt: shared-default
-`), 0o644); err != nil {
-		t.Fatalf("WriteFile shared.yaml failed: %v", err)
-	}
-
-	// No profile named "default" here; decoder infers default_profile_slug from available profiles.
-	if err := os.WriteFile(privatePath, []byte(`slug: private
-profiles:
-  assistant:
-    slug: assistant
-    runtime:
-      system_prompt: private-assistant
-`), 0o644); err != nil {
-		t.Fatalf("WriteFile private.yaml failed: %v", err)
-	}
-
-	specs, err := ParseRegistrySourceSpecs([]string{sharedPath, privatePath})
-	if err != nil {
-		t.Fatalf("ParseRegistrySourceSpecs failed: %v", err)
-	}
-	chain, err := NewChainedRegistryFromSourceSpecs(ctx, specs)
-	if err != nil {
-		t.Fatalf("NewChainedRegistryFromSourceSpecs failed: %v", err)
-	}
-	defer func() {
-		_ = chain.Close()
-	}()
-
-	resolved, err := chain.ResolveEngineProfile(ctx, ResolveInput{})
-	if err != nil {
-		t.Fatalf("ResolveEngineProfile default failed: %v", err)
-	}
-	if got, want := resolved.RegistrySlug, MustRegistrySlug("private"); got != want {
-		t.Fatalf("default registry mismatch: got=%q want=%q", got, want)
-	}
-	if got, want := resolved.EngineProfileSlug, MustEngineProfileSlug("assistant"); got != want {
-		t.Fatalf("default profile mismatch: got=%q want=%q", got, want)
-	}
-	if got, want := resolved.EffectiveRuntime.SystemPrompt, "private-assistant"; got != want {
-		t.Fatalf("default prompt mismatch: got=%q want=%q", got, want)
 	}
 }

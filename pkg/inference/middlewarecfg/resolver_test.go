@@ -5,11 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"strings"
 	"testing"
-
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
-	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 )
 
 type resolverTestDefinition struct {
@@ -43,7 +41,7 @@ func (s staticSource) Layer() SourceLayer {
 	return s.layer
 }
 
-func (s staticSource) Payload(Definition, gepprofiles.MiddlewareUse) (map[string]any, bool, error) {
+func (s staticSource) Payload(Definition, Use) (map[string]any, bool, error) {
 	if len(s.payload) == 0 {
 		return nil, false, nil
 	}
@@ -64,7 +62,7 @@ func (s failingSource) Layer() SourceLayer {
 	return s.layer
 }
 
-func (s failingSource) Payload(Definition, gepprofiles.MiddlewareUse) (map[string]any, bool, error) {
+func (s failingSource) Payload(Definition, Use) (map[string]any, bool, error) {
 	if s.err == nil {
 		return nil, false, nil
 	}
@@ -107,7 +105,7 @@ func TestResolver_AppliesCanonicalSourcePrecedence(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -140,7 +138,7 @@ func TestResolver_AppliesSchemaDefaultsAsFirstLayer(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -169,7 +167,7 @@ func TestResolver_RejectsMissingRequiredFieldAfterResolution(t *testing.T) {
 		},
 	}
 
-	_, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	_, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err == nil {
 		t.Fatalf("expected required-field validation error")
 	}
@@ -197,7 +195,7 @@ func TestResolver_CoercesPerWriteAndValidatesType(t *testing.T) {
 			},
 		},
 	}
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -212,7 +210,7 @@ func TestResolver_CoercesPerWriteAndValidatesType(t *testing.T) {
 			"threshold": "not-a-number",
 		},
 	})
-	_, err = badResolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	_, err = badResolver.Resolve(definition, Use{Name: "agentmode"})
 	if err == nil {
 		t.Fatalf("expected coercion error")
 	}
@@ -250,7 +248,7 @@ func TestResolver_ProducesDeterministicPathOrdering(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -300,7 +298,7 @@ func TestResolver_TraceHistoryFollowsSourcePrecedenceOrder(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -346,7 +344,7 @@ func TestResolver_TraceIncludesRawAndCoercedValues(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -400,7 +398,7 @@ func TestResolvedConfig_MarshalDebugPayloadIsDeterministic(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"})
+	resolved, err := resolver.Resolve(definition, Use{Name: "agentmode", ID: "primary"})
 	if err != nil {
 		t.Fatalf("Resolve returned error: %v", err)
 	}
@@ -450,7 +448,7 @@ func TestResolver_ErrorIncludesMiddlewareSourceAndPathContext(t *testing.T) {
 		},
 	}
 
-	_, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"})
+	_, err := resolver.Resolve(definition, Use{Name: "agentmode", ID: "primary"})
 	if err == nil {
 		t.Fatalf("expected resolver error")
 	}
@@ -479,7 +477,7 @@ func TestResolver_SourcePayloadErrorIncludesMiddlewareAndSourceContext(t *testin
 		},
 	}
 
-	_, err := resolver.Resolve(definition, gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"})
+	_, err := resolver.Resolve(definition, Use{Name: "agentmode", ID: "primary"})
 	if err == nil {
 		t.Fatalf("expected resolver error")
 	}

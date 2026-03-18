@@ -3,23 +3,19 @@ package engineprofiles
 import (
 	"reflect"
 	"testing"
+
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
-func TestMergeEngineProfileStackLayers_RuntimeMergeRules(t *testing.T) {
+func TestMergeEngineProfileStackLayers_InferenceSettingsMergeRules(t *testing.T) {
 	layers := []EngineProfileStackLayer{
 		{
 			RegistrySlug:      MustRegistrySlug("default"),
 			EngineProfileSlug: MustEngineProfileSlug("base"),
 			EngineProfile: &EngineProfile{
-				Slug: MustEngineProfileSlug("base"),
-				Runtime: RuntimeSpec{
-					SystemPrompt: "base prompt",
-					Tools:        []string{"calculator"},
-					Middlewares: []MiddlewareUse{
-						{Name: "agentmode", ID: "planner", Config: map[string]any{"mode": "plan"}},
-						{Name: "logger", Config: map[string]any{"level": "info"}},
-					},
-				},
+				Slug:              MustEngineProfileSlug("base"),
+				InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 			},
 		},
 		{
@@ -27,14 +23,12 @@ func TestMergeEngineProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 			EngineProfileSlug: MustEngineProfileSlug("leaf"),
 			EngineProfile: &EngineProfile{
 				Slug: MustEngineProfileSlug("leaf"),
-				Runtime: RuntimeSpec{
-					Tools: []string{"search"},
-					Middlewares: []MiddlewareUse{
-						{Name: "agentmode", ID: "planner", Config: map[string]any{"mode": "act"}},
-						{Name: "logger", Config: map[string]any{"level": "debug"}},
-						{Name: "telemetry", ID: "trace"},
-					},
-				},
+				InferenceSettings: func() *aistepssettings.InferenceSettings {
+					ss := mustTestInferenceSettings(t, aitypes.ApiTypeOpenAI, "gpt-5-mini")
+					temp := 0.2
+					ss.Chat.Temperature = &temp
+					return ss
+				}(),
 			},
 		},
 	}
@@ -43,24 +37,17 @@ func TestMergeEngineProfileStackLayers_RuntimeMergeRules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MergeEngineProfileStackLayers failed: %v", err)
 	}
-
-	if got := merged.Runtime.SystemPrompt; got != "base prompt" {
-		t.Fatalf("expected last non-empty system prompt, got %q", got)
+	if merged.InferenceSettings == nil || merged.InferenceSettings.Chat == nil || merged.InferenceSettings.Chat.Engine == nil {
+		t.Fatalf("expected merged inference settings")
 	}
-	if got := merged.Runtime.Tools; !reflect.DeepEqual(got, []string{"search"}) {
-		t.Fatalf("expected tools replace-on-write, got %#v", got)
+	if got := *merged.InferenceSettings.Chat.Engine; got != "gpt-5-mini" {
+		t.Fatalf("expected leaf engine override, got %q", got)
 	}
-	if got, want := len(merged.Runtime.Middlewares), 3; got != want {
-		t.Fatalf("middleware length mismatch: got=%d want=%d", got, want)
+	if merged.InferenceSettings.Chat.Temperature == nil || *merged.InferenceSettings.Chat.Temperature != 0.2 {
+		t.Fatalf("expected leaf temperature override")
 	}
-	if got := merged.Runtime.Middlewares[0].Config.(map[string]any)["mode"].(string); got != "act" {
-		t.Fatalf("expected id-based middleware replacement, got %q", got)
-	}
-	if got := merged.Runtime.Middlewares[1].Config.(map[string]any)["level"].(string); got != "debug" {
-		t.Fatalf("expected index-based middleware replacement, got %q", got)
-	}
-	if got := merged.Runtime.Middlewares[2].Name; got != "telemetry" {
-		t.Fatalf("expected appended middleware, got %q", got)
+	if merged.InferenceSettings.Chat.ApiType == nil || *merged.InferenceSettings.Chat.ApiType != aitypes.ApiTypeOpenAI {
+		t.Fatalf("expected base api type to persist")
 	}
 }
 

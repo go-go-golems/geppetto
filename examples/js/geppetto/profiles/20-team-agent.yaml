@@ -1,31 +1,27 @@
 slug: team-agent
 display_name: Team profiles
-description: Team-level defaults and role profiles.
+description: Team-level engine presets layered on top of provider defaults.
 profiles:
   default:
     slug: default
     stack:
       - registry_slug: provider-openai
         profile_slug: default
-    runtime:
-      system_prompt: You are the team default assistant.
+    inference_settings:
+      chat:
+        engine: gpt-4.1-mini
   assistant:
     slug: assistant
     stack:
       - profile_slug: default
-    runtime:
-      system_prompt: You are the team assistant.
-      middlewares:
-        - name: retry
-          id: team-retry
-          config:
-            maxAttempts: 3
+    inference_settings:
+      chat:
+        api_type: openai-responses
+        engine: gpt-5-mini
   analyst:
     slug: analyst
     stack:
       - profile_slug: assistant
-    runtime:
-      system_prompt: You are an analyst.
-      tools:
-        - go_double
-        - go_concat
+    inference_settings:
+      chat:
+        engine: gpt-5

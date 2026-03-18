@@ -382,7 +382,7 @@ func loadRuntimeYAMLSource(path string) ([]*EngineProfileRegistry, error) {
 	if err != nil {
 		return nil, err
 	}
-	reg, err := DecodeRuntimeYAMLSingleRegistry(b)
+	reg, err := DecodeEngineProfileYAMLSingleRegistry(b)
 	if err != nil {
 		return nil, err
 	}

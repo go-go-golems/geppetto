@@ -34,61 +34,11 @@ func ValidateEngineProfileSlug(slug EngineProfileSlug) error {
 	return nil
 }
 
-func ValidateRuntimeSpec(spec RuntimeSpec) error {
-	if err := validateMiddlewareUses(spec.Middlewares, "runtime.middlewares"); err != nil {
-		return err
-	}
-
-	for i, tool := range spec.Tools {
-		if strings.TrimSpace(tool) == "" {
-			return &ValidationError{Field: fmt.Sprintf("runtime.tools[%d]", i), Reason: "must not be empty"}
-		}
-	}
-
-	return nil
-}
-
-func validateMiddlewareUses(middlewares []MiddlewareUse, fieldPrefix string) error {
-	seenIDs := map[string]int{}
-	for i, mw := range middlewares {
-		name := strings.TrimSpace(mw.Name)
-		if name == "" {
-			return &ValidationError{
-				Field:  fmt.Sprintf("%s[%d].name", fieldPrefix, i),
-				Reason: "must not be empty",
-			}
-		}
-
-		id := strings.TrimSpace(mw.ID)
-		if mw.ID != "" && id == "" {
-			return &ValidationError{
-				Field:  fmt.Sprintf("%s[%d].id", fieldPrefix, i),
-				Reason: "must not be empty",
-			}
-		}
-
-		if id == "" {
-			continue
-		}
-		if firstIndex, ok := seenIDs[id]; ok {
-			return &ValidationError{
-				Field:  fmt.Sprintf("%s[%d].id", fieldPrefix, i),
-				Reason: fmt.Sprintf("duplicate middleware instance id %q (first seen at %s[%d].id)", id, fieldPrefix, firstIndex),
-			}
-		}
-		seenIDs[id] = i
-	}
-	return nil
-}
-
 func ValidateEngineProfile(profile *EngineProfile) error {
 	if profile == nil {
 		return &ValidationError{Field: "profile", Reason: "must not be nil"}
 	}
 	if err := ValidateEngineProfileSlug(profile.Slug); err != nil {
-		return err
-	}
-	if err := ValidateRuntimeSpec(profile.Runtime); err != nil {
 		return err
 	}
 	if err := ValidateProfileExtensions(profile.Extensions); err != nil {

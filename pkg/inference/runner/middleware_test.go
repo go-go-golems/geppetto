@@ -3,13 +3,11 @@ package runner
 import (
 	"context"
 	"errors"
-	"testing"
-
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"testing"
 )
 
 var (
@@ -126,7 +124,7 @@ func TestResolveMiddlewaresBuildsChainFromMiddlewareUses(t *testing.T) {
 	base := &captureEngine{}
 
 	eng, mws, err := r.buildEngineFromBase(context.Background(), base, Runtime{
-		MiddlewareUses: []gepprofiles.MiddlewareUse{
+		MiddlewareUses: []middlewarecfg.Use{
 			{
 				Name:   "mark",
 				Config: map[string]any{"label": "runtime"},

@@ -153,7 +153,7 @@ func (s *YAMLFileEngineProfileStore) loadFromDisk() error {
 		return err
 	}
 
-	registry, err := DecodeRuntimeYAMLSingleRegistry(b)
+	registry, err := DecodeEngineProfileYAMLSingleRegistry(b)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (s *YAMLFileEngineProfileStore) persistLocked(ctx context.Context) error {
 		}
 		return nil
 	}
-	b, err := EncodeRuntimeYAMLSingleRegistry(registry)
+	b, err := EncodeEngineProfileYAMLSingleRegistry(registry)
 	if err != nil {
 		return err
 	}

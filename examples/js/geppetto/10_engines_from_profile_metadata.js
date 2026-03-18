@@ -1,12 +1,13 @@
 const gp = require("geppetto");
 
 const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-assert(resolved.registrySlug === "user-overrides", "resolved registry mismatch");
-assert(resolved.profileSlug === "assistant", "resolved profile mismatch");
-assert(typeof resolved.runtimeFingerprint === "string", "missing runtimeFingerprint metadata");
+const fromResolved = gp.engines.fromResolvedProfile(resolved);
+const fromProfile = gp.engines.fromProfile({ profileSlug: "assistant" });
 
-console.log("resolved:", JSON.stringify({
-  profileRegistry: resolved.registrySlug,
-  profileSlug: resolved.profileSlug,
-  runtimeFingerprint: resolved.runtimeFingerprint
+assert(fromResolved.metadata.profileSlug === "assistant", "fromResolvedProfile metadata mismatch");
+assert(fromProfile.metadata.registrySlug === "user-overrides", "fromProfile metadata mismatch");
+
+console.log("engines:", JSON.stringify({
+  fromResolved: fromResolved.metadata,
+  fromProfile: fromProfile.metadata,
 }));

@@ -142,18 +142,7 @@ declare module "geppetto" {
         profile_slug: string;
     }
 
-    export interface MiddlewareUse {
-        name: string;
-        id?: string;
-        enabled?: boolean;
-        config?: any;
-    }
-
-    export interface RuntimeSpec {
-        system_prompt?: string;
-        middlewares?: MiddlewareUse[];
-        tools?: string[];
-    }
+    export type InferenceSettings = Record<string, any>;
 
     export interface ProfileMetadata {
         source?: string;
@@ -180,7 +169,7 @@ declare module "geppetto" {
         display_name?: string;
         description?: string;
         stack?: ProfileRef[];
-        runtime?: RuntimeSpec;
+        inferenceSettings?: InferenceSettings;
         metadata?: ProfileMetadata;
         extensions?: Record<string, any>;
     }
@@ -209,9 +198,7 @@ declare module "geppetto" {
     export interface ResolvedProfile {
         registrySlug: string;
         profileSlug: string;
-        runtimeKey: string;
-        runtimeFingerprint: string;
-        effectiveRuntime: RuntimeSpec;
+        inferenceSettings?: InferenceSettings;
         metadata?: Record<string, any>;
     }
 
@@ -226,7 +213,6 @@ declare module "geppetto" {
     }
 
     export interface RunnerResolveInput {
-        profile?: ResolveInput;
         systemPrompt?: string;
         middlewares?: Array<MiddlewareRef | MiddlewareFn>;
         toolNames?: string[];
@@ -372,7 +358,6 @@ declare module "geppetto" {
 
     export interface BuilderOptions {
         engine?: Engine;
-        resolvedProfile?: ResolvedProfile;
         middlewares?: Array<MiddlewareRef | MiddlewareFn>;
         tools?: ToolRegistry;
         toolLoop?: ToolLoopSettings;
@@ -381,7 +366,6 @@ declare module "geppetto" {
 
     export interface Builder {
         withEngine(engine: Engine): Builder;
-        useResolvedProfile(profile: ResolvedProfile): Builder;
         useMiddleware(middleware: MiddlewareRef | MiddlewareFn): Builder;
         useGoMiddleware(name: string, options?: Record<string, any>): Builder;
         withTools(registry: ToolRegistry, loopSettings?: ToolLoopSettings): Builder;
@@ -466,6 +450,8 @@ declare module "geppetto" {
     export const engines: {
         echo(options?: { reply?: string }): Engine;
         fromConfig(options: EngineOptions): Engine;
+        fromResolvedProfile(profile: ResolvedProfile): Engine;
+        fromProfile(options?: ResolveInput): Engine;
         fromFunction(fn: (turn: Turn) => Turn | void): Engine;
     };
 

@@ -5,12 +5,13 @@ import (
 	"sort"
 	"strings"
 
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"gopkg.in/yaml.v3"
 )
 
-// DecodeRuntimeYAMLSingleRegistry decodes the runtime YAML source format.
-// Runtime YAML is hard-cut to one-file-one-registry and rejects both bundle and legacy formats.
-func DecodeRuntimeYAMLSingleRegistry(data []byte) (*EngineProfileRegistry, error) {
+// DecodeEngineProfileYAMLSingleRegistry decodes the engine profile YAML source format.
+// Engine profile YAML is hard-cut to one-file-one-registry and rejects both bundle and legacy formats.
+func DecodeEngineProfileYAMLSingleRegistry(data []byte) (*EngineProfileRegistry, error) {
 	trimmed := strings.TrimSpace(string(data))
 	if trimmed == "" {
 		return nil, nil
@@ -25,13 +26,13 @@ func DecodeRuntimeYAMLSingleRegistry(data []byte) (*EngineProfileRegistry, error
 	}
 
 	if _, hasBundle := raw["registries"]; hasBundle {
-		return nil, &ValidationError{Field: "registry", Reason: "runtime YAML must define a single registry document (top-level registries is not supported)"}
+		return nil, &ValidationError{Field: "registry", Reason: "engine profile YAML must define a single registry document (top-level registries is not supported)"}
 	}
 	if _, hasDefault := raw["default_profile_slug"]; hasDefault {
-		return nil, &ValidationError{Field: "registry.default_profile_slug", Reason: "runtime YAML does not support default_profile_slug; use profile slug \"default\""}
+		return nil, &ValidationError{Field: "registry.default_profile_slug", Reason: "engine profile YAML does not support default_profile_slug; use profile slug \"default\""}
 	}
 	if !looksLikeSingleRegistry(raw) {
-		return nil, &ValidationError{Field: "registry", Reason: "runtime YAML must be a single registry document (legacy profile-map format is not supported)"}
+		return nil, &ValidationError{Field: "registry", Reason: "engine profile YAML must be a single registry document (legacy profile-map format is not supported)"}
 	}
 
 	reg, err := decodeSingleRegistry(raw)
@@ -39,7 +40,7 @@ func DecodeRuntimeYAMLSingleRegistry(data []byte) (*EngineProfileRegistry, error
 		return nil, err
 	}
 	if reg.Slug.IsZero() {
-		return nil, &ValidationError{Field: "registry.slug", Reason: "must be set for runtime YAML sources"}
+		return nil, &ValidationError{Field: "registry.slug", Reason: "must be set for engine profile YAML sources"}
 	}
 	if len(reg.Profiles) > 0 && reg.DefaultEngineProfileSlug.IsZero() {
 		if _, ok := reg.Profiles[MustEngineProfileSlug("default")]; ok {
@@ -56,23 +57,23 @@ func DecodeRuntimeYAMLSingleRegistry(data []byte) (*EngineProfileRegistry, error
 		}
 	}
 	if err := ValidateRegistry(reg); err != nil {
-		return nil, fmt.Errorf("runtime YAML registry validation failed: %w", err)
+		return nil, fmt.Errorf("engine profile YAML registry validation failed: %w", err)
 	}
 	return reg, nil
 }
 
-// EncodeRuntimeYAMLSingleRegistry encodes a single registry as runtime YAML.
+// EncodeEngineProfileYAMLSingleRegistry encodes a single registry as engine profile YAML.
 // Hard-cut behavior: default_profile_slug is omitted from the serialized document.
-func EncodeRuntimeYAMLSingleRegistry(registry *EngineProfileRegistry) ([]byte, error) {
+func EncodeEngineProfileYAMLSingleRegistry(registry *EngineProfileRegistry) ([]byte, error) {
 	if registry == nil {
-		return nil, fmt.Errorf("runtime registry is nil")
+		return nil, fmt.Errorf("engine profile registry is nil")
 	}
 	clone := registry.Clone()
 	if clone == nil {
-		return nil, fmt.Errorf("runtime registry clone is nil")
+		return nil, fmt.Errorf("engine profile registry clone is nil")
 	}
 	if err := ValidateRegistry(clone); err != nil {
-		return nil, fmt.Errorf("runtime YAML registry validation failed: %w", err)
+		return nil, fmt.Errorf("engine profile YAML registry validation failed: %w", err)
 	}
 	for profileSlug, profile := range clone.Profiles {
 		if profile == nil {
@@ -81,15 +82,16 @@ func EncodeRuntimeYAMLSingleRegistry(registry *EngineProfileRegistry) ([]byte, e
 		if profile.Slug.IsZero() {
 			profile.Slug = profileSlug
 		}
+		normalizeInferenceSettingsForYAML(profile.InferenceSettings)
 	}
-	type runtimeRegistryYAML struct {
+	type engineProfileRegistryYAML struct {
 		Slug        RegistrySlug                         `yaml:"slug"`
 		DisplayName string                               `yaml:"display_name,omitempty"`
 		Description string                               `yaml:"description,omitempty"`
 		Profiles    map[EngineProfileSlug]*EngineProfile `yaml:"profiles,omitempty"`
 		Metadata    RegistryMetadata                     `yaml:"metadata,omitempty"`
 	}
-	out := runtimeRegistryYAML{
+	out := engineProfileRegistryYAML{
 		Slug:        clone.Slug,
 		DisplayName: clone.DisplayName,
 		Description: clone.Description,
@@ -97,4 +99,13 @@ func EncodeRuntimeYAMLSingleRegistry(registry *EngineProfileRegistry) ([]byte, e
 		Metadata:    clone.Metadata,
 	}
 	return yaml.Marshal(out)
+}
+
+func normalizeInferenceSettingsForYAML(in *aistepssettings.InferenceSettings) {
+	if in == nil || in.Client == nil {
+		return
+	}
+	if in.Client.TimeoutSeconds != nil {
+		in.Client.Timeout = nil
+	}
 }

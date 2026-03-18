@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
 func TestYAMLFileEngineProfileStore_PersistAndReload(t *testing.T) {
@@ -144,11 +146,8 @@ func TestYAMLFileEngineProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
 		Profiles: map[EngineProfileSlug]*EngineProfile{
 			MustEngineProfileSlug("default"): {
-				Slug: MustEngineProfileSlug("default"),
-				Runtime: RuntimeSpec{
-					SystemPrompt: "default profile",
-					Tools:        []string{"calculator"},
-				},
+				Slug:              MustEngineProfileSlug("default"),
+				InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 			},
 		},
 	}, SaveOptions{Actor: "test", Source: "yaml"}); err != nil {
@@ -160,14 +159,9 @@ func TestYAMLFileEngineProfileStore_RejectsSecondRegistrySlug(t *testing.T) {
 		DefaultEngineProfileSlug: MustEngineProfileSlug("agent"),
 		Profiles: map[EngineProfileSlug]*EngineProfile{
 			MustEngineProfileSlug("agent"): {
-				Slug:        MustEngineProfileSlug("agent"),
-				DisplayName: "Team Agent",
-				Runtime: RuntimeSpec{
-					SystemPrompt: "team profile",
-					Middlewares: []MiddlewareUse{
-						{Name: "agentmode", Config: map[string]any{"mode": "planner"}},
-					},
-				},
+				Slug:              MustEngineProfileSlug("agent"),
+				DisplayName:       "Team Agent",
+				InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeClaude, "claude-3-7-sonnet-latest"),
 			},
 		},
 	}, SaveOptions{Actor: "test", Source: "yaml"})

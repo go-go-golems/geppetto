@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
 func TestSQLiteEngineProfileStore_RegistryRoundTrip(t *testing.T) {
@@ -28,12 +30,9 @@ func TestSQLiteEngineProfileStore_RegistryRoundTrip(t *testing.T) {
 		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
 		Profiles: map[EngineProfileSlug]*EngineProfile{
 			MustEngineProfileSlug("default"): {
-				Slug:        MustEngineProfileSlug("default"),
-				DisplayName: "Default",
-				Runtime: RuntimeSpec{
-					SystemPrompt: "You are default",
-					Tools:        []string{"calculator"},
-				},
+				Slug:              MustEngineProfileSlug("default"),
+				DisplayName:       "Default",
+				InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 			},
 		},
 	}
@@ -197,8 +196,8 @@ func TestSQLiteEngineProfileStore_ProfileLifecycleAndVersionConflicts(t *testing
 		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
 		Profiles: map[EngineProfileSlug]*EngineProfile{
 			MustEngineProfileSlug("default"): {
-				Slug:    MustEngineProfileSlug("default"),
-				Runtime: RuntimeSpec{SystemPrompt: "You are default"},
+				Slug:              MustEngineProfileSlug("default"),
+				InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 			},
 		},
 	}
@@ -207,11 +206,9 @@ func TestSQLiteEngineProfileStore_ProfileLifecycleAndVersionConflicts(t *testing
 	}
 
 	if err := store.UpsertEngineProfile(ctx, MustRegistrySlug("default"), &EngineProfile{
-		Slug:        MustEngineProfileSlug("analyst"),
-		DisplayName: "Analyst",
-		Runtime: RuntimeSpec{
-			SystemPrompt: "You are analyst",
-		},
+		Slug:              MustEngineProfileSlug("analyst"),
+		DisplayName:       "Analyst",
+		InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeClaude, "claude-3-7-sonnet-latest"),
 	}, SaveOptions{Actor: "test", Source: "sqlite"}); err != nil {
 		t.Fatalf("UpsertEngineProfile create returned error: %v", err)
 	}

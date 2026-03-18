@@ -19,6 +19,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	jsruntime "github.com/go-go-golems/geppetto/pkg/js/runtime"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 )
 
@@ -198,19 +200,16 @@ func seedDemoProfileSQLite(path string) error {
 		DefaultEngineProfileSlug: profiles.MustEngineProfileSlug("default"),
 		Profiles: map[profiles.EngineProfileSlug]*profiles.EngineProfile{
 			profiles.MustEngineProfileSlug("default"): {
-				Slug:        profiles.MustEngineProfileSlug("default"),
-				DisplayName: "Workspace default",
-				Runtime: profiles.RuntimeSpec{
-					SystemPrompt: "You are the workspace default assistant.",
-				},
+				Slug:              profiles.MustEngineProfileSlug("default"),
+				DisplayName:       "Workspace default",
+				InferenceSettings: mustDemoInferenceSettings("gpt-4o-mini"),
 			},
 			profiles.MustEngineProfileSlug("assistant"): {
-				Slug: profiles.MustEngineProfileSlug("assistant"),
+				Slug:              profiles.MustEngineProfileSlug("assistant"),
+				DisplayName:       "Workspace assistant",
+				InferenceSettings: mustDemoInferenceSettings("gpt-5-mini"),
 				Stack: []profiles.EngineProfileRef{
 					{EngineProfileSlug: profiles.MustEngineProfileSlug("default")},
-				},
-				Runtime: profiles.RuntimeSpec{
-					SystemPrompt: "You are the workspace assistant profile.",
 				},
 			},
 		},
@@ -220,6 +219,17 @@ func seedDemoProfileSQLite(path string) error {
 		Actor:  "geppetto-js-lab",
 		Source: "seed-profile-sqlite",
 	})
+}
+
+func mustDemoInferenceSettings(model string) *aistepssettings.InferenceSettings {
+	ss, err := aistepssettings.NewInferenceSettings()
+	if err != nil {
+		panic(err)
+	}
+	apiType := aitypes.ApiTypeOpenAI
+	ss.Chat.ApiType = &apiType
+	ss.Chat.Engine = &model
+	return ss
 }
 
 func buildDemoSchemaProviders() (

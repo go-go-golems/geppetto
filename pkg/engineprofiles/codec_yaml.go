@@ -6,10 +6,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DecodeYAMLRegistries is a compatibility wrapper around runtime YAML decoding.
-// Hard-cut behavior: only one-file-one-registry runtime YAML is accepted.
+// DecodeYAMLRegistries decodes a one-file-one-registry engine profile YAML document.
 func DecodeYAMLRegistries(data []byte, _ RegistrySlug) ([]*EngineProfileRegistry, error) {
-	reg, err := DecodeRuntimeYAMLSingleRegistry(data)
+	reg, err := DecodeEngineProfileYAMLSingleRegistry(data)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +41,7 @@ func decodeSingleRegistry(raw map[string]any) (*EngineProfileRegistry, error) {
 	return reg, nil
 }
 
-// EncodeYAMLRegistries is a compatibility wrapper around runtime YAML encoding.
+// EncodeYAMLRegistries encodes exactly one engine profile registry document.
 // Hard-cut behavior: exactly one non-nil registry may be encoded.
 func EncodeYAMLRegistries(registries []*EngineProfileRegistry) ([]byte, error) {
 	nonNil := make([]*EngineProfileRegistry, 0, len(registries))
@@ -56,9 +55,9 @@ func EncodeYAMLRegistries(registries []*EngineProfileRegistry) ([]byte, error) {
 	case 0:
 		return []byte{}, nil
 	case 1:
-		return EncodeRuntimeYAMLSingleRegistry(nonNil[0])
+		return EncodeEngineProfileYAMLSingleRegistry(nonNil[0])
 	default:
-		return nil, fmt.Errorf("runtime YAML supports exactly one registry per file; got %d", len(nonNil))
+		return nil, fmt.Errorf("engine profile YAML supports exactly one registry per file; got %d", len(nonNil))
 	}
 }
 

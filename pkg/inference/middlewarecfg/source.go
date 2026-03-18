@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 )
 
 // SourceLayer identifies a source precedence bucket for middleware configuration.
@@ -33,7 +31,7 @@ var sourceLayerPrecedence = map[SourceLayer]int{
 type Source interface {
 	Name() string
 	Layer() SourceLayer
-	Payload(def Definition, use gepprofiles.MiddlewareUse) (map[string]any, bool, error)
+	Payload(def Definition, use Use) (map[string]any, bool, error)
 }
 
 type orderedSource struct {

@@ -41,12 +41,12 @@
   - `ResolvedProfile` -> `ResolvedEngineProfile`
   - `ResolveEffectiveProfile(...)` -> `ResolveEngineProfile(...)`
   - keep mixed runtime payload temporarily if needed until Slice 4
-- [ ] Slice 4: remove mixed runtime payload from the renamed engineprofiles package
+- [x] Slice 4: remove mixed runtime payload from the renamed engineprofiles package
   - delete `RuntimeSpec`
   - remove runtime stack merge semantics
   - remove runtime fingerprinting from Geppetto profile resolution
   - change resolution output to final `InferenceSettings`
-- [ ] Slice 5: rewrite engine profile YAML and codecs
+- [x] Slice 5: rewrite engine profile YAML and codecs
   - define engine-only YAML shape
   - update YAML decode/encode tests
   - update SQLite store payload expectations if needed
@@ -55,11 +55,11 @@
   - GEC-RAG runtime config
   - Temporal Relationships runtime config
   - JS host/runtime glue
-- [ ] Slice 7: doc and migration cleanup
+- [x] Slice 7: doc and migration cleanup
   - Geppetto docs
-  - Pinocchio docs
   - JS docs/examples
-  - Glazed migration playbook follow-up
+  - Geppetto type docs and examples
+  - Pinocchio / GEC-RAG / Temporal Relationships docs remain follow-up work under Slice 6
 
 ## Validation Requirements
 

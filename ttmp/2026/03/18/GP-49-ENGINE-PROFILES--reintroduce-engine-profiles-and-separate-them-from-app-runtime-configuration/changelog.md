@@ -33,3 +33,18 @@
   - updated downstream call sites in Pinocchio, GEC-RAG, and Temporal Relationships
   - cleaned the example and JS-lab call sites that still used the old profile API names
   - validated with broad cross-repo test sweeps in Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships
+- Completed Slice 4 in Geppetto:
+  - deleted `RuntimeSpec` and the mixed runtime payload from `pkg/engineprofiles`
+  - removed runtime fingerprinting and runtime-key derivation from Geppetto profile resolution
+  - changed `ResolvedEngineProfile` to return engine-only `InferenceSettings` plus profile metadata
+  - removed middleware-extension and stack-trace helpers that only served the old mixed runtime model
+  - moved middleware-use ownership to `pkg/inference/middlewarecfg`
+- Completed Slice 5 in Geppetto:
+  - rewrote engine profile YAML fixtures and codecs around `inference_settings`
+  - updated YAML, SQLite, and chained-source tests to the engine-only format
+  - updated the example registry fixtures and JS-lab SQLite seed data
+- Completed Slice 7 for Geppetto:
+  - rewrote Geppetto docs to describe engine profiles instead of mixed runtime profiles
+  - rewrote the JS API docs to reflect explicit engine-profile resolution plus app-owned runner runtime
+  - updated JS examples to demonstrate the new split between engine profiles and runtime behavior
+  - updated generated JS type docs to remove `effectiveRuntime`, `resolvedProfile`, and profile-driven runner resolution

@@ -5,40 +5,50 @@ function assert(cond, msg) {
 }
 
 const resolved = gp.profiles.resolve({ profileSlug: "mutable" });
+const runtime = gp.runner.resolveRuntime({
+  systemPrompt: "App-owned prompt for the resolved-profile session example.",
+  runtimeKey: "resolved-profile-demo",
+  metadata: {
+    profileSlug: resolved.profileSlug,
+    profileRegistry: resolved.registrySlug,
+    model: resolved.inferenceSettings.chat.engine,
+  },
+});
 
-const session = gp.createBuilder()
-  .withEngine(gp.engines.fromFunction((turn) => {
-    const runtime = turn.metadata.runtime || {};
+const prepared = gp.runner.prepare({
+  engine: gp.engines.fromFunction((turn) => {
+    const runtimeMeta = turn.metadata.runtime || {};
     return gp.turns.newTurn({
       blocks: [
         gp.turns.newAssistantBlock(JSON.stringify({
           firstKind: turn.blocks[0].kind,
           firstText: turn.blocks[0].payload.text,
-          runtimeKey: runtime.runtime_key,
-          runtimeFingerprint: runtime.runtime_fingerprint,
-          profileSlug: runtime["profile.slug"],
-          registrySlug: runtime["profile.registry"],
+          runtimeKey: runtimeMeta.runtime_key,
+          model: resolved.inferenceSettings.chat.engine,
+          profileSlug: resolved.profileSlug,
+          registrySlug: resolved.registrySlug,
         })),
       ],
     });
-  }))
-  .useResolvedProfile(resolved)
-  .buildSession();
+  }),
+  runtime,
+  prompt: "hello from the resolved-profile example",
+});
 
-const out = session.run(gp.turns.newTurn({
-  blocks: [gp.turns.newUserBlock("hello from the resolved-profile example")],
-}));
+assert(prepared.session.turnCount() === 1, "prepared session should contain the seed turn");
+
+const out = prepared.run();
 
 const payload = JSON.parse(out.blocks[0].payload.text);
-assert(payload.firstKind === "system", "resolvedProfile should materialize the system prompt middleware");
-assert(payload.firstText === "Mutable profile baseline.", "resolvedProfile system prompt mismatch");
-assert(payload.runtimeKey === "mutable", "resolvedProfile should stamp runtime_key");
-assert(typeof payload.runtimeFingerprint === "string" && payload.runtimeFingerprint.length > 8, "resolvedProfile should stamp runtime_fingerprint");
-assert(payload.profileSlug === "mutable", "resolvedProfile should stamp profile.slug");
-assert(payload.registrySlug === "user-overrides", "resolvedProfile should stamp profile.registry");
+assert(payload.firstKind === "system", "session should apply the explicit app-owned system prompt");
+assert(payload.firstText === "App-owned prompt for the resolved-profile session example.", "system prompt mismatch");
+assert(payload.runtimeKey === "resolved-profile-demo", "runtime metadata should stay app-owned");
+assert(payload.model === "gpt-4.1-mini", "resolved profile should expose engine settings");
+assert(payload.profileSlug === "mutable", "resolved profile slug mismatch");
+assert(payload.registrySlug === "user-overrides", "resolved profile registry mismatch");
 
 console.log(JSON.stringify({
   ok: true,
   runtimeKey: payload.runtimeKey,
-  registrySlug: payload.registrySlug,
+  model: payload.model,
 }));

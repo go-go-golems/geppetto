@@ -14,6 +14,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
@@ -759,7 +761,7 @@ func TestEnginesFromConfigStillWorks(t *testing.T) {
 	`)
 }
 
-func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
+func TestProfilesNamespaceReadAndResolve(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
@@ -785,22 +787,18 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 		});
 		if (resolved.registrySlug !== "default") throw new Error("resolve registry mismatch");
 		if (resolved.profileSlug !== "explicit-model") throw new Error("resolve profile mismatch");
-		if (resolved.runtimeKey !== "explicit-model") throw new Error("resolve runtime key mismatch");
-		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
-			throw new Error("resolve runtime fingerprint missing");
+		if (!resolved.inferenceSettings || !resolved.inferenceSettings.chat) {
+			throw new Error("resolve inferenceSettings payload missing");
 		}
-		if (!resolved.effectiveRuntime || resolved.effectiveRuntime.system_prompt !== "explicit prompt") {
-			throw new Error("resolve effectiveRuntime payload missing");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-5-mini") {
+			throw new Error("resolve should expose merged inference settings");
 		}
-
-		const ignoredLegacyAlias = gp.profiles.resolve({
-			profileSlug: "explicit-model",
-			runtimeKey: "legacy-alias-should-not-apply",
-		});
-		if (ignoredLegacyAlias.runtimeKey !== "explicit-model") {
-			throw new Error("legacy runtimeKey alias should no longer affect resolve()");
+		if (resolved.inferenceSettings.chat.api_type !== "openai-responses") {
+			throw new Error("resolve api_type mismatch");
 		}
-
+		if (!resolved.metadata || resolved.metadata["profile.version"] !== 7) {
+			throw new Error("resolve metadata missing");
+		}
 	`)
 }
 
@@ -818,7 +816,7 @@ func TestProfilesResolveUsesHostDefaultSelection(t *testing.T) {
 
 		const resolved = gp.profiles.resolve({});
 		if (resolved.profileSlug !== "explicit-model") throw new Error("host default profile selection not applied");
-		if (resolved.runtimeKey !== "explicit-model") throw new Error("host default runtime key mismatch");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-5-mini") throw new Error("host default inference settings mismatch");
 	`)
 }
 
@@ -836,149 +834,25 @@ func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 	`)
 }
 
-func TestResolvedEngineProfileMaterializesMiddlewareAndRuntimeMetadata(t *testing.T) {
-	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
+func TestEnginesFromResolvedProfileBuildsEngine(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
-		GoMiddlewareFactories: map[string]MiddlewareFactory{
-			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
-				marker := toString(options["marker"], "")
-				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
-					return func(ctx context.Context, turn *turns.Turn) (*turns.Turn, error) {
-						if turn == nil {
-							turn = &turns.Turn{}
-						}
-						if err := profileMarkerKey.Set(&turn.Metadata, marker); err != nil {
-							return nil, err
-						}
-						return next(ctx, turn)
-					}
-				}, nil
-			},
-		},
 	})
 
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
 
 		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
-		const reg = gp.tools.createRegistry();
-		reg.register({
-			name: "search",
-			description: "search tool",
-			handler: () => ({ ok: true }),
-		});
-
-		const session = gp.createBuilder()
-			.withEngine(gp.engines.fromFunction((turn) => {
-				const runtime = turn.metadata.runtime || {};
-				return gp.turns.newTurn({
-					blocks: [
-						gp.turns.newAssistantBlock(JSON.stringify({
-							firstKind: turn.blocks[0].kind,
-							firstText: turn.blocks[0].payload.text,
-							profileMarker: turn.metadata["test.profile_marker@v1"],
-							runtimeKey: runtime.runtime_key,
-							runtimeFingerprint: runtime.runtime_fingerprint,
-							profileSlug: runtime["profile.slug"],
-							registrySlug: runtime["profile.registry"],
-							profileVersion: runtime["profile.version"],
-						}))
-					]
-				});
-			}))
-			.withTools(reg, { enabled: true, maxIterations: 2 })
-			.useResolvedEngineProfile(resolved)
-			.buildSession();
-
-		const out = session.run(gp.turns.newTurn({
-			blocks: [gp.turns.newUserBlock("hello")]
-		}));
-		const payload = JSON.parse(out.blocks[0].payload.text);
-		if (payload.firstKind !== "system") throw new Error("system prompt middleware did not prepend system block");
-		if (payload.firstText !== "explicit prompt") throw new Error("system prompt text mismatch");
-		if (payload.profileMarker !== "profile-applied") throw new Error("profile middleware did not materialize");
-		if (payload.runtimeKey !== "explicit-model") throw new Error("runtime key not stamped");
-		if (typeof payload.runtimeFingerprint !== "string" || payload.runtimeFingerprint.length < 8) {
-			throw new Error("runtime fingerprint not stamped");
-		}
-		if (payload.profileSlug !== "explicit-model") throw new Error("profile slug not stamped");
-		if (payload.registrySlug !== "default") throw new Error("registry slug not stamped");
-		if (payload.profileVersion !== 7) throw new Error("profile version not stamped");
+		const fromResolved = gp.engines.fromResolvedProfile(resolved);
+		const fromProfile = gp.engines.fromProfile({ profileSlug: "explicit-model" });
+		if (fromResolved.name !== "resolvedProfile") throw new Error("fromResolvedProfile name mismatch");
+		if (fromProfile.name !== "resolvedProfile") throw new Error("fromProfile name mismatch");
+		if (fromResolved.metadata.profileSlug !== "explicit-model") throw new Error("fromResolvedProfile metadata missing");
+		if (fromProfile.metadata.registrySlug !== "default") throw new Error("fromProfile metadata missing");
 	`)
 }
 
-func TestResolvedEngineProfileFiltersExecutionRegistry(t *testing.T) {
-	rt := newJSRuntime(t, Options{
-		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
-		GoMiddlewareFactories: map[string]MiddlewareFactory{
-			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
-				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
-					return next
-				}, nil
-			},
-		},
-	})
-
-	mustRunJS(t, rt, `
-		const gp = require("geppetto");
-
-		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
-		const reg = gp.tools.createRegistry();
-		reg.register({
-			name: "blocked",
-			description: "blocked tool",
-			handler: () => ({ ok: true }),
-		});
-
-		let blocked = false;
-		try {
-			gp.createSession({
-				engine: gp.engines.echo({ reply: "ok" }),
-				resolvedProfile: resolved,
-				tools: reg,
-				toolLoop: { enabled: true, maxIterations: 2, toolErrorHandling: "abort" },
-			});
-		} catch (e) {
-			blocked = /search/.test(String(e)) && /registry/i.test(String(e));
-		}
-		if (!blocked) throw new Error("resolved profile tool filter should validate runtime.tools against the execution registry");
-	`)
-}
-
-func TestRunnerResolveRuntimeFromProfile(t *testing.T) {
-	rt := newJSRuntime(t, Options{
-		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
-	})
-
-	mustRunJS(t, rt, `
-		const gp = require("geppetto");
-
-		const runtime = gp.runner.resolveRuntime({
-			profile: { profileSlug: "explicit-model" },
-		});
-
-		if (runtime.systemPrompt !== "explicit prompt") throw new Error("runner.resolveRuntime systemPrompt mismatch");
-		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 2) {
-			throw new Error("runner.resolveRuntime middleware count mismatch");
-		}
-		if (runtime.middlewares[0].name !== "systemPrompt") throw new Error("systemPrompt middleware missing");
-		if (runtime.middlewares[1].name !== "profileMarker") throw new Error("profile middleware missing");
-		if (!Array.isArray(runtime.toolNames) || runtime.toolNames.length !== 1 || runtime.toolNames[0] !== "search") {
-			throw new Error("runner.resolveRuntime toolNames mismatch");
-		}
-		if (runtime.runtimeKey !== "explicit-model") throw new Error("runner.resolveRuntime runtimeKey mismatch");
-		if (typeof runtime.runtimeFingerprint !== "string" || runtime.runtimeFingerprint.length < 8) {
-			throw new Error("runner.resolveRuntime runtimeFingerprint missing");
-		}
-		if (runtime.profileVersion !== 7) throw new Error("runner.resolveRuntime profileVersion mismatch");
-		if (!runtime.metadata || runtime.metadata["profile.slug"] !== "explicit-model") {
-			throw new Error("runner.resolveRuntime metadata missing");
-		}
-	`)
-}
-
-func TestRunnerResolveRuntimeUsesHostDefaultProfile(t *testing.T) {
+func TestEnginesFromProfileUsesHostDefaultSelection(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
 		UseDefaultProfileResolve: true,
@@ -986,13 +860,27 @@ func TestRunnerResolveRuntimeUsesHostDefaultProfile(t *testing.T) {
 
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
+		const engine = gp.engines.fromProfile({});
+		if (engine.metadata.profileSlug !== "default-model") throw new Error("fromProfile should use registry default profile");
+	`)
+}
 
-		const runtime = gp.runner.resolveRuntime({});
-		if (runtime.runtimeKey !== "default-model") throw new Error("runner.resolveRuntime should use registry default profile");
-		if (runtime.systemPrompt !== "default prompt") throw new Error("runner.resolveRuntime should materialize default profile prompt");
-		if (!Array.isArray(runtime.toolNames) || runtime.toolNames[0] !== "calculator") {
-			throw new Error("runner.resolveRuntime should materialize default profile tools");
+func TestRunnerResolveRuntimeRejectsProfileInput(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.runner.resolveRuntime({
+				profile: { profileSlug: "explicit-model" },
+			});
+		} catch (e) {
+			threw = /no longer resolves engine profiles/i.test(String(e));
 		}
+		if (!threw) throw new Error("runner.resolveRuntime should reject engine profile input");
 	`)
 }
 
@@ -1006,7 +894,6 @@ func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 
 		const customMw = gp.middlewares.go("reorderToolResults");
 		const runtime = gp.runner.resolveRuntime({
-			profile: { profileSlug: "explicit-model" },
 			systemPrompt: "override prompt",
 			middlewares: [customMw, gp.middlewares.fromJS((turn, next) => next(turn), "custom-js")],
 			toolNames: ["custom_tool"],
@@ -1017,11 +904,11 @@ func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 		});
 
 		if (runtime.systemPrompt !== "override prompt") throw new Error("direct systemPrompt override missing");
-		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 4) {
-			throw new Error("direct middlewares should append to profile-derived middleware refs");
+		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 3) {
+			throw new Error("direct middlewares should prepend system prompt and append explicit middleware refs");
 		}
-		if (runtime.middlewares[2].name !== "reorderToolResults") throw new Error("go middleware append mismatch");
-		if (runtime.middlewares[3].name !== "custom-js") throw new Error("js middleware append mismatch");
+		if (runtime.middlewares[1].name !== "reorderToolResults") throw new Error("go middleware append mismatch");
+		if (runtime.middlewares[2].name !== "custom-js") throw new Error("js middleware append mismatch");
 		if (!Array.isArray(runtime.toolNames) || runtime.toolNames[0] !== "custom_tool") {
 			throw new Error("direct toolNames override missing");
 		}
@@ -1032,10 +919,9 @@ func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 	`)
 }
 
-func TestRunnerPrepareBuildsPreparedRunFromResolvedRuntime(t *testing.T) {
+func TestRunnerPrepareBuildsPreparedRunFromExplicitRuntime(t *testing.T) {
 	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
 	rt := newJSRuntime(t, Options{
-		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 		GoMiddlewareFactories: map[string]MiddlewareFactory{
 			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
 				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
@@ -1057,7 +943,11 @@ func TestRunnerPrepareBuildsPreparedRunFromResolvedRuntime(t *testing.T) {
 		const gp = require("geppetto");
 
 		const runtime = gp.runner.resolveRuntime({
-			profile: { profileSlug: "explicit-model" },
+			systemPrompt: "explicit prompt",
+			middlewares: [gp.middlewares.go("profileMarker", { marker: "profile-applied" })],
+			toolNames: ["search"],
+			runtimeKey: "explicit-model",
+			profileVersion: 7,
 		});
 
 		const reg = gp.tools.createRegistry();
@@ -1248,12 +1138,16 @@ func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: base-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
   helper:
     slug: helper
-    runtime:
-      system_prompt: base-helper
+    inference_settings:
+      chat:
+        api_type: openai-responses
+        engine: gpt-5-mini
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile base.yaml failed: %v", err)
 	}
@@ -1261,12 +1155,16 @@ profiles:
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: top-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4.1-mini
   analyst:
     slug: analyst
-    runtime:
-      system_prompt: top-analyst
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4.1
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile top.yaml failed: %v", err)
 	}
@@ -1290,11 +1188,11 @@ profiles:
 
 		const topResolved = gp.profiles.resolve({ profileSlug: "default" });
 		if (topResolved.registrySlug !== "top") throw new Error("top-of-stack resolution mismatch");
-		if (topResolved.runtimeKey !== "default") throw new Error("top runtime key mismatch");
+		if (topResolved.inferenceSettings.chat.engine !== "gpt-4.1-mini") throw new Error("top inference settings mismatch");
 
 		const baseResolved = gp.profiles.resolve({ profileSlug: "helper" });
 		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
-		if (baseResolved.runtimeKey !== "helper") throw new Error("base runtime key mismatch");
+		if (!baseResolved.inferenceSettings) throw new Error("base inference settings missing");
 
 		const switched = gp.profiles.connectStack(%q);
 		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
@@ -1320,8 +1218,10 @@ func TestProfilesNamespaceDisconnectStackRestoresHostRegistry(t *testing.T) {
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: top-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4.1-mini
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile top.yaml failed: %v", err)
 	}
@@ -1353,8 +1253,8 @@ profiles:
 		if (resolved.registrySlug !== "default") {
 			throw new Error("resolve should use restored host registry after disconnect");
 		}
-		if (resolved.runtimeKey !== "explicit-model") {
-			throw new Error("resolve should derive runtime key from profile slug");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-5-mini") {
+			throw new Error("resolve should expose restored host inference settings");
 		}
 	`, topPath))
 }
@@ -1698,36 +1598,47 @@ func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 
 func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 	t.Helper()
+	newSettings := func(apiType aitypes.ApiType, model string) *aistepssettings.InferenceSettings {
+		t.Helper()
+		ss, err := aistepssettings.NewInferenceSettings()
+		if err != nil {
+			t.Fatalf("NewInferenceSettings failed: %v", err)
+		}
+		ss.Chat.ApiType = &apiType
+		ss.Chat.Engine = &model
+		switch apiType {
+		case aitypes.ApiTypeOpenAIResponses:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-responses-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeOpenAI:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeClaude:
+			ss.API.APIKeys["claude-api-key"] = "test-claude-key"
+		case aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeGemini, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-provider-key"
+		}
+		return ss
+	}
 	store := gepprofiles.NewInMemoryEngineProfileStore()
 	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
 		Slug:                     gepprofiles.MustRegistrySlug("default"),
 		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("default-model"),
 		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
 			gepprofiles.MustEngineProfileSlug("default-model"): {
-				Slug: gepprofiles.MustEngineProfileSlug("default-model"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "default prompt",
-					Tools:        []string{"calculator"},
-				},
+				Slug:              gepprofiles.MustEngineProfileSlug("default-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 			},
 			gepprofiles.MustEngineProfileSlug("explicit-model"): {
-				Slug: gepprofiles.MustEngineProfileSlug("explicit-model"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "explicit prompt",
-					Middlewares: []gepprofiles.MiddlewareUse{{
-						Name:   "profileMarker",
-						Config: map[string]any{"marker": "profile-applied"},
-					}},
-					Tools: []string{"search"},
-				},
-				Metadata: gepprofiles.EngineProfileMetadata{Version: 7},
+				Slug:              gepprofiles.MustEngineProfileSlug("explicit-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAIResponses, "gpt-5-mini"),
+				Metadata:          gepprofiles.EngineProfileMetadata{Version: 7},
 			},
 			gepprofiles.MustEngineProfileSlug("claude-no-base-url"): {
-				Slug: gepprofiles.MustEngineProfileSlug("claude-no-base-url"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "claude prompt",
-					Tools:        []string{"summarize"},
-				},
+				Slug:              gepprofiles.MustEngineProfileSlug("claude-no-base-url"),
+				InferenceSettings: newSettings(aitypes.ApiTypeClaude, "claude-3-7-sonnet-latest"),
 			},
 		},
 	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {

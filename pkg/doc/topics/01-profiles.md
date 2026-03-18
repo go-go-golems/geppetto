@@ -1,12 +1,12 @@
 ---
-Title: Profile Registry in Geppetto
+Title: Engine Profiles in Geppetto
 Slug: profiles
-Short: Registry-first profile model for selecting runtime defaults and composing stack-based runtime data across apps.
+Short: Engine-only profile registries for resolving `InferenceSettings` in Geppetto.
 Topics:
 - configuration
-- profiles
+- engineprofiles
+- inference
 - registry
-- migration
 Commands:
 - geppetto
 Flags:
@@ -18,333 +18,181 @@ ShowPerDefault: true
 SectionType: GeneralTopic
 ---
 
-# Profile Registry in Geppetto
+# Engine Profiles in Geppetto
 
-Geppetto now treats profiles as a first-class domain object (`ProfileRegistry`) with stackable profile composition. This gives you one consistent model for:
+Geppetto now treats profiles as **engine profiles** only.
 
-- selecting runtime defaults by profile slug,
-- storing profiles in memory, YAML, or SQLite,
-- composing provider/model/middleware defaults through profile stacks.
+An engine profile answers one question:
 
-This page documents the canonical, registry-first model used by current pinocchio and go-go-os integrations.
+- what `InferenceSettings` should be used to build the engine?
 
-## Why Registry-First Profiles
+It does **not** answer:
 
-Registry-first profiles make profile state explicit and reusable across CLI flows and HTTP services.
+- what system prompt to inject
+- what middlewares to enable
+- what tools to expose
+- what runtime key or runtime fingerprint to stamp
 
-Key benefits:
+Those are application concerns and belong in Pinocchio, GEC-RAG, Temporal Relationships, or another host.
 
-- **Reusable domain model**: `Profile`, `ProfileRegistry`, `RuntimeSpec`.
-- **Typed slugs**: `RegistrySlug`, `ProfileSlug`, `RuntimeKey` reduce stringly-typed errors.
-- **Store abstraction**: same service API over in-memory, YAML file, or SQLite stores.
-- **Metadata + provenance**: profile metadata and stack trace data are carried through resolution.
-- **Application integration**: pinocchio/go-go-os can list, inspect, and resolve profiles through APIs.
+## Core Model
 
-## Core Data Model
+The engine profile domain lives in [pkg/engineprofiles](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles).
 
-The registry domain lives in `geppetto/pkg/engineprofiles`.
+The key types are:
 
-```go
-type Profile struct {
-    Slug        ProfileSlug
-    DisplayName string
-    Description string
-    Stack       []ProfileRef
-    Runtime     RuntimeSpec
-    Metadata    ProfileMetadata
-}
+- `EngineProfile`
+- `EngineProfileRegistry`
+- `ResolvedEngineProfile`
+- `ResolveInput`
+- `InferenceSettings`
 
-type ProfileRegistry struct {
-    Slug               RegistrySlug
-    DefaultProfileSlug ProfileSlug
-    Profiles           map[ProfileSlug]*Profile
-    Metadata           RegistryMetadata
-}
-
-type ProfileRef struct {
-    RegistrySlug RegistrySlug
-    ProfileSlug  ProfileSlug
-}
-```
-
-`Stack` entries are resolved in declared order and support:
-
-- same-registry references (empty `registry_slug` in serialized form),
-- explicit cross-registry references (non-empty `registry_slug`),
-- recursive expansion with cycle and max-depth validation.
-
-`RuntimeSpec` carries runtime defaults such as:
-
-- `system_prompt`
-- `middlewares`
-- `tools`
-
-## Slug Types and Validation
-
-Use typed slug constructors at boundaries:
-
-```go
-registrySlug, err := profiles.ParseRegistrySlug("default")
-profileSlug, err := profiles.ParseProfileSlug("agent")
-```
-
-Or panic-on-invalid helpers in trusted bootstrap code:
-
-```go
-registrySlug := profiles.MustRegistrySlug("default")
-profileSlug := profiles.MustProfileSlug("agent")
-```
-
-Typed slugs are serialized to JSON/YAML and normalize values before storage, which keeps API and storage behavior consistent.
-
-## Store and Service Layers
-
-### Store Implementations
-
-- `InMemoryProfileStore` for tests and embedded defaults.
-- YAML file codec/store for local file workflows.
-- `SQLiteProfileStore` for durable multi-process usage.
-
-### Service API
-
-Applications typically use the `profiles.Registry` service interface:
-
-- `ListRegistries`
-- `GetRegistry`
-- `ListProfiles`
-- `GetProfile`
-- `ResolveEffectiveProfile`
-
-For storage-backed services, use `profiles.NewStoreRegistry(...)`.
-
-## Resolution Flow
-
-`ResolveEffectiveProfile` expands and merges the full profile stack and returns canonical output used by runtime composition.
-
-Resolution output includes:
-
-- selected registry/profile/runtime key
-- effective runtime fields
-- stack provenance metadata (`profile.stack.lineage`, `profile.stack.trace`)
-- runtime fingerprint (`runtimeFingerprint`) that includes stack lineage + effective runtime inputs
-
-## Hard-Cutover Model
-
-The runtime model is registry-first and profile-first:
-
-- profiles are stored and resolved through `profiles.Registry`,
-- runtime sources are loaded from `profile-settings.profile-registries` (`--profile-registries`, `PINOCCHIO_PROFILE_REGISTRIES`),
-- in pinocchio, when `profile-registries` is not set, runtime auto-loads `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` if that file exists,
-- stack composition is resolved in-core (base -> leaf) before runtime composition,
-- middleware configuration is profile-scoped and validated by the caller before persistence when apps expose editing surfaces,
-- applications own final engine settings and credentials outside the profile registry.
-
-There is no environment-variable toggle for old middleware selection paths.
-There is no overlay abstraction in the runtime composition path.
-There is no runtime registry selector path in request resolution; profile slug lookup uses stack order.
-
-## Registry YAML Example
-
-```yaml
-slug: default
-profiles:
-  agent:
-    slug: agent
-    display_name: Agent
-    runtime:
-      system_prompt: You are an assistant.
-      tools:
-        - calculator
-```
-
-## Overlay Removal Rationale
-
-Geppetto removed the separate overlay abstraction from active runtime composition because stack profiles now provide the needed composition model directly:
-
-- one deterministic expansion + merge pipeline,
-- one provenance model (`profile.stack.trace`),
-- one fingerprint contract for cache safety.
-
-This avoids duplicated composition semantics and reduces cross-package complexity.
-
-## Typed Extension Keys
-
-`profile.extensions` use namespaced typed keys:
+Conceptually:
 
 ```text
-<namespace>.<feature>@v<version>
+engine profile registry
+  -> resolve one engine profile slug
+  -> expand stack layers
+  -> merge engine settings
+  -> produce final InferenceSettings
 ```
 
-Examples:
+## Data Shape
 
-- `webchat.starter_suggestions@v1`
-- `inventory.starter_suggestions@v1`
+An engine profile contains:
 
-Keys are normalized and validated; malformed keys fail profile construction or app-side validation.
+- `slug`
+- `display_name`
+- `description`
+- `stack`
+- `inference_settings`
+- `metadata`
+- `extensions`
 
-## Middleware Config Ownership and Validation Timing
-
-Middleware configuration lives inside the profile runtime:
+Minimal YAML:
 
 ```yaml
-runtime:
-  middlewares:
-    - name: agentmode
-      id: default
-      config:
-        default_mode: financial_analyst
+slug: provider-openai
+profiles:
+  default:
+    slug: default
+    inference_settings:
+      api:
+        api_keys:
+          openai-api-key: demo-openai-key
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
 ```
 
-Authoritative behavior:
-
-- middleware identity/order/enable state are profile runtime concerns,
-- middleware config payloads are validated against middleware JSON schema,
-- unknown middleware names are hard errors in write-time validated APIs.
-
-## CLI and Environment Selection
-
-Profile selection remains available through:
-
-- config (`profile-settings` section),
-- environment (`PINOCCHIO_PROFILE`, `PINOCCHIO_PROFILE_REGISTRIES`),
-- flags (`--profile`, `--profile-registries`).
-
-Registry-source selection precedence is:
-
-**`--profile-registries` > `PINOCCHIO_PROFILE_REGISTRIES` > `profile-settings.profile-registries` > `${XDG_CONFIG_HOME:-~/.config}/pinocchio/profiles.yaml` (if present)**
-
-This means `PINOCCHIO_PROFILE=gpt-5` works without `PINOCCHIO_PROFILE_REGISTRIES` when that default runtime registry file exists.
-
-Precedence remains:
-
-**flags > env > config > profiles > defaults**
-
-Profile-first selection is the recommended path. Direct engine/provider flags (`--ai-engine`, `--ai-api-type`) are advanced overrides and not the default operator workflow.
-
-Registry-backed middleware resolution is now the only path; there is no environment toggle for legacy middleware switching.
-
-## Application Patterns
-
-Use this baseline in apps:
-
-1. Bootstrap a registry store (in-memory/YAML/SQLite).
-2. Build a `profiles.Registry` service.
-3. Resolve request profile selection through the service.
-4. Feed resolved runtime and profile version into runtime composition.
-
-This keeps profile logic centralized and avoids app-specific shadow profile structures.
-
-## Schema Discovery in Application APIs
-
-Application APIs can expose schema catalogs for frontend form generation:
-
-- `GET /api/chat/schemas/middlewares`
-- `GET /api/chat/schemas/extensions`
-
-Middleware schema items include UI metadata and the JSON Schema payload:
-
-```json
-[
-  {
-    "name": "agentmode",
-    "version": 1,
-    "display_name": "Agent Mode",
-    "description": "Injects and parses mode control output.",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "default_mode": { "type": "string" }
-      }
-    }
-  }
-]
-```
-
-Extension schema items are keyed by typed extension key:
-
-```json
-[
-  {
-    "key": "middleware.agentmode_config@v1",
-    "schema": {
-      "type": "object",
-      "properties": {
-        "instances": {
-          "type": "object",
-          "additionalProperties": { "type": "object" }
-        }
-      },
-      "required": ["instances"],
-      "additionalProperties": false
-    }
-  }
-]
-```
-
-For extension discovery, the merge order is deterministic:
-
-1. explicit extension schema docs supplied by the application,
-2. middleware-derived extension schemas (`middleware.<name>_config@v1`),
-3. codec-discovered schemas from `ExtensionCodecRegistry` entries whose codecs implement `ExtensionSchemaCodec` (`JSONSchema()`).
-
-This keeps the endpoint extensible without hardcoding all extension keys in app code.
-
-## Typed-Key Middleware Config Examples
-
-Middleware config values are persisted in `profile.extensions` under middleware typed keys.
-
-JSON profile excerpt:
-
-```json
-{
-  "slug": "analyst",
-  "runtime": {
-    "middlewares": [
-      { "name": "agentmode", "id": "default", "enabled": true }
-    ]
-  },
-  "extensions": {
-    "middleware.agentmode_config@v1": {
-      "instances": {
-        "id:default": {
-          "default_mode": "financial_analyst"
-        }
-      }
-    }
-  }
-}
-```
-
-YAML profile excerpt:
+Stacked profile:
 
 ```yaml
-slug: analyst
-runtime:
-  middlewares:
-    - name: agentmode
-      id: default
-      enabled: true
-extensions:
-  middleware.agentmode_config@v1:
-    instances:
-      "id:default":
-        default_mode: financial_analyst
+slug: team-agent
+profiles:
+  assistant:
+    slug: assistant
+    stack:
+      - registry_slug: provider-openai
+        profile_slug: default
+    inference_settings:
+      chat:
+        api_type: openai-responses
+        engine: gpt-5-mini
 ```
 
-## Troubleshooting
+## What Resolution Returns
 
-| Problem | Cause | Solution |
-|---|---|---|
-| `profile not found` | Unknown slug or wrong registry | Verify selected profile and registry slugs; check default profile on registry |
-| `registry not found` | Store missing bootstrap registry | Ensure bootstrap upsert runs before service start |
-| `validation error (runtime.middlewares[*].name)` | Unknown middleware definition | Fix middleware name or register definition in application runtime |
-| `validation error (runtime.middlewares[*].config)` | Middleware payload fails schema validation | Correct payload shape/types based on middleware schema endpoint |
-| runtime did not switch after profile change | Resolver/composer not using profile version/fingerprint inputs | Ensure request plan includes `ProfileVersion` and runtime composer fingerprint includes version-sensitive inputs |
+`ResolveEngineProfile(...)` returns:
 
-## See Also
+- `registrySlug`
+- `profileSlug`
+- merged `inferenceSettings`
+- metadata like `profile.registry`, `profile.slug`, `profile.version`, and stack lineage
 
-- [Geppetto Documentation Index](00-docs-index.md)
-- [Operate SQLite-backed profile registry](../playbooks/06-operate-sqlite-profile-registry.md)
-- [Middlewares](09-middlewares.md)
-- [Session Management in Geppetto](10-sessions.md)
-- `geppetto/pkg/engineprofiles/*` (implementation package)
+It no longer returns:
+
+- `effectiveRuntime`
+- `runtimeKey`
+- `runtimeFingerprint`
+
+Those were part of the older mixed runtime model and were removed in the hard cut.
+
+## Why the Split Matters
+
+The old model conflated two different domains:
+
+- engine selection and provider configuration
+- app runtime behavior
+
+That caused Geppetto to know too much about system prompts, middleware registries, tool allowlists, and app-level runtime metadata.
+
+The current split is:
+
+```text
+Geppetto
+  engine profile registry
+  -> InferenceSettings
+  -> engine
+
+App
+  system prompt
+  middlewares
+  tools
+  runtime metadata
+  -> actual run behavior
+```
+
+## Package Boundaries
+
+Geppetto owns:
+
+- engine profile registry loading
+- YAML / SQLite / in-memory registry stores
+- stack expansion and merge
+- `InferenceSettings`
+- engine construction
+
+Apps own:
+
+- prompt policy
+- middleware selection
+- tool registries and filtering
+- runtime keys / fingerprints / cache identity
+- per-app YAML for runtime presets if they want that
+
+## API References
+
+Relevant files:
+
+- [types.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/types.go)
+- [registry.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/registry.go)
+- [service.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/service.go)
+- [stack_merge.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/stack_merge.go)
+- [inference_settings_merge.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/inference_settings_merge.go)
+- [settings-inference.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/steps/ai/settings/settings-inference.go)
+
+## Typical Flow
+
+Go pseudocode:
+
+```go
+entries, _ := engineprofiles.ParseEngineProfileRegistrySourceEntries(rawSources)
+specs, _ := engineprofiles.ParseRegistrySourceSpecs(entries)
+chain, _ := engineprofiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
+defer chain.Close()
+
+resolved, _ := chain.ResolveEngineProfile(ctx, engineprofiles.ResolveInput{
+    EngineProfileSlug: engineprofiles.MustEngineProfileSlug("assistant"),
+})
+
+eng, _ := enginefactory.NewEngineFromSettings(resolved.InferenceSettings)
+```
+
+Then the app adds its own runtime behavior on top:
+
+```text
+resolved engine profile -> engine
+app runtime config -> prompt + middleware + tools
+engine + app runtime -> session / runner
+```

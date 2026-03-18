@@ -387,6 +387,128 @@ All of these passed.
 
 This leaves the package/API terminology aligned for the next structural cut. The remaining conceptual mismatch is that `EngineProfile` still carries `RuntimeSpec`, `EffectiveRuntime`, and runtime fingerprinting. Slice 4 is now the point where that mixed-model payload finally gets removed.
 
+## 2026-03-18 15:30 - 16:10 Hard-cut engine-only semantics in Geppetto
+
+I implemented the first real semantic cut after the earlier rename slices.
+
+The goal for this pass was narrow and explicit:
+
+- finish the Geppetto-side hard cut first
+- do not preserve the old mixed runtime model
+- accept that downstream applications can be migrated afterward
+
+### What changed in core `engineprofiles`
+
+I removed the remaining mixed runtime semantics from:
+
+- [types.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/types.go)
+- [service.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/service.go)
+- [stack_merge.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/stack_merge.go)
+- [validation.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/engineprofiles/validation.go)
+
+The key architectural result is:
+
+```text
+ResolveEngineProfile(...)
+  -> registrySlug
+  -> profileSlug
+  -> InferenceSettings
+  -> profile metadata
+```
+
+not:
+
+```text
+ResolveEngineProfile(...)
+  -> effectiveRuntime
+  -> runtimeKey
+  -> runtimeFingerprint
+  -> prompts / middlewares / tools
+```
+
+I also deleted the leftover helper code that only existed for the mixed runtime design:
+
+- `middleware_extensions.go`
+- `stack_trace.go`
+
+### What changed in the JS API
+
+The JS layer was the main place where the old mixed model was still visible.
+
+I changed it so that:
+
+- `gp.profiles.resolve(...)` now returns engine-only data:
+  - `registrySlug`
+  - `profileSlug`
+  - `inferenceSettings`
+  - `metadata`
+- `gp.engines.fromResolvedProfile(...)` and `gp.engines.fromProfile(...)` are the engine-profile entry points
+- `gp.runner.resolveRuntime(...)` rejects `profile` input and only accepts app-owned runtime fields
+- builder/session APIs no longer accept `resolvedProfile` or `useResolvedProfile(...)`
+
+That gives a clean JS mental model:
+
+```text
+profiles -> engine settings
+engines  -> build engine
+runner   -> app-owned runtime behavior
+```
+
+### A small but important detail
+
+The raw Go `InferenceSettings` struct does not carry useful JSON tags for the nested shape, so simply exposing the Go struct into JS produced bad property names like `Chat` instead of `chat`.
+
+To fix that, I added YAML-backed encoding in:
+
+- [api_runtime_metadata.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runtime_metadata.go)
+
+so resolved JS profile objects expose `inferenceSettings` in the same lower-case shape as the YAML examples.
+
+### Example and docs cleanup
+
+I rewrote the shipped example registries under:
+
+- [examples/js/geppetto/profiles/10-provider-openai.yaml](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/profiles/10-provider-openai.yaml)
+- [examples/js/geppetto/profiles/20-team-agent.yaml](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/profiles/20-team-agent.yaml)
+- [examples/js/geppetto/profiles/30-user-overrides.yaml](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/examples/js/geppetto/profiles/30-user-overrides.yaml)
+
+They now use `inference_settings` only.
+
+I also rewrote the JS examples and docs that were still teaching:
+
+- `effectiveRuntime`
+- profile-derived runtime keys
+- `useResolvedProfile(...)`
+- `runner.resolveRuntime({ profile: ... })`
+
+Main doc files updated:
+
+- [01-profiles.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/01-profiles.md)
+- [13-js-api-reference.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/13-js-api-reference.md)
+- [14-js-api-user-guide.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/doc/topics/14-js-api-user-guide.md)
+
+### Validation
+
+The validation sequence for this hard cut was:
+
+- `cd geppetto && go test ./pkg/engineprofiles/...`
+- `cd geppetto && go test ./pkg/js/modules/geppetto -count=1`
+- `cd geppetto && go test ./cmd/examples/geppetto-js-lab -count=1`
+- `cd geppetto && go test ./cmd/... ./pkg/...`
+- `cd geppetto && ./.bin/golangci-lint run ./cmd/... ./pkg/...`
+
+All of those passed after the final cleanup.
+
+### Result
+
+Geppetto is now on the intended stable footing:
+
+- engine profiles are engine-only
+- runtime behavior is no longer a Geppetto profile concern
+- JS reflects that split directly
+
+The next remaining work under this ticket is downstream migration, not more Geppetto core simplification.
+
 ## Quick Reference
 
 Architecture rule:

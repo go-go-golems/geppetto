@@ -1,11 +1,13 @@
 package geppetto
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/dop251/goja"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -235,6 +237,69 @@ func (m *moduleRuntime) engineFromConfig(call goja.FunctionCall) goja.Value {
 		panic(m.vm.NewGoError(err))
 	}
 	return m.newEngineObject(ref)
+}
+
+func (m *moduleRuntime) engineFromResolvedProfile(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
+		panic(m.vm.NewTypeError("fromResolvedProfile requires resolved profile argument"))
+	}
+	resolved, err := m.requireResolvedEngineProfile(call.Arguments[0])
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	if resolved.InferenceSettings == nil {
+		panic(m.vm.NewGoError(fmt.Errorf("resolved profile has no inference settings")))
+	}
+	eng, err := enginefactory.NewEngineFromSettings(resolved.InferenceSettings)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	return m.newEngineObject(&engineRef{
+		Name:   "resolvedProfile",
+		Engine: eng,
+		Metadata: map[string]any{
+			"profileSlug":  resolved.EngineProfileSlug.String(),
+			"registrySlug": resolved.RegistrySlug.String(),
+		},
+	})
+}
+
+func (m *moduleRuntime) engineFromProfile(call goja.FunctionCall) goja.Value {
+	registry, err := m.requireEngineProfileRegistryReader("engines.fromProfile")
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+
+	in := profiles.ResolveInput{}
+	if m.defaultProfileResolve.RegistrySlug != "" {
+		in.RegistrySlug = m.defaultProfileResolve.RegistrySlug
+	}
+	if m.defaultProfileResolve.EngineProfileSlug != "" {
+		in.EngineProfileSlug = m.defaultProfileResolve.EngineProfileSlug
+	}
+	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
+		opts := decodeMap(call.Arguments[0].Export())
+		if opts == nil {
+			panic(m.vm.NewTypeError("fromProfile expects options object"))
+		}
+		if registrySlug, err := parseOptionalRegistrySlug(opts["registrySlug"]); err != nil {
+			panic(m.vm.NewGoError(err))
+		} else {
+			in.RegistrySlug = registrySlug
+		}
+		if rawEngineProfileSlug := strings.TrimSpace(toString(opts["profileSlug"], "")); rawEngineProfileSlug != "" {
+			profileSlug, err := profiles.ParseEngineProfileSlug(rawEngineProfileSlug)
+			if err != nil {
+				panic(m.vm.NewGoError(err))
+			}
+			in.EngineProfileSlug = profileSlug
+		}
+	}
+	resolved, err := registry.ResolveEngineProfile(context.Background(), in)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	return m.engineFromResolvedProfile(goja.FunctionCall{Arguments: []goja.Value{m.newResolvedEngineProfileObject(resolved)}})
 }
 
 func (m *moduleRuntime) engineFromFunction(call goja.FunctionCall) goja.Value {

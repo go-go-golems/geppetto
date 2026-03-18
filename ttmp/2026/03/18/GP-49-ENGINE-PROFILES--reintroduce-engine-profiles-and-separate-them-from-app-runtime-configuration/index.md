@@ -8,7 +8,7 @@ Topics:
     - inference
     - profile-registry
     - config
-    - javascript
+    - js-bindings
     - pinocchio
 DocType: index
 Intent: long-term
@@ -28,7 +28,7 @@ RelatedFiles:
       Note: InferenceSettings definition and constructors after the hard rename from StepSettings
 ExternalSources: []
 Summary: Design and implementation ticket for reintroducing engine-only profiles in Geppetto, renaming StepSettings to InferenceSettings, and moving runtime behavior fully to application code.
-LastUpdated: 2026-03-18T20:05:00-04:00
+LastUpdated: 2026-03-18T16:15:00-04:00
 WhatFor: Use this ticket when redesigning Geppetto profiles so they configure engines only, while application runtimes own prompts, middlewares, tools, and runtime identity.
 WhenToUse: Use when planning the hard cut from mixed runtime profiles to dedicated engine profiles, renaming StepSettings to InferenceSettings, or defining the migration playbook that downstream apps must follow.
 ---
@@ -60,20 +60,26 @@ The proposal in this ticket is:
 
 Current status: **active**
 
-Research and design are complete in this ticket, and implementation is active. The first two hard-cut rename slices are now done:
+Research and design are complete in this ticket, and the Geppetto-side hard cut is now done. Completed slices:
 
 - `pkg/profiles` hard-renamed to `pkg/engineprofiles`
-- imports updated across Geppetto, Pinocchio, GEC-RAG, and Temporal Relationships
-- behavior intentionally kept unchanged in Slice 1
 - `StepSettings` hard-renamed to `InferenceSettings`
-- constructors and engine-factory helpers renamed to inference-oriented names
-- user-facing `step settings` terminology cleaned from live code
+- profile-resolution surface renamed to engine-profile terminology
+- mixed runtime payload removed from Geppetto core
+- engine profile YAML and codecs rewritten around `inference_settings`
+- Geppetto docs, JS docs, JS typings, and JS examples updated to the new split
 
 The ticket also includes a concrete downstream migration playbook in Glazed docs:
 
 - [migrating-from-mixed-runtime-profiles-to-engine-profiles.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/glazed/pkg/doc/tutorials/migrating-from-mixed-runtime-profiles-to-engine-profiles.md)
 
-The next implementation work is the semantic rename from mixed profile/runtime types to engine-profile types, followed by removal of the runtime payload from Geppetto core.
+The remaining work is downstream migration:
+
+- Pinocchio
+- GEC-RAG
+- Temporal Relationships
+
+Those applications can now rebuild their own lightweight runtime YAML/config layers on top of the simplified Geppetto engine-profile substrate.
 
 ## Topics
 

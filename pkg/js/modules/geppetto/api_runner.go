@@ -1,12 +1,10 @@
 package geppetto
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/dop251/goja"
-	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -255,42 +253,7 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 	}
 
 	if profileRaw, ok := input["profile"]; ok && profileRaw != nil {
-		profileInput := decodeMap(profileRaw)
-		if profileInput == nil {
-			return nil, fmt.Errorf("runner.resolveRuntime profile must be an object")
-		}
-		registry, err := m.requireEngineProfileRegistryReader("runner.resolveRuntime")
-		if err != nil {
-			return nil, err
-		}
-		in := profiles.ResolveInput{}
-		if registrySlug, err := parseOptionalRegistrySlug(profileInput["registrySlug"]); err != nil {
-			return nil, err
-		} else {
-			in.RegistrySlug = registrySlug
-		}
-		if rawEngineProfileSlug := strings.TrimSpace(toString(profileInput["profileSlug"], "")); rawEngineProfileSlug != "" {
-			profileSlug, err := profiles.ParseEngineProfileSlug(rawEngineProfileSlug)
-			if err != nil {
-				return nil, err
-			}
-			in.EngineProfileSlug = profileSlug
-		}
-		resolved, err := registry.ResolveEngineProfile(context.Background(), in)
-		if err != nil {
-			return nil, err
-		}
-		out = buildRunnerRuntimeFromResolvedEngineProfile(resolved)
-	} else if m.useDefaultProfileResolve {
-		registry, err := m.requireEngineProfileRegistryReader("runner.resolveRuntime")
-		if err != nil {
-			return nil, err
-		}
-		resolved, err := registry.ResolveEngineProfile(context.Background(), m.defaultProfileResolve)
-		if err != nil {
-			return nil, err
-		}
-		out = buildRunnerRuntimeFromResolvedEngineProfile(resolved)
+		return nil, fmt.Errorf("runner.resolveRuntime no longer resolves engine profiles; resolve them separately and build the engine explicitly")
 	}
 
 	if systemPrompt := strings.TrimSpace(toString(input["systemPrompt"], "")); systemPrompt != "" {
@@ -328,47 +291,6 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 		out.Metadata = mergeRuntimeMetadata(out.Metadata, metadata)
 	}
 	return out, nil
-}
-
-func buildRunnerRuntimeFromResolvedEngineProfile(resolved *profiles.ResolvedEngineProfile) *runnerResolvedRuntimeRef {
-	out := &runnerResolvedRuntimeRef{
-		RuntimeMetadata: map[string]any{},
-		Metadata:        map[string]any{},
-	}
-	if resolved == nil {
-		return out
-	}
-	out.Metadata = cloneJSONMap(resolved.Metadata)
-	out.SystemPrompt = strings.TrimSpace(resolved.EffectiveRuntime.SystemPrompt)
-	out.ToolNames = append([]string(nil), resolved.EffectiveRuntime.Tools...)
-	if runtimeKey := strings.TrimSpace(resolved.RuntimeKey.String()); runtimeKey != "" {
-		out.RuntimeMetadata["runtime_key"] = runtimeKey
-	}
-	if fingerprint := strings.TrimSpace(resolved.RuntimeFingerprint); fingerprint != "" {
-		out.RuntimeMetadata["runtime_fingerprint"] = fingerprint
-	}
-	if profileSlug := strings.TrimSpace(resolved.EngineProfileSlug.String()); profileSlug != "" {
-		out.RuntimeMetadata["profile.slug"] = profileSlug
-	}
-	if registrySlug := strings.TrimSpace(resolved.RegistrySlug.String()); registrySlug != "" {
-		out.RuntimeMetadata["profile.registry"] = registrySlug
-	}
-	if version, ok := decodePositiveUint64(resolved.Metadata["profile.version"]); ok {
-		out.RuntimeMetadata["profile.version"] = version
-	}
-	if out.SystemPrompt != "" {
-		setRunnerSystemPrompt(out, out.SystemPrompt)
-	}
-	for _, use := range resolved.EffectiveRuntime.Middlewares {
-		if use.Enabled != nil && !*use.Enabled {
-			continue
-		}
-		out.MiddlewareRefs = append(out.MiddlewareRefs, &goMiddlewareRef{
-			Name:    use.Name,
-			Options: cloneJSONMap(decodeMap(use.Config)),
-		})
-	}
-	return out
 }
 
 func (m *moduleRuntime) decodeRunnerMiddlewareSpecs(v goja.Value) ([]any, error) {

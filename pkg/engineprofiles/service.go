@@ -2,9 +2,6 @@ package engineprofiles
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,7 +9,7 @@ import (
 
 var _ Registry = (*StoreRegistry)(nil)
 
-// StoreRegistry is the default Registry implementation backed by a EngineProfileStore.
+// StoreRegistry is the default Registry implementation backed by an EngineProfileStore.
 type StoreRegistry struct {
 	store               EngineProfileStore
 	defaultRegistrySlug RegistrySlug
@@ -22,7 +19,7 @@ type StoreRegistryOption func(*StoreRegistry) error
 
 func NewStoreRegistry(store EngineProfileStore, defaultRegistrySlug RegistrySlug, options ...StoreRegistryOption) (*StoreRegistry, error) {
 	if store == nil {
-		return nil, fmt.Errorf("profile store is required")
+		return nil, fmt.Errorf("engine profile store is required")
 	}
 	if defaultRegistrySlug.IsZero() {
 		defaultRegistrySlug = MustRegistrySlug("default")
@@ -127,17 +124,7 @@ func (r *StoreRegistry) ResolveEngineProfile(ctx context.Context, in ResolveInpu
 	rootLayer := stackLayers[len(stackLayers)-1]
 	profile := rootLayer.EngineProfile
 
-	stackMerge, stackTrace, err := MergeEngineProfileStackLayersWithTrace(stackLayers)
-	if err != nil {
-		return nil, err
-	}
-
-	effectiveRuntime, err := resolveRuntimeSpec(stackMerge.Runtime)
-	if err != nil {
-		return nil, err
-	}
-
-	runtimeKey, err := ParseRuntimeKey(profileSlug.String())
+	stackMerge, err := MergeEngineProfileStackLayers(stackLayers)
 	if err != nil {
 		return nil, err
 	}
@@ -148,16 +135,13 @@ func (r *StoreRegistry) ResolveEngineProfile(ctx context.Context, in ResolveInpu
 		"profile.version":       profile.Metadata.Version,
 		"profile.source":        profileMetadataSource(profile, registry),
 		"profile.stack.lineage": stackLayerLineage(stackLayers),
-		"profile.stack.trace":   stackTrace.BuildDebugPayload(),
 	}
 
 	return &ResolvedEngineProfile{
-		RegistrySlug:       registrySlug,
-		EngineProfileSlug:  profileSlug,
-		RuntimeKey:         runtimeKey,
-		EffectiveRuntime:   effectiveRuntime,
-		RuntimeFingerprint: runtimeFingerprint(registrySlug, profile, stackLayers, effectiveRuntime),
-		Metadata:           metadata,
+		RegistrySlug:      registrySlug,
+		EngineProfileSlug: profileSlug,
+		InferenceSettings: cloneInferenceSettings(stackMerge.InferenceSettings),
+		Metadata:          metadata,
 	}, nil
 }
 
@@ -195,31 +179,6 @@ func resolveEngineProfileSlugInput(slug EngineProfileSlug) (EngineProfileSlug, e
 	return parsed, nil
 }
 
-func resolveRuntimeSpec(base RuntimeSpec) (RuntimeSpec, error) {
-	return cloneRuntimeSpec(base), nil
-}
-
-func runtimeFingerprint(registrySlug RegistrySlug, profile *EngineProfile, stackLayers []EngineProfileStackLayer, runtime RuntimeSpec) string {
-	payload := map[string]any{
-		"registry_slug":   registrySlug.String(),
-		"profile_slug":    profile.Slug.String(),
-		"profile_version": profile.Metadata.Version,
-		"stack_lineage":   stackLayerLineage(stackLayers),
-		"runtime": map[string]any{
-			"system_prompt": runtime.SystemPrompt,
-			"middlewares":   cloneMiddlewares(runtime.Middlewares),
-			"tools":         append([]string(nil), runtime.Tools...),
-		},
-	}
-
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return profile.Slug.String()
-	}
-	sum := sha256.Sum256(b)
-	return "sha256:" + hex.EncodeToString(sum[:])
-}
-
 func stackLayerLineage(stackLayers []EngineProfileStackLayer) []map[string]any {
 	lineage := make([]map[string]any, 0, len(stackLayers))
 	for _, layer := range stackLayers {
@@ -237,30 +196,6 @@ func stackLayerLineage(stackLayers []EngineProfileStackLayer) []map[string]any {
 		})
 	}
 	return lineage
-}
-
-func cloneMiddlewares(in []MiddlewareUse) []MiddlewareUse {
-	if len(in) == 0 {
-		return nil
-	}
-	ret := make([]MiddlewareUse, 0, len(in))
-	for _, mw := range in {
-		ret = append(ret, MiddlewareUse{
-			Name:    strings.TrimSpace(mw.Name),
-			ID:      strings.TrimSpace(mw.ID),
-			Enabled: cloneBoolPtr(mw.Enabled),
-			Config:  deepCopyAny(mw.Config),
-		})
-	}
-	return ret
-}
-
-func cloneRuntimeSpec(in RuntimeSpec) RuntimeSpec {
-	return RuntimeSpec{
-		SystemPrompt: in.SystemPrompt,
-		Middlewares:  cloneMiddlewares(in.Middlewares),
-		Tools:        append([]string(nil), in.Tools...),
-	}
 }
 
 func profileMetadataSource(profile *EngineProfile, registry *EngineProfileRegistry) string {

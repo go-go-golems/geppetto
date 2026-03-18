@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
-	"github.com/go-go-golems/geppetto/pkg/inference/runner"
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -76,28 +75,24 @@ func ExampleEngineProfileRegistryPath() string {
 	return filepath.Join(filepath.Dir(file), "profiles", "basic.yaml")
 }
 
-// ResolveRuntimeFromRegistry loads a chained registry, resolves one profile, and
-// returns runner.Runtime plus the registry closer.
-func ResolveRuntimeFromRegistry(
+// ResolveInferenceSettingsFromRegistry loads a chained registry, resolves one engine
+// profile, and returns the final merged inference settings plus the registry closer.
+func ResolveInferenceSettingsFromRegistry(
 	ctx context.Context,
-	stepSettings *settings.InferenceSettings,
 	rawSources string,
 	profileSlug string,
-) (runner.Runtime, func() error, error) {
-	if stepSettings == nil {
-		return runner.Runtime{}, nil, fmt.Errorf("inference settings are required")
-	}
+) (*settings.InferenceSettings, func() error, error) {
 	entries, err := profiles.ParseEngineProfileRegistrySourceEntries(rawSources)
 	if err != nil {
-		return runner.Runtime{}, nil, err
+		return nil, nil, err
 	}
 	specs, err := profiles.ParseRegistrySourceSpecs(entries)
 	if err != nil {
-		return runner.Runtime{}, nil, err
+		return nil, nil, err
 	}
 	chain, err := profiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
 	if err != nil {
-		return runner.Runtime{}, nil, err
+		return nil, nil, err
 	}
 
 	in := profiles.ResolveInput{}
@@ -105,7 +100,7 @@ func ResolveRuntimeFromRegistry(
 		parsed, err := profiles.ParseEngineProfileSlug(profileSlug)
 		if err != nil {
 			_ = chain.Close()
-			return runner.Runtime{}, nil, err
+			return nil, nil, err
 		}
 		in.EngineProfileSlug = parsed
 	}
@@ -113,23 +108,8 @@ func ResolveRuntimeFromRegistry(
 	resolved, err := chain.ResolveEngineProfile(ctx, in)
 	if err != nil {
 		_ = chain.Close()
-		return runner.Runtime{}, nil, err
+		return nil, nil, err
 	}
 
-	profileVersion := uint64(0)
-	if resolved.Metadata != nil {
-		if v, ok := resolved.Metadata["profile.version"].(uint64); ok {
-			profileVersion = v
-		}
-	}
-
-	return runner.Runtime{
-		InferenceSettings:  stepSettings,
-		SystemPrompt:       resolved.EffectiveRuntime.SystemPrompt,
-		MiddlewareUses:     resolved.EffectiveRuntime.Middlewares,
-		ToolNames:          append([]string(nil), resolved.EffectiveRuntime.Tools...),
-		RuntimeKey:         resolved.RuntimeKey.String(),
-		RuntimeFingerprint: resolved.RuntimeFingerprint,
-		ProfileVersion:     profileVersion,
-	}, chain.Close, nil
+	return resolved.InferenceSettings, chain.Close, nil
 }

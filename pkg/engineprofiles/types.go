@@ -1,21 +1,6 @@
 package engineprofiles
 
-import "strings"
-
-// MiddlewareUse describes a named middleware and optional config payload.
-type MiddlewareUse struct {
-	Name    string `json:"name" yaml:"name"`
-	ID      string `json:"id,omitempty" yaml:"id,omitempty"`
-	Enabled *bool  `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	Config  any    `json:"config,omitempty" yaml:"config,omitempty"`
-}
-
-// RuntimeSpec describes runtime-level defaults and patches provided by a profile.
-type RuntimeSpec struct {
-	SystemPrompt string          `json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
-	Middlewares  []MiddlewareUse `json:"middlewares,omitempty" yaml:"middlewares,omitempty"`
-	Tools        []string        `json:"tools,omitempty" yaml:"tools,omitempty"`
-}
+import aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 
 // EngineProfileRef identifies a profile that can be layered via stack composition.
 // Empty RegistrySlug means "same registry as the referencing profile".
@@ -46,15 +31,15 @@ type RegistryMetadata struct {
 	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
-// EngineProfile is a named runtime preset with runtime settings and metadata.
+// EngineProfile is a named engine preset with inference settings and metadata.
 type EngineProfile struct {
-	Slug        EngineProfileSlug     `json:"slug" yaml:"slug"`
-	DisplayName string                `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Description string                `json:"description,omitempty" yaml:"description,omitempty"`
-	Stack       []EngineProfileRef    `json:"stack,omitempty" yaml:"stack,omitempty"`
-	Runtime     RuntimeSpec           `json:"runtime,omitempty" yaml:"runtime,omitempty"`
-	Metadata    EngineProfileMetadata `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	Extensions  map[string]any        `json:"extensions,omitempty" yaml:"extensions,omitempty"`
+	Slug              EngineProfileSlug                  `json:"slug" yaml:"slug"`
+	DisplayName       string                             `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Description       string                             `json:"description,omitempty" yaml:"description,omitempty"`
+	Stack             []EngineProfileRef                 `json:"stack,omitempty" yaml:"stack,omitempty"`
+	InferenceSettings *aistepssettings.InferenceSettings `json:"inference_settings,omitempty" yaml:"inference_settings,omitempty"`
+	Metadata          EngineProfileMetadata              `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Extensions        map[string]any                     `json:"extensions,omitempty" yaml:"extensions,omitempty"`
 }
 
 // EngineProfileRegistry is a set of profiles with a default profile selector.
@@ -73,15 +58,11 @@ func (p *EngineProfile) Clone() *EngineProfile {
 	}
 
 	ret := &EngineProfile{
-		Slug:        p.Slug,
-		DisplayName: p.DisplayName,
-		Description: p.Description,
-		Stack:       append([]EngineProfileRef(nil), p.Stack...),
-		Runtime: RuntimeSpec{
-			SystemPrompt: p.Runtime.SystemPrompt,
-			Middlewares:  append([]MiddlewareUse(nil), p.Runtime.Middlewares...),
-			Tools:        append([]string(nil), p.Runtime.Tools...),
-		},
+		Slug:              p.Slug,
+		DisplayName:       p.DisplayName,
+		Description:       p.Description,
+		Stack:             append([]EngineProfileRef(nil), p.Stack...),
+		InferenceSettings: cloneInferenceSettings(p.InferenceSettings),
 		Metadata: EngineProfileMetadata{
 			Source:      p.Metadata.Source,
 			Version:     p.Metadata.Version,
@@ -92,12 +73,6 @@ func (p *EngineProfile) Clone() *EngineProfile {
 			Tags:        append([]string(nil), p.Metadata.Tags...),
 		},
 		Extensions: deepCopyStringAnyMap(p.Extensions),
-	}
-	for i := range ret.Runtime.Middlewares {
-		ret.Runtime.Middlewares[i].Name = strings.TrimSpace(ret.Runtime.Middlewares[i].Name)
-		ret.Runtime.Middlewares[i].ID = strings.TrimSpace(ret.Runtime.Middlewares[i].ID)
-		ret.Runtime.Middlewares[i].Enabled = cloneBoolPtr(ret.Runtime.Middlewares[i].Enabled)
-		ret.Runtime.Middlewares[i].Config = deepCopyAny(ret.Runtime.Middlewares[i].Config)
 	}
 
 	return ret
@@ -155,12 +130,4 @@ func deepCopyAny(in any) any {
 	default:
 		return in
 	}
-}
-
-func cloneBoolPtr(in *bool) *bool {
-	if in == nil {
-		return nil
-	}
-	v := *in
-	return &v
 }

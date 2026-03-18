@@ -15,8 +15,6 @@ type RegistrySlug string
 
 type EngineProfileSlug string
 
-type RuntimeKey string
-
 func ParseRegistrySlug(raw string) (RegistrySlug, error) {
 	normalized, err := parseSlug("registry slug", raw)
 	if err != nil {
@@ -31,14 +29,6 @@ func ParseEngineProfileSlug(raw string) (EngineProfileSlug, error) {
 		return "", err
 	}
 	return EngineProfileSlug(normalized), nil
-}
-
-func ParseRuntimeKey(raw string) (RuntimeKey, error) {
-	normalized, err := parseSlug("runtime key", raw)
-	if err != nil {
-		return "", err
-	}
-	return RuntimeKey(normalized), nil
 }
 
 func MustRegistrySlug(raw string) RegistrySlug {
@@ -57,25 +47,13 @@ func MustEngineProfileSlug(raw string) EngineProfileSlug {
 	return slug
 }
 
-func MustRuntimeKey(raw string) RuntimeKey {
-	key, err := ParseRuntimeKey(raw)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
 func (s RegistrySlug) String() string { return string(s) }
 
 func (s EngineProfileSlug) String() string { return string(s) }
 
-func (s RuntimeKey) String() string { return string(s) }
-
 func (s RegistrySlug) IsZero() bool { return strings.TrimSpace(string(s)) == "" }
 
 func (s EngineProfileSlug) IsZero() bool { return strings.TrimSpace(string(s)) == "" }
-
-func (s RuntimeKey) IsZero() bool { return strings.TrimSpace(string(s)) == "" }
 
 func (s RegistrySlug) MarshalText() ([]byte, error) {
 	if s.IsZero() {
@@ -116,29 +94,6 @@ func (s *EngineProfileSlug) UnmarshalText(text []byte) error {
 		return nil
 	}
 	parsed, err := ParseEngineProfileSlug(string(text))
-	if err != nil {
-		return err
-	}
-	*s = parsed
-	return nil
-}
-
-func (s RuntimeKey) MarshalText() ([]byte, error) {
-	if s.IsZero() {
-		return []byte(""), nil
-	}
-	if _, err := ParseRuntimeKey(string(s)); err != nil {
-		return nil, err
-	}
-	return []byte(s), nil
-}
-
-func (s *RuntimeKey) UnmarshalText(text []byte) error {
-	if len(text) == 0 {
-		*s = ""
-		return nil
-	}
-	parsed, err := ParseRuntimeKey(string(text))
 	if err != nil {
 		return err
 	}
@@ -192,29 +147,6 @@ func (s *EngineProfileSlug) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s RuntimeKey) MarshalJSON() ([]byte, error) {
-	if s.IsZero() {
-		return []byte(`""`), nil
-	}
-	if _, err := ParseRuntimeKey(string(s)); err != nil {
-		return nil, err
-	}
-	return json.Marshal(string(s))
-}
-
-func (s *RuntimeKey) UnmarshalJSON(data []byte) error {
-	var raw string
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	parsed, err := ParseRuntimeKey(raw)
-	if err != nil && strings.TrimSpace(raw) != "" {
-		return err
-	}
-	*s = parsed
-	return nil
-}
-
 func (s RegistrySlug) MarshalYAML() (interface{}, error) {
 	if s.IsZero() {
 		return "", nil
@@ -254,29 +186,6 @@ func (s *EngineProfileSlug) UnmarshalYAML(value *yaml.Node) error {
 		return nil
 	}
 	parsed, err := ParseEngineProfileSlug(value.Value)
-	if err != nil {
-		return err
-	}
-	*s = parsed
-	return nil
-}
-
-func (s RuntimeKey) MarshalYAML() (interface{}, error) {
-	if s.IsZero() {
-		return "", nil
-	}
-	if _, err := ParseRuntimeKey(string(s)); err != nil {
-		return nil, err
-	}
-	return string(s), nil
-}
-
-func (s *RuntimeKey) UnmarshalYAML(value *yaml.Node) error {
-	if value == nil || strings.TrimSpace(value.Value) == "" {
-		*s = ""
-		return nil
-	}
-	parsed, err := ParseRuntimeKey(value.Value)
 	if err != nil {
 		return err
 	}

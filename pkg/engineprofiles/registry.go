@@ -2,6 +2,8 @@ package engineprofiles
 
 import (
 	"context"
+
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 )
 
 // RegistrySummary gives lightweight metadata for list endpoints.
@@ -12,22 +14,18 @@ type RegistrySummary struct {
 	EngineProfileCount       int               `json:"profile_count" yaml:"profile_count"`
 }
 
-// ResolveInput contains all inputs needed to compute an effective runtime profile.
+// ResolveInput contains all inputs needed to compute an effective engine profile.
 type ResolveInput struct {
 	RegistrySlug      RegistrySlug
 	EngineProfileSlug EngineProfileSlug
 }
 
-// ResolvedEngineProfile is the canonical result of profile resolution.
+// ResolvedEngineProfile is the canonical result of engine profile resolution.
 type ResolvedEngineProfile struct {
 	RegistrySlug      RegistrySlug
 	EngineProfileSlug EngineProfileSlug
-	RuntimeKey        RuntimeKey
-
-	EffectiveRuntime   RuntimeSpec
-	RuntimeFingerprint string
-
-	Metadata map[string]any
+	InferenceSettings *aistepssettings.InferenceSettings
+	Metadata          map[string]any
 }
 
 // RegistryReader provides read/query operations for profile registry services.

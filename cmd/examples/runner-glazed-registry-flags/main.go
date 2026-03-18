@@ -47,7 +47,7 @@ func profileRegistrySettingsSection() (schema.Section, error) {
 		"profile-settings",
 		"Profile settings",
 		schema.WithFields(
-			fields.New("profile", fields.TypeString, fields.WithHelp("Profile slug to resolve"), fields.WithDefault("concise")),
+			fields.New("profile", fields.TypeString, fields.WithHelp("Engine profile slug to resolve"), fields.WithDefault("openai-fast")),
 			fields.New(
 				"profile-registries",
 				fields.TypeString,
@@ -85,14 +85,7 @@ func (c *registryFlagsCommand) RunIntoWriter(ctx context.Context, parsedValues *
 		return err
 	}
 
-	// This is the small-CLI pattern: keep engine bootstrap app-owned and hidden,
-	// while exposing only profile registry selection through Glazed.
-	stepSettings, err := runnerexample.BaseInferenceSettingsFromDefaults()
-	if err != nil {
-		return err
-	}
-
-	rt, closeRegistry, err := runnerexample.ResolveRuntimeFromRegistry(ctx, stepSettings, s.ProfileRegistries, s.Profile)
+	stepSettings, closeRegistry, err := runnerexample.ResolveInferenceSettingsFromRegistry(ctx, s.ProfileRegistries, s.Profile)
 	if err != nil {
 		return err
 	}
@@ -104,8 +97,10 @@ func (c *registryFlagsCommand) RunIntoWriter(ctx context.Context, parsedValues *
 
 	r := runner.New()
 	_, out, err := r.Run(ctx, runner.StartRequest{
-		Prompt:  s.Prompt,
-		Runtime: rt,
+		Prompt: s.Prompt,
+		Runtime: runner.Runtime{
+			InferenceSettings: stepSettings,
+		},
 	})
 	if err != nil {
 		return err

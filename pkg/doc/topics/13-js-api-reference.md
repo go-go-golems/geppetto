@@ -1,7 +1,7 @@
 ---
 Title: Geppetto JavaScript API Reference
 Slug: geppetto-js-api-reference
-Short: Exhaustive reference for the native `require("geppetto")` API exposed through goja.
+Short: Reference for the native `require("geppetto")` API exposed through goja.
 Topics:
 - geppetto
 - javascript
@@ -15,482 +15,131 @@ ShowPerDefault: true
 SectionType: GeneralTopic
 ---
 
-This is the contract reference for `require("geppetto")` in `pkg/js/modules/geppetto`.
+This page documents the current hard-cut JavaScript API in [pkg/js/modules/geppetto](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto).
 
-## Script-First Development Harness
+## Execution Harness
 
-All examples in this page are meant to be written as JS files and executed directly with:
+Run scripts with:
 
 ```bash
 go run ./cmd/examples/geppetto-js-lab --script <path-to-script.js>
 ```
 
-The harness provides:
-
-- `require("geppetto")`
-- `assert(cond, message)` global helper
-- `console.log` and `console.error`
-- `ENV` map for environment variables
-- built-in Go tools in the JS registry host:
-  - `go_double`
-  - `go_concat`
-
-List available host Go tools:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --list-go-tools
-```
-
-## Host Wiring Requirement
-
-For async APIs (`runAsync`, `start`), use the shared runtime bootstrap so `Options.Runner` is wired automatically to the owned VM:
-
-```go
-rt, err := jsruntime.NewRuntime(context.Background(), jsruntime.Options{
-    ModuleOptions: gp.Options{
-        // GoToolRegistry: ...
-    },
-    RuntimeInitializers: []gojengine.RuntimeInitializer{
-        myHostBindingsInitializer{},
-    },
-})
-if err != nil {
-    return err
-}
-defer rt.Close(context.Background())
-```
-
-## Top-Level Exports
-
-| Export | Type | Purpose |
-|---|---|---|
-| `version` | string | Module version marker |
-| `createBuilder(opts?)` | function | Create a chainable session builder |
-| `createSession(opts)` | function | Build a session directly |
-| `runInference(engine, turn, opts?)` | function | One-shot inference helper |
-| `consts` | namespace | Generated string constants (tool loop, block kinds, keys, event types) |
-| `turns` | namespace | Turn and block helpers |
-| `engines` | namespace | Engine constructors |
-| `profiles` | namespace | Profile registry read/resolve API |
-| `runner` | namespace | Opinionated runtime assembly and execution API |
-| `schemas` | namespace | Middleware/extension schema catalog API |
-| `middlewares` | namespace | Middleware adapters |
-| `events` | namespace | Event sink helpers |
-| `tools` | namespace | Tool registry constructors |
-
-## Plugin Contract Helpers
-
-`geppetto` no longer registers `require("geppetto/plugins")`.
-
-Plugin descriptor helper modules are runtime-owned and should be imported from the host application/runtime package (for example `go-go-gepa` local helper modules).
-
-## `consts` Namespace
-
-Generated from `pkg/spec/geppetto_codegen.yaml` via `cmd/gen-meta`.
-
-| Group | Example |
-|---|---|
-| `ToolChoice` | `gp.consts.ToolChoice.AUTO` |
-| `ToolErrorHandling` | `gp.consts.ToolErrorHandling.RETRY` |
-| `BlockKind` | `gp.consts.BlockKind.TOOL_USE` |
-| `TurnDataKeys` | `gp.consts.TurnDataKeys.TOOL_CONFIG` |
-| `HookAction` | `gp.consts.HookAction.ABORT` |
-| `TurnMetadataKeys` | `gp.consts.TurnMetadataKeys.SESSION_ID` |
-| `BlockMetadataKeys` | `gp.consts.BlockMetadataKeys.CLAUDE_ORIGINAL_CONTENT` |
-| `RunMetadataKeys` | `gp.consts.RunMetadataKeys.TRACE_ID` |
-| `PayloadKeys` | `gp.consts.PayloadKeys.ENCRYPTED_CONTENT` |
-| `EventType` | `gp.consts.EventType.TOOL_RESULT` |
-
-## `turns` Namespace
-
-| Function | Signature | Notes |
-|---|---|---|
-| `normalize` | `normalize(turn)` | Canonical round-trip mapping |
-| `newTurn` | `newTurn(opts?)` | Create turn object |
-| `appendBlock` | `appendBlock(turn, block)` | Append block to turn |
-| `newUserBlock` | `newUserBlock(text)` | User block |
-| `newSystemBlock` | `newSystemBlock(text)` | System block |
-| `newAssistantBlock` | `newAssistantBlock(text)` | Assistant text block |
-| `newToolCallBlock` | `newToolCallBlock(id, name, args)` | Tool call block |
-| `newToolUseBlock` | `newToolUseBlock(id, result, error?)` | Tool result block |
-
-## `engines` Namespace
-
-| Function | Signature | Notes |
-|---|---|---|
-| `echo` | `echo({reply?})` | Deterministic local engine |
-| `fromFunction` | `fromFunction(fn)` | JS callback-backed engine |
-| `fromConfig` | `fromConfig(opts)` | Provider-backed engine from explicit config |
-
-Build engines explicitly with `gp.engines.fromConfig(...)`.
-For the default path, hand the engine to `gp.runner.run(...)`, `gp.runner.prepare(...)`, or `gp.runner.start(...)`.
-If you need the lower-level builder/session path, you can still pass resolved profile objects into `resolvedProfile` or `useResolvedProfile(...)`.
-
-### `fromConfig` options
-
-| Option | Type | Description |
-|---|---|---|
-| `apiType` / `provider` | string | provider (`openai`, `openai-responses`, `claude`, `gemini`, ...) |
-| `model` | string | model override |
-| `apiKey` | string | explicit API key |
-| `baseURL` | string | provider base URL |
-| `temperature` | number | sampling temperature |
-| `topP` | number | top-p |
-| `maxTokens` | number | max response tokens |
-| `timeoutSeconds` / `timeoutMs` | number | timeout override |
-
-`fromConfig` does not read provider API keys from process environment variables.
-Pass keys explicitly via `opts.apiKey`.
-
-## `profiles` Namespace
-
-| Function | Signature | Notes |
-|---|---|---|
-| `listRegistries` | `listRegistries()` | List registry summaries |
-| `getRegistry` | `getRegistry(registrySlug?)` | Fetch one registry (defaults to host default) |
-| `listProfiles` | `listProfiles(registrySlug?)` | List profiles in one registry |
-| `getProfile` | `getProfile(profileSlug, registrySlug?)` | Fetch one profile |
-| `resolve` | `resolve(input?)` | Resolve effective profile/runtime metadata |
-| `connectStack` | `connectStack(sources)` | Load/attach runtime registry stack from source list (`string` or `string[]`) |
-| `disconnectStack` | `disconnectStack()` | Detach runtime-connected stack and restore host baseline registry wiring |
-| `getConnectedSources` | `getConnectedSources()` | Inspect currently connected runtime stack source entries |
-
-`connectStack(sources)` return payload:
+## Top-Level Namespaces
 
-- `sources`: normalized source entries used for connection
-- `registries`: loaded registry summaries
+- `turns`
+- `engines`
+- `profiles`
+- `runner`
+- `middlewares`
+- `schemas`
+- `events`
+- `tools`
 
-## `runner` Namespace
+## `engines`
 
-This is the recommended JS entry point for real scripts.
+Current constructors:
 
-| Function | Signature | Notes |
-|---|---|---|
-| `resolveRuntime` | `resolveRuntime(input?)` | Build a reusable runtime object from direct values and/or profile input |
-| `prepare` | `prepare(options)` | Build a prepared session and seed turn without starting inference |
-| `run` | `run(options, runOptions?)` | Blocking helper for the common path |
-| `start` | `start(options, runOptions?)` | Async/event-driven helper returning a run handle |
+- `echo({ reply? })`
+- `fromFunction(fn)`
+- `fromConfig(options)`
+- `fromResolvedProfile(resolvedProfile)`
+- `fromProfile({ registrySlug?, profileSlug? })`
 
-### `resolveRuntime`
+Recommended meaning:
 
-Use `resolveRuntime(...)` when you want to:
-
-- resolve a profile to executable runtime metadata,
-- override the system prompt or runtime identity explicitly,
-- append JS/Go middleware refs,
-- choose tool names that should be enforced against the execution registry.
-
-Example:
+- use `fromConfig(...)` when the script already knows the provider/model/settings
+- use `fromProfile(...)` or `fromResolvedProfile(...)` when the script wants Geppetto to resolve engine settings from an engine profile registry
 
-```javascript
-const runtime = gp.runner.resolveRuntime({
-  profile: { profileSlug: "assistant" },
-  systemPrompt: "Be terse.",
-  middlewares: [gp.middlewares.go("reorderToolResults")],
-  runtimeKey: "assistant-terse",
-});
-```
-
-### `prepare`
-
-`prepare(...)` gives you a prepared object with:
-
-- `session`
-- `turn`
-- `runtime`
-- `run(options?)`
-- `start(options?)`
-
-This is the right API when you want to inspect or persist the assembled seed turn before execution starts.
-
-```javascript
-const prepared = gp.runner.prepare({
-  engine,
-  runtime,
-  prompt: "hello",
-});
-
-console.log(prepared.session.turnCount());
-const out = prepared.run();
-```
-
-### `run` and `start`
-
-`run(...)` is the blocking path:
+`fromProfile(...)` and `fromResolvedProfile(...)` build the engine only. They do not apply prompts, tool policy, or middleware policy.
 
-```javascript
-const out = gp.runner.run({
-  engine,
-  runtime,
-  prompt: "hello",
-});
-```
-
-`start(...)` is the event-driven path. The returned handle reuses the normal run-handle contract:
-
-- `promise`
-- `cancel()`
-- `on(eventType, callback)`
-
-and also exposes the prepared `session`, `turn`, and `runtime`.
-
-```javascript
-const handle = gp.runner.start({
-  engine,
-  runtime,
-  tools: registry,
-  toolLoop: { enabled: true, maxIterations: 3 },
-  prompt: "hello",
-});
-
-handle.on("*", (ev) => console.log(ev.type));
-```
-
-## `schemas` Namespace
-
-| Function | Signature | Notes |
-|---|---|---|
-| `listMiddlewares` | `listMiddlewares()` | Lists middleware definitions + config JSON schemas |
-| `listExtensions` | `listExtensions()` | Lists extension schema entries from codec registry and host-provided extension schema map |
-
-Host requirements:
-
-- `schemas.listMiddlewares()` requires `Options.MiddlewareSchemas`.
-- `schemas.listExtensions()` requires `Options.ExtensionCodecs` and/or `Options.ExtensionSchemas`.
-
-## Advanced: Sessions and Builder
-
-The builder/session surface is still supported. Use it when you need low-level lifecycle control, custom session mutation, or you want to interleave manual session edits with repeated runs. For most scripts, prefer `gp.runner`.
-
-### Session methods
-
-| Method | Signature | Notes |
-|---|---|---|
-| `append` | `append(turn)` | Append turn |
-| `latest` | `latest()` | Latest turn snapshot |
-| `turnCount` | `turnCount()` | Number of turns |
-| `turns` | `turns()` | Turn snapshot array |
-| `getTurn` | `getTurn(index)` | Turn snapshot or `null` |
-| `turnsRange` | `turnsRange(start, end)` | Sliced snapshot array |
-| `run` | `run(seedTurn?, runOptions?)` | Sync inference with optional per-run options |
-| `runAsync` | `runAsync(seedTurn?)` | Promise inference (host must configure `Options.Runner`) |
-| `start` | `start(seedTurn?, runOptions?)` | RunHandle-based async inference with cancellation and event subscriptions |
-| `isRunning` | `isRunning()` | Run state |
-| `cancelActive` | `cancelActive()` | Cancel active run |
-
-### Builder methods
-
-| Method | Signature | Notes |
-|---|---|---|
-| `withEngine` | `withEngine(engine)` | Set base engine |
-| `useResolvedProfile` | `useResolvedProfile(resolvedProfile)` | Materialize resolved runtime metadata into middlewares, tool filtering, and stamped turn metadata |
-| `useMiddleware` | `useMiddleware(mw)` | Attach middleware object |
-| `useGoMiddleware` | `useGoMiddleware(name, opts?)` | Attach built-in Go middleware |
-| `withTools` | `withTools(registry, toolLoopOpts?)` | Attach tools + loop config |
-| `withToolLoop` | `withToolLoop(opts)` | Configure loop directly |
-| `withToolHooks` | `withToolHooks(hooks)` | Lifecycle hook registration |
-| `withPersister` | `withPersister(persister)` | Attach a turn persister hook |
-| `withEventSink` | `withEventSink(eventSink)` | Append an event sink hook |
-| `withSnapshotHook` | `withSnapshotHook(snapshotHook)` | Attach a snapshot hook |
-| `buildSession` | `buildSession()` | Materialize session |
-
-`BuilderOptions` also accepts `resolvedProfile`.
-
-When `resolvedProfile` is provided:
-
-- `effectiveRuntime.system_prompt` is turned into the built-in `systemPrompt` middleware
-- `effectiveRuntime.middlewares` are materialized through configured Go middleware factories
-- `effectiveRuntime.tools` filters the execution registry and fails early if required tools are missing
-- `runtimeKey`, `runtimeFingerprint`, `profile.slug`, `profile.registry`, and `profile.version` are stamped onto appended/run seed turns as `turn.metadata.runtime`
-
-## `events` Namespace
-
-| Function | Signature | Notes |
-|---|---|---|
-| `collector` | `collector()` | Build a JS-native event sink that can be passed into `withEventSink(...)`, `eventSink`, or `eventSinks` |
-
-Collector methods:
-
-- `on(eventType, callback)` subscribes and returns the same collector for chaining.
-- `clear(eventType?)` removes listeners for one type or all listeners.
-- `close()` disables the collector and drops listeners.
-
-Example:
-
-```javascript
-const sink = gp.events.collector()
-  .on("*", (ev) => console.log("event", ev.type))
-  .on("tool-call-execute", (ev) => console.log("tool", ev.toolCall && ev.toolCall.name));
-
-const session = gp.createBuilder()
-  .withEngine(engine)
-  .withEventSink(sink)
-  .buildSession();
-```
-
-## `middlewares` Namespace
-
-| Function | Signature | Notes |
-|---|---|---|
-| `fromJS` | `fromJS((turn, next, ctx?) => out, name?)` | JS middleware adapter with context payload |
-| `go` | `go(name, opts?)` | Build Go middleware reference |
-
-Built-in Go middleware names:
+## `profiles`
+
+The `profiles` namespace is now really an **engine profiles** namespace, even though the JS name is still `profiles`.
+
+Available functions:
+
+- `listRegistries()`
+- `getRegistry(registrySlug?)`
+- `listProfiles(registrySlug?)`
+- `getProfile(profileSlug, registrySlug?)`
+- `resolve({ registrySlug?, profileSlug? })`
+- `connectStack(sources)`
+- `disconnectStack()`
+- `getConnectedSources()`
+
+`resolve(...)` returns:
+
+- `registrySlug`
+- `profileSlug`
+- `inferenceSettings`
+- `metadata`
+
+It no longer returns:
+
+- `effectiveRuntime`
+- `runtimeKey`
+- `runtimeFingerprint`
+
+## `runner`
+
+`runner` is now purely app/runtime-oriented.
+
+Available functions:
+
+- `resolveRuntime(input?)`
+- `prepare(options)`
+- `run(options, runOptions?)`
+- `start(options, runOptions?)`
+
+`runner.resolveRuntime(...)` accepts only direct runtime input such as:
 
 - `systemPrompt`
-- `reorderToolResults`
-- `turnLogging`
+- `middlewares`
+- `toolNames`
+- `runtimeKey`
+- `runtimeFingerprint`
+- `profileVersion`
+- `metadata`
 
-## `tools` Namespace
+It no longer accepts `profile`.
 
-`tools.createRegistry()` returns a mutable registry object.
+If you need engine profiles, resolve them separately:
 
-### Registry methods
-
-| Method | Signature | Notes |
-|---|---|---|
-| `register` | `register(spec)` | Register JS tool |
-| `useGoTools` | `useGoTools(names?)` | Import host Go tools |
-| `list` | `list()` | List tool metadata |
-| `call` | `call(name, args?)` | Direct invocation |
-
-JS tool spec fields:
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `name` | string | yes | Unique name |
-| `description` | string | no | Human description |
-| `handler` | function | yes | `({ ...args }, ctx?) => result` |
-| `parameters` | object | no | JSON schema payload |
-
-## Toolloop Options and Hooks
-
-### `withTools(..., toolLoopOpts)` / `withToolLoop(toolLoopOpts)`
-
-| Option | Type | Description |
-|---|---|---|
-| `enabled` | bool | Enable tool loop |
-| `maxIterations` | number | Max loop iterations |
-| `toolChoice` | string | `auto` / `none` / `required` (or `gp.consts.ToolChoice.*`) |
-| `maxParallelTools` | number | Max parallel tool calls |
-| `executionTimeoutMs` | number | Per-tool timeout |
-| `toolErrorHandling` | string | `continue` / `abort` / `retry` (or `gp.consts.ToolErrorHandling.*`) |
-| `retryMaxRetries` | number | Retry count |
-| `retryBackoffMs` | number | Retry backoff base |
-| `retryBackoffFactor` | number | Exponential factor |
-| `hooks` | object | Lifecycle hooks object |
-
-### `withToolHooks(hooks)` fields
-
-| Hook field | Signature | Purpose |
-|---|---|---|
-| `beforeToolCall` | `(ctx) => mutationOrAction` | Mutate call args/name/id or abort |
-| `afterToolCall` | `(ctx) => mutationOrAction` | Transform result/error |
-| `onToolError` | `(ctx) => retryDecision` | Retry/abort/backoff decision |
-| `failOpen` | bool | Ignore hook failures |
-| `hookErrorPolicy` / `onHookError` | string | `fail-open` or `fail-closed` |
-| `maxHookRetries` | number | Hard cap for hook retries |
-
-### Callback Context Payloads
-
-- Middleware callback third parameter (`ctx`):
-  - `sessionId`, `inferenceId`, `traceId`, `turnId`
-  - `middlewareName`, `timestampMs`
-  - optional `deadlineMs`
-  - optional `tags` from `run(..., { tags })` / `start(..., { tags })`
-- Tool handler second parameter (`ctx`):
-  - `toolName`, `timestampMs`
-  - `sessionId`, `inferenceId`
-  - `callId`, optional `callName`
-  - optional `deadlineMs`
-  - optional `tags`
-- Hook payloads (`beforeToolCall`, `afterToolCall`, `onToolError`) include:
-  - `sessionId`, `inferenceId`
-  - optional `tags`
-
-## Storage and Event Recording Hooks
-
-The builder also accepts runtime hook references so host applications can persist
-turns and project timeline/event streams.
-
-Object options on `createBuilder(...)`, `createSession(...)`, and
-`runInference(..., opts)`:
-
-| Option | Type | Meaning |
-|---|---|---|
-| `persister` | `TurnPersister` | called to persist final turns |
-| `eventSinks` | `EventSink[]` | sinks receiving runtime events |
-| `eventSink` | `EventSink` | singular sink convenience key |
-| `snapshotHook` | `SnapshotHook` | receives phase-tagged turn snapshots |
-
-Equivalent chainable methods:
-
-- `builder.withPersister(persister)`
-- `builder.withEventSink(eventSink)` (call repeatedly for multiple sinks)
-- `builder.withSnapshotHook(snapshotHook)`
-
-## Run Options and RunHandle
-
-Per-run options accepted by `session.run()` and `session.start()`:
-
-| Option | Type | Notes |
-|---|---|---|
-| `timeoutMs` | number | Creates a run-scoped context deadline |
-| `tags` | object | Arbitrary run tags propagated to callback context payloads |
-
-`session.start()` returns a `RunHandle`:
-
-| Field/Method | Type | Notes |
-|---|---|---|
-| `promise` | `Promise<Turn>` | Resolves/rejects when run finishes |
-| `cancel()` | function | Cancels the in-flight run |
-| `on(eventType, cb)` | function | Subscribe to streamed events; `eventType` supports exact type or `"*"` |
-
-## Metadata and Key Mapping
-
-The codec canonicalizes turn and block fields across JS and Go:
-
-- block kinds use generated mapper in `pkg/turns/block_kind_gen.go`
-- key IDs use generated mapper in `pkg/turns/keys_gen.go`
-- unknown keys are preserved
-
-## Executable JS Examples
-
-Use the maintained scripts under `examples/js/geppetto`:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/01_turns_and_blocks.js
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/02_session_echo.js
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/03_middleware_composition.js
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/04_tools_and_toolloop.js
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/05_go_tools_from_js.js
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/07_context_and_constants.js
+```javascript
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+const engine = gp.engines.fromResolvedProfile(resolved);
+const runtime = gp.runner.resolveRuntime({
+  systemPrompt: "App-owned prompt",
+  runtimeKey: "assistant",
+});
 ```
 
-Optional live inference script:
+## `createBuilder` / `createSession`
 
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_profile_inference.js
-```
+Builder/session construction is now lower-level again.
 
-`06_live_profile_inference.js` self-skips unless `GEMINI_API_KEY` or `GOOGLE_API_KEY` is set.
+Supported builder inputs:
 
-## Troubleshooting
+- `engine`
+- `middlewares`
+- `tools`
+- `toolLoop`
+- `toolHooks`
 
-| Problem | Cause | Solution |
-|---|---|---|
-| `createSession requires options object with engine` | Missing engine | pass `{ engine: gp.engines.*(...) }` |
-| `no go tool registry configured` | `useGoTools` used in a host without Go tool registry | use `geppetto-js-lab` or register `Options.GoToolRegistry` |
-| `builder has no engine configured` | builder missing `withEngine` | set engine before `buildSession()` |
-| `runAsync requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |
-| `start requires module options Runner to be configured` | runtime runner not provided | use sync `run()` or register module with `Options.Runner` |
-| `invalid toolChoice ...` / `invalid toolErrorHandling ...` | unsupported enum value | use allowed values or `gp.consts.*` constants |
-| Tool calls not executed | registry not attached | call `.withTools(reg, { enabled: true })` |
+Removed from the builder path:
 
-## See Also
+- `resolvedProfile`
+- `useResolvedProfile(...)`
 
-- [JS API User Guide](14-js-api-user-guide.md)
-- [JS API Getting Started Tutorial](../tutorials/05-js-api-getting-started.md)
-- [Turns and Blocks](08-turns.md)
-- [Middlewares](09-middlewares.md)
-- [Sessions](10-sessions.md)
+If you want profile-derived engine settings, build the engine first with `gp.engines.fromProfile(...)` or `gp.engines.fromResolvedProfile(...)`, then pass the engine into the builder or runner.
+
+## Files
+
+Relevant implementation files:
+
+- [api_profiles.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go)
+- [api_engines.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go)
+- [api_runner.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go)
+- [api_runtime_metadata.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runtime_metadata.go)
+- [api_builder_options.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_builder_options.go)

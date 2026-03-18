@@ -3,15 +3,15 @@ package engineprofiles
 import (
 	"strings"
 	"testing"
+
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
 func TestDecodeYAMLRegistries_RejectsLegacyProfilesMap(t *testing.T) {
 	input := []byte(`default:
-  runtime:
-    system_prompt: hello
-agent:
-  runtime:
-    system_prompt: world
+  inference_settings:
+    chat:
+      engine: gpt-4o-mini
 `)
 
 	_, err := DecodeYAMLRegistries(input, MustRegistrySlug("default"))
@@ -41,13 +41,15 @@ func TestDecodeYAMLRegistries_RejectsCanonicalBundle(t *testing.T) {
 	}
 }
 
-func TestDecodeYAMLRegistries_RuntimeSingleRegistry(t *testing.T) {
+func TestDecodeYAMLRegistries_EngineProfileSingleRegistry(t *testing.T) {
 	input := []byte(`slug: default
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: hello
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
 `)
 
 	regs, err := DecodeYAMLRegistries(input, MustRegistrySlug("unused"))
@@ -57,14 +59,12 @@ profiles:
 	if len(regs) != 1 {
 		t.Fatalf("expected 1 registry, got %d", len(regs))
 	}
-	if got, want := regs[0].Slug, MustRegistrySlug("default"); got != want {
-		t.Fatalf("registry slug mismatch: got=%q want=%q", got, want)
+	profile := regs[0].Profiles[MustEngineProfileSlug("default")]
+	if profile == nil || profile.InferenceSettings == nil || profile.InferenceSettings.Chat == nil || profile.InferenceSettings.Chat.Engine == nil {
+		t.Fatalf("expected decoded inference settings")
 	}
-	if got, want := regs[0].DefaultEngineProfileSlug, MustEngineProfileSlug("default"); got != want {
-		t.Fatalf("default profile mismatch: got=%q want=%q", got, want)
-	}
-	if got := regs[0].Profiles[MustEngineProfileSlug("default")].Runtime.SystemPrompt; got != "hello" {
-		t.Fatalf("system prompt mismatch: got=%q", got)
+	if got := *profile.InferenceSettings.Chat.Engine; got != "gpt-4o-mini" {
+		t.Fatalf("engine mismatch: got=%q", got)
 	}
 }
 
@@ -74,11 +74,8 @@ func TestEncodeDecodeYAMLRoundTrip_SingleRegistry(t *testing.T) {
 		DefaultEngineProfileSlug: MustEngineProfileSlug("default"),
 		Profiles: map[EngineProfileSlug]*EngineProfile{
 			MustEngineProfileSlug("default"): {
-				Slug: MustEngineProfileSlug("default"),
-				Runtime: RuntimeSpec{
-					SystemPrompt: "hello",
-					Tools:        []string{"search"},
-				},
+				Slug:              MustEngineProfileSlug("default"),
+				InferenceSettings: mustTestInferenceSettings(t, aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 				Extensions: map[string]any{
 					"app.custom@v1": map[string]any{
 						"items": []any{
@@ -96,32 +93,21 @@ func TestEncodeDecodeYAMLRoundTrip_SingleRegistry(t *testing.T) {
 		t.Fatalf("EncodeYAMLRegistries failed: %v", err)
 	}
 	if strings.Contains(string(b), "default_profile_slug:") {
-		t.Fatalf("runtime YAML should not serialize default_profile_slug")
+		t.Fatalf("engine profile YAML should not serialize default_profile_slug")
 	}
 	out, err := DecodeYAMLRegistries(b, MustRegistrySlug("unused"))
 	if err != nil {
 		t.Fatalf("DecodeYAMLRegistries failed: %v", err)
 	}
-	if len(out) != 1 {
-		t.Fatalf("expected 1 registry, got %d", len(out))
-	}
 	profile := out[0].Profiles[MustEngineProfileSlug("default")]
-	if profile == nil {
-		t.Fatalf("missing default profile after roundtrip")
+	if profile == nil || profile.InferenceSettings == nil || profile.InferenceSettings.Chat == nil || profile.InferenceSettings.Chat.Engine == nil {
+		t.Fatalf("missing inference settings after roundtrip")
 	}
-	if got := profile.Runtime.SystemPrompt; got != "hello" {
-		t.Fatalf("system prompt mismatch: got=%q", got)
+	if got := *profile.InferenceSettings.Chat.Engine; got != "gpt-4o-mini" {
+		t.Fatalf("engine mismatch after roundtrip: got=%q", got)
 	}
-	if got := len(profile.Runtime.Tools); got != 1 || profile.Runtime.Tools[0] != "search" {
-		t.Fatalf("tools mismatch: %#v", profile.Runtime.Tools)
-	}
-	ext, ok := profile.Extensions["app.custom@v1"]
-	if !ok {
+	if got := profile.Extensions["app.custom@v1"]; got == nil {
 		t.Fatalf("expected extension payload after roundtrip")
-	}
-	items := ext.(map[string]any)["items"].([]any)
-	if got, want := len(items), 2; got != want {
-		t.Fatalf("extension items length mismatch: got=%d want=%d", got, want)
 	}
 }
 

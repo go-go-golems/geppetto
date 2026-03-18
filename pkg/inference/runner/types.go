@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
@@ -25,7 +24,7 @@ type Runtime struct {
 	InferenceSettings *settings.InferenceSettings
 	SystemPrompt      string
 
-	MiddlewareUses []gepprofiles.MiddlewareUse
+	MiddlewareUses []middlewarecfg.Use
 	Middlewares    []gepmiddleware.Middleware
 
 	ToolNames      []string
