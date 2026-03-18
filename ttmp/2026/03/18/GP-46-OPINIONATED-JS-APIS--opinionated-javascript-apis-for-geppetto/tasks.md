@@ -50,12 +50,12 @@
 
 ## Phase 4: Streaming and Async Start
 
-- [ ] Implement `gp.runner.start(...)` as the event-driven path
-- [ ] Decide and implement the runner-specific handle shape:
+- [x] Implement `gp.runner.start(...)` as the event-driven path
+- [x] Decide and implement the runner-specific handle shape:
   - reuse the existing run-handle contract where possible
   - ensure cancellation and event subscriptions stay first-class
-- [ ] Add tests for streaming/event delivery and async completion
-- [ ] Commit the streaming slice
+- [x] Add tests for streaming/event delivery and async completion
+- [x] Commit the streaming slice
 
 ## Phase 5: Type Surface, Examples, and Docs
 

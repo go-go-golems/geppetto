@@ -1120,6 +1120,89 @@ func TestRunnerRunBlocksOnPreparedExecution(t *testing.T) {
 	`)
 }
 
+func TestRunnerStartReturnsStreamingHandle(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		globalThis.__runnerStartSeen = { events: 0 };
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "echo_args",
+			description: "echo tool input",
+			handler: ({ value }) => ({ value })
+		});
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "stream prompt",
+			runtimeKey: "stream-runtime",
+			runtimeFingerprint: "stream-fingerprint",
+		});
+
+		const handle = gp.runner.start({
+			engine: gp.engines.fromFunction((turn) => {
+				const hasToolUse = turn.blocks.some((b) => b.kind === "tool_use");
+				if (!hasToolUse) {
+					turn.blocks.push(gp.turns.newToolCallBlock("call-1", "echo_args", { value: "stream" }));
+					return turn;
+				}
+				const runtimeMeta = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							runtimeKey: runtimeMeta.runtime_key,
+						}))
+					]
+				});
+			}),
+			runtime,
+			tools: reg,
+			toolLoop: { enabled: true, maxIterations: 3, toolErrorHandling: "continue" },
+			prompt: "hello stream",
+		}, {
+			timeoutMs: 1000,
+			tags: { mode: "runner-start" }
+		});
+
+		if (!handle || typeof handle !== "object") throw new Error("runner.start should return object");
+		if (!handle.promise || typeof handle.promise.then !== "function") throw new Error("runner.start handle missing promise");
+		if (typeof handle.cancel !== "function") throw new Error("runner.start handle missing cancel");
+		if (typeof handle.on !== "function") throw new Error("runner.start handle missing on");
+		if (!handle.session || handle.session.turnCount() !== 1) throw new Error("runner.start handle missing prepared session");
+		if (!handle.runtime || handle.runtime.runtimeKey !== "stream-runtime") throw new Error("runner.start handle missing runtime");
+
+		handle.on("*", () => {
+			globalThis.__runnerStartSeen.events++;
+		});
+		globalThis.__runnerStartHandle = handle;
+	`)
+
+	snap := waitForPromiseExpr(t, rt, "__runnerStartHandle.promise", 2*time.Second)
+	if snap.State != goja.PromiseStateFulfilled {
+		t.Fatalf("expected fulfilled runner.start promise, got %v", snap.State)
+	}
+	turn, ok := snap.Result.(map[string]any)
+	if !ok || len(turn) == 0 {
+		t.Fatalf("expected non-empty turn result map, got %T (%v)", snap.Result, snap.Result)
+	}
+	payloadBlocks, ok := turn["blocks"].([]any)
+	if !ok || len(payloadBlocks) == 0 {
+		t.Fatalf("expected blocks in runner.start result, got %#v", turn["blocks"])
+	}
+
+	seenRaw := mustEvalExprExport(t, rt, "__runnerStartSeen")
+	seen, ok := seenRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected __runnerStartSeen object, got %T (%v)", seenRaw, seenRaw)
+	}
+	if seen["events"] == nil {
+		t.Fatalf("expected runner.start to track events")
+	}
+}
+
 func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "base.yaml")

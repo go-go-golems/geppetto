@@ -10,7 +10,9 @@
 - Committed the ticket baseline for implementation kickoff.
 - Landed the first JS runner slice: `gp.runner.resolveRuntime(...)`, internal runner runtime refs, and middleware-spec reuse on top of the GP-47 runtime metadata helpers.
 - Landed the second JS runner slice: `gp.runner.prepare(...)`, a JS prepared-run handle, and blocking `gp.runner.run(...)`.
+- Landed the third JS runner slice: top-level `gp.runner.start(...)` with the same `promise` / `cancel` / `on` contract as session start, plus attached `session`, `turn`, and `runtime` metadata from the prepared run.
 - Added focused JS module tests that cover runtime resolution, prepared-run assembly, runtime metadata stamping, and blocking execution.
+- Added focused JS module tests that cover streaming start handles, async completion, and event subscription on the new runner surface.
 - Fixed two early implementation bugs during the prepared-run slice:
   - `runner.prepare` initially panicked on missing `prompt` / `sessionId` because the code called methods on undefined goja properties without guarding them first.
   - direct `systemPrompt` on `runner.resolveRuntime(...)` initially updated only the metadata string and did not materialize the corresponding `systemPrompt` middleware, so `runner.run(...)` ignored the prompt until the helper was corrected.

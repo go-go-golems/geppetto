@@ -220,6 +220,39 @@ This step built the first real execution layer. The design goal was to make `gp.
   - append prompt text if needed,
   - stamp runtime metadata before execution.
 
+## Step 4: Add top-level `gp.runner.start(...)`
+
+This step finished the core execution surface. The design decision here was to reuse the existing session start-handle contract instead of inventing a second async handle shape just for the runner namespace.
+
+### What I did
+- Updated `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/module.go` to export `gp.runner.start(...)`.
+- Extended `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go` so:
+  - top-level `runner.start(...)` prepares once and then delegates to the existing `sessionRef.start(...)`,
+  - prepared-run `start()` now augments the returned handle with `session`, `turn`, and `runtime`,
+  - top-level `runner.start(...)` uses the same augmentation helper.
+- Added a focused streaming test in `/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/module_test.go`.
+
+### Commands
+- `gofmt -w pkg/js/modules/geppetto/module.go pkg/js/modules/geppetto/api_runner.go pkg/js/modules/geppetto/module_test.go`
+- `go test ./pkg/js/modules/geppetto -count=1`
+- `./.bin/golangci-lint run ./pkg/js/modules/geppetto`
+
+### Why this shape
+- The existing `session.start(...)` contract is already good:
+  - `promise`
+  - `cancel()`
+  - `on(eventType, callback)`
+- Reusing that contract means the opinionated API feels consistent with the advanced API instead of subtly different.
+- Attaching `session`, `turn`, and `runtime` to the handle keeps the top-level runner path debuggable and inspectable without forcing callers back down to `prepare(...)` when they only wanted to start immediately.
+
+### What worked
+- The implementation was very small because the prepared-run slice already had the right abstraction.
+- The new top-level `runner.start(...)` stayed almost purely compositional: prepare once, then delegate.
+
+### What warrants review
+- Check that `attachPreparedRunToHandle(...)` is not mutating any semantics of the existing start handle beyond adding non-conflicting fields.
+- Check that the top-level runner handle remains safe to use with the current owner-thread model, since all handle augmentation still happens synchronously on the JS owner thread before the background run settles.
+
 ## Related
 
 - [../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md](../design-doc/01-opinionated-javascript-api-design-and-implementation-guide.md)

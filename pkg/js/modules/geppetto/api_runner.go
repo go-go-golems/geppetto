@@ -63,6 +63,18 @@ func (m *moduleRuntime) runnerRun(call goja.FunctionCall) goja.Value {
 	return v
 }
 
+func (m *moduleRuntime) runnerStart(call goja.FunctionCall) goja.Value {
+	prepared, err := m.prepareRunnerCall(call)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	opts, err := m.parseRunOptions(call.Arguments, 1)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	return m.attachPreparedRunToHandle(prepared, prepared.session.start(nil, opts))
+}
+
 func (m *moduleRuntime) prepareRunnerCall(call goja.FunctionCall) (*preparedRunRef, error) {
 	if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
 		return nil, fmt.Errorf("runner.prepare requires options object with engine")
@@ -218,9 +230,22 @@ func (m *moduleRuntime) newPreparedRunObject(prepared *preparedRunRef) goja.Valu
 		if err != nil {
 			panic(m.vm.NewGoError(err))
 		}
-		return prepared.session.start(nil, opts)
+		return m.attachPreparedRunToHandle(prepared, prepared.session.start(nil, opts))
 	})
 	return o
+}
+
+func (m *moduleRuntime) attachPreparedRunToHandle(prepared *preparedRunRef, handle goja.Value) goja.Value {
+	obj := handle.ToObject(m.vm)
+	if obj == nil || prepared == nil {
+		return handle
+	}
+	m.mustSet(obj, "session", m.newSessionObject(prepared.session))
+	if turnValue, err := m.encodeTurnValue(prepared.turn); err == nil {
+		m.mustSet(obj, "turn", turnValue)
+	}
+	m.mustSet(obj, "runtime", m.newRunnerResolvedRuntimeObject(prepared.runtime))
+	return obj
 }
 
 func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]any) (*runnerResolvedRuntimeRef, error) {

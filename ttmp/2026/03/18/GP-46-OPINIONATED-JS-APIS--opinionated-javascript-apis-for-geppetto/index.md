@@ -46,10 +46,10 @@ Implemented so far:
 - `gp.runner.prepare(...)`
 - prepared-run handles with `session`, `turn`, `runtime`, `run()`, and `start()`
 - blocking `gp.runner.run(...)`
+- top-level `gp.runner.start(...)`
 
 Still to do:
 
-- top-level `gp.runner.start(...)`
 - public type surface updates
 - example scripts and doc rewrites that make `gp.runner` the default JS path
 - ticket closeout and refreshed reMarkable upload
