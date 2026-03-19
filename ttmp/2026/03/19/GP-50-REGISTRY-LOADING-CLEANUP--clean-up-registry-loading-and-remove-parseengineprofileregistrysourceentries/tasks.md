@@ -20,9 +20,9 @@
 - [x] Add a focused design note for the minimal first implementation that excludes runtime profiles, tools, and middleware profile composition.
 - [x] Introduce one shared helper contract for resolving CLI profile selection from parsed values:
   consume `profile` and `profile-registries` from the shared Geppetto profile-settings section, normalize discovered registry paths, and return one explicit resolved selection structure.
-- [ ] Introduce one shared helper contract for resolving final inference settings from a baseline config plus optional profile overlay, with a clearly documented precedence order for command defaults, config file values, profile overlay values, environment, and explicit flags.
-- [ ] Introduce one shared helper for fast engine creation from the resolved final inference settings so commands stop open-coding `factory.NewEngineFromParsedValues(...)` in registry-aware paths.
-- [ ] Implement the parsed-values path for loaded/full commands so `PinocchioCommand.RunIntoWriter(...)` preserves command-local defaults while delegating profile selection, profile overlay, and engine creation to the shared helpers.
+- [x] Introduce one shared helper contract for resolving final inference settings from a baseline config plus optional profile overlay, with a clearly documented precedence order for command defaults, config file values, profile overlay values, environment, and explicit flags.
+- [x] Introduce one shared helper for fast engine creation from the resolved final inference settings so commands stop open-coding `factory.NewEngineFromParsedValues(...)` in registry-aware paths.
+- [x] Implement the parsed-values path for loaded/full commands so `PinocchioCommand.RunIntoWriter(...)` preserves command-local defaults while delegating profile selection, profile overlay, and engine creation to the shared helpers.
 - [ ] Implement the lightweight/bootstrap path for JS, agents, and other thin commands that do not already have a fully parsed loaded-command context, using the same profile section and the same final engine resolution rules.
 - [ ] Refactor `pinocchio/pkg/cmds/cmd.go` to use the shared resolution helpers and remove duplicated engine bootstrap logic.
 - [ ] Refactor `pinocchio/pkg/cmds/helpers/profile_runtime.go` so its non-runtime responsibilities collapse into the shared config/profile/engine helpers, leaving no second partially overlapping bootstrap path.

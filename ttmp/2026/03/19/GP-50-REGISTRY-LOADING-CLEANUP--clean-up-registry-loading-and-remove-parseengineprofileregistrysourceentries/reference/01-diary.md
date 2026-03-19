@@ -215,6 +215,184 @@ This step is intentionally narrow. It does not yet unify final inference setting
   func ResolveCLIProfileSelection(parsed *values.Values) (*ResolvedCLIProfileSelection, error)
   ```
 
+## Step 3: Add shared final-settings and engine-construction helpers
+
+After the selection helper was in place, the next two tasks were still in the same seam of the codebase: resolve final inference settings from a baseline plus optional profile overlay, then provide a fast way to construct an engine from the resolved final settings. I implemented both as one coherent helper milestone so that later refactors would have a complete sequence to call instead of a half-finished split.
+
+The key outcome of this step is that there is now a single data structure that can carry the base settings, final settings, selected profile metadata, resolved engine profile metadata, config file provenance, and optional cleanup hook. That is the bridge between the thin/bootstrap path and the loaded-command path.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue through the next helper-oriented tasks in order and checkpoint them as a coherent milestone where that keeps the code simpler.
+
+**Inferred user intent:** Build the shared bootstrap contract in small, reviewable layers so later command migrations become mostly wiring work.
+
+**Commit (code):** `0be81c0` — `refactor(profiles): add shared cli engine settings helper`
+
+### What I did
+
+- Added [profile_engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_engine_settings.go).
+- Introduced `ResolvedCLIEngineSettings`.
+- Introduced `ResolveCLIEngineSettings(...)`.
+- Introduced `NewEngineFromResolvedCLIEngineSettings(...)` and `NewEngineFromResolvedCLIEngineSettingsWithFactory(...)`.
+- Changed [profile_runtime.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go) so `ResolveFinalInferenceSettings(...)` is now a compatibility wrapper around the richer shared helper.
+- Added tests proving:
+  - base versus final inference settings are both preserved
+  - engine creation uses final settings
+  - nil resolved settings fail fast
+
+### Why
+
+- The loaded-command refactor should not need to reconstruct profile overlays itself once the selection helper already exists.
+- Engine creation belongs after final settings resolution, not as a separate open-coded step in each caller.
+- A richer result struct makes later debugging easier because it keeps base state, final state, and selection metadata together.
+
+### What worked
+
+- The existing `ResolveFinalInferenceSettings(...)` contract was easy to preserve by wrapping the new helper instead of changing all callers immediately.
+- The injectable engine-factory helper made it possible to test engine creation without needing real provider credentials.
+- The loaded-command smoke test continued to pass after the wrapper refactor.
+
+### What didn't work
+
+- My first helper test used a stub engine that did not implement `engine.Engine`.
+  Error:
+  `helperRecordingEngine does not implement engine.Engine (missing method RunInference)`
+- I fixed that by adding a minimal `RunInference` method to the stub type in the test.
+
+### What I learned
+
+- The right shared boundary is not only "final settings"; it is "base settings plus final settings plus selection metadata".
+- Once that boundary exists, engine creation becomes a very thin helper and stops needing special treatment in each command path.
+
+### What was tricky to build
+
+- The main design choice was avoiding a breaking change for current thin/bootstrap callers. The solution that worked was to introduce a richer helper for the new architecture while leaving `ResolveFinalInferenceSettings(...)` intact as a wrapper.
+- The tests needed to stay narrow. Pulling full provider validation into these tests would have obscured whether the helper contract itself was correct, so I used an injectable recording factory instead.
+
+### What warrants a second pair of eyes
+
+- Whether `ResolvedCLIEngineSettings` should eventually carry even more provenance, such as explicit precedence/source annotations for the final overlay.
+- Whether the engine-construction helper should eventually live closer to Geppetto factory helpers once the cross-repo migration is further along.
+
+### What should be done in the future
+
+- Migrate the loaded-command path to call the shared helper sequence directly.
+- Audit thin/manual entrypoints after the loaded-command path is aligned.
+
+### Code review instructions
+
+- Read [profile_engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_engine_settings.go).
+- Then review the updated tests in [profile_runtime_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime_test.go).
+- Validate with:
+  - `go test ./pinocchio/pkg/cmds/helpers -count=1`
+  - `go test ./pinocchio/pkg/cmds -run TestLoadedCommandRunIntoWriterUsesSelectedEngineProfile -count=1`
+
+### Technical details
+
+- New contract:
+  ```go
+  type ResolvedCLIEngineSettings struct {
+      BaseInferenceSettings  *settings.InferenceSettings
+      FinalInferenceSettings *settings.InferenceSettings
+      ProfileSelection       *ResolvedCLIProfileSelection
+      ResolvedEngineProfile  *engineprofiles.ResolvedEngineProfile
+      ConfigFiles            []string
+      Close                  func()
+  }
+  ```
+
+## Step 4: Move loaded commands onto the shared parsed-values bootstrap path
+
+With the helper sequence in place, I refactored `PinocchioCommand.RunIntoWriter(...)` so loaded commands now delegate profile selection and final-settings overlay to the shared bootstrap logic instead of re-decoding profile flags and recreating the manager flow inline. This was the first place where the new abstractions had to prove they were actually reusable rather than just nicely named wrappers.
+
+The first attempt exposed an import cycle because `cmds` imported `helpers`, while `helpers/parse-helpers.go` already imported `cmds`. I resolved that by moving the shared logic into a new cycle-free package, `pinocchio/pkg/cmds/profilebootstrap`, and converting `helpers` into a compatibility wrapper layer. That let the loaded-command path and the thin/bootstrap path share the same implementation without rearranging unrelated helper APIs all at once.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue to the loaded-command migration task and preserve the sequential, commit-backed workflow.
+
+**Inferred user intent:** Prove the new bootstrap helpers are real by moving the most complex existing caller onto them while preserving loaded-command defaults.
+
+**Commit (code):** `a755724` — `refactor(profiles): share loaded command bootstrap`
+
+### What I did
+
+- Added the new cycle-free package:
+  - [profilebootstrap/profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go)
+  - [profilebootstrap/engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go)
+- Converted the existing helpers package files into wrappers:
+  - [helpers/profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection.go)
+  - [helpers/profile_engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_engine_settings.go)
+- Updated [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go) so `RunIntoWriter(...)`:
+  - keeps `baseSettingsFromParsedValues(...)`
+  - hands that base plus parsed values to the shared loaded-command bootstrap path
+  - uses `ProfileSelection`, `BaseInferenceSettings`, and `FinalInferenceSettings` from the shared result
+  - stops manually re-decoding `profile` / `profile-registries` and manually creating a profile manager in that path
+- Kept the loaded-command smoke test green.
+
+### Why
+
+- The loaded-command path was the most important proof point for preserving command-local defaults.
+- Import cycles are a sign that the new shared logic was living in the wrong package.
+- A dedicated cycle-free package gives both `cmds` and `helpers` a stable implementation dependency.
+
+### What worked
+
+- The shared helper shape fit the loaded-command path once I could supply the profile-free base settings explicitly.
+- The loaded-command profile smoke test remained green after the migration.
+- The wrapper approach avoided a large call-site explosion elsewhere in the tree.
+
+### What didn't work
+
+- The first `cmd.go` refactor imported `pinocchio/pkg/cmds/helpers` directly and immediately created a cycle:
+  `package github.com/go-go-golems/pinocchio/pkg/cmds/helpers imports github.com/go-go-golems/pinocchio/pkg/cmds from parse-helpers.go imports github.com/go-go-golems/pinocchio/pkg/cmds/helpers from cmd.go: import cycle not allowed`
+- After moving logic to `profilebootstrap`, I also hit a duplicate symbol in `helpers`:
+  `ResolveBaseInferenceSettings redeclared in this block`
+- I fixed that by making `helpers` a compatibility wrapper and removing the old local definition from `profile_runtime.go`.
+
+### What I learned
+
+- The actual reusable package boundary is "bootstrap logic that depends on parsed values and settings types, but not on `cmds.PinocchioCommand`".
+- `helpers` is not a safe place for implementation that must be imported back into `cmds`, because it already contains adapter code that depends on `cmds`.
+- Loaded-command migration is where the design gets pressure-tested; the import cycle surfaced immediately once the abstraction was real.
+
+### What was tricky to build
+
+- The hardest part was not the overlay logic itself. It was the package architecture. The symptom was an import cycle the moment `cmd.go` tried to use the helpers package directly. The underlying cause was that `helpers/parse-helpers.go` already imported `cmds` to work with `PinocchioCommand`. The fix was to introduce a new package with no dependency on `cmds`, move the shared logic there, and keep `helpers` as a thin wrapper for compatibility.
+- The other tricky part was preserving the loaded-command base-settings behavior. I kept `baseSettingsFromParsedValues(...)` in the `cmds` package and passed its result into the new shared resolver rather than trying to rebuild loaded-command defaults from config/env only.
+
+### What warrants a second pair of eyes
+
+- Whether the new `profilebootstrap` package name is the right long-term name once the rest of the migration is done.
+- Whether some of the config-resolution helper duplication between `helpers` and `profilebootstrap` should be consolidated once more call sites have moved.
+
+### What should be done in the future
+
+- Audit the JS and other thin/manual command entrypoints and move any remaining direct bootstrap logic onto `profilebootstrap`.
+- Continue with the loader-defaults task after the thin/bootstrap audit is clearer.
+
+### Code review instructions
+
+- Start with [profilebootstrap/profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go) and [profilebootstrap/engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go).
+- Then read the `RunIntoWriter(...)` changes in [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go).
+- Validate with:
+  - `go test ./pinocchio/pkg/cmds/helpers -count=1`
+  - `go test ./pinocchio/pkg/cmds -run TestLoadedCommandRunIntoWriterUsesSelectedEngineProfile -count=1`
+
+### Technical details
+
+- New loaded-command bridge:
+  ```go
+  resolved, err := profilebootstrap.ResolveCLIEngineSettingsFromBase(ctx, baseSettings, parsedValues, nil)
+  ```
+- Compatibility approach:
+  `helpers` now forwards to `profilebootstrap` instead of owning the implementation.
+
 ## Usage Examples
 
 Use this diary before resuming work on the ticket after an interruption. Each step is intended to explain what changed, what remains open, and what should be reviewed first.

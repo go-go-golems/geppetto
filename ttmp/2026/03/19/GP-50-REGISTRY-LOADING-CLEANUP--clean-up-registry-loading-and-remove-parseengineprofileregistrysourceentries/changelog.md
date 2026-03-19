@@ -77,3 +77,25 @@ Completed the first code task from the new plan and committed it as `76ae603` (`
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection.go — New shared profile-selection contract and resolver
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go — Final inference settings path now delegates selection to the shared helper
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection_test.go — New tests covering explicit precedence, config fallback, and XDG fallback
+
+## 2026-03-19
+
+Completed the next helper milestone as `0be81c0` (`refactor(profiles): add shared cli engine settings helper`). The shared bootstrap path now exposes both base and final inference settings, selected profile metadata, resolved engine profile metadata, and an engine-construction helper built on top of the resolved final settings.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_engine_settings.go — Shared final-settings and engine-construction helper layer
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go — Thin runtime helper now wraps the richer shared engine-settings resolver
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime_test.go — Added tests for base/final settings separation and engine creation
+
+## 2026-03-19
+
+Completed the loaded-command migration as `a755724` (`refactor(profiles): share loaded command bootstrap`). `PinocchioCommand.RunIntoWriter(...)` now delegates profile selection and profile overlay to the shared bootstrap path while preserving command-local defaults through `baseSettingsFromParsedValues(...)`, and the shared implementation was moved into a new cycle-free `profilebootstrap` package so both `cmds` and `helpers` can depend on it.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go — Loaded-command runtime path now uses the shared parsed-values/base-settings resolver flow
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go — Cycle-free shared profile-selection implementation
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go — Cycle-free shared final-settings and engine-construction implementation
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection.go — Compatibility wrapper onto the shared `profilebootstrap` implementation
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_engine_settings.go — Compatibility wrapper onto the shared `profilebootstrap` implementation
