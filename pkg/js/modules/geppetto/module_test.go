@@ -870,6 +870,51 @@ func TestEnginesFromResolvedProfileBuildsEngine(t *testing.T) {
 	`)
 }
 
+func TestResolvedProfileEnginesMergeDefaultInferenceSettings(t *testing.T) {
+	apiType := aitypes.ApiTypeOpenAI
+	base := &aistepssettings.InferenceSettings{
+		Chat: &aistepssettings.ChatSettings{
+			ApiType: &apiType,
+		},
+		API: &aistepssettings.APISettings{
+			BaseUrls: map[string]string{
+				"openai-base-url": "https://example.invalid/v1",
+			},
+			APIKeys: map[string]string{
+				"openai-api-key": "test-key",
+			},
+		},
+	}
+
+	engineName := "gpt-4o-mini"
+	resolved := &gepprofiles.ResolvedEngineProfile{
+		RegistrySlug:      gepprofiles.MustRegistrySlug("default"),
+		EngineProfileSlug: gepprofiles.MustEngineProfileSlug("default"),
+		InferenceSettings: &aistepssettings.InferenceSettings{
+			Chat: &aistepssettings.ChatSettings{
+				Engine: &engineName,
+			},
+		},
+	}
+
+	got, err := (&moduleRuntime{defaultInferenceSettings: base}).effectiveInferenceSettingsForResolvedProfile(resolved)
+	if err != nil {
+		t.Fatalf("effectiveInferenceSettingsForResolvedProfile: %v", err)
+	}
+	if got == nil || got.Chat == nil || got.Chat.Engine == nil || *got.Chat.Engine != "gpt-4o-mini" {
+		t.Fatalf("expected merged engine setting, got %#v", got)
+	}
+	if got.Chat.ApiType == nil || *got.Chat.ApiType != aitypes.ApiTypeOpenAI {
+		t.Fatalf("expected merged api type from defaults, got %#v", got.Chat.ApiType)
+	}
+	if got.API.BaseUrls["openai-base-url"] != "https://example.invalid/v1" {
+		t.Fatalf("expected merged base URL, got %#v", got.API.BaseUrls)
+	}
+	if got.API.APIKeys["openai-api-key"] != "test-key" {
+		t.Fatalf("expected merged API key, got %#v", got.API.APIKeys)
+	}
+}
+
 func TestEnginesFromProfileUsesHostDefaultSelection(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),

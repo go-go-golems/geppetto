@@ -247,10 +247,11 @@ func (m *moduleRuntime) engineFromResolvedProfile(call goja.FunctionCall) goja.V
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
-	if resolved.InferenceSettings == nil {
-		panic(m.vm.NewGoError(fmt.Errorf("resolved profile has no inference settings")))
+	engineSettings, err := m.effectiveInferenceSettingsForResolvedProfile(resolved)
+	if err != nil {
+		panic(m.vm.NewGoError(err))
 	}
-	eng, err := enginefactory.NewEngineFromSettings(resolved.InferenceSettings)
+	eng, err := enginefactory.NewEngineFromSettings(engineSettings)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -262,6 +263,16 @@ func (m *moduleRuntime) engineFromResolvedProfile(call goja.FunctionCall) goja.V
 			"registrySlug": resolved.RegistrySlug.String(),
 		},
 	})
+}
+
+func (m *moduleRuntime) effectiveInferenceSettingsForResolvedProfile(resolved *profiles.ResolvedEngineProfile) (*aistepssettings.InferenceSettings, error) {
+	if resolved == nil || resolved.InferenceSettings == nil {
+		return nil, fmt.Errorf("resolved profile has no inference settings")
+	}
+	if m == nil || m.defaultInferenceSettings == nil {
+		return resolved.InferenceSettings, nil
+	}
+	return profiles.MergeInferenceSettings(m.defaultInferenceSettings, resolved.InferenceSettings)
 }
 
 func (m *moduleRuntime) engineFromProfile(call goja.FunctionCall) goja.Value {
