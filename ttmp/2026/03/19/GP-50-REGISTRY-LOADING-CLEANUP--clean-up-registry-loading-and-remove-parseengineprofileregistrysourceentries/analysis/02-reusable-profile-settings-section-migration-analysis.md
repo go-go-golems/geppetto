@@ -92,11 +92,10 @@ These are already Glazed/Cobra-oriented and should stop defining profile flags m
 
 These are small standalone `flag`-based programs rather than Glazed/Cobra commands:
 
-- `geppetto/cmd/examples/runner-registry/main.go`
 - `geppetto/cmd/examples/geppetto-js-lab/main.go`
 - `pinocchio/scripts/profile-infer-once/main.go`
 
-These can remain local/raw for now unless we decide to convert the whole command structure to Cobra/Glazed.
+Follow-up note: `geppetto/cmd/examples/runner-registry/main.go` was later converted to a small Cobra command so it could mount the shared section directly.
 
 ## Migration Strategy
 

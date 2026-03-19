@@ -28,3 +28,12 @@ Completed the shared profile-settings migration: Geppetto now publishes the cano
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/switch-profiles-tui/main.go — Plain Cobra TUI now attaches the shared section
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go — Web-chat shared section adoption and []string registry handling
 
+
+## 2026-03-19
+
+Follow-up cleanup: converted `cmd/examples/runner-registry` off raw `flag` parsing and onto the shared Geppetto `profile-settings` section. The remaining exceptions in this ticket are now limited to standalone non-Cobra/script entrypoints.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/cmd/examples/runner-registry/main.go — Cobra example now mounts the shared section for `--profile` and `--profile-registries`
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/analysis/02-reusable-profile-settings-section-migration-analysis.md — Exception inventory updated after the runner-registry migration
