@@ -128,3 +128,17 @@ Completed the SQLite follow-up as `a8763be` (`refactor(commands): remove dead sq
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/agents/simple-chat-agent/main.go — Removed the dead SQLite tool middleware path from the agent command
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main_profile_registries_test.go — Fixed the shared-profile test helper to construct valid Glazed section values
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy_test.go — Schema endpoint expectations now match the post-SQLite middleware inventory
+
+## 2026-03-19
+
+Completed the remaining profile-cleanup implementation tasks via `eb02e18` (`refactor(loader): preserve loaded command base settings`) and `5466c5b` (`refactor(profiles): share cli selection value assembly`). Loaded YAML commands now carry explicit base inference settings from the loader, manual/bootstrap commands now build config/profile selection values through one shared helper, and targeted parity tests cover the shared bootstrap contract.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go — TUI demo manual bootstrap path now reuses the shared CLI selection-values helper
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go — JS manual bootstrap path now reuses the shared CLI selection-values helper
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go — Loaded command runtime now prefers loader-provided base settings over parse-log reconstruction
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/loader.go — Loader now stores explicit baseline inference settings on loaded commands
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings_test.go — Parity test covers internal versus from-base engine resolution paths
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go — Shared builder for config-file plus profile-selection parsed values
+

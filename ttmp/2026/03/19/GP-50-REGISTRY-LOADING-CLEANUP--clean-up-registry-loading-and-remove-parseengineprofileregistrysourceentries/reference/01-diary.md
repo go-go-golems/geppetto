@@ -607,6 +607,108 @@ This was a good example of why the ticket diary matters. The earlier step had co
 - Follow-up task state:
   `docmgr task check --ticket GP-50-REGISTRY-LOADING-CLEANUP --id 17`
 
+## Step 6: Surface loader baselines and standardize manual bootstrap value assembly
+
+The last implementation pass closed the remaining three open tasks in the ticket. I split it into two code commits because the cleanup had two distinct seams: loaded YAML commands needed to stop reconstructing their base inference settings from parse logs, and the remaining manual bootstrap commands needed one shared way to assemble `config-file`, `profile`, and `profile-registries` values.
+
+This step removed the main leftover accidental complexity in the profile bootstrap flow. Loaded commands now carry explicit loader baselines forward into execution, while manual bootstrap commands now reuse a single parsed-values helper instead of open-coding command/profile section assembly. I also added parity tests so the from-base path and the internally-resolved path are exercised against the same contract.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, now continue with th eprofile cleanup ticket."
+
+**Assistant interpretation:** Resume the remaining GP-50 implementation tasks, finish the loader/config/profile cleanup, and continue keeping the ticket diary and bookkeeping aligned.
+
+**Inferred user intent:** Fully close out the remaining technical debt in the simplified bootstrap model, not just partially refactor it.
+
+**Commit (code):** `eb02e18` — `refactor(loader): preserve loaded command base settings`
+
+**Commit (code):** `5466c5b` — `refactor(profiles): share cli selection value assembly`
+
+### What I did
+
+- Added `BaseInferenceSettings` plus `WithBaseInferenceSettings(...)` to [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go) so loaded commands can carry loader-derived base settings explicitly.
+- Updated [loader.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/loader.go) to pass the YAML-derived inference baseline into `NewPinocchioCommand(...)`.
+- Added [cmd_profile_registry_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go) coverage proving a loaded command still preserves loader-default `api_type` while overlaying the selected engine profile.
+- Added `CLISelectionInput` plus `NewCLISelectionValues(...)` in [profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go) to build the shared `config-file` + `profile-settings` parsed-values shape.
+- Added [profile_selection_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection_test.go) for the new helper and [engine_settings_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings_test.go) for bootstrap parity.
+- Migrated [cli.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go) onto the new helper.
+- Migrated the `buildJSParsedValues(...)` hunk in [js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go) onto the new helper while intentionally leaving unrelated local runtime edits in that file uncommitted.
+- Ran:
+  - `go test ./pkg/cmds -count=1`
+  - `go test ./pkg/cmds/profilebootstrap ./pkg/cmds ./cmd/pinocchio/cmds ./cmd/examples/internal/tuidemo ./cmd/web-chat ./cmd/agents/simple-chat-agent -count=1`
+
+### Why
+
+- `loader.go` still reparsed the YAML into inference settings and then made `RunIntoWriter(...)` rediscover the same baseline indirectly from parsed values. That was the exact task-20 smell.
+- The JS command and the TUI demo still had duplicated code to build command/profile section values by hand, which kept the manual/bootstrap path inconsistent with the rest of the cleanup.
+- The remaining open test gap was parity between `ResolveCLIEngineSettings(...)` and `ResolveCLIEngineSettingsFromBase(...)`.
+
+### What worked
+
+- Storing the loader baseline directly on `PinocchioCommand` was enough to remove the need for loaded commands to depend on parse-log reconstruction when the loader already knew the answer.
+- `NewCLISelectionValues(...)` cleanly absorbed the duplicated config/profile value assembly from the manual bootstrap paths.
+- The new parity test gave a direct proof that the explicit-base path and the internally-resolved path now agree on final engine settings.
+
+### What didn't work
+
+- The first new loaded-command regression test failed because `RunIntoWriter(...)` still expects the Geppetto sections to exist in parsed values, even when they are empty.
+  Command:
+  `go test ./pkg/cmds -count=1`
+  Error:
+  `RunIntoWriter: failed to update inference settings from parsed layers: section ai-client not found`
+- I fixed that by constructing empty Geppetto section values in the test instead of weakening the runtime path.
+- The first focused task-22 test run failed after the extraction because [cli.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go) still imported `github.com/go-go-golems/glazed/pkg/cli` even though the new helper now owns that section construction.
+- When I tried to stage the JS command change normally, the file's unrelated local edits would have been swept into the commit. I switched to the temporary-index approach and wrote a staged blob for just the import and `buildJSParsedValues(...)` hunk, leaving the unrelated runtime changes in the worktree.
+
+### What I learned
+
+- The loaded-command path only needed one additional explicit field to become straightforward. The architectural problem was not that loaded commands were special; it was that the loader knew the base settings but never surfaced them.
+- Manual bootstrap paths become much easier to reason about once they produce the same `values.Values` shape as the Glazed/Cobra path.
+- The parity boundary in this cleanup is now concrete: `ResolveBaseInferenceSettings(...)` plus `ResolveCLIEngineSettingsFromBase(...)` must behave the same as `ResolveCLIEngineSettings(...)`.
+
+### What was tricky to build
+
+- The sharp edge in task 20 was that `RunIntoWriter(...)` still needs the parsed Geppetto sections for explicit overrides and helper/UI settings, even when the base model defaults are loader-provided. The symptom was the missing `ai-client` section in the new test. The fix was to keep the runtime contract intact and make the test mirror the real parsed-values shape.
+- The sharp edge in task 22 was repository hygiene. [js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go) had unrelated local edits outside this ticket. I could not safely commit the whole file diff. The solution was a temporary index plus a synthetic staged blob derived from `HEAD` with only the helper-related changes applied.
+
+### What warrants a second pair of eyes
+
+- Whether `BaseInferenceSettings` should remain a direct field on `PinocchioCommand` or eventually move into a more generic command/bootstrap abstraction as part of GP-53.
+- Whether any remaining manual bootstrap paths outside GP-50 should also start from `NewCLISelectionValues(...)`, or whether they should wait for the Geppetto extraction ticket.
+
+### What should be done in the future
+
+- Close or transition the ticket now that all tasks are checked off.
+- Use [GP-53-GEPPETTO-CLI-BOOTSTRAP](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-53-GEPPETTO-CLI-BOOTSTRAP--extract-generic-cli-bootstrap-path-to-geppetto-and-parameterize-app-name) for the next architectural step: extracting the generic bootstrap contract into Geppetto and parameterizing app identity.
+
+### Code review instructions
+
+- Start with [loader.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/loader.go), [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go), and [cmd_profile_registry_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go) for the task-20 cutover.
+- Then read [profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go), [profile_selection_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection_test.go), and [engine_settings_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings_test.go).
+- Review the manual bootstrap callers in [cli.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go) and [js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go).
+- Validate with the two `go test` commands listed above.
+
+### Technical details
+
+- New loaded-command field:
+  ```go
+  type PinocchioCommand struct {
+      // ...
+      BaseInferenceSettings *settings.InferenceSettings
+  }
+  ```
+- New manual-bootstrap helper:
+  ```go
+  type CLISelectionInput struct {
+      ConfigFile        string
+      Profile           string
+      ProfileRegistries []string
+  }
+  ```
+- Task completion:
+  `docmgr task check --ticket GP-50-REGISTRY-LOADING-CLEANUP --id 20,22,23`
+
 ## Usage Examples
 
 Use this diary before resuming work on the ticket after an interruption. Each step is intended to explain what changed, what remains open, and what should be reviewed first.

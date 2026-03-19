@@ -26,10 +26,10 @@
 - [x] Implement the lightweight/bootstrap path for JS, agents, and other thin commands that do not already have a fully parsed loaded-command context, using the same profile section and the same final engine resolution rules.
 - [x] Refactor `pinocchio/pkg/cmds/cmd.go` to use the shared resolution helpers and remove duplicated engine bootstrap logic.
 - [x] Refactor `pinocchio/pkg/cmds/helpers/profile_runtime.go` so its non-runtime responsibilities collapse into the shared config/profile/engine helpers, leaving no second partially overlapping bootstrap path.
-- [ ] Refactor `pinocchio/pkg/cmds/loader.go` so loader-side inference defaults are surfaced explicitly instead of re-parsing YAML blobs later just to rediscover baseline settings.
+- [x] Refactor `pinocchio/pkg/cmds/loader.go` so loader-side inference defaults are surfaced explicitly instead of re-parsing YAML blobs later just to rediscover baseline settings.
 - [x] Reconcile current mismatch in no-registry behavior and make the rule explicit:
   commands must be able to run from baseline config plus direct flags even when no profile registry is present, while still supporting profile overlay when registries are provided or discovered.
-- [ ] Standardize how commands mount the shared Geppetto `profile-settings` section and any baseline config section so profile/config loading works the same across Pinocchio command families and Geppetto examples.
-- [ ] Add targeted tests for config/profile precedence and bootstrap parity:
+- [x] Standardize how commands mount the shared Geppetto `profile-settings` section and any baseline config section so profile/config loading works the same across Pinocchio command families and Geppetto examples.
+- [x] Add targeted tests for config/profile precedence and bootstrap parity:
   baseline config only, explicit `--profile`, explicit `--profile-registries`, discovered registry file, loaded-command defaults preservation, and manual/bootstrap command parity with loaded commands.
 - [x] Update ticket docs and implementation notes after each refactor step so the adopted simplified model stays aligned with the imported guide and does not drift back toward runtime-profile scope.
