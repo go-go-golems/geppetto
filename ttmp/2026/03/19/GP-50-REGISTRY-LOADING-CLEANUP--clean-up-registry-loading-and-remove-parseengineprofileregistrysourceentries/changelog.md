@@ -37,3 +37,14 @@ Follow-up cleanup: converted `cmd/examples/runner-registry` off raw `flag` parsi
 
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/cmd/examples/runner-registry/main.go — Cobra example now mounts the shared section for `--profile` and `--profile-registries`
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/analysis/02-reusable-profile-settings-section-migration-analysis.md — Exception inventory updated after the runner-registry migration
+
+## 2026-03-19
+
+Added a detailed intern-facing design and implementation guide for Pinocchio and Geppetto CLI bootstrap, covering loader history, current runtime/config/profile resolution paths, recommended shared runtime helper design, and the proposed split between app config and profile-registry baseline inference settings.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/01-pinocchio-cli-geppetto-config-and-profile-bootstrap-guide.md — Primary guide delivered for the requested analysis/design/implementation write-up
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go — Current loaded-command runtime path analyzed in the guide
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go — Current thin-command runtime path analyzed in the guide
+
