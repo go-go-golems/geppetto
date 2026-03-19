@@ -266,8 +266,14 @@ func (m *moduleRuntime) engineFromResolvedProfile(call goja.FunctionCall) goja.V
 }
 
 func (m *moduleRuntime) effectiveInferenceSettingsForResolvedProfile(resolved *profiles.ResolvedEngineProfile) (*aistepssettings.InferenceSettings, error) {
-	if resolved == nil || resolved.InferenceSettings == nil {
-		return nil, fmt.Errorf("resolved profile has no inference settings")
+	if resolved == nil {
+		return nil, fmt.Errorf("resolved profile is required")
+	}
+	if resolved.InferenceSettings == nil {
+		if m == nil || m.defaultInferenceSettings == nil {
+			return nil, fmt.Errorf("resolved profile has no inference settings")
+		}
+		return cloneInferenceSettings(m.defaultInferenceSettings), nil
 	}
 	if m == nil || m.defaultInferenceSettings == nil {
 		return resolved.InferenceSettings, nil

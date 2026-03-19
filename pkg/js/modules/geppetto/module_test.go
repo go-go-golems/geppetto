@@ -915,6 +915,59 @@ func TestResolvedProfileEnginesMergeDefaultInferenceSettings(t *testing.T) {
 	}
 }
 
+func TestResolvedProfileEnginesFallbackToDefaultInferenceSettings(t *testing.T) {
+	apiType := aitypes.ApiTypeOpenAI
+	engineName := "gpt-4o-mini"
+	base := &aistepssettings.InferenceSettings{
+		Chat: &aistepssettings.ChatSettings{
+			ApiType: &apiType,
+			Engine:  &engineName,
+		},
+		API: &aistepssettings.APISettings{
+			BaseUrls: map[string]string{
+				"openai-base-url": "https://example.invalid/v1",
+			},
+			APIKeys: map[string]string{
+				"openai-api-key": "test-key",
+			},
+		},
+	}
+
+	resolved := &gepprofiles.ResolvedEngineProfile{
+		RegistrySlug:      gepprofiles.MustRegistrySlug("default"),
+		EngineProfileSlug: gepprofiles.MustEngineProfileSlug("defaults-only"),
+	}
+
+	got, err := (&moduleRuntime{defaultInferenceSettings: base}).effectiveInferenceSettingsForResolvedProfile(resolved)
+	if err != nil {
+		t.Fatalf("effectiveInferenceSettingsForResolvedProfile: %v", err)
+	}
+	if got == nil || got.Chat == nil || got.Chat.Engine == nil || *got.Chat.Engine != "gpt-4o-mini" {
+		t.Fatalf("expected default engine setting, got %#v", got)
+	}
+	if got.Chat.ApiType == nil || *got.Chat.ApiType != aitypes.ApiTypeOpenAI {
+		t.Fatalf("expected default api type, got %#v", got.Chat.ApiType)
+	}
+	if got.API.BaseUrls["openai-base-url"] != "https://example.invalid/v1" {
+		t.Fatalf("expected default base URL, got %#v", got.API.BaseUrls)
+	}
+	if got.API.APIKeys["openai-api-key"] != "test-key" {
+		t.Fatalf("expected default API key, got %#v", got.API.APIKeys)
+	}
+}
+
+func TestResolvedProfileEnginesRequireSettingsOrDefaults(t *testing.T) {
+	resolved := &gepprofiles.ResolvedEngineProfile{
+		RegistrySlug:      gepprofiles.MustRegistrySlug("default"),
+		EngineProfileSlug: gepprofiles.MustEngineProfileSlug("empty"),
+	}
+
+	got, err := (&moduleRuntime{}).effectiveInferenceSettingsForResolvedProfile(resolved)
+	if err == nil {
+		t.Fatalf("expected error, got settings %#v", got)
+	}
+}
+
 func TestEnginesFromProfileUsesHostDefaultSelection(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
