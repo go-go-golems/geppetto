@@ -3,6 +3,7 @@
 ## TODO
 
 - [x] Switch the `runner-glazed-registry-flags` example and shared runnerexample helper to `[]string` registry sources.
-- [ ] Move Geppetto bootstrap/profile-settings decoding to `fields.TypeStringList` and `[]string`.
-- [ ] Replace remaining non-Glazed Geppetto string parsing, remove `ParseEngineProfileRegistrySourceEntries`, and update tests/docs.
-- [ ] Run targeted verification, update ticket bookkeeping, and summarize downstream follow-up migrations.
+- [x] Add the reusable profile settings section migration analysis, including duplicated sections and raw-flag owners.
+- [x] Publish the shared Geppetto `profile-settings` section and migrate Geppetto section owners to it.
+- [x] Migrate Pinocchio section owners and most raw Cobra profile/profile-registries flags to the shared section.
+- [x] Run targeted verification, update ticket bookkeeping, and summarize any remaining `flag`-package/script exceptions.

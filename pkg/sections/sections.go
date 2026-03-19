@@ -23,14 +23,44 @@ import (
 
 // CreateOption configures behavior of CreateGeppettoSections.
 type CreateOption func(*createOptions)
+
 type createOptions struct {
 	stepSettings *settings.InferenceSettings
+}
+
+type ProfileSettings struct {
+	Profile           string   `glazed:"profile"`
+	ProfileRegistries []string `glazed:"profile-registries"`
+}
+
+type ProfileSettingsSectionOption func(*profileSettingsSectionOptions)
+
+type profileSettingsSectionOptions struct {
+	profileDefault           string
+	profileRegistriesDefault []string
 }
 
 // WithDefaultsFromInferenceSettings uses the given InferenceSettings for layer defaults.
 func WithDefaultsFromInferenceSettings(s *settings.InferenceSettings) CreateOption {
 	return func(o *createOptions) {
 		o.stepSettings = s
+	}
+}
+
+func WithProfileDefault(profile string) ProfileSettingsSectionOption {
+	return func(o *profileSettingsSectionOptions) {
+		o.profileDefault = strings.TrimSpace(profile)
+	}
+}
+
+func WithProfileRegistriesDefault(entries ...string) ProfileSettingsSectionOption {
+	return func(o *profileSettingsSectionOptions) {
+		o.profileRegistriesDefault = o.profileRegistriesDefault[:0]
+		for _, entry := range entries {
+			if trimmed := strings.TrimSpace(entry); trimmed != "" {
+				o.profileRegistriesDefault = append(o.profileRegistriesDefault, trimmed)
+			}
+		}
 	}
 }
 
@@ -110,7 +140,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	profileSettingsSection, err := newEngineProfileRegistrySettingsSection()
+	profileSettingsSection, err := NewProfileSettingsSection()
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +159,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	return result, nil
 }
 
-type profileRegistrySettings struct {
-	Profile           string `glazed:"profile"`
-	ProfileRegistries string `glazed:"profile-registries"`
-}
-
-const profileSettingsSectionSlug = "profile-settings"
+const ProfileSettingsSectionSlug = "profile-settings"
 
 func defaultPinocchioProfileRegistriesIfPresent() string {
 	configDir, err := os.UserConfigDir()
@@ -149,21 +174,32 @@ func defaultPinocchioProfileRegistriesIfPresent() string {
 	return path
 }
 
-func newEngineProfileRegistrySettingsSection() (schema.Section, error) {
+func NewProfileSettingsSection(opts ...ProfileSettingsSectionOption) (schema.Section, error) {
+	var sectionOptions profileSettingsSectionOptions
+	for _, opt := range opts {
+		opt(&sectionOptions)
+	}
+
+	profileOptions := []fields.Option{
+		fields.WithHelp("Load the profile"),
+	}
+	if sectionOptions.profileDefault != "" {
+		profileOptions = append(profileOptions, fields.WithDefault(sectionOptions.profileDefault))
+	}
+
+	profileRegistriesOptions := []fields.Option{
+		fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
+	}
+	if len(sectionOptions.profileRegistriesDefault) > 0 {
+		profileRegistriesOptions = append(profileRegistriesOptions, fields.WithDefault(append([]string(nil), sectionOptions.profileRegistriesDefault...)))
+	}
+
 	return schema.NewSection(
-		profileSettingsSectionSlug,
+		ProfileSettingsSectionSlug,
 		"Profile settings",
 		schema.WithFields(
-			fields.New(
-				"profile",
-				fields.TypeString,
-				fields.WithHelp("Load the profile"),
-			),
-			fields.New(
-				"profile-registries",
-				fields.TypeString,
-				fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
-			),
+			fields.New("profile", fields.TypeString, profileOptions...),
+			fields.New("profile-registries", fields.TypeStringList, profileRegistriesOptions...),
 		),
 	)
 }
@@ -251,12 +287,12 @@ func GetCobraCommandGeppettoMiddlewares(
 	}
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
-	profileSettings := &profileRegistrySettings{}
-	profileSettingsLayer, err := newEngineProfileRegistrySettingsSection()
+	profileSettings := &ProfileSettings{}
+	profileSettingsSection, err := NewProfileSettingsSection()
 	if err != nil {
 		return nil, err
 	}
-	bootstrapProfileSchema := schema.NewSchema(schema.WithSections(profileSettingsLayer))
+	bootstrapProfileSchema := schema.NewSchema(schema.WithSections(profileSettingsSection))
 	bootstrapProfileParsed := values.New()
 	err = sources.Execute(
 		bootstrapProfileSchema,
@@ -273,26 +309,22 @@ func GetCobraCommandGeppettoMiddlewares(
 	if err != nil {
 		return nil, err
 	}
-	if err := bootstrapProfileParsed.DecodeSectionInto(profileSettingsSectionSlug, profileSettings); err != nil {
+	if err := bootstrapProfileParsed.DecodeSectionInto(ProfileSettingsSectionSlug, profileSettings); err != nil {
 		return nil, err
 	}
 	// Backward-compatibility: if bootstrap didn't produce it, fall back to Cobra-only parsed command settings.
 	if profileSettings.Profile == "" && parsedCommandSections != nil {
-		_ = parsedCommandSections.DecodeSectionInto(profileSettingsSectionSlug, profileSettings)
+		_ = parsedCommandSections.DecodeSectionInto(ProfileSettingsSectionSlug, profileSettings)
 	}
 	if profileSettings.Profile == "" {
 		profileSettings.Profile = "default"
 	}
-	if strings.TrimSpace(profileSettings.ProfileRegistries) == "" {
+	if len(profileSettings.ProfileRegistries) == 0 {
 		if defaultPath := defaultPinocchioProfileRegistriesIfPresent(); defaultPath != "" {
-			profileSettings.ProfileRegistries = defaultPath
+			profileSettings.ProfileRegistries = []string{defaultPath}
 		}
 	}
-	profileRegistrySources, err := profiles.ParseEngineProfileRegistrySourceEntries(profileSettings.ProfileRegistries)
-	if err != nil {
-		return nil, err
-	}
-	if len(profileRegistrySources) == 0 {
+	if len(profileSettings.ProfileRegistries) == 0 {
 		return nil, &profiles.ValidationError{Field: "profile-settings.profile-registries", Reason: "must be configured (hard cutover: no profile-file fallback)"}
 	}
 
@@ -320,7 +352,7 @@ func GetCobraCommandGeppettoMiddlewares(
 				claude.ClaudeChatSlug,
 				gemini.GeminiChatSlug,
 				embeddingsconfig.EmbeddingsSlug,
-				profileSettingsSectionSlug,
+				ProfileSettingsSectionSlug,
 			},
 			sources.FromEnv("PINOCCHIO",
 				fields.WithSource("env"),
@@ -329,9 +361,6 @@ func GetCobraCommandGeppettoMiddlewares(
 	)
 
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
-	//
-	// NOTE: Profiles no longer contribute step-setting overlays. Engine settings now come
-	// entirely from defaults, config, env, and flags.
 	middlewares_ = append(middlewares_, sources.FromFiles(
 		configFiles,
 		sources.WithConfigFileMapper(configMapper),
