@@ -19,7 +19,7 @@ func New(opts ...Option) *Runner {
 	r := &Runner{
 		loopConfig:    toolloop.DefaultLoopConfig(),
 		toolConfig:    geptools.DefaultToolConfig(),
-		engineFactory: factory.NewEngineFromStepSettings,
+		engineFactory: factory.NewEngineFromSettings,
 	}
 	for _, opt := range opts {
 		if opt != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewFromStepSettings(ss *settings.StepSettings) (tokencount.Counter, error) {
+func NewFromSettings(ss *settings.InferenceSettings) (tokencount.Counter, error) {
 	if ss == nil {
 		return nil, errors.New("token count: settings cannot be nil")
 	}

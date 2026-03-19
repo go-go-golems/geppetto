@@ -6,19 +6,18 @@ import (
 	"strings"
 
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 )
 
 // ResolvedInstance binds one middleware use to its resolved config and definition.
 type ResolvedInstance struct {
-	Key      string                    `json:"key,omitempty"`
-	Use      gepprofiles.MiddlewareUse `json:"use"`
-	Resolved *ResolvedConfig           `json:"resolved,omitempty"`
-	Def      Definition                `json:"-"`
+	Key      string          `json:"key,omitempty"`
+	Use      Use             `json:"use"`
+	Resolved *ResolvedConfig `json:"resolved,omitempty"`
+	Def      Definition      `json:"-"`
 }
 
 // MiddlewareInstanceKey returns a stable diagnostic key for one middleware use.
-func MiddlewareInstanceKey(use gepprofiles.MiddlewareUse, index int) string {
+func MiddlewareInstanceKey(use Use, index int) string {
 	name := strings.TrimSpace(use.Name)
 	if name == "" {
 		name = "middleware"
@@ -30,7 +29,7 @@ func MiddlewareInstanceKey(use gepprofiles.MiddlewareUse, index int) string {
 }
 
 // MiddlewareUseIsEnabled reports whether a middleware use should be built.
-func MiddlewareUseIsEnabled(use gepprofiles.MiddlewareUse) bool {
+func MiddlewareUseIsEnabled(use Use) bool {
 	return use.Enabled == nil || *use.Enabled
 }
 

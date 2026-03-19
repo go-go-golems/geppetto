@@ -4,10 +4,10 @@ import "github.com/go-go-golems/geppetto/pkg/turns"
 
 // InferenceConfig provides per-turn overrides for inference parameters.
 // When set on Turn.Data via KeyInferenceConfig, these take precedence
-// over StepSettings defaults.
+// over InferenceSettings defaults.
 //
-// Can also be set on StepSettings.Inference as engine-level defaults.
-// Resolution order: Turn.Data > StepSettings.Inference > StepSettings.Chat fields.
+// Can also be set on InferenceSettings.Inference as engine-level defaults.
+// Resolution order: Turn.Data > InferenceSettings.Inference > InferenceSettings.Chat fields.
 //
 // Fields use pointer types so that nil means "not set, use default".
 // This follows the pattern established by ChatSettings.

@@ -24,12 +24,12 @@ import (
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
-	settings    *settings.StepSettings
+	settings    *settings.InferenceSettings
 	toolAdapter *tools.OpenAIToolAdapter
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
-func NewOpenAIEngine(settings *settings.StepSettings) (*OpenAIEngine, error) {
+func NewOpenAIEngine(settings *settings.InferenceSettings) (*OpenAIEngine, error) {
 	return &OpenAIEngine{
 		settings:    settings,
 		toolAdapter: tools.NewOpenAIToolAdapter(),

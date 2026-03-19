@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dop251/goja"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
@@ -29,19 +30,22 @@ type builderRef struct {
 	base        engine.Engine
 	middlewares []middleware.Middleware
 
-	registry     tools.ToolRegistry
-	loopCfg      *toolloop.LoopConfig
-	toolCfg      *tools.ToolConfig
-	toolExecutor tools.ToolExecutor
-	toolHooks    *jsToolHooks
-	eventSinks   []events.EventSink
-	snapshotHook toolloop.SnapshotHook
-	persister    enginebuilder.TurnPersister
+	registry         tools.ToolRegistry
+	runtimeToolNames []string
+	runtimeMetadata  map[string]any
+	loopCfg          *toolloop.LoopConfig
+	toolCfg          *tools.ToolConfig
+	toolExecutor     tools.ToolExecutor
+	toolHooks        *jsToolHooks
+	eventSinks       []events.EventSink
+	snapshotHook     toolloop.SnapshotHook
+	persister        enginebuilder.TurnPersister
 }
 
 type sessionRef struct {
-	api     *moduleRuntime
-	session *session.Session
+	api             *moduleRuntime
+	session         *session.Session
+	runtimeMetadata map[string]any
 }
 
 type runOptions struct {
@@ -65,6 +69,25 @@ type jsMiddlewareRef struct {
 type goMiddlewareRef struct {
 	Name    string
 	Options map[string]any
+}
+
+type resolvedEngineProfileRef struct {
+	Resolved *profiles.ResolvedEngineProfile
+}
+
+type runnerResolvedRuntimeRef struct {
+	SystemPrompt    string
+	MiddlewareRefs  []any
+	ToolNames       []string
+	RuntimeMetadata map[string]any
+	Metadata        map[string]any
+}
+
+type preparedRunRef struct {
+	api     *moduleRuntime
+	session *sessionRef
+	turn    *turns.Turn
+	runtime *runnerResolvedRuntimeRef
 }
 
 type toolRegistryRef struct {

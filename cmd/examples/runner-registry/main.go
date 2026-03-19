@@ -13,20 +13,13 @@ import (
 
 func main() {
 	var (
-		model             = flag.String("model", "gpt-4o-mini", "model name")
-		profileRegistries = flag.String("profile-registries", runnerexample.ExampleProfileRegistryPath(), "comma-separated profile registry sources")
-		profile           = flag.String("profile", "concise", "profile slug to resolve")
+		profileRegistries = flag.String("profile-registries", runnerexample.ExampleEngineProfileRegistryPath(), "comma-separated profile registry sources")
+		profile           = flag.String("profile", "openai-fast", "engine profile slug to resolve")
 		prompt            = flag.String("prompt", "Explain how profile registries and runner APIs fit together.", "prompt to run")
 	)
 	flag.Parse()
 
-	stepSettings, err := runnerexample.OpenAIStepSettingsFromEnv(*model, true)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
-	rt, closeRegistry, err := runnerexample.ResolveRuntimeFromRegistry(context.Background(), stepSettings, *profileRegistries, *profile)
+	stepSettings, closeRegistry, err := runnerexample.ResolveInferenceSettingsFromRegistry(context.Background(), *profileRegistries, *profile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -39,8 +32,10 @@ func main() {
 
 	r := runner.New()
 	_, out, err := r.Run(context.Background(), runner.StartRequest{
-		Prompt:  *prompt,
-		Runtime: rt,
+		Prompt: *prompt,
+		Runtime: runner.Runtime{
+			InferenceSettings: stepSettings,
+		},
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

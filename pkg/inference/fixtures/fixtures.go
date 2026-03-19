@@ -102,7 +102,7 @@ type ExecuteOptions struct {
 //   - final_turn_i.yaml (turn after appending follow-up, before run)
 //   - events-(i+1).ndjson (events for this run)
 //   - final_turn_(i+1).yaml (turn after run)
-func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Block, st *settings.StepSettings, opts ExecuteOptions) (*turns.Turn, error) {
+func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Block, st *settings.InferenceSettings, opts ExecuteOptions) (*turns.Turn, error) {
 	if opts.OutDir == "" {
 		return nil, fmt.Errorf("out dir required")
 	}

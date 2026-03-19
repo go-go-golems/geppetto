@@ -10,10 +10,13 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
@@ -736,7 +739,7 @@ func TestEventsCollectorCreateSessionOptionsEventSinkAndEventSinks(t *testing.T)
 
 func TestEnginesFromConfigStillWorks(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 	mustRunJS(t, rt, `
 		const gp = require("geppetto");
@@ -758,9 +761,9 @@ func TestEnginesFromConfigStillWorks(t *testing.T) {
 	`)
 }
 
-func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
+func TestProfilesNamespaceReadAndResolve(t *testing.T) {
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 
 	mustRunJS(t, rt, `
@@ -784,22 +787,54 @@ func TestProfilesNamespaceReadResolveAndCrud(t *testing.T) {
 		});
 		if (resolved.registrySlug !== "default") throw new Error("resolve registry mismatch");
 		if (resolved.profileSlug !== "explicit-model") throw new Error("resolve profile mismatch");
-		if (resolved.runtimeKey !== "explicit-model") throw new Error("resolve runtime key mismatch");
-		if (typeof resolved.runtimeFingerprint !== "string" || resolved.runtimeFingerprint.length < 8) {
-			throw new Error("resolve runtime fingerprint missing");
+		if (!resolved.inferenceSettings || !resolved.inferenceSettings.chat) {
+			throw new Error("resolve inferenceSettings payload missing");
 		}
-		if (!resolved.effectiveRuntime || resolved.effectiveRuntime.system_prompt !== "explicit prompt") {
-			throw new Error("resolve effectiveRuntime payload missing");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-5-mini") {
+			throw new Error("resolve should expose merged inference settings");
 		}
+		if (resolved.inferenceSettings.chat.api_type !== "openai-responses") {
+			throw new Error("resolve api_type mismatch");
+		}
+		if (!resolved.metadata || resolved.metadata["profile.version"] !== 7) {
+			throw new Error("resolve metadata missing");
+		}
+	`)
+}
 
-		const ignoredLegacyAlias = gp.profiles.resolve({
-			profileSlug: "explicit-model",
-			runtimeKey: "legacy-alias-should-not-apply",
-		});
-		if (ignoredLegacyAlias.runtimeKey !== "explicit-model") {
-			throw new Error("legacy runtimeKey alias should no longer affect resolve()");
-		}
+func TestProfilesResolveUsesHostDefaultSelection(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+		DefaultProfileResolve: gepprofiles.ResolveInput{
+			EngineProfileSlug: gepprofiles.MustEngineProfileSlug("explicit-model"),
+		},
+	})
 
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({});
+		if (resolved.profileSlug !== "explicit-model") throw new Error("host default profile selection not applied");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-5-mini") throw new Error("host default inference settings mismatch");
+	`)
+}
+
+func TestProfilesResolvePreservesHostDefaultRegistryWhenRegistrySlugOmitted(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry:    mustNewJSMultiRegistryEngineProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+		DefaultProfileResolve: gepprofiles.ResolveInput{
+			RegistrySlug: gepprofiles.MustRegistrySlug("secondary"),
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "shared-model" });
+		if (resolved.registrySlug !== "secondary") throw new Error("profiles.resolve should preserve host default registry when registrySlug is omitted");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-4.1") throw new Error("profiles.resolve should resolve from host default registry");
 	`)
 }
 
@@ -817,6 +852,343 @@ func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 	`)
 }
 
+func TestEnginesFromResolvedProfileBuildsEngine(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "explicit-model" });
+		const fromResolved = gp.engines.fromResolvedProfile(resolved);
+		const fromProfile = gp.engines.fromProfile({ profileSlug: "explicit-model" });
+		if (fromResolved.name !== "resolvedProfile") throw new Error("fromResolvedProfile name mismatch");
+		if (fromProfile.name !== "resolvedProfile") throw new Error("fromProfile name mismatch");
+		if (fromResolved.metadata.profileSlug !== "explicit-model") throw new Error("fromResolvedProfile metadata missing");
+		if (fromProfile.metadata.registrySlug !== "default") throw new Error("fromProfile metadata missing");
+	`)
+}
+
+func TestEnginesFromProfileUsesHostDefaultSelection(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		const engine = gp.engines.fromProfile({});
+		if (engine.metadata.profileSlug !== "default-model") throw new Error("fromProfile should use registry default profile");
+	`)
+}
+
+func TestEnginesFromProfilePreservesHostDefaultRegistryWhenRegistrySlugOmitted(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry:    mustNewJSMultiRegistryEngineProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+		DefaultProfileResolve: gepprofiles.ResolveInput{
+			RegistrySlug: gepprofiles.MustRegistrySlug("secondary"),
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		const engine = gp.engines.fromProfile({ profileSlug: "shared-model" });
+		if (engine.metadata.registrySlug !== "secondary") throw new Error("fromProfile should preserve host default registry when registrySlug is omitted");
+		if (engine.metadata.profileSlug !== "shared-model") throw new Error("fromProfile should preserve requested profile slug");
+	`)
+}
+
+func TestRunnerResolveRuntimeRejectsProfileInput(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		let threw = false;
+		try {
+			gp.runner.resolveRuntime({
+				profile: { profileSlug: "explicit-model" },
+			});
+		} catch (e) {
+			threw = /no longer resolves engine profiles/i.test(String(e));
+		}
+		if (!threw) throw new Error("runner.resolveRuntime should reject engine profile input");
+	`)
+}
+
+func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const customMw = gp.middlewares.go("reorderToolResults");
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "override prompt",
+			middlewares: [customMw, gp.middlewares.fromJS((turn, next) => next(turn), "custom-js")],
+			toolNames: ["custom_tool"],
+			runtimeKey: "custom-runtime",
+			runtimeFingerprint: "fp-custom",
+			profileVersion: 11,
+			metadata: { custom: true },
+		});
+
+		if (runtime.systemPrompt !== "override prompt") throw new Error("direct systemPrompt override missing");
+		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 3) {
+			throw new Error("direct middlewares should prepend system prompt and append explicit middleware refs");
+		}
+		if (runtime.middlewares[1].name !== "reorderToolResults") throw new Error("go middleware append mismatch");
+		if (runtime.middlewares[2].name !== "custom-js") throw new Error("js middleware append mismatch");
+		if (!Array.isArray(runtime.toolNames) || runtime.toolNames[0] !== "custom_tool") {
+			throw new Error("direct toolNames override missing");
+		}
+		if (runtime.runtimeKey !== "custom-runtime") throw new Error("direct runtimeKey override missing");
+		if (runtime.runtimeFingerprint !== "fp-custom") throw new Error("direct runtimeFingerprint override missing");
+		if (runtime.profileVersion !== 11) throw new Error("direct profileVersion override missing");
+		if (!runtime.metadata || runtime.metadata.custom !== true) throw new Error("direct metadata merge missing");
+	`)
+}
+
+func TestRunnerResolveRuntimeDeduplicatesSystemPromptMiddleware(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "override prompt",
+			middlewares: [
+				gp.middlewares.go("systemPrompt", { prompt: "from middleware" }),
+				gp.middlewares.go("reorderToolResults"),
+			],
+		});
+
+		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 2) {
+			throw new Error("runner.resolveRuntime should deduplicate systemPrompt middleware");
+		}
+		if (runtime.middlewares[0].name !== "systemPrompt") throw new Error("systemPrompt middleware should stay first");
+		if (!runtime.middlewares[0].options || runtime.middlewares[0].options.prompt !== "override prompt") {
+			throw new Error("systemPrompt middleware should use the direct override prompt");
+		}
+		if (runtime.middlewares[1].name !== "reorderToolResults") throw new Error("non-systemPrompt middleware should be preserved");
+	`)
+}
+
+func TestRunnerPrepareBuildsPreparedRunFromExplicitRuntime(t *testing.T) {
+	profileMarkerKey := turns.TurnMetaK[string]("test", "profile_marker", 1)
+	rt := newJSRuntime(t, Options{
+		GoMiddlewareFactories: map[string]MiddlewareFactory{
+			"profileMarker": func(options map[string]any) (middleware.Middleware, error) {
+				return func(next middleware.HandlerFunc) middleware.HandlerFunc {
+					return func(ctx context.Context, turn *turns.Turn) (*turns.Turn, error) {
+						if turn == nil {
+							turn = &turns.Turn{}
+						}
+						if err := profileMarkerKey.Set(&turn.Metadata, "profile-applied"); err != nil {
+							return nil, err
+						}
+						return next(ctx, turn)
+					}
+				}, nil
+			},
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "explicit prompt",
+			middlewares: [gp.middlewares.go("profileMarker", { marker: "profile-applied" })],
+			toolNames: ["search"],
+			runtimeKey: "explicit-model",
+			profileVersion: 7,
+		});
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "search",
+			description: "search tool",
+			handler: () => ({ ok: true }),
+		});
+
+		const prepared = gp.runner.prepare({
+			engine: gp.engines.fromFunction((turn) => {
+				const hasToolUse = turn.blocks.some((b) => b.kind === "tool_use");
+				if (!hasToolUse) {
+					turn.blocks.push(gp.turns.newToolCallBlock("call-1", "search", { q: "hello" }));
+					return turn;
+				}
+				const runtimeMeta = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							profileMarker: turn.metadata["test.profile_marker@v1"],
+							runtimeKey: runtimeMeta.runtime_key,
+							profileVersion: runtimeMeta["profile.version"],
+						}))
+					]
+				});
+			}),
+			runtime,
+			tools: reg,
+			toolLoop: { enabled: true, maxIterations: 3, toolErrorHandling: "continue" },
+			seedTurn: gp.turns.newTurn({
+				id: "seed-1",
+				blocks: [gp.turns.newUserBlock("hello from runner")],
+			}),
+			sessionId: "runner-session",
+		});
+
+		if (!prepared || typeof prepared !== "object") throw new Error("runner.prepare should return object");
+		if (!prepared.session || prepared.session.turnCount() !== 1) throw new Error("prepared session should contain one seed turn");
+		if (prepared.session.latest().metadata.runtime.runtime_key !== "explicit-model") {
+			throw new Error("prepared turn should be stamped with runtime metadata");
+		}
+		if (prepared.turn.id === "seed-1") throw new Error("prepared turn should not reuse historical ids");
+		if (prepared.runtime.runtimeKey !== "explicit-model") throw new Error("prepared runtime missing");
+
+		const out = prepared.run();
+		const payload = JSON.parse(out.blocks[0].payload.text);
+		if (payload.firstKind !== "system") throw new Error("prepared.run should apply system prompt middleware");
+		if (payload.firstText !== "explicit prompt") throw new Error("prepared.run system prompt mismatch");
+		if (payload.profileMarker !== "profile-applied") throw new Error("prepared.run should materialize profile middleware");
+		if (payload.runtimeKey !== "explicit-model") throw new Error("prepared.run should stamp runtime key");
+		if (payload.profileVersion !== 7) throw new Error("prepared.run should stamp profile version");
+	`)
+}
+
+func TestRunnerRunBlocksOnPreparedExecution(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "be terse",
+			runtimeKey: "direct-runtime",
+			runtimeFingerprint: "fp-direct",
+			profileVersion: 5,
+		});
+
+		const out = gp.runner.run({
+			engine: gp.engines.fromFunction((turn) => {
+				const runtimeMeta = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							runtimeKey: runtimeMeta.runtime_key,
+							runtimeFingerprint: runtimeMeta.runtime_fingerprint,
+							profileVersion: runtimeMeta["profile.version"],
+						}))
+					]
+				});
+			}),
+			runtime,
+			prompt: "hello",
+		});
+
+		const payload = JSON.parse(out.blocks[0].payload.text);
+		if (payload.firstKind !== "system") throw new Error("runner.run should prepend direct systemPrompt");
+		if (payload.firstText !== "be terse") throw new Error("runner.run systemPrompt mismatch");
+		if (payload.runtimeKey !== "direct-runtime") throw new Error("runner.run runtimeKey mismatch");
+		if (payload.runtimeFingerprint !== "fp-direct") throw new Error("runner.run runtimeFingerprint mismatch");
+		if (payload.profileVersion !== 5) throw new Error("runner.run profileVersion mismatch");
+	`)
+}
+
+func TestRunnerStartReturnsStreamingHandle(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		globalThis.__runnerStartSeen = { events: 0 };
+
+		const reg = gp.tools.createRegistry();
+		reg.register({
+			name: "echo_args",
+			description: "echo tool input",
+			handler: ({ value }) => ({ value })
+		});
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "stream prompt",
+			runtimeKey: "stream-runtime",
+			runtimeFingerprint: "stream-fingerprint",
+		});
+
+		const handle = gp.runner.start({
+			engine: gp.engines.fromFunction((turn) => {
+				const hasToolUse = turn.blocks.some((b) => b.kind === "tool_use");
+				if (!hasToolUse) {
+					turn.blocks.push(gp.turns.newToolCallBlock("call-1", "echo_args", { value: "stream" }));
+					return turn;
+				}
+				const runtimeMeta = turn.metadata.runtime || {};
+				return gp.turns.newTurn({
+					blocks: [
+						gp.turns.newAssistantBlock(JSON.stringify({
+							firstKind: turn.blocks[0].kind,
+							firstText: turn.blocks[0].payload.text,
+							runtimeKey: runtimeMeta.runtime_key,
+						}))
+					]
+				});
+			}),
+			runtime,
+			tools: reg,
+			toolLoop: { enabled: true, maxIterations: 3, toolErrorHandling: "continue" },
+			prompt: "hello stream",
+		}, {
+			timeoutMs: 1000,
+			tags: { mode: "runner-start" }
+		});
+
+		if (!handle || typeof handle !== "object") throw new Error("runner.start should return object");
+		if (!handle.promise || typeof handle.promise.then !== "function") throw new Error("runner.start handle missing promise");
+		if (typeof handle.cancel !== "function") throw new Error("runner.start handle missing cancel");
+		if (typeof handle.on !== "function") throw new Error("runner.start handle missing on");
+		if (!handle.session || handle.session.turnCount() !== 1) throw new Error("runner.start handle missing prepared session");
+		if (!handle.runtime || handle.runtime.runtimeKey !== "stream-runtime") throw new Error("runner.start handle missing runtime");
+
+		handle.on("*", () => {
+			globalThis.__runnerStartSeen.events++;
+		});
+		globalThis.__runnerStartHandle = handle;
+	`)
+
+	snap := waitForPromiseExpr(t, rt, "__runnerStartHandle.promise", 2*time.Second)
+	if snap.State != goja.PromiseStateFulfilled {
+		t.Fatalf("expected fulfilled runner.start promise, got %v", snap.State)
+	}
+	turn, ok := snap.Result.(map[string]any)
+	if !ok || len(turn) == 0 {
+		t.Fatalf("expected non-empty turn result map, got %T (%v)", snap.Result, snap.Result)
+	}
+	payloadBlocks, ok := turn["blocks"].([]any)
+	if !ok || len(payloadBlocks) == 0 {
+		t.Fatalf("expected blocks in runner.start result, got %#v", turn["blocks"])
+	}
+
+	seenRaw := mustEvalExprExport(t, rt, "__runnerStartSeen")
+	seen, ok := seenRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected __runnerStartSeen object, got %T (%v)", seenRaw, seenRaw)
+	}
+	if seen["events"] == nil {
+		t.Fatalf("expected runner.start to track events")
+	}
+}
+
 func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "base.yaml")
@@ -826,12 +1198,16 @@ func TestProfilesNamespaceConnectStackLifecycle(t *testing.T) {
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: base-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
   helper:
     slug: helper
-    runtime:
-      system_prompt: base-helper
+    inference_settings:
+      chat:
+        api_type: openai-responses
+        engine: gpt-5-mini
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile base.yaml failed: %v", err)
 	}
@@ -839,12 +1215,16 @@ profiles:
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: top-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4.1-mini
   analyst:
     slug: analyst
-    runtime:
-      system_prompt: top-analyst
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4.1
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile top.yaml failed: %v", err)
 	}
@@ -868,11 +1248,11 @@ profiles:
 
 		const topResolved = gp.profiles.resolve({ profileSlug: "default" });
 		if (topResolved.registrySlug !== "top") throw new Error("top-of-stack resolution mismatch");
-		if (topResolved.runtimeKey !== "default") throw new Error("top runtime key mismatch");
+		if (topResolved.inferenceSettings.chat.engine !== "gpt-4.1-mini") throw new Error("top inference settings mismatch");
 
 		const baseResolved = gp.profiles.resolve({ profileSlug: "helper" });
 		if (baseResolved.registrySlug !== "base") throw new Error("base registry resolution mismatch");
-		if (baseResolved.runtimeKey !== "helper") throw new Error("base runtime key mismatch");
+		if (!baseResolved.inferenceSettings) throw new Error("base inference settings missing");
 
 		const switched = gp.profiles.connectStack(%q);
 		if (!Array.isArray(switched.sources) || switched.sources.length !== 1 || switched.sources[0] !== %q) {
@@ -898,14 +1278,16 @@ func TestProfilesNamespaceDisconnectStackRestoresHostRegistry(t *testing.T) {
 profiles:
   default:
     slug: default
-    runtime:
-      system_prompt: top-default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4.1-mini
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile top.yaml failed: %v", err)
 	}
 
 	rt := newJSRuntime(t, Options{
-		ProfileRegistry: mustNewJSProfileRegistry(t),
+		EngineProfileRegistry: mustNewJSEngineProfileRegistry(t),
 	})
 	mustRunJS(t, rt, fmt.Sprintf(`
 		const gp = require("geppetto");
@@ -931,8 +1313,8 @@ profiles:
 		if (resolved.registrySlug !== "default") {
 			throw new Error("resolve should use restored host registry after disconnect");
 		}
-		if (resolved.runtimeKey !== "explicit-model") {
-			throw new Error("resolve should derive runtime key from profile slug");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-5-mini") {
+			throw new Error("resolve should expose restored host inference settings");
 		}
 	`, topPath))
 }
@@ -1274,38 +1656,119 @@ func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 	`)
 }
 
-func mustNewJSProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 	t.Helper()
-	store := gepprofiles.NewInMemoryProfileStore()
-	if err := store.UpsertRegistry(context.Background(), &gepprofiles.ProfileRegistry{
-		Slug:               gepprofiles.MustRegistrySlug("default"),
-		DefaultProfileSlug: gepprofiles.MustProfileSlug("default-model"),
-		Profiles: map[gepprofiles.ProfileSlug]*gepprofiles.Profile{
-			gepprofiles.MustProfileSlug("default-model"): {
-				Slug: gepprofiles.MustProfileSlug("default-model"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "default prompt",
-					Tools:        []string{"calculator"},
-				},
+	newSettings := func(apiType aitypes.ApiType, model string) *aistepssettings.InferenceSettings {
+		t.Helper()
+		ss, err := aistepssettings.NewInferenceSettings()
+		if err != nil {
+			t.Fatalf("NewInferenceSettings failed: %v", err)
+		}
+		ss.Chat.ApiType = &apiType
+		ss.Chat.Engine = &model
+		switch apiType {
+		case aitypes.ApiTypeOpenAIResponses:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-responses-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeOpenAI:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeClaude:
+			ss.API.APIKeys["claude-api-key"] = "test-claude-key"
+		case aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeGemini, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-provider-key"
+		}
+		return ss
+	}
+	store := gepprofiles.NewInMemoryEngineProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
+		Slug:                     gepprofiles.MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("default-model"),
+		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
+			gepprofiles.MustEngineProfileSlug("default-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("default-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
 			},
-			gepprofiles.MustProfileSlug("explicit-model"): {
-				Slug: gepprofiles.MustProfileSlug("explicit-model"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "explicit prompt",
-					Tools:        []string{"search"},
-				},
+			gepprofiles.MustEngineProfileSlug("explicit-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("explicit-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAIResponses, "gpt-5-mini"),
+				Metadata:          gepprofiles.EngineProfileMetadata{Version: 7},
 			},
-			gepprofiles.MustProfileSlug("claude-no-base-url"): {
-				Slug: gepprofiles.MustProfileSlug("claude-no-base-url"),
-				Runtime: gepprofiles.RuntimeSpec{
-					SystemPrompt: "claude prompt",
-					Tools:        []string{"summarize"},
-				},
+			gepprofiles.MustEngineProfileSlug("claude-no-base-url"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("claude-no-base-url"),
+				InferenceSettings: newSettings(aitypes.ApiTypeClaude, "claude-3-7-sonnet-latest"),
 			},
 		},
 	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
 		t.Fatalf("UpsertRegistry(default) failed: %v", err)
 	}
+	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	return registry
+}
+
+func mustNewJSMultiRegistryEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+	t.Helper()
+
+	newSettings := func(apiType aitypes.ApiType, model string) *aistepssettings.InferenceSettings {
+		t.Helper()
+		ss, err := aistepssettings.NewInferenceSettings()
+		if err != nil {
+			t.Fatalf("NewInferenceSettings failed: %v", err)
+		}
+		ss.Chat.ApiType = &apiType
+		ss.Chat.Engine = &model
+		switch apiType {
+		case aitypes.ApiTypeOpenAIResponses:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-responses-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeOpenAI:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeClaude:
+			ss.API.APIKeys["claude-api-key"] = "test-claude-key"
+		case aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeGemini, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-provider-key"
+		}
+		return ss
+	}
+
+	store := gepprofiles.NewInMemoryEngineProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
+		Slug:                     gepprofiles.MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("default-model"),
+		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
+			gepprofiles.MustEngineProfileSlug("default-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("default-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
+			},
+			gepprofiles.MustEngineProfileSlug("shared-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("shared-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4.1-mini"),
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(default) failed: %v", err)
+	}
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
+		Slug:                     gepprofiles.MustRegistrySlug("secondary"),
+		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("shared-model"),
+		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
+			gepprofiles.MustEngineProfileSlug("shared-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("shared-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4.1"),
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(secondary) failed: %v", err)
+	}
+
 	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("NewStoreRegistry failed: %v", err)

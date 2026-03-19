@@ -55,7 +55,7 @@ func newFakeEngineRunner(t *testing.T, eng engine.Engine) *Runner {
 	t.Helper()
 
 	r := New()
-	r.engineFactory = func(*settings.StepSettings) (engine.Engine, error) {
+	r.engineFactory = func(*settings.InferenceSettings) (engine.Engine, error) {
 		return eng, nil
 	}
 	return r
@@ -68,7 +68,7 @@ func TestStartReturnsHandleAndCompletes(t *testing.T) {
 	prepared, handle, err := r.Start(context.Background(), StartRequest{
 		Prompt: "hello",
 		Runtime: Runtime{
-			StepSettings: newTestStepSettings(t),
+			InferenceSettings: newTestInferenceSettings(t),
 		},
 	})
 	if err != nil {
@@ -97,7 +97,7 @@ func TestRunReturnsCompletedTurn(t *testing.T) {
 	prepared, out, err := r.Run(context.Background(), StartRequest{
 		Prompt: "hello",
 		Runtime: Runtime{
-			StepSettings: newTestStepSettings(t),
+			InferenceSettings: newTestInferenceSettings(t),
 		},
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func TestRunPublishesEventsToRequestSinks(t *testing.T) {
 	_, _, err := r.Run(context.Background(), StartRequest{
 		Prompt: "hello",
 		Runtime: Runtime{
-			StepSettings: newTestStepSettings(t),
+			InferenceSettings: newTestInferenceSettings(t),
 		},
 		EventSinks: []events.EventSink{sink},
 	})

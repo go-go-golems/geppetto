@@ -18,7 +18,7 @@ import (
 )
 
 type TokenCounter struct {
-	settings *settings.StepSettings
+	settings *settings.InferenceSettings
 }
 
 type inputTokensRequest struct {
@@ -31,7 +31,7 @@ type inputTokensRequest struct {
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
 }
 
-func NewTokenCounter(s *settings.StepSettings) *TokenCounter {
+func NewTokenCounter(s *settings.InferenceSettings) *TokenCounter {
 	return &TokenCounter{settings: s}
 }
 

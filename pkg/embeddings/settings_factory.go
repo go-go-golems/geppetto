@@ -190,8 +190,8 @@ func NewSettingsFactoryFromParsedValues(parsedValues *values.Values) (ProviderFa
 	return NewSettingsFactory(embeddingsSettings), nil
 }
 
-// NewSettingsFactoryFromStepSettings creates a new factory from StepSettings for backwards compatibility
-func NewSettingsFactoryFromStepSettings(s *settings.StepSettings) *SettingsFactory {
+// NewSettingsFactoryFromInferenceSettings creates a new factory from InferenceSettings for backwards compatibility
+func NewSettingsFactoryFromInferenceSettings(s *settings.InferenceSettings) *SettingsFactory {
 	config := &config.EmbeddingsConfig{
 		APIKeys:  make(map[string]string),
 		BaseURLs: make(map[string]string),

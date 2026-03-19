@@ -40,7 +40,7 @@ func TestResponses_E2E_VCR_Simple(t *testing.T) {
 	http.DefaultTransport = r
 	defer func() { http.DefaultTransport = origTransport }()
 
-	eng, err := NewEngine(&settings.StepSettings{
+	eng, err := NewEngine(&settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": os.Getenv("OPENAI_API_KEY")},
 			BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},

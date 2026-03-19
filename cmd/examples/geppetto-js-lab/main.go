@@ -13,12 +13,14 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	jsruntime "github.com/go-go-golems/geppetto/pkg/js/runtime"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 )
 
@@ -86,11 +88,11 @@ func main() {
 	}
 	rt, err := jsruntime.NewRuntime(context.Background(), jsruntime.Options{
 		ModuleOptions: gp.Options{
-			GoToolRegistry:    goRegistry,
-			ProfileRegistry:   profileRegistry,
-			MiddlewareSchemas: middlewareSchemas,
-			ExtensionCodecs:   extensionCodecs,
-			ExtensionSchemas:  extensionSchemas,
+			GoToolRegistry:        goRegistry,
+			EngineProfileRegistry: profileRegistry,
+			MiddlewareSchemas:     middlewareSchemas,
+			ExtensionCodecs:       extensionCodecs,
+			ExtensionSchemas:      extensionSchemas,
 		},
 		RequireOptions: []require.Option{
 			require.WithGlobalFolders(scriptDir, filepath.Join(scriptDir, "node_modules")),
@@ -162,7 +164,7 @@ func buildGoToolRegistry() (tools.ToolRegistry, error) {
 }
 
 func loadProfileRegistryStack(raw string) (profiles.RegistryReader, io.Closer, error) {
-	entries, err := profiles.ParseProfileRegistrySourceEntries(raw)
+	entries, err := profiles.ParseEngineProfileRegistrySourceEntries(raw)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -185,7 +187,7 @@ func seedDemoProfileSQLite(path string) error {
 	if err != nil {
 		return err
 	}
-	store, err := profiles.NewSQLiteProfileStore(dsn, profiles.MustRegistrySlug("workspace-db"))
+	store, err := profiles.NewSQLiteEngineProfileStore(dsn, profiles.MustRegistrySlug("workspace-db"))
 	if err != nil {
 		return err
 	}
@@ -193,24 +195,21 @@ func seedDemoProfileSQLite(path string) error {
 		_ = store.Close()
 	}()
 
-	reg := &profiles.ProfileRegistry{
-		Slug:               profiles.MustRegistrySlug("workspace-db"),
-		DefaultProfileSlug: profiles.MustProfileSlug("default"),
-		Profiles: map[profiles.ProfileSlug]*profiles.Profile{
-			profiles.MustProfileSlug("default"): {
-				Slug:        profiles.MustProfileSlug("default"),
-				DisplayName: "Workspace default",
-				Runtime: profiles.RuntimeSpec{
-					SystemPrompt: "You are the workspace default assistant.",
-				},
+	reg := &profiles.EngineProfileRegistry{
+		Slug:                     profiles.MustRegistrySlug("workspace-db"),
+		DefaultEngineProfileSlug: profiles.MustEngineProfileSlug("default"),
+		Profiles: map[profiles.EngineProfileSlug]*profiles.EngineProfile{
+			profiles.MustEngineProfileSlug("default"): {
+				Slug:              profiles.MustEngineProfileSlug("default"),
+				DisplayName:       "Workspace default",
+				InferenceSettings: mustDemoInferenceSettings("gpt-4o-mini"),
 			},
-			profiles.MustProfileSlug("assistant"): {
-				Slug: profiles.MustProfileSlug("assistant"),
-				Stack: []profiles.ProfileRef{
-					{ProfileSlug: profiles.MustProfileSlug("default")},
-				},
-				Runtime: profiles.RuntimeSpec{
-					SystemPrompt: "You are the workspace assistant profile.",
+			profiles.MustEngineProfileSlug("assistant"): {
+				Slug:              profiles.MustEngineProfileSlug("assistant"),
+				DisplayName:       "Workspace assistant",
+				InferenceSettings: mustDemoInferenceSettings("gpt-5-mini"),
+				Stack: []profiles.EngineProfileRef{
+					{EngineProfileSlug: profiles.MustEngineProfileSlug("default")},
 				},
 			},
 		},
@@ -220,6 +219,17 @@ func seedDemoProfileSQLite(path string) error {
 		Actor:  "geppetto-js-lab",
 		Source: "seed-profile-sqlite",
 	})
+}
+
+func mustDemoInferenceSettings(model string) *aistepssettings.InferenceSettings {
+	ss, err := aistepssettings.NewInferenceSettings()
+	if err != nil {
+		panic(err)
+	}
+	apiType := aitypes.ApiTypeOpenAI
+	ss.Chat.ApiType = &apiType
+	ss.Chat.Engine = &model
+	return ss
 }
 
 func buildDemoSchemaProviders() (

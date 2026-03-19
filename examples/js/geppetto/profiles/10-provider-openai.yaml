@@ -1,14 +1,14 @@
 slug: provider-openai
 display_name: Provider defaults
-description: Provider baseline runtime and API settings.
+description: Provider baseline engine settings and credentials.
 profiles:
   default:
     slug: default
     display_name: Provider default
-    runtime:
-      system_prompt: You are the provider default assistant.
-      middlewares:
-        - name: retry
-          id: provider-retry
-          config:
-            maxAttempts: 2
+    inference_settings:
+      api:
+        api_keys:
+          openai-api-key: demo-openai-key
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini

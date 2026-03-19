@@ -79,7 +79,7 @@ func TestTokenCounterCountTurn(t *testing.T) {
 		scheme: "https",
 	}
 
-	ss := &aisettings.StepSettings{
+	ss := &aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
 			APIKeys: map[string]string{"openai-api-key": "test-key"},
 			BaseUrls: map[string]string{
@@ -165,7 +165,7 @@ func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
 		scheme: "https",
 	}
 
-	ss := &aisettings.StepSettings{
+	ss := &aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
 			APIKeys: map[string]string{"openai-api-key": "test-key"},
 			BaseUrls: map[string]string{

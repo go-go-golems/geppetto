@@ -3,12 +3,10 @@ package middlewarecfg
 import (
 	"context"
 	"errors"
+	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"reflect"
 	"strings"
 	"testing"
-
-	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 )
 
 type chainTestDefinition struct {
@@ -66,21 +64,21 @@ func TestBuildChain_SkipsDisabledAndPreservesInputOrder(t *testing.T) {
 
 	chain, err := BuildChain(context.Background(), BuildDeps{}, []ResolvedInstance{
 		{
-			Use: gepprofiles.MiddlewareUse{Name: "a", ID: "first"},
+			Use: Use{Name: "a", ID: "first"},
 			Def: defA,
 			Resolved: &ResolvedConfig{
 				Config: map[string]any{"value": int64(1)},
 			},
 		},
 		{
-			Use: gepprofiles.MiddlewareUse{Name: "b", ID: "skip", Enabled: &disabled},
+			Use: Use{Name: "b", ID: "skip", Enabled: &disabled},
 			Def: defB,
 			Resolved: &ResolvedConfig{
 				Config: map[string]any{"value": int64(2)},
 			},
 		},
 		{
-			Use: gepprofiles.MiddlewareUse{Name: "c", ID: "third"},
+			Use: Use{Name: "c", ID: "third"},
 			Def: defC,
 			Resolved: &ResolvedConfig{
 				Config: map[string]any{"value": int64(3)},
@@ -119,7 +117,7 @@ func TestBuildChain_BuildErrorIncludesInstanceKey(t *testing.T) {
 
 	_, err := BuildChain(context.Background(), BuildDeps{}, []ResolvedInstance{
 		{
-			Use: gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"},
+			Use: Use{Name: "agentmode", ID: "primary"},
 			Def: def,
 			Resolved: &ResolvedConfig{
 				Config: map[string]any{"mode": "safe"},
@@ -151,14 +149,14 @@ func TestBuildChain_RepeatedMiddlewareNamesWithUniqueIDs(t *testing.T) {
 
 	chain, err := BuildChain(context.Background(), BuildDeps{}, []ResolvedInstance{
 		{
-			Use: gepprofiles.MiddlewareUse{Name: "agentmode", ID: "safe"},
+			Use: Use{Name: "agentmode", ID: "safe"},
 			Def: def,
 			Resolved: &ResolvedConfig{
 				Config: map[string]any{"mode": "safe"},
 			},
 		},
 		{
-			Use: gepprofiles.MiddlewareUse{Name: "agentmode", ID: "aggressive"},
+			Use: Use{Name: "agentmode", ID: "aggressive"},
 			Def: def,
 			Resolved: &ResolvedConfig{
 				Config: map[string]any{"mode": "aggressive"},
@@ -177,12 +175,12 @@ func TestBuildChain_RepeatedMiddlewareNamesWithUniqueIDs(t *testing.T) {
 }
 
 func TestMiddlewareInstanceKey_UsesIDWhenPresent(t *testing.T) {
-	got := MiddlewareInstanceKey(gepprofiles.MiddlewareUse{Name: "agentmode", ID: "primary"}, 4)
+	got := MiddlewareInstanceKey(Use{Name: "agentmode", ID: "primary"}, 4)
 	if got != "agentmode#primary" {
 		t.Fatalf("instance key mismatch: got=%q want=%q", got, "agentmode#primary")
 	}
 
-	got = MiddlewareInstanceKey(gepprofiles.MiddlewareUse{Name: "agentmode"}, 4)
+	got = MiddlewareInstanceKey(Use{Name: "agentmode"}, 4)
 	if got != "agentmode[4]" {
 		t.Fatalf("instance key mismatch: got=%q want=%q", got, "agentmode[4]")
 	}

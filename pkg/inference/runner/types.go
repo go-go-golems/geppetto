@@ -12,7 +12,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	geptools "github.com/go-go-golems/geppetto/pkg/inference/tools"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -22,10 +21,10 @@ type ToolRegistrar func(ctx context.Context, reg geptools.ToolRegistry) error
 
 // Runtime is fully resolved application-owned runtime input consumed by the runner.
 type Runtime struct {
-	StepSettings *settings.StepSettings
-	SystemPrompt string
+	InferenceSettings *settings.InferenceSettings
+	SystemPrompt      string
 
-	MiddlewareUses []gepprofiles.MiddlewareUse
+	MiddlewareUses []middlewarecfg.Use
 	Middlewares    []gepmiddleware.Middleware
 
 	ToolNames      []string
@@ -67,7 +66,7 @@ type Runner struct {
 	loopConfig toolloop.LoopConfig
 	toolConfig geptools.ToolConfig
 
-	engineFactory  func(*settings.StepSettings) (engine.Engine, error)
+	engineFactory  func(*settings.InferenceSettings) (engine.Engine, error)
 	toolExecutor   geptools.ToolExecutor
 	toolRegistrars []ToolRegistrar
 

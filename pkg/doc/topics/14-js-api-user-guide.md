@@ -1,7 +1,7 @@
 ---
 Title: Geppetto JavaScript API User Guide
 Slug: geppetto-js-api-user-guide
-Short: Practical guide to composing engines, middlewares, tools, and sessions from JavaScript.
+Short: Practical guide to composing engines and app-owned runtime behavior from JavaScript.
 Topics:
 - geppetto
 - javascript
@@ -15,263 +15,144 @@ ShowPerDefault: true
 SectionType: Application
 ---
 
-This guide is focused on writing JS files and validating behavior by executing those JS files directly.
+This guide shows the intended split after the engine-profile hard cut:
 
-If you need exact signatures for every method, use [JS API Reference](13-js-api-reference.md).
+- use engine profiles to resolve `InferenceSettings`
+- use the runner to assemble app-owned runtime behavior
 
-## JS-First Workflow
-
-1. Write a JS script file.
-2. Put assertions in the script (`assert(...)`).
-3. Run it with:
+## Run Scripts
 
 ```bash
 go run ./cmd/examples/geppetto-js-lab --script <your-script.js>
 ```
 
-4. Treat non-zero exit as failure and fix the script or pipeline setup.
+## Default Path
 
-## Suggested Project Layout
+For most scripts:
 
-```text
-examples/js/geppetto/
-  01-07 core turns/session/tools scripts
-  08-12 profile registry read/resolve scripts
-  13-14 schema catalog scripts
-  15-16 sqlite and mixed-stack scripts
-  17-18 hard-cutover error-contract scripts
-  19_profiles_connect_stack_runtime.js
-```
-
-You can copy these and branch them into your own scenario files.
-
-## Workflow 1: Start with Turns and Blocks
-
-Goal: verify payload and metadata shape before adding engines.
-
-Run:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/01_turns_and_blocks.js
-```
-
-Use this stage to lock your turn schema and metadata keys.
-
-## Workflow 2: Add Deterministic Session Inference
-
-Goal: verify session lifecycle and history with no provider variability.
-
-Run:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/02_session_echo.js
-```
-
-Keep this deterministic until basic state flow is stable.
-
-## Workflow 3: Compose JS and Go Middlewares
-
-Goal: verify middleware order and turn mutation behavior.
-
-Run:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/03_middleware_composition.js
-```
-
-Default Go middleware names available here:
-
-- `systemPrompt`
-- `reorderToolResults`
-- `turnLogging`
-
-## Workflow 4: Register JS Tools and Enable Toolloop
-
-Goal: verify tool-call to tool-use lifecycle using pure JS tools.
-
-Run:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/04_tools_and_toolloop.js
-```
-
-## Workflow 5: Import and Call Go Tools from JS
-
-Goal: confirm hybrid registry behavior (`JS tools + Go tools`).
-
-Run:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --list-go-tools
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/05_go_tools_from_js.js
-```
-
-## Workflow 5b: Attach JS-Native Event Sinks
-
-Goal: observe inference/tool-loop events from JS without host-provided sink objects.
-
-Run:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/20_events_collector_sink.js
-```
-
-Pattern:
+1. resolve or construct an engine
+2. build app-owned runtime input
+3. run with `gp.runner`
 
 ```javascript
-const sink = gp.events.collector()
-  .on("*", (ev) => console.log(ev.type))
-  .on("tool-call-execute", (ev) => console.log(ev.toolCall));
+const gp = require("geppetto");
 
-const session = gp.createBuilder()
-  .withEngine(engine)
-  .withEventSink(sink)
-  .buildSession();
+const engine = gp.engines.fromConfig({
+  apiType: "openai",
+  model: "gpt-4.1-mini",
+  apiKey: "test-openai-key",
+});
+
+const runtime = gp.runner.resolveRuntime({
+  systemPrompt: "Answer in one short line.",
+  runtimeKey: "demo",
+});
+
+const out = gp.runner.run({
+  engine,
+  runtime,
+  prompt: "hello",
+});
 ```
 
-## Workflow 6: Optional Live Provider Inference
+## Using Engine Profiles
 
-Goal: final external smoke check after deterministic scripts pass.
+Engine profiles now configure engine settings only.
 
-Run:
+Resolve one:
 
-```bash
-go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/06_live_profile_inference.js
+```javascript
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+console.log(resolved.inferenceSettings.chat.engine);
 ```
 
-The script skips cleanly if no Gemini key is set (`GEMINI_API_KEY` or `GOOGLE_API_KEY`).
+Build an engine from it:
 
-## Explicit Engine Construction
+```javascript
+const engine = gp.engines.fromResolvedProfile(resolved);
+```
 
-The JS engine surface only supports explicit engine construction. The JS layer now follows the same boundary as the Go apps:
+Or skip the explicit resolve step:
 
-- resolve profile/runtime metadata with `gp.profiles.resolve(...)`
-- build engines explicitly with `gp.engines.fromConfig(...)`
+```javascript
+const engine = gp.engines.fromProfile({ profileSlug: "assistant" });
+```
+
+## App-Owned Runtime
+
+The runtime object belongs to the application side.
+
+Use it for:
+
+- `systemPrompt`
+- explicit middleware refs
+- tool-name filtering
+- runtime metadata like `runtimeKey`
 
 Example:
 
 ```javascript
-const gp = require("geppetto");
-
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-const engine = gp.engines.fromConfig({
-  apiType: "openai",
-  model: "gpt-4.1-mini",
-  apiKey: process.env.OPENAI_API_KEY,
+const runtime = gp.runner.resolveRuntime({
+  systemPrompt: "Be terse.",
+  middlewares: [gp.middlewares.go("reorderToolResults")],
+  toolNames: ["search_docs"],
+  runtimeKey: "assistant-terse",
 });
-
-console.log(resolved.runtimeFingerprint, engine.name);
 ```
 
-Provider keys must be passed explicitly to `fromConfig`. The JS helpers do not read provider credentials from process environment variables or profile registries.
+Do not expect `gp.runner.resolveRuntime(...)` to resolve engine profiles. That was removed intentionally.
 
-## Runtime Stack Binding from JS
+## Combining Both Sides
 
-If the host did not inject `Options.ProfileRegistry`, scripts can bind registry sources directly:
+This is the target shape:
 
 ```javascript
 const gp = require("geppetto");
 
-const connected = gp.profiles.connectStack([
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+const engine = gp.engines.fromResolvedProfile(resolved);
+
+const runtime = gp.runner.resolveRuntime({
+  systemPrompt: "App-owned prompt",
+  runtimeKey: resolved.profileSlug,
+  metadata: {
+    profileSlug: resolved.profileSlug,
+    profileRegistry: resolved.registrySlug,
+  },
+});
+
+const handle = gp.runner.start({
+  engine,
+  runtime,
+  prompt: "hello",
+});
+```
+
+## Registry Stacks from JS
+
+If the host did not provide a registry, connect one from JS:
+
+```javascript
+const gp = require("geppetto");
+
+gp.profiles.connectStack([
   "examples/js/geppetto/profiles/10-provider-openai.yaml",
   "examples/js/geppetto/profiles/20-team-agent.yaml",
+  "examples/js/geppetto/profiles/30-user-overrides.yaml",
 ]);
 
 const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(connected.sources, resolved.registrySlug);
-
-gp.profiles.disconnectStack();
+console.log(resolved.registrySlug, resolved.inferenceSettings.chat.engine);
 ```
 
-`disconnectStack()` restores host baseline profile-registry wiring when one exists; otherwise it clears runtime-connected sources.
+## What Was Removed
 
-## Working Directly with `gp.profiles`
+The older mixed model is gone:
 
-Use `gp.profiles` when you need registry inspection or resolution from JS:
+- no `effectiveRuntime` on resolved profiles
+- no profile-derived `runtimeKey` or `runtimeFingerprint`
+- no `resolvedProfile` builder option
+- no `useResolvedProfile(...)`
+- no `runner.resolveRuntime({ profile: ... })`
 
-```javascript
-const gp = require("geppetto");
-
-const registries = gp.profiles.listRegistries();
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-
-console.log(registries.map((r) => r.slug));
-console.log(resolved.runtimeFingerprint);
-```
-
-## Working with `gp.schemas`
-
-Use `gp.schemas` to inspect middleware and extension schema catalogs:
-
-```javascript
-const gp = require("geppetto");
-
-const middlewareSchemas = gp.schemas.listMiddlewares();
-const extensionSchemas = gp.schemas.listExtensions();
-
-console.log(middlewareSchemas.map((x) => x.name));
-console.log(extensionSchemas.map((x) => x.key));
-```
-
-Host requirements:
-
-- `listMiddlewares()` requires `Options.MiddlewareSchemas`.
-- `listExtensions()` requires `Options.ExtensionCodecs` and/or `Options.ExtensionSchemas`.
-
-## Recommended Iteration Loop
-
-1. Keep one script per behavior slice.
-2. Use assertions for observable outcomes (block kinds, payload content, metadata changes).
-3. Commit only scripts that are executable without manual edits.
-4. Add live-provider scripts only after deterministic script set is green.
-
-## Recording/Storage Hook Pattern
-
-When the host wants to persist runs, pass hook references through builder
-options or the chainable methods:
-
-```javascript
-const session = gp
-  .createBuilder({
-    engine,
-    persister,
-    eventSinks: [eventSink],
-    snapshotHook,
-  })
-  .buildSession();
-```
-
-These map to the same runtime builder hooks:
-
-- `withPersister(...)`
-- `withEventSink(...)`
-- `withSnapshotHook(...)`
-
-
-## Writing Plugin Descriptors
-
-`geppetto` no longer provides plugin descriptor helpers via `require("geppetto/plugins")`.
-
-Use the helper module provided by your host runtime/package (for example, `go-go-gepa` local plugin helper files) or export plain descriptor objects consumed by your host loader.
-
-Reference optimizer script:
-
-1. `github.com/gepa-ai/gepa/go-gepa-runner/cmd/gepa-runner/scripts/toy_math_optimizer.js`
-
-## Troubleshooting
-
-| Problem | Cause | Solution |
-|---|---|---|
-| `module geppetto not found` | host runtime did not register module | use `geppetto-js-lab` or register via `gp.Register(reg, opts)` |
-| `no go tool registry configured` | script calls `useGoTools` in host without Go registry | run with `geppetto-js-lab` or configure `Options.GoToolRegistry` |
-| tool loop does not execute | registry not bound to builder | call `.withTools(reg, { enabled: true })` |
-| recording hooks ignored | non-hook values passed into builder options | pass Go `TurnPersister` / `EventSink` / `SnapshotHook` references |
-| unstable output in live script | provider variability | keep deterministic checks in `echo`/`fromFunction` scripts |
-
-## See Also
-
-- [JS API Reference](13-js-api-reference.md)
-- [JS API Getting Started Tutorial](../tutorials/05-js-api-getting-started.md)
-- [Tools](07-tools.md)
-- [Middlewares](09-middlewares.md)
-- [Sessions](10-sessions.md)
+If you need those behaviors, implement them explicitly in the host script or application code. That is now the intended architecture.

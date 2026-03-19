@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 )
 
-func (m *moduleRuntime) requireProfileRegistryReader(method string) (profiles.RegistryReader, error) {
+func (m *moduleRuntime) requireEngineProfileRegistryReader(method string) (profiles.RegistryReader, error) {
 	if m.profileRegistry == nil {
 		return nil, fmt.Errorf("%s requires a configured profile registry", method)
 	}
@@ -24,33 +24,16 @@ func parseOptionalRegistrySlug(raw any) (profiles.RegistrySlug, error) {
 	return profiles.ParseRegistrySlug(rawSlug)
 }
 
-func parseRequiredProfileSlug(raw any, field string) (profiles.ProfileSlug, error) {
+func parseRequiredEngineProfileSlug(raw any, field string) (profiles.EngineProfileSlug, error) {
 	rawSlug := strings.TrimSpace(toString(raw, ""))
 	if rawSlug == "" {
 		return "", fmt.Errorf("%s is required", field)
 	}
-	return profiles.ParseProfileSlug(rawSlug)
-}
-
-func encodeResolvedProfile(resolved *profiles.ResolvedProfile) map[string]any {
-	if resolved == nil {
-		return nil
-	}
-	out := map[string]any{
-		"registrySlug":       resolved.RegistrySlug.String(),
-		"profileSlug":        resolved.ProfileSlug.String(),
-		"runtimeKey":         resolved.RuntimeKey.String(),
-		"runtimeFingerprint": resolved.RuntimeFingerprint,
-		"effectiveRuntime":   cloneJSONValue(resolved.EffectiveRuntime),
-	}
-	if len(resolved.Metadata) > 0 {
-		out["metadata"] = cloneJSONMap(resolved.Metadata)
-	}
-	return out
+	return profiles.ParseEngineProfileSlug(rawSlug)
 }
 
 func (m *moduleRuntime) profilesListRegistries(call goja.FunctionCall) goja.Value {
-	registry, err := m.requireProfileRegistryReader("profiles.listRegistries")
+	registry, err := m.requireEngineProfileRegistryReader("profiles.listRegistries")
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -62,7 +45,7 @@ func (m *moduleRuntime) profilesListRegistries(call goja.FunctionCall) goja.Valu
 }
 
 func (m *moduleRuntime) profilesGetRegistry(call goja.FunctionCall) goja.Value {
-	registry, err := m.requireProfileRegistryReader("profiles.getRegistry")
+	registry, err := m.requireEngineProfileRegistryReader("profiles.getRegistry")
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -82,8 +65,8 @@ func (m *moduleRuntime) profilesGetRegistry(call goja.FunctionCall) goja.Value {
 	return m.toJSValue(cloneJSONValue(ret))
 }
 
-func (m *moduleRuntime) profilesListProfiles(call goja.FunctionCall) goja.Value {
-	registry, err := m.requireProfileRegistryReader("profiles.listProfiles")
+func (m *moduleRuntime) profilesListEngineProfiles(call goja.FunctionCall) goja.Value {
+	registry, err := m.requireEngineProfileRegistryReader("profiles.listProfiles")
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -96,15 +79,15 @@ func (m *moduleRuntime) profilesListProfiles(call goja.FunctionCall) goja.Value 
 		}
 	}
 
-	rows, err := registry.ListProfiles(context.Background(), registrySlug)
+	rows, err := registry.ListEngineProfiles(context.Background(), registrySlug)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
 	return m.toJSValue(cloneJSONValue(rows))
 }
 
-func (m *moduleRuntime) profilesGetProfile(call goja.FunctionCall) goja.Value {
-	registry, err := m.requireProfileRegistryReader("profiles.getProfile")
+func (m *moduleRuntime) profilesGetEngineProfile(call goja.FunctionCall) goja.Value {
+	registry, err := m.requireEngineProfileRegistryReader("profiles.getProfile")
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -112,7 +95,7 @@ func (m *moduleRuntime) profilesGetProfile(call goja.FunctionCall) goja.Value {
 		panic(m.vm.NewTypeError("profiles.getProfile requires profileSlug"))
 	}
 
-	profileSlug, err := parseRequiredProfileSlug(call.Arguments[0].Export(), "profileSlug")
+	profileSlug, err := parseRequiredEngineProfileSlug(call.Arguments[0].Export(), "profileSlug")
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -125,7 +108,7 @@ func (m *moduleRuntime) profilesGetProfile(call goja.FunctionCall) goja.Value {
 		}
 	}
 
-	ret, err := registry.GetProfile(context.Background(), registrySlug, profileSlug)
+	ret, err := registry.GetEngineProfile(context.Background(), registrySlug, profileSlug)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -133,45 +116,53 @@ func (m *moduleRuntime) profilesGetProfile(call goja.FunctionCall) goja.Value {
 }
 
 func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
-	registry, err := m.requireProfileRegistryReader("profiles.resolve")
+	registry, err := m.requireEngineProfileRegistryReader("profiles.resolve")
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
 
 	in := profiles.ResolveInput{}
+	if m.defaultProfileResolve.RegistrySlug != "" {
+		in.RegistrySlug = m.defaultProfileResolve.RegistrySlug
+	}
+	if m.defaultProfileResolve.EngineProfileSlug != "" {
+		in.EngineProfileSlug = m.defaultProfileResolve.EngineProfileSlug
+	}
 	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
 		opts := decodeMap(call.Arguments[0].Export())
 		if opts == nil {
 			panic(m.vm.NewTypeError("profiles.resolve expects an object"))
 		}
-		if registrySlug, err := parseOptionalRegistrySlug(opts["registrySlug"]); err != nil {
-			panic(m.vm.NewGoError(err))
-		} else {
-			in.RegistrySlug = registrySlug
+		if rawRegistrySlug, ok := opts["registrySlug"]; ok {
+			if registrySlug, err := parseOptionalRegistrySlug(rawRegistrySlug); err != nil {
+				panic(m.vm.NewGoError(err))
+			} else {
+				in.RegistrySlug = registrySlug
+			}
 		}
-		if rawProfileSlug := strings.TrimSpace(toString(opts["profileSlug"], "")); rawProfileSlug != "" {
-			profileSlug, err := profiles.ParseProfileSlug(rawProfileSlug)
+		if rawEngineProfileSlug := strings.TrimSpace(toString(opts["profileSlug"], "")); rawEngineProfileSlug != "" {
+			profileSlug, err := profiles.ParseEngineProfileSlug(rawEngineProfileSlug)
 			if err != nil {
 				panic(m.vm.NewGoError(err))
 			}
-			in.ProfileSlug = profileSlug
+			in.EngineProfileSlug = profileSlug
 		}
 	}
 
-	resolved, err := registry.ResolveEffectiveProfile(context.Background(), in)
+	resolved, err := registry.ResolveEngineProfile(context.Background(), in)
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
-	return m.toJSValue(encodeResolvedProfile(resolved))
+	return m.newResolvedEngineProfileObject(resolved)
 }
 
-func decodeProfileRegistrySources(raw any) ([]string, error) {
+func decodeEngineProfileRegistrySources(raw any) ([]string, error) {
 	if raw == nil {
 		return nil, fmt.Errorf("profile registry sources are required")
 	}
 	switch v := raw.(type) {
 	case string:
-		return profiles.ParseProfileRegistrySourceEntries(v)
+		return profiles.ParseEngineProfileRegistrySourceEntries(v)
 	case []string:
 		ret := make([]string, 0, len(v))
 		for i, entry := range v {
@@ -202,7 +193,7 @@ func (m *moduleRuntime) profilesConnectStack(call goja.FunctionCall) goja.Value 
 		panic(m.vm.NewTypeError("profiles.connectStack requires profile registry sources"))
 	}
 
-	entries, err := decodeProfileRegistrySources(call.Arguments[0].Export())
+	entries, err := decodeEngineProfileRegistrySources(call.Arguments[0].Export())
 	if err != nil {
 		panic(m.vm.NewGoError(err))
 	}
@@ -243,10 +234,10 @@ func (m *moduleRuntime) profilesDisconnectStack(call goja.FunctionCall) goja.Val
 	if m.profileRegistryOwned && m.profileRegistryCloser != nil {
 		_ = m.profileRegistryCloser.Close()
 	}
-	m.profileRegistry = m.baseProfileRegistry
-	m.profileRegistryCloser = m.baseProfileRegistryCloser
+	m.profileRegistry = m.baseEngineProfileRegistry
+	m.profileRegistryCloser = m.baseEngineProfileRegistryCloser
 	m.profileRegistryOwned = false
-	m.profileRegistrySpec = append([]string(nil), m.baseProfileRegistrySpec...)
+	m.profileRegistrySpec = append([]string(nil), m.baseEngineProfileRegistrySpec...)
 	return goja.Undefined()
 }
 

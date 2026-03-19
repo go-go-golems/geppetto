@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
-	"github.com/go-go-golems/geppetto/pkg/profiles"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
@@ -24,29 +24,29 @@ import (
 // CreateOption configures behavior of CreateGeppettoSections.
 type CreateOption func(*createOptions)
 type createOptions struct {
-	stepSettings *settings.StepSettings
+	stepSettings *settings.InferenceSettings
 }
 
-// WithDefaultsFromStepSettings uses the given StepSettings for layer defaults.
-func WithDefaultsFromStepSettings(s *settings.StepSettings) CreateOption {
+// WithDefaultsFromInferenceSettings uses the given InferenceSettings for layer defaults.
+func WithDefaultsFromInferenceSettings(s *settings.InferenceSettings) CreateOption {
 	return func(o *createOptions) {
 		o.stepSettings = s
 	}
 }
 
 // CreateGeppettoSections returns settings sections for Geppetto AI settings.
-// If no StepSettings are provided via WithStepSettings, default settings.NewStepSettings() is used.
+// If no InferenceSettings are provided via WithInferenceSettings, default settings.NewInferenceSettings() is used.
 func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	// Apply options
 	var co createOptions
 	for _, opt := range opts {
 		opt(&co)
 	}
-	// Determine StepSettings
-	var ss *settings.StepSettings
+	// Determine InferenceSettings
+	var ss *settings.InferenceSettings
 	if co.stepSettings == nil {
 		var err error
-		ss, err = settings.NewStepSettings()
+		ss, err = settings.NewInferenceSettings()
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +110,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
-	profileSettingsSection, err := newProfileRegistrySettingsSection()
+	profileSettingsSection, err := newEngineProfileRegistrySettingsSection()
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func defaultPinocchioProfileRegistriesIfPresent() string {
 	return path
 }
 
-func newProfileRegistrySettingsSection() (schema.Section, error) {
+func newEngineProfileRegistrySettingsSection() (schema.Section, error) {
 	return schema.NewSection(
 		profileSettingsSectionSlug,
 		"Profile settings",
@@ -252,7 +252,7 @@ func GetCobraCommandGeppettoMiddlewares(
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
 	profileSettings := &profileRegistrySettings{}
-	profileSettingsLayer, err := newProfileRegistrySettingsSection()
+	profileSettingsLayer, err := newEngineProfileRegistrySettingsSection()
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func GetCobraCommandGeppettoMiddlewares(
 			profileSettings.ProfileRegistries = defaultPath
 		}
 	}
-	profileRegistrySources, err := profiles.ParseProfileRegistrySourceEntries(profileSettings.ProfileRegistries)
+	profileRegistrySources, err := profiles.ParseEngineProfileRegistrySourceEntries(profileSettings.ProfileRegistries)
 	if err != nil {
 		return nil, err
 	}

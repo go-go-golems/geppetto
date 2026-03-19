@@ -26,7 +26,7 @@ import (
 
 // Engine implements the Engine interface for OpenAI Responses API calls.
 type Engine struct {
-	settings *settings.StepSettings
+	settings *settings.InferenceSettings
 }
 
 type usageTotals struct {
@@ -36,7 +36,7 @@ type usageTotals struct {
 	reasoningTokens int
 }
 
-func NewEngine(s *settings.StepSettings) (*Engine, error) {
+func NewEngine(s *settings.InferenceSettings) (*Engine, error) {
 	return &Engine{settings: s}, nil
 }
 

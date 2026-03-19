@@ -236,14 +236,14 @@ func TestBuildInputItemsFromTurn_PreservesReasoningForOlderFunctionCallChains(t 
 	}
 }
 
-func newTestEngine(ss *settings.StepSettings) *Engine {
+func newTestEngine(ss *settings.InferenceSettings) *Engine {
 	return &Engine{settings: ss}
 }
 
 func TestBuildResponsesRequestStructuredOutput(t *testing.T) {
 	model := "gpt-4o-mini"
 	strict := true
-	ss := &settings.StepSettings{
+	ss := &settings.InferenceSettings{
 		Chat: &settings.ChatSettings{
 			Engine:                 &model,
 			StructuredOutputMode:   settings.StructuredOutputModeJSONSchema,
@@ -275,7 +275,7 @@ func TestBuildResponsesRequestStructuredOutput(t *testing.T) {
 
 func TestBuildResponsesRequestStructuredOutputInvalidSchemaRequireValid(t *testing.T) {
 	model := "gpt-4o-mini"
-	ss := &settings.StepSettings{
+	ss := &settings.InferenceSettings{
 		Chat: &settings.ChatSettings{
 			Engine:                       &model,
 			StructuredOutputMode:         settings.StructuredOutputModeJSONSchema,
@@ -297,7 +297,7 @@ func TestBuildResponsesRequestStructuredOutputInvalidSchemaRequireValid(t *testi
 
 func TestBuildResponsesRequestStructuredOutputInvalidSchemaIgnoredWhenNotRequired(t *testing.T) {
 	model := "gpt-4o-mini"
-	ss := &settings.StepSettings{
+	ss := &settings.InferenceSettings{
 		Chat: &settings.ChatSettings{
 			Engine:                       &model,
 			StructuredOutputMode:         settings.StructuredOutputModeJSONSchema,
@@ -323,7 +323,7 @@ func TestBuildResponsesRequestStructuredOutputInvalidSchemaIgnoredWhenNotRequire
 
 func TestBuildResponsesRequestInferenceEmptyStopClearsChatStop(t *testing.T) {
 	model := "gpt-4o-mini"
-	ss := &settings.StepSettings{
+	ss := &settings.InferenceSettings{
 		Chat: &settings.ChatSettings{
 			Engine: &model,
 			Stop:   []string{"<END>"},

@@ -9,12 +9,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func newTestStepSettings(t *testing.T) *settings.StepSettings {
+func newTestInferenceSettings(t *testing.T) *settings.InferenceSettings {
 	t.Helper()
 
-	ss, err := settings.NewStepSettings()
+	ss, err := settings.NewInferenceSettings()
 	if err != nil {
-		t.Fatalf("NewStepSettings: %v", err)
+		t.Fatalf("NewInferenceSettings: %v", err)
 	}
 	ss.API.APIKeys["openai-api-key"] = "test-key"
 	return ss
@@ -29,8 +29,8 @@ func TestPreparePromptOnlyBuildsSessionAndRegistry(t *testing.T) {
 		SessionID: "session-123",
 		Prompt:    "hello",
 		Runtime: Runtime{
-			StepSettings: newTestStepSettings(t),
-			ToolNames:    []string{"echo"},
+			InferenceSettings: newTestInferenceSettings(t),
+			ToolNames:         []string{"echo"},
 		},
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func TestPrepareClonesSeedTurnAndAppendsPrompt(t *testing.T) {
 		Prompt:    "follow up",
 		SeedTurn:  seed,
 		Runtime: Runtime{
-			StepSettings: newTestStepSettings(t),
+			InferenceSettings: newTestInferenceSettings(t),
 		},
 	})
 	if err != nil {
@@ -107,7 +107,7 @@ func TestPrepareStampsRuntimeMetadataOnPreparedTurn(t *testing.T) {
 	prepared, err := r.Prepare(context.Background(), StartRequest{
 		Prompt: "hello",
 		Runtime: Runtime{
-			StepSettings:       newTestStepSettings(t),
+			InferenceSettings:  newTestInferenceSettings(t),
 			RuntimeKey:         "assistant@v1",
 			RuntimeFingerprint: "fp-123",
 			ProfileVersion:     7,
@@ -149,7 +149,7 @@ func TestPreparePreservesExistingRuntimeMetadataFields(t *testing.T) {
 	prepared, err := r.Prepare(context.Background(), StartRequest{
 		SeedTurn: seed,
 		Runtime: Runtime{
-			StepSettings:       newTestStepSettings(t),
+			InferenceSettings:  newTestInferenceSettings(t),
 			RuntimeKey:         "assistant@v1",
 			RuntimeFingerprint: "fp-123",
 		},
@@ -179,7 +179,7 @@ func TestPrepareRejectsEmptyPromptAndSeed(t *testing.T) {
 
 	_, err := r.Prepare(context.Background(), StartRequest{
 		Runtime: Runtime{
-			StepSettings: newTestStepSettings(t),
+			InferenceSettings: newTestInferenceSettings(t),
 		},
 	})
 	if !errors.Is(err, ErrPromptAndSeedEmpty) {

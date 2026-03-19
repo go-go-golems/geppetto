@@ -3,11 +3,14 @@ const gp = require("geppetto");
 const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
 assert(
   resolved.registrySlug === "workspace-db",
-  "assistant should resolve from top sqlite registry in mixed stack"
+  "assistant should resolve from top sqlite registry in mixed stack",
 );
-assert(resolved.effectiveRuntime.system_prompt === "You are the workspace assistant profile.", "runtime payload mismatch");
+assert(
+  resolved.inferenceSettings.chat.engine === "gpt-5-mini",
+  "mixed-stack engine settings mismatch",
+);
 
 console.log("mixed precedence:", JSON.stringify({
   registrySlug: resolved.registrySlug,
-  runtimeKey: resolved.runtimeKey
+  model: resolved.inferenceSettings.chat.engine,
 }));

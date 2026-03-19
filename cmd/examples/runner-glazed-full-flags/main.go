@@ -73,7 +73,7 @@ func (c *runnerGlazedCommand) RunIntoWriter(ctx context.Context, parsedValues *v
 		return err
 	}
 
-	stepSettings, err := aistepsettings.NewStepSettingsFromParsedValues(parsedValues)
+	stepSettings, err := aistepsettings.NewInferenceSettingsFromParsedValues(parsedValues)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,8 @@ func (c *runnerGlazedCommand) RunIntoWriter(ctx context.Context, parsedValues *v
 	_, out, err := r.Run(ctx, runner.StartRequest{
 		Prompt: s.Prompt,
 		Runtime: runner.Runtime{
-			StepSettings: stepSettings,
-			SystemPrompt: s.SystemPrompt,
+			InferenceSettings: stepSettings,
+			SystemPrompt:      s.SystemPrompt,
 		},
 	})
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 	"github.com/rs/zerolog/log"
 )
 
@@ -97,7 +96,7 @@ func (r *ResolvedConfig) History(path string) []ParseStep {
 }
 
 // Resolve resolves one middleware use config against a middleware definition schema.
-func (r *Resolver) Resolve(def Definition, use gepprofiles.MiddlewareUse) (*ResolvedConfig, error) {
+func (r *Resolver) Resolve(def Definition, use Use) (*ResolvedConfig, error) {
 	if def == nil {
 		return nil, fmt.Errorf("middleware definition is nil")
 	}
@@ -256,7 +255,7 @@ func applyPayloadWithProjection(
 	return nil
 }
 
-func middlewareUseDiagnosticKey(use gepprofiles.MiddlewareUse) string {
+func middlewareUseDiagnosticKey(use Use) string {
 	name := strings.TrimSpace(use.Name)
 	if name == "" {
 		name = "middleware"

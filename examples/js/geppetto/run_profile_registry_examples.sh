@@ -30,6 +30,8 @@ run_script "examples/js/geppetto/04_tools_and_toolloop.js"
 run_script "examples/js/geppetto/05_go_tools_from_js.js"
 run_script "examples/js/geppetto/06_live_profile_inference.js"
 run_script "examples/js/geppetto/07_context_and_constants.js"
+run_script "examples/js/geppetto/22_runner_run.js"
+run_script "examples/js/geppetto/24_runner_start_handle.js"
 
 echo "==> Running profile/schema scripts against stacked YAML registries"
 run_script "examples/js/geppetto/08_profiles_registry_inventory.js" --profile-registries "${STACK_REGISTRIES}"
@@ -49,5 +51,7 @@ run_script "examples/js/geppetto/16_mixed_registry_precedence.js" --profile-regi
 echo "==> Running expected error script without profile registries"
 run_script "examples/js/geppetto/18_missing_profile_registry_errors.js"
 run_script "examples/js/geppetto/19_profiles_connect_stack_runtime.js"
+run_script "examples/js/geppetto/21_resolved_profile_session.js" --profile-registries "${STACK_REGISTRIES}"
+run_script "examples/js/geppetto/23_runner_profile_run.js" --profile-registries "${STACK_REGISTRIES}"
 
 echo "All geppetto JS profile/registry scripts passed."

@@ -69,7 +69,7 @@ func TestStandardEngineFactory_CreateEngine_Claude_Success(t *testing.T) {
 func TestStandardEngineFactory_CreateEngine_UnsupportedProvider(t *testing.T) {
 	factory := NewStandardEngineFactory()
 
-	settings, err := settings.NewStepSettings()
+	settings, err := settings.NewInferenceSettings()
 	require.NoError(t, err)
 
 	// Set an unsupported provider
@@ -86,7 +86,7 @@ func TestStandardEngineFactory_CreateEngine_UnsupportedProvider(t *testing.T) {
 func TestStandardEngineFactory_CreateEngine_MissingAPIKey(t *testing.T) {
 	factory := NewStandardEngineFactory()
 
-	settings, err := settings.NewStepSettings()
+	settings, err := settings.NewInferenceSettings()
 	require.NoError(t, err)
 
 	openaiType := types.ApiTypeOpenAI
@@ -130,8 +130,8 @@ func TestStandardEngineFactory_CreateEngine_ReasoningModelsStayOnConfiguredProvi
 }
 
 // Helper function to create valid OpenAI settings for testing
-func createValidOpenAISettings() *settings.StepSettings {
-	settings, _ := settings.NewStepSettings()
+func createValidOpenAISettings() *settings.InferenceSettings {
+	settings, _ := settings.NewInferenceSettings()
 
 	openaiType := types.ApiTypeOpenAI
 	settings.Chat.ApiType = &openaiType
@@ -142,8 +142,8 @@ func createValidOpenAISettings() *settings.StepSettings {
 }
 
 // Helper function to create valid Claude settings for testing
-func createValidClaudeSettings() *settings.StepSettings {
-	settings, _ := settings.NewStepSettings()
+func createValidClaudeSettings() *settings.InferenceSettings {
+	settings, _ := settings.NewInferenceSettings()
 
 	claudeType := types.ApiTypeClaude
 	settings.Chat.ApiType = &claudeType

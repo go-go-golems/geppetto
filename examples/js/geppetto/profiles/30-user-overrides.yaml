@@ -1,17 +1,20 @@
 slug: user-overrides
 display_name: User overrides
-description: User-level profile overrides layered on top of provider defaults.
+description: User-level engine profile overrides layered on top of team presets.
 profiles:
   assistant:
     slug: assistant
     stack:
-      - registry_slug: provider-openai
-        profile_slug: default
-    runtime:
-      system_prompt: User override assistant profile.
-      tools:
-        - go_concat
+      - registry_slug: team-agent
+        profile_slug: assistant
+    inference_settings:
+      chat:
+        engine: gpt-5-nano
   mutable:
     slug: mutable
-    runtime:
-      system_prompt: Mutable profile baseline.
+    stack:
+      - registry_slug: provider-openai
+        profile_slug: default
+    inference_settings:
+      chat:
+        engine: gpt-4.1-mini

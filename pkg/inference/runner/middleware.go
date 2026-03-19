@@ -10,18 +10,17 @@ import (
 	gepmiddleware "github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
-	gepprofiles "github.com/go-go-golems/geppetto/pkg/profiles"
 )
 
 func (r *Runner) buildEngine(ctx context.Context, runtime Runtime) (engine.Engine, []gepmiddleware.Middleware, error) {
-	if runtime.StepSettings == nil {
-		return nil, nil, ErrRuntimeStepSettingsNil
+	if runtime.InferenceSettings == nil {
+		return nil, nil, ErrRuntimeInferenceSettingsNil
 	}
 	engineFactory := r.engineFactory
 	if engineFactory == nil {
 		return nil, nil, fmt.Errorf("build engine: engine factory is nil")
 	}
-	base, err := engineFactory(runtime.StepSettings)
+	base, err := engineFactory(runtime.InferenceSettings)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -92,7 +91,7 @@ func (r *Runner) resolveMiddlewares(ctx context.Context, runtime Runtime) ([]gep
 		}
 
 		resolver := middlewarecfg.NewResolver(sources...)
-		resolvedCfg, err := resolver.Resolve(def, gepprofiles.MiddlewareUse{
+		resolvedCfg, err := resolver.Resolve(def, middlewarecfg.Use{
 			Name:    strings.TrimSpace(use.Name),
 			ID:      strings.TrimSpace(use.ID),
 			Enabled: cloneBoolPtr(use.Enabled),
@@ -103,7 +102,7 @@ func (r *Runner) resolveMiddlewares(ctx context.Context, runtime Runtime) ([]gep
 
 		resolved = append(resolved, middlewarecfg.ResolvedInstance{
 			Key: middlewarecfg.MiddlewareInstanceKey(use, i),
-			Use: gepprofiles.MiddlewareUse{
+			Use: middlewarecfg.Use{
 				Name:    strings.TrimSpace(use.Name),
 				ID:      strings.TrimSpace(use.ID),
 				Enabled: cloneBoolPtr(use.Enabled),
@@ -130,7 +129,7 @@ func (s fixedPayloadSource) Layer() middlewarecfg.SourceLayer {
 	return s.layer
 }
 
-func (s fixedPayloadSource) Payload(middlewarecfg.Definition, gepprofiles.MiddlewareUse) (map[string]any, bool, error) {
+func (s fixedPayloadSource) Payload(middlewarecfg.Definition, middlewarecfg.Use) (map[string]any, bool, error) {
 	if len(s.payload) == 0 {
 		return nil, false, nil
 	}

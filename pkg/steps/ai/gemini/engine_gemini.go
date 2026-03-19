@@ -27,11 +27,11 @@ import (
 
 // GeminiEngine implements the Engine interface for Google's Gemini API
 type GeminiEngine struct {
-	settings *settings.StepSettings
+	settings *settings.InferenceSettings
 }
 
 // NewGeminiEngine creates a new Gemini inference engine with the given settings.
-func NewGeminiEngine(settings *settings.StepSettings) (*GeminiEngine, error) {
+func NewGeminiEngine(settings *settings.InferenceSettings) (*GeminiEngine, error) {
 	return &GeminiEngine{settings: settings}, nil
 }
 
@@ -155,7 +155,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		model.GenerationConfig = cfg
 	}
 
-	// Apply per-turn InferenceConfig overrides (Turn.Data > StepSettings.Inference).
+	// Apply per-turn InferenceConfig overrides (Turn.Data > InferenceSettings.Inference).
 	if infCfg := engine.ResolveInferenceConfig(t, e.settings.Inference); infCfg != nil {
 		if infCfg.Temperature != nil {
 			v := float32(*infCfg.Temperature)

@@ -1,0 +1,79 @@
+# Tasks
+
+## Research and Documentation
+
+- [x] Create GP-46 ticket workspace and scaffolding
+- [x] Inventory current JS module exports, docs, tests, and example scripts
+- [x] Write the intern-oriented analysis / design / implementation guide
+- [x] Write the Manuel investigation diary entry for the research pass
+- [x] Run `docmgr doc relate` for the key JS API evidence files
+- [x] Run `docmgr doctor --ticket GP-46-OPINIONATED-JS-APIS --stale-after 30`
+- [x] Upload the ticket bundle to reMarkable and verify the remote listing
+
+## Phase 1: Ticket Baseline and Tasking
+
+- [x] Rewrite the task board into concrete build slices that reflect the post-GP-47 substrate
+- [x] Update the GP-46 changelog to record the implementation kickoff
+- [x] Commit the GP-46 ticket baseline before code work starts
+
+## Phase 2: Runner Namespace and Runtime Resolution
+
+- [x] Add a new `gp.runner` namespace to the JS module exports in `module.go`
+- [x] Add internal runner ref/types in the JS module for resolved runtime and prepared runs
+- [x] Implement `gp.runner.resolveRuntime(...)` with support for:
+  - profile-driven runtime resolution
+  - direct `systemPrompt` override/addition
+  - direct `middlewares` addition
+  - direct `toolNames` override/addition
+  - direct runtime identity metadata (`runtimeKey`, `runtimeFingerprint`, `profileVersion`)
+- [x] Reuse the GP-47 runtime-metadata helper layer instead of duplicating translation logic
+- [x] Add focused tests for `gp.runner.resolveRuntime(...)`
+- [x] Commit the namespace + resolveRuntime slice
+
+## Phase 3: Prepared Runs and Blocking Execution
+
+- [x] Implement `gp.runner.prepare(...)` to:
+  - require an explicit engine
+  - consume `runtime` from `gp.runner.resolveRuntime(...)`
+  - build a session via the existing builder/session substrate
+  - append or clone the seed turn
+  - expose the prepared session and turn
+- [x] Add a JS-facing prepared-run handle with:
+  - `session`
+  - `turn`
+  - `runtime`
+  - `run()`
+  - `start()`
+- [x] Implement `gp.runner.run(...)` as the blocking wrapper around `prepare(...)`
+- [x] Add focused tests for `prepare(...)` and `run(...)`
+- [x] Commit the prepared-run slice
+
+## Phase 4: Streaming and Async Start
+
+- [x] Implement `gp.runner.start(...)` as the event-driven path
+- [x] Decide and implement the runner-specific handle shape:
+  - reuse the existing run-handle contract where possible
+  - ensure cancellation and event subscriptions stay first-class
+- [x] Add tests for streaming/event delivery and async completion
+- [x] Commit the streaming slice
+
+## Phase 5: Type Surface, Examples, and Docs
+
+- [x] Extend `geppetto.d.ts.tmpl` and generated `geppetto.d.ts` with `gp.runner` contracts
+- [x] Add example scripts that demonstrate:
+  - simple `gp.runner.run(...)`
+  - profile-driven runtime assembly
+  - streaming `gp.runner.start(...)`
+- [x] Update the JS API reference to make `gp.runner` the default path
+- [x] Update the JS user guide to demote `createBuilder` / `createSession` to advanced usage
+- [x] Run focused validation for JS module tests, docs, and examples
+- [x] Commit the public-surface/docs slice
+
+## Phase 6: Ticket Closeout
+
+- [x] Update the GP-46 diary with implementation steps, exact commands, failures, and review notes
+- [x] Update the GP-46 changelog with landed commits and rationale
+- [x] Run `docmgr doc relate` for new implementation files and examples
+- [x] Run `docmgr doctor --ticket GP-46-OPINIONATED-JS-APIS --stale-after 30`
+- [x] Upload the refreshed GP-46 bundle to reMarkable
+- [x] Mark the ticket complete if all slices land cleanly

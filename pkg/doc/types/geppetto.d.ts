@@ -142,18 +142,7 @@ declare module "geppetto" {
         profile_slug: string;
     }
 
-    export interface MiddlewareUse {
-        name: string;
-        id?: string;
-        enabled?: boolean;
-        config?: any;
-    }
-
-    export interface RuntimeSpec {
-        system_prompt?: string;
-        middlewares?: MiddlewareUse[];
-        tools?: string[];
-    }
+    export type InferenceSettings = Record<string, any>;
 
     export interface ProfileMetadata {
         source?: string;
@@ -180,7 +169,7 @@ declare module "geppetto" {
         display_name?: string;
         description?: string;
         stack?: ProfileRef[];
-        runtime?: RuntimeSpec;
+        inferenceSettings?: InferenceSettings;
         metadata?: ProfileMetadata;
         extensions?: Record<string, any>;
     }
@@ -209,9 +198,27 @@ declare module "geppetto" {
     export interface ResolvedProfile {
         registrySlug: string;
         profileSlug: string;
-        runtimeKey: string;
-        runtimeFingerprint: string;
-        effectiveRuntime: RuntimeSpec;
+        inferenceSettings?: InferenceSettings;
+        metadata?: Record<string, any>;
+    }
+
+    export interface RunnerResolvedRuntime {
+        systemPrompt?: string;
+        middlewares: MiddlewareRef[];
+        toolNames?: string[];
+        runtimeKey?: string;
+        runtimeFingerprint?: string;
+        profileVersion?: number;
+        metadata?: Record<string, any>;
+    }
+
+    export interface RunnerResolveInput {
+        systemPrompt?: string;
+        middlewares?: Array<MiddlewareRef | MiddlewareFn>;
+        toolNames?: string[];
+        runtimeKey?: string;
+        runtimeFingerprint?: string;
+        profileVersion?: number;
         metadata?: Record<string, any>;
     }
 
@@ -408,6 +415,27 @@ declare module "geppetto" {
         on(eventType: string, callback: (event: StreamEvent) => void): RunHandle;
     }
 
+    export interface RunnerStartHandle extends RunHandle {
+        session: Session;
+        turn: Turn;
+        runtime: RunnerResolvedRuntime;
+    }
+
+    export interface RunnerOptions extends BuilderOptions {
+        runtime?: RunnerResolvedRuntime;
+        prompt?: string;
+        seedTurn?: Turn;
+        sessionId?: string;
+    }
+
+    export interface PreparedRun {
+        session: Session;
+        turn: Turn;
+        runtime: RunnerResolvedRuntime;
+        run(options?: RunOptions): Turn;
+        start(options?: RunOptions): RunnerStartHandle;
+    }
+
     export const turns: {
         normalize(turn: Turn): Turn;
         newTurn(data?: Partial<Turn>): Turn;
@@ -422,6 +450,8 @@ declare module "geppetto" {
     export const engines: {
         echo(options?: { reply?: string }): Engine;
         fromConfig(options: EngineOptions): Engine;
+        fromResolvedProfile(profile: ResolvedProfile): Engine;
+        fromProfile(options?: ResolveInput): Engine;
         fromFunction(fn: (turn: Turn) => Turn | void): Engine;
     };
 
@@ -434,6 +464,13 @@ declare module "geppetto" {
         connectStack(sources: ProfileRegistrySources): ConnectedProfileStack;
         disconnectStack(): void;
         getConnectedSources(): string[];
+    };
+
+    export const runner: {
+        resolveRuntime(input?: RunnerResolveInput): RunnerResolvedRuntime;
+        prepare(options: RunnerOptions): PreparedRun;
+        run(options: RunnerOptions, runOptions?: RunOptions): Turn;
+        start(options: RunnerOptions, runOptions?: RunOptions): RunnerStartHandle;
     };
 
     export const schemas: {

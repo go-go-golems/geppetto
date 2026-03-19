@@ -25,11 +25,7 @@ func (m *moduleRuntime) middlewareFromJS(call goja.FunctionCall) goja.Value {
 		name = call.Arguments[1].String()
 	}
 	ref := &jsMiddlewareRef{Name: name, Fn: fn}
-	o := m.vm.NewObject()
-	m.attachRef(o, ref)
-	m.mustSet(o, "type", "js")
-	m.mustSet(o, "name", name)
-	return o
+	return m.newJSMiddlewareObject(ref)
 }
 
 func (m *moduleRuntime) middlewareFromGo(call goja.FunctionCall) goja.Value {
@@ -42,29 +38,85 @@ func (m *moduleRuntime) middlewareFromGo(call goja.FunctionCall) goja.Value {
 		options = decodeMap(call.Arguments[1].Export())
 	}
 	ref := &goMiddlewareRef{Name: name, Options: options}
+	return m.newGoMiddlewareObject(ref)
+}
+
+func (m *moduleRuntime) newJSMiddlewareObject(ref *jsMiddlewareRef) goja.Value {
+	o := m.vm.NewObject()
+	m.attachRef(o, ref)
+	m.mustSet(o, "type", "js")
+	m.mustSet(o, "name", ref.Name)
+	return o
+}
+
+func (m *moduleRuntime) newGoMiddlewareObject(ref *goMiddlewareRef) goja.Value {
 	o := m.vm.NewObject()
 	m.attachRef(o, ref)
 	m.mustSet(o, "type", "go")
-	m.mustSet(o, "name", name)
-	if options != nil {
-		m.mustSet(o, "options", options)
+	m.mustSet(o, "name", ref.Name)
+	if ref.Options != nil {
+		m.mustSet(o, "options", cloneJSONMap(ref.Options))
 	}
 	return o
 }
 
-func (m *moduleRuntime) resolveMiddleware(v goja.Value) (middleware.Middleware, error) {
+func cloneJSMiddlewareRef(in *jsMiddlewareRef) *jsMiddlewareRef {
+	if in == nil {
+		return nil
+	}
+	return &jsMiddlewareRef{Name: in.Name, Fn: in.Fn}
+}
+
+func cloneGoMiddlewareRef(in *goMiddlewareRef) *goMiddlewareRef {
+	if in == nil {
+		return nil
+	}
+	return &goMiddlewareRef{Name: in.Name, Options: cloneJSONMap(in.Options)}
+}
+
+func (m *moduleRuntime) decodeMiddlewareSpecValue(v goja.Value) (any, error) {
 	if fn, ok := goja.AssertFunction(v); ok {
-		return m.jsMiddleware("js-middleware", fn), nil
+		return &jsMiddlewareRef{Name: "js-middleware", Fn: fn}, nil
 	}
 
 	ref := m.getRef(v)
 	switch x := ref.(type) {
 	case *jsMiddlewareRef:
+		return cloneJSMiddlewareRef(x), nil
+	case *goMiddlewareRef:
+		return cloneGoMiddlewareRef(x), nil
+	}
+	return nil, fmt.Errorf("unsupported middleware specification")
+}
+
+func (m *moduleRuntime) middlewareObjectFromSpec(spec any) (goja.Value, error) {
+	switch x := spec.(type) {
+	case *jsMiddlewareRef:
+		return m.newJSMiddlewareObject(cloneJSMiddlewareRef(x)), nil
+	case *goMiddlewareRef:
+		return m.newGoMiddlewareObject(cloneGoMiddlewareRef(x)), nil
+	default:
+		return nil, fmt.Errorf("unsupported middleware spec type %T", spec)
+	}
+}
+
+func (m *moduleRuntime) materializeMiddlewareSpec(spec any) (middleware.Middleware, error) {
+	switch x := spec.(type) {
+	case *jsMiddlewareRef:
 		return m.jsMiddleware(x.Name, x.Fn), nil
 	case *goMiddlewareRef:
 		return m.resolveGoMiddleware(x.Name, x.Options)
+	default:
+		return nil, fmt.Errorf("unsupported middleware spec type %T", spec)
 	}
-	return nil, fmt.Errorf("unsupported middleware specification")
+}
+
+func (m *moduleRuntime) resolveMiddleware(v goja.Value) (middleware.Middleware, error) {
+	spec, err := m.decodeMiddlewareSpecValue(v)
+	if err != nil {
+		return nil, err
+	}
+	return m.materializeMiddlewareSpec(spec)
 }
 
 func (m *moduleRuntime) resolveGoMiddleware(name string, options map[string]any) (middleware.Middleware, error) {
