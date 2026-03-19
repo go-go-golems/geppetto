@@ -38,7 +38,7 @@ lintmax: linttool-build golangci-lint-install
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 
 turnsdatalint-build:
-	go build -o $(TURNSDATALINT_BIN) ./cmd/turnsdatalint
+	go build -o $(TURNSDATALINT_BIN) ./cmd/tools/turnsdatalint
 
 turnsdatalint:
 	$(MAKE) turnsdatalint-build
