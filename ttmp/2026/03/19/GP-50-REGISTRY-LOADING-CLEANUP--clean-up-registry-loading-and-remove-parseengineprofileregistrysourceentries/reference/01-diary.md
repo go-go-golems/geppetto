@@ -709,6 +709,95 @@ This step removed the main leftover accidental complexity in the profile bootstr
 - Task completion:
   `docmgr task check --ticket GP-50-REGISTRY-LOADING-CLEANUP --id 20,22,23`
 
+## Step 7: Add a final-settings debug flag for loaded commands
+
+After fixing the loader-baseline merge regression, the next debugging need was straightforward: `--print-parsed-fields` showed the raw parsed values, but it still did not show the actual merged `InferenceSettings` object that Pinocchio hands to engine creation. I added a dedicated loaded-command debug flag so the command can print the final resolved settings after config/env/flags/profile overlay and exit before provider validation or network work starts.
+
+This step is intentionally small, but it closes a real observability gap in the new bootstrap model. It gives a direct answer to “did the final inference settings carry the key/model/base-url/profile overlay I expected?” without forcing the user to infer that from parse logs or to hit the provider.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes, please add a task and then build it and commit and keep diary"
+
+**Assistant interpretation:** Add a new ticket task for the inference-settings debug flag, implement it immediately, commit it cleanly, and update the diary/changelog.
+
+**Inferred user intent:** Make the new bootstrap path debuggable from the CLI itself so future profile/config resolution issues are easier to inspect and faster to diagnose.
+
+**Commit (code):** `01b8780` — `feat(debug): print resolved inference settings`
+
+### What I did
+
+- Added task 25 to the ticket, then completed it.
+- Added `print-inference-settings` to [helpers.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go) as a new helper-layer flag.
+- Updated [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go) so loaded commands:
+  - resolve the final merged `InferenceSettings`
+  - print that YAML to stdout when the flag is set
+  - exit before engine creation
+- Added a regression test in [cmd_profile_registry_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go) proving the printed settings include both the profiled engine and the carried-through config API key, and that the engine factory is not invoked.
+- Validated both with:
+  - `go test ./pkg/cmds -count=1`
+  - `go run ./cmd/pinocchio code professional test --chat --profile gpt-5-mini --print-inference-settings`
+
+### Why
+
+- `--print-parsed-fields` is useful, but it only shows parser inputs and middleware logs.
+- The bug you hit was specifically in the transition from parsed values to final merged `InferenceSettings`.
+- A runtime-level debug flag is a much better fit for this class of issue than asking users to reverse-engineer the final object from logs.
+
+### What worked
+
+- The helper layer was the right place for the flag because it already owns runtime-only behaviors like `--print-prompt`.
+- Printing the final `stepSettings` object right before engine creation gives exactly the data needed to debug merge issues.
+- The real command path validated cleanly and printed the resolved YAML without trying to contact the provider.
+
+### What didn't work
+
+- There was no existing generic debug hook for “final runtime object” inspection; the common Glazed `print-*` settings are parser-level and happen too early for this need.
+- That meant the clean implementation had to live in Pinocchio’s helper/runtime path rather than the generic Glazed command settings layer.
+
+### What I learned
+
+- The new bootstrap model benefits from explicit observability at both stages:
+  - parsed-fields inspection
+  - final resolved-settings inspection
+- `print-prompt` and `print-inference-settings` form a good pair for debugging loaded commands: one shows the rendered turn seed, the other shows the resolved runtime config.
+
+### What was tricky to build
+
+- The main design constraint was choosing the right layer. If I had added this to Glazed’s generic command settings, it still would not have had access to the final merged profile-aware settings object. The correct place was the Pinocchio helper layer where profile resolution is already complete.
+- The other constraint was making the flag safe: it had to return before engine creation so it could be used even when credentials are missing or when the user only wants inspection.
+
+### What warrants a second pair of eyes
+
+- Whether this flag should eventually be mirrored in thin/manual bootstrap commands beyond loaded YAML commands.
+- Whether the printed YAML should later gain a redaction mode for secrets, since right now it intentionally prints the raw resolved settings for debugging fidelity.
+
+### What should be done in the future
+
+- Consider adding the same flag to other Geppetto-backed CLI entrypoints that bypass `PinocchioCommand.RunIntoWriter(...)`.
+- Consider a follow-up redaction option if users start relying on the flag in screen-shared/debugging environments.
+
+### Code review instructions
+
+- Start with [helpers.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go) and [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go).
+- Then read [cmd_profile_registry_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go) to see the printed-settings regression test.
+- Validate with:
+  - `go test ./pkg/cmds -count=1`
+  - `go run ./cmd/pinocchio code professional test --chat --profile gpt-5-mini --print-inference-settings`
+
+### Technical details
+
+- New helper flag:
+  ```go
+  PrintInferenceSettings bool `glazed:"print-inference-settings"`
+  ```
+- User-facing CLI usage:
+  ```bash
+  go run ./cmd/pinocchio code professional test --chat --profile gpt-5-mini --print-inference-settings
+  ```
+- Task completion:
+  `docmgr task check --ticket GP-50-REGISTRY-LOADING-CLEANUP --id 25`
+
 ## Usage Examples
 
 Use this diary before resuming work on the ticket after an interruption. Each step is intended to explain what changed, what remains open, and what should be reviewed first.

@@ -142,3 +142,14 @@ Completed the remaining profile-cleanup implementation tasks via `eb02e18` (`ref
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings_test.go — Parity test covers internal versus from-base engine resolution paths
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go — Shared builder for config-file plus profile-selection parsed values
 
+
+## 2026-03-19
+
+Added `01b8780` (`feat(debug): print resolved inference settings`) so loaded Pinocchio commands can print the final merged inference settings after config/env/flags/profile resolution and before engine creation. This was validated both with `go test ./pkg/cmds -count=1` and by running `go run ./cmd/pinocchio code professional test --chat --profile gpt-5-mini --print-inference-settings`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go — Loaded command path now prints final resolved inference settings and exits before engine creation
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go — Regression test covers printed merged settings and early exit before engine creation
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go — New helper-layer debug flag for final inference settings printing
+
