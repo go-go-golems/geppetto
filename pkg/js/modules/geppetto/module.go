@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -35,6 +36,7 @@ type Options struct {
 	GoToolRegistry           tools.ToolRegistry
 	GoMiddlewareFactories    map[string]MiddlewareFactory
 	EngineProfileRegistry    profiles.RegistryReader
+	DefaultInferenceSettings *aistepssettings.InferenceSettings
 	UseDefaultProfileResolve bool
 	DefaultProfileResolve    profiles.ResolveInput
 	MiddlewareSchemas        middlewarecfg.DefinitionRegistry
@@ -68,6 +70,7 @@ type moduleRuntime struct {
 
 	goToolRegistry                  tools.ToolRegistry
 	goMiddlewareFactories           map[string]MiddlewareFactory
+	defaultInferenceSettings        *aistepssettings.InferenceSettings
 	profileRegistry                 profiles.RegistryReader
 	profileRegistryCloser           io.Closer
 	profileRegistryOwned            bool
@@ -96,6 +99,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		logger:                   lg,
 		goToolRegistry:           opts.GoToolRegistry,
 		goMiddlewareFactories:    map[string]MiddlewareFactory{},
+		defaultInferenceSettings: cloneInferenceSettings(opts.DefaultInferenceSettings),
 		profileRegistry:          opts.EngineProfileRegistry,
 		useDefaultProfileResolve: opts.UseDefaultProfileResolve,
 		defaultProfileResolve:    opts.DefaultProfileResolve,
@@ -222,4 +226,11 @@ func (m *moduleRuntime) getRef(v goja.Value) any {
 		}
 	}
 	return v.Export()
+}
+
+func cloneInferenceSettings(in *aistepssettings.InferenceSettings) *aistepssettings.InferenceSettings {
+	if in == nil {
+		return nil
+	}
+	return in.Clone()
 }
