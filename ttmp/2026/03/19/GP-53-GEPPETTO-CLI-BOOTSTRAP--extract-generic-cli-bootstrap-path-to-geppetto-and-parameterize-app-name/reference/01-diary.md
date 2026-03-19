@@ -58,3 +58,88 @@ This matters because the extraction has two different review axes. One axis is w
 ### Technical note
 
 The main new requirement from the user is not just “move code to Geppetto”. It is “make app name and env prefix caller-configurable so other apps can reuse the path”. That requirement is now a first-class checkpoint in the task list rather than an implementation detail hidden inside a porting task.
+
+## Step 2: Extract the generic bootstrap package into Geppetto and cut Pinocchio over to wrappers
+
+This step implemented the actual architectural move. I created a new Geppetto package at [pkg/cli/bootstrap](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap) and ported the generic bootstrap path out of Pinocchio into that package. The exported contract is now app-parameterized rather than Pinocchio-shaped: callers provide app name, env prefix, config mapper, profile-section builder, and baseline-sections builder.
+
+After the generic package compiled and passed focused Geppetto tests, I rewrote [pinocchio/pkg/cmds/profilebootstrap](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap) into a thin wrapper that binds the generic Geppetto package to:
+
+- `AppName: "pinocchio"`
+- `EnvPrefix: "PINOCCHIO"`
+- the Pinocchio config-file mapper
+- the shared Geppetto `profile-settings` section builder
+- the shared Geppetto baseline section builder
+
+That left Pinocchio behavior intact while removing the duplicated generic implementation from the application package.
+
+### What I did
+
+- Added the Geppetto package as commit `3dbbb90` (`refactor(cli): add generic bootstrap package`).
+- Cut Pinocchio over as commit `c3a2104` (`refactor(profilebootstrap): wrap geppetto cli bootstrap`).
+- Added [config.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/config.go) with:
+  - `AppBootstrapConfig`
+  - config validation
+  - `ProfileSettingsSectionSlug`
+- Added [profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/profile_selection.go) with:
+  - `ProfileSettings`
+  - `ResolvedCLIProfileSelection`
+  - `CLISelectionInput`
+  - generic config-file discovery
+  - generic profile selection resolution
+  - generic parsed-values builder for `config-file` plus `profile-settings`
+- Added [engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/engine_settings.go) with:
+  - `ResolvedCLIEngineSettings`
+  - generic base inference settings resolution
+  - generic final engine settings resolution
+  - generic engine construction helper
+- Added [bootstrap_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/bootstrap_test.go) to cover:
+  - app-name-driven config discovery
+  - env-prefix-driven profile selection
+  - no implicit `profiles.yaml` fallback
+  - profile-without-registries validation
+  - base-only mode
+  - explicit profile overlay merge behavior
+  - from-base parity
+- Replaced the implementation in [pinocchio/pkg/cmds/profilebootstrap/profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go) with a wrapper over the new Geppetto package.
+- Replaced the implementation in [pinocchio/pkg/cmds/profilebootstrap/engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go) with a wrapper over the new Geppetto package.
+- Re-ran:
+  - `go test ./pkg/cli/bootstrap -count=1` in `geppetto`
+  - `go test ./pkg/cmds/profilebootstrap ./pkg/cmds/helpers ./pkg/cmds ./cmd/pinocchio/cmds ./cmd/examples/internal/tuidemo ./cmd/web-chat ./cmd/agents/simple-chat-agent -count=1` in `pinocchio`
+
+### Why
+
+- The generic bootstrap path had already stabilized in Pinocchio. Keeping it there would have made future Geppetto-backed apps either copy it or import Pinocchio for a generic concern.
+- The app/environment parameterization requirement is exactly what the older `pkg/sections` helpers do not support cleanly today.
+- Moving the implementation first and keeping `pkg/sections` unchanged for now minimizes the review surface. The old middleware/bootstrap helpers can be cleaned up afterward as a separate decision rather than conflating that with the extraction itself.
+
+### What worked
+
+- The config/callback surface was sufficient. No additional app-specific inputs were needed beyond app name, env prefix, config mapper, profile section builder, and base section builder.
+- The Pinocchio wrapper became very small once the generic package existed.
+- Focused tests in both repositories were enough to validate the extraction without immediately rewriting every Geppetto example.
+
+### What didn't work
+
+- The first Geppetto test compile failed because [sections.NewProfileSettingsSection](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go) and [sections.CreateGeppettoSections](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go) are variadic functions and therefore cannot be assigned directly to zero-argument callback fields.
+  I fixed that by using small wrapper lambdas in the test config.
+- The Pinocchio worktree is still globally dirty from unrelated branch-local work, so the eventual Pinocchio wrapper commit will need the same temporary-index approach used in recent tasks.
+
+### What I learned
+
+- The extracted package boundary is now concrete and viable. The design guide was directionally right; the only meaningful addition was the generic `NewCLISelectionValues(...)` helper, which turned out to belong in the Geppetto package as well.
+- The callback-based app config is enough to keep the package generic without introducing reflection or a more complicated registration mechanism.
+
+### What should be reviewed first
+
+- [config.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/config.go)
+- [profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/profile_selection.go)
+- [engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/engine_settings.go)
+- [bootstrap_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/bootstrap_test.go)
+- [pinocchio/pkg/cmds/profilebootstrap/profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go)
+- [pinocchio/pkg/cmds/profilebootstrap/engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go)
+
+### Remaining ticket work
+
+- Decide how far to slim down or deprecate [sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go) and [profile_sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go) now that the generic bootstrap path exists elsewhere.
+- Decide which Geppetto examples should adopt the new package versus continuing to use direct parsed-values engine construction.

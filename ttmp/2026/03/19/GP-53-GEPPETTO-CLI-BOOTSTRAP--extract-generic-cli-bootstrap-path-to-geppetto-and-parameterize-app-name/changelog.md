@@ -25,3 +25,16 @@ Expanded the GP-53 task list into smaller execution steps so the extraction can 
 
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-53-GEPPETTO-CLI-BOOTSTRAP--extract-generic-cli-bootstrap-path-to-geppetto-and-parameterize-app-name/tasks.md — Refined implementation checklist for the extraction
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-53-GEPPETTO-CLI-BOOTSTRAP--extract-generic-cli-bootstrap-path-to-geppetto-and-parameterize-app-name/reference/01-diary.md — New implementation diary for the extraction work
+
+## 2026-03-19
+
+Implemented the Geppetto-owned generic CLI bootstrap package in `pkg/cli/bootstrap` and cut Pinocchio over to a thin wrapper config. The new package owns the generic resolved profile/engine contracts, config discovery, profile selection, base inference settings resolution, final engine settings resolution, and engine construction. Application identity is now caller-configurable through app name and env prefix instead of being hardcoded to Pinocchio.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/config.go — New app bootstrap config surface with app name/env prefix/config mapper/section builder callbacks
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/profile_selection.go — Generic config-file discovery, profile selection, and CLI selection value helpers
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/engine_settings.go — Generic base/final engine settings resolution and engine-construction helpers
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/bootstrap_test.go — Geppetto tests covering app/env parameterization, no-fallback behavior, and from-base parity
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go — Pinocchio wrapper config now binds the generic Geppetto package to `pinocchio` / `PINOCCHIO`
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go — Pinocchio wrapper now delegates generic engine-resolution behavior to Geppetto
