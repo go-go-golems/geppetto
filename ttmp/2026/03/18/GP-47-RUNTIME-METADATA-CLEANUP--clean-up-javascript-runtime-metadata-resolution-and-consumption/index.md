@@ -1,10 +1,9 @@
 ---
 Title: Clean up JavaScript runtime metadata resolution and consumption
 Ticket: GP-47-RUNTIME-METADATA-CLEANUP
-Status: active
+Status: complete
 Topics:
     - geppetto
-    - javascript
     - js-bindings
 DocType: index
 Intent: long-term
@@ -64,7 +63,16 @@ The cleanup goal is to make that boundary explicit and smaller:
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
+
+The implementation is complete:
+
+- resolved profile runtime metadata is materialized centrally
+- builder/session assembly can consume `resolvedProfile` directly
+- runtime identity is stamped onto prepared turns
+- the cleanup now serves as substrate for the opinionated JS runner API
+
+This ticket is closed.
 
 ## Topics
 
