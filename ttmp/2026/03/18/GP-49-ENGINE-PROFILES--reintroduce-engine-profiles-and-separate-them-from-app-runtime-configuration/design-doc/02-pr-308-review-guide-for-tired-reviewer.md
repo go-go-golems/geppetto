@@ -861,6 +861,10 @@ As a reviewer, this means you should not try to "read everything equally." The b
 3. use docs/examples/tests to verify intent and external behavior
 4. use downstream migrations as proof that the architecture is actually survivable
 
+It is worth slowing down here because this is one of the places where reviewers often accidentally sabotage themselves. When a branch is this large, the natural impulse is to keep scrolling and hope the important parts will reveal themselves automatically. In practice, that usually leads to review fatigue and shallow comments, because the eye ends up treating architectural code, docs, test fixtures, and downstream migrations as if they all carried the same weight. They do not. The branch is large, but its real burden is conceptual rather than purely textual. Once you understand that, the diff stops looking like one giant wall of change and starts looking like a small number of important moves repeated across many files.
+
+Another useful way to think about branch size is this: the branch is not large because one subsystem got complicated. It is large because one architectural decision had to be reflected everywhere that decision mattered. That includes core types, JS surfaces, docs, examples, tests, and downstream consumers. In other words, the size of the diff is partly evidence that the branch is trying to be honest. A dishonest branch would often be smaller because it would change the slogan but not the whole ecosystem around it. This one is expensive precisely because it is trying to make the new boundary real.
+
 ## Why this branch exists, in plain language
 
 The old design let Geppetto profiles do too much. They were not just engine presets. They were also a partial application runtime plan.
@@ -880,6 +884,10 @@ The branch is also doing the practical work required to make that statement true
 - renaming the engine-settings type so its purpose is clearer
 - adding a JS runner API that handles app-side runtime composition explicitly
 - migrating downstream apps so they no longer depend on hidden mixed-profile behavior
+
+The phrase "in plain language" matters here. When a branch cannot be explained in plain language, that is often a sign that the architecture is still muddled. Here, the plain-language version is actually quite stable: Geppetto had started to accumulate application-level runtime behavior inside a profile system that should have been about engine configuration. That made the library more powerful in the moment but less trustworthy as a boundary. The branch exists to restore trust in that boundary.
+
+This is also why the PR may feel stricter than earlier Geppetto work. A lot of prior ergonomics depended on letting one object carry more meaning than it should. Once you decide to separate those meanings, you must be willing to say "no" to certain shortcuts. That is why some APIs were removed, why `runner.resolveRuntime({ profile: ... })` is explicitly rejected, and why downstream apps now perform more local composition. The branch is doing a cleanup that inevitably makes the rules sharper.
 
 ## Ticket narrative as a story
 
@@ -916,6 +924,8 @@ That ticket:
 
 Once you see the branch as "prepare the runtime story, add the new JS surface, then cut the old mixed contract," the commit arc becomes much easier to review.
 
+This three-act framing is useful because it turns what looks like a tangled sequence of commits into a sequence of design necessities. First, the branch had to make runtime metadata explicit enough to be movable. Second, it had to create a place where runtime behavior could continue to live after the cut. Third, it had to actually remove the mixed contract from core profile resolution. That order is not arbitrary. It is the order you would expect if the maintainers were trying to avoid a vacuum where old behavior was removed before new behavior had a legitimate home.
+
 ## Commit arc with review interpretation
 
 The raw commit list is:
@@ -951,6 +961,10 @@ Here is how to interpret that list as a reviewer:
 ## Detailed diff atlas
 
 This section is the "offline evidence" part of the guide. You said you will not have the code while reviewing, so this section includes the most important diff hunks and the explanation of why each one matters.
+
+Think of this section as the museum tour version of the branch. The code snippets are the exhibits, but the prose is here so you do not have to do all the interpretive work yourself while tired. In a normal review, you might scan the hunk, look at surrounding lines, and reconstruct the intent from context. Since you explicitly will not have the full code in front of you, the goal here is to tell you what role each hunk plays in the larger story before you start judging whether it looks correct.
+
+Another helpful mindset is that the diff atlas is not trying to prove every line in the branch is correct. That would be impossible in one document. Instead, it is trying to anchor you on the highest-signal moves, the places where the architecture either succeeds or fails in public. If those anchor points hold up, the rest of the branch becomes much easier to trust. If those anchor points look shaky, then no amount of rename consistency elsewhere should make you comfortable.
 
 ### 1. Module surface change in `module.go`
 
@@ -995,6 +1009,8 @@ Why this matters:
 
 This is the branch point where the public JS module stops being a thin accumulation of earlier concepts and starts expressing the new architecture directly.
 
+It helps to treat this file as the front door of the JavaScript world. A great deal of architecture can be inferred from what a module chooses to export, because exports are how maintainers tell callers what concepts should exist in their heads. Before this change, the JS module still carried the smell of the older mixed model. After this change, the exports start telling a cleaner story even before a caller reads the docs. There is a `profiles` area for engine-profile interaction, an `engines` area for engine construction, and a `runner` area for application-side runtime assembly. That is an architectural lesson encoded directly into the shape of the module.
+
 Three things happen at once:
 
 1. the backing package changes from `profiles` to `engineprofiles`
@@ -1002,6 +1018,8 @@ Three things happen at once:
 3. the JS surface grows explicit engine-profile and runner namespaces
 
 That is not cosmetic. It is the point where the module starts teaching callers the new mental model through API shape rather than through documentation alone.
+
+This is important enough to say twice in different words: a good API surface can do part of the reviewer’s job for them. If the API shape itself nudges users toward the right conceptual split, that reduces the long-term risk of accidental regression. Reviewers should therefore care quite a lot about files like `module.go`, because a boundary that is visible at the export level is much more durable than a boundary that only appears in ticket docs.
 
 As a reviewer, ask:
 
@@ -1047,6 +1065,8 @@ High-signal diff:
 
 This is one of the most important diffs in the whole branch.
 
+If you only remember one deletion from the entire PR, remember the deletion of `encodeResolvedProfile(...)` in its old form. That helper function was not merely a serializer. It was a compact expression of the old worldview. It took a resolved profile and presented it to JavaScript as something that already contained execution-shaped runtime information. That small convenience function quietly taught callers that "resolved profile" and "runtime-ready object" were close cousins. Deleting it is therefore much more meaningful than deleting an ordinary helper.
+
 The deleted `encodeResolvedProfile(...)` function tells the whole story. In the old world, `profiles.resolve(...)` returned a JS object that already looked execution-ready:
 
 - `runtimeKey`
@@ -1056,6 +1076,8 @@ The deleted `encodeResolvedProfile(...)` function tells the whole story. In the 
 That meant the resolved profile object itself invited callers to use it as a runtime plan.
 
 After the change, `profiles.resolve(...)` is no longer encoding a mixed runtime object. It returns an engine-profile result object. That is the architectural cut, expressed directly in return shape.
+
+This is why return shapes matter so much in architecture reviews. People often focus on input parameters because they look more active, but return values are what callers end up structuring their code around. Once `profiles.resolve(...)` stops returning `effectiveRuntime`, `runtimeKey`, and `runtimeFingerprint`, it becomes much harder for callers to keep writing code as if engine-profile resolution were secretly runtime planning. The function is now less opinionated about execution because it is more honest about ownership.
 
 This is the reviewer question to ask:
 
@@ -1096,7 +1118,11 @@ Why this matters:
 
 This is subtle but important. The host can configure a default registry/profile selection. The caller is then allowed to omit `registrySlug` and still inherit the host default. But if the key is present, even as an empty override, the behavior changes.
 
+This kind of detail is exactly the sort of thing that gets lost in a big architecture branch, because it sounds smaller than the headline change. But it is actually a very good test of whether the API was designed carefully. Once the host is allowed to establish default resolution behavior, the runtime has to distinguish between "the caller did not say anything about registry selection" and "the caller intentionally provided a registry selection value." Those are not the same user action, and collapsing them together produces bugs that only show up in more realistic multi-registry setups.
+
 This was subtle enough that it needed a final review-fix commit. That is a sign this is a correctness edge worth paying attention to. It is exactly the kind of thing a tired reviewer can miss if the document does not call it out.
+
+It is also a useful reminder that architecture and correctness are intertwined. A branch can have the right high-level idea and still be wrong at the boundary behavior level. The fact that this needed a follow-up fix does not weaken the architecture. It tells you where the actual edge cases were once the architecture was in place.
 
 ### 4. `api_engines.go` became engine-only
 
@@ -1136,6 +1162,8 @@ High-signal diff:
 
 The important thing here is not just the rename from step settings to inference settings. The bigger point is the narrowing of responsibility.
 
+This is one of those sections where reading too quickly can make the change feel smaller than it really is. If you skim it as "they renamed some helper functions and swapped constructor names," you will miss the more important design move. The file is being turned into a deliberately narrower factory layer. Its job is to produce engines, not to decide the rest of the runtime environment. The rename matters because it supports that narrowing, but the real point is the narrowing itself.
+
 `api_engines.go` is now the file where engine creation happens from either:
 
 - explicit config
@@ -1151,6 +1179,8 @@ What it does not do is just as important:
 
 That is exactly what "engine-only" means in concrete code terms.
 
+Another way to understand this file is to see it as a quarantine zone. It is where all the ways of building an engine are gathered together precisely so that runtime concerns do not stay smeared across the rest of the JS surface. If a future maintainer is tempted to slip prompt or tool policy into engine creation because it feels convenient, this file is where the temptation should be easiest to spot and reject.
+
 ### 5. `api_runner.go` was added to give runtime behavior an explicit home
 
 File:
@@ -1158,6 +1188,8 @@ File:
 - [`api_runner.go`](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go)
 
 This file did not exist before. That makes it easy to underestimate its importance. In reality, it is the key compensating structure that makes the hard cut usable.
+
+This deserves emphasis because without `api_runner.go`, the branch would feel punitive. Reviewers would be justified in asking whether the maintainers had merely removed convenience without offering a coherent replacement path. The existence of `runner.resolveRuntime`, `runner.prepare`, `runner.run`, and `runner.start` is the answer to that concern. The branch is not trying to make runtime behavior disappear. It is trying to move runtime behavior into a place where it can be assembled explicitly and reviewed honestly.
 
 High-signal diff:
 
@@ -1208,6 +1240,8 @@ Answer:
 
 The explicit rejection of `profile` input is especially important. It is a guardrail against reintroducing the old mixed shortcut through the back door.
 
+That rejection is easy to misread as unfriendly, but it is actually one of the most architecturally disciplined choices in the PR. A lot of systems regress not because the main code path is wrong, but because a "small convenience" gets added back later and slowly becomes the preferred path in practice. By rejecting `profile` input at this boundary, the code is protecting the new split against that exact kind of erosion.
+
 ### 6. `api_runner.go` protects turn cloning and runtime stamping
 
 Another high-signal hunk:
@@ -1237,6 +1271,8 @@ Why this matters:
 
 This is a correctness boundary, not just a convenience helper.
 
+When tired, it is tempting to skim helper functions like this because they look mechanical. That would be a mistake here. Code that clones prepared state, resets identifiers, appends seed prompt content, and stamps metadata is exactly where subtle behavioral bugs like shared-state mutation, duplicated metadata, or confusing session history can appear. The helper may not be architecturally glamorous, but it is operationally high-value.
+
 The prepared turn needs to:
 
 - avoid mutating caller-owned turn objects
@@ -1245,6 +1281,8 @@ The prepared turn needs to:
 - preserve the invariant that a new run starts from a clean, explicit seed
 
 If there is a quiet bug in this branch that would lead to surprising production behavior, this kind of turn cloning/stamping logic is exactly where I would expect to find it.
+
+In other words, this is a good example of a file section that is worth reviewing carefully even if it does not carry a big naming or package-level change. Big architecture branches often fail at small lifecycle edges, not at the slogan level.
 
 ### 7. The `systemPrompt` deduplication fix is a real behavioral correction
 
@@ -1269,6 +1307,8 @@ Diff:
 
 That looks tiny, but the behavior change is significant.
 
+Many late review fixes look small in diff size and therefore get treated as harmless polish. This one should not be treated that way. It is tiny in code volume but conceptually important because it is resolving a precedence conflict between two ways of expressing system-prompt behavior. Whenever the same effect can be expressed through a top-level option and through a middleware list, the code must choose which one is authoritative. This fix makes that choice clear and stable.
+
 Before the fix:
 
 - direct `systemPrompt` could be inserted first
@@ -1282,6 +1322,8 @@ After the fix:
 - `setRunnerSystemPrompt(...)` strips any earlier `systemPrompt` middleware and inserts the authoritative one once
 
 That is the correct precedence model. The direct `systemPrompt` field is the explicit top-level override, so it should win cleanly and once.
+
+This is a good example of the kind of review question worth asking in this PR: when there are two overlapping configuration channels, does the code choose a single winner and enforce it consistently, or does it quietly allow both to survive in confusing order? The post-fix code is doing the former.
 
 ### 8. `EngineProfile` is now narrow enough to justify the new name
 
@@ -1649,6 +1691,8 @@ A branch like this should not be accepted only because the Geppetto internals lo
 
 That is why the downstream diffs matter.
 
+This part of the guide is especially important for a tired reviewer because downstream migrations give you something more intuitive than core abstraction code: they show what actual application authors had to do after the boundary moved. If those migrations feel natural, the architecture is probably healthy. If they feel like desperate workarounds to recreate old mixed behavior, then the branch may be conceptually neat but operationally clumsy. In that sense, downstream diffs are not secondary evidence. They are proof that the architecture either did or did not survive contact with real product code.
+
 ### Pinocchio: web-chat now builds a local-first runtime plan
 
 Files:
@@ -1692,6 +1736,8 @@ This is strong evidence that Pinocchio is no longer relying on Geppetto to give 
 
 That is exactly the architecture this branch claims to establish.
 
+What makes Pinocchio persuasive as evidence is that it has enough runtime complexity to expose weaknesses quickly. It is not a toy caller. It cares about system prompts, middleware use, runtime fingerprints, profile versioning, and shared transport boundaries. If Pinocchio can now build a local conversation plan cleanly without asking Geppetto core to do application-runtime planning for it, that is a strong sign the new ownership split is not just academically cleaner but practically viable.
+
 ### Pinocchio also introduced an app-owned runtime extension type
 
 ```diff
@@ -1711,6 +1757,8 @@ That is exactly the architecture this branch claims to establish.
 This is a nuanced but important design point.
 
 Pinocchio still wants profile-like runtime presets. It is allowed to have them. But they are now encoded as a Pinocchio-owned extension rather than as Geppetto core runtime fields. That preserves flexibility without collapsing the ownership boundary again.
+
+That nuance is worth appreciating because it shows the branch is not dogmatic. It is not claiming that application runtime presets are bad. It is claiming that they should not be mistaken for Geppetto’s core engine-profile domain. The extension approach preserves capability while making ownership explicit, which is almost always the better long-term trade.
 
 ### CoinVault now separates application profile from inference profile
 
@@ -1752,6 +1800,8 @@ The new diff shows a cleaner split:
 - the final request plan carries both explicitly
 
 That is excellent evidence that the architecture holds up under real complexity.
+
+CoinVault is useful precisely because it had reasons to blur the layers. A weaker architecture would often reveal itself here by forcing awkward special cases or duplicated merge paths. Instead, the diff shows a more intelligible composition story: inference settings come from inference profiles, prompt/tool behavior comes from application profiles, and the final request bundles them together transparently. That is much easier to reason about than a single inherited runtime blob.
 
 ### Temporal Relationships now fingerprints runtime from local data
 
