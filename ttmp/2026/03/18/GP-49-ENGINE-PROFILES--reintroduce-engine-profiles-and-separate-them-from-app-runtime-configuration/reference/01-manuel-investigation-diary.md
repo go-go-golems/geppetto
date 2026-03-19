@@ -509,6 +509,25 @@ Geppetto is now on the intended stable footing:
 
 The next remaining work under this ticket is downstream migration, not more Geppetto core simplification.
 
+### Review packet refresh
+
+I replaced the earlier short PR 308 review note with a much more explicit review packet in:
+
+- [02-pr-308-review-guide-for-tired-reviewer.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/18/GP-49-ENGINE-PROFILES--reintroduce-engine-profiles-and-separate-them-from-app-runtime-configuration/design-doc/02-pr-308-review-guide-for-tired-reviewer.md)
+
+The new version is intentionally written for a tired reviewer who does not want to reconstruct the migration from memory. It now explains:
+
+- the architectural rule behind the whole line of work
+- the ticket and commit map
+- the final public contracts in Geppetto and JavaScript
+- the downstream migration story in Pinocchio, CoinVault, and Temporal Relationships
+- before/after pseudocode
+- the highest-signal files to inspect
+- the specific risk areas to pay more attention to
+- the remaining deferred boundary in `GP-51`
+
+That document should now be sufficient as a stand-alone review packet for the migration line.
+
 ## Quick Reference
 
 Architecture rule:

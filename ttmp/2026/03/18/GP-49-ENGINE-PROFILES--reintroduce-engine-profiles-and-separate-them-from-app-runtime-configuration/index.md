@@ -55,6 +55,7 @@ The proposal in this ticket is:
 
 - **Related Files**: See frontmatter RelatedFiles field
 - **External Sources**: See frontmatter ExternalSources field
+- **PR 308 review guide**: [design-doc/02-pr-308-review-guide-for-tired-reviewer.md](./design-doc/02-pr-308-review-guide-for-tired-reviewer.md)
 
 ## Status
 
@@ -72,6 +73,8 @@ Research, design, and implementation are complete in this ticket. Completed slic
 The ticket also includes a concrete downstream migration playbook in Glazed docs:
 
 - [migrating-from-mixed-runtime-profiles-to-engine-profiles.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/glazed/pkg/doc/tutorials/migrating-from-mixed-runtime-profiles-to-engine-profiles.md)
+- a dedicated PR review packet for tired/manual review work:
+  - [02-pr-308-review-guide-for-tired-reviewer.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/18/GP-49-ENGINE-PROFILES--reintroduce-engine-profiles-and-separate-them-from-app-runtime-configuration/design-doc/02-pr-308-review-guide-for-tired-reviewer.md)
 
 Downstream migration is also complete:
 
@@ -87,7 +90,7 @@ This ticket is therefore closed.
 - profiles
 - engine
 - configuration
-- javascript
+- js-bindings
 - pinocchio
 
 ## Tasks

@@ -53,3 +53,19 @@
   - CoinVault migrated to local-first app runtime planning
   - Temporal Relationships migrated run-chat and gorunner
   - the engine-profile architecture is now the active steady-state model across the workspace
+- Added a single-document PR 308 review guide for tired/manual review work:
+  - architecture summary
+  - review order
+  - before/after examples
+  - final public contracts
+  - risk hotspots
+  - validation commands
+  - final follow-up review-fix notes for commit `61d8ff5`
+- Replaced the earlier lightweight PR review note with a fuller review packet aimed at tired manual review:
+  - context and ticket map across Geppetto plus downstream apps
+  - final architecture and ownership split
+  - public API contracts
+  - before/after examples in Go and JS
+  - specific file-by-file review order
+  - hints on where to spend review energy
+  - validation commands and remaining follow-up boundaries
