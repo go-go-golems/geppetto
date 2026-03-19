@@ -153,3 +153,13 @@ Added `01b8780` (`feat(debug): print resolved inference settings`) so loaded Pin
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go — Regression test covers printed merged settings and early exit before engine creation
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go — New helper-layer debug flag for final inference settings printing
 
+## 2026-03-19
+
+Added `--print-inference-settings-sources` so loaded Pinocchio commands can print the final merged inference settings together with per-setting source logs. The new trace shows command baselines, config/env/default parse steps, and the final profile overlay step in one YAML view, which closes the observability gap between `--print-parsed-fields` and `--print-inference-settings`.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/inference_settings_trace.go — New source-trace builder that maps parsed fields and profile overlays onto final inference-setting paths
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go — Loaded command path now prints traced final inference settings and exits before engine creation
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go — New helper-layer debug flag for traced inference settings printing
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go — Regression test covers command/config/profile provenance ordering for final settings

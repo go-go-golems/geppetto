@@ -34,3 +34,4 @@
   baseline config only, explicit `--profile`, explicit `--profile-registries`, discovered registry file, loaded-command defaults preservation, and manual/bootstrap command parity with loaded commands.
 - [x] Update ticket docs and implementation notes after each refactor step so the adopted simplified model stays aligned with the imported guide and does not drift back toward runtime-profile scope.
 - [x] Add a debug flag to print the final resolved inference settings after config/env/flags/profile overlay and before engine creation, then document and validate it.
+- [x] Add a second debug flag to print the final resolved inference settings together with per-setting source logs, including command baselines, config/env/CLI parse steps, and profile overlay provenance.

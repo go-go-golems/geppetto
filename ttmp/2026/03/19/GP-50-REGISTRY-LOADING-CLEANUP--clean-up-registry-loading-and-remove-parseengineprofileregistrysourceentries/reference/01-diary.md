@@ -798,6 +798,90 @@ This step is intentionally small, but it closes a real observability gap in the 
 - Task completion:
   `docmgr task check --ticket GP-50-REGISTRY-LOADING-CLEANUP --id 25`
 
+## Step 8: Add traced final inference-setting provenance output
+
+After the plain `--print-inference-settings` flag landed, the remaining gap was obvious: it showed the final object, but not why each field had the value it did. That still forced users to compare the final YAML against `--print-parsed-fields` and profile files by hand. I added a second debug flag that prints the final resolved `InferenceSettings` tree with a `value` plus `log` per leaf so the final resolution path is inspectable directly.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, cool. I do want the feature to show how a setting was resolved, in the same way as print-parsed-fields."
+
+**Assistant interpretation:** Add a second debugging surface that preserves final merged inference settings but annotates each resolved leaf with the source history that produced it.
+
+**Inferred user intent:** Make profile/config/bootstrap debugging practical from one command invocation without having to cross-reference parser logs manually.
+
+**Commit (code):** `1787f96` — `feat(debug): trace resolved inference settings sources`
+
+### What I did
+
+- Added a new helper-layer flag `print-inference-settings-sources` in [helpers.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go).
+- Added [inference_settings_trace.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/inference_settings_trace.go), which:
+  - flattens final `InferenceSettings` into leaf paths
+  - maps parsed Glazed field names back onto final YAML paths
+  - records command baseline values for loaded commands
+  - appends config/env/default parse logs from parsed values
+  - appends a final `profile` step when the selected engine profile overrides a field
+- Updated [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go) so loaded commands can print the traced final settings and exit before engine creation.
+- Added a regression test in [cmd_profile_registry_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go) that proves the trace can show `command -> config -> profile` ordering for the final `chat.engine` resolution path.
+- Validated with:
+  - `go test ./pkg/cmds -count=1`
+  - `go run ./cmd/pinocchio code professional test --chat --profile gpt-5-mini --print-inference-settings-sources`
+
+### Why
+
+- `--print-parsed-fields` is parser-centric.
+- `--print-inference-settings` is runtime-object-centric.
+- The missing piece was a bridge between the two so the final runtime object explains itself.
+
+### What worked
+
+- The command helper layer remained the right integration point because it already owns the fully resolved runtime settings.
+- A per-leaf `value` plus `log` structure mirrors `--print-parsed-fields` closely enough to feel familiar while still matching final `InferenceSettings` YAML paths.
+- The real command output made the intended use-case immediately clear: `chat.engine` now shows the command baseline, the config override, and the final profile override in order.
+
+### What didn't work
+
+- There was no reusable Geppetto-side provenance model for merged engine-profile fields, so the first cut has to annotate all profile-provided leaves with profile-level metadata rather than stack-layer-per-field provenance.
+
+### What I learned
+
+- The most useful provenance view is not a copy of parsed fields; it is a final-settings tree with parse logs grafted onto it.
+- Loaded commands need one more provenance source than the parser knows about: command/loader baselines.
+
+### What was tricky to build
+
+- The main technical challenge was mapping Glazed field names such as `ai-engine` or `openai-api-key` back onto final YAML paths like `chat.engine` and `api_keys.api_keys.openai-api-key`.
+- The second challenge was preserving loaded-command baseline provenance, because those defaults exist outside the parser log and still matter when config or profile overlays replace them.
+
+### What warrants a second pair of eyes
+
+- The field-to-path mapping for less common provider-specific settings, especially embeddings and future inference-config fields.
+- Whether we want to redact secrets in the traced output later; the current behavior is intentionally exact for debugging.
+
+### What should be done in the future
+
+- Consider promoting the trace builder into a more generic Geppetto bootstrap package once the generic CLI bootstrap extraction ticket is active.
+- Consider profile-stack-per-field provenance if engine profile stacking becomes deeper and users need to know which stacked profile set a given field.
+
+### Code review instructions
+
+- Start with [inference_settings_trace.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/inference_settings_trace.go).
+- Then review [cmd.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go) and [helpers.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmdlayers/helpers.go).
+- Finish with [cmd_profile_registry_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd_profile_registry_test.go).
+
+### Technical details
+
+- New helper flag:
+  ```go
+  PrintInferenceSources bool `glazed:"print-inference-settings-sources"`
+  ```
+- User-facing CLI usage:
+  ```bash
+  go run ./cmd/pinocchio code professional test --chat --profile gpt-5-mini --print-inference-settings-sources
+  ```
+- Task completion:
+  add and check follow-up provenance-debug task in the GP-50 ticket
+
 ## Usage Examples
 
 Use this diary before resuming work on the ticket after an interruption. Each step is intended to explain what changed, what remains open, and what should be reviewed first.
