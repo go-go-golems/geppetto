@@ -9,13 +9,9 @@ import (
 	"strings"
 
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
-	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
-	"github.com/go-go-golems/glazed/pkg/cmds/fields"
-	"github.com/go-go-golems/glazed/pkg/cmds/schema"
-	"github.com/go-go-golems/glazed/pkg/cmds/sources"
-	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/rs/zerolog/log"
 )
 
 // OpenAIInferenceSettingsFromEnv returns basic OpenAI-backed inference settings suitable
@@ -44,28 +40,6 @@ func OpenAIInferenceSettingsFromEnv(model string, stream bool) (*settings.Infere
 	return ss, nil
 }
 
-// BaseInferenceSettingsFromDefaults mirrors the Pinocchio pattern of resolving hidden
-// base settings from Geppetto sections, but only from section defaults.
-//
-// Small apps can replace this with their own hidden bootstrap from config files,
-// secrets, or deployment defaults without exposing the full Geppetto flag surface.
-func BaseInferenceSettingsFromDefaults() (*settings.InferenceSettings, error) {
-	sections_, err := geppettosections.CreateGeppettoSections()
-	if err != nil {
-		return nil, err
-	}
-	schema_ := schema.NewSchema(schema.WithSections(sections_...))
-	parsedValues := values.New()
-	if err := sources.Execute(
-		schema_,
-		parsedValues,
-		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
-	); err != nil {
-		return nil, err
-	}
-	return settings.NewInferenceSettingsFromParsedValues(parsedValues)
-}
-
 // ExampleEngineProfileRegistryPath returns the bundled sample profile registry path.
 func ExampleEngineProfileRegistryPath() string {
 	_, file, _, ok := runtime.Caller(0)
@@ -79,17 +53,14 @@ func ExampleEngineProfileRegistryPath() string {
 // profile, and returns the final merged inference settings plus the registry closer.
 func ResolveInferenceSettingsFromRegistry(
 	ctx context.Context,
-	rawSources string,
+	entries []string,
 	profileSlug string,
 ) (*settings.InferenceSettings, func() error, error) {
-	entries, err := profiles.ParseEngineProfileRegistrySourceEntries(rawSources)
-	if err != nil {
-		return nil, nil, err
-	}
 	specs, err := profiles.ParseRegistrySourceSpecs(entries)
 	if err != nil {
 		return nil, nil, err
 	}
+	log.Debug().Msg("parsing profile specs")
 	chain, err := profiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
 	if err != nil {
 		return nil, nil, err

@@ -37,9 +37,9 @@ type registryFlagsCommand struct {
 var _ cmds.WriterCommand = (*registryFlagsCommand)(nil)
 
 type registryFlagsSettings struct {
-	Prompt            string `glazed:"prompt"`
-	Profile           string `glazed:"profile"`
-	ProfileRegistries string `glazed:"profile-registries"`
+	Prompt            string   `glazed:"prompt"`
+	Profile           string   `glazed:"profile"`
+	ProfileRegistries []string `glazed:"profile-registries"`
 }
 
 func profileRegistrySettingsSection() (schema.Section, error) {
@@ -50,7 +50,7 @@ func profileRegistrySettingsSection() (schema.Section, error) {
 			fields.New("profile", fields.TypeString, fields.WithHelp("Engine profile slug to resolve"), fields.WithDefault("openai-fast")),
 			fields.New(
 				"profile-registries",
-				fields.TypeString,
+				fields.TypeStringList,
 				fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
 				fields.WithDefault(runnerexample.ExampleEngineProfileRegistryPath()),
 			),
@@ -65,10 +65,10 @@ func newRegistryFlagsCommand() (*registryFlagsCommand, error) {
 	}
 
 	description := cmds.NewCommandDescription(
-		"runner-glazed-registry-flags",
+		"run",
 		cmds.WithShort("Run inference via pkg/inference/runner with only registry selection exposed through Glazed"),
 		cmds.WithArguments(
-			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt to run")),
+			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt to run"), fields.WithRequired(true)),
 		),
 		cmds.WithSections(profileSection),
 	)

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/runnerexample"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -19,7 +20,13 @@ func main() {
 	)
 	flag.Parse()
 
-	stepSettings, closeRegistry, err := runnerexample.ResolveInferenceSettingsFromRegistry(context.Background(), *profileRegistries, *profile)
+	registryEntries, err := profiles.ParseEngineProfileRegistrySourceEntries(*profileRegistries)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	stepSettings, closeRegistry, err := runnerexample.ResolveInferenceSettingsFromRegistry(context.Background(), registryEntries, *profile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
