@@ -10,10 +10,16 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/agents/simple-chat-agent/main.go
+      Note: Step 5 removed the dead sqlite middleware path from the agent command
     - Path: ../../../../../../../pinocchio/cmd/examples/internal/tuidemo/cli.go
       Note: Step 4 plain Cobra bridge into shared parsed-values bootstrap
     - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
       Note: Step 4 web-chat startup now uses shared selection and base settings
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/middleware_definitions.go
+      Note: Step 5 removed the dead sqlite middleware definition
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/profile_policy_test.go
+      Note: Step 5 updated schema expectations after sqlite middleware removal
     - Path: ../../../../../../../pinocchio/pkg/cmds/helpers/parse-helpers.go
       Note: Step 4 rewired legacy thin helper to shared bootstrap helpers
     - Path: ../../../../../../../pinocchio/pkg/cmds/profilebootstrap/engine_settings.go
@@ -34,6 +40,7 @@ LastUpdated: 2026-03-19T10:29:16.709774552-04:00
 WhatFor: Preserve the execution history of this ticket so future continuation and review do not depend on chat history.
 WhenToUse: Use when reviewing what changed, why it changed, what was learned, and how each milestone was validated.
 ---
+
 
 
 # Diary
@@ -515,6 +522,90 @@ The resulting behavior is much easier to reason about. Commands can start from `
       return nil, &gepprofiles.ValidationError{...}
   }
   ```
+
+## Step 5: Remove the dead SQLite tool path and finish the thin-command cutover
+
+The hard-cutover bootstrap work left one practical blocker: `web-chat` and `simple-chat-agent` still imported `sqlitetool`, but that middleware package had already been removed from the branch. In this step I removed the dead SQLite-tool wiring from those commands, updated the affected web-chat schema test, reran the previously blocked package tests, and closed the lightweight/bootstrap task.
+
+This was a good example of why the ticket diary matters. The earlier step had correctly identified the missing package as a branch-level blocker rather than a bootstrap design issue. Once the user confirmed that `sqlitetool` was intentionally gone, the right move was to delete the remaining command references instead of trying to reconstruct compatibility.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok continue, we killed sqlitetool so just kill it there. continue."
+
+**Assistant interpretation:** Remove the remaining dead `sqlitetool` references from the commands that still depend on it and continue the ticket from there.
+
+**Inferred user intent:** Bring the branch back to a coherent state by aligning the CLI commands with the already-removed middleware package, then keep progressing through the ticket.
+
+**Commit (code):** `a8763be` — `refactor(commands): remove dead sqlite tool path`
+
+### What I did
+
+- Removed the dead SQLite middleware definition from [middleware_definitions.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/middleware_definitions.go).
+- Removed the startup SQLite DB bootstrap and dead dependency injection from [main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go).
+- Removed `sqlite_regexp` and `sqlitetool` from [main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/agents/simple-chat-agent/main.go), including the middleware insertion.
+- Updated [main_profile_registries_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main_profile_registries_test.go) to build section values through `values.WithFieldValue(...)` so the shared-profile tests use valid Glazed field definitions.
+- Updated [profile_policy_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy_test.go) so the schema endpoint expectations match the post-SQLite middleware surface.
+- Re-ran the focused verification sweep:
+  - `go test ./pkg/cmds/helpers -count=1`
+  - `go test ./cmd/pinocchio/cmds -count=1`
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./cmd/agents/simple-chat-agent -count=1`
+
+### Why
+
+- The branch had already removed the middleware package, so keeping command references to it only created false blockers and obscured the actual bootstrap work.
+- `web-chat` schema tests still encoded the old middleware inventory, so they needed to be brought in line with the command surface the branch now intends to support.
+- Finishing the agent/web-chat cleanup was the missing piece for marking the thin-command task complete.
+
+### What worked
+
+- Removing the dead middleware path was enough to unblock both packages; `simple-chat-agent` now builds again and `web-chat` tests pass.
+- The remaining web-chat failure after the package compiled was a legitimate test helper/expectation issue, not another architectural problem.
+- With the dead middleware removed, task 17 could be checked off cleanly.
+
+### What didn't work
+
+- The first `go test ./cmd/web-chat -count=1` after removing `sqlitetool` exposed stale imports and a missing `cli` import in `main.go`.
+  Errors:
+  - `"os" imported and not used`
+  - `"path/filepath" imported and not used`
+  - `undefined: cli`
+- After fixing those, the next test run exposed a bad test helper in `main_profile_registries_test.go` that was updating section fields without proper definitions, and then a schema expectation that still assumed both `agentmode` and `sqlite` middleware definitions existed.
+
+### What I learned
+
+- Once a middleware package is intentionally removed from the branch, it is better to delete the remaining command references immediately than to carry dead integration code forward while refactoring adjacent systems.
+- The web-chat test suite is broad enough that it will flush out command-surface mismatches quickly once the package builds, which is useful during cleanup.
+- The task breakdown was correct: the lightweight/bootstrap task really did include the remaining agent/web-chat cleanup, and that task was not honestly complete until those packages built again.
+
+### What was tricky to build
+
+- The tricky part was not the code deletion itself. It was keeping the ticket-scoped commit isolated in a repo with unrelated staged work. I used the same temporary-index approach as in Step 4 so only the selected command files were committed.
+- The second sharp edge was that removing a middleware changes observable schema output. That meant the code and tests had to be updated together; otherwise the first green build would still stop at a failing schema assertion.
+
+### What warrants a second pair of eyes
+
+- Whether the web-chat command should expose any replacement SQL-analysis capability later, or whether the removal of the SQLite tool should remain permanent.
+- Whether `simple-chat-agent` should now also simplify some of its remaining finance-analysis prompt text, since it no longer has a built-in SQL tool path.
+
+### What should be done in the future
+
+- Continue with [loader.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/loader.go) and the remaining standardization/tests tasks.
+- Decide whether any of the remaining plain Cobra command families should gain an explicit `config-file` bridge similar to the TUI demo path.
+
+### Code review instructions
+
+- Start with [middleware_definitions.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/middleware_definitions.go) and [main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/agents/simple-chat-agent/main.go).
+- Then read [main_profile_registries_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main_profile_registries_test.go) and [profile_policy_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy_test.go) to see the test-surface updates.
+- Validate with the four commands listed above.
+
+### Technical details
+
+- Removed middleware definition name:
+  `sqlite`
+- Follow-up task state:
+  `docmgr task check --ticket GP-50-REGISTRY-LOADING-CLEANUP --id 17`
 
 ## Usage Examples
 

@@ -116,3 +116,15 @@ Completed the next hard-cutover bootstrap milestone as `0a1056d` (`refactor(prof
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go — Web-chat startup now uses shared selection/base-settings helpers and tolerates baseline-only mode
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go — Request resolver now distinguishes baseline-only mode from explicit invalid profile/registry selection
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection_test.go — No-fallback behavior is now codified directly in helper tests
+
+## 2026-03-19
+
+Completed the SQLite follow-up as `a8763be` (`refactor(commands): remove dead sqlite tool path`). The remaining command references to the deleted `sqlitetool` package were removed from `web-chat` and `simple-chat-agent`, the web-chat schema tests were updated to match the new middleware surface, and the previously blocked command packages now verify successfully.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/middleware_definitions.go — Removed the dead `sqlite` middleware definition from the web-chat runtime registry
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go — Removed startup SQLite dependency injection that only existed for the deleted middleware
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/agents/simple-chat-agent/main.go — Removed the dead SQLite tool middleware path from the agent command
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main_profile_registries_test.go — Fixed the shared-profile test helper to construct valid Glazed section values
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy_test.go — Schema endpoint expectations now match the post-SQLite middleware inventory
