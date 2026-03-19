@@ -50,7 +50,7 @@
   - define engine-only YAML shape
   - update YAML decode/encode tests
   - update SQLite store payload expectations if needed
-- [ ] Slice 6: move remaining prompt/middleware/tool runtime semantics fully to applications
+- [x] Slice 6: move remaining prompt/middleware/tool runtime semantics fully to applications
   - Pinocchio runtime config
   - GEC-RAG runtime config
   - Temporal Relationships runtime config
@@ -68,4 +68,4 @@
 - [x] GEC-RAG focused tests or compile smoke pass after cross-repo rename slices
 - [x] Temporal Relationships focused tests or compile smoke pass after cross-repo rename slices
 - [x] `docmgr doctor --ticket GP-49-ENGINE-PROFILES --stale-after 30` passes after each documentation update
-- [ ] Commit each completed slice separately and record it in the diary and changelog
+- [x] Commit each completed slice separately and record it in the diary and changelog

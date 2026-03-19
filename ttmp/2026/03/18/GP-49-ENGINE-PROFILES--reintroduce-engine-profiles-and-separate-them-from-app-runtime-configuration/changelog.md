@@ -48,3 +48,8 @@
   - rewrote the JS API docs to reflect explicit engine-profile resolution plus app-owned runner runtime
   - updated JS examples to demonstrate the new split between engine profiles and runtime behavior
   - updated generated JS type docs to remove `effectiveRuntime`, `resolvedProfile`, and profile-driven runner resolution
+- Closed the ticket after downstream migration completed:
+  - Pinocchio migrated CLI, JS, and web-chat
+  - CoinVault migrated to local-first app runtime planning
+  - Temporal Relationships migrated run-chat and gorunner
+  - the engine-profile architecture is now the active steady-state model across the workspace

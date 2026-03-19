@@ -1,7 +1,7 @@
 ---
 Title: reintroduce engine profiles and separate them from app runtime configuration
 Ticket: GP-49-ENGINE-PROFILES
-Status: active
+Status: complete
 Topics:
     - geppetto
     - architecture
@@ -58,9 +58,9 @@ The proposal in this ticket is:
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
-Research and design are complete in this ticket, and the Geppetto-side hard cut is now done. Completed slices:
+Research, design, and implementation are complete in this ticket. Completed slices:
 
 - `pkg/profiles` hard-renamed to `pkg/engineprofiles`
 - `StepSettings` hard-renamed to `InferenceSettings`
@@ -73,13 +73,13 @@ The ticket also includes a concrete downstream migration playbook in Glazed docs
 
 - [migrating-from-mixed-runtime-profiles-to-engine-profiles.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/glazed/pkg/doc/tutorials/migrating-from-mixed-runtime-profiles-to-engine-profiles.md)
 
-The remaining work is downstream migration:
+Downstream migration is also complete:
 
-- Pinocchio
-- GEC-RAG
-- Temporal Relationships
+- Pinocchio migrated its CLI, JS, and web-chat paths
+- GEC-RAG migrated CoinVault to local-first app runtime planning
+- Temporal Relationships migrated run-chat and gorunner to the new split
 
-Those applications can now rebuild their own lightweight runtime YAML/config layers on top of the simplified Geppetto engine-profile substrate.
+This ticket is therefore closed.
 
 ## Topics
 
