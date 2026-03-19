@@ -18,7 +18,7 @@
   `config.yaml` provides baseline inference defaults and other CLI/app settings; `profiles.yaml` remains an engine profile registry and is not overloaded as a baseline config file.
 - [x] Decide and document the exact default discovery rules for config and registry files, including home-directory defaults, legacy fallback paths if any, and how explicit CLI flags override discovery.
 - [x] Add a focused design note for the minimal first implementation that excludes runtime profiles, tools, and middleware profile composition.
-- [ ] Introduce one shared helper contract for resolving CLI profile selection from parsed values:
+- [x] Introduce one shared helper contract for resolving CLI profile selection from parsed values:
   consume `profile` and `profile-registries` from the shared Geppetto profile-settings section, normalize discovered registry paths, and return one explicit resolved selection structure.
 - [ ] Introduce one shared helper contract for resolving final inference settings from a baseline config plus optional profile overlay, with a clearly documented precedence order for command defaults, config file values, profile overlay values, environment, and explicit flags.
 - [ ] Introduce one shared helper for fast engine creation from the resolved final inference settings so commands stop open-coding `factory.NewEngineFromParsedValues(...)` in registry-aware paths.

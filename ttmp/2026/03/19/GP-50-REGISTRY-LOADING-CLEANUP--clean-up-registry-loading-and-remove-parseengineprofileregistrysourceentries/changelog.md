@@ -67,3 +67,13 @@ Completed the first documentation milestone for the next phase and committed it 
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/analysis/03-geppetto-backed-cli-entrypoint-inventory-and-bootstrap-classification.md — Inventory of loaded-command, Glazed/Cobra, and thin bootstrap command families
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/03-baseline-config-and-engine-profile-registry-semantics.md — Baseline config versus engine profile registry semantics and discovery rules
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/04-minimal-first-phase-bootstrap-implementation-without-runtime-profiles.md — First-phase implementation guide for shared bootstrap helpers
+
+## 2026-03-19
+
+Completed the first code task from the new plan and committed it as `76ae603` (`refactor(profiles): add shared cli profile selection helper`). Pinocchio now has an explicit `ResolveCLIProfileSelection(...)` helper plus focused precedence/fallback tests, and the thin runtime helper path consumes that shared selection logic instead of duplicating it.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection.go — New shared profile-selection contract and resolver
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go — Final inference settings path now delegates selection to the shared helper
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection_test.go — New tests covering explicit precedence, config fallback, and XDG fallback
