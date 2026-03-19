@@ -56,3 +56,14 @@ Imported the external guide `geppetto_cli_profile_guide.md` into the ticket, rev
 
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/sources/local/geppetto_cli_profile_guide.md — Imported source adopted as the better design basis for follow-up work
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/tasks.md — Next-phase tasks rewritten to focus on config/profile simplification and shared engine bootstrap
+
+## 2026-03-19
+
+Completed the first documentation milestone for the next phase and committed it as `34401d6` (`docs(ticket): add bootstrap simplification design notes`). The ticket now contains the explicit scope decision, the CLI entrypoint inventory, the config-versus-registry semantics note, and the minimal first-phase implementation guide.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/02-adopt-imported-cli-profile-guide-and-defer-runtime-profiles.md — Decision note adopting the imported guide and deferring runtime profiles
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/analysis/03-geppetto-backed-cli-entrypoint-inventory-and-bootstrap-classification.md — Inventory of loaded-command, Glazed/Cobra, and thin bootstrap command families
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/03-baseline-config-and-engine-profile-registry-semantics.md — Baseline config versus engine profile registry semantics and discovery rules
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/04-minimal-first-phase-bootstrap-implementation-without-runtime-profiles.md — First-phase implementation guide for shared bootstrap helpers
