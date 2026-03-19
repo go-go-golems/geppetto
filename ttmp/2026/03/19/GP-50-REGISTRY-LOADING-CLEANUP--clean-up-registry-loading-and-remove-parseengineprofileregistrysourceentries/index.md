@@ -18,12 +18,14 @@ RelatedFiles:
       Note: Non-Glazed JS API path that keeps local registry-source normalization
     - Path: pkg/sections/sections.go
       Note: Glazed bootstrap profile-settings decoding to migrate to TypeStringList
-ExternalSources: []
+ExternalSources:
+    - local:geppetto_cli_profile_guide.md
 Summary: ""
-LastUpdated: 2026-03-19T06:53:21.747266743-04:00
+LastUpdated: 2026-03-19T10:16:48.15180029-04:00
 WhatFor: Remove the exported string-splitting helper from engine profile registry loading, let Glazed own list decoding where available, and document follow-up migrations for remaining non-Glazed callers.
 WhenToUse: Use when updating Geppetto or downstream callers that currently normalize comma-separated profile registry source strings before calling ParseRegistrySourceSpecs.
 ---
+
 
 
 # Clean up registry loading and remove ParseEngineProfileRegistrySourceEntries

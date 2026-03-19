@@ -48,3 +48,11 @@ Added a detailed intern-facing design and implementation guide for Pinocchio and
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/cmd.go — Current loaded-command runtime path analyzed in the guide
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go — Current thin-command runtime path analyzed in the guide
 
+## 2026-03-19
+
+Imported the external guide `geppetto_cli_profile_guide.md` into the ticket, reviewed it as the preferred direction for the next phase, and rewrote the follow-up task list around a narrower simplification goal: baseline app config loading plus engine profile overlay, with runtime profiles explicitly deferred.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/sources/local/geppetto_cli_profile_guide.md — Imported source adopted as the better design basis for follow-up work
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/tasks.md — Next-phase tasks rewritten to focus on config/profile simplification and shared engine bootstrap
