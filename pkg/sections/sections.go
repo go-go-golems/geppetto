@@ -2,9 +2,6 @@ package sections
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
@@ -28,39 +25,10 @@ type createOptions struct {
 	stepSettings *settings.InferenceSettings
 }
 
-type ProfileSettings struct {
-	Profile           string   `glazed:"profile"`
-	ProfileRegistries []string `glazed:"profile-registries"`
-}
-
-type ProfileSettingsSectionOption func(*profileSettingsSectionOptions)
-
-type profileSettingsSectionOptions struct {
-	profileDefault           string
-	profileRegistriesDefault []string
-}
-
 // WithDefaultsFromInferenceSettings uses the given InferenceSettings for layer defaults.
 func WithDefaultsFromInferenceSettings(s *settings.InferenceSettings) CreateOption {
 	return func(o *createOptions) {
 		o.stepSettings = s
-	}
-}
-
-func WithProfileDefault(profile string) ProfileSettingsSectionOption {
-	return func(o *profileSettingsSectionOptions) {
-		o.profileDefault = strings.TrimSpace(profile)
-	}
-}
-
-func WithProfileRegistriesDefault(entries ...string) ProfileSettingsSectionOption {
-	return func(o *profileSettingsSectionOptions) {
-		o.profileRegistriesDefault = o.profileRegistriesDefault[:0]
-		for _, entry := range entries {
-			if trimmed := strings.TrimSpace(entry); trimmed != "" {
-				o.profileRegistriesDefault = append(o.profileRegistriesDefault, trimmed)
-			}
-		}
 	}
 }
 
@@ -157,51 +125,6 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		profileSettingsSection,
 	}
 	return result, nil
-}
-
-const ProfileSettingsSectionSlug = "profile-settings"
-
-func defaultPinocchioProfileRegistriesIfPresent() string {
-	configDir, err := os.UserConfigDir()
-	if err != nil || strings.TrimSpace(configDir) == "" {
-		return ""
-	}
-	path := filepath.Join(configDir, "pinocchio", "profiles.yaml")
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return ""
-	}
-	return path
-}
-
-func NewProfileSettingsSection(opts ...ProfileSettingsSectionOption) (schema.Section, error) {
-	var sectionOptions profileSettingsSectionOptions
-	for _, opt := range opts {
-		opt(&sectionOptions)
-	}
-
-	profileOptions := []fields.Option{
-		fields.WithHelp("Load the profile"),
-	}
-	if sectionOptions.profileDefault != "" {
-		profileOptions = append(profileOptions, fields.WithDefault(sectionOptions.profileDefault))
-	}
-
-	profileRegistriesOptions := []fields.Option{
-		fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
-	}
-	if len(sectionOptions.profileRegistriesDefault) > 0 {
-		profileRegistriesOptions = append(profileRegistriesOptions, fields.WithDefault(append([]string(nil), sectionOptions.profileRegistriesDefault...)))
-	}
-
-	return schema.NewSection(
-		ProfileSettingsSectionSlug,
-		"Profile settings",
-		schema.WithFields(
-			fields.New("profile", fields.TypeString, profileOptions...),
-			fields.New("profile-registries", fields.TypeStringList, profileRegistriesOptions...),
-		),
-	)
 }
 
 func GetCobraCommandGeppettoMiddlewares(
