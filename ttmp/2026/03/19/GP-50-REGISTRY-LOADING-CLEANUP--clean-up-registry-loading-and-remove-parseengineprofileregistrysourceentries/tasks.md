@@ -24,12 +24,12 @@
 - [x] Introduce one shared helper for fast engine creation from the resolved final inference settings so commands stop open-coding `factory.NewEngineFromParsedValues(...)` in registry-aware paths.
 - [x] Implement the parsed-values path for loaded/full commands so `PinocchioCommand.RunIntoWriter(...)` preserves command-local defaults while delegating profile selection, profile overlay, and engine creation to the shared helpers.
 - [ ] Implement the lightweight/bootstrap path for JS, agents, and other thin commands that do not already have a fully parsed loaded-command context, using the same profile section and the same final engine resolution rules.
-- [ ] Refactor `pinocchio/pkg/cmds/cmd.go` to use the shared resolution helpers and remove duplicated engine bootstrap logic.
-- [ ] Refactor `pinocchio/pkg/cmds/helpers/profile_runtime.go` so its non-runtime responsibilities collapse into the shared config/profile/engine helpers, leaving no second partially overlapping bootstrap path.
+- [x] Refactor `pinocchio/pkg/cmds/cmd.go` to use the shared resolution helpers and remove duplicated engine bootstrap logic.
+- [x] Refactor `pinocchio/pkg/cmds/helpers/profile_runtime.go` so its non-runtime responsibilities collapse into the shared config/profile/engine helpers, leaving no second partially overlapping bootstrap path.
 - [ ] Refactor `pinocchio/pkg/cmds/loader.go` so loader-side inference defaults are surfaced explicitly instead of re-parsing YAML blobs later just to rediscover baseline settings.
-- [ ] Reconcile current mismatch in no-registry behavior and make the rule explicit:
+- [x] Reconcile current mismatch in no-registry behavior and make the rule explicit:
   commands must be able to run from baseline config plus direct flags even when no profile registry is present, while still supporting profile overlay when registries are provided or discovered.
 - [ ] Standardize how commands mount the shared Geppetto `profile-settings` section and any baseline config section so profile/config loading works the same across Pinocchio command families and Geppetto examples.
 - [ ] Add targeted tests for config/profile precedence and bootstrap parity:
   baseline config only, explicit `--profile`, explicit `--profile-registries`, discovered registry file, loaded-command defaults preservation, and manual/bootstrap command parity with loaded commands.
-- [ ] Update ticket docs and implementation notes after each refactor step so the adopted simplified model stays aligned with the imported guide and does not drift back toward runtime-profile scope.
+- [x] Update ticket docs and implementation notes after each refactor step so the adopted simplified model stays aligned with the imported guide and does not drift back toward runtime-profile scope.

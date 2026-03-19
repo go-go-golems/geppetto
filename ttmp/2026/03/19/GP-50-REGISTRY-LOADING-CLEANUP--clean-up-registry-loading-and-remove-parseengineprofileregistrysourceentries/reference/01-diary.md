@@ -10,13 +10,23 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/02-adopt-imported-cli-profile-guide-and-defer-runtime-profiles.md
-      Note: Step 1 decision note added in the first documentation milestone
-    - Path: geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/analysis/03-geppetto-backed-cli-entrypoint-inventory-and-bootstrap-classification.md
+    - Path: ../../../../../../../pinocchio/cmd/examples/internal/tuidemo/cli.go
+      Note: Step 4 plain Cobra bridge into shared parsed-values bootstrap
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/main.go
+      Note: Step 4 web-chat startup now uses shared selection and base settings
+    - Path: ../../../../../../../pinocchio/pkg/cmds/helpers/parse-helpers.go
+      Note: Step 4 rewired legacy thin helper to shared bootstrap helpers
+    - Path: ../../../../../../../pinocchio/pkg/cmds/profilebootstrap/engine_settings.go
+      Note: Step 4 enforced explicit registries for selected profiles
+    - Path: ../../../../../../../pinocchio/pkg/cmds/profilebootstrap/profile_selection.go
+      Note: Step 4 removed implicit registry fallback and exported shared config-file helpers
+    - Path: ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/analysis/03-geppetto-backed-cli-entrypoint-inventory-and-bootstrap-classification.md
       Note: Step 1 entrypoint inventory added in the first documentation milestone
-    - Path: geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/03-baseline-config-and-engine-profile-registry-semantics.md
+    - Path: ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/02-adopt-imported-cli-profile-guide-and-defer-runtime-profiles.md
+      Note: Step 1 decision note added in the first documentation milestone
+    - Path: ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/03-baseline-config-and-engine-profile-registry-semantics.md
       Note: Step 1 semantics and discovery rules note
-    - Path: geppetto/ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/04-minimal-first-phase-bootstrap-implementation-without-runtime-profiles.md
+    - Path: ttmp/2026/03/19/GP-50-REGISTRY-LOADING-CLEANUP--clean-up-registry-loading-and-remove-parseengineprofileregistrysourceentries/design-doc/04-minimal-first-phase-bootstrap-implementation-without-runtime-profiles.md
       Note: Step 1 minimal implementation design note
 ExternalSources: []
 Summary: Step-by-step diary for the registry-loading cleanup follow-up work, including documentation milestones, implementation milestones, validation, and commit references.
@@ -24,6 +34,7 @@ LastUpdated: 2026-03-19T10:29:16.709774552-04:00
 WhatFor: Preserve the execution history of this ticket so future continuation and review do not depend on chat history.
 WhenToUse: Use when reviewing what changed, why it changed, what was learned, and how each milestone was validated.
 ---
+
 
 # Diary
 
@@ -392,6 +403,118 @@ The first attempt exposed an import cycle because `cmds` imported `helpers`, whi
   ```
 - Compatibility approach:
   `helpers` now forwards to `profilebootstrap` instead of owning the implementation.
+
+## Step 4: Hard-cut over thin bootstrap paths and remove the implicit registry fallback
+
+This milestone applied the simplified bootstrap model to the thin command paths instead of only the loaded-command path. I moved the JS command, the TUI demo bootstrap, the simple-chat example bootstrap, and the web-chat bootstrap onto the shared `profilebootstrap` helpers, removed the implicit `profiles.yaml` fallback from the shared profile-selection path, and made the rule explicit that baseline config alone is valid but `--profile` without registries is an error.
+
+The resulting behavior is much easier to reason about. Commands can start from `config.yaml` plus direct flags even when no profile registry is present, but profile overlay is now always an explicit opt-in. That rule now lives in the shared helper layer and in tests, instead of being scattered across per-command bootstrap code.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Go ahead. No backwards compatibility btw, hard cutover."
+
+**Assistant interpretation:** Continue the remaining tasks under a hard-cutover assumption, remove compatibility fallbacks instead of preserving them, and keep the ticket docs aligned with the code.
+
+**Inferred user intent:** Finish the config/profile simplification as the new default model, not as an optional compatibility layer.
+
+**Commit (code):** `0a1056d` — `refactor(profiles): cut over thin bootstrap commands`
+
+### What I did
+
+- Removed the implicit XDG `profiles.yaml` fallback from [profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go).
+- Made [engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go) reject `profile` selection when no registry sources are configured.
+- Exported shared config-file helpers from `profilebootstrap` and rewired [parse-helpers.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/parse-helpers.go) to reuse them instead of carrying duplicate config-file bootstrap logic.
+- Collapsed [profile_runtime.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go) down to the runtime-specific compatibility wrapper only.
+- Migrated the lightweight example paths:
+  - [js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go)
+  - [cli.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go)
+  - [profile.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/profile.go)
+  - [main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/simple-chat/main.go)
+- Migrated the web-chat bootstrap to shared selection/base-settings helpers and updated [profile_policy.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go) so baseline-only operation works while explicit profile/registry selectors now fail cleanly when no registries are configured.
+- Added and updated tests in:
+  - [profile_runtime_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime_test.go)
+  - [main_profile_registries_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main_profile_registries_test.go)
+  - [js_test.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js_test.go)
+- Added the explicit no-fallback helper test in a second follow-up commit:
+  - `475131e` — `test(profiles): codify no registry fallback`
+
+### Why
+
+- The shared helper layer was still undermined by thin-command paths that manually re-parsed flags or silently rediscovered `profiles.yaml`.
+- The old fallback made behavior depend on ambient files in the user's config directory, which is the opposite of the simplification the imported guide recommended.
+- `profile_runtime.go` was still carrying config-file resolution responsibilities that now belong in the shared bootstrap package.
+
+### What worked
+
+- The shared helper split held up when applied to non-loaded command families; the TUI demo and simple-chat example reduce cleanly to "build parsed values, call shared helper, build engine".
+- The no-registry rule is now covered in helper tests and the JS path instead of only existing as prose.
+- Targeted verification passed for the packages that do not currently depend on the deleted SQLite middleware package:
+  - `go test ./pkg/cmds/helpers -count=1`
+  - `go test ./pkg/cmds -run TestLoadedCommandRunIntoWriterUsesSelectedEngineProfile -count=1`
+  - `go test ./cmd/pinocchio/cmds -count=1`
+  - `go test ./cmd/examples/internal/tuidemo -count=1`
+  - `go test ./cmd/examples/simple-chat -count=1`
+
+### What didn't work
+
+- `web-chat` and `simple-chat-agent` could not be verified because the current Pinocchio worktree no longer contains `pkg/middlewares/sqlitetool`, but both packages still import it.
+  Command:
+  `go test ./cmd/web-chat -count=1`
+  Error:
+  `cmd/web-chat/middleware_definitions.go:13:2: no required module provides package github.com/go-go-golems/pinocchio/pkg/middlewares/sqlitetool`
+- The same repository-level blocker exists for the agent command.
+  Command:
+  `go test ./cmd/agents/simple-chat-agent -count=1`
+  Error:
+  `cmd/agents/simple-chat-agent/main.go:32:2: no required module provides package github.com/go-go-golems/pinocchio/pkg/middlewares/sqlitetool`
+- The Pinocchio index already had unrelated staged deletions and one file with mixed unrelated JS runtime edits. To avoid committing those accidentally, I had to use a temporary Git index and a selective `git add -p` pass for `cmd/pinocchio/cmds/js.go`.
+
+### What I learned
+
+- The right place for the no-registry rule is the shared engine-settings helper, not each caller. Once that helper rejects `profile` without registries, the rest of the code gets simpler.
+- The thin example/TUI paths do not need a second bootstrap model; they just need a small local "build parsed values" bridge into the same shared helper contract.
+- Baseline-only web-chat operation is viable as long as the request resolver treats missing registries as "no profile overlay available" rather than as an internal server error.
+
+### What was tricky to build
+
+- The hardest part was staging, not inference settings. The repo has unrelated staged deletions plus mixed worktree changes in `cmd/pinocchio/cmds/js.go`, so a normal `git add` / `git commit` flow would have swept unrelated branch work into this ticket. The approach that worked was to stage only the bootstrap-related JS hunks with `git add -p`, then create the commit from a temporary index containing only the selected file versions.
+- The second sharp edge was web-chat's dual role. It needs baseline inference settings at startup, but profile overlays are resolved per request. That means it cannot just call `ResolveCLIEngineSettings(...)` and be done; it needs the shared base-settings helper plus request-time logic that now explicitly tolerates a nil registry when no profile is requested.
+
+### What warrants a second pair of eyes
+
+- The remaining `simple-chat-agent` bootstrap changes are still only in the worktree because the file is mixed with unrelated staged work and the package cannot currently build without `sqlitetool`.
+- `cmd/pinocchio/cmds/js.go` has additional unrelated local changes that were intentionally left unstaged; review should confirm the committed JS bootstrap hunks are the only ones this ticket intended to carry.
+- `web-chat` test files were updated to the new helper contract, but package-level verification remains blocked by the missing middleware package.
+
+### What should be done in the future
+
+- Finish task 17 by resolving the `simple-chat-agent` path once the `sqlitetool` situation is clarified in the branch.
+- Continue with `loader.go` and the remaining command-mounting standardization task.
+- Add a targeted web-chat no-registry request-resolution test once the package builds again.
+
+### Code review instructions
+
+- Start with [profile_selection.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go) and [engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go) to understand the hard-cutover behavior.
+- Then read [parse-helpers.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/parse-helpers.go), [cli.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go), and [main.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go) to see how the thin paths now bridge into the shared helper contract.
+- Validate with the passing commands above, then reproduce the current package-level blocker with:
+  - `go test ./cmd/web-chat -count=1`
+  - `go test ./cmd/agents/simple-chat-agent -count=1`
+
+### Technical details
+
+- New shared exports added for thin helper reuse:
+  ```go
+  func ResolveCLIConfigFiles(parsed *values.Values) ([]string, error)
+  func ResolveCLIConfigFilesForExplicit(explicit string) ([]string, error)
+  func MapPinocchioConfigFile(rawConfig interface{}) (map[string]map[string]interface{}, error)
+  ```
+- Hard-cutover rule now enforced centrally:
+  ```go
+  if len(selection.ProfileRegistries) == 0 && selection.Profile != "" {
+      return nil, &gepprofiles.ValidationError{...}
+  }
+  ```
 
 ## Usage Examples
 

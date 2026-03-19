@@ -99,3 +99,20 @@ Completed the loaded-command migration as `a755724` (`refactor(profiles): share 
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go — Cycle-free shared final-settings and engine-construction implementation
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection.go — Compatibility wrapper onto the shared `profilebootstrap` implementation
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_engine_settings.go — Compatibility wrapper onto the shared `profilebootstrap` implementation
+
+## 2026-03-19
+
+Completed the next hard-cutover bootstrap milestone as `0a1056d` (`refactor(profiles): cut over thin bootstrap commands`) and `475131e` (`test(profiles): codify no registry fallback`). Thin/manual bootstrap paths now use the shared `profilebootstrap` helpers, the implicit `profiles.yaml` fallback is removed, `profile` without registries now fails explicitly, and `profile_runtime.go` no longer carries its own config-file resolution logic.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go — Removed implicit registry fallback and exported shared config-file helpers for thin bootstrap reuse
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go — Shared engine-settings path now enforces explicit registries when a profile is selected
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/parse-helpers.go — Legacy thin helper now reuses shared config-file bootstrap and `[]string` registry inputs
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_runtime.go — Reduced to the runtime-specific compatibility wrapper only
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go — JS bootstrap path now consumes shared profile/bootstrap helpers while keeping unrelated local runtime edits unstaged
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/internal/tuidemo/cli.go — Plain Cobra example now builds parsed values with `config-file` plus shared profile section
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/examples/simple-chat/main.go — Example wrapper no longer injects a fake default profile and now passes registry slices directly
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/main.go — Web-chat startup now uses shared selection/base-settings helpers and tolerates baseline-only mode
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/web-chat/profile_policy.go — Request resolver now distinguishes baseline-only mode from explicit invalid profile/registry selection
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/helpers/profile_selection_test.go — No-fallback behavior is now codified directly in helper tests
