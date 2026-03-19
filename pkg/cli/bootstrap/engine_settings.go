@@ -1,0 +1,173 @@
+package bootstrap
+
+import (
+	"context"
+
+	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
+	"github.com/go-go-golems/glazed/pkg/cmds/sources"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/pkg/errors"
+)
+
+type ResolvedCLIEngineSettings struct {
+	BaseInferenceSettings  *aisettings.InferenceSettings
+	FinalInferenceSettings *aisettings.InferenceSettings
+	ProfileSelection       *ResolvedCLIProfileSelection
+	ResolvedEngineProfile  *gepprofiles.ResolvedEngineProfile
+	ConfigFiles            []string
+	Close                  func()
+}
+
+func ResolveBaseInferenceSettings(cfg AppBootstrapConfig, parsed *values.Values) (*aisettings.InferenceSettings, []string, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	sections_, err := cfg.BuildBaseSections()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "create hidden base sections")
+	}
+	schema_ := schema.NewSchema(schema.WithSections(sections_...))
+	parsedValues := values.New()
+	configFiles, err := ResolveCLIConfigFiles(cfg, parsed)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := sources.Execute(
+		schema_,
+		parsedValues,
+		sources.FromEnv(cfg.normalizedEnvPrefix(), fields.WithSource("env")),
+		sources.FromFiles(
+			configFiles,
+			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
+			sources.WithParseOptions(fields.WithSource("config")),
+		),
+		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
+	); err != nil {
+		return nil, configFiles, errors.Wrap(err, "resolve hidden base inference settings")
+	}
+	stepSettings, err := aisettings.NewInferenceSettingsFromParsedValues(parsedValues)
+	if err != nil {
+		return nil, configFiles, errors.Wrap(err, "build inference settings from hidden parsed values")
+	}
+	return stepSettings, configFiles, nil
+}
+
+func ResolveCLIEngineSettings(
+	ctx context.Context,
+	cfg AppBootstrapConfig,
+	parsed *values.Values,
+) (*ResolvedCLIEngineSettings, error) {
+	base, baseConfigFiles, err := ResolveBaseInferenceSettings(cfg, parsed)
+	if err != nil {
+		return nil, err
+	}
+	return ResolveCLIEngineSettingsFromBase(ctx, cfg, base, parsed, baseConfigFiles)
+}
+
+func ResolveCLIEngineSettingsFromBase(
+	ctx context.Context,
+	cfg AppBootstrapConfig,
+	base *aisettings.InferenceSettings,
+	parsed *values.Values,
+	baseConfigFiles []string,
+) (*ResolvedCLIEngineSettings, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if base == nil {
+		return nil, errors.New("base inference settings cannot be nil")
+	}
+
+	selection, err := ResolveCLIProfileSelection(cfg, parsed)
+	if err != nil {
+		return nil, err
+	}
+
+	configFiles := append([]string(nil), baseConfigFiles...)
+	if len(selection.ConfigFiles) > 0 {
+		configFiles = append([]string(nil), selection.ConfigFiles...)
+	}
+
+	if len(selection.ProfileRegistries) == 0 {
+		if selection.Profile != "" {
+			return nil, &gepprofiles.ValidationError{
+				Field:  "profile-settings.profile-registries",
+				Reason: "must be configured when profile-settings.profile is set",
+			}
+		}
+		return &ResolvedCLIEngineSettings{
+			BaseInferenceSettings:  base,
+			FinalInferenceSettings: base,
+			ProfileSelection:       selection,
+			ConfigFiles:            configFiles,
+		}, nil
+	}
+
+	specs, err := gepprofiles.ParseRegistrySourceSpecs(selection.ProfileRegistries)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse profile registry source specs")
+	}
+	chain, err := gepprofiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
+	if err != nil {
+		return nil, errors.Wrap(err, "initialize profile registry")
+	}
+
+	in := gepprofiles.ResolveInput{}
+	if selection.Profile != "" {
+		profileSlug, err := gepprofiles.ParseEngineProfileSlug(selection.Profile)
+		if err != nil {
+			_ = chain.Close()
+			return nil, err
+		}
+		in.EngineProfileSlug = profileSlug
+	}
+	resolved, err := chain.ResolveEngineProfile(ctx, in)
+	if err != nil {
+		_ = chain.Close()
+		return nil, err
+	}
+	finalSettings, err := gepprofiles.MergeInferenceSettings(base, resolved.InferenceSettings)
+	if err != nil {
+		_ = chain.Close()
+		return nil, errors.Wrap(err, "merge base inference settings with engine profile")
+	}
+
+	return &ResolvedCLIEngineSettings{
+		BaseInferenceSettings:  base,
+		FinalInferenceSettings: finalSettings,
+		ProfileSelection:       selection,
+		ResolvedEngineProfile:  resolved,
+		ConfigFiles:            configFiles,
+		Close: func() {
+			_ = chain.Close()
+		},
+	}, nil
+}
+
+func NewEngineFromResolvedCLIEngineSettings(
+	resolved *ResolvedCLIEngineSettings,
+) (engine.Engine, error) {
+	return NewEngineFromResolvedCLIEngineSettingsWithFactory(nil, resolved)
+}
+
+func NewEngineFromResolvedCLIEngineSettingsWithFactory(
+	engineFactory factory.EngineFactory,
+	resolved *ResolvedCLIEngineSettings,
+) (engine.Engine, error) {
+	if resolved == nil {
+		return nil, errors.New("resolved engine settings cannot be nil")
+	}
+	if resolved.FinalInferenceSettings == nil {
+		return nil, errors.New("resolved final inference settings cannot be nil")
+	}
+	if engineFactory == nil {
+		engineFactory = factory.NewStandardEngineFactory()
+	}
+	return engineFactory.CreateEngine(resolved.FinalInferenceSettings)
+}

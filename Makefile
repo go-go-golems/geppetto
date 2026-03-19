@@ -19,7 +19,7 @@ golangci-lint-install:
 LINTTOOL_BIN ?= /tmp/geppetto-lint
 
 linttool-build:
-	go build -o $(LINTTOOL_BIN) ./cmd/geppetto-lint
+	go build -o $(LINTTOOL_BIN) ./cmd/tools/geppetto-lint
 
 linttool:
 	$(MAKE) linttool-build
@@ -38,7 +38,7 @@ lintmax: linttool-build golangci-lint-install
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 
 turnsdatalint-build:
-	go build -o $(TURNSDATALINT_BIN) ./cmd/turnsdatalint
+	go build -o $(TURNSDATALINT_BIN) ./cmd/tools/turnsdatalint
 
 turnsdatalint:
 	$(MAKE) turnsdatalint-build

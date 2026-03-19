@@ -9,12 +9,12 @@ import (
 	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/runnerexample"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/help"
 	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
@@ -37,40 +37,25 @@ type registryFlagsCommand struct {
 var _ cmds.WriterCommand = (*registryFlagsCommand)(nil)
 
 type registryFlagsSettings struct {
-	Prompt            string `glazed:"prompt"`
-	Profile           string `glazed:"profile"`
-	ProfileRegistries string `glazed:"profile-registries"`
-}
-
-func profileRegistrySettingsSection() (schema.Section, error) {
-	return schema.NewSection(
-		"profile-settings",
-		"Profile settings",
-		schema.WithFields(
-			fields.New("profile", fields.TypeString, fields.WithHelp("Engine profile slug to resolve"), fields.WithDefault("openai-fast")),
-			fields.New(
-				"profile-registries",
-				fields.TypeString,
-				fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
-				fields.WithDefault(runnerexample.ExampleEngineProfileRegistryPath()),
-			),
-		),
-	)
+	Prompt string `glazed:"prompt"`
 }
 
 func newRegistryFlagsCommand() (*registryFlagsCommand, error) {
-	profileSection, err := profileRegistrySettingsSection()
+	profileSettingsSection, err := geppettosections.NewProfileSettingsSection(
+		geppettosections.WithProfileDefault("openai-fast"),
+		geppettosections.WithProfileRegistriesDefault(runnerexample.ExampleEngineProfileRegistryPath()),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "create profile settings section")
 	}
 
 	description := cmds.NewCommandDescription(
-		"runner-glazed-registry-flags",
+		"run",
 		cmds.WithShort("Run inference via pkg/inference/runner with only registry selection exposed through Glazed"),
 		cmds.WithArguments(
-			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt to run")),
+			fields.New("prompt", fields.TypeString, fields.WithHelp("Prompt to run"), fields.WithRequired(true)),
 		),
-		cmds.WithSections(profileSection),
+		cmds.WithSections(profileSettingsSection),
 	)
 
 	return &registryFlagsCommand{CommandDescription: description}, nil
@@ -81,11 +66,12 @@ func (c *registryFlagsCommand) RunIntoWriter(ctx context.Context, parsedValues *
 	if err := parsedValues.DecodeSectionInto(values.DefaultSlug, s); err != nil {
 		return err
 	}
-	if err := parsedValues.DecodeSectionInto("profile-settings", s); err != nil {
+	profileSettings := &geppettosections.ProfileSettings{}
+	if err := parsedValues.DecodeSectionInto(geppettosections.ProfileSettingsSectionSlug, profileSettings); err != nil {
 		return err
 	}
 
-	stepSettings, closeRegistry, err := runnerexample.ResolveInferenceSettingsFromRegistry(ctx, s.ProfileRegistries, s.Profile)
+	stepSettings, closeRegistry, err := runnerexample.ResolveInferenceSettingsFromRegistry(ctx, profileSettings.ProfileRegistries, profileSettings.Profile)
 	if err != nil {
 		return err
 	}

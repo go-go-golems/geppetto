@@ -2,6 +2,9 @@ package sections
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
@@ -18,119 +21,84 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CreateOption configures behavior of CreateGeppettoSections.
-type CreateOption func(*createOptions)
-
-type createOptions struct {
-	stepSettings *settings.InferenceSettings
+type ProfileSettings struct {
+	Profile           string   `glazed:"profile"`
+	ProfileRegistries []string `glazed:"profile-registries"`
 }
 
-// WithDefaultsFromInferenceSettings uses the given InferenceSettings for layer defaults.
-func WithDefaultsFromInferenceSettings(s *settings.InferenceSettings) CreateOption {
-	return func(o *createOptions) {
-		o.stepSettings = s
+type ProfileSettingsSectionOption func(*profileSettingsSectionOptions)
+
+type profileSettingsSectionOptions struct {
+	profileDefault           string
+	profileRegistriesDefault []string
+}
+
+func WithProfileDefault(profile string) ProfileSettingsSectionOption {
+	return func(o *profileSettingsSectionOptions) {
+		o.profileDefault = strings.TrimSpace(profile)
 	}
 }
 
-// CreateGeppettoSections returns settings sections for Geppetto AI settings.
-// If no InferenceSettings are provided via WithInferenceSettings, default settings.NewInferenceSettings() is used.
-func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
-	// Apply options
-	var co createOptions
-	for _, opt := range opts {
-		opt(&co)
-	}
-	// Determine InferenceSettings
-	var ss *settings.InferenceSettings
-	if co.stepSettings == nil {
-		var err error
-		ss, err = settings.NewInferenceSettings()
-		if err != nil {
-			return nil, err
+func WithProfileRegistriesDefault(entries ...string) ProfileSettingsSectionOption {
+	return func(o *profileSettingsSectionOptions) {
+		o.profileRegistriesDefault = o.profileRegistriesDefault[:0]
+		for _, entry := range entries {
+			if trimmed := strings.TrimSpace(entry); trimmed != "" {
+				o.profileRegistriesDefault = append(o.profileRegistriesDefault, trimmed)
+			}
 		}
-	} else {
-		ss = co.stepSettings
 	}
-
-	chatSection, err := settings.NewChatValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := chatSection.InitializeDefaultsFromStruct(ss.Chat); err != nil {
-		return nil, err
-	}
-
-	clientSection, err := settings.NewClientValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := clientSection.InitializeDefaultsFromStruct(ss.Client); err != nil {
-		return nil, err
-	}
-
-	claudeSection, err := claude.NewValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := claudeSection.InitializeDefaultsFromStruct(ss.Claude); err != nil {
-		return nil, err
-	}
-
-	geminiSection, err := gemini.NewValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := geminiSection.InitializeDefaultsFromStruct(ss.Gemini); err != nil {
-		return nil, err
-	}
-
-	openaiSection, err := openai.NewValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := openaiSection.InitializeDefaultsFromStruct(ss.OpenAI); err != nil {
-		return nil, err
-	}
-
-	embeddingsSection, err := embeddingsconfig.NewEmbeddingsValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := embeddingsSection.InitializeDefaultsFromStruct(ss.Embeddings); err != nil {
-		return nil, err
-	}
-
-	inferenceSection, err := settings.NewInferenceValueSection()
-	if err != nil {
-		return nil, err
-	}
-	if err := inferenceSection.InitializeDefaultsFromStruct(ss.Inference); err != nil {
-		return nil, err
-	}
-
-	profileSettingsSection, err := NewProfileSettingsSection()
-	if err != nil {
-		return nil, err
-	}
-
-	// Assemble sections
-	result := []schema.Section{
-		chatSection,
-		clientSection,
-		claudeSection,
-		geminiSection,
-		openaiSection,
-		embeddingsSection,
-		inferenceSection,
-		profileSettingsSection,
-	}
-	return result, nil
 }
 
-// GetCobraCommandGeppettoMiddlewares remains for legacy Cobra middleware
-// wiring in existing Geppetto examples. New applications should prefer
-// geppetto/pkg/cli/bootstrap plus explicit section construction callbacks.
-func GetCobraCommandGeppettoMiddlewares(
+const ProfileSettingsSectionSlug = "profile-settings"
+
+func defaultPinocchioProfileRegistriesIfPresent() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil || strings.TrimSpace(configDir) == "" {
+		return ""
+	}
+	path := filepath.Join(configDir, "pinocchio", "profiles.yaml")
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return ""
+	}
+	return path
+}
+
+func NewProfileSettingsSection(opts ...ProfileSettingsSectionOption) (schema.Section, error) {
+	var sectionOptions profileSettingsSectionOptions
+	for _, opt := range opts {
+		opt(&sectionOptions)
+	}
+
+	profileOptions := []fields.Option{
+		fields.WithHelp("Load the profile"),
+	}
+	if sectionOptions.profileDefault != "" {
+		profileOptions = append(profileOptions, fields.WithDefault(sectionOptions.profileDefault))
+	}
+
+	profileRegistriesOptions := []fields.Option{
+		fields.WithHelp("Comma-separated profile registry sources (yaml/sqlite/sqlite-dsn)"),
+	}
+	if len(sectionOptions.profileRegistriesDefault) > 0 {
+		profileRegistriesOptions = append(profileRegistriesOptions, fields.WithDefault(append([]string(nil), sectionOptions.profileRegistriesDefault...)))
+	}
+
+	return schema.NewSection(
+		ProfileSettingsSectionSlug,
+		"Profile settings",
+		schema.WithFields(
+			fields.New("profile", fields.TypeString, profileOptions...),
+			fields.New("profile-registries", fields.TypeStringList, profileRegistriesOptions...),
+		),
+	)
+}
+
+// GetProfileSettingsMiddleware remains for legacy Cobra middleware wiring.
+// New CLI bootstrap paths should prefer geppetto/pkg/cli/bootstrap with an
+// explicit AppBootstrapConfig instead of extending this helper.
+func GetProfileSettingsMiddleware(
 	parsedCommandSections *values.Values,
 	cmd *cobra.Command,
 	args []string,
