@@ -256,9 +256,7 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 		return nil, fmt.Errorf("runner.resolveRuntime no longer resolves engine profiles; resolve them separately and build the engine explicitly")
 	}
 
-	if systemPrompt := strings.TrimSpace(toString(input["systemPrompt"], "")); systemPrompt != "" {
-		setRunnerSystemPrompt(out, systemPrompt)
-	}
+	systemPrompt := strings.TrimSpace(toString(input["systemPrompt"], ""))
 
 	if rawMws, ok := input["middlewares"]; ok && rawMws != nil {
 		if obj == nil {
@@ -273,6 +271,9 @@ func (m *moduleRuntime) resolveRunnerRuntime(obj *goja.Object, input map[string]
 			return nil, err
 		}
 		out.MiddlewareRefs = append(out.MiddlewareRefs, mwSpecs...)
+	}
+	if systemPrompt != "" {
+		setRunnerSystemPrompt(out, systemPrompt)
 	}
 
 	if rawToolNames, ok := input["toolNames"]; ok && rawToolNames != nil {

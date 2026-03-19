@@ -820,6 +820,24 @@ func TestProfilesResolveUsesHostDefaultSelection(t *testing.T) {
 	`)
 }
 
+func TestProfilesResolvePreservesHostDefaultRegistryWhenRegistrySlugOmitted(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry:    mustNewJSMultiRegistryEngineProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+		DefaultProfileResolve: gepprofiles.ResolveInput{
+			RegistrySlug: gepprofiles.MustRegistrySlug("secondary"),
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const resolved = gp.profiles.resolve({ profileSlug: "shared-model" });
+		if (resolved.registrySlug !== "secondary") throw new Error("profiles.resolve should preserve host default registry when registrySlug is omitted");
+		if (resolved.inferenceSettings.chat.engine !== "gpt-4.1") throw new Error("profiles.resolve should resolve from host default registry");
+	`)
+}
+
 func TestProfilesNamespaceRequiresConfiguredRegistry(t *testing.T) {
 	rt := newJSRuntime(t, Options{})
 	mustRunJS(t, rt, `
@@ -862,6 +880,23 @@ func TestEnginesFromProfileUsesHostDefaultSelection(t *testing.T) {
 		const gp = require("geppetto");
 		const engine = gp.engines.fromProfile({});
 		if (engine.metadata.profileSlug !== "default-model") throw new Error("fromProfile should use registry default profile");
+	`)
+}
+
+func TestEnginesFromProfilePreservesHostDefaultRegistryWhenRegistrySlugOmitted(t *testing.T) {
+	rt := newJSRuntime(t, Options{
+		EngineProfileRegistry:    mustNewJSMultiRegistryEngineProfileRegistry(t),
+		UseDefaultProfileResolve: true,
+		DefaultProfileResolve: gepprofiles.ResolveInput{
+			RegistrySlug: gepprofiles.MustRegistrySlug("secondary"),
+		},
+	})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		const engine = gp.engines.fromProfile({ profileSlug: "shared-model" });
+		if (engine.metadata.registrySlug !== "secondary") throw new Error("fromProfile should preserve host default registry when registrySlug is omitted");
+		if (engine.metadata.profileSlug !== "shared-model") throw new Error("fromProfile should preserve requested profile slug");
 	`)
 }
 
@@ -916,6 +951,31 @@ func TestRunnerResolveRuntimeAllowsDirectOverrides(t *testing.T) {
 		if (runtime.runtimeFingerprint !== "fp-custom") throw new Error("direct runtimeFingerprint override missing");
 		if (runtime.profileVersion !== 11) throw new Error("direct profileVersion override missing");
 		if (!runtime.metadata || runtime.metadata.custom !== true) throw new Error("direct metadata merge missing");
+	`)
+}
+
+func TestRunnerResolveRuntimeDeduplicatesSystemPromptMiddleware(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+
+		const runtime = gp.runner.resolveRuntime({
+			systemPrompt: "override prompt",
+			middlewares: [
+				gp.middlewares.go("systemPrompt", { prompt: "from middleware" }),
+				gp.middlewares.go("reorderToolResults"),
+			],
+		});
+
+		if (!Array.isArray(runtime.middlewares) || runtime.middlewares.length !== 2) {
+			throw new Error("runner.resolveRuntime should deduplicate systemPrompt middleware");
+		}
+		if (runtime.middlewares[0].name !== "systemPrompt") throw new Error("systemPrompt middleware should stay first");
+		if (!runtime.middlewares[0].options || runtime.middlewares[0].options.prompt !== "override prompt") {
+			throw new Error("systemPrompt middleware should use the direct override prompt");
+		}
+		if (runtime.middlewares[1].name !== "reorderToolResults") throw new Error("non-systemPrompt middleware should be preserved");
 	`)
 }
 
@@ -1644,6 +1704,71 @@ func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
 		t.Fatalf("UpsertRegistry(default) failed: %v", err)
 	}
+	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
+	if err != nil {
+		t.Fatalf("NewStoreRegistry failed: %v", err)
+	}
+	return registry
+}
+
+func mustNewJSMultiRegistryEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
+	t.Helper()
+
+	newSettings := func(apiType aitypes.ApiType, model string) *aistepssettings.InferenceSettings {
+		t.Helper()
+		ss, err := aistepssettings.NewInferenceSettings()
+		if err != nil {
+			t.Fatalf("NewInferenceSettings failed: %v", err)
+		}
+		ss.Chat.ApiType = &apiType
+		ss.Chat.Engine = &model
+		switch apiType {
+		case aitypes.ApiTypeOpenAIResponses:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-responses-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeOpenAI:
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeClaude:
+			ss.API.APIKeys["claude-api-key"] = "test-claude-key"
+		case aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-openai-key"
+			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+		case aitypes.ApiTypeGemini, aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
+			ss.API.APIKeys[string(apiType)+"-api-key"] = "test-provider-key"
+		}
+		return ss
+	}
+
+	store := gepprofiles.NewInMemoryEngineProfileStore()
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
+		Slug:                     gepprofiles.MustRegistrySlug("default"),
+		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("default-model"),
+		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
+			gepprofiles.MustEngineProfileSlug("default-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("default-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4o-mini"),
+			},
+			gepprofiles.MustEngineProfileSlug("shared-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("shared-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4.1-mini"),
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(default) failed: %v", err)
+	}
+	if err := store.UpsertRegistry(context.Background(), &gepprofiles.EngineProfileRegistry{
+		Slug:                     gepprofiles.MustRegistrySlug("secondary"),
+		DefaultEngineProfileSlug: gepprofiles.MustEngineProfileSlug("shared-model"),
+		Profiles: map[gepprofiles.EngineProfileSlug]*gepprofiles.EngineProfile{
+			gepprofiles.MustEngineProfileSlug("shared-model"): {
+				Slug:              gepprofiles.MustEngineProfileSlug("shared-model"),
+				InferenceSettings: newSettings(aitypes.ApiTypeOpenAI, "gpt-4.1"),
+			},
+		},
+	}, gepprofiles.SaveOptions{Actor: "test", Source: "test"}); err != nil {
+		t.Fatalf("UpsertRegistry(secondary) failed: %v", err)
+	}
+
 	registry, err := gepprofiles.NewStoreRegistry(store, gepprofiles.MustRegistrySlug("default"))
 	if err != nil {
 		t.Fatalf("NewStoreRegistry failed: %v", err)

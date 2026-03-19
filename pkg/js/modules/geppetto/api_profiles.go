@@ -133,10 +133,12 @@ func (m *moduleRuntime) profilesResolve(call goja.FunctionCall) goja.Value {
 		if opts == nil {
 			panic(m.vm.NewTypeError("profiles.resolve expects an object"))
 		}
-		if registrySlug, err := parseOptionalRegistrySlug(opts["registrySlug"]); err != nil {
-			panic(m.vm.NewGoError(err))
-		} else {
-			in.RegistrySlug = registrySlug
+		if rawRegistrySlug, ok := opts["registrySlug"]; ok {
+			if registrySlug, err := parseOptionalRegistrySlug(rawRegistrySlug); err != nil {
+				panic(m.vm.NewGoError(err))
+			} else {
+				in.RegistrySlug = registrySlug
+			}
 		}
 		if rawEngineProfileSlug := strings.TrimSpace(toString(opts["profileSlug"], "")); rawEngineProfileSlug != "" {
 			profileSlug, err := profiles.ParseEngineProfileSlug(rawEngineProfileSlug)
