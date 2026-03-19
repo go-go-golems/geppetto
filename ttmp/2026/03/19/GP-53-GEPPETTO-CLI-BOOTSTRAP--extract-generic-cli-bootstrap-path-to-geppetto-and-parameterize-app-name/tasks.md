@@ -15,5 +15,5 @@
 - [x] Add a Pinocchio-owned wrapper config for app name `pinocchio`, env prefix `PINOCCHIO`, the Pinocchio config mapper, and the shared Geppetto section builders.
 - [x] Migrate `pinocchio/pkg/cmds/profilebootstrap` to wrap or call the new Geppetto package and remove duplicated implementation.
 - [x] Re-run Pinocchio loaded-command, thin-command, and web-chat bootstrap verification against the Geppetto-owned implementation.
-- [ ] Decide whether `geppetto/pkg/sections/sections.go` and `geppetto/pkg/sections/profile_sections.go` should be slimmed down, deprecated, or partially rewritten after the new bootstrap package exists.
-- [ ] Decide which Geppetto examples should continue using `factory.NewEngineFromParsedValues(...)` and which should adopt the new bootstrap package for config/profile-registry-aware behavior.
+- [x] Decide whether `geppetto/pkg/sections/sections.go` and `geppetto/pkg/sections/profile_sections.go` should be slimmed down, deprecated, or partially rewritten after the new bootstrap package exists.
+- [x] Decide which Geppetto examples should continue using `factory.NewEngineFromParsedValues(...)` and which should adopt the new bootstrap package for config/profile-registry-aware behavior.

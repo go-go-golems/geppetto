@@ -95,6 +95,9 @@ func NewProfileSettingsSection(opts ...ProfileSettingsSectionOption) (schema.Sec
 	)
 }
 
+// GetProfileSettingsMiddleware remains for legacy Cobra middleware wiring.
+// New CLI bootstrap paths should prefer geppetto/pkg/cli/bootstrap with an
+// explicit AppBootstrapConfig instead of extending this helper.
 func GetProfileSettingsMiddleware(
 	parsedCommandSections *values.Values,
 	cmd *cobra.Command,

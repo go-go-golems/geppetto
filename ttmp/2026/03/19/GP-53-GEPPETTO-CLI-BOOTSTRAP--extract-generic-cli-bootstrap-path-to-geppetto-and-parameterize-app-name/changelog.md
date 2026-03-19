@@ -38,3 +38,13 @@ Implemented the Geppetto-owned generic CLI bootstrap package in `pkg/cli/bootstr
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/bootstrap_test.go — Geppetto tests covering app/env parameterization, no-fallback behavior, and from-base parity
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/profile_selection.go — Pinocchio wrapper config now binds the generic Geppetto package to `pinocchio` / `PINOCCHIO`
 - /home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/cmds/profilebootstrap/engine_settings.go — Pinocchio wrapper now delegates generic engine-resolution behavior to Geppetto
+
+## 2026-03-19
+
+Closed the remaining GP-53 decision tasks. The old middleware helpers in `pkg/sections` are now explicitly treated as legacy wiring for existing examples, not the preferred home for new bootstrap logic. The example split is also now explicit: direct full-flag examples continue to use `factory.NewEngineFromParsedValues(...)`, while registry-aware or config-aware example paths are the candidates for the new `pkg/cli/bootstrap` package.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go — Marked the legacy Cobra middleware helper as non-preferred for new applications
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go — Marked the legacy profile middleware helper as non-preferred for new applications
+- /home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-53-GEPPETTO-CLI-BOOTSTRAP--extract-generic-cli-bootstrap-path-to-geppetto-and-parameterize-app-name/tasks.md — All GP-53 tasks are now checked off

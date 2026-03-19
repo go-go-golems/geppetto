@@ -143,3 +143,36 @@ That left Pinocchio behavior intact while removing the duplicated generic implem
 
 - Decide how far to slim down or deprecate [sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go) and [profile_sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go) now that the generic bootstrap path exists elsewhere.
 - Decide which Geppetto examples should adopt the new package versus continuing to use direct parsed-values engine construction.
+
+## Step 3: Close the remaining legacy-surface decisions
+
+With the generic package and the Pinocchio wrapper in place, the two remaining GP-53 tasks were really cleanup decisions rather than implementation work. I closed them by making the split explicit in both code comments and ticket docs.
+
+The decision is:
+
+- keep [CreateGeppettoSections](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go) and [NewProfileSettingsSection](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go) as reusable section-construction helpers
+- keep [GetCobraCommandGeppettoMiddlewares](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go) and [GetProfileSettingsMiddleware](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go) only as legacy middleware wiring for existing examples
+- steer all new config/profile/bootstrap work toward [pkg/cli/bootstrap](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap)
+
+For examples, the split is:
+
+- examples that intentionally expose full AI flags and directly construct engines should keep `factory.NewEngineFromParsedValues(...)`
+- examples that are profile-registry-aware or config-aware are the candidates to adopt the new bootstrap package if they need the richer behavior
+
+### What I did
+
+- Added explicit “legacy helper” guidance comments to:
+  - [sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go)
+  - [profile_sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/profile_sections.go)
+- Checked off the final two GP-53 tasks in [tasks.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-53-GEPPETTO-CLI-BOOTSTRAP--extract-generic-cli-bootstrap-path-to-geppetto-and-parameterize-app-name/tasks.md)
+- Recorded the decisions in [changelog.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/ttmp/2026/03/19/GP-53-GEPPETTO-CLI-BOOTSTRAP--extract-generic-cli-bootstrap-path-to-geppetto-and-parameterize-app-name/changelog.md)
+
+### Why
+
+- The old `pkg/sections` surface still exists and is still used by examples, so deleting it immediately would have turned GP-53 into a much larger example-migration ticket.
+- The new package needed a clear ownership boundary. Without explicit guidance, future work could still drift back into the legacy middleware helpers.
+- The examples do not all solve the same problem. Full-flag teaching examples should stay simple; registry-aware/config-aware examples are the ones that actually benefit from the richer bootstrap package.
+
+### Final state
+
+At the end of this step, GP-53 is effectively complete. The generic package exists, Pinocchio uses it through a thin wrapper, and the old Geppetto bootstrap helpers are explicitly positioned as legacy wiring rather than the preferred future path.

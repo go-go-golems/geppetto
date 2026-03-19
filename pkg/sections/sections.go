@@ -127,6 +127,9 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	return result, nil
 }
 
+// GetCobraCommandGeppettoMiddlewares remains for legacy Cobra middleware
+// wiring in existing Geppetto examples. New applications should prefer
+// geppetto/pkg/cli/bootstrap plus explicit section construction callbacks.
 func GetCobraCommandGeppettoMiddlewares(
 	parsedCommandSections *values.Values,
 	cmd *cobra.Command,
