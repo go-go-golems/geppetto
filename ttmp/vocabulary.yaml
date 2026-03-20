@@ -73,6 +73,8 @@ topics:
       description: Codebase cleanup, deletion of low-value compatibility layers, and simplification work.
     - slug: profiles
       description: Engine profile selection, registry loading, and profile-based runtime configuration.
+    - slug: documentation
+      description: Documentation analysis and authoring work for tickets and design guides
 docTypes:
     - slug: index
       description: Ticket index
