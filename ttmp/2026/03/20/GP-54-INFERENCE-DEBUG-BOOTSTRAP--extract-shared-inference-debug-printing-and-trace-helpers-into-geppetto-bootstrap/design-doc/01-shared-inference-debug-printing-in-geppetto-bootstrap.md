@@ -21,21 +21,39 @@ RelatedFiles:
       Note: Shows that resolved engine settings already live in Geppetto
     - Path: geppetto/pkg/cli/bootstrap/profile_selection.go
       Note: Shows how visible profile selection is already owned by Geppetto bootstrap
+    - Path: geppetto/pkg/cli/bootstrap/inference_debug.go
+      Note: Final shared implementation of the extracted helper
     - Path: pinocchio/cmd/pinocchio/cmds/js.go
       Note: Current duplicated print branch in the JS command
     - Path: pinocchio/pkg/cmds/cmd.go
       Note: Current duplicated print branch in the main Pinocchio command runner
-    - Path: pinocchio/pkg/cmds/profilebootstrap/inference_settings_trace.go
-      Note: Generic trace implementation to be moved
+    - Path: pinocchio/pkg/doc/tutorials/07-migrating-cli-verbs-to-glazed-profile-bootstrap.md
+      Note: Tutorial source that now documents the old helper names and source-only flag
 ExternalSources: []
 Summary: Detailed design and implementation guide for extracting a single generic inference debug output path into geppetto/pkg/cli/bootstrap.
-LastUpdated: 2026-03-20T15:25:00-04:00
+LastUpdated: 2026-03-20T10:45:00-04:00
 WhatFor: Onboard a new engineer to the current bootstrap/debug architecture and provide a precise plan for moving shared inference debug behavior into Geppetto.
 WhenToUse: Use when implementing the extraction, reviewing ownership boundaries between Geppetto and Pinocchio, or onboarding a new engineer to this part of the bootstrap stack.
 ---
 
 
 # Shared inference debug printing in geppetto bootstrap
+
+## Implemented Outcome
+
+This design has now been implemented. The final shared API lives in `geppetto/pkg/cli/bootstrap/inference_debug.go` and centers on:
+
+- `InferenceDebugSectionSlug`
+- `InferenceDebugSettings`
+- `NewInferenceDebugSection()`
+- `BuildInferenceTraceParsedValues(...)`
+- `BuildInferenceSettingsSourceTrace(...)`
+- `WriteInferenceSettingsDebugYAML(...)`
+- `HandleInferenceDebugOutput(...)`
+
+The most important implementation deviation from the early draft is that Pinocchio exports `BootstrapConfig()` from `pkg/cmds/profilebootstrap` so command packages outside that subpackage can pass the app-owned bootstrap config into the Geppetto helper. That keeps the clean cut intact because Pinocchio does not re-export any debug helper behavior; it only exposes its application bootstrap configuration.
+
+One documentation drift item surfaced during implementation: `pinocchio/pkg/doc/tutorials/07-migrating-cli-verbs-to-glazed-profile-bootstrap.md` still documents the removed `NewInferenceDebugParameterLayer()` and `--print-inference-settings-sources` path. That tutorial now needs a follow-up update.
 
 ## Executive Summary
 

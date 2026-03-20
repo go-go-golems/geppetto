@@ -25,13 +25,13 @@ RelatedFiles:
       Note: Second Pinocchio call site that should switch directly to the Geppetto helper
     - Path: pinocchio/pkg/cmds/cmd.go
       Note: Pinocchio command call site that currently duplicates debug output handling
-    - Path: pinocchio/pkg/cmds/cmdlayers/helpers.go
-      Note: Current home of the generic inference debug flag section
-    - Path: pinocchio/pkg/cmds/profilebootstrap/inference_settings_trace.go
-      Note: Current generic trace builder living in the wrong package
+    - Path: geppetto/pkg/cli/bootstrap/inference_debug.go
+      Note: Final shared home of the inference debug section, trace builder, and combined output helper
+    - Path: pinocchio/pkg/doc/tutorials/07-migrating-cli-verbs-to-glazed-profile-bootstrap.md
+      Note: Tutorial that now lags behind the implemented helper names and debug flag surface
 ExternalSources: []
-Summary: Detailed research ticket for moving a single reusable inference-debug output path from Pinocchio and downstream apps into geppetto/pkg/cli/bootstrap.
-LastUpdated: 2026-03-20T15:25:00-04:00
+Summary: Detailed implementation ticket for moving a single reusable inference-debug output path from Pinocchio and downstream apps into geppetto/pkg/cli/bootstrap.
+LastUpdated: 2026-03-20T10:45:00-04:00
 WhatFor: Give implementers a concrete, file-anchored plan for extracting shared inference debug functionality into Geppetto without leaving wrapper re-exports behind in Pinocchio.
 WhenToUse: Use when implementing or reviewing the extraction of inference debug printing and provenance tracing into Geppetto bootstrap.
 ---
@@ -56,7 +56,7 @@ The deliverable for this ticket is a detailed, intern-friendly design and implem
 
 Current status: **active**
 
-Research and design are documented. The implementation has not been started in `geppetto/` yet.
+The shared helper is implemented in `geppetto/pkg/cli/bootstrap`, and both Pinocchio and the CozoDB backend have been migrated to it. Final doc validation and re-upload remain.
 
 ## Main Conclusion
 
@@ -66,7 +66,11 @@ The reusable pieces are currently split across packages:
 - Pinocchio currently owns the inference debug flag section and the source-trace builder.
 - Pinocchio command call sites and at least one downstream app each carry their own debug-output branch logic.
 
-The clean cut is to move the generic debug section, trace building, hidden-base parsed-value reconstruction, and combined debug YAML output into `geppetto/pkg/cli/bootstrap`, then update Pinocchio and downstream callers to use that package directly.
+The clean cut is now implemented:
+
+- Geppetto owns the debug section, hidden-base trace reconstruction, source tracing, masking, and combined YAML output in `pkg/cli/bootstrap/inference_debug.go`.
+- Pinocchio now calls the Geppetto helper directly and only exports its app bootstrap config wrapper.
+- The CozoDB backend now uses the same Geppetto helper and no longer carries local debug aliases or redaction helpers.
 
 ## Structure
 
