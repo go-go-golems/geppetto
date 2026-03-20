@@ -46,11 +46,11 @@ A migrated command has five layers:
 
 The most useful reference files are:
 
-- [geppetto/pkg/cli/bootstrap/config.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/config.go)
-- [geppetto/pkg/cli/bootstrap/engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/engine_settings.go)
-- [geppetto/pkg/cli/bootstrap/inference_debug.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/inference_debug.go)
-- [geppetto/pkg/sections/sections.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/sections/sections.go)
-- [pinocchio/cmd/pinocchio/cmds/js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go)
+- [pkg/cli/bootstrap/config.go](../../cli/bootstrap/config.go)
+- [pkg/cli/bootstrap/engine_settings.go](../../cli/bootstrap/engine_settings.go)
+- [pkg/cli/bootstrap/inference_debug.go](../../cli/bootstrap/inference_debug.go)
+- [pkg/sections/sections.go](../../sections/sections.go)
+- `pinocchio/cmd/pinocchio/cmds/js.go`
 
 ## Ownership Boundary
 
@@ -327,7 +327,7 @@ Again, the rule is:
 
 ## Pinocchio Companion
 
-If you are starting from the Pinocchio repository, also read the companion guide in [07-migrating-cli-verbs-to-glazed-profile-bootstrap.md](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/pkg/doc/tutorials/07-migrating-cli-verbs-to-glazed-profile-bootstrap.md). That document focuses only on the Pinocchio-specific deltas:
+If you are starting from the Pinocchio repository, also read the companion guide in `pinocchio/pkg/doc/tutorials/07-migrating-cli-verbs-to-glazed-profile-bootstrap.md`. That document focuses only on the Pinocchio-specific deltas:
 
 - `profilebootstrap.BootstrapConfig()`
 - `profilebootstrap.MapPinocchioConfigFile(...)`
@@ -358,7 +358,7 @@ Run these after the migration:
 
 ## See Also
 
-- [geppetto/pkg/cli/bootstrap/config.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/config.go)
-- [geppetto/pkg/cli/bootstrap/engine_settings.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/engine_settings.go)
-- [geppetto/pkg/cli/bootstrap/inference_debug.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/cli/bootstrap/inference_debug.go)
-- [pinocchio/cmd/pinocchio/cmds/js.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/pinocchio/cmd/pinocchio/cmds/js.go)
+- [pkg/cli/bootstrap/config.go](../../cli/bootstrap/config.go)
+- [pkg/cli/bootstrap/engine_settings.go](../../cli/bootstrap/engine_settings.go)
+- [pkg/cli/bootstrap/inference_debug.go](../../cli/bootstrap/inference_debug.go)
+- `pinocchio/cmd/pinocchio/cmds/js.go`
