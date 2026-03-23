@@ -77,7 +77,8 @@ release:
 bump-glazed:
 	go get github.com/go-go-golems/glazed@latest
 	go get github.com/go-go-golems/clay@latest
-	# go get github.com/go-go-golems/go-go-goja@latest
+	go get github.com/go-go-golems/go-emrichen@latest
+	go get github.com/go-go-golems/go-go-goja@latest
 	go mod tidy
 
 gosec:
