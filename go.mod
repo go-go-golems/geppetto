@@ -1,20 +1,16 @@
 module github.com/go-go-golems/geppetto
 
-go 1.25.8
+go 1.26.1
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.1
-	github.com/a-h/templ v0.3.898
-	github.com/charmbracelet/bubbles v1.0.0
-	github.com/charmbracelet/bubbletea v1.3.10
-	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/dnaeon/go-vcr v1.2.0
-	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
-	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
+	github.com/dop251/goja v0.0.0-20251103141225-af2ceb9156d7
+	github.com/dop251/goja_nodejs v0.0.0-20250409162600-f7acab6894b0
 	github.com/go-go-golems/clay v0.4.0
-	github.com/go-go-golems/glazed v1.0.4
+	github.com/go-go-golems/glazed v1.0.5
 	github.com/go-go-golems/go-emrichen v0.0.10
-	github.com/go-go-golems/go-go-goja v0.4.0
+	github.com/go-go-golems/go-go-goja v0.4.6
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
@@ -44,8 +40,11 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/charmbracelet/bubbles v1.0.0 // indirect
+	github.com/charmbracelet/bubbletea v1.3.10 // indirect
 	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/glamour v0.10.0 // indirect
+	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect

@@ -362,6 +362,8 @@ declare module "geppetto" {
         tools?: ToolRegistry;
         toolLoop?: ToolLoopSettings;
         toolHooks?: ToolHooks;
+        eventSink?: EventSink;
+        eventSinks?: EventSink[];
     }
 
     export interface Builder {
@@ -371,6 +373,7 @@ declare module "geppetto" {
         withTools(registry: ToolRegistry, loopSettings?: ToolLoopSettings): Builder;
         withToolLoop(settings: ToolLoopSettings): Builder;
         withToolHooks(hooks: ToolHooks): Builder;
+        withEventSink(sink: EventSink): Builder;
         buildSession(): Session;
     }
 
@@ -407,6 +410,16 @@ declare module "geppetto" {
         toolCall?: { id: string; name: string; input: string };
         toolResult?: { id: string; result: string };
         metaExtra?: Record<string, any>;
+    }
+
+    export interface EventSink {
+        close?(): void;
+    }
+
+    export interface EventCollector extends EventSink {
+        on(eventType: string, callback: (event: StreamEvent) => void): EventCollector;
+        clear(eventType?: string): EventCollector;
+        close(): void;
     }
 
     export interface RunHandle {
@@ -481,6 +494,10 @@ declare module "geppetto" {
     export const middlewares: {
         fromJS(fn: MiddlewareFn, name?: string): MiddlewareRef;
         go(name: string, options?: Record<string, any>): MiddlewareRef;
+    };
+
+    export const events: {
+        collector(): EventCollector;
     };
 
     export const tools: {
