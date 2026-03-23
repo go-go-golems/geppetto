@@ -53,10 +53,10 @@ build:
 	go build ./...
 
 gen-dts:
-	go run ./cmd/gen-dts --schema $(DTS_SCHEMA)
+	go run ./cmd/tools/gen-dts --schema $(DTS_SCHEMA)
 
 check-dts:
-	go run ./cmd/gen-dts --schema $(DTS_SCHEMA) --check
+	go run ./cmd/tools/gen-dts --schema $(DTS_SCHEMA) --check
 
 #goreleaser:
 # .goreleaser release --skip=sign --snapshot --clean

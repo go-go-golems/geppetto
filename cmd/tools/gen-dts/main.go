@@ -86,7 +86,7 @@ func parseOptions(args []string) (options, error) {
 }
 
 func runGenMeta(repoRoot, schemaPath string) error {
-	cmd := exec.Command("go", "run", "./cmd/gen-meta", "--schema", schemaPath, "--section", "js-dts")
+	cmd := exec.Command("go", "run", "./cmd/tools/gen-meta", "--schema", schemaPath, "--section", "js-dts")
 	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -101,7 +101,7 @@ func runGenMeta(repoRoot, schemaPath string) error {
 func findRepoRoot(schemaPath string) (string, error) {
 	dir := filepath.Dir(schemaPath)
 	for {
-		marker := filepath.Join(dir, "cmd", "gen-meta", "main.go")
+		marker := filepath.Join(dir, "cmd", "tools", "gen-meta", "main.go")
 		if st, err := os.Stat(marker); err == nil && !st.IsDir() {
 			return dir, nil
 		}

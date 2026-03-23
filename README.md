@@ -165,7 +165,7 @@ High-value pages:
 - `cmd/examples/` runnable binaries
 - `examples/js/geppetto/` JS scripts for API coverage
 - `pkg/doc/` docs, playbooks, tutorials
-- `cmd/gen-meta/` codegen for constants/type artifacts
+- `cmd/tools/` code generation and developer tooling binaries
 
 ## Development
 

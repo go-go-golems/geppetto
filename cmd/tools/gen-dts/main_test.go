@@ -71,10 +71,10 @@ func TestFindRepoRoot(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(schemaPath), 0o755); err != nil {
 		t.Fatalf("mkdir schema dir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(root, "cmd", "gen-meta"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "cmd", "tools", "gen-meta"), 0o755); err != nil {
 		t.Fatalf("mkdir gen-meta dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "cmd", "gen-meta", "main.go"), []byte("package main\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "cmd", "tools", "gen-meta", "main.go"), []byte("package main\n"), 0o644); err != nil {
 		t.Fatalf("write marker file: %v", err)
 	}
 
