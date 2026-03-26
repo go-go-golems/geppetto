@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -69,5 +70,49 @@ func TestToolFuncExecuteWithContext_PassesProvidedContext(t *testing.T) {
 	}
 	if !v {
 		t.Fatalf("expected true result")
+	}
+}
+
+func TestNewToolFromFuncRejectsInterfaceTypedInputs(t *testing.T) {
+	type badInput struct {
+		Args []any `json:"args,omitempty"`
+	}
+
+	_, err := NewToolFromFunc(
+		"bad_tool",
+		"test",
+		func(in badInput) (string, error) {
+			return "ok", nil
+		},
+	)
+	if err == nil {
+		t.Fatalf("expected interface-typed tool input to be rejected")
+	}
+	if !strings.Contains(err.Error(), "unsupported interface{} array items") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "input.Args[]") {
+		t.Fatalf("expected field path in error, got: %v", err)
+	}
+}
+
+func TestNewToolFromFuncAllowsDynamicObjectFields(t *testing.T) {
+	type scopedInput struct {
+		Code  string         `json:"code"`
+		Input map[string]any `json:"input,omitempty"`
+	}
+
+	def, err := NewToolFromFunc(
+		"dynamic_object_tool",
+		"test",
+		func(in scopedInput) (string, error) {
+			return in.Code, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected dynamic object field to remain supported, got: %v", err)
+	}
+	if def == nil || def.Parameters == nil {
+		t.Fatalf("expected generated schema")
 	}
 }
