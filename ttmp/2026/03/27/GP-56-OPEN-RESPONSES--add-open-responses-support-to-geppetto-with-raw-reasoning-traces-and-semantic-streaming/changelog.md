@@ -8,6 +8,7 @@
 - Expanded the task list into phased implementation slices with explicit commit and test boundaries
 - Implemented Phase 1 provider plumbing so `open-responses` works as a first-class provider name while `openai-responses` remains a compatibility alias
 - Extracted shared Responses provider identity and endpoint helpers so the engine and token counter are less OpenAI-name-specific
+- Expanded reasoning block persistence to store raw reasoning text and summary payloads alongside encrypted content, and replay summaries into follow-up Responses requests
 
 ## 2026-03-27
 

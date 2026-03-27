@@ -54,19 +54,19 @@ Goal: stop hardcoding OpenAI-only assumptions in the Responses runtime so other 
 
 Goal: preserve richer reasoning state in turn blocks instead of storing only encrypted reasoning content.
 
-- [ ] Audit current reasoning block payload fields in:
+- [x] Audit current reasoning block payload fields in:
   - `pkg/turns/keys_gen.go`
   - `pkg/turns/helpers_blocks.go`
   - `pkg/steps/ai/openai_responses/helpers.go`
-- [ ] Design the canonical reasoning payload shape for:
+- [x] Design the canonical reasoning payload shape for:
   - raw reasoning text,
   - reasoning summary text,
   - encrypted reasoning content,
   - item IDs and provider metadata
-- [ ] Extend block-writing helpers to persist the richer reasoning payload
-- [ ] Extend request-building helpers to replay the richer payload back into follow-up requests without losing OpenAI compatibility
-- [ ] Add regression tests for serialized turn blocks and replayed reasoning items
-- [ ] Commit Phase 3 as a reasoning-persistence change set
+- [x] Extend block-writing helpers to persist the richer reasoning payload
+- [x] Extend request-building helpers to replay the richer payload back into follow-up requests without losing OpenAI compatibility
+- [x] Add regression tests for serialized turn blocks and replayed reasoning items
+- [x] Commit Phase 3 as a reasoning-persistence change set
 
 ## Phase 4: Streaming Event Normalization
 

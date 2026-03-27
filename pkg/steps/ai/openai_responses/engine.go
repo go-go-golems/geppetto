@@ -215,6 +215,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		var streamErr error
 		var thinkBuf strings.Builder
 		var sayBuf strings.Builder
+		var currentReasoningText strings.Builder
+		var currentReasoningSummary strings.Builder
+		currentReasoningItemID := ""
 		assistantByItem := map[string]string{}
 		var summaryBuf strings.Builder
 		// Placeholder for potential future pairing of reasoning with assistant item id
@@ -349,6 +352,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 						switch typ {
 						case "reasoning":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+							currentReasoningItemID = ""
+							currentReasoningText.Reset()
+							currentReasoningSummary.Reset()
+							if v, ok := it["id"].(string); ok && v != "" {
+								currentReasoningItemID = v
+							}
 							// Capture encrypted reasoning content when present
 							if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
 								latestEncryptedContent = enc
@@ -463,10 +472,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.reasoning_summary_text.delta":
 				if v, ok := m["delta"].(string); ok && v != "" {
 					summaryBuf.WriteString(v)
+					currentReasoningSummary.WriteString(v)
 					// Emit thinking partials for live reasoning summary text
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, v, summaryBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
 					summaryBuf.WriteString(s)
+					currentReasoningSummary.WriteString(s)
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, summaryBuf.String()))
 				}
 			case "response.reasoning_summary_part.done":
@@ -475,22 +486,28 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.reasoning_text.delta":
 				if d, ok := m["delta"].(string); ok && d != "" {
 					thinkBuf.WriteString(d)
+					currentReasoningText.WriteString(d)
 					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, d))
 					// Mirror to partial-thinking so existing UIs still render live reasoning text.
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
 					thinkBuf.WriteString(s)
+					currentReasoningText.WriteString(s)
 					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, s))
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
 				}
 			case "response.reasoning_text.done":
 				fullText := thinkBuf.String()
+				currentText := currentReasoningText.String()
 				if s, ok := m["text"].(string); ok && s != "" {
 					// Keep accumulated reasoning across multiple items. Done payloads
 					// can repeat already-streamed deltas for the current item.
 					if !strings.HasSuffix(fullText, s) {
 						thinkBuf.WriteString(s)
 						fullText = thinkBuf.String()
+					}
+					if !strings.HasSuffix(currentText, s) {
+						currentReasoningText.WriteString(s)
 					}
 				}
 				e.publishEvent(ctx, events.NewReasoningTextDone(metadata, fullText))
@@ -506,6 +523,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 								rb.ID = id
 							}
 							payload := map[string]any{}
+							if currentReasoningItemID != "" && rb.ID == "" {
+								rb.ID = currentReasoningItemID
+							}
+							if text := strings.TrimSpace(currentReasoningText.String()); text != "" {
+								payload[turns.PayloadKeyText] = text
+							}
 							enc := latestEncryptedContent
 							if v, ok := it["encrypted_content"].(string); ok && v != "" {
 								enc = v
@@ -513,8 +536,18 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							if enc != "" {
 								payload[turns.PayloadKeyEncryptedContent] = enc
 							}
+							summary := reasoningSummaryEntriesFromPayload(it)
+							if len(summary) == 0 {
+								summary = reasoningSummaryEntriesFromText(currentReasoningSummary.String())
+							}
+							if len(summary) > 0 {
+								payload[turns.PayloadKeySummary] = summary
+							}
 							rb.Payload = payload
 							turns.AppendBlock(t, rb)
+							currentReasoningItemID = ""
+							currentReasoningText.Reset()
+							currentReasoningSummary.Reset()
 							if tap != nil {
 								tap.OnProviderObject("output.reasoning", it)
 							}
@@ -880,6 +913,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
 			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
+			if len(oi.Content) > 0 {
+				var rawText strings.Builder
+				for _, c := range oi.Content {
+					if strings.TrimSpace(c.Text) != "" {
+						rawText.WriteString(c.Text)
+					}
+				}
+				if text := strings.TrimSpace(rawText.String()); text != "" {
+					b.Payload[turns.PayloadKeyText] = text
+				}
+			}
+			if len(oi.Summary) > 0 {
+				b.Payload[turns.PayloadKeySummary] = append([]any(nil), oi.Summary...)
+			}
 			if oi.EncryptedContent != "" {
 				b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent
 			}

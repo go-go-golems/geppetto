@@ -299,6 +299,9 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 				"event: response.output_item.added",
 				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
 				"",
+				"event: response.reasoning_summary_text.delta",
+				`data: {"delta":"Short summary."}`,
+				"",
 				"event: response.reasoning_text.delta",
 				`data: {"delta":"Thinking "}`,
 				"",
@@ -309,7 +312,7 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 				`data: {"text":"Thinking hard."}`,
 				"",
 				"event: response.output_item.done",
-				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				`data: {"item":{"type":"reasoning","id":"rs_1","encrypted_content":"enc_1"}}`,
 				"",
 				"event: response.output_item.added",
 				`data: {"item":{"type":"message","id":"msg_1"}}`,
@@ -355,7 +358,7 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 		turns.NewUserTextBlock("Hello"),
 	}}
 
-	_, err = eng.RunInference(ctx, turn)
+	out, err := eng.RunInference(ctx, turn)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -405,6 +408,29 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 	if finalUsage.InputTokens != 10 || finalUsage.OutputTokens != 5 || finalUsage.CachedTokens != 4 {
 		t.Fatalf("expected usage input=10 output=5 cached=4, got input=%d output=%d cached=%d", finalUsage.InputTokens, finalUsage.OutputTokens, finalUsage.CachedTokens)
+	}
+	if out == nil || len(out.Blocks) < 1 {
+		t.Fatalf("expected output turn blocks")
+	}
+	var reasoningBlock *turns.Block
+	for i := range out.Blocks {
+		if out.Blocks[i].Kind == turns.BlockKindReasoning {
+			reasoningBlock = &out.Blocks[i]
+			break
+		}
+	}
+	if reasoningBlock == nil {
+		t.Fatalf("expected persisted reasoning block")
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyText].(string); got != "Thinking hard." {
+		t.Fatalf("expected persisted reasoning text, got %q", got)
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyEncryptedContent].(string); got != "enc_1" {
+		t.Fatalf("expected persisted encrypted reasoning content, got %q", got)
+	}
+	summary, ok := reasoningBlock.Payload[turns.PayloadKeySummary].([]any)
+	if !ok || len(summary) != 1 {
+		t.Fatalf("expected persisted reasoning summary payload, got %#v", reasoningBlock.Payload[turns.PayloadKeySummary])
 	}
 }
 

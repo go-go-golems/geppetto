@@ -416,6 +416,69 @@ pkg/steps/ai/openai_responses/token_count.go:15:2: "github.com/go-go-golems/gepp
 pkg/steps/ai/openai_responses/token_count.go:67:2: declared and not used: baseURL
 ```
 
+## Step 5: Complete Phase 3 by persisting richer reasoning blocks and replaying summaries
+
+This slice addressed the most important product-level gap from the original request: reasoning blocks were still too narrow. Even after the earlier provider work, Geppetto only persisted encrypted reasoning content on reasoning blocks. That meant the live reasoning/thinking stream was visible during execution, but the turn model still lost most of the semantically useful reasoning state after the request finished.
+
+I changed the persistence model so reasoning blocks can now carry:
+
+- raw reasoning text via `payload.text`,
+- reasoning summary payload via `payload.summary`,
+- encrypted reasoning content via `payload.encrypted_content`.
+
+The request builder now replays the summary payload when a reasoning block is fed back into a follow-up Responses request, which keeps the implementation OpenAI-compatible while preserving more information in the turn state.
+
+### What I changed
+- Added canonical `turns.PayloadKeySummary` in `pkg/turns/keys_gen.go`.
+- Added summary coercion helpers in `pkg/steps/ai/openai_responses/helpers.go` so stored reasoning payloads can be replayed as provider-style `summary` arrays.
+- Updated `buildInputItemsFromTurn` so a reasoning block now replays:
+  - `encrypted_content` when present,
+  - `summary` when present,
+  - an empty summary array only when no summary is available.
+- Extended the streaming engine path in `pkg/steps/ai/openai_responses/engine.go` to track per-reasoning-item:
+  - raw reasoning text,
+  - reasoning summary text,
+  - encrypted reasoning content.
+- Updated the `response.output_item.done` reasoning block writer so persisted reasoning blocks now include the richer payload shape.
+- Extended the non-streaming response parser so reasoning items can also persist `summary` and any text carried in reasoning content parts.
+- Added regression coverage in:
+  - `pkg/steps/ai/openai_responses/helpers_test.go`
+  - `pkg/steps/ai/openai_responses/engine_test.go`
+  - `pkg/turns` compile coverage through focused tests
+
+### What worked
+- The new persistence shape integrates cleanly with the existing turn model because reasoning blocks already used `payload.text` in printers and inspection helpers.
+- Replaying summary payloads through `buildInputItemsFromTurn` did not require invasive tool-loop changes.
+- The focused tests passed:
+
+```text
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.012s
+ok  	github.com/go-go-golems/geppetto/pkg/turns	0.002s
+```
+
+### What I learned
+- The most useful persistence upgrade was not adding a brand-new structure; it was using the existing block payload map more intentionally.
+- Reasoning summary text needs separate handling from raw reasoning text. They are related but not interchangeable, and they arrive on different stream event channels.
+- The streaming path needs per-item reasoning buffers in addition to the global accumulated buffers used for event metadata, otherwise every reasoning block would accidentally receive the full response-wide reasoning transcript.
+
+### What should happen next
+- Move to Phase 4 and normalize reasoning delta event aliases such as `response.reasoning.delta` versus `response.reasoning_text.delta`.
+- Keep the new reasoning persistence tests nearby when implementing alias normalization, because the stream parser now has more state to preserve correctly.
+
+### Technical details
+- Commands executed during this step:
+
+```bash
+sed -n '1,260p' geppetto/pkg/turns/keys_gen.go
+sed -n '1,260p' geppetto/pkg/turns/helpers_blocks.go
+rg -n "PayloadKeyEncryptedContent|summary|reasoning|reasoning_text|reasoning_summary|BlockKindReasoning" geppetto/pkg/turns geppetto/pkg/steps/ai/openai_responses -S
+sed -n '1,260p' geppetto/pkg/steps/ai/openai_responses/helpers_test.go
+sed -n '300,420p' geppetto/pkg/steps/ai/openai_responses/helpers.go
+sed -n '420,520p' geppetto/pkg/steps/ai/openai_responses/engine.go
+gofmt -w geppetto/pkg/turns/keys_gen.go geppetto/pkg/steps/ai/openai_responses/helpers.go geppetto/pkg/steps/ai/openai_responses/engine.go geppetto/pkg/steps/ai/openai_responses/helpers_test.go geppetto/pkg/steps/ai/openai_responses/engine_test.go
+go test ./pkg/steps/ai/openai_responses ./pkg/turns -count=1
+```
+
 - Test results:
 
 ```text

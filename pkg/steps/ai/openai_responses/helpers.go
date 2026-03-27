@@ -99,6 +99,7 @@ type responsesOutputItem struct {
 	CallID           string                   `json:"call_id,omitempty"`
 	Arguments        string                   `json:"arguments,omitempty"`
 	Content          []responsesOutputContent `json:"content"`
+	Summary          []any                    `json:"summary,omitempty"`
 	EncryptedContent string                   `json:"encrypted_content,omitempty"`
 }
 
@@ -263,6 +264,38 @@ func mapEffortString(v string) string {
 	}
 }
 
+func reasoningSummaryEntriesFromText(text string) []any {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	return []any{map[string]any{
+		"type": "summary_text",
+		"text": text,
+	}}
+}
+
+func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
+	if payload == nil {
+		return nil
+	}
+	if raw, ok := payload[turns.PayloadKeySummary]; ok {
+		switch tv := raw.(type) {
+		case []any:
+			return append([]any(nil), tv...)
+		case []map[string]any:
+			ret := make([]any, 0, len(tv))
+			for _, item := range tv {
+				ret = append(ret, item)
+			}
+			return ret
+		case string:
+			return reasoningSummaryEntriesFromText(tv)
+		}
+	}
+	return nil
+}
+
 func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	var items []responsesInput
 	if t == nil {
@@ -331,8 +364,11 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 
 	reasoningItem := func(b turns.Block) responsesInput {
 		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
-		empty := make([]any, 0)
-		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &empty}
+		summary := reasoningSummaryEntriesFromPayload(b.Payload)
+		if summary == nil {
+			summary = make([]any, 0)
+		}
+		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &summary}
 		if enc != "" {
 			ri.EncryptedContent = enc
 		}

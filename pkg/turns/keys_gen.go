@@ -15,6 +15,7 @@ const (
 	PayloadKeyError            = "error"
 	PayloadKeyImages           = "images"
 	PayloadKeyEncryptedContent = "encrypted_content"
+	PayloadKeySummary          = "summary"
 	PayloadKeyItemID           = "item_id"
 )
 
