@@ -20,3 +20,13 @@ Wrote the intern-focused Open Responses design guide and investigation diary, gr
 
 - /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/design-doc/01-intern-guide-to-adding-open-responses-support-and-raw-reasoning-traces-in-geppetto.md — Primary analysis/design deliverable
 - /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/reference/01-diary.md — Chronological record of research and documentation work
+
+## 2026-03-27
+
+Recorded a live Together profile smoke test via the local pinocchio js runner to verify profile-registry resolution and non-default provider routing after the Open Responses changes.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/reference/01-diary.md — Diary updated with the Together profile smoke-test results
+- /home/manuel/workspaces/2026-03-27/use-open-responses/pinocchio/examples/js/runner-profile-demo.js — Live JS runner entrypoint used for the Together profile validation
+

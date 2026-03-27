@@ -13,17 +13,21 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
+    - Path: ../../../../../../../../../../.config/pinocchio/profiles.yaml
+      Note: Profile registry source containing together-qwen-3.5-9b
+    - Path: ../../../../../../../pinocchio/examples/js/runner-profile-demo.js
+      Note: Live JS runner used for the Together profile smoke test
+    - Path: pkg/steps/ai/openai_responses/engine.go
       Note: Main code path analyzed during the diary investigation
-    - Path: geppetto/pkg/steps/ai/openai_responses/helpers.go
+    - Path: pkg/steps/ai/openai_responses/helpers.go
       Note: Reasoning request-building logic analyzed during the diary investigation
-    - Path: geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/changelog.md
+    - Path: ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/changelog.md
       Note: Ticket changelog updated with the documentation deliverables
-    - Path: geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/design-doc/01-intern-guide-to-adding-open-responses-support-and-raw-reasoning-traces-in-geppetto.md
+    - Path: ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/design-doc/01-intern-guide-to-adding-open-responses-support-and-raw-reasoning-traces-in-geppetto.md
       Note: Primary deliverable produced during this diary step
-    - Path: geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/index.md
+    - Path: ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/index.md
       Note: Ticket overview updated to point at the design doc and diary
-    - Path: geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/tasks.md
+    - Path: ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming/tasks.md
       Note: Task checklist updated with completed research and pending implementation items
 ExternalSources: []
 Summary: Chronological investigation diary for the Open Responses support design ticket.
@@ -31,6 +35,7 @@ LastUpdated: 2026-03-27T17:06:51.584300334-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -598,4 +603,139 @@ ok  	github.com/go-go-golems/geppetto/pkg/inference/engine/factory	0.015s
 ok  	github.com/go-go-golems/geppetto/pkg/inference/tokencount/factory	0.002s
 ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.012s
 ok  	github.com/go-go-golems/geppetto/pkg/js/modules/geppetto	0.077s
+```
+
+## Step 8: Validate the local workspace against a Together-hosted profile
+
+The next request was a targeted smoke test rather than another implementation slice. The important constraint was that the test had to use the `together-qwen-3.5-9b` engine profile from `/home/manuel/.config/pinocchio/profiles.yaml`, not a hardcoded model override or a stale installed binary. That mattered because the whole point of the recent work was provider-neutral Responses plumbing, so the validation path needed to prove that the local workspace still honors non-OpenAI-compatible base URLs and profile-driven model selection.
+
+I first verified the profile resolution path and then switched to the local workspace `pinocchio` binary for the real run. The installed `pinocchio` CLI was useful for discovery, but it would not have exercised the current `geppetto` branch. The local `go run ./cmd/pinocchio` path did, and it returned a live response from Together-hosted `Qwen/Qwen3.5-9B`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "use the together-qwen-3.5-9b profile from ~/.config/pinocchio/profiles.yaml for a test"
+
+**Assistant interpretation:** Run a real validation request using the existing Together-backed engine profile from the user's Pinocchio profile registry and confirm the local workspace resolves and uses it correctly.
+
+**Inferred user intent:** Sanity-check the new Responses/provider work against a non-default profile source and a non-OpenAI base URL, without relying on synthetic tests alone.
+
+### What I did
+- Inspected the installed `pinocchio` CLI help to find a profile-aware command surface.
+- Confirmed that `pinocchio examples test` and `pinocchio examples test-chat` resolve the requested profile correctly with `--print-inference-settings`.
+- Noted that the older `geppetto` example binary path was misleading for this purpose because one example ignored the requested profile and another expected extra client defaults.
+- Switched to the local workspace binary in `/home/manuel/workspaces/2026-03-27/use-open-responses/pinocchio`.
+- Ran the live profile-aware JS runner demo with:
+
+```bash
+go run ./cmd/pinocchio js examples/js/runner-profile-demo.js \
+  --profile together-qwen-3.5-9b \
+  --profile-registries /home/manuel/.config/pinocchio/profiles.yaml
+```
+
+- Ran the same command with debug logging enabled to verify the runtime-selected model and provider wiring:
+
+```bash
+go run ./cmd/pinocchio js examples/js/runner-profile-demo.js \
+  --profile together-qwen-3.5-9b \
+  --profile-registries /home/manuel/.config/pinocchio/profiles.yaml \
+  --log-level debug
+```
+
+### Why
+- The installed CLI was only appropriate for command discovery. The actual validation needed to run against the workspace code under active development.
+- A profile-based smoke test is more honest than a direct flag override because it exercises:
+  - profile registry loading,
+  - profile selection,
+  - base URL lookup,
+  - API key lookup,
+  - engine construction,
+  - live inference.
+
+### What worked
+- The resolved profile metadata from the live JS runner showed:
+  - `profileSlug: together-qwen-3.5-9b`
+  - `model: Qwen/Qwen3.5-9B`
+  - `apiType: openai`
+- The live inference completed successfully and returned:
+
+```text
+Hello!
+```
+
+- The debug run confirmed the local runtime used:
+  - `model=Qwen/Qwen3.5-9B`
+  - streaming mode
+  - the OpenAI-compatible engine path against the Together-backed profile
+- The final debug log showed the stream completed cleanly with a stop reason and token usage.
+
+### What didn't work
+- The first validation attempt used a `geppetto` example binary that was not actually suitable for profile-registry validation. One example still produced `gpt-4o-mini`, which showed that it was not honoring the requested profile selection path.
+- The `runner-registry` example also turned out to be a poor validation target for this smoke test because it failed with:
+
+```text
+Error: missing client settings
+```
+
+- Those failures were useful because they narrowed the correct validation surface to `pinocchio js`, which is explicitly documented as the profile-aware integration path.
+
+### What I learned
+- The local `pinocchio js` runner is the right end-to-end validation surface for profile-driven engine work on this workspace.
+- The Together-hosted profile currently exercises the OpenAI-compatible chat path, not the new `/responses` endpoint. That means this smoke test proves provider/profile plumbing and live non-default routing, but it does not yet satisfy the still-open ticket item for a real non-OpenAI Open Responses trace fixture.
+- The earlier code changes did not regress ordinary non-OpenAI-compatible profile resolution and live inference.
+
+### What was tricky to build
+- The subtle failure mode here was validating the wrong binary. Because an installed `pinocchio` command already existed on the machine, it was easy to use it for real inference by accident. That would have produced a comforting result without proving anything about the local `geppetto` branch.
+- Another sharp edge was that not every example mounting `--profile` flags is actually appropriate for a live registry-driven smoke test. Some paths are good for flag-surface inspection but not for end-to-end validation.
+
+### What warrants a second pair of eyes
+- If Together or another provider later exposes a genuine Open Responses `/responses` endpoint, this ticket should add a captured trace fixture and repeat this validation against that endpoint rather than the OpenAI-compatible `/chat/completions` path.
+- The profile-aware example surfaces in `geppetto` and `pinocchio` are uneven. A future cleanup pass should make it clearer which examples are intended for registry validation and which are not.
+
+### What should be done in the future
+- Add a real non-OpenAI Open Responses trace fixture and elevate it from "remaining gap" to a tested artifact.
+- Consider adding a tiny operator-facing smoke-test script under the ticket or repo examples specifically for profile-registry validation, so future checks do not need discovery work first.
+
+### Code review instructions
+- Start with the runtime entrypoint used for the successful validation:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/pinocchio/examples/js/runner-profile-demo.js`
+- Then compare it against the local command bootstrap and profile-resolution path:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/pinocchio/cmd/pinocchio`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/sections/profile_sections.go`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/js/modules/geppetto/api_engines.go`
+- Re-run the successful validation command from the `pinocchio` repo root.
+
+### Technical details
+- Profile-resolution inspection command:
+
+```bash
+pinocchio examples test --profile together-qwen-3.5-9b --profile-registries /home/manuel/.config/pinocchio/profiles.yaml --print-inference-settings --non-interactive --output yaml
+```
+
+- Successful live validation command:
+
+```bash
+cd /home/manuel/workspaces/2026-03-27/use-open-responses/pinocchio
+go run ./cmd/pinocchio js examples/js/runner-profile-demo.js \
+  --profile together-qwen-3.5-9b \
+  --profile-registries /home/manuel/.config/pinocchio/profiles.yaml
+```
+
+- Successful live debug-validation command:
+
+```bash
+cd /home/manuel/workspaces/2026-03-27/use-open-responses/pinocchio
+go run ./cmd/pinocchio js examples/js/runner-profile-demo.js \
+  --profile together-qwen-3.5-9b \
+  --profile-registries /home/manuel/.config/pinocchio/profiles.yaml \
+  --log-level debug
+```
+
+- Key observed runtime output:
+
+```text
+"resolved engine profile"
+"{\n  \"registrySlug\": \"default\",\n  \"profileSlug\": \"together-qwen-3.5-9b\",\n  \"model\": \"Qwen/Qwen3.5-9B\",\n  \"apiType\": \"openai\"\n}"
+"running live inference"
+"finished run"
+"\n\nHello!"
 ```
