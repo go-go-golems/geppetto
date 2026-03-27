@@ -18,5 +18,6 @@
 - [x] Wire the helper into OpenAI, Claude, OpenAI Responses, and Gemini engine paths.
 - [x] Add provider and Pinocchio regression tests for proxy propagation and usage.
 - [x] Decide whether `cmd/web-chat` should expose explicit proxy CLI flags or remain config/env-only.
+- [x] Create a mitmproxy-based smoke-test playbook for `pinocchio examples test` and `web-chat`, including a safe replay path that verifies `gpt-5-mini` without dumping secrets.
 - [x] Run `docmgr doctor` and resolve any validation issues.
 - [x] Dry-run and upload the ticket bundle to reMarkable, then verify the remote listing.

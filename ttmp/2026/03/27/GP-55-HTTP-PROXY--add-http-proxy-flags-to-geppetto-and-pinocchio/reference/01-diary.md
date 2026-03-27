@@ -199,6 +199,157 @@ sed: can't read geppetto/pkg/steps/ai/settings/openai/flags/openai.yaml: No such
   - `go doc net/http.ProxyFromEnvironment`
   - `go doc google.golang.org/api/option.WithHTTPClient`
 
+## Step 3: Build and verify a mitmproxy smoke test / playbook
+
+I created a concrete smoke-test playbook for the new proxy support and verified it with live traffic against OpenAI. The goal in this step was not more architecture analysis. It was to prove the feature from the outside in, using the CLI surfaces a user would actually touch and a proxy tool that shows the request path and selected model on the wire.
+
+I validated two runtime surfaces:
+
+- `pinocchio examples test`, because it is the smallest direct CLI proof that `--proxy-url` is honored.
+- `web-chat web-chat`, because the earlier work explicitly added the shared `ai-client` section there and the user asked for a playbook that covers the CLI examples plus proxy sniffing.
+
+### Prompt Context
+
+**User prompt (verbatim):** "make a smoke test / playbook (you can use tmux to experiment / run things) which show how to use the CLI examples and a mitmproxy to \"sniff\" traffic to openai and the gpt-5-mini model (profile).
+
+Make sure to keep a detailed diary as you work"
+
+**Assistant interpretation:** Run real end-to-end experiments with `mitmproxy`, document the exact commands and caveats, and preserve a detailed diary trail while building a reusable playbook.
+
+**Inferred user intent:** Move from "the code should work" to "here is a repeatable operator-grade procedure that proves it works, including the exact profile and endpoint involved."
+
+**Commit (code):** N/A — ticket documentation and operational verification only in this step
+
+### What I did
+
+- Confirmed the relevant CLI surfaces:
+  - `go run ./cmd/pinocchio examples test --help --long-help | sed -n '95,125p'`
+  - `go run ./cmd/web-chat web-chat --help --long-help | sed -n '40,70p'`
+- Verified both surfaces expose the shared `AI client flags` section, including:
+  - `--proxy-url`
+  - `--proxy-from-environment`
+  - `--timeout`
+  - `--organization`
+  - `--user-agent`
+- Confirmed the example registry profile path in:
+  - `pinocchio/examples/js/profiles/basic.yaml`
+  - `assistant` stacks on `default` and overrides `engine: gpt-5-mini`
+- Checked for local tooling:
+  - `tmux` existed
+  - `mitmproxy`/`mitmdump` were not preinstalled
+  - `uvx --from mitmproxy mitmdump --version` worked and downloaded a temporary tool environment
+- Ran an initial negative test before starting the proxy listener:
+  - `go run ./cmd/pinocchio examples test ... --proxy-url http://127.0.0.1:8080 ...`
+  - This failed with `proxyconnect tcp: dial tcp 127.0.0.1:8080: connect: connection refused`
+- Started `mitmdump` in `tmux` with a generated config dir and flow file:
+  - `tmux new-session -d -s gp55-mitm "uvx --from mitmproxy mitmdump --set confdir=$CONF_DIR -p 8082 -w $FLOW_FILE"`
+- Verified that `mitmproxy` generated `mitmproxy-ca-cert.pem`
+- Re-ran the example command with the mitm CA trusted:
+  - `SSL_CERT_FILE="$CONF_DIR/mitmproxy-ca-cert.pem" go run ./cmd/pinocchio examples test --profile-registries examples/js/profiles/basic.yaml --profile assistant --proxy-url http://127.0.0.1:8082 --non-interactive --what test --pretend tester`
+- Observed successful output from the CLI:
+  - `Turing test`
+- Observed successful proxy evidence in the `tmux` pane:
+  - `POST https://api.openai.com/v1/chat/completions HTTP/2.0`
+- Avoided storing raw flow dumps in docs because they contain `Authorization` headers
+- Wrote a small safe `mitmdump` replay addon in `/tmp/gp55-sanitize-addon.py` that prints only:
+  - request URL
+  - selected model
+  - message roles
+  - stream flag
+- Replayed the flow safely:
+  - `uvx --from mitmproxy mitmdump -nr "$FLOW_FILE" -q -s /tmp/gp55-sanitize-addon.py`
+- Verified replay output contained:
+  - `URL: https://api.openai.com/v1/chat/completions`
+  - `Model: gpt-5-mini`
+  - `MessageRoles: ['system', 'user']`
+  - `Stream: True`
+- Started `web-chat` in a second `tmux` session with the same proxy settings:
+  - `tmux new-session -d -s gp55-webchat "SSL_CERT_FILE=... go run ./cmd/web-chat web-chat --addr 127.0.0.1:8090 --profile-registries examples/js/profiles/basic.yaml --profile assistant --proxy-url http://127.0.0.1:8082"`
+- Triggered two HTTP requests against `web-chat`:
+  - `POST /chat`
+  - `POST /chat/assistant`
+- Verified that:
+  - `/chat` started a runtime whose fingerprint used `gpt-4o-mini`
+  - `/chat/assistant` started a runtime whose fingerprint used `gpt-5-mini`
+  - both carried `proxy-url":"http://127.0.0.1:8082"` in the runtime fingerprint metadata
+- Replayed the flow again and confirmed additional OpenAI requests, including another `Model: gpt-5-mini` entry from the profile-specific `web-chat` path
+- Wrote the final operator-facing playbook:
+  - `playbook/01-smoke-test-playbook-for-pinocchio-openai-proxying-with-mitmproxy.md`
+
+### Why
+
+- A proxy feature is easy to overstate from code inspection alone.
+- The user asked for a smoke test and a playbook, which means the deliverable needed to be runnable and operator-facing, not just descriptive.
+- `web-chat` has an extra runtime-selection wrinkle. Without verifying it live, the playbook could easily have told users to hit `/chat` and then misled them about which profile actually ran.
+
+### What worked
+
+- `uvx --from mitmproxy mitmdump --version` was enough; no permanent install was required.
+- `SSL_CERT_FILE="$CONF_DIR/mitmproxy-ca-cert.pem"` allowed Go's HTTPS client to trust the mitm CA, so full interception worked.
+- The simple Pinocchio example is a very clean end-to-end proof because it produces one obvious outbound OpenAI request.
+- `tmux capture-pane` is enough to capture the high-level network proof without attaching interactively.
+- The safe replay addon successfully verified `gpt-5-mini` without printing secret-bearing headers.
+- `web-chat` can be exercised without a browser by posting directly to `/chat` and `/chat/<profile>`.
+
+### What didn't work
+
+- Running the example command before the proxy listener existed failed as expected:
+
+```text
+Post "https://api.openai.com/v1/chat/completions": proxyconnect tcp: dial tcp 127.0.0.1:8080: connect: connection refused
+```
+
+- Grepping the top-level `web-chat --help --long-help` output for proxy flags returned nothing because the relevant flags live on the `web-chat web-chat` subcommand, not on the root command.
+- Posting to `/chat` while expecting `assistant` semantics was wrong. The immediate HTTP response showed a runtime fingerprint using `gpt-4o-mini`, which forced a follow-up check against `/chat/assistant`.
+
+### What I learned
+
+- The operator-facing trust step matters as much as the proxy flag itself. Without `SSL_CERT_FILE`, the smoke test is incomplete.
+- `web-chat` uses route-level profile selection in a way that is easy to miss if you only look at startup flags.
+- A safe replay script is worth documenting because the naive `mitmdump -nr ... --set flow_detail=3` path prints credentials.
+
+### What was tricky to build
+
+- The main tricky part was balancing "prove the wire request" against "do not store secrets in the ticket." The raw captured flow was useful for validation, but unsafe to preserve verbatim.
+- Another subtle point was that the `assistant` profile slug lives in the example registry, while the README also discusses a separate `gpt-5-mini` slug example. The playbook had to stay consistent with the actual checked-in example file used by the command.
+
+### What warrants a second pair of eyes
+
+- Whether the final public-facing docs should also include a note about trusting the mitm CA on macOS keychain / system trust stores, not only `SSL_CERT_FILE`.
+- Whether a small reusable helper script should be added to the repository for safe flow replay instead of using an inline temporary addon in the playbook.
+
+### What should be done in the future
+
+- Consider adding a checked-in smoke helper or Makefile target that wraps the safe replay path.
+- If `web-chat` grows more public operator docs, include the route-selection caveat there too so users know when to use `/chat/<profile>`.
+
+### Code review instructions
+
+- Read the final playbook in:
+  - `playbook/01-smoke-test-playbook-for-pinocchio-openai-proxying-with-mitmproxy.md`
+- Then inspect the example profile registry:
+  - `pinocchio/examples/js/profiles/basic.yaml`
+- Then inspect the `web-chat` runtime/profile route behavior:
+  - `pinocchio/cmd/web-chat/main.go`
+  - `pinocchio/cmd/web-chat/profile_policy.go`
+- Finally confirm the shared flag ownership:
+  - `geppetto/pkg/steps/ai/settings/flags/client.yaml`
+
+### Technical details
+
+- `tmux` was already installed at `/usr/bin/tmux`
+- `mitmdump` was provisioned on demand with:
+  - `uvx --from mitmproxy mitmdump --version`
+- Verified proxy-pane evidence:
+  - `POST https://api.openai.com/v1/chat/completions HTTP/2.0`
+- Verified safe replay evidence:
+  - `Model: gpt-5-mini`
+- Verified `web-chat` default route result:
+  - `runtime_fingerprint` contained `ai-engine":"gpt-4o-mini"`
+- Verified `web-chat` profile-specific route result:
+  - `runtime_fingerprint` contained `ai-engine":"gpt-5-mini"`
+  - `runtime_fingerprint` contained `proxy-url":"http://127.0.0.1:8082"`
+
 ## Step 2: Improve the Pinocchio base helper and wire `web-chat` to expose `ai-client`
 
 I implemented the first runtime-facing code change implied by the earlier design work: a shared Pinocchio helper that can take a hidden base `InferenceSettings` and overlay parsed non-profile values on top of it. Then I changed `cmd/web-chat` to expose the shared `ai-client` section on its CLI and to use the new helper so those parsed client flags actually become part of the preserved base inference settings used by runtime composition and request resolution.

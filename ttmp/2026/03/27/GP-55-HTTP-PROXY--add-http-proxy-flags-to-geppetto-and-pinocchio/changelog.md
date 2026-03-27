@@ -16,6 +16,7 @@
 - Added a shared `EnsureHTTPClient(...)` helper for `ClientSettings`, including explicit proxy URL handling, direct-connection mode, default-client reuse, timeout application, and proxy URL redaction for metadata.
 - Wired the ensured HTTP client through OpenAI chat completions, Claude, OpenAI Responses, and Gemini engine paths.
 - Added regression coverage for proxy/client propagation in Geppetto settings, OpenAI, Claude, OpenAI Responses, Gemini, and Pinocchio `web-chat`.
+- Added a verified mitmproxy smoke-test playbook covering `pinocchio examples test`, safe replay of captured OpenAI requests, and the `web-chat` route-level distinction between `/chat` and `/chat/assistant`.
 - Related the key Geppetto and Pinocchio source files to the design doc, diary, and ticket index for traceable review.
 - Ran `docmgr doctor --ticket GP-55-HTTP-PROXY --stale-after 30`; all checks passed.
 - Ran `go test ./pkg/doc/...` in `geppetto/` and `pinocchio/`; both doc packages passed.

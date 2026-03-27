@@ -33,7 +33,7 @@ ExternalSources: []
 Summary: Ticket workspace for the explicit HTTP proxy support work in Geppetto and Pinocchio, including section ownership, runtime wiring analysis, intern-facing guides, the Pinocchio base-settings work, and the Geppetto provider transport implementation.
 LastUpdated: 2026-03-27T11:05:00-04:00
 WhatFor: Track the analysis, documentation, and implementation work that added first-class proxy flags through Geppetto's shared settings system and carried them into Pinocchio runtime flows.
-WhenToUse: Use when reviewing or continuing proxy-support work, especially to understand where the new flags belong, how Pinocchio base settings are built, how provider engines now consume the shared HTTP client, and what follow-up consistency work may still remain.
+WhenToUse: Use when reviewing or continuing proxy-support work, especially to understand where the new flags belong, how Pinocchio base settings are built, how provider engines now consume the shared HTTP client, what the verified mitmproxy smoke path looks like, and what follow-up consistency work may still remain.
 ---
 
 
@@ -53,6 +53,7 @@ The ticket also includes a second deep-dive document that explains the base-sett
 - Design guide: [design-doc/01-http-proxy-design-and-implementation-guide-for-geppetto-and-pinocchio.md](./design-doc/01-http-proxy-design-and-implementation-guide-for-geppetto-and-pinocchio.md)
 - Base/profile lifecycle guide: [design-doc/02-base-settings-profile-overlays-and-runtime-profile-switching-in-pinocchio.md](./design-doc/02-base-settings-profile-overlays-and-runtime-profile-switching-in-pinocchio.md)
 - ai-client exposure analysis: [design-doc/03-analysis-of-ai-client-cli-exposure-in-pinocchio-and-web-chat.md](./design-doc/03-analysis-of-ai-client-cli-exposure-in-pinocchio-and-web-chat.md)
+- Smoke-test playbook: [playbook/01-smoke-test-playbook-for-pinocchio-openai-proxying-with-mitmproxy.md](./playbook/01-smoke-test-playbook-for-pinocchio-openai-proxying-with-mitmproxy.md)
 - Diary: [reference/01-diary.md](./reference/01-diary.md)
 - **Related Files**: See frontmatter RelatedFiles field
 - **External Sources**: See frontmatter ExternalSources field
