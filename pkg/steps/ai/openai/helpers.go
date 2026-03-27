@@ -615,7 +615,7 @@ func anyToJSONString(v any) string {
 	}
 }
 
-func MakeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*go_openai.Client, error) {
+func MakeClient(apiSettings *settings.APISettings, clientSettings *settings.ClientSettings, apiType ai_types.ApiType) (*go_openai.Client, error) {
 	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
 	if !ok {
 		return nil, errors.Errorf("no API key for %s", apiType)
@@ -626,6 +626,11 @@ func MakeClient(apiSettings *settings.APISettings, apiType ai_types.ApiType) (*g
 	}
 	config := go_openai.DefaultConfig(apiKey)
 	config.BaseURL = baseURL
+	httpClient, err := settings.EnsureHTTPClient(clientSettings)
+	if err != nil {
+		return nil, err
+	}
+	config.HTTPClient = httpClient
 	client := go_openai.NewClientWithConfig(config)
 	return client, nil
 }

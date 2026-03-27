@@ -70,6 +70,11 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	client := api.NewClient(apiKey, baseURL)
+	httpClient, err := settings.EnsureHTTPClient(clientSettings)
+	if err != nil {
+		return nil, err
+	}
+	client.SetHTTPClient(httpClient)
 
 	req, err := e.MakeMessageRequestFromTurn(t)
 	if err != nil {

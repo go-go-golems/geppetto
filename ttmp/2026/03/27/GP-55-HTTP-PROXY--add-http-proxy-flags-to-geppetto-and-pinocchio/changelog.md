@@ -13,6 +13,9 @@
 - Updated `cmd/web-chat` to expose the shared `ai-client` section on its CLI and merge those parsed values into the preserved base inference settings before runtime composition.
 - Added regression tests covering the new parsed-base helper, the `web-chat` CLI surface, and the `web-chat` base-settings merge behavior.
 - Added `ai-client` proxy fields (`proxy-url`, `proxy-from-environment`) to the shared Geppetto client settings struct and Glazed schema, with focused settings tests.
+- Added a shared `EnsureHTTPClient(...)` helper for `ClientSettings`, including explicit proxy URL handling, direct-connection mode, default-client reuse, timeout application, and proxy URL redaction for metadata.
+- Wired the ensured HTTP client through OpenAI chat completions, Claude, OpenAI Responses, and Gemini engine paths.
+- Added regression coverage for proxy/client propagation in Geppetto settings, OpenAI, Claude, OpenAI Responses, Gemini, and Pinocchio `web-chat`.
 - Related the key Geppetto and Pinocchio source files to the design doc, diary, and ticket index for traceable review.
 - Ran `docmgr doctor --ticket GP-55-HTTP-PROXY --stale-after 30`; all checks passed.
 - Ran `go test ./pkg/doc/...` in `geppetto/` and `pinocchio/`; both doc packages passed.

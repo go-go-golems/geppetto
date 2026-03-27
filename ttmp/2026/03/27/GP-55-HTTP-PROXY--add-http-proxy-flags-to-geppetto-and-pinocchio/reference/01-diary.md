@@ -414,3 +414,136 @@ panic: duplicated key 'timeout' in struct
 - New CLI/schema flags:
   - `proxy-url`
   - `proxy-from-environment`
+
+## Step 4: Build the shared proxy-aware HTTP client and wire the providers
+
+I completed the main runtime part of the feature by adding a shared `EnsureHTTPClient(...)` helper in Geppetto and then routing the provider engine paths through it. At this point the new `ai-client` proxy fields are not just parseable; they now affect the actual HTTP client that the engines use.
+
+I also extended the regression layer so the feature is covered at three levels:
+
+- settings/helper semantics,
+- provider usage paths,
+- Pinocchio `web-chat` CLI/base merge behavior for the new proxy fields.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, asdd tasks for that last part (if they are not already present), and then work on them task by task, committing at appropriate intervals, and keeping a detailed diary"
+
+**Assistant interpretation:** Finish the remaining proxy implementation tasks incrementally, with distinct milestones and detailed diary notes for each major code change.
+
+**Inferred user intent:** Land the actual proxy behavior, not just the flag surface, while keeping the implementation easy to review and continue later.
+
+**Commit (code):** Planned after this milestone is fully recorded and staged
+
+### What I did
+
+- Added the shared helper in:
+  - `geppetto/pkg/steps/ai/settings/http_client.go`
+- Added helper tests in:
+  - `geppetto/pkg/steps/ai/settings/http_client_test.go`
+- Updated metadata emission in:
+  - `geppetto/pkg/steps/ai/settings/settings-inference.go`
+  so proxy settings show up safely in redacted form.
+- Wired the helper into:
+  - `geppetto/pkg/steps/ai/openai/helpers.go`
+  - `geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - `geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Added or updated provider tests in:
+  - `geppetto/pkg/steps/ai/openai/helpers_test.go`
+  - `geppetto/pkg/steps/ai/claude/helpers_test.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine_test.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini_test.go`
+- Updated Pinocchio `web-chat` regression coverage in:
+  - `pinocchio/cmd/web-chat/main_profile_registries_test.go`
+- Ran:
+  - `go test ./pkg/steps/ai/settings ./pkg/steps/ai/openai ./pkg/steps/ai/claude ./pkg/steps/ai/openai_responses ./pkg/steps/ai/gemini`
+  - `go test ./cmd/web-chat ./pkg/cmds/profilebootstrap`
+
+### Why
+
+- The provider engines had inconsistent transport behavior before this change:
+  - OpenAI chat completions only saw API settings,
+  - Claude created a client but did not inject the shared HTTP client,
+  - OpenAI Responses used `http.DefaultClient` directly,
+  - Gemini used `genai.NewClient(...)` without a controlled transport.
+- A shared helper reduces the feature to one transport policy instead of four provider-specific interpretations.
+- The tests needed to prove not only that proxy fields exist, but that provider requests actually pass through the configured HTTP client path.
+
+### What worked
+
+- `EnsureHTTPClient(...)` now supports:
+  - explicit `proxy-url`,
+  - `proxy-from-environment=false` for direct connections,
+  - default-client reuse when no override is needed,
+  - timeout application on constructed clients,
+  - client caching on `ClientSettings.HTTPClient`.
+- OpenAI chat completions now set `config.HTTPClient` on the SDK client.
+- Claude now injects the ensured HTTP client through `SetHTTPClient(...)`.
+- OpenAI Responses now uses the ensured HTTP client in both streaming and non-streaming paths.
+- Gemini now uses the ensured client path too, with an additional transport wrapper that injects the API key when a custom HTTP client must be supplied.
+- The Pinocchio `web-chat` tests now prove that:
+  - `proxy-url` and `proxy-from-environment` are visible on the CLI,
+  - config-provided proxy values appear in the hidden base,
+  - CLI proxy values override the base when parsed values are overlaid.
+
+### What didn't work
+
+- The first settings helper test tripped over Go's formatting/vet rules because `http.Transport.Proxy` is a function-valued field, not something useful to print directly.
+- My first provider tests used local `httptest` base URLs directly. That failed security validation in Geppetto for exactly the reason the security layer is there:
+
+```text
+invalid claude messages URL: local network IP "127.0.0.1" is not allowed
+invalid openai responses URL: http scheme is not allowed
+```
+
+- The fix was to keep production-style public HTTPS base URLs in settings and use custom test transports that rewrite those requests to local TLS test servers.
+- The Gemini path had an important SDK-specific trap: `option.WithHTTPClient(...)` effectively bypasses the normal `WithAPIKey(...)` authentication path. I had to add a provider-specific transport wrapper that injects the API key query parameter when a custom HTTP client is used.
+- The first Pinocchio proxy merge test wrote config with `proxy_url`, but the Glazed section field name in config parsing is `proxy-url`. The base-settings test started passing once the config fixture used the actual section field name.
+
+### What I learned
+
+- Geppetto's security validation is doing useful work here; tests need to respect it rather than bypass it casually.
+- Gemini is the least uniform provider in this feature because its SDK treats custom HTTP clients as "bring your own auth transport."
+- Reusing `http.DefaultClient` for the unchanged/default case was a good tradeoff:
+  - it preserves current behavior where possible,
+  - avoids unnecessary transport churn,
+  - and keeps older tests that depend on the default-client path conceptually aligned.
+
+### What was tricky to build
+
+- The main tricky part was not the proxy logic itself. It was the provider-specific edges around how each SDK accepts transport customization.
+- The Gemini auth behavior was the sharpest edge in the whole patch.
+- The second tricky area was test design: the tests needed to prove "this engine used the configured client" without weakening Geppetto's outbound URL security rules.
+
+### What warrants a second pair of eyes
+
+- Whether Gemini should eventually move to a more explicit provider-local transport builder so the API-key injection logic is easier to reason about.
+- Whether the default timeout behavior on explicitly constructed clients should stay tied to the shared client-settings default, or whether timeout enforcement should remain as close as possible to today's behavior.
+- Whether token-count and embeddings paths should now be normalized onto the same helper for consistency, even though the original task focused on the main inference engines.
+
+### What should be done in the future
+
+- Consider a follow-up to normalize embeddings and any remaining provider-adjacent HTTP paths onto `EnsureHTTPClient(...)`.
+- Add higher-level CLI examples or docs that show proxy configuration in config, env, and direct CLI usage.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/steps/ai/settings/http_client.go`.
+- Then inspect the provider call sites in:
+  - `geppetto/pkg/steps/ai/openai/helpers.go`
+  - `geppetto/pkg/steps/ai/claude/engine_claude.go`
+  - `geppetto/pkg/steps/ai/openai_responses/engine.go`
+  - `geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+- Then review the provider regression tests and the updated `pinocchio/cmd/web-chat/main_profile_registries_test.go`.
+
+### Technical details
+
+- Shared helper:
+  - `EnsureHTTPClient(*ClientSettings) (*http.Client, error)`
+- Metadata helper:
+  - `RedactedProxyURL(string) string`
+- Gemini-specific auth wrapper:
+  - `geminiHTTPClientWithAPIKey(...)`
+  - `geminiAPIKeyTransport`

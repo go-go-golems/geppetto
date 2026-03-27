@@ -211,6 +211,12 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		if ss.Client.UserAgent != nil {
 			metadata["user-agent"] = *ss.Client.UserAgent
 		}
+		if ss.Client.ProxyURL != nil && strings.TrimSpace(*ss.Client.ProxyURL) != "" {
+			metadata["proxy-url"] = RedactedProxyURL(*ss.Client.ProxyURL)
+		}
+		if ss.Client.ProxyFromEnvironment != nil {
+			metadata["proxy-from-environment"] = *ss.Client.ProxyFromEnvironment
+		}
 	}
 
 	if ss.Claude != nil {
