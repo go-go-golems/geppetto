@@ -13,11 +13,13 @@ import (
 var ErrMissingYAMLAPIKey = &yaml.TypeError{Errors: []string{"missing api key"}}
 
 type ClientSettings struct {
-	Timeout        *time.Duration `yaml:"timeout,omitempty"`
-	TimeoutSeconds *int           `yaml:"timeout_second,omitempty" glazed:"timeout"`
-	Organization   *string        `yaml:"organization,omitempty" glazed:"organization"`
-	UserAgent      *string        `yaml:"user_agent,omitempty" glazed:"user-agent"`
-	HTTPClient     *http.Client   `yaml:"-" json:"-"`
+	Timeout              *time.Duration `yaml:"timeout,omitempty"`
+	TimeoutSeconds       *int           `yaml:"timeout_second,omitempty" glazed:"timeout"`
+	Organization         *string        `yaml:"organization,omitempty" glazed:"organization"`
+	UserAgent            *string        `yaml:"user_agent,omitempty" glazed:"user-agent"`
+	ProxyURL             *string        `yaml:"proxy_url,omitempty" glazed:"proxy-url"`
+	ProxyFromEnvironment *bool          `yaml:"proxy_from_environment,omitempty" glazed:"proxy-from-environment"`
+	HTTPClient           *http.Client   `yaml:"-" json:"-"`
 }
 
 //go:embed "flags/client.yaml"
@@ -38,16 +40,20 @@ func NewClientValueSection(options ...schema.SectionOption) (*ClientValueSection
 
 // UnmarshalYAML overrides YAML parsing to convert time.duration from int
 func (cs *ClientSettings) UnmarshalYAML(value *yaml.Node) error {
-	type Alias ClientSettings
 	aux := &struct {
-		Timeout *int `yaml:"timeout,omitempty"`
-		*Alias
-	}{
-		Alias: (*Alias)(cs),
-	}
+		Timeout              *int    `yaml:"timeout,omitempty"`
+		Organization         *string `yaml:"organization,omitempty"`
+		UserAgent            *string `yaml:"user_agent,omitempty"`
+		ProxyURL             *string `yaml:"proxy_url,omitempty"`
+		ProxyFromEnvironment *bool   `yaml:"proxy_from_environment,omitempty"`
+	}{}
 	if err := value.Decode(aux); err != nil {
 		return err
 	}
+	cs.Organization = aux.Organization
+	cs.UserAgent = aux.UserAgent
+	cs.ProxyURL = aux.ProxyURL
+	cs.ProxyFromEnvironment = aux.ProxyFromEnvironment
 	if aux.Timeout != nil {
 		t := time.Duration(*aux.Timeout) * time.Second
 		cs.Timeout = &t
@@ -69,6 +75,10 @@ func NewClientSettings() *ClientSettings {
 		TimeoutSeconds: func() *int {
 			i := int(defaultTimeout.Seconds())
 			return &i
+		}(),
+		ProxyFromEnvironment: func() *bool {
+			b := true
+			return &b
 		}(),
 	}
 }
