@@ -479,6 +479,57 @@ gofmt -w geppetto/pkg/turns/keys_gen.go geppetto/pkg/steps/ai/openai_responses/h
 go test ./pkg/steps/ai/openai_responses ./pkg/turns -count=1
 ```
 
+## Step 6: Complete Phase 4 by normalizing reasoning event aliases in the stream parser
+
+The last major runtime gap from the original request was event-name compatibility. Geppetto already handled `response.reasoning_text.delta`, but the Open Responses public material and some ecosystem examples use `response.reasoning.delta` instead. If Geppetto only listened to one spelling, the runtime would silently miss reasoning traces from providers using the other.
+
+I fixed that by adding a small normalization layer inside the streaming parser. The parser now rewrites alias event names onto the existing internal reasoning-text path before dispatching into the main switch. That means the rest of the runtime keeps using the current stable internal event types and existing UI compatibility behavior.
+
+### What I changed
+- Added `normalizeResponsesEventName` in `pkg/steps/ai/openai_responses/engine.go`.
+- Normalized:
+  - `response.reasoning.delta` -> `response.reasoning_text.delta`
+  - `response.reasoning.done` -> `response.reasoning_text.done`
+- Left existing handling for:
+  - `response.reasoning_text.delta`
+  - `response.reasoning_text.done`
+  - `response.reasoning_summary_text.delta`
+- Added a regression test in `pkg/steps/ai/openai_responses/engine_test.go` that feeds an alias stream and verifies:
+  - `EventReasoningTextDelta` still fires,
+  - `EventReasoningTextDone` still fires,
+  - persisted reasoning block text still contains the normalized reasoning content.
+
+### Why this approach
+- It is intentionally minimal. The rest of the event pipeline already works and already publishes the compatibility events downstream.
+- Normalizing once at the parser boundary is safer than adding duplicate handling branches throughout the stream loop.
+- This keeps backward compatibility with any current consumers relying on `partial-thinking` or reasoning-text events.
+
+### What worked
+- The regression test passed cleanly:
+
+```text
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.012s
+```
+
+### What I learned
+- This compatibility layer is the right place to absorb provider naming drift. It keeps the rest of the runtime stable even if external providers or examples continue to disagree on exact event names.
+- By this point the Responses runtime has a clearer architecture:
+  - provider identity and endpoints are centralized,
+  - reasoning blocks persist richer payloads,
+  - stream alias normalization happens at the parser boundary.
+
+### What should happen next
+- Phase 5 remains: fixtures, examples, and finishing documentation updates.
+- After the code stabilizes, refresh the ticket bundle and upload the updated package to reMarkable again.
+
+### Technical details
+- Commands executed during this step:
+
+```bash
+gofmt -w geppetto/pkg/steps/ai/openai_responses/engine.go geppetto/pkg/steps/ai/openai_responses/engine_test.go
+go test ./pkg/steps/ai/openai_responses -count=1
+```
+
 - Test results:
 
 ```text

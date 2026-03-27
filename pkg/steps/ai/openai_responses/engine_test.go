@@ -434,6 +434,97 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 }
 
+func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"reasoning","id":"rs_alias"}}`,
+				"",
+				"event: response.reasoning.delta",
+				`data: {"delta":"Thinking "}`,
+				"",
+				"event: response.reasoning.delta",
+				`data: {"delta":"alias."}`,
+				"",
+				"event: response.reasoning.done",
+				`data: {"text":"Thinking alias."}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"reasoning","id":"rs_alias"}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":4,"output_tokens":2}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	out, err := eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var reasoningDeltaEvents int
+	var reasoningDoneEvents int
+	for _, event := range sink.snapshot() {
+		switch event.(type) {
+		case *events.EventReasoningTextDelta:
+			reasoningDeltaEvents++
+		case *events.EventReasoningTextDone:
+			reasoningDoneEvents++
+		}
+	}
+	if reasoningDeltaEvents != 2 {
+		t.Fatalf("expected normalized reasoning delta events, got %d", reasoningDeltaEvents)
+	}
+	if reasoningDoneEvents != 1 {
+		t.Fatalf("expected normalized reasoning done events, got %d", reasoningDoneEvents)
+	}
+
+	var reasoningBlock *turns.Block
+	for i := range out.Blocks {
+		if out.Blocks[i].Kind == turns.BlockKindReasoning {
+			reasoningBlock = &out.Blocks[i]
+			break
+		}
+	}
+	if reasoningBlock == nil {
+		t.Fatalf("expected persisted reasoning block")
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyText].(string); got != "Thinking alias." {
+		t.Fatalf("expected normalized reasoning text persistence, got %q", got)
+	}
+}
+
 func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{

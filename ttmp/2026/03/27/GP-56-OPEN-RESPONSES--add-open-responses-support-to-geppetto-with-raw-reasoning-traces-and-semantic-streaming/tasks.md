@@ -72,16 +72,16 @@ Goal: preserve richer reasoning state in turn blocks instead of storing only enc
 
 Goal: normalize Open Responses reasoning stream variants so Geppetto emits stable internal events even when upstream providers use different event names.
 
-- [ ] Audit current SSE handling in `pkg/steps/ai/openai_responses/engine.go`
-- [ ] Add normalization for at least:
+- [x] Audit current SSE handling in `pkg/steps/ai/openai_responses/engine.go`
+- [x] Add normalization for at least:
   - `response.reasoning.delta`
   - `response.reasoning_text.delta`
   - `response.reasoning_text.done`
   - `response.reasoning_summary_text.delta`
-- [ ] Confirm how normalized events map onto existing internal event types in `pkg/events/chat-events.go`
-- [ ] Preserve compatibility with current `partial-thinking` / `reasoning-text-delta` event consumers
-- [ ] Add fixture-driven regression tests covering alias event streams
-- [ ] Commit Phase 4 as an event-normalization change set
+- [x] Confirm how normalized events map onto existing internal event types in `pkg/events/chat-events.go`
+- [x] Preserve compatibility with current `partial-thinking` / `reasoning-text-delta` event consumers
+- [x] Add fixture-driven regression tests covering alias event streams
+- [x] Commit Phase 4 as an event-normalization change set
 
 ## Phase 5: Fixtures, Examples, and Documentation Follow-Through
 

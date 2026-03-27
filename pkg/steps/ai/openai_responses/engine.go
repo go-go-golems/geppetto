@@ -345,7 +345,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					return string(b)
 				}
 			}
-			switch eventName {
+			switch normalizeResponsesEventName(eventName) {
 			case "response.output_item.added":
 				if it, ok := m["item"].(map[string]any); ok {
 					if typ, ok := it["type"].(string); ok {
@@ -1099,6 +1099,17 @@ func parseUsageTotals(usage map[string]any) usageTotals {
 		ret.reasoningTokens = v
 	}
 	return ret
+}
+
+func normalizeResponsesEventName(eventName string) string {
+	switch eventName {
+	case "response.reasoning.delta":
+		return "response.reasoning_text.delta"
+	case "response.reasoning.done":
+		return "response.reasoning_text.done"
+	default:
+		return eventName
+	}
 }
 
 func toInt(v any) (int, bool) {
