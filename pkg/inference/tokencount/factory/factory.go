@@ -25,7 +25,7 @@ func NewFromSettings(ss *settings.InferenceSettings) (tokencount.Counter, error)
 	}
 
 	switch provider {
-	case string(types.ApiTypeOpenAIResponses):
+	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
 		return openai_responses.NewTokenCounter(ss), nil
 	case string(types.ApiTypeClaude), "anthropic":
 		return claude.NewTokenCounter(ss), nil

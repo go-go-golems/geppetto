@@ -18,20 +18,21 @@ This ticket is being executed in small, reviewable slices. Each slice should end
 
 Goal: introduce a first-class `open-responses` provider name without breaking existing `openai-responses` profiles, flags, or JS module callers.
 
-- [ ] Add `ApiTypeOpenResponses` to the shared provider type list in `pkg/steps/ai/types/types.go`
-- [ ] Treat `open-responses` and `openai-responses` as equivalent in the engine factory in `pkg/inference/engine/factory/factory.go`
-- [ ] Treat `open-responses` and `openai-responses` as equivalent in the token counter factory in `pkg/inference/tokencount/factory/factory.go`
-- [ ] Accept `open-responses` in CLI chat settings in `pkg/steps/ai/settings/flags/chat.yaml`
-- [ ] Update the JS engine option resolver in `pkg/js/modules/geppetto/api_engines.go` so:
+- [x] Add `ApiTypeOpenResponses` to the shared provider type list in `pkg/steps/ai/types/types.go`
+- [x] Treat `open-responses` and `openai-responses` as equivalent in the engine factory in `pkg/inference/engine/factory/factory.go`
+- [x] Treat `open-responses` and `openai-responses` as equivalent in the token counter factory in `pkg/inference/tokencount/factory/factory.go`
+- [x] Accept `open-responses` in CLI chat settings in `pkg/steps/ai/settings/flags/chat.yaml`
+- [x] Update the JS engine option resolver in `pkg/js/modules/geppetto/api_engines.go` so:
   - reasoning-capable models infer `open-responses`,
   - `apiType: "open-responses"` works,
   - `apiType: "openai-responses"` remains a compatibility alias,
   - API key and base URL aliases are populated for both names
-- [ ] Add or update focused tests for provider selection and compatibility aliases in:
+- [x] Add or update focused tests for provider selection and compatibility aliases in:
   - `pkg/inference/engine/factory/factory_test.go`
   - `pkg/inference/tokencount/factory/factory_test.go`
+  - `pkg/steps/ai/openai_responses/provider_settings_test.go`
   - `pkg/js/modules/geppetto/module_test.go`
-- [ ] Commit Phase 1 as a provider-plumbing change set
+- [x] Commit Phase 1 as a provider-plumbing change set
 
 ## Phase 2: Responses Engine Decoupling
 

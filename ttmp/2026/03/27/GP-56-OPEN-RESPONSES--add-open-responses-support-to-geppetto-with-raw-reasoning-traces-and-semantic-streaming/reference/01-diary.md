@@ -272,3 +272,83 @@ sed -n '1,220p' geppetto/pkg/steps/ai/openai_responses/token_count.go
 sed -n '1,220p' geppetto/pkg/steps/ai/openai_responses/token_count_test.go
 git -C geppetto status --short
 ```
+
+## Step 3: Implement Phase 1 provider plumbing for `open-responses`
+
+This was the first actual code slice from the execution plan. The goal was narrow: make `open-responses` a real provider name throughout the system without breaking the existing `openai-responses` spelling that current profiles and tests already use.
+
+I kept the slice deliberately small and cross-cutting. Instead of mixing in reasoning persistence or streaming normalization, this pass only touched provider typing, provider selection, credential/base-URL aliasing, and the regression tests needed to make those compatibility rules explicit.
+
+### What I changed
+- Added `ApiTypeOpenResponses` to `pkg/steps/ai/types/types.go`.
+- Updated `pkg/inference/engine/factory/factory.go` so:
+  - `open-responses` and `openai-responses` both route to the Responses engine,
+  - `SupportedProviders()` now advertises both names,
+  - reasoning-model warnings recommend `open-responses`,
+  - validation accepts `open-responses-api-key`, `openai-responses-api-key`, or `openai-api-key` for Responses providers.
+- Updated `pkg/inference/tokencount/factory/factory.go` so both provider names map to the Responses token counter.
+- Updated `pkg/steps/ai/settings/flags/chat.yaml` so `--ai-api-type open-responses` is accepted by the CLI settings layer.
+- Added `pkg/steps/ai/openai_responses/provider_settings.go` to centralize Responses API key and base URL resolution across:
+  - `open-responses-*`,
+  - `openai-responses-*`,
+  - `openai-*` fallback keys.
+- Updated `pkg/steps/ai/openai_responses/engine.go` and `pkg/steps/ai/openai_responses/token_count.go` to use those shared lookup helpers.
+- Updated `pkg/js/modules/geppetto/api_engines.go` so:
+  - reasoning-capable models infer `open-responses`,
+  - explicit `apiType: "openai-responses"` is normalized to the new canonical provider name,
+  - JS-created inference settings populate all three aliases:
+    - `open-responses-*`,
+    - `openai-responses-*`,
+    - `openai-*`.
+
+### Why this shape was chosen
+- A pure rename would have been reckless because the repository already contains tests and profiles with `openai-responses`.
+- A "just add one more enum value" change would have been incomplete because runtime credential lookup still lived inside the Responses engine and token counter.
+- Centralizing API key and base URL lookup in the Responses package reduced the chance of subtle drift between the main inference path and the token-count path.
+
+### What worked
+- The change set stayed bounded. I did not have to refactor the tool loop, event system, or turn model to get this provider-level compatibility in place.
+- The focused tests all passed after the patch:
+  - `pkg/inference/engine/factory`
+  - `pkg/inference/tokencount/factory`
+  - `pkg/steps/ai/openai_responses`
+  - `pkg/js/modules/geppetto`
+- The new JS tests make the intended compatibility rule explicit: legacy `openai-responses` input is accepted, but the new canonical output for inferred or normalized config paths is `open-responses`.
+
+### What didn't work
+- The first commit attempt failed in the pre-commit lint phase. The new `normalizeAPIType` helper used a typed `switch` on `types.ApiType`, and the repository’s `exhaustive` linter flagged it because not every provider enum variant was listed.
+- I fixed that by switching on the normalized raw string instead of the typed enum, which preserved the compatibility behavior without forcing a giant provider-enum switch into a small normalization helper.
+
+### What I learned
+- The real boundary for this slice was not just provider selection. It was provider selection plus credential alias resolution.
+- The JS engine option path is a particularly important compatibility seam because it synthesizes inference settings outside the profile loader. If that layer had kept emitting only `openai-responses`, the new provider type would have remained mostly theoretical.
+
+### What should happen next
+- Move to Phase 2 and start extracting provider-specific assumptions out of the Responses engine/request builder layer.
+- Keep Phase 2 focused on engine/runtime decoupling and do not mix in reasoning payload schema changes yet.
+
+### Technical details
+- Commands executed during this step:
+
+```bash
+git -C geppetto status --short
+git -C geppetto diff --cached --stat
+git -C geppetto commit -m "docs(ticket): add GP-56 design package and execution plan"
+gofmt -w geppetto/pkg/steps/ai/types/types.go geppetto/pkg/inference/engine/factory/factory.go geppetto/pkg/inference/engine/factory/factory_test.go geppetto/pkg/inference/tokencount/factory/factory.go geppetto/pkg/inference/tokencount/factory/factory_test.go geppetto/pkg/steps/ai/openai_responses/provider_settings.go geppetto/pkg/steps/ai/openai_responses/provider_settings_test.go geppetto/pkg/steps/ai/openai_responses/engine.go geppetto/pkg/steps/ai/openai_responses/token_count.go geppetto/pkg/js/modules/geppetto/api_engines.go geppetto/pkg/js/modules/geppetto/module_test.go
+go test ./pkg/inference/engine/factory ./pkg/inference/tokencount/factory ./pkg/steps/ai/openai_responses ./pkg/js/modules/geppetto -count=1
+```
+
+- Commit-hook issue encountered and resolved:
+
+```text
+pkg/js/modules/geppetto/api_engines.go:58:2: missing cases in switch of type types.ApiType ... (exhaustive)
+```
+
+- Test results:
+
+```text
+ok  	github.com/go-go-golems/geppetto/pkg/inference/engine/factory	0.015s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/tokencount/factory	0.002s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.012s
+ok  	github.com/go-go-golems/geppetto/pkg/js/modules/geppetto	0.077s
+```

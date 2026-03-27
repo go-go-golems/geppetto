@@ -6,6 +6,7 @@
 - Added a detailed design doc describing how to generalize Geppetto's existing OpenAI Responses engine into provider-neutral Open Responses support
 - Added a structured diary capturing the investigation, commands run, useful prior tickets, and the main architectural findings
 - Expanded the task list into phased implementation slices with explicit commit and test boundaries
+- Implemented Phase 1 provider plumbing so `open-responses` works as a first-class provider name while `openai-responses` remains a compatibility alias
 
 ## 2026-03-27
 

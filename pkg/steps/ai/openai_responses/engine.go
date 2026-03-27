@@ -108,12 +108,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	baseURL := "https://api.openai.com/v1"
 	apiKey := ""
 	if e.settings != nil && e.settings.API != nil {
-		if v, ok := e.settings.API.BaseUrls["openai-base-url"]; ok && v != "" {
-			baseURL = v
-		}
-		if v, ok := e.settings.API.APIKeys["openai-api-key"]; ok {
-			apiKey = v
-		}
+		baseURL = responsesBaseURL(e.settings.API)
+		apiKey = responsesAPIKey(e.settings.API)
 	}
 	url := strings.TrimRight(baseURL, "/") + "/responses"
 	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{

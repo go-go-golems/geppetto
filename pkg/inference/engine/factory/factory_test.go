@@ -3,6 +3,7 @@ package factory
 import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
+	openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -17,6 +18,8 @@ func TestStandardEngineFactory_SupportedProviders(t *testing.T) {
 	providers := factory.SupportedProviders()
 
 	assert.Contains(t, providers, string(types.ApiTypeOpenAI))
+	assert.Contains(t, providers, string(types.ApiTypeOpenResponses))
+	assert.Contains(t, providers, string(types.ApiTypeOpenAIResponses))
 	assert.Contains(t, providers, string(types.ApiTypeClaude))
 	assert.Contains(t, providers, "anthropic")
 	assert.NotEmpty(t, providers)
@@ -64,6 +67,35 @@ func TestStandardEngineFactory_CreateEngine_Claude_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, engine)
 	assert.IsType(t, &claude.ClaudeEngine{}, engine)
+}
+
+func TestStandardEngineFactory_CreateEngine_OpenResponses_Success(t *testing.T) {
+	factory := NewStandardEngineFactory()
+
+	settings := createValidOpenResponsesSettings()
+
+	engine, err := factory.CreateEngine(settings)
+
+	require.NoError(t, err)
+	assert.NotNil(t, engine)
+	assert.IsType(t, &openai_responses.Engine{}, engine)
+}
+
+func TestStandardEngineFactory_CreateEngine_LegacyOpenAIResponsesAlias_Success(t *testing.T) {
+	factory := NewStandardEngineFactory()
+
+	settings, err := settings.NewInferenceSettings()
+	require.NoError(t, err)
+
+	apiType := types.ApiTypeOpenAIResponses
+	settings.Chat.ApiType = &apiType
+	settings.API.APIKeys["openai-responses-api-key"] = "test-api-key"
+
+	engine, err := factory.CreateEngine(settings)
+
+	require.NoError(t, err)
+	assert.NotNil(t, engine)
+	assert.IsType(t, &openai_responses.Engine{}, engine)
 }
 
 func TestStandardEngineFactory_CreateEngine_UnsupportedProvider(t *testing.T) {
@@ -137,6 +169,16 @@ func createValidOpenAISettings() *settings.InferenceSettings {
 	settings.Chat.ApiType = &openaiType
 	settings.API.APIKeys["openai-api-key"] = "test-api-key"
 	settings.API.BaseUrls["openai-base-url"] = "https://api.openai.com/v1"
+
+	return settings
+}
+
+func createValidOpenResponsesSettings() *settings.InferenceSettings {
+	settings, _ := settings.NewInferenceSettings()
+
+	apiType := types.ApiTypeOpenResponses
+	settings.Chat.ApiType = &apiType
+	settings.API.APIKeys["open-responses-api-key"] = "test-api-key"
 
 	return settings
 }

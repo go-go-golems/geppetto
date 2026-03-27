@@ -64,19 +64,8 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		return nil, err
 	}
 
-	baseURL := "https://api.openai.com/v1"
-	apiKey := ""
-	if tc.settings.API != nil {
-		if v, ok := tc.settings.API.BaseUrls["openai-base-url"]; ok && strings.TrimSpace(v) != "" {
-			baseURL = v
-		}
-		if v, ok := tc.settings.API.APIKeys["openai-api-key"]; ok {
-			apiKey = v
-		}
-		if v, ok := tc.settings.API.APIKeys[string(types.ApiTypeOpenAIResponses)+"-api-key"]; ok && strings.TrimSpace(v) != "" {
-			apiKey = v
-		}
-	}
+	baseURL := responsesBaseURL(tc.settings.API)
+	apiKey := responsesAPIKey(tc.settings.API)
 	if strings.TrimSpace(apiKey) == "" {
 		return nil, errors.New("openai token count: no openai api key configured")
 	}

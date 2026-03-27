@@ -47,10 +47,24 @@ func inferAPIType(model string) aitypes.ApiType {
 	case strings.Contains(m, "claude"):
 		return aitypes.ApiTypeClaude
 	case strings.HasPrefix(m, "o1"), strings.HasPrefix(m, "o3"), strings.HasPrefix(m, "o4"), strings.HasPrefix(m, "gpt-5"):
-		return aitypes.ApiTypeOpenAIResponses
+		return aitypes.ApiTypeOpenResponses
 	default:
 		return aitypes.ApiTypeOpenAI
 	}
+}
+
+func normalizeAPIType(raw string) aitypes.ApiType {
+	raw = strings.ToLower(strings.TrimSpace(raw))
+	switch raw {
+	case string(aitypes.ApiTypeOpenAIResponses), string(aitypes.ApiTypeOpenResponses):
+		return aitypes.ApiTypeOpenResponses
+	default:
+		return aitypes.ApiType(raw)
+	}
+}
+
+func isResponsesAPIType(apiType aitypes.ApiType) bool {
+	return apiType == aitypes.ApiTypeOpenResponses || apiType == aitypes.ApiTypeOpenAIResponses
 }
 
 func profileFromOptions(opts map[string]any) string {
@@ -89,7 +103,7 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 	}
 	apiType := inferAPIType(model)
 	if apiTypeRaw != "" {
-		apiType = aitypes.ApiType(strings.ToLower(apiTypeRaw))
+		apiType = normalizeAPIType(apiTypeRaw)
 	}
 
 	ss.Chat.Engine = &model
@@ -143,9 +157,10 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 
 	// Keep OpenAI key alias populated for responses engine and OpenAI-compatible providers.
 	switch apiType {
-	case aitypes.ApiTypeOpenAIResponses:
+	case aitypes.ApiTypeOpenResponses, aitypes.ApiTypeOpenAIResponses:
 		if key != "" {
 			ss.API.APIKeys["openai-api-key"] = key
+			ss.API.APIKeys["open-responses-api-key"] = key
 			ss.API.APIKeys["openai-responses-api-key"] = key
 		}
 	case aitypes.ApiTypeOpenAI, aitypes.ApiTypeAnyScale, aitypes.ApiTypeFireworks:
@@ -162,7 +177,9 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 	if opts != nil {
 		if baseURL := strings.TrimSpace(toString(opts["baseURL"], "")); baseURL != "" {
 			ss.API.BaseUrls[string(apiType)+"-base-url"] = baseURL
-			if apiType == aitypes.ApiTypeOpenAIResponses {
+			if isResponsesAPIType(apiType) {
+				ss.API.BaseUrls["open-responses-base-url"] = baseURL
+				ss.API.BaseUrls["openai-responses-base-url"] = baseURL
 				ss.API.BaseUrls["openai-base-url"] = baseURL
 			}
 		}
