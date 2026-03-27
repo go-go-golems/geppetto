@@ -10,6 +10,7 @@
 - Extracted shared Responses provider identity and endpoint helpers so the engine and token counter are less OpenAI-name-specific
 - Expanded reasoning block persistence to store raw reasoning text and summary payloads alongside encrypted content, and replay summaries into follow-up Responses requests
 - Normalized legacy and alternate reasoning delta event names so Open Responses streams map onto Geppetto's existing reasoning-text and partial-thinking event model
+- Added an operator-facing open-responses config/validation playbook, reran `docmgr doctor`, and refreshed the reMarkable bundle with the implemented state
 
 ## 2026-03-27
 

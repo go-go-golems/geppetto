@@ -530,6 +530,67 @@ gofmt -w geppetto/pkg/steps/ai/openai_responses/engine.go geppetto/pkg/steps/ai/
 go test ./pkg/steps/ai/openai_responses -count=1
 ```
 
+## Step 7: Finish the operator-facing docs and refresh the ticket delivery package
+
+After the core code slices were in place, the remaining useful work was operator-facing and ticket-facing rather than runtime-facing. The next engineer needs an example config, a validation checklist, and an updated reMarkable bundle that reflects the implemented state instead of the earlier design-only snapshot.
+
+### What I changed
+- Added `playbooks/01-open-responses-example-config-and-validation.md` to the ticket.
+- Ran:
+
+```bash
+docmgr doctor --ticket GP-56-OPEN-RESPONSES --stale-after 30
+```
+
+and confirmed the ticket passed cleanly.
+- Re-uploaded the refreshed ticket bundle to reMarkable with:
+
+```bash
+remarquee upload bundle geppetto/ttmp/2026/03/27/GP-56-OPEN-RESPONSES--add-open-responses-support-to-geppetto-with-raw-reasoning-traces-and-semantic-streaming \
+  --name "GP-56 Open Responses Support Design Package" \
+  --remote-dir /ai/2026/03/27/GP-56-OPEN-RESPONSES \
+  --force \
+  --non-interactive
+```
+
+- Verified the cloud folder with:
+
+```bash
+remarquee cloud ls /ai/2026/03/27/GP-56-OPEN-RESPONSES --long --non-interactive
+```
+
+### What worked
+- `docmgr doctor` reported:
+
+```text
+## Doctor Report (1 findings)
+
+### GP-56-OPEN-RESPONSES
+
+- ✅ All checks passed
+```
+
+- The refreshed reMarkable upload completed successfully:
+
+```text
+OK: uploaded GP-56 Open Responses Support Design Package.pdf -> /ai/2026/03/27/GP-56-OPEN-RESPONSES
+```
+
+- The remote listing shows the expected document name:
+
+```text
+[f] GP-56 Open Responses Support Design Package
+```
+
+### Current remaining gap
+- The one explicitly remaining implementation item is a real non-OpenAI Open Responses trace fixture. The runtime and tests now cover:
+  - provider naming,
+  - provider identity normalization,
+  - richer reasoning persistence,
+  - reasoning delta alias normalization,
+  - operator-facing config and validation guidance.
+- What is still missing is a captured end-to-end provider trace from outside the OpenAI-flavored path.
+
 - Test results:
 
 ```text

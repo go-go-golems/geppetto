@@ -87,9 +87,9 @@ Goal: normalize Open Responses reasoning stream variants so Geppetto emits stabl
 
 Goal: leave the system easy to test and easy to understand for the next engineer.
 
-- [ ] Add example config or profile material demonstrating `open-responses`
+- [x] Add example config or profile material demonstrating `open-responses`
 - [ ] Add end-to-end trace fixtures for at least one non-OpenAI Open Responses provider
-- [ ] Update ticket docs with implementation notes, gotchas, and follow-up risks discovered during coding
-- [ ] Upload the refreshed ticket bundle to reMarkable after implementation stabilizes
-- [ ] Run `docmgr doctor --ticket GP-56-OPEN-RESPONSES --stale-after 30`
+- [x] Update ticket docs with implementation notes, gotchas, and follow-up risks discovered during coding
+- [x] Upload the refreshed ticket bundle to reMarkable after implementation stabilizes
+- [x] Run `docmgr doctor --ticket GP-56-OPEN-RESPONSES --stale-after 30`
 - [ ] Commit Phase 5 as a fixtures-and-docs change set
