@@ -74,11 +74,11 @@ func effectiveTimeout(cs *ClientSettings) time.Duration {
 	if cs == nil {
 		return 0
 	}
-	if cs.Timeout != nil {
-		return *cs.Timeout
-	}
 	if cs.TimeoutSeconds != nil {
 		return time.Duration(*cs.TimeoutSeconds) * time.Second
+	}
+	if cs.Timeout != nil {
+		return *cs.Timeout
 	}
 	return 0
 }

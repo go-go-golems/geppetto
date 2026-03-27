@@ -95,6 +95,20 @@ func TestEnsureHTTPClient_AppliesNonDefaultTimeout(t *testing.T) {
 	}
 }
 
+func TestEnsureHTTPClient_TimeoutSecondsOverridesSeededTimeout(t *testing.T) {
+	cs := NewClientSettings()
+	timeoutSeconds := 123
+	cs.TimeoutSeconds = &timeoutSeconds
+
+	client, err := EnsureHTTPClient(cs)
+	if err != nil {
+		t.Fatalf("EnsureHTTPClient: %v", err)
+	}
+	if client.Timeout != 123*time.Second {
+		t.Fatalf("expected timeout 123s from TimeoutSeconds, got %s", client.Timeout)
+	}
+}
+
 func TestEnsureHTTPClient_RejectsMalformedProxyURL(t *testing.T) {
 	proxyURL := "://bad"
 	cs := &ClientSettings{
