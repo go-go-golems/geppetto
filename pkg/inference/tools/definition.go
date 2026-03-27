@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -172,6 +173,9 @@ func generateSchemaFromFunc(funcType reflect.Type) (*jsonschema.Schema, error) {
 	default:
 		return nil, fmt.Errorf("function must take exactly one parameter (Input) or (context.Context, Input)")
 	}
+	if err := validateProviderCompatibleInputType(inputType); err != nil {
+		return nil, err
+	}
 
 	// Create an instance of the type to properly generate schema with properties
 	// This matches the approach used in the old GetFunctionParametersJsonSchema
@@ -189,6 +193,108 @@ func generateSchemaFromFunc(funcType reflect.Type) (*jsonschema.Schema, error) {
 	}
 
 	return schema, nil
+}
+
+func validateProviderCompatibleInputType(inputType reflect.Type) error {
+	seen := map[reflect.Type]struct{}{}
+	return validateProviderCompatibleTypeRecursive(inputType, "input", seen)
+}
+
+func validateProviderCompatibleTypeRecursive(t reflect.Type, path string, seen map[reflect.Type]struct{}) error {
+	if t == nil {
+		return nil
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil {
+		return nil
+	}
+
+	switch t.Kind() {
+	case reflect.Interface:
+		return nil
+	case reflect.Struct:
+		if _, ok := seen[t]; ok {
+			return nil
+		}
+		seen[t] = struct{}{}
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			if !field.IsExported() {
+				continue
+			}
+			if shouldSkipSchemaField(field) {
+				continue
+			}
+			fieldPath := field.Name
+			if path != "" {
+				fieldPath = path + "." + field.Name
+			}
+			if err := validateProviderCompatibleTypeRecursive(field.Type, fieldPath, seen); err != nil {
+				return err
+			}
+		}
+		return nil
+	case reflect.Slice, reflect.Array:
+		elem := t.Elem()
+		for elem.Kind() == reflect.Pointer {
+			elem = elem.Elem()
+		}
+		if elem.Kind() == reflect.Interface {
+			return fmt.Errorf("%s[] uses unsupported interface{} array items; provider-compatible tool schemas require concrete array item types like []string or []int", path)
+		}
+		return validateProviderCompatibleTypeRecursive(t.Elem(), path+"[]", seen)
+	case reflect.Map:
+		if t.Key().Kind() == reflect.Interface {
+			return fmt.Errorf("%s uses unsupported interface{} map keys; provider-compatible tool schemas require string-like object keys", path)
+		}
+		elem := t.Elem()
+		for elem.Kind() == reflect.Pointer {
+			elem = elem.Elem()
+		}
+		if elem.Kind() == reflect.Interface {
+			return nil
+		}
+		return validateProviderCompatibleTypeRecursive(t.Elem(), path+"{}", seen)
+	case reflect.Invalid,
+		reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Pointer,
+		reflect.String,
+		reflect.UnsafePointer:
+		return nil
+	default:
+		return nil
+	}
+}
+
+func shouldSkipSchemaField(field reflect.StructField) bool {
+	return tagOmitsField(field.Tag.Get("json")) || tagOmitsField(field.Tag.Get("jsonschema"))
+}
+
+func tagOmitsField(tag string) bool {
+	if tag == "" {
+		return false
+	}
+	name := strings.Split(tag, ",")[0]
+	return name == "-"
 }
 
 // createExecutor creates a pre-compiled executor for the function
