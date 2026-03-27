@@ -24,7 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Engine implements the Engine interface for OpenAI Responses API calls.
+// Engine implements the Engine interface for Open Responses-compatible API calls.
 type Engine struct {
 	settings *settings.InferenceSettings
 }
@@ -105,17 +105,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		Int("include_len", len(reqBody.Include)).
 		Msg("Responses: built request")
 
-	baseURL := "https://api.openai.com/v1"
 	apiKey := ""
 	if e.settings != nil && e.settings.API != nil {
-		baseURL = responsesBaseURL(e.settings.API)
 		apiKey = responsesAPIKey(e.settings.API)
 	}
-	url := strings.TrimRight(baseURL, "/") + "/responses"
+	url := responsesEndpoint(func() *settings.APISettings {
+		if e.settings == nil {
+			return nil
+		}
+		return e.settings.API
+	}(), "/responses")
 	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
 		AllowHTTP: false,
 	}); err != nil {
-		return nil, errors.Wrap(err, "invalid openai responses URL")
+		return nil, errors.Wrap(err, "invalid responses URL")
 	}
 	httpClient, err := settings.EnsureHTTPClient(func() *settings.ClientSettings {
 		if e.settings == nil {
@@ -124,7 +127,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		return e.settings.Client
 	}())
 	if err != nil {
-		return nil, errors.Wrap(err, "resolve openai responses HTTP client")
+		return nil, errors.Wrap(err, "resolve responses HTTP client")
 	}
 
 	// Prepare metadata for events
@@ -832,7 +835,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 			turns.AppendBlock(t, b)
 		}
-		result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai_responses", len(finalCalls) > 0)
+		result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), len(finalCalls) > 0)
 		if err := engine.PersistInferenceResult(t, result); err != nil {
 			log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 		}
@@ -927,7 +930,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	d := time.Since(startTime).Milliseconds()
 	dm := int64(d)
 	metadata.DurationMs = &dm
-	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai_responses", false)
+	result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), false)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 	}

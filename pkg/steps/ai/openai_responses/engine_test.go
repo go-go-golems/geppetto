@@ -960,8 +960,8 @@ func TestRunInference_StreamingPersistsCanonicalInferenceResultMetadata(t *testi
 	if !ok {
 		t.Fatalf("expected canonical inference_result metadata")
 	}
-	if res.Provider != "openai_responses" {
-		t.Fatalf("expected provider=openai_responses, got %q", res.Provider)
+	if res.Provider != "open_responses" {
+		t.Fatalf("expected provider=open_responses, got %q", res.Provider)
 	}
 	if res.Model != "gpt-4o-mini" {
 		t.Fatalf("expected model=gpt-4o-mini, got %q", res.Model)

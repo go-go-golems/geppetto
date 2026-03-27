@@ -344,6 +344,78 @@ go test ./pkg/inference/engine/factory ./pkg/inference/tokencount/factory ./pkg/
 pkg/js/modules/geppetto/api_engines.go:58:2: missing cases in switch of type types.ApiType ... (exhaustive)
 ```
 
+## Step 4: Start Phase 2 by extracting shared Responses provider identity and endpoint helpers
+
+With Phase 1 complete, the next useful seam was inside the `openai_responses` package itself. Even after the provider-plumbing commit, the Responses engine still hardcoded several OpenAI-shaped assumptions:
+
+- inference results were always labeled `openai_responses`,
+- endpoint paths were assembled ad hoc inside each caller,
+- some error messages and comments still described the runtime as specifically OpenAI Responses,
+- token counting still carried provider labeling logic locally instead of deriving it from a shared Responses provider helper.
+
+This was a good Phase 2 entry point because it improves architecture without yet changing reasoning replay or persistence semantics.
+
+### What I changed
+- Extended `pkg/steps/ai/openai_responses/provider_settings.go` with shared helpers for:
+  - canonical Responses API type normalization,
+  - canonical inference-result provider naming,
+  - endpoint construction on top of the provider base URL.
+- Updated `pkg/steps/ai/openai_responses/engine.go` to:
+  - build `/responses` URLs through the shared endpoint helper,
+  - persist canonical inference provider `open_responses`,
+  - use less OpenAI-specific error strings for URL/client resolution.
+- Updated `pkg/steps/ai/openai_responses/token_count.go` to:
+  - build `/responses/input_tokens` through the shared endpoint helper,
+  - report canonical provider `open-responses`,
+  - use less OpenAI-specific API key / URL error messages.
+- Updated `pkg/steps/ai/openai_responses/helpers.go` comments and structured-output warning text to describe the runtime more generically as Responses-compatible rather than OpenAI-only.
+- Added or updated tests in:
+  - `pkg/steps/ai/openai_responses/provider_settings_test.go`
+  - `pkg/steps/ai/openai_responses/token_count_test.go`
+  - `pkg/steps/ai/openai_responses/engine_test.go`
+
+### What worked
+- The new helper extraction stayed local to the Responses package, which kept the review surface small.
+- Canonical provider labeling is now derived from shared logic instead of being duplicated separately in engine and token-count code.
+- The package tests passed after the refactor:
+
+```text
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.011s
+```
+
+### What didn't work
+- The first test run for this slice failed at compile time because `token_count.go` still had a stale `types` import and a leftover `baseURL` variable after switching to the shared endpoint helper.
+- That was a straightforward cleanup: remove the unused import, remove the dead local, rerun the package tests.
+
+### What I learned
+- The Responses package still has more OpenAI-specific behavior than just credentials and base URLs. Provider naming and endpoint assembly were also part of the coupling.
+- This refactor makes the later Phase 2 work easier because future changes can build on shared provider helpers instead of re-editing `engine.go` and `token_count.go` in parallel.
+
+### What should happen next
+- Continue Phase 2 by pulling more provider-specific behavior out of request construction and runtime assumptions.
+- Keep reasoning replay correctness tests close by, because the next decoupling work will be nearer to `helpers.go` block conversion logic.
+
+### Technical details
+- Commands executed during this step:
+
+```bash
+rg -n "OpenAIResponses|openai-responses|ApiTypeOpenAIResponses|openai-api-key|openai-base-url|Provider:|provider :=|provider\b|openai responses|OpenAI Responses" geppetto/pkg/steps/ai/openai_responses -S
+sed -n '1,260p' geppetto/pkg/steps/ai/openai_responses/helpers.go
+sed -n '1,260p' geppetto/pkg/steps/ai/openai_responses/engine.go
+sed -n '260,560p' geppetto/pkg/steps/ai/openai_responses/helpers.go
+sed -n '940,972p' geppetto/pkg/steps/ai/openai_responses/engine_test.go
+rg -n "Provider" geppetto/pkg/steps/ai/openai_responses/*test.go -S
+gofmt -w geppetto/pkg/steps/ai/openai_responses/provider_settings.go geppetto/pkg/steps/ai/openai_responses/provider_settings_test.go geppetto/pkg/steps/ai/openai_responses/engine.go geppetto/pkg/steps/ai/openai_responses/token_count.go geppetto/pkg/steps/ai/openai_responses/token_count_test.go geppetto/pkg/steps/ai/openai_responses/helpers.go geppetto/pkg/steps/ai/openai_responses/engine_test.go
+go test ./pkg/steps/ai/openai_responses -count=1
+```
+
+- Compile issue encountered and resolved:
+
+```text
+pkg/steps/ai/openai_responses/token_count.go:15:2: "github.com/go-go-golems/geppetto/pkg/steps/ai/types" imported and not used
+pkg/steps/ai/openai_responses/token_count.go:67:2: declared and not used: baseURL
+```
+
 - Test results:
 
 ```text

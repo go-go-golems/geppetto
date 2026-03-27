@@ -38,16 +38,16 @@ Goal: introduce a first-class `open-responses` provider name without breaking ex
 
 Goal: stop hardcoding OpenAI-only assumptions in the Responses runtime so other Open Responses providers can reuse the same engine contract.
 
-- [ ] Identify all OpenAI-specific assumptions in `pkg/steps/ai/openai_responses/engine.go`
-- [ ] Identify all OpenAI-specific assumptions in `pkg/steps/ai/openai_responses/helpers.go`
-- [ ] Extract provider lookup rules for:
+- [x] Identify all OpenAI-specific assumptions in `pkg/steps/ai/openai_responses/engine.go`
+- [x] Identify all OpenAI-specific assumptions in `pkg/steps/ai/openai_responses/helpers.go`
+- [x] Extract provider lookup rules for:
   - base URL selection,
   - API key selection,
   - provider labeling in inference results,
   - default endpoint construction
 - [ ] Introduce a provider-neutral Responses configuration layer while preserving current OpenAI behavior
 - [ ] Ensure follow-up tool call replay still preserves reasoning/tool adjacency
-- [ ] Add focused engine and helper regression tests for the refactor
+- [x] Add focused engine and helper regression tests for the refactor
 - [ ] Commit Phase 2 as a Responses-core refactor
 
 ## Phase 3: Reasoning Persistence Expansion

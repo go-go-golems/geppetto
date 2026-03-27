@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// HTTP JSON models for OpenAI Responses API (minimal subset: text + reasoning + sampling)
+// HTTP JSON models for an Open Responses-compatible API (minimal subset: text + reasoning + sampling)
 
 type responsesRequest struct {
 	Model             string           `json:"model"`
@@ -154,7 +154,7 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 			if s.Chat.StructuredOutputRequireValid {
 				return req, err
 			}
-			log.Warn().Err(err).Msg("OpenAI Responses request: ignoring invalid structured output configuration")
+			log.Warn().Err(err).Msg("Responses request: ignoring invalid structured output configuration")
 		} else if cfg != nil {
 			strict := cfg.StrictOrDefault()
 			req.Text = &responsesText{
@@ -210,7 +210,7 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 		}
 	}
 
-	// Apply OpenAI-specific per-turn overrides from Turn.Data.
+	// Apply current OpenAI-specific per-turn overrides from Turn.Data.
 	if oaiCfg := engine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
 		if oaiCfg.Store != nil {
 			req.Store = oaiCfg.Store

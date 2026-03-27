@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
 func TestResponsesAPIKeyPrefersOpenResponsesKey(t *testing.T) {
@@ -61,4 +62,44 @@ func TestResponsesBaseURLFallsBackToOpenAIBaseURL(t *testing.T) {
 	if got != "https://openai.example/v1" {
 		t.Fatalf("expected openai fallback base URL, got %q", got)
 	}
+}
+
+func TestResponsesEndpointBuildsProviderURL(t *testing.T) {
+	api := &settings.APISettings{
+		BaseUrls: map[string]string{
+			"open-responses-base-url": "https://responses.example/v1/",
+		},
+	}
+
+	got := responsesEndpoint(api, "responses/input_tokens")
+	if got != "https://responses.example/v1/responses/input_tokens" {
+		t.Fatalf("unexpected endpoint %q", got)
+	}
+}
+
+func TestResponsesAPITypeNormalizesLegacyAliases(t *testing.T) {
+	apiType := settingsWithAPIType("openai-responses")
+
+	got := responsesAPIType(apiType)
+	if got != types.ApiTypeOpenResponses {
+		t.Fatalf("expected open-responses api type, got %q", got)
+	}
+}
+
+func TestResponsesInferenceProviderUsesCanonicalUnderscoreName(t *testing.T) {
+	apiType := settingsWithAPIType("openai")
+
+	got := responsesInferenceProvider(apiType)
+	if got != "open_responses" {
+		t.Fatalf("expected open_responses provider, got %q", got)
+	}
+}
+
+func settingsWithAPIType(apiType string) *settings.InferenceSettings {
+	ret := &settings.InferenceSettings{
+		Chat: &settings.ChatSettings{},
+	}
+	v := types.ApiType(apiType)
+	ret.Chat.ApiType = &v
+	return ret
 }

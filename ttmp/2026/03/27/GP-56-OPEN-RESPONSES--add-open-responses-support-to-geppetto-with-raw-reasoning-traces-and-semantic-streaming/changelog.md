@@ -7,6 +7,7 @@
 - Added a structured diary capturing the investigation, commands run, useful prior tickets, and the main architectural findings
 - Expanded the task list into phased implementation slices with explicit commit and test boundaries
 - Implemented Phase 1 provider plumbing so `open-responses` works as a first-class provider name while `openai-responses` remains a compatibility alias
+- Extracted shared Responses provider identity and endpoint helpers so the engine and token counter are less OpenAI-name-specific
 
 ## 2026-03-27
 
