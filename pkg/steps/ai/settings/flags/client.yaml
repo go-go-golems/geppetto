@@ -12,3 +12,10 @@ flags:
   - name: user-agent
     type: string
     help: user agent
+  - name: proxy-url
+    type: string
+    help: explicit proxy URL for outbound AI HTTP requests
+  - name: proxy-from-environment
+    type: bool
+    help: use HTTP_PROXY, HTTPS_PROXY, and NO_PROXY when no explicit proxy URL is set
+    default: true

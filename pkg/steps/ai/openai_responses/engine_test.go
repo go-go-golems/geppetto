@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -42,6 +44,31 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+type responseHeaderTransport struct {
+	base   http.RoundTripper
+	target *url.URL
+	host   string
+	scheme string
+	header string
+	value  string
+}
+
+func (t *responseHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req2 := req.Clone(req.Context())
+	req2.URL.Scheme = t.target.Scheme
+	req2.URL.Host = t.target.Host
+	req2.Host = t.target.Host
+	req2.Header = req.Header.Clone()
+	if t.scheme != "" {
+		req2.Header.Set("X-Original-Scheme", t.scheme)
+	}
+	if t.host != "" {
+		req2.Header.Set("X-Original-Host", t.host)
+	}
+	req2.Header.Set(t.header, t.value)
+	return t.base.RoundTrip(req2)
 }
 
 func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) {
@@ -110,6 +137,71 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 	if finalEvents != 0 {
 		t.Fatalf("did not expect final success event on streaming failure, got %d", finalEvents)
+	}
+}
+
+func TestRunInference_UsesConfiguredHTTPClient(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Test-Transport"); got != "responses-proxy" {
+			t.Fatalf("expected custom transport header, got %q", got)
+		}
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(strings.Join([]string{
+			"event: response.output_item.added",
+			`data: {"item":{"type":"message","id":"msg_1"}}`,
+			"",
+			"event: response.output_text.delta",
+			`data: {"delta":"hello"}`,
+			"",
+			"event: response.output_item.done",
+			`data: {"item":{"type":"message","id":"msg_1"}}`,
+			"",
+			"event: response.completed",
+			`data: {"response":{"usage":{"input_tokens":1,"output_tokens":1}}}`,
+			"",
+		}, "\n")))
+	}))
+	defer server.Close()
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server URL: %v", err)
+	}
+
+	httpClient := server.Client()
+	httpClient.Transport = &responseHeaderTransport{
+		base:   httpClient.Transport,
+		target: targetURL,
+		host:   "api.openai.com",
+		scheme: "https",
+		header: "X-Test-Transport",
+		value:  "responses-proxy",
+	}
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		Client: &settings.ClientSettings{
+			HTTPClient: httpClient,
+		},
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-4o-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Hello"),
+	}}
+	if _, err := eng.RunInference(context.Background(), turn); err != nil {
+		t.Fatalf("RunInference: %v", err)
 	}
 }
 

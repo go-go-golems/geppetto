@@ -121,6 +121,15 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}); err != nil {
 		return nil, errors.Wrap(err, "invalid openai responses URL")
 	}
+	httpClient, err := settings.EnsureHTTPClient(func() *settings.ClientSettings {
+		if e.settings == nil {
+			return nil
+		}
+		return e.settings.Client
+	}())
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve openai responses HTTP client")
+	}
 
 	// Prepare metadata for events
 	metadata := events.EventMetadata{
@@ -179,7 +188,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			tap.OnHTTP(req, b)
 		}
 		// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			log.Debug().Err(err).Msg("Responses: HTTP request failed")
 			if tap != nil {
@@ -846,7 +855,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 	log.Trace().Msg("Responses: initiating HTTP request (non-streaming)")
 	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

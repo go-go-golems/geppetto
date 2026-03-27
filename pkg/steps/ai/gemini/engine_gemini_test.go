@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"net/http"
 	"testing"
 
 	genai "github.com/google/generative-ai-go/genai"
@@ -42,5 +43,36 @@ func TestConvertJSONSchemaToGenAI_ScalarTypes(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tc.expected, gs.Type)
 			}
 		})
+	}
+}
+
+type geminiRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f geminiRoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestGeminiHTTPClientWithAPIKey_AppendsKeyQueryParam(t *testing.T) {
+	baseClient := &http.Client{
+		Transport: geminiRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			if got := req.URL.Query().Get("key"); got != "test-key" {
+				t.Fatalf("expected key query param to be injected, got %q", got)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       http.NoBody,
+				Header:     http.Header{},
+				Request:    req,
+			}, nil
+		}),
+	}
+
+	client := geminiHTTPClientWithAPIKey(baseClient, "test-key")
+	req, err := http.NewRequest(http.MethodGet, "https://example.test/v1/models", nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	if _, err := client.Do(req); err != nil {
+		t.Fatalf("client.Do: %v", err)
 	}
 }

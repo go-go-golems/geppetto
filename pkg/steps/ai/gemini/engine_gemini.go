@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -33,6 +34,55 @@ type GeminiEngine struct {
 // NewGeminiEngine creates a new Gemini inference engine with the given settings.
 func NewGeminiEngine(settings *settings.InferenceSettings) (*GeminiEngine, error) {
 	return &GeminiEngine{settings: settings}, nil
+}
+
+type geminiAPIKeyTransport struct {
+	base   http.RoundTripper
+	apiKey string
+}
+
+func (t *geminiAPIKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	req2 := req.Clone(req.Context())
+	urlCopy := *req.URL
+	q := urlCopy.Query()
+	if q.Get("key") == "" {
+		q.Set("key", t.apiKey)
+	}
+	urlCopy.RawQuery = q.Encode()
+	req2.URL = &urlCopy
+	return base.RoundTrip(req2)
+}
+
+func geminiHTTPClientWithAPIKey(httpClient *http.Client, apiKey string) *http.Client {
+	if httpClient == nil {
+		return nil
+	}
+	clientCopy := *httpClient
+	clientCopy.Transport = &geminiAPIKeyTransport{
+		base:   httpClient.Transport,
+		apiKey: apiKey,
+	}
+	return &clientCopy
+}
+
+func geminiClientOptions(apiKey, baseURL string, httpClient *http.Client) []option.ClientOption {
+	if httpClient == nil || httpClient == http.DefaultClient {
+		opts := []option.ClientOption{option.WithAPIKey(apiKey)}
+		if baseURL != "" {
+			opts = append(opts, option.WithEndpoint(baseURL))
+		}
+		return opts
+	}
+
+	opts := []option.ClientOption{option.WithHTTPClient(geminiHTTPClientWithAPIKey(httpClient, apiKey))}
+	if baseURL != "" {
+		opts = append(opts, option.WithEndpoint(baseURL))
+	}
+	return opts
 }
 
 // convertJSONSchemaToGenAI converts an invopop jsonschema.Schema to a Gemini Schema (best-effort for common types).
@@ -104,14 +154,13 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		return nil, errors.Errorf("missing API key %s", string(*apiType_)+"-api-key")
 	}
 	baseURL := e.settings.API.BaseUrls[string(*apiType_)+"-base-url"]
+	httpClient, err := settings.EnsureHTTPClient(e.settings.Client)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve gemini HTTP client")
+	}
 
 	var client *genai.Client
-	var err error
-	if baseURL != "" {
-		client, err = genai.NewClient(ctx, option.WithAPIKey(apiKey), option.WithEndpoint(baseURL))
-	} else {
-		client, err = genai.NewClient(ctx, option.WithAPIKey(apiKey))
-	}
+	client, err = genai.NewClient(ctx, geminiClientOptions(apiKey, baseURL, httpClient)...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gemini client")
 	}

@@ -206,6 +206,47 @@ Two details matter:
 
 If you are working in Pinocchio, the application-specific bootstrap contract already exists as `profilebootstrap.BootstrapConfig()`.
 
+## Hidden Base vs Final Settings
+
+This section explains the central lifecycle concept behind the bootstrap APIs before the tutorial continues with middleware wiring.
+
+The bootstrap path intentionally keeps two different settings objects in play:
+
+- `BaseInferenceSettings`
+- `FinalInferenceSettings`
+
+The mental model is:
+
+```text
+shared sections + app config/env/defaults
+  -> base inference settings
+
+base inference settings + resolved engine profile overlay
+  -> final inference settings
+```
+
+That is the reason `AppBootstrapConfig.BuildBaseSections` matters so much. It defines which shared Geppetto sections are eligible to participate in the hidden base.
+
+Sequence sketch:
+
+```text
+BuildBaseSections()
+  -> fresh schema
+  -> parse env + config + defaults
+  -> BaseInferenceSettings
+  -> resolve profile registry selection
+  -> merge profile overlay
+  -> FinalInferenceSettings
+```
+
+Practical implications:
+
+- Put cross-profile settings in shared Geppetto sections such as `ai-client`.
+- Build engines from `FinalInferenceSettings`, not from raw profile payloads.
+- Do not assume the profile itself is the whole runtime configuration.
+
+Some host applications then add an additional runtime pattern on top of this: they preserve a profile-free base reconstructed from already parsed values so they can switch profiles later without losing CLI-supplied overrides. That runtime-switch pattern is application-owned, not Geppetto-owned. Pinocchio documents that companion pattern in `pinocchio/pkg/doc/topics/pinocchio-profile-resolution-and-runtime-switching.md`.
+
 ## Step 5: Use an App-Aware Config Middleware
 
 The middleware chain should load:

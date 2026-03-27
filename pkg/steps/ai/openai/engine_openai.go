@@ -52,7 +52,7 @@ func (e *OpenAIEngine) RunInference(
 
 	// Chat engine no longer routes to Responses; factory selects the correct engine
 
-	client, err := MakeClient(e.settings.API, *e.settings.Chat.ApiType)
+	client, err := MakeClient(e.settings.API, e.settings.Client, *e.settings.Chat.ApiType)
 	if err != nil {
 		return nil, err
 	}
