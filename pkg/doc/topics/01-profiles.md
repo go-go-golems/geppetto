@@ -196,3 +196,58 @@ resolved engine profile -> engine
 app runtime config -> prompt + middleware + tools
 engine + app runtime -> session / runner
 ```
+
+## Base Settings vs Profile Overlay
+
+This section explains the most important lifecycle distinction behind the profile system.
+
+Geppetto profile resolution is not "the profile is the whole runtime." The profile is an overlay. The host application is expected to keep a baseline `InferenceSettings` object and merge the resolved profile on top of it.
+
+Conceptually:
+
+```text
+app-owned base InferenceSettings
+  + resolved engine-profile InferenceSettings overlay
+  = final InferenceSettings used to build the engine
+```
+
+That is why profile docs should be read together with bootstrap docs:
+
+- Geppetto owns the shared settings schema and the merge contract.
+- The host application owns how the baseline is collected from defaults, config, environment, and flags.
+
+This distinction matters whenever a setting is cross-profile and should survive profile changes. Transport and operator settings such as `ai-client.*` belong in the app-owned baseline, not in engine profiles. Model-selection defaults such as `chat.engine` are much more natural as profile overlays.
+
+## Hidden Base Settings
+
+Applications sometimes need a baseline even when a command does not visibly expose the whole Geppetto AI surface on its CLI.
+
+The bootstrap helpers in `geppetto/pkg/cli/bootstrap` support that pattern by reconstructing a hidden base `InferenceSettings` from the shared Geppetto sections plus config, environment, and defaults. The important consequence is:
+
+- a setting can still be part of the effective base even when the command intentionally exposes a narrower public CLI.
+
+That is why the ownership boundary matters so much. If a field belongs in a shared section such as `ai-client`, it can participate naturally in the hidden base lifecycle.
+
+## Practical Rule: What Belongs In Profiles
+
+Use this rule of thumb:
+
+- Put model and provider behavior in profiles.
+- Put app/operator infrastructure in the shared baseline.
+
+Examples that fit well in profiles:
+
+- `chat.engine`
+- `chat.api_type`
+- provider-specific request defaults
+
+Examples that fit better in the shared baseline:
+
+- `ai-client.timeout`
+- provider credentials and base URLs
+- proxy configuration
+
+## See Also
+
+- `geppetto/pkg/doc/tutorials/09-migrating-cli-commands-to-glazed-bootstrap-profile-resolution.md` for the bootstrap/base/final settings lifecycle
+- `pinocchio/pkg/doc/topics/pinocchio-profile-resolution-and-runtime-switching.md` for the application-side runtime profile-switch pattern built on top of this Geppetto model

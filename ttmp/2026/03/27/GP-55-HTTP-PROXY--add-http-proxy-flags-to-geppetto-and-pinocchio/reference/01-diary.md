@@ -29,12 +29,18 @@ RelatedFiles:
       Note: |-
         Responses engine path that still uses http.DefaultClient directly.
         Responses engine path that still uses http.DefaultClient directly
+    - Path: geppetto/pkg/steps/ai/openai_responses/engine_test.go
+      Note: Diary entry for provider usage tests that prove the configured HTTP client path is used.
+    - Path: geppetto/pkg/steps/ai/settings/http_client.go
+      Note: Diary entry for the shared EnsureHTTPClient helper and proxy policy decisions.
     - Path: geppetto/pkg/steps/ai/settings/settings-client.go
       Note: |-
         Shared transport settings ownership and likely proxy-field insertion point.
         Shared transport settings ownership and likely proxy field insertion point
     - Path: pinocchio/cmd/web-chat/main.go
       Note: Implementation diary entry for exposing ai-client on web-chat and applying parsed client values to the preserved base.
+    - Path: pinocchio/cmd/web-chat/main_profile_registries_test.go
+      Note: Diary entry for web-chat proxy flag exposure and base-merge regression coverage.
     - Path: pinocchio/pkg/cmds/cmd.go
       Note: |-
         Final Pinocchio runtime settings-resolution path for loaded commands.
@@ -47,6 +53,7 @@ LastUpdated: 2026-03-27T09:09:15.950374652-04:00
 WhatFor: Preserve the concrete investigation trail behind the design recommendation so a future implementer can review what was inspected, what failed, and why the final architecture recommendation is defensible.
 WhenToUse: Use when continuing proxy implementation work, reviewing the design ticket, or validating whether the chosen section and wiring seams came from code-backed analysis rather than guesswork.
 ---
+
 
 
 
