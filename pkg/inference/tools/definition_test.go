@@ -116,3 +116,45 @@ func TestNewToolFromFuncAllowsDynamicObjectFields(t *testing.T) {
 		t.Fatalf("expected generated schema")
 	}
 }
+
+func TestNewToolFromFuncSkipsJSONOmittedFields(t *testing.T) {
+	type hiddenJSONFieldInput struct {
+		Visible string `json:"visible"`
+		Hidden  []any  `json:"-"`
+	}
+
+	def, err := NewToolFromFunc(
+		"json_omitted_tool",
+		"test",
+		func(in hiddenJSONFieldInput) (string, error) {
+			return in.Visible, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected json-omitted field to be ignored, got: %v", err)
+	}
+	if def == nil || def.Parameters == nil {
+		t.Fatalf("expected generated schema")
+	}
+}
+
+func TestNewToolFromFuncSkipsJSONSchemaOmittedFields(t *testing.T) {
+	type hiddenSchemaFieldInput struct {
+		Visible string `json:"visible"`
+		Hidden  []any  `json:"hidden,omitempty" jsonschema:"-"`
+	}
+
+	def, err := NewToolFromFunc(
+		"jsonschema_omitted_tool",
+		"test",
+		func(in hiddenSchemaFieldInput) (string, error) {
+			return in.Visible, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected jsonschema-omitted field to be ignored, got: %v", err)
+	}
+	if def == nil || def.Parameters == nil {
+		t.Fatalf("expected generated schema")
+	}
+}

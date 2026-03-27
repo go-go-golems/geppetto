@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -223,6 +224,9 @@ func validateProviderCompatibleTypeRecursive(t reflect.Type, path string, seen m
 			if !field.IsExported() {
 				continue
 			}
+			if shouldSkipSchemaField(field) {
+				continue
+			}
 			fieldPath := field.Name
 			if path != "" {
 				fieldPath = path + "." + field.Name
@@ -253,9 +257,44 @@ func validateProviderCompatibleTypeRecursive(t reflect.Type, path string, seen m
 			return nil
 		}
 		return validateProviderCompatibleTypeRecursive(t.Elem(), path+"{}", seen)
+	case reflect.Invalid,
+		reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Pointer,
+		reflect.String,
+		reflect.UnsafePointer:
+		return nil
 	default:
 		return nil
 	}
+}
+
+func shouldSkipSchemaField(field reflect.StructField) bool {
+	return tagOmitsField(field.Tag.Get("json")) || tagOmitsField(field.Tag.Get("jsonschema"))
+}
+
+func tagOmitsField(tag string) bool {
+	if tag == "" {
+		return false
+	}
+	name := strings.Split(tag, ",")[0]
+	return name == "-"
 }
 
 // createExecutor creates a pre-compiled executor for the function
