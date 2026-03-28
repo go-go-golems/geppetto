@@ -81,6 +81,10 @@ topics:
       description: Open Responses protocol, providers, and compatibility work
     - slug: streaming
       description: Streaming inference protocols, SSE handling, and incremental event delivery
+    - slug: together
+      description: Together AI provider compatibility and integration work
+    - slug: openai-compatibility
+      description: OpenAI-compatible provider protocols and schema differences
 docTypes:
     - slug: index
       description: Ticket index
