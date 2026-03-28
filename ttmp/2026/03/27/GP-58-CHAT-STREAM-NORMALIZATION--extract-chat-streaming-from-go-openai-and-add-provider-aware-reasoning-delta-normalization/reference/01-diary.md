@@ -449,3 +449,203 @@ git -C /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto status --s
 sed -n '1,240p' ttmp/2026/03/27/GP-58-CHAT-STREAM-NORMALIZATION--extract-chat-streaming-from-go-openai-and-add-provider-aware-reasoning-delta-normalization/tasks.md
 sed -n '1,260p' ttmp/2026/03/27/GP-58-CHAT-STREAM-NORMALIZATION--extract-chat-streaming-from-go-openai-and-add-provider-aware-reasoning-delta-normalization/reference/01-diary.md
 ```
+
+## Step 6: Add the chat streaming transport and normalization layer
+
+I implemented the first code slice by adding a Geppetto-owned chat streaming transport and parser under `pkg/steps/ai/openai/`. This slice deliberately stopped short of changing the engine loop. The goal was to replace the risky boundary first, prove that it compiles, and lock down the transport semantics with isolated tests before mixing in event publication or turn mutation.
+
+This step created a stable internal contract for the later engine refactor: the engine will no longer need to understand raw SSE framing or provider-specific field aliases directly. It will receive normalized stream events instead.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 5)
+
+**Assistant interpretation:** Start implementing the ticket in small, reviewable slices and commit them as they land.
+
+**Inferred user intent:** The user wants a disciplined migration where the transport replacement can be reviewed independently from the event and turn-behavior changes.
+
+**Commit (code):** pending at the time of writing this entry
+
+### What I did
+
+- Added `pkg/steps/ai/openai/chat_stream.go`
+- Added `pkg/steps/ai/openai/chat_stream_test.go`
+- Implemented:
+  - chat streaming config resolution from API settings
+  - direct `/chat/completions` POST transport
+  - raw SSE frame reading
+  - normalized stream event types
+  - normalization for:
+    - `delta.content`
+    - `delta.reasoning`
+    - `delta.reasoning_content`
+    - fragmented `tool_calls`
+    - usage fields including `reasoning_tokens`
+- Ran `go test ./pkg/steps/ai/openai -count=1`
+
+### Why
+
+- The current bug is caused by losing provider-specific fields at the stream decode boundary.
+- The fastest safe fix is to own that boundary directly.
+- Testing this layer in isolation makes later engine changes much easier to debug.
+
+### What worked
+
+- The package compiled cleanly on the first pass.
+- The standalone tests passed.
+- The new normalizer can already represent both Together-style and DeepSeek-style reasoning deltas.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The minimal viable internal contract is small. The engine does not need a huge transport model; it mainly needs normalized text, reasoning, tool calls, usage, and finish reason.
+
+### What was tricky to build
+
+- The sharp edge here was deciding what to normalize now versus later. I kept the transport contract intentionally narrow to avoid prematurely modeling provider-specific noise that the engine does not consume.
+- Another subtle point was keeping the stream replacement independent from the existing request-builder logic, so the blast radius stays small.
+
+### What warrants a second pair of eyes
+
+- Review whether `resolveChatStreamConfig(...)` should also be reused by the old `MakeClient(...)` path later, or whether keeping them separate is clearer.
+- Review whether the normalized tool-call representation should remain `go_openai.ToolCall` for now or move to a fully internal type in a later pass.
+
+### What should be done in the future
+
+- Refactor the engine loop to consume `chatStreamEvent`.
+- Add engine-level tests that prove the reasoning events and reasoning blocks are emitted correctly.
+
+### Code review instructions
+
+- Start in `pkg/steps/ai/openai/chat_stream.go`.
+- Verify the order:
+  - config resolution
+  - raw HTTP request
+  - SSE frame parsing
+  - payload normalization
+- Then read `pkg/steps/ai/openai/chat_stream_test.go` to confirm the coverage of:
+  - multiline SSE data
+  - Together reasoning alias
+  - DeepSeek reasoning-content fallback
+  - tool-call normalization
+
+### Technical details
+
+- Files changed:
+  - `pkg/steps/ai/openai/chat_stream.go`
+  - `pkg/steps/ai/openai/chat_stream_test.go`
+  - `ttmp/.../GP-58.../tasks.md`
+  - `ttmp/.../GP-58.../reference/01-diary.md`
+
+- Command used:
+
+```bash
+go test ./pkg/steps/ai/openai -count=1
+```
+
+## Step 7: Switch the OpenAI engine to the new stream client and add fixture-driven regressions
+
+After the transport layer was stable, I rewired `OpenAIEngine.RunInference(...)` to consume normalized stream events instead of the `go-openai` streaming client. This was the main behavioral change in the ticket: the engine now receives text deltas, reasoning deltas, tool-call fragments, usage, and finish reasons from Geppetto-owned code rather than from a third-party typed stream struct.
+
+I paired that refactor with fixture-driven regression tests. That kept the implementation honest and covered the exact provider behaviors the ticket is about: Together-style `delta.reasoning`, DeepSeek-style `delta.reasoning_content`, plain text-only chat streams, and fragmented tool calls with final usage.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 5)
+
+**Assistant interpretation:** Complete the main refactor, prove the reasoning events and turn persistence behavior, and keep the implementation traceable in the diary.
+
+**Inferred user intent:** The user wants the ticket worked through to real code, not just scaffolding.
+
+**Commit (code):** pending at the time of writing this entry
+
+### What I did
+
+- Updated `pkg/steps/ai/openai/engine_openai.go` to:
+  - replace `CreateChatCompletionStream(...)` with the new custom stream client
+  - accumulate normalized reasoning deltas
+  - publish:
+    - `reasoning-text-delta`
+    - `partial-thinking`
+    - `reasoning-text-done`
+  - persist a reasoning block onto the output turn when reasoning text is present
+  - preserve tool-call merge behavior and final usage metadata
+  - add `thinking_text`, `saying_text`, and `reasoning_tokens` to final metadata extras
+- Added fixture files under `pkg/steps/ai/openai/testdata/chat-stream/`
+- Added `pkg/steps/ai/openai/engine_openai_test.go`
+- Ran:
+  - `go test ./pkg/steps/ai/openai -count=1`
+  - `go test ./... -count=1`
+
+### Why
+
+- The transport layer by itself does not fix the user-visible behavior; the engine must publish the normalized reasoning data and persist it to turns.
+- The regression fixtures ensure the new path remains provider-aware instead of drifting back toward a single-schema assumption.
+
+### What worked
+
+- The engine refactor compiled cleanly after the test harness was adjusted to inject the default HTTP client explicitly.
+- The package test suite passed.
+- The full repository test suite passed.
+- The fixture-driven tests covered all the planned scenarios for this ticket.
+
+### What didn't work
+
+- The first engine test attempt failed because `EnsureHTTPClient(...)` built a fresh client instead of reusing the temporarily replaced `http.DefaultClient`, which caused real DNS lookup attempts against `example.test`.
+
+The exact failure was:
+
+```text
+Post "https://example.test/v1/chat/completions": dial tcp: lookup example.test: no such host
+```
+
+- I fixed that by setting `ClientSettings{HTTPClient: http.DefaultClient}` in the test engine setup so the fixture transport was actually used.
+
+### What I learned
+
+- The test harness detail around `EnsureHTTPClient(...)` matters when the engine is moved from a wrapped SDK client to direct HTTP. The engine tests now explicitly pin the injected client instead of relying on the implicit default-client fast path.
+
+### What was tricky to build
+
+- The main sharp edge was preserving existing behavior while introducing reasoning-specific behavior. The engine needed to add a second live stream for thinking without accidentally mixing reasoning text into the assistant output buffer.
+- Another tricky point was preserving tool-call merge behavior. The new normalizer emits tool-call fragments in a format the existing merger can still consume, which minimized the amount of tool-calling code that had to change in the same patch.
+
+### What warrants a second pair of eyes
+
+- Review the final block ordering to confirm that appending the reasoning block immediately before the assistant text block is the desired long-term invariant.
+- Review the metadata extras contract for `thinking_text`, `saying_text`, and `reasoning_tokens` to ensure downstream consumers expect those fields on chat-completions final events.
+
+### What should be done in the future
+
+- Consider sanitizing or shrinking the fixture corpus if additional providers are added later so the test matrix stays easy to review.
+- Evaluate whether the remaining `go_openai` request and tool structs in the chat package should also move to internal types in a follow-up ticket.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/openai/engine_openai.go` and look only at the streaming path changes first.
+- Then read `pkg/steps/ai/openai/engine_openai_test.go` together with the fixture files under `pkg/steps/ai/openai/testdata/chat-stream/`.
+- Validate that the four scenarios map directly to the tasks in `tasks.md`.
+
+### Technical details
+
+- Files changed:
+  - `pkg/steps/ai/openai/engine_openai.go`
+  - `pkg/steps/ai/openai/engine_openai_test.go`
+  - `pkg/steps/ai/openai/testdata/chat-stream/together_reasoning.sse`
+  - `pkg/steps/ai/openai/testdata/chat-stream/deepseek_reasoning_content.sse`
+  - `pkg/steps/ai/openai/testdata/chat-stream/text_only.sse`
+  - `pkg/steps/ai/openai/testdata/chat-stream/tool_calls_fragmented.sse`
+  - `ttmp/.../GP-58.../tasks.md`
+  - `ttmp/.../GP-58.../changelog.md`
+  - `ttmp/.../GP-58.../reference/01-diary.md`
+
+- Commands used:
+
+```bash
+gofmt -w pkg/steps/ai/openai/chat_stream.go pkg/steps/ai/openai/chat_stream_test.go pkg/steps/ai/openai/engine_openai.go pkg/steps/ai/openai/engine_openai_test.go
+go test ./pkg/steps/ai/openai -count=1
+go test ./... -count=1
+```
