@@ -179,6 +179,8 @@ key_families:
       value: images
     - value_const: PayloadKeyEncryptedContent
       value: encrypted_content
+    - value_const: PayloadKeySummary
+      value: summary
     - value_const: PayloadKeyItemID
       value: item_id
 

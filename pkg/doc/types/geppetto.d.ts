@@ -81,6 +81,7 @@ declare module "geppetto" {
             readonly ERROR: "error";
             readonly IMAGES: "images";
             readonly ENCRYPTED_CONTENT: "encrypted_content";
+            readonly SUMMARY: "summary";
             readonly ITEM_ID: "item_id";
         };
         /** How the model should choose tools */

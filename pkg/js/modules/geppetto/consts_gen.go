@@ -81,6 +81,7 @@ func (m *moduleRuntime) installConsts(exports *goja.Object) {
 		m.mustSet(o, "ERROR", "error")
 		m.mustSet(o, "IMAGES", "images")
 		m.mustSet(o, "ENCRYPTED_CONTENT", "encrypted_content")
+		m.mustSet(o, "SUMMARY", "summary")
 		m.mustSet(o, "ITEM_ID", "item_id")
 		m.mustSet(constsObj, "PayloadKeys", o)
 	}
