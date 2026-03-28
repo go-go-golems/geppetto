@@ -18,10 +18,22 @@ RelatedFiles:
       Note: Explicitly out-of-scope OpenAI embeddings client retained on go-openai
     - Path: pkg/events/chat-events.go
       Note: Shared reasoning and partial-thinking event types
+    - Path: pkg/steps/ai/openai/chat_stream.go
+      Note: New direct chat-completions transport
     - Path: pkg/steps/ai/openai/engine_openai.go
       Note: Current chat streaming loop and event publication behavior
+    - Path: pkg/steps/ai/openai/engine_openai_test.go
+      Note: Fixture-driven regression coverage for the new stream path
     - Path: pkg/steps/ai/openai/helpers.go
       Note: Current request builder and tool-call adjacency logic
+    - Path: pkg/steps/ai/openai/testdata/chat-stream/deepseek_reasoning_content.sse
+      Note: Fixture proving reasoning_content fallback support
+    - Path: pkg/steps/ai/openai/testdata/chat-stream/text_only.sse
+      Note: Fixture proving text-only regression behavior remains unchanged
+    - Path: pkg/steps/ai/openai/testdata/chat-stream/together_reasoning.sse
+      Note: Fixture proving Together-style reasoning alias support
+    - Path: pkg/steps/ai/openai/testdata/chat-stream/tool_calls_fragmented.sse
+      Note: Fixture proving fragmented tool call merging and usage preservation
     - Path: pkg/steps/ai/openai/transcribe.go
       Note: Explicitly out-of-scope transcription client retained on go-openai
     - Path: pkg/steps/ai/openai_responses/engine.go
@@ -37,6 +49,7 @@ LastUpdated: 2026-03-27T19:07:20.862503894-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Intern guide to extracting chat streaming from go-openai and normalizing provider reasoning deltas

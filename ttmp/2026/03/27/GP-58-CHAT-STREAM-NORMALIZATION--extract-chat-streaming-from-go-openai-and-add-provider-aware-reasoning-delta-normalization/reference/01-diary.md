@@ -15,10 +15,16 @@ RelatedFiles:
     - Path: ../../../../../../../../../../go/pkg/mod/github.com/sashabaranov/go-openai@v1.41.1/chat_stream.go
     - Path: pkg/embeddings/openai.go
       Note: Diary documents that embeddings stay on go-openai
+    - Path: pkg/steps/ai/openai/chat_stream.go
+      Note: Diary records the new transport and normalization implementation
     - Path: pkg/steps/ai/openai/engine_openai.go
       Note: Diary references the current stream decode loop
+    - Path: pkg/steps/ai/openai/engine_openai_test.go
+      Note: Diary records the fixture-driven regression harness
     - Path: pkg/steps/ai/openai/helpers.go
       Note: Diary records request builder scope and phased migration choice
+    - Path: pkg/steps/ai/openai/testdata/chat-stream/together_reasoning.sse
+      Note: Diary cites the Together fixture used for implementation verification
     - Path: pkg/steps/ai/openai/transcribe.go
       Note: Diary documents that transcription stays on go-openai
     - Path: pkg/steps/ai/openai_responses/engine.go
@@ -33,6 +39,7 @@ LastUpdated: 2026-03-27T19:07:20.987625046-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -57,7 +64,7 @@ The investigation immediately confirmed that the chat path, the embeddings path,
 
 **Inferred user intent:** The user wants a concrete engineering package that can hand off the scoped refactor to another engineer or intern without ambiguity.
 
-**Commit (code):** N/A
+**Commit (code):** `08d1746` — `docs(ticket): expand GP-58 implementation plan`
 
 ### What I did
 
@@ -464,7 +471,7 @@ This step created a stable internal contract for the later engine refactor: the 
 
 **Inferred user intent:** The user wants a disciplined migration where the transport replacement can be reviewed independently from the event and turn-behavior changes.
 
-**Commit (code):** pending at the time of writing this entry
+**Commit (code):** `102eca6` — `feat(openai): normalize chat streaming reasoning deltas`
 
 ### What I did
 
@@ -560,7 +567,7 @@ I paired that refactor with fixture-driven regression tests. That kept the imple
 
 **Inferred user intent:** The user wants the ticket worked through to real code, not just scaffolding.
 
-**Commit (code):** pending at the time of writing this entry
+**Commit (code):** `102eca6` — `feat(openai): normalize chat streaming reasoning deltas`
 
 ### What I did
 
@@ -648,4 +655,93 @@ Post "https://example.test/v1/chat/completions": dial tcp: lookup example.test: 
 gofmt -w pkg/steps/ai/openai/chat_stream.go pkg/steps/ai/openai/chat_stream_test.go pkg/steps/ai/openai/engine_openai.go pkg/steps/ai/openai/engine_openai_test.go
 go test ./pkg/steps/ai/openai -count=1
 go test ./... -count=1
+```
+
+## Step 8: Refresh ticket metadata, rerun doctor, and upload the updated bundle
+
+After the implementation commit landed, I refreshed the ticket metadata so the design doc and diary now point at the new runtime files, tests, and fixtures as first-class related artifacts. Then I reran `docmgr doctor` and uploaded a fresh bundle for March 28 so the reMarkable copy reflects the implementation state rather than only the design state.
+
+This final bookkeeping step is important because the ticket is now both an implementation record and a handoff package. Without the refreshed relations and upload, the code would be ahead of the ticket.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 5)
+
+**Assistant interpretation:** Finish the implementation loop by updating the ticket, validating it, and refreshing the external delivery artifact.
+
+**Inferred user intent:** The user wants the diary and ticket to stay trustworthy throughout implementation, not just at the start.
+
+**Commit (code):** pending at the time of writing this entry
+
+### What I did
+
+- Related the new implementation files back into the design doc and diary with `docmgr doc relate`
+- Ran `docmgr doctor --ticket GP-58-CHAT-STREAM-NORMALIZATION --stale-after 30`
+- Ran a dry-run reMarkable bundle upload to:
+  - `/ai/2026/03/28/GP-58-CHAT-STREAM-NORMALIZATION`
+- Ran the real bundle upload
+- Verified the remote listing after the upload completed
+
+### Why
+
+- The design ticket now references implementation artifacts, so the related-file sets needed to be updated.
+- The March 27 upload reflected the design package; the March 28 upload reflects the implemented state.
+
+### What worked
+
+- `docmgr doctor` passed cleanly after the relation refresh.
+- The reMarkable upload succeeded:
+
+```text
+OK: uploaded GP-58 Chat Streaming Extraction Design Package.pdf -> /ai/2026/03/28/GP-58-CHAT-STREAM-NORMALIZATION
+```
+
+- Remote verification succeeded:
+
+```text
+[f]  GP-58 Chat Streaming Extraction Design Package
+```
+
+### What didn't work
+
+- The first `cloud ls` check again raced the still-running upload and returned:
+
+```text
+Error: no matches for 'GP-58-CHAT-STREAM-NORMALIZATION'
+```
+
+- Rerunning `cloud ls` after the upload process exited resolved it.
+
+### What I learned
+
+- The upload and verification flow is reliable, but the listing check needs to happen after the upload process has actually finished.
+
+### What was tricky to build
+
+- The only subtle part here was keeping the ticket metadata synchronized with the code after a real implementation patch, especially because the new fixtures and tests are central to the story and not just optional extras.
+
+### What warrants a second pair of eyes
+
+- Confirm that the updated RelatedFiles set is still tight enough for long-term maintenance and does not drift into a dumping ground for every touched file.
+
+### What should be done in the future
+
+- If more providers are added to this stream normalizer, keep extending the ticket docs rather than starting a parallel undocumented behavior trail.
+
+### Code review instructions
+
+- Open the ticket docs and verify the RelatedFiles now include the new stream client, engine tests, and fixtures.
+- Confirm the March 28 reMarkable path if you need the refreshed bundle.
+
+### Technical details
+
+- Commands used:
+
+```bash
+docmgr doc relate --doc /abs/path/to/design-doc.md --file-note "/abs/path/to/chat_stream.go:why it matters"
+docmgr doc relate --doc /abs/path/to/reference/01-diary.md --file-note "/abs/path/to/engine_openai_test.go:why it matters"
+docmgr doctor --ticket GP-58-CHAT-STREAM-NORMALIZATION --stale-after 30
+remarquee upload bundle --dry-run <docs...> --name "GP-58 Chat Streaming Extraction Design Package" --remote-dir "/ai/2026/03/28/GP-58-CHAT-STREAM-NORMALIZATION" --toc-depth 2
+remarquee upload bundle <docs...> --name "GP-58 Chat Streaming Extraction Design Package" --remote-dir "/ai/2026/03/28/GP-58-CHAT-STREAM-NORMALIZATION" --toc-depth 2
+remarquee cloud ls /ai/2026/03/28/GP-58-CHAT-STREAM-NORMALIZATION --long --non-interactive
 ```
