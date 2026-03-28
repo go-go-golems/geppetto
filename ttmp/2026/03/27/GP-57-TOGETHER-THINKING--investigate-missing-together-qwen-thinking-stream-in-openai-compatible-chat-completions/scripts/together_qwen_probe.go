@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	stepopenai "github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	gepsettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	openai "github.com/sashabaranov/go-openai"
@@ -260,6 +261,9 @@ func runGoOpenAI(s *gepsettings.InferenceSettings, prompt string, system string,
 		TopP:          float32(topP),
 		StreamOptions: &openai.StreamOptions{IncludeUsage: true},
 	}
+	if payload, err := json.MarshalIndent(req, "", "  "); err == nil {
+		fmt.Printf("# go-openai request body\n%s\n", string(payload))
+	}
 
 	fmt.Printf("# go-openai request\nmodel=%s baseURL=%s\n", model, baseURL)
 	stream, err := client.CreateChatCompletionStream(context.Background(), req)
@@ -313,6 +317,10 @@ func runGoOpenAI(s *gepsettings.InferenceSettings, prompt string, system string,
 }
 
 func runGeppetto(s *gepsettings.InferenceSettings, prompt string, system string) error {
+	oae, err := stepopenai.NewOpenAIEngine(s)
+	if err != nil {
+		return err
+	}
 	eng, err := enginefactory.NewStandardEngineFactory().CreateEngine(s)
 	if err != nil {
 		return err
@@ -322,6 +330,17 @@ func runGeppetto(s *gepsettings.InferenceSettings, prompt string, system string)
 		turns.AppendBlock(turn, turns.NewSystemTextBlock(system))
 	}
 	turns.AppendBlock(turn, turns.NewUserTextBlock(prompt))
+	req, err := oae.MakeCompletionRequestFromTurn(turn)
+	if err != nil {
+		return err
+	}
+	req.Stream = true
+	if req.StreamOptions == nil && !strings.Contains(strings.ToLower(req.Model), "mistral") {
+		req.StreamOptions = &openai.StreamOptions{IncludeUsage: true}
+	}
+	if payload, err := json.MarshalIndent(req, "", "  "); err == nil {
+		fmt.Printf("# geppetto request body\n%s\n", string(payload))
+	}
 
 	sink := &capturingSink{}
 	ctx := events.WithEventSinks(context.Background(), sink)

@@ -9,6 +9,7 @@
 - [x] Run the Geppetto OpenAI chat-stream path with the same profile and compare behavior against the raw SSE control.
 - [x] Identify and fix the Geppetto request-shape regression that prevented streaming (`stream=true` missing on the outgoing chat-completions request).
 - [x] Re-run the experiment matrix and store bounded outputs under `sources/experiments/`.
-- [ ] Compare the exact request bodies used by raw SSE, `go-openai`, and Geppetto in more detail, especially around Together-specific extras.
+- [x] Capture the exact request bodies used by raw SSE, `go-openai`, and Geppetto under `sources/experiments/`.
+- [ ] Compare those request bodies in more detail, especially around Together-specific extras.
 - [ ] Investigate why `go-openai` surfaces repeated `role="assistant"` chunks but no `reasoning_content` or `content` for Together Qwen.
 - [ ] Update the design doc with the new request-construction findings.

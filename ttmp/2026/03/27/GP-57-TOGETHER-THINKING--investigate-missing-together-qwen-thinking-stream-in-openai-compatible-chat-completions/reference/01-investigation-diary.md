@@ -354,6 +354,93 @@ go test ./pkg/steps/ai/openai -count=1
   - `go-openai.txt`: SDK behavior snapshot
   - `geppetto.txt`: custom stream behavior snapshot
 
+## Step 4: Capture exact request bodies for the three experiment paths
+
+Once the streaming bug was fixed, the next useful question was no longer “does it stream?” but “what are the three clients actually sending?” I updated the GP-57 probe so the saved `go-openai` and Geppetto artifacts start with their exact marshaled request bodies. The raw control already did this.
+
+This matters because the raw control uses Together-specific extras, while the `go-openai` and Geppetto bodies are now clearly visible as minimal OpenAI-style chat-completions payloads. That gives the ticket a concrete basis for the next comparison step instead of relying on inferred request shapes.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Keep deepening the investigation after the stream fix so the ticket captures not just the symptom and fix, but also the exact protocol-level differences between the successful raw control and the higher-level clients.
+
+**Inferred user intent:** Leave behind a detailed, technically credible artifact trail that explains why the bug happened and what remains unexplained.
+
+### What I did
+- Updated `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/scripts/together_qwen_probe.go` to print:
+  - `# go-openai request body`
+  - `# geppetto request body`
+- Rewrote the saved artifacts with bounded runs:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/sources/experiments/go-openai.txt`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/sources/experiments/geppetto.txt`
+
+### Why
+- Without the exact payloads, it is too easy to over-attribute behavior to field names alone.
+- The remaining `go-openai` question depends on whether its request materially differs from the successful raw control.
+
+### What worked
+- The artifact headers now show:
+  - raw SSE: `chat_template_kwargs.enable_thinking`, `top_k`, `temperature`, `top_p`, `stream=true`
+  - `go-openai`: minimal OpenAI-style body with `max_tokens`, `temperature`, `top_p`, `stream=true`, `stream_options.include_usage=true`
+  - Geppetto: minimal OpenAI-style body with `stream=true` and `stream_options.include_usage=true`
+- The saved `go-openai` artifact still shows only repeated `role="assistant"` chunks and no reasoning/content fields.
+- The saved Geppetto artifact shows real `reasoning_delta` events immediately after the request body header.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The remaining gap is now sharper:
+  - raw SSE succeeds with Together-specific extras
+  - Geppetto succeeds on the minimal body once it reads raw `delta.reasoning`
+  - `go-openai` still fails to surface useful deltas despite sending a similarly minimal streaming body
+
+### What was tricky to build
+- The tricky part was keeping these captures bounded. Together Qwen can emit a very long reasoning trace quickly, so the artifacts need short timeouts and token caps to remain reviewable while still showing the critical first chunks.
+
+### What warrants a second pair of eyes
+- Whether the `go-openai` request body should also include any provider-native extras for a fairer A/B comparison with the raw control.
+
+### What should be done in the future
+- Inspect the `go-openai` stream reader or raw response decode path to explain why it exposes only `role` updates for this Together stream.
+
+### Code review instructions
+- Start with the top of:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/sources/experiments/raw-sse.txt`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/sources/experiments/go-openai.txt`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/sources/experiments/geppetto.txt`
+
+### Technical details
+- `go-openai` artifact header:
+
+```json
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "max_tokens": 64,
+  "temperature": 1,
+  "top_p": 0.95,
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
+}
+```
+
+- Geppetto artifact header:
+
+```json
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "n": 1,
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
+}
+```
+
 ## Usage Examples
 
 Use this diary as the source of truth when updating the GP-57 design doc or building a final remediation playbook. Every command above is written so it can be copied directly from the ticket workspace.

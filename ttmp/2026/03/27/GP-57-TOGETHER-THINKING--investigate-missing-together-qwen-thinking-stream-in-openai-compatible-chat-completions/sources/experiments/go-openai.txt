@@ -1,3 +1,20 @@
+# go-openai request body
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is 17 * 23? Think step by step, then give a short final answer."
+    }
+  ],
+  "max_tokens": 64,
+  "temperature": 1,
+  "top_p": 0.95,
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
+}
 # go-openai request
 model=Qwen/Qwen3.5-9B baseURL=https://api.together.xyz/v1
 chunk=1 role="assistant"
@@ -67,7 +84,7 @@ chunk=64 role="assistant"
 chunk=65 role="assistant"
 chunk=66 role="assistant"
 finish_reason=length
-usage chunk: input=44 output=64 reasoning_tokens=0
+usage chunk: input=32 output=64 reasoning_tokens=0
 
 # go-openai summary
 reasoning_len=0
