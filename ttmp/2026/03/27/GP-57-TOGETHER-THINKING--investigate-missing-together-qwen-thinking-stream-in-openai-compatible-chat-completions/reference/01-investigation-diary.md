@@ -14,7 +14,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Chronological investigation diary for Together Qwen thinking-stream debugging.
-LastUpdated: 2026-03-28T16:18:45-04:00
+LastUpdated: 2026-03-28T16:34:15-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -595,6 +595,141 @@ remarquee cloud ls /ai/2026/03/28/GP-57-TOGETHER-THINKING --long --non-interacti
 - Verified uploaded document names:
   - `GP-57 Together Thinking Postmortem Package`
   - `GP-57 Together Thinking Postmortem Package Final`
+
+## Step 6: Cut the OpenAI chat layer off the SDK request structs
+
+After the Together bug was fixed and documented, the user asked the obvious next question: if the risky part of the stack is the chat-completions boundary, why are we still depending on `go-openai` request and tool structs there at all? I treated that as a scoped refactor rather than a whole-provider rewrite. The goal was to own the chat encode and decode boundaries end to end while deliberately leaving embeddings and transcription alone.
+
+The end result is that the OpenAI chat runtime no longer depends on `go-openai` types for `ChatCompletionRequest`, `ChatCompletionMessage`, `ToolCall`, `StreamOptions`, or structured-output response format handling. Those are now Geppetto-local structs in `pkg/steps/ai/openai/chat_types.go`. The custom SSE decoder was already ours; this step finished the job for request construction too.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add detailed tasks to the ticket, and then do them one by one, comitting at appropriate intervals, and keeping a detailed diary."
+
+**Assistant interpretation:** Break the chat-layer extraction into explicit ticket tasks, implement the refactor in controlled slices, commit the code at a stable checkpoint, and record the full sequence in the ticket diary.
+
+**Inferred user intent:** Stop relying on `go-openai` for the chat-completions runtime boundary, but do it in a traceable, reviewer-friendly way rather than as a one-shot rewrite.
+
+**Commit (code):** `5c16c05` — `refactor(openai): own chat completion structs`
+
+### What I did
+- Expanded `tasks.md` with a dedicated `Chat Extraction` section covering:
+  - local chat structs
+  - request builder migration
+  - stream/tool-call migration
+  - removal of remaining chat runtime SDK usage
+  - test updates
+  - doc refresh
+- Added Geppetto-local chat structs in:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_types.go`
+- Added serialization tests in:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_types_test.go`
+- Migrated request building in:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/helpers.go`
+- Migrated runtime usage in:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/engine_openai.go`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_stream.go`
+- Removed the obsolete `MakeClient(...)` test from:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/helpers_test.go`
+- Updated the GP-57 probe script so its Geppetto-mode request capture uses the new local `ChatStreamOptions` type:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/scripts/together_qwen_probe.go`
+- Validated with:
+
+```bash
+cd /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto
+go test ./pkg/steps/ai/openai -count=1
+go test ./... -count=1
+```
+
+- Hit the pre-commit hook during the code commit attempt, fixed formatting, and then committed:
+
+```bash
+cd /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto
+gofmt -w \
+  pkg/steps/ai/openai/chat_types.go \
+  pkg/steps/ai/openai/chat_types_test.go \
+  pkg/steps/ai/openai/helpers.go \
+  pkg/steps/ai/openai/helpers_test.go \
+  pkg/steps/ai/openai/chat_stream.go \
+  pkg/steps/ai/openai/engine_openai.go \
+  ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/scripts/together_qwen_probe.go
+
+git commit -m "refactor(openai): own chat completion structs"
+```
+
+### Why
+- The custom SSE stream decoder already proved that Geppetto needed to own the chat decode boundary for “OpenAI-compatible” providers.
+- Leaving request/message/tool structs in `go-openai` kept the chat path half-dependent on a library whose typed boundary had already been shown to erase provider-specific meaning.
+- The user explicitly asked whether we could cut chat off completely and stop caring about the SDK there.
+
+### What worked
+- The new local types were enough to replace the entire chat request/tool struct surface without touching embeddings or transcription.
+- The custom request-message marshaling model works for both:
+  - simple `content: "text"`
+  - multimodal `content: [{type:"text",...},{type:"image_url",...}]`
+- The full Geppetto suite passed after the migration.
+- The ticket probe script still compiles and captures Geppetto request bodies after the cutover.
+
+### What didn't work
+- The first broad test run failed because I reused the test-only `boolPtr` helper in production code:
+
+```text
+pkg/steps/ai/openai/engine_openai.go:158:28: undefined: boolPtr
+pkg/steps/ai/openai/engine_openai.go:160:28: undefined: boolPtr
+```
+
+- The next broad run failed because the GP-57 probe script still tried to assign `*openai.StreamOptions` into the new Geppetto request type:
+
+```text
+ttmp/.../scripts/together_qwen_probe.go:339:23: cannot use &openai.StreamOptions{…} ... as *.../ChatStreamOptions
+```
+
+- The first commit attempt failed in pre-commit lint because `chat_types.go` was not `gofmt`-aligned:
+
+```text
+pkg/steps/ai/openai/chat_types.go:6:1: File is not properly formatted (gofmt)
+```
+
+### What I learned
+- The last significant `go-openai` dependency in the chat path was not behavior anymore, it was JSON-shape convenience.
+- Owning the request structs is straightforward as long as we explicitly test the two shapes that matter most:
+  - polymorphic message content
+  - explicit `parallel_tool_calls=false`
+- The GP-57 probe script is useful as more than just a bug reproducer; it also catches ticket-local compile fallout when internal types change.
+
+### What was tricky to build
+- The sharp edge in this refactor is that OpenAI chat messages are not a plain struct at the wire level. `content` can be either a string or an array of structured parts. The SDK handled that implicitly. Once Geppetto owns the type, it must implement that dual encoding intentionally. I addressed that by adding a custom `MarshalJSON` on `ChatCompletionMessage` and then testing both the multi-content and explicit boolean cases directly.
+
+### What warrants a second pair of eyes
+- The new local chat types should be reviewed for JSON tag parity against the provider APIs Geppetto currently targets.
+- The removal of `MakeClient(...)` from the chat path is correct today because nothing in production still calls it, but a reviewer should verify no external consumer relied on that helper.
+- The remaining `go-openai` usage in the package is now limited to non-chat surfaces like transcription, which is intentional.
+
+### What should be done in the future
+- If we later want complete SDK independence in this package, the next targets are embeddings and transcription.
+- If provider-specific request extras become common, consider adding an explicit escape-hatch field to `ChatCompletionRequest` rather than reintroducing ad hoc SDK coupling.
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_types.go`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/helpers.go`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_stream.go`
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/engine_openai.go`
+- Validate with:
+
+```bash
+cd /home/manuel/workspaces/2026-03-27/use-open-responses/geppetto
+go test ./pkg/steps/ai/openai -count=1
+go test ./... -count=1
+```
+
+### Technical details
+- New local chat type file:
+  - `/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_types.go`
+- Code commit:
+  - `5c16c05`
+- Validation boundary:
+  - package tests plus full repository test/lint via the pre-commit hook
 
 ## Usage Examples
 

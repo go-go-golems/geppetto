@@ -32,8 +32,8 @@ ExternalSources:
     - https://huggingface.co/Qwen/Qwen3.5-9B/blob/main/README.md
     - https://huggingface.co/blog/open-responses
     - https://github.com/sashabaranov/go-openai/blob/master/chat_stream.go
-Summary: Detailed analysis, design notes, and postmortem for the Together Qwen reasoning-stream bug, including the architectural context an intern needs to understand Geppetto, Pinocchio, the experiment matrix, the root causes, the implemented fix, and the remaining SDK-specific follow-up.
-LastUpdated: 2026-03-28T16:20:00-04:00
+Summary: Detailed analysis, design notes, and postmortem for the Together Qwen reasoning-stream bug, including the architectural context an intern needs to understand Geppetto, Pinocchio, the experiment matrix, the root causes, the implemented fix, and the later chat-layer cutover away from SDK request structs.
+LastUpdated: 2026-03-28T16:34:15-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -70,11 +70,26 @@ The user reported that the profile `together-qwen-3.5-9b` did not show thinking 
 
 The implemented fix addressed the Geppetto runtime bug. Geppetto now forces `stream=true` at the request boundary used by the custom SSE path, and live runs against the real Together profile now emit `reasoning-text-delta` and `partial-thinking` events.
 
-The remaining open question is narrower and cleaner now:
+The historical remaining question after that first fix was narrower and cleaner:
 
 - Why does `go-openai` receive the Together stream but expose only repeated `role="assistant"` chunks and not the reasoning or text deltas we can see in raw SSE?
 
-That remaining issue is documented, artifact-backed, and ready for follow-up work.
+That issue was later deprioritized for the chat path. Geppetto now owns the chat-completions request/message/tool structs in addition to the SSE decode boundary, which removes the SDK’s typed chat structs from the critical path. Embeddings and transcription still use `go-openai`.
+
+## Update after the initial postmortem
+
+After the first version of this document, Geppetto performed the next obvious cleanup step: the OpenAI chat layer stopped using `go-openai` request and tool structs entirely. The chat runtime now uses Geppetto-owned types defined in:
+
+```text
+/home/manuel/workspaces/2026-03-27/use-open-responses/geppetto/pkg/steps/ai/openai/chat_types.go
+```
+
+That means the chat path now owns both:
+
+- the wire decode boundary, via the custom SSE reader in `chat_stream.go`
+- the wire encode boundary, via Geppetto-local request/message/tool structs in `chat_types.go`
+
+This is important because it changes the status of the original `go-openai` mismatch from an active product blocker to a historical observation. The SDK can still be investigated later, but the chat path no longer needs to wait for it.
 
 ## What the system is
 

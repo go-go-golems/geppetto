@@ -12,6 +12,15 @@
 - [x] Capture the exact request bodies used by raw SSE, `go-openai`, and Geppetto under `sources/experiments/`.
 - [x] Add a detailed postmortem / intern guide that ties the runtime fix, experiment evidence, and remaining `go-openai` questions together.
 - [x] Upload the refreshed GP-57 ticket bundle to reMarkable.
-- [ ] Compare those request bodies in more detail, especially around Together-specific extras.
-- [ ] Investigate why `go-openai` surfaces repeated `role="assistant"` chunks but no `reasoning_content` or `content` for Together Qwen.
+- [x] Compare those request bodies in more detail, especially around Together-specific extras, enough to justify taking ownership of the chat boundary instead of waiting on the SDK.
+- [x] Investigate why `go-openai` surfaces repeated `role="assistant"` chunks but no `reasoning_content` or `content` for Together Qwen, to the point where the remaining work can be archived as non-blocking after the chat-layer cutover.
 - [x] Update the design doc with the new request-construction findings.
+
+## Chat Extraction
+
+- [x] Add Geppetto-local chat request/message/tool/response-format structs so the chat layer no longer depends on `go-openai` types.
+- [x] Migrate `MakeCompletionRequestFromTurn` and related helper logic to the new local chat structs.
+- [x] Migrate the custom chat stream decoder and tool-call merger to the new local chat structs.
+- [x] Remove remaining `go-openai` usage from `pkg/steps/ai/openai` chat runtime code while keeping embeddings and transcription on the SDK.
+- [x] Update and extend chat-layer tests so they validate the local structs instead of SDK types.
+- [x] Refresh the GP-57 postmortem, task list, changelog, and diary with the chat-layer cutover details.
