@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -249,6 +250,69 @@ func TestRunInference_StreamTextOnlyBehaviorIsUnchanged(t *testing.T) {
 			t.Fatalf("expected assistant text Hello, got %q", got)
 		}
 	})
+}
+
+func TestRunInference_ForcesStreamingRequestBodyEvenWhenProfileStreamDisabled(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+			if got, _ := payload["stream"].(bool); !got {
+				t.Fatalf("expected stream=true in request body, got %#v", payload["stream"])
+			}
+			streamOptions, _ := payload["stream_options"].(map[string]any)
+			if got, _ := streamOptions["include_usage"].(bool); !got {
+				t.Fatalf("expected stream_options.include_usage=true, got %#v", payload["stream_options"])
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(loadChatFixture(t, "text_only.sse"))),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	engine := "gpt-4o-mini"
+	apiType := ai_types.ApiTypeOpenAI
+	eng, err := NewOpenAIEngine(&aisettings.InferenceSettings{
+		API: &aisettings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Client: &aisettings.ClientSettings{HTTPClient: http.DefaultClient},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat: &aisettings.ChatSettings{
+			ApiType: &apiType,
+			Engine:  &engine,
+			Stream:  false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewOpenAIEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	out, err := eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+	if len(out.Blocks) == 0 {
+		t.Fatal("expected output blocks")
+	}
 }
 
 func TestRunInference_StreamToolCallsAreMergedAndUsagePreserved(t *testing.T) {

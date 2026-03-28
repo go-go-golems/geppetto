@@ -62,6 +62,13 @@ func (e *OpenAIEngine) RunInference(
 	if err != nil {
 		return nil, err
 	}
+	// RunInference always executes through the streaming path, regardless of the
+	// profile's chat.stream default. The SSE decoder below requires an actual
+	// streaming response body, so force the request shape here.
+	req.Stream = true
+	if req.StreamOptions == nil && !strings.Contains(strings.ToLower(req.Model), "mistral") {
+		req.StreamOptions = &go_openai.StreamOptions{IncludeUsage: true}
+	}
 
 	// Debug: confirm adjacency constraints before sending
 	if req != nil {
