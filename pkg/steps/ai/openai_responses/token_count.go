@@ -12,7 +12,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 )
@@ -64,26 +63,14 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		return nil, err
 	}
 
-	baseURL := "https://api.openai.com/v1"
-	apiKey := ""
-	if tc.settings.API != nil {
-		if v, ok := tc.settings.API.BaseUrls["openai-base-url"]; ok && strings.TrimSpace(v) != "" {
-			baseURL = v
-		}
-		if v, ok := tc.settings.API.APIKeys["openai-api-key"]; ok {
-			apiKey = v
-		}
-		if v, ok := tc.settings.API.APIKeys[string(types.ApiTypeOpenAIResponses)+"-api-key"]; ok && strings.TrimSpace(v) != "" {
-			apiKey = v
-		}
-	}
+	apiKey := responsesAPIKey(tc.settings.API)
 	if strings.TrimSpace(apiKey) == "" {
-		return nil, errors.New("openai token count: no openai api key configured")
+		return nil, errors.New("responses token count: no responses api key configured")
 	}
 
-	url := strings.TrimRight(baseURL, "/") + "/responses/input_tokens"
+	url := responsesEndpoint(tc.settings.API, "/responses/input_tokens")
 	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{AllowHTTP: false}); err != nil {
-		return nil, errors.Wrap(err, "invalid openai token count URL")
+		return nil, errors.Wrap(err, "invalid responses token count URL")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
@@ -119,13 +106,8 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		return nil, err
 	}
 
-	provider := string(types.ApiTypeOpenAI)
-	if tc.settings.Chat != nil && tc.settings.Chat.ApiType != nil && strings.TrimSpace(string(*tc.settings.Chat.ApiType)) != "" {
-		provider = string(*tc.settings.Chat.ApiType)
-	}
-
 	return &tokencount.Result{
-		Provider:    provider,
+		Provider:    string(responsesAPIType(tc.settings)),
 		Model:       countReq.Model,
 		InputTokens: inputTokens,
 		Source:      tokencount.SourceProviderAPI,

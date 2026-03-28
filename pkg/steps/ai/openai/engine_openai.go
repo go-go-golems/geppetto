@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	stdlog "log"
+	"strings"
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -18,7 +19,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	go_openai "github.com/sashabaranov/go-openai"
 )
 
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
@@ -52,7 +52,7 @@ func (e *OpenAIEngine) RunInference(
 
 	// Chat engine no longer routes to Responses; factory selects the correct engine
 
-	client, err := MakeClient(e.settings.API, e.settings.Client, *e.settings.Chat.ApiType)
+	streamCfg, err := resolveChatStreamConfig(e.settings.API, e.settings.Client, *e.settings.Chat.ApiType)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,13 @@ func (e *OpenAIEngine) RunInference(
 	req, err := e.MakeCompletionRequestFromTurn(t)
 	if err != nil {
 		return nil, err
+	}
+	// RunInference always executes through the streaming path, regardless of the
+	// profile's chat.stream default. The SSE decoder below requires an actual
+	// streaming response body, so force the request shape here.
+	req.Stream = true
+	if req.StreamOptions == nil && !strings.Contains(strings.ToLower(req.Model), "mistral") {
+		req.StreamOptions = &ChatStreamOptions{IncludeUsage: true}
 	}
 
 	// Debug: confirm adjacency constraints before sending
@@ -117,12 +124,12 @@ func (e *OpenAIEngine) RunInference(
 	if len(engineTools) > 0 {
 		log.Debug().Int("tool_count", len(engineTools)).Msg("Adding tools to OpenAI request")
 
-		// Convert our tools to go_openai.Tool format
-		var openaiTools []go_openai.Tool
+		// Convert our tools to chat request tool format
+		var openaiTools []ChatCompletionTool
 		for _, tool := range engineTools {
-			openaiTool := go_openai.Tool{
-				Type: go_openai.ToolTypeFunction,
-				Function: &go_openai.FunctionDefinition{
+			openaiTool := ChatCompletionTool{
+				Type: chatToolTypeFunction,
+				Function: &ChatFunctionDefinition{
 					Name:        tool.Name,
 					Description: tool.Description,
 					Parameters:  tool.Parameters,
@@ -148,9 +155,9 @@ func (e *OpenAIEngine) RunInference(
 
 		// Set parallel tool calls preference
 		if toolCfg.MaxParallelTools > 1 {
-			req.ParallelToolCalls = true
+			req.ParallelToolCalls = boolRef(true)
 		} else if toolCfg.MaxParallelTools == 1 {
-			req.ParallelToolCalls = false
+			req.ParallelToolCalls = boolRef(false)
 		}
 
 		log.Debug().
@@ -203,7 +210,7 @@ func (e *OpenAIEngine) RunInference(
 
 	// Always use streaming mode
 	log.Debug().Msg("OpenAI using streaming mode")
-	stream, err := client.CreateChatCompletionStream(ctx, *req)
+	stream, err := openChatCompletionStream(ctx, streamCfg, req)
 	if err != nil {
 		log.Error().Err(err).Msg("OpenAI streaming request failed")
 		// set duration up to error
@@ -220,10 +227,12 @@ func (e *OpenAIEngine) RunInference(
 	}()
 
 	message := ""
+	var thinkingBuf strings.Builder
 	// Collect streamed tool calls so we can preserve them in the conversation
 	toolCallMerger := NewToolCallMerger()
-	var usageInputTokens, usageOutputTokens int
+	var usageInputTokens, usageOutputTokens, cachedTokens, reasoningTokens int
 	var stopReason *string
+	thinkingStarted := false
 
 	log.Debug().Msg("OpenAI starting streaming loop")
 	chunkCount := 0
@@ -256,54 +265,60 @@ func (e *OpenAIEngine) RunInference(
 			}
 			chunkCount++
 
-			delta := ""
-			if len(response.Choices) > 0 {
-				choice := response.Choices[0]
-				// Text delta
-				delta = choice.Delta.Content
-				// Only accumulate and publish when there is a non-empty text delta
-				if delta != "" {
-					message += delta
-					log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received chunk")
+			delta := response.DeltaText
+			if delta != "" {
+				message += delta
+				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received text chunk")
+			}
+			if response.DeltaReasoning != "" {
+				if !thinkingStarted {
+					thinkingStarted = true
+					e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
 				}
+				thinkingBuf.WriteString(response.DeltaReasoning)
+				e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, response.DeltaReasoning))
+				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, response.DeltaReasoning, thinkingBuf.String()))
+				log.Debug().
+					Int("chunk", chunkCount).
+					Str("reasoning_delta", response.DeltaReasoning).
+					Int("thinking_length", thinkingBuf.Len()).
+					Msg("OpenAI received reasoning chunk")
+			}
 
-				// Tool call deltas
-				if len(choice.Delta.ToolCalls) > 0 {
-					toolCallMerger.AddToolCalls(choice.Delta.ToolCalls)
-					for _, tc := range choice.Delta.ToolCalls {
-						// Safe logging of arguments size to avoid very long logs
-						argPreview := tc.Function.Arguments
-						if len(argPreview) > 200 {
-							argPreview = argPreview[:200] + "…"
-						}
-						log.Debug().
-							Int("chunk", chunkCount).
-							Str("tool_id", tc.ID).
-							Str("name", tc.Function.Name).
-							Str("arguments_delta", argPreview).
-							Msg("OpenAI received tool_call delta")
+			// Tool call deltas
+			if len(response.ToolCalls) > 0 {
+				toolCallMerger.AddToolCalls(response.ToolCalls)
+				for _, tc := range response.ToolCalls {
+					// Safe logging of arguments size to avoid very long logs
+					argPreview := tc.Function.Arguments
+					if len(argPreview) > 200 {
+						argPreview = argPreview[:200] + "…"
 					}
+					log.Debug().
+						Int("chunk", chunkCount).
+						Str("tool_id", tc.ID).
+						Str("name", tc.Function.Name).
+						Str("arguments_delta", argPreview).
+						Msg("OpenAI received tool_call delta")
 				}
 			}
 
-			// Extract usage and finish reason from typed OpenAI response
+			// Extract usage and finish reason from normalized stream response
 			if response.Usage != nil {
-				usageInputTokens = response.Usage.PromptTokens
-				usageOutputTokens = response.Usage.CompletionTokens
-				if response.Usage.PromptTokensDetails != nil {
-					if metadata.Usage == nil {
-						metadata.Usage = &events.Usage{}
-					}
-					metadata.Usage.CachedTokens = response.Usage.PromptTokensDetails.CachedTokens
-				}
-				log.Debug().Int("input_tokens", usageInputTokens).Int("output_tokens", usageOutputTokens).Msg("OpenAI usage updated from chunk")
+				usageInputTokens = response.Usage.promptTokens
+				usageOutputTokens = response.Usage.completionTokens
+				cachedTokens = response.Usage.cachedTokens
+				reasoningTokens = response.Usage.reasoningTokens
+				log.Debug().
+					Int("input_tokens", usageInputTokens).
+					Int("output_tokens", usageOutputTokens).
+					Int("cached_tokens", cachedTokens).
+					Int("reasoning_tokens", reasoningTokens).
+					Msg("OpenAI usage updated from chunk")
 			}
-			if len(response.Choices) > 0 {
-				if fr := response.Choices[0].FinishReason; fr != "" {
-					frStr := string(fr)
-					stopReason = &frStr
-					log.Debug().Str("stop_reason", frStr).Msg("OpenAI stop reason observed")
-				}
+			if response.FinishReason != nil && *response.FinishReason != "" {
+				stopReason = response.FinishReason
+				log.Debug().Str("stop_reason", *response.FinishReason).Msg("OpenAI stop reason observed")
 			}
 
 			// Publish intermediate streaming event only if we have a non-empty delta
@@ -321,12 +336,21 @@ func (e *OpenAIEngine) RunInference(
 streamingComplete:
 
 	// Update event metadata with usage information
-	if usageInputTokens > 0 || usageOutputTokens > 0 || (metadata.Usage != nil && (metadata.Usage.CachedTokens > 0)) {
+	if usageInputTokens > 0 || usageOutputTokens > 0 || cachedTokens > 0 {
 		if metadata.Usage == nil {
 			metadata.Usage = &events.Usage{}
 		}
 		metadata.Usage.InputTokens = usageInputTokens
 		metadata.Usage.OutputTokens = usageOutputTokens
+		metadata.Usage.CachedTokens = cachedTokens
+	}
+	if metadata.Extra == nil {
+		metadata.Extra = map[string]any{}
+	}
+	metadata.Extra["thinking_text"] = thinkingBuf.String()
+	metadata.Extra["saying_text"] = message
+	if reasoningTokens > 0 {
+		metadata.Extra["reasoning_tokens"] = reasoningTokens
 	}
 	metadata.StopReason = stopReason
 	// set duration for successful completion
@@ -348,6 +372,13 @@ streamingComplete:
 	mergedToolCalls := toolCallMerger.GetToolCalls()
 	log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
 
+	if thinkingBuf.Len() > 0 {
+		e.publishEvent(ctx, events.NewReasoningTextDone(metadata, thinkingBuf.String()))
+		if thinkingStarted {
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
+		}
+	}
+
 	// If we have tool calls, publish ToolCall events now
 	if len(mergedToolCalls) > 0 {
 		for _, tc := range mergedToolCalls {
@@ -361,6 +392,15 @@ streamingComplete:
 	}
 
 	// Append messages in order that keeps last message as tool-use when present
+	if thinkingBuf.Len() > 0 {
+		turns.AppendBlock(t, turns.Block{
+			ID:   uuid.NewString(),
+			Kind: turns.BlockKindReasoning,
+			Payload: map[string]any{
+				turns.PayloadKeyText: thinkingBuf.String(),
+			},
+		})
+	}
 	if len(message) > 0 {
 		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
 	}

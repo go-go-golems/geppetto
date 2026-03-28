@@ -1,0 +1,93 @@
+# go-openai request body
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is 17 * 23? Think step by step, then give a short final answer."
+    }
+  ],
+  "max_tokens": 64,
+  "temperature": 1,
+  "top_p": 0.95,
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
+}
+# go-openai request
+model=Qwen/Qwen3.5-9B baseURL=https://api.together.xyz/v1
+chunk=1 role="assistant"
+chunk=2 role="assistant"
+chunk=3 role="assistant"
+chunk=4 role="assistant"
+chunk=5 role="assistant"
+chunk=6 role="assistant"
+chunk=7 role="assistant"
+chunk=8 role="assistant"
+chunk=9 role="assistant"
+chunk=10 role="assistant"
+chunk=11 role="assistant"
+chunk=12 role="assistant"
+chunk=13 role="assistant"
+chunk=14 role="assistant"
+chunk=15 role="assistant"
+chunk=16 role="assistant"
+chunk=17 role="assistant"
+chunk=18 role="assistant"
+chunk=19 role="assistant"
+chunk=20 role="assistant"
+chunk=21 role="assistant"
+chunk=22 role="assistant"
+chunk=23 role="assistant"
+chunk=24 role="assistant"
+chunk=25 role="assistant"
+chunk=26 role="assistant"
+chunk=27 role="assistant"
+chunk=28 role="assistant"
+chunk=29 role="assistant"
+chunk=30 role="assistant"
+chunk=31 role="assistant"
+chunk=32 role="assistant"
+chunk=33 role="assistant"
+chunk=34 role="assistant"
+chunk=35 role="assistant"
+chunk=36 role="assistant"
+chunk=37 role="assistant"
+chunk=38 role="assistant"
+chunk=39 role="assistant"
+chunk=40 role="assistant"
+chunk=41 role="assistant"
+chunk=42 role="assistant"
+chunk=43 role="assistant"
+chunk=44 role="assistant"
+chunk=45 role="assistant"
+chunk=46 role="assistant"
+chunk=47 role="assistant"
+chunk=48 role="assistant"
+chunk=49 role="assistant"
+chunk=50 role="assistant"
+chunk=51 role="assistant"
+chunk=52 role="assistant"
+chunk=53 role="assistant"
+chunk=54 role="assistant"
+chunk=55 role="assistant"
+chunk=56 role="assistant"
+chunk=57 role="assistant"
+chunk=58 role="assistant"
+chunk=59 role="assistant"
+chunk=60 role="assistant"
+chunk=61 role="assistant"
+chunk=62 role="assistant"
+chunk=63 role="assistant"
+chunk=64 role="assistant"
+chunk=65 role="assistant"
+chunk=66 role="assistant"
+finish_reason=length
+usage chunk: input=32 output=64 reasoning_tokens=0
+
+# go-openai summary
+reasoning_len=0
+content_len=0
+reasoning_text=""
+content_text=""

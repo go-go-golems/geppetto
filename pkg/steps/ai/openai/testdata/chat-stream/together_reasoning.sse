@@ -1,0 +1,7 @@
+data: {"id":"chatcmpl_1","object":"chat.completion.chunk","created":1,"model":"Qwen/Qwen3.5-9B","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"Thinking "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl_1","object":"chat.completion.chunk","created":1,"model":"Qwen/Qwen3.5-9B","choices":[{"index":0,"delta":{"content":"","reasoning":"hard."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl_1","object":"chat.completion.chunk","created":1,"model":"Qwen/Qwen3.5-9B","choices":[{"index":0,"delta":{"content":"42"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":4},"completion_tokens_details":{"reasoning_tokens":3}}}
+
+data: [DONE]

@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// HTTP JSON models for OpenAI Responses API (minimal subset: text + reasoning + sampling)
+// HTTP JSON models for an Open Responses-compatible API (minimal subset: text + reasoning + sampling)
 
 type responsesRequest struct {
 	Model             string           `json:"model"`
@@ -99,6 +99,7 @@ type responsesOutputItem struct {
 	CallID           string                   `json:"call_id,omitempty"`
 	Arguments        string                   `json:"arguments,omitempty"`
 	Content          []responsesOutputContent `json:"content"`
+	Summary          []any                    `json:"summary,omitempty"`
 	EncryptedContent string                   `json:"encrypted_content,omitempty"`
 }
 
@@ -154,7 +155,7 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 			if s.Chat.StructuredOutputRequireValid {
 				return req, err
 			}
-			log.Warn().Err(err).Msg("OpenAI Responses request: ignoring invalid structured output configuration")
+			log.Warn().Err(err).Msg("Responses request: ignoring invalid structured output configuration")
 		} else if cfg != nil {
 			strict := cfg.StrictOrDefault()
 			req.Text = &responsesText{
@@ -210,7 +211,7 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 		}
 	}
 
-	// Apply OpenAI-specific per-turn overrides from Turn.Data.
+	// Apply current OpenAI-specific per-turn overrides from Turn.Data.
 	if oaiCfg := engine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
 		if oaiCfg.Store != nil {
 			req.Store = oaiCfg.Store
@@ -261,6 +262,38 @@ func mapEffortString(v string) string {
 	default:
 		return "medium"
 	}
+}
+
+func reasoningSummaryEntriesFromText(text string) []any {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	return []any{map[string]any{
+		"type": "summary_text",
+		"text": text,
+	}}
+}
+
+func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
+	if payload == nil {
+		return nil
+	}
+	if raw, ok := payload[turns.PayloadKeySummary]; ok {
+		switch tv := raw.(type) {
+		case []any:
+			return append([]any(nil), tv...)
+		case []map[string]any:
+			ret := make([]any, 0, len(tv))
+			for _, item := range tv {
+				ret = append(ret, item)
+			}
+			return ret
+		case string:
+			return reasoningSummaryEntriesFromText(tv)
+		}
+	}
+	return nil
 }
 
 func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
@@ -331,8 +364,11 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 
 	reasoningItem := func(b turns.Block) responsesInput {
 		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
-		empty := make([]any, 0)
-		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &empty}
+		summary := reasoningSummaryEntriesFromPayload(b.Payload)
+		if summary == nil {
+			summary = make([]any, 0)
+		}
+		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &summary}
 		if enc != "" {
 			ri.EncryptedContent = enc
 		}

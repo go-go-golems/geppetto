@@ -39,6 +39,10 @@ type EngineFactory interface {
 type StandardEngineFactory struct {
 }
 
+func isResponsesProvider(provider string) bool {
+	return provider == string(types.ApiTypeOpenResponses) || provider == string(types.ApiTypeOpenAIResponses)
+}
+
 // NewStandardEngineFactory creates a new StandardEngineFactory.
 func NewStandardEngineFactory() *StandardEngineFactory {
 	return &StandardEngineFactory{}
@@ -63,8 +67,8 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 			log.Warn().
 				Str("model", model).
 				Str("provider", provider).
-				Str("recommended_provider", string(types.ApiTypeOpenAIResponses)).
-				Msg("Thinking model selected with openai api type; thinking stream events may be missing unless openai-responses is used")
+				Str("recommended_provider", string(types.ApiTypeOpenResponses)).
+				Msg("Thinking model selected with openai api type; thinking stream events may be missing unless open-responses is used")
 		}
 	}
 
@@ -78,7 +82,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
 		return openai.NewOpenAIEngine(settings)
 
-	case string(types.ApiTypeOpenAIResponses):
+	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
 		return openai_responses.NewEngine(settings)
 
 	case string(types.ApiTypeClaude), "anthropic":
@@ -104,6 +108,7 @@ func isReasoningModel(model string) bool {
 func (f *StandardEngineFactory) SupportedProviders() []string {
 	return []string{
 		string(types.ApiTypeOpenAI),
+		string(types.ApiTypeOpenResponses),
 		string(types.ApiTypeOpenAIResponses),
 		string(types.ApiTypeAnyScale),
 		string(types.ApiTypeFireworks),
@@ -130,7 +135,7 @@ func (f *StandardEngineFactory) validateSettings(settings *settings.InferenceSet
 
 	// Validate provider-specific requirements
 	switch provider {
-	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
 		return f.validateOpenAISettings(settings, provider)
 
 	case string(types.ApiTypeClaude), "anthropic":
@@ -149,10 +154,15 @@ func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.Infere
 	// Check for API key
 	apiKeyName := provider + "-api-key"
 	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-		// Fallback: allow openai-responses to reuse openai-api-key
-		if provider == string(types.ApiTypeOpenAIResponses) {
+		if isResponsesProvider(provider) {
+			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenResponses)+"-api-key"]; ok2 {
+				return nil
+			}
+			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAIResponses)+"-api-key"]; ok2 {
+				return nil
+			}
 			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAI)+"-api-key"]; !ok2 {
-				return errors.Errorf("missing API key %s (or fallback openai-api-key)", apiKeyName)
+				return errors.Errorf("missing API key %s (or fallback open-responses-api-key, openai-responses-api-key, openai-api-key)", apiKeyName)
 			}
 		} else {
 			return errors.Errorf("missing API key %s", apiKeyName)
@@ -161,8 +171,8 @@ func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.Infere
 
 	// Base URL is optional for OpenAI (uses default), but required for others
 	baseURLName := provider + "-base-url"
-	// Base URL optional for openai and openai-responses; required for other OpenAI-compatible providers
-	if provider != string(types.ApiTypeOpenAI) && provider != string(types.ApiTypeOpenAIResponses) {
+	// Base URL optional for openai and responses providers; required for other OpenAI-compatible providers
+	if provider != string(types.ApiTypeOpenAI) && !isResponsesProvider(provider) {
 		if _, ok := settings.API.BaseUrls[baseURLName]; !ok {
 			return errors.Errorf("missing base URL %s for provider %s", baseURLName, provider)
 		}

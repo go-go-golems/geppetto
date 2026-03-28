@@ -1,0 +1,680 @@
+{"level":"debug","model":"Qwen/Qwen3.5-9B","max_tokens":0,"max_completion_tokens":0,"temperature":0,"top_p":0,"n":1,"stream":false,"stop":[],"presence_penalty":0,"frequency_penalty":0,"time":"2026-03-28T16:09:02-04:00","message":"Making request to openai from turn blocks"}
+{"level":"debug","idx":0,"role":"user","tool_call_count":0,"tool_call_ids":[],"tool_call_id":"","content_preview":"What is 17 * 23? Think step by step, then give a short final answer.","time":"2026-03-28T16:09:02-04:00","message":"OpenAI request message"}
+# geppetto request body
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is 17 * 23? Think step by step, then give a short final answer."
+    }
+  ],
+  "n": 1,
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
+}
+{"level":"debug","num_blocks":1,"stream":true,"time":"2026-03-28T16:09:02-04:00","message":"OpenAI RunInference started"}
+{"level":"debug","model":"Qwen/Qwen3.5-9B","max_tokens":0,"max_completion_tokens":0,"temperature":0,"top_p":0,"n":1,"stream":false,"stop":[],"presence_penalty":0,"frequency_penalty":0,"time":"2026-03-28T16:09:02-04:00","message":"Making request to openai from turn blocks"}
+{"level":"debug","idx":0,"role":"user","tool_call_count":0,"tool_call_ids":[],"tool_call_id":"","content_preview":"What is 17 * 23? Think step by step, then give a short final answer.","time":"2026-03-28T16:09:02-04:00","message":"OpenAI request message"}
+{"level":"debug","event_id":"2e2c22fd-c83f-4a10-b034-7ec3347c12d1","model":"Qwen/Qwen3.5-9B","temperature":null,"top_p":null,"max_tokens":null,"time":"2026-03-28T16:09:02-04:00","message":"LLMInferenceData initialized"}
+{"level":"debug","event_id":"2e2c22fd-c83f-4a10-b034-7ec3347c12d1","time":"2026-03-28T16:09:02-04:00","message":"OpenAI publishing start event"}
+{"level":"trace","component":"events.context","event_type":"start","sink_count":1,"time":"2026-03-28T16:09:02-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","time":"2026-03-28T16:09:02-04:00","message":"OpenAI using streaming mode"}
+{"level":"debug","time":"2026-03-28T16:09:02-04:00","message":"OpenAI starting streaming loop"}
+{"level":"trace","component":"events.context","event_type":"info","sink_count":1,"time":"2026-03-28T16:09:02-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:02-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:02-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":2,"reasoning_delta":"Thinking","thinking_length":8,"time":"2026-03-28T16:09:02-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:02-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:02-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":3,"reasoning_delta":" Process","thinking_length":16,"time":"2026-03-28T16:09:02-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:03-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:03-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":4,"reasoning_delta":":","thinking_length":17,"time":"2026-03-28T16:09:03-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":5,"reasoning_delta":"\n\n","thinking_length":19,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":6,"reasoning_delta":"1","thinking_length":20,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":7,"reasoning_delta":".","thinking_length":21,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":8,"reasoning_delta":" ","thinking_length":22,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":9,"reasoning_delta":" **","thinking_length":25,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":10,"reasoning_delta":"An","thinking_length":27,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":11,"reasoning_delta":"alyze","thinking_length":32,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":12,"reasoning_delta":" the","thinking_length":36,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":13,"reasoning_delta":" Request","thinking_length":44,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":14,"reasoning_delta":":**","thinking_length":47,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":15,"reasoning_delta":" The","thinking_length":51,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":16,"reasoning_delta":" user","thinking_length":56,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":17,"reasoning_delta":" wants","thinking_length":62,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":18,"reasoning_delta":" to","thinking_length":65,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":19,"reasoning_delta":" know","thinking_length":70,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":20,"reasoning_delta":" the","thinking_length":74,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":21,"reasoning_delta":" product","thinking_length":82,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":22,"reasoning_delta":" of","thinking_length":85,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":23,"reasoning_delta":" ","thinking_length":86,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":24,"reasoning_delta":"1","thinking_length":87,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":25,"reasoning_delta":"7","thinking_length":88,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":26,"reasoning_delta":" and","thinking_length":92,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:04-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":27,"reasoning_delta":" ","thinking_length":93,"time":"2026-03-28T16:09:04-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":28,"reasoning_delta":"2","thinking_length":94,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":29,"reasoning_delta":"3","thinking_length":95,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":30,"reasoning_delta":" ($","thinking_length":98,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":31,"reasoning_delta":"1","thinking_length":99,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":32,"reasoning_delta":"7","thinking_length":100,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":33,"reasoning_delta":" \\","thinking_length":102,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":34,"reasoning_delta":"times","thinking_length":107,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":35,"reasoning_delta":" ","thinking_length":108,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":36,"reasoning_delta":"2","thinking_length":109,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":37,"reasoning_delta":"3","thinking_length":110,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":38,"reasoning_delta":"$","thinking_length":111,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":39,"reasoning_delta":").","thinking_length":113,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":40,"reasoning_delta":" They","thinking_length":118,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":41,"reasoning_delta":" requested","thinking_length":128,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":42,"reasoning_delta":" a","thinking_length":130,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":43,"reasoning_delta":" step","thinking_length":135,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":44,"reasoning_delta":"-by","thinking_length":138,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":45,"reasoning_delta":"-step","thinking_length":143,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":46,"reasoning_delta":" thinking","thinking_length":152,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":47,"reasoning_delta":" process","thinking_length":160,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":48,"reasoning_delta":" followed","thinking_length":169,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":49,"reasoning_delta":" by","thinking_length":172,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":50,"reasoning_delta":" a","thinking_length":174,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":51,"reasoning_delta":" short","thinking_length":180,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":52,"reasoning_delta":" final","thinking_length":186,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":53,"reasoning_delta":" answer","thinking_length":193,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":54,"reasoning_delta":".","thinking_length":194,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":55,"reasoning_delta":"\n\n","thinking_length":196,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":56,"reasoning_delta":"2","thinking_length":197,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":57,"reasoning_delta":".","thinking_length":198,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":58,"reasoning_delta":" ","thinking_length":199,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":59,"reasoning_delta":" **","thinking_length":202,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":60,"reasoning_delta":"Calculate","thinking_length":211,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":61,"reasoning_delta":" $","thinking_length":213,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":62,"reasoning_delta":"1","thinking_length":214,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":63,"reasoning_delta":"7","thinking_length":215,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":64,"reasoning_delta":" \\","thinking_length":217,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":65,"reasoning_delta":"times","thinking_length":222,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":66,"reasoning_delta":" ","thinking_length":223,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":67,"reasoning_delta":"2","thinking_length":224,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":68,"reasoning_delta":"3","thinking_length":225,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":69,"reasoning_delta":"$:","thinking_length":227,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":70,"reasoning_delta":"**","thinking_length":229,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":71,"reasoning_delta":"\n","thinking_length":230,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:05-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":72,"reasoning_delta":"   ","thinking_length":233,"time":"2026-03-28T16:09:05-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":73,"reasoning_delta":" *","thinking_length":235,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":74,"reasoning_delta":"  ","thinking_length":237,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":75,"reasoning_delta":" Method","thinking_length":244,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":76,"reasoning_delta":" ","thinking_length":245,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":77,"reasoning_delta":"1","thinking_length":246,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":78,"reasoning_delta":":","thinking_length":247,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":79,"reasoning_delta":" Standard","thinking_length":256,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":80,"reasoning_delta":" multiplication","thinking_length":271,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":81,"reasoning_delta":" algorithm","thinking_length":281,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":82,"reasoning_delta":".","thinking_length":282,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":83,"reasoning_delta":"\n","thinking_length":283,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":84,"reasoning_delta":"       ","thinking_length":290,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":85,"reasoning_delta":" *","thinking_length":292,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":86,"reasoning_delta":"  ","thinking_length":294,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":87,"reasoning_delta":" $","thinking_length":296,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":88,"reasoning_delta":"1","thinking_length":297,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":89,"reasoning_delta":"7","thinking_length":298,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":90,"reasoning_delta":" \\","thinking_length":300,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":91,"reasoning_delta":"times","thinking_length":305,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":92,"reasoning_delta":" ","thinking_length":306,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":93,"reasoning_delta":"3","thinking_length":307,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":94,"reasoning_delta":" =","thinking_length":309,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":95,"reasoning_delta":" ","thinking_length":310,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":96,"reasoning_delta":"5","thinking_length":311,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":97,"reasoning_delta":"1","thinking_length":312,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":98,"reasoning_delta":"$","thinking_length":313,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":99,"reasoning_delta":"\n","thinking_length":314,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":100,"reasoning_delta":"       ","thinking_length":321,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":101,"reasoning_delta":" *","thinking_length":323,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":102,"reasoning_delta":"  ","thinking_length":325,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":103,"reasoning_delta":" $","thinking_length":327,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":104,"reasoning_delta":"1","thinking_length":328,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":105,"reasoning_delta":"7","thinking_length":329,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":106,"reasoning_delta":" \\","thinking_length":331,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":107,"reasoning_delta":"times","thinking_length":336,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":108,"reasoning_delta":" ","thinking_length":337,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":109,"reasoning_delta":"2","thinking_length":338,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":110,"reasoning_delta":"0","thinking_length":339,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":111,"reasoning_delta":" =","thinking_length":341,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":112,"reasoning_delta":" ","thinking_length":342,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":113,"reasoning_delta":"3","thinking_length":343,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":114,"reasoning_delta":"4","thinking_length":344,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":115,"reasoning_delta":"0","thinking_length":345,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":116,"reasoning_delta":"$","thinking_length":346,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:06-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":117,"reasoning_delta":"\n","thinking_length":347,"time":"2026-03-28T16:09:06-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":118,"reasoning_delta":"       ","thinking_length":354,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":119,"reasoning_delta":" *","thinking_length":356,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":120,"reasoning_delta":"  ","thinking_length":358,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":121,"reasoning_delta":" $","thinking_length":360,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":122,"reasoning_delta":"5","thinking_length":361,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":123,"reasoning_delta":"1","thinking_length":362,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":124,"reasoning_delta":" +","thinking_length":364,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":125,"reasoning_delta":" ","thinking_length":365,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":126,"reasoning_delta":"3","thinking_length":366,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":127,"reasoning_delta":"4","thinking_length":367,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":128,"reasoning_delta":"0","thinking_length":368,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":129,"reasoning_delta":" =","thinking_length":370,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":130,"reasoning_delta":" ","thinking_length":371,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":131,"reasoning_delta":"3","thinking_length":372,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":132,"reasoning_delta":"9","thinking_length":373,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":133,"reasoning_delta":"1","thinking_length":374,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":134,"reasoning_delta":"$","thinking_length":375,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":135,"reasoning_delta":"\n","thinking_length":376,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":136,"reasoning_delta":"   ","thinking_length":379,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":137,"reasoning_delta":" *","thinking_length":381,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":138,"reasoning_delta":"  ","thinking_length":383,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":139,"reasoning_delta":" Method","thinking_length":390,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":140,"reasoning_delta":" ","thinking_length":391,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":141,"reasoning_delta":"2","thinking_length":392,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":142,"reasoning_delta":":","thinking_length":393,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":143,"reasoning_delta":" Distrib","thinking_length":401,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":144,"reasoning_delta":"utive","thinking_length":406,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":145,"reasoning_delta":" property","thinking_length":415,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":146,"reasoning_delta":".","thinking_length":416,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":147,"reasoning_delta":"\n","thinking_length":417,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":148,"reasoning_delta":"       ","thinking_length":424,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":149,"reasoning_delta":" *","thinking_length":426,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":150,"reasoning_delta":"  ","thinking_length":428,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":151,"reasoning_delta":" $","thinking_length":430,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":152,"reasoning_delta":"1","thinking_length":431,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":153,"reasoning_delta":"7","thinking_length":432,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":154,"reasoning_delta":" \\","thinking_length":434,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":155,"reasoning_delta":"times","thinking_length":439,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":156,"reasoning_delta":" (","thinking_length":441,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":157,"reasoning_delta":"2","thinking_length":442,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":158,"reasoning_delta":"0","thinking_length":443,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":159,"reasoning_delta":" +","thinking_length":445,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":160,"reasoning_delta":" ","thinking_length":446,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":161,"reasoning_delta":"3","thinking_length":447,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:07-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":162,"reasoning_delta":")","thinking_length":448,"time":"2026-03-28T16:09:07-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":163,"reasoning_delta":" =","thinking_length":450,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":164,"reasoning_delta":" ","thinking_length":451,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":165,"reasoning_delta":"1","thinking_length":452,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":166,"reasoning_delta":"7","thinking_length":453,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":167,"reasoning_delta":" \\","thinking_length":455,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":168,"reasoning_delta":"times","thinking_length":460,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":169,"reasoning_delta":" ","thinking_length":461,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":170,"reasoning_delta":"2","thinking_length":462,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":171,"reasoning_delta":"0","thinking_length":463,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":172,"reasoning_delta":" +","thinking_length":465,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":173,"reasoning_delta":" ","thinking_length":466,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":174,"reasoning_delta":"1","thinking_length":467,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":175,"reasoning_delta":"7","thinking_length":468,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":176,"reasoning_delta":" \\","thinking_length":470,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":177,"reasoning_delta":"times","thinking_length":475,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":178,"reasoning_delta":" ","thinking_length":476,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":179,"reasoning_delta":"3","thinking_length":477,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":180,"reasoning_delta":" =","thinking_length":479,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":181,"reasoning_delta":" ","thinking_length":480,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":182,"reasoning_delta":"3","thinking_length":481,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":183,"reasoning_delta":"4","thinking_length":482,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":184,"reasoning_delta":"0","thinking_length":483,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":185,"reasoning_delta":" +","thinking_length":485,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":186,"reasoning_delta":" ","thinking_length":486,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":187,"reasoning_delta":"5","thinking_length":487,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":188,"reasoning_delta":"1","thinking_length":488,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":189,"reasoning_delta":" =","thinking_length":490,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":190,"reasoning_delta":" ","thinking_length":491,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":191,"reasoning_delta":"3","thinking_length":492,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":192,"reasoning_delta":"9","thinking_length":493,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":193,"reasoning_delta":"1","thinking_length":494,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":194,"reasoning_delta":"$","thinking_length":495,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":195,"reasoning_delta":"\n","thinking_length":496,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":196,"reasoning_delta":"   ","thinking_length":499,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":197,"reasoning_delta":" *","thinking_length":501,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":198,"reasoning_delta":"  ","thinking_length":503,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":199,"reasoning_delta":" Method","thinking_length":510,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":200,"reasoning_delta":" ","thinking_length":511,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":201,"reasoning_delta":"3","thinking_length":512,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":202,"reasoning_delta":":","thinking_length":513,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":203,"reasoning_delta":" Decom","thinking_length":519,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":204,"reasoning_delta":"position","thinking_length":527,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":205,"reasoning_delta":".","thinking_length":528,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:08-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":206,"reasoning_delta":"\n","thinking_length":529,"time":"2026-03-28T16:09:08-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":207,"reasoning_delta":"       ","thinking_length":536,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":208,"reasoning_delta":" *","thinking_length":538,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":209,"reasoning_delta":"  ","thinking_length":540,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":210,"reasoning_delta":" $(","thinking_length":543,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":211,"reasoning_delta":"1","thinking_length":544,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":212,"reasoning_delta":"0","thinking_length":545,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":213,"reasoning_delta":" +","thinking_length":547,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":214,"reasoning_delta":" ","thinking_length":548,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":215,"reasoning_delta":"7","thinking_length":549,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":216,"reasoning_delta":")","thinking_length":550,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":217,"reasoning_delta":" \\","thinking_length":552,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":218,"reasoning_delta":"times","thinking_length":557,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}
+{"level":"trace","component":"events.context","event_type":"reasoning-text-delta","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"trace","component":"events.context","event_type":"partial-thinking","sink_count":1,"time":"2026-03-28T16:09:09-04:00","message":"PublishEventToContext: publishing to sinks"}
+{"level":"debug","chunk":219,"reasoning_delta":" (","thinking_length":559,"time":"2026-03-28T16:09:09-04:00","message":"OpenAI received reasoning chunk"}

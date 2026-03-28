@@ -51,4 +51,5 @@ export declare const PayloadKeyResult: "result";
 export declare const PayloadKeyError: "error";
 export declare const PayloadKeyImages: "images";
 export declare const PayloadKeyEncryptedContent: "encrypted_content";
+export declare const PayloadKeySummary: "summary";
 export declare const PayloadKeyItemID: "item_id";

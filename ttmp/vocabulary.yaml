@@ -75,6 +75,16 @@ topics:
       description: Engine profile selection, registry loading, and profile-based runtime configuration.
     - slug: documentation
       description: Documentation analysis and authoring work for tickets and design guides
+    - slug: reasoning
+      description: Reasoning traces, summaries, and thinking-related model behavior
+    - slug: open-responses
+      description: Open Responses protocol, providers, and compatibility work
+    - slug: streaming
+      description: Streaming inference protocols, SSE handling, and incremental event delivery
+    - slug: together
+      description: Together AI provider compatibility and integration work
+    - slug: openai-compatibility
+      description: OpenAI-compatible provider protocols and schema differences
 docTypes:
     - slug: index
       description: Ticket index

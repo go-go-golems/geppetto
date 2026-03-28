@@ -968,6 +968,58 @@ func TestResolvedProfileEnginesRequireSettingsOrDefaults(t *testing.T) {
 	}
 }
 
+func TestInferenceSettingsFromEngineOptions_InferOpenResponsesForReasoningModels(t *testing.T) {
+	got, _, err := (&moduleRuntime{}).inferenceSettingsFromEngineOptions(map[string]any{
+		"model":  "gpt-5-mini",
+		"apiKey": "test-openai-key",
+	})
+	if err != nil {
+		t.Fatalf("inferenceSettingsFromEngineOptions: %v", err)
+	}
+	if got == nil || got.Chat == nil || got.Chat.ApiType == nil {
+		t.Fatalf("expected chat api type, got %#v", got)
+	}
+	if *got.Chat.ApiType != aitypes.ApiTypeOpenResponses {
+		t.Fatalf("expected open-responses api type, got %q", *got.Chat.ApiType)
+	}
+	if got.API.APIKeys["open-responses-api-key"] != "test-openai-key" {
+		t.Fatalf("expected open-responses api key alias, got %#v", got.API.APIKeys)
+	}
+	if got.API.APIKeys["openai-responses-api-key"] != "test-openai-key" {
+		t.Fatalf("expected legacy openai-responses api key alias, got %#v", got.API.APIKeys)
+	}
+	if got.API.APIKeys["openai-api-key"] != "test-openai-key" {
+		t.Fatalf("expected openai fallback api key alias, got %#v", got.API.APIKeys)
+	}
+}
+
+func TestInferenceSettingsFromEngineOptions_NormalizesLegacyOpenAIResponsesAlias(t *testing.T) {
+	got, _, err := (&moduleRuntime{}).inferenceSettingsFromEngineOptions(map[string]any{
+		"apiType": "openai-responses",
+		"model":   "gpt-5-mini",
+		"apiKey":  "test-openai-key",
+		"baseURL": "https://example.invalid/v1",
+	})
+	if err != nil {
+		t.Fatalf("inferenceSettingsFromEngineOptions: %v", err)
+	}
+	if got == nil || got.Chat == nil || got.Chat.ApiType == nil {
+		t.Fatalf("expected chat api type, got %#v", got)
+	}
+	if *got.Chat.ApiType != aitypes.ApiTypeOpenResponses {
+		t.Fatalf("expected normalized open-responses api type, got %q", *got.Chat.ApiType)
+	}
+	if got.API.BaseUrls["open-responses-base-url"] != "https://example.invalid/v1" {
+		t.Fatalf("expected open-responses base URL alias, got %#v", got.API.BaseUrls)
+	}
+	if got.API.BaseUrls["openai-responses-base-url"] != "https://example.invalid/v1" {
+		t.Fatalf("expected legacy openai-responses base URL alias, got %#v", got.API.BaseUrls)
+	}
+	if got.API.BaseUrls["openai-base-url"] != "https://example.invalid/v1" {
+		t.Fatalf("expected openai fallback base URL alias, got %#v", got.API.BaseUrls)
+	}
+}
+
 func TestEnginesFromProfileUsesHostDefaultSelection(t *testing.T) {
 	rt := newJSRuntime(t, Options{
 		EngineProfileRegistry:    mustNewJSEngineProfileRegistry(t),
@@ -1765,8 +1817,9 @@ func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 		ss.Chat.ApiType = &apiType
 		ss.Chat.Engine = &model
 		switch apiType {
-		case aitypes.ApiTypeOpenAIResponses:
+		case aitypes.ApiTypeOpenResponses, aitypes.ApiTypeOpenAIResponses:
 			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+			ss.API.APIKeys["open-responses-api-key"] = "test-openai-key"
 			ss.API.APIKeys["openai-responses-api-key"] = "test-openai-key"
 		case aitypes.ApiTypeOpenAI:
 			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
@@ -1821,8 +1874,9 @@ func mustNewJSMultiRegistryEngineProfileRegistry(t *testing.T) gepprofiles.Regis
 		ss.Chat.ApiType = &apiType
 		ss.Chat.Engine = &model
 		switch apiType {
-		case aitypes.ApiTypeOpenAIResponses:
+		case aitypes.ApiTypeOpenResponses, aitypes.ApiTypeOpenAIResponses:
 			ss.API.APIKeys["openai-api-key"] = "test-openai-key"
+			ss.API.APIKeys["open-responses-api-key"] = "test-openai-key"
 			ss.API.APIKeys["openai-responses-api-key"] = "test-openai-key"
 		case aitypes.ApiTypeOpenAI:
 			ss.API.APIKeys["openai-api-key"] = "test-openai-key"

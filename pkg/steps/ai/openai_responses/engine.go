@@ -24,7 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Engine implements the Engine interface for OpenAI Responses API calls.
+// Engine implements the Engine interface for Open Responses-compatible API calls.
 type Engine struct {
 	settings *settings.InferenceSettings
 }
@@ -105,21 +105,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		Int("include_len", len(reqBody.Include)).
 		Msg("Responses: built request")
 
-	baseURL := "https://api.openai.com/v1"
 	apiKey := ""
 	if e.settings != nil && e.settings.API != nil {
-		if v, ok := e.settings.API.BaseUrls["openai-base-url"]; ok && v != "" {
-			baseURL = v
-		}
-		if v, ok := e.settings.API.APIKeys["openai-api-key"]; ok {
-			apiKey = v
-		}
+		apiKey = responsesAPIKey(e.settings.API)
 	}
-	url := strings.TrimRight(baseURL, "/") + "/responses"
+	url := responsesEndpoint(func() *settings.APISettings {
+		if e.settings == nil {
+			return nil
+		}
+		return e.settings.API
+	}(), "/responses")
 	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
 		AllowHTTP: false,
 	}); err != nil {
-		return nil, errors.Wrap(err, "invalid openai responses URL")
+		return nil, errors.Wrap(err, "invalid responses URL")
 	}
 	httpClient, err := settings.EnsureHTTPClient(func() *settings.ClientSettings {
 		if e.settings == nil {
@@ -128,7 +127,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		return e.settings.Client
 	}())
 	if err != nil {
-		return nil, errors.Wrap(err, "resolve openai responses HTTP client")
+		return nil, errors.Wrap(err, "resolve responses HTTP client")
 	}
 
 	// Prepare metadata for events
@@ -216,6 +215,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		var streamErr error
 		var thinkBuf strings.Builder
 		var sayBuf strings.Builder
+		var currentReasoningText strings.Builder
+		var currentReasoningSummary strings.Builder
+		currentReasoningItemID := ""
 		assistantByItem := map[string]string{}
 		var summaryBuf strings.Builder
 		// Placeholder for potential future pairing of reasoning with assistant item id
@@ -343,13 +345,19 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					return string(b)
 				}
 			}
-			switch eventName {
+			switch normalizeResponsesEventName(eventName) {
 			case "response.output_item.added":
 				if it, ok := m["item"].(map[string]any); ok {
 					if typ, ok := it["type"].(string); ok {
 						switch typ {
 						case "reasoning":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+							currentReasoningItemID = ""
+							currentReasoningText.Reset()
+							currentReasoningSummary.Reset()
+							if v, ok := it["id"].(string); ok && v != "" {
+								currentReasoningItemID = v
+							}
 							// Capture encrypted reasoning content when present
 							if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
 								latestEncryptedContent = enc
@@ -464,10 +472,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.reasoning_summary_text.delta":
 				if v, ok := m["delta"].(string); ok && v != "" {
 					summaryBuf.WriteString(v)
+					currentReasoningSummary.WriteString(v)
 					// Emit thinking partials for live reasoning summary text
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, v, summaryBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
 					summaryBuf.WriteString(s)
+					currentReasoningSummary.WriteString(s)
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, summaryBuf.String()))
 				}
 			case "response.reasoning_summary_part.done":
@@ -476,22 +486,28 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			case "response.reasoning_text.delta":
 				if d, ok := m["delta"].(string); ok && d != "" {
 					thinkBuf.WriteString(d)
+					currentReasoningText.WriteString(d)
 					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, d))
 					// Mirror to partial-thinking so existing UIs still render live reasoning text.
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
 					thinkBuf.WriteString(s)
+					currentReasoningText.WriteString(s)
 					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, s))
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
 				}
 			case "response.reasoning_text.done":
 				fullText := thinkBuf.String()
+				currentText := currentReasoningText.String()
 				if s, ok := m["text"].(string); ok && s != "" {
 					// Keep accumulated reasoning across multiple items. Done payloads
 					// can repeat already-streamed deltas for the current item.
 					if !strings.HasSuffix(fullText, s) {
 						thinkBuf.WriteString(s)
 						fullText = thinkBuf.String()
+					}
+					if !strings.HasSuffix(currentText, s) {
+						currentReasoningText.WriteString(s)
 					}
 				}
 				e.publishEvent(ctx, events.NewReasoningTextDone(metadata, fullText))
@@ -507,6 +523,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 								rb.ID = id
 							}
 							payload := map[string]any{}
+							if currentReasoningItemID != "" && rb.ID == "" {
+								rb.ID = currentReasoningItemID
+							}
+							if text := strings.TrimSpace(currentReasoningText.String()); text != "" {
+								payload[turns.PayloadKeyText] = text
+							}
 							enc := latestEncryptedContent
 							if v, ok := it["encrypted_content"].(string); ok && v != "" {
 								enc = v
@@ -514,8 +536,18 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							if enc != "" {
 								payload[turns.PayloadKeyEncryptedContent] = enc
 							}
+							summary := reasoningSummaryEntriesFromPayload(it)
+							if len(summary) == 0 {
+								summary = reasoningSummaryEntriesFromText(currentReasoningSummary.String())
+							}
+							if len(summary) > 0 {
+								payload[turns.PayloadKeySummary] = summary
+							}
 							rb.Payload = payload
 							turns.AppendBlock(t, rb)
+							currentReasoningItemID = ""
+							currentReasoningText.Reset()
+							currentReasoningSummary.Reset()
 							if tap != nil {
 								tap.OnProviderObject("output.reasoning", it)
 							}
@@ -836,7 +868,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 			turns.AppendBlock(t, b)
 		}
-		result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai_responses", len(finalCalls) > 0)
+		result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), len(finalCalls) > 0)
 		if err := engine.PersistInferenceResult(t, result); err != nil {
 			log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 		}
@@ -881,6 +913,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
 			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
+			if len(oi.Content) > 0 {
+				var rawText strings.Builder
+				for _, c := range oi.Content {
+					if strings.TrimSpace(c.Text) != "" {
+						rawText.WriteString(c.Text)
+					}
+				}
+				if text := strings.TrimSpace(rawText.String()); text != "" {
+					b.Payload[turns.PayloadKeyText] = text
+				}
+			}
+			if len(oi.Summary) > 0 {
+				b.Payload[turns.PayloadKeySummary] = append([]any(nil), oi.Summary...)
+			}
 			if oi.EncryptedContent != "" {
 				b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent
 			}
@@ -931,7 +977,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	d := time.Since(startTime).Milliseconds()
 	dm := int64(d)
 	metadata.DurationMs = &dm
-	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai_responses", false)
+	result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), false)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 	}
@@ -1053,6 +1099,17 @@ func parseUsageTotals(usage map[string]any) usageTotals {
 		ret.reasoningTokens = v
 	}
 	return ret
+}
+
+func normalizeResponsesEventName(eventName string) string {
+	switch eventName {
+	case "response.reasoning.delta":
+		return "response.reasoning_text.delta"
+	case "response.reasoning.done":
+		return "response.reasoning_text.done"
+	default:
+		return eventName
+	}
 }
 
 func toInt(v any) (int, bool) {

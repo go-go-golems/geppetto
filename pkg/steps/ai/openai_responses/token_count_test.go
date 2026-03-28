@@ -107,6 +107,9 @@ func TestTokenCounterCountTurn(t *testing.T) {
 	if res.InputTokens != 42 {
 		t.Fatalf("expected 42 input tokens, got %d", res.InputTokens)
 	}
+	if res.Provider != "open-responses" {
+		t.Fatalf("expected canonical provider open-responses, got %q", res.Provider)
+	}
 	if res.Source != tokencount.SourceProviderAPI {
 		t.Fatalf("expected provider_api source, got %q", res.Source)
 	}
@@ -209,5 +212,8 @@ func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
 	}
 	if res.InputTokens != 8 {
 		t.Fatalf("expected 8 input tokens, got %d", res.InputTokens)
+	}
+	if res.Provider != "open-responses" {
+		t.Fatalf("expected canonical provider open-responses, got %q", res.Provider)
 	}
 }

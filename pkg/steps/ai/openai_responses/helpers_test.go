@@ -111,6 +111,37 @@ func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
 	}
 }
 
+func TestBuildInputItemsFromTurn_ReplaysReasoningSummaryPayload(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_1", Payload: map[string]any{
+		turns.PayloadKeyText:             "Thinking hard.",
+		turns.PayloadKeyEncryptedContent: "gAAAAA...",
+		turns.PayloadKeySummary: []any{
+			map[string]any{"type": "summary_text", "text": "Short summary."},
+		},
+	}}
+	as := turns.NewAssistantTextBlock("Answer")
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Question"),
+		rs,
+		as,
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 4 {
+		t.Fatalf("expected 4 items, got %d", len(got))
+	}
+	if got[2].Type != "reasoning" {
+		t.Fatalf("item 3 must be reasoning, got %q", got[2].Type)
+	}
+	if got[2].EncryptedContent != "gAAAAA..." {
+		t.Fatalf("expected encrypted reasoning content to round-trip, got %q", got[2].EncryptedContent)
+	}
+	if got[2].Summary == nil || len(*got[2].Summary) != 1 {
+		t.Fatalf("expected reasoning summary payload to round-trip, got %#v", got[2].Summary)
+	}
+}
+
 func TestBuildInputItemsFromTurn_PreservesAssistantContextWithReasoningFollower(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_latest", Payload: map[string]any{
 		turns.PayloadKeyEncryptedContent: "enc_latest",

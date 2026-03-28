@@ -299,6 +299,9 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 				"event: response.output_item.added",
 				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
 				"",
+				"event: response.reasoning_summary_text.delta",
+				`data: {"delta":"Short summary."}`,
+				"",
 				"event: response.reasoning_text.delta",
 				`data: {"delta":"Thinking "}`,
 				"",
@@ -309,7 +312,7 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 				`data: {"text":"Thinking hard."}`,
 				"",
 				"event: response.output_item.done",
-				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				`data: {"item":{"type":"reasoning","id":"rs_1","encrypted_content":"enc_1"}}`,
 				"",
 				"event: response.output_item.added",
 				`data: {"item":{"type":"message","id":"msg_1"}}`,
@@ -355,7 +358,7 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 		turns.NewUserTextBlock("Hello"),
 	}}
 
-	_, err = eng.RunInference(ctx, turn)
+	out, err := eng.RunInference(ctx, turn)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -405,6 +408,120 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 	if finalUsage.InputTokens != 10 || finalUsage.OutputTokens != 5 || finalUsage.CachedTokens != 4 {
 		t.Fatalf("expected usage input=10 output=5 cached=4, got input=%d output=%d cached=%d", finalUsage.InputTokens, finalUsage.OutputTokens, finalUsage.CachedTokens)
+	}
+	if out == nil || len(out.Blocks) < 1 {
+		t.Fatalf("expected output turn blocks")
+	}
+	var reasoningBlock *turns.Block
+	for i := range out.Blocks {
+		if out.Blocks[i].Kind == turns.BlockKindReasoning {
+			reasoningBlock = &out.Blocks[i]
+			break
+		}
+	}
+	if reasoningBlock == nil {
+		t.Fatalf("expected persisted reasoning block")
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyText].(string); got != "Thinking hard." {
+		t.Fatalf("expected persisted reasoning text, got %q", got)
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyEncryptedContent].(string); got != "enc_1" {
+		t.Fatalf("expected persisted encrypted reasoning content, got %q", got)
+	}
+	summary, ok := reasoningBlock.Payload[turns.PayloadKeySummary].([]any)
+	if !ok || len(summary) != 1 {
+		t.Fatalf("expected persisted reasoning summary payload, got %#v", reasoningBlock.Payload[turns.PayloadKeySummary])
+	}
+}
+
+func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"reasoning","id":"rs_alias"}}`,
+				"",
+				"event: response.reasoning.delta",
+				`data: {"delta":"Thinking "}`,
+				"",
+				"event: response.reasoning.delta",
+				`data: {"delta":"alias."}`,
+				"",
+				"event: response.reasoning.done",
+				`data: {"text":"Thinking alias."}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"reasoning","id":"rs_alias"}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":4,"output_tokens":2}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	out, err := eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var reasoningDeltaEvents int
+	var reasoningDoneEvents int
+	for _, event := range sink.snapshot() {
+		switch event.(type) {
+		case *events.EventReasoningTextDelta:
+			reasoningDeltaEvents++
+		case *events.EventReasoningTextDone:
+			reasoningDoneEvents++
+		}
+	}
+	if reasoningDeltaEvents != 2 {
+		t.Fatalf("expected normalized reasoning delta events, got %d", reasoningDeltaEvents)
+	}
+	if reasoningDoneEvents != 1 {
+		t.Fatalf("expected normalized reasoning done events, got %d", reasoningDoneEvents)
+	}
+
+	var reasoningBlock *turns.Block
+	for i := range out.Blocks {
+		if out.Blocks[i].Kind == turns.BlockKindReasoning {
+			reasoningBlock = &out.Blocks[i]
+			break
+		}
+	}
+	if reasoningBlock == nil {
+		t.Fatalf("expected persisted reasoning block")
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyText].(string); got != "Thinking alias." {
+		t.Fatalf("expected normalized reasoning text persistence, got %q", got)
 	}
 }
 
@@ -960,8 +1077,8 @@ func TestRunInference_StreamingPersistsCanonicalInferenceResultMetadata(t *testi
 	if !ok {
 		t.Fatalf("expected canonical inference_result metadata")
 	}
-	if res.Provider != "openai_responses" {
-		t.Fatalf("expected provider=openai_responses, got %q", res.Provider)
+	if res.Provider != "open_responses" {
+		t.Fatalf("expected provider=open_responses, got %q", res.Provider)
 	}
 	if res.Model != "gpt-4o-mini" {
 		t.Fatalf("expected model=gpt-4o-mini, got %q", res.Model)
