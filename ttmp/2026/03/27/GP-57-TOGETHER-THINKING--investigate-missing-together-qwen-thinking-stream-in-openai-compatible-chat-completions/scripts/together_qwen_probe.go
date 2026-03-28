@@ -336,7 +336,7 @@ func runGeppetto(s *gepsettings.InferenceSettings, prompt string, system string)
 	}
 	req.Stream = true
 	if req.StreamOptions == nil && !strings.Contains(strings.ToLower(req.Model), "mistral") {
-		req.StreamOptions = &openai.StreamOptions{IncludeUsage: true}
+		req.StreamOptions = &stepopenai.ChatStreamOptions{IncludeUsage: true}
 	}
 	if payload, err := json.MarshalIndent(req, "", "  "); err == nil {
 		fmt.Printf("# geppetto request body\n%s\n", string(payload))

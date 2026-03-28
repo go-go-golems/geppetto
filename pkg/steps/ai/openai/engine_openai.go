@@ -19,7 +19,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	go_openai "github.com/sashabaranov/go-openai"
 )
 
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
@@ -67,7 +66,7 @@ func (e *OpenAIEngine) RunInference(
 	// streaming response body, so force the request shape here.
 	req.Stream = true
 	if req.StreamOptions == nil && !strings.Contains(strings.ToLower(req.Model), "mistral") {
-		req.StreamOptions = &go_openai.StreamOptions{IncludeUsage: true}
+		req.StreamOptions = &ChatStreamOptions{IncludeUsage: true}
 	}
 
 	// Debug: confirm adjacency constraints before sending
@@ -125,12 +124,12 @@ func (e *OpenAIEngine) RunInference(
 	if len(engineTools) > 0 {
 		log.Debug().Int("tool_count", len(engineTools)).Msg("Adding tools to OpenAI request")
 
-		// Convert our tools to go_openai.Tool format
-		var openaiTools []go_openai.Tool
+		// Convert our tools to chat request tool format
+		var openaiTools []ChatCompletionTool
 		for _, tool := range engineTools {
-			openaiTool := go_openai.Tool{
-				Type: go_openai.ToolTypeFunction,
-				Function: &go_openai.FunctionDefinition{
+			openaiTool := ChatCompletionTool{
+				Type: chatToolTypeFunction,
+				Function: &ChatFunctionDefinition{
 					Name:        tool.Name,
 					Description: tool.Description,
 					Parameters:  tool.Parameters,
@@ -156,9 +155,9 @@ func (e *OpenAIEngine) RunInference(
 
 		// Set parallel tool calls preference
 		if toolCfg.MaxParallelTools > 1 {
-			req.ParallelToolCalls = true
+			req.ParallelToolCalls = boolRef(true)
 		} else if toolCfg.MaxParallelTools == 1 {
-			req.ParallelToolCalls = false
+			req.ParallelToolCalls = boolRef(false)
 		}
 
 		log.Debug().

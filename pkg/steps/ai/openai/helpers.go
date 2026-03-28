@@ -8,15 +8,12 @@ import (
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	go_openai "github.com/sashabaranov/go-openai"
 )
 
-func GetToolCallString(toolCalls []go_openai.ToolCall) string {
+func GetToolCallString(toolCalls []ChatToolCall) string {
 	msg := ""
 	for _, call := range toolCalls {
 		msg += call.Function.Name
@@ -27,16 +24,16 @@ func GetToolCallString(toolCalls []go_openai.ToolCall) string {
 }
 
 type ToolCallMerger struct {
-	toolCalls map[int]go_openai.ToolCall
+	toolCalls map[int]ChatToolCall
 }
 
 func NewToolCallMerger() *ToolCallMerger {
 	return &ToolCallMerger{
-		toolCalls: make(map[int]go_openai.ToolCall),
+		toolCalls: make(map[int]ChatToolCall),
 	}
 }
 
-func (tcm *ToolCallMerger) AddToolCalls(toolCalls []go_openai.ToolCall) {
+func (tcm *ToolCallMerger) AddToolCalls(toolCalls []ChatToolCall) {
 	for _, call := range toolCalls {
 		index := 0
 		if call.Index != nil {
@@ -52,8 +49,8 @@ func (tcm *ToolCallMerger) AddToolCalls(toolCalls []go_openai.ToolCall) {
 	}
 }
 
-func (tcm *ToolCallMerger) GetToolCalls() []go_openai.ToolCall {
-	var result []go_openai.ToolCall
+func (tcm *ToolCallMerger) GetToolCalls() []ChatToolCall {
+	var result []ChatToolCall
 	for _, call := range tcm.toolCalls {
 		result = append(result, call)
 	}
@@ -86,7 +83,7 @@ func isReasoningModel(engine string) bool {
 // avoiding any dependency on conversation.Conversation.
 func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	t *turns.Turn,
-) (*go_openai.ChatCompletionRequest, error) {
+) (*ChatCompletionRequest, error) {
 	settings := e.settings
 	if settings.Client == nil {
 		return nil, steps.ErrMissingClientSettings
@@ -103,12 +100,12 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		return nil, errors.New("no engine specified")
 	}
 
-	var msgs_ []go_openai.ChatCompletionMessage
+	var msgs_ []ChatCompletionMessage
 
 	// Accumulate tool-calls and ensure any tool results are placed immediately after
-	pendingToolCalls := []go_openai.ToolCall{}
+	pendingToolCalls := []ChatToolCall{}
 	toolPhaseActive := false // true after flushing assistant tool_calls, until we exit tool result sequence
-	delayedChats := []go_openai.ChatCompletionMessage{}
+	delayedChats := []ChatCompletionMessage{}
 	// Track expected tool_call ids after a flush so we do not end the tool phase
 	// until all of them have corresponding tool messages. This prevents interleaving
 	// user/system messages between tool results when external middleware injects blocks.
@@ -118,7 +115,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		if len(pendingToolCalls) == 0 {
 			return
 		}
-		msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
+		msgs_ = append(msgs_, ChatCompletionMessage{
 			Role:      "assistant",
 			ToolCalls: pendingToolCalls,
 		})
@@ -191,9 +188,9 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 					role = "assistant"
 				}
 				// Check for images array in payload to construct MultiContent
-				var msg go_openai.ChatCompletionMessage
+				var msg ChatCompletionMessage
 				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
-					parts := []go_openai.ChatMessagePart{{Type: go_openai.ChatMessagePartTypeText, Text: text}}
+					parts := []ChatMessagePart{{Type: chatMessagePartTypeText, Text: text}}
 					for _, img := range imgs {
 						mediaType, _ := img["media_type"].(string)
 						url, _ := img["url"].(string)
@@ -212,17 +209,17 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 						if imageURL == "" && base64Content != "" {
 							imageURL = fmt.Sprintf("data:%s;base64,%s", mediaType, base64Content)
 						}
-						parts = append(parts, go_openai.ChatMessagePart{
-							Type: go_openai.ChatMessagePartTypeImageURL,
-							ImageURL: &go_openai.ChatMessageImageURL{
+						parts = append(parts, ChatMessagePart{
+							Type: chatMessagePartTypeImageURL,
+							ImageURL: &ChatMessageImageURL{
 								URL:    imageURL,
-								Detail: go_openai.ImageURLDetailAuto,
+								Detail: chatImageURLDetailAuto,
 							},
 						})
 					}
-					msg = go_openai.ChatCompletionMessage{Role: role, MultiContent: parts}
+					msg = ChatCompletionMessage{Role: role, MultiContent: parts}
 				} else {
-					msg = go_openai.ChatCompletionMessage{Role: role, Content: text}
+					msg = ChatCompletionMessage{Role: role, Content: text}
 				}
 				if len(pendingToolCalls) > 0 && !toolPhaseActive {
 					// Buffer until we can place after tool_use
@@ -270,10 +267,10 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 				if !toolPhaseActive && len(pendingToolCalls) == 0 {
 					delayedChats = nil
 				}
-				pendingToolCalls = append(pendingToolCalls, go_openai.ToolCall{
+				pendingToolCalls = append(pendingToolCalls, ChatToolCall{
 					ID:   toolID,
-					Type: go_openai.ToolTypeFunction,
-					Function: go_openai.FunctionCall{
+					Type: chatToolTypeFunction,
+					Function: ChatFunctionCall{
 						Name:      name,
 						Arguments: argsStr,
 					},
@@ -290,7 +287,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 					Str("tool_id", toolID).
 					Int("result_len", len(result)).
 					Msg("OpenAI request: encountered tool_use block")
-				msgs_ = append(msgs_, go_openai.ChatCompletionMessage{
+				msgs_ = append(msgs_, ChatCompletionMessage{
 					Role:       "tool",
 					Content:    result,
 					ToolCallID: toolID,
@@ -316,7 +313,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 					text := ""
 					_ = assignString(&text, v)
 					if text != "" {
-						msg := go_openai.ChatCompletionMessage{Role: "assistant", Content: text}
+						msg := ChatCompletionMessage{Role: "assistant", Content: text}
 						if len(pendingToolCalls) > 0 || toolPhaseActive {
 							delayedChats = append(delayedChats, msg)
 						} else {
@@ -407,7 +404,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 			// If multi content, show text parts concatenated for preview
 			var parts []string
 			for _, p := range m.MultiContent {
-				if p.Type == go_openai.ChatMessagePartTypeText && p.Text != "" {
+				if p.Type == chatMessagePartTypeText && p.Text != "" {
 					parts = append(parts, p.Text)
 				}
 			}
@@ -427,12 +424,12 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 			Msg("OpenAI request message")
 	}
 
-	var streamOptions *go_openai.StreamOptions
+	var streamOptions *ChatStreamOptions
 	if stream && !strings.Contains(engine, "mistral") {
-		streamOptions = &go_openai.StreamOptions{IncludeUsage: true}
+		streamOptions = &ChatStreamOptions{IncludeUsage: true}
 	}
 
-	req := go_openai.ChatCompletionRequest{
+	req := ChatCompletionRequest{
 		Model:               engine,
 		Messages:            msgs_,
 		MaxTokens:           maxTokens,
@@ -464,9 +461,9 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 				}
 				log.Warn().Err(err).Msg("OpenAI request: ignoring non-serializable structured output schema")
 			} else {
-				req.ResponseFormat = &go_openai.ChatCompletionResponseFormat{
-					Type: go_openai.ChatCompletionResponseFormatTypeJSONSchema,
-					JSONSchema: &go_openai.ChatCompletionResponseFormatJSONSchema{
+				req.ResponseFormat = &ChatCompletionResponseFormat{
+					Type: chatResponseFormatTypeJSONSchema,
+					JSONSchema: &ChatCompletionResponseFormatJSONSchema{
 						Name:        cfg.Name,
 						Description: cfg.Description,
 						Schema:      json.RawMessage(schemaBytes),
@@ -529,9 +526,9 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 			if err := soCfg.Validate(); err == nil {
 				schemaBytes, marshalErr := json.Marshal(soCfg.Schema)
 				if marshalErr == nil {
-					req.ResponseFormat = &go_openai.ChatCompletionResponseFormat{
-						Type: go_openai.ChatCompletionResponseFormatTypeJSONSchema,
-						JSONSchema: &go_openai.ChatCompletionResponseFormatJSONSchema{
+					req.ResponseFormat = &ChatCompletionResponseFormat{
+						Type: chatResponseFormatTypeJSONSchema,
+						JSONSchema: &ChatCompletionResponseFormatJSONSchema{
 							Name:        soCfg.Name,
 							Description: soCfg.Description,
 							Schema:      json.RawMessage(schemaBytes),
@@ -613,26 +610,6 @@ func anyToJSONString(v any) string {
 		}
 		return fmt.Sprintf("%v", v)
 	}
-}
-
-func MakeClient(apiSettings *settings.APISettings, clientSettings *settings.ClientSettings, apiType ai_types.ApiType) (*go_openai.Client, error) {
-	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
-	if !ok {
-		return nil, errors.Errorf("no API key for %s", apiType)
-	}
-	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
-	if !ok {
-		return nil, errors.Errorf("no base URL for %s", apiType)
-	}
-	config := go_openai.DefaultConfig(apiKey)
-	config.BaseURL = baseURL
-	httpClient, err := settings.EnsureHTTPClient(clientSettings)
-	if err != nil {
-		return nil, err
-	}
-	config.HTTPClient = httpClient
-	client := go_openai.NewClientWithConfig(config)
-	return client, nil
 }
 
 // TODO(manuel, 2024-06-25) We actually need a processor like the content block merger here, where we merge tool use blocks with previous messages to properly create openai messages

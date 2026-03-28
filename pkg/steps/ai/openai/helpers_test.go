@@ -1,16 +1,11 @@
 package openai
 
 import (
-	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aisettingsopenai "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
-	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -142,61 +137,5 @@ func TestMakeCompletionRequestFromTurnInferenceEmptyStopClearsChatStop(t *testin
 	}
 	if len(req.Stop) != 0 {
 		t.Fatalf("expected stop override to clear chat stop, got %v", req.Stop)
-	}
-}
-
-type headerTransport struct {
-	base   http.RoundTripper
-	header string
-	value  string
-}
-
-func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req2 := req.Clone(req.Context())
-	req2.Header = req.Header.Clone()
-	req2.Header.Set(t.header, t.value)
-	return t.base.RoundTrip(req2)
-}
-
-func TestMakeClient_UsesConfiguredHTTPClient(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("X-Test-Transport"); got != "openai-proxy" {
-			t.Fatalf("expected custom transport header, got %q", got)
-		}
-		if r.URL.Path != "/v1/models" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"object": "list",
-			"data":   []map[string]any{},
-		})
-	}))
-	defer server.Close()
-
-	httpClient := server.Client()
-	httpClient.Transport = &headerTransport{
-		base:   httpClient.Transport,
-		header: "X-Test-Transport",
-		value:  "openai-proxy",
-	}
-
-	client, err := MakeClient(
-		&aisettings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": server.URL + "/v1"},
-		},
-		&aisettings.ClientSettings{
-			HTTPClient: httpClient,
-		},
-		ai_types.ApiTypeOpenAI,
-	)
-	if err != nil {
-		t.Fatalf("MakeClient: %v", err)
-	}
-
-	_, err = client.ListModels(context.Background())
-	if err != nil {
-		t.Fatalf("ListModels: %v", err)
 	}
 }

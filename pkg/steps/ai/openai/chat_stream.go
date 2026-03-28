@@ -14,7 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
-	go_openai "github.com/sashabaranov/go-openai"
 )
 
 type chatStreamConfig struct {
@@ -33,7 +32,7 @@ type chatStreamUsage struct {
 type chatStreamEvent struct {
 	DeltaText      string
 	DeltaReasoning string
-	ToolCalls      []go_openai.ToolCall
+	ToolCalls      []ChatToolCall
 	Usage          *chatStreamUsage
 	FinishReason   *string
 	RawPayload     map[string]any
@@ -221,19 +220,19 @@ func firstChoice(raw map[string]any) map[string]any {
 	return mapValue(choices[0])
 }
 
-func normalizeChatToolCalls(v any) []go_openai.ToolCall {
+func normalizeChatToolCalls(v any) []ChatToolCall {
 	items, ok := v.([]any)
 	if !ok || len(items) == 0 {
 		return nil
 	}
 
-	ret := make([]go_openai.ToolCall, 0, len(items))
+	ret := make([]ChatToolCall, 0, len(items))
 	for _, item := range items {
 		callMap := mapValue(item)
 		if len(callMap) == 0 {
 			continue
 		}
-		call := go_openai.ToolCall{}
+		call := ChatToolCall{}
 		if idx, ok := intValue(callMap["index"]); ok {
 			call.Index = &idx
 		}
@@ -241,9 +240,9 @@ func normalizeChatToolCalls(v any) []go_openai.ToolCall {
 			call.ID = id
 		}
 		if typ, ok := stringValue(callMap["type"]); ok && typ != "" {
-			call.Type = go_openai.ToolType(typ)
+			call.Type = typ
 		} else {
-			call.Type = go_openai.ToolTypeFunction
+			call.Type = chatToolTypeFunction
 		}
 		fn := mapValue(callMap["function"])
 		if name, ok := stringValue(fn["name"]); ok {
