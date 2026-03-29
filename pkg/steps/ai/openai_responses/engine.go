@@ -20,7 +20,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -280,14 +279,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			dataBuf.Reset()
 			var m map[string]any
 			if err := json.Unmarshal([]byte(raw), &m); err != nil {
-				log.Debug().Err(err).Str("event", eventName).Int("raw_len", len(raw)).Msg("Responses: failed to unmarshal SSE data")
 				return nil
-			}
-			// Log redacted payload at trace level
-			if zerolog.GlobalLevel() <= zerolog.TraceLevel {
-				if rb, err := json.Marshal(redact(m)); err == nil {
-					log.Trace().Str("event", eventName).RawJSON("data", rb).Msg("Responses: SSE event")
-				}
 			}
 			appendAssistantChunk := func(chunk string) {
 				if chunk == "" {
@@ -737,12 +729,6 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					outputTokens = totals.outputTokens
 					cachedTokens = totals.cachedTokens
 					reasoningTokens = totals.reasoningTokens
-					log.Debug().
-						Int("input_tokens", inputTokens).
-						Int("output_tokens", outputTokens).
-						Int("cached_tokens", cachedTokens).
-						Int("reasoning_tokens", reasoningTokens).
-						Msg("Responses: usage parsed")
 				}
 				// optional stop reason, sometimes nested
 				if sr, ok := m["stop_reason"].(string); ok && sr != "" {
@@ -751,9 +737,6 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					if sr, ok := respObj["stop_reason"].(string); ok && sr != "" {
 						stopReason = &sr
 					}
-				}
-				if stopReason != nil {
-					log.Debug().Str("stop_reason", *stopReason).Msg("Responses: stop reason observed")
 				}
 				if tap != nil {
 					tap.OnProviderObject("response.completed", m)
@@ -768,25 +751,16 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				break
 			}
 			line = strings.TrimRight(line, "\r\n")
-			if line != "" {
-				preview := line
-				if len(preview) > 200 {
-					preview = preview[:200] + "…"
-				}
-				log.Trace().Str("line", preview).Msg("Responses: SSE line")
-			}
 			if line == "" {
 				_ = flush()
 				eventName = ""
 				if err == io.EOF {
-					log.Trace().Msg("Responses: EOF while reading SSE")
 					break
 				}
 				continue
 			}
 			if strings.HasPrefix(line, "event:") {
 				eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-				log.Trace().Str("event", eventName).Msg("Responses: SSE event name")
 				continue
 			}
 			if strings.HasPrefix(line, "data:") {
@@ -798,19 +772,17 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))))
 				}
 				if err == io.EOF {
-					log.Trace().Msg("Responses: EOF while reading SSE")
 					_ = flush()
 					break
 				}
 				continue
 			}
 			if err == io.EOF {
-				log.Trace().Msg("Responses: EOF while reading SSE")
 				_ = flush()
 				break
 			}
 		}
-		log.Debug().Msg("Responses: SSE loop ended")
+
 		if inputTokens > 0 || outputTokens > 0 || cachedTokens > 0 {
 			if metadata.Usage == nil {
 				metadata.Usage = &events.Usage{}

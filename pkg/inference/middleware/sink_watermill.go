@@ -45,7 +45,6 @@ func (w *WatermillSink) PublishEvent(event events.Event) error {
 		return err
 	}
 
-	log.Trace().Str("topic", w.topic).Str("event_type", string(event.Type())).Msg("Published event to watermill")
 	return nil
 }
 
