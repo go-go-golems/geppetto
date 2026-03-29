@@ -268,7 +268,6 @@ func (e *OpenAIEngine) RunInference(
 			delta := response.DeltaText
 			if delta != "" {
 				message += delta
-				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Int("total_length", len(message)).Msg("OpenAI received text chunk")
 			}
 			if response.DeltaReasoning != "" {
 				if !thinkingStarted {
@@ -278,29 +277,11 @@ func (e *OpenAIEngine) RunInference(
 				thinkingBuf.WriteString(response.DeltaReasoning)
 				e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, response.DeltaReasoning))
 				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, response.DeltaReasoning, thinkingBuf.String()))
-				log.Debug().
-					Int("chunk", chunkCount).
-					Str("reasoning_delta", response.DeltaReasoning).
-					Int("thinking_length", thinkingBuf.Len()).
-					Msg("OpenAI received reasoning chunk")
 			}
 
 			// Tool call deltas
 			if len(response.ToolCalls) > 0 {
 				toolCallMerger.AddToolCalls(response.ToolCalls)
-				for _, tc := range response.ToolCalls {
-					// Safe logging of arguments size to avoid very long logs
-					argPreview := tc.Function.Arguments
-					if len(argPreview) > 200 {
-						argPreview = argPreview[:200] + "…"
-					}
-					log.Debug().
-						Int("chunk", chunkCount).
-						Str("tool_id", tc.ID).
-						Str("name", tc.Function.Name).
-						Str("arguments_delta", argPreview).
-						Msg("OpenAI received tool_call delta")
-				}
 			}
 
 			// Extract usage and finish reason from normalized stream response
@@ -309,21 +290,13 @@ func (e *OpenAIEngine) RunInference(
 				usageOutputTokens = response.Usage.completionTokens
 				cachedTokens = response.Usage.cachedTokens
 				reasoningTokens = response.Usage.reasoningTokens
-				log.Debug().
-					Int("input_tokens", usageInputTokens).
-					Int("output_tokens", usageOutputTokens).
-					Int("cached_tokens", cachedTokens).
-					Int("reasoning_tokens", reasoningTokens).
-					Msg("OpenAI usage updated from chunk")
 			}
 			if response.FinishReason != nil && *response.FinishReason != "" {
 				stopReason = response.FinishReason
-				log.Debug().Str("stop_reason", *response.FinishReason).Msg("OpenAI stop reason observed")
 			}
 
 			// Publish intermediate streaming event only if we have a non-empty delta
 			if delta != "" {
-				log.Debug().Int("chunk", chunkCount).Str("delta", delta).Msg("OpenAI publishing partial completion event")
 				partialEvent := events.NewPartialCompletionEvent(
 					metadata,
 					delta, message,
