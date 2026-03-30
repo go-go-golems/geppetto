@@ -6,7 +6,13 @@ import (
 	"strings"
 	"time"
 
+	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 	"gopkg.in/yaml.v3"
+)
+
+var (
+	errEmptyBody       = errors.New("empty")
+	errPayloadTooLarge = errors.New("payload too large")
 )
 
 // StripCodeFenceBytes detects ```lang\n ... \n``` blocks and returns (lang, body).
@@ -36,6 +42,26 @@ type DebounceConfig struct {
 	SnapshotOnNewline  bool
 	ParseTimeout       time.Duration
 	MaxBytes           int
+	SanitizeYAML       *bool `json:"sanitize_yaml,omitempty" yaml:"sanitize_yaml,omitempty"`
+}
+
+func (c DebounceConfig) withDefaults() DebounceConfig {
+	if c.SanitizeYAML != nil {
+		return c
+	}
+	return c.WithSanitizeYAML(true)
+}
+
+func (c DebounceConfig) SanitizeEnabled() bool {
+	c = c.withDefaults()
+	return c.SanitizeYAML != nil && *c.SanitizeYAML
+}
+
+func (c DebounceConfig) WithSanitizeYAML(v bool) DebounceConfig {
+	ret := c
+	ret.SanitizeYAML = new(bool)
+	*ret.SanitizeYAML = v
+	return ret
 }
 
 // YAMLController incrementally accumulates bytes and attempts to parse typed YAML
@@ -47,7 +73,7 @@ type YAMLController[T any] struct {
 }
 
 func NewDebouncedYAML[T any](cfg DebounceConfig) *YAMLController[T] {
-	return &YAMLController[T]{cfg: cfg}
+	return &YAMLController[T]{cfg: cfg.withDefaults()}
 }
 
 // FeedBytes appends chunk; if cadence triggers, attempts to parse and returns a snapshot.
@@ -74,55 +100,63 @@ func (c *YAMLController[T]) FeedBytes(chunk []byte) (*T, error) {
 func (c *YAMLController[T]) FinalBytes(raw []byte) (*T, error) {
 	if len(raw) > 0 {
 		// don't mutate internal buffer on final
-		lang, body := StripCodeFenceBytes(raw)
-		_ = lang
-		if c.cfg.MaxBytes > 0 && len(body) > c.cfg.MaxBytes {
-			return nil, errors.New("payload too large")
-		}
-		var out T
-		if err := yaml.Unmarshal(body, &out); err != nil {
-			return nil, err
-		}
-		return &out, nil
+		return c.parseYAML(raw)
 	}
 	return c.tryParse()
 }
 
 func (c *YAMLController[T]) tryParse() (*T, error) {
-	lang, body := StripCodeFenceBytes(c.buf.Bytes())
-	_ = lang
-	if c.cfg.MaxBytes > 0 && len(body) > c.cfg.MaxBytes {
-		return nil, errors.New("payload too large")
+	return c.parseYAML(c.buf.Bytes())
+}
+
+func (c *YAMLController[T]) parseYAML(raw []byte) (*T, error) {
+	body, err := c.normalizedYAML(raw)
+	if err != nil {
+		return nil, err
 	}
-	// empty body -> treat as no-op
-	if len(strings.TrimSpace(string(body))) == 0 {
-		return nil, errors.New("empty")
-	}
-	var out T
-	// Optional timeout window
 	if c.cfg.ParseTimeout > 0 {
 		type result struct {
-			v   *T
+			v   T
 			err error
 		}
 		ch := make(chan result, 1)
 		go func(b []byte) {
 			var tmp T
 			err := yaml.Unmarshal(b, &tmp)
-			if err == nil {
-				out = tmp
-			}
-			ch <- result{v: &out, err: err}
+			ch <- result{v: tmp, err: err}
 		}(append([]byte(nil), body...))
 		select {
 		case r := <-ch:
-			return r.v, r.err
+			if r.err != nil {
+				return nil, r.err
+			}
+			out := r.v
+			return &out, nil
 		case <-time.After(c.cfg.ParseTimeout):
 			return nil, errors.New("parse timeout")
 		}
 	}
+	var out T
 	if err := yaml.Unmarshal(body, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
+}
+
+func (c *YAMLController[T]) normalizedYAML(raw []byte) ([]byte, error) {
+	_, body := StripCodeFenceBytes(raw)
+	if c.cfg.MaxBytes > 0 && len(body) > c.cfg.MaxBytes {
+		return nil, errPayloadTooLarge
+	}
+	src := strings.TrimSpace(string(body))
+	if src == "" {
+		return nil, errEmptyBody
+	}
+	if c.cfg.SanitizeEnabled() {
+		result := yamlsanitize.Sanitize(src)
+		if trimmed := strings.TrimSpace(result.Sanitized); trimmed != "" {
+			src = trimmed
+		}
+	}
+	return []byte(src), nil
 }

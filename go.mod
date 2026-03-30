@@ -11,6 +11,7 @@ require (
 	github.com/go-go-golems/glazed v1.0.6
 	github.com/go-go-golems/go-emrichen v0.0.10
 	github.com/go-go-golems/go-go-goja v0.4.6
+	github.com/go-go-golems/sanitize v0.0.1
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
@@ -18,7 +19,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/sashabaranov/go-openai v1.41.1
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/sync v0.20.0
@@ -70,6 +71,7 @@ require (
 	github.com/jedib0t/go-pretty v4.3.0+incompatible // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
@@ -80,6 +82,8 @@ require (
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.1 // indirect
+	github.com/tree-sitter-grammars/tree-sitter-yaml v0.7.2 // indirect
+	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xuri/efp v0.0.1 // indirect
