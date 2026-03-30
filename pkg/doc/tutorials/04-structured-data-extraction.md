@@ -203,16 +203,10 @@ func (s *citationsSession) OnStart(ctx context.Context) []events.Event {
 // Called for each chunk of bytes inside the block
 func (s *citationsSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
     s.rawBuf = append(s.rawBuf, chunk...)
-
-    // Emit partial event every 256 bytes
-    if len(s.rawBuf)-s.lastLen < 256 {
+    payload, parseErr := s.parser.FeedBytes(chunk)
+    if parseErr != nil || payload == nil {
         return nil
     }
-    s.lastLen = len(s.rawBuf)
-
-    // Try to parse what we have so far
-    var payload CitationsPayload
-    _ = yaml.Unmarshal(s.rawBuf, &payload) // Ignore errors for partial data
 
     return []events.Event{
         &CitationPartialEvent{
@@ -221,7 +215,7 @@ func (s *citationsSession) OnRaw(ctx context.Context, chunk []byte) []events.Eve
                 Metadata_: s.meta,
             },
             ItemID:  s.itemID,
-            Payload: payload,
+            Payload: *payload,
         },
     }
 }
@@ -237,9 +231,11 @@ func (s *citationsSession) OnCompleted(
     var parseErr string
 
     if success {
-        if e := yaml.Unmarshal(raw, &payload); e != nil {
+        if result, e := s.parser.FinalBytes(raw); e != nil {
             parseErr = e.Error()
             success = false
+        } else if result != nil {
+            payload = *result
         }
     } else if err != nil {
         parseErr = err.Error()
@@ -462,7 +458,7 @@ import "github.com/go-go-golems/geppetto/pkg/events/structuredsink/parsehelpers"
 type citationsSession struct {
     meta   events.EventMetadata
     itemID string
-    parser *parsehelpers.DebouncedYAML[CitationsPayload]
+    parser *parsehelpers.YAMLController[CitationsPayload]
 }
 
 func (s *citationsSession) OnStart(ctx context.Context) []events.Event {
@@ -470,13 +466,14 @@ func (s *citationsSession) OnStart(ctx context.Context) []events.Event {
         SnapshotEveryBytes: 256,   // Emit every 256 bytes
         SnapshotOnNewline:  true,  // Also emit on newlines
         MaxBytes:           64<<10, // 64KB max
+        // SanitizeYAML defaults to true for LLM-generated YAML.
     })
     return nil
 }
 
 func (s *citationsSession) OnRaw(ctx context.Context, chunk []byte) []events.Event {
-    result, shouldEmit := s.parser.Feed(chunk)
-    if !shouldEmit {
+    result, err := s.parser.FeedBytes(chunk)
+    if err != nil || result == nil {
         return nil
     }
     return []events.Event{&CitationPartialEvent{...}}

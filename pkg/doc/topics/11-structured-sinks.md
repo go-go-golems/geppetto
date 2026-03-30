@@ -177,11 +177,12 @@ ctrl := parsehelpers.NewDebouncedYAML[MyPayload](parsehelpers.DebounceConfig{
     SnapshotEveryBytes: 512,   // Parse every 512 bytes
     SnapshotOnNewline:  true,  // Also parse on newlines
     MaxBytes:           64<<10, // 64KB maximum
+    // SanitizeYAML defaults to true; set WithSanitizeYAML(false) to opt out.
 })
 
 // In OnRaw:
-result, ok := ctrl.FeedBytes(chunk)
-if ok {
+result, err := ctrl.FeedBytes(chunk)
+if err == nil && result != nil {
     // Emit a progressive update event with result
 }
 
@@ -237,15 +238,19 @@ func (s *modeSwitchSession) OnCompleted(
     if !success {
         return nil // Malformed block, skip
     }
-    _, body := parsehelpers.StripCodeFenceBytes(raw)
 
     var payload struct {
         NewMode string `yaml:"new_mode"`
         Reason  string `yaml:"reason"`
     }
-    if yamlErr := yaml.Unmarshal(body, &payload); yamlErr != nil {
+    parsed, yamlErr := parsehelpers.NewDebouncedYAML[struct {
+        NewMode string `yaml:"new_mode"`
+        Reason  string `yaml:"reason"`
+    }](parsehelpers.DebounceConfig{}).FinalBytes(raw)
+    if yamlErr != nil || parsed == nil {
         return nil
     }
+    payload = *parsed
 
     // Emit a typed event
     return []events.Event{

@@ -16,6 +16,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
 	"github.com/google/uuid"
@@ -477,13 +478,13 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", nil))
 			case "response.reasoning_text.delta":
 				if d, ok := m["delta"].(string); ok && d != "" {
-					thinkBuf.WriteString(d)
+					thinkBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d))
 					currentReasoningText.WriteString(d)
 					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, d))
 					// Mirror to partial-thinking so existing UIs still render live reasoning text.
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
-					thinkBuf.WriteString(s)
+					thinkBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s))
 					currentReasoningText.WriteString(s)
 					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, s))
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))

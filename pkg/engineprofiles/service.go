@@ -129,18 +129,20 @@ func (r *StoreRegistry) ResolveEngineProfile(ctx context.Context, in ResolveInpu
 		return nil, err
 	}
 
+	lineage := resolvedProfileStackLineage(stackLayers)
 	metadata := map[string]any{
 		"profile.registry":      registrySlug.String(),
 		"profile.slug":          profileSlug.String(),
 		"profile.version":       profile.Metadata.Version,
 		"profile.source":        profileMetadataSource(profile, registry),
-		"profile.stack.lineage": stackLayerLineage(stackLayers),
+		"profile.stack.lineage": resolvedProfileStackLineageMetadata(lineage),
 	}
 
 	return &ResolvedEngineProfile{
 		RegistrySlug:      registrySlug,
 		EngineProfileSlug: profileSlug,
 		InferenceSettings: cloneInferenceSettings(stackMerge.InferenceSettings),
+		StackLineage:      lineage,
 		Metadata:          metadata,
 	}, nil
 }
@@ -179,8 +181,8 @@ func resolveEngineProfileSlugInput(slug EngineProfileSlug) (EngineProfileSlug, e
 	return parsed, nil
 }
 
-func stackLayerLineage(stackLayers []EngineProfileStackLayer) []map[string]any {
-	lineage := make([]map[string]any, 0, len(stackLayers))
+func resolvedProfileStackLineage(stackLayers []EngineProfileStackLayer) []ResolvedProfileStackEntry {
+	lineage := make([]ResolvedProfileStackEntry, 0, len(stackLayers))
 	for _, layer := range stackLayers {
 		version := uint64(0)
 		source := ""
@@ -188,14 +190,30 @@ func stackLayerLineage(stackLayers []EngineProfileStackLayer) []map[string]any {
 			version = layer.EngineProfile.Metadata.Version
 			source = strings.TrimSpace(layer.EngineProfile.Metadata.Source)
 		}
-		lineage = append(lineage, map[string]any{
-			"registry_slug": layer.RegistrySlug.String(),
-			"profile_slug":  layer.EngineProfileSlug.String(),
-			"version":       version,
-			"source":        source,
+		lineage = append(lineage, ResolvedProfileStackEntry{
+			RegistrySlug:      layer.RegistrySlug,
+			EngineProfileSlug: layer.EngineProfileSlug,
+			Version:           version,
+			Source:            source,
 		})
 	}
 	return lineage
+}
+
+func resolvedProfileStackLineageMetadata(lineage []ResolvedProfileStackEntry) []map[string]any {
+	if len(lineage) == 0 {
+		return nil
+	}
+	ret := make([]map[string]any, 0, len(lineage))
+	for _, entry := range lineage {
+		ret = append(ret, map[string]any{
+			"registry_slug": entry.RegistrySlug.String(),
+			"profile_slug":  entry.EngineProfileSlug.String(),
+			"version":       entry.Version,
+			"source":        entry.Source,
+		})
+	}
+	return ret
 }
 
 func profileMetadataSource(profile *EngineProfile, registry *EngineProfileRegistry) string {

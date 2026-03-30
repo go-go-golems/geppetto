@@ -85,6 +85,12 @@ topics:
       description: Together AI provider compatibility and integration work
     - slug: openai-compatibility
       description: OpenAI-compatible provider protocols and schema differences
+    - slug: structured-sinks
+      description: Geppetto structured streaming extraction and filtering sink workflows
+    - slug: webchat
+      description: Pinocchio web-chat backend, SEM, and frontend runtime integration
+    - slug: agentmode
+      description: Agent mode middleware, runtime policy, and UI/event integration
 docTypes:
     - slug: index
       description: Ticket index
