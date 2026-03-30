@@ -35,3 +35,10 @@ Implemented default-on YAML sanitization in Geppetto structured-sink parsehelper
 - /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/doc/topics/11-structured-sinks.md — updated public helper examples
 - /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/doc/playbooks/03-progressive-structured-data.md — updated playbook examples
 - /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/doc/tutorials/04-structured-data-extraction.md — updated tutorial examples
+
+Fixed a follow-up semantic bug where whole-document trimming could change valid YAML block-scalar values before unmarshal. The helper now preserves original body bytes unless sanitization is explicitly enabled, and regression tests cover trailing-newline preservation.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/events/structuredsink/parsehelpers/helpers.go — removed unconditional whole-document trimming before unmarshal
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/events/structuredsink/parsehelpers/helpers_test.go — added block-scalar regression coverage

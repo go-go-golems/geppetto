@@ -286,3 +286,84 @@ cd geppetto && GOWORK=off go get github.com/go-go-golems/sanitize@v0.0.1
 cd geppetto && GOWORK=off go get github.com/go-go-golems/sanitize/pkg/yaml@v0.0.1
 git -C geppetto commit -m "Add YAML sanitization to structured sink parsehelpers"
 ```
+
+## Step 3: Fix the block-scalar whitespace regression from review
+
+After the initial GP-59 implementation landed, a review comment correctly pointed out that `normalizedYAML(...)` was trimming the entire YAML document before unmarshal. That looked harmless for malformed scalar cleanup, but it is semantically wrong for valid YAML block scalars because trailing newlines in `|` and `>` payloads are meaningful. The fix in this step was to separate "is this effectively empty?" from "what exact bytes should be unmarshalled?" and to add a regression test that proves `hello\n` survives intact.
+
+This was a good example of why helper-layer mutations need semantic tests, not just parse-success tests. The original tests proved that sanitization could repair broken YAML, but they did not prove that the helper preserved already-valid YAML exactly enough for scalar semantics.
+
+### Prompt Context
+
+**User prompt (verbatim):** "not sure if this is valid?"
+
+**Assistant interpretation:** Evaluate whether the code review comment about `strings.TrimSpace(...)` changing YAML semantics is correct, and fix it if it is.
+
+**Inferred user intent:** Avoid overreacting to a possibly spurious review comment, but do not ship a subtle semantic regression in the generic YAML helper.
+
+**Commit (code):** pending
+
+### What I did
+
+- Re-read `geppetto/pkg/events/structuredsink/parsehelpers/helpers.go` to confirm that `strings.TrimSpace(string(body))` happened before unmarshal for both sanitize-on and sanitize-off paths.
+- Changed `normalizedYAML(...)` so it:
+  - uses a trimmed view only for the emptiness check
+  - preserves the original body bytes for unmarshal when sanitization is disabled
+  - preserves the sanitizer output verbatim when sanitization is enabled, unless the sanitized result is effectively empty
+- Added `TestYAMLControllerFinalBytes_PreservesBlockScalarTrailingNewline` to `helpers_test.go`.
+- Re-ran:
+  - `cd geppetto && go test ./pkg/events/structuredsink/parsehelpers ./pkg/events/structuredsink -count=1`
+
+### Why
+
+- YAML block scalars are one of the clearest examples where document-level trimming mutates valid data before parse.
+- The helper is generic infrastructure, so even a narrow semantic regression can affect multiple extractors at once.
+
+### What worked
+
+- The review comment was precise enough to point directly at the offending line and the right test shape.
+- A tiny fixture was sufficient:
+
+```yaml
+message: |
+  hello
+```
+
+- That fixture proves the intended decoded value is `hello\n`, which makes the regression easy to assert.
+
+### What didn't work
+
+- The first GP-59 tests only covered sanitize repair and strict opt-out failure. They did not cover exact semantic preservation for valid YAML, which is why this slipped through the first pass.
+
+### What I learned
+
+- "Parse succeeds" is not enough coverage for YAML helpers. The tests also need to protect semantics that are easy to damage with pre-parse normalization.
+- Even when sanitization is enabled, it is safer to avoid unconditional trimming of the whole document and let the YAML parser see the original layout unless the sanitizer deliberately changes it.
+
+### What was tricky to build
+
+- The subtlety here is that trimming is reasonable for emptiness detection but not for actual parse input. Those are different questions, and the original implementation accidentally used one operation for both.
+
+### What warrants a second pair of eyes
+
+- A reviewer should quickly scan whether there are any other pre-unmarshal normalization steps in the codebase that make the same mistake with valid YAML or markdown-derived structured payloads.
+
+### What should be done in the future
+
+- Add more semantic-preservation tests if other YAML edge cases show up in review, especially around folded scalars and trailing blank lines.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/events/structuredsink/parsehelpers/helpers.go`.
+- Then review `geppetto/pkg/events/structuredsink/parsehelpers/helpers_test.go`.
+- Validation command:
+  - `cd geppetto && go test ./pkg/events/structuredsink/parsehelpers ./pkg/events/structuredsink -count=1`
+
+### Technical details
+
+Review comment summary:
+
+```text
+strings.TrimSpace on the whole YAML body changes payload semantics before parse,
+which can corrupt extracted data for valid YAML block scalars.
+```
