@@ -59,6 +59,12 @@ func TestStoreRegistryResolve_DefaultProfileFallbackAndMetadata(t *testing.T) {
 	if got := lineage[0]["profile_slug"]; got != "agent" {
 		t.Fatalf("lineage profile slug mismatch: %#v", lineage)
 	}
+	if got, want := len(resolved.StackLineage), 1; got != want {
+		t.Fatalf("typed stack lineage length mismatch: got=%d want=%d", got, want)
+	}
+	if got := resolved.StackLineage[0].EngineProfileSlug; got != MustEngineProfileSlug("agent") {
+		t.Fatalf("typed stack lineage profile slug mismatch: %#v", resolved.StackLineage)
+	}
 	if resolved.InferenceSettings == nil || resolved.InferenceSettings.Chat == nil || resolved.InferenceSettings.Chat.Engine == nil {
 		t.Fatalf("expected resolved inference settings")
 	}
@@ -154,6 +160,15 @@ func TestStoreRegistryResolve_StackMetadataLineageOrder(t *testing.T) {
 	}
 	if got := lineage[1]["profile_slug"]; got != "agent" {
 		t.Fatalf("expected agent lineage last, got %#v", lineage)
+	}
+	if got, want := len(resolved.StackLineage), 2; got != want {
+		t.Fatalf("typed lineage length mismatch: got=%d want=%d", got, want)
+	}
+	if got := resolved.StackLineage[0].EngineProfileSlug; got != MustEngineProfileSlug("provider") {
+		t.Fatalf("expected typed provider lineage first, got %#v", resolved.StackLineage)
+	}
+	if got := resolved.StackLineage[1].EngineProfileSlug; got != MustEngineProfileSlug("agent") {
+		t.Fatalf("expected typed agent lineage last, got %#v", resolved.StackLineage)
 	}
 }
 

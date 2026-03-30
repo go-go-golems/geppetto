@@ -20,11 +20,20 @@ type ResolveInput struct {
 	EngineProfileSlug EngineProfileSlug
 }
 
+// ResolvedProfileStackEntry captures one base->leaf stack entry in typed form.
+type ResolvedProfileStackEntry struct {
+	RegistrySlug      RegistrySlug      `json:"registry_slug" yaml:"registry_slug"`
+	EngineProfileSlug EngineProfileSlug `json:"profile_slug" yaml:"profile_slug"`
+	Version           uint64            `json:"version,omitempty" yaml:"version,omitempty"`
+	Source            string            `json:"source,omitempty" yaml:"source,omitempty"`
+}
+
 // ResolvedEngineProfile is the canonical result of engine profile resolution.
 type ResolvedEngineProfile struct {
 	RegistrySlug      RegistrySlug
 	EngineProfileSlug EngineProfileSlug
 	InferenceSettings *aistepssettings.InferenceSettings
+	StackLineage      []ResolvedProfileStackEntry
 	Metadata          map[string]any
 }
 
