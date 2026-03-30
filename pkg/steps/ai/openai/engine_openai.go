@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -274,7 +275,7 @@ func (e *OpenAIEngine) RunInference(
 					thinkingStarted = true
 					e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
 				}
-				thinkingBuf.WriteString(response.DeltaReasoning)
+				thinkingBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning))
 				e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, response.DeltaReasoning))
 				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, response.DeltaReasoning, thinkingBuf.String()))
 			}
