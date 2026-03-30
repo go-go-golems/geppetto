@@ -11,6 +11,10 @@ type testPayload struct {
 	Notes string `yaml:"notes,omitempty"`
 }
 
+type blockScalarPayload struct {
+	Message string `yaml:"message"`
+}
+
 func TestDebounceConfig_SanitizeEnabledDefaultsToTrue(t *testing.T) {
 	cfg := DebounceConfig{}
 
@@ -62,4 +66,24 @@ func TestYAMLControllerFinalBytes_PreservesValidYAML(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test", parsed.Name)
 	require.Equal(t, "hello", parsed.Notes)
+}
+
+func TestYAMLControllerFinalBytes_PreservesBlockScalarTrailingNewline(t *testing.T) {
+	raw := []byte("```yaml\nmessage: |\n  hello\n```")
+
+	t.Run("sanitize default", func(t *testing.T) {
+		ctrl := NewDebouncedYAML[blockScalarPayload](DebounceConfig{})
+
+		parsed, err := ctrl.FinalBytes(raw)
+		require.NoError(t, err)
+		require.Equal(t, "hello\n", parsed.Message)
+	})
+
+	t.Run("sanitize disabled", func(t *testing.T) {
+		ctrl := NewDebouncedYAML[blockScalarPayload](DebounceConfig{}.WithSanitizeYAML(false))
+
+		parsed, err := ctrl.FinalBytes(raw)
+		require.NoError(t, err)
+		require.Equal(t, "hello\n", parsed.Message)
+	})
 }

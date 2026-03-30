@@ -148,15 +148,15 @@ func (c *YAMLController[T]) normalizedYAML(raw []byte) ([]byte, error) {
 	if c.cfg.MaxBytes > 0 && len(body) > c.cfg.MaxBytes {
 		return nil, errPayloadTooLarge
 	}
-	src := strings.TrimSpace(string(body))
-	if src == "" {
+	src := append([]byte(nil), body...)
+	if strings.TrimSpace(string(src)) == "" {
 		return nil, errEmptyBody
 	}
 	if c.cfg.SanitizeEnabled() {
-		result := yamlsanitize.Sanitize(src)
-		if trimmed := strings.TrimSpace(result.Sanitized); trimmed != "" {
-			src = trimmed
+		result := yamlsanitize.Sanitize(string(src))
+		if strings.TrimSpace(result.Sanitized) != "" {
+			src = []byte(result.Sanitized)
 		}
 	}
-	return []byte(src), nil
+	return src, nil
 }
