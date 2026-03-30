@@ -19,13 +19,13 @@ RelatedFiles:
       Note: OpenAI engine emits streaming text events upstream of FilteringSink
     - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
       Note: Responses engine emits the same event types upstream of FilteringSink
-    - Path: glazed/pkg/helpers/yaml/yaml.go
-      Note: Existing YAML sanitizer proposed for reuse
+    - Path: sanitize/pkg/yaml/sanitize.go
+      Note: YAML sanitizer used by the shipped parsehelpers implementation
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: Pinocchio is downstream SEM translation and not the parsing layer
 ExternalSources: []
-Summary: Geppetto owns the structured-sink and YAML parsing helpers; Pinocchio only translates already-emitted events to SEM. This ticket captures a design to add optional-but-default-on YAML sanitization at the Geppetto parsehelpers layer, plus tests and doc updates.
-LastUpdated: 2026-03-28T18:04:46.08596139-04:00
+Summary: Geppetto owns the structured-sink and YAML parsing helpers; Pinocchio only translates already-emitted events to SEM. This ticket now captures both the design rationale and the shipped implementation for optional-but-default-on YAML sanitization at the Geppetto parsehelpers layer, including tests and doc updates.
+LastUpdated: 2026-03-30T18:30:00-04:00
 WhatFor: Give a new engineer enough context to implement default-on YAML sanitization for streaming structured event extraction without accidentally placing the change in the wrong layer.
 WhenToUse: Use when implementing or reviewing YAML extraction behavior in Geppetto structured sinks, or when deciding whether a structured-streaming change belongs in Geppetto or Pinocchio.
 ---
@@ -35,7 +35,7 @@ WhenToUse: Use when implementing or reviewing YAML extraction behavior in Geppet
 
 ## Overview
 
-This ticket concludes that the change belongs in `geppetto`, not `pinocchio`. Provider engines emit text streaming events, `FilteringSink` extracts tagged payloads, and extractor helpers parse YAML. Pinocchio only translates emitted Geppetto events into SEM frames for UI delivery. The primary design document in this ticket proposes adding optional-but-default-on YAML sanitization in `geppetto/pkg/events/structuredsink/parsehelpers`, reusing the existing `glazed` YAML cleanup helper.
+This ticket concludes that the change belongs in `geppetto`, not `pinocchio`. Provider engines emit text streaming events, `FilteringSink` extracts tagged payloads, and extractor helpers parse YAML. Pinocchio only translates emitted Geppetto events into SEM frames for UI delivery. The implementation in this ticket adds optional-but-default-on YAML sanitization in `geppetto/pkg/events/structuredsink/parsehelpers`, backed by `github.com/go-go-golems/sanitize/pkg/yaml`.
 
 ## Key Links
 
@@ -53,12 +53,14 @@ Completed in this ticket:
 - Confirmed ownership boundary: Geppetto, not Pinocchio.
 - Wrote a detailed intern-oriented design and implementation guide.
 - Recorded the investigation diary and supporting evidence.
+- Added sanitize-backed default-on parsing to `parsehelpers`.
+- Added helper-focused tests for sanitize-on and sanitize-off behavior.
+- Updated structured-sink docs and tutorials to the shipped helper API.
 
 Open implementation work:
 
-- Add parsehelpers sanitization support and tests.
-- Update structured-sink docs and examples to use the new helper path.
-- Validate with a representative extractor flow and publish the code change.
+- Consider whether a future helper should expose richer sanitize metadata (for example, whether the YAML was modified).
+- Optionally add an end-to-end extractor smoke test on top of the helper-focused coverage if future regressions justify it.
 
 ## Structure
 

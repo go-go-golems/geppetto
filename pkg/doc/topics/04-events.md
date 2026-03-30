@@ -555,7 +555,7 @@ ctrl := parsehelpers.NewDebouncedYAML[citationsPayload](parsehelpers.DebounceCon
 })
 ```
 
-Use `OnRaw` to feed bytes and emit "best-so-far" events, then `OnCompleted` to parse the final payload. If a block is malformed, the sink applies the configured policy (`MalformedErrorEvents`, `MalformedReconstructText`, or `MalformedIgnore`).
+Use `OnRaw` with `FeedBytes(...)` to emit "best-so-far" events, then `OnCompleted` with `FinalBytes(...)` to parse the final payload. `DebounceConfig.SanitizeYAML` is optional and defaults to `true`, so mildly malformed LLM YAML is sanitized before `yaml.Unmarshal`. If a block is malformed, the sink applies the configured policy (`MalformedErrorEvents`, `MalformedReconstructText`, or `MalformedIgnore`).
 
 ## Practical Tips
 

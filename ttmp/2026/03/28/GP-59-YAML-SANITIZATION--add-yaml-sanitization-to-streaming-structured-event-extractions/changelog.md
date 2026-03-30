@@ -23,3 +23,15 @@ Validated the ticket with docmgr doctor and uploaded the bundled ticket packet t
 
 - /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/ttmp/2026/03/28/GP-59-YAML-SANITIZATION--add-yaml-sanitization-to-streaming-structured-event-extractions/tasks.md — ticket status updated after validation and delivery
 
+
+## 2026-03-30
+
+Implemented default-on YAML sanitization in Geppetto structured-sink parsehelpers using `github.com/go-go-golems/sanitize/pkg/yaml`, added helper-focused tests for sanitized and opt-out behavior, and updated the structured-sink docs/tutorials to show the shipped helper API (`YAMLController`, `FeedBytes`, `FinalBytes`, `sanitize_yaml`).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/events/structuredsink/parsehelpers/helpers.go — added sanitize-aware normalization and config defaults
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/events/structuredsink/parsehelpers/helpers_test.go — added default-on and opt-out parsing coverage
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/doc/topics/11-structured-sinks.md — updated public helper examples
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/doc/playbooks/03-progressive-structured-data.md — updated playbook examples
+- /home/manuel/workspaces/2026-03-28/sanitize-yaml-structured-events/geppetto/pkg/doc/tutorials/04-structured-data-extraction.md — updated tutorial examples

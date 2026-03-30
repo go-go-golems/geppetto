@@ -149,7 +149,6 @@ The session receives streaming callbacks and returns typed events:
 ```go
 import (
     "context"
-    "gopkg.in/yaml.v3"
     "github.com/go-go-golems/geppetto/pkg/events"
     "github.com/go-go-golems/geppetto/pkg/events/structuredsink/parsehelpers"
 )
@@ -157,7 +156,7 @@ import (
 type citationsSession struct {
     meta    events.EventMetadata
     itemID  string
-    parser  *parsehelpers.DebouncedYAML[CitationsPayload]
+    parser  *parsehelpers.YAMLController[CitationsPayload]
     rawBuf  []byte
 }
 
@@ -167,6 +166,7 @@ func (s *citationsSession) OnStart(ctx context.Context) []events.Event {
         SnapshotEveryBytes: 256,  // Emit event every 256 bytes
         SnapshotOnNewline:  true, // Also emit on newlines
         MaxBytes:           64 << 10, // 64KB max
+        // SanitizeYAML defaults to true for LLM-produced YAML.
     })
     return nil // No start event needed
 }
@@ -175,8 +175,8 @@ func (s *citationsSession) OnRaw(ctx context.Context, chunk []byte) []events.Eve
     s.rawBuf = append(s.rawBuf, chunk...)
     
     // Try to parse progressively
-    result, shouldEmit := s.parser.Feed(chunk)
-    if !shouldEmit {
+    result, err := s.parser.FeedBytes(chunk)
+    if err != nil || result == nil {
         return nil
     }
     
@@ -205,9 +205,11 @@ func (s *citationsSession) OnCompleted(
     var parseErr string
     
     if success {
-        if e := yaml.Unmarshal(raw, &payload); e != nil {
+        if result, e := s.parser.FinalBytes(raw); e != nil {
             parseErr = e.Error()
             success = false
+        } else if result != nil {
+            payload = *result
         }
     } else if err != nil {
         parseErr = err.Error()

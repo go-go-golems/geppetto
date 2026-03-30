@@ -21,13 +21,13 @@ RelatedFiles:
       Note: provider streaming partial/final event emission
     - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
       Note: responses streaming partial/final event emission
-    - Path: glazed/pkg/helpers/yaml/yaml.go
-      Note: existing reusable YAML cleanup helper
+    - Path: sanitize/pkg/yaml/sanitize.go
+      Note: sanitize-backed YAML cleanup used by the shipped parsehelpers implementation
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: downstream-only SEM translation boundary
 ExternalSources: []
-Summary: The correct implementation point for YAML sanitization is Geppetto's structured-sink parsehelpers layer. FilteringSink should remain tag-oriented, and Pinocchio should remain downstream-only. The recommended design adds a default-on sanitization path to parsehelpers, exposes a reusable final-parse helper, adds tests, and updates docs that currently show direct yaml.Unmarshal usage.
-LastUpdated: 2026-03-28T18:04:46.288118968-04:00
+Summary: The correct implementation point for YAML sanitization is Geppetto's structured-sink parsehelpers layer. FilteringSink should remain tag-oriented, and Pinocchio should remain downstream-only. The shipped implementation adds a default-on sanitization path to parsehelpers using `github.com/go-go-golems/sanitize/pkg/yaml`, adds helper-focused tests, and updates docs that previously showed direct `yaml.Unmarshal` usage.
+LastUpdated: 2026-03-30T18:30:00-04:00
 WhatFor: Onboard an unfamiliar engineer and give them a safe, evidence-backed implementation plan for default-on YAML sanitization in streaming structured event extraction.
 WhenToUse: Use when implementing or reviewing structured-streaming YAML parsing in Geppetto, especially if deciding between provider, sink, extractor, helper, or Pinocchio layers.
 ---
@@ -44,7 +44,7 @@ The change should land in `geppetto/pkg/events/structuredsink/parsehelpers`, not
 - YAML parsing currently happens in helper code and in example extractor code paths via direct `yaml.Unmarshal`;
 - Pinocchio only consumes already-emitted events and translates them to SEM `llm.delta` and `llm.final` frames.
 
-The recommended implementation is to add a default-on sanitization step to the Geppetto YAML parsing helpers, backed by the existing `glazed/pkg/helpers/yaml.Clean(...)` function that already exists for LLM-produced YAML cleanup. The option should remain disableable, but the zero-config default should sanitize. The sink API does not need to become YAML-aware.
+The implemented approach adds a default-on sanitization step to the Geppetto YAML parsing helpers, backed by `github.com/go-go-golems/sanitize/pkg/yaml`. The option remains disableable via `DebounceConfig.SanitizeYAML`, but the zero-config default sanitizes. The sink API stays generic and tag-oriented.
 
 This guide is written for a new intern. It explains the runtime path end-to-end, names the files to read in order, calls out current doc/code mismatches that can cause confusion, proposes the minimal API change, and outlines tests and rollout steps.
 
@@ -158,16 +158,15 @@ Geppetto already has helper code for fence stripping and debounced YAML parsing:
 
 There is no sanitization step between `StripCodeFenceBytes(...)` and `yaml.Unmarshal(...)`.
 
-### Step 5: A reusable YAML sanitizer already exists in Glazed
+### Step 5: A reusable YAML sanitizer exists in the sibling sanitize module
 
-This repo already has an LLM-oriented YAML cleanup helper:
+This workspace now uses the dedicated `sanitize` module for LLM-oriented YAML cleanup:
 
-- `glazed/pkg/helpers/yaml/yaml.go:9-12` documents `Clean(...)` as YAML cleanup for LLM output.
-- `glazed/pkg/helpers/yaml/yaml.go:12-105` implements the current sanitization heuristics.
-- `glazed/cmd/glaze/cmds/yaml.go:94-100` shows Glazed using that helper before decoding YAML.
-- `glazed/pkg/doc/examples/yaml/yaml-sanitize.md:18-26` documents the intended use case.
+- `sanitize/pkg/yaml/sanitize.go:3-17` exposes `Sanitize(...)` and `SanitizeWithOptions(...)`.
+- `sanitize/pkg/yaml/sanitize.go:19-80` shows the iterative cleanup pipeline and `Result` shape.
+- `pinocchio/pkg/middlewares/agentmode/parser.go:28-38` demonstrates the same sanitize-backed parser pattern already working in application code.
 
-This matters because Geppetto already depends on `github.com/go-go-golems/glazed` in `geppetto/go.mod:5-28`, so reusing the helper is low-friction and consistent with existing ecosystem behavior.
+This matters because Geppetto can now depend on a small focused module (`github.com/go-go-golems/sanitize`) instead of reaching through Glazed helpers, and the same sanitize API is already in use elsewhere in the workspace.
 
 ### Step 6: Pinocchio is downstream-only in this flow
 
@@ -282,73 +281,52 @@ type DebounceConfig struct {
     SnapshotOnNewline  bool
     ParseTimeout       time.Duration
     MaxBytes           int
-
-    // false by default, which means sanitization is enabled by default
-    DisableSanitize    bool
+    SanitizeYAML       *bool `json:"sanitize_yaml,omitempty" yaml:"sanitize_yaml,omitempty"`
 }
-
-func ParseYAMLBytes[T any](raw []byte, cfg DebounceConfig) (*T, error)
 ```
 
 Why this shape:
 
-- `DisableSanitize bool` gives default-on behavior without pointer gymnastics.
-- `ParseYAMLBytes` gives non-debounced extractors the same default-on cleanup path.
-- `YAMLController.FinalBytes` and `YAMLController.tryParse` can delegate to the same internal normalization/parsing function.
+- `SanitizeYAML *bool` preserves zero-config default-on behavior while still allowing explicit opt-out.
+- The config shape matches the pattern already used in `pinocchio/pkg/middlewares/agentmode`.
+- `YAMLController.FinalBytes` and `YAMLController.tryParse` delegate to the same internal normalization/parsing function, so partial and final parsing cannot drift.
 
 ### Recommended Internal Structure
 
-Inside `parsehelpers/helpers.go`, create a small normalization pipeline:
+Inside `parsehelpers/helpers.go`, the normalization pipeline should look like this:
 
 ```go
-func normalizedYAMLBody(raw []byte, cfg DebounceConfig) ([]byte, error) {
+func (c *YAMLController[T]) normalizedYAML(raw []byte) ([]byte, error) {
     _, body := StripCodeFenceBytes(raw)
 
-    if cfg.MaxBytes > 0 && len(body) > cfg.MaxBytes {
+    if c.cfg.MaxBytes > 0 && len(body) > c.cfg.MaxBytes {
         return nil, errors.New("payload too large")
     }
 
-    if !cfg.DisableSanitize {
-        body = []byte(glazedyaml.Clean(string(body), false))
-    }
-
-    if cfg.MaxBytes > 0 && len(body) > cfg.MaxBytes {
-        return nil, errors.New("payload too large")
-    }
-
-    if len(strings.TrimSpace(string(body))) == 0 {
+    src := strings.TrimSpace(string(body))
+    if src == "" {
         return nil, errors.New("empty")
     }
 
-    return body, nil
-}
-```
-
-Then use it consistently:
-
-```go
-func ParseYAMLBytes[T any](raw []byte, cfg DebounceConfig) (*T, error) {
-    body, err := normalizedYAMLBody(raw, cfg)
-    if err != nil {
-        return nil, err
+    if c.cfg.SanitizeEnabled() {
+        result := yamlsanitize.Sanitize(strings.TrimSpace(string(body)))
+        if trimmed := strings.TrimSpace(result.Sanitized); trimmed != "" {
+            src = trimmed
+        }
     }
 
-    var out T
-    if err := yaml.Unmarshal(body, &out); err != nil {
-        return nil, err
-    }
-    return &out, nil
+    return []byte(src), nil
 }
 
 func (c *YAMLController[T]) FinalBytes(raw []byte) (*T, error) {
     if len(raw) > 0 {
-        return ParseYAMLBytes[T](raw, c.cfg)
+        return c.parseYAML(raw)
     }
     return c.tryParse()
 }
 ```
 
-For `tryParse()`, keep the timeout logic, but move the pre-unmarshal normalization outside the goroutine so both timeout and non-timeout modes see the same sanitized body.
+For `tryParse()`, keep the timeout logic, but move the pre-unmarshal normalization outside the goroutine so both timeout and non-timeout modes see the same sanitized body. The implementation should also centralize the actual unmarshal path in one helper (`parseYAML(...)`) so `FinalBytes(...)` and `FeedBytes(...)` share behavior.
 
 ### Why Not Put Sanitization In FilteringSink
 
@@ -403,7 +381,7 @@ OnRaw(chunk)
 
 ```text
 OnCompleted(raw, success=true)
-  -> parsehelpers.ParseYAMLBytes(raw, cfg)
+  -> parser.FinalBytes(raw)
       -> StripCodeFenceBytes(raw)
       -> sanitize unless disabled
       -> yaml.Unmarshal
@@ -430,11 +408,11 @@ Modify:
 
 Tasks:
 
-1. Add `DisableSanitize bool` to `DebounceConfig`.
-2. Add `normalizedYAMLBody(...)`.
-3. Add `ParseYAMLBytes[T any](raw []byte, cfg DebounceConfig)`.
-4. Refactor `FinalBytes(...)` and `tryParse()` to reuse the same normalization path.
-5. Preserve existing timeout behavior.
+1. Add `SanitizeYAML *bool` plus helper methods (`withDefaults`, `SanitizeEnabled`, `WithSanitizeYAML`) to `DebounceConfig`.
+2. Add a shared `normalizedYAML(...)` helper that strips fences, enforces size limits, trims empty payloads, and runs `yamlsanitize.Sanitize(...)` when enabled.
+3. Refactor `FinalBytes(...)` and `tryParse()` to reuse the same `parseYAML(...)` path.
+4. Preserve existing timeout behavior while moving normalization outside the goroutine.
+5. Pin the new module dependency in `geppetto/go.mod` and `go.sum`.
 
 ### Phase 2: Add tests around the helper, not the sink
 
@@ -444,9 +422,9 @@ Create:
 
 Recommended test cases:
 
-1. `ParseYAMLBytes` succeeds on already-valid YAML.
-2. `ParseYAMLBytes` succeeds on YAML that needs quoting cleanup when sanitization is enabled.
-3. `ParseYAMLBytes` fails on the same input when `DisableSanitize` is true.
+1. `FinalBytes(...)` succeeds on already-valid YAML.
+2. `FinalBytes(...)` succeeds on YAML that needs cleanup when sanitization is enabled.
+3. `FinalBytes(...)` fails on the same input when `SanitizeYAML` is explicitly disabled.
 4. Fence stripping plus sanitization works together.
 5. Empty payload still returns the existing "empty" style error.
 6. `MaxBytes` is enforced before and after cleanup.
@@ -473,10 +451,10 @@ Modify:
 
 Doc changes:
 
-1. Replace direct `yaml.Unmarshal(raw, &payload)` final parse examples with `parsehelpers.ParseYAMLBytes(...)`.
-2. Replace stale `DebouncedYAML` wording with `YAMLController` or keep the constructor name but fix the concrete type.
+1. Replace direct `yaml.Unmarshal(raw, &payload)` final parse examples with `parsehelpers.YAMLController.FinalBytes(...)`.
+2. Replace stale `DebouncedYAML` concrete type references with `YAMLController`.
 3. Replace `Feed(...)` with `FeedBytes(...)`.
-4. State explicitly that sanitization is enabled by default and can be disabled.
+4. State explicitly that sanitization is enabled by default and can be disabled with `WithSanitizeYAML(false)` or `sanitize_yaml: false`.
 
 ### Phase 4: Optional validation pass with a small example extractor
 
@@ -503,7 +481,7 @@ func (s *citationsSession) OnStart(ctx context.Context) []events.Event {
         SnapshotEveryBytes: 256,
         SnapshotOnNewline:  true,
         MaxBytes:           64 << 10,
-        // DisableSanitize omitted -> sanitize by default
+        // SanitizeYAML omitted -> sanitize by default
     })
     return nil
 }
@@ -525,8 +503,8 @@ func (s *citationsSession) OnCompleted(ctx context.Context, raw []byte, success 
         }
     }
 
-    payload, parseErr := parsehelpers.ParseYAMLBytes[CitationsPayload](raw, parsehelpers.DebounceConfig{})
-    if parseErr != nil {
+    payload, parseErr := s.parser.FinalBytes(raw)
+    if parseErr != nil || payload == nil {
         return []events.Event{
             NewCitationCompleteErrorEvent(s.meta, s.itemID, parseErr),
         }
@@ -542,11 +520,12 @@ func (s *citationsSession) OnCompleted(ctx context.Context, raw []byte, success 
 
 ### Risk 1: Sanitization can change semantics
 
-Any cleanup helper is heuristic. The `glazed` sanitizer may quote values that a strict caller would prefer to reject. That is why opt-out support matters.
+Any cleanup helper is heuristic. The `sanitize` module may quote values that a strict caller would prefer to reject. That is why opt-out support matters.
 
 Mitigation:
 
 - keep sanitization disableable;
+- expose the opt-out explicitly as `SanitizeYAML: false` or `WithSanitizeYAML(false)`;
 - keep the default helper narrow and documented;
 - add tests for representative repaired inputs.
 
@@ -557,7 +536,7 @@ If an external extractor uses `YAMLController` with zero-value config today and 
 Mitigation:
 
 - make the change explicit in release notes and docs;
-- support `DisableSanitize: true`;
+- support `SanitizeYAML: false` and `WithSanitizeYAML(false)`;
 - prefer a ticketed implementation note in changelog/docs.
 
 ### Risk 3: Existing docs are already slightly stale
@@ -597,18 +576,18 @@ Rejected because it does not produce a default-on library behavior. It would kee
 
 ### Alternative E: Add a positive `Sanitize bool` field
 
-Rejected because Go zero values would disable sanitization by default unless you introduced pointer or constructor complexity. `DisableSanitize bool` is simpler for a zero-config default-on feature.
+Rejected because a plain `bool` would make the zero value ambiguous. The shipped `*bool` plus helper methods preserves zero-config default-on behavior while still serializing cleanly.
 
 ## Open Questions
 
-1. Should `ParseYAMLBytes(...)` be exported, or should the team prefer an unexported helper plus `FinalBytes(...)` only? My recommendation is to export it, because current docs show final-only parse flows that do not naturally use `YAMLController`.
+1. Do we want a future exported final-only helper for extractors that do not keep a session-local parser, or is `FinalBytes(...)` enough? The shipped implementation keeps the smaller API surface and relies on `FinalBytes(...)`.
 2. Do we want a future `parsehelpers.ParseJSONBytes(...)` equivalent for parity? Out of scope here, but the pattern would be similar.
-3. Should Geppetto eventually own a copy of the sanitizer instead of depending on `glazed` helper semantics? For now I would reuse `glazed` because the dependency already exists and the behavior is documented there.
+3. Should Geppetto eventually surface sanitize metadata (for example, whether the payload changed) in the helper API? Out of scope here, but possible if downstream consumers need repair observability.
 
 ## Implementation Checklist
 
 1. Read the files in the reference order below.
-2. Implement helper-layer sanitization and exported final parse helper.
+2. Implement helper-layer sanitization and the shared `FinalBytes(...)` / `FeedBytes(...)` parse path.
 3. Add helper tests first; do not start with sink tests.
 4. Update the three structured-sink docs so examples stop bypassing the helper.
 5. Run focused tests for `parsehelpers` and `structuredsink`.
@@ -625,7 +604,7 @@ Read these files in this order if you are new to the system:
 5. `geppetto/pkg/steps/ai/openai/engine_openai.go`
 6. `geppetto/pkg/steps/ai/openai_responses/engine.go`
 7. `pinocchio/pkg/webchat/sem_translator.go`
-8. `glazed/pkg/helpers/yaml/yaml.go`
+8. `sanitize/pkg/yaml/sanitize.go`
 
 ## References
 
@@ -658,5 +637,5 @@ Primary code references:
 - `geppetto/pkg/doc/tutorials/04-structured-data-extraction.md:190-246`
 - `geppetto/pkg/doc/tutorials/04-structured-data-extraction.md:462-479`
 - `pinocchio/pkg/webchat/sem_translator.go:284-318`
-- `glazed/pkg/helpers/yaml/yaml.go:9-105`
+- `sanitize/pkg/yaml/sanitize.go:3-80`
 - `glazed/cmd/glaze/cmds/yaml.go:94-100`

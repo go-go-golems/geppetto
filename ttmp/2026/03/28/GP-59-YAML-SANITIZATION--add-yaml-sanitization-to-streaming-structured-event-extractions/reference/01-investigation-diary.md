@@ -19,13 +19,13 @@ RelatedFiles:
       Note: investigated provider partial/final publication
     - Path: geppetto/pkg/steps/ai/openai_responses/engine.go
       Note: investigated responses publication path
-    - Path: glazed/pkg/helpers/yaml/yaml.go
-      Note: identified reusable sanitizer
+    - Path: sanitize/pkg/yaml/sanitize.go
+      Note: sanitize-backed YAML cleanup used in the implementation
     - Path: pinocchio/pkg/webchat/sem_translator.go
       Note: confirmed downstream translation only
 ExternalSources: []
 Summary: Investigation record for locating the correct ownership layer for YAML sanitization in streaming structured event extraction and for writing the implementation guide stored in this ticket.
-LastUpdated: 2026-03-28T18:04:46.297857105-04:00
+LastUpdated: 2026-03-30T18:30:00-04:00
 WhatFor: Preserve the reasoning, commands, evidence, and continuation notes behind the GP-59 design ticket.
 WhenToUse: Use when continuing the implementation, reviewing why the change belongs in Geppetto, or checking which files and commands were used to build the design guide.
 ---
@@ -162,4 +162,127 @@ nl -ba glazed/pkg/helpers/yaml/yaml.go | sed -n '1,260p'
 docmgr ticket create-ticket --ticket GP-59-YAML-SANITIZATION --title "Add YAML sanitization to streaming structured event extractions" --topics geppetto,events,streaming,yaml
 docmgr doc add --ticket GP-59-YAML-SANITIZATION --doc-type design-doc --title "Intern guide to adding optional-by-default YAML sanitization to streaming structured event extractions"
 docmgr doc add --ticket GP-59-YAML-SANITIZATION --doc-type reference --title "Investigation diary"
+```
+
+## Step 2: Implement the sanitize-backed parsehelpers path and update the docs
+
+After the earlier design pass, the user confirmed that the implementation should use `sanitize/`, not the old Glazed helper path. In this step I changed Geppetto itself: `parsehelpers` now defaults to sanitizing YAML before unmarshal, callers can explicitly disable that behavior, the new dependency is pinned in `geppetto/go.mod`, and the public structured-sink docs now match the shipped API instead of the stale examples.
+
+The most important technical decision in this step was to keep the public helper shape small. I did not add a new exported `ParseYAMLBytes(...)` helper. Instead, I refactored the existing `YAMLController` so `FeedBytes(...)` and `FinalBytes(...)` share the same sanitize-aware normalization and parse path. That preserves the already-used surface area while still fixing the real bug.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, let's work on that ticket then, task by task, committing at appropriate intervals, and then diary. 
+
+Now that we have a properly working agentmode middleware to test things."
+
+**Assistant interpretation:** Implement the remaining GP-59 tasks in Geppetto, commit the work in logical steps, and then update the ticket diary with the actual implementation details.
+
+**Inferred user intent:** Finish the previously documented YAML sanitization work now that there is a real application path (`agentmode`) that benefits from the helper-level fix, and leave behind accurate ticket documentation rather than only a design plan.
+
+**Commit (code):** `01041ff` — "Add YAML sanitization to structured sink parsehelpers"
+
+### What I did
+
+- Updated `geppetto/pkg/events/structuredsink/parsehelpers/helpers.go` to:
+  - add `DebounceConfig.SanitizeYAML *bool`
+  - add `withDefaults`, `SanitizeEnabled`, and `WithSanitizeYAML`
+  - centralize normalization in `normalizedYAML(...)`
+  - run `yamlsanitize.Sanitize(...)` before `yaml.Unmarshal`
+  - make `FinalBytes(...)` and `FeedBytes(...)` share the same parse path
+- Added `geppetto/pkg/events/structuredsink/parsehelpers/helpers_test.go` covering:
+  - sanitize-on default behavior
+  - explicit sanitize-off behavior
+  - progressive `FeedBytes(...)` parsing
+  - valid fenced YAML pass-through
+- Added `github.com/go-go-golems/sanitize v0.0.1` to `geppetto/go.mod` and materialized standalone `go.sum` entries with `GOWORK=off`.
+- Updated the public docs:
+  - `geppetto/pkg/doc/topics/04-events.md`
+  - `geppetto/pkg/doc/topics/11-structured-sinks.md`
+  - `geppetto/pkg/doc/playbooks/03-progressive-structured-data.md`
+  - `geppetto/pkg/doc/tutorials/04-structured-data-extraction.md`
+- Updated GP-59 ticket docs:
+  - `index.md`
+  - `tasks.md`
+  - `changelog.md`
+  - `design-doc/01-intern-guide-...md`
+
+### Why
+
+- The code fix belonged in Geppetto, not in `agentmode`, because multiple extractors can use the same helper.
+- The original GP-59 docs were stale in two ways:
+  - they pointed at Glazed instead of `sanitize/`
+  - they taught helper APIs that no longer matched the real code (`DebouncedYAML`, `Feed(...)`)
+- Keeping one sanitize-aware parse path avoids the common regression where partial parsing and final parsing drift apart over time.
+
+### What worked
+
+- The same malformed YAML fixture already used in `agentmode` tests (`name:test`) is enough to prove the default-on sanitization contract.
+- Focused tests (`go test ./pkg/events/structuredsink/... -count=1`) passed quickly in workspace mode.
+- A standalone repo validation with `GOWORK=off` exposed the exact dependency pinning work needed for `go.sum`.
+- The full pre-commit hooks on the code commit passed, including `go test ./...`, lint, and vet.
+
+### What didn't work
+
+- The first standalone test pass failed because `geppetto/go.sum` did not yet include the new dependency:
+
+```text
+missing go.sum entry for module providing package github.com/go-go-golems/sanitize/pkg/yaml
+```
+
+- After adding the direct module requirement, the next standalone pass still failed on transitive `tree-sitter` checksum entries:
+
+```text
+missing go.sum entry for module providing package github.com/tree-sitter-grammars/tree-sitter-yaml/bindings/go
+missing go.sum entry for module providing package github.com/tree-sitter/go-tree-sitter
+```
+
+- Resolution:
+  - `cd geppetto && GOWORK=off go get github.com/go-go-golems/sanitize@v0.0.1`
+  - `cd geppetto && GOWORK=off go get github.com/go-go-golems/sanitize/pkg/yaml@v0.0.1`
+  - reran `cd geppetto && GOWORK=off go test ./pkg/events/structuredsink/... -count=1`
+
+### What I learned
+
+- `go.work` can hide real standalone-module dependency gaps. For cross-repo workspace development, it is worth doing at least one `GOWORK=off` validation pass whenever a new module import is introduced.
+- The `sanitize` module update also bumped `github.com/spf13/cobra` from `v1.10.1` to `v1.10.2` in `geppetto/go.mod`. That was a legitimate transitive effect of the new dependency pinning, not unrelated drift.
+- The GP-59 ticket files had been staged in the repo already, so the first implementation commit also swept them in. I treated the next step as the intentional doc-follow-up rather than rewriting history.
+
+### What was tricky to build
+
+- The sharp edge was not the parser logic itself. It was preserving the smallest reasonable public API while still making the docs useful. The earlier design sketched an exported `ParseYAMLBytes(...)` helper, but the shipped code ended up cleaner without it because `FinalBytes(...)` already covers final-only parse flows.
+- Another subtle edge was module hygiene. The code compiled fine in workspace mode because `go.work` pointed at `./sanitize`, but `geppetto` as its own module still needed full checksum materialization.
+
+### What warrants a second pair of eyes
+
+- The sanitize heuristic itself is intentionally permissive. A reviewer should sanity-check whether there are known extractor payloads where auto-repair would be less desirable than strict rejection.
+- The docs now show `sanitize_yaml` as a config concept because the field has JSON/YAML tags, but there is not yet a higher-level end-to-end example of reading that option from a config file. That is acceptable for this ticket, but worth keeping in mind.
+
+### What should be done in the future
+
+- Optional: add a small end-to-end extractor smoke test through `FilteringSink` if future regressions suggest the helper tests are not enough.
+- Optional: decide whether `parsehelpers` should expose richer sanitize metadata in the future.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/events/structuredsink/parsehelpers/helpers.go`.
+- Then read `geppetto/pkg/events/structuredsink/parsehelpers/helpers_test.go`.
+- Then review the doc updates in:
+  - `geppetto/pkg/doc/topics/11-structured-sinks.md`
+  - `geppetto/pkg/doc/playbooks/03-progressive-structured-data.md`
+  - `geppetto/pkg/doc/tutorials/04-structured-data-extraction.md`
+- Validation commands:
+  - `cd geppetto && go test ./pkg/events/structuredsink/... -count=1`
+  - `cd geppetto && GOWORK=off go test ./pkg/events/structuredsink/... -count=1`
+
+### Technical details
+
+Commands used during implementation:
+
+```bash
+cd geppetto && go test ./pkg/events/structuredsink/... -count=1
+cd geppetto && GOWORK=off go test ./pkg/events/structuredsink/... -count=1
+cd geppetto && GOWORK=off go get github.com/go-go-golems/sanitize@v0.0.1
+cd geppetto && GOWORK=off go get github.com/go-go-golems/sanitize/pkg/yaml@v0.0.1
+git -C geppetto commit -m "Add YAML sanitization to structured sink parsehelpers"
 ```
