@@ -260,6 +260,7 @@ var _ Event = &EventToolCall{}
 
 type ToolResult struct {
 	ID     string `json:"id"`
+	Name   string `json:"name,omitempty"`
 	Result string `json:"result"`
 }
 
@@ -793,6 +794,9 @@ func (e EventToolCall) MarshalZerologObject(ev *zerolog.Event) {
 
 func (tr ToolResult) MarshalZerologObject(ev *zerolog.Event) {
 	ev.Str("id", tr.ID).Str("result", tr.Result)
+	if tr.Name != "" {
+		ev.Str("name", tr.Name)
+	}
 }
 
 func (e EventToolResult) MarshalZerologObject(ev *zerolog.Event) {
