@@ -113,7 +113,7 @@ func (b *BaseToolExecutor) PublishResult(ctx context.Context, call ToolCall, res
 	}
 	events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
 		events.EventMetadata{},
-		events.ToolResult{ID: call.ID, Result: payload},
+		events.ToolResult{ID: call.ID, Name: call.Name, Result: payload},
 	))
 }
 
