@@ -1,7 +1,9 @@
 package sections
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
@@ -23,6 +25,23 @@ type CreateOption func(*createOptions)
 
 type createOptions struct {
 	stepSettings *settings.InferenceSettings
+}
+
+func resolvePinocchioConfigFiles(explicit string) ([]glazedConfig.ResolvedConfigFile, error) {
+	plan := glazedConfig.NewPlan(
+		glazedConfig.WithLayerOrder(glazedConfig.LayerSystem, glazedConfig.LayerUser, glazedConfig.LayerExplicit),
+		glazedConfig.WithDedupePaths(),
+	).Add(
+		glazedConfig.SystemAppConfig("pinocchio").Named("system-app-config").Kind("app-config"),
+		glazedConfig.HomeAppConfig("pinocchio").Named("home-app-config").Kind("app-config"),
+		glazedConfig.XDGAppConfig("pinocchio").Named("xdg-app-config").Kind("app-config"),
+		glazedConfig.ExplicitFile(strings.TrimSpace(explicit)).Named("explicit-config").Kind("explicit-file"),
+	)
+	files, _, err := plan.Resolve(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 // WithDefaultsFromInferenceSettings uses the given InferenceSettings for layer defaults.
@@ -203,13 +222,9 @@ func GetCobraCommandGeppettoMiddlewares(
 	}
 
 	// 2) Resolve config files once (low -> high precedence) so bootstrap + main chain are consistent.
-	var configFiles []string
-	configPath, err := glazedConfig.ResolveAppConfigPath("pinocchio", "")
-	if err == nil && configPath != "" {
-		configFiles = append(configFiles, configPath)
-	}
-	if commandSettings.ConfigFile != "" {
-		configFiles = append(configFiles, commandSettings.ConfigFile)
+	resolvedConfigFiles, err := resolvePinocchioConfigFiles(commandSettings.ConfigFile)
+	if err != nil {
+		return nil, err
 	}
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
@@ -225,8 +240,8 @@ func GetCobraCommandGeppettoMiddlewares(
 		bootstrapProfileParsed,
 		sources.FromCobra(cmd, fields.WithSource("cobra")),
 		sources.FromEnv("PINOCCHIO", fields.WithSource("env")),
-		sources.FromFiles(
-			configFiles,
+		sources.FromResolvedFiles(
+			resolvedConfigFiles,
 			sources.WithConfigFileMapper(configMapper),
 			sources.WithParseOptions(fields.WithSource("config")),
 		),
@@ -287,8 +302,8 @@ func GetCobraCommandGeppettoMiddlewares(
 	)
 
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
-	middlewares_ = append(middlewares_, sources.FromFiles(
-		configFiles,
+	middlewares_ = append(middlewares_, sources.FromResolvedFiles(
+		resolvedConfigFiles,
 		sources.WithConfigFileMapper(configMapper),
 		sources.WithParseOptions(fields.WithSource("config")),
 	))

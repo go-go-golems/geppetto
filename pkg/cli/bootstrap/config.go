@@ -39,6 +39,9 @@ func (c AppBootstrapConfig) Validate() error {
 	if c.BuildBaseSections == nil {
 		return errors.New("app bootstrap config: base sections builder is required")
 	}
+	if c.ConfigPlanBuilder == nil {
+		return errors.New("app bootstrap config: config plan builder is required")
+	}
 	return nil
 }
 

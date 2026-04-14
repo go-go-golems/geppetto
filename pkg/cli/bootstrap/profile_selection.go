@@ -168,16 +168,6 @@ func ResolveCLIConfigFilesResolved(cfg AppBootstrapConfig, parsed *values.Values
 		return nil, err
 	}
 
-	if cfg.ConfigPlanBuilder == nil {
-		files, err := resolveCLIConfigFilesLegacy(cfg, parsed)
-		if err != nil {
-			return nil, err
-		}
-		return &ResolvedCLIConfigFiles{
-			Paths: append([]string(nil), files...),
-		}, nil
-	}
-
 	plan, err := cfg.ConfigPlanBuilder(parsed)
 	if err != nil {
 		return nil, err
@@ -213,42 +203,6 @@ func ResolveCLIConfigFilesForExplicit(cfg AppBootstrapConfig, explicit string) (
 		return nil, err
 	}
 	return ResolveCLIConfigFiles(cfg, parsed)
-}
-
-func resolveCLIConfigFilesLegacy(cfg AppBootstrapConfig, parsed *values.Values) ([]string, error) {
-	files := make([]string, 0, 2)
-	defaultFile, err := glazedconfig.ResolveAppConfigPath(cfg.normalizedAppName(), "")
-	if err != nil {
-		return nil, errors.Wrapf(err, "resolve %s default config path", cfg.normalizedAppName())
-	}
-	if defaultFile != "" {
-		files = append(files, defaultFile)
-	}
-	if parsed != nil {
-		commandSettings := &cli.CommandSettings{}
-		if err := parsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err == nil {
-			explicit := strings.TrimSpace(commandSettings.ConfigFile)
-			if explicit != "" {
-				explicitPath, err := glazedconfig.ResolveAppConfigPath(cfg.normalizedAppName(), explicit)
-				if err != nil {
-					return nil, err
-				}
-				if explicitPath != "" {
-					duplicate := false
-					for _, f := range files {
-						if f == explicitPath {
-							duplicate = true
-							break
-						}
-					}
-					if !duplicate {
-						files = append(files, explicitPath)
-					}
-				}
-			}
-		}
-	}
-	return files, nil
 }
 
 func commandSettingsValuesWithExplicitConfig(explicit string) (*values.Values, error) {
