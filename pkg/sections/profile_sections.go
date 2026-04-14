@@ -17,7 +17,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/sources"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	glazedConfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -171,13 +170,9 @@ func GetProfileSettingsMiddleware(
 	}
 
 	// 2) Resolve config files once (low -> high precedence) so bootstrap + main chain are consistent.
-	var configFiles []string
-	configPath, err := glazedConfig.ResolveAppConfigPath("pinocchio", "")
-	if err == nil && configPath != "" {
-		configFiles = append(configFiles, configPath)
-	}
-	if commandSettings.ConfigFile != "" {
-		configFiles = append(configFiles, commandSettings.ConfigFile)
+	resolvedConfigFiles, err := resolvePinocchioConfigFiles(commandSettings.ConfigFile)
+	if err != nil {
+		return nil, err
 	}
 
 	// 3) Bootstrap profile settings from config + env + Cobra + defaults.
@@ -193,8 +188,8 @@ func GetProfileSettingsMiddleware(
 		bootstrapProfileParsed,
 		sources.FromCobra(cmd, fields.WithSource("cobra")),
 		sources.FromEnv("PINOCCHIO", fields.WithSource("env")),
-		sources.FromFiles(
-			configFiles,
+		sources.FromResolvedFiles(
+			resolvedConfigFiles,
 			sources.WithConfigFileMapper(configMapper),
 			sources.WithParseOptions(fields.WithSource("config")),
 		),
@@ -255,8 +250,8 @@ func GetProfileSettingsMiddleware(
 	)
 
 	// Config files (low -> high precedence) - resolved once above to keep bootstrap + main chain consistent.
-	middlewares_ = append(middlewares_, sources.FromFiles(
-		configFiles,
+	middlewares_ = append(middlewares_, sources.FromResolvedFiles(
+		resolvedConfigFiles,
 		sources.WithConfigFileMapper(configMapper),
 		sources.WithParseOptions(fields.WithSource("config")),
 	))

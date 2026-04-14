@@ -17,7 +17,7 @@ import (
 )
 
 func testAppBootstrapConfig() AppBootstrapConfig {
-	return AppBootstrapConfig{
+	cfg := AppBootstrapConfig{
 		AppName:          "gp53app",
 		EnvPrefix:        "GP53APP",
 		ConfigFileMapper: testConfigFileMapper,
@@ -28,6 +28,25 @@ func testAppBootstrapConfig() AppBootstrapConfig {
 			return geppettosections.CreateGeppettoSections()
 		},
 	}
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		explicit := ""
+		if parsed != nil {
+			commandSettings := &cli.CommandSettings{}
+			if err := parsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err == nil {
+				explicit = strings.TrimSpace(commandSettings.ConfigFile)
+			}
+		}
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerSystem, glazedconfig.LayerUser, glazedconfig.LayerExplicit),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.SystemAppConfig(cfg.AppName).Named("system-app-config").Kind("app-config"),
+			glazedconfig.HomeAppConfig(cfg.AppName).Named("home-app-config").Kind("app-config"),
+			glazedconfig.XDGAppConfig(cfg.AppName).Named("xdg-app-config").Kind("app-config"),
+			glazedconfig.ExplicitFile(explicit).Named("explicit-config").Kind("explicit-file"),
+		), nil
+	}
+	return cfg
 }
 
 func testConfigFileMapper(rawConfig interface{}) (map[string]map[string]interface{}, error) {
@@ -74,7 +93,7 @@ func TestNewCLISelectionValuesBuildsCommandAndProfileSections(t *testing.T) {
 	}
 }
 
-func TestResolveCLIConfigFiles_UsesAppNameForDefaultDiscovery(t *testing.T) {
+func TestResolveCLIConfigFiles_UsesConfiguredPlanForDefaultDiscovery(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
