@@ -5,10 +5,14 @@ import (
 
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/sources"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/pkg/errors"
 )
 
 const ProfileSettingsSectionSlug = "profile-settings"
+
+type ConfigPlanBuilder func(parsed *values.Values) (*glazedconfig.Plan, error)
 
 type AppBootstrapConfig struct {
 	AppName           string
@@ -16,6 +20,7 @@ type AppBootstrapConfig struct {
 	ConfigFileMapper  sources.ConfigFileMapper
 	NewProfileSection func() (schema.Section, error)
 	BuildBaseSections func() ([]schema.Section, error)
+	ConfigPlanBuilder ConfigPlanBuilder
 }
 
 func (c AppBootstrapConfig) Validate() error {

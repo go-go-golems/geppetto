@@ -1,15 +1,19 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
+	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
 )
 
 func testAppBootstrapConfig() AppBootstrapConfig {
@@ -144,6 +148,110 @@ func TestResolveCLIProfileSelection_DoesNotUseImplicitProfilesFallback(t *testin
 	}
 	if len(resolved.ProfileRegistries) != 0 {
 		t.Fatalf("expected no implicit registry fallback, got %#v", resolved.ProfileRegistries)
+	}
+}
+
+func TestResolveCLIProfileSelection_UsesConfigPlanBuilderLayering(t *testing.T) {
+	cfg := testAppBootstrapConfig()
+	tmpDir := t.TempDir()
+	repoFile := filepath.Join(tmpDir, "repo.yaml")
+	cwdFile := filepath.Join(tmpDir, "cwd.yaml")
+	explicitFile := filepath.Join(tmpDir, "explicit.yaml")
+	for path, profile := range map[string]string{
+		repoFile:     "repo-profile",
+		cwdFile:      "cwd-profile",
+		explicitFile: "explicit-profile",
+	} {
+		content := "profile-settings:\n  profile: " + profile + "\n"
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write config %s: %v", path, err)
+		}
+	}
+
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		explicit := ""
+		if parsed != nil {
+			commandSettings := &cli.CommandSettings{}
+			if err := parsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err == nil {
+				explicit = strings.TrimSpace(commandSettings.ConfigFile)
+			}
+		}
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerRepo, glazedconfig.LayerCWD, glazedconfig.LayerExplicit),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.ExplicitFile(repoFile).Named("repo-config").InLayer(glazedconfig.LayerRepo).Kind("app-config"),
+			glazedconfig.ExplicitFile(cwdFile).Named("cwd-config").InLayer(glazedconfig.LayerCWD).Kind("app-config"),
+			glazedconfig.ExplicitFile(explicit).Named("explicit-config").InLayer(glazedconfig.LayerExplicit).Kind("explicit-file"),
+		), nil
+	}
+
+	parsed, err := NewCLISelectionValues(cfg, CLISelectionInput{ConfigFile: explicitFile})
+	if err != nil {
+		t.Fatalf("NewCLISelectionValues failed: %v", err)
+	}
+
+	resolved, err := ResolveCLIProfileSelection(cfg, parsed)
+	if err != nil {
+		t.Fatalf("ResolveCLIProfileSelection failed: %v", err)
+	}
+	if got := resolved.Profile; got != "explicit-profile" {
+		t.Fatalf("expected explicit profile to win layered config precedence, got %q", got)
+	}
+	if len(resolved.ConfigFiles) != 3 || resolved.ConfigFiles[0] != repoFile || resolved.ConfigFiles[1] != cwdFile || resolved.ConfigFiles[2] != explicitFile {
+		t.Fatalf("unexpected config file order: %#v", resolved.ConfigFiles)
+	}
+}
+
+func TestBuildInferenceTraceParsedValues_PreservesConfigLayerMetadata(t *testing.T) {
+	cfg := testAppBootstrapConfig()
+	tmpDir := t.TempDir()
+	repoFile := filepath.Join(tmpDir, "repo-base.yaml")
+	if err := os.WriteFile(repoFile, []byte("ai-chat:\n  ai-api-type: openai\n  ai-engine: repo-model\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerRepo),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.ExplicitFile(repoFile).Named("repo-config").InLayer(glazedconfig.LayerRepo).Kind("app-config"),
+		), nil
+	}
+
+	parsedForTrace, err := BuildInferenceTraceParsedValues(cfg, values.New())
+	if err != nil {
+		t.Fatalf("BuildInferenceTraceParsedValues failed: %v", err)
+	}
+	engineField, ok := parsedForTrace.GetField(aisettings.AiChatSlug, "ai-engine")
+	if !ok {
+		t.Fatal("expected ai-chat.ai-engine field in parsed trace values")
+	}
+	if len(engineField.Log) == 0 {
+		t.Fatal("expected ai-engine parse history")
+	}
+	last := engineField.Log[len(engineField.Log)-1]
+	if got := last.Metadata["config_layer"]; got != string(glazedconfig.LayerRepo) {
+		t.Fatalf("expected config_layer=%q, got %#v", glazedconfig.LayerRepo, got)
+	}
+	if got := last.Metadata["config_source_name"]; got != "repo-config" {
+		t.Fatalf("expected config_source_name=repo-config, got %#v", got)
+	}
+
+	resolved, err := ResolveCLIEngineSettings(context.Background(), cfg, values.New())
+	if err != nil {
+		t.Fatalf("ResolveCLIEngineSettings failed: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := WriteInferenceSettingsDebugYAML(&buf, resolved, InferenceDebugOutputOptions{ParsedForTrace: parsedForTrace}); err != nil {
+		t.Fatalf("WriteInferenceSettingsDebugYAML failed: %v", err)
+	}
+	out := buf.String()
+	for _, needle := range []string{"config_layer: repo", "config_source_name: repo-config", "config_source_kind: app-config"} {
+		if !strings.Contains(out, needle) {
+			t.Fatalf("expected debug output to contain %q, got:\n%s", needle, out)
+		}
 	}
 }
 
