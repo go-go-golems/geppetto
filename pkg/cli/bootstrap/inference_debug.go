@@ -85,19 +85,27 @@ func BuildInferenceTraceParsedValues(cfg AppBootstrapConfig, parsed *values.Valu
 
 	traceParsed := values.New()
 	baseSchema := schema.NewSchema(schema.WithSections(baseSections...))
-	configFiles, err := ResolveCLIConfigFiles(cfg, parsed)
+	configFiles, err := ResolveCLIConfigFilesResolved(cfg, parsed)
 	if err != nil {
 		return nil, err
+	}
+	configMiddleware := sources.FromFiles(
+		configFiles.Paths,
+		sources.WithConfigFileMapper(cfg.ConfigFileMapper),
+		sources.WithParseOptions(fields.WithSource("config")),
+	)
+	if cfg.ConfigPlanBuilder != nil {
+		configMiddleware = sources.FromResolvedFiles(
+			configFiles.Files,
+			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
+			sources.WithParseOptions(fields.WithSource("config")),
+		)
 	}
 	if err := sources.Execute(
 		baseSchema,
 		traceParsed,
 		sources.FromEnv(cfg.normalizedEnvPrefix(), fields.WithSource("env")),
-		sources.FromFiles(
-			configFiles,
-			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-			sources.WithParseOptions(fields.WithSource("config")),
-		),
+		configMiddleware,
 		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	); err != nil {
 		return nil, err

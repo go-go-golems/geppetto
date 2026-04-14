@@ -34,28 +34,36 @@ func ResolveBaseInferenceSettings(cfg AppBootstrapConfig, parsed *values.Values)
 	}
 	schema_ := schema.NewSchema(schema.WithSections(sections_...))
 	parsedValues := values.New()
-	configFiles, err := ResolveCLIConfigFiles(cfg, parsed)
+	configFiles, err := ResolveCLIConfigFilesResolved(cfg, parsed)
 	if err != nil {
 		return nil, nil, err
+	}
+	configMiddleware := sources.FromFiles(
+		configFiles.Paths,
+		sources.WithConfigFileMapper(cfg.ConfigFileMapper),
+		sources.WithParseOptions(fields.WithSource("config")),
+	)
+	if cfg.ConfigPlanBuilder != nil {
+		configMiddleware = sources.FromResolvedFiles(
+			configFiles.Files,
+			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
+			sources.WithParseOptions(fields.WithSource("config")),
+		)
 	}
 	if err := sources.Execute(
 		schema_,
 		parsedValues,
 		sources.FromEnv(cfg.normalizedEnvPrefix(), fields.WithSource("env")),
-		sources.FromFiles(
-			configFiles,
-			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-			sources.WithParseOptions(fields.WithSource("config")),
-		),
+		configMiddleware,
 		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	); err != nil {
-		return nil, configFiles, errors.Wrap(err, "resolve hidden base inference settings")
+		return nil, configFiles.Paths, errors.Wrap(err, "resolve hidden base inference settings")
 	}
 	stepSettings, err := aisettings.NewInferenceSettingsFromParsedValues(parsedValues)
 	if err != nil {
-		return nil, configFiles, errors.Wrap(err, "build inference settings from hidden parsed values")
+		return nil, configFiles.Paths, errors.Wrap(err, "build inference settings from hidden parsed values")
 	}
-	return stepSettings, configFiles, nil
+	return stepSettings, configFiles.Paths, nil
 }
 
 func ResolveCLIEngineSettings(
