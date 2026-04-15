@@ -34,21 +34,9 @@ func ResolveBaseInferenceSettings(cfg AppBootstrapConfig, parsed *values.Values)
 	}
 	schema_ := schema.NewSchema(schema.WithSections(sections_...))
 	parsedValues := values.New()
-	configFiles, err := ResolveCLIConfigFilesResolved(cfg, parsed)
+	configMiddleware, configFiles, err := resolveConfigMiddleware(cfg, parsed)
 	if err != nil {
 		return nil, nil, err
-	}
-	configMiddleware := sources.FromFiles(
-		configFiles.Paths,
-		sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-		sources.WithParseOptions(fields.WithSource("config")),
-	)
-	if cfg.ConfigPlanBuilder != nil {
-		configMiddleware = sources.FromResolvedFiles(
-			configFiles.Files,
-			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-			sources.WithParseOptions(fields.WithSource("config")),
-		)
 	}
 	if err := sources.Execute(
 		schema_,
@@ -102,13 +90,11 @@ func ResolveCLIEngineSettingsFromBase(
 		configFiles = append([]string(nil), selection.ConfigFiles...)
 	}
 
-	if len(selection.ProfileRegistries) == 0 {
-		if selection.Profile != "" {
-			return nil, &gepprofiles.ValidationError{
-				Field:  "profile-settings.profile-registries",
-				Reason: "must be configured when profile-settings.profile is set",
-			}
-		}
+	registryChain, err := ResolveProfileRegistryChain(ctx, selection.ProfileSettings)
+	if err != nil {
+		return nil, err
+	}
+	if registryChain == nil || registryChain.Registry == nil {
 		return &ResolvedCLIEngineSettings{
 			BaseInferenceSettings:  base,
 			FinalInferenceSettings: base,
@@ -117,32 +103,18 @@ func ResolveCLIEngineSettingsFromBase(
 		}, nil
 	}
 
-	specs, err := gepprofiles.ParseRegistrySourceSpecs(selection.ProfileRegistries)
+	resolved, err := registryChain.Registry.ResolveEngineProfile(ctx, registryChain.DefaultProfileResolve)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse profile registry source specs")
-	}
-	chain, err := gepprofiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
-	if err != nil {
-		return nil, errors.Wrap(err, "initialize profile registry")
-	}
-
-	in := gepprofiles.ResolveInput{}
-	if selection.Profile != "" {
-		profileSlug, err := gepprofiles.ParseEngineProfileSlug(selection.Profile)
-		if err != nil {
-			_ = chain.Close()
-			return nil, err
+		if registryChain.Close != nil {
+			registryChain.Close()
 		}
-		in.EngineProfileSlug = profileSlug
-	}
-	resolved, err := chain.ResolveEngineProfile(ctx, in)
-	if err != nil {
-		_ = chain.Close()
 		return nil, err
 	}
 	finalSettings, err := gepprofiles.MergeInferenceSettings(base, resolved.InferenceSettings)
 	if err != nil {
-		_ = chain.Close()
+		if registryChain.Close != nil {
+			registryChain.Close()
+		}
 		return nil, errors.Wrap(err, "merge base inference settings with engine profile")
 	}
 
@@ -152,9 +124,7 @@ func ResolveCLIEngineSettingsFromBase(
 		ProfileSelection:       selection,
 		ResolvedEngineProfile:  resolved,
 		ConfigFiles:            configFiles,
-		Close: func() {
-			_ = chain.Close()
-		},
+		Close:                  registryChain.Close,
 	}, nil
 }
 
