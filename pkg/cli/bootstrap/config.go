@@ -45,10 +45,6 @@ func (c AppBootstrapConfig) Validate() error {
 	return nil
 }
 
-func (c AppBootstrapConfig) normalizedAppName() string {
-	return strings.TrimSpace(c.AppName)
-}
-
 func (c AppBootstrapConfig) normalizedEnvPrefix() string {
 	return strings.TrimSpace(c.EnvPrefix)
 }

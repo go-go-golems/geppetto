@@ -8,6 +8,7 @@ import (
 	"time"
 
 	clay "github.com/go-go-golems/clay/pkg"
+	examplebootstrap "github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
@@ -282,7 +283,7 @@ func main() {
 	cobra.CheckErr(err)
 
 	command, err := cli.BuildCobraCommand(middlewareCmd,
-		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraMiddlewaresFunc(examplebootstrap.GetCobraCommandMiddlewares),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

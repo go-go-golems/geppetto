@@ -7,6 +7,7 @@ import (
 	"os"
 
 	clay "github.com/go-go-golems/clay/pkg"
+	examplebootstrap "github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	aistepsettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -106,7 +107,7 @@ func main() {
 
 	cobraCommand, err := cli.BuildCobraCommand(
 		command,
-		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraMiddlewaresFunc(examplebootstrap.GetCobraCommandMiddlewares),
 	)
 	cobra.CheckErr(err)
 
