@@ -64,21 +64,9 @@ func ResolveCLIProfileSelection(cfg AppBootstrapConfig, parsed *values.Values) (
 
 	schema_ := schema.NewSchema(schema.WithSections(profileSection))
 	resolvedValues := values.New()
-	configFiles, err := ResolveCLIConfigFilesResolved(cfg, parsed)
+	configMiddleware, configFiles, err := resolveConfigMiddleware(cfg, parsed)
 	if err != nil {
 		return nil, err
-	}
-	configMiddleware := sources.FromFiles(
-		configFiles.Paths,
-		sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-		sources.WithParseOptions(fields.WithSource("config")),
-	)
-	if cfg.ConfigPlanBuilder != nil {
-		configMiddleware = sources.FromResolvedFiles(
-			configFiles.Files,
-			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-			sources.WithParseOptions(fields.WithSource("config")),
-		)
 	}
 	if err := sources.Execute(
 		schema_,
