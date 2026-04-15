@@ -18,8 +18,8 @@ import (
 
 func AppBootstrapConfig() geppettobootstrap.AppBootstrapConfig {
 	cfg := geppettobootstrap.AppBootstrapConfig{
-		AppName:          "geppetto",
-		EnvPrefix:        "GEPPETTO",
+		AppName:          "pinocchio",
+		EnvPrefix:        "PINOCCHIO",
 		ConfigFileMapper: configFileMapper,
 		NewProfileSection: func() (schema.Section, error) {
 			return geppettosections.NewProfileSettingsSection()
