@@ -2,6 +2,8 @@ module github.com/go-go-golems/geppetto
 
 go 1.26.1
 
+toolchain go1.26.2
+
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.1
 	github.com/dnaeon/go-vcr v1.2.0
