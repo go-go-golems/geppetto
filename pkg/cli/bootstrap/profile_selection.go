@@ -143,14 +143,6 @@ func NewCLISelectionValues(cfg AppBootstrapConfig, input CLISelectionInput) (*va
 	return ret, nil
 }
 
-func ResolveCLIConfigFiles(cfg AppBootstrapConfig, parsed *values.Values) ([]string, error) {
-	resolved, err := ResolveCLIConfigFilesResolved(cfg, parsed)
-	if err != nil {
-		return nil, err
-	}
-	return append([]string(nil), resolved.Paths...), nil
-}
-
 func ResolveCLIConfigFilesResolved(cfg AppBootstrapConfig, parsed *values.Values) (*ResolvedCLIConfigFiles, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -177,37 +169,6 @@ func ResolveCLIConfigFilesResolved(cfg AppBootstrapConfig, parsed *values.Values
 		Files:  append([]glazedconfig.ResolvedConfigFile(nil), files...),
 		Report: report,
 	}, nil
-}
-
-func ResolveCLIConfigFilesForExplicit(cfg AppBootstrapConfig, explicit string) ([]string, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-	if strings.TrimSpace(explicit) == "" {
-		return ResolveCLIConfigFiles(cfg, nil)
-	}
-	parsed, err := commandSettingsValuesWithExplicitConfig(explicit)
-	if err != nil {
-		return nil, err
-	}
-	return ResolveCLIConfigFiles(cfg, parsed)
-}
-
-func commandSettingsValuesWithExplicitConfig(explicit string) (*values.Values, error) {
-	ret := values.New()
-	commandSection, err := cli.NewCommandSettingsSection()
-	if err != nil {
-		return nil, err
-	}
-	commandValues, err := values.NewSectionValues(commandSection)
-	if err != nil {
-		return nil, err
-	}
-	if err := values.WithFieldValue("config-file", strings.TrimSpace(explicit), fields.WithSource("cli"))(commandValues); err != nil {
-		return nil, err
-	}
-	ret.Set(cli.CommandSettingsSlug, commandValues)
-	return ret, nil
 }
 
 func normalizeProfileRegistries(entries []string) []string {

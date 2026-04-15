@@ -93,7 +93,7 @@ func TestNewCLISelectionValuesBuildsCommandAndProfileSections(t *testing.T) {
 	}
 }
 
-func TestResolveCLIConfigFiles_UsesConfiguredPlanForDefaultDiscovery(t *testing.T) {
+func TestResolveCLIConfigFilesResolved_UsesConfiguredPlanForDefaultDiscovery(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
@@ -107,12 +107,15 @@ func TestResolveCLIConfigFiles_UsesConfiguredPlanForDefaultDiscovery(t *testing.
 		t.Fatalf("write config: %v", err)
 	}
 
-	files, err := ResolveCLIConfigFiles(cfg, values.New())
+	resolved, err := ResolveCLIConfigFilesResolved(cfg, values.New())
 	if err != nil {
-		t.Fatalf("ResolveCLIConfigFiles failed: %v", err)
+		t.Fatalf("ResolveCLIConfigFilesResolved failed: %v", err)
 	}
-	if len(files) != 1 || files[0] != configPath {
-		t.Fatalf("expected discovered config path, got %#v", files)
+	if len(resolved.Files) != 1 || resolved.Files[0].Path != configPath {
+		t.Fatalf("expected discovered config path, got %#v", resolved.Files)
+	}
+	if len(resolved.Paths) != 1 || resolved.Paths[0] != configPath {
+		t.Fatalf("expected discovered config path slice, got %#v", resolved.Paths)
 	}
 }
 
