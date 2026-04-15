@@ -261,17 +261,12 @@ The exact config-file mapper is application-specific. A generic shape looks like
 
 ```go
 func myMiddlewares(parsed *values.Values, cmd *cobra.Command, args []string) ([]cmd_sources.Middleware, error) {
-	configFiles, err := geppettobootstrap.ResolveCLIConfigFiles(appBootstrapConfig(), parsed)
-	if err != nil {
-		return nil, err
-	}
-
 	return []cmd_sources.Middleware{
 		cmd_sources.FromCobra(cmd, fields.WithSource("cobra")),
 		cmd_sources.FromArgs(args, fields.WithSource("arguments")),
 		cmd_sources.FromEnv("MY_APP", fields.WithSource("env")),
-		cmd_sources.FromFiles(
-			configFiles,
+		cmd_sources.FromConfigPlanBuilder(
+			appBootstrapConfig().ConfigPlanBuilder,
 			cmd_sources.WithConfigFileMapper(appBootstrapConfig().ConfigFileMapper),
 			cmd_sources.WithParseOptions(fields.WithSource("config")),
 		),
