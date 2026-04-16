@@ -1,22 +1,26 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
+	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
 )
 
 func testAppBootstrapConfig() AppBootstrapConfig {
-	return AppBootstrapConfig{
+	cfg := AppBootstrapConfig{
 		AppName:          "gp53app",
 		EnvPrefix:        "GP53APP",
-		ConfigFileMapper: testConfigFileMapper,
+		ConfigFileMapper: DefaultConfigFileMapper,
 		NewProfileSection: func() (schema.Section, error) {
 			return geppettosections.NewProfileSettingsSection()
 		},
@@ -24,22 +28,25 @@ func testAppBootstrapConfig() AppBootstrapConfig {
 			return geppettosections.CreateGeppettoSections()
 		},
 	}
-}
-
-func testConfigFileMapper(rawConfig interface{}) (map[string]map[string]interface{}, error) {
-	configMap, ok := rawConfig.(map[string]interface{})
-	if !ok {
-		return nil, nil
-	}
-	result := make(map[string]map[string]interface{})
-	for key, value := range configMap {
-		layerParams, ok := value.(map[string]interface{})
-		if !ok {
-			continue
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		explicit := ""
+		if parsed != nil {
+			commandSettings := &cli.CommandSettings{}
+			if err := parsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err == nil {
+				explicit = strings.TrimSpace(commandSettings.ConfigFile)
+			}
 		}
-		result[key] = layerParams
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerSystem, glazedconfig.LayerUser, glazedconfig.LayerExplicit),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.SystemAppConfig(cfg.AppName).Named("system-app-config").Kind("app-config"),
+			glazedconfig.HomeAppConfig(cfg.AppName).Named("home-app-config").Kind("app-config"),
+			glazedconfig.XDGAppConfig(cfg.AppName).Named("xdg-app-config").Kind("app-config"),
+			glazedconfig.ExplicitFile(explicit).Named("explicit-config").Kind("explicit-file"),
+		), nil
 	}
-	return result, nil
+	return cfg
 }
 
 func TestNewCLISelectionValuesBuildsCommandAndProfileSections(t *testing.T) {
@@ -70,7 +77,7 @@ func TestNewCLISelectionValuesBuildsCommandAndProfileSections(t *testing.T) {
 	}
 }
 
-func TestResolveCLIConfigFiles_UsesAppNameForDefaultDiscovery(t *testing.T) {
+func TestResolveCLIConfigFilesResolved_UsesConfiguredPlanForDefaultDiscovery(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
@@ -84,12 +91,15 @@ func TestResolveCLIConfigFiles_UsesAppNameForDefaultDiscovery(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	files, err := ResolveCLIConfigFiles(cfg, values.New())
+	resolved, err := ResolveCLIConfigFilesResolved(cfg, values.New())
 	if err != nil {
-		t.Fatalf("ResolveCLIConfigFiles failed: %v", err)
+		t.Fatalf("ResolveCLIConfigFilesResolved failed: %v", err)
 	}
-	if len(files) != 1 || files[0] != configPath {
-		t.Fatalf("expected discovered config path, got %#v", files)
+	if len(resolved.Files) != 1 || resolved.Files[0].Path != configPath {
+		t.Fatalf("expected discovered config path, got %#v", resolved.Files)
+	}
+	if len(resolved.Paths) != 1 || resolved.Paths[0] != configPath {
+		t.Fatalf("expected discovered config path slice, got %#v", resolved.Paths)
 	}
 }
 
@@ -144,6 +154,110 @@ func TestResolveCLIProfileSelection_DoesNotUseImplicitProfilesFallback(t *testin
 	}
 	if len(resolved.ProfileRegistries) != 0 {
 		t.Fatalf("expected no implicit registry fallback, got %#v", resolved.ProfileRegistries)
+	}
+}
+
+func TestResolveCLIProfileSelection_UsesConfigPlanBuilderLayering(t *testing.T) {
+	cfg := testAppBootstrapConfig()
+	tmpDir := t.TempDir()
+	repoFile := filepath.Join(tmpDir, "repo.yaml")
+	cwdFile := filepath.Join(tmpDir, "cwd.yaml")
+	explicitFile := filepath.Join(tmpDir, "explicit.yaml")
+	for path, profile := range map[string]string{
+		repoFile:     "repo-profile",
+		cwdFile:      "cwd-profile",
+		explicitFile: "explicit-profile",
+	} {
+		content := "profile-settings:\n  profile: " + profile + "\n"
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write config %s: %v", path, err)
+		}
+	}
+
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		explicit := ""
+		if parsed != nil {
+			commandSettings := &cli.CommandSettings{}
+			if err := parsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err == nil {
+				explicit = strings.TrimSpace(commandSettings.ConfigFile)
+			}
+		}
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerRepo, glazedconfig.LayerCWD, glazedconfig.LayerExplicit),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.ExplicitFile(repoFile).Named("repo-config").InLayer(glazedconfig.LayerRepo).Kind("app-config"),
+			glazedconfig.ExplicitFile(cwdFile).Named("cwd-config").InLayer(glazedconfig.LayerCWD).Kind("app-config"),
+			glazedconfig.ExplicitFile(explicit).Named("explicit-config").InLayer(glazedconfig.LayerExplicit).Kind("explicit-file"),
+		), nil
+	}
+
+	parsed, err := NewCLISelectionValues(cfg, CLISelectionInput{ConfigFile: explicitFile})
+	if err != nil {
+		t.Fatalf("NewCLISelectionValues failed: %v", err)
+	}
+
+	resolved, err := ResolveCLIProfileSelection(cfg, parsed)
+	if err != nil {
+		t.Fatalf("ResolveCLIProfileSelection failed: %v", err)
+	}
+	if got := resolved.Profile; got != "explicit-profile" {
+		t.Fatalf("expected explicit profile to win layered config precedence, got %q", got)
+	}
+	if len(resolved.ConfigFiles) != 3 || resolved.ConfigFiles[0] != repoFile || resolved.ConfigFiles[1] != cwdFile || resolved.ConfigFiles[2] != explicitFile {
+		t.Fatalf("unexpected config file order: %#v", resolved.ConfigFiles)
+	}
+}
+
+func TestBuildInferenceTraceParsedValues_PreservesConfigLayerMetadata(t *testing.T) {
+	cfg := testAppBootstrapConfig()
+	tmpDir := t.TempDir()
+	repoFile := filepath.Join(tmpDir, "repo-base.yaml")
+	if err := os.WriteFile(repoFile, []byte("ai-chat:\n  ai-api-type: openai\n  ai-engine: repo-model\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerRepo),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.ExplicitFile(repoFile).Named("repo-config").InLayer(glazedconfig.LayerRepo).Kind("app-config"),
+		), nil
+	}
+
+	parsedForTrace, err := BuildInferenceTraceParsedValues(cfg, values.New())
+	if err != nil {
+		t.Fatalf("BuildInferenceTraceParsedValues failed: %v", err)
+	}
+	engineField, ok := parsedForTrace.GetField(aisettings.AiChatSlug, "ai-engine")
+	if !ok {
+		t.Fatal("expected ai-chat.ai-engine field in parsed trace values")
+	}
+	if len(engineField.Log) == 0 {
+		t.Fatal("expected ai-engine parse history")
+	}
+	last := engineField.Log[len(engineField.Log)-1]
+	if got := last.Metadata["config_layer"]; got != string(glazedconfig.LayerRepo) {
+		t.Fatalf("expected config_layer=%q, got %#v", glazedconfig.LayerRepo, got)
+	}
+	if got := last.Metadata["config_source_name"]; got != "repo-config" {
+		t.Fatalf("expected config_source_name=repo-config, got %#v", got)
+	}
+
+	resolved, err := ResolveCLIEngineSettings(context.Background(), cfg, values.New())
+	if err != nil {
+		t.Fatalf("ResolveCLIEngineSettings failed: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := WriteInferenceSettingsDebugYAML(&buf, resolved, InferenceDebugOutputOptions{ParsedForTrace: parsedForTrace}); err != nil {
+		t.Fatalf("WriteInferenceSettingsDebugYAML failed: %v", err)
+	}
+	out := buf.String()
+	for _, needle := range []string{"config_layer: repo", "config_source_name: repo-config", "config_source_kind: app-config"} {
+		if !strings.Contains(out, needle) {
+			t.Fatalf("expected debug output to contain %q, got:\n%s", needle, out)
+		}
 	}
 }
 

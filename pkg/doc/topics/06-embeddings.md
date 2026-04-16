@@ -820,10 +820,12 @@ func main() {
         Short: "Compare text similarity using embeddings",
     }
     
-    // Initialize Viper for config file support
-    err := clay.InitViper("text-compare", rootCmd)
+    // Initialize Glazed logging flags on the root command.
+    // Configure env/config loading explicitly through CobraParserConfig
+    // or direct source middlewares when building commands.
+    err := clay.InitGlazed("text-compare", rootCmd)
     if err != nil {
-        fmt.Printf("Failed to initialize Viper: %v\n", err)
+        fmt.Printf("Failed to initialize Glazed: %v\n", err)
         os.Exit(1)
     }
     

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"strings"
 
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -8,7 +9,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/sources"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	appconfig "github.com/go-go-golems/glazed/pkg/config"
+	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/pkg/errors"
 )
 
@@ -20,6 +21,12 @@ type ProfileSettings struct {
 type ResolvedCLIProfileSelection struct {
 	ProfileSettings
 	ConfigFiles []string
+}
+
+type ResolvedCLIConfigFiles struct {
+	Paths  []string
+	Files  []glazedconfig.ResolvedConfigFile
+	Report *glazedconfig.PlanReport
 }
 
 type CLISelectionInput struct {
@@ -57,7 +64,7 @@ func ResolveCLIProfileSelection(cfg AppBootstrapConfig, parsed *values.Values) (
 
 	schema_ := schema.NewSchema(schema.WithSections(profileSection))
 	resolvedValues := values.New()
-	configFiles, err := ResolveCLIConfigFiles(cfg, parsed)
+	configMiddleware, configFiles, err := resolveConfigMiddleware(cfg, parsed)
 	if err != nil {
 		return nil, err
 	}
@@ -65,11 +72,7 @@ func ResolveCLIProfileSelection(cfg AppBootstrapConfig, parsed *values.Values) (
 		schema_,
 		resolvedValues,
 		sources.FromEnv(cfg.normalizedEnvPrefix(), fields.WithSource("env")),
-		sources.FromFiles(
-			configFiles,
-			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-			sources.WithParseOptions(fields.WithSource("config")),
-		),
+		configMiddleware,
 		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	); err != nil {
 		return nil, errors.Wrap(err, "resolve profile settings from config/env/defaults")
@@ -83,7 +86,7 @@ func ResolveCLIProfileSelection(cfg AppBootstrapConfig, parsed *values.Values) (
 	profileSettings := ResolveProfileSettings(resolvedValues)
 	return &ResolvedCLIProfileSelection{
 		ProfileSettings: profileSettings,
-		ConfigFiles:     append([]string(nil), configFiles...),
+		ConfigFiles:     append([]string(nil), configFiles.Paths...),
 	}, nil
 }
 
@@ -140,68 +143,32 @@ func NewCLISelectionValues(cfg AppBootstrapConfig, input CLISelectionInput) (*va
 	return ret, nil
 }
 
-func ResolveCLIConfigFiles(cfg AppBootstrapConfig, parsed *values.Values) ([]string, error) {
+func ResolveCLIConfigFilesResolved(cfg AppBootstrapConfig, parsed *values.Values) (*ResolvedCLIConfigFiles, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
-	files := make([]string, 0, 2)
-	defaultFile, err := appconfig.ResolveAppConfigPath(cfg.normalizedAppName(), "")
+	plan, err := cfg.ConfigPlanBuilder(parsed)
 	if err != nil {
-		return nil, errors.Wrapf(err, "resolve %s default config path", cfg.normalizedAppName())
-	}
-	if defaultFile != "" {
-		files = append(files, defaultFile)
-	}
-	if parsed != nil {
-		commandSettings := &cli.CommandSettings{}
-		if err := parsed.DecodeSectionInto(cli.CommandSettingsSlug, commandSettings); err == nil {
-			explicit := strings.TrimSpace(commandSettings.ConfigFile)
-			if explicit != "" {
-				explicitPath, err := appconfig.ResolveAppConfigPath(cfg.normalizedAppName(), explicit)
-				if err != nil {
-					return nil, err
-				}
-				if explicitPath != "" {
-					duplicate := false
-					for _, f := range files {
-						if f == explicitPath {
-							duplicate = true
-							break
-						}
-					}
-					if !duplicate {
-						files = append(files, explicitPath)
-					}
-				}
-			}
-		}
-	}
-	return files, nil
-}
-
-func ResolveCLIConfigFilesForExplicit(cfg AppBootstrapConfig, explicit string) ([]string, error) {
-	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+	if plan == nil {
+		return &ResolvedCLIConfigFiles{}, nil
 	}
 
-	files, err := ResolveCLIConfigFiles(cfg, nil)
+	files, report, err := plan.Resolve(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	explicitPath, err := appconfig.ResolveAppConfigPath(cfg.normalizedAppName(), explicit)
-	if err != nil {
-		return nil, err
+	paths := make([]string, 0, len(files))
+	for _, file := range files {
+		paths = append(paths, file.Path)
 	}
-	if explicitPath == "" {
-		return files, nil
-	}
-	for _, f := range files {
-		if f == explicitPath {
-			return files, nil
-		}
-	}
-	return append(files, explicitPath), nil
+	return &ResolvedCLIConfigFiles{
+		Paths:  paths,
+		Files:  append([]glazedconfig.ResolvedConfigFile(nil), files...),
+		Report: report,
+	}, nil
 }
 
 func normalizeProfileRegistries(entries []string) []string {

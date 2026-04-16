@@ -18,6 +18,7 @@ import (
 	// "github.com/go-go-golems/geppetto/pkg/turns"
 
 	clay "github.com/go-go-golems/clay/pkg"
+	examplebootstrap "github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap"
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -528,7 +529,7 @@ func main() {
 	cobra.CheckErr(err)
 
 	command, err := cli.BuildCobraCommand(toolCallingCmd,
-		cli.WithCobraMiddlewaresFunc(geppettosections.GetCobraCommandGeppettoMiddlewares),
+		cli.WithCobraMiddlewaresFunc(examplebootstrap.GetCobraCommandMiddlewares),
 	)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(command)

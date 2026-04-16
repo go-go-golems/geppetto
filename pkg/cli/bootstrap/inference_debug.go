@@ -85,7 +85,7 @@ func BuildInferenceTraceParsedValues(cfg AppBootstrapConfig, parsed *values.Valu
 
 	traceParsed := values.New()
 	baseSchema := schema.NewSchema(schema.WithSections(baseSections...))
-	configFiles, err := ResolveCLIConfigFiles(cfg, parsed)
+	configMiddleware, _, err := resolveConfigMiddleware(cfg, parsed)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +93,7 @@ func BuildInferenceTraceParsedValues(cfg AppBootstrapConfig, parsed *values.Valu
 		baseSchema,
 		traceParsed,
 		sources.FromEnv(cfg.normalizedEnvPrefix(), fields.WithSource("env")),
-		sources.FromFiles(
-			configFiles,
-			sources.WithConfigFileMapper(cfg.ConfigFileMapper),
-			sources.WithParseOptions(fields.WithSource("config")),
-		),
+		configMiddleware,
 		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	); err != nil {
 		return nil, err
