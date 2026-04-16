@@ -85,6 +85,10 @@ func ResolveCLIEngineSettingsFromBase(
 		return nil, err
 	}
 
+	// Start with base config files, but if the profile selection resolved
+	// its own config files, those replace the base list entirely. This is
+	// because profile selection runs the same config plan as base, so its
+	// config files are a superset (or equal) to the base files.
 	configFiles := append([]string(nil), baseConfigFiles...)
 	if len(selection.ConfigFiles) > 0 {
 		configFiles = append([]string(nil), selection.ConfigFiles...)

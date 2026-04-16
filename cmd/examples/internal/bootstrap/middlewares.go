@@ -12,7 +12,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/sources"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ func AppBootstrapConfig() geppettobootstrap.AppBootstrapConfig {
 	cfg := geppettobootstrap.AppBootstrapConfig{
 		AppName:          "pinocchio",
 		EnvPrefix:        "PINOCCHIO",
-		ConfigFileMapper: configFileMapper,
+		ConfigFileMapper: geppettobootstrap.DefaultConfigFileMapper,
 		NewProfileSection: func() (schema.Section, error) {
 			return geppettosections.NewProfileSettingsSection()
 		},
@@ -72,21 +71,4 @@ func GetCobraCommandMiddlewares(parsed *values.Values, cmd *cobra.Command, args 
 		),
 		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
 	}, nil
-}
-
-func configFileMapper(rawConfig interface{}) (map[string]map[string]interface{}, error) {
-	configMap, ok := rawConfig.(map[string]interface{})
-	if !ok {
-		return nil, errors.Errorf("expected map[string]interface{}, got %T", rawConfig)
-	}
-
-	result := make(map[string]map[string]interface{})
-	for key, value := range configMap {
-		sectionValues, ok := value.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		result[key] = sectionValues
-	}
-	return result, nil
 }

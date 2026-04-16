@@ -20,7 +20,7 @@ func testAppBootstrapConfig() AppBootstrapConfig {
 	cfg := AppBootstrapConfig{
 		AppName:          "gp53app",
 		EnvPrefix:        "GP53APP",
-		ConfigFileMapper: testConfigFileMapper,
+		ConfigFileMapper: DefaultConfigFileMapper,
 		NewProfileSection: func() (schema.Section, error) {
 			return geppettosections.NewProfileSettingsSection()
 		},
@@ -47,22 +47,6 @@ func testAppBootstrapConfig() AppBootstrapConfig {
 		), nil
 	}
 	return cfg
-}
-
-func testConfigFileMapper(rawConfig interface{}) (map[string]map[string]interface{}, error) {
-	configMap, ok := rawConfig.(map[string]interface{})
-	if !ok {
-		return nil, nil
-	}
-	result := make(map[string]map[string]interface{})
-	for key, value := range configMap {
-		layerParams, ok := value.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		result[key] = layerParams
-	}
-	return result, nil
 }
 
 func TestNewCLISelectionValuesBuildsCommandAndProfileSections(t *testing.T) {
