@@ -123,7 +123,7 @@ func TestResolveCLIProfileSelection_UsesConfiguredEnvPrefix(t *testing.T) {
 	}
 }
 
-func TestResolveCLIProfileSelection_DoesNotUseImplicitProfilesFallback(t *testing.T) {
+func TestResolveCLIProfileSelection_UsesImplicitProfilesFallbackFromXDGAppPath(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
@@ -152,8 +152,65 @@ func TestResolveCLIProfileSelection_DoesNotUseImplicitProfilesFallback(t *testin
 	if err != nil {
 		t.Fatalf("ResolveCLIProfileSelection failed: %v", err)
 	}
-	if len(resolved.ProfileRegistries) != 0 {
-		t.Fatalf("expected no implicit registry fallback, got %#v", resolved.ProfileRegistries)
+	if len(resolved.ProfileRegistries) != 1 || resolved.ProfileRegistries[0] != registryPath {
+		t.Fatalf("expected implicit registry fallback %q, got %#v", registryPath, resolved.ProfileRegistries)
+	}
+}
+
+func TestResolveCLIProfileRuntime_LoadsImplicitProfilesFallbackChain(t *testing.T) {
+	cfg := testAppBootstrapConfig()
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
+	t.Setenv("HOME", tmpDir)
+
+	registryPath := filepath.Join(tmpDir, "xdg", cfg.AppName, "profiles.yaml")
+	if err := os.MkdirAll(filepath.Dir(registryPath), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	registryYAML := `
+slug: workspace
+profiles:
+  default:
+    slug: default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: default-model
+  analyst:
+    slug: analyst
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: analyst-model
+`
+	if err := os.WriteFile(registryPath, []byte(registryYAML), 0o644); err != nil {
+		t.Fatalf("write registry: %v", err)
+	}
+
+	parsed, err := NewCLISelectionValues(cfg, CLISelectionInput{Profile: "analyst"})
+	if err != nil {
+		t.Fatalf("NewCLISelectionValues failed: %v", err)
+	}
+
+	runtime, err := ResolveCLIProfileRuntime(context.Background(), cfg, parsed)
+	if err != nil {
+		t.Fatalf("ResolveCLIProfileRuntime failed: %v", err)
+	}
+	if runtime.Close != nil {
+		defer runtime.Close()
+	}
+	if runtime.ProfileSelection == nil || runtime.ProfileSelection.Profile != "analyst" {
+		t.Fatalf("expected profile selection analyst, got %#v", runtime.ProfileSelection)
+	}
+	if runtime.ProfileRegistryChain == nil || runtime.ProfileRegistryChain.Registry == nil {
+		t.Fatal("expected resolved profile registry chain")
+	}
+	resolved, err := runtime.ProfileRegistryChain.Registry.ResolveEngineProfile(context.Background(), runtime.ProfileRegistryChain.DefaultProfileResolve)
+	if err != nil {
+		t.Fatalf("ResolveEngineProfile failed: %v", err)
+	}
+	if got := resolved.EngineProfileSlug.String(); got != "analyst" {
+		t.Fatalf("expected analyst profile, got %q", got)
 	}
 }
 
