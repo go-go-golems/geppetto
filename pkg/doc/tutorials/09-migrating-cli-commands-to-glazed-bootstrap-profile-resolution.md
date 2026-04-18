@@ -185,7 +185,7 @@ Every application needs to define how Geppetto should load its config and sectio
 
 ```go
 func appBootstrapConfig() geppettobootstrap.AppBootstrapConfig {
-	return geppettobootstrap.AppBootstrapConfig{
+	cfg := geppettobootstrap.AppBootstrapConfig{
 		AppName:          "my-app",
 		EnvPrefix:        "MY_APP",
 		ConfigFileMapper: myConfigMapper,
@@ -196,13 +196,25 @@ func appBootstrapConfig() geppettobootstrap.AppBootstrapConfig {
 			return geppettosections.CreateGeppettoSections()
 		},
 	}
+	cfg.ConfigPlanBuilder = func(parsed *values.Values) (*glazedconfig.Plan, error) {
+		return glazedconfig.NewPlan(
+			glazedconfig.WithLayerOrder(glazedconfig.LayerSystem, glazedconfig.LayerUser, glazedconfig.LayerExplicit),
+			glazedconfig.WithDedupePaths(),
+		).Add(
+			glazedconfig.SystemAppConfig(cfg.AppName),
+			glazedconfig.XDGAppConfig(cfg.AppName),
+			glazedconfig.HomeAppConfig(cfg.AppName),
+		), nil
+	}
+	return cfg
 }
 ```
 
-Two details matter:
+Three details matter:
 
 - `ConfigFileMapper` must translate your app’s config file into section maps.
 - `BuildBaseSections` must return the hidden base sections that participate in inference resolution and provenance.
+- `ConfigPlanBuilder` owns app-config discovery; the shared bootstrap also uses `AppName` to discover an implicit `${XDG_CONFIG_HOME:-~/.config}/<app>/profiles.yaml` registry source when `profile-registries` is otherwise empty.
 
 If you are working in Pinocchio, the application-specific bootstrap contract already exists as `profilebootstrap.BootstrapConfig()`.
 
@@ -387,7 +399,7 @@ Run these after the migration:
 |---|---|---|
 | `unknown flag: --print-parsed-fields` | The command still bypasses `cli.BuildCobraCommand(...)` | Convert it to a Glazed command and build Cobra through `cli.BuildCobraCommand(...)` |
 | App config parsing fails on non-section keys | The config-file mapper is missing or too naive | Define an app-specific `ConfigFileMapper` in `AppBootstrapConfig` |
-| `must be configured when profile-settings.profile is set` | A profile was selected without any registry sources | Mount `profile-settings` and configure `profile-registries` via config or flags |
+| `must be configured when profile-settings.profile is set` | A profile was selected without any registry sources, and no implicit `${XDG_CONFIG_HOME:-~/.config}/<app>/profiles.yaml` fallback was available | Configure `profile-registries` via flags/config, or ensure the app-owned default `profiles.yaml` exists in the XDG app config directory |
 | Final engine misses API key or base URL | The command built from raw profile data instead of merged settings | Create engines from `resolved.FinalInferenceSettings` |
 | `--print-inference-settings` shows weak provenance | The command did not resolve settings through the shared bootstrap path | Use `ResolveCLIEngineSettings(...)` and `HandleInferenceDebugOutput(...)` from `geppetto/pkg/cli/bootstrap` |
 | Downstream app loads the wrong config namespace | The app copied another app’s assumptions instead of defining its own bootstrap config | Create an app-owned `AppBootstrapConfig` with the right app name, env prefix, and config mapper |
