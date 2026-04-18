@@ -70,15 +70,15 @@ func geminiHTTPClientWithAPIKey(httpClient *http.Client, apiKey string) *http.Cl
 }
 
 func geminiClientOptions(apiKey, baseURL string, httpClient *http.Client) []option.ClientOption {
-	if httpClient == nil || httpClient == http.DefaultClient {
-		opts := []option.ClientOption{option.WithAPIKey(apiKey)}
-		if baseURL != "" {
-			opts = append(opts, option.WithEndpoint(baseURL))
-		}
-		return opts
+	opts := []option.ClientOption{option.WithAPIKey(apiKey)}
+	if httpClient != nil && httpClient != http.DefaultClient {
+		// Keep the API key as an explicit client option even when a custom HTTP
+		// client is needed. The upstream SDK strips WithHTTPClient when creating
+		// its cache client, so removing WithAPIKey here can accidentally force an
+		// ADC lookup despite the resolved inference settings containing a Gemini
+		// API key.
+		opts = append(opts, option.WithHTTPClient(geminiHTTPClientWithAPIKey(httpClient, apiKey)))
 	}
-
-	opts := []option.ClientOption{option.WithHTTPClient(geminiHTTPClientWithAPIKey(httpClient, apiKey))}
 	if baseURL != "" {
 		opts = append(opts, option.WithEndpoint(baseURL))
 	}

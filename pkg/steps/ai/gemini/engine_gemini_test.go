@@ -2,10 +2,12 @@ package gemini
 
 import (
 	"net/http"
+	"reflect"
 	"testing"
 
 	genai "github.com/google/generative-ai-go/genai"
 	"github.com/invopop/jsonschema"
+	"google.golang.org/api/option"
 )
 
 func TestConvertJSONSchemaToGenAI_ObjectType(t *testing.T) {
@@ -74,5 +76,42 @@ func TestGeminiHTTPClientWithAPIKey_AppendsKeyQueryParam(t *testing.T) {
 	}
 	if _, err := client.Do(req); err != nil {
 		t.Fatalf("client.Do: %v", err)
+	}
+}
+
+func TestGeminiClientOptions_DefaultClientIncludesAPIKey(t *testing.T) {
+	opts := geminiClientOptions("test-key", "", http.DefaultClient)
+	assertGeminiClientOptions(t, opts, true, false, false)
+}
+
+func TestGeminiClientOptions_CustomClientKeepsAPIKeyAndHTTPClient(t *testing.T) {
+	httpClient := &http.Client{Transport: http.DefaultTransport}
+	opts := geminiClientOptions("test-key", "https://example.test", httpClient)
+	assertGeminiClientOptions(t, opts, true, true, true)
+}
+
+func assertGeminiClientOptions(t *testing.T, opts []option.ClientOption, wantAPIKey, wantHTTPClient, wantEndpoint bool) {
+	t.Helper()
+
+	var hasAPIKey, hasHTTPClient, hasEndpoint bool
+	for _, opt := range opts {
+		switch reflect.TypeOf(opt).String() {
+		case "option.withAPIKey":
+			hasAPIKey = true
+		case "option.withHTTPClient":
+			hasHTTPClient = true
+		case "option.withEndpoint":
+			hasEndpoint = true
+		}
+	}
+
+	if hasAPIKey != wantAPIKey {
+		t.Fatalf("withAPIKey mismatch: got=%v want=%v", hasAPIKey, wantAPIKey)
+	}
+	if hasHTTPClient != wantHTTPClient {
+		t.Fatalf("withHTTPClient mismatch: got=%v want=%v", hasHTTPClient, wantHTTPClient)
+	}
+	if hasEndpoint != wantEndpoint {
+		t.Fatalf("withEndpoint mismatch: got=%v want=%v", hasEndpoint, wantEndpoint)
 	}
 }

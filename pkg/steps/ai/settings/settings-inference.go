@@ -57,7 +57,7 @@ func (s *APISettings) Clone() *APISettings {
 }
 
 type InferenceSettings struct {
-	API    *APISettings     `yaml:"api_keys,omitempty"`
+	API    *APISettings     `yaml:"api,omitempty"`
 	Chat   *ChatSettings    `yaml:"chat,omitempty" glazed:"ai-chat"`
 	OpenAI *openai.Settings `yaml:"openai,omitempty" glazed:"openai-chat"`
 	Client *ClientSettings  `yaml:"client,omitempty" glazed:"ai-client"`
@@ -111,6 +111,20 @@ func NewInferenceSettings() (*InferenceSettings, error) {
 		API:        NewAPISettings(),
 		Embeddings: embeddingsSettings,
 	}, nil
+}
+
+func (ss *InferenceSettings) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(value.Content); i += 2 {
+			key := strings.TrimSpace(value.Content[i].Value)
+			if key == "api_keys" {
+				return fmt.Errorf("legacy inference_settings.api_keys wrapper is no longer supported; rename it to inference_settings.api")
+			}
+		}
+	}
+
+	type inferenceSettingsAlias InferenceSettings
+	return value.Decode((*inferenceSettingsAlias)(ss))
 }
 
 func NewInferenceSettingsFromYAML(s io.Reader) (*InferenceSettings, error) {

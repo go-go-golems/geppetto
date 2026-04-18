@@ -382,13 +382,13 @@ func inferencePathForParsedField(sectionSlug, fieldName string) (string, bool) {
 		if sectionSlug == config.EmbeddingsSlug {
 			return "embeddings.api_keys." + fieldName, true
 		}
-		return "api_keys.api_keys." + fieldName, true
+		return "api.api_keys." + fieldName, true
 	}
 	if strings.HasSuffix(fieldName, "-base-url") {
 		if sectionSlug == config.EmbeddingsSlug {
 			return "embeddings.base_urls." + fieldName, true
 		}
-		return "api_keys.base_urls." + fieldName, true
+		return "api.base_urls." + fieldName, true
 	}
 
 	fieldMap, ok := inferenceSectionFieldPathMap[sectionSlug]
