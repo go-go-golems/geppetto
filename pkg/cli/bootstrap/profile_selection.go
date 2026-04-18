@@ -84,6 +84,9 @@ func ResolveCLIProfileSelection(cfg AppBootstrapConfig, parsed *values.Values) (
 	}
 
 	profileSettings := ResolveProfileSettings(resolvedValues)
+	if len(profileSettings.ProfileRegistries) == 0 {
+		profileSettings.ProfileRegistries = normalizeProfileRegistries(defaultProfileRegistrySources(cfg))
+	}
 	return &ResolvedCLIProfileSelection{
 		ProfileSettings: profileSettings,
 		ConfigFiles:     append([]string(nil), configFiles.Paths...),
@@ -141,6 +144,28 @@ func NewCLISelectionValues(cfg AppBootstrapConfig, input CLISelectionInput) (*va
 	ret.Set(ProfileSettingsSectionSlug, profileValues)
 
 	return ret, nil
+}
+
+func ResolveCLIConfigFiles(cfg AppBootstrapConfig, parsed *values.Values) ([]string, error) {
+	resolved, err := ResolveCLIConfigFilesResolved(cfg, parsed)
+	if err != nil {
+		return nil, err
+	}
+	return append([]string(nil), resolved.Paths...), nil
+}
+
+func ResolveCLIConfigFilesForExplicit(cfg AppBootstrapConfig, explicit string) ([]string, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(explicit) == "" {
+		return ResolveCLIConfigFiles(cfg, nil)
+	}
+	parsed, err := NewCLISelectionValues(cfg, CLISelectionInput{ConfigFile: explicit})
+	if err != nil {
+		return nil, err
+	}
+	return ResolveCLIConfigFiles(cfg, parsed)
 }
 
 func ResolveCLIConfigFilesResolved(cfg AppBootstrapConfig, parsed *values.Values) (*ResolvedCLIConfigFiles, error) {

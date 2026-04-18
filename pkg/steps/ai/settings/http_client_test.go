@@ -136,4 +136,47 @@ func TestRedactedProxyURL_HidesPassword(t *testing.T) {
 	}
 }
 
+func TestExplainHTTPClientDecision_DefaultSettings(t *testing.T) {
+	decision := ExplainHTTPClientDecision(NewClientSettings())
+	if decision.Mode != "default-client" {
+		t.Fatalf("expected default-client mode, got %q", decision.Mode)
+	}
+	if decision.ProxyMode != "environment" {
+		t.Fatalf("expected environment proxy mode, got %q", decision.ProxyMode)
+	}
+	if len(decision.Reasons) == 0 || decision.Reasons[0] == "" {
+		t.Fatal("expected non-empty reasons")
+	}
+}
+
+func TestExplainHTTPClientDecision_CustomTimeout(t *testing.T) {
+	timeoutSeconds := 123
+	decision := ExplainHTTPClientDecision(&ClientSettings{
+		TimeoutSeconds:       &timeoutSeconds,
+		ProxyFromEnvironment: ptr(true),
+	})
+	if decision.Mode != "custom-client" {
+		t.Fatalf("expected custom-client mode, got %q", decision.Mode)
+	}
+	if decision.EffectiveTimeout != "2m3s" {
+		t.Fatalf("expected effective timeout 2m3s, got %q", decision.EffectiveTimeout)
+	}
+	if len(decision.Reasons) == 0 || decision.Reasons[0] == "" {
+		t.Fatal("expected timeout override reason")
+	}
+}
+
+func TestExplainHTTPClientDecision_InjectedClient(t *testing.T) {
+	decision := ExplainHTTPClientDecision(&ClientSettings{HTTPClient: &http.Client{Timeout: 5 * time.Second}})
+	if decision.Mode != "injected-client" {
+		t.Fatalf("expected injected-client mode, got %q", decision.Mode)
+	}
+	if decision.EffectiveTimeout != "5s" {
+		t.Fatalf("expected injected timeout 5s, got %q", decision.EffectiveTimeout)
+	}
+	if len(decision.Reasons) == 0 || decision.Reasons[0] != "client.HTTPClient was injected explicitly" {
+		t.Fatalf("unexpected reasons: %#v", decision.Reasons)
+	}
+}
+
 func ptr[T any](v T) *T { return &v }

@@ -18,6 +18,7 @@ type ResolvedCLIEngineSettings struct {
 	BaseInferenceSettings  *aisettings.InferenceSettings
 	FinalInferenceSettings *aisettings.InferenceSettings
 	ProfileSelection       *ResolvedCLIProfileSelection
+	ProfileRuntime         *ResolvedCLIProfileRuntime
 	ResolvedEngineProfile  *gepprofiles.ResolvedEngineProfile
 	ConfigFiles            []string
 	Close                  func()
@@ -80,44 +81,44 @@ func ResolveCLIEngineSettingsFromBase(
 		return nil, errors.New("base inference settings cannot be nil")
 	}
 
-	selection, err := ResolveCLIProfileSelection(cfg, parsed)
+	profileRuntime, err := ResolveCLIProfileRuntime(ctx, cfg, parsed)
 	if err != nil {
 		return nil, err
 	}
+	selection := profileRuntime.ProfileSelection
 
 	// Start with base config files, but if the profile selection resolved
 	// its own config files, those replace the base list entirely. This is
 	// because profile selection runs the same config plan as base, so its
 	// config files are a superset (or equal) to the base files.
 	configFiles := append([]string(nil), baseConfigFiles...)
-	if len(selection.ConfigFiles) > 0 {
-		configFiles = append([]string(nil), selection.ConfigFiles...)
+	if len(profileRuntime.ConfigFiles) > 0 {
+		configFiles = append([]string(nil), profileRuntime.ConfigFiles...)
 	}
 
-	registryChain, err := ResolveProfileRegistryChain(ctx, selection.ProfileSettings)
-	if err != nil {
-		return nil, err
-	}
+	registryChain := profileRuntime.ProfileRegistryChain
 	if registryChain == nil || registryChain.Registry == nil {
 		return &ResolvedCLIEngineSettings{
 			BaseInferenceSettings:  base,
 			FinalInferenceSettings: base,
 			ProfileSelection:       selection,
+			ProfileRuntime:         profileRuntime,
 			ConfigFiles:            configFiles,
+			Close:                  profileRuntime.Close,
 		}, nil
 	}
 
 	resolved, err := registryChain.Registry.ResolveEngineProfile(ctx, registryChain.DefaultProfileResolve)
 	if err != nil {
-		if registryChain.Close != nil {
-			registryChain.Close()
+		if profileRuntime.Close != nil {
+			profileRuntime.Close()
 		}
 		return nil, err
 	}
 	finalSettings, err := gepprofiles.MergeInferenceSettings(base, resolved.InferenceSettings)
 	if err != nil {
-		if registryChain.Close != nil {
-			registryChain.Close()
+		if profileRuntime.Close != nil {
+			profileRuntime.Close()
 		}
 		return nil, errors.Wrap(err, "merge base inference settings with engine profile")
 	}
@@ -126,9 +127,10 @@ func ResolveCLIEngineSettingsFromBase(
 		BaseInferenceSettings:  base,
 		FinalInferenceSettings: finalSettings,
 		ProfileSelection:       selection,
+		ProfileRuntime:         profileRuntime,
 		ResolvedEngineProfile:  resolved,
 		ConfigFiles:            configFiles,
-		Close:                  registryChain.Close,
+		Close:                  profileRuntime.Close,
 	}, nil
 }
 
