@@ -311,7 +311,7 @@ if resolved.Close != nil {
 
 The result gives you:
 
-- `resolved.ProfileSelection`
+- `resolved.ProfileRuntime`
 - `resolved.BaseInferenceSettings`
 - `resolved.FinalInferenceSettings`
 - `resolved.ResolvedEngineProfile`
@@ -349,7 +349,10 @@ if debugSettings.PrintInferenceSettings {
 		appBootstrapConfig(),
 		parsed,
 		*debugSettings,
-		resolved,
+		&geppettobootstrap.ResolvedInferenceTrace{
+			FinalInferenceSettings: resolved.FinalInferenceSettings,
+			ResolvedEngineProfile:  resolved.ResolvedEngineProfile,
+		},
 		geppettobootstrap.InferenceDebugOutputOptions{},
 	)
 	return err

@@ -103,27 +103,34 @@ func TestResolveCLIConfigFilesResolved_UsesConfiguredPlanForDefaultDiscovery(t *
 	}
 }
 
-func TestResolveCLIProfileSelection_UsesConfiguredEnvPrefix(t *testing.T) {
+func TestResolveCLIProfileRuntime_UsesConfiguredEnvPrefix(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
 	t.Setenv("HOME", tmpDir)
-	t.Setenv("GP53APP_PROFILE", "env-profile")
-	t.Setenv("GP53APP_PROFILE_REGISTRIES", filepath.Join(tmpDir, "env-registry.yaml"))
-
-	resolved, err := ResolveCLIProfileSelection(cfg, values.New())
-	if err != nil {
-		t.Fatalf("ResolveCLIProfileSelection failed: %v", err)
+	registryPath := filepath.Join(tmpDir, "env-registry.yaml")
+	if err := os.WriteFile(registryPath, []byte("slug: workspace\nprofiles: {}\n"), 0o644); err != nil {
+		t.Fatalf("write env registry: %v", err)
 	}
-	if got := resolved.Profile; got != "env-profile" {
+	t.Setenv("GP53APP_PROFILE", "env-profile")
+	t.Setenv("GP53APP_PROFILE_REGISTRIES", registryPath)
+
+	runtime, err := ResolveCLIProfileRuntime(context.Background(), cfg, values.New())
+	if err != nil {
+		t.Fatalf("ResolveCLIProfileRuntime failed: %v", err)
+	}
+	if runtime.Close != nil {
+		defer runtime.Close()
+	}
+	if got := runtime.ProfileSettings.Profile; got != "env-profile" {
 		t.Fatalf("expected env profile, got %q", got)
 	}
-	if len(resolved.ProfileRegistries) != 1 || resolved.ProfileRegistries[0] != filepath.Join(tmpDir, "env-registry.yaml") {
-		t.Fatalf("expected env registries, got %#v", resolved.ProfileRegistries)
+	if len(runtime.ProfileSettings.ProfileRegistries) != 1 || runtime.ProfileSettings.ProfileRegistries[0] != registryPath {
+		t.Fatalf("expected env registries, got %#v", runtime.ProfileSettings.ProfileRegistries)
 	}
 }
 
-func TestResolveCLIProfileSelection_UsesImplicitProfilesFallbackFromXDGAppPath(t *testing.T) {
+func TestResolveCLIProfileRuntime_UsesImplicitProfilesFallbackFromXDGAppPath(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "xdg"))
@@ -148,12 +155,15 @@ func TestResolveCLIProfileSelection_UsesImplicitProfilesFallbackFromXDGAppPath(t
 	}
 	parsed.Set(cli.CommandSettingsSlug, commandValues)
 
-	resolved, err := ResolveCLIProfileSelection(cfg, parsed)
+	runtime, err := ResolveCLIProfileRuntime(context.Background(), cfg, parsed)
 	if err != nil {
-		t.Fatalf("ResolveCLIProfileSelection failed: %v", err)
+		t.Fatalf("ResolveCLIProfileRuntime failed: %v", err)
 	}
-	if len(resolved.ProfileRegistries) != 1 || resolved.ProfileRegistries[0] != registryPath {
-		t.Fatalf("expected implicit registry fallback %q, got %#v", registryPath, resolved.ProfileRegistries)
+	if runtime.Close != nil {
+		defer runtime.Close()
+	}
+	if len(runtime.ProfileSettings.ProfileRegistries) != 1 || runtime.ProfileSettings.ProfileRegistries[0] != registryPath {
+		t.Fatalf("expected implicit registry fallback %q, got %#v", registryPath, runtime.ProfileSettings.ProfileRegistries)
 	}
 }
 
@@ -199,8 +209,8 @@ profiles:
 	if runtime.Close != nil {
 		defer runtime.Close()
 	}
-	if runtime.ProfileSelection == nil || runtime.ProfileSelection.Profile != "analyst" {
-		t.Fatalf("expected profile selection analyst, got %#v", runtime.ProfileSelection)
+	if got := runtime.ProfileSettings.Profile; got != "analyst" {
+		t.Fatalf("expected runtime profile analyst, got %q", got)
 	}
 	if runtime.ProfileRegistryChain == nil || runtime.ProfileRegistryChain.Registry == nil {
 		t.Fatal("expected resolved profile registry chain")
@@ -214,18 +224,22 @@ profiles:
 	}
 }
 
-func TestResolveCLIProfileSelection_UsesConfigPlanBuilderLayering(t *testing.T) {
+func TestResolveCLIProfileRuntime_UsesConfigPlanBuilderLayering(t *testing.T) {
 	cfg := testAppBootstrapConfig()
 	tmpDir := t.TempDir()
 	repoFile := filepath.Join(tmpDir, "repo.yaml")
 	cwdFile := filepath.Join(tmpDir, "cwd.yaml")
 	explicitFile := filepath.Join(tmpDir, "explicit.yaml")
+	registryPath := filepath.Join(tmpDir, "profiles.yaml")
+	if err := os.WriteFile(registryPath, []byte("slug: workspace\nprofiles: {}\n"), 0o644); err != nil {
+		t.Fatalf("write registry: %v", err)
+	}
 	for path, profile := range map[string]string{
 		repoFile:     "repo-profile",
 		cwdFile:      "cwd-profile",
 		explicitFile: "explicit-profile",
 	} {
-		content := "profile-settings:\n  profile: " + profile + "\n"
+		content := "profile-settings:\n  profile: " + profile + "\n  profile-registries:\n    - " + registryPath + "\n"
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatalf("write config %s: %v", path, err)
 		}
@@ -254,15 +268,18 @@ func TestResolveCLIProfileSelection_UsesConfigPlanBuilderLayering(t *testing.T) 
 		t.Fatalf("NewCLISelectionValues failed: %v", err)
 	}
 
-	resolved, err := ResolveCLIProfileSelection(cfg, parsed)
+	runtime, err := ResolveCLIProfileRuntime(context.Background(), cfg, parsed)
 	if err != nil {
-		t.Fatalf("ResolveCLIProfileSelection failed: %v", err)
+		t.Fatalf("ResolveCLIProfileRuntime failed: %v", err)
 	}
-	if got := resolved.Profile; got != "explicit-profile" {
+	if runtime.Close != nil {
+		defer runtime.Close()
+	}
+	if got := runtime.ProfileSettings.Profile; got != "explicit-profile" {
 		t.Fatalf("expected explicit profile to win layered config precedence, got %q", got)
 	}
-	if len(resolved.ConfigFiles) != 3 || resolved.ConfigFiles[0] != repoFile || resolved.ConfigFiles[1] != cwdFile || resolved.ConfigFiles[2] != explicitFile {
-		t.Fatalf("unexpected config file order: %#v", resolved.ConfigFiles)
+	if len(runtime.ConfigFiles) != 3 || runtime.ConfigFiles[0] != repoFile || runtime.ConfigFiles[1] != cwdFile || runtime.ConfigFiles[2] != explicitFile {
+		t.Fatalf("unexpected config file order: %#v", runtime.ConfigFiles)
 	}
 }
 
@@ -307,7 +324,10 @@ func TestBuildInferenceTraceParsedValues_PreservesConfigLayerMetadata(t *testing
 		t.Fatalf("ResolveCLIEngineSettings failed: %v", err)
 	}
 	var buf bytes.Buffer
-	if err := WriteInferenceSettingsDebugYAML(&buf, resolved, InferenceDebugOutputOptions{ParsedForTrace: parsedForTrace}); err != nil {
+	if err := WriteInferenceSettingsDebugYAML(&buf, &ResolvedInferenceTrace{
+		FinalInferenceSettings: resolved.FinalInferenceSettings,
+		ResolvedEngineProfile:  resolved.ResolvedEngineProfile,
+	}, InferenceDebugOutputOptions{ParsedForTrace: parsedForTrace}); err != nil {
 		t.Fatalf("WriteInferenceSettingsDebugYAML failed: %v", err)
 	}
 	out := buf.String()

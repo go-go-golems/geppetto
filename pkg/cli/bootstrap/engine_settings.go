@@ -17,7 +17,6 @@ import (
 type ResolvedCLIEngineSettings struct {
 	BaseInferenceSettings  *aisettings.InferenceSettings
 	FinalInferenceSettings *aisettings.InferenceSettings
-	ProfileSelection       *ResolvedCLIProfileSelection
 	ProfileRuntime         *ResolvedCLIProfileRuntime
 	ResolvedEngineProfile  *gepprofiles.ResolvedEngineProfile
 	ConfigFiles            []string
@@ -85,11 +84,10 @@ func ResolveCLIEngineSettingsFromBase(
 	if err != nil {
 		return nil, err
 	}
-	selection := profileRuntime.ProfileSelection
 
-	// Start with base config files, but if the profile selection resolved
+	// Start with base config files, but if the profile runtime resolved
 	// its own config files, those replace the base list entirely. This is
-	// because profile selection runs the same config plan as base, so its
+	// because profile runtime runs the same config plan as base, so its
 	// config files are a superset (or equal) to the base files.
 	configFiles := append([]string(nil), baseConfigFiles...)
 	if len(profileRuntime.ConfigFiles) > 0 {
@@ -101,7 +99,6 @@ func ResolveCLIEngineSettingsFromBase(
 		return &ResolvedCLIEngineSettings{
 			BaseInferenceSettings:  base,
 			FinalInferenceSettings: base,
-			ProfileSelection:       selection,
 			ProfileRuntime:         profileRuntime,
 			ConfigFiles:            configFiles,
 			Close:                  profileRuntime.Close,
@@ -126,7 +123,6 @@ func ResolveCLIEngineSettingsFromBase(
 	return &ResolvedCLIEngineSettings{
 		BaseInferenceSettings:  base,
 		FinalInferenceSettings: finalSettings,
-		ProfileSelection:       selection,
 		ProfileRuntime:         profileRuntime,
 		ResolvedEngineProfile:  resolved,
 		ConfigFiles:            configFiles,

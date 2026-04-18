@@ -32,6 +32,11 @@ type InferenceDebugOutputOptions struct {
 	ParsedForTrace *values.Values
 }
 
+type ResolvedInferenceTrace struct {
+	FinalInferenceSettings *aisettings.InferenceSettings
+	ResolvedEngineProfile  *gepprofiles.ResolvedEngineProfile
+}
+
 type InferenceSettingSource struct {
 	Value any                `yaml:"value"`
 	Log   []fields.ParseStep `yaml:"log,omitempty"`
@@ -110,7 +115,7 @@ func BuildInferenceTraceParsedValues(cfg AppBootstrapConfig, parsed *values.Valu
 func BuildInferenceSettingsSourceTrace(
 	commandBase *aisettings.InferenceSettings,
 	parsed *values.Values,
-	resolved *ResolvedCLIEngineSettings,
+	resolved *ResolvedInferenceTrace,
 ) (map[string]any, error) {
 	if resolved == nil || resolved.FinalInferenceSettings == nil {
 		return nil, fmt.Errorf("resolved final inference settings are required")
@@ -165,7 +170,7 @@ func BuildInferenceSettingsSourceTrace(
 
 func WriteInferenceSettingsDebugYAML(
 	w io.Writer,
-	resolved *ResolvedCLIEngineSettings,
+	resolved *ResolvedInferenceTrace,
 	opts InferenceDebugOutputOptions,
 ) error {
 	if resolved == nil || resolved.FinalInferenceSettings == nil {
@@ -191,7 +196,7 @@ func HandleInferenceDebugOutput(
 	cfg AppBootstrapConfig,
 	parsed *values.Values,
 	settings InferenceDebugSettings,
-	resolved *ResolvedCLIEngineSettings,
+	resolved *ResolvedInferenceTrace,
 	opts InferenceDebugOutputOptions,
 ) (bool, error) {
 	if !settings.PrintInferenceSettings {
