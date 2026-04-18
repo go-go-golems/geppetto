@@ -311,7 +311,7 @@ if resolved.Close != nil {
 
 The result gives you:
 
-- `resolved.ProfileSelection`
+- `resolved.ProfileRuntime`
 - `resolved.BaseInferenceSettings`
 - `resolved.FinalInferenceSettings`
 - `resolved.ResolvedEngineProfile`

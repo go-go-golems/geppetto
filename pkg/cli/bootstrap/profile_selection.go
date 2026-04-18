@@ -7,20 +7,13 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
-	"github.com/go-go-golems/glazed/pkg/cmds/sources"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
-	"github.com/pkg/errors"
 )
 
 type ProfileSettings struct {
 	Profile           string   `glazed:"profile"`
 	ProfileRegistries []string `glazed:"profile-registries"`
-}
-
-type ResolvedCLIProfileSelection struct {
-	ProfileSettings
-	ConfigFiles []string
 }
 
 type ResolvedCLIConfigFiles struct {
@@ -52,53 +45,13 @@ func ResolveProfileSettings(parsed *values.Values) ProfileSettings {
 	return ret
 }
 
-func ResolveCLIProfileSelection(cfg AppBootstrapConfig, parsed *values.Values) (*ResolvedCLIProfileSelection, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+func PrepareProfileSettingsForRuntime(cfg AppBootstrapConfig, settings ProfileSettings) ProfileSettings {
+	settings.Profile = strings.TrimSpace(settings.Profile)
+	settings.ProfileRegistries = normalizeProfileRegistries(settings.ProfileRegistries)
+	if len(settings.ProfileRegistries) == 0 {
+		settings.ProfileRegistries = normalizeProfileRegistries(defaultProfileRegistrySources(cfg))
 	}
-
-	profileSection, err := cfg.NewProfileSection()
-	if err != nil {
-		return nil, errors.Wrap(err, "create profile settings section")
-	}
-
-	schema_ := schema.NewSchema(schema.WithSections(profileSection))
-	resolvedValues := values.New()
-	configMiddleware, configFiles, err := resolveConfigMiddleware(cfg, parsed)
-	if err != nil {
-		return nil, err
-	}
-	if err := sources.Execute(
-		schema_,
-		resolvedValues,
-		sources.FromEnv(cfg.normalizedEnvPrefix(), fields.WithSource("env")),
-		configMiddleware,
-		sources.FromDefaults(fields.WithSource(fields.SourceDefaults)),
-	); err != nil {
-		return nil, errors.Wrap(err, "resolve profile settings from config/env/defaults")
-	}
-	if parsed != nil {
-		if err := resolvedValues.Merge(parsed); err != nil {
-			return nil, errors.Wrap(err, "merge explicit profile settings")
-		}
-	}
-
-	profileSettings := ResolveProfileSettings(resolvedValues)
-	if len(profileSettings.ProfileRegistries) == 0 {
-		profileSettings.ProfileRegistries = normalizeProfileRegistries(defaultProfileRegistrySources(cfg))
-	}
-	return &ResolvedCLIProfileSelection{
-		ProfileSettings: profileSettings,
-		ConfigFiles:     append([]string(nil), configFiles.Paths...),
-	}, nil
-}
-
-func ResolveEngineProfileSettings(cfg AppBootstrapConfig, parsed *values.Values) (ProfileSettings, []string, error) {
-	resolved, err := ResolveCLIProfileSelection(cfg, parsed)
-	if err != nil {
-		return ProfileSettings{}, nil, err
-	}
-	return resolved.ProfileSettings, resolved.ConfigFiles, nil
+	return settings
 }
 
 func NewCLISelectionValues(cfg AppBootstrapConfig, input CLISelectionInput) (*values.Values, error) {
