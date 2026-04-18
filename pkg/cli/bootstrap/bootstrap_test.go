@@ -311,7 +311,7 @@ func TestBuildInferenceTraceParsedValues_PreservesConfigLayerMetadata(t *testing
 		t.Fatalf("WriteInferenceSettingsDebugYAML failed: %v", err)
 	}
 	out := buf.String()
-	for _, needle := range []string{"config_layer: repo", "config_source_name: repo-config", "config_source_kind: app-config"} {
+	for _, needle := range []string{"config_layer: repo", "config_source_name: repo-config", "config_source_kind: app-config", "http_client:", "mode: default-client", "proxy_mode: environment"} {
 		if !strings.Contains(out, needle) {
 			t.Fatalf("expected debug output to contain %q, got:\n%s", needle, out)
 		}

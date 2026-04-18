@@ -178,8 +178,9 @@ func WriteInferenceSettingsDebugYAML(
 	}
 
 	payload := map[string]any{
-		"settings": resolved.FinalInferenceSettings,
-		"sources":  trace,
+		"settings":    resolved.FinalInferenceSettings,
+		"sources":     trace,
+		"http_client": aisettings.ExplainHTTPClientDecision(resolved.FinalInferenceSettings.Client),
 	}
 
 	return writeRedactedYAML(w, payload)
