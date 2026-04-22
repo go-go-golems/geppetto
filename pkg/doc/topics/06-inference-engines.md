@@ -720,7 +720,23 @@ Key notes:
 - Use `--ai-api-type=openai-responses` and a reasoning-capable model (e.g., `o4-mini`).
 - The engine omits `temperature` and `top_p` for `o3/o4` families (these models reject sampling params).
 - For function tools, the engine omits `tool_choice` (vendor-only values like `file_search` are not applicable).
+- User or system blocks that carry `turns.PayloadKeyImages` are serialized as mixed Responses `content` arrays with `input_text` plus one or more `input_image` parts.
+- The Responses token-count path (`/responses/input_tokens`) reuses the same request builder, so image-bearing turns are counted with the same request shape used for inference.
 - At trace log level, the engine prints a full YAML dump of the request payload to aid debugging.
+
+Example (multimodal turn construction):
+
+```go
+turn := &turns.Turn{}
+turns.AppendBlock(turn, turns.NewUserMultimodalBlock(
+    "What's in this screenshot?",
+    []map[string]any{{
+        "media_type": "image/png",
+        "url":        "https://example.com/screenshot.png",
+        "detail":     "high",
+    }},
+))
+```
 
 Example (tools):
 
