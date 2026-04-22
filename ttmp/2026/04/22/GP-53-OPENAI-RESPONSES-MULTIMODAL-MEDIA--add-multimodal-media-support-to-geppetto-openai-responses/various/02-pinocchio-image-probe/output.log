@@ -1,0 +1,1166 @@
+type: start
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: info
+content:
+    data: {}
+    message: thinking-started
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: info
+content:
+    data: {}
+    message: thinking-ended
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: info
+content:
+    data: {}
+    message: output-started
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: I
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' can'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ’t
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' see'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' the'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' image'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' yet'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: .
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' Please'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' upload'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' the'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' image'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' or'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' describe'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' the'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' pass'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: code
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' area'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' and'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' the'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' left'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: -side
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' shape'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: /color
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ','
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' and'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' I'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ’ll
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' respond'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' with'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' the'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' four'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: -digit
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' code'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' and'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' the'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' left'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' symbol'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' in'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' one'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: ' sentence'
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: partial
+content: .
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: info
+content:
+    data: {}
+    message: output-ended
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+
+type: final
+content: I can’t see the image yet. Please upload the image or describe the passcode area and the left-side shape/color, and I’ll respond with the four-digit code and the left symbol in one sentence.
+metadata:
+    llminferencedata:
+        model: gpt-5-nano
+        max_tokens: 128000
+        usage:
+            input_tokens: 271
+            output_tokens: 141
+        duration_ms: 2169
+    message_id: 31e61176-8a91-4db0-9ff3-a25d4032a4d2
+    session_id: ffb02c2e-bb09-4d91-8209-d3b395855b7f
+    inference_id: 57372073-e059-484c-a32b-9c03fbdfb308
+    turn_id: e477a9cd-c86e-4882-ba34-4b2e5e046657
+    extra:
+        reasoning_tokens: 64
+        saying_text: I can’t see the image yet. Please upload the image or describe the passcode area and the left-side shape/color, and I’ll respond with the four-digit code and the left symbol in one sentence.
+        settings:
+            ai-api-type: openai-responses
+            ai-engine: gpt-5-nano
+            ai-max-response-tokens: 128000
+            ai-temperature: 0.7
+            embeddings-dimensions: 1536
+            embeddings-engine: text-embedding-3-small
+            embeddings-type: openai
+            inference-reasoning-effort: low
+            inference-reasoning-summary: concise
+            ollama-temperature: 0.8
+            proxy-from-environment: true
+        thinking_text: ""
+

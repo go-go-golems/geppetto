@@ -22,7 +22,10 @@ func NewUserTextBlock(text string) Block {
 }
 
 // NewUserMultimodalBlock creates a user block with text and optional images.
-// images is a slice of maps with keys: "media_type" (string), and either "url" (string) or "content" ([]byte/base64).
+// images is a slice of maps with keys:
+//   - "media_type" (string) for inline content
+//   - either "url" (string), "content" ([]byte/base64), or provider-specific "file_id" (string)
+//   - optional "detail" for providers that support image detail selection
 func NewUserMultimodalBlock(text string, images []map[string]any) Block {
 	payload := map[string]any{PayloadKeyText: text}
 	if len(images) > 0 {
