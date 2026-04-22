@@ -1,6 +1,7 @@
 package openai_responses
 
 import (
+	"encoding/base64"
 	"testing"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -37,6 +38,96 @@ func TestBuildInputItemsFromTurn_PlainChat(t *testing.T) {
 	}
 	if len(got[1].Content) != 1 || typesOf(got[1].Content)[0] != "input_text" {
 		t.Fatalf("user content must have single input_text part")
+	}
+}
+
+func TestBuildInputItemsFromTurn_UserMessageWithImageURL(t *testing.T) {
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("What is in this image?", []map[string]any{{
+			"media_type": "image/png",
+			"url":        "https://example.com/reference.png",
+		}}),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(got))
+	}
+	if got[0].Role != "user" || got[0].Type != "" {
+		t.Fatalf("expected user role-based message, got type=%q role=%q", got[0].Type, got[0].Role)
+	}
+	if len(got[0].Content) != 2 {
+		t.Fatalf("expected text + image content parts, got %#v", got[0].Content)
+	}
+	if got[0].Content[0].Type != "input_text" || got[0].Content[0].Text != "What is in this image?" {
+		t.Fatalf("unexpected first content part: %#v", got[0].Content[0])
+	}
+	if got[0].Content[1].Type != "input_image" {
+		t.Fatalf("expected second part to be input_image, got %#v", got[0].Content[1])
+	}
+	if got[0].Content[1].ImageURL != "https://example.com/reference.png" {
+		t.Fatalf("expected image URL to round-trip, got %#v", got[0].Content[1])
+	}
+	if got[0].Content[1].Detail != "auto" {
+		t.Fatalf("expected image detail to default to auto, got %#v", got[0].Content[1])
+	}
+}
+
+func TestBuildInputItemsFromTurn_UserMessageWithInlineImageBytes(t *testing.T) {
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("Compare this", []map[string]any{{
+			"media_type": "image/png",
+			"content":    []byte("PNG"),
+			"detail":     "high",
+		}}),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(got))
+	}
+	if len(got[0].Content) != 2 {
+		t.Fatalf("expected text + image content parts, got %#v", got[0].Content)
+	}
+	expectedDataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("PNG"))
+	if got[0].Content[1].Type != "input_image" || got[0].Content[1].ImageURL != expectedDataURL {
+		t.Fatalf("expected inline bytes to become a data URL, got %#v", got[0].Content[1])
+	}
+	if got[0].Content[1].Detail != "high" {
+		t.Fatalf("expected image detail to preserve valid value, got %#v", got[0].Content[1])
+	}
+}
+
+func TestBuildInputItemsFromTurn_UserMessageWithMixedTextAndMultipleImages(t *testing.T) {
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("Review both screenshots", []map[string]any{
+			{
+				"media_type": "image/png",
+				"url":        "https://example.com/left.png",
+			},
+			{
+				"media_type": "image/jpeg",
+				"content":    base64.StdEncoding.EncodeToString([]byte("RIGHT")),
+			},
+		}),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(got))
+	}
+	if len(got[0].Content) != 3 {
+		t.Fatalf("expected text + two image parts, got %#v", got[0].Content)
+	}
+	if got[0].Content[1].Type != "input_image" || got[0].Content[1].ImageURL != "https://example.com/left.png" {
+		t.Fatalf("unexpected first image part: %#v", got[0].Content[1])
+	}
+	expectedRight := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString([]byte("RIGHT"))
+	if got[0].Content[2].Type != "input_image" || got[0].Content[2].ImageURL != expectedRight {
+		t.Fatalf("unexpected second image part: %#v", got[0].Content[2])
+	}
+	if got[0].Content[2].Detail != "auto" {
+		t.Fatalf("expected second image detail to default to auto, got %#v", got[0].Content[2])
 	}
 }
 

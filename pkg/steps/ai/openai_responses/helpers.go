@@ -1,6 +1,7 @@
 package openai_responses
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -70,6 +71,10 @@ type responsesInput struct {
 type responsesContentPart struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
+	// For input_image content type
+	ImageURL string `json:"image_url,omitempty"`
+	FileID   string `json:"file_id,omitempty"`
+	Detail   string `json:"detail,omitempty"`
 	// For function_call content type
 	CallID    string `json:"call_id,omitempty"`
 	Name      string `json:"name,omitempty"`
@@ -77,7 +82,6 @@ type responsesContentPart struct {
 	// For tool_result content type
 	ToolCallID string `json:"tool_call_id,omitempty"`
 	Content    string `json:"content,omitempty"`
-	// image/audio not supported in first cut
 }
 
 type responsesResponse struct {
@@ -318,16 +322,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	// Helpers
 	appendMessage := func(b turns.Block) {
 		role := roleFor(b.Kind)
-		var parts []responsesContentPart
-		if v, ok := b.Payload[turns.PayloadKeyText]; ok && v != nil {
-			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-				ctype := "input_text"
-				if role == "assistant" {
-					ctype = "output_text"
-				}
-				parts = append(parts, responsesContentPart{Type: ctype, Text: s})
-			}
-		}
+		parts := buildResponsesMessageParts(role, b.Payload)
 		if len(parts) > 0 {
 			items = append(items, responsesInput{Role: role, Content: parts})
 		}
@@ -438,6 +433,100 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	}
 
 	return items
+}
+
+func buildResponsesMessageParts(role string, payload map[string]any) []responsesContentPart {
+	var parts []responsesContentPart
+	if payload == nil {
+		return parts
+	}
+	if v, ok := payload[turns.PayloadKeyText]; ok && v != nil {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			ctype := "input_text"
+			if role == "assistant" {
+				ctype = "output_text"
+			}
+			parts = append(parts, responsesContentPart{Type: ctype, Text: s})
+		}
+	}
+	if role == "assistant" {
+		return parts
+	}
+	if imgs, ok := payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
+		for _, img := range imgs {
+			if part, ok := responsesImagePartFromMap(img); ok {
+				parts = append(parts, part)
+			}
+		}
+	}
+	return parts
+}
+
+func responsesImagePartFromMap(img map[string]any) (responsesContentPart, bool) {
+	if len(img) == 0 {
+		return responsesContentPart{}, false
+	}
+	detail := normalizeResponsesImageDetail(img["detail"])
+	if imageURL := firstNonEmptyString(img["url"], img["image_url"]); imageURL != "" {
+		return responsesContentPart{Type: "input_image", ImageURL: imageURL, Detail: detail}, true
+	}
+	if raw, ok := img["content"]; ok && raw != nil {
+		if dataURL, ok := raw.(string); ok && strings.HasPrefix(strings.TrimSpace(dataURL), "data:") {
+			return responsesContentPart{Type: "input_image", ImageURL: strings.TrimSpace(dataURL), Detail: detail}, true
+		}
+		if mediaType := firstNonEmptyString(img["media_type"]); mediaType != "" {
+			if base64Content := base64ImageContent(raw); base64Content != "" {
+				return responsesContentPart{
+					Type:     "input_image",
+					ImageURL: fmt.Sprintf("data:%s;base64,%s", mediaType, base64Content),
+					Detail:   detail,
+				}, true
+			}
+		}
+	}
+	if fileID := firstNonEmptyString(img["file_id"]); fileID != "" {
+		return responsesContentPart{Type: "input_image", FileID: fileID, Detail: detail}, true
+	}
+	return responsesContentPart{}, false
+}
+
+func firstNonEmptyString(values ...any) string {
+	for _, value := range values {
+		switch v := value.(type) {
+		case string:
+			if s := strings.TrimSpace(v); s != "" {
+				return s
+			}
+		case []byte:
+			if s := strings.TrimSpace(string(v)); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func base64ImageContent(raw any) string {
+	switch v := raw.(type) {
+	case []byte:
+		if len(v) == 0 {
+			return ""
+		}
+		return base64.StdEncoding.EncodeToString(v)
+	case string:
+		return strings.TrimSpace(v)
+	default:
+		return ""
+	}
+}
+
+func normalizeResponsesImageDetail(v any) string {
+	switch strings.ToLower(strings.TrimSpace(firstNonEmptyString(v))) {
+	case "low", "high", "auto", "original":
+		return strings.ToLower(strings.TrimSpace(firstNonEmptyString(v)))
+	default:
+		return "auto"
+	}
 }
 
 func toolUsePayloadToJSONString(payload map[string]any) string {

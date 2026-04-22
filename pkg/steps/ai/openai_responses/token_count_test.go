@@ -115,6 +115,76 @@ func TestTokenCounterCountTurn(t *testing.T) {
 	}
 }
 
+func TestTokenCounterCountTurn_IncludesImageInputs(t *testing.T) {
+	model := "gpt-4o-mini"
+	apiType := types2.ApiTypeOpenAIResponses
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		payload := string(body)
+		if !strings.Contains(payload, `"type":"input_image"`) {
+			t.Fatalf("request missing input_image content part: %s", payload)
+		}
+		if !strings.Contains(payload, `"image_url":"https://example.com/evidence.png"`) {
+			t.Fatalf("request missing image URL: %s", payload)
+		}
+		if !strings.Contains(payload, `"detail":"high"`) {
+			t.Fatalf("request missing image detail: %s", payload)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"input_tokens":11}`))
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server URL: %v", err)
+	}
+
+	httpClient := server.Client()
+	httpClient.Transport = &rewriteTransport{
+		base:   httpClient.Transport,
+		target: targetURL,
+		host:   "api.openai.com",
+		scheme: "https",
+	}
+
+	ss := &aisettings.InferenceSettings{
+		API: &aisettings.APISettings{
+			APIKeys: map[string]string{"openai-api-key": "test-key"},
+			BaseUrls: map[string]string{
+				"openai-base-url": "https://api.openai.com/v1",
+			},
+		},
+		Client: &aisettings.ClientSettings{
+			HTTPClient: httpClient,
+		},
+		Chat: &aisettings.ChatSettings{
+			Engine:  &model,
+			ApiType: &apiType,
+			Stream:  true,
+		},
+		OpenAI: &openaisettings.Settings{},
+	}
+
+	counter := NewTokenCounter(ss)
+	res, err := counter.CountTurn(context.Background(), &turns.Turn{
+		Blocks: []turns.Block{turns.NewUserMultimodalBlock("Inspect this screenshot", []map[string]any{{
+			"media_type": "image/png",
+			"url":        "https://example.com/evidence.png",
+			"detail":     "high",
+		}})},
+	})
+	if err != nil {
+		t.Fatalf("CountTurn returned error: %v", err)
+	}
+	if res.InputTokens != 11 {
+		t.Fatalf("expected 11 input tokens, got %d", res.InputTokens)
+	}
+}
+
 func TestParseOpenAIInputTokensNestedResponse(t *testing.T) {
 	got, err := parseOpenAIInputTokens([]byte(`{"response":{"input_tokens":17}}`))
 	if err != nil {
