@@ -51,3 +51,33 @@ func TestNormalizeReasoningDelta(t *testing.T) {
 		}
 	})
 }
+
+func TestNormalizeReasoningSummaryDelta(t *testing.T) {
+	t.Run("sentence boundary gets space", func(t *testing.T) {
+		got := NormalizeReasoningSummaryDelta("A prior category.", "Creating an analysis plan")
+		if got != " Creating an analysis plan" {
+			t.Fatalf("expected sentence boundary space, got %q", got)
+		}
+	})
+
+	t.Run("existing leading whitespace is preserved", func(t *testing.T) {
+		got := NormalizeReasoningSummaryDelta("A prior category.", " Creating an analysis plan")
+		if got != " Creating an analysis plan" {
+			t.Fatalf("expected unchanged delta when leading space already present, got %q", got)
+		}
+	})
+
+	t.Run("markdown heading still gets paragraph break", func(t *testing.T) {
+		got := NormalizeReasoningSummaryDelta("Some thought.", "**Crafting a response**\n\nMore text.")
+		if got != "\n\n**Crafting a response**\n\nMore text." {
+			t.Fatalf("expected paragraph break before bold heading, got %q", got)
+		}
+	})
+
+	t.Run("lowercase continuation stays unchanged", func(t *testing.T) {
+		got := NormalizeReasoningSummaryDelta("Some thought.", "more detail")
+		if got != "more detail" {
+			t.Fatalf("expected unchanged lowercase continuation, got %q", got)
+		}
+	})
+}

@@ -434,6 +434,105 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 }
 
+func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"reasoning","id":"rs_summary"}}`,
+				"",
+				"event: response.reasoning_summary_text.delta",
+				`data: {"delta":"The provider groups work into a category."}`,
+				"",
+				"event: response.reasoning_summary_text.delta",
+				`data: {"delta":"Creating an analysis plan"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"reasoning","id":"rs_summary"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"done"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	want := "The provider groups work into a category. Creating an analysis plan"
+	var lastThinkingCompletion string
+	var finalSummary string
+	var finalSummaryFromMetadata string
+	for _, event := range sink.snapshot() {
+		switch e := event.(type) {
+		case *events.EventThinkingPartial:
+			lastThinkingCompletion = e.Completion
+		case *events.EventInfo:
+			if e.Message == "reasoning-summary" {
+				if s, ok := e.Data["text"].(string); ok {
+					finalSummary = s
+				}
+			}
+		case *events.EventFinal:
+			if e.Metadata().Extra != nil {
+				if s, ok := e.Metadata().Extra["reasoning_summary_text"].(string); ok {
+					finalSummaryFromMetadata = s
+				}
+			}
+		}
+	}
+
+	if lastThinkingCompletion != want {
+		t.Fatalf("expected normalized thinking partial completion %q, got %q", want, lastThinkingCompletion)
+	}
+	if finalSummary != want {
+		t.Fatalf("expected normalized reasoning-summary info text %q, got %q", want, finalSummary)
+	}
+	if finalSummaryFromMetadata != want {
+		t.Fatalf("expected normalized final metadata reasoning_summary_text %q, got %q", want, finalSummaryFromMetadata)
+	}
+}
+
 func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{

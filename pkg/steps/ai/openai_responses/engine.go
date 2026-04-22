@@ -464,14 +464,16 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", nil))
 			case "response.reasoning_summary_text.delta":
 				if v, ok := m["delta"].(string); ok && v != "" {
-					summaryBuf.WriteString(v)
-					currentReasoningSummary.WriteString(v)
+					normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), v)
+					summaryBuf.WriteString(normalized)
+					currentReasoningSummary.WriteString(normalized)
 					// Emit thinking partials for live reasoning summary text
-					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, v, summaryBuf.String()))
+					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
-					summaryBuf.WriteString(s)
-					currentReasoningSummary.WriteString(s)
-					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, summaryBuf.String()))
+					normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), s)
+					summaryBuf.WriteString(normalized)
+					currentReasoningSummary.WriteString(normalized)
+					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
 				}
 			case "response.reasoning_summary_part.done":
 				// End of a summary piece – forward as streaming info event
