@@ -18,6 +18,18 @@ RelatedFiles:
       Note: Relevant because token counting reuses the same request shape
     - Path: geppetto/pkg/turns/helpers_blocks.go
       Note: Source of the current multimodal image block shape
+    - Path: geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.go
+      Note: Go program that exercises the exact local GP-53 geppetto code path in the live smoke
+    - Path: geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.sh
+      Note: Shell repro for the local live Geppetto Responses image smoke
+    - Path: geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/02_pinocchio_image_probe.sh
+      Note: Shell repro for the installed pinocchio image probe that still fails to see the image
+    - Path: geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/sources/01-live-responses-image-smoke/passcode-card.png
+      Note: Synthetic fixture proving visual grounding with facts not present in the prompt text
+    - Path: geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/various/01-live-responses-image-smoke/output.log
+      Note: Captured output from the successful local Geppetto live image smoke
+    - Path: geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/various/02-pinocchio-image-probe/output.log
+      Note: Captured output from the installed pinocchio probe that could not see the image
     - Path: hair-booking/ttmp/2026/04/21/HAIR-020--integrate-geppetto-llm-review-with-pinocchio-geppetto-profile-registry-bootstrap-in-css-visual-diff/sources/02-openai-responses-api-docs/02-openai-images-and-vision-guide.md
       Note: Official doc reviewed during this investigation
 ExternalSources:
@@ -29,6 +41,7 @@ LastUpdated: 2026-04-22T00:30:00-04:00
 WhatFor: Help future implementers understand what was inspected, what failed, and how the design guidance was produced.
 WhenToUse: Read before implementing this ticket or resuming the media-support work later.
 ---
+
 
 
 # Investigation diary
@@ -308,3 +321,102 @@ I kept the decision explicit: GP-53 now covers real OpenAI Responses image suppo
   - `remarquee upload bundle --dry-run ... --name "GP-53 OpenAI Responses multimodal media support" --remote-dir "/ai/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA" --toc-depth 2`
   - `remarquee upload bundle ... --name "GP-53 OpenAI Responses multimodal media support" --remote-dir "/ai/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA" --toc-depth 2`
   - `remarquee cloud ls /ai/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA --long --non-interactive`
+
+## Step 4: Run a real multimodal smoke, save the repro scripts, and compare pinocchio vs local Geppetto
+
+I then performed the live validation that had still been missing: a real OpenAI Responses call using an image whose answer could not be inferred from the prompt text alone. I also saved the exact shell script, Go test program, synthetic fixture, and captured outputs into the ticket so the whole experiment can be replayed later instead of living only in shell history.
+
+This step also surfaced an important discrepancy. The local GP-53 Geppetto code path worked exactly as intended: without the image, the model said it could not see the image; with the image, it correctly answered that the passcode was `4319` and that a blue triangle appeared on the left. But the installed `pinocchio` binary, run with `--images` against the exact same fixture, still replied that it could not see the image. That means the GP-53 engine patch is validated, but there is likely another issue in the pinocchio-side path or in the installed binary version.
+
+### Prompt Context
+
+**User prompt (verbatim):** "try it, you can use go run ./cmd/pinocchio code professional $query --image foo.png i think"
+
+**Follow-up prompt (verbatim):** "store all your scripts and test programs in the scripts/ folder of the ticket (copy those you have already written) so that we can retrace your steps. Don't forget to keep a diary.
+
+Then continue"
+
+**Assistant interpretation:** Do a real live multimodal smoke, prove the model actually sees the image, save all reproduction artifacts in the ticket, and keep the diary current.
+
+**Inferred user intent:** Move beyond request-shape confidence and get a real empirical proof that the patched local engine causes the model to ground its answer in the image.
+
+**Commit (code):** N/A
+
+### What I did
+- First tried the user-suggested installed pinocchio path with:
+  - `pinocchio --profile gpt-5-nano-low code professional --non-interactive "What four-digit passcode is shown in the image, and what shape/color appears on the left? Answer in one sentence." --images /tmp/gp53-passcode-card.png`
+- Observed that the installed pinocchio binary answered that it could not see the image.
+- Created ticket-local reproduction artifacts:
+  - script: `scripts/01_live_openai_responses_image_smoke.sh`
+  - Go program: `scripts/01_live_openai_responses_image_smoke.go`
+  - pinocchio probe: `scripts/02_pinocchio_image_probe.sh`
+  - fixture readme: `sources/01-live-responses-image-smoke/00-README.md`
+  - fixture image: `sources/01-live-responses-image-smoke/passcode-card.png`
+  - local Geppetto output log: `various/01-live-responses-image-smoke/output.log`
+  - pinocchio probe output log: `various/02-pinocchio-image-probe/output.log`
+- The local smoke script generates a synthetic image containing facts not present in the prompt text:
+  - passcode `4319`
+  - a blue triangle on the left
+- Used the local Geppetto module directly in the Go smoke program so the live call exercised the exact GP-53 patch in `pkg/steps/ai/openai_responses/helpers.go`.
+- Reused the locally configured OpenAI key by resolving it from `~/.config/pinocchio/profiles.yaml` only when `OPENAI_API_KEY` was absent, without printing the secret.
+- Ran the local live smoke script successfully.
+- Ran the pinocchio probe script successfully.
+
+### Why
+- A request-shape unit test proves serialization, but not real model grounding.
+- A true smoke needed a question whose answer was impossible to infer from prompt text alone.
+- Storing the shell and Go repros in `scripts/` makes the validation durable and reviewable.
+
+### What worked
+- The local Geppetto GP-53 smoke proved the model actually looked at the image.
+- The exact live results were:
+  - `WITHOUT_IMAGE ANSWER:` `I can’t see the image yet. Please upload the image or describe the four-digit passcode and the shape/color on the left.`
+  - `WITH_IMAGE ANSWER:` `The passcode is 4319, and a blue triangle appears on the left.`
+- The debug logs from the local engine also showed an `input_image` part in the request preview for the image-bearing call.
+- All reproduction artifacts are now inside the ticket instead of hidden in temporary shell history.
+
+### What didn't work
+- The installed pinocchio path did not behave like the local GP-53 engine path.
+- The exact result from the installed binary was:
+  - `I can’t see the image yet. Please upload the image or describe the passcode area and the left-side shape/color, and I’ll respond with the four-digit code and the left symbol in one sentence.`
+- I also tried the installed pinocchio path earlier with a slightly different phrasing and saw the same essential failure: it said the image was not visible.
+- `go run ./cmd/pinocchio ...` from the local `pinocchio` repo was not usable as a fallback because that repo currently fails to build in this workspace due to an unrelated Clay/Glazed compile mismatch.
+
+### What I learned
+- The local Geppetto GP-53 patch is now validated by a real provider call, not just unit tests.
+- The installed pinocchio binary is not sufficient proof of the local patch because it appears to have a separate issue or an older code path around image wiring.
+- Saving the exact repro scripts immediately is worth doing; otherwise a successful live smoke is hard to audit later.
+
+### What was tricky to build
+- The hardest part was making sure the test proved actual visual grounding rather than textual inference. I solved that by generating a synthetic image with a passcode and shape description that were never included in the prompt text.
+- Another tricky part was credential handling for the local live smoke. `OPENAI_API_KEY` was not set in the current shell environment, so I added a careful fallback in the ticket-local shell script to resolve the key from the local pinocchio profiles file without printing it.
+- There was also an ambiguity about which path should count as the real test: the installed `pinocchio` binary or the local Geppetto module. Since GP-53 changes Geppetto itself, the decisive validation had to use the local Geppetto module directly.
+
+### What warrants a second pair of eyes
+- Whether the installed `pinocchio --images` path is failing because of an older embedded Geppetto version, separate prompt wiring, or another image-attachment bug.
+- Whether we want a more formal live multimodal smoke command somewhere outside ticket scripts once this pattern stabilizes.
+
+### What should be done in the future
+- Create or queue a follow-up investigation for the installed pinocchio `--images` discrepancy.
+- If this smoke is likely to be reused often, consider promoting the pattern into a more general Geppetto or pinocchio regression harness.
+
+### Code review instructions
+- Start with the saved repro assets:
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.sh`
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.go`
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/02_pinocchio_image_probe.sh`
+- Then inspect the captured outputs:
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/various/01-live-responses-image-smoke/output.log`
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/various/02-pinocchio-image-probe/output.log`
+- Re-run with:
+  - `./ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.sh`
+  - `./ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/02_pinocchio_image_probe.sh`
+
+### Technical details
+- Key commands used:
+  - `pinocchio --profile gpt-5-nano-low code professional --non-interactive ... --images /tmp/gp53-passcode-card.png`
+  - `pinocchio --profile gpt-5-nano-low code professional --non-interactive --full-output --output yaml ... --images /tmp/gp53-passcode-card.png`
+  - `chmod +x scripts/01_live_openai_responses_image_smoke.sh scripts/02_pinocchio_image_probe.sh`
+  - `gofmt -w scripts/01_live_openai_responses_image_smoke.go`
+  - `./ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.sh`
+  - `./ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/02_pinocchio_image_probe.sh`

@@ -18,4 +18,5 @@
 
 - [ ] Create a follow-up ticket for canonical provider-neutral file/media turn modeling if a concrete caller needs `input_file` or audio support
 - [ ] Evaluate whether the OpenAI chat and OpenAI Responses media-normalization logic should be deduplicated after the behavior settles
+- [ ] Investigate why the installed `pinocchio` binary still answers "I can’t see the image" for `--images`, even though the local Geppetto GP-53 live smoke proves the patched Responses engine can recognize the image correctly
 - [ ] Consider whether assistant-side multimodal replay should become a supported part of turn history in the future
