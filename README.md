@@ -38,6 +38,27 @@ Profiles do not configure engine/provider credentials. Applications own final `S
 - `pkg/profiles`: profile registries, stack resolution, policy, storage backends.
 - `pkg/js/modules/geppetto`: JS module exposed through Goja.
 
+## Multimodal image inputs
+
+Geppetto's turn model supports user multimodal blocks via `turns.NewUserMultimodalBlock(...)`.
+
+That helper stores text plus image payloads under `turns.PayloadKeyImages`. The current image map shape is:
+
+- `media_type` for inline content
+- either `url`, `content`, or provider-specific `file_id`
+- optional `detail` for providers that support image detail selection
+
+At the provider layer:
+
+- OpenAI Chat Completions serializes those image entries as `image_url` content parts.
+- OpenAI Responses serializes them as mixed `content` arrays containing `input_text` plus one or more `input_image` parts.
+- The OpenAI Responses token-count path (`/responses/input_tokens`) reuses the same request builder, so image-bearing turns are counted with the same request shape used for inference.
+
+See also:
+
+- [`pkg/doc/topics/06-inference-engines.md`](pkg/doc/topics/06-inference-engines.md)
+- [`pkg/doc/topics/08-turns.md`](pkg/doc/topics/08-turns.md)
+
 ## Profile Registries
 
 Runtime registry sources are loaded via `profile-registries` (CLI flag, env, or config depending on host app).

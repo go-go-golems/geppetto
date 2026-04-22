@@ -12,3 +12,4 @@
 - Added ticket-local reproduction scripts and a synthetic image fixture under `scripts/` and `sources/`
 - Ran a live local Geppetto smoke against the real OpenAI Responses API that proved the model could read the image (`4319`, blue triangle) when the patched engine sent inline image data
 - Also ran the installed `pinocchio --images` path against the same fixture and observed that it still replied that it could not see the image, indicating a likely follow-up issue outside the local GP-53 engine patch
+- Expanded repo-local documentation further in `README.md` and `pkg/doc/topics/08-turns.md` so the turn-level multimodal helper contract and OpenAI Responses image behavior are easier to discover from the main docs surface

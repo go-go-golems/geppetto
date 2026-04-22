@@ -10,6 +10,10 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/README.md
+      Note: Top-level repo documentation now mentions multimodal image support and OpenAI Responses behavior
+    - Path: geppetto/pkg/doc/topics/08-turns.md
+      Note: Turn-model docs now include a dedicated multimodal user block example and payload-shape explanation
     - Path: geppetto/pkg/steps/ai/openai/helpers.go
       Note: Comparison point showing existing image support in the chat-completions path
     - Path: geppetto/pkg/steps/ai/openai_responses/helpers.go
@@ -41,6 +45,7 @@ LastUpdated: 2026-04-22T00:30:00-04:00
 WhatFor: Help future implementers understand what was inspected, what failed, and how the design guidance was produced.
 WhenToUse: Read before implementing this ticket or resuming the media-support work later.
 ---
+
 
 
 
@@ -420,3 +425,64 @@ Then continue"
   - `gofmt -w scripts/01_live_openai_responses_image_smoke.go`
   - `./ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/01_live_openai_responses_image_smoke.sh`
   - `./ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts/02_pinocchio_image_probe.sh`
+
+## Step 5: Expand repo-local Geppetto docs so the feature is easier to discover
+
+After the implementation, tests, and live smoke were all in place, I did one more pass over the repo-local documentation surface. The Responses-engine topic page had already been updated earlier, but the feature was still too easy to miss if someone started from the top-level `README.md` or from the turns documentation rather than from the engine topic page.
+
+So I added two more documentation updates inside the repository itself. First, I added a short multimodal image-input section to `README.md` that explains the basic turn helper, the current image map shape, and how OpenAI Chat Completions vs OpenAI Responses consume those image payloads. Second, I added a dedicated `Multimodal User Blocks` section to `pkg/doc/topics/08-turns.md` so that engineers reading the turn-model docs can immediately see how to build image-bearing user blocks and what providers currently do with them.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Update nencessary documentation in geppetto itself if you haven't already?"
+
+**Assistant interpretation:** Make sure the repo-local Geppetto docs, not just the ticket docs, reflect the new image-support behavior wherever that documentation would reasonably be expected.
+
+**Inferred user intent:** Leave the library in a self-explanatory state so a future engineer does not have to discover this feature only through ticket archaeology.
+
+**Commit (code):** pending
+
+### What I did
+- Updated `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/README.md` with a new `Multimodal image inputs` section.
+- Updated `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/pkg/doc/topics/08-turns.md` with a new `Multimodal User Blocks` section.
+- Kept the previously added Responses-engine docs in `pkg/doc/topics/06-inference-engines.md` as the provider-specific reference point.
+- Updated the ticket changelog and diary to record the extra documentation pass.
+
+### Why
+- The feature should be discoverable from Geppetto's normal entry docs, not only from the GP-53 ticket.
+- The turn-model docs are a natural place to explain `NewUserMultimodalBlock(...)` and the current image payload shape.
+- The README is a natural place to mention that OpenAI Responses now consumes these image-bearing turns as real `input_image` parts.
+
+### What worked
+- The new docs fit naturally into the repo without requiring any broader restructure.
+- The README now exposes the feature near the core runtime building blocks rather than burying it in a ticket or deep topic page.
+- The turns topic now gives a copy/paste-ready example for building multimodal user blocks.
+
+### What didn't work
+- N/A in this step.
+
+### What I learned
+- Even when the provider-specific docs are correct, people often look first at the README and the generic model docs. If those are silent, the feature still feels hidden.
+- A small additional documentation pass after a bugfix can make a library change feel much more complete.
+
+### What was tricky to build
+- The main judgment call was deciding how much detail belongs in the README versus the turns topic versus the engine topic. I kept the README concise and cross-linked, put the payload shape and copy/paste example in the turns doc, and left the provider behavior specifics in the engine topic.
+
+### What warrants a second pair of eyes
+- Whether the README wording around provider-specific `file_id` is the right balance of helpfulness vs overexposing implementation detail.
+- Whether the turns topic should eventually include a second example using inline bytes instead of URL-based image transport.
+
+### What should be done in the future
+- Commit this repo-local doc expansion.
+- If local `pinocchio` build issues are resolved later, consider adding a higher-level app-facing example somewhere outside the ticket too.
+
+### Code review instructions
+- Review these repo-local docs together:
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/README.md`
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/pkg/doc/topics/08-turns.md`
+  - `/home/manuel/workspaces/2026-04-21/hair-v2/geppetto/pkg/doc/topics/06-inference-engines.md`
+
+### Technical details
+- Key files touched:
+  - `README.md`
+  - `pkg/doc/topics/08-turns.md`

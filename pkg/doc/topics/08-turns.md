@@ -289,6 +289,35 @@ turn.Data.Range(func(k, v any) bool { ... })
 turn.Data.Clone()
 ```
 
+### Multimodal User Blocks
+
+Use `turns.NewUserMultimodalBlock(...)` when you want to attach one or more images to a user message.
+
+```go
+turn := &turns.Turn{}
+turns.AppendBlock(turn, turns.NewUserMultimodalBlock(
+    "What changed in this screenshot?",
+    []map[string]any{{
+        "media_type": "image/png",
+        "url":        "https://example.com/screenshot.png",
+        "detail":     "high",
+    }},
+))
+```
+
+The current image-map shape is intentionally simple:
+
+- `media_type` for inline content transport
+- either `url`, `content`, or provider-specific `file_id`
+- optional `detail` for providers that support image detail selection
+
+Behavior notes:
+
+- OpenAI Chat Completions consumes these image entries as `image_url` parts.
+- OpenAI Responses consumes them as `input_image` parts inside mixed `content` arrays.
+- If you provide inline bytes or base64 text in `content`, provider serializers may convert them into base64 `data:` URLs.
+- This is currently a user-message helper; assistant-side multimodal replay is not yet a first-class generalized helper workflow.
+
 ## Multi-turn Sessions (Chat-style apps)
 
 For multi-turn interactions (user prompt → inference → repeat), prefer the `session.Session` API:
