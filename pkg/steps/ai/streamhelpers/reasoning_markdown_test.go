@@ -80,4 +80,18 @@ func TestNormalizeReasoningSummaryDelta(t *testing.T) {
 			t.Fatalf("expected unchanged lowercase continuation, got %q", got)
 		}
 	})
+
+	t.Run("digit continuation stays unchanged", func(t *testing.T) {
+		got := NormalizeReasoningSummaryDelta("v3.", "14")
+		if got != "14" {
+			t.Fatalf("expected unchanged digit continuation, got %q", got)
+		}
+	})
+
+	t.Run("section digit continuation stays unchanged", func(t *testing.T) {
+		got := NormalizeReasoningSummaryDelta("Section 2.", "1")
+		if got != "1" {
+			t.Fatalf("expected unchanged digit continuation, got %q", got)
+		}
+	})
 }

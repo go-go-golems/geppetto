@@ -101,7 +101,7 @@ func shouldInsertSentenceBoundarySpace(current, delta string) bool {
 	if !ok {
 		return false
 	}
-	return unicode.IsUpper(first) || unicode.IsDigit(first)
+	return unicode.IsUpper(first)
 }
 
 func isSentenceBoundaryRune(r rune) bool {
