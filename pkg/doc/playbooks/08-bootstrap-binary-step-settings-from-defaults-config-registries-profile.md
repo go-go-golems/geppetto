@@ -17,7 +17,7 @@ Flags:
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
-SectionType: Playbook
+SectionType: Tutorial
 ---
 
 # Bootstrap binary StepSettings from defaults, config, registries, and profile

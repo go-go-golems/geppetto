@@ -16,7 +16,7 @@ Flags:
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
-SectionType: Playbook
+SectionType: Tutorial
 ---
 
 # Wire provider credentials for JS and go runner

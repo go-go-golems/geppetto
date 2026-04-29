@@ -13,7 +13,7 @@ Flags:
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
-SectionType: Playbook
+SectionType: Tutorial
 ---
 
 # Operate SQLite-backed profile registry

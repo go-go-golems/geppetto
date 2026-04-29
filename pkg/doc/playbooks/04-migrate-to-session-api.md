@@ -12,7 +12,7 @@ Flags: []
 IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
-SectionType: Playbook
+SectionType: Tutorial
 ---
 
 # Migration playbook: move to Session/EngineBuilder/ExecutionHandle
