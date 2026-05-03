@@ -29,14 +29,23 @@ type ChatCompletionRequest struct {
 	Tools               []ChatCompletionTool          `json:"tools,omitempty"`
 	ToolChoice          any                           `json:"tool_choice,omitempty"`
 	ParallelToolCalls   *bool                         `json:"parallel_tool_calls,omitempty"`
+	ReasoningEffort     string                        `json:"reasoning_effort,omitempty"`
+	Thinking            *ChatThinkingControl          `json:"thinking,omitempty"`
+}
+
+// ChatThinkingControl configures provider-native thinking mode for OpenAI-compatible
+// Chat Completions APIs that support the DeepSeek-style thinking extension.
+type ChatThinkingControl struct {
+	Type string `json:"type"`
 }
 
 type ChatCompletionMessage struct {
-	Role         string
-	Content      string
-	MultiContent []ChatMessagePart
-	ToolCalls    []ChatToolCall
-	ToolCallID   string
+	Role             string
+	Content          string
+	ReasoningContent string
+	MultiContent     []ChatMessagePart
+	ToolCalls        []ChatToolCall
+	ToolCallID       string
 }
 
 func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
@@ -47,6 +56,9 @@ func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 		raw["content"] = m.MultiContent
 	} else if m.Content != "" {
 		raw["content"] = m.Content
+	}
+	if m.ReasoningContent != "" {
+		raw["reasoning_content"] = m.ReasoningContent
 	}
 	if len(m.ToolCalls) > 0 {
 		raw["tool_calls"] = m.ToolCalls

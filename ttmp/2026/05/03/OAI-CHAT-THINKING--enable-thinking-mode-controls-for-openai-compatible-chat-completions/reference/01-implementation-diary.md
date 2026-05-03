@@ -29,6 +29,10 @@ RelatedFiles:
       Note: DeepSeek thinking mode API source
     - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/02-wafer-deepseek-thinking-probe-redacted.md
       Note: Live Wafer request-shape evidence
+    - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/03-live-wafer-thinking-validation-redacted.md
+      Note: Redacted live validation after implementing chat thinking controls
+    - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md
+      Note: Default wafer-deepseek-v4-pro high-thinking live validation evidence
 ExternalSources:
     - https://api-docs.deepseek.com/guides/thinking_mode
 Summary: Diary for the OAI-CHAT-THINKING analysis and implementation guide.
@@ -36,6 +40,8 @@ LastUpdated: 2026-05-03T12:05:00-04:00
 WhatFor: Records the investigation steps for enabling thinking controls in the OpenAI Chat Completions path.
 WhenToUse: Use when continuing implementation or reviewing evidence and decisions.
 ---
+
+
 
 
 
@@ -413,3 +419,310 @@ remarquee cloud ls /ai/2026/05/03/OAI-CHAT-THINKING --long --non-interactive
   - `/ai/2026/05/03/OAI-CHAT-THINKING`
 - Uploaded bundle:
   - `OAI-CHAT-THINKING implementation guide`
+
+## Step 6: Implement chat-completions thinking controls
+
+After the user confirmed to proceed and asked for commits at appropriate intervals, I implemented the request-side feature in Geppetto. The implementation adds provider-native `thinking` and chat-completions `reasoning_effort` fields to OpenAI Chat Completions requests, exposes profile/flag settings, supports per-turn overrides, and validates with tests plus live Wafer profiles.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Yes, commit at appropriate intervals, keep a diary"
+
+**Assistant interpretation:** Proceed from the implementation guide into code, commit focused changes after validation, and keep this diary updated.
+
+**Inferred user intent:** Turn the guide into working Geppetto support while preserving review history and validation evidence.
+
+**Commit (code):** `92c8400c34368a5e7d07a94d925b914d80454840` — `openai: add chat thinking controls`
+
+### What I did
+
+- Added OpenAI Chat Completions request fields in `pkg/steps/ai/openai/chat_types.go`:
+  - `reasoning_effort`
+  - `thinking: {type: ...}`
+- Added settings in `pkg/steps/ai/settings/openai/settings.go` and `chat.yaml`:
+  - `openai-thinking-type`
+  - `openai-chat-reasoning-effort`
+- Extended generic inference overrides in `pkg/inference/engine/inference_config.go` and `pkg/steps/ai/settings/flags/inference.yaml`:
+  - `inference-thinking-type`
+  - expanded `inference-reasoning-effort` choices to include `max` and `xhigh`
+- Wired request construction in `pkg/steps/ai/openai/helpers.go`:
+  - profile defaults set chat thinking controls;
+  - turn-level `InferenceConfig` overrides profile defaults;
+  - chat-completions reasoning effort is sent exactly as provided;
+  - invalid `thinking_type` returns a clear error;
+  - when thinking is enabled, sampling/penalty fields are zeroed after all overrides so they are omitted.
+- Added tests in:
+  - `pkg/steps/ai/openai/helpers_test.go`
+  - `pkg/steps/ai/openai/chat_types_test.go`
+  - `pkg/inference/engine/inference_config_test.go`
+- Updated local profiles with a backup:
+  - `/home/manuel/.config/pinocchio/profiles.yaml.bak-20260503-121315-thinking-modes`
+  - added `wafer-deepseek-v4-pro-max`
+  - added `wafer-deepseek-v4-pro-fast`
+  - set base `wafer-deepseek-v4-pro` to `thinking_type: enabled`, `chat_reasoning_effort: high`
+- Added redacted live validation source:
+  - `sources/03-live-wafer-thinking-validation-redacted.md`
+
+### Why
+
+- DeepSeek/Wafer thinking is a Chat Completions extension, so the request JSON must carry `thinking` and `reasoning_effort` on the `openai` chat path, not only on the `openai-responses` path.
+- The controls must be opt-in so existing OpenAI-compatible providers do not receive unsupported fields by default.
+
+### What worked
+
+- Focused tests passed:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+- Pre-commit hook ran the full Geppetto validation successfully before committing:
+  - `go test ./...`
+  - golangci-lint
+  - custom `go vet -vettool=/tmp/geppetto-lint ...`
+- Local profile settings resolved with workspace `go run`:
+  - `wafer-deepseek-v4-pro`: `thinking_type: enabled`, `chat_reasoning_effort: high`
+  - `wafer-deepseek-v4-pro-max`: `thinking_type: enabled`, `chat_reasoning_effort: max`
+  - `wafer-deepseek-v4-pro-fast`: `thinking_type: disabled`
+- Live Wafer validation succeeded:
+  - fast profile streamed normal content (`Hi.`) with no visible thinking block;
+  - max profile streamed thinking text and emitted thinking start/end markers before the final answer.
+
+### What didn't work
+
+- The first live log capture wrote raw `.log` files into `sources/`. I replaced them with a frontmatter-backed redacted Markdown source so docmgr can validate the ticket cleanly.
+
+### What I learned
+
+- The existing response-side reasoning handling was sufficient: once `thinking_type=enabled` and `chat_reasoning_effort=max` were sent, the OpenAI chat stream path emitted thinking events without additional changes.
+- Keeping `openai-chat-reasoning-effort` separate from existing `openai-reasoning-effort` avoided changing Responses API defaults.
+
+### What was tricky to build
+
+- Ordering mattered: thinking-mode sanitization has to run after generic and OpenAI-specific per-turn overrides, otherwise a later override could reintroduce unsupported sampling/penalty fields.
+- The existing `ReasoningEffort` setting has Responses semantics, so reusing it directly for Chat Completions would have risked sending `medium` to providers by default. The separate chat setting keeps this opt-in.
+
+### What warrants a second pair of eyes
+
+- Review whether omitting sampling controls for all `thinking_type=enabled` chat requests is too broad for future providers. It matches DeepSeek's documented behavior but is applied generically when the user opts into thinking.
+- Review whether unrestricted chat reasoning effort values should remain fully pass-through for every provider.
+
+### What should be done in the future
+
+- Update user-facing docs with the new `openai-thinking-type` and `openai-chat-reasoning-effort` examples.
+- Add a tool-call multi-turn regression for DeepSeek's requirement to pass back `reasoning_content` after tool calls.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/steps/ai/openai/chat_types.go`
+  - `pkg/steps/ai/openai/helpers.go`
+  - `pkg/steps/ai/settings/openai/settings.go`
+  - `pkg/steps/ai/settings/openai/chat.yaml`
+- Validate with:
+
+```bash
+cd geppetto
+go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+- Optional live validation with workspace Pinocchio:
+
+```bash
+cd pinocchio
+PINOCCHIO_PROFILE=wafer-deepseek-v4-pro-fast go run ./cmd/pinocchio --log-level debug --with-caller code professional --non-interactive "Say hi"
+PINOCCHIO_PROFILE=wafer-deepseek-v4-pro-max go run ./cmd/pinocchio --log-level debug --with-caller code professional --non-interactive "Say hi"
+```
+
+### Technical details
+
+- Commit:
+  - `92c8400c34368a5e7d07a94d925b914d80454840`
+- Live validation source:
+  - `sources/03-live-wafer-thinking-validation-redacted.md`
+
+## Step 7: Validate the default `wafer-deepseek-v4-pro` profile
+
+The user asked to test the default Wafer DeepSeek V4 Pro profile specifically, not only the fast/max variants. I ran both settings resolution and a live streaming request through the workspace Pinocchio build.
+
+### Prompt Context
+
+**User prompt (verbatim):** "test it with wafer-deepseek-v4-pro"
+
+**Assistant interpretation:** Verify that the default `wafer-deepseek-v4-pro` profile resolves the new thinking settings and successfully streams from Wafer.
+
+**Inferred user intent:** Confirm the main profile the user actually uses works after the feature implementation.
+
+**Commit (code):** N/A — validation and documentation only after code commit `92c8400`.
+
+### What I did
+
+- Ran settings validation:
+
+```bash
+cd pinocchio
+PINOCCHIO_PROFILE=wafer-deepseek-v4-pro go run ./cmd/pinocchio code professional --print-inference-settings --non-interactive hello
+```
+
+- Ran live streaming validation:
+
+```bash
+cd pinocchio
+PINOCCHIO_PROFILE=wafer-deepseek-v4-pro go run ./cmd/pinocchio --log-level debug --with-caller code professional --non-interactive "Say hi"
+```
+
+- Added redacted source evidence:
+  - `sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md`
+
+### Why
+
+- The previous validation covered `fast` and `max` variants. The default profile uses the intended normal DeepSeek setting: `thinking_type=enabled`, `chat_reasoning_effort=high`.
+
+### What worked
+
+- `--print-inference-settings` resolved:
+
+```yaml
+openai-base-url: https://pass.wafer.ai/v1
+api_type: openai
+engine: DeepSeek-V4-Pro
+chat_reasoning_effort: high
+thinking_type: enabled
+```
+
+- Live execution succeeded. The debug log showed:
+
+```text
+Making request to openai from turn blocks chat_reasoning_effort=high ... model=DeepSeek-V4-Pro ... thinking_type=enabled
+```
+
+- Wafer streamed reasoning text and Geppetto emitted thinking markers:
+
+```text
+--- Thinking started ---
+...
+Hi.
+OpenAI stream completed chunks_received=37
+--- Thinking ended ---
+OpenAI RunInference completed (streaming)
+```
+
+### What didn't work
+
+- N/A. The profile worked as intended.
+
+### What I learned
+
+- The default `wafer-deepseek-v4-pro` profile now exercises normal high-effort thinking mode correctly.
+
+### What was tricky to build
+
+- The live output included reasoning text and final answer interleaved in terminal output, so I stored a concise redacted Markdown summary rather than raw logs.
+
+### What warrants a second pair of eyes
+
+- Review whether the terminal renderer should separate final answer text more clearly when a provider emits reasoning text with tags such as `</think>`.
+
+### What should be done in the future
+
+- Consider adding a UI/output formatting follow-up if the interleaving of thinking and final text is confusing.
+
+### Code review instructions
+
+- Review source evidence:
+  - `sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md`
+
+### Technical details
+
+- Profile tested:
+  - `wafer-deepseek-v4-pro`
+- Thinking settings:
+  - `thinking_type: enabled`
+  - `chat_reasoning_effort: high`
+
+## Step 8: Address PR review feedback for effort pass-through and reasoning history
+
+After PR #339 received automated review feedback, I addressed both issues in the implementation. The first issue was that chat-completions reasoning effort should not be normalized: whatever the user configures should be what gets sent. The second issue was that enabling DeepSeek-style thinking made tool-call continuations risky because prior `reasoning_content` was not represented in Chat Completions assistant messages.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Address the issues raised here: https://github.com/go-go-golems/geppetto/pull/339
+
+Remove normalization of thinking level entirely, whatever the user provides is what gets sent."
+
+**Assistant interpretation:** Inspect PR #339 review comments, remove chat reasoning-effort normalization, and fix the reasoning history/tool-call issue raised by the reviewer.
+
+**Inferred user intent:** Make the PR acceptable by preserving user-specified provider-native values and supporting DeepSeek thinking-mode tool-call continuations.
+
+**Commit (code):** `41b6c471161a42c8cbb1544ad260931a64c7107c` — `openai: preserve chat reasoning history`
+
+### What I did
+
+- Queried PR #339 review comments with `gh`.
+- Removed chat reasoning-effort normalization from the OpenAI Chat Completions path:
+  - `low`, `medium`, `xhigh`, `max`, and any provider-native string are now sent as configured after whitespace trimming.
+  - `openai-chat-reasoning-effort` is now a string flag rather than a closed choice.
+  - `inference-reasoning-effort` is now a string flag so per-turn/provider-native values are not blocked by schema choices.
+- Added `reasoning_content` support to `ChatCompletionMessage` JSON marshalling.
+- Changed `MakeCompletionRequestFromTurn` so `BlockKindReasoning` text is retained and attached to the following assistant tool-call message as `reasoning_content`.
+- Added tests for:
+  - `reasoning_content` message JSON;
+  - reasoning content preserved on assistant tool-call messages;
+  - old reasoning not crossing a new user/system boundary;
+  - `xhigh` being sent unchanged rather than normalized.
+- Re-ran focused tests:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+### Why
+
+- The review correctly identified that silently rewriting reasoning effort can violate user intent and increase latency/cost on providers that support lower effort values.
+- DeepSeek docs require `reasoning_content` to be passed back in subsequent turns when a thinking-mode assistant turn involved tool calls.
+
+### What worked
+
+- Focused tests passed.
+- The code now keeps chat-completions effort values provider-native instead of applying DeepSeek-specific mappings globally.
+- The OpenAI Chat Completions message type can now marshal `reasoning_content`.
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- The official DeepSeek low/medium/xhigh mapping is useful documentation, but should be provider-side behavior, not client-side normalization in Geppetto.
+- The existing turn representation already had `BlockKindReasoning`; the missing piece was preserving it in Chat Completions assistant messages where providers require it.
+
+### What was tricky to build
+
+- Reasoning content should not leak across unrelated turns. The implementation clears pending reasoning when a new user or system message boundary is processed, while preserving it long enough to attach to the following tool-call assistant message.
+
+### What warrants a second pair of eyes
+
+- Review whether reasoning content should also be attached to non-tool assistant messages or only to assistant tool-call messages. The current fix targets DeepSeek's tool-call continuation requirement.
+- Review whether trimming whitespace from reasoning-effort values is acceptable under "whatever the user provides"; the implementation preserves the semantic value but removes surrounding whitespace.
+
+### What should be done in the future
+
+- Add an integration-style test with a full reasoning/tool-call/tool-use/user continuation sequence if a stable fixture exists.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/steps/ai/openai/chat_types.go`
+  - `pkg/steps/ai/openai/helpers.go`
+  - `pkg/steps/ai/openai/helpers_test.go`
+- Validate with:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+### Technical details
+
+- PR review comments addressed:
+  - preserve reasoning history when enabling thinking mode;
+  - respect user-provided reasoning effort values without normalization.

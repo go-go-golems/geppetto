@@ -23,6 +23,36 @@ func GetToolCallString(toolCalls []ChatToolCall) string {
 	return msg
 }
 
+func normalizeChatThinkingType(v string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "auto":
+		return "", nil
+	case "enabled", "disabled":
+		return strings.ToLower(strings.TrimSpace(v)), nil
+	default:
+		return "", fmt.Errorf("unsupported openai chat thinking_type %q", v)
+	}
+}
+
+func chatReasoningEffortValue(v string) string {
+	return strings.TrimSpace(v)
+}
+
+func blockText(b turns.Block) string {
+	if v, ok := b.Payload[turns.PayloadKeyText]; ok {
+		switch sv := v.(type) {
+		case string:
+			return strings.TrimSpace(sv)
+		case []byte:
+			return strings.TrimSpace(string(sv))
+		default:
+			bb, _ := json.Marshal(v)
+			return strings.TrimSpace(string(bb))
+		}
+	}
+	return ""
+}
+
 type ToolCallMerger struct {
 	toolCalls map[int]ChatToolCall
 }
@@ -104,6 +134,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 
 	// Accumulate tool-calls and ensure any tool results are placed immediately after
 	pendingToolCalls := []ChatToolCall{}
+	pendingReasoningContent := ""
 	toolPhaseActive := false // true after flushing assistant tool_calls, until we exit tool result sequence
 	delayedChats := []ChatCompletionMessage{}
 	// Track expected tool_call ids after a flush so we do not end the tool phase
@@ -116,8 +147,9 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 			return
 		}
 		msgs_ = append(msgs_, ChatCompletionMessage{
-			Role:      "assistant",
-			ToolCalls: pendingToolCalls,
+			Role:             "assistant",
+			ReasoningContent: pendingReasoningContent,
+			ToolCalls:        pendingToolCalls,
 		})
 		// Enter tool phase and prepare expected ids; clear pending calls so we don't re-emit them later
 		expectedToolIDs = map[string]bool{}
@@ -130,6 +162,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		log.Debug().Int("expected_tool_uses", remainingExpected).Msg("OpenAI request: flushed assistant tool_calls; starting tool phase")
 		toolPhaseActive = true
 		pendingToolCalls = nil
+		pendingReasoningContent = ""
 	}
 	endToolPhase := func() {
 		if toolPhaseActive {
@@ -149,7 +182,14 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		for _, b := range t.Blocks {
 			switch b.Kind {
 			case turns.BlockKindReasoning:
-				// Skip reasoning blocks in ChatCompletions requests; only Responses API understands them.
+				text := blockText(b)
+				if text == "" {
+					continue
+				}
+				if pendingReasoningContent != "" {
+					pendingReasoningContent += "\n"
+				}
+				pendingReasoningContent += text
 				continue
 			case turns.BlockKindUser, turns.BlockKindLLMText, turns.BlockKindSystem:
 				// If we have pending tool calls but haven't emitted tool results yet,
@@ -229,6 +269,9 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 					delayedChats = append(delayedChats, msg)
 				} else {
 					msgs_ = append(msgs_, msg)
+				}
+				if role == "user" || role == "system" {
+					pendingReasoningContent = ""
 				}
 
 			case turns.BlockKindToolCall:
@@ -366,6 +409,18 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	if settings.OpenAI.FrequencyPenalty != nil {
 		frequencyPenalty = *settings.OpenAI.FrequencyPenalty
 	}
+	thinkingType := ""
+	chatReasoningEffort := ""
+	if settings.OpenAI.ThinkingType != nil {
+		var err error
+		thinkingType, err = normalizeChatThinkingType(*settings.OpenAI.ThinkingType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if settings.OpenAI.ChatReasoningEffort != nil {
+		chatReasoningEffort = chatReasoningEffortValue(*settings.OpenAI.ChatReasoningEffort)
+	}
 
 	if isReasoningModel(engine) {
 		maxCompletionTokens = maxTokens
@@ -388,6 +443,8 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		Strs("stop", stop).
 		Float64("presence_penalty", presencePenalty).
 		Float64("frequency_penalty", frequencyPenalty).
+		Str("thinking_type", thinkingType).
+		Str("chat_reasoning_effort", chatReasoningEffort).
 		Msg("Making request to openai from turn blocks")
 
 	// Debug: summarize the final message sequence for adjacency and content previews
@@ -443,6 +500,10 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		PresencePenalty:     float32(presencePenalty),
 		FrequencyPenalty:    float32(frequencyPenalty),
 		LogitBias:           nil,
+		ReasoningEffort:     chatReasoningEffort,
+	}
+	if thinkingType != "" {
+		req.Thinking = &ChatThinkingControl{Type: thinkingType}
 	}
 
 	// Apply provider-native structured output schema when configured.
@@ -501,6 +562,20 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		if infCfg.Seed != nil {
 			req.Seed = infCfg.Seed
 		}
+		if infCfg.ReasoningEffort != nil {
+			req.ReasoningEffort = chatReasoningEffortValue(*infCfg.ReasoningEffort)
+		}
+		if infCfg.ThinkingType != nil {
+			thinkingType, err := normalizeChatThinkingType(*infCfg.ThinkingType)
+			if err != nil {
+				return nil, err
+			}
+			if thinkingType == "" {
+				req.Thinking = nil
+			} else {
+				req.Thinking = &ChatThinkingControl{Type: thinkingType}
+			}
+		}
 	}
 
 	// Apply OpenAI-specific per-turn overrides from Turn.Data.
@@ -518,6 +593,14 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		if oaiCfg.FrequencyPenalty != nil {
 			req.FrequencyPenalty = float32(*oaiCfg.FrequencyPenalty)
 		}
+	}
+	if req.Thinking != nil && req.Thinking.Type == "enabled" {
+		// DeepSeek-style Chat Completions thinking mode does not support sampling
+		// controls. Omit them after all defaults and overrides have been applied.
+		req.Temperature = 0
+		req.TopP = 0
+		req.PresencePenalty = 0
+		req.FrequencyPenalty = 0
 	}
 
 	// Apply StructuredOutputConfig from Turn.Data (per-turn override).

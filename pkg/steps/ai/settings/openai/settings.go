@@ -20,6 +20,10 @@ type Settings struct {
 	LogitBias map[string]string `yaml:"logit_bias,omitempty" glazed:"openai-logit-bias"`
 	// ReasoningEffort for Responses API (low|medium|high)
 	ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed:"openai-reasoning-effort"`
+	// ThinkingType controls provider-native thinking mode for OpenAI-compatible Chat Completions.
+	ThinkingType *string `yaml:"thinking_type,omitempty" glazed:"openai-thinking-type"`
+	// ChatReasoningEffort controls provider-native reasoning effort for OpenAI-compatible Chat Completions.
+	ChatReasoningEffort *string `yaml:"chat_reasoning_effort,omitempty" glazed:"openai-chat-reasoning-effort"`
 	// ParallelToolCalls is a hint for tool parallelization in Responses
 	ParallelToolCalls *bool `yaml:"parallel_tool_calls,omitempty" glazed:"openai-parallel-tool-calls"`
 	// ReasoningSummary requests a public reasoning summary ("auto" to enable)
@@ -37,6 +41,8 @@ func NewSettings() (*Settings, error) {
 		FrequencyPenalty:          nil,
 		LogitBias:                 map[string]string{},
 		ReasoningEffort:           nil,
+		ThinkingType:              nil,
+		ChatReasoningEffort:       nil,
 		ParallelToolCalls:         nil,
 		ReasoningSummary:          nil,
 		IncludeReasoningEncrypted: nil,
