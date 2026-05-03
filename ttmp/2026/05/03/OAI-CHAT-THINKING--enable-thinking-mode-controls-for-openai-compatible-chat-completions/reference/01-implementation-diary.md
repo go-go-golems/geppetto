@@ -31,6 +31,8 @@ RelatedFiles:
       Note: Live Wafer request-shape evidence
     - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/03-live-wafer-thinking-validation-redacted.md
       Note: Redacted live validation after implementing chat thinking controls
+    - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md
+      Note: Default wafer-deepseek-v4-pro high-thinking live validation evidence
 ExternalSources:
     - https://api-docs.deepseek.com/guides/thinking_mode
 Summary: Diary for the OAI-CHAT-THINKING analysis and implementation guide.
@@ -38,6 +40,7 @@ LastUpdated: 2026-05-03T12:05:00-04:00
 WhatFor: Records the investigation steps for enabling thinking controls in the OpenAI Chat Completions path.
 WhenToUse: Use when continuing implementation or reviewing evidence and decisions.
 ---
+
 
 
 
@@ -538,3 +541,102 @@ PINOCCHIO_PROFILE=wafer-deepseek-v4-pro-max go run ./cmd/pinocchio --log-level d
   - `92c8400c34368a5e7d07a94d925b914d80454840`
 - Live validation source:
   - `sources/03-live-wafer-thinking-validation-redacted.md`
+
+## Step 7: Validate the default `wafer-deepseek-v4-pro` profile
+
+The user asked to test the default Wafer DeepSeek V4 Pro profile specifically, not only the fast/max variants. I ran both settings resolution and a live streaming request through the workspace Pinocchio build.
+
+### Prompt Context
+
+**User prompt (verbatim):** "test it with wafer-deepseek-v4-pro"
+
+**Assistant interpretation:** Verify that the default `wafer-deepseek-v4-pro` profile resolves the new thinking settings and successfully streams from Wafer.
+
+**Inferred user intent:** Confirm the main profile the user actually uses works after the feature implementation.
+
+**Commit (code):** N/A — validation and documentation only after code commit `92c8400`.
+
+### What I did
+
+- Ran settings validation:
+
+```bash
+cd pinocchio
+PINOCCHIO_PROFILE=wafer-deepseek-v4-pro go run ./cmd/pinocchio code professional --print-inference-settings --non-interactive hello
+```
+
+- Ran live streaming validation:
+
+```bash
+cd pinocchio
+PINOCCHIO_PROFILE=wafer-deepseek-v4-pro go run ./cmd/pinocchio --log-level debug --with-caller code professional --non-interactive "Say hi"
+```
+
+- Added redacted source evidence:
+  - `sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md`
+
+### Why
+
+- The previous validation covered `fast` and `max` variants. The default profile uses the intended normal DeepSeek setting: `thinking_type=enabled`, `chat_reasoning_effort=high`.
+
+### What worked
+
+- `--print-inference-settings` resolved:
+
+```yaml
+openai-base-url: https://pass.wafer.ai/v1
+api_type: openai
+engine: DeepSeek-V4-Pro
+chat_reasoning_effort: high
+thinking_type: enabled
+```
+
+- Live execution succeeded. The debug log showed:
+
+```text
+Making request to openai from turn blocks chat_reasoning_effort=high ... model=DeepSeek-V4-Pro ... thinking_type=enabled
+```
+
+- Wafer streamed reasoning text and Geppetto emitted thinking markers:
+
+```text
+--- Thinking started ---
+...
+Hi.
+OpenAI stream completed chunks_received=37
+--- Thinking ended ---
+OpenAI RunInference completed (streaming)
+```
+
+### What didn't work
+
+- N/A. The profile worked as intended.
+
+### What I learned
+
+- The default `wafer-deepseek-v4-pro` profile now exercises normal high-effort thinking mode correctly.
+
+### What was tricky to build
+
+- The live output included reasoning text and final answer interleaved in terminal output, so I stored a concise redacted Markdown summary rather than raw logs.
+
+### What warrants a second pair of eyes
+
+- Review whether the terminal renderer should separate final answer text more clearly when a provider emits reasoning text with tags such as `</think>`.
+
+### What should be done in the future
+
+- Consider adding a UI/output formatting follow-up if the interleaving of thinking and final text is confusing.
+
+### Code review instructions
+
+- Review source evidence:
+  - `sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md`
+
+### Technical details
+
+- Profile tested:
+  - `wafer-deepseek-v4-pro`
+- Thinking settings:
+  - `thinking_type: enabled`
+  - `chat_reasoning_effort: high`

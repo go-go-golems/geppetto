@@ -48,3 +48,13 @@ Uploaded updated implementation bundle with code implementation status and live 
 - /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/design-doc/01-openai-chat-completions-thinking-mode-controls-analysis-and-implementation-guide.md — Updated bundle content
 - /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/03-live-wafer-thinking-validation-redacted.md — Included live validation source
 
+
+## 2026-05-03
+
+Validated default wafer-deepseek-v4-pro profile with high-effort thinking, confirmed reasoning stream and final answer, and added redacted source evidence.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/reference/01-implementation-diary.md — Step 7 default profile validation
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/04-live-wafer-deepseek-v4-pro-high-validation-redacted.md — Redacted default profile validation evidence
+
