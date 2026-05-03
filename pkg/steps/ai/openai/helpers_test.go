@@ -222,8 +222,71 @@ func TestMakeCompletionRequestFromTurnInferenceOverridesChatThinkingControls(t *
 	if req.Thinking == nil || req.Thinking.Type != "disabled" {
 		t.Fatalf("expected turn thinking disabled, got %#v", req.Thinking)
 	}
-	if req.ReasoningEffort != "max" {
-		t.Fatalf("expected xhigh to normalize to max, got %q", req.ReasoningEffort)
+	if req.ReasoningEffort != "xhigh" {
+		t.Fatalf("expected xhigh to be sent unchanged, got %q", req.ReasoningEffort)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnPreservesReasoningContentForToolCalls(t *testing.T) {
+	engine := "DeepSeek-V4-Pro"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("lookup something"),
+		{Kind: turns.BlockKindReasoning, Payload: map[string]any{turns.PayloadKeyText: "need a tool"}},
+		turns.NewToolCallBlock("call_1", "lookup", map[string]any{"q": "something"}),
+		turns.NewToolUseBlock("call_1", "result"),
+		turns.NewUserTextBlock("continue"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var toolCallMsg *ChatCompletionMessage
+	for i := range req.Messages {
+		if len(req.Messages[i].ToolCalls) > 0 {
+			toolCallMsg = &req.Messages[i]
+			break
+		}
+	}
+	if toolCallMsg == nil {
+		t.Fatal("expected assistant tool call message")
+	}
+	if toolCallMsg.ReasoningContent != "need a tool" {
+		t.Fatalf("expected reasoning content on tool call message, got %q", toolCallMsg.ReasoningContent)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnDoesNotCarryReasoningAcrossUserBoundary(t *testing.T) {
+	engine := "DeepSeek-V4-Pro"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+		{Kind: turns.BlockKindReasoning, Payload: map[string]any{turns.PayloadKeyText: "old thinking"}},
+		turns.NewAssistantTextBlock("hi"),
+		turns.NewUserTextBlock("lookup something"),
+		turns.NewToolCallBlock("call_1", "lookup", map[string]any{"q": "something"}),
+		turns.NewToolUseBlock("call_1", "result"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, msg := range req.Messages {
+		if len(msg.ToolCalls) > 0 && msg.ReasoningContent != "" {
+			t.Fatalf("expected old reasoning not to cross user boundary, got %q", msg.ReasoningContent)
+		}
 	}
 }
 

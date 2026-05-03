@@ -35,6 +35,34 @@ func TestChatCompletionMessageMarshalJSON_UsesMultiContentArrayWhenPresent(t *te
 	}
 }
 
+func TestChatCompletionMessageMarshalJSON_IncludesReasoningContentWhenSet(t *testing.T) {
+	msg := ChatCompletionMessage{
+		Role:             "assistant",
+		ReasoningContent: "need a tool",
+		ToolCalls: []ChatToolCall{{
+			ID:   "call_1",
+			Type: chatToolTypeFunction,
+			Function: ChatFunctionCall{
+				Name:      "lookup",
+				Arguments: `{"q":"cats"}`,
+			},
+		}},
+	}
+
+	raw, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatalf("marshal message: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("unmarshal message: %v", err)
+	}
+	if decoded["reasoning_content"] != "need a tool" {
+		t.Fatalf("expected reasoning_content, got %#v", decoded["reasoning_content"])
+	}
+}
+
 func TestChatCompletionRequestMarshalJSON_IncludesThinkingControlsWhenSet(t *testing.T) {
 	req := ChatCompletionRequest{
 		Model: "DeepSeek-V4-Pro",

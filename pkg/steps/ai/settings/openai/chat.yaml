@@ -46,15 +46,8 @@ flags:
     help: Provider-native thinking toggle for OpenAI-compatible Chat Completions APIs that support it
     default: ""
   - name: openai-chat-reasoning-effort
-    type: choice
-    choices:
-      - ""
-      - "low"
-      - "medium"
-      - "high"
-      - "max"
-      - "xhigh"
-    help: Provider-native reasoning effort for OpenAI-compatible Chat Completions APIs that support it
+    type: string
+    help: Provider-native reasoning effort for OpenAI-compatible Chat Completions APIs that support it; sent exactly as provided
     default: ""
   - name: openai-parallel-tool-calls
     type: bool

@@ -40,11 +40,12 @@ type ChatThinkingControl struct {
 }
 
 type ChatCompletionMessage struct {
-	Role         string
-	Content      string
-	MultiContent []ChatMessagePart
-	ToolCalls    []ChatToolCall
-	ToolCallID   string
+	Role             string
+	Content          string
+	ReasoningContent string
+	MultiContent     []ChatMessagePart
+	ToolCalls        []ChatToolCall
+	ToolCallID       string
 }
 
 func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
@@ -55,6 +56,9 @@ func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 		raw["content"] = m.MultiContent
 	} else if m.Content != "" {
 		raw["content"] = m.Content
+	}
+	if m.ReasoningContent != "" {
+		raw["reasoning_content"] = m.ReasoningContent
 	}
 	if len(m.ToolCalls) > 0 {
 		raw["tool_calls"] = m.ToolCalls

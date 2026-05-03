@@ -13,16 +13,11 @@ flags:
       Token budget for model thinking/reasoning. Maps to Claude
       thinking.budget_tokens and OpenAI Responses reasoning.max_tokens.
   - name: inference-reasoning-effort
-    type: choice
-    choices:
-      - "low"
-      - "medium"
-      - "high"
-      - "max"
-      - "xhigh"
+    type: string
     help: >
       Reasoning effort level. Maps to OpenAI Responses reasoning.effort and
       provider-native OpenAI-compatible Chat Completions reasoning_effort when supported.
+      Chat Completions sends the value exactly as provided.
   - name: inference-thinking-type
     type: choice
     choices:

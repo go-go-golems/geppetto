@@ -16,7 +16,7 @@ type InferenceConfig struct {
 	// Maps to Claude thinking.budget_tokens, OpenAI Responses reasoning.max_tokens.
 	ThinkingBudget *int `json:"thinking_budget,omitempty" yaml:"thinking_budget,omitempty" glazed:"inference-thinking-budget"`
 
-	// ReasoningEffort controls reasoning depth: "low", "medium", "high".
+	// ReasoningEffort controls reasoning depth.
 	// Maps to OpenAI Responses reasoning.effort and provider-native Chat Completions reasoning_effort when supported.
 	ReasoningEffort *string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort,omitempty" glazed:"inference-reasoning-effort"`
 
