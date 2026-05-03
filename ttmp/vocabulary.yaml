@@ -91,6 +91,12 @@ topics:
       description: Pinocchio web-chat backend, SEM, and frontend runtime integration
     - slug: agentmode
       description: Agent mode middleware, runtime policy, and UI/event integration
+    - slug: llm
+      description: Large language model behavior, configuration, and operations
+    - slug: openai
+      description: OpenAI API and OpenAI-compatible provider integrations
+    - slug: wafer-ai
+      description: Wafer AI provider configuration and diagnostics
 docTypes:
     - slug: index
       description: Ticket index

@@ -1,0 +1,23 @@
+2026-05-03T11:40:38.92211178-04:00 DBG ../../../code/wesen/corporate-headquarters/glazed/pkg/cmds/logging/init.go:118 > Logger initialized file= format=text logToStdout=false logstash=false
+2026-05-03T11:40:38.928240798-04:00 DBG ../../../code/wesen/corporate-headquarters/glazed/pkg/help/help.go:146 > Failed to load section from file error="failed to parse frontmatter: yaml: mapping values are not allowed in this context" file=tutorials/04-intern-app-owned-middleware-events-timeline-widgets.md
+2026-05-03T11:40:39.329490626-04:00 DBG ../../../code/wesen/corporate-headquarters/pinocchio/cmd/pinocchio/main.go:102 > Executing pinocchio
+2026-05-03T11:40:39.329598035-04:00 DBG ../../../code/wesen/corporate-headquarters/glazed/pkg/cmds/logging/init.go:118 > Logger initialized file= format=text logToStdout=false logstash=false
+2026-05-03T11:40:39.337131408-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:48 > OpenAI RunInference started num_blocks=2 stream=true
+2026-05-03T11:40:39.337202065-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/helpers.go:391 > Making request to openai from turn blocks frequency_penalty=0 max_completion_tokens=0 max_tokens=0 model=DeepSeek-V4-Pro n=1 presence_penalty=0 stop=[] stream=true temperature=0.7 top_p=1
+2026-05-03T11:40:39.337238249-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/helpers.go:424 > OpenAI request message content_preview="You are an experienced technology professional and technical leader in software.\nYou give concise answers.\nYou are proficient in various programming languages a…" idx=0 role=system tool_call_count=0 tool_call_id= tool_call_ids=[]
+2026-05-03T11:40:39.337265511-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/helpers.go:424 > OpenAI request message content_preview=hello idx=1 role=user tool_call_count=0 tool_call_id= tool_call_ids=[]
+2026-05-03T11:40:39.337293821-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:189 > LLMInferenceData initialized event_id=1c3bbbe1-c8a1-48f4-b928-451d348a1084 max_tokens=null model=DeepSeek-V4-Pro temperature=0.7 top_p=1
+2026-05-03T11:40:39.337316127-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:208 > OpenAI publishing start event event_id=1c3bbbe1-c8a1-48f4-b928-451d348a1084
+2026-05-03T11:40:39.337453057-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:213 > OpenAI using streaming mode
+2026-05-03T11:40:39.730298627-04:00 ERR ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:216 > OpenAI streaming request failed error="chat completions error: status=404"
+
+[error] chat completions error: status=404
+2026-05-03T11:40:39.730498635-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:93 > Closing publisher
+2026-05-03T11:40:39.73053332-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:99 > Publisher closed
+2026-05-03T11:40:39.73054617-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:103 > Closing router
+2026-05-03T11:40:39.730571831-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:109 > Router closed
+2026-05-03T11:40:39.730575465-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:93 > Closing publisher
+2026-05-03T11:40:39.730616814-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:99 > Publisher closed
+2026-05-03T11:40:39.730628066-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:103 > Closing router
+2026-05-03T11:40:39.730638776-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:109 > Router closed
+Error: inference failed: chat completions error: status=404

@@ -1,0 +1,26 @@
+2026-05-03T11:49:59.072470281-04:00 DBG ../../../code/wesen/corporate-headquarters/glazed/pkg/cmds/logging/init.go:118 > Logger initialized file= format=text logToStdout=false logstash=false
+2026-05-03T11:49:59.079397128-04:00 DBG ../../../code/wesen/corporate-headquarters/glazed/pkg/help/help.go:146 > Failed to load section from file error="failed to parse frontmatter: yaml: mapping values are not allowed in this context" file=tutorials/04-intern-app-owned-middleware-events-timeline-widgets.md
+2026-05-03T11:49:59.678111042-04:00 DBG ../../../code/wesen/corporate-headquarters/pinocchio/cmd/pinocchio/main.go:102 > Executing pinocchio
+2026-05-03T11:49:59.678206118-04:00 DBG ../../../code/wesen/corporate-headquarters/glazed/pkg/cmds/logging/init.go:118 > Logger initialized file= format=text logToStdout=false logstash=false
+2026-05-03T11:49:59.702475374-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:48 > OpenAI RunInference started num_blocks=2 stream=true
+2026-05-03T11:49:59.702545552-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/helpers.go:391 > Making request to openai from turn blocks frequency_penalty=0 max_completion_tokens=0 max_tokens=0 model=DeepSeek-V4-Pro n=1 presence_penalty=0 stop=[] stream=true temperature=0.7 top_p=1
+2026-05-03T11:49:59.702578155-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/helpers.go:424 > OpenAI request message content_preview="You are an experienced technology professional and technical leader in software.\nYou give concise answers.\nYou are proficient in various programming languages a…" idx=0 role=system tool_call_count=0 tool_call_id= tool_call_ids=[]
+2026-05-03T11:49:59.702602737-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/helpers.go:424 > OpenAI request message content_preview=hello idx=1 role=user tool_call_count=0 tool_call_id= tool_call_ids=[]
+2026-05-03T11:49:59.702626937-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:189 > LLMInferenceData initialized event_id=b4ab2f31-59ae-4515-b6af-efe9ff2ad790 max_tokens=null model=DeepSeek-V4-Pro temperature=0.7 top_p=1
+2026-05-03T11:49:59.702647886-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:208 > OpenAI publishing start event event_id=b4ab2f31-59ae-4515-b6af-efe9ff2ad790
+2026-05-03T11:49:59.70277003-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:213 > OpenAI using streaming mode
+2026-05-03T11:50:00.270194371-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:238 > OpenAI starting streaming loop
+Hello. How can I help you today?2026-05-03T11:50:00.520837832-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:255 > OpenAI stream completed chunks_received=9
+2026-05-03T11:50:00.520890123-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:344 > OpenAI metadata finalized input_tokens=209 output_tokens=10 stop_reason=stop
+2026-05-03T11:50:00.52092107-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:347 > OpenAI streaming complete, preparing messages final_text_length=32 tool_call_count=0
+2026-05-03T11:50:00.520988597-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:405 > OpenAI publishing final event (streaming) event_id=b4ab2f31-59ae-4515-b6af-efe9ff2ad790 max_tokens=null model=DeepSeek-V4-Pro stop_reason=stop temperature=0.7 top_p=1 usage={"input_tokens":209,"output_tokens":10}
+
+2026-05-03T11:50:00.521091616-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/steps/ai/openai/engine_openai.go:409 > OpenAI RunInference completed (streaming)
+2026-05-03T11:50:00.521222216-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:93 > Closing publisher
+2026-05-03T11:50:00.521266234-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:99 > Publisher closed
+2026-05-03T11:50:00.521285935-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:103 > Closing router
+2026-05-03T11:50:00.521342462-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:93 > Closing publisher
+2026-05-03T11:50:00.521326418-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:109 > Router closed
+2026-05-03T11:50:00.521378735-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:99 > Publisher closed
+2026-05-03T11:50:00.521394704-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:103 > Closing router
+2026-05-03T11:50:00.521405574-04:00 DBG ../../../code/wesen/corporate-headquarters/geppetto/pkg/events/event-router.go:109 > Router closed

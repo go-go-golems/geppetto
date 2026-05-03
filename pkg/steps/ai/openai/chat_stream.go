@@ -8,15 +8,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type chatStreamConfig struct {
+	baseURL    string
 	endpoint   string
 	apiKey     string
 	httpClient *http.Client
@@ -72,6 +75,7 @@ func resolveChatStreamConfig(
 		return chatStreamConfig{}, err
 	}
 	return chatStreamConfig{
+		baseURL:    baseURL,
 		endpoint:   endpoint,
 		apiKey:     apiKey,
 		httpClient: httpClient,
@@ -104,16 +108,67 @@ func openChatCompletionStream(
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		raw, _ := io.ReadAll(resp.Body)
-		if len(raw) == 0 {
-			return nil, fmt.Errorf("chat completions error: status=%d", resp.StatusCode)
+		hint := chatCompletionEndpointHint(resp.StatusCode, cfg)
+		if hint != "" {
+			log.Warn().
+				Int("status", resp.StatusCode).
+				Str("base_url", cfg.baseURL).
+				Str("endpoint", cfg.endpoint).
+				Msg("OpenAI-compatible chat completions request failed with suspicious base URL")
 		}
-		return nil, fmt.Errorf("chat completions error: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		if len(raw) == 0 {
+			return nil, fmt.Errorf("chat completions error: status=%d%s", resp.StatusCode, hint)
+		}
+		return nil, fmt.Errorf("chat completions error: status=%d body=%s%s", resp.StatusCode, strings.TrimSpace(string(raw)), hint)
 	}
 
 	return &chatCompletionStream{
 		resp:   resp,
 		reader: bufio.NewReader(resp.Body),
 	}, nil
+}
+
+func chatCompletionEndpointHint(statusCode int, cfg chatStreamConfig) string {
+	if statusCode != http.StatusNotFound {
+		return ""
+	}
+	reason, ok := suspiciousChatCompletionBaseURLReason(cfg.baseURL)
+	if !ok {
+		return ""
+	}
+	endpoint := cfg.endpoint
+	if parsed, err := url.Parse(endpoint); err == nil {
+		endpoint = parsed.Redacted()
+	}
+	return fmt.Sprintf(
+		"; possible OpenAI-compatible base URL misconfiguration: %s; Geppetto appends /chat/completions internally (computed endpoint: %s)",
+		reason,
+		endpoint,
+	)
+}
+
+func suspiciousChatCompletionBaseURLReason(baseURL string) (string, bool) {
+	trimmed := strings.TrimSpace(baseURL)
+	if trimmed == "" {
+		return "", false
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", false
+	}
+	path := strings.TrimRight(strings.ToLower(parsed.EscapedPath()), "/")
+	if path == "" || path == "/" {
+		return "", false
+	}
+	if strings.Contains(path, "/chat/completion") {
+		return fmt.Sprintf("configured base URL path %q already looks like a chat completions endpoint", parsed.EscapedPath()), true
+	}
+	for _, versionPrefix := range []string{"/v1/", "/v2/"} {
+		if strings.HasPrefix(path, versionPrefix) {
+			return fmt.Sprintf("configured base URL path %q has extra path components after %s; expected provider root like https://host%s", parsed.EscapedPath(), strings.TrimSuffix(versionPrefix, "/"), strings.TrimSuffix(versionPrefix, "/")), true
+		}
+	}
+	return "", false
 }
 
 func (s *chatCompletionStream) Close() error {
