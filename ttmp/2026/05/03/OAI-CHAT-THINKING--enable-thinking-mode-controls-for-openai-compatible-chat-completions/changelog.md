@@ -26,3 +26,25 @@ Validated ticket with docmgr doctor and uploaded implementation guide bundle to 
 
 - /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/reference/01-implementation-diary.md — Added validation and reMarkable delivery step
 
+
+## 2026-05-03
+
+Implemented OpenAI Chat Completions thinking controls in commit 92c8400, validated focused and full pre-commit tests, added local Wafer thinking profiles, and captured redacted live validation evidence.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/pkg/steps/ai/openai/chat_types.go — Request fields for thinking/reasoning_effort
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/pkg/steps/ai/openai/helpers.go — Request construction wiring and override precedence
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/reference/01-implementation-diary.md — Step 6 implementation diary
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/03-live-wafer-thinking-validation-redacted.md — Live validation evidence
+
+
+## 2026-05-03
+
+Uploaded updated implementation bundle with code implementation status and live validation evidence to reMarkable.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/design-doc/01-openai-chat-completions-thinking-mode-controls-analysis-and-implementation-guide.md — Updated bundle content
+- /home/manuel/workspaces/2026-05-03/fix-404-wafer-ai/geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/03-live-wafer-thinking-validation-redacted.md — Included live validation source
+

@@ -28,6 +28,8 @@ RelatedFiles:
       Note: DeepSeek thinking mode API source
     - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/02-wafer-deepseek-thinking-probe-redacted.md
       Note: Live Wafer request-shape evidence
+    - Path: geppetto/ttmp/2026/05/03/OAI-CHAT-THINKING--enable-thinking-mode-controls-for-openai-compatible-chat-completions/sources/03-live-wafer-thinking-validation-redacted.md
+      Note: Redacted live validation after implementing chat thinking controls
 ExternalSources:
     - https://api-docs.deepseek.com/guides/thinking_mode
 Summary: Design and implementation guide for adding DeepSeek-style thinking controls to Geppetto's OpenAI Chat Completions path.
@@ -35,6 +37,7 @@ LastUpdated: 2026-05-03T12:05:00-04:00
 WhatFor: Use when implementing provider-native thinking controls for OpenAI-compatible chat-completions models such as Wafer DeepSeek-V4-Pro.
 WhenToUse: Use before modifying OpenAI chat request structs, OpenAI settings, profile schema docs, and tests.
 ---
+
 
 
 
@@ -672,6 +675,73 @@ go test ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai -count=1
 ```
 
 8. A live Wafer smoke test confirms DeepSeek V4 accepts the generated fields.
+
+## Implementation status
+
+Implemented in commit:
+
+```text
+92c8400c34368a5e7d07a94d925b914d80454840 openai: add chat thinking controls
+```
+
+Implemented changes:
+
+1. `ChatCompletionRequest` now supports:
+
+```go
+ReasoningEffort string               `json:"reasoning_effort,omitempty"`
+Thinking        *ChatThinkingControl `json:"thinking,omitempty"`
+```
+
+2. OpenAI settings now include:
+
+```yaml
+openai:
+  thinking_type: enabled            # enabled|disabled|""
+  chat_reasoning_effort: max        # low|medium|high|max|xhigh|""
+```
+
+3. Generic inference overrides now include:
+
+```yaml
+inference:
+  thinking_type: disabled
+  reasoning_effort: max
+```
+
+4. Request construction now:
+
+- omits thinking fields by default;
+- sends `thinking: {type: ...}` only when configured;
+- sends chat-completions `reasoning_effort` only when configured;
+- lets per-turn inference config override profile defaults;
+- normalizes `low|medium -> high` and `xhigh -> max` for chat-completions effort;
+- removes sampling/penalty fields when `thinking_type=enabled`.
+
+5. Tests were added for:
+
+- request JSON marshalling;
+- enabled/disabled/default thinking controls;
+- per-turn override precedence;
+- invalid thinking type errors;
+- `InferenceConfig` merge behavior.
+
+Validation:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+Pre-commit also ran full `go test ./...`, golangci-lint, and the custom Geppetto vet tool successfully.
+
+Live Wafer validation with local workspace Pinocchio confirmed:
+
+- `wafer-deepseek-v4-pro-fast` (`thinking_type: disabled`) streamed normal final content without visible thinking;
+- `wafer-deepseek-v4-pro-max` (`thinking_type: enabled`, `chat_reasoning_effort: max`) streamed reasoning text and emitted thinking start/end markers.
+
+The redacted live validation evidence is stored in:
+
+- `sources/03-live-wafer-thinking-validation-redacted.md`
 
 ## References
 
