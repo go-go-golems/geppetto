@@ -1,0 +1,767 @@
+http_client:
+    effective_timeout: 0s
+    mode: custom-client
+    proxy_from_environment: true
+    proxy_mode: environment
+    reasons:
+        - effective timeout is 0s instead of the default 1m0s
+settings:
+    api:
+        api_keys:
+            claude-api-key: ""
+            gemini-api-key: ""
+            openai-api-key: '***'
+        base_urls:
+            claude-base-url: https://api.anthropic.com
+            gemini-base-url: https://generativelanguage.googleapis.com/
+            openai-base-url: https://pass.wafer.ai/v1
+    chat:
+        api_type: openai
+        cache_max_entries: 1000
+        cache_max_size: 1073741824
+        cache_type: none
+        engine: DeepSeek-V4-Pro
+        stream: true
+        structured_output_mode: "off"
+        structured_output_strict: true
+        temperature: 0.7
+        top_p: 1
+    claude:
+        top_k: 1
+        user_id: ""
+    client:
+        organization: ""
+        proxy_from_environment: true
+    embeddings:
+        cachedirectory: ""
+        cachemaxentries: 1000
+        cachemaxsize: 1073741824
+        cachetype: none
+        dimensions: 1536
+        engine: text-embedding-3-small
+        type: openai
+    gemini: {}
+    inference: {}
+    ollama:
+        mirostat: 0
+        mirostat-eta: 0.1
+        mirostat-tau: 5
+        num-ctx: 2048
+        num-gpu: 50
+        num-gqa: 1
+        num-predict: 128
+        num-thread: 1
+        repeat-last-n: 64
+        repeat-penalty: 1.1
+        seed: 0
+        temperature: 0.8
+        tfs-z: 1
+        top-k: 40
+        top-p: 0.9
+    openai:
+        frequency_penalty: 0
+        include_reasoning_encrypted: false
+        "n": 1
+        parallel_tool_calls: false
+        presence_penalty: 0
+        reasoning_effort: medium
+        reasoning_summary: auto
+        stream-include-usage: true
+sources:
+    api:
+        api_keys:
+            claude-api-key:
+                log:
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                value: ""
+            gemini-api-key:
+                log:
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                value: ""
+            openai-api-key:
+                log:
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata: {}
+                      source: defaults
+                      value: ""
+                    - metadata:
+                        profile_slug: wafer-deepseek-v4-pro
+                        profile_source: ""
+                        registry_slug: default
+                        stack_lineage:
+                            - profile_slug: wafer-base
+                              registry_slug: default
+                              source: ""
+                              version: 0
+                            - profile_slug: wafer-deepseek-v4-pro
+                              registry_slug: default
+                              source: ""
+                              version: 0
+                      source: profile
+                      value: '***'
+                value: '***'
+        base_urls:
+            claude-base-url:
+                log:
+                    - metadata: {}
+                      source: defaults
+                      value: https://api.anthropic.com
+                    - metadata: {}
+                      source: defaults
+                      value: https://api.anthropic.com
+                    - metadata: {}
+                      source: defaults
+                      value: https://api.anthropic.com
+                value: https://api.anthropic.com
+            gemini-base-url:
+                log:
+                    - metadata: {}
+                      source: defaults
+                      value: https://generativelanguage.googleapis.com/
+                    - metadata: {}
+                      source: defaults
+                      value: https://generativelanguage.googleapis.com/
+                    - metadata: {}
+                      source: defaults
+                      value: https://generativelanguage.googleapis.com/
+                value: https://generativelanguage.googleapis.com/
+            openai-base-url:
+                log:
+                    - metadata: {}
+                      source: defaults
+                      value: https://api.openai.com/v1
+                    - metadata: {}
+                      source: defaults
+                      value: https://api.openai.com/v1
+                    - metadata: {}
+                      source: defaults
+                      value: https://api.openai.com/v1
+                    - metadata:
+                        profile_slug: wafer-deepseek-v4-pro
+                        profile_source: ""
+                        registry_slug: default
+                        stack_lineage:
+                            - profile_slug: wafer-base
+                              registry_slug: default
+                              source: ""
+                              version: 0
+                            - profile_slug: wafer-deepseek-v4-pro
+                              registry_slug: default
+                              source: ""
+                              version: 0
+                      source: profile
+                      value: https://pass.wafer.ai/v1
+                value: https://pass.wafer.ai/v1
+    chat:
+        api_type:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: openai
+                - metadata: {}
+                  source: defaults
+                  value: openai
+                - metadata: {}
+                  source: defaults
+                  value: openai
+                - metadata: {}
+                  source: defaults
+                  value: openai
+                - metadata:
+                    profile_slug: wafer-deepseek-v4-pro
+                    profile_source: ""
+                    registry_slug: default
+                    stack_lineage:
+                        - profile_slug: wafer-base
+                          registry_slug: default
+                          source: ""
+                          version: 0
+                        - profile_slug: wafer-deepseek-v4-pro
+                          registry_slug: default
+                          source: ""
+                          version: 0
+                  source: profile
+                  value: openai
+            value: openai
+        cache_max_entries:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1000
+                - metadata: {}
+                  source: defaults
+                  value: 1000
+                - metadata: {}
+                  source: defaults
+                  value: 1000
+                - metadata: {}
+                  source: defaults
+                  value: 1000
+            value: 1000
+        cache_max_size:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1073741824
+                - metadata: {}
+                  source: defaults
+                  value: 1073741824
+                - metadata: {}
+                  source: defaults
+                  value: 1073741824
+                - metadata: {}
+                  source: defaults
+                  value: 1073741824
+            value: 1073741824
+        cache_type:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: none
+                - metadata: {}
+                  source: defaults
+                  value: none
+                - metadata: {}
+                  source: defaults
+                  value: none
+                - metadata: {}
+                  source: defaults
+                  value: none
+            value: none
+        engine:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: gpt-4
+                - metadata: {}
+                  source: defaults
+                  value: gpt-4
+                - metadata: {}
+                  source: defaults
+                  value: gpt-4
+                - metadata: {}
+                  source: defaults
+                  value: gpt-4
+                - metadata:
+                    profile_slug: wafer-deepseek-v4-pro
+                    profile_source: ""
+                    registry_slug: default
+                    stack_lineage:
+                        - profile_slug: wafer-base
+                          registry_slug: default
+                          source: ""
+                          version: 0
+                        - profile_slug: wafer-deepseek-v4-pro
+                          registry_slug: default
+                          source: ""
+                          version: 0
+                  source: profile
+                  value: DeepSeek-V4-Pro
+            value: DeepSeek-V4-Pro
+        stream:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: true
+            value: true
+        structured_output_mode:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: "off"
+                - metadata: {}
+                  source: defaults
+                  value: "off"
+                - metadata: {}
+                  source: defaults
+                  value: "off"
+                - metadata: {}
+                  source: defaults
+                  value: "off"
+            value: "off"
+        structured_output_strict:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+            value: true
+        temperature:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0.7
+                - metadata: {}
+                  source: defaults
+                  value: 0.7
+                - metadata: {}
+                  source: defaults
+                  value: 0.7
+                - metadata: {}
+                  source: defaults
+                  value: 0.7
+            value: 0.7
+        top_p:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+            value: 1
+    claude:
+        top_k:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+            value: 1
+        user_id:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+            value: ""
+    client:
+        organization:
+            log:
+                - metadata: {}
+                  source: defaults
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+            value: ""
+        proxy_from_environment:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+            value: true
+    embeddings:
+        cachedirectory:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+                - metadata: {}
+                  source: defaults
+                  value: ""
+            value: ""
+        cachemaxentries:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1000
+                - metadata: {}
+                  source: defaults
+                  value: 1000
+                - metadata: {}
+                  source: defaults
+                  value: 1000
+                - metadata: {}
+                  source: defaults
+                  value: 1000
+            value: 1000
+        cachemaxsize:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1073741824
+                - metadata: {}
+                  source: defaults
+                  value: 1073741824
+                - metadata: {}
+                  source: defaults
+                  value: 1073741824
+                - metadata: {}
+                  source: defaults
+                  value: 1073741824
+            value: 1073741824
+        cachetype:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: none
+                - metadata: {}
+                  source: defaults
+                  value: none
+                - metadata: {}
+                  source: defaults
+                  value: none
+                - metadata: {}
+                  source: defaults
+                  value: none
+            value: none
+        dimensions:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1536
+                - metadata: {}
+                  source: defaults
+                  value: 1536
+                - metadata: {}
+                  source: defaults
+                  value: 1536
+                - metadata: {}
+                  source: defaults
+                  value: 1536
+            value: 1536
+        engine:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: text-embedding-3-small
+                - metadata: {}
+                  source: defaults
+                  value: text-embedding-3-small
+                - metadata: {}
+                  source: defaults
+                  value: text-embedding-3-small
+                - metadata: {}
+                  source: defaults
+                  value: text-embedding-3-small
+            value: text-embedding-3-small
+        type:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: openai
+                - metadata: {}
+                  source: defaults
+                  value: openai
+                - metadata: {}
+                  source: defaults
+                  value: openai
+                - metadata: {}
+                  source: defaults
+                  value: openai
+            value: openai
+    ollama:
+        mirostat:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0
+            value: 0
+        mirostat-eta:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0.1
+            value: 0.1
+        mirostat-tau:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 5
+            value: 5
+        num-ctx:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 2048
+            value: 2048
+        num-gpu:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 50
+            value: 50
+        num-gqa:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1
+            value: 1
+        num-predict:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 128
+            value: 128
+        num-thread:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1
+            value: 1
+        repeat-last-n:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 64
+            value: 64
+        repeat-penalty:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1.1
+            value: 1.1
+        seed:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0
+            value: 0
+        temperature:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0.8
+            value: 0.8
+        tfs-z:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1
+            value: 1
+        top-k:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 40
+            value: 40
+        top-p:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0.9
+            value: 0.9
+    openai:
+        frequency_penalty:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0
+                - metadata: {}
+                  source: defaults
+                  value: 0
+                - metadata: {}
+                  source: defaults
+                  value: 0
+                - metadata: {}
+                  source: defaults
+                  value: 0
+            value: 0
+        include_reasoning_encrypted:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: false
+                - metadata: {}
+                  source: defaults
+                  value: false
+                - metadata: {}
+                  source: defaults
+                  value: false
+                - metadata: {}
+                  source: defaults
+                  value: false
+            value: false
+        "n":
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+                - metadata: {}
+                  source: defaults
+                  value: 1
+            value: 1
+        parallel_tool_calls:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: false
+                - metadata: {}
+                  source: defaults
+                  value: false
+                - metadata: {}
+                  source: defaults
+                  value: false
+                - metadata: {}
+                  source: defaults
+                  value: false
+            value: false
+        presence_penalty:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: 0
+                - metadata: {}
+                  source: defaults
+                  value: 0
+                - metadata: {}
+                  source: defaults
+                  value: 0
+                - metadata: {}
+                  source: defaults
+                  value: 0
+            value: 0
+        reasoning_effort:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: medium
+                - metadata: {}
+                  source: defaults
+                  value: medium
+                - metadata: {}
+                  source: defaults
+                  value: medium
+                - metadata: {}
+                  source: defaults
+                  value: medium
+            value: medium
+        reasoning_summary:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: auto
+                - metadata: {}
+                  source: defaults
+                  value: auto
+                - metadata: {}
+                  source: defaults
+                  value: auto
+                - metadata: {}
+                  source: defaults
+                  value: auto
+            value: auto
+        stream-include-usage:
+            log:
+                - metadata:
+                    kind: command-baseline
+                  source: command
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+                - metadata: {}
+                  source: defaults
+                  value: true
+            value: true

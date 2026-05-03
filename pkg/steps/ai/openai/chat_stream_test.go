@@ -2,9 +2,59 @@ package openai
 
 import (
 	"bufio"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+func TestOpenChatCompletionStream_404HintsWhenBaseURLLooksLikeChatEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+
+	_, err := openChatCompletionStream(t.Context(), chatStreamConfig{
+		baseURL:    "https://pass.wafer.ai/v1/chat/completions",
+		endpoint:   server.URL + "/v1/chat/completions/chat/completions",
+		apiKey:     "test-key",
+		httpClient: server.Client(),
+	}, map[string]any{"model": "test"})
+	if err == nil {
+		t.Fatal("expected 404 error")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"status=404",
+		"possible OpenAI-compatible base URL misconfiguration",
+		"already looks like a chat completions endpoint",
+		"Geppetto appends /chat/completions internally",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("expected error to contain %q, got %q", want, msg)
+		}
+	}
+}
+
+func TestSuspiciousChatCompletionBaseURLReason(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "provider root", url: "https://pass.wafer.ai/v1", want: false},
+		{name: "provider root trailing slash", url: "https://pass.wafer.ai/v1/", want: false},
+		{name: "chat completions endpoint", url: "https://pass.wafer.ai/v1/chat/completions", want: true},
+		{name: "extra path after v1", url: "https://example.com/v1/openai", want: true},
+		{name: "rootless provider", url: "https://example.com", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, got := suspiciousChatCompletionBaseURLReason(tt.url)
+			if got != tt.want {
+				t.Fatalf("suspiciousChatCompletionBaseURLReason(%q)=%v, want %v", tt.url, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestReadSSEFrame_MultilineDataAndEvent(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader(strings.Join([]string{
