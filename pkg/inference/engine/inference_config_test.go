@@ -38,6 +38,7 @@ func TestMergeInferenceConfig_TurnFieldsOverrideDefaults(t *testing.T) {
 		TopP:              float64Ptr(0.9),
 		MaxResponseTokens: intPtr(1024),
 		ThinkingBudget:    intPtr(4096),
+		ThinkingType:      strPtr("enabled"),
 		Stop:              []string{"<END>"},
 		Seed:              intPtr(42),
 	}
@@ -64,6 +65,9 @@ func TestMergeInferenceConfig_TurnFieldsOverrideDefaults(t *testing.T) {
 	if *got.ThinkingBudget != 4096 {
 		t.Errorf("ThinkingBudget: want 4096 (default), got %v", *got.ThinkingBudget)
 	}
+	if *got.ThinkingType != "enabled" {
+		t.Errorf("ThinkingType: want enabled (default), got %v", *got.ThinkingType)
+	}
 	if *got.Seed != 42 {
 		t.Errorf("Seed: want 42 (default), got %v", *got.Seed)
 	}
@@ -78,6 +82,7 @@ func TestMergeInferenceConfig_AllTurnFieldsSet(t *testing.T) {
 	turn := &InferenceConfig{
 		ThinkingBudget:    intPtr(8192),
 		ReasoningEffort:   strPtr("high"),
+		ThinkingType:      strPtr("disabled"),
 		ReasoningSummary:  strPtr("concise"),
 		Temperature:       float64Ptr(1.0),
 		TopP:              float64Ptr(0.5),
@@ -92,6 +97,9 @@ func TestMergeInferenceConfig_AllTurnFieldsSet(t *testing.T) {
 	}
 	if *got.ReasoningEffort != "high" {
 		t.Errorf("ReasoningEffort: want high, got %v", *got.ReasoningEffort)
+	}
+	if *got.ThinkingType != "disabled" {
+		t.Errorf("ThinkingType: want disabled, got %v", *got.ThinkingType)
 	}
 	if *got.ReasoningSummary != "concise" {
 		t.Errorf("ReasoningSummary: want concise, got %v", *got.ReasoningSummary)

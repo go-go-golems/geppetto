@@ -23,6 +23,32 @@ func GetToolCallString(toolCalls []ChatToolCall) string {
 	return msg
 }
 
+func normalizeChatThinkingType(v string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "auto":
+		return "", nil
+	case "enabled", "disabled":
+		return strings.ToLower(strings.TrimSpace(v)), nil
+	default:
+		return "", fmt.Errorf("unsupported openai chat thinking_type %q", v)
+	}
+}
+
+func normalizeChatReasoningEffort(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "auto":
+		return ""
+	case "low", "medium":
+		return "high"
+	case "xhigh":
+		return "max"
+	case "high", "max":
+		return strings.ToLower(strings.TrimSpace(v))
+	default:
+		return strings.ToLower(strings.TrimSpace(v))
+	}
+}
+
 type ToolCallMerger struct {
 	toolCalls map[int]ChatToolCall
 }
@@ -366,6 +392,18 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	if settings.OpenAI.FrequencyPenalty != nil {
 		frequencyPenalty = *settings.OpenAI.FrequencyPenalty
 	}
+	thinkingType := ""
+	chatReasoningEffort := ""
+	if settings.OpenAI.ThinkingType != nil {
+		var err error
+		thinkingType, err = normalizeChatThinkingType(*settings.OpenAI.ThinkingType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if settings.OpenAI.ChatReasoningEffort != nil {
+		chatReasoningEffort = normalizeChatReasoningEffort(*settings.OpenAI.ChatReasoningEffort)
+	}
 
 	if isReasoningModel(engine) {
 		maxCompletionTokens = maxTokens
@@ -388,6 +426,8 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		Strs("stop", stop).
 		Float64("presence_penalty", presencePenalty).
 		Float64("frequency_penalty", frequencyPenalty).
+		Str("thinking_type", thinkingType).
+		Str("chat_reasoning_effort", chatReasoningEffort).
 		Msg("Making request to openai from turn blocks")
 
 	// Debug: summarize the final message sequence for adjacency and content previews
@@ -443,6 +483,10 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		PresencePenalty:     float32(presencePenalty),
 		FrequencyPenalty:    float32(frequencyPenalty),
 		LogitBias:           nil,
+		ReasoningEffort:     chatReasoningEffort,
+	}
+	if thinkingType != "" {
+		req.Thinking = &ChatThinkingControl{Type: thinkingType}
 	}
 
 	// Apply provider-native structured output schema when configured.
@@ -501,6 +545,20 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		if infCfg.Seed != nil {
 			req.Seed = infCfg.Seed
 		}
+		if infCfg.ReasoningEffort != nil {
+			req.ReasoningEffort = normalizeChatReasoningEffort(*infCfg.ReasoningEffort)
+		}
+		if infCfg.ThinkingType != nil {
+			thinkingType, err := normalizeChatThinkingType(*infCfg.ThinkingType)
+			if err != nil {
+				return nil, err
+			}
+			if thinkingType == "" {
+				req.Thinking = nil
+			} else {
+				req.Thinking = &ChatThinkingControl{Type: thinkingType}
+			}
+		}
 	}
 
 	// Apply OpenAI-specific per-turn overrides from Turn.Data.
@@ -518,6 +576,14 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 		if oaiCfg.FrequencyPenalty != nil {
 			req.FrequencyPenalty = float32(*oaiCfg.FrequencyPenalty)
 		}
+	}
+	if req.Thinking != nil && req.Thinking.Type == "enabled" {
+		// DeepSeek-style Chat Completions thinking mode does not support sampling
+		// controls. Omit them after all defaults and overrides have been applied.
+		req.Temperature = 0
+		req.TopP = 0
+		req.PresencePenalty = 0
+		req.FrequencyPenalty = 0
 	}
 
 	// Apply StructuredOutputConfig from Turn.Data (per-turn override).

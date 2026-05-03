@@ -37,6 +37,25 @@ flags:
       - "high"
     help: Reasoning effort level for Responses API models
     default: "medium"
+  - name: openai-thinking-type
+    type: choice
+    choices:
+      - ""
+      - "enabled"
+      - "disabled"
+    help: Provider-native thinking toggle for OpenAI-compatible Chat Completions APIs that support it
+    default: ""
+  - name: openai-chat-reasoning-effort
+    type: choice
+    choices:
+      - ""
+      - "low"
+      - "medium"
+      - "high"
+      - "max"
+      - "xhigh"
+    help: Provider-native reasoning effort for OpenAI-compatible Chat Completions APIs that support it
+    default: ""
   - name: openai-parallel-tool-calls
     type: bool
     help: Hint for parallel tool execution when using Responses API

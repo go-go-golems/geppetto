@@ -17,8 +17,11 @@ type InferenceConfig struct {
 	ThinkingBudget *int `json:"thinking_budget,omitempty" yaml:"thinking_budget,omitempty" glazed:"inference-thinking-budget"`
 
 	// ReasoningEffort controls reasoning depth: "low", "medium", "high".
-	// Maps to OpenAI Responses reasoning.effort.
+	// Maps to OpenAI Responses reasoning.effort and provider-native Chat Completions reasoning_effort when supported.
 	ReasoningEffort *string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort,omitempty" glazed:"inference-reasoning-effort"`
+
+	// ThinkingType controls provider-native thinking mode toggles such as DeepSeek Chat Completions thinking.type.
+	ThinkingType *string `json:"thinking_type,omitempty" yaml:"thinking_type,omitempty" glazed:"inference-thinking-type"`
 
 	// ReasoningSummary controls reasoning summary generation.
 	// Maps to OpenAI Responses reasoning.summary ("auto", "concise", "detailed").
@@ -87,6 +90,10 @@ func MergeInferenceConfig(turnCfg, engineDefault *InferenceConfig) *InferenceCon
 	if turnCfg.ReasoningEffort != nil {
 		v := *turnCfg.ReasoningEffort
 		merged.ReasoningEffort = &v
+	}
+	if turnCfg.ThinkingType != nil {
+		v := *turnCfg.ThinkingType
+		merged.ThinkingType = &v
 	}
 	if turnCfg.ReasoningSummary != nil {
 		v := *turnCfg.ReasoningSummary

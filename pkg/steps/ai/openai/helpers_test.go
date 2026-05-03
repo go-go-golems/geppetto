@@ -110,6 +110,142 @@ func TestMakeCompletionRequestFromTurnReasoningModelSanitizesPenalties(t *testin
 	}
 }
 
+func TestMakeCompletionRequestFromTurnAddsChatThinkingControls(t *testing.T) {
+	engine := "DeepSeek-V4-Pro"
+	thinkingType := "enabled"
+	effort := "max"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{
+			ThinkingType:        &thinkingType,
+			ChatReasoningEffort: &effort,
+		},
+		Chat: &aisettings.ChatSettings{
+			Engine: &engine,
+		},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Thinking == nil || req.Thinking.Type != "enabled" {
+		t.Fatalf("expected thinking enabled, got %#v", req.Thinking)
+	}
+	if req.ReasoningEffort != "max" {
+		t.Fatalf("expected reasoning_effort=max, got %q", req.ReasoningEffort)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnThinkingDisabled(t *testing.T) {
+	engine := "DeepSeek-V4-Pro"
+	thinkingType := "disabled"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{ThinkingType: &thinkingType},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Thinking == nil || req.Thinking.Type != "disabled" {
+		t.Fatalf("expected thinking disabled, got %#v", req.Thinking)
+	}
+	if req.ReasoningEffort != "" {
+		t.Fatalf("expected no reasoning effort, got %q", req.ReasoningEffort)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnOmitsChatThinkingByDefault(t *testing.T) {
+	engine := "gpt-4o-mini"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Thinking != nil {
+		t.Fatalf("expected thinking to be omitted, got %#v", req.Thinking)
+	}
+	if req.ReasoningEffort != "" {
+		t.Fatalf("expected reasoning effort to be omitted, got %q", req.ReasoningEffort)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnInferenceOverridesChatThinkingControls(t *testing.T) {
+	engine := "DeepSeek-V4-Pro"
+	thinkingType := "enabled"
+	effort := "high"
+	turnThinkingType := "disabled"
+	turnEffort := "xhigh"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{
+			ThinkingType:        &thinkingType,
+			ChatReasoningEffort: &effort,
+		},
+		Chat: &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+	if err := infengine.KeyInferenceConfig.Set(&tu.Data, infengine.InferenceConfig{
+		ThinkingType:    &turnThinkingType,
+		ReasoningEffort: &turnEffort,
+	}); err != nil {
+		t.Fatalf("failed to set inference config: %v", err)
+	}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Thinking == nil || req.Thinking.Type != "disabled" {
+		t.Fatalf("expected turn thinking disabled, got %#v", req.Thinking)
+	}
+	if req.ReasoningEffort != "max" {
+		t.Fatalf("expected xhigh to normalize to max, got %q", req.ReasoningEffort)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnRejectsInvalidThinkingType(t *testing.T) {
+	engine := "DeepSeek-V4-Pro"
+	thinkingType := "sometimes"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{ThinkingType: &thinkingType},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+
+	e := newTestEngine(st)
+	_, err := e.MakeCompletionRequestFromTurn(tu)
+	if err == nil {
+		t.Fatal("expected invalid thinking type error")
+	}
+}
+
 func TestMakeCompletionRequestFromTurnInferenceEmptyStopClearsChatStop(t *testing.T) {
 	engine := "gpt-4o-mini"
 	st := &aisettings.InferenceSettings{

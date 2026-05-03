@@ -18,8 +18,19 @@ flags:
       - "low"
       - "medium"
       - "high"
+      - "max"
+      - "xhigh"
     help: >
-      Reasoning effort level. Maps to OpenAI Responses reasoning.effort.
+      Reasoning effort level. Maps to OpenAI Responses reasoning.effort and
+      provider-native OpenAI-compatible Chat Completions reasoning_effort when supported.
+  - name: inference-thinking-type
+    type: choice
+    choices:
+      - "enabled"
+      - "disabled"
+    help: >
+      Provider-native thinking toggle for model APIs that support it, such as
+      DeepSeek-style OpenAI-compatible Chat Completions thinking.type.
   - name: inference-reasoning-summary
     type: choice
     choices:

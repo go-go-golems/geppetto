@@ -267,6 +267,9 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		if ss.Inference.ReasoningEffort != nil {
 			metadata["inference-reasoning-effort"] = *ss.Inference.ReasoningEffort
 		}
+		if ss.Inference.ThinkingType != nil {
+			metadata["inference-thinking-type"] = *ss.Inference.ThinkingType
+		}
 		if ss.Inference.ReasoningSummary != nil {
 			metadata["inference-reasoning-summary"] = *ss.Inference.ReasoningSummary
 		}

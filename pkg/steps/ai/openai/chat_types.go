@@ -29,6 +29,14 @@ type ChatCompletionRequest struct {
 	Tools               []ChatCompletionTool          `json:"tools,omitempty"`
 	ToolChoice          any                           `json:"tool_choice,omitempty"`
 	ParallelToolCalls   *bool                         `json:"parallel_tool_calls,omitempty"`
+	ReasoningEffort     string                        `json:"reasoning_effort,omitempty"`
+	Thinking            *ChatThinkingControl          `json:"thinking,omitempty"`
+}
+
+// ChatThinkingControl configures provider-native thinking mode for OpenAI-compatible
+// Chat Completions APIs that support the DeepSeek-style thinking extension.
+type ChatThinkingControl struct {
+	Type string `json:"type"`
 }
 
 type ChatCompletionMessage struct {
