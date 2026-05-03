@@ -448,8 +448,7 @@ After the user confirmed to proceed and asked for commits at appropriate interva
 - Wired request construction in `pkg/steps/ai/openai/helpers.go`:
   - profile defaults set chat thinking controls;
   - turn-level `InferenceConfig` overrides profile defaults;
-  - `low|medium` normalize to `high` for chat-completions effort;
-  - `xhigh` normalizes to `max`;
+  - chat-completions reasoning effort is sent exactly as provided;
   - invalid `thinking_type` returns a clear error;
   - when thinking is enabled, sampling/penalty fields are zeroed after all overrides so they are omitted.
 - Added tests in:
@@ -506,7 +505,7 @@ cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps
 ### What warrants a second pair of eyes
 
 - Review whether omitting sampling controls for all `thinking_type=enabled` chat requests is too broad for future providers. It matches DeepSeek's documented behavior but is applied generically when the user opts into thinking.
-- Review whether `normalizeChatReasoningEffort` should reject unknown values rather than pass them through lowercased.
+- Review whether unrestricted chat reasoning effort values should remain fully pass-through for every provider.
 
 ### What should be done in the future
 
@@ -640,3 +639,90 @@ OpenAI RunInference completed (streaming)
 - Thinking settings:
   - `thinking_type: enabled`
   - `chat_reasoning_effort: high`
+
+## Step 8: Address PR review feedback for effort pass-through and reasoning history
+
+After PR #339 received automated review feedback, I addressed both issues in the implementation. The first issue was that chat-completions reasoning effort should not be normalized: whatever the user configures should be what gets sent. The second issue was that enabling DeepSeek-style thinking made tool-call continuations risky because prior `reasoning_content` was not represented in Chat Completions assistant messages.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Address the issues raised here: https://github.com/go-go-golems/geppetto/pull/339
+
+Remove normalization of thinking level entirely, whatever the user provides is what gets sent."
+
+**Assistant interpretation:** Inspect PR #339 review comments, remove chat reasoning-effort normalization, and fix the reasoning history/tool-call issue raised by the reviewer.
+
+**Inferred user intent:** Make the PR acceptable by preserving user-specified provider-native values and supporting DeepSeek thinking-mode tool-call continuations.
+
+**Commit (code):** `41b6c471161a42c8cbb1544ad260931a64c7107c` — `openai: preserve chat reasoning history`
+
+### What I did
+
+- Queried PR #339 review comments with `gh`.
+- Removed chat reasoning-effort normalization from the OpenAI Chat Completions path:
+  - `low`, `medium`, `xhigh`, `max`, and any provider-native string are now sent as configured after whitespace trimming.
+  - `openai-chat-reasoning-effort` is now a string flag rather than a closed choice.
+  - `inference-reasoning-effort` is now a string flag so per-turn/provider-native values are not blocked by schema choices.
+- Added `reasoning_content` support to `ChatCompletionMessage` JSON marshalling.
+- Changed `MakeCompletionRequestFromTurn` so `BlockKindReasoning` text is retained and attached to the following assistant tool-call message as `reasoning_content`.
+- Added tests for:
+  - `reasoning_content` message JSON;
+  - reasoning content preserved on assistant tool-call messages;
+  - old reasoning not crossing a new user/system boundary;
+  - `xhigh` being sent unchanged rather than normalized.
+- Re-ran focused tests:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+### Why
+
+- The review correctly identified that silently rewriting reasoning effort can violate user intent and increase latency/cost on providers that support lower effort values.
+- DeepSeek docs require `reasoning_content` to be passed back in subsequent turns when a thinking-mode assistant turn involved tool calls.
+
+### What worked
+
+- Focused tests passed.
+- The code now keeps chat-completions effort values provider-native instead of applying DeepSeek-specific mappings globally.
+- The OpenAI Chat Completions message type can now marshal `reasoning_content`.
+
+### What didn't work
+
+- N/A in this step.
+
+### What I learned
+
+- The official DeepSeek low/medium/xhigh mapping is useful documentation, but should be provider-side behavior, not client-side normalization in Geppetto.
+- The existing turn representation already had `BlockKindReasoning`; the missing piece was preserving it in Chat Completions assistant messages where providers require it.
+
+### What was tricky to build
+
+- Reasoning content should not leak across unrelated turns. The implementation clears pending reasoning when a new user or system message boundary is processed, while preserving it long enough to attach to the following tool-call assistant message.
+
+### What warrants a second pair of eyes
+
+- Review whether reasoning content should also be attached to non-tool assistant messages or only to assistant tool-call messages. The current fix targets DeepSeek's tool-call continuation requirement.
+- Review whether trimming whitespace from reasoning-effort values is acceptable under "whatever the user provides"; the implementation preserves the semantic value but removes surrounding whitespace.
+
+### What should be done in the future
+
+- Add an integration-style test with a full reasoning/tool-call/tool-use/user continuation sequence if a stable fixture exists.
+
+### Code review instructions
+
+- Start with:
+  - `pkg/steps/ai/openai/chat_types.go`
+  - `pkg/steps/ai/openai/helpers.go`
+  - `pkg/steps/ai/openai/helpers_test.go`
+- Validate with:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/openai ./pkg/steps/ai/settings ./pkg/steps/ai/settings/openai ./pkg/inference/engine -count=1
+```
+
+### Technical details
+
+- PR review comments addressed:
+  - preserve reasoning history when enabling thinking mode;
+  - respect user-provided reasoning effort values without normalization.

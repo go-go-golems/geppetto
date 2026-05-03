@@ -286,7 +286,7 @@ type Settings struct {
 
     // ReasoningEffort applies to providers that accept Chat Completions
     // reasoning_effort. OpenAI Responses also uses this setting.
-    // Known values should include low, medium, high, max, xhigh.
+    // Value is provider-native and sent exactly as configured on the Chat Completions path.
     ReasoningEffort *string `yaml:"reasoning_effort,omitempty" glazed:"openai-reasoning-effort"`
 }
 ```
@@ -312,7 +312,7 @@ Add to `chat.yaml`:
     - high
     - max
     - xhigh
-  help: Reasoning effort for providers that support it. For DeepSeek Chat Completions, high/max are native; low/medium map to high and xhigh maps to max.
+  help: Reasoning effort for providers that support it; sent exactly as provided on the Chat Completions path.
   default: ""
 ```
 
@@ -377,13 +377,13 @@ if settings.OpenAI != nil {
         thinkingType = strings.TrimSpace(*settings.OpenAI.ThinkingType)
     }
     if settings.OpenAI.ReasoningEffort != nil {
-        reasoningEffort = normalizeChatReasoningEffort(*settings.OpenAI.ReasoningEffort)
+        reasoningEffort = strings.TrimSpace(*settings.OpenAI.ChatReasoningEffort)
     }
 }
 
 if infCfg := engine.ResolveInferenceConfig(t, settings.Inference); infCfg != nil {
     if infCfg.ReasoningEffort != nil {
-        reasoningEffort = normalizeChatReasoningEffort(*infCfg.ReasoningEffort)
+        reasoningEffort = strings.TrimSpace(*infCfg.ReasoningEffort)
     }
     if infCfg.ThinkingType != nil {
         thinkingType = strings.TrimSpace(*infCfg.ThinkingType)
@@ -421,22 +421,11 @@ req := ChatCompletionRequest{
 }
 ```
 
-Suggested normalization for DeepSeek compatibility:
+Reasoning effort pass-through:
 
 ```go
-func normalizeChatReasoningEffort(v string) string {
-    switch strings.ToLower(strings.TrimSpace(v)) {
-    case "", "auto":
-        return ""
-    case "low", "medium":
-        return "high"
-    case "xhigh":
-        return "max"
-    case "high", "max":
-        return strings.ToLower(strings.TrimSpace(v))
-    default:
-        return strings.ToLower(strings.TrimSpace(v)) // or reject strictly
-    }
+func chatReasoningEffortValue(v string) string {
+    return strings.TrimSpace(v)
 }
 ```
 
@@ -523,7 +512,7 @@ go test ./pkg/steps/ai/settings/openai ./pkg/steps/ai/settings -count=1
 
 1. Add helper functions:
    - `normalizeChatThinkingType(string) (string, error)`
-   - `normalizeChatReasoningEffort(string) string`
+   - `chatReasoningEffortValue(string) string`
    - optionally `isDeepSeekV4Like(model string) bool`
 2. In `MakeCompletionRequestFromTurn`, resolve settings and per-turn overrides.
 3. Set `req.Thinking` only when configured.
@@ -545,7 +534,7 @@ Test cases:
 
 3. `thinking_type: enabled`, `reasoning_effort: high` → request JSON includes both fields.
 4. `reasoning_effort: max` is accepted.
-5. `reasoning_effort: low|medium|xhigh` normalization behavior is covered if implemented.
+5. `reasoning_effort` values such as `low`, `medium`, and `xhigh` are sent unchanged when configured.
 6. Invalid thinking type returns a clear error.
 
 Example test skeleton:
@@ -715,7 +704,7 @@ inference:
 - sends `thinking: {type: ...}` only when configured;
 - sends chat-completions `reasoning_effort` only when configured;
 - lets per-turn inference config override profile defaults;
-- normalizes `low|medium -> high` and `xhigh -> max` for chat-completions effort;
+- sends chat-completions reasoning effort exactly as configured;
 - removes sampling/penalty fields when `thinking_type=enabled`.
 
 5. Tests were added for:
