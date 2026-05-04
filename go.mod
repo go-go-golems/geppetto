@@ -1,6 +1,6 @@
 module github.com/go-go-golems/geppetto
 
-go 1.25
+go 1.26.1
 
 toolchain go1.26.2
 
