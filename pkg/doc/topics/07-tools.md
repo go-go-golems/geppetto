@@ -75,7 +75,7 @@ When using the OpenAI Responses engine (`ai-api-type=openai-responses`):
 
 - Tools are advertised via the `tools` array on the request. For function tools, schema is top-level: `{type: "function", name, description, parameters}`.
 - The engine streams function_call arguments via SSE and emits a `tool-call` event when the function_call completes.
-- Reasoning summary is streamed as `partial-thinking` events; UIs can render it between "Thinking started/ended" markers.
+- Reasoning summary is streamed as `partial-thinking` / `EventThinkingPartial` events. UIs can render it between "Thinking started/ended" markers and should use the event's `Completion` field for accumulated thinking text.
 - The next iteration (not yet implemented in docs) will include the `assistant:function_call` and `tool:tool_result` blocks in the next request’s `input` to continue tool-driven workflows.
 - Payload keys: use `turns.PayloadKeyText`, `turns.PayloadKeyID`, `turns.PayloadKeyName`, `turns.PayloadKeyArgs`, `turns.PayloadKeyResult`, `turns.PayloadKeyError`
 
