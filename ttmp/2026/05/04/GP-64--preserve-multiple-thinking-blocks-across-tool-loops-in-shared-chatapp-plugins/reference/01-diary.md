@@ -52,3 +52,17 @@ Planned implementation slices:
 - Updated the GP-64 design document to remove the earlier compatibility/migration framing.
 - Clarified that segment-aware IDs are the canonical identity model and that old single-block reasoning IDs are not a supported protocol surface.
 - Clarified that the CoinVault frontend should parse only the shared chatapp protocol and should not retain legacy `CoinVault*` runtime-debug branches.
+
+## Step 7 — Browser hydration smoke test
+
+- Started CoinVault locally on `127.0.0.1:18163` with `COINVAULT_PROFILE_REGISTRIES=/home/manuel/.config/pinocchio/profiles.yaml`, `COINVAULT_PROFILE=wafer-qwen3.5-397b`, and `coinvault serve --skip-db-check`.
+- Created conversation `d65a19a2-f0c6-4d1f-9c59-c2e1b62ae306` and submitted: `Use your SQL documentation tool and then run one SQL query if possible. Think before each tool call. Then answer briefly with what happened.`
+- The model performed two tool calls: `sql_doc` and `sql_query`.
+- The hydrated backend snapshot contained distinct reasoning rows:
+  - `chat-msg-1:thinking:1` before `sql_doc`;
+  - `chat-msg-1:thinking:2` between `sql_doc` and `sql_query`;
+  - `chat-msg-1:thinking:3` after `sql_query`;
+  - plus final assistant text row `chat-msg-1:text:5` with `segmentType: text` and `final: true`.
+- Opened `http://127.0.0.1:18163/?conv_id=d65a19a2-f0c6-4d1f-9c59-c2e1b62ae306` in Playwright to test hydration from a fresh page load.
+- Verified `ws: connected`, model `wafer-qwen3.5-397b`, three separate collapsed `Thoughts` panels, two separate tool-call/result pairs, and no browser console warnings or errors.
+- Expanded all `Thoughts` panels and verified they preserved the correct distinct content around the tool calls instead of folding into one row.

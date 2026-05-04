@@ -8,7 +8,7 @@
 - [x] Add ReasoningPlugin tests for multiple thinking segments
 - [ ] Add chatapp/sessionstream integration test with thinking/tool/result interleaving
 - [ ] Add CoinVault frontend parser/store test for distinct thinking IDs
-- [ ] Run browser hydration smoke test against multi-tool conversation
+- [x] Run browser hydration smoke test against multi-tool conversation
 - [x] Fresh-cutover: remove legacy CoinVault runtime-debug schema/parser compatibility
 - [x] Make ReasoningPlugin allocate segment IDs per thinking phase
 - [x] Make base assistant text streaming allocate segment IDs per text phase

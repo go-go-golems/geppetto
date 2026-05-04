@@ -24,3 +24,8 @@ Implemented fresh-cutover segmented transcript rows in pinocchio and CoinVault, 
 
 Revised design guidance to make GP-64 a fresh cutover: no old IDs, old schemas, dual parser branches, or legacy CoinVault runtime-debug compatibility.
 
+
+## 2026-05-04
+
+Completed GP-64 browser hydration smoke test against a multi-tool wafer-qwen3.5-397b CoinVault conversation; verified three distinct thinking rows around two tool calls and no console errors.
+
