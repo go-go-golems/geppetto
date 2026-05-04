@@ -1,0 +1,21 @@
+# Changelog
+
+## 2026-05-04
+
+- Initial workspace created
+
+
+## 2026-05-04
+
+Created analysis and implementation guide. Diagnosis: shared ReasoningPlugin uses one thinking entity ID per assistant message, causing multiple thinking phases across tool loops to overwrite each other in sessionstream/Redux and hydrate as only the final block. Recommended fix: segment-aware reasoning entity IDs.
+
+
+## 2026-05-04
+
+Updated design with addendum: assistant text messages can suffer the same segment-identity folding as thinking blocks. Broadened recommendation from reasoning-only segmentation to assistant transcript segment identity across thinking/text/tool/warning rows.
+
+
+## 2026-05-04
+
+Implemented fresh-cutover segmented transcript rows in pinocchio and CoinVault, removed legacy runtime-debug compatibility, and validated backend/frontend tests.
+
