@@ -63,10 +63,6 @@ const (
 	EventTypeCodeInterpreterCodeDelta    EventType = "code-interpreter-code-delta"
 	EventTypeCodeInterpreterCodeDone     EventType = "code-interpreter-code-done"
 
-	// Reasoning text (not summary)
-	EventTypeReasoningTextDelta EventType = "reasoning-text-delta"
-	EventTypeReasoningTextDone  EventType = "reasoning-text-done"
-
 	// MCP tools
 	EventTypeMCPArgsDelta      EventType = "mcp-args-delta"
 	EventTypeMCPArgsDone       EventType = "mcp-args-done"
@@ -630,18 +626,6 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventCodeInterpreterCodeDone")
 		}
 		return ret, nil
-	case EventTypeReasoningTextDelta:
-		ret, ok := ToTypedEvent[EventReasoningTextDelta](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventReasoningTextDelta")
-		}
-		return ret, nil
-	case EventTypeReasoningTextDone:
-		ret, ok := ToTypedEvent[EventReasoningTextDone](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventReasoningTextDone")
-		}
-		return ret, nil
 	case EventTypeMCPArgsDelta:
 		ret, ok := ToTypedEvent[EventMCPArgsDelta](e)
 		if !ok {
@@ -1021,25 +1005,6 @@ type EventCodeInterpreterCodeDone struct {
 
 func NewCodeInterpreterCodeDone(metadata EventMetadata, itemID, code string) *EventCodeInterpreterCodeDone {
 	return &EventCodeInterpreterCodeDone{EventImpl: EventImpl{Type_: EventTypeCodeInterpreterCodeDone, Metadata_: metadata}, ItemID: itemID, Code: code}
-}
-
-// Reasoning text
-type EventReasoningTextDelta struct {
-	EventImpl
-	Delta string `json:"delta"`
-}
-
-func NewReasoningTextDelta(metadata EventMetadata, delta string) *EventReasoningTextDelta {
-	return &EventReasoningTextDelta{EventImpl: EventImpl{Type_: EventTypeReasoningTextDelta, Metadata_: metadata}, Delta: delta}
-}
-
-type EventReasoningTextDone struct {
-	EventImpl
-	Text string `json:"text"`
-}
-
-func NewReasoningTextDone(metadata EventMetadata, text string) *EventReasoningTextDone {
-	return &EventReasoningTextDone{EventImpl: EventImpl{Type_: EventTypeReasoningTextDone, Metadata_: metadata}, Text: text}
 }
 
 // MCP
