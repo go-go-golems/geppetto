@@ -19,3 +19,8 @@ Updated design with addendum: assistant text messages can suffer the same segmen
 
 Implemented fresh-cutover segmented transcript rows in pinocchio and CoinVault, removed legacy runtime-debug compatibility, and validated backend/frontend tests.
 
+
+## 2026-05-04
+
+Revised design guidance to make GP-64 a fresh cutover: no old IDs, old schemas, dual parser branches, or legacy CoinVault runtime-debug compatibility.
+

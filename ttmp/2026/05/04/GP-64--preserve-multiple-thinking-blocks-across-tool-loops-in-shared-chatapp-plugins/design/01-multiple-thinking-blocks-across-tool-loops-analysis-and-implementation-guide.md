@@ -480,22 +480,18 @@ func (p *ReasoningPlugin) finishReasoningSegment(parentID string) {
 }
 ```
 
-### 6.4 Backward compatibility helper
+### 6.4 Fresh-cutover helper API
 
-The current exported helper:
-
-```go
-func ReasoningEntityID(messageID string) string
-```
-
-can remain for callers that expect the old single-block ID. Add a new helper:
+GP-64 is a fresh cutover. The shared plugin API should expose segment-aware IDs
+as the canonical identity form:
 
 ```go
 func ReasoningSegmentEntityID(messageID string, segment int) string
 ```
 
-Do not remove the old helper in the same change unless all downstream callers
-are audited.
+Any remaining single-block helper should be treated only as an internal
+first-segment convenience, not as a compatibility promise. Downstream callers
+must move to segment-aware IDs rather than supporting both old and new schemas.
 
 ---
 
@@ -645,56 +641,32 @@ other when reduced through the timeline slice.
 
 ---
 
-## 9. Migration and Compatibility Considerations
+## 9. Fresh-Cutover Considerations
 
 ### 9.1 Existing persisted conversations
 
-Old conversations have thinking IDs like:
+GP-64 does not attempt to migrate old persisted conversations. Conversations
+created with folded IDs such as `chat-msg-7:thinking` may remain folded because
+the earlier segment identity was never present in the snapshot store.
 
-```text
-chat-msg-7:thinking
-```
+The cutover target is simple: new runs emit only segment-aware IDs such as
+`chat-msg-7:thinking:1`, `chat-msg-7:thinking:2`, `chat-msg-7:text:1`, and
+`chat-msg-7:text:2`.
 
-New conversations should have:
+### 9.2 No dual frontend protocol
 
-```text
-chat-msg-7:thinking:1
-chat-msg-7:thinking:2
-```
+The frontend should parse the shared chatapp protocol only:
 
-There is no need to migrate old persisted conversations. Old conversations
-already lost the earlier thinking blocks because the timeline projection folded
-them. A migration cannot reconstruct data that is no longer present in the
-snapshot store unless the raw event log still exists and is replayed with new
-projection logic.
+- `ChatMessage*` with `ChatMessageUpdate` / `ChatMessageEntity`;
+- `ChatReasoning*` with shared reasoning payloads;
+- `ChatToolCall*` with `ToolCallUpdate` / `ToolCallEntity`;
+- `ChatToolResultReady` with `ToolResultUpdate` / `ToolResultEntity`.
 
-### 9.2 Replaying old raw events
+Do not keep GP-64-era compatibility branches for legacy CoinVault runtime-debug
+messages such as `CoinVaultReasoningDelta`, `CoinVaultReasoningDone`,
+`CoinVaultToolCall`, or `CoinVaultToolResult`.
 
-If sessionstream stores raw events and can replay them, a projection replay
-would improve old conversations only if the raw `ChatReasoning*` events contain
-enough information to identify segment boundaries.
-
-They do contain event names:
-
-```text
-ChatReasoningStarted
-ChatReasoningDelta
-ChatReasoningFinished
-```
-
-But their payload IDs are already the old folded ID. A replay-only migration
-would need projection logic that infers segments from event sequence rather than
-payload ID. That is possible but out of scope for the first fix.
-
-### 9.3 Frontend compatibility
-
-The frontend is already generic with respect to `messageId`. It should not need
-special-case migration if backend IDs become segment-aware.
-
-Keep legacy parsing for `CoinVaultReasoningDelta`/`CoinVaultReasoningDone` until
-old servers are no longer relevant.
-
-### 9.4 Interaction with summaries
+### 9.3 Interaction with summaries
 
 Some providers emit `reasoning-summary` after or instead of the full reasoning
 stream. The implementation must decide whether summaries:

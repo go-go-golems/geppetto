@@ -46,3 +46,9 @@ Planned implementation slices:
 - Updated active-run tracking so a non-final finished text segment does not prematurely mark the overall run as finished; only `final: true` ends run tracking.
 - Validation: `go test $(go list ./... | grep -v '/ttmp/')`, `npm run typecheck`, `npm run test:unit`, and `npm run build` passed. A full `go test ./...` still fails because historical `ttmp/.../scripts` contain multiple standalone `main` packages in one directory; this is pre-existing ticket scratch code, so validation excludes `/ttmp/`.
 - Commit: `4a9cc18 feat(webchat): consume segmented shared chatapp transcript schema`.
+
+## Step 6 — Design document fresh-cutover cleanup
+
+- Updated the GP-64 design document to remove the earlier compatibility/migration framing.
+- Clarified that segment-aware IDs are the canonical identity model and that old single-block reasoning IDs are not a supported protocol surface.
+- Clarified that the CoinVault frontend should parse only the shared chatapp protocol and should not retain legacy `CoinVault*` runtime-debug branches.
