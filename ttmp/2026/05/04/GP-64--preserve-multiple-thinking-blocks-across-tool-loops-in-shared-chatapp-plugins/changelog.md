@@ -29,3 +29,8 @@ Revised design guidance to make GP-64 a fresh cutover: no old IDs, old schemas, 
 
 Completed GP-64 browser hydration smoke test against a multi-tool wafer-qwen3.5-397b CoinVault conversation; verified three distinct thinking rows around two tool calls and no console errors.
 
+
+## 2026-05-04
+
+Uploaded refreshed GP-64 implementation and validation bundle to reMarkable under /ai/2026/05/04/GP-64.
+

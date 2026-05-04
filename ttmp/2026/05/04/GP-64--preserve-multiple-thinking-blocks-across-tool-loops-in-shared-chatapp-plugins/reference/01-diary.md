@@ -66,3 +66,10 @@ Planned implementation slices:
 - Opened `http://127.0.0.1:18163/?conv_id=d65a19a2-f0c6-4d1f-9c59-c2e1b62ae306` in Playwright to test hydration from a fresh page load.
 - Verified `ws: connected`, model `wafer-qwen3.5-397b`, three separate collapsed `Thoughts` panels, two separate tool-call/result pairs, and no browser console warnings or errors.
 - Expanded all `Thoughts` panels and verified they preserved the correct distinct content around the tool calls instead of folding into one row.
+
+## Step 8 — reMarkable delivery
+
+- Created a bundled PDF from the GP-64 README, index, tasks, changelog, diary, and design document.
+- Dry-run confirmed the intended files and destination.
+- Uploaded `GP-64 segmented transcript implementation and validation.pdf` to `/ai/2026/05/04/GP-64`.
+- Verified the destination folder contains the new bundled document alongside the previously uploaded GP-64 files.
