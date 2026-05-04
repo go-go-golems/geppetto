@@ -143,3 +143,47 @@ owners:
 **Commits:**
 - `1d34a3a` in pinocchio — direct ToolCallPlugin tests and hardening.
 - `9ce30dd` in coinvault — non-throwing frontend parsing for raw tool payload strings.
+
+---
+
+## Step 9: End-to-end wafer-qwen3.5-397b smoke test
+
+**User direction:** Do not extract `AgentModePlugin`; ignore `.envrc`; run an end-to-end test.
+
+**Setup:**
+- Added `.envrc` to coinvault `.gitignore` and committed it separately.
+- Started the CoinVault backend on `127.0.0.1:18163` with:
+  - `COINVAULT_PROFILE_REGISTRIES=/home/manuel/.config/pinocchio/profiles.yaml`
+  - `COINVAULT_PROFILE=wafer-qwen3.5-397b`
+  - `coinvault serve --skip-db-check`
+
+**HTTP/sessionstream smoke test:**
+- Created a chat session via `POST /api/chat/sessions` with profile `wafer-qwen3.5-397b`.
+- Submitted: `Think briefly, then answer in exactly one short sentence: what is 17 times 19?`
+- Polled `GET /api/chat/sessions/{sessionId}` until status `finished`.
+- Verified snapshot contained:
+  - user `ChatMessage`
+  - thinking `ChatMessage` with role `thinking`, status `finished`, and accumulated content length 682
+  - assistant `ChatMessage` with final content `17 times 19 is 323.`
+
+**Browser smoke test:**
+- Opened the real served frontend at `http://127.0.0.1:18163` using Playwright.
+- Submitted: `Think briefly, then answer in exactly one short sentence: what is 11 times 13?`
+- First browser run exposed a real frontend bug: websocket status became `ws: error` with `type.googleapis.com/google.protobuf.Struct is not in the type registry`.
+- Root cause: the shared `ReasoningPlugin` publishes `structpb.Struct` payloads, but `web/src/ws/parsing.ts` had not registered `StructSchema` with the protobuf registry.
+- Fixed parser by importing/registering `StructSchema` and decoding `ChatReasoningStarted/Appended/Finished` payloads via `anyUnpack(frame.payload, StructSchema)` + `toJson`.
+- Rebuilt frontend, restarted backend, and repeated browser smoke test with: `Think briefly, then answer in exactly one short sentence: what is 12 times 14?`
+- Verified in the browser:
+  - status shows `ws: connected`
+  - model shows `wafer-qwen3.5-397b`
+  - final assistant answer rendered: `12 times 14 is 168.`
+  - `Thoughts` panel appears and expands
+  - expanded thoughts show accumulated reasoning text beginning with `Thinking Process:`
+  - no browser console errors after the fix
+
+**Commits:**
+- `6287306` in coinvault — ignore `.envrc`
+- `48c59d4` in coinvault — register/decode `Struct` payloads for shared reasoning events
+
+**Remaining:**
+- None for GP-63 end-to-end validation.
