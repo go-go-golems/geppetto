@@ -709,6 +709,95 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 	}
 }
 
+func TestRunInference_StreamingReasoningTextDoneOnlyEmitsThinkingPartial(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/v1/responses" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				"",
+				"event: response.reasoning_text.done",
+				`data: {"text":"Done-only thinking.","item_id":"rs_1"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"delta":"42"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":10,"output_tokens":5}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewSystemTextBlock("You are a LLM."),
+		turns.NewUserTextBlock("Hello"),
+	}}
+
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var thinkingDeltas []string
+	var thinkingCompletions []string
+	for _, event := range sink.snapshot() {
+		if e, ok := event.(*events.EventThinkingPartial); ok {
+			thinkingDeltas = append(thinkingDeltas, e.Delta)
+			thinkingCompletions = append(thinkingCompletions, e.Completion)
+		}
+	}
+
+	if len(thinkingDeltas) != 1 {
+		t.Fatalf("expected one thinking partial for done-only reasoning text, got %d (%v)", len(thinkingDeltas), thinkingDeltas)
+	}
+	if thinkingDeltas[0] != "Done-only thinking." {
+		t.Fatalf("expected thinking delta %q, got %q", "Done-only thinking.", thinkingDeltas[0])
+	}
+	if thinkingCompletions[0] != "Done-only thinking." {
+		t.Fatalf("expected thinking completion %q, got %q", "Done-only thinking.", thinkingCompletions[0])
+	}
+}
+
 func TestRunInference_StreamingReasoningItemsKeepMarkdownBoundaries(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{
