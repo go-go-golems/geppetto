@@ -276,7 +276,6 @@ func (e *OpenAIEngine) RunInference(
 					e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
 				}
 				thinkingBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning))
-				e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, response.DeltaReasoning))
 				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, response.DeltaReasoning, thinkingBuf.String()))
 			}
 
@@ -347,7 +346,6 @@ streamingComplete:
 	log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
 
 	if thinkingBuf.Len() > 0 {
-		e.publishEvent(ctx, events.NewReasoningTextDone(metadata, thinkingBuf.String()))
 		if thinkingStarted {
 			e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
 		}

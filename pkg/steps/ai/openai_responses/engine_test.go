@@ -363,18 +363,12 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	var reasoningDeltaEvents int
-	var reasoningDoneEvents int
 	var thinkingPartialEvents int
 	var finalEvents int
 	var finalThinkingText string
 	var finalUsage *events.Usage
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventReasoningTextDelta:
-			reasoningDeltaEvents++
-		case *events.EventReasoningTextDone:
-			reasoningDoneEvents++
 		case *events.EventThinkingPartial:
 			thinkingPartialEvents++
 		case *events.EventFinal:
@@ -388,14 +382,8 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 		}
 	}
 
-	if reasoningDeltaEvents == 0 {
-		t.Fatalf("expected reasoning delta events")
-	}
-	if reasoningDoneEvents == 0 {
-		t.Fatalf("expected reasoning done events")
-	}
 	if thinkingPartialEvents == 0 {
-		t.Fatalf("expected mirrored partial-thinking events for reasoning text")
+		t.Fatalf("expected partial-thinking events for reasoning text")
 	}
 	if finalEvents != 1 {
 		t.Fatalf("expected exactly one final event, got %d", finalEvents)
@@ -592,21 +580,15 @@ func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	var reasoningDeltaEvents int
-	var reasoningDoneEvents int
+	var thinkingPartialEvents int
 	for _, event := range sink.snapshot() {
 		switch event.(type) {
-		case *events.EventReasoningTextDelta:
-			reasoningDeltaEvents++
-		case *events.EventReasoningTextDone:
-			reasoningDoneEvents++
+		case *events.EventThinkingPartial:
+			thinkingPartialEvents++
 		}
 	}
-	if reasoningDeltaEvents != 2 {
-		t.Fatalf("expected normalized reasoning delta events, got %d", reasoningDeltaEvents)
-	}
-	if reasoningDoneEvents != 1 {
-		t.Fatalf("expected normalized reasoning done events, got %d", reasoningDoneEvents)
+	if thinkingPartialEvents != 2 {
+		t.Fatalf("expected 2 partial-thinking events, got %d", thinkingPartialEvents)
 	}
 
 	var reasoningBlock *turns.Block
@@ -708,12 +690,11 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	var reasoningDoneEvents int
+	// After removing EventReasoningTextDone, we verify accumulated thinking_text
+	// is persisted in metadata via the final event.
 	var finalThinkingText string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventReasoningTextDone:
-			reasoningDoneEvents++
 		case *events.EventFinal:
 			if e.Metadata().Extra != nil {
 				if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
@@ -723,9 +704,6 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 		}
 	}
 
-	if reasoningDoneEvents != 2 {
-		t.Fatalf("expected two reasoning done events, got %d", reasoningDoneEvents)
-	}
 	if finalThinkingText != "First thought. Second thought." {
 		t.Fatalf("expected combined thinking_text, got %q", finalThinkingText)
 	}
