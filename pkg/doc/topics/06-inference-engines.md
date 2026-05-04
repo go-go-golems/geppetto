@@ -712,7 +712,7 @@ api:
 
 ### OpenAI Responses Engine (Reasoning + Tools)
 
-The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `openai-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas.
+The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `openai-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas. Thinking text is emitted as `EventThinkingPartial` / `partial-thinking`; `Delta` is the latest increment and `Completion` is the accumulated reasoning text.
 
 These examples use direct `--ai-*` flags because this page documents the low-level engine surface. In profile-first applications, prefer registry-backed profiles and bootstrap final runtime settings through the [defaults/config/registries/profile playbook](../playbooks/08-bootstrap-binary-step-settings-from-defaults-config-registries-profile.md).
 

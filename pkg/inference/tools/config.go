@@ -18,7 +18,7 @@ func DefaultToolConfig() ToolConfig {
 	return ToolConfig{
 		Enabled:           true,
 		ToolChoice:        ToolChoiceAuto,
-		MaxIterations:     5,
+		MaxIterations:     20,
 		ExecutionTimeout:  30 * time.Second,
 		MaxParallelTools:  3,
 		ToolErrorHandling: ToolErrorContinue,

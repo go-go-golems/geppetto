@@ -10,7 +10,7 @@ type LoopConfig struct {
 // DefaultLoopConfig returns a sensible default loop configuration.
 func DefaultLoopConfig() LoopConfig {
 	return LoopConfig{
-		MaxIterations: 5,
+		MaxIterations: 20,
 	}
 }
 

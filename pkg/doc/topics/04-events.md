@@ -68,7 +68,7 @@ Geppetto's event system publishes structured events as inference progresses. Eve
 |-------|---------------|--------------|------------|
 | **start** | `EventTypeStart` | Inference begins | `Metadata` |
 | **partial** | `EventTypePartialCompletion` | Each streamed chunk | `Delta`, `Completion` |
-| **partial-thinking** | `EventTypePartialThinking` | Reasoning summary delta (Responses API) | `Delta` |
+| **partial-thinking** | `EventTypePartialThinking` | Reasoning/thinking text partial (OpenAI Chat/Responses) | `Delta`, `Completion` |
 | **final** | `EventTypeFinal` | Inference completes | `Text`, `Metadata.Usage` |
 | **interrupt** | `EventTypeInterrupt` | Context cancelled | `Text` (partial) |
 | **error** | `EventTypeError` | Error occurs | `ErrorString` |
@@ -86,7 +86,7 @@ Geppetto's event system publishes structured events as inference progresses. Eve
 
 | Category | Events | Purpose |
 |----------|--------|---------|
-| **Reasoning** | `partial-thinking`, `reasoning-text-delta`, `reasoning-text-done` | o1/Claude thinking traces |
+| **Reasoning** | `partial-thinking` plus `info` boundary events such as `thinking-started` and `thinking-ended` | Provider thinking/reasoning traces |
 | **Web Search** | `web-search-started`, `web-search-searching`, `web-search-done` | Built-in web search progress |
 | **File Search** | `file-search-started`, `file-search-done` | Built-in file search progress |
 | **Code Interpreter** | `code-interpreter-*` | Code execution progress |
@@ -99,12 +99,15 @@ Geppetto's event system publishes structured events as inference progresses. Eve
 Common concrete Go types when parsing with `events.NewEventFromJson`:
 
 - `*events.EventPartialCompletionStart` → stream start
-- `*events.EventPartialCompletion` → `Delta`, `Completion`
+- `*events.EventPartialCompletion` → normal answer `Delta`, accumulated answer `Completion`
+- `*events.EventThinkingPartial` → reasoning/thinking `Delta`, accumulated reasoning `Completion`
 - `*events.EventFinal` → `Text`
 - `*events.EventToolCall` → `ToolCall` with `Name`, `Input`, `ID`
 - `*events.EventToolResult` → `ToolResult` with `ID`, `Result`
 - `*events.EventError` → `ErrorString`
 - `*events.EventInterrupt` → `Text`
+
+Reasoning text uses `EventThinkingPartial`. Consumers that render thinking should read `Completion` for the accumulated text and `Delta` only for the latest increment. The older `EventReasoningTextDelta` and `EventReasoningTextDone` event types were removed so there is a single reasoning partial stream with the same delta/completion semantics as normal assistant text.
 
 See full catalog: `geppetto/pkg/events/chat-events.go`
 
@@ -168,7 +171,7 @@ events.PublishEventToContext(runCtx, events.NewToolResultEvent(meta, toolResult)
 | Provider | Streaming Behavior |
 |----------|-------------------|
 | **OpenAI (Chat)** | `start` → multiple `partial` → `final`. Tool calls merged and emitted as `tool-call` when complete. |
-| **OpenAI (Responses)** | Adds `info` events for reasoning boundaries, `partial-thinking` for summary deltas. Function args streamed via SSE. |
+| **OpenAI (Responses)** | Adds `info` events for reasoning boundaries, `partial-thinking` for reasoning/summary deltas with accumulated `Completion`. Function args streamed via SSE. |
 | **Claude** | Content-block merger emits `start` → `partial` → `tool-call` (when complete) → `final`. |
 
 All providers publish via context sinks.

@@ -118,17 +118,11 @@ func TestRunInference_StreamTogetherReasoningPublishesEventsAndPersistsBlock(t *
 			t.Fatalf("RunInference: %v", err)
 		}
 
-		var reasoningDeltaEvents int
-		var reasoningDoneEvents int
 		var thinkingPartialEvents int
 		var finalThinkingText string
 		var finalUsage *events.Usage
 		for _, event := range sink.snapshot() {
 			switch e := event.(type) {
-			case *events.EventReasoningTextDelta:
-				reasoningDeltaEvents++
-			case *events.EventReasoningTextDone:
-				reasoningDoneEvents++
 			case *events.EventThinkingPartial:
 				thinkingPartialEvents++
 			case *events.EventFinal:
@@ -141,12 +135,6 @@ func TestRunInference_StreamTogetherReasoningPublishesEventsAndPersistsBlock(t *
 			}
 		}
 
-		if reasoningDeltaEvents != 2 {
-			t.Fatalf("expected 2 reasoning delta events, got %d", reasoningDeltaEvents)
-		}
-		if reasoningDoneEvents != 1 {
-			t.Fatalf("expected 1 reasoning done event, got %d", reasoningDoneEvents)
-		}
 		if thinkingPartialEvents != 2 {
 			t.Fatalf("expected 2 partial-thinking events, got %d", thinkingPartialEvents)
 		}
@@ -189,15 +177,15 @@ func TestRunInference_StreamDeepSeekReasoningContentPublishesEvents(t *testing.T
 			t.Fatalf("RunInference: %v", err)
 		}
 
-		var reasoningDeltaEvents int
+		var thinkingPartialEvents int
 		for _, event := range sink.snapshot() {
 			switch event.(type) {
-			case *events.EventReasoningTextDelta:
-				reasoningDeltaEvents++
+			case *events.EventThinkingPartial:
+				thinkingPartialEvents++
 			}
 		}
-		if reasoningDeltaEvents != 2 {
-			t.Fatalf("expected 2 reasoning delta events, got %d", reasoningDeltaEvents)
+		if thinkingPartialEvents != 2 {
+			t.Fatalf("expected 2 partial-thinking events, got %d", thinkingPartialEvents)
 		}
 
 		if len(out.Blocks) < 2 {
@@ -227,7 +215,7 @@ func TestRunInference_StreamTextOnlyBehaviorIsUnchanged(t *testing.T) {
 		var partialEvents int
 		for _, event := range sink.snapshot() {
 			switch event.(type) {
-			case *events.EventReasoningTextDelta, *events.EventReasoningTextDone, *events.EventThinkingPartial:
+			case *events.EventThinkingPartial:
 				reasoningEvents++
 			case *events.EventPartialCompletion:
 				partialEvents++

@@ -323,6 +323,34 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				}
 				appendAssistantChunk(missing)
 			}
+			backfillReasoningText := func(fullText string) {
+				if fullText == "" {
+					return
+				}
+				current := currentReasoningText.String()
+				if strings.HasSuffix(current, fullText) {
+					return
+				}
+				overlap := 0
+				maxOverlap := len(fullText)
+				if len(current) < maxOverlap {
+					maxOverlap = len(current)
+				}
+				for i := maxOverlap; i > 0; i-- {
+					if strings.HasSuffix(current, fullText[:i]) {
+						overlap = i
+						break
+					}
+				}
+				missing := fullText[overlap:]
+				if missing == "" {
+					return
+				}
+				currentReasoningText.WriteString(missing)
+				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), missing)
+				thinkBuf.WriteString(normalized)
+				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, thinkBuf.String()))
+			}
 			chunkFromValue := func(v any) string {
 				switch tv := v.(type) {
 				case string:
@@ -482,30 +510,20 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				if d, ok := m["delta"].(string); ok && d != "" {
 					thinkBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d))
 					currentReasoningText.WriteString(d)
-					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, d))
-					// Mirror to partial-thinking so existing UIs still render live reasoning text.
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
 					thinkBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s))
 					currentReasoningText.WriteString(s)
-					e.publishEvent(ctx, events.NewReasoningTextDelta(metadata, s))
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
 				}
 			case "response.reasoning_text.done":
-				fullText := thinkBuf.String()
-				currentText := currentReasoningText.String()
 				if s, ok := m["text"].(string); ok && s != "" {
-					// Keep accumulated reasoning across multiple items. Done payloads
-					// can repeat already-streamed deltas for the current item.
-					if !strings.HasSuffix(fullText, s) {
-						thinkBuf.WriteString(s)
-						fullText = thinkBuf.String()
-					}
-					if !strings.HasSuffix(currentText, s) {
-						currentReasoningText.WriteString(s)
-					}
+					// Done payloads can repeat already-streamed deltas for the current
+					// item, but some providers send reasoning text only in the done
+					// event. Backfill any missing suffix and emit the canonical
+					// EventThinkingPartial so live reasoning renderers see the update.
+					backfillReasoningText(s)
 				}
-				e.publishEvent(ctx, events.NewReasoningTextDone(metadata, fullText))
 			case "response.output_item.done":
 				if it, ok := m["item"].(map[string]any); ok {
 					if typ, ok := it["type"].(string); ok {
