@@ -201,3 +201,57 @@ Ran:
 ```text
 cd geppetto && go test ./pkg/steps/ai/openai_responses -count=1
 ```
+
+---
+
+## Step 7: Live server restart and provider smoke tests
+
+### Restart
+
+Restarted the pinocchio web-chat server on `:8091` so it picked up the workspace Geppetto changes via `go.work`.
+
+Server log:
+
+```text
+/tmp/pinocchio-web-chat-smoke/server.log
+```
+
+### Test against the user-provided session
+
+User-provided session:
+
+```text
+23e1303a-b4cc-4b7a-8110-f36a08367b39
+```
+
+The first post-restart live request with reasoning_text replay enabled reached OpenAI and failed with:
+
+```text
+Invalid 'input[8].content': array too long. Expected an array with maximum length 0, but got an array with length 1 instead.
+```
+
+After changing replay to omit plaintext reasoning input content and restarting again, the same old session reached a different provider error:
+
+```text
+Item 'msg_09eb482afb8e916e0069fb866284c48194b71304d2fddf2f99' of type 'message' was provided without its required 'reasoning' item: 'rs_09eb482afb8e916e0069fb865911108194a2f6b2d8af114228'.
+```
+
+This session contains pre-fix encrypted reasoning blocks that have provider-looking `Block.ID` values but lack `payload.item_id`. Because the project decision was no backwards-compatibility/migration, the replay builder correctly does not infer provider IDs from local `Block.ID`. That old session therefore remains invalid unless repaired or migrated out of band.
+
+### Fresh live session success
+
+Created a fresh session after the fixes:
+
+```text
+3b0128fc-d5a5-4e98-9ddb-f3390411259d
+```
+
+Sent two messages. The second request replayed the first response with:
+
+```text
+input_items=6
+reasoning item: id=rs_..., encrypted_content_len=4516, summary_count=1
+assistant message: id=msg_...
+```
+
+The second Responses call returned HTTP 200 with `text/event-stream`, and the middleware completed normally. This validates the current forward-compatible path: newly parsed reasoning blocks include `payload.item_id`, encrypted content, summaries, and metadata, and replay succeeds without plaintext reasoning input content.

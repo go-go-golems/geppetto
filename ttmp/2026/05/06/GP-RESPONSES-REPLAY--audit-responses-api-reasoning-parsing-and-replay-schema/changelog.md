@@ -84,3 +84,12 @@ Live OpenAI Responses test rejected reasoning_text input content (input[].conten
 - pkg/steps/ai/openai_responses/helpers_test.go — Updated replay regression to assert plaintext-only reasoning is omitted
 - ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 6 records live failure and policy change
 
+
+## 2026-05-06
+
+Ran live web-chat smoke tests after restart: the old user session still fails because it predates payload.item_id capture and no migration is intended; a fresh two-turn Responses session succeeded with encrypted reasoning/item_id replay.
+
+### Related Files
+
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 7 records live restart and smoke-test results
+
