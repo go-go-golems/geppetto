@@ -25,6 +25,16 @@ func (b fakeBuilder) Build(ctx context.Context, sessionID string) (InferenceRunn
 	return b.build(ctx, sessionID)
 }
 
+func TestNewSessionWithID(t *testing.T) {
+	s := NewSessionWithID("sess-explicit")
+	require.NotNil(t, s)
+	require.Equal(t, "sess-explicit", s.SessionID)
+
+	generated := NewSessionWithID("")
+	require.NotNil(t, generated)
+	require.NotEmpty(t, generated.SessionID)
+}
+
 func TestSession_StartInference_MutatesLatestTurnOnSuccess(t *testing.T) {
 	s := &Session{
 		SessionID: "sess-1",
