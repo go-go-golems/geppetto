@@ -229,7 +229,7 @@ func TestBuildInputItemsFromTurn_OmitsSyntheticReasoningUUID(t *testing.T) {
 	}
 }
 
-func TestBuildInputItemsFromTurn_OmitsPlaintextOnlyReasoning(t *testing.T) {
+func TestBuildInputItemsFromTurn_ReplaysPlaintextReasoningText(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{
 		turns.PayloadKeyText: "local streamed thinking only",
 	}}
@@ -240,8 +240,34 @@ func TestBuildInputItemsFromTurn_OmitsPlaintextOnlyReasoning(t *testing.T) {
 	}}
 
 	got := buildInputItemsFromTurn(turn)
+	if len(got) != 3 {
+		t.Fatalf("expected plaintext reasoning to replay as reasoning item, got %d items: %#v", len(got), got)
+	}
+	if got[1].Type != "reasoning" {
+		t.Fatalf("second item must be reasoning, got %#v", got[1])
+	}
+	if got[1].ID != "" {
+		t.Fatalf("expected internal block id not to be replayed as provider id, got %q", got[1].ID)
+	}
+	if len(got[1].Content) != 1 || got[1].Content[0].Type != "reasoning_text" || got[1].Content[0].Text != "local streamed thinking only" {
+		t.Fatalf("expected reasoning_text content, got %#v", got[1].Content)
+	}
+	if got[2].Type != "message" || got[2].Role != "assistant" {
+		t.Fatalf("expected assistant message follower, got %#v", got[2])
+	}
+}
+
+func TestBuildInputItemsFromTurn_OmitsTrulyEmptyReasoning(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Question"),
+		rs,
+		turns.NewAssistantTextBlock("Answer"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
 	if len(got) != 2 {
-		t.Fatalf("expected plaintext-only reasoning to be omitted, got %d items: %#v", len(got), got)
+		t.Fatalf("expected truly empty reasoning to be omitted, got %d items: %#v", len(got), got)
 	}
 	if got[0].Role != "user" || got[1].Role != "assistant" {
 		t.Fatalf("expected user then assistant messages, got %#v", got)
@@ -277,6 +303,9 @@ func TestBuildInputItemsFromTurn_ReplaysReasoningSummaryPayload(t *testing.T) {
 	}
 	if got[2].Summary == nil || len(*got[2].Summary) != 1 {
 		t.Fatalf("expected reasoning summary payload to round-trip, got %#v", got[2].Summary)
+	}
+	if len(got[2].Content) != 1 || got[2].Content[0].Type != "reasoning_text" || got[2].Content[0].Text != "Thinking hard." {
+		t.Fatalf("expected reasoning_text payload to round-trip, got %#v", got[2].Content)
 	}
 }
 
@@ -405,6 +434,34 @@ func TestBuildInputItemsFromTurn_PreservesReasoningForOlderFunctionCallChains(t 
 	}
 	if got[newReasoningIdx+1].Type != "message" || got[newReasoningIdx+1].Role != "assistant" {
 		t.Fatalf("expected rs_new follower to be assistant message, got %#v", got[newReasoningIdx+1])
+	}
+}
+
+func TestPreviewResponsesInputItem_ShowsReasoningMetadataWithoutEncryptedBlob(t *testing.T) {
+	summary := []any{map[string]any{"type": "summary_text", "text": "Short summary"}}
+	item := responsesInput{
+		Type:             "reasoning",
+		ID:               "rs_1234567890abcdef",
+		EncryptedContent: "gAAAAA-secret-content",
+		Summary:          &summary,
+		Content:          []responsesContentPart{{Type: "reasoning_text", Text: "thinking text"}},
+	}
+
+	got := previewResponsesInputItem(item)
+	if got["type"] != "reasoning" {
+		t.Fatalf("expected reasoning type, got %#v", got)
+	}
+	if got["id"] == "rs_1234567890abcdef" {
+		t.Fatalf("expected id to be redacted, got %#v", got)
+	}
+	if got["has_encrypted_content"] != true || got["encrypted_content_len"] != len("gAAAAA-secret-content") {
+		t.Fatalf("expected encrypted content presence/length without raw blob, got %#v", got)
+	}
+	if _, ok := got["encrypted_content"]; ok {
+		t.Fatalf("preview must not expose raw encrypted_content: %#v", got)
+	}
+	if got["summary_count"] != 1 {
+		t.Fatalf("expected summary_count=1, got %#v", got)
 	}
 }
 

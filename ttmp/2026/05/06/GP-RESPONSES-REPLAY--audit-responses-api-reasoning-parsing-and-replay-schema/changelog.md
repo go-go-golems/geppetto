@@ -28,3 +28,15 @@ Uploaded the Responses reasoning parsing/replay audit guide to reMarkable at /ai
 
 Updated design decisions: keep `item_id` because it matches the Responses spec, do not add migration/backwards-compatibility work, store OpenAI-specific response metadata under `metadata[openai_responses.*]`, leave middleware reordering out of scope, and implement reasoning_text replay directly rather than behind a capability flag.
 
+
+## 2026-05-06
+
+Implemented request-side reasoning_text replay and redacted Responses input previews; added regression tests and validated with go test ./pkg/steps/ai/openai_responses -count=1.
+
+### Related Files
+
+- pkg/steps/ai/openai_responses/engine.go — Request input summary logging now uses typed redacted preview
+- pkg/steps/ai/openai_responses/helpers.go — Reasoning items now replay payload.text as content reasoning_text and expose redacted preview helpers
+- pkg/steps/ai/openai_responses/helpers_test.go — Regression tests for reasoning_text replay
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 2
+

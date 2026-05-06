@@ -78,18 +78,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		log.Debug().Int("tool_call_blocks", toolCalls).Int("tool_use_blocks", toolUses).Msg("Responses: Turn tool blocks present")
 	}
 	{
-		preview := make([]map[string]any, 0, len(reqBody.Input))
-		for _, it := range reqBody.Input {
-			pparts := make([]map[string]any, 0, len(it.Content))
-			for _, c := range it.Content {
-				seg := c.Text
-				if len(seg) > 80 {
-					seg = seg[:80] + "…"
-				}
-				pparts = append(pparts, map[string]any{"type": c.Type, "len": len(c.Text), "text": seg})
-			}
-			preview = append(preview, map[string]any{"role": it.Role, "parts": pparts})
-		}
+		preview := previewResponsesInput(reqBody.Input)
 		log.Debug().Int("input_items", len(reqBody.Input)).Interface("input_preview", preview).Msg("Responses: request input summary")
 	}
 

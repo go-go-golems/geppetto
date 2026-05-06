@@ -50,20 +50,27 @@ type reasoningParam struct {
 }
 
 type responsesInput struct {
-	// Message-style item
+	// Common item fields. For provider-originated items, ID is the provider item
+	// id from payload.item_id, never the local turns.Block.ID.
+	Type   string `json:"type,omitempty"`
+	ID     string `json:"id,omitempty"`
+	Status string `json:"status,omitempty"`
+
+	// Message-style item fields.
 	Role    string                 `json:"role,omitempty"`
 	Content []responsesContentPart `json:"content,omitempty"`
-	// Item-style entries (reasoning, function_call, function_call_output)
-	Type             string `json:"type,omitempty"`
-	ID               string `json:"id,omitempty"`
+
+	// Reasoning item fields.
 	EncryptedContent string `json:"encrypted_content,omitempty"`
 	Summary          *[]any `json:"summary,omitempty"`
-	// function_call
+
+	// function_call fields.
 	CallID    string `json:"call_id,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Arguments string `json:"arguments,omitempty"`
-	// function_call_output
-	// Some providers expect call_id for both function_call and function_call_output
+
+	// function_call_output fields.
+	// Some providers expect call_id for both function_call and function_call_output.
 	ToolCallID string `json:"tool_call_id,omitempty"`
 	Output     string `json:"output,omitempty"`
 }
@@ -111,6 +118,62 @@ type responsesOutputContent struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
 	JSON any    `json:"json,omitempty"`
+}
+
+func redactResponsesID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	if len(id) <= 12 {
+		return id
+	}
+	return id[:6] + "…" + id[len(id)-4:]
+}
+
+func previewResponsesInputItem(it responsesInput) map[string]any {
+	parts := make([]map[string]any, 0, len(it.Content))
+	for _, c := range it.Content {
+		seg := c.Text
+		if len(seg) > 80 {
+			seg = seg[:80] + "…"
+		}
+		parts = append(parts, map[string]any{"type": c.Type, "len": len(c.Text), "text": seg})
+	}
+	preview := map[string]any{
+		"type":                  it.Type,
+		"role":                  it.Role,
+		"parts":                 parts,
+		"has_encrypted_content": it.EncryptedContent != "",
+		"encrypted_content_len": len(it.EncryptedContent),
+	}
+	if it.ID != "" {
+		preview["id"] = redactResponsesID(it.ID)
+	}
+	if it.Status != "" {
+		preview["status"] = it.Status
+	}
+	if it.Summary != nil {
+		preview["summary_count"] = len(*it.Summary)
+	}
+	if it.CallID != "" {
+		preview["call_id"] = redactResponsesID(it.CallID)
+	}
+	if it.Name != "" {
+		preview["name"] = it.Name
+	}
+	if it.Output != "" {
+		preview["output_len"] = len(it.Output)
+	}
+	return preview
+}
+
+func previewResponsesInput(items []responsesInput) []map[string]any {
+	preview := make([]map[string]any, 0, len(items))
+	for _, it := range items {
+		preview = append(preview, previewResponsesInputItem(it))
+	}
+	return preview
 }
 
 // buildResponsesRequest constructs a minimal Responses request from Turn + settings
@@ -279,6 +342,18 @@ func reasoningSummaryEntriesFromText(text string) []any {
 	}}
 }
 
+func reasoningTextContentFromPayload(payload map[string]any) []responsesContentPart {
+	if payload == nil {
+		return nil
+	}
+	if v, ok := payload[turns.PayloadKeyText]; ok && v != nil {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			return []responsesContentPart{{Type: "reasoning_text", Text: s}}
+		}
+	}
+	return nil
+}
+
 func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
 	if payload == nil {
 		return nil
@@ -360,22 +435,19 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	reasoningItem := func(b turns.Block) (responsesInput, bool) {
 		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
 		summary := reasoningSummaryEntriesFromPayload(b.Payload)
+		content := reasoningTextContentFromPayload(b.Payload)
 		itemID, _ := b.Payload[turns.PayloadKeyItemID].(string)
 
-		// A persisted reasoning block may contain only plaintext thinking that was
-		// streamed for local display. The official Responses schema has optional
-		// reasoning_text content, but this minimal request model does not replay it
-		// yet. Without encrypted content or summary, such a block would currently
-		// serialize as an empty reasoning item, so omit it until reasoning_text
-		// replay is implemented and provider-validated.
-		if enc == "" && len(summary) == 0 {
+		// Do not emit completely empty reasoning items. A reasoning block with only
+		// local Block.ID is not replayable provider context.
+		if enc == "" && len(summary) == 0 && len(content) == 0 {
 			return responsesInput{}, false
 		}
 
 		if summary == nil {
 			summary = make([]any, 0)
 		}
-		ri := responsesInput{Type: "reasoning", Summary: &summary}
+		ri := responsesInput{Type: "reasoning", Summary: &summary, Content: content}
 		// Provider item IDs are replay payload, not internal block identity. Use
 		// the explicit item_id captured from the provider event when available;
 		// never infer it from Block.ID, which may be a synthetic UUID or may follow
