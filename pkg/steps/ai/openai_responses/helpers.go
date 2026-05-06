@@ -50,20 +50,27 @@ type reasoningParam struct {
 }
 
 type responsesInput struct {
-	// Message-style item
+	// Common item fields. For provider-originated items, ID is the provider item
+	// id from payload.item_id, never the local turns.Block.ID.
+	Type   string `json:"type,omitempty"`
+	ID     string `json:"id,omitempty"`
+	Status string `json:"status,omitempty"`
+
+	// Message-style item fields.
 	Role    string                 `json:"role,omitempty"`
 	Content []responsesContentPart `json:"content,omitempty"`
-	// Item-style entries (reasoning, function_call, function_call_output)
-	Type             string `json:"type,omitempty"`
-	ID               string `json:"id,omitempty"`
+
+	// Reasoning item fields.
 	EncryptedContent string `json:"encrypted_content,omitempty"`
 	Summary          *[]any `json:"summary,omitempty"`
-	// function_call
+
+	// function_call fields.
 	CallID    string `json:"call_id,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Arguments string `json:"arguments,omitempty"`
-	// function_call_output
-	// Some providers expect call_id for both function_call and function_call_output
+
+	// function_call_output fields.
+	// Some providers expect call_id for both function_call and function_call_output.
 	ToolCallID string `json:"tool_call_id,omitempty"`
 	Output     string `json:"output,omitempty"`
 }
@@ -85,6 +92,7 @@ type responsesContentPart struct {
 }
 
 type responsesResponse struct {
+	ID     string                `json:"id,omitempty"`
 	Output []responsesOutputItem `json:"output"`
 	Usage  json.RawMessage       `json:"usage,omitempty"`
 	// Some envelopes may nest usage under response.usage.
@@ -102,6 +110,7 @@ type responsesOutputItem struct {
 	Name             string                   `json:"name,omitempty"`
 	CallID           string                   `json:"call_id,omitempty"`
 	Arguments        string                   `json:"arguments,omitempty"`
+	Status           string                   `json:"status,omitempty"`
 	Content          []responsesOutputContent `json:"content"`
 	Summary          []any                    `json:"summary,omitempty"`
 	EncryptedContent string                   `json:"encrypted_content,omitempty"`
@@ -111,6 +120,62 @@ type responsesOutputContent struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
 	JSON any    `json:"json,omitempty"`
+}
+
+func redactResponsesID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	if len(id) <= 12 {
+		return id
+	}
+	return id[:6] + "…" + id[len(id)-4:]
+}
+
+func previewResponsesInputItem(it responsesInput) map[string]any {
+	parts := make([]map[string]any, 0, len(it.Content))
+	for _, c := range it.Content {
+		seg := c.Text
+		if len(seg) > 80 {
+			seg = seg[:80] + "…"
+		}
+		parts = append(parts, map[string]any{"type": c.Type, "len": len(c.Text), "text": seg})
+	}
+	preview := map[string]any{
+		"type":                  it.Type,
+		"role":                  it.Role,
+		"parts":                 parts,
+		"has_encrypted_content": it.EncryptedContent != "",
+		"encrypted_content_len": len(it.EncryptedContent),
+	}
+	if it.ID != "" {
+		preview["id"] = redactResponsesID(it.ID)
+	}
+	if it.Status != "" {
+		preview["status"] = it.Status
+	}
+	if it.Summary != nil {
+		preview["summary_count"] = len(*it.Summary)
+	}
+	if it.CallID != "" {
+		preview["call_id"] = redactResponsesID(it.CallID)
+	}
+	if it.Name != "" {
+		preview["name"] = it.Name
+	}
+	if it.Output != "" {
+		preview["output_len"] = len(it.Output)
+	}
+	return preview
+}
+
+func previewResponsesInput(items []responsesInput) []map[string]any {
+	preview := make([]map[string]any, 0, len(items))
+	for _, it := range items {
+		preview = append(preview, previewResponsesInputItem(it))
+	}
+	return preview
 }
 
 // buildResponsesRequest constructs a minimal Responses request from Turn + settings
@@ -279,6 +344,76 @@ func reasoningSummaryEntriesFromText(text string) []any {
 	}}
 }
 
+func setOpenAIResponsesBlockMetadata(b *turns.Block, responseID string, outputIndex *int, itemType string, status string) {
+	if b == nil {
+		return
+	}
+	if strings.TrimSpace(responseID) != "" {
+		_ = keyOpenAIResponsesResponseID.Set(&b.Metadata, responseID)
+	}
+	if outputIndex != nil {
+		_ = keyOpenAIResponsesOutputIndex.Set(&b.Metadata, *outputIndex)
+	}
+	if strings.TrimSpace(itemType) != "" {
+		_ = keyOpenAIResponsesItemType.Set(&b.Metadata, itemType)
+	}
+	if strings.TrimSpace(status) != "" {
+		_ = keyOpenAIResponsesStatus.Set(&b.Metadata, status)
+	}
+}
+
+func intFromProviderNumber(raw any) (int, bool) {
+	switch v := raw.(type) {
+	case float64:
+		return int(v), true
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case json.Number:
+		i, err := v.Int64()
+		if err == nil {
+			return int(i), true
+		}
+	}
+	return 0, false
+}
+
+func reasoningTextFromOutputContent(content []responsesOutputContent) string {
+	var b strings.Builder
+	for _, c := range content {
+		switch c.Type {
+		case "reasoning_text", "text":
+			if strings.TrimSpace(c.Text) != "" {
+				b.WriteString(c.Text)
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func reasoningTextFromProviderContent(raw any) string {
+	items, ok := raw.([]any)
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		typ, _ := m["type"].(string)
+		if typ != "reasoning_text" && typ != "text" {
+			continue
+		}
+		if s, ok := m["text"].(string); ok && strings.TrimSpace(s) != "" {
+			b.WriteString(s)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
 	if payload == nil {
 		return nil
@@ -357,17 +492,34 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 		}
 	}
 
-	reasoningItem := func(b turns.Block) responsesInput {
+	reasoningItem := func(b turns.Block) (responsesInput, bool) {
 		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
 		summary := reasoningSummaryEntriesFromPayload(b.Payload)
+		itemID, _ := b.Payload[turns.PayloadKeyItemID].(string)
+
+		// OpenAI's public schema exposes optional reasoning_text content on reasoning
+		// items, but live Responses requests currently reject non-empty reasoning
+		// input content ("expected maximum length 0"). Preserve plaintext reasoning
+		// locally for UI/debugging, but replay only encrypted_content and summaries.
+		if enc == "" && len(summary) == 0 {
+			return responsesInput{}, false
+		}
+
 		if summary == nil {
 			summary = make([]any, 0)
 		}
-		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &summary}
+		ri := responsesInput{Type: "reasoning", Summary: &summary}
+		// Provider item IDs are replay payload, not internal block identity. Use
+		// the explicit item_id captured from the provider event when available;
+		// never infer it from Block.ID, which may be a synthetic UUID or may follow
+		// another provider's ID scheme.
+		if strings.TrimSpace(itemID) != "" {
+			ri.ID = itemID
+		}
 		if enc != "" {
 			ri.EncryptedContent = enc
 		}
-		return ri
+		return ri, true
 	}
 
 	// Process blocks in-order so every function_call can retain its required reasoning predecessor.
@@ -385,7 +537,9 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 				if v, ok := next.Payload[turns.PayloadKeyText]; ok && v != nil {
 					if s, ok2 := v.(string); ok2 && strings.TrimSpace(s) != "" {
 						msgID, _ := next.Payload[turns.PayloadKeyItemID].(string)
-						items = append(items, reasoningItem(b))
+						if ri, ok := reasoningItem(b); ok {
+							items = append(items, ri)
+						}
 						items = append(items, responsesInput{
 							Type:    "message",
 							Role:    "assistant",
@@ -397,7 +551,9 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 					}
 				}
 			case turns.BlockKindToolCall:
-				items = append(items, reasoningItem(b))
+				if ri, ok := reasoningItem(b); ok {
+					items = append(items, ri)
+				}
 				j := nextIdx
 				for j < len(t.Blocks) {
 					nb := t.Blocks[j]

@@ -133,6 +133,7 @@ func TestBuildInputItemsFromTurn_UserMessageWithMixedTextAndMultipleImages(t *te
 
 func TestBuildInputItemsFromTurn_ReasoningWithAssistantFollower(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_1", Payload: map[string]any{
+		turns.PayloadKeyItemID:           "rs_1",
 		turns.PayloadKeyEncryptedContent: "gAAAAA...",
 	}}
 	as := turns.NewAssistantTextBlock("Answer")
@@ -171,6 +172,7 @@ func TestBuildInputItemsFromTurn_ReasoningWithAssistantFollower(t *testing.T) {
 
 func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_1", Payload: map[string]any{
+		turns.PayloadKeyItemID:           "rs_1",
 		turns.PayloadKeyEncryptedContent: "gAAAAA...",
 	}}
 	turn := &turns.Turn{Blocks: []turns.Block{
@@ -202,8 +204,70 @@ func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
 	}
 }
 
+func TestBuildInputItemsFromTurn_OmitsSyntheticReasoningUUID(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{
+		turns.PayloadKeyEncryptedContent: "gAAAAA...",
+	}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Question"),
+		rs,
+		turns.NewAssistantTextBlock("Answer"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(got))
+	}
+	if got[1].Type != "reasoning" {
+		t.Fatalf("second item must be reasoning, got %q", got[1].Type)
+	}
+	if got[1].ID != "" {
+		t.Fatalf("expected internal block id to be omitted when no provider item_id was captured, got %q", got[1].ID)
+	}
+	if got[1].EncryptedContent != "gAAAAA..." {
+		t.Fatalf("expected encrypted content to remain available, got %q", got[1].EncryptedContent)
+	}
+}
+
+func TestBuildInputItemsFromTurn_OmitsPlaintextOnlyReasoningInputContent(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{
+		turns.PayloadKeyText: "local streamed thinking only",
+	}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Question"),
+		rs,
+		turns.NewAssistantTextBlock("Answer"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 2 {
+		t.Fatalf("expected plaintext-only reasoning to be omitted from replay, got %d items: %#v", len(got), got)
+	}
+	if got[0].Role != "user" || got[1].Role != "assistant" {
+		t.Fatalf("expected user then assistant messages, got %#v", got)
+	}
+}
+
+func TestBuildInputItemsFromTurn_OmitsTrulyEmptyReasoning(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Question"),
+		rs,
+		turns.NewAssistantTextBlock("Answer"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 2 {
+		t.Fatalf("expected truly empty reasoning to be omitted, got %d items: %#v", len(got), got)
+	}
+	if got[0].Role != "user" || got[1].Role != "assistant" {
+		t.Fatalf("expected user then assistant messages, got %#v", got)
+	}
+}
+
 func TestBuildInputItemsFromTurn_ReplaysReasoningSummaryPayload(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_1", Payload: map[string]any{
+		turns.PayloadKeyItemID:           "rs_1",
 		turns.PayloadKeyText:             "Thinking hard.",
 		turns.PayloadKeyEncryptedContent: "gAAAAA...",
 		turns.PayloadKeySummary: []any{
@@ -231,10 +295,14 @@ func TestBuildInputItemsFromTurn_ReplaysReasoningSummaryPayload(t *testing.T) {
 	if got[2].Summary == nil || len(*got[2].Summary) != 1 {
 		t.Fatalf("expected reasoning summary payload to round-trip, got %#v", got[2].Summary)
 	}
+	if len(got[2].Content) != 0 {
+		t.Fatalf("expected plaintext reasoning_text not to be replayed in input content, got %#v", got[2].Content)
+	}
 }
 
 func TestBuildInputItemsFromTurn_PreservesAssistantContextWithReasoningFollower(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_latest", Payload: map[string]any{
+		turns.PayloadKeyItemID:           "rs_latest",
 		turns.PayloadKeyEncryptedContent: "enc_latest",
 	}}
 	turn := &turns.Turn{Blocks: []turns.Block{
@@ -291,6 +359,7 @@ func TestBuildInputItemsFromTurn_PreservesAssistantContextWithReasoningFollower(
 
 func TestBuildInputItemsFromTurn_PreservesReasoningForOlderFunctionCallChains(t *testing.T) {
 	r1 := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_old", Payload: map[string]any{
+		turns.PayloadKeyItemID:           "rs_old",
 		turns.PayloadKeyEncryptedContent: "enc_old",
 	}}
 	call := turns.Block{
@@ -311,6 +380,7 @@ func TestBuildInputItemsFromTurn_PreservesReasoningForOlderFunctionCallChains(t 
 		},
 	}
 	r2 := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_new", Payload: map[string]any{
+		turns.PayloadKeyItemID:           "rs_new",
 		turns.PayloadKeyEncryptedContent: "enc_new",
 	}}
 	turn := &turns.Turn{Blocks: []turns.Block{
@@ -355,6 +425,34 @@ func TestBuildInputItemsFromTurn_PreservesReasoningForOlderFunctionCallChains(t 
 	}
 	if got[newReasoningIdx+1].Type != "message" || got[newReasoningIdx+1].Role != "assistant" {
 		t.Fatalf("expected rs_new follower to be assistant message, got %#v", got[newReasoningIdx+1])
+	}
+}
+
+func TestPreviewResponsesInputItem_ShowsReasoningMetadataWithoutEncryptedBlob(t *testing.T) {
+	summary := []any{map[string]any{"type": "summary_text", "text": "Short summary"}}
+	item := responsesInput{
+		Type:             "reasoning",
+		ID:               "rs_1234567890abcdef",
+		EncryptedContent: "gAAAAA-secret-content",
+		Summary:          &summary,
+		Content:          []responsesContentPart{{Type: "reasoning_text", Text: "thinking text"}},
+	}
+
+	got := previewResponsesInputItem(item)
+	if got["type"] != "reasoning" {
+		t.Fatalf("expected reasoning type, got %#v", got)
+	}
+	if got["id"] == "rs_1234567890abcdef" {
+		t.Fatalf("expected id to be redacted, got %#v", got)
+	}
+	if got["has_encrypted_content"] != true || got["encrypted_content_len"] != len("gAAAAA-secret-content") {
+		t.Fatalf("expected encrypted content presence/length without raw blob, got %#v", got)
+	}
+	if _, ok := got["encrypted_content"]; ok {
+		t.Fatalf("preview must not expose raw encrypted_content: %#v", got)
+	}
+	if got["summary_count"] != 1 {
+		t.Fatalf("expected summary_count=1, got %#v", got)
 	}
 }
 

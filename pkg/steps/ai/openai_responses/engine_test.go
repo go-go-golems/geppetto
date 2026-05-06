@@ -296,8 +296,11 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 				t.Fatalf("unexpected path: %s", r.URL.Path)
 			}
 			body := strings.Join([]string{
+				"event: response.created",
+				`data: {"response":{"id":"resp_1"}}`,
+				"",
 				"event: response.output_item.added",
-				`data: {"item":{"type":"reasoning","id":"rs_1"}}`,
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_1","status":"in_progress"}}`,
 				"",
 				"event: response.reasoning_summary_text.delta",
 				`data: {"delta":"Short summary."}`,
@@ -312,19 +315,19 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 				`data: {"text":"Thinking hard."}`,
 				"",
 				"event: response.output_item.done",
-				`data: {"item":{"type":"reasoning","id":"rs_1","encrypted_content":"enc_1"}}`,
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_1","status":"completed","encrypted_content":"enc_1"}}`,
 				"",
 				"event: response.output_item.added",
-				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				`data: {"output_index":1,"item":{"type":"message","id":"msg_1","status":"in_progress"}}`,
 				"",
 				"event: response.output_text.delta",
 				`data: {"delta":"42"}`,
 				"",
 				"event: response.output_item.done",
-				`data: {"item":{"type":"message","id":"msg_1"}}`,
+				`data: {"output_index":1,"item":{"type":"message","id":"msg_1","status":"completed"}}`,
 				"",
 				"event: response.completed",
-				`data: {"response":{"usage":{"input_tokens":10,"output_tokens":5,"input_tokens_details":{"cached_tokens":4},"output_tokens_details":{"reasoning_tokens":3}}}}`,
+				`data: {"response":{"id":"resp_1","usage":{"input_tokens":10,"output_tokens":5,"input_tokens_details":{"cached_tokens":4},"output_tokens_details":{"reasoning_tokens":3}}}}`,
 				"",
 			}, "\n")
 			return &http.Response{
@@ -419,6 +422,143 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	summary, ok := reasoningBlock.Payload[turns.PayloadKeySummary].([]any)
 	if !ok || len(summary) != 1 {
 		t.Fatalf("expected persisted reasoning summary payload, got %#v", reasoningBlock.Payload[turns.PayloadKeySummary])
+	}
+	if got, ok, err := keyOpenAIResponsesResponseID.Get(reasoningBlock.Metadata); err != nil || !ok || got != "resp_1" {
+		t.Fatalf("expected reasoning response metadata resp_1, got value=%q ok=%v err=%v", got, ok, err)
+	}
+	if got, ok, err := keyOpenAIResponsesOutputIndex.Get(reasoningBlock.Metadata); err != nil || !ok || got != 0 {
+		t.Fatalf("expected reasoning output_index metadata 0, got value=%d ok=%v err=%v", got, ok, err)
+	}
+	if got, ok, err := keyOpenAIResponsesItemType.Get(reasoningBlock.Metadata); err != nil || !ok || got != "reasoning" {
+		t.Fatalf("expected reasoning item_type metadata, got value=%q ok=%v err=%v", got, ok, err)
+	}
+	if got, ok, err := keyOpenAIResponsesStatus.Get(reasoningBlock.Metadata); err != nil || !ok || got != "completed" {
+		t.Fatalf("expected reasoning status metadata completed, got value=%q ok=%v err=%v", got, ok, err)
+	}
+}
+
+func TestRunInference_StreamingReasoningTextFromOutputItemDoneContent(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := strings.Join([]string{
+				"event: response.created",
+				`data: {"response":{"id":"resp_terminal"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_terminal"}}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_terminal","status":"completed","content":[{"type":"reasoning_text","text":"terminal reasoning"}]}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"output_index":1,"item":{"type":"message","id":"msg_terminal"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"item_id":"msg_terminal","delta":"done"}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"id":"resp_terminal","usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API:  &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}, BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"}},
+		Chat: &settings.ChatSettings{Engine: ptr("gpt-5-mini"), Stream: true},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	turn := &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("Hello")}}
+	out, err := eng.RunInference(context.Background(), turn)
+	if err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+	var reasoningBlock *turns.Block
+	for i := range out.Blocks {
+		if out.Blocks[i].Kind == turns.BlockKindReasoning {
+			reasoningBlock = &out.Blocks[i]
+			break
+		}
+	}
+	if reasoningBlock == nil {
+		t.Fatalf("expected reasoning block")
+	}
+	if got, _ := reasoningBlock.Payload[turns.PayloadKeyText].(string); got != "terminal reasoning" {
+		t.Fatalf("expected terminal reasoning content to be persisted, got %q", got)
+	}
+}
+
+func TestRunInference_StreamingReasoningEncryptedContentDoesNotLeakAcrossItems(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := strings.Join([]string{
+				"event: response.created",
+				`data: {"response":{"id":"resp_two_reasoning"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_one","encrypted_content":"enc_one"}}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_one","status":"completed"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"output_index":1,"item":{"type":"reasoning","id":"rs_two"}}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"output_index":1,"item":{"type":"reasoning","id":"rs_two","status":"completed","content":[{"type":"reasoning_text","text":"second"}]}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"output_index":2,"item":{"type":"message","id":"msg_two"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"item_id":"msg_two","delta":"ok"}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"id":"resp_two_reasoning","usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API:  &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}, BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"}},
+		Chat: &settings.ChatSettings{Engine: ptr("gpt-5-mini"), Stream: true},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	turn := &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("Hello")}}
+	out, err := eng.RunInference(context.Background(), turn)
+	if err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+	var reasoningBlocks []turns.Block
+	for _, b := range out.Blocks {
+		if b.Kind == turns.BlockKindReasoning {
+			reasoningBlocks = append(reasoningBlocks, b)
+		}
+	}
+	if len(reasoningBlocks) != 2 {
+		t.Fatalf("expected two reasoning blocks, got %d", len(reasoningBlocks))
+	}
+	if got, _ := reasoningBlocks[0].Payload[turns.PayloadKeyEncryptedContent].(string); got != "enc_one" {
+		t.Fatalf("expected first encrypted content enc_one, got %q", got)
+	}
+	if got, _ := reasoningBlocks[1].Payload[turns.PayloadKeyEncryptedContent].(string); got != "" {
+		t.Fatalf("expected second reasoning block not to inherit encrypted content, got %q", got)
+	}
+	if got, _ := reasoningBlocks[1].Payload[turns.PayloadKeyText].(string); got != "second" {
+		t.Fatalf("expected second reasoning text, got %q", got)
 	}
 }
 

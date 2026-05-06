@@ -36,8 +36,17 @@ type Session struct {
 
 // NewSession constructs a Session with a generated SessionID.
 func NewSession() *Session {
+	return NewSessionWithID(uuid.NewString())
+}
+
+// NewSessionWithID constructs a Session with the provided SessionID.
+// If sessionID is empty, a generated SessionID is used.
+func NewSessionWithID(sessionID string) *Session {
+	if sessionID == "" {
+		sessionID = uuid.NewString()
+	}
 	return &Session{
-		SessionID: uuid.NewString(),
+		SessionID: sessionID,
 	}
 }
 
