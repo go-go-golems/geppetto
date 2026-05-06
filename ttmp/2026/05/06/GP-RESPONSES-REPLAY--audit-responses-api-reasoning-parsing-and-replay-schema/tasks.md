@@ -17,5 +17,5 @@
 - [x] Replay plaintext reasoning as official content[{type: reasoning_text}] instead of dropping it
 - [x] Add regression tests for reasoning_text replay, empty reasoning omission, and item_id-only provider ID usage
 - [x] Add regression tests for streaming reasoning_text terminal content and encrypted content isolation across reasoning items
-- [ ] Update Geppetto docs for Responses reasoning parsing/replay semantics
-- [ ] Re-upload the updated GP-RESPONSES-REPLAY guide to reMarkable after implementation
+- [x] Update Geppetto docs for Responses reasoning parsing/replay semantics
+- [x] Re-upload the updated GP-RESPONSES-REPLAY guide to reMarkable after implementation

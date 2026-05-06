@@ -131,3 +131,37 @@ Added/updated tests for:
 ### Notes
 
 This completes the incoming parser hardening slice for reasoning text and metadata. The remaining implementation tasks are docs refresh and reMarkable upload.
+
+---
+
+## Step 4: Documentation refresh
+
+### What I changed
+
+- Updated `pkg/doc/topics/06-inference-engines.md` with Responses reasoning replay semantics:
+  - `payload.text` replays as `reasoning_text` content.
+  - `payload.summary` and `payload.encrypted_content` replay as official reasoning item fields.
+  - `payload.item_id` is the only provider item ID used for `input[].id`.
+  - OpenAI Responses bookkeeping is stored in `Block.Metadata` under `openai_responses.*`.
+  - request previews redact provider IDs and encrypted blobs.
+- Updated `pkg/doc/topics/08-turns.md` so `Reasoning` blocks list `text`, `summary`, `encrypted_content`, and `item_id`, and explain the payload-vs-metadata split.
+
+### Tests
+
+Ran:
+
+```text
+cd geppetto && go test ./pkg/steps/ai/openai_responses ./pkg/doc ./pkg/turns -count=1
+```
+
+---
+
+## Step 5: ReMarkable refresh
+
+Re-uploaded the updated Responses reasoning parsing/replay audit guide to reMarkable:
+
+```text
+/ai/2026/05/06/GP-RESPONSES-REPLAY/GP-RESPONSES-REPLAY Responses Reasoning Parsing Replay Audit
+```
+
+The document already existed from the initial audit upload, so the upload used `--force` to replace the previous PDF with the refined implementation-oriented version.

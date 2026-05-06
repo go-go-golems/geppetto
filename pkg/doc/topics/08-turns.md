@@ -103,7 +103,7 @@ Each block has a `Kind` that describes what it contains:
 | `LLMText` | Engine | Assistant's text response | `text` |
 | `ToolCall` | Engine | Model's request to call a tool | `id`, `name`, `args` |
 | `ToolUse` | Middleware/Helper | Result of tool execution | `id`, `result` |
-| `Reasoning` | Engine (o1, Claude) | Model's reasoning trace | `encrypted_content`, `item_id` |
+| `Reasoning` | Engine (o1, Claude) | Model's reasoning trace | `text`, `summary`, `encrypted_content`, `item_id` |
 | `Other` | Various | Catch-all for unknown types | varies |
 
 ### How Blocks Accumulate During Inference
@@ -261,10 +261,13 @@ const (
     PayloadKeyResult           = "result"            // Tool result
     PayloadKeyError            = "error"             // Tool error (string)
     PayloadKeyImages           = "images"            // Attached images
-    PayloadKeyEncryptedContent = "encrypted_content" // Reasoning trace
+    PayloadKeyEncryptedContent = "encrypted_content" // Encrypted reasoning continuation state
+    PayloadKeySummary          = "summary"           // Reasoning summary entries
     PayloadKeyItemID           = "item_id"           // Provider item ID
 )
 ```
+
+Provider integrations may also store provider-specific bookkeeping in `Block.Metadata`. The OpenAI Responses engine stores response item metadata under the `openai_responses` namespace, for example `openai_responses.response_id@v1`, `openai_responses.output_index@v1`, `openai_responses.item_type@v1`, and `openai_responses.status@v1`. Keep provider wire fields that are replay payload, such as Responses `item_id`, in `Payload`; keep provider bookkeeping that helps grouping/debugging in `Metadata`.
 
 ### Helper Functions
 

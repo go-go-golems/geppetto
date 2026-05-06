@@ -52,3 +52,24 @@ Implemented incoming Responses parser hardening: openai_responses block metadata
 - pkg/steps/ai/openai_responses/helpers.go — Added openai_responses block metadata keys and reasoning output content helpers
 - ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 3
 
+
+## 2026-05-06
+
+Updated Geppetto docs for Responses reasoning_text replay, item_id safety, openai_responses block metadata, and redacted request previews.
+
+### Related Files
+
+- pkg/doc/topics/06-inference-engines.md — Document Responses reasoning replay and metadata semantics
+- pkg/doc/topics/08-turns.md — Document Reasoning block payload keys and openai_responses metadata
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 4
+
+
+## 2026-05-06
+
+Re-uploaded the updated GP-RESPONSES-REPLAY audit guide to reMarkable at /ai/2026/05/06/GP-RESPONSES-REPLAY.
+
+### Related Files
+
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/design/01-responses-reasoning-parsing-replay-audit.md — Updated design guide uploaded to reMarkable
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 5
+
