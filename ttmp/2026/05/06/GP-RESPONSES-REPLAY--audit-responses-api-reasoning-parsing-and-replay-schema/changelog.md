@@ -73,3 +73,14 @@ Re-uploaded the updated GP-RESPONSES-REPLAY audit guide to reMarkable at /ai/202
 - ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/design/01-responses-reasoning-parsing-replay-audit.md — Updated design guide uploaded to reMarkable
 - ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 5
 
+
+## 2026-05-06
+
+Live OpenAI Responses test rejected reasoning_text input content (input[].content maximum length 0), so replay now omits plaintext reasoning text while still parsing/storing it locally; targeted openai_responses tests pass.
+
+### Related Files
+
+- pkg/steps/ai/openai_responses/helpers.go — Reasoning replay omits plaintext reasoning_text input content after live provider rejection
+- pkg/steps/ai/openai_responses/helpers_test.go — Updated replay regression to assert plaintext-only reasoning is omitted
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 6 records live failure and policy change
+

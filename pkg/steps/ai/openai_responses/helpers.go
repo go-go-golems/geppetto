@@ -379,18 +379,6 @@ func intFromProviderNumber(raw any) (int, bool) {
 	return 0, false
 }
 
-func reasoningTextContentFromPayload(payload map[string]any) []responsesContentPart {
-	if payload == nil {
-		return nil
-	}
-	if v, ok := payload[turns.PayloadKeyText]; ok && v != nil {
-		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-			return []responsesContentPart{{Type: "reasoning_text", Text: s}}
-		}
-	}
-	return nil
-}
-
 func reasoningTextFromOutputContent(content []responsesOutputContent) string {
 	var b strings.Builder
 	for _, c := range content {
@@ -507,19 +495,20 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	reasoningItem := func(b turns.Block) (responsesInput, bool) {
 		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
 		summary := reasoningSummaryEntriesFromPayload(b.Payload)
-		content := reasoningTextContentFromPayload(b.Payload)
 		itemID, _ := b.Payload[turns.PayloadKeyItemID].(string)
 
-		// Do not emit completely empty reasoning items. A reasoning block with only
-		// local Block.ID is not replayable provider context.
-		if enc == "" && len(summary) == 0 && len(content) == 0 {
+		// OpenAI's public schema exposes optional reasoning_text content on reasoning
+		// items, but live Responses requests currently reject non-empty reasoning
+		// input content ("expected maximum length 0"). Preserve plaintext reasoning
+		// locally for UI/debugging, but replay only encrypted_content and summaries.
+		if enc == "" && len(summary) == 0 {
 			return responsesInput{}, false
 		}
 
 		if summary == nil {
 			summary = make([]any, 0)
 		}
-		ri := responsesInput{Type: "reasoning", Summary: &summary, Content: content}
+		ri := responsesInput{Type: "reasoning", Summary: &summary}
 		// Provider item IDs are replay payload, not internal block identity. Use
 		// the explicit item_id captured from the provider event when available;
 		// never infer it from Block.ID, which may be a synthetic UUID or may follow

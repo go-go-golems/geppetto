@@ -14,7 +14,7 @@
 - [x] Store OpenAI Responses-specific item metadata under block metadata openai_responses.*
 - [x] Replace streaming latestEncryptedContent with per-reasoning-item accumulator state
 - [x] Parse and merge reasoning content[].reasoning_text from streaming output_item.done
-- [x] Replay plaintext reasoning as official content[{type: reasoning_text}] instead of dropping it
+- [x] Do not replay plaintext reasoning_text in Responses input after live API rejection; keep parsing/storing it only
 - [x] Add regression tests for reasoning_text replay, empty reasoning omission, and item_id-only provider ID usage
 - [x] Add regression tests for streaming reasoning_text terminal content and encrypted content isolation across reasoning items
 - [x] Update Geppetto docs for Responses reasoning parsing/replay semantics

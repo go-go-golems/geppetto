@@ -165,3 +165,39 @@ Re-uploaded the updated Responses reasoning parsing/replay audit guide to reMark
 ```
 
 The document already existed from the initial audit upload, so the upload used `--force` to replace the previous PDF with the refined implementation-oriented version.
+
+---
+
+## Step 6: Live test found reasoning_text input is rejected
+
+### What happened
+
+After restarting the pinocchio web-chat server and submitting a live follow-up to session `23e1303a-b4cc-4b7a-8110-f36a08367b39`, the request reached OpenAI Responses and failed with:
+
+```text
+Invalid 'input[8].content': array too long. Expected an array with maximum length 0, but got an array with length 1 instead.
+```
+
+The request preview showed `input[8]` was the previously plaintext-only reasoning block replayed as:
+
+```text
+type=reasoning, parts=[{type=reasoning_text, len=1118, ...}]
+```
+
+So the official reference exposes `content[].reasoning_text`, but the live Responses create endpoint for this model/request rejects non-empty reasoning input content. The practical replay rule must be: parse and store plaintext reasoning for local UI/debugging, but do not replay it as Responses input content. Replay encrypted reasoning and summaries only.
+
+### What I changed
+
+- Reverted request replay of `payload.text` as reasoning `content`.
+- Kept incoming parsing/storage of terminal and streamed reasoning text.
+- Kept typed content/preview support because it remains useful for parsed provider items and diagnostics.
+- Updated the replay regression test to assert plaintext-only reasoning is omitted from input.
+- Updated the task wording to reflect the live API result.
+
+### Validation
+
+Ran:
+
+```text
+cd geppetto && go test ./pkg/steps/ai/openai_responses -count=1
+```

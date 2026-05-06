@@ -229,7 +229,7 @@ func TestBuildInputItemsFromTurn_OmitsSyntheticReasoningUUID(t *testing.T) {
 	}
 }
 
-func TestBuildInputItemsFromTurn_ReplaysPlaintextReasoningText(t *testing.T) {
+func TestBuildInputItemsFromTurn_OmitsPlaintextOnlyReasoningInputContent(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{
 		turns.PayloadKeyText: "local streamed thinking only",
 	}}
@@ -240,20 +240,11 @@ func TestBuildInputItemsFromTurn_ReplaysPlaintextReasoningText(t *testing.T) {
 	}}
 
 	got := buildInputItemsFromTurn(turn)
-	if len(got) != 3 {
-		t.Fatalf("expected plaintext reasoning to replay as reasoning item, got %d items: %#v", len(got), got)
+	if len(got) != 2 {
+		t.Fatalf("expected plaintext-only reasoning to be omitted from replay, got %d items: %#v", len(got), got)
 	}
-	if got[1].Type != "reasoning" {
-		t.Fatalf("second item must be reasoning, got %#v", got[1])
-	}
-	if got[1].ID != "" {
-		t.Fatalf("expected internal block id not to be replayed as provider id, got %q", got[1].ID)
-	}
-	if len(got[1].Content) != 1 || got[1].Content[0].Type != "reasoning_text" || got[1].Content[0].Text != "local streamed thinking only" {
-		t.Fatalf("expected reasoning_text content, got %#v", got[1].Content)
-	}
-	if got[2].Type != "message" || got[2].Role != "assistant" {
-		t.Fatalf("expected assistant message follower, got %#v", got[2])
+	if got[0].Role != "user" || got[1].Role != "assistant" {
+		t.Fatalf("expected user then assistant messages, got %#v", got)
 	}
 }
 
@@ -304,8 +295,8 @@ func TestBuildInputItemsFromTurn_ReplaysReasoningSummaryPayload(t *testing.T) {
 	if got[2].Summary == nil || len(*got[2].Summary) != 1 {
 		t.Fatalf("expected reasoning summary payload to round-trip, got %#v", got[2].Summary)
 	}
-	if len(got[2].Content) != 1 || got[2].Content[0].Type != "reasoning_text" || got[2].Content[0].Text != "Thinking hard." {
-		t.Fatalf("expected reasoning_text payload to round-trip, got %#v", got[2].Content)
+	if len(got[2].Content) != 0 {
+		t.Fatalf("expected plaintext reasoning_text not to be replayed in input content, got %#v", got[2].Content)
 	}
 }
 
