@@ -363,10 +363,11 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 		itemID, _ := b.Payload[turns.PayloadKeyItemID].(string)
 
 		// A persisted reasoning block may contain only plaintext thinking that was
-		// streamed for local display. The Responses API replay shape has no
-		// plaintext reasoning input field, so such a block would serialize as an
-		// empty reasoning item. Omit it instead of sending provider-invalid or
-		// no-op input.
+		// streamed for local display. The official Responses schema has optional
+		// reasoning_text content, but this minimal request model does not replay it
+		// yet. Without encrypted content or summary, such a block would currently
+		// serialize as an empty reasoning item, so omit it until reasoning_text
+		// replay is implemented and provider-validated.
 		if enc == "" && len(summary) == 0 {
 			return responsesInput{}, false
 		}
