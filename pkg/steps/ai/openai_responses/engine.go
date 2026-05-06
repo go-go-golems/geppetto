@@ -209,18 +209,25 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		currentReasoningItemID := ""
 		assistantByItem := map[string]string{}
 		var summaryBuf strings.Builder
+		currentResponseID := ""
 		// Placeholder for potential future pairing of reasoning with assistant item id
 		// (keep declared logic out until needed to avoid unused var)
 		// Accumulate function_call tool uses
 		type pendingCall struct {
 			callID, name, itemID string
+			outputIndex          *int
+			status               string
 			args                 strings.Builder
 		}
 		callsByItem := map[string]*pendingCall{}
 		finalCalls := []pendingCall{}
-		// Track latest encrypted reasoning content observed during this response
-		var latestEncryptedContent string
+		// Track encrypted reasoning content for the current reasoning item only.
+		var currentReasoningEncryptedContent string
+		var currentReasoningOutputIndex *int
+		var currentReasoningStatus string
 		var latestMessageItemID string
+		var latestMessageOutputIndex *int
+		var latestMessageStatus string
 		log.Trace().Msg("Responses: starting SSE read loop")
 		// Redact helper for sensitive fields when logging SSE payloads
 		redactString := func(s string) string {
@@ -270,6 +277,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			var m map[string]any
 			if err := json.Unmarshal([]byte(raw), &m); err != nil {
 				return nil
+			}
+			if respObj, ok := m["response"].(map[string]any); ok {
+				if id, ok := respObj["id"].(string); ok && id != "" {
+					currentResponseID = id
+				}
+			}
+			if id, ok := m["response_id"].(string); ok && id != "" {
+				currentResponseID = id
 			}
 			appendAssistantChunk := func(chunk string) {
 				if chunk == "" {
@@ -365,17 +380,32 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							currentReasoningItemID = ""
 							currentReasoningText.Reset()
 							currentReasoningSummary.Reset()
+							currentReasoningEncryptedContent = ""
+							currentReasoningOutputIndex = nil
+							currentReasoningStatus = ""
 							if v, ok := it["id"].(string); ok && v != "" {
 								currentReasoningItemID = v
 							}
-							// Capture encrypted reasoning content when present
+							if status, ok := it["status"].(string); ok && status != "" {
+								currentReasoningStatus = status
+							}
+							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+								currentReasoningOutputIndex = &idx
+							}
+							// Capture encrypted reasoning content when present.
 							if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
-								latestEncryptedContent = enc
+								currentReasoningEncryptedContent = enc
 							}
 						case "message":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
 							if v, ok := it["id"].(string); ok && v != "" {
 								latestMessageItemID = v
+							}
+							if status, ok := it["status"].(string); ok && status != "" {
+								latestMessageStatus = status
+							}
+							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+								latestMessageOutputIndex = &idx
 							}
 						case "web_search_call":
 							itemID := ""
@@ -519,7 +549,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 						switch typ {
 						case "reasoning":
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
-							// Append a reasoning block with encrypted content if present
+							// Append a reasoning block with encrypted content if present.
 							rb := turns.Block{Kind: turns.BlockKindReasoning}
 							payload := map[string]any{}
 							if id, ok := it["id"].(string); ok && id != "" {
@@ -530,10 +560,19 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 								rb.ID = currentReasoningItemID
 								payload[turns.PayloadKeyItemID] = currentReasoningItemID
 							}
+							if status, ok := it["status"].(string); ok && status != "" {
+								currentReasoningStatus = status
+							}
+							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+								currentReasoningOutputIndex = &idx
+							}
+							if terminalText := reasoningTextFromProviderContent(it["content"]); terminalText != "" {
+								backfillReasoningText(terminalText)
+							}
 							if text := strings.TrimSpace(currentReasoningText.String()); text != "" {
 								payload[turns.PayloadKeyText] = text
 							}
-							enc := latestEncryptedContent
+							enc := currentReasoningEncryptedContent
 							if v, ok := it["encrypted_content"].(string); ok && v != "" {
 								enc = v
 							}
@@ -548,10 +587,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 								payload[turns.PayloadKeySummary] = summary
 							}
 							rb.Payload = payload
+							setOpenAIResponsesBlockMetadata(&rb, currentResponseID, currentReasoningOutputIndex, "reasoning", currentReasoningStatus)
 							turns.AppendBlock(t, rb)
 							currentReasoningItemID = ""
 							currentReasoningText.Reset()
 							currentReasoningSummary.Reset()
+							currentReasoningEncryptedContent = ""
+							currentReasoningOutputIndex = nil
+							currentReasoningStatus = ""
 							if tap != nil {
 								tap.OnProviderObject("output.reasoning", it)
 							}
@@ -561,6 +604,12 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							if v, ok := it["id"].(string); ok && v != "" {
 								latestMessageItemID = v
 								itemID = v
+							}
+							if status, ok := it["status"].(string); ok && status != "" {
+								latestMessageStatus = status
+							}
+							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+								latestMessageOutputIndex = &idx
 							}
 							if rawContent, ok := it["content"].([]any); ok {
 								for _, item := range rawContent {
@@ -600,6 +649,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							if v, ok := it["arguments"].(string); ok && v != "" {
 								args = v
 							}
+							status := ""
+							if v, ok := it["status"].(string); ok && v != "" {
+								status = v
+							}
+							var outputIndex *int
+							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+								outputIndex = &idx
+							}
 							if args == "" {
 								if pc := callsByItem[itemID]; pc != nil {
 									args = pc.args.String()
@@ -609,7 +666,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 								e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: callID, Name: name, Input: args}))
 								var b strings.Builder
 								b.WriteString(args)
-								finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, args: b})
+								finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
 							}
 						case "web_search_call":
 							// Extract search query from action if available
@@ -834,6 +891,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 				}
 				ab.Payload[turns.PayloadKeyItemID] = latestMessageItemID
 			}
+			setOpenAIResponsesBlockMetadata(&ab, currentResponseID, latestMessageOutputIndex, "message", latestMessageStatus)
 			turns.AppendBlock(t, ab)
 		}
 		// Append tool_call blocks captured via Responses API
@@ -850,6 +908,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			if pc.itemID != "" {
 				b.Payload[turns.PayloadKeyItemID] = pc.itemID
 			}
+			setOpenAIResponsesBlockMetadata(&b, currentResponseID, pc.outputIndex, "function_call", pc.status)
 			turns.AppendBlock(t, b)
 		}
 		result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), len(finalCalls) > 0)
@@ -893,23 +952,18 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 	var message string
 	latestMessageItemID := ""
-	for _, oi := range rr.Output {
+	var latestMessageOutputIndex *int
+	latestMessageStatus := ""
+	for outputIndex, oi := range rr.Output {
+		idx := outputIndex
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
 			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
 			if oi.ID != "" {
 				b.Payload[turns.PayloadKeyItemID] = oi.ID
 			}
-			if len(oi.Content) > 0 {
-				var rawText strings.Builder
-				for _, c := range oi.Content {
-					if strings.TrimSpace(c.Text) != "" {
-						rawText.WriteString(c.Text)
-					}
-				}
-				if text := strings.TrimSpace(rawText.String()); text != "" {
-					b.Payload[turns.PayloadKeyText] = text
-				}
+			if text := reasoningTextFromOutputContent(oi.Content); text != "" {
+				b.Payload[turns.PayloadKeyText] = text
 			}
 			if len(oi.Summary) > 0 {
 				b.Payload[turns.PayloadKeySummary] = append([]any(nil), oi.Summary...)
@@ -917,10 +971,13 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			if oi.EncryptedContent != "" {
 				b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent
 			}
+			setOpenAIResponsesBlockMetadata(&b, rr.ID, &idx, "reasoning", oi.Status)
 			turns.AppendBlock(t, b)
 		}
 		if oi.Type == "message" && oi.ID != "" {
 			latestMessageItemID = oi.ID
+			latestMessageOutputIndex = &idx
+			latestMessageStatus = oi.Status
 		}
 		for _, c := range oi.Content {
 			switch c.Type {
@@ -943,6 +1000,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			}
 			ab.Payload[turns.PayloadKeyItemID] = latestMessageItemID
 		}
+		setOpenAIResponsesBlockMetadata(&ab, rr.ID, latestMessageOutputIndex, "message", latestMessageStatus)
 		turns.AppendBlock(t, ab)
 	}
 	if totals, ok := parseUsageTotalsFromResponse(rr); ok {

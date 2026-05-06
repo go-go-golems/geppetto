@@ -8,9 +8,15 @@ Intent: ""
 Owners: []
 RelatedFiles:
     - Path: pkg/steps/ai/openai_responses/engine.go
-      Note: Request logging switched to redacted typed preview
+      Note: |-
+        Request logging switched to redacted typed preview
+        incoming parser metadata
+    - Path: pkg/steps/ai/openai_responses/engine_test.go
+      Note: streaming parser regression tests for metadata and reasoning content
     - Path: pkg/steps/ai/openai_responses/helpers.go
-      Note: Request-side reasoning_text replay and preview helpers implemented
+      Note: |-
+        Request-side reasoning_text replay and preview helpers implemented
+        openai_responses metadata keys and reasoning content extraction helpers
     - Path: pkg/steps/ai/openai_responses/helpers_test.go
       Note: Regression tests for request-side reasoning replay and preview diagnostics
     - Path: ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/design/01-responses-reasoning-parsing-replay-audit.md
@@ -23,6 +29,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -84,3 +91,43 @@ Added/updated tests for:
 ### Notes
 
 This completes the first request/replay-side slice. Incoming streaming parser work remains: per-item reasoning accumulator state, terminal `content[].reasoning_text` merging, and `openai_responses.*` block metadata.
+
+---
+
+## Step 3: Incoming parser metadata and per-item reasoning state
+
+### What I changed
+
+- Added OpenAI Responses block metadata keys under the `openai_responses` namespace:
+  - `openai_responses.response_id@v1`
+  - `openai_responses.output_index@v1`
+  - `openai_responses.item_type@v1`
+  - `openai_responses.status@v1`
+- Added `setOpenAIResponsesBlockMetadata` and provider integer parsing helpers.
+- Extended parsed response models with response `id`, item `status`, and the existing content fields needed for reasoning text extraction.
+- Replaced the global `latestEncryptedContent` streaming state with per-current-reasoning-item state:
+  - `currentReasoningEncryptedContent`
+  - `currentReasoningOutputIndex`
+  - `currentReasoningStatus`
+- Reset encrypted-content state on each `response.output_item.added` reasoning item so encrypted blobs cannot leak from one reasoning item into the next.
+- Merged terminal `item.content[].reasoning_text` from `response.output_item.done` into the reasoning text buffer using the same backfill strategy as `response.reasoning_text.done`.
+- Stored OpenAI Responses metadata on parsed reasoning blocks, assistant message blocks, and function-call blocks.
+- Added non-streaming metadata capture and reasoning-text extraction through the same helper.
+
+### Tests
+
+Ran:
+
+```text
+cd geppetto && go test ./pkg/steps/ai/openai_responses -count=1
+```
+
+Added/updated tests for:
+
+- response ID, output index, item type, and status metadata on streamed reasoning blocks;
+- terminal `output_item.done.content[].reasoning_text` persistence;
+- encrypted-content isolation across two streamed reasoning items.
+
+### Notes
+
+This completes the incoming parser hardening slice for reasoning text and metadata. The remaining implementation tasks are docs refresh and reMarkable upload.

@@ -40,3 +40,15 @@ Implemented request-side reasoning_text replay and redacted Responses input prev
 - pkg/steps/ai/openai_responses/helpers_test.go — Regression tests for reasoning_text replay
 - ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 2
 
+
+## 2026-05-06
+
+Implemented incoming Responses parser hardening: openai_responses block metadata, per-reasoning encrypted-content state, terminal reasoning_text content merge, and streaming parser regressions.
+
+### Related Files
+
+- pkg/steps/ai/openai_responses/engine.go — Parser stores item metadata
+- pkg/steps/ai/openai_responses/engine_test.go — Regression tests for metadata capture
+- pkg/steps/ai/openai_responses/helpers.go — Added openai_responses block metadata keys and reasoning output content helpers
+- ttmp/2026/05/06/GP-RESPONSES-REPLAY--audit-responses-api-reasoning-parsing-and-replay-schema/reference/01-implementation-diary.md — Implementation diary step 3
+

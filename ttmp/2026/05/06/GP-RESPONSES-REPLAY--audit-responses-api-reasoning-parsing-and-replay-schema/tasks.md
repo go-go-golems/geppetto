@@ -11,11 +11,11 @@
 - [x] Incorporate review decisions: keep item_id, no migration, use openai_responses metadata, no capabilities
 - [x] Add typed Responses reasoning content support in request/response structs
 - [x] Add redacted Responses input preview helper that shows item type, ids, summary counts, and encrypted-content presence
-- [ ] Store OpenAI Responses-specific item metadata under block metadata openai_responses.*
-- [ ] Replace streaming latestEncryptedContent with per-reasoning-item accumulator state
-- [ ] Parse and merge reasoning content[].reasoning_text from streaming output_item.done
+- [x] Store OpenAI Responses-specific item metadata under block metadata openai_responses.*
+- [x] Replace streaming latestEncryptedContent with per-reasoning-item accumulator state
+- [x] Parse and merge reasoning content[].reasoning_text from streaming output_item.done
 - [x] Replay plaintext reasoning as official content[{type: reasoning_text}] instead of dropping it
 - [x] Add regression tests for reasoning_text replay, empty reasoning omission, and item_id-only provider ID usage
-- [ ] Add regression tests for streaming reasoning_text terminal content and encrypted content isolation across reasoning items
+- [x] Add regression tests for streaming reasoning_text terminal content and encrypted content isolation across reasoning items
 - [ ] Update Geppetto docs for Responses reasoning parsing/replay semantics
 - [ ] Re-upload the updated GP-RESPONSES-REPLAY guide to reMarkable after implementation

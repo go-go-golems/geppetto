@@ -92,6 +92,7 @@ type responsesContentPart struct {
 }
 
 type responsesResponse struct {
+	ID     string                `json:"id,omitempty"`
 	Output []responsesOutputItem `json:"output"`
 	Usage  json.RawMessage       `json:"usage,omitempty"`
 	// Some envelopes may nest usage under response.usage.
@@ -109,6 +110,7 @@ type responsesOutputItem struct {
 	Name             string                   `json:"name,omitempty"`
 	CallID           string                   `json:"call_id,omitempty"`
 	Arguments        string                   `json:"arguments,omitempty"`
+	Status           string                   `json:"status,omitempty"`
 	Content          []responsesOutputContent `json:"content"`
 	Summary          []any                    `json:"summary,omitempty"`
 	EncryptedContent string                   `json:"encrypted_content,omitempty"`
@@ -342,6 +344,41 @@ func reasoningSummaryEntriesFromText(text string) []any {
 	}}
 }
 
+func setOpenAIResponsesBlockMetadata(b *turns.Block, responseID string, outputIndex *int, itemType string, status string) {
+	if b == nil {
+		return
+	}
+	if strings.TrimSpace(responseID) != "" {
+		_ = keyOpenAIResponsesResponseID.Set(&b.Metadata, responseID)
+	}
+	if outputIndex != nil {
+		_ = keyOpenAIResponsesOutputIndex.Set(&b.Metadata, *outputIndex)
+	}
+	if strings.TrimSpace(itemType) != "" {
+		_ = keyOpenAIResponsesItemType.Set(&b.Metadata, itemType)
+	}
+	if strings.TrimSpace(status) != "" {
+		_ = keyOpenAIResponsesStatus.Set(&b.Metadata, status)
+	}
+}
+
+func intFromProviderNumber(raw any) (int, bool) {
+	switch v := raw.(type) {
+	case float64:
+		return int(v), true
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case json.Number:
+		i, err := v.Int64()
+		if err == nil {
+			return int(i), true
+		}
+	}
+	return 0, false
+}
+
 func reasoningTextContentFromPayload(payload map[string]any) []responsesContentPart {
 	if payload == nil {
 		return nil
@@ -352,6 +389,41 @@ func reasoningTextContentFromPayload(payload map[string]any) []responsesContentP
 		}
 	}
 	return nil
+}
+
+func reasoningTextFromOutputContent(content []responsesOutputContent) string {
+	var b strings.Builder
+	for _, c := range content {
+		switch c.Type {
+		case "reasoning_text", "text":
+			if strings.TrimSpace(c.Text) != "" {
+				b.WriteString(c.Text)
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func reasoningTextFromProviderContent(raw any) string {
+	items, ok := raw.([]any)
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		typ, _ := m["type"].(string)
+		if typ != "reasoning_text" && typ != "text" {
+			continue
+		}
+		if s, ok := m["text"].(string); ok && strings.TrimSpace(s) != "" {
+			b.WriteString(s)
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
