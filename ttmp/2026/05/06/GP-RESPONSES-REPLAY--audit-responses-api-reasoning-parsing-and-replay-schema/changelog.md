@@ -23,3 +23,8 @@ Created GP-RESPONSES-REPLAY audit ticket, moved archived OpenAI Responses docume
 
 Uploaded the Responses reasoning parsing/replay audit guide to reMarkable at /ai/2026/05/06/GP-RESPONSES-REPLAY.
 
+
+## 2026-05-06
+
+Updated design decisions: keep `item_id` because it matches the Responses spec, do not add migration/backwards-compatibility work, store OpenAI-specific response metadata under `metadata[openai_responses.*]`, leave middleware reordering out of scope, and implement reasoning_text replay directly rather than behind a capability flag.
+

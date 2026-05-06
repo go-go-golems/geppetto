@@ -613,29 +613,23 @@ The official guide says when function calls happen, pass back reasoning items, f
 
 Risk:
 
-- if middleware reorders or inserts blocks, the builder may produce an invalid grouping;
 - multiple reasoning/tool-call groups in one response are hard to reconstruct without group metadata;
 - future server tools or multi-call flows may violate expectations.
 
+Middleware reordering is intentionally out of scope. If a middleware reorders Responses blocks into a provider-invalid sequence, that middleware is responsible for preserving or repairing provider ordering. This audit focuses on making the Responses parser and replay builder preserve the order they receive.
+
 Recommended fix:
 
-Store provider output group metadata:
-
-```text
-payload.response_id
-payload.output_index
-payload.item_id
-payload.item_type
-payload.status
-```
-
-or in block metadata:
+Store OpenAI Responses-specific output group metadata in block metadata, not in general-purpose payload fields:
 
 ```text
 metadata[openai_responses.response_id]
 metadata[openai_responses.output_index]
-metadata[openai_responses.sequence]
+metadata[openai_responses.item_type]
+metadata[openai_responses.status]
 ```
+
+Keep `payload.item_id` because it matches the Responses API/event field name and is the actual replay payload for `input[].id`. Use metadata for fields that are OpenAI Responses bookkeeping rather than generic block payload.
 
 Then replay can group by response ID/output sequence rather than just adjacent block kind.
 
@@ -681,33 +675,9 @@ preview(item):
 
 ### D9. `include: ["reasoning.encrypted_content"]` is unconditional
 
-Geppetto currently always adds `reasoning.encrypted_content`. This is aligned with stateless/ZDR continuation, but it may be unnecessary or unsupported for some providers/models.
+Geppetto currently always adds `reasoning.encrypted_content`. For this ticket, keep that behavior. It is aligned with the stateless/ZDR continuation mode that Geppetto is implementing, and adding capability plumbing now would distract from the parser/replay schema fixes.
 
-Recommended fix:
-
-- keep default enabled for Responses reasoning models;
-- expose provider setting: `openai-responses-include-encrypted-reasoning` default true;
-- if provider returns unsupported include errors, surface clearly or allow config override.
-
-### D10. Model capability handling is too coarse
-
-`isResponsesReasoningModel` hard-codes prefixes: `o1`, `o3`, `o4`, `gpt-5`. This is okay for temperature/top_p sanitization but not a complete provider capability model.
-
-Recommended fix:
-
-Introduce capability flags:
-
-```text
-ResponsesCapabilities:
-  SupportsReasoningEffort
-  SupportsReasoningSummary
-  SupportsEncryptedReasoning
-  SupportsReasoningTextReplay
-  SupportsTemperature
-  SupportsTopP
-```
-
-Populate from profile/provider config, with OpenAI defaults.
+If a future provider rejects the include parameter, address that in a provider-configuration ticket. Do not add capability flags in this implementation pass.
 
 ## Recommended target design
 
@@ -718,21 +688,22 @@ Add or formalize provider item metadata without overloading `Block.ID`.
 Preferred payload keys:
 
 ```text
-item_id             provider output item id
-item_type           provider output item type, e.g. reasoning/message/function_call
-response_id         provider response id, if available
-output_index        provider output array index, if available
-status              provider item status
+item_id             provider output item id; keep this name because it matches the Responses spec
 encrypted_content   encrypted reasoning continuation blob
 summary             reasoning summary array
 text                local/renderable text or reasoning_text
 ```
 
-If adding new generated keys is desired:
+OpenAI Responses-specific response metadata should live in block metadata, not in general payload keys:
 
-- update key definitions source used by `cmd/gen-meta`;
-- regenerate `pkg/turns/keys_gen.go`;
-- run turns data lint/tests.
+```text
+metadata[openai_responses.response_id]
+metadata[openai_responses.output_index]
+metadata[openai_responses.item_type]
+metadata[openai_responses.status]
+```
+
+Keep provider wire names like `item_id` where they match the Responses spec. Do not introduce `provider_item_id` or migration compatibility for this ticket.
 
 ### Request model
 
@@ -791,8 +762,8 @@ Recommended default policy:
 1. Replay encrypted reasoning if present.
 2. Replay summary if present.
 3. Replay provider item ID only from `payload.item_id`.
-4. Replay `reasoning_text` only when a capability flag allows it.
-5. Otherwise skip plaintext-only reasoning blocks.
+4. Replay `reasoning_text` according to the official schema once implemented and tested.
+5. Until `reasoning_text` replay is implemented, continue skipping plaintext-only reasoning blocks to avoid empty reasoning items.
 6. Preserve contiguous provider item groups for tool-call flows.
 
 Pseudocode:
@@ -812,7 +783,7 @@ buildReasoningInput(block, capabilities):
   if payload.encrypted_content:
     item.encrypted_content = payload.encrypted_content
 
-  if capabilities.SupportsReasoningTextReplay and payload.text:
+  if payload.text != "":
     item.content = [{ type: "reasoning_text", text: payload.text }]
 
   if item has no id, no encrypted_content, no summary entries, no content:
@@ -973,34 +944,22 @@ Tests:
 - two reasoning items do not leak encrypted content between each other.
 - summary arrays from terminal item are preserved.
 
-### Phase 3: Add capability-gated reasoning_text replay
+### Phase 3: Implement reasoning_text replay
 
-Add a capability setting and default it conservatively.
-
-Option A: default false.
-
-- safest; preserves current behavior;
-- official schema support can be enabled after live validation.
-
-Option B: default true for OpenAI only.
-
-- closer to spec;
-- higher risk if provider rejects client-supplied `reasoning_text`.
-
-Recommended: Option A first.
+The official Responses schema includes optional reasoning `content` entries with `type: "reasoning_text"`. Do not hide this behind a capability flag in this pass. Implement the official shape directly for OpenAI Responses, then validate it with unit tests and, if possible, an opt-in live conformance test.
 
 Pseudocode:
 
 ```text
-if caps.SupportsReasoningTextReplay && text != "":
+if text != "":
   item.Content = append(item.Content, {Type: "reasoning_text", Text: text})
 ```
 
 Tests:
 
-- default replay omits plaintext-only reasoning.
-- with capability true, replay emits `content:[{type:"reasoning_text", text:"..."}]`.
-- content plus encrypted content can coexist if official schema allows; otherwise document chosen policy.
+- plaintext reasoning replays as `content:[{type:"reasoning_text", text:"..."}]`.
+- a reasoning item with encrypted content and text serializes both official fields.
+- a reasoning item with no id, no summary, no encrypted content, and no text is omitted.
 
 ### Phase 4: Response grouping metadata
 
@@ -1106,8 +1065,8 @@ Keep this integration test opt-in because it uses paid API calls.
 - [ ] Replace `latestEncryptedContent` with per-reasoning-item encrypted content state.
 - [ ] Parse reasoning `content[].reasoning_text` from streaming `output_item.done`.
 - [ ] Add status capture for reasoning items.
-- [ ] Add capability flag for replaying plaintext reasoning content.
-- [ ] Add tests for default omission and opt-in replay of plaintext reasoning.
+- [ ] Add official `reasoning_text` replay for plaintext reasoning content.
+- [ ] Add tests for plaintext reasoning replay and truly empty reasoning omission.
 - [ ] Add tests for encrypted content not leaking across multiple reasoning items.
 - [ ] Add tests for provider item IDs coming only from `payload.item_id`.
 - [ ] Add opt-in live conformance script or example.
@@ -1141,5 +1100,5 @@ Needs work:
 - official `reasoning_text` content is not modeled for replay;
 - streaming parser should merge terminal `content[].reasoning_text`;
 - encrypted-content state should be per reasoning item;
-- item status and provider grouping metadata should be preserved;
+- OpenAI-specific response metadata should be preserved in `metadata[openai_responses.*]`;
 - debug previews should show item type and redacted replay-relevant fields.
