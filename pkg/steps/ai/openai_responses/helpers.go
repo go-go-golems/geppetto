@@ -279,6 +279,10 @@ func reasoningSummaryEntriesFromText(text string) []any {
 	}}
 }
 
+func isValidResponsesReasoningID(id string) bool {
+	return strings.HasPrefix(strings.TrimSpace(id), "rs")
+}
+
 func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
 	if payload == nil {
 		return nil
@@ -363,7 +367,10 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 		if summary == nil {
 			summary = make([]any, 0)
 		}
-		ri := responsesInput{Type: "reasoning", ID: b.ID, Summary: &summary}
+		ri := responsesInput{Type: "reasoning", Summary: &summary}
+		if isValidResponsesReasoningID(b.ID) {
+			ri.ID = b.ID
+		}
 		if enc != "" {
 			ri.EncryptedContent = enc
 		}

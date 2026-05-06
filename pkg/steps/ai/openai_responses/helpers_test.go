@@ -202,6 +202,31 @@ func TestBuildInputItemsFromTurn_MultiTurnReasoningThenUser(t *testing.T) {
 	}
 }
 
+func TestBuildInputItemsFromTurn_OmitsSyntheticReasoningUUID(t *testing.T) {
+	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "87d2ce2a-bfbb-413d-be09-bf612998ba12", Payload: map[string]any{
+		turns.PayloadKeyEncryptedContent: "gAAAAA...",
+	}}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("Question"),
+		rs,
+		turns.NewAssistantTextBlock("Answer"),
+	}}
+
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(got))
+	}
+	if got[1].Type != "reasoning" {
+		t.Fatalf("second item must be reasoning, got %q", got[1].Type)
+	}
+	if got[1].ID != "" {
+		t.Fatalf("expected synthetic non-Responses reasoning id to be omitted, got %q", got[1].ID)
+	}
+	if got[1].EncryptedContent != "gAAAAA..." {
+		t.Fatalf("expected encrypted content to remain available, got %q", got[1].EncryptedContent)
+	}
+}
+
 func TestBuildInputItemsFromTurn_ReplaysReasoningSummaryPayload(t *testing.T) {
 	rs := turns.Block{Kind: turns.BlockKindReasoning, ID: "rs_1", Payload: map[string]any{
 		turns.PayloadKeyText:             "Thinking hard.",
