@@ -279,10 +279,6 @@ func reasoningSummaryEntriesFromText(text string) []any {
 	}}
 }
 
-func isValidResponsesReasoningID(id string) bool {
-	return strings.HasPrefix(strings.TrimSpace(id), "rs")
-}
-
 func reasoningSummaryEntriesFromPayload(payload map[string]any) []any {
 	if payload == nil {
 		return nil
@@ -361,20 +357,35 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 		}
 	}
 
-	reasoningItem := func(b turns.Block) responsesInput {
+	reasoningItem := func(b turns.Block) (responsesInput, bool) {
 		enc, _ := b.Payload[turns.PayloadKeyEncryptedContent].(string)
 		summary := reasoningSummaryEntriesFromPayload(b.Payload)
+		itemID, _ := b.Payload[turns.PayloadKeyItemID].(string)
+
+		// A persisted reasoning block may contain only plaintext thinking that was
+		// streamed for local display. The Responses API replay shape has no
+		// plaintext reasoning input field, so such a block would serialize as an
+		// empty reasoning item. Omit it instead of sending provider-invalid or
+		// no-op input.
+		if enc == "" && len(summary) == 0 {
+			return responsesInput{}, false
+		}
+
 		if summary == nil {
 			summary = make([]any, 0)
 		}
 		ri := responsesInput{Type: "reasoning", Summary: &summary}
-		if isValidResponsesReasoningID(b.ID) {
-			ri.ID = b.ID
+		// Provider item IDs are replay payload, not internal block identity. Use
+		// the explicit item_id captured from the provider event when available;
+		// never infer it from Block.ID, which may be a synthetic UUID or may follow
+		// another provider's ID scheme.
+		if strings.TrimSpace(itemID) != "" {
+			ri.ID = itemID
 		}
 		if enc != "" {
 			ri.EncryptedContent = enc
 		}
-		return ri
+		return ri, true
 	}
 
 	// Process blocks in-order so every function_call can retain its required reasoning predecessor.
@@ -392,7 +403,9 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 				if v, ok := next.Payload[turns.PayloadKeyText]; ok && v != nil {
 					if s, ok2 := v.(string); ok2 && strings.TrimSpace(s) != "" {
 						msgID, _ := next.Payload[turns.PayloadKeyItemID].(string)
-						items = append(items, reasoningItem(b))
+						if ri, ok := reasoningItem(b); ok {
+							items = append(items, ri)
+						}
 						items = append(items, responsesInput{
 							Type:    "message",
 							Role:    "assistant",
@@ -404,7 +417,9 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 					}
 				}
 			case turns.BlockKindToolCall:
-				items = append(items, reasoningItem(b))
+				if ri, ok := reasoningItem(b); ok {
+					items = append(items, ri)
+				}
 				j := nextIdx
 				for j < len(t.Blocks) {
 					nb := t.Blocks[j]

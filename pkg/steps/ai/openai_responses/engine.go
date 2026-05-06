@@ -532,12 +532,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
 							// Append a reasoning block with encrypted content if present
 							rb := turns.Block{Kind: turns.BlockKindReasoning}
+							payload := map[string]any{}
 							if id, ok := it["id"].(string); ok && id != "" {
 								rb.ID = id
+								payload[turns.PayloadKeyItemID] = id
 							}
-							payload := map[string]any{}
 							if currentReasoningItemID != "" && rb.ID == "" {
 								rb.ID = currentReasoningItemID
+								payload[turns.PayloadKeyItemID] = currentReasoningItemID
 							}
 							if text := strings.TrimSpace(currentReasoningText.String()); text != "" {
 								payload[turns.PayloadKeyText] = text
@@ -906,6 +908,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
 			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
+			if oi.ID != "" {
+				b.Payload[turns.PayloadKeyItemID] = oi.ID
+			}
 			if len(oi.Content) > 0 {
 				var rawText strings.Builder
 				for _, c := range oi.Content {
