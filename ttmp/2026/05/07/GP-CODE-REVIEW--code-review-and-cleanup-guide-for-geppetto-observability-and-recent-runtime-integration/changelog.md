@@ -44,3 +44,15 @@ Uploaded an updated Final reMarkable bundle including the latest diary step: /ai
 
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Updated with validation/upload step before final bundle upload
 
+
+## 2026-05-07
+
+Split OpenAI Responses engine into focused files across commits 5f28ea1, a79abcb, and 0e49aed. engine.go is now high-level orchestration; streaming, non-streaming, tool attachment, usage parsing, and stream event helpers live in separate files. Focused tests and full pre-commit test/lint passed for each code commit.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/engine.go — Reduced OpenAI Responses engine orchestration file
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/nonstreaming.go — Extracted non-streaming implementation
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/streaming.go — Extracted streaming implementation
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded split work
+

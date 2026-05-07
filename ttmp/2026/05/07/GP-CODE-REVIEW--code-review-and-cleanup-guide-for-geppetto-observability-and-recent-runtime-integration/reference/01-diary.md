@@ -20,7 +20,19 @@ RelatedFiles:
     - Path: pkg/observability/json.go
       Note: Evidence sanitizer issue recorded in guide
     - Path: pkg/steps/ai/openai_responses/engine.go
-      Note: Large OpenAI Responses stream loop inspected during review
+      Note: |-
+        Large OpenAI Responses stream loop inspected during review
+        Reduced to high-level orchestration after split (commits 5f28ea1
+    - Path: pkg/steps/ai/openai_responses/nonstreaming.go
+      Note: Extracted non-streaming response handling from RunInference (commit 0e49aed)
+    - Path: pkg/steps/ai/openai_responses/request_tools.go
+      Note: Extracted Responses request tool attachment helper (commit 5f28ea1)
+    - Path: pkg/steps/ai/openai_responses/stream_events.go
+      Note: Extracted provider stream event normalization and integer parsing helpers (commit 5f28ea1)
+    - Path: pkg/steps/ai/openai_responses/streaming.go
+      Note: Extracted streaming path from RunInference (commit a79abcb)
+    - Path: pkg/steps/ai/openai_responses/usage.go
+      Note: Extracted usage parsing helpers (commit 5f28ea1)
     - Path: ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md
       Note: Primary code review and onboarding deliverable
     - Path: ttmp/2026/05/07/GP-OBSERVABILITY--add-geppetto-provider-and-event-observability-hooks-for-high-frequency-inference-debugging/reference/01-diary.md
@@ -31,6 +43,7 @@ LastUpdated: 2026-05-07T13:03:35.340510159-04:00
 WhatFor: Record investigation commands, evidence, writing decisions, validation, and upload steps for GP-CODE-REVIEW.
 WhenToUse: Read before resuming or reviewing the GP-CODE-REVIEW ticket.
 ---
+
 
 
 # Diary
@@ -254,3 +267,100 @@ The validation step found one expected metadata issue: the new topics `code-revi
   - `remarquee cloud ls /ai/2026/05/07/GP-CODE-REVIEW --long --non-interactive`
 - Uploaded document:
   - `/ai/2026/05/07/GP-CODE-REVIEW/GP-CODE-REVIEW Geppetto Code Review and Intern Onboarding Guide Final.pdf`
+
+## Step 4: Split OpenAI Responses engine into focused files
+
+I started the cleanup recommended by the guide by splitting `pkg/steps/ai/openai_responses/engine.go` into smaller behavior-preserving files. The goal of this step was not to rewrite the stream state machine yet; it was to move obvious helper, request-tool, streaming, and non-streaming responsibilities out of the central engine file while keeping tests green after each slice.
+
+The result is a more navigable package. `engine.go` now holds the engine type, constructor, publish seam, and high-level `RunInference` orchestration. The large streaming implementation is isolated in `streaming.go`; non-streaming response handling is in `nonstreaming.go`; request tool attachment is in `request_tools.go`; usage parsing is in `usage.go`; provider event-name/int helpers are in `stream_events.go`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "clean up openai responses by splitting, commit at appropriate intervals, keep a diary."
+
+**Assistant interpretation:** Perform a behavior-preserving cleanup of the OpenAI Responses package by splitting large code into focused files, committing in sensible increments, and recording the work in the ticket diary.
+
+**Inferred user intent:** Start acting on the GP-CODE-REVIEW roadmap, especially the recommendation to make OpenAI Responses easier to review and refactor safely.
+
+**Commit (code):** `5f28ea12d11691bc5d1eeb8521a753214f4806c4` — "Split OpenAI Responses engine helpers"
+
+**Commit (code):** `a79abcb1ae59dcb49da75cdba877feb4d96803a4` — "Move OpenAI Responses streaming path"
+
+**Commit (code):** `0e49aedad1e33f5cfeba5ee0fb131141e7deb095` — "Move OpenAI Responses non-streaming path"
+
+### What I did
+- Added GP-CODE-REVIEW tasks for splitting and validation.
+- Extracted request tool attachment into `pkg/steps/ai/openai_responses/request_tools.go`.
+- Extracted usage parsing and JSON marshal helper into `pkg/steps/ai/openai_responses/usage.go`.
+- Extracted stream event-name normalization and generic integer parsing into `pkg/steps/ai/openai_responses/stream_events.go`.
+- Extracted the streaming path from `RunInference` into `pkg/steps/ai/openai_responses/streaming.go`.
+- Extracted the non-streaming path from `RunInference` into `pkg/steps/ai/openai_responses/nonstreaming.go`.
+- Ran focused package tests after each extraction and relied on the pre-commit hook for full repository `go test ./...` and lint on each code commit.
+
+### Why
+- `engine.go` was 1,283 lines and mixed too many responsibilities.
+- Splitting by responsibility makes follow-up refactors safer: future work can target stream state, non-streaming response handling, usage parsing, or tool attachment independently.
+- Small commits make it easier to bisect if a behavior-preserving move accidentally changes behavior.
+
+### What worked
+- Focused test passed during the work:
+  - `go test ./pkg/steps/ai/openai_responses -count=1`
+- Each code commit passed the Geppetto pre-commit hook, including full `go test ./...` and `make lintmax`/lint path.
+- `engine.go` line count dropped from 1,283 lines to 166 lines.
+- Current split file sizes:
+  - `engine.go`: 166 lines
+  - `streaming.go`: 847 lines
+  - `nonstreaming.go`: 128 lines
+  - `request_tools.go`: 55 lines
+  - `usage.go`: 82 lines
+  - `stream_events.go`: 57 lines
+
+### What didn't work
+- The first helper extraction test failed because `engine.go` still imported `pkg/inference/tools` after moving `attachToolsToResponsesRequest`:
+  - `pkg/steps/ai/openai_responses/engine.go:15:2: "github.com/go-go-golems/geppetto/pkg/inference/tools" imported and not used`
+- I removed that import and reran the focused test successfully.
+- The first streaming extraction test failed because the moved method still referenced the old local variable name `b` instead of the new `body` parameter, and because `engine.go` still had unused imports:
+  - `pkg/steps/ai/openai_responses/streaming.go:22:93: undefined: b`
+  - `pkg/steps/ai/openai_responses/streaming.go:34:19: undefined: b`
+  - unused imports in `engine.go`
+- I replaced `b` with `body`, removed the unused imports, restored `io` where non-streaming still needed it, and reran the focused test successfully.
+- The first non-streaming extraction test similarly failed on an old `b` reference and unused imports; I replaced it with `body`, removed imports, and reran the focused test successfully.
+
+### What I learned
+- Moving large behavior blocks mechanically is feasible because the current `RunInference` already has a clear top-level branch: streaming vs non-streaming.
+- The main remaining complexity is now explicitly isolated in `streaming.go`; it is still too large, but at least it is no longer mixed with request setup and non-streaming response handling.
+- The pre-commit hook is valuable here because it catches full-package and lint issues after each slice, not only focused OpenAI Responses tests.
+
+### What was tricky to build
+- The extracted streaming and non-streaming methods needed explicit parameters for values that were previously local to `RunInference`: request body bytes, URL, API key, metadata, HTTP client, debug tap, start time, and request body settings.
+- The most important invariant was preserving behavior, so I avoided changing handler logic while moving it. This means `streaming.go` remains a long function for now; splitting its internal state machine should be a separate follow-up with fixture coverage.
+
+### What warrants a second pair of eyes
+- Review that the extracted methods receive metadata by value exactly like the previous local code path and still publish final metadata correctly.
+- Review `streaming.go` carefully because it is mechanically moved code and remains the main behavioral hotspot.
+- Confirm that the helper files are named and grouped the way maintainers expect before deeper stream-state extraction.
+
+### What should be done in the future
+- Split `streaming.go` further into a `streamProcessor` with explicit state and handler methods.
+- Add focused fixture tests around the stream processor before changing handler internals.
+- Consider removing or properly using the unused redaction closure that remains inside the moved streaming code.
+
+### Code review instructions
+- Review commits in order:
+  1. `5f28ea1` helper extraction.
+  2. `a79abcb` streaming extraction.
+  3. `0e49aed` non-streaming extraction.
+- Start with `engine.go` to understand the new high-level orchestration, then inspect `streaming.go` and `nonstreaming.go`.
+- Validate with:
+  - `cd geppetto && go test ./pkg/steps/ai/openai_responses -count=1`
+  - `cd geppetto && go test ./...`
+
+### Technical details
+- New files:
+  - `pkg/steps/ai/openai_responses/request_tools.go`
+  - `pkg/steps/ai/openai_responses/usage.go`
+  - `pkg/steps/ai/openai_responses/stream_events.go`
+  - `pkg/steps/ai/openai_responses/streaming.go`
+  - `pkg/steps/ai/openai_responses/nonstreaming.go`
+- Modified file:
+  - `pkg/steps/ai/openai_responses/engine.go`
