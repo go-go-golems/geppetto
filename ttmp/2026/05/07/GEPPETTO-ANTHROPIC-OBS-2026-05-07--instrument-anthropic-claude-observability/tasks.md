@@ -8,4 +8,5 @@
 - [x] Wire StandardEngineFactory Claude options
 - [x] Add focused Claude observability and factory tests
 - [x] Run targeted and broad validation
-- [ ] Update diary/changelog and commit at checkpoints
+- [x] Update diary/changelog and commit at checkpoints
+- [x] Upload design guide and diary bundle to reMarkable
