@@ -27,7 +27,7 @@ RelatedFiles:
     - Path: pkg/turns/turn.go
 ExternalSources: []
 Summary: Intern-oriented design guide for instrumenting the OpenAI Chat Completions path with Geppetto observability records.
-LastUpdated: 2026-05-07T14:30:00-04:00
+LastUpdated: 2026-05-07T15:45:00-04:00
 WhatFor: "Use this when implementing or reviewing observability support for the OpenAI-compatible Chat Completions engine."
 WhenToUse: "Before editing pkg/steps/ai/openai, factory wiring, or observability tests."
 ---
@@ -47,13 +47,15 @@ The OpenAI Responses path already records both provider-level events and Geppett
 
 Recommended implementation shape:
 
+Current implemented policy after review: OpenAI Chat Completions and OpenAI Responses both emit `StageGeppettoPublishStarted` only for Geppetto publish-boundary evidence. They do not emit `StageGeppettoPublishDone`, and publish records intentionally avoid full event/metadata JSON payloads.
+
 1. Add `EngineOption`, `WithObserver`, and `WithObservabilityConfig` to `pkg/steps/ai/openai`.
 2. Add `observer geppettoobs.Observer` and `observabilityConfig geppettoobs.Config` to `OpenAIEngine`.
 3. Change `NewOpenAIEngine(settings)` to `NewOpenAIEngine(settings, opts ...EngineOption)` while preserving old call sites.
-4. Wrap `OpenAIEngine.publishEvent` with `StageGeppettoPublishStarted` and `StageGeppettoPublishDone` records.
+4. Wrap `OpenAIEngine.publishEvent` with a compact `StageGeppettoPublishStarted` record only; do not emit `PublishDone` records.
 5. Emit provider records from the streaming loop using `chatStreamEvent.RawPayload`.
 6. Wire `StandardEngineFactory` to accept OpenAI engine options just like it already accepts Responses options.
-7. Add tests proving trace-off silence, event-level records, provider-level records, panic safety by delegation to `observability.Notify`, and factory option plumbing.
+7. Add tests proving trace-off silence, compact publish-started records, provider-level records, panic safety by delegation to `observability.Notify`, and factory option plumbing.
 
 ## Problem Statement
 
@@ -173,11 +175,9 @@ flowchart TD
     Loop[RunInference streaming loop] --> NormalizeObs[observeProviderNormalizeDelta]
     Events[publishEvent] --> Started[observePublish: publish_started]
     Events --> ContextSinks[events.PublishEventToContext]
-    ContextSinks --> Done[observePublish: publish_done]
     ProviderObs --> Observer[geppettoobs.Observer]
     NormalizeObs --> Observer
     Started --> Observer
-    Done --> Observer
 ```
 
 The key rule is that `Observer` failures must never affect inference. This is already guaranteed by `observability.Notify`, which recovers from panics.
@@ -278,10 +278,10 @@ func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption
 func (e *Engine) observe(ctx context.Context, rec geppettoobs.Record)
 func (e *Engine) observeProviderEvent(...)
 func (e *Engine) observeProviderNormalizeDelta(...)
-func (e *Engine) observePublish(...)
+func (e *Engine) observePublish(...) // used only for compact publish-started records
 ```
 
-The OpenAI Chat Completions implementation should be similar but not blindly copied. Chat Completions has different provider identifiers:
+The OpenAI Chat Completions implementation should be similar but not blindly copied. In the current policy, Chat Completions uses an explicit `observePublishStarted(...)` helper and Responses uses `observePublish(...)` only for `StageGeppettoPublishStarted`. Chat Completions also has different provider identifiers:
 
 - provider should usually be `"openai"` for the default OpenAI path;
 - factory also routes `anyscale` and `fireworks` to the same engine, so consider deriving provider from `settings.Chat.ApiType`;
@@ -431,21 +431,22 @@ The default must be `TraceOff`, so existing users see no behavior change.
 
 ### Event publish observations
 
-Change `publishEvent` so every Geppetto event can be observed at the boundary:
+Change `publishEvent` so every Geppetto event emits a compact pre-publish breadcrumb only:
 
 ```go
 func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
-    e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
+    e.observePublishStarted(ctx, event)
     events.PublishEventToContext(ctx, event)
-    e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
 }
 ```
 
-Why record both started and done?
+Why only `publish_started`?
 
-- `publish_started` gives a cheap breadcrumb before event fan-out.
-- `publish_done` captures serialized event and metadata JSON after publish.
-- Existing event sinks ignore errors, so `publish_error` is not currently reachable through `events.PublishEventToContext`; do not invent errors unless the sink API changes.
+- `publish_started` gives a cheap scalar breadcrumb before event fan-out.
+- It records provider, model, session/inference/turn/message IDs, event type, and `EventInfo.Message` when applicable.
+- It deliberately does **not** attach full `EventJSON` or `MetadataJSON`, because streaming partial events can carry accumulated completion text and repeated metadata.
+- `publish_done` is intentionally omitted in both OpenAI Chat Completions and OpenAI Responses to avoid trace-size ballooning.
+- Existing event sinks ignore errors, so a done record would only mean “the call returned”, not “all sinks accepted the event”.
 
 ### Provider observations
 
@@ -517,7 +518,7 @@ func openAIInferenceProvider(s *settings.InferenceSettings) string {
 
 Use this provider in:
 
-- `observePublish` records;
+- compact `observePublishStarted` records;
 - provider event records;
 - possibly the existing `BuildInferenceResultFromEventMetadata(metadata, "openai", ...)` call in a later cleanup. For this ticket, be careful changing persisted semantics; instrumentation can use derived provider without changing persisted inference result behavior.
 
@@ -580,7 +581,7 @@ Implement:
 - `WithObserver`
 - `WithObservabilityConfig`
 - `observe`
-- `observePublish`
+- `observePublishStarted`
 - `observeProviderEvent`
 - `observeProviderNormalizeDelta`
 - JSON helpers, if there is no shared helper available in package
@@ -608,7 +609,7 @@ func WithObserver(obs geppettoobs.Observer) EngineOption { ... }
 func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption { ... }
 
 func (e *OpenAIEngine) observe(ctx context.Context, rec geppettoobs.Record) { ... }
-func (e *OpenAIEngine) observePublish(ctx context.Context, event events.Event, stage geppettoobs.Stage, err error) { ... }
+func (e *OpenAIEngine) observePublishStarted(ctx context.Context, event events.Event) { ... }
 func (e *OpenAIEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent) { ... }
 func (e *OpenAIEngine) observeProviderNormalizeDelta(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent, deltaLen, normalizedDeltaLen, bufferLen int) { ... }
 ```
@@ -650,26 +651,28 @@ func NewOpenAIEngine(settings *settings.InferenceSettings, opts ...EngineOption)
 
 ### Step 3: Instrument `publishEvent`
 
-Replace the body of `publishEvent` with the Responses pattern.
+Replace the body of `publishEvent` with the compact started-only pattern now used by both OpenAI Chat Completions and OpenAI Responses.
 
 Pseudocode:
 
 ```go
 func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
-    e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
+    e.observePublishStarted(ctx, event)
     events.PublishEventToContext(ctx, event)
-    e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
 }
 ```
 
-`observePublish` should:
+`observePublishStarted` should:
 
 - do nothing if trace level is off;
 - do nothing if event is nil;
-- copy metadata fields into the record;
+- copy metadata scalar fields into the record;
+- set `Stage` to `StageGeppettoPublishStarted`;
 - set `EventType` from `event.Type()`;
 - set `InfoMessage` for `*events.EventInfo`;
-- include full `EventJSON` and `MetadataJSON` only on done/error stages, matching Responses behavior.
+- never attach full `EventJSON` or `MetadataJSON`.
+
+Do not emit `StageGeppettoPublishDone` for this provider path. The design decision is to preserve compact event-boundary evidence without storing full partial/final payloads repeatedly during a stream.
 
 ### Step 4: Instrument provider stream records
 
@@ -746,7 +749,7 @@ eng.observe(context.Background(), geppettoobs.Record{Stage: geppettoobs.StagePro
 assert len(obs.records) == 0
 ```
 
-2. **Event trace records publish started/done**
+2. **Event trace records compact publish-started events only**
 
 Use a fake HTTP client that returns SSE chunks:
 
@@ -760,8 +763,9 @@ data: [DONE]
 Run inference with `TraceEvents`. Assert records include:
 
 - `StageGeppettoPublishStarted` for `start`;
-- `StageGeppettoPublishDone` for `partial`;
-- `StageGeppettoPublishDone` for `final`;
+- `StageGeppettoPublishStarted` for `partial`;
+- `StageGeppettoPublishStarted` for `final`;
+- no `StageGeppettoPublishDone`;
 - no `StageProviderRoutedEvent`.
 
 3. **Provider trace records raw provider object**
@@ -875,7 +879,7 @@ Installs an observer that receives best-effort records.
 func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption
 ```
 
-Controls trace level. Use `TraceEvents` for publish boundary records, `TraceProvider` for provider records too.
+Controls trace level. Use `TraceEvents` for compact publish-started boundary records, `TraceProvider` for provider records too.
 
 ### `factory.WithOpenAIOptions`
 
@@ -947,7 +951,7 @@ Rejected for this ticket. Request bodies can contain user content, tool argument
 - **Observer panic:** must not fail inference; use `geppettoobs.Notify`.
 - **Nil observer:** should be a no-op.
 - **Trace off:** should be a no-op.
-- **Nil event:** `observePublish` should be a no-op.
+- **Nil event:** `observePublishStarted` should be a no-op.
 - **JSON marshal failure:** `mustMarshalJSON` should return nil/empty JSON rather than failing inference.
 - **Provider chunk missing `id`:** record should still emit without `ResponseID`.
 - **Provider chunk missing `object`:** use fallback event type `chat.completion.chunk`.
@@ -960,10 +964,10 @@ Before approving implementation, verify:
 
 - [ ] `NewOpenAIEngine(settings)` still compiles at existing call sites.
 - [ ] `TraceOff` emits zero records.
-- [ ] `TraceEvents` emits publish records but no provider records.
-- [ ] `TraceProvider` emits provider records and publish records.
+- [ ] `TraceEvents` emits compact publish-started records but no provider records.
+- [ ] `TraceProvider` emits provider records and compact publish-started records.
 - [ ] Provider records include model, session/inference/turn/message IDs, response ID, event type, and object JSON.
-- [ ] Publish done records include event JSON and metadata JSON.
+- [ ] No `StageGeppettoPublishDone` records are emitted for OpenAI Chat Completions or OpenAI Responses.
 - [ ] `EventInfo` publish records include `InfoMessage`.
 - [ ] Reasoning normalization records include delta, normalized delta, and buffer lengths.
 - [ ] Observer panics do not affect inference.

@@ -357,3 +357,37 @@ go test ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/inference/en
 ```
 
 Result: passed.
+
+### 2026-05-07 15:48 — Synchronized design guide with started-only policy and re-uploaded
+
+After code was aligned to emit only compact `StageGeppettoPublishStarted` records, I searched the design guide for stale `PublishDone` / started-done guidance. The guide still described the earlier started+done approach in the executive summary, diagrams, implementation plan, test plan, and review checklist.
+
+I updated the design doc to reflect the implemented policy:
+
+- OpenAI Chat Completions and OpenAI Responses both emit `StageGeppettoPublishStarted` only for Geppetto publish-boundary evidence.
+- `StageGeppettoPublishDone` is not emitted for these provider paths.
+- Publish records are compact and intentionally omit `EventJSON` / `MetadataJSON` to avoid stream trace-size ballooning.
+- `TraceEvents` means compact publish-started records only; `TraceProvider` adds provider routed and normalization records.
+
+Validation:
+
+```bash
+docmgr doctor --ticket GEPPETTO-OPENAI-OBS-2026-05-07 --stale-after 30
+```
+
+Result: passed.
+
+Uploaded the updated standalone design doc to reMarkable:
+
+```bash
+remarquee upload md "$DESIGN" \
+  --name "GEPPETTO-OPENAI-OBS-2026-05-07 OpenAI Completions Observability Design Doc Started Only" \
+  --remote-dir "/ai/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07" \
+  --non-interactive
+```
+
+Upload result:
+
+```text
+OK: uploaded GEPPETTO-OPENAI-OBS-2026-05-07 OpenAI Completions Observability Design Doc Started Only.pdf -> /ai/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07
+```

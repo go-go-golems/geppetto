@@ -61,3 +61,12 @@ Aligned OpenAI Chat Completions and Responses publish observability to compact s
 - pkg/steps/ai/openai_responses/engine.go — Removes post-publish done record
 - pkg/steps/ai/openai_responses/observability.go — Keeps publish observation compact without event/metadata JSON
 
+
+## 2026-05-07
+
+Updated the design guide for the publish-started-only policy and re-uploaded the standalone PDF to reMarkable.
+
+### Related Files
+
+- ttmp/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07--instrument-openai-chat-completions-observability/design-doc/01-openai-chat-completions-observability-analysis-and-implementation-guide.md — Updated publish observability policy and implementation/test guidance
+

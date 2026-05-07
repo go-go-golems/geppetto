@@ -17,3 +17,5 @@
 - [x] Update diary/changelog with implementation details and commit hashes
 - [x] Remove unnecessary OpenAI Chat Completions publish-boundary observability records
 - [x] Align OpenAI Chat Completions and Responses publish observability to started-only records
+- [x] Update OpenAI observability design guide for publish-started-only policy
+- [x] Re-upload updated OpenAI observability design doc to reMarkable
