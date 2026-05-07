@@ -1,0 +1,256 @@
+---
+Title: Diary
+Ticket: GP-CODE-REVIEW
+Status: active
+Topics:
+    - code-review
+    - observability
+    - architecture
+    - cleanup
+    - intern-onboarding
+DocType: reference
+Intent: long-term
+Owners:
+    - manuel
+RelatedFiles:
+    - Path: README.md
+      Note: Repository orientation source inspected during review
+    - Path: pkg/events/chat-events.go
+      Note: Large event taxonomy and stale TODO markers inspected during review
+    - Path: pkg/observability/json.go
+      Note: Evidence sanitizer issue recorded in guide
+    - Path: pkg/steps/ai/openai_responses/engine.go
+      Note: Large OpenAI Responses stream loop inspected during review
+    - Path: ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md
+      Note: Primary code review and onboarding deliverable
+    - Path: ttmp/2026/05/07/GP-OBSERVABILITY--add-geppetto-provider-and-event-observability-hooks-for-high-frequency-inference-debugging/reference/01-diary.md
+      Note: Prior diary evidence read for latest smoke and commit caveats
+ExternalSources: []
+Summary: Chronological diary for the Geppetto code review and intern onboarding guide.
+LastUpdated: 2026-05-07T13:03:35.340510159-04:00
+WhatFor: Record investigation commands, evidence, writing decisions, validation, and upload steps for GP-CODE-REVIEW.
+WhenToUse: Read before resuming or reviewing the GP-CODE-REVIEW ticket.
+---
+
+
+# Diary
+
+## Goal
+
+This diary records the work to create a new ticket-level code review and onboarding guide for Geppetto, with special attention to the recently added observability/debug integration and the GP-OBSERVABILITY diaries.
+
+## Step 1: Create the review ticket and establish the investigation plan
+
+I created a new docmgr ticket in `geppetto/ttmp` for a broad code-quality review and intern-facing technical guide. The ticket starts with two primary deliverables: a design-doc for the review/onboarding guide and this diary for chronological evidence capture.
+
+The review scope is intentionally broader than bug hunting. I will inventory package boundaries, inspect recent observability code and diary context, identify unclear or overgrown areas, and write a guide that explains the system to a new intern with file references, diagrams, pseudocode, API references, and cleanup recommendations.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a new ticket in geppetto/ttmp  to do a code review of the whole package, and especially the lately add code / improvements (see diaries too).                                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                          
+We are looking for not just issues, but also deprecated code, unclear code, too long files, code that could be organized better, too large packages, overengineered functionality, etc...                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                                                          
+Create  a detailed analysis / design / implementation guide that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and the nupload to remarkable.                                                       
+                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                          
+Keep a diary as you work.                                                                                                                                                                                                                                                                                                                                                                                                 
+──────────────────────────────────────────────────────────"
+
+**Assistant interpretation:** Create a new Geppetto ticket, perform an evidence-backed code-quality and architecture review with emphasis on recent observability work and diaries, write a detailed intern-facing guide, store it in the ticket, upload it to reMarkable, and keep diary/changelog/task bookkeeping current.
+
+**Inferred user intent:** Produce a durable, reviewable onboarding and cleanup document that helps a new contributor understand Geppetto while surfacing technical debt and concrete refactor opportunities.
+
+### What I did
+- Loaded the `code-quality-review-cleanup`, `ticket-research-docmgr-remarkable`, `diary`, and `remarkable-upload` skills.
+- Created ticket `GP-CODE-REVIEW` with title `Code review and cleanup guide for Geppetto observability and recent runtime integration`.
+- Created design doc `design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md`.
+- Created this diary document at `reference/01-diary.md`.
+
+### Why
+- The user asked for a new ticket under `geppetto/ttmp`, not just an ad-hoc response.
+- A diary is necessary because the final document should show how evidence was gathered and what caveats remain.
+- The review needs to be grounded in files and recent diaries before recommendations are written.
+
+### What worked
+- `docmgr status --summary-only` confirmed the Geppetto docs root and current ticket inventory.
+- `docmgr ticket create-ticket` created the expected dated ticket workspace.
+- `docmgr doc add` created both the design document and diary.
+
+### What didn't work
+- No failures yet.
+
+### What I learned
+- The ticket path is `ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration`.
+- The review should connect code evidence to GP-OBSERVABILITY diary context, especially the Pinocchio `GOWORK=off` caveat and the high-frequency trace-size concerns.
+
+### What was tricky to build
+- The prompt says “whole package,” which can mean the whole Geppetto repository or the recently added observability package. I will treat the deliverable as a repo-level orientation with a deep dive on the recent observability/OpenAI Responses/factory integration, because that matches both “whole package” and “especially lately added code.”
+
+### What warrants a second pair of eyes
+- The scope boundary: if reviewers want a full every-file audit of all Geppetto packages, this first guide should become a map and triage document rather than the final exhaustive audit.
+
+### What should be done in the future
+- Gather repository inventory, file sizes, package layout, and recent GP-OBSERVABILITY diary evidence before writing conclusions.
+- Run `docmgr doctor` before upload.
+- Upload the final bundle to reMarkable under `/ai/2026/05/07/GP-CODE-REVIEW`.
+
+### Code review instructions
+- Start future continuation by reading this diary and then the design doc.
+- Use repository commands from `geppetto/` so docmgr paths resolve correctly.
+
+### Technical details
+- Commands used:
+  - `cd geppetto && docmgr status --summary-only`
+  - `cd geppetto && docmgr ticket create-ticket --ticket GP-CODE-REVIEW --title "Code review and cleanup guide for Geppetto observability and recent runtime integration" --topics code-review,observability,architecture,cleanup,intern-onboarding`
+  - `cd geppetto && docmgr doc add --ticket GP-CODE-REVIEW --doc-type design-doc --title "Geppetto Code Review and Intern Onboarding Guide"`
+  - `cd geppetto && docmgr doc add --ticket GP-CODE-REVIEW --doc-type reference --title "Diary"`
+
+## Step 2: Inventory code, read prior diaries, and write the review guide
+
+I gathered repository-level evidence before writing conclusions. The inventory covered package layout, largest files, TODO/deprecation markers, recent observability files, OpenAI Responses stream code, core runtime APIs, and the GP-OBSERVABILITY diary/playbook/report. I also inspected the downstream Pinocchio recorder and SQLite export because the new Geppetto observer API is consumed there.
+
+I then wrote the main guide as an intern-facing technical review. It explains Geppetto's runtime concepts, the recent observability flow, concrete code-quality findings, cleanup sketches, pseudocode, testing strategy, and file references.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Continue the evidence-gathering phase and produce the primary design-doc deliverable.
+
+**Inferred user intent:** Ground the review in concrete files and prior implementation evidence rather than generic cleanup advice.
+
+### What I did
+- Checked worktree status for `geppetto`, `pinocchio`, and `sessionstream`.
+- Listed Geppetto package directories and top-level package file counts.
+- Measured large files with `find pkg cmd -name '*.go' -print0 | xargs -0 wc -l | sort -nr | head -35`.
+- Searched for `TODO`, `FIXME`, `Deprecated`, `legacy`, `HACK`, and `XXX` markers under `pkg` and `cmd`.
+- Read core Geppetto files: `README.md`, `pkg/turns/types.go`, `pkg/inference/engine/engine.go`, `pkg/inference/session/session.go`, `pkg/events/chat-events.go`, and the recent observability/OpenAI Responses/factory files.
+- Read GP-OBSERVABILITY diary Step 10/11, the provider-to-browser playbook, tasks, and textbook report.
+- Read downstream Pinocchio debug recorder/reconcile/runtime wiring files to understand the app boundary.
+- Wrote `design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md`.
+- Related 17 key files/documents to the design doc and 6 key files/documents to this diary.
+- Added ticket tasks for inventory, guide writing, file relation, validation, and reMarkable upload.
+
+### Why
+- The requested review includes architectural cleanup, deprecated code, overgrown packages, and recent work, so it needed broad inventory plus focused inspection.
+- The intern guide needs to explain concepts before issuing recommendations.
+- File relationships make the ticket searchable and let future reviewers jump directly from claims to evidence.
+
+### What worked
+- The package inventory clearly showed that complexity is concentrated in `steps`, `inference`, `js`, `engineprofiles`, and `events`.
+- The largest-file inventory made `pkg/steps/ai/openai_responses/engine.go` and `pkg/events/chat-events.go` obvious review targets.
+- Prior GP-OBSERVABILITY diary evidence provided concrete validation data: 25 MB SQLite artifact for a small prompt, 359/359 Geppetto-to-frontend exact matches, and the `GOWORK=off` Pinocchio lint caveat.
+- The guide now contains concrete cleanup sketches for stream processor extraction, evidence JSON sanitizer fixes, retention policy, direct provider ID propagation, event taxonomy splitting, and release alignment.
+
+### What didn't work
+- This is not a full every-file audit of the entire Geppetto repository. It is a repo-level orientation plus targeted review of recent observability/runtime code and the highest-signal cleanup hotspots.
+- No code changes were made, so no Go tests were required for behavior. Validation still needs `docmgr doctor` and upload checks.
+
+### What I learned
+- `pkg/observability` is small and well-bounded, but `MarshalEvidenceJSON` likely does not recursively cap/redact struct payloads passed as `event_json` and `metadata_json`.
+- `InferenceObservabilitySettings.MaxRecords` is intentionally app-owned retention policy, but its placement next to Geppetto emission config can be confusing.
+- `openai_responses/engine.go` is the main maintainability hotspot because provider stream parsing, state updates, event publishing, and observability all live in one large function/closure structure.
+
+### What was tricky to build
+- The review had to distinguish bugs from cleanup risks. For example, the observer API boundary is good and should be preserved, while sanitizer semantics and high-frequency retention need hardening.
+- The phrase “whole package” was ambiguous; I handled it as repo-level onboarding plus deep review of the recently added observability/OpenAI Responses integration.
+
+### What warrants a second pair of eyes
+- The `MarshalEvidenceJSON` struct-sanitization finding should be verified with a focused failing test before changing code.
+- The publish-started/publish-done payload policy needs reviewer agreement because it trades forensic completeness against artifact size.
+- The OpenAI Responses refactor should be done in behavior-preserving extraction commits because stream ordering is subtle.
+
+### What should be done in the future
+- Run `docmgr doctor` and resolve metadata/vocabulary issues.
+- Upload the guide and diary bundle to reMarkable.
+- Consider creating follow-up implementation tickets from the guide's cleanup phases.
+
+### Code review instructions
+- Review the guide sections in order: architecture first, then observability flow, then findings and roadmap.
+- Spot-check the cited files, especially `pkg/observability/json.go`, `pkg/steps/ai/openai_responses/engine.go`, and `pkg/events/chat-events.go`.
+
+### Technical details
+- Key outputs:
+  - `design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md`
+  - `reference/01-diary.md`
+- Commands included:
+  - `find pkg -mindepth 1 -maxdepth 2 -type d | sort`
+  - `find pkg cmd -name '*.go' -print0 | xargs -0 wc -l | sort -nr | head -35`
+  - `rg -n "TODO|FIXME|Deprecated|deprecated|legacy|Legacy|HACK|XXX" pkg cmd -S`
+  - `rg -n "observer|observability|publishEvent|observeProvider|reasoning-summary|response\\.reasoning" ...`
+
+## Step 3: Validate ticket metadata and upload to reMarkable
+
+I validated the new ticket with `docmgr doctor`, fixed the vocabulary warnings, and uploaded the final guide bundle to reMarkable. The bundle includes both the main code review/onboarding guide and this diary so the reader gets the conclusions and the investigation trail together.
+
+The validation step found one expected metadata issue: the new topics `code-review`, `intern-onboarding`, and `observability` were not in the Geppetto ticket vocabulary yet. I added those vocabulary entries, reran doctor, and it passed cleanly before the upload.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Finish the requested delivery workflow by validating the ticket and uploading the document bundle to reMarkable.
+
+**Inferred user intent:** Make the review available as a durable readable artifact, not only as files in the worktree.
+
+### What I did
+- Ran `docmgr doctor --ticket GP-CODE-REVIEW --stale-after 30`.
+- Added missing vocabulary topics:
+  - `code-review`
+  - `intern-onboarding`
+  - `observability`
+- Reran `docmgr doctor`; it passed.
+- Confirmed `remarquee status` and `remarquee cloud account --non-interactive`.
+- Ran a dry-run bundle upload.
+- Uploaded the bundle to `/ai/2026/05/07/GP-CODE-REVIEW`.
+- Verified the remote listing.
+- Checked the upload task and updated the changelog.
+
+### Why
+- The ticket-research workflow requires clean docmgr validation before publishing.
+- The user explicitly asked to upload to reMarkable.
+- Dry-run upload protects against formatting or destination mistakes before sending a PDF.
+
+### What worked
+- `docmgr doctor` passed after vocabulary additions.
+- `remarquee status` returned `remarquee: ok`.
+- `remarquee cloud account --non-interactive` returned the configured user and sync version.
+- Dry-run showed the correct bundle name, inputs, and remote directory.
+- Upload succeeded and `remarquee cloud ls` showed the uploaded document.
+
+### What didn't work
+- Initial `docmgr doctor` warning:
+  - Unknown topics: `code-review`, `intern-onboarding`, `observability`.
+- I resolved this by adding those topic slugs to `ttmp/vocabulary.yaml`.
+
+### What I learned
+- The ticket vocabulary did not previously have an `observability` topic even though GP-OBSERVABILITY used that concept. Adding the vocabulary entry makes future observability review tickets easier to validate.
+
+### What was tricky to build
+- The document includes many code blocks and diagrams; the dry-run path was important to verify the bundle command before upload. The markdown did not trigger upload-time formatting errors.
+
+### What warrants a second pair of eyes
+- Reviewers should verify whether adding these vocabulary topics is acceptable globally for the Geppetto doc tree.
+- Reviewers should also decide whether the guide should spawn follow-up implementation tickets for sanitizer hardening, retention policy, and OpenAI Responses stream extraction.
+
+### What should be done in the future
+- If the guide is revised substantially, re-upload a new bundle or use a dated/follow-up name to avoid overwriting existing reMarkable annotations.
+
+### Code review instructions
+- Validate docs with `cd geppetto && docmgr doctor --ticket GP-CODE-REVIEW --stale-after 30`.
+- Verify reMarkable delivery with `remarquee cloud ls /ai/2026/05/07/GP-CODE-REVIEW --long --non-interactive`.
+
+### Technical details
+- Doctor command:
+  - `cd geppetto && docmgr doctor --ticket GP-CODE-REVIEW --stale-after 30`
+- Vocabulary commands:
+  - `docmgr vocab add --category topics --slug code-review --description "Code review, code-quality inspection, and maintainability analysis"`
+  - `docmgr vocab add --category topics --slug intern-onboarding --description "Intern-focused onboarding, architecture orientation, and contributor guides"`
+  - `docmgr vocab add --category topics --slug observability --description "Runtime observability, trace records, debug evidence, and telemetry-style diagnostics"`
+- Upload commands:
+  - `remarquee upload bundle --dry-run ... --name "GP-CODE-REVIEW Geppetto Code Review and Intern Onboarding Guide" --remote-dir "/ai/2026/05/07/GP-CODE-REVIEW" --toc-depth 2`
+  - `remarquee upload bundle ... --name "GP-CODE-REVIEW Geppetto Code Review and Intern Onboarding Guide" --remote-dir "/ai/2026/05/07/GP-CODE-REVIEW" --toc-depth 2`
+  - `remarquee cloud ls /ai/2026/05/07/GP-CODE-REVIEW --long --non-interactive`
+- Uploaded document:
+  - `/ai/2026/05/07/GP-CODE-REVIEW/GP-CODE-REVIEW Geppetto Code Review and Intern Onboarding Guide Final.pdf`

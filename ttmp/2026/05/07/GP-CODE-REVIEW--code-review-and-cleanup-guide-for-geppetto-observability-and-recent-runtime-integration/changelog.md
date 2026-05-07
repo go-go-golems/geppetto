@@ -1,0 +1,46 @@
+# Changelog
+
+## 2026-05-07
+
+- Initial workspace created
+
+
+## 2026-05-07
+
+Created GP-CODE-REVIEW ticket, inventoried Geppetto package layout and recent observability work, wrote the intern-facing code review/onboarding guide, and related key Geppetto/Pinocchio/prior-diary files.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/observability/json.go — Evidence sanitizer issue cited in review
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/engine.go — Large stream engine refactor target cited in review
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md — Primary code review and intern onboarding deliverable
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Investigation diary with commands and findings
+
+
+## 2026-05-07
+
+Validated GP-CODE-REVIEW with docmgr doctor; added vocabulary topics code-review, intern-onboarding, and observability, then doctor passed cleanly.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/vocabulary.yaml — Added ticket topics required for doctor validation
+
+
+## 2026-05-07
+
+Uploaded the GP-CODE-REVIEW guide/diary bundle to reMarkable at /ai/2026/05/07/GP-CODE-REVIEW/GP-CODE-REVIEW Geppetto Code Review and Intern Onboarding Guide.pdf and verified it with remarquee cloud ls.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md — Uploaded as part of reMarkable bundle
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Uploaded as part of reMarkable bundle
+
+
+## 2026-05-07
+
+Uploaded an updated Final reMarkable bundle including the latest diary step: /ai/2026/05/07/GP-CODE-REVIEW/GP-CODE-REVIEW Geppetto Code Review and Intern Onboarding Guide Final.pdf.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Updated with validation/upload step before final bundle upload
+

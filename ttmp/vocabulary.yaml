@@ -97,6 +97,12 @@ topics:
       description: OpenAI API and OpenAI-compatible provider integrations
     - slug: wafer-ai
       description: Wafer AI provider configuration and diagnostics
+    - slug: code-review
+      description: Code review, code-quality inspection, and maintainability analysis
+    - slug: intern-onboarding
+      description: Intern-focused onboarding, architecture orientation, and contributor guides
+    - slug: observability
+      description: Runtime observability, trace records, debug evidence, and telemetry-style diagnostics
 docTypes:
     - slug: index
       description: Ticket index
