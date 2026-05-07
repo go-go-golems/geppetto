@@ -37,3 +37,15 @@ Implemented OpenAI Chat Completions observability and committed source changes a
 - pkg/steps/ai/openai/observability.go — New OpenAI observer/config options and record helpers
 - pkg/steps/ai/openai/observability_test.go — Focused OpenAI observability tests
 
+
+## 2026-05-07
+
+Removed OpenAI Chat Completions publish-boundary observability records and kept provider/normalization records only.
+
+### Related Files
+
+- pkg/inference/engine/factory/factory_observability_test.go — Factory test now verifies provider records instead of publish records
+- pkg/steps/ai/openai/engine_openai.go — publishEvent no longer emits observability started/done records
+- pkg/steps/ai/openai/observability.go — Removed OpenAI observePublish helper
+- pkg/steps/ai/openai/observability_test.go — Updated expectations for provider-only OpenAI observability
+

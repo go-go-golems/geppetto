@@ -312,3 +312,22 @@ Both passed. The source commit is:
 ```
 
 One small hiccup: `observability_test.go` initially redeclared `roundTripperFunc`, which already existed in `engine_openai_test.go`. I removed the duplicate and reused the package-level test helper. After that, the targeted tests passed.
+
+### 2026-05-07 15:18 — Removed OpenAI publish-boundary records
+
+The user pointed out that OpenAI Chat Completions does not need observability records for `PublishEvent` started/done boundaries. I checked the current tree and confirmed that OpenAI Responses still has `StageGeppettoPublishStarted` and `StageGeppettoPublishDone` records in `pkg/steps/ai/openai_responses`; they have not been removed there yet.
+
+For the OpenAI Chat Completions implementation, I removed the publish-boundary instrumentation now:
+
+- `OpenAIEngine.publishEvent` is back to only calling `events.PublishEventToContext`.
+- Removed the unused OpenAI `observePublish` helper.
+- Updated tests so `TraceProvider` asserts provider records, and `TraceEvents` emits no records because there are no OpenAI Chat Completions event-boundary records anymore.
+- Updated the factory observability test to assert provider-option plumbing via a provider record instead of a final publish record.
+
+Validation:
+
+```bash
+go test ./pkg/steps/ai/openai ./pkg/inference/engine/factory
+```
+
+Result: passed.
