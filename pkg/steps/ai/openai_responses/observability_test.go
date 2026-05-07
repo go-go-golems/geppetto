@@ -164,6 +164,33 @@ func TestResponsesObservabilityOffEmitsNoRecords(t *testing.T) {
 	}
 }
 
+func TestIntFromAnyStringParsingRequiresExactInteger(t *testing.T) {
+	tests := []struct {
+		name string
+		in   any
+		want int
+		ok   bool
+	}{
+		{name: "plain", in: "1", want: 1, ok: true},
+		{name: "trimmed", in: " 1 ", want: 1, ok: true},
+		{name: "trailing junk", in: "1x", ok: false},
+		{name: "leading junk", in: "x1", ok: false},
+		{name: "empty", in: "", ok: false},
+		{name: "spaces", in: "   ", ok: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := intFromAny(tt.in)
+			if ok != tt.ok {
+				t.Fatalf("ok mismatch for %#v: got %v want %v", tt.in, ok, tt.ok)
+			}
+			if ok && got != tt.want {
+				t.Fatalf("value mismatch for %#v: got %d want %d", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func findRecord(records []geppettoobs.Record, stage geppettoobs.Stage, eventType string, infoMessage string) *geppettoobs.Record {
 	for i := range records {
 		rec := &records[i]

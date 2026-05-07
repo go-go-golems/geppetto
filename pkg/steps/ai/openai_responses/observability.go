@@ -2,7 +2,8 @@ package openai_responses
 
 import (
 	"context"
-	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
@@ -191,9 +192,9 @@ func intFromAny(v any) (int, bool) {
 	case uint64:
 		return int(tv), true
 	case string:
-		var i int
-		if _, err := fmt.Sscanf(tv, "%d", &i); err == nil {
-			return i, true
+		i64, err := strconv.ParseInt(strings.TrimSpace(tv), 10, 0)
+		if err == nil {
+			return int(i64), true
 		}
 	}
 	return 0, false

@@ -83,3 +83,16 @@ Split pkg/events/chat-events.go into domain-focused files in commit ce1149f: cor
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/events/tool_events.go — Tool event definitions after split
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded Step 6 event definition split
 
+
+## 2026-05-07
+
+Implemented guide cleanup items requested as 6.8/6.9: documented the cross-repository release alignment checklist, confirmed the old UTF-8 capping issue is obsolete because the custom evidence JSON capping helper was removed, and replaced OpenAI Responses observability string index parsing with exact `strconv.ParseInt` parsing plus tests for valid and malformed strings.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/observability.go — Exact string parsing for provider index fields
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/observability_test.go — Exact numeric string parsing tests
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/playbooks/01-cross-repository-release-checklist.md — Release alignment checklist
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md — Updated cleanup item status
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded implementation notes and numbering clarification
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/tasks.md — Marked cleanup tasks done

@@ -825,11 +825,14 @@ If a concept is truly unused, remove it in a hard-cut ticket with search evidenc
 
 ### 6.7 Numeric parsing should reject partial strings
 
-Problem: `intFromAny` uses `fmt.Sscanf(tv, "%d", &i)` for string parsing. `fmt.Sscanf` can parse a leading integer from a string with trailing junk depending on format behavior. Provider indexes should be exact integers.
+Status: implemented after the initial review. `intFromAny` now uses `strconv.ParseInt(strings.TrimSpace(tv), 10, 0)` for string parsing, and tests cover valid, trimmed, malformed, and empty string inputs.
+
+Original problem: `intFromAny` used `fmt.Sscanf(tv, "%d", &i)` for string parsing. `fmt.Sscanf` can parse a leading integer from a string with trailing junk depending on format behavior. Provider indexes should be exact integers.
 
 Where to look:
 
-- `pkg/steps/ai/openai_responses/observability.go:181` — string handling in `intFromAny`.
+- `pkg/steps/ai/openai_responses/observability.go` — string handling in `intFromAny`.
+- `pkg/steps/ai/openai_responses/observability_test.go` — exact string parsing tests.
 
 Why it matters:
 
@@ -844,7 +847,7 @@ case string:
     return int(i64), true
 ```
 
-Add tests for `"1"`, `" 1 "`, `"1x"`, `"x1"`, and empty strings.
+Tests now cover `"1"`, `" 1 "`, `"1x"`, `"x1"`, empty strings, and whitespace-only strings.
 
 ### 6.8 Cross-repository dependency alignment is currently a release risk
 
@@ -862,20 +865,9 @@ Why it matters:
 - Reviewers need to know which repos must be published/tagged together.
 - This is not a Geppetto API correctness problem, but it is a delivery problem.
 
-Cleanup sketch:
+Cleanup status:
 
-Create a release coordination checklist:
-
-```text
-1. Merge/tag Sessionstream observer API.
-2. Update Pinocchio go.mod to the Sessionstream version.
-3. Merge/tag Geppetto observability package.
-4. Update Pinocchio go.mod to the Geppetto version.
-5. Run Pinocchio with GOWORK=off:
-   - go test ./...
-   - make lintmax
-6. Remove any temporary replace directives before release.
-```
+A release coordination playbook now exists at `playbooks/01-cross-repository-release-checklist.md`. It records the required publication order, current Pinocchio dependency floor, `GOWORK=off` validation commands, temporary replace policy, failure triage, and exit criteria.
 
 ## 7. What looks good and should be preserved
 

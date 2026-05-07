@@ -11,3 +11,5 @@
 - [x] Validate OpenAI Responses split with focused package tests and commit code plus diary updates
 - [x] Remove custom observability evidence JSON redaction/capping helpers and simplify trace configuration
 - [x] Split pkg/events chat event definitions into domain-focused files without API changes
+- [x] Document cross-repository Geppetto/Pinocchio/Sessionstream release alignment checklist for section 6.8
+- [x] Replace partial string numeric parsing in OpenAI Responses observability with exact ParseInt-based parsing for section 6.9

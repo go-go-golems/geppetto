@@ -542,3 +542,48 @@ The new layout keeps `chat-events.go` as the core event contract/metadata/decode
   - `pkg/events/tool_events.go`
   - `pkg/events/log_info_events.go`
   - `pkg/events/builtin_events.go`
+
+## Step 8: Do guide items 6.8 and 6.9
+
+I interpreted the request against the original GP-CODE-REVIEW guide numbering. In the first version of the guide, item 6.8 was the UTF-8 byte-slicing problem in the removed observability evidence capping helper, and item 6.9 was strict numeric parsing for provider indexes. In the current guide, the numbering shifted after the evidence JSON privacy/capping layer was removed: the UTF-8 capping issue is obsolete, numeric parsing is now section 6.7, and cross-repository release alignment is section 6.8. I covered both the old and current meanings.
+
+### Prompt Context
+
+**User prompt (verbatim):** "do 6.8 and 6.9"
+
+**Assistant interpretation:** Implement the remaining review-guide cleanup items around release alignment and exact numeric parsing, while recognizing that the former UTF-8 capping issue disappeared when `observability/json.go` was removed.
+
+### What I did
+- Confirmed the historical guide numbering from git history:
+  - old 6.8: byte slicing could break UTF-8 in `capString`
+  - old 6.9: `intFromAny` should reject partial strings
+  - old 6.10/current 6.8: cross-repository dependency alignment is a release risk
+- Verified that old 6.8 no longer has implementation surface because `pkg/observability/json.go` and its `capString` helper were removed in the observability simplification.
+- Added `playbooks/01-cross-repository-release-checklist.md` for the cross-repository release risk.
+- Changed `pkg/steps/ai/openai_responses/observability.go` so `intFromAny` parses strings with `strconv.ParseInt(strings.TrimSpace(tv), 10, 0)` instead of `fmt.Sscanf`.
+- Added `TestIntFromAnyStringParsingRequiresExactInteger` covering:
+  - `"1"`
+  - `" 1 "`
+  - `"1x"`
+  - `"x1"`
+  - `""`
+  - whitespace-only strings
+- Updated the guide and task list to mark these cleanup items done.
+
+### Validation
+- Ran:
+  - `cd geppetto && gofmt -w pkg/steps/ai/openai_responses/observability.go pkg/steps/ai/openai_responses/observability_test.go`
+  - `cd geppetto && go test ./pkg/steps/ai/openai_responses -count=1`
+
+### What worked
+- The focused OpenAI Responses package test passed.
+- Removing `fmt.Sscanf` also removed the `fmt` import from `observability.go`.
+- The release checklist now gives reviewers a concrete path to make Pinocchio pass with `GOWORK=off` once Geppetto and Sessionstream are published/tagged together.
+
+### What was tricky
+- The user's numbering likely referred to the original guide. The current guide has different numbering because the custom evidence JSON capping/redaction layer was removed after the guide was first written.
+- I avoided reintroducing any UTF-8 capping helper because the user had explicitly asked to remove the entire evidence marshalling/privacy/capping layer.
+
+### Next steps
+- Commit the numeric parsing fix and GP-CODE-REVIEW doc updates after final status review.
+- If the user wants the current section 6.8 fully resolved rather than documented, publish/tag Sessionstream and Geppetto and then update Pinocchio `go.mod` to versions that pass `GOWORK=off` validation.
